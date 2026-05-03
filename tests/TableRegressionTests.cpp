@@ -210,26 +210,34 @@ TEST_CASE("mmerge house movie metadata drives videos and proprietor portraits")
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
 
     const OpenYAMM::Game::HouseEntry *pMm8Temple = gameData.houseTable.get(303);
+    const OpenYAMM::Game::HouseEntry *pMm6Temple = gameData.houseTable.get(325);
     const OpenYAMM::Game::HouseEntry *pMm7WeaponShop = gameData.houseTable.get(11);
     const OpenYAMM::Game::HouseEntry *pMm7DungeonEntrance = gameData.houseTable.get(399);
 
     REQUIRE(pMm8Temple != nullptr);
+    REQUIRE(pMm6Temple != nullptr);
     REQUIRE(pMm7WeaponShop != nullptr);
     REQUIRE(pMm7DungeonEntrance != nullptr);
 
     CHECK_EQ(pMm8Temple->mapId, 1u);
     CHECK_EQ(pMm8Temple->videoName, "ltemple");
     CHECK_EQ(pMm8Temple->proprietorPictureId, 1130u);
+    CHECK_EQ(pMm6Temple->videoName, "temprich");
+    CHECK_EQ(pMm6Temple->proprietorPictureId, 1035u);
     CHECK_EQ(pMm7WeaponShop->mapId, 65u);
-    CHECK(pMm7WeaponShop->videoName.empty());
+    CHECK_EQ(pMm7WeaponShop->videoName, "elf weapon smith");
     CHECK_EQ(pMm7WeaponShop->proprietorPictureId, 527u);
-    CHECK(pMm7DungeonEntrance->videoName.empty());
+    CHECK_EQ(pMm7DungeonEntrance->videoName, "out06 red dwarf mines");
 
     const std::filesystem::path assetRoot = std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev";
     const std::filesystem::path engineRoot = assetRoot / "engine";
+    const std::filesystem::path mm6WorldRoot = assetRoot / "worlds/mm6";
     const std::filesystem::path mm7WorldRoot = assetRoot / "worlds/mm7";
     const std::filesystem::path mm8WorldRoot = assetRoot / "worlds/mm8";
+    CHECK(std::filesystem::exists(mm6WorldRoot / "videos/Houses/temprich.ogv"));
     CHECK(std::filesystem::exists(mm7WorldRoot / "icons" / "npc0527.bmp"));
+    CHECK(std::filesystem::exists(mm7WorldRoot / "videos/Houses/elf weapon smith.ogv"));
+    CHECK(std::filesystem::exists(mm7WorldRoot / "videos/Transitions/out06 red dwarf mines.ogv"));
     CHECK(std::filesystem::exists(engineRoot / "icons" / "npc1582.bmp"));
     CHECK(std::filesystem::exists(mm8WorldRoot / "videos/Houses/ltemple.ogv"));
     CHECK_FALSE(std::filesystem::exists(engineRoot / "videos"));

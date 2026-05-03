@@ -459,6 +459,8 @@ public:
         ArmageddonState armageddon = {};
         bool hasRainIntensityOverride = false;
         RainIntensityPreset rainIntensityPreset = RainIntensityPreset::Off;
+        std::vector<uint8_t> fullyRevealedCells;
+        std::vector<uint8_t> partiallyRevealedCells;
     };
 
     void initialize(
@@ -1248,6 +1250,7 @@ private:
     void applyActorFrameSideEffects(float deltaSeconds, float partyX, float partyY, float partyZ);
     void advanceGameMinutesInternal(float minutes);
     void applyInitialWeatherProfile();
+    bool applyMmergeWeatherProfile();
     void applyDailyWeatherRollover(int weatherDayIndex);
     void applyFogDistances(const OutdoorFogDistances &distances, bool foggy);
     void syncAtmosphereStateToMapDelta();

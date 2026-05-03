@@ -1,0 +1,1902 @@
+#include "game/tables/MmergeBaseTables.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <limits>
+#include <sstream>
+
+namespace OpenYAMM::Game
+{
+namespace
+{
+std::string trimCopy(const std::string &value)
+{
+    size_t begin = 0;
+
+    while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin])) != 0)
+    {
+        ++begin;
+    }
+
+    size_t end = value.size();
+
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
+    {
+        --end;
+    }
+
+    return value.substr(begin, end - begin);
+}
+
+std::string normalizedKey(const std::string &value)
+{
+    const std::string trimmed = trimCopy(value);
+    std::string result;
+    result.reserve(trimmed.size());
+
+    bool previousWasSpace = true;
+
+    for (char character : trimmed)
+    {
+        const unsigned char unsignedCharacter = static_cast<unsigned char>(character);
+
+        if (std::isspace(unsignedCharacter) != 0)
+        {
+            if (!previousWasSpace)
+            {
+                result.push_back(' ');
+                previousWasSpace = true;
+            }
+
+            continue;
+        }
+
+        result.push_back(static_cast<char>(std::tolower(unsignedCharacter)));
+        previousWasSpace = false;
+    }
+
+    if (!result.empty() && result.back() == ' ')
+    {
+        result.pop_back();
+    }
+
+    return result;
+}
+
+bool isMarkerCell(const std::string &value)
+{
+    const std::string trimmed = trimCopy(value);
+    return trimmed == "x" || trimmed == "X";
+}
+
+bool parseUnsigned(const std::string &value, uint32_t &result)
+{
+    const std::string trimmed = trimCopy(value);
+
+    if (trimmed.empty())
+    {
+        return false;
+    }
+
+    char *pEnd = nullptr;
+    const unsigned long parsed = std::strtoul(trimmed.c_str(), &pEnd, 10);
+
+    if (pEnd == trimmed.c_str() || *pEnd != '\0' || parsed > std::numeric_limits<uint32_t>::max())
+    {
+        return false;
+    }
+
+    result = static_cast<uint32_t>(parsed);
+    return true;
+}
+
+bool parseSigned(const std::string &value, int32_t &result)
+{
+    const std::string trimmed = trimCopy(value);
+
+    if (trimmed.empty())
+    {
+        return false;
+    }
+
+    char *pEnd = nullptr;
+    const long parsed = std::strtol(trimmed.c_str(), &pEnd, 10);
+
+    if (pEnd == trimmed.c_str() || *pEnd != '\0'
+        || parsed < std::numeric_limits<int32_t>::min()
+        || parsed > std::numeric_limits<int32_t>::max())
+    {
+        return false;
+    }
+
+    result = static_cast<int32_t>(parsed);
+    return true;
+}
+
+bool parseDouble(const std::string &value, double &result)
+{
+    const std::string trimmed = trimCopy(value);
+
+    if (trimmed.empty())
+    {
+        return false;
+    }
+
+    char *pEnd = nullptr;
+    const double parsed = std::strtod(trimmed.c_str(), &pEnd);
+
+    if (pEnd == trimmed.c_str() || *pEnd != '\0')
+    {
+        return false;
+    }
+
+    result = parsed;
+    return true;
+}
+
+uint32_t parseOptionalUnsigned(const std::vector<std::string> &row, size_t index)
+{
+    if (index >= row.size())
+    {
+        return 0;
+    }
+
+    uint32_t result = 0;
+    return parseUnsigned(row[index], result) ? result : 0;
+}
+
+std::optional<uint32_t> parseOptionalUnsignedValue(const std::vector<std::string> &row, size_t index)
+{
+    if (index >= row.size())
+    {
+        return std::nullopt;
+    }
+
+    uint32_t result = 0;
+    return parseUnsigned(row[index], result) ? std::optional<uint32_t>(result) : std::nullopt;
+}
+
+int32_t parseOptionalSigned(const std::vector<std::string> &row, size_t index)
+{
+    if (index >= row.size())
+    {
+        return 0;
+    }
+
+    int32_t result = 0;
+    return parseSigned(row[index], result) ? result : 0;
+}
+
+double parseOptionalDouble(const std::vector<std::string> &row, size_t index)
+{
+    if (index >= row.size())
+    {
+        return 0.0;
+    }
+
+    double result = 0.0;
+    return parseDouble(row[index], result) ? result : 0.0;
+}
+
+bool parseLeadingUnsignedAndName(const std::string &value, uint32_t &id, std::string &name)
+{
+    const std::string trimmed = trimCopy(value);
+    size_t end = 0;
+
+    while (end < trimmed.size() && std::isdigit(static_cast<unsigned char>(trimmed[end])) != 0)
+    {
+        ++end;
+    }
+
+    if (end == 0)
+    {
+        return false;
+    }
+
+    if (!parseUnsigned(trimmed.substr(0, end), id))
+    {
+        return false;
+    }
+
+    name = trimCopy(trimmed.substr(end));
+    return true;
+}
+
+bool parsePrefixedUnsigned(const std::string &value, const char *pPrefix, uint32_t &result)
+{
+    const std::string trimmed = trimCopy(value);
+    const std::string prefix = pPrefix;
+
+    if (trimmed.rfind(prefix, 0) != 0)
+    {
+        return false;
+    }
+
+    return parseUnsigned(trimmed.substr(prefix.size()), result);
+}
+
+std::vector<uint32_t> parseUnsignedList(const std::string &value)
+{
+    std::vector<uint32_t> result;
+    std::stringstream stream(value);
+    std::string token;
+
+    while (std::getline(stream, token, ','))
+    {
+        uint32_t parsed = 0;
+
+        if (parseUnsigned(token, parsed) && parsed != 0)
+        {
+            result.push_back(parsed);
+        }
+    }
+
+    return result;
+}
+
+std::vector<std::string> splitCommaSeparated(const std::string &value)
+{
+    std::vector<std::string> result;
+    std::stringstream stream(value);
+    std::string token;
+
+    while (std::getline(stream, token, ','))
+    {
+        const std::string trimmed = trimCopy(token);
+
+        if (!trimmed.empty())
+        {
+            result.push_back(trimmed);
+        }
+    }
+
+    return result;
+}
+
+bool parseFractionOrWhole(const std::string &value, uint32_t &numerator, uint32_t &denominator)
+{
+    const std::string trimmed = trimCopy(value);
+    const size_t slash = trimmed.find('/');
+
+    if (slash == std::string::npos)
+    {
+        if (!parseUnsigned(trimmed, numerator))
+        {
+            return false;
+        }
+
+        denominator = 1;
+        return true;
+    }
+
+    return parseUnsigned(trimmed.substr(0, slash), numerator)
+        && parseUnsigned(trimmed.substr(slash + 1), denominator)
+        && denominator != 0;
+}
+
+bool parseBaseMaxPair(const std::string &value, uint32_t &baseValue, uint32_t &maxValue)
+{
+    return parseFractionOrWhole(value, baseValue, maxValue);
+}
+
+std::optional<uint32_t> parseTrailingParenthesizedId(const std::string &value)
+{
+    const size_t open = value.rfind('(');
+    const size_t close = value.rfind(')');
+
+    if (open == std::string::npos || close == std::string::npos || close <= open + 1)
+    {
+        return std::nullopt;
+    }
+
+    uint32_t id = 0;
+    return parseUnsigned(value.substr(open + 1, close - open - 1), id) ? std::optional<uint32_t>(id) : std::nullopt;
+}
+
+std::string removeTrailingParenthesizedId(const std::string &value)
+{
+    const std::string trimmed = trimCopy(value);
+    const size_t open = trimmed.rfind('(');
+    const size_t close = trimmed.rfind(')');
+
+    if (open == std::string::npos || close == std::string::npos || close < open)
+    {
+        return trimmed;
+    }
+
+    return trimCopy(trimmed.substr(0, open));
+}
+
+bool numericRow(const std::vector<std::string> &row)
+{
+    uint32_t ignored = 0;
+    return !row.empty() && parseUnsigned(row[0], ignored);
+}
+
+bool rowContainsCell(const std::vector<std::string> &row, const char *pNeedle)
+{
+    for (const std::string &cell : row)
+    {
+        if (trimCopy(cell) == pNeedle)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::string firstNonEmptyCell(const std::vector<std::string> &row)
+{
+    for (const std::string &cell : row)
+    {
+        const std::string trimmed = trimCopy(cell);
+
+        if (!trimmed.empty())
+        {
+            return trimmed;
+        }
+    }
+
+    return "";
+}
+
+bool loadNewsRows(
+    const std::vector<std::vector<std::string>> &rows,
+    std::vector<MmergeNewsTopicEntry> &entries)
+{
+    entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 3 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeNewsTopicEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.ownerId)
+            || (!parseUnsigned(row[1], entry.topicTextId)
+                && !parsePrefixedUnsigned(row[1], "NPCTopic ", entry.topicTextId))
+            || (!parseUnsigned(row[2], entry.newsTextId)
+                && !parsePrefixedUnsigned(row[2], "NPCText ", entry.newsTextId)))
+        {
+            return false;
+        }
+
+        entries.push_back(entry);
+    }
+
+    return !entries.empty();
+}
+}
+
+bool MmergeClassExtraTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeClassExtraEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.classId)
+            || !parseUnsigned(row[1], entry.kind)
+            || !parseUnsigned(row[2], entry.promotionStep))
+        {
+            return false;
+        }
+
+        entry.note = trimCopy(row[3]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+bool MmergeCharacterSelectionTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_characterSelectionAllowedClassesByRaceId.clear();
+    m_characterSelectionContinents.clear();
+
+    if (rows.empty())
+    {
+        return false;
+    }
+
+    const std::vector<std::string> classNames = rows.front();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty())
+        {
+            continue;
+        }
+
+        uint32_t raceId = 0;
+
+        if (!parseUnsigned(row[0], raceId))
+        {
+            break;
+        }
+
+        std::vector<std::string> allowedClasses;
+
+        for (size_t columnIndex = 1; columnIndex < row.size() && columnIndex < classNames.size(); ++columnIndex)
+        {
+            if (isMarkerCell(row[columnIndex]))
+            {
+                allowedClasses.push_back(trimCopy(classNames[columnIndex]));
+            }
+        }
+
+        m_characterSelectionAllowedClassesByRaceId[raceId] = std::move(allowedClasses);
+    }
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (!rowContainsCell(row, "Continents:"))
+        {
+            continue;
+        }
+
+        size_t continentRow = rowIndex + 1;
+
+        while (continentRow + 2 < rows.size())
+        {
+            const std::vector<std::string> &nameRow = rows[continentRow];
+            const std::vector<std::string> &classRow = rows[continentRow + 1];
+            const std::vector<std::string> &raceRow = rows[continentRow + 2];
+
+            if (firstNonEmptyCell(classRow) != "Available classes:"
+                || firstNonEmptyCell(raceRow) != "Available races:")
+            {
+                break;
+            }
+
+            MmergeCharacterSelectionContinent continent = {};
+            continent.name = trimCopy(nameRow[0]);
+
+            if (continent.name.empty())
+            {
+                continent.name = firstNonEmptyCell(nameRow);
+            }
+
+            for (size_t index = 1; index < classRow.size(); ++index)
+            {
+                uint32_t value = 0;
+
+                if (parseUnsigned(classRow[index], value))
+                {
+                    continent.availableClassIds.push_back(value);
+                }
+            }
+
+            for (size_t index = 1; index < raceRow.size(); ++index)
+            {
+                uint32_t value = 0;
+
+                if (parseUnsigned(raceRow[index], value))
+                {
+                    continent.availableRaceIds.push_back(value);
+                }
+            }
+
+            if (!continent.name.empty())
+            {
+                m_characterSelectionContinents.push_back(std::move(continent));
+            }
+
+            continentRow += 3;
+        }
+
+        break;
+    }
+
+    return !m_characterSelectionAllowedClassesByRaceId.empty() && !m_characterSelectionContinents.empty();
+}
+
+bool MmergeRaceSkillTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_overrides.clear();
+
+    if (rows.empty())
+    {
+        return false;
+    }
+
+    const std::vector<std::string> &header = rows.front();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty())
+        {
+            continue;
+        }
+
+        const std::string skillName = trimCopy(row[0]);
+
+        if (skillName.empty())
+        {
+            continue;
+        }
+
+        for (size_t columnIndex = 1; columnIndex < row.size() && columnIndex < header.size(); ++columnIndex)
+        {
+            const std::string token = trimCopy(row[columnIndex]);
+
+            if (token.empty() || token == "-")
+            {
+                continue;
+            }
+
+            MmergeRaceSkillOverride override = {};
+            override.target = trimCopy(header[columnIndex]);
+            override.skillName = skillName;
+            override.token = token;
+
+            if (!override.target.empty())
+            {
+                m_overrides.push_back(std::move(override));
+            }
+        }
+    }
+
+    return !m_overrides.empty();
+}
+
+bool MmergeTeacherTopicTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 5 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeTeacherTopicEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.topicId)
+            || !parseUnsigned(row[2], entry.skillId)
+            || !parseUnsigned(row[3], entry.mastery)
+            || !parseUnsigned(row[4], entry.textId))
+        {
+            return false;
+        }
+
+        entry.note = row.size() > 1 ? trimCopy(row[1]) : "";
+        entry.requiredGold = parseOptionalUnsigned(row, 5);
+        entry.requiredSkill = parseOptionalUnsigned(row, 6);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+bool MmergeTeacherAutonoteTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_mappings.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty() || !numericRow(row))
+        {
+            continue;
+        }
+
+        uint32_t topicId = 0;
+
+        if (!parseUnsigned(row[0], topicId))
+        {
+            return false;
+        }
+
+        for (size_t columnIndex = 2; columnIndex + 1 < row.size(); columnIndex += 2)
+        {
+            uint32_t npcId = 0;
+            uint32_t autonoteId = 0;
+
+            if (!parseUnsigned(row[columnIndex], npcId) || !parseUnsigned(row[columnIndex + 1], autonoteId))
+            {
+                continue;
+            }
+
+            MmergeTeacherAutonoteMapping mapping = {};
+            mapping.topicId = topicId;
+            mapping.npcId = npcId;
+            mapping.autonoteId = autonoteId;
+            m_mappings.push_back(mapping);
+        }
+    }
+
+    return !m_mappings.empty();
+}
+
+bool MmergeNpcProfessionTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 10 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeNpcProfessionEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id)
+            || !parseUnsigned(row[3], entry.rarity)
+            || !parseUnsigned(row[4], entry.weeklyCost))
+        {
+            return false;
+        }
+
+        entry.profession = row.size() > 1 ? trimCopy(row[1]) : "";
+        entry.globalTextId = parseOptionalUnsigned(row, 2);
+        entry.personality = row.size() > 5 ? trimCopy(row[5]) : "";
+        entry.actionTopicId = parseOptionalUnsigned(row, 6);
+        entry.joins = row.size() > 7 && isMarkerCell(row[7]);
+        entry.recruit = row.size() > 8 && isMarkerCell(row[8]);
+        entry.joinTextId = parseOptionalUnsigned(row, 9);
+        entry.descriptionTextId = parseOptionalUnsigned(row, 10);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const MmergeNpcProfessionEntry *MmergeNpcProfessionTable::get(uint32_t professionId) const
+{
+    for (const MmergeNpcProfessionEntry &entry : m_entries)
+    {
+        if (entry.id == professionId)
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+bool MmergeNpcNameTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_npcMaleNames.clear();
+    m_npcFemaleNames.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty())
+        {
+            continue;
+        }
+
+        if (!trimCopy(row[0]).empty())
+        {
+            m_npcMaleNames.push_back(trimCopy(row[0]));
+        }
+
+        if (row.size() > 1 && !trimCopy(row[1]).empty())
+        {
+            m_npcFemaleNames.push_back(trimCopy(row[1]));
+        }
+    }
+
+    return !m_npcMaleNames.empty() && !m_npcFemaleNames.empty();
+}
+
+bool MmergeNpcBtbTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_npcBtbPersonalities.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 7 || trimCopy(row[0]).empty())
+        {
+            continue;
+        }
+
+        m_npcBtbPersonalities.push_back(trimCopy(row[0]));
+    }
+
+    return !m_npcBtbPersonalities.empty();
+}
+
+bool MmergeNewsTopicTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    return loadNewsRows(rows, m_entries);
+}
+
+bool MmergeNewsProfessionTopicTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_topics.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 16 || !numericRow(row))
+        {
+            continue;
+        }
+
+        uint32_t professionId = 0;
+
+        if (!parseUnsigned(row[0], professionId))
+        {
+            return false;
+        }
+
+        for (size_t dayIndex = 0; dayIndex < 7; ++dayIndex)
+        {
+            const size_t topicColumn = 2 + dayIndex * 2;
+            const size_t textColumn = topicColumn + 1;
+            MmergeNewsProfessionDayTopic topic = {};
+
+            if (!parseUnsigned(row[topicColumn], topic.topicTextId)
+                || !parseUnsigned(row[textColumn], topic.newsTextId))
+            {
+                return false;
+            }
+
+            topic.professionId = professionId;
+            topic.dayIndex = static_cast<uint32_t>(dayIndex);
+            m_topics.push_back(topic);
+        }
+    }
+
+    return !m_topics.empty();
+}
+
+const MmergeNewsProfessionDayTopic *MmergeNewsProfessionTopicTable::get(
+    uint32_t professionId,
+    uint32_t dayIndex) const
+{
+    for (const MmergeNewsProfessionDayTopic &topic : m_topics)
+    {
+        if (topic.professionId == professionId && topic.dayIndex == dayIndex)
+        {
+            return &topic;
+        }
+    }
+
+    return nullptr;
+}
+
+bool MmergeMonsterPortraitTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_monsterPortraitsByGroupId.clear();
+    m_monsterPortraitsByName.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 2 || !numericRow(row))
+        {
+            continue;
+        }
+
+        uint32_t groupId = 0;
+
+        if (!parseUnsigned(row[0], groupId))
+        {
+            return false;
+        }
+
+        std::vector<uint32_t> portraits = parseUnsignedList(row[1]);
+        m_monsterPortraitsByGroupId[groupId] = portraits;
+
+        if (row.size() > 2)
+        {
+            const std::string nameKey = normalizedKey(row[2]);
+
+            if (!nameKey.empty() && !m_monsterPortraitsByName.contains(nameKey))
+            {
+                m_monsterPortraitsByName[nameKey] = std::move(portraits);
+            }
+        }
+    }
+
+    return !m_monsterPortraitsByGroupId.empty();
+}
+
+std::optional<uint32_t> MmergeMonsterPortraitTable::firstPortraitForName(const std::string &name) const
+{
+    const std::string key = normalizedKey(name);
+
+    if (key.empty())
+    {
+        return std::nullopt;
+    }
+
+    const auto it = m_monsterPortraitsByName.find(key);
+
+    if (it == m_monsterPortraitsByName.end())
+    {
+        return std::nullopt;
+    }
+
+    for (uint32_t portraitId : it->second)
+    {
+        if (portraitId != 0)
+        {
+            return portraitId;
+        }
+    }
+
+    return std::nullopt;
+}
+
+bool MmergeMonsterKindTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 9)
+        {
+            continue;
+        }
+
+        MmergeMonsterKindEntry entry = {};
+
+        if (!parseLeadingUnsignedAndName(row[0], entry.monsterId, entry.name))
+        {
+            continue;
+        }
+
+        entry.undead = isMarkerCell(row[1]);
+        entry.dragon = isMarkerCell(row[2]);
+        entry.swimmer = isMarkerCell(row[3]);
+        entry.immobile = isMarkerCell(row[4]);
+        entry.peasant = isMarkerCell(row[5]);
+        entry.noArena = isMarkerCell(row[6]);
+        entry.ogre = isMarkerCell(row[7]);
+        entry.elemental = isMarkerCell(row[8]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+bool MmergePotionSettingTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 5 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergePotionSettingEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.potionId) || !parseUnsigned(row[1], entry.itemId))
+        {
+            return false;
+        }
+
+        uint32_t requiredMastery = 0;
+
+        if (row.size() > 2 && parseUnsigned(row[2], requiredMastery))
+        {
+            entry.requiredMastery = requiredMastery;
+        }
+
+        entry.drinkable = row.size() > 3 && isMarkerCell(row[3]);
+        entry.usable = row.size() > 4 && isMarkerCell(row[4]);
+        entry.note = row.size() > 5 ? trimCopy(row[5]) : "";
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+bool MmergeReagentSettingTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 3 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeReagentSettingEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.reagentId)
+            || !parseUnsigned(row[1], entry.itemId)
+            || !parseUnsigned(row[2], entry.resultItemId))
+        {
+            return false;
+        }
+
+        entry.note = row.size() > 3 ? trimCopy(row[3]) : "";
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeClassExtraEntry> &MmergeClassExtraTable::entries() const
+{
+    return m_entries;
+}
+
+const std::vector<MmergeCharacterSelectionContinent> &
+MmergeCharacterSelectionTable::continents() const
+{
+    return m_characterSelectionContinents;
+}
+
+size_t MmergeCharacterSelectionTable::raceCount() const
+{
+    return m_characterSelectionAllowedClassesByRaceId.size();
+}
+
+size_t MmergeRaceSkillTable::overrideCount() const
+{
+    return m_overrides.size();
+}
+
+const std::vector<MmergeTeacherTopicEntry> &MmergeTeacherTopicTable::entries() const
+{
+    return m_entries;
+}
+
+size_t MmergeTeacherAutonoteTable::mappingCount() const
+{
+    return m_mappings.size();
+}
+
+const std::vector<MmergeNpcProfessionEntry> &MmergeNpcProfessionTable::entries() const
+{
+    return m_entries;
+}
+
+size_t MmergeNpcNameTable::maleNameCount() const
+{
+    return m_npcMaleNames.size();
+}
+
+size_t MmergeNpcNameTable::femaleNameCount() const
+{
+    return m_npcFemaleNames.size();
+}
+
+size_t MmergeNpcBtbTable::personalityCount() const
+{
+    return m_npcBtbPersonalities.size();
+}
+
+const std::vector<MmergeNewsTopicEntry> &MmergeNewsTopicTable::entries() const
+{
+    return m_entries;
+}
+
+size_t MmergeNewsProfessionTopicTable::topicCount() const
+{
+    return m_topics.size();
+}
+
+size_t MmergeMonsterPortraitTable::groupCount() const
+{
+    return m_monsterPortraitsByGroupId.size();
+}
+
+const std::vector<MmergeMonsterKindEntry> &MmergeMonsterKindTable::entries() const
+{
+    return m_entries;
+}
+
+const std::vector<MmergePotionSettingEntry> &MmergePotionSettingTable::entries() const
+{
+    return m_entries;
+}
+
+const std::vector<MmergeReagentSettingEntry> &MmergeReagentSettingTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeAdditionalUiTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 10 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeAdditionalUiEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.lodName = trimCopy(row[1]);
+        entry.dLodName = trimCopy(row[2]);
+        entry.showBlankHostileIndicator = isMarkerCell(row[3]);
+        entry.hostileIndicatorY = parseOptionalSigned(row, 4);
+        entry.hostileIndicatorXOffset = parseOptionalSigned(row, 5);
+        entry.selectionRingOnTop = isMarkerCell(row[6]);
+        entry.selectionRingY = parseOptionalSigned(row, 7);
+        entry.selectionRingXOffset = parseOptionalSigned(row, 8);
+        entry.notes = trimCopy(row[9]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeAdditionalUiEntry> &MmergeAdditionalUiTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeBolsterFormulaTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 3 || trimCopy(row[0]).empty())
+        {
+            continue;
+        }
+
+        MmergeBolsterFormulaEntry entry = {};
+        entry.target = trimCopy(row[0]);
+        entry.monsterKindId = parseOptionalUnsignedValue(row, 0);
+        entry.stat = trimCopy(row[1]);
+        entry.formula = trimCopy(row[2]);
+        entry.notes = row.size() > 3 ? trimCopy(row[3]) : "";
+
+        if (!entry.stat.empty() && !entry.formula.empty())
+        {
+            m_entries.push_back(std::move(entry));
+        }
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeBolsterFormulaEntry> &MmergeBolsterFormulaTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeBolsterMapTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 9 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeBolsterMapEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.note = trimCopy(row[1]);
+        entry.continent = parseOptionalUnsigned(row, 2);
+        entry.bolsterKind = trimCopy(row[3]);
+        entry.spells = isMarkerCell(row[4]);
+        entry.summons = isMarkerCell(row[5]);
+        entry.weather = isMarkerCell(row[6]);
+        entry.bolsterExtra = parseOptionalUnsigned(row, 7);
+        entry.professionMaxRarity = parseOptionalUnsignedValue(row, 8);
+        entry.customSky = row.size() > 9 ? trimCopy(row[9]) : "";
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeBolsterMapEntry> &MmergeBolsterMapTable::entries() const
+{
+    return m_entries;
+}
+
+const MmergeBolsterMapEntry *MmergeBolsterMapTable::findById(uint32_t id) const
+{
+    for (const MmergeBolsterMapEntry &entry : m_entries)
+    {
+        if (entry.id == id)
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+bool MmergeBolsterMonsterTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 17 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeBolsterMonsterEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.note = trimCopy(row[1]);
+        entry.type = trimCopy(row[2]);
+        entry.extraTypes = splitCommaSeparated(row[3]);
+        entry.creed = trimCopy(row[4]);
+        entry.gender = trimCopy(row[5]);
+        entry.style = trimCopy(row[6]);
+        entry.preferredMagic = trimCopy(row[7]);
+        entry.noBountyHunt = isMarkerCell(row[8]);
+        entry.newRangedAttacks = isMarkerCell(row[9]);
+        entry.newSpells = isMarkerCell(row[10]);
+        entry.sizeAffectsHp = isMarkerCell(row[11]);
+        entry.replicate = isMarkerCell(row[12]);
+        entry.newSummons = isMarkerCell(row[13]);
+        entry.summonId = parseOptionalUnsignedValue(row, 14);
+        entry.extraPoints = parseOptionalUnsignedValue(row, 15);
+        entry.maxHpBoostPercent = parseOptionalUnsignedValue(row, 16);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeBolsterMonsterEntry> &MmergeBolsterMonsterTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeCharacterVoiceTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    if (rows.empty())
+    {
+        return false;
+    }
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty() || trimCopy(row[0]).empty())
+        {
+            continue;
+        }
+
+        MmergeCharacterVoiceEntry entry = {};
+        entry.soundType = trimCopy(row[0]);
+
+        for (size_t columnIndex = 1; columnIndex < row.size(); ++columnIndex)
+        {
+            entry.soundIdsByVoiceSetId.push_back(parseOptionalUnsigned(row, columnIndex));
+        }
+
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeCharacterVoiceEntry> &MmergeCharacterVoiceTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeClassStartingStatTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    if (rows.size() < 3)
+    {
+        return false;
+    }
+
+    const std::vector<std::string> &header = rows[0];
+
+    for (size_t rowIndex = 1; rowIndex + 1 < rows.size(); rowIndex += 2)
+    {
+        const std::vector<std::string> &statRow = rows[rowIndex];
+        const std::vector<std::string> &addRow = rows[rowIndex + 1];
+
+        if (statRow.empty() || trimCopy(statRow[0]).empty() || firstNonEmptyCell(addRow) != "+ add")
+        {
+            continue;
+        }
+
+        const std::string statName = trimCopy(statRow[0]);
+
+        for (size_t columnIndex = 1; columnIndex < header.size() && columnIndex < statRow.size(); ++columnIndex)
+        {
+            uint32_t baseValue = 0;
+            uint32_t maxValue = 0;
+            uint32_t addNumerator = 0;
+            uint32_t addDenominator = 1;
+
+            if (!parseBaseMaxPair(statRow[columnIndex], baseValue, maxValue))
+            {
+                return false;
+            }
+
+            if (columnIndex >= addRow.size()
+                || !parseFractionOrWhole(addRow[columnIndex], addNumerator, addDenominator))
+            {
+                return false;
+            }
+
+            MmergeClassStartingStatEntry entry = {};
+            entry.statName = statName;
+            entry.raceName = removeTrailingParenthesizedId(header[columnIndex]);
+            entry.raceId = parseTrailingParenthesizedId(header[columnIndex]);
+            entry.baseValue = baseValue;
+            entry.maxValue = maxValue;
+            entry.addNumerator = addNumerator;
+            entry.addDenominator = addDenominator;
+            m_entries.push_back(std::move(entry));
+        }
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeClassStartingStatEntry> &MmergeClassStartingStatTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeComplexItemPictureOffsetTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeComplexItemPictureOffsetEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.portraitId) || !parseUnsigned(row[1], entry.itemId))
+        {
+            return false;
+        }
+
+        entry.x = parseOptionalSigned(row, 2);
+        entry.y = parseOptionalSigned(row, 3);
+        m_entries.push_back(entry);
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeComplexItemPictureOffsetEntry> &MmergeComplexItemPictureOffsetTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeComplexItemPictureTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 2; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeComplexItemPictureEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id) || !parseUnsigned(row[1], entry.itemId))
+        {
+            return false;
+        }
+
+        entry.notes = trimCopy(row[2]);
+
+        for (size_t columnIndex = 4; columnIndex + 1 < row.size(); columnIndex += 2)
+        {
+            int32_t x = 0;
+            int32_t y = 0;
+
+            if (parseSigned(row[columnIndex], x) && parseSigned(row[columnIndex + 1], y))
+            {
+                entry.points.push_back({x, y, 0});
+            }
+        }
+
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeComplexItemPictureEntry> &MmergeComplexItemPictureTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeContinentSettingTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 23 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeContinentSettingEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.note = trimCopy(row[1]);
+        entry.reputationAffectsGuards = isMarkerCell(row[2]);
+        entry.reputationAffectsShops = isMarkerCell(row[3]);
+        entry.reputationAffectsNpc = isMarkerCell(row[4]);
+        entry.tellProfessionNews = isMarkerCell(row[5]);
+        entry.npcFollowers = isMarkerCell(row[6]);
+        entry.saturation = parseOptionalDouble(row, 7);
+        entry.softness = parseOptionalDouble(row, 8);
+        entry.deathMovie = trimCopy(row[9]);
+        entry.specificWater = trimCopy(row[10]);
+        entry.deathMap1 = trimCopy(row[11]);
+        entry.deathMap1X = parseOptionalSigned(row, 12);
+        entry.deathMap1Y = parseOptionalSigned(row, 13);
+        entry.deathMap1Z = parseOptionalSigned(row, 14);
+        entry.deathMap1Direction = parseOptionalSigned(row, 15);
+        entry.deathMap2 = trimCopy(row[16]);
+        entry.deathMap2X = parseOptionalSigned(row, 17);
+        entry.deathMap2Y = parseOptionalSigned(row, 18);
+        entry.deathMap2Z = parseOptionalSigned(row, 19);
+        entry.deathMap2Direction = parseOptionalSigned(row, 20);
+        entry.skies = splitCommaSeparated(row[21]);
+        entry.loadingPictures = splitCommaSeparated(row[22]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeContinentSettingEntry> &MmergeContinentSettingTable::entries() const
+{
+    return m_entries;
+}
+
+const MmergeContinentSettingEntry *MmergeContinentSettingTable::findById(uint32_t id) const
+{
+    for (const MmergeContinentSettingEntry &entry : m_entries)
+    {
+        if (entry.id == id)
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+bool MmergeHardwareWaterTextureTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 2 || trimCopy(row[0]).empty())
+        {
+            continue;
+        }
+
+        MmergeHardwareWaterTextureEntry entry = {};
+        entry.softwareTexture = trimCopy(row[0]);
+        entry.hardwareTexturePrefix = trimCopy(row[1]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeHardwareWaterTextureEntry> &MmergeHardwareWaterTextureTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeHouseExitTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_data = {};
+
+    for (const std::vector<std::string> &row : rows)
+    {
+        if (row.empty())
+        {
+            continue;
+        }
+
+        const std::string firstCell = trimCopy(row[0]);
+
+        if (firstCell == "NPC pics:")
+        {
+            for (size_t columnIndex = 1; columnIndex < row.size(); ++columnIndex)
+            {
+                uint32_t value = 0;
+
+                if (parseUnsigned(row[columnIndex], value))
+                {
+                    m_data.npcPictureIds.push_back(value);
+                }
+            }
+
+            continue;
+        }
+
+        if (firstCell == "Free NPC:")
+        {
+            m_data.freeNpcId = parseOptionalUnsignedValue(row, 1);
+            continue;
+        }
+
+        if (firstCell == "Free topic:")
+        {
+            m_data.freeTopicId = parseOptionalUnsignedValue(row, 1);
+            continue;
+        }
+
+        if (firstCell == "Map name")
+        {
+            continue;
+        }
+
+        if (firstCell.empty())
+        {
+            continue;
+        }
+
+        MmergeHouseExitEntry entry = {};
+        entry.mapName = firstCell;
+
+        for (size_t columnIndex = 1; columnIndex + 2 < row.size(); columnIndex += 3)
+        {
+            int32_t x = 0;
+            int32_t y = 0;
+            int32_t z = 0;
+
+            if (parseSigned(row[columnIndex], x)
+                && parseSigned(row[columnIndex + 1], y)
+                && parseSigned(row[columnIndex + 2], z))
+            {
+                entry.positions.push_back({x, y, z});
+            }
+        }
+
+        if (!entry.positions.empty())
+        {
+            m_data.exits.push_back(std::move(entry));
+        }
+    }
+
+    return !m_data.npcPictureIds.empty() && !m_data.exits.empty();
+}
+
+const MmergeHouseExitTableData &MmergeHouseExitTable::data() const
+{
+    return m_data;
+}
+
+bool MmergeHouseRuleTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_sections.clear();
+    MmergeHouseRuleSection *pCurrentSection = nullptr;
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+        const std::string firstCell = row.empty() ? "" : trimCopy(row[0]);
+
+        if (firstCell.empty())
+        {
+            continue;
+        }
+
+        int32_t ignored = 0;
+
+        if (!parseSigned(firstCell, ignored))
+        {
+            MmergeHouseRuleSection section = {};
+            section.name = firstCell;
+            m_sections.push_back(std::move(section));
+            pCurrentSection = &m_sections.back();
+            continue;
+        }
+
+        if (pCurrentSection == nullptr)
+        {
+            MmergeHouseRuleSection section = {};
+            section.name = "default";
+            m_sections.push_back(std::move(section));
+            pCurrentSection = &m_sections.back();
+        }
+
+        std::vector<int32_t> values;
+
+        for (const std::string &cell : row)
+        {
+            int32_t value = 0;
+
+            if (parseSigned(cell, value))
+            {
+                values.push_back(value);
+            }
+        }
+
+        if (!values.empty())
+        {
+            pCurrentSection->numericRows.push_back(std::move(values));
+        }
+    }
+
+    return !m_sections.empty();
+}
+
+const std::vector<MmergeHouseRuleSection> &MmergeHouseRuleTable::sections() const
+{
+    return m_sections;
+}
+
+bool MmergeHistoryTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeHistoryEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.text = row[1];
+        entry.time = trimCopy(row[2]);
+        entry.pageTitle = trimCopy(row[3]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeHistoryEntry> &MmergeHistoryTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeOutdoorTravelTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    const auto parseDirection =
+        [](const std::vector<std::string> &row, size_t baseIndex) -> MmergeOutdoorTravelDirection
+        {
+            MmergeOutdoorTravelDirection direction = {};
+            direction.mapName = baseIndex < row.size() ? trimCopy(row[baseIndex]) : "";
+            direction.side = baseIndex + 1 < row.size() ? trimCopy(row[baseIndex + 1]) : "";
+            direction.days = parseOptionalUnsignedValue(row, baseIndex + 2);
+            return direction;
+        };
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 15 || trimCopy(row[0]).empty())
+        {
+            continue;
+        }
+
+        MmergeOutdoorTravelEntry entry = {};
+        entry.keyMap = trimCopy(row[0]);
+        entry.up = parseDirection(row, 1);
+        entry.down = parseDirection(row, 4);
+        entry.left = parseDirection(row, 7);
+        entry.right = parseDirection(row, 10);
+        entry.straightTravel = isMarkerCell(row[13]);
+        entry.notes = trimCopy(row[14]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeOutdoorTravelEntry> &MmergeOutdoorTravelTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeOverlayTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 3 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeOverlayEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id) || !parseUnsigned(row[1], entry.type))
+        {
+            return false;
+        }
+
+        entry.sftGroup = trimCopy(row[2]);
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeOverlayEntry> &MmergeOverlayTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeTownPortalSwitchTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_groups.clear();
+    MmergeTownPortalSwitchGroup *pCurrentGroup = nullptr;
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.empty())
+        {
+            continue;
+        }
+
+        const std::string firstCell = trimCopy(row[0]);
+
+        if (firstCell.empty())
+        {
+            continue;
+        }
+
+        if (firstCell == "@")
+        {
+            if (row.size() < 3)
+            {
+                return false;
+            }
+
+            MmergeTownPortalSwitchGroup group = {};
+            group.name = trimCopy(row[1]);
+
+            if (!parseUnsigned(row[2], group.topicId))
+            {
+                return false;
+            }
+
+            m_groups.push_back(std::move(group));
+            pCurrentGroup = &m_groups.back();
+            continue;
+        }
+
+        if (pCurrentGroup == nullptr || row.size() < 13)
+        {
+            continue;
+        }
+
+        MmergeTownPortalDestination destination = {};
+
+        if (!parseUnsigned(row[0], destination.id)
+            || !parseUnsigned(row[1], destination.mapId)
+            || !parseSigned(row[2], destination.x)
+            || !parseSigned(row[3], destination.y)
+            || !parseSigned(row[4], destination.z)
+            || !parseSigned(row[5], destination.direction)
+            || !parseSigned(row[6], destination.lookAngle))
+        {
+            return false;
+        }
+
+        destination.iconName = trimCopy(row[7]);
+        destination.iconX = parseOptionalSigned(row, 8);
+        destination.iconY = parseOptionalSigned(row, 9);
+        destination.iconWidth = parseOptionalUnsignedValue(row, 10);
+        destination.iconHeight = parseOptionalUnsignedValue(row, 11);
+
+        if (!parseUnsigned(row[12], destination.qbitIndex))
+        {
+            return false;
+        }
+
+        destination.description = row.size() > 13 ? trimCopy(row[13]) : "";
+        pCurrentGroup->destinations.push_back(std::move(destination));
+    }
+
+    return !m_groups.empty();
+}
+
+const std::vector<MmergeTownPortalSwitchGroup> &MmergeTownPortalSwitchTable::groups() const
+{
+    return m_groups;
+}
+
+bool MmergeTransportIndexTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 2 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeTransportIndexEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.houseEventId))
+        {
+            return false;
+        }
+
+        for (size_t columnIndex = 1; columnIndex < row.size(); ++columnIndex)
+        {
+            int32_t index = 0;
+
+            if (!parseSigned(row[columnIndex], index))
+            {
+                return false;
+            }
+
+            entry.locationIndicesByPeriod.push_back(index);
+        }
+
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeTransportIndexEntry> &MmergeTransportIndexTable::entries() const
+{
+    return m_entries;
+}
+
+bool MmergeTransportLocationTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_entries.clear();
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 15 || !numericRow(row))
+        {
+            continue;
+        }
+
+        MmergeTransportLocationEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.id))
+        {
+            return false;
+        }
+
+        entry.mapName = trimCopy(row[1]);
+
+        for (size_t dayIndex = 0; dayIndex < entry.weekdays.size(); ++dayIndex)
+        {
+            entry.weekdays[dayIndex] = isMarkerCell(row[2 + dayIndex]);
+        }
+
+        if (!parseUnsigned(row[9], entry.daysCount)
+            || !parseSigned(row[10], entry.x)
+            || !parseSigned(row[11], entry.y)
+            || !parseSigned(row[12], entry.z)
+            || !parseSigned(row[13], entry.direction)
+            || !parseUnsigned(row[14], entry.qbit))
+        {
+            return false;
+        }
+
+        m_entries.push_back(std::move(entry));
+    }
+
+    return !m_entries.empty();
+}
+
+const std::vector<MmergeTransportLocationEntry> &MmergeTransportLocationTable::entries() const
+{
+    return m_entries;
+}
+}

@@ -1,16 +1,24 @@
 #include "game/tables/HouseTable.h"
 
+#include "game/tables/MapStats.h"
+#include "game/tables/MmergeBaseTables.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <sstream>
+#include <unordered_map>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr int MmergeYawUnitsPerTurn = 2048;
+constexpr int DegreesPerTurn = 360;
+
 bool isNumericOnly(const std::string &value)
 {
     return !value.empty()
@@ -26,6 +34,37 @@ bool isNumericOnly(const std::string &value)
 std::string normalizeVideoStem(const std::string &value)
 {
     return isNumericOnly(value) ? "" : value;
+}
+
+std::unordered_map<uint32_t, std::string> movieStemsByAnimationIdFromRows(
+    const std::vector<std::vector<std::string>> &rows)
+{
+    std::unordered_map<uint32_t, std::string> result;
+
+    for (const std::vector<std::string> &row : rows)
+    {
+        if (row.size() <= 1 || row[0].empty() || row[0][0] == '#')
+        {
+            continue;
+        }
+
+        char *pEnd = nullptr;
+        const unsigned long parsedId = std::strtoul(row[0].c_str(), &pEnd, 10);
+
+        if (pEnd == row[0].c_str() || *pEnd != '\0')
+        {
+            continue;
+        }
+
+        const std::string normalizedVideoStem = normalizeVideoStem(row[1]);
+
+        if (!normalizedVideoStem.empty())
+        {
+            result[static_cast<uint32_t>(parsedId)] = normalizedVideoStem;
+        }
+    }
+
+    return result;
 }
 
 int parseTrainingMaxLevel(const std::string &value)
@@ -109,6 +148,99 @@ bool parseBoolDefaultTrue(const std::string &value)
         });
 
     return lowered == "1" || lowered == "true" || lowered == "yes" || lowered == "y";
+}
+
+bool isTransportHouseTypeName(const std::string &houseType)
+{
+    return houseType == "Stables" || houseType == "Boats";
+}
+
+std::string stemFromMapFileName(const std::string &fileName)
+{
+    const size_t slashPosition = fileName.find_last_of("/\\");
+    const size_t nameStart = slashPosition == std::string::npos ? 0 : slashPosition + 1;
+    const size_t dotPosition = fileName.find_last_of('.');
+
+    if (dotPosition == std::string::npos || dotPosition < nameStart)
+    {
+        return fileName.substr(nameStart);
+    }
+
+    return fileName.substr(nameStart, dotPosition - nameStart);
+}
+
+int directionDegreesFromMmergeYawUnits(int32_t yawUnits)
+{
+    int32_t normalized = yawUnits % MmergeYawUnitsPerTurn;
+
+    if (normalized < 0)
+    {
+        normalized += MmergeYawUnitsPerTurn;
+    }
+
+    return static_cast<int>((normalized * DegreesPerTurn) / MmergeYawUnitsPerTurn);
+}
+
+const MmergeHouseRuleSection *findHouseRuleSection(
+    const MmergeHouseRuleTable &houseRules,
+    const std::string &sectionName)
+{
+    for (const MmergeHouseRuleSection &section : houseRules.sections())
+    {
+        if (section.name == sectionName)
+        {
+            return &section;
+        }
+    }
+
+    return nullptr;
+}
+
+const std::vector<int32_t> *findHouseRuleRow(const MmergeHouseRuleSection &section, uint32_t mapId)
+{
+    for (const std::vector<int32_t> &row : section.numericRows)
+    {
+        if (!row.empty() && row[0] == static_cast<int32_t>(mapId))
+        {
+            return &row;
+        }
+    }
+
+    return nullptr;
+}
+
+const MmergeTransportLocationEntry *findTransportLocation(
+    const MmergeTransportLocationTable &transportLocations,
+    int32_t locationId)
+{
+    if (locationId < 0)
+    {
+        return nullptr;
+    }
+
+    for (const MmergeTransportLocationEntry &entry : transportLocations.entries())
+    {
+        if (entry.id == static_cast<uint32_t>(locationId))
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+std::string destinationNameForTransportLocation(
+    const MmergeTransportLocationEntry &location,
+    const MapStats &mapStats)
+{
+    const MapStatsEntry *pMapStatsEntry = mapStats.findByFileName(location.mapName);
+
+    if (pMapStatsEntry != nullptr && !pMapStatsEntry->name.empty())
+    {
+        return pMapStatsEntry->name;
+    }
+
+    return stemFromMapFileName(location.mapName);
 }
 
 std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &houseType)
@@ -215,6 +347,7 @@ bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
 
         HouseEntry entry = {};
         entry.id = static_cast<uint32_t>(parsedId);
+        entry.typeIndex = (row.size() > 1 && !row[1].empty()) ? std::strtoul(row[1].c_str(), nullptr, 10) : 0;
         entry.mapId = (row.size() > 3 && !row[3].empty()) ? std::strtoul(row[3].c_str(), nullptr, 10) : 0;
         entry.proprietorPictureId =
             (row.size() > 8 && !row[8].empty()) ? std::strtoul(row[8].c_str(), nullptr, 10) : 0;
@@ -274,6 +407,21 @@ bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
 
 bool HouseTable::loadAnimationRows(const std::vector<std::vector<std::string>> &rows)
 {
+    const std::unordered_map<uint32_t, std::string> emptyMovieStems;
+    return loadAnimationRows(rows, emptyMovieStems);
+}
+
+bool HouseTable::loadAnimationRows(
+    const std::vector<std::vector<std::string>> &rows,
+    const std::vector<std::vector<std::string>> &movieRows)
+{
+    return loadAnimationRows(rows, movieStemsByAnimationIdFromRows(movieRows));
+}
+
+bool HouseTable::loadAnimationRows(
+    const std::vector<std::vector<std::string>> &rows,
+    const std::unordered_map<uint32_t, std::string> &movieStemsByAnimationId)
+{
     for (const std::vector<std::string> &row : rows)
     {
         if (row.size() <= 3 || row[0].empty() || row[0][0] == '#')
@@ -291,16 +439,30 @@ bool HouseTable::loadAnimationRows(const std::vector<std::vector<std::string>> &
 
         const uint32_t houseId = static_cast<uint32_t>(parsedId);
         HouseEntry &entry = m_entries[houseId];
+        const uint32_t animationId = row.size() > 1 ? parseUnsigned(row[1]) : 0;
         entry.id = houseId;
         entry.buildingName = row[2];
+        std::string normalizedVideoStem;
+
         if (row.size() > 4)
         {
-            const std::string normalizedVideoStem = normalizeVideoStem(row[4]);
+            normalizedVideoStem = normalizeVideoStem(row[4]);
+        }
 
-            if (!normalizedVideoStem.empty())
+        if (normalizedVideoStem.empty() && animationId != 0)
+        {
+            const std::unordered_map<uint32_t, std::string>::const_iterator movieIt =
+                movieStemsByAnimationId.find(animationId);
+
+            if (movieIt != movieStemsByAnimationId.end())
             {
-                entry.videoName = normalizedVideoStem;
+                normalizedVideoStem = movieIt->second;
             }
+        }
+
+        if (!normalizedVideoStem.empty())
+        {
+            entry.videoName = normalizedVideoStem;
         }
         entry.roomSoundId = (row.size() > 6 && !row[6].empty()) ? std::strtoul(row[6].c_str(), nullptr, 10) : 0;
         entry.houseSoundBaseId = (row.size() > 7 && !row[7].empty()) ? std::strtoul(row[7].c_str(), nullptr, 10) : 0;
@@ -413,6 +575,81 @@ bool HouseTable::loadTransportScheduleRows(const std::vector<std::vector<std::st
 
                 return left.destinationName < right.destinationName;
             });
+    }
+
+    return true;
+}
+
+bool HouseTable::applyMmergeTransportRoutes(
+    const MmergeHouseRuleTable &houseRules,
+    const MmergeTransportLocationTable &transportLocations,
+    const MapStats &mapStats)
+{
+    for (auto &[houseId, entry] : m_entries)
+    {
+        (void)houseId;
+
+        if (!isTransportHouseTypeName(entry.type) || !entry.transportRoutes.empty())
+        {
+            continue;
+        }
+
+        const MmergeHouseRuleSection *pSection = findHouseRuleSection(houseRules, entry.type);
+
+        if (pSection == nullptr)
+        {
+            std::cerr << "MMerge house rules are missing transport section: " << entry.type << '\n';
+            return false;
+        }
+
+        const uint32_t routeRuleId = entry.typeIndex != 0 ? entry.typeIndex : entry.mapId;
+        const std::vector<int32_t> *pRouteLocationRow = findHouseRuleRow(*pSection, routeRuleId);
+
+        if (pRouteLocationRow == nullptr)
+        {
+            continue;
+        }
+
+        std::vector<int32_t> addedLocationIds;
+
+        for (size_t columnIndex = 1; columnIndex < pRouteLocationRow->size(); ++columnIndex)
+        {
+            const int32_t locationId = (*pRouteLocationRow)[columnIndex];
+
+            if (locationId < 0)
+            {
+                continue;
+            }
+
+            if (std::find(addedLocationIds.begin(), addedLocationIds.end(), locationId) != addedLocationIds.end())
+            {
+                continue;
+            }
+
+            const MmergeTransportLocationEntry *pLocation = findTransportLocation(transportLocations, locationId);
+
+            if (pLocation == nullptr)
+            {
+                std::cerr << "MMerge house route references unknown transport location " << locationId
+                          << " for house " << entry.id << '\n';
+                return false;
+            }
+
+            HouseEntry::TransportRoute route = {};
+            route.routeIndex = static_cast<uint32_t>(entry.transportRoutes.size() + 1);
+            route.destinationName = destinationNameForTransportLocation(*pLocation, mapStats);
+            route.mapFileName = pLocation->mapName;
+            route.daysAvailable = pLocation->weekdays;
+            route.travelDays = pLocation->daysCount;
+            route.x = pLocation->x;
+            route.y = pLocation->y;
+            route.z = pLocation->z;
+            route.directionDegrees = directionDegreesFromMmergeYawUnits(pLocation->direction);
+            route.requiredQBit = pLocation->qbit;
+            route.useMapStartPosition = false;
+            entry.transportRoutes.push_back(std::move(route));
+            addedLocationIds.push_back(locationId);
+        }
     }
 
     return true;

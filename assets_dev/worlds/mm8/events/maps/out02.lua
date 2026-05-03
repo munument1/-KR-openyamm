@@ -772,8 +772,8 @@ RegisterEvent(103, "Drink from the well", function()
 end, "Drink from the well")
 
 RegisterEvent(104, "Drink from the fountain", function()
-    if not IsQBitSet(QBit(180)) then -- Ravenshore Town Portal
-        SetQBit(QBit(180)) -- Ravenshore Town Portal
+    if not IsQBitSet(QBit(302)) then -- TP Buff Ravenshore
+        SetQBit(QBit(302)) -- TP Buff Ravenshore
     end
     if IsAtLeast(MapVar(31), 2) then
         evt.StatusText("Refreshing")

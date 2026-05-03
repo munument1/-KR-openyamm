@@ -6,6 +6,8 @@
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/party/SpellIds.h"
+#include "game/tables/MapStats.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include "tests/HouseDialogueTestHarness.h"
 #include "tests/RegressionGameData.h"
@@ -33,6 +35,8 @@ constexpr uint32_t WindlingBoatHouseId = 479;
 constexpr uint32_t SmokeBoatHouseId = 481;
 constexpr uint32_t WindBoatHouseId = 483;
 constexpr uint32_t LadyMargaretBoatHouseId = 485;
+constexpr uint32_t NewSorpigalStableHouseId = 470;
+constexpr uint32_t NewSorpigalBoatHouseId = 496;
 constexpr uint32_t BrekishHallHouseId = 212;
 constexpr uint32_t ElgarFellmoonHouseId = 354;
 constexpr uint32_t SandroThantThroneRoomHouseId = 213;
@@ -40,6 +44,11 @@ constexpr uint32_t FredrickHouseId = 866;
 constexpr uint32_t HissHouseId = 761;
 constexpr uint32_t OverduneHouseId = 752;
 constexpr uint32_t MasterIdentifyItemTeacherNpcId = 200;
+constexpr uint32_t CarolynWeathersNpcId = 348;
+constexpr uint32_t HaroldHessNpcId = 818;
+constexpr uint32_t TessTuckerNpcId = 835;
+constexpr uint32_t BufordAllmanNpcId = 992;
+constexpr uint32_t AbdulaiMahgrebNpcId = 1010;
 constexpr uint32_t SandroNpcId = 9;
 constexpr uint32_t ThantNpcId = 10;
 constexpr uint32_t RelocatedThantNpcId = 63;
@@ -529,6 +538,91 @@ TEST_CASE("dwi actor lookout news")
         harness.openNpcNews(resolution->npcId, resolution->newsId, "Lizardman Lookout", *newsText);
 
     CHECK(dialogContainsText(dialog, "Would you like to fire the cannons"));
+}
+
+TEST_CASE("mm6 and mm7 generic peasants fall back from placeholder group news to area topics")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::MmergeNewsTopicTable areaNewsTable;
+    REQUIRE(areaNewsTable.loadFromRows({
+        {"#", "Topic", "Text"},
+        {"151", "102", "102"},
+        {"62", "788", "987"},
+    }));
+
+    OpenYAMM::Game::MapStatsEntry newSorpigal = {};
+    newSorpigal.id = 151;
+    const std::optional<OpenYAMM::Game::GenericActorDialogResolution> newSorpigalResolution =
+        OpenYAMM::Game::resolveGenericActorDialog(
+            "oute3.odm",
+            "Peasant",
+            85,
+            OpenYAMM::Game::EventRuntimeState{},
+            gameData.npcDialogTable,
+            nullptr,
+            &newSorpigal,
+            &areaNewsTable);
+
+    REQUIRE(newSorpigalResolution.has_value());
+    CHECK_EQ(newSorpigalResolution->newsId, 102u);
+    CHECK(gameData.npcDialogTable.getNewsDialogText(newSorpigalResolution->newsId).has_value());
+
+    OpenYAMM::Game::MapStatsEntry emeraldIsland = {};
+    emeraldIsland.id = 62;
+    const std::optional<OpenYAMM::Game::GenericActorDialogResolution> emeraldResolution =
+        OpenYAMM::Game::resolveGenericActorDialog(
+            "7out01.odm",
+            "Peasant",
+            51,
+            OpenYAMM::Game::EventRuntimeState{},
+            gameData.npcDialogTable,
+            nullptr,
+            &emeraldIsland,
+            &areaNewsTable);
+
+    REQUIRE(emeraldResolution.has_value());
+    CHECK_EQ(emeraldResolution->newsId, 987u);
+    const std::optional<std::string> emeraldText =
+        gameData.npcDialogTable.getNewsDialogText(emeraldResolution->newsId);
+    REQUIRE(emeraldText.has_value());
+    CHECK(emeraldText->find("Wild Dragonflies") != std::string::npos);
+}
+
+TEST_CASE("generic actor news uses actor portrait override")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::MmergeMonsterPortraitTable portraitTable;
+    REQUIRE(portraitTable.loadFromRows({
+        {"#", "Portraits", "Name"},
+        {"185", "1016", "Guard"},
+    }));
+
+    const std::optional<OpenYAMM::Game::GenericActorDialogResolution> resolution =
+        OpenYAMM::Game::resolveGenericActorDialog(
+            "7out01.odm",
+            "Guard",
+            55,
+            harness.eventRuntimeState(),
+            gameData.npcDialogTable,
+            &portraitTable);
+
+    REQUIRE(resolution.has_value());
+    CHECK_EQ(resolution->portraitPictureId, 1016u);
+
+    const std::optional<std::string> newsText = gameData.npcDialogTable.getNewsDialogText(resolution->newsId);
+    REQUIRE(newsText.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &dialog =
+        harness.openNpcNews(
+            resolution->npcId,
+            resolution->newsId,
+            "Guard",
+            *newsText,
+            resolution->portraitPictureId);
+
+    CHECK_EQ(dialog.title, "Guard");
+    CHECK_EQ(dialog.participantPictureId, 1016u);
 }
 
 TEST_CASE("single resident auto open")
@@ -1434,6 +1528,177 @@ TEST_CASE("mastery teacher offer and learn")
     CHECK(dialogContainsText(resultDialog, "With Mastery of the Identify Items skill"));
 }
 
+TEST_CASE("mm6 suffix mastery teacher topic opens native mastery offer")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setActiveMemberIndex(1));
+    OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+    REQUIRE(pCharacter != nullptr);
+    REQUIRE(setCharacterSkill(
+        *pCharacter,
+        "BodyMagic",
+        4,
+        OpenYAMM::Game::SkillMastery::Normal) != nullptr);
+    harness.party().addGold(1000);
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog =
+        harness.openMasteryTeacherOffer(AbdulaiMahgrebNpcId, "Body Magic Expert");
+
+    REQUIRE_FALSE(offerDialog.actions.empty());
+    CHECK_EQ(offerDialog.actions.front().label, "Become Expert in Body Magic for 1000 gold");
+}
+
+TEST_CASE("mm6 suffix mastery teacher topic does not show unrelated fallback text")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setActiveMemberIndex(1));
+    OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+    REQUIRE(pCharacter != nullptr);
+    REQUIRE(setCharacterSkill(
+        *pCharacter,
+        "BodyMagic",
+        4,
+        OpenYAMM::Game::SkillMastery::Expert) != nullptr);
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog =
+        harness.openMasteryTeacherOffer(AbdulaiMahgrebNpcId, "Body Magic Expert");
+
+    REQUIRE_FALSE(offerDialog.actions.empty());
+    CHECK_EQ(offerDialog.actions.front().label, "You are already an expert in this skill.");
+    CHECK_FALSE(dialogContainsText(offerDialog, "So"));
+    CHECK_FALSE(dialogContainsText(offerDialog, "Carmine traitor"));
+}
+
+TEST_CASE("mm6 guild membership topic opens native guild offer")
+{
+    constexpr uint16_t ElementalGuildMembershipVariable = 0x800eu;
+    constexpr uint32_t ElementalGuildAutonoteId = 564;
+    constexpr uint32_t ElementalGuildAutonoteVariable = (ElementalGuildAutonoteId << 16) | 0x00e1u;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const int initialGold = harness.party().gold();
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(BufordAllmanNpcId);
+    const std::optional<size_t> membershipIndex = findActionIndexByLabel(dialog, "Elemental Guild Membership");
+    REQUIRE(membershipIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*membershipIndex);
+
+    CHECK_FALSE(dialogContainsText(offerDialog, "That topic does not have an event yet."));
+    CHECK(dialogContainsText(offerDialog, "join the Guild of the Elements"));
+
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(
+        offerDialog,
+        "Join the Elemental Guild for 100 gold");
+    REQUIRE(joinIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*joinIndex);
+
+    CHECK_FALSE(dialogContainsText(resultDialog, "That topic does not have an event yet."));
+    CHECK_EQ(harness.party().gold(), initialGold - 100);
+    CHECK_EQ(harness.party().eventVariableValue(ElementalGuildMembershipVariable), 1);
+
+    const auto noteIt = harness.eventRuntimeState().variables.find(ElementalGuildAutonoteVariable);
+    REQUIRE(noteIt != harness.eventRuntimeState().variables.end());
+    CHECK_EQ(noteIt->second, 1);
+}
+
+TEST_CASE("mm7 guild membership topic opens native guild offer")
+{
+    constexpr uint16_t FireGuildMembershipVariable = 0x8005u;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(CarolynWeathersNpcId);
+    const std::optional<size_t> membershipIndex = findActionIndexByLabel(dialog, "Fire Guild Membership");
+    REQUIRE(membershipIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*membershipIndex);
+
+    CHECK_FALSE(dialogContainsText(offerDialog, "That topic does not have an event yet."));
+    CHECK(dialogContainsText(offerDialog, "Why be subtle when you can learn Fire magic?"));
+
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(offerDialog, "Join the Fire Guild for 50 gold");
+    REQUIRE(joinIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*joinIndex);
+
+    CHECK_FALSE(dialogContainsText(resultDialog, "That topic does not have an event yet."));
+    CHECK_EQ(harness.party().eventVariableValue(FireGuildMembershipVariable), 1);
+}
+
+TEST_CASE("mm6 smuggler guild membership topic opens native guild offer")
+{
+    constexpr uint16_t SmugglerGuildMembershipVariable = 0x8012u;
+    constexpr uint32_t SmugglerGuildAutonoteId = 631;
+    constexpr uint32_t SmugglerGuildAutonoteVariable = (SmugglerGuildAutonoteId << 16) | 0x00e1u;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const int initialGold = harness.party().gold();
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(TessTuckerNpcId);
+    const std::optional<size_t> membershipIndex = findActionIndexByLabel(dialog, "Smuggler's Guild Membership");
+    REQUIRE(membershipIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*membershipIndex);
+
+    CHECK_FALSE(dialogContainsText(offerDialog, "That topic does not have an event yet."));
+    CHECK(dialogContainsText(offerDialog, "Smugglers' Guild doesn't just run contraband goods"));
+
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(offerDialog, "Join Smugglers' Guild for 50 gold");
+    REQUIRE(joinIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*joinIndex);
+
+    CHECK_FALSE(dialogContainsText(resultDialog, "That topic does not have an event yet."));
+    CHECK_EQ(harness.party().gold(), initialGold - 50);
+    CHECK_EQ(harness.party().eventVariableValue(SmugglerGuildMembershipVariable), 1);
+
+    const auto noteIt = harness.eventRuntimeState().variables.find(SmugglerGuildAutonoteVariable);
+    REQUIRE(noteIt != harness.eventRuntimeState().variables.end());
+    CHECK_EQ(noteIt->second, 1);
+}
+
+TEST_CASE("mm6 blades end guild membership topic opens native guild offer")
+{
+    constexpr uint16_t BladesEndGuildMembershipVariable = 0x8013u;
+    constexpr uint32_t BladesEndGuildAutonoteId = 632;
+    constexpr uint32_t BladesEndGuildAutonoteVariable = (BladesEndGuildAutonoteId << 16) | 0x00e1u;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const int initialGold = harness.party().gold();
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(HaroldHessNpcId);
+    const std::optional<size_t> membershipIndex = findActionIndexByLabel(dialog, "Blade's End Membership");
+    REQUIRE(membershipIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*membershipIndex);
+
+    CHECK_FALSE(dialogContainsText(offerDialog, "That topic does not have an event yet."));
+    CHECK(dialogContainsText(offerDialog, "Blades' End mercenary's guild wants YOU"));
+
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(offerDialog, "Join Blades' End for 25 gold");
+    REQUIRE(joinIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*joinIndex);
+
+    CHECK_FALSE(dialogContainsText(resultDialog, "That topic does not have an event yet."));
+    CHECK_EQ(harness.party().gold(), initialGold - 25);
+    CHECK_EQ(harness.party().eventVariableValue(BladesEndGuildMembershipVariable), 1);
+
+    const auto noteIt = harness.eventRuntimeState().variables.find(BladesEndGuildAutonoteVariable);
+    REQUIRE(noteIt != harness.eventRuntimeState().variables.end());
+    CHECK_EQ(noteIt->second, 1);
+}
+
 TEST_CASE("actual roster join rohani")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -2032,6 +2297,49 @@ TEST_CASE("transport route schedule is driven by transport_schedules table")
     CHECK(houseActionsContainDestination(actions, "Regna"));
 }
 
+TEST_CASE("mmerge transport tables populate mm6 stable and boat routes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pStableHouse = gameData.houseTable.get(NewSorpigalStableHouseId);
+    const OpenYAMM::Game::HouseEntry *pBoatHouse = gameData.houseTable.get(NewSorpigalBoatHouseId);
+
+    REQUIRE(pStableHouse != nullptr);
+    REQUIRE(pBoatHouse != nullptr);
+    REQUIRE_FALSE(pStableHouse->transportRoutes.empty());
+    REQUIRE_FALSE(pBoatHouse->transportRoutes.empty());
+
+    CHECK_EQ(pStableHouse->transportRoutes.front().destinationName, "Castle Ironfist");
+    CHECK_EQ(pStableHouse->transportRoutes.front().mapFileName, "Outd3.odm");
+    CHECK_EQ(pStableHouse->transportRoutes.front().travelDays, 2u);
+    CHECK_EQ(pStableHouse->transportRoutes.front().x, 14317);
+    CHECK_EQ(pStableHouse->transportRoutes.front().y, 2696);
+    CHECK_EQ(pStableHouse->transportRoutes.front().z, 96);
+    CHECK_EQ(pStableHouse->transportRoutes.front().directionDegrees, 180);
+
+    std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pStableHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        0.0f,
+        OpenYAMM::Game::DialogueMenuId::None);
+
+    CHECK(houseActionsContainDestination(actions, "Castle Ironfist"));
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pBoatHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        24.0f * 60.0f,
+        OpenYAMM::Game::DialogueMenuId::None);
+
+    CHECK_EQ(pBoatHouse->transportRoutes.front().destinationName, "Misty Islands");
+    CHECK_EQ(pBoatHouse->transportRoutes.front().mapFileName, "Oute2.odm");
+    CHECK(houseActionsContainDestination(actions, "Misty Islands"));
+}
+
 TEST_CASE("transport route quest bit gates show unavailable fallback until unlocked")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -2428,7 +2736,7 @@ TEST_CASE("promotion champion event primary knight")
     REQUIRE(pMember0 != nullptr);
     REQUIRE(pMember1 != nullptr);
     CHECK_EQ(pMember0->className, "Champion");
-    CHECK_EQ(pMember0->maxHealth, 49);
+    CHECK_EQ(pMember0->maxHealth, 43);
     CHECK_EQ(pMember0->health, pMember0->maxHealth);
     CHECK_EQ(pMember1->className, "Cleric");
     CHECK(harness.party().hasQuestBit(1540));

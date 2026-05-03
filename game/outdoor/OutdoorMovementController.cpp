@@ -39,6 +39,12 @@ struct FloorSample
     size_t faceIndex = 0;
 };
 
+enum class FloorSupportMode
+{
+    IncludeBModels,
+    ActorConditionalBModels,
+};
+
 struct CollisionHit
 {
     enum class Kind
@@ -1359,7 +1365,8 @@ FloorSample queryFloorLevel(
     float maxFloorRise,
     float x,
     float y,
-    float z)
+    float z,
+    FloorSupportMode supportMode)
 {
     const uint8_t terrainFlags = sampleOutdoorTerrainTileAttributes(outdoorMapData, x, y);
     const FloorSample terrainSample = {
@@ -1372,6 +1379,7 @@ FloorSample queryFloorLevel(
         0,
         0
     };
+
     std::vector<FloorSample> samples;
 
     auto appendFloorSample =
@@ -1391,6 +1399,12 @@ FloorSample queryFloorLevel(
         float height = 0.0f;
 
         if (!calculateFaceHeight(geometry, x, y, height))
+        {
+            return;
+        }
+
+        if (supportMode == FloorSupportMode::ActorConditionalBModels
+            && z - GroundSnapHeight + CollisionEpsilon < height)
         {
             return;
         }
@@ -1428,7 +1442,9 @@ FloorSample queryFloorLevel(
 
             if (preferredSample
                 && preferredSample->height >= bestSample.height
-                && preferredSample->height <= z + maxFloorRise)
+                && preferredSample->height <= z + maxFloorRise
+                && (supportMode != FloorSupportMode::ActorConditionalBModels
+                    || z - GroundSnapHeight + CollisionEpsilon >= preferredSample->height))
             {
                 bestSample = *preferredSample;
             }
@@ -1451,7 +1467,9 @@ FloorSample queryFloorLevel(
 
         if (preferredSample
             && preferredSample->height >= bestSample.height
-            && preferredSample->height <= z + maxFloorRise)
+            && preferredSample->height <= z + maxFloorRise
+            && (supportMode != FloorSupportMode::ActorConditionalBModels
+                || z - GroundSnapHeight + CollisionEpsilon >= preferredSample->height))
         {
             bestSample = *preferredSample;
         }
@@ -1508,6 +1526,25 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
     float footZHint,
     float bodyRadius) const
 {
+    return initializeStateForBody(x, y, footZHint, bodyRadius, false);
+}
+
+OutdoorMoveState OutdoorMovementController::initializeActorStateForBody(
+    float x,
+    float y,
+    float footZHint,
+    float bodyRadius) const
+{
+    return initializeStateForBody(x, y, footZHint, bodyRadius, true);
+}
+
+OutdoorMoveState OutdoorMovementController::initializeStateForBody(
+    float x,
+    float y,
+    float footZHint,
+    float bodyRadius,
+    bool actorConditionalBModelSupport) const
+{
     clampPositionToBounds(std::max(1.0f, bodyRadius), x, y);
     std::vector<size_t> candidateFaceIndices;
     collectFaceCandidates(
@@ -1526,7 +1563,10 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
             FloorSelectionHeightTolerance,
             x,
             y,
-            footZHint);
+            footZHint,
+            actorConditionalBModelSupport
+                ? FloorSupportMode::ActorConditionalBModels
+                : FloorSupportMode::IncludeBModels);
     OutdoorMoveState state = {};
     state.x = x;
     state.y = y;
@@ -1620,7 +1660,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             FloorSelectionHeightTolerance,
             state.x,
             state.y,
-            state.footZ);
+            state.footZ,
+            FloorSupportMode::IncludeBModels);
     const float currentGroundLevel = currentFloor.height + GroundSnapHeight;
     const bool partyAtHighSlope = !currentFloor.fromBModel && terrainSlopeTooHigh(*m_pOutdoorMapData, state.x, state.y);
     bool partyNotTouchingFloor = state.footZ > currentGroundLevel + GroundSnapHeight;
@@ -1763,7 +1804,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 FloorSelectionHeightTolerance,
                 newPosLow.x,
                 newPosLow.y,
-                newPosLow.z);
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
             collectFaceCandidates(
                 newPosLow.x - std::max(bodyRadius, FloorCheckSlack),
                 passPosition.y - std::max(bodyRadius, FloorCheckSlack),
@@ -1779,7 +1821,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 FloorSelectionHeightTolerance,
                 newPosLow.x,
                 passPosition.y,
-                newPosLow.z);
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
             collectFaceCandidates(
                 passPosition.x - std::max(bodyRadius, FloorCheckSlack),
                 newPosLow.y - std::max(bodyRadius, FloorCheckSlack),
@@ -1795,7 +1838,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 FloorSelectionHeightTolerance,
                 passPosition.x,
                 newPosLow.y,
-                newPosLow.z);
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
 
             passPartyNotOnModel = !xAdvanceFloor.fromBModel && !yAdvanceFloor.fromBModel && !allNewFloor.fromBModel;
 
@@ -2062,7 +2106,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         FloorSelectionHeightTolerance,
         partyNewPosition.x,
         partyNewPosition.y,
-        partyNewPosition.z);
+        partyNewPosition.z,
+        FloorSupportMode::IncludeBModels);
     const float finalGroundLevel = finalFloor.height + GroundSnapHeight;
     bool landedThisFrame = false;
     float fallDistance = 0.0f;
@@ -2197,7 +2242,8 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
         maxStepHeight,
         state.x,
         state.y,
-        state.footZ);
+        state.footZ,
+        FloorSupportMode::ActorConditionalBModels);
     const float currentGroundLevel = currentFloor.height + GroundSnapHeight;
     bool actorGrounded = state.footZ <= currentGroundLevel + CloseToGroundHeight;
     bx::Vec3 actorPosition = {state.x, state.y, state.footZ};
@@ -2220,7 +2266,7 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
         {
             const float dropToGround = actorPosition.z - groundLevel;
 
-            if (dropToGround > 0.0f && dropToGround <= maxStepHeight)
+            if (dropToGround > 0.0f)
             {
                 actorPosition.z = groundLevel;
 
@@ -2303,7 +2349,8 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
             maxStepHeight,
             actorPosition.x,
             actorPosition.y,
-            actorPosition.z);
+            actorPosition.z,
+            FloorSupportMode::ActorConditionalBModels);
         settleActorToGround(newFloor);
 
         if (collisionState.adjustedMoveDistance >= collisionState.moveDistance)
@@ -2419,7 +2466,10 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
                 actorVelocity.z = 0.0f;
             }
 
-            actorPosition.z = std::max(actorPosition.z, hit.floorHeight + GroundSnapHeight);
+            if (actorPosition.z - GroundSnapHeight + CollisionEpsilon >= hit.floorHeight)
+            {
+                actorPosition.z = std::max(actorPosition.z, hit.floorHeight + GroundSnapHeight);
+            }
 
             if (vecDot(actorVelocity, actorVelocity) < 400.0f)
             {
@@ -2462,7 +2512,8 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
         maxStepHeight,
         actorPosition.x,
         actorPosition.y,
-        actorPosition.z);
+        actorPosition.z,
+        FloorSupportMode::ActorConditionalBModels);
     settleActorToGround(finalFloor);
     const float finalGroundLevel = finalFloor.height + GroundSnapHeight;
 

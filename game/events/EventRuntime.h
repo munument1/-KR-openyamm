@@ -46,6 +46,7 @@ enum class DialogueOfferKind : uint32_t
     None = 0,
     RosterJoin,
     MasteryTeacher,
+    GuildMembership,
 };
 
 enum class MechanismAction
@@ -73,6 +74,7 @@ struct EventRuntimeState
         std::optional<std::string> mapName;
         std::optional<int32_t> directionDegrees;
         bool useMapStartPosition = false;
+        bool useFullscreenLoading = false;
     };
 
     struct PendingDialogueContext
@@ -81,6 +83,7 @@ struct EventRuntimeState
         uint32_t sourceId = 0;
         uint32_t hostHouseId = 0;
         uint32_t newsId = 0;
+        uint32_t participantPictureId = 0;
         std::optional<std::string> titleOverride;
         std::optional<PendingMapMove> transitionMapMove;
         uint32_t transitionTextId = 0;

@@ -71,6 +71,7 @@ private:
     WinGameCertificate buildWinGameCertificate() const;
     bool shouldTriggerPartyDefeat() const;
     std::string resolvePartyDefeatRespawnMapFileName() const;
+    std::string resolvePartyDefeatCutsceneStem() const;
     void applyPartyDefeatConsequences();
     bool respawnPartyAfterDefeat(bool initializeView);
     void captureCurrentSceneState();

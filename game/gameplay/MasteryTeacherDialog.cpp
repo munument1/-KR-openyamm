@@ -3,6 +3,7 @@
 #include "game/tables/NpcDialogTable.h"
 #include "game/party/Party.h"
 
+#include <array>
 #include <cctype>
 #include <string_view>
 
@@ -39,6 +40,70 @@ std::string trimCopy(const std::string &text)
 
     return text.substr(start, end - start);
 }
+
+bool consumePrefix(std::string &text, std::string_view prefix)
+{
+    if (text.rfind(std::string(prefix), 0) != 0)
+    {
+        return false;
+    }
+
+    text = trimCopy(text.substr(prefix.size()));
+    return true;
+}
+
+bool consumeSuffix(std::string &text, std::string_view suffix)
+{
+    if (text.size() < suffix.size() || text.compare(text.size() - suffix.size(), suffix.size(), suffix) != 0)
+    {
+        return false;
+    }
+
+    text = trimCopy(text.substr(0, text.size() - suffix.size()));
+    return true;
+}
+
+std::string normalizeMasteryTeacherSkillLabel(const std::string &rawSkillName)
+{
+    std::string normalized = trimCopy(rawSkillName);
+
+    for (std::string_view suffix : {" Training", " Defense", " Fighting"})
+    {
+        consumeSuffix(normalized, suffix);
+    }
+
+    const std::string canonical = canonicalSkillName(normalized);
+    if (canonical != normalized)
+    {
+        return canonical;
+    }
+
+    struct LabelAlias
+    {
+        std::string_view label;
+        std::string_view skillName;
+    };
+
+    constexpr std::array<LabelAlias, 7> aliases = {{
+        {"Swordsmanship", "Sword"},
+        {"Knife", "Dagger"},
+        {"Knife Fighting", "Dagger"},
+        {"Bowmanship", "Bow"},
+        {"Ancient Weapon", "Blaster"},
+        {"Ancient Weapons", "Blaster"},
+        {"Identification", "IdentifyItem"},
+    }};
+
+    for (const LabelAlias &alias : aliases)
+    {
+        if (normalized == alias.label)
+        {
+            return std::string(alias.skillName);
+        }
+    }
+
+    return canonicalSkillName(normalized);
+}
 }
 
 bool tryDecodeMasteryTeacherTopicLabel(
@@ -48,32 +113,46 @@ bool tryDecodeMasteryTeacherTopicLabel(
 )
 {
     const std::string trimmedLabel = trimCopy(topicLabel);
-    constexpr std::string_view grandMasterPrefix = "Grand Master ";
-    constexpr std::string_view masterPrefix = "Master ";
-    constexpr std::string_view expertPrefix = "Expert ";
-    std::string rawSkillName;
+    std::string rawSkillName = trimmedLabel;
 
-    if (trimmedLabel.rfind(std::string(grandMasterPrefix), 0) == 0)
+    if (consumePrefix(rawSkillName, "Grand Master "))
     {
         targetMastery = SkillMastery::Grandmaster;
-        rawSkillName = trimmedLabel.substr(grandMasterPrefix.size());
     }
-    else if (trimmedLabel.rfind(std::string(masterPrefix), 0) == 0)
+    else if (consumePrefix(rawSkillName, "Master of the "))
     {
         targetMastery = SkillMastery::Master;
-        rawSkillName = trimmedLabel.substr(masterPrefix.size());
     }
-    else if (trimmedLabel.rfind(std::string(expertPrefix), 0) == 0)
+    else if (consumePrefix(rawSkillName, "Master of "))
+    {
+        targetMastery = SkillMastery::Master;
+    }
+    else if (consumePrefix(rawSkillName, "Master "))
+    {
+        targetMastery = SkillMastery::Master;
+    }
+    else if (consumePrefix(rawSkillName, "Expert "))
     {
         targetMastery = SkillMastery::Expert;
-        rawSkillName = trimmedLabel.substr(expertPrefix.size());
+    }
+    else if (consumeSuffix(rawSkillName, " Grandmaster") || consumeSuffix(rawSkillName, " Grand Master"))
+    {
+        targetMastery = SkillMastery::Grandmaster;
+    }
+    else if (consumeSuffix(rawSkillName, " Master") || consumeSuffix(rawSkillName, " Mastery"))
+    {
+        targetMastery = SkillMastery::Master;
+    }
+    else if (consumeSuffix(rawSkillName, " Expert") || consumeSuffix(rawSkillName, " Expertise"))
+    {
+        targetMastery = SkillMastery::Expert;
     }
     else
     {
         return false;
     }
 
-    skillName = canonicalSkillName(trimCopy(rawSkillName));
+    skillName = normalizeMasteryTeacherSkillLabel(rawSkillName);
     return !skillName.empty();
 }
 

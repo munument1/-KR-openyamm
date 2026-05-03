@@ -1385,6 +1385,36 @@ TEST_CASE("lua event runtime supports evt jump alias")
     CHECK_EQ(runtimeState.statusMessages.back(), "jump ok");
 }
 
+TEST_CASE("lua SetSprite stores visibility and decoration id")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt.SetSprite(300, 1, \"6tree06\")\n"
+        "    evt.SetSprite(-339, 0, \"swrdstx\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticSetSprite.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+
+    const auto visibleIterator = runtimeState.spriteOverrides.find(300);
+    REQUIRE(visibleIterator != runtimeState.spriteOverrides.end());
+    CHECK_FALSE(visibleIterator->second.hidden);
+    REQUIRE(visibleIterator->second.textureName.has_value());
+    CHECK_EQ(*visibleIterator->second.textureName, "6tree06");
+
+    const auto hiddenIterator = runtimeState.spriteOverrides.find(339);
+    REQUIRE(hiddenIterator != runtimeState.spriteOverrides.end());
+    CHECK(hiddenIterator->second.hidden);
+    REQUIRE(hiddenIterator->second.textureName.has_value());
+    CHECK_EQ(*hiddenIterator->second.textureName, "swrdstx");
+}
+
 TEST_CASE("lua event runtime stores question answer metadata and resumes continuation step")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -1663,7 +1693,7 @@ TEST_CASE("dagger wound onload seeds starting roster quest bits")
         nullptr));
     CHECK_EQ(runtimeState.localOnLoadEventsExecuted, 4u);
     CHECK(party.hasQuestBit(226));
-    CHECK(party.hasQuestBit(185));
+    CHECK(party.hasQuestBit(306));
     CHECK(party.hasQuestBit(401));
     CHECK(party.hasQuestBit(407));
 }
@@ -1878,6 +1908,93 @@ TEST_CASE("dungeon transition dialog uses trans table title text icon and transi
     REQUIRE_EQ(dialog.actions.size(), 2u);
     CHECK_EQ(dialog.actions[0].kind, OpenYAMM::Game::EventDialogActionKind::MapTransitionConfirm);
     CHECK_EQ(dialog.actions[1].kind, OpenYAMM::Game::EventDialogActionKind::MapTransitionCancel);
+}
+
+TEST_CASE("merged dungeon transition dialog uses world house movie metadata before shared title fallback")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    OpenYAMM::Game::EventRuntimeState mm6RuntimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingMapMove mm6MapMove = {};
+    mm6MapMove.mapName = std::string("6d02.blv");
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext mm6Context = {};
+    mm6Context.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    mm6Context.transitionMapMove = mm6MapMove;
+    mm6Context.transitionTextId = 166;
+    mm6Context.transitionImageId = 1;
+    mm6RuntimeState.pendingDialogueContext = mm6Context;
+
+    OpenYAMM::Game::MapStatsEntry newSorpigal = {};
+    newSorpigal.id = 151;
+    newSorpigal.name = "New Sorpigal";
+    newSorpigal.fileName = "oute3.odm";
+    OpenYAMM::Game::MapStatsEntry mm6AbandonedTemple = {};
+    mm6AbandonedTemple.id = 153;
+    mm6AbandonedTemple.name = "Abandoned Temple";
+    mm6AbandonedTemple.fileName = "6d02.blv";
+    const std::vector<OpenYAMM::Game::MapStatsEntry> mm6MapEntries = {newSorpigal, mm6AbandonedTemple};
+
+    const OpenYAMM::Game::EventDialogContent mm6Dialog = OpenYAMM::Game::buildEventDialogContent(
+        mm6RuntimeState,
+        0,
+        true,
+        nullptr,
+        &gameData.houseTable,
+        nullptr,
+        nullptr,
+        &gameData.transitionTable,
+        &newSorpigal,
+        &mm6MapEntries,
+        nullptr,
+        nullptr,
+        0.0f);
+
+    REQUIRE(mm6Dialog.isActive);
+    CHECK_EQ(mm6Dialog.title, "Abandoned Temple");
+    CHECK_EQ(mm6Dialog.videoName, "d02");
+    CHECK_EQ(mm6Dialog.videoDirectory, "Videos/Transitions");
+
+    OpenYAMM::Game::EventRuntimeState mm7RuntimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingMapMove mm7MapMove = {};
+    mm7MapMove.mapName = std::string("7d06.blv");
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext mm7Context = {};
+    mm7Context.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    mm7Context.transitionMapMove = mm7MapMove;
+    mm7Context.transitionTextId = 131;
+    mm7Context.transitionImageId = 1;
+    mm7RuntimeState.pendingDialogueContext = mm7Context;
+
+    OpenYAMM::Game::MapStatsEntry emeraldIsland = {};
+    emeraldIsland.id = 62;
+    emeraldIsland.name = "Emerald Island";
+    emeraldIsland.fileName = "7out01.odm";
+    OpenYAMM::Game::MapStatsEntry mm7TempleOfTheMoon = {};
+    mm7TempleOfTheMoon.id = 80;
+    mm7TempleOfTheMoon.name = "The Temple of the Moon";
+    mm7TempleOfTheMoon.fileName = "7d06.blv";
+    const std::vector<OpenYAMM::Game::MapStatsEntry> mm7MapEntries = {emeraldIsland, mm7TempleOfTheMoon};
+
+    const OpenYAMM::Game::EventDialogContent mm7Dialog = OpenYAMM::Game::buildEventDialogContent(
+        mm7RuntimeState,
+        0,
+        true,
+        nullptr,
+        &gameData.houseTable,
+        nullptr,
+        nullptr,
+        &gameData.transitionTable,
+        &emeraldIsland,
+        &mm7MapEntries,
+        nullptr,
+        nullptr,
+        0.0f);
+
+    REQUIRE(mm7Dialog.isActive);
+    CHECK_EQ(mm7Dialog.title, "The Temple of the Moon");
+    CHECK_EQ(mm7Dialog.videoName, "out01 temple of the moon");
+    CHECK_EQ(mm7Dialog.videoDirectory, "Videos/Transitions");
 }
 
 TEST_CASE("outdoor boundary transition dialog uses default outdoor map icon")

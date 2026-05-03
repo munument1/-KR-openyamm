@@ -69,6 +69,8 @@ private:
     ) const;
     bool mountMergedWorldIconRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
     bool mountMergedWorldAudioRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
+    bool mountMergedWorldVideoRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
+    bool mountMergedWorldMapRuntimeRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
     bool mountMergedWorldPackageRoots(
         const std::filesystem::path &assetRoot,
         const std::string &activeWorldId,

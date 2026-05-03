@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    SetQBit(QBit(182)) -- Twiling Town Portal
+    SetQBit(QBit(722)) -- TP Buff Celeste
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         if IsQBitSet(QBit(782)) then -- Your friends are mad at you
             if IsAtLeast(Counter(10), 720) then

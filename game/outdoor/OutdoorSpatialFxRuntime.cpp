@@ -26,7 +26,7 @@ constexpr float SpatialFxRefreshIntervalSeconds = 1.0f / 60.0f;
 constexpr float ShadowHeightFadeDistance = 512.0f;
 constexpr int32_t MapWeatherSnowing = 2;
 constexpr int32_t MapWeatherRaining = 4;
-constexpr float WeatherSnowParticlesPerSecond = 52.0f;
+constexpr float WeatherSnowParticlesPerSecond = 180.0f;
 constexpr float WeatherRainParticlesPerSecond = 110.0f;
 constexpr float WeatherSpawnForwardDistance = 900.0f;
 constexpr float WeatherRainNearForwardDistance = 320.0f;
@@ -531,9 +531,9 @@ void OutdoorSpatialFxRuntime::syncWeatherParticles(OutdoorGameView &view, float 
             const float forwardOffset = 64.0f + hash01(seed) * spawnDepth;
             const float lateralOffset =
                 (hash01(seed * 2246822519u) * 2.0f - 1.0f) * spawnHalfWidth;
-            const float verticalOffset = 180.0f + hash01(seed * 3266489917u) * spawnHeight;
-            const float driftSide = (hash01(seed * 668265263u) * 2.0f - 1.0f) * 26.0f;
-            const float driftForward = (hash01(seed * 374761393u) * 2.0f - 1.0f) * 14.0f;
+            const float verticalOffset = 180.0f + hash01(seed * 3266489917u) * (spawnHeight * 0.9f);
+            const float driftSide = (hash01(seed * 668265263u) * 2.0f - 1.0f) * 34.0f;
+            const float driftForward = (hash01(seed * 374761393u) * 2.0f - 1.0f) * 18.0f;
 
             FxParticleState particle = {};
             particle.x = cameraX + forwardX * (spawnForwardDistance + forwardOffset) + rightX * lateralOffset;
@@ -541,18 +541,18 @@ void OutdoorSpatialFxRuntime::syncWeatherParticles(OutdoorGameView &view, float 
             particle.z = cameraZ + verticalOffset;
             particle.velocityX = rightX * driftSide + forwardX * driftForward;
             particle.velocityY = rightY * driftSide + forwardY * driftForward;
-            particle.velocityZ = -(90.0f + hash01(seed * 1274126177u) * 40.0f);
-            particle.size = 22.0f + hash01(seed * 197830471u) * 10.0f;
-            particle.endSize = particle.size * 0.9f;
-            particle.drag = 0.08f;
+            particle.velocityZ = -(135.0f + hash01(seed * 1274126177u) * 70.0f);
+            particle.size = 26.0f + hash01(seed * 197830471u) * 14.0f;
+            particle.endSize = particle.size * 0.82f;
+            particle.drag = 0.025f;
             particle.rotationRadians = (hash01(seed * 2654435761u) * 2.0f - 1.0f) * 0.8f;
             particle.angularVelocityRadians = (hash01(seed * 1597334677u) * 2.0f - 1.0f) * 0.7f;
             particle.stretch = 1.0f;
             particle.ageSeconds = 0.0f;
             particle.fadeInSeconds = 0.08f;
-            particle.fadeOutStartSeconds = 3.0f + hash01(seed * 3812015801u) * 0.6f;
-            particle.lifetimeSeconds = particle.fadeOutStartSeconds + 0.7f;
-            particle.startColorAbgr = makeAbgr(236, 240, 248, 208);
+            particle.fadeOutStartSeconds = 6.4f + hash01(seed * 3812015801u) * 1.2f;
+            particle.lifetimeSeconds = particle.fadeOutStartSeconds + 1.6f;
+            particle.startColorAbgr = makeAbgr(240, 244, 252, 228);
             particle.endColorAbgr = makeAbgr(236, 240, 248, 0);
             particle.motion = FxParticleMotion::VelocityTrail;
             particle.blendMode = FxParticleBlendMode::Alpha;

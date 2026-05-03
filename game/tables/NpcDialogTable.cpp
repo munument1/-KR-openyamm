@@ -4,6 +4,7 @@
 #include "game/tables/RosterTable.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdlib>
 
@@ -22,6 +23,25 @@ bool parseUnsigned(const std::string &text, uint32_t &value)
     const unsigned long parsed = std::strtoul(text.c_str(), &pEnd, 10);
 
     if (pEnd == text.c_str() || *pEnd != '\0')
+    {
+        return false;
+    }
+
+    value = static_cast<uint32_t>(parsed);
+    return true;
+}
+
+bool parseLeadingUnsigned(const std::string &text, uint32_t &value)
+{
+    if (text.empty() || text[0] == '#')
+    {
+        return false;
+    }
+
+    char *pEnd = nullptr;
+    const unsigned long parsed = std::strtoul(text.c_str(), &pEnd, 10);
+
+    if (pEnd == text.c_str())
     {
         return false;
     }
@@ -118,6 +138,72 @@ std::optional<NpcDialogTable::RosterJoinOffer> buildRosterJoinOffer(
     offer.rosterId = pRosterEntry->id;
     offer.inviteTextId = inviteTextId;
     offer.partyFullTextId = partyFullTextId;
+    return offer;
+}
+
+std::optional<NpcDialogTable::GuildMembershipOffer> buildGuildMembershipOffer(uint32_t topicId)
+{
+    struct MembershipMapping
+    {
+        uint32_t topicId = 0;
+        uint32_t guildType = 0;
+        uint32_t cost = 0;
+        uint32_t descriptionTextId = 0;
+        uint32_t joinTextId = 0;
+        uint32_t autonoteId = 0;
+    };
+
+    constexpr std::array<MembershipMapping, 28> mappings = {{
+        {1150, 14, 100, 1830, 1049, 564},
+        {1151, 15, 100, 1039, 1050, 565},
+        {1152, 6, 50, 1040, 1051, 566},
+        {1153, 8, 50, 1041, 1052, 567},
+        {1154, 5, 50, 1042, 1053, 568},
+        {1155, 7, 50, 1043, 1054, 569},
+        {1156, 11, 50, 1044, 1055, 570},
+        {1157, 10, 50, 1045, 1056, 571},
+        {1158, 9, 50, 1046, 1057, 572},
+        {1159, 12, 1000, 1047, 1058, 573},
+        {1160, 13, 1000, 1048, 1059, 574},
+        {1694, 14, 100, 1830, 1049, 564},
+        {1695, 15, 100, 1039, 1050, 565},
+        {1696, 16, 25, 1832, 1849, 629},
+        {1697, 17, 50, 1833, 1850, 630},
+        {1698, 18, 50, 1834, 1851, 631},
+        {1699, 19, 25, 1835, 1852, 632},
+        {1700, 20, 50, 1836, 1853, 633},
+        {1701, 21, 50, 1837, 1854, 634},
+        {1702, 6, 50, 1040, 1051, 566},
+        {1703, 8, 50, 1041, 1052, 567},
+        {1704, 5, 50, 1042, 1053, 568},
+        {1705, 7, 50, 1043, 1054, 569},
+        {1706, 11, 50, 1044, 1055, 570},
+        {1707, 10, 50, 1045, 1056, 571},
+        {1708, 9, 50, 1046, 1057, 572},
+        {1709, 12, 1000, 1047, 1058, 573},
+        {1710, 13, 1000, 1048, 1059, 574},
+    }};
+
+    const auto mappingIt = std::find_if(
+        mappings.begin(),
+        mappings.end(),
+        [topicId](const MembershipMapping &mapping)
+        {
+            return mapping.topicId == topicId;
+        });
+
+    if (mappingIt == mappings.end())
+    {
+        return std::nullopt;
+    }
+
+    NpcDialogTable::GuildMembershipOffer offer = {};
+    offer.topicId = mappingIt->topicId;
+    offer.guildType = mappingIt->guildType;
+    offer.cost = mappingIt->cost;
+    offer.descriptionTextId = mappingIt->descriptionTextId;
+    offer.joinTextId = mappingIt->joinTextId;
+    offer.autonoteId = mappingIt->autonoteId;
     return offer;
 }
 }
@@ -228,6 +314,7 @@ bool NpcDialogTable::loadTopicsFromRows(const std::vector<std::vector<std::strin
 {
     m_topicsById.clear();
     m_rosterJoinOffersByTopicId.clear();
+    m_guildMembershipOffersByTopicId.clear();
 
     for (const std::vector<std::string> &row : rows)
     {
@@ -251,7 +338,7 @@ bool NpcDialogTable::loadTopicsFromRows(const std::vector<std::vector<std::strin
 
         uint32_t textId = 0;
 
-        if (parseUnsigned(row[4], textId))
+        if (parseLeadingUnsigned(row[4], textId))
         {
             entry.textId = textId;
         }
@@ -269,6 +356,7 @@ bool NpcDialogTable::loadTopicsFromRows(const std::vector<std::vector<std::strin
 void NpcDialogTable::resolveSpecialTopics(const RosterTable &rosterTable)
 {
     m_rosterJoinOffersByTopicId.clear();
+    m_guildMembershipOffersByTopicId.clear();
 
     for (auto &[topicId, entry] : m_topicsById)
     {
@@ -293,6 +381,15 @@ void NpcDialogTable::resolveSpecialTopics(const RosterTable &rosterTable)
         if (tryDecodeMasteryTeacherTopicLabel(entry.topic, masteryTeacherSkillName, masteryTeacherMastery))
         {
             entry.specialKind = NpcTopicEntry::SpecialKind::MasteryTeacherOffer;
+            continue;
+        }
+
+        const std::optional<GuildMembershipOffer> guildMembershipOffer = buildGuildMembershipOffer(topicId);
+
+        if (guildMembershipOffer)
+        {
+            entry.specialKind = NpcTopicEntry::SpecialKind::GuildMembershipOffer;
+            m_guildMembershipOffersByTopicId[topicId] = *guildMembershipOffer;
         }
     }
 }
@@ -336,6 +433,13 @@ bool NpcDialogTable::loadNpcRows(const std::vector<std::vector<std::string>> &ro
         if (parseUnsigned(row[6], houseId))
         {
             entry.houseId = houseId;
+        }
+
+        uint32_t professionId = 0;
+
+        if (parseUnsigned(row[7], professionId))
+        {
+            entry.professionId = professionId;
         }
 
         uint32_t greetId = 0;
@@ -544,6 +648,18 @@ std::optional<std::string> NpcDialogTable::getNewsText(uint32_t newsId) const
     return newsIt->second;
 }
 
+std::optional<std::string> NpcDialogTable::getNewsDialogText(uint32_t textId) const
+{
+    const std::optional<std::string> newsText = getNewsText(textId);
+
+    if (newsText)
+    {
+        return newsText;
+    }
+
+    return getText(textId);
+}
+
 std::optional<uint32_t> NpcDialogTable::getNewsIdForGroup(uint32_t groupId) const
 {
     const std::unordered_map<uint32_t, uint32_t>::const_iterator groupIt = m_groupNewsIds.find(groupId);
@@ -562,6 +678,20 @@ std::optional<NpcDialogTable::RosterJoinOffer> NpcDialogTable::getRosterJoinOffe
         m_rosterJoinOffersByTopicId.find(topicId);
 
     if (offerIt != m_rosterJoinOffersByTopicId.end())
+    {
+        return offerIt->second;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<NpcDialogTable::GuildMembershipOffer> NpcDialogTable::getGuildMembershipOfferForTopic(
+    uint32_t topicId) const
+{
+    const std::unordered_map<uint32_t, GuildMembershipOffer>::const_iterator offerIt =
+        m_guildMembershipOffersByTopicId.find(topicId);
+
+    if (offerIt != m_guildMembershipOffersByTopicId.end())
     {
         return offerIt->second;
     }

@@ -365,8 +365,8 @@ RegisterEvent(103, "Drink from the well", function()
 end, "Drink from the well")
 
 RegisterEvent(104, "Drink from the fountain", function()
-    if not IsQBitSet(QBit(182)) then -- Twiling Town Portal
-        SetQBit(QBit(182)) -- Twiling Town Portal
+    if not IsQBitSet(QBit(305)) then -- TP Buff Shadowspire
+        SetQBit(QBit(305)) -- TP Buff Shadowspire
     end
     if not IsAtLeast(MaxSpellPoints, 0) then
         AddValue(CurrentSpellPoints, 25)

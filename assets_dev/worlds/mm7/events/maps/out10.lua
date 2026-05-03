@@ -34,8 +34,8 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    if not IsQBitSet(QBit(183)) then -- Hareckburg Town Portal
-        SetQBit(QBit(183)) -- Hareckburg Town Portal
+    if not IsQBitSet(QBit(721)) then -- TP Buff Nighon
+        SetQBit(QBit(721)) -- TP Buff Nighon
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
         return
     end

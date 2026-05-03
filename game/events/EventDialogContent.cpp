@@ -4,6 +4,7 @@
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/StringUtils.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include <algorithm>
 #include <array>
@@ -56,6 +57,19 @@ std::string lowerTransitionTitle(const std::string &title)
     normalized.erase(
         std::remove(normalized.begin(), normalized.end(), '"'),
         normalized.end());
+
+    return normalized;
+}
+
+std::string comparableTransitionTitle(const std::string &title)
+{
+    std::string normalized = lowerTransitionTitle(title);
+
+    constexpr const char *ThePrefix = "the ";
+    if (normalized.starts_with(ThePrefix))
+    {
+        normalized.erase(0, std::char_traits<char>::length(ThePrefix));
+    }
 
     return normalized;
 }
@@ -120,6 +134,39 @@ std::string transitionVideoNameForTransitionTitle(const std::string &title)
         if (normalized == entry.first)
         {
             return entry.second;
+        }
+    }
+
+    return {};
+}
+
+std::string transitionVideoNameForDungeonHouse(
+    const HouseTable *pHouseTable,
+    const MapStatsEntry *pCurrentMap,
+    const std::string &transitionTitle)
+{
+    if (pHouseTable == nullptr || pCurrentMap == nullptr || transitionTitle.empty())
+    {
+        return {};
+    }
+
+    const std::string normalizedTitle = comparableTransitionTitle(transitionTitle);
+
+    for (const auto &[houseId, houseEntry] : pHouseTable->entries())
+    {
+        static_cast<void>(houseId);
+
+        if (houseEntry.type != "Dungeon Ent"
+            || houseEntry.mapId != static_cast<uint32_t>(pCurrentMap->id)
+            || houseEntry.videoName.empty())
+        {
+            continue;
+        }
+
+        if (comparableTransitionTitle(houseEntry.name) == normalizedTitle
+            || comparableTransitionTitle(houseEntry.buildingName) == normalizedTitle)
+        {
+            return houseEntry.videoName;
         }
     }
 
@@ -306,6 +353,17 @@ std::string buildHouseParticipantTitle(const HouseEntry &houseEntry)
     return title;
 }
 
+uint32_t weekDayIndexFromGameMinutes(float currentGameMinutes)
+{
+    if (currentGameMinutes < 0.0f)
+    {
+        return 0;
+    }
+
+    constexpr float MinutesPerDay = 1440.0f;
+    return static_cast<uint32_t>(currentGameMinutes / MinutesPerDay) % 7u;
+}
+
 DialogueMenuId currentDialogueMenuId(const EventRuntimeState &eventRuntimeState)
 {
     if (eventRuntimeState.dialogueState.menuStack.empty())
@@ -416,7 +474,9 @@ EventDialogContent buildEventDialogContent(
     const std::vector<MapStatsEntry> *pMapEntries,
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
-    float currentGameMinutes
+    float currentGameMinutes,
+    const MmergeNpcProfessionTable *pNpcProfessionTable,
+    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable
 )
 {
     EventDialogContent dialog = {};
@@ -547,9 +607,13 @@ EventDialogContent buildEventDialogContent(
             dialog.title = !transitionMapName.empty() ? transitionMapName : "Travel";
         }
 
-        dialog.videoName = pTransitionText != nullptr && !pTransitionText->title.empty()
-            ? transitionVideoNameForTransitionTitle(pTransitionText->title)
+        dialog.videoName = destinationIsDungeon
+            ? transitionVideoNameForDungeonHouse(pHouseTable, pCurrentMap, dialog.title)
             : std::string();
+        if (dialog.videoName.empty() && pTransitionText != nullptr && !pTransitionText->title.empty())
+        {
+            dialog.videoName = transitionVideoNameForTransitionTitle(pTransitionText->title);
+        }
         if (dialog.videoName.empty() && !dialog.title.empty())
         {
             dialog.videoName = transitionVideoNameForTransitionTitle(dialog.title);
@@ -708,6 +772,10 @@ EventDialogContent buildEventDialogContent(
             pCurrentOffer != nullptr
             && pCurrentOffer->kind == DialogueOfferKind::MasteryTeacher
             && pCurrentOffer->npcId == dialog.sourceId;
+        const bool hasPendingGuildMembershipOffer =
+            pCurrentOffer != nullptr
+            && pCurrentOffer->kind == DialogueOfferKind::GuildMembership
+            && pCurrentOffer->npcId == dialog.sourceId;
         const bool hasEventMessageLines = !eventMessageLines.empty();
         allowEmptyNpcTalkDialog =
             context.kind == DialogueContextKind::NpcTalk
@@ -727,7 +795,19 @@ EventDialogContent buildEventDialogContent(
             dialog.title = pGreeting->owner;
         }
 
-        dialog.participantPictureId = pNpc != nullptr ? pNpc->pictureId : 0;
+        if (context.kind == DialogueContextKind::NpcNews && context.participantPictureId != 0)
+        {
+            dialog.participantPictureId = context.participantPictureId;
+        }
+        else
+        {
+            dialog.participantPictureId = pNpc != nullptr ? pNpc->pictureId : 0;
+
+            if (dialog.participantPictureId == 0 && context.participantPictureId != 0)
+            {
+                dialog.participantPictureId = context.participantPictureId;
+            }
+        }
 
         if (context.titleOverride && !context.titleOverride->empty())
         {
@@ -738,6 +818,7 @@ EventDialogContent buildEventDialogContent(
             && allowNpcFallbackContent
             && !hasPendingRosterJoinInvite
             && !hasPendingMasteryTeacherOffer
+            && !hasPendingGuildMembershipOffer
             && !hasEventMessageLines
             && pGreeting != nullptr)
         {
@@ -801,6 +882,24 @@ EventDialogContent buildEventDialogContent(
                     dialog.actions.push_back(std::move(learnAction));
                 }
             }
+            else if (hasPendingGuildMembershipOffer)
+            {
+                const std::optional<NpcDialogTable::GuildMembershipOffer> offer =
+                    pNpcDialogTable->getGuildMembershipOfferForTopic(pCurrentOffer->topicId);
+
+                if (offer)
+                {
+                    EventDialogAction joinAction = {};
+                    joinAction.kind = EventDialogActionKind::GuildMembershipJoin;
+                    joinAction.id = offer->topicId;
+
+                    const std::optional<std::string> joinText = pNpcDialogTable->getText(offer->joinTextId);
+                    joinAction.label = joinText && !joinText->empty()
+                        ? *joinText
+                        : "Join guild for " + std::to_string(offer->cost) + " gold";
+                    dialog.actions.push_back(std::move(joinAction));
+                }
+            }
             else
             {
                 for (const NpcDialogTable::ResolvedTopic &topic : topics)
@@ -836,10 +935,37 @@ EventDialogContent buildEventDialogContent(
                     {
                         action.kind = EventDialogActionKind::MasteryTeacherOffer;
                     }
+                    else if (topic.specialKind == NpcTopicEntry::SpecialKind::GuildMembershipOffer)
+                    {
+                        action.kind = EventDialogActionKind::GuildMembershipOffer;
+                    }
 
                     action.id = topic.id;
                     action.label = topic.topic;
                     dialog.actions.push_back(std::move(action));
+                }
+
+                if (dialog.actions.empty()
+                    && pNpc != nullptr
+                    && pNpc->professionId != 0
+                    && pNpcProfessionTable != nullptr
+                    && pNewsProfessionTopicTable != nullptr)
+                {
+                    const MmergeNpcProfessionEntry *pProfession = pNpcProfessionTable->get(pNpc->professionId);
+                    const MmergeNewsProfessionDayTopic *pProfessionTopic =
+                        pNewsProfessionTopicTable->get(
+                            pNpc->professionId,
+                            weekDayIndexFromGameMinutes(currentGameMinutes));
+
+                    if (pProfession != nullptr && pProfessionTopic != nullptr && pProfessionTopic->newsTextId != 0)
+                    {
+                        EventDialogAction action = {};
+                        action.kind = EventDialogActionKind::NpcProfessionNews;
+                        action.id = pNpc->professionId;
+                        action.secondaryId = pProfessionTopic->newsTextId;
+                        action.label = !pProfession->profession.empty() ? pProfession->profession : "Profession";
+                        dialog.actions.push_back(std::move(action));
+                    }
                 }
             }
         }
@@ -849,7 +975,7 @@ EventDialogContent buildEventDialogContent(
             && pNpcDialogTable != nullptr
             && context.newsId != 0)
         {
-            const std::optional<std::string> newsText = pNpcDialogTable->getNewsText(context.newsId);
+            const std::optional<std::string> newsText = pNpcDialogTable->getNewsDialogText(context.newsId);
 
             if (newsText && !newsText->empty())
             {
@@ -869,7 +995,7 @@ EventDialogContent buildEventDialogContent(
         const std::optional<NpcDialogTable::ResolvedTopic> topic =
             pNpcDialogTable->getTopicById(pCurrentOffer->topicId);
 
-        if (topic && !topic->text.empty())
+        if (topic && topic->textId != 0 && !topic->text.empty())
         {
             eventMessageLines = wrapDialogText(topic->text, MaxLineWidth);
         }

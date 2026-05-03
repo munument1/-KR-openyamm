@@ -109,4 +109,11 @@ OutdoorSupportFloorSample sampleOutdoorSupportFloor(
 );
 float sampleOutdoorSupportFloorHeight(const OutdoorMapData &outdoorMapData, float x, float y, float z);
 float sampleOutdoorPlacementFloorHeight(const OutdoorMapData &outdoorMapData, float x, float y, float z);
+float sampleOutdoorActorPlacementFloorHeight(const OutdoorMapData &outdoorMapData, float x, float y, float z);
+float sampleOutdoorActorPlacementFloorHeight(
+    const OutdoorMapData &outdoorMapData,
+    float x,
+    float y,
+    float z,
+    float xySlack);
 }

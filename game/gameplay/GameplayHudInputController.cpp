@@ -1,6 +1,7 @@
 #include "game/gameplay/GameplayHudInputController.h"
 
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/party/SpellIds.h"
 
 #include <SDL3/SDL.h>
 
@@ -60,6 +61,24 @@ const char *activeGameplayButtonLayoutId(
     const char *pStandardId)
 {
     return context.settingsSnapshot().gameplayUiLayout == GameplayUiLayout::Standard ? pStandardId : pWideId;
+}
+
+void openDimensionDoorOverlay(GameplayScreenRuntime &context)
+{
+    if (!context.ensureDimensionDoorDestinationsLoaded())
+    {
+        context.setStatusBarEvent("Dimension Door destinations unavailable");
+        return;
+    }
+
+    const Party *pParty = context.partyReadOnly();
+    const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
+    context.openUtilitySpellOverlay(
+        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
+        spellIdValue(SpellId::TownPortal),
+        casterMemberIndex);
+    context.resetUtilitySpellOverlayInteractionState();
+    context.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
 }
 }
 
@@ -206,6 +225,13 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 {
                     activeGameplayButtonLayoutId(
                         context,
+                        "OutdoorButtonDimensionDoor",
+                        "OutdoorStandardButtonDimensionDoor"),
+                    GameplayHudPointerTargetType::DimensionDoorButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
                         "OutdoorMinimapZoomIn",
                         "OutdoorStandardMinimapZoomIn"),
                     GameplayHudPointerTargetType::MinimapZoomInButton
@@ -256,6 +282,9 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 break;
             case GameplayHudPointerTargetType::BooksButton:
                 context.openJournalOverlay();
+                break;
+            case GameplayHudPointerTargetType::DimensionDoorButton:
+                openDimensionDoorOverlay(context);
                 break;
             case GameplayHudPointerTargetType::MinimapZoomInButton:
                 context.zoomGameplayMinimapIn();

@@ -684,8 +684,8 @@ RegisterEvent(230, "Temple placeholder", nil, "Temple placeholder")
 RegisterEvent(401, "Fountain", nil, "Fountain")
 
 RegisterEvent(451, "Drink from the Fountain", function()
-    if not IsQBitSet(QBit(184)) then -- Balthazar Town Portal
-        SetQBit(QBit(184)) -- Balthazar Town Portal
+    if not IsQBitSet(QBit(303)) then -- TP Buff Baltazar's Lair
+        SetQBit(QBit(303)) -- TP Buff Baltazar's Lair
     end
     if IsAtLeast(MaxHealth, 0) then return end
     AddValue(CurrentHealth, 25)

@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <limits>
@@ -35,6 +36,59 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+double millisecondsFromNanoseconds(uint64_t nanoseconds)
+{
+    return static_cast<double>(nanoseconds) / 1000000.0;
+}
+
+bool mapLoadTimingEnabled()
+{
+    const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
+    return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
+}
+
+class MapLoadTimingLogger
+{
+public:
+    explicit MapLoadTimingLogger(const std::string &mapFileName)
+        : m_enabled(mapLoadTimingEnabled())
+        , m_mapFileName(mapFileName)
+        , m_startTickNanoseconds(SDL_GetTicksNS())
+        , m_lastTickNanoseconds(m_startTickNanoseconds)
+    {
+        if (m_enabled)
+        {
+            std::cerr << "[MapLoadTiming] map=" << m_mapFileName << " begin=asset_load\n";
+        }
+    }
+
+    void stage(const std::string &stageName)
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const uint64_t nowNanoseconds = SDL_GetTicksNS();
+        const uint64_t stageNanoseconds = nowNanoseconds - m_lastTickNanoseconds;
+        const uint64_t totalNanoseconds = nowNanoseconds - m_startTickNanoseconds;
+        m_lastTickNanoseconds = nowNanoseconds;
+
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " stage=\"" << stageName << "\""
+            << " delta_ms=" << millisecondsFromNanoseconds(stageNanoseconds)
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
+    }
+
+private:
+    bool m_enabled = false;
+    std::string m_mapFileName;
+    uint64_t m_startTickNanoseconds = 0;
+    uint64_t m_lastTickNanoseconds = 0;
+};
+
 void pumpMapLoadProgress(const MapLoadProgressPump &progressPump)
 {
     if (progressPump)
@@ -198,11 +252,24 @@ const DecorationEntry *resolveDecorationEntry(
     const DecorationTable &decorationTable,
     const EntityType &entity)
 {
+    const DecorationEntry *pNamedDecoration = nullptr;
+
+    if (!entity.name.empty())
+    {
+        pNamedDecoration = decorationTable.findByInternalName(entity.name);
+
+        if (pNamedDecoration != nullptr
+            && hasDecorationFlag(pNamedDecoration->flags, DecorationDescFlag::DontDraw))
+        {
+            return pNamedDecoration;
+        }
+    }
+
     const DecorationEntry *pDecoration = decorationTable.get(entity.decorationListId);
 
-    if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
+    if ((pDecoration == nullptr || pDecoration->spriteId == 0) && pNamedDecoration != nullptr)
     {
-        pDecoration = decorationTable.findByInternalName(entity.name);
+        pDecoration = pNamedDecoration;
     }
 
     return pDecoration;
@@ -1541,11 +1608,12 @@ void appendMapDeltaActorCollisions(
 
         if (pOutdoorMapData != nullptr)
         {
-            actorZ = static_cast<int>(std::lround(sampleOutdoorPlacementFloorHeight(
+            actorZ = static_cast<int>(std::lround(sampleOutdoorActorPlacementFloorHeight(
                 *pOutdoorMapData,
                 static_cast<float>(actor.x),
                 static_cast<float>(actor.y),
-                static_cast<float>(actorZ))));
+                static_cast<float>(actorZ),
+                std::max(5.0f, static_cast<float>(actor.radius)))));
         }
 
         OutdoorActorCollision collision = {};
@@ -1593,11 +1661,12 @@ void appendSpawnActorCollisions(
 
         if (pOutdoorMapData != nullptr)
         {
-            actorZ = static_cast<int>(std::lround(sampleOutdoorPlacementFloorHeight(
+            actorZ = static_cast<int>(std::lround(sampleOutdoorActorPlacementFloorHeight(
                 *pOutdoorMapData,
                 static_cast<float>(spawn.x),
                 static_cast<float>(spawn.y),
-                static_cast<float>(actorZ))));
+                static_cast<float>(actorZ),
+                std::max(5.0f, static_cast<float>(pMonsterEntry->radius)))));
         }
 
         OutdoorActorCollision collision = {};
@@ -2155,11 +2224,12 @@ void appendMapDeltaActors(
 
         if (pOutdoorMapData != nullptr)
         {
-            billboard.z = static_cast<int>(std::lround(sampleOutdoorPlacementFloorHeight(
+            billboard.z = static_cast<int>(std::lround(sampleOutdoorActorPlacementFloorHeight(
                 *pOutdoorMapData,
                 static_cast<float>(actor.x),
                 static_cast<float>(actor.y),
-                static_cast<float>(billboard.z))));
+                static_cast<float>(billboard.z),
+                std::max(5.0f, static_cast<float>(actor.radius)))));
         }
 
         billboard.radius = actor.radius;
@@ -2249,11 +2319,12 @@ void appendSpawnActors(
 
         if (pOutdoorMapData != nullptr)
         {
-            billboard.z = static_cast<int>(std::lround(sampleOutdoorPlacementFloorHeight(
+            billboard.z = static_cast<int>(std::lround(sampleOutdoorActorPlacementFloorHeight(
                 *pOutdoorMapData,
                 static_cast<float>(spawn.x),
                 static_cast<float>(spawn.y),
-                static_cast<float>(billboard.z))));
+                static_cast<float>(billboard.z),
+                std::max(5.0f, static_cast<float>(pMonsterEntry->radius)))));
         }
 
         billboard.radius = static_cast<uint16_t>(std::max<int>(pMonsterEntry->radius, 0));
@@ -2998,9 +3069,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 ) const
 {
     BitmapLoadCache bitmapLoadCache = {};
-    auto logStageComplete = [&progressPump](const std::string &stageName)
+    MapLoadTimingLogger timingLogger(map.fileName);
+    auto logStageComplete = [&progressPump, &timingLogger](const std::string &stageName)
     {
-        static_cast<void>(stageName);
+        timingLogger.stage(stageName);
         pumpMapLoadProgress(progressPump);
     };
 

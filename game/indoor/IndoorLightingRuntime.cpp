@@ -891,8 +891,7 @@ IndoorLightingRuntime::StaticLightCache IndoorLightingRuntime::buildStaticCache(
             light.intensity = 1.0f;
             light.sectorId = billboard.sectorId;
             light.kind = IndoorRenderLightKind::Decoration;
-            light.runtimeOverrideKey =
-                billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
+            light.runtimeOverrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
             if (billboard.entityIndex < mapData.entities.size()
                 && billboard.entityIndex < decorationDecorVarIndices.size())
@@ -1040,9 +1039,7 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
                     return;
                 }
 
-                if (source.kind == IndoorRenderLightKind::Decoration
-                    && source.runtimeOverrideKey != 0
-                    && input.pEventRuntimeState != nullptr)
+                if (source.kind == IndoorRenderLightKind::Decoration && input.pEventRuntimeState != nullptr)
                 {
                     const auto iterator = input.pEventRuntimeState->spriteOverrides.find(source.runtimeOverrideKey);
 

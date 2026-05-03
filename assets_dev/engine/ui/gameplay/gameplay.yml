@@ -238,17 +238,17 @@ elements:
           pressed: butn4d
         notes: Standard options button.
 
-      - id: OutdoorStandardButtonQuickRef
+      - id: OutdoorStandardButtonDimensionDoor
         anchor: center_in
         offset_x: 165
-        width: 60
-        height: 24
+        width: 22
+        height: 22
         interactive: true
         asset:
-          default: butn3u
-          highlighted: butn3d
-          pressed: butn3d
-        notes: Standard quick reference button.
+          default: butn_dportal_3u
+          highlighted: butn_dportal_3h
+          pressed: butn_dportal_3h
+        notes: Standard dimension door button.
 
       - id: OutdoorStandardButtonRest
         anchor: center_in
@@ -571,18 +571,18 @@ elements:
           pressed: butn1d
         notes: Books button.
 
-      - id: OutdoorButtonQuickRef
+      - id: OutdoorButtonDimensionDoor
         anchor: top_left
-        offset_x: 38
+        offset_x: 55
         offset_y: 5
-        width: 55
-        height: 24
+        width: 22
+        height: 22
         interactive: true
         asset:
-          default: butn3u
-          highlighted: butn3d
-          pressed: butn3d
-        notes: Quick reference button.
+          default: butn_dportal_3u
+          highlighted: butn_dportal_3h
+          pressed: butn_dportal_3h
+        notes: Dimension door button.
 
       - id: OutdoorButtonOptions
         anchor: top_left

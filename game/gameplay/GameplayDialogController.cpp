@@ -199,7 +199,8 @@ bool samePendingMapMove(
         && left.z == right.z
         && left.mapName == right.mapName
         && left.directionDegrees == right.directionDegrees
-        && left.useMapStartPosition == right.useMapStartPosition;
+        && left.useMapStartPosition == right.useMapStartPosition
+        && left.useFullscreenLoading == right.useFullscreenLoading;
 }
 
 bool samePendingMapMove(
@@ -232,6 +233,7 @@ bool samePendingDialogueContext(
         && left->sourceId == right->sourceId
         && left->hostHouseId == right->hostHouseId
         && left->newsId == right->newsId
+        && left->participantPictureId == right->participantPictureId
         && left->titleOverride == right->titleOverride
         && samePendingMapMove(left->transitionMapMove, right->transitionMapMove)
         && left->transitionTextId == right->transitionTextId
@@ -656,6 +658,63 @@ bool executeNpcTopicEvent(
 {
     return context.pWorldRuntime != nullptr
         && context.pWorldRuntime->executeNpcTopicEvent(eventId, previousMessageCount);
+}
+
+uint32_t guildMembershipVariableKey(uint32_t guildType)
+{
+    constexpr uint32_t GuildMembershipVariableBase = 0x80000000u;
+    return GuildMembershipVariableBase | guildType;
+}
+
+uint16_t guildMembershipPartyVariableId(uint32_t guildType)
+{
+    constexpr uint16_t GuildMembershipPartyVariableBase = 0x8000u;
+    return static_cast<uint16_t>(GuildMembershipPartyVariableBase | static_cast<uint16_t>(guildType));
+}
+
+uint32_t autonoteVariableKey(uint32_t autonoteId)
+{
+    return (autonoteId << 16) | AutoNoteVariableTag;
+}
+
+bool hasGuildMembership(const EventRuntimeState &runtimeState, const Party *pParty, uint32_t guildType)
+{
+    if (pParty != nullptr && pParty->eventVariableValue(guildMembershipPartyVariableId(guildType)) != 0)
+    {
+        return true;
+    }
+
+    const auto membershipIt = runtimeState.variables.find(guildMembershipVariableKey(guildType));
+    return membershipIt != runtimeState.variables.end() && membershipIt->second != 0;
+}
+
+void grantGuildMembership(
+    EventRuntimeState &runtimeState,
+    Party *pParty,
+    const NpcDialogTable::GuildMembershipOffer &offer)
+{
+    runtimeState.variables[guildMembershipVariableKey(offer.guildType)] = 1;
+
+    if (pParty != nullptr)
+    {
+        pParty->setEventVariableValue(guildMembershipPartyVariableId(offer.guildType), 1);
+    }
+
+    if (offer.autonoteId != 0)
+    {
+        runtimeState.variables[autonoteVariableKey(offer.autonoteId)] = 1;
+    }
+}
+
+std::string npcTextOrFallback(const NpcDialogTable *pNpcDialogTable, uint32_t textId, const std::string &fallback)
+{
+    if (pNpcDialogTable == nullptr)
+    {
+        return fallback;
+    }
+
+    const std::optional<std::string> text = pNpcDialogTable->getText(textId);
+    return text && !text->empty() ? *text : fallback;
 }
 }
 
@@ -1211,6 +1270,113 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         return result;
     }
 
+    if (action.kind == EventDialogActionKind::GuildMembershipOffer)
+    {
+        if (context.pNpcDialogTable == nullptr)
+        {
+            return result;
+        }
+
+        const std::optional<NpcDialogTable::GuildMembershipOffer> offer =
+            context.pNpcDialogTable->getGuildMembershipOfferForTopic(action.id);
+
+        if (!offer)
+        {
+            context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
+            result.shouldOpenPendingEventDialog = true;
+            return result;
+        }
+
+        if (hasGuildMembership(context.eventRuntimeState, context.pParty, offer->guildType))
+        {
+            context.eventRuntimeState.messages.push_back(npcTextOrFallback(
+                context.pNpcDialogTable,
+                124,
+                "You're already a member of this guild."));
+            result.shouldOpenPendingEventDialog = true;
+            return result;
+        }
+
+        const std::optional<std::string> description = context.pNpcDialogTable->getText(offer->descriptionTextId);
+        if (description && !description->empty())
+        {
+            context.eventRuntimeState.messages.push_back(*description);
+        }
+
+        EventRuntimeState::DialogueOfferState guildOffer = {};
+        guildOffer.kind = DialogueOfferKind::GuildMembership;
+        guildOffer.npcId = context.activeEventDialog.sourceId;
+        guildOffer.topicId = offer->topicId;
+        guildOffer.messageTextId = offer->descriptionTextId;
+        context.eventRuntimeState.dialogueState.currentOffer = std::move(guildOffer);
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            context.activeEventDialog.sourceId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::GuildMembershipJoin)
+    {
+        if (!context.eventRuntimeState.dialogueState.currentOffer
+            || context.eventRuntimeState.dialogueState.currentOffer->kind != DialogueOfferKind::GuildMembership
+            || context.pNpcDialogTable == nullptr
+            || context.pParty == nullptr)
+        {
+            return result;
+        }
+
+        const EventRuntimeState::DialogueOfferState guildOffer =
+            *context.eventRuntimeState.dialogueState.currentOffer;
+        const std::optional<NpcDialogTable::GuildMembershipOffer> offer =
+            context.pNpcDialogTable->getGuildMembershipOfferForTopic(guildOffer.topicId);
+
+        if (!offer)
+        {
+            context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
+            result.shouldOpenPendingEventDialog = true;
+            return result;
+        }
+
+        if (hasGuildMembership(context.eventRuntimeState, context.pParty, offer->guildType))
+        {
+            context.eventRuntimeState.messages.push_back(npcTextOrFallback(
+                context.pNpcDialogTable,
+                124,
+                "You're already a member of this guild."));
+        }
+        else if (context.pParty->gold() < static_cast<int>(offer->cost))
+        {
+            context.eventRuntimeState.messages.push_back(npcTextOrFallback(
+                context.pNpcDialogTable,
+                125,
+                "You don't have enough gold!"));
+        }
+        else
+        {
+            context.pParty->addGold(-static_cast<int>(offer->cost));
+            grantGuildMembership(context.eventRuntimeState, context.pParty, *offer);
+
+            const std::optional<std::string> description = context.pNpcDialogTable->getText(offer->descriptionTextId);
+            if (description && !description->empty())
+            {
+                context.eventRuntimeState.messages.push_back(*description);
+            }
+        }
+
+        context.eventRuntimeState.dialogueState.currentOffer.reset();
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            guildOffer.npcId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
     if (action.kind == EventDialogActionKind::NpcTopic)
     {
         const uint32_t npcId = context.activeEventDialog.sourceId;
@@ -1259,6 +1425,26 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 currentDialogueHostHouseId(context.eventRuntimeState));
         }
 
+        result.shouldOpenPendingEventDialog = true;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcProfessionNews)
+    {
+        if (context.pNpcDialogTable != nullptr && action.secondaryId != 0)
+        {
+            const std::optional<std::string> newsText = context.pNpcDialogTable->getNewsText(action.secondaryId);
+
+            if (newsText && !newsText->empty())
+            {
+                context.eventRuntimeState.messages.push_back(*newsText);
+            }
+        }
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            context.activeEventDialog.sourceId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
         result.shouldOpenPendingEventDialog = true;
     }
 
@@ -1314,7 +1500,9 @@ GameplayDialogController::PresentPendingDialogResult GameplayDialogController::p
         context.pMapEntries,
         context.pParty,
         context.pWorldRuntime,
-        context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f
+        context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f,
+        context.pNpcProfessionTable,
+        context.pNewsProfessionTopicTable
     ));
 
     if (context.eventRuntimeState.pendingDialogueContext.has_value()
@@ -1395,7 +1583,8 @@ GameplayDialogController::Result GameplayDialogController::openNpcNews(
     uint32_t npcId,
     uint32_t newsId,
     const std::string &titleOverride,
-    const std::string &newsText) const
+    const std::string &newsText,
+    uint32_t participantPictureId) const
 {
     Result result = {};
     result.previousMessageCount = context.eventRuntimeState.messages.size();
@@ -1409,6 +1598,7 @@ GameplayDialogController::Result GameplayDialogController::openNpcNews(
     pendingContext.kind = DialogueContextKind::NpcNews;
     pendingContext.sourceId = npcId;
     pendingContext.newsId = newsId;
+    pendingContext.participantPictureId = participantPictureId;
     pendingContext.titleOverride = titleOverride;
     context.eventRuntimeState.pendingDialogueContext = std::move(pendingContext);
     context.eventRuntimeState.messages.push_back(newsText);

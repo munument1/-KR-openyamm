@@ -7310,6 +7310,7 @@ RegisterGlobalEvent(769, "Legacy event 769", function()
     evt.SimpleMessage("Excellent.\nSometime in the future, I or a representative of my group will call on you to return the favor.\nI hope you won't disappoint us.\nHere is your fireball wand.\nWe should not be seen talking again, the others might get suspicious.")
     SetQBit(QBit(526)) -- Accepted Fireball wand from Malwick
     SetAutonote(257) -- Accepted fireball wand from Mr. Malwick on Emerald Island.
+    AddValue(InventoryItem(947), 947) -- Alacorn Wand of Fireballs
     evt.SetNPCItem(345, 947, 0)
     evt.SetNPCTopic(345, 0, 767) -- Mr. Malwick topic 0: Harmondale
     evt.SetNPCTopic(345, 1, 0) -- Mr. Malwick topic 1 cleared

@@ -98,6 +98,7 @@ add_executable(openyamm
     gameplay/MasteryTeacherDialog.cpp
     tables/MonsterProjectileTable.cpp
     tables/MonsterTable.cpp
+    tables/MmergeBaseTables.cpp
     tables/NpcDialogTable.cpp
     tables/ObjectTable.cpp
     outdoor/OutdoorBillboardRenderer.cpp

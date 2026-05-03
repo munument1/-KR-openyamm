@@ -77,6 +77,11 @@ public:
         float y,
         float footZHint,
         float bodyRadius) const;
+    OutdoorMoveState initializeActorStateForBody(
+        float x,
+        float y,
+        float footZHint,
+        float bodyRadius) const;
     OutdoorMoveState resolveMove(
         const OutdoorMoveState &state,
         float desiredVelocityX,
@@ -152,6 +157,12 @@ private:
     size_t m_spriteObjectGridHeight = 0;
     std::optional<MapBounds> m_mapBounds;
 
+    OutdoorMoveState initializeStateForBody(
+        float x,
+        float y,
+        float footZHint,
+        float bodyRadius,
+        bool actorConditionalBModelSupport) const;
     void buildFaceCache();
     void buildFaceSpatialIndex();
     void buildDecorationColliderCache(const std::optional<OutdoorDecorationCollisionSet> &outdoorDecorationCollisionSet);

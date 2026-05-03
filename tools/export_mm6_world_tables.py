@@ -635,7 +635,6 @@ def export_direct_tables(legacy_tables_dir: Path, data_tables_dir: Path) -> None
         "NPCTopic.txt": "npc_topic.txt",
         "NPCText.txt": "npc_topic_text.txt",
         "roster.txt": "roster.txt",
-        "Town Portal.txt": "town_portal.txt",
     }
     english_direct_tables = {
         "Autonote.txt": "autonote.txt",

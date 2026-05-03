@@ -1,9 +1,10 @@
 #include "game/ui/GameplayUiRuntime.h"
 
 #include "engine/BgfxContext.h"
-#include "engine/TextTable.h"
 #include "game/StringUtils.h"
 #include "game/render/TextureFiltering.h"
+#include "game/tables/MapStats.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
@@ -13,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <optional>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -23,47 +25,215 @@ bool canUseBgfxResources()
     return Engine::BgfxContext::isBgfxInitialized();
 }
 
-std::string dataTablePath(std::string_view fileName)
+constexpr int32_t MmergeYawUnitsPerTurn = 2048;
+constexpr int32_t DegreesPerTurn = 360;
+struct TownPortalDestinationOverride
 {
-    return "engine/data_tables/" + std::string(fileName);
+    uint32_t mapId = 0;
+    std::string iconName;
+    bool useMapStartPosition = false;
+    bool clearUnlockQBit = false;
+    bool clearDirection = false;
+    int32_t hitX = 0;
+    int32_t hitY = 0;
+    uint32_t hitWidth = 0;
+    uint32_t hitHeight = 0;
+};
+
+int32_t directionDegreesFromMmergeYawUnits(int32_t yawUnits)
+{
+    const int32_t normalizedYawUnits =
+        ((yawUnits % MmergeYawUnitsPerTurn) + MmergeYawUnitsPerTurn) % MmergeYawUnitsPerTurn;
+    return normalizedYawUnits * DegreesPerTurn / MmergeYawUnitsPerTurn;
 }
 
-bool tryParseInteger(const std::string &value, int &parsedValue)
+std::string townPortalIconTextureName(const std::string &iconName)
 {
-    if (value.empty())
+    const std::string normalizedIconName = toLowerCopy(iconName);
+
+    if (normalizedIconName == "tpharmndy")
+    {
+        return "tp_alvar";
+    }
+
+    if (normalizedIconName == "tpelf")
+    {
+        return "tp_ravenshore";
+    }
+
+    if (normalizedIconName == "tpwarlock")
+    {
+        return "tp_balthazarlair";
+    }
+
+    if (normalizedIconName == "tpisland")
+    {
+        return "tp_regna";
+    }
+
+    if (normalizedIconName == "tpheaven")
+    {
+        return "tp_shadowspire";
+    }
+
+    if (normalizedIconName == "tphell")
+    {
+        return "tp_daggerwoundislands";
+    }
+
+    return normalizedIconName;
+}
+
+const MapStatsEntry *findMapEntryById(const std::vector<MapStatsEntry> &mapEntries, uint32_t mapId)
+{
+    for (const MapStatsEntry &entry : mapEntries)
+    {
+        if (entry.id == static_cast<int>(mapId))
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+const MmergeTownPortalSwitchGroup *findTownPortalGroup(
+    const MmergeTownPortalSwitchTable &townPortalSwitchTable,
+    const std::string &groupName)
+{
+    const std::string normalizedGroupName = toLowerCopy(groupName);
+
+    for (const MmergeTownPortalSwitchGroup &group : townPortalSwitchTable.groups())
+    {
+        if (toLowerCopy(group.name) == normalizedGroupName)
+        {
+            return &group;
+        }
+    }
+
+    return nullptr;
+}
+
+std::string townPortalGroupNameForMap(const MapStatsEntry &mapEntry)
+{
+    if (mapEntry.id >= 62 && mapEntry.id <= 136)
+    {
+        return "Antagrich";
+    }
+
+    if (mapEntry.id >= 137 && mapEntry.id <= 203)
+    {
+        return "TPEnroth";
+    }
+
+    return "townport";
+}
+
+bool appendTownPortalDestination(
+    std::vector<GameplayTownPortalDestination> &destinations,
+    const MmergeTownPortalSwitchGroup &group,
+    const MmergeTownPortalDestination &sourceDestination,
+    const std::vector<MapStatsEntry> &mapEntries,
+    const TownPortalDestinationOverride *pOverride = nullptr)
+{
+    const std::string &iconName =
+        pOverride != nullptr && !pOverride->iconName.empty() ? pOverride->iconName : sourceDestination.iconName;
+
+    if (iconName.empty() || toLowerCopy(iconName) == "none")
     {
         return false;
     }
 
-    size_t parsedCharacters = 0;
+    const uint32_t mapId =
+        pOverride != nullptr && pOverride->mapId != 0 ? pOverride->mapId : sourceDestination.mapId;
+    const MapStatsEntry *pDestinationMap = findMapEntryById(mapEntries, mapId);
 
-    try
-    {
-        parsedValue = std::stoi(value, &parsedCharacters);
-    }
-    catch (...)
+    if (pDestinationMap == nullptr)
     {
         return false;
     }
 
-    return parsedCharacters == value.size();
+    GameplayTownPortalDestination destination = {};
+    destination.id = group.name + ":" + std::to_string(sourceDestination.id);
+    destination.label =
+        sourceDestination.description.empty() ? pDestinationMap->name : sourceDestination.description;
+    destination.iconTextureName = townPortalIconTextureName(iconName);
+    destination.mapName = pDestinationMap->fileName;
+    destination.x = sourceDestination.x;
+    destination.y = sourceDestination.y;
+    destination.z = sourceDestination.z;
+    if (pOverride == nullptr || !pOverride->clearDirection)
+    {
+        destination.directionDegrees = directionDegreesFromMmergeYawUnits(sourceDestination.direction);
+    }
+    destination.useMapStartPosition = pOverride != nullptr && pOverride->useMapStartPosition;
+    destination.unlockQBitId =
+        pOverride != nullptr && pOverride->clearUnlockQBit ? 0 : sourceDestination.qbitIndex;
+    destination.iconX = sourceDestination.iconX;
+    destination.iconY = sourceDestination.iconY;
+    destination.iconWidth = sourceDestination.iconWidth.value_or(0);
+    destination.iconHeight = sourceDestination.iconHeight.value_or(0);
+    destination.hitX = pOverride != nullptr && pOverride->hitWidth != 0
+        ? pOverride->hitX
+        : destination.iconX;
+    destination.hitY = pOverride != nullptr && pOverride->hitHeight != 0
+        ? pOverride->hitY
+        : destination.iconY;
+    destination.hitWidth = pOverride != nullptr && pOverride->hitWidth != 0
+        ? pOverride->hitWidth
+        : destination.iconWidth;
+    destination.hitHeight = pOverride != nullptr && pOverride->hitHeight != 0
+        ? pOverride->hitHeight
+        : destination.iconHeight;
+    destinations.push_back(std::move(destination));
+    return true;
 }
 
-std::optional<bool> parseBoolValue(const std::string &value)
+bool resolveDimensionDoorDestinationOverride(
+    const MmergeTownPortalDestination &sourceDestination,
+    uint32_t /*dayIndex*/,
+    TownPortalDestinationOverride &destinationOverride)
 {
-    const std::string lowerValue = toLowerCopy(value);
+    const std::string description = toLowerCopy(sourceDestination.description);
 
-    if (lowerValue == "1" || lowerValue == "true" || lowerValue == "yes")
+    destinationOverride = {};
+    destinationOverride.clearUnlockQBit = true;
+    destinationOverride.clearDirection = true;
+
+    if (description == "jadame")
     {
+        destinationOverride.mapId = 1;
+        destinationOverride.iconName = sourceDestination.iconName;
+        destinationOverride.hitX = 0;
+        destinationOverride.hitY = 0;
+        destinationOverride.hitWidth = 213;
+        destinationOverride.hitHeight = 480;
         return true;
     }
 
-    if (lowerValue == "0" || lowerValue == "false" || lowerValue == "no")
+    if (description == "antagarich")
     {
-        return false;
+        destinationOverride.mapId = 62;
+        destinationOverride.iconName = sourceDestination.iconName;
+        destinationOverride.hitX = 213;
+        destinationOverride.hitY = 0;
+        destinationOverride.hitWidth = 214;
+        destinationOverride.hitHeight = 480;
+        return true;
     }
 
-    return std::nullopt;
+    if (description == "enroth")
+    {
+        destinationOverride.mapId = 151;
+        destinationOverride.iconName = sourceDestination.iconName;
+        destinationOverride.hitX = 427;
+        destinationOverride.hitY = 0;
+        destinationOverride.hitWidth = 213;
+        destinationOverride.hitHeight = 480;
+        return true;
+    }
+
+    return false;
 }
 
 uint32_t currentAnimationTicks()
@@ -103,6 +273,8 @@ void GameplayUiRuntime::clear()
     m_hudLayoutRuntimeHeightOverrides.clear();
     m_renderedInspectableHudItems.clear();
     m_renderedInspectableHudScreenState = GameplayHudScreenState::Gameplay;
+    m_townPortalDestinationsMapFileName.clear();
+    m_townPortalBackgroundTextureName.clear();
     m_townPortalDestinations.clear();
     m_townPortalDestinationsLoaded = false;
     m_hudRenderBackend = {};
@@ -120,6 +292,10 @@ void GameplayUiRuntime::bindDataRepository(const GameDataRepository *pDataReposi
     }
 
     clearPortraitRuntime();
+    m_townPortalDestinationsMapFileName.clear();
+    m_townPortalBackgroundTextureName.clear();
+    m_townPortalDestinations.clear();
+    m_townPortalDestinationsLoaded = false;
     m_pDataRepository = pDataRepository;
 }
 
@@ -314,118 +490,108 @@ void GameplayUiRuntime::setRenderedInspectableHudScreenState(GameplayHudScreenSt
     m_renderedInspectableHudScreenState = state;
 }
 
-bool GameplayUiRuntime::ensureTownPortalDestinationsLoaded()
+bool GameplayUiRuntime::ensureTownPortalDestinationsLoaded(const std::string &currentMapFileName)
 {
-    if (m_townPortalDestinationsLoaded)
+    if (m_townPortalDestinationsLoaded
+        && toLowerCopy(m_townPortalDestinationsMapFileName) == toLowerCopy(currentMapFileName))
     {
         return !m_townPortalDestinations.empty();
     }
 
-    if (m_pAssetFileSystem == nullptr)
+    m_townPortalDestinationsMapFileName = currentMapFileName;
+    m_townPortalBackgroundTextureName.clear();
+    m_townPortalDestinations.clear();
+    m_townPortalDestinationsLoaded = false;
+
+    if (m_pDataRepository == nullptr || !m_pDataRepository->isBound())
     {
         return false;
     }
 
-    const std::optional<std::string> fileContents =
-        m_pAssetFileSystem->readTextFile(dataTablePath("town_portal.txt"));
+    const MapStatsEntry *pCurrentMap = m_pDataRepository->mapStats().findByFileName(currentMapFileName);
 
-    if (!fileContents)
+    if (pCurrentMap == nullptr)
     {
         return false;
     }
 
-    const std::optional<Engine::TextTable> table = Engine::TextTable::parseTabSeparated(*fileContents);
+    const MmergeTownPortalSwitchGroup *pGroup = findTownPortalGroup(
+        m_pDataRepository->mmergeTownPortalSwitchTable(),
+        townPortalGroupNameForMap(*pCurrentMap));
 
-    if (!table || table->getRowCount() < 2)
+    if (pGroup == nullptr)
     {
         return false;
     }
-
-    const std::vector<std::string> &headerRow = table->getRow(0);
-    const auto findColumnIndex =
-        [&headerRow](std::string_view columnName) -> std::optional<size_t>
-        {
-            const std::string normalizedName = toLowerCopy(std::string(columnName));
-
-            for (size_t index = 0; index < headerRow.size(); ++index)
-            {
-                if (toLowerCopy(headerRow[index]) == normalizedName)
-                {
-                    return index;
-                }
-            }
-
-            return std::nullopt;
-        };
-    const auto readColumn =
-        [&findColumnIndex](const std::vector<std::string> &row, std::string_view columnName) -> std::string
-        {
-            const std::optional<size_t> columnIndex = findColumnIndex(columnName);
-
-            if (!columnIndex.has_value() || *columnIndex >= row.size())
-            {
-                return {};
-            }
-
-            return row[*columnIndex];
-        };
-    const auto parseInt32Column =
-        [&readColumn](const std::vector<std::string> &row, std::string_view columnName, int32_t defaultValue) -> int32_t
-        {
-            int parsedValue = 0;
-            return tryParseInteger(readColumn(row, columnName), parsedValue) ? parsedValue : defaultValue;
-        };
 
     std::vector<GameplayTownPortalDestination> destinations;
+    const std::vector<MapStatsEntry> &mapEntries = m_pDataRepository->mapEntries();
 
-    for (size_t rowIndex = 1; rowIndex < table->getRowCount(); ++rowIndex)
+    for (const MmergeTownPortalDestination &sourceDestination : pGroup->destinations)
     {
-        const std::vector<std::string> &row = table->getRow(rowIndex);
-
-        if (row.empty())
-        {
-            continue;
-        }
-
-        GameplayTownPortalDestination destination = {};
-        destination.id = readColumn(row, "Id");
-        destination.label = readColumn(row, "Label");
-        destination.buttonLayoutId = readColumn(row, "ButtonLayoutId");
-        destination.mapName = readColumn(row, "MapName");
-        destination.x = parseInt32Column(row, "X", 0);
-        destination.y = parseInt32Column(row, "Y", 0);
-        destination.z = parseInt32Column(row, "Z", 0);
-        destination.unlockQBitId = parseInt32Column(row, "UnlockQBit", 0);
-
-        const std::string directionDegrees = readColumn(row, "DirectionDegrees");
-        const std::string useMapStartPosition = readColumn(row, "UseMapStartPosition");
-
-        if (!directionDegrees.empty())
-        {
-            int parsedDirection = 0;
-
-            if (tryParseInteger(directionDegrees, parsedDirection))
-            {
-                destination.directionDegrees = parsedDirection;
-            }
-        }
-
-        if (const std::optional<bool> parsedUseMapStartPosition = parseBoolValue(useMapStartPosition))
-        {
-            destination.useMapStartPosition = *parsedUseMapStartPosition;
-        }
-
-        if (destination.label.empty() || destination.mapName.empty() || destination.buttonLayoutId.empty())
-        {
-            continue;
-        }
-
-        destinations.push_back(std::move(destination));
+        appendTownPortalDestination(destinations, *pGroup, sourceDestination, mapEntries);
     }
 
+    m_townPortalBackgroundTextureName = townPortalIconTextureName(pGroup->name);
     m_townPortalDestinations = std::move(destinations);
     m_townPortalDestinationsLoaded = true;
     return !m_townPortalDestinations.empty();
+}
+
+bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex)
+{
+    const std::string cacheKey = "__dimension_door:" + std::to_string(dayIndex);
+
+    if (m_townPortalDestinationsLoaded
+        && toLowerCopy(m_townPortalDestinationsMapFileName) == toLowerCopy(cacheKey))
+    {
+        return !m_townPortalDestinations.empty();
+    }
+
+    m_townPortalDestinationsMapFileName = cacheKey;
+    m_townPortalBackgroundTextureName.clear();
+    m_townPortalDestinations.clear();
+    m_townPortalDestinationsLoaded = false;
+
+    if (m_pDataRepository == nullptr || !m_pDataRepository->isBound())
+    {
+        return false;
+    }
+
+    const MmergeTownPortalSwitchGroup *pGroup = findTownPortalGroup(
+        m_pDataRepository->mmergeTownPortalSwitchTable(),
+        "TPGlobal");
+
+    if (pGroup == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<GameplayTownPortalDestination> destinations;
+    const std::vector<MapStatsEntry> &mapEntries = m_pDataRepository->mapEntries();
+
+    for (const MmergeTownPortalDestination &sourceDestination : pGroup->destinations)
+    {
+        TownPortalDestinationOverride destinationOverride = {};
+        const bool hasOverride =
+            resolveDimensionDoorDestinationOverride(sourceDestination, dayIndex, destinationOverride);
+        appendTownPortalDestination(
+            destinations,
+            *pGroup,
+            sourceDestination,
+            mapEntries,
+            hasOverride ? &destinationOverride : nullptr);
+    }
+
+    m_townPortalBackgroundTextureName = townPortalIconTextureName(pGroup->name);
+    m_townPortalDestinations = std::move(destinations);
+    m_townPortalDestinationsLoaded = true;
+    return !m_townPortalDestinations.empty();
+}
+
+const std::string &GameplayUiRuntime::townPortalBackgroundTextureName() const
+{
+    return m_townPortalBackgroundTextureName;
 }
 
 const std::vector<GameplayTownPortalDestination> &GameplayUiRuntime::townPortalDestinations() const

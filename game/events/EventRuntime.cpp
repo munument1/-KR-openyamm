@@ -3919,8 +3919,9 @@ int luaSetSprite(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     const uint32_t cogNumber = eventReferenceId(luaL_checkinteger(pLuaState, 1));
+    const bool visible = luaEventBoolean(pLuaState, 2);
     EventRuntimeState::SpriteOverride spriteOverride = {};
-    spriteOverride.hidden = luaEventBoolean(pLuaState, 2);
+    spriteOverride.hidden = !visible;
 
     if (lua_gettop(pLuaState) >= 3 && lua_type(pLuaState, 3) == LUA_TSTRING)
     {

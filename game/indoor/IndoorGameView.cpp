@@ -1692,7 +1692,9 @@ GameplayDialogController::Context IndoorGameView::buildDialogContext(EventRuntim
         &m_gameSession.data().rosterTable(),
         &m_gameSession.data().arcomageLibrary(),
         screenRuntime.currentHudScreenState() == GameplayHudScreenState::Dialogue,
-        &screenRuntime);
+        &screenRuntime,
+        &m_gameSession.data().mmergeNpcProfessionTable(),
+        &m_gameSession.data().mmergeNewsProfessionTopicTable());
 }
 
 } // namespace OpenYAMM::Game

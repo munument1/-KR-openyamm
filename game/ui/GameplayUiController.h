@@ -114,6 +114,7 @@ public:
         None = 0,
         InventoryTarget,
         TownPortal,
+        DimensionDoor,
         LloydsBeacon,
     };
 

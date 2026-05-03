@@ -1809,13 +1809,7 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
             return spriteId;
         }
 
-        const uint32_t overrideKey =
-            billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
-
-        if (overrideKey == 0)
-        {
-            return spriteId;
-        }
+        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
         const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -2124,13 +2118,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             return spriteId;
         }
 
-        const uint32_t overrideKey =
-            billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
-
-        if (overrideKey == 0)
-        {
-            return spriteId;
-        }
+        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
         const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 

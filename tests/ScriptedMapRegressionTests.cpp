@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <filesystem>
 #include <optional>
 #include <sstream>
@@ -149,6 +150,20 @@ std::string bytesToUpperHex(const std::vector<uint8_t> &bytes)
     }
 
     return text;
+}
+
+std::optional<std::string> readSourceTextFile(const std::filesystem::path &path)
+{
+    std::ifstream stream(path);
+
+    if (!stream)
+    {
+        return std::nullopt;
+    }
+
+    std::ostringstream contents;
+    contents << stream.rdbuf();
+    return contents.str();
 }
 
 void appendNormalizedPosition(std::ostringstream &stream, int x, int y, int z)
@@ -443,7 +458,7 @@ TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
     REQUIRE(selectedMap->globalEventProgram.has_value());
     REQUIRE(selectedMap->globalEventProgram->luaSourceText().has_value());
     REQUIRE(selectedMap->globalEventProgram->luaSourceName().has_value());
-    CHECK_EQ(*selectedMap->globalEventProgram->luaSourceName(), "@Data/scripts/Global.lua");
+    CHECK_EQ(*selectedMap->globalEventProgram->luaSourceName(), "@events/Global.lua");
     CHECK(std::filesystem::exists(
         std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/events/Global.lua"));
     CHECK_FALSE(std::filesystem::exists(
@@ -456,11 +471,46 @@ TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
     REQUIRE(selectedMap->localEventProgram->luaSourceName().has_value());
 
     const std::string expectedLocalSourceName =
-        "@Data/scripts/maps/"
+        "@events/maps/"
         + OpenYAMM::Game::toLowerCopy(std::filesystem::path(selectedMap->map.fileName).stem().string())
         + ".lua";
 
     CHECK_EQ(*selectedMap->localEventProgram->luaSourceName(), expectedLocalSourceName);
+}
+
+TEST_CASE("mm6 new sorpigal tree event stores decoration sprite override")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    const std::optional<std::string> oute3Lua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/maps/oute3.lua");
+
+    REQUIRE(supportLua.has_value());
+    REQUIRE(oute3Lua.has_value());
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *oute3Lua,
+            "@events/maps/oute3.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 113, runtimeState, &party, nullptr));
+
+    const auto overrideIterator = runtimeState.spriteOverrides.find(300);
+    REQUIRE(overrideIterator != runtimeState.spriteOverrides.end());
+    CHECK_FALSE(overrideIterator->second.hidden);
+    REQUIRE(overrideIterator->second.textureName.has_value());
+    CHECK_EQ(*overrideIterator->second.textureName, "6tree06");
 }
 
 TEST_CASE("d19 blv MoveNPC updates party global npc house overrides")

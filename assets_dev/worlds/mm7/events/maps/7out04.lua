@@ -35,8 +35,8 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    if not IsQBitSet(QBit(180)) then -- Ravenshore Town Portal
-        SetQBit(QBit(180)) -- Ravenshore Town Portal
+    if not IsQBitSet(QBit(719)) then -- TP Buff Tularean Forest
+        SetQBit(QBit(719)) -- TP Buff Tularean Forest
     end
     if not IsQBitSet(QBit(553)) then -- Solved Tree quest
         evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)

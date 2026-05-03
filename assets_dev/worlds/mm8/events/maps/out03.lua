@@ -367,8 +367,8 @@ RegisterEvent(103, "Drink from the well", function()
 end, "Drink from the well")
 
 RegisterEvent(104, "Drink from the fountain", function()
-    if not IsQBitSet(QBit(181)) then -- Alvar Town Portal
-        SetQBit(QBit(181)) -- Alvar Town Portal
+    if not IsQBitSet(QBit(301)) then -- TP Buff Alvar
+        SetQBit(QBit(301)) -- TP Buff Alvar
     end
     if not IsAtLeast(MaxSpellPoints, 0) then
         AddValue(CurrentSpellPoints, 25)

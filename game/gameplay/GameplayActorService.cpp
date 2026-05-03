@@ -611,13 +611,7 @@ float GameplayActorService::partyEngagementRange(const GameplayActorTargetPolicy
         return 0.0f;
     }
 
-    if (actor.hostileToParty)
-    {
-        return HostilityLongRange;
-    }
-
-    const int16_t actorRelationMonsterId = actor.relationMonsterId > 0 ? actor.relationMonsterId : actor.monsterId;
-    return hostilityRangeForRelation(m_pMonsterTable->getRelationToParty(actorRelationMonsterId));
+    return actor.hostileToParty ? HostilityLongRange : 0.0f;
 }
 
 float GameplayActorService::hostilityPromotionRangeForFriendlyActor(int relation) const

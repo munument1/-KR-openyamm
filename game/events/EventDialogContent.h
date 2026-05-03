@@ -17,6 +17,8 @@
 namespace OpenYAMM::Game
 {
 class Party;
+class MmergeNpcProfessionTable;
+class MmergeNewsProfessionTopicTable;
 
 enum class EventDialogActionKind
 {
@@ -24,6 +26,7 @@ enum class EventDialogActionKind
     HouseService,
     HouseResident,
     NpcTopic,
+    NpcProfessionNews,
     MapTransitionConfirm,
     MapTransitionCancel,
     RosterJoinOffer,
@@ -31,6 +34,8 @@ enum class EventDialogActionKind
     RosterJoinDecline,
     MasteryTeacherOffer,
     MasteryTeacherLearn,
+    GuildMembershipOffer,
+    GuildMembershipJoin,
 };
 
 enum class EventDialogParticipantVisual
@@ -93,6 +98,8 @@ EventDialogContent buildEventDialogContent(
     const std::vector<MapStatsEntry> *pMapEntries,
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
-    float currentGameMinutes
+    float currentGameMinutes,
+    const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr,
+    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr
 );
 }

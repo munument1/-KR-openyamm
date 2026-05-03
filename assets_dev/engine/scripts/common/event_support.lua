@@ -661,6 +661,11 @@ function support.setMapMetadata(metadata)
     end
 end
 
+function support.appendMapOnLoadEvent(eventId)
+    local meta = ensureMetaScope("map")
+    table.insert(meta.onLoad, eventId)
+end
+
 function support.setGlobalMetadata(metadata)
     local meta = ensureMetaScope("global")
 
@@ -738,6 +743,7 @@ MoveToMap = support.moveToMap
 CastSpellFromTo = support.castSpellFromTo
 PickRandomOption = support.pickRandomOption
 SetMapMetadata = support.setMapMetadata
+AppendMapOnLoadEvent = support.appendMapOnLoadEvent
 SetGlobalMetadata = support.setGlobalMetadata
 exportTableEntries(support.varTag)
 Players = support.players

@@ -34,8 +34,8 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    if not IsQBitSet(QBit(185)) then -- Blood Drop Town Portal
-        SetQBit(QBit(185)) -- Blood Drop Town Portal
+    if not IsQBitSet(QBit(723)) then -- TP Buff The Pit
+        SetQBit(QBit(723)) -- TP Buff The Pit
     end
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         if IsQBitSet(QBit(782)) then -- Your friends are mad at you

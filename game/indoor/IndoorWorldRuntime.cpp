@@ -8819,11 +8819,8 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
 
             if (m_pEventRuntimeState != nullptr && m_pEventRuntimeState->has_value())
             {
-                const uint32_t overrideKey =
-                    entity.eventIdPrimary != 0 ? entity.eventIdPrimary : entity.eventIdSecondary;
-                const auto overrideIterator = overrideKey != 0
-                    ? (*m_pEventRuntimeState)->spriteOverrides.find(overrideKey)
-                    : (*m_pEventRuntimeState)->spriteOverrides.end();
+                const uint32_t overrideKey = static_cast<uint32_t>(entityIndex);
+                const auto overrideIterator = (*m_pEventRuntimeState)->spriteOverrides.find(overrideKey);
 
                 if (overrideIterator != (*m_pEventRuntimeState)->spriteOverrides.end()
                     && overrideIterator->second.hidden)

@@ -103,6 +103,7 @@ struct PartySpellCastRequest
     std::string utilityMapMoveMapName;
     std::optional<int32_t> utilityMapMoveDirectionDegrees;
     bool utilityMapMoveUseMapStartPosition = false;
+    bool utilityMapMoveUseFullscreenLoading = false;
     std::string utilityStatusText;
     int utilityPreviewWidth = 0;
     int utilityPreviewHeight = 0;

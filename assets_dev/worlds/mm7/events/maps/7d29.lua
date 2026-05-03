@@ -35,8 +35,8 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    if not IsQBitSet(QBit(181)) then -- Alvar Town Portal
-        SetQBit(QBit(181)) -- Alvar Town Portal
+    if not IsQBitSet(QBit(718)) then -- TP Buff Castle Harmondale
+        SetQBit(QBit(718)) -- TP Buff Castle Harmondale
     end
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetTexture(1, "ch1b1")

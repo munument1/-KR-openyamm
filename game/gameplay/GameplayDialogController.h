@@ -24,6 +24,8 @@ class NpcDialogTable;
 class Party;
 class RosterTable;
 class TransitionTable;
+class MmergeNpcProfessionTable;
+class MmergeNewsProfessionTopicTable;
 struct HouseEntry;
 class GameplayScreenRuntime;
 
@@ -48,6 +50,8 @@ public:
         const std::vector<MapStatsEntry> *pMapEntries = nullptr;
         const RosterTable *pRosterTable = nullptr;
         const ArcomageLibrary *pArcomageLibrary = nullptr;
+        const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr;
+        const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr;
         bool dialogueHudActive = false;
     };
 
@@ -87,7 +91,8 @@ public:
         uint32_t npcId,
         uint32_t newsId,
         const std::string &titleOverride,
-        const std::string &newsText) const;
+        const std::string &newsText,
+        uint32_t participantPictureId = 0) const;
     CloseDialogRequestResult handleDialogueCloseRequest(Context &context) const;
     bool refreshHouseBankInputDialog(Context &context, bool showCursor) const;
     Result returnToHouseBankMainDialog(Context &context) const;

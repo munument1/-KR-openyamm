@@ -1,6 +1,7 @@
 #include "game/tables/MapStats.h"
 
 #include "game/maps/MapIdentity.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include <algorithm>
 #include <cctype>
@@ -69,6 +70,10 @@ constexpr size_t RedbookTrackColumn = 28;
 constexpr size_t EnvironmentColumn = 29;
 constexpr size_t AreaIdColumn = 32;
 constexpr size_t InAreaColumn = 33;
+constexpr int MmergeOutdoorBoundsMinX = -23143;
+constexpr int MmergeOutdoorBoundsMaxX = 23143;
+constexpr int MmergeOutdoorBoundsMinY = -23143;
+constexpr int MmergeOutdoorBoundsMaxY = 23143;
 
 std::string getColumnValue(const std::vector<std::string> &row, size_t index)
 {
@@ -313,6 +318,31 @@ size_t navigationArrivalZColumn(MapBoundaryEdge edge)
     }
 
     return NavigationNorthArrivalZColumn;
+}
+
+void applyMmergeOutdoorTravelDirection(
+    MapStatsEntry &entry,
+    MapBoundaryEdge edge,
+    const MmergeOutdoorTravelDirection &direction)
+{
+    std::optional<MapEdgeTransition> *pTransition = entry.edgeTransition(edge);
+
+    if (pTransition == nullptr)
+    {
+        return;
+    }
+
+    if (direction.mapName.empty())
+    {
+        pTransition->reset();
+        return;
+    }
+
+    MapEdgeTransition transition = {};
+    transition.destinationMapFileName = direction.mapName;
+    transition.travelDays = static_cast<int>(direction.days.value_or(0));
+    transition.useMapStartPosition = true;
+    *pTransition = std::move(transition);
 }
 }
 
@@ -586,6 +616,35 @@ bool MapStats::applyOutdoorNavigationRows(const std::vector<std::vector<std::str
 
             *pTransition = std::move(transition);
         }
+    }
+
+    return true;
+}
+
+bool MapStats::applyMmergeOutdoorTravels(const MmergeOutdoorTravelTable &outdoorTravels)
+{
+    for (const MmergeOutdoorTravelEntry &outdoorTravel : outdoorTravels.entries())
+    {
+        MapStatsEntry *pEntry = findMutableByFileName(outdoorTravel.keyMap);
+
+        if (pEntry == nullptr)
+        {
+            std::cerr << "MMerge outdoor travel row references unknown map file: " << outdoorTravel.keyMap << '\n';
+            return false;
+        }
+
+        MapBounds bounds = {};
+        bounds.enabled = true;
+        bounds.minX = MmergeOutdoorBoundsMinX;
+        bounds.maxX = MmergeOutdoorBoundsMaxX;
+        bounds.minY = MmergeOutdoorBoundsMinY;
+        bounds.maxY = MmergeOutdoorBoundsMaxY;
+        pEntry->outdoorBounds = bounds;
+
+        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up);
+        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down);
+        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left);
+        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right);
     }
 
     return true;

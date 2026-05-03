@@ -48,6 +48,11 @@ void GameDataRepository::clear()
     m_pPortraitFxEventTable = nullptr;
     m_pFaceAnimationTable = nullptr;
     m_pTransitionTable = nullptr;
+    m_pMmergeTownPortalSwitchTable = nullptr;
+    m_pMmergeNewsAreaTopicTable = nullptr;
+    m_pMmergeNpcProfessionTable = nullptr;
+    m_pMmergeNewsProfessionTopicTable = nullptr;
+    m_pMmergeMonsterPortraitTable = nullptr;
 }
 
 void GameDataRepository::bind(const GameDataLoader &loader)
@@ -82,6 +87,11 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pPortraitFxEventTable = &loader.getPortraitFxEventTable();
     m_pFaceAnimationTable = &loader.getFaceAnimationTable();
     m_pTransitionTable = &loader.getTransitionTable();
+    m_pMmergeTownPortalSwitchTable = &loader.getMmergeTownPortalSwitchTable();
+    m_pMmergeNewsAreaTopicTable = &loader.getMmergeNewsAreaTopicTable();
+    m_pMmergeNpcProfessionTable = &loader.getMmergeNpcProfessionTable();
+    m_pMmergeNewsProfessionTopicTable = &loader.getMmergeNewsProfessionTopicTable();
+    m_pMmergeMonsterPortraitTable = &loader.getMmergeMonsterPortraitTable();
 }
 
 bool GameDataRepository::isBound() const
@@ -242,5 +252,30 @@ const FaceAnimationTable &GameDataRepository::faceAnimationTable() const
 const TransitionTable &GameDataRepository::transitionTable() const
 {
     return requireBound(m_pTransitionTable);
+}
+
+const MmergeTownPortalSwitchTable &GameDataRepository::mmergeTownPortalSwitchTable() const
+{
+    return requireBound(m_pMmergeTownPortalSwitchTable);
+}
+
+const MmergeNewsTopicTable &GameDataRepository::mmergeNewsAreaTopicTable() const
+{
+    return requireBound(m_pMmergeNewsAreaTopicTable);
+}
+
+const MmergeNpcProfessionTable &GameDataRepository::mmergeNpcProfessionTable() const
+{
+    return requireBound(m_pMmergeNpcProfessionTable);
+}
+
+const MmergeNewsProfessionTopicTable &GameDataRepository::mmergeNewsProfessionTopicTable() const
+{
+    return requireBound(m_pMmergeNewsProfessionTopicTable);
+}
+
+const MmergeMonsterPortraitTable &GameDataRepository::mmergeMonsterPortraitTable() const
+{
+    return requireBound(m_pMmergeMonsterPortraitTable);
 }
 } // namespace OpenYAMM::Game

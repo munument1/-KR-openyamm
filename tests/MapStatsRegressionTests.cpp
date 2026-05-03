@@ -4,6 +4,7 @@
 #include "game/maps/MapIdentity.h"
 #include "game/maps/MapRegistry.h"
 #include "game/tables/MapStats.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include <array>
 #include <fstream>
@@ -43,6 +44,10 @@ OpenYAMM::Game::MapStats loadMapStats()
     REQUIRE(mapStats.loadFromRows(loadTextTableRows("assets_dev/engine/data_tables/map_stats.txt")));
     REQUIRE(mapStats.applyOutdoorNavigationRows(
         loadTextTableRows("assets_dev/engine/data_tables/map_navigation.txt")));
+
+    OpenYAMM::Game::MmergeOutdoorTravelTable outdoorTravels = {};
+    REQUIRE(outdoorTravels.loadFromRows(loadTextTableRows("assets_dev/engine/data_tables/outdoor_travels.txt")));
+    REQUIRE(mapStats.applyMmergeOutdoorTravels(outdoorTravels));
     return mapStats;
 }
 
@@ -106,6 +111,26 @@ TEST_CASE("map stats parse perception difficulty")
     REQUIRE(pRavenshore != nullptr);
     CHECK_EQ(pDaggerWound->perceptionDifficulty, 0);
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
+}
+
+TEST_CASE("mmerge outdoor travels add mm6 map boundary transitions")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pNewSorpigal = mapStats.findByFileName("oute3.odm");
+
+    REQUIRE(pNewSorpigal != nullptr);
+    CHECK(pNewSorpigal->outdoorBounds.enabled);
+    CHECK_EQ(pNewSorpigal->outdoorBounds.minX, -23143);
+    CHECK_EQ(pNewSorpigal->outdoorBounds.maxX, 23143);
+    CHECK_EQ(pNewSorpigal->outdoorBounds.minY, -23143);
+    CHECK_EQ(pNewSorpigal->outdoorBounds.maxY, 23143);
+    CHECK_FALSE(pNewSorpigal->northTransition.has_value());
+    CHECK_FALSE(pNewSorpigal->southTransition.has_value());
+    CHECK_FALSE(pNewSorpigal->eastTransition.has_value());
+    REQUIRE(pNewSorpigal->westTransition.has_value());
+    CHECK_EQ(pNewSorpigal->westTransition->destinationMapFileName, "outd3.odm");
+    CHECK_EQ(pNewSorpigal->westTransition->travelDays, 5);
+    CHECK(pNewSorpigal->westTransition->useMapStartPosition);
 }
 
 TEST_CASE("map stats assign default canonical MM8 map identity")

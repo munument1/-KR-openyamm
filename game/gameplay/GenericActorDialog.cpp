@@ -1,6 +1,10 @@
 #include "game/gameplay/GenericActorDialog.h"
 
+#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MapStats.h"
 #include "game/tables/NpcDialogTable.h"
+
+#include <algorithm>
 
 namespace OpenYAMM::Game
 {
@@ -137,6 +141,34 @@ std::string resolveGenericNpcName(const std::string &actorName, uint32_t actorGr
             return {};
     }
 }
+
+std::optional<uint32_t> firstMapAreaNewsId(
+    const MapStatsEntry *pCurrentMap,
+    const MmergeNewsTopicTable *pNewsAreaTopicTable)
+{
+    if (pCurrentMap == nullptr || pNewsAreaTopicTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const uint32_t mapId = static_cast<uint32_t>(std::max(pCurrentMap->id, 0));
+
+    for (const MmergeNewsTopicEntry &entry : pNewsAreaTopicTable->entries())
+    {
+        if (entry.ownerId == mapId && entry.newsTextId != 0)
+        {
+            return entry.newsTextId;
+        }
+    }
+
+    return std::nullopt;
+}
+
+bool isPlaceholderGroupNews(uint32_t newsId)
+{
+    // MMerge uses this as a default "change me" entry for many imported MM6/MM7 peasant groups.
+    return newsId == 51;
+}
 }
 
 std::optional<GenericActorDialogResolution> resolveGenericActorDialog(
@@ -144,11 +176,13 @@ std::optional<GenericActorDialogResolution> resolveGenericActorDialog(
     const std::string &actorName,
     uint32_t actorGroup,
     const EventRuntimeState &runtimeState,
-    const NpcDialogTable &npcDialogTable
+    const NpcDialogTable &npcDialogTable,
+    const MmergeMonsterPortraitTable *pMonsterPortraitTable,
+    const MapStatsEntry *pCurrentMap,
+    const MmergeNewsTopicTable *pNewsAreaTopicTable
 )
 {
     (void)mapFileName;
-    (void)actorName;
     uint32_t newsId = 0;
     const std::unordered_map<uint32_t, uint32_t>::const_iterator overrideIt =
         runtimeState.npcGroupNews.find(actorGroup);
@@ -167,7 +201,17 @@ std::optional<GenericActorDialogResolution> resolveGenericActorDialog(
         }
     }
 
-    if (newsId == 0 || !npcDialogTable.getNewsText(newsId))
+    if (isPlaceholderGroupNews(newsId))
+    {
+        newsId = 0;
+    }
+
+    if (newsId == 0)
+    {
+        newsId = firstMapAreaNewsId(pCurrentMap, pNewsAreaTopicTable).value_or(0);
+    }
+
+    if (newsId == 0 || !npcDialogTable.getNewsDialogText(newsId))
     {
         return std::nullopt;
     }
@@ -175,6 +219,10 @@ std::optional<GenericActorDialogResolution> resolveGenericActorDialog(
     GenericActorDialogResolution resolution = {};
     resolution.npcId = findNpcIdByName(npcDialogTable, resolveGenericNpcName(actorName, actorGroup));
     resolution.newsId = newsId;
+    if (pMonsterPortraitTable != nullptr)
+    {
+        resolution.portraitPictureId = pMonsterPortraitTable->firstPortraitForName(actorName).value_or(0);
+    }
     return resolution;
 }
 }

@@ -7,6 +7,8 @@
 
 namespace OpenYAMM::Game
 {
+class MmergeOutdoorTravelTable;
+
 enum class MapBoundaryEdge : uint8_t
 {
     North = 0,
@@ -82,6 +84,7 @@ public:
         const std::string &worldId = "mm8"
     );
     bool applyOutdoorNavigationRows(const std::vector<std::vector<std::string>> &rows);
+    bool applyMmergeOutdoorTravels(const MmergeOutdoorTravelTable &outdoorTravels);
     const std::vector<MapStatsEntry> &getEntries() const;
     const MapStatsEntry *findByFileName(const std::string &fileName) const;
 

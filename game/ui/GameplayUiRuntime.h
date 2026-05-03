@@ -81,7 +81,9 @@ public:
     void clearRenderedInspectableHudItems();
     GameplayHudScreenState renderedInspectableHudScreenState() const;
     void setRenderedInspectableHudScreenState(GameplayHudScreenState state);
-    bool ensureTownPortalDestinationsLoaded();
+    bool ensureTownPortalDestinationsLoaded(const std::string &currentMapFileName);
+    bool ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex);
+    const std::string &townPortalBackgroundTextureName() const;
     const std::vector<GameplayTownPortalDestination> &townPortalDestinations() const;
 
     bool loadHudTexture(const std::string &textureName);
@@ -209,6 +211,8 @@ private:
     std::unordered_map<std::string, float> m_hudLayoutRuntimeHeightOverrides;
     std::vector<GameplayRenderedInspectableHudItem> m_renderedInspectableHudItems;
     GameplayHudScreenState m_renderedInspectableHudScreenState = GameplayHudScreenState::Gameplay;
+    std::string m_townPortalDestinationsMapFileName;
+    std::string m_townPortalBackgroundTextureName;
     std::vector<GameplayTownPortalDestination> m_townPortalDestinations;
     bool m_townPortalDestinationsLoaded = false;
     GameplayHudRenderBackend m_hudRenderBackend;

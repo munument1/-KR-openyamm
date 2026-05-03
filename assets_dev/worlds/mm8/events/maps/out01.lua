@@ -81,7 +81,7 @@ end)
 RegisterEvent(3, "Legacy event 3", function()
     if IsQBitSet(QBit(226)) then return end -- game Init stuff in area one
     SetQBit(QBit(226)) -- game Init stuff in area one
-    SetQBit(QBit(185)) -- Blood Drop Town Portal
+    SetQBit(QBit(306)) -- TP Buff Daggerwound islands
     SetQBit(QBit(401)) -- Roster Character In Party 2
     SetQBit(QBit(407)) -- Roster Character In Party 8
 end)

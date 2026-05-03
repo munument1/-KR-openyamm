@@ -4,6 +4,8 @@
 #include "engine/AssetScaleTier.h"
 #include "engine/TextTable.h"
 #include "game/arcomage/ArcomageLoader.h"
+#include "game/tables/MapStats.h"
+#include "game/tables/MmergeBaseTables.h"
 
 #include <filesystem>
 #include <optional>
@@ -380,7 +382,14 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
-    if (!data.houseTable.loadAnimationRows(houseAnimationRows))
+    std::vector<std::vector<std::string>> houseMovieRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("house_movies.txt"), houseMovieRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.houseTable.loadAnimationRows(houseAnimationRows, houseMovieRows))
     {
         failure = "could not load house animation rows for regression tests";
         return false;
@@ -396,6 +405,61 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!data.houseTable.loadTransportScheduleRows(transportRows))
     {
         failure = "could not load transport schedules for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> mapStatsRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("map_stats.txt"), mapStatsRows, failure))
+    {
+        return false;
+    }
+
+    Game::MapStats mapStats = {};
+
+    if (!mapStats.loadFromRows(mapStatsRows))
+    {
+        failure = "could not load map stats for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> houseRuleRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("house_rules.txt"), houseRuleRows, failure))
+    {
+        return false;
+    }
+
+    Game::MmergeHouseRuleTable houseRules = {};
+
+    if (!houseRules.loadFromRows(houseRuleRows))
+    {
+        failure = "could not load MMerge house rules for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> transportLocationRows;
+
+    if (!loadTextTableRows(
+            assetFileSystem,
+            engineDataTablePath("transport_locations.txt"),
+            transportLocationRows,
+            failure))
+    {
+        return false;
+    }
+
+    Game::MmergeTransportLocationTable transportLocations = {};
+
+    if (!transportLocations.loadFromRows(transportLocationRows))
+    {
+        failure = "could not load MMerge transport locations for regression tests";
+        return false;
+    }
+
+    if (!data.houseTable.applyMmergeTransportRoutes(houseRules, transportLocations, mapStats))
+    {
+        failure = "could not apply MMerge transport routes for regression tests";
         return false;
     }
 

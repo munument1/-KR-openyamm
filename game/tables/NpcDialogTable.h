@@ -26,6 +26,7 @@ struct NpcTopicEntry
         TextOnly,
         RosterJoinOffer,
         MasteryTeacherOffer,
+        GuildMembershipOffer,
     };
 
     uint32_t id = 0;
@@ -42,6 +43,7 @@ struct NpcEntry
     std::string name;
     uint32_t pictureId = 0;
     uint32_t houseId = 0;
+    uint32_t professionId = 0;
     uint32_t greetId = 0;
     std::vector<uint32_t> topicIds;
 };
@@ -66,6 +68,16 @@ public:
         uint32_t partyFullTextId = 0;
     };
 
+    struct GuildMembershipOffer
+    {
+        uint32_t topicId = 0;
+        uint32_t guildType = 0;
+        uint32_t cost = 0;
+        uint32_t descriptionTextId = 0;
+        uint32_t joinTextId = 0;
+        uint32_t autonoteId = 0;
+    };
+
     bool loadGreetingsFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadNewsFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadGroupNewsFromRows(const std::vector<std::vector<std::string>> &rows);
@@ -88,12 +100,15 @@ public:
     ) const;
     std::optional<std::string> getText(uint32_t textId) const;
     std::optional<std::string> getNewsText(uint32_t newsId) const;
+    std::optional<std::string> getNewsDialogText(uint32_t textId) const;
     std::optional<uint32_t> getNewsIdForGroup(uint32_t groupId) const;
     std::optional<RosterJoinOffer> getRosterJoinOfferForTopic(uint32_t topicId) const;
+    std::optional<GuildMembershipOffer> getGuildMembershipOfferForTopic(uint32_t topicId) const;
     std::optional<ResolvedTopic> getTopicById(uint32_t topicId) const;
 
 private:
     std::unordered_map<uint32_t, RosterJoinOffer> m_rosterJoinOffersByTopicId;
+    std::unordered_map<uint32_t, GuildMembershipOffer> m_guildMembershipOffersByTopicId;
     std::unordered_map<uint32_t, NpcEntry> m_npcs;
     std::unordered_map<uint32_t, NpcGreetingEntry> m_greetings;
     std::unordered_map<uint32_t, NpcTopicEntry> m_topicsById;

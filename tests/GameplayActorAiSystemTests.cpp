@@ -235,6 +235,31 @@ TEST_CASE("shared actor service lets hostile actors target party controlled acto
     CHECK(result.engagementRange > 0.0f);
 }
 
+TEST_CASE("shared actor service respects runtime party hostility overrides")
+{
+    MonsterTable monsterTable = {};
+    REQUIRE(monsterTable.loadStatsFromRows({makeActorServiceMonsterStatsRow(1)}));
+    REQUIRE(monsterTable.loadRelationsFromRows({
+        {"", "Party", "Monster 1"},
+        {"Party", "0", "3"},
+        {"Monster 1", "0", "0"},
+    }));
+
+    GameplayActorService service = {};
+    service.bindTables(&monsterTable, nullptr);
+
+    OpenYAMM::Game::GameplayActorTargetPolicyState actor = {};
+    actor.monsterId = 1;
+    actor.relationMonsterId = 1;
+    actor.hostileToParty = false;
+
+    CHECK_EQ(service.partyEngagementRange(actor), 0.0f);
+
+    actor.hostileToParty = true;
+
+    CHECK(service.partyEngagementRange(actor) > 0.0f);
+}
+
 TEST_CASE("shared actor AI exposes a melee recovery window after the attack animation")
 {
     GameplayActorAiSystem system;

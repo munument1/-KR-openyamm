@@ -2,13 +2,14 @@ screen: MainMenu
 
 elements:
   - id: MainMenuRoot
+    anchor_space: screen
     anchor: center
-    width: 640
+    width: 854
     height: 480
     children:
       - id: MainMenuBackground
         anchor: top_left
-        width: 640
+        width: 854
         height: 480
         z_index: 0
         asset:
@@ -23,9 +24,9 @@ elements:
         z_index: 20
 
       - id: MainMenuNewGameButton
-        anchor: top_left
-        offset_x: 515
-        offset_y: 203
+        anchor: top_right
+        offset_x: -20
+        offset_y: 123
         width: 106
         height: 32
         z_index: 20
@@ -36,9 +37,9 @@ elements:
           pressed: T_new_dn
 
       - id: MainMenuLoadGameButton
-        anchor: top_left
-        offset_x: 515
-        offset_y: 241
+        anchor: top_right
+        offset_x: -20
+        offset_y: 161
         width: 106
         height: 32
         z_index: 20
@@ -49,9 +50,9 @@ elements:
           pressed: T_load_dn
 
       - id: MainMenuCreditsButton
-        anchor: top_left
-        offset_x: 515
-        offset_y: 279
+        anchor: top_right
+        offset_x: -20
+        offset_y: 199
         width: 106
         height: 32
         z_index: 20
@@ -62,9 +63,9 @@ elements:
           pressed: T_cred_dn
 
       - id: MainMenuQuitButton
-        anchor: top_left
-        offset_x: 515
-        offset_y: 317
+        anchor: top_right
+        offset_x: -20
+        offset_y: 237
         width: 106
         height: 32
         z_index: 20

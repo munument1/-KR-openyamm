@@ -16,7 +16,7 @@ Paladin	-	C	C	C	-	-	F	-	C	C	-	-	-	-	-	-	F	-	-	-	-	-	-	-	-	C	C	C	-	-	-	-	-	-	-	C	
 Crusader	-	C	C	C	-	-	F	-	C	C	-	-	-	-	-	-	F	-	-	-	-	-	-	-	-	C	C	C	-	-	-	-	-	-	-	C	-	-	-
 Ranger	-	C	C	F	-	C	-	-	-	C	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	-	F	-	C	C	-	C	C	-	-	-
 Hunter	-	C	C	F	-	C	-	-	-	C	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	-	F	-	C	C	-	C	C	-	-	-
-Thief	-	C	F	-	-	C	-	-	-	F	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	C	-	-	-	C	-	C	C	-	-	-	-	C	C
+Thief	-	-	F	-	-	C	-	-	-	C	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	C	-	-	-	C	-	C	C	-	-	-	F	C	C
 Rogue	-	C	F	-	-	C	-	-	-	F	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	C	-	-	-	C	-	C	C	-	-	-	-	C	C
 Troll	C	C	-	C	-	C	F	-	-	C	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	C	C	-	-	F	-	-	-	C	C	-	-	-
 Vampire	-	F	C	C	-	-	-	-	C	C	-	-	-	-	-	-	-	C	-	-	-	-	F	-	-	-	-	-	-	-	C	C	-	-	C	-	-	C	-
@@ -24,3 +24,5 @@ Sorcerer	F	-	C	-	-	-	-	-	-	C	-	-	F	C	C	C	-	-	-	-	-	-	-	-	C	C	-	-	-	-	-	-	-	-	C	-
 Necromancer	F	-	C	-	-	-	-	-	-	C	-	-	C	C	C	-	-	-	-	-	F	-	-	-	-	-	-	-	C	-	-	-	-	-	C	-	-	C	C
 n/u	F	-	C	-	-	-	-	-	-	C	-	-	C	C	C	-	-	-	-	-	F	-	-	-	-	-	-	-	C	-	-	-	-	-	C	-	-	C	C
 Peasant	-	-	-	-	-	C	-	-	-	F	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	F	-	-	-	-	-	-	-	-	C
+High Priest	-	-	-	-	-	C	-	-	-	C	-	-	-	-	-	-	-	-	-	F	F	-	-	-	-	-	-	-	-	C	-	-	-	-	-	-	-	-	C
+Master Wizard	-	-	-	-	-	C	-	-	-	C	-	-	-	-	-	-	-	-	-	F	F	-	-	-	-	-	-	-	-	C	-	-	-	-	-	-	-	-	C

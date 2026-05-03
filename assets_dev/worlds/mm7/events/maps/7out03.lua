@@ -33,8 +33,8 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    if not IsQBitSet(QBit(184)) then -- Balthazar Town Portal
-        SetQBit(QBit(184)) -- Balthazar Town Portal
+    if not IsQBitSet(QBit(720)) then -- TP Buff City of Steadwick
+        SetQBit(QBit(720)) -- TP Buff City of Steadwick
         evt.SetMonGroupBit(57, MonsterBits.Hostile, 1)
         evt.SetMonGroupBit(58, MonsterBits.Hostile, 1)
         return

@@ -18,6 +18,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
+#include "game/tables/MmergeBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/ObjectTable.h"
 #include "game/tables/PortraitFrameTable.h"
@@ -74,6 +75,11 @@ public:
     const PortraitFxEventTable &portraitFxEventTable() const;
     const FaceAnimationTable &faceAnimationTable() const;
     const TransitionTable &transitionTable() const;
+    const MmergeTownPortalSwitchTable &mmergeTownPortalSwitchTable() const;
+    const MmergeNewsTopicTable &mmergeNewsAreaTopicTable() const;
+    const MmergeNpcProfessionTable &mmergeNpcProfessionTable() const;
+    const MmergeNewsProfessionTopicTable &mmergeNewsProfessionTopicTable() const;
+    const MmergeMonsterPortraitTable &mmergeMonsterPortraitTable() const;
 
 private:
     const MapStats *m_pMapStats = nullptr;
@@ -106,5 +112,10 @@ private:
     const PortraitFxEventTable *m_pPortraitFxEventTable = nullptr;
     const FaceAnimationTable *m_pFaceAnimationTable = nullptr;
     const TransitionTable *m_pTransitionTable = nullptr;
+    const MmergeTownPortalSwitchTable *m_pMmergeTownPortalSwitchTable = nullptr;
+    const MmergeNewsTopicTable *m_pMmergeNewsAreaTopicTable = nullptr;
+    const MmergeNpcProfessionTable *m_pMmergeNpcProfessionTable = nullptr;
+    const MmergeNewsProfessionTopicTable *m_pMmergeNewsProfessionTopicTable = nullptr;
+    const MmergeMonsterPortraitTable *m_pMmergeMonsterPortraitTable = nullptr;
 };
 } // namespace OpenYAMM::Game

@@ -23,6 +23,11 @@ constexpr const char *WorldsDevelopmentRootName = "worlds";
 constexpr const char *DefaultActiveWorldId = "mm8";
 constexpr const char *IconsDirectoryName = "icons";
 constexpr const char *AudioDirectoryName = "audio";
+constexpr const char *VideosDirectoryName = "videos";
+constexpr const char *MapsDirectoryName = "maps";
+constexpr const char *EventsDirectoryName = "events";
+constexpr const char *TexturesDirectoryName = "textures";
+constexpr const char *LegacyDirectoryName = "_legacy";
 
 constexpr std::array<const char *, 7> TieredAssetDirectories = {
     "Data/bitmaps",
@@ -403,6 +408,11 @@ bool AssetFileSystem::mountDevelopmentPackageRoots(
         return false;
     }
 
+    if (!mountMergedWorldMapRuntimeRoots(assetRoot, normalizedWorldId))
+    {
+        return false;
+    }
+
     if (!validateMergedIconRoots(assetRoot))
     {
         return false;
@@ -419,6 +429,11 @@ bool AssetFileSystem::mountDevelopmentPackageRoots(
     }
 
     if (!mountMergedWorldAudioRoots(assetRoot, normalizedWorldId))
+    {
+        return false;
+    }
+
+    if (!mountMergedWorldVideoRoots(assetRoot, normalizedWorldId))
     {
         return false;
     }
@@ -578,6 +593,23 @@ bool AssetFileSystem::mountMergedWorldAudioRoots(
     const std::string &activeWorldId)
 {
     return mountMergedWorldPackageRoots(assetRoot, activeWorldId, AudioDirectoryName);
+}
+
+bool AssetFileSystem::mountMergedWorldVideoRoots(
+    const std::filesystem::path &assetRoot,
+    const std::string &activeWorldId)
+{
+    return mountMergedWorldPackageRoots(assetRoot, activeWorldId, VideosDirectoryName);
+}
+
+bool AssetFileSystem::mountMergedWorldMapRuntimeRoots(
+    const std::filesystem::path &assetRoot,
+    const std::string &activeWorldId)
+{
+    return mountMergedWorldPackageRoots(assetRoot, activeWorldId, MapsDirectoryName)
+        && mountMergedWorldPackageRoots(assetRoot, activeWorldId, EventsDirectoryName)
+        && mountMergedWorldPackageRoots(assetRoot, activeWorldId, TexturesDirectoryName)
+        && mountMergedWorldPackageRoots(assetRoot, activeWorldId, LegacyDirectoryName);
 }
 
 bool AssetFileSystem::exists(const std::string &virtualPath) const

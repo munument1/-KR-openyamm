@@ -4868,13 +4868,7 @@ void IndoorRenderer::renderDecorationBillboards(
             return billboard.spriteId;
         }
 
-        const uint32_t overrideKey =
-            billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
-
-        if (overrideKey == 0)
-        {
-            return billboard.spriteId;
-        }
+        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
         const auto overrideIterator = eventRuntimeState->spriteOverrides.find(overrideKey);
 

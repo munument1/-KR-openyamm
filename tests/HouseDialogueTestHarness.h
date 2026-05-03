@@ -105,11 +105,12 @@ public:
         uint32_t npcId,
         uint32_t newsId,
         const std::string &titleOverride,
-        const std::string &newsText)
+        const std::string &newsText,
+        uint32_t participantPictureId = 0)
     {
         Game::GameplayDialogController::Context context = buildContext();
         const Game::GameplayDialogController::Result result =
-            m_controller.openNpcNews(context, npcId, newsId, titleOverride, newsText);
+            m_controller.openNpcNews(context, npcId, newsId, titleOverride, newsText, participantPictureId);
         return presentPendingDialog(result.previousMessageCount, result.allowNpcFallbackContent);
     }
 

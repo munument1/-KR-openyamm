@@ -1267,13 +1267,7 @@ uint16_t OutdoorInteractionController::resolveDecorationBillboardSpriteId(
         return spriteId;
     }
 
-    const uint32_t overrideKey =
-        billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
-
-    if (overrideKey == 0)
-    {
-        return spriteId;
-    }
+    const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
     const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -1550,7 +1544,9 @@ GameplayDialogController::Context OutdoorInteractionController::createGameplayDi
             screenRuntime.activeEventDialog(),
             view.m_pOutdoorWorldRuntime)
             == GameplayHudScreenState::Dialogue,
-        &screenRuntime);
+        &screenRuntime,
+        &view.data().mmergeNpcProfessionTable(),
+        &view.data().mmergeNewsProfessionTopicTable());
 }
 
 void OutdoorInteractionController::executeActiveDialogAction(OutdoorGameView &view)
@@ -3360,13 +3356,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 return spriteId;
             }
 
-            const uint32_t overrideKey =
-                billboard.eventIdPrimary != 0 ? billboard.eventIdPrimary : billboard.eventIdSecondary;
-
-            if (overrideKey == 0)
-            {
-                return spriteId;
-            }
+            const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
 
             const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -4415,12 +4405,16 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
             inspectHit.name,
             inspectHit.actorGroup,
             *pEventRuntimeState,
-            view.data().npcDialogTable()
+            view.data().npcDialogTable(),
+            &view.data().mmergeMonsterPortraitTable(),
+            view.m_map ? &*view.m_map : nullptr,
+            &view.data().mmergeNewsAreaTopicTable()
         );
 
         if (resolution)
         {
-            const std::optional<std::string> newsText = view.data().npcDialogTable().getNewsText(resolution->newsId);
+            const std::optional<std::string> newsText =
+                view.data().npcDialogTable().getNewsDialogText(resolution->newsId);
 
             if (!newsText || newsText->empty())
             {
@@ -4435,7 +4429,8 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
                 resolution->npcId,
                 resolution->newsId,
                 inspectHit.name,
-                *newsText);
+                *newsText,
+                resolution->portraitPictureId);
             pEventRuntimeState->lastActivationResult =
                 "npc news group " + std::to_string(inspectHit.actorGroup) + " engaged";
 
@@ -4818,7 +4813,10 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
         inspectHit.name,
         inspectHit.actorGroup,
         *pEventRuntimeState,
-        view.data().npcDialogTable()
+        view.data().npcDialogTable(),
+        &view.data().mmergeMonsterPortraitTable(),
+        view.m_map ? &*view.m_map : nullptr,
+        &view.data().mmergeNewsAreaTopicTable()
     ).has_value();
 }
 

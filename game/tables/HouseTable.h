@@ -9,6 +9,10 @@
 
 namespace OpenYAMM::Game
 {
+class MapStats;
+class MmergeHouseRuleTable;
+class MmergeTransportLocationTable;
+
 struct HouseEntry
 {
     struct TransportRoute
@@ -27,6 +31,7 @@ struct HouseEntry
     };
 
     uint32_t id = 0;
+    uint32_t typeIndex = 0;
     uint32_t mapId = 0;
     uint32_t proprietorPictureId = 0;
     uint32_t roomSoundId = 0;
@@ -56,12 +61,24 @@ class HouseTable
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadAnimationRows(const std::vector<std::vector<std::string>> &rows);
+    bool loadAnimationRows(
+        const std::vector<std::vector<std::string>> &rows,
+        const std::vector<std::vector<std::string>> &movieRows);
     bool loadTransportScheduleRows(const std::vector<std::vector<std::string>> &rows);
+    bool applyMmergeTransportRoutes(
+        const MmergeHouseRuleTable &houseRules,
+        const MmergeTransportLocationTable &transportLocations,
+        const MapStats &mapStats
+    );
     std::optional<std::string> getName(uint32_t houseId) const;
     const HouseEntry *get(uint32_t houseId) const;
     const std::unordered_map<uint32_t, HouseEntry> &entries() const;
 
 private:
+    bool loadAnimationRows(
+        const std::vector<std::vector<std::string>> &rows,
+        const std::unordered_map<uint32_t, std::string> &movieStemsByAnimationId);
+
     std::unordered_map<uint32_t, HouseEntry> m_entries;
 };
 }

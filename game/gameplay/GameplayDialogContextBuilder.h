@@ -29,7 +29,9 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
     const RosterTable *pRosterTable,
     const ArcomageLibrary *pArcomageLibrary,
     bool dialogueHudActive,
-    GameplayScreenRuntime *pScreenRuntime)
+    GameplayScreenRuntime *pScreenRuntime,
+    const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr,
+    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr)
 {
     GameplayDialogController::Context context = {
         uiController,
@@ -48,6 +50,8 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
         pMapEntries,
         pRosterTable,
         pArcomageLibrary,
+        pNpcProfessionTable,
+        pNewsProfessionTopicTable,
         dialogueHudActive
     };
     return context;

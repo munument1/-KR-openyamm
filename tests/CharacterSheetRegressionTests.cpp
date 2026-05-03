@@ -98,8 +98,8 @@ TEST_CASE("dragon character sheet uses dragon ability attack and spell points")
     const OpenYAMM::Game::CharacterSheetSummary summary =
         OpenYAMM::Game::GameMechanics::buildCharacterSheetSummary(dragon, &gameData.itemTable);
 
-    CHECK_EQ(dragon.maxSpellPoints, 25);
-    CHECK_EQ(summary.spellPoints.maximum, 25);
+    CHECK_EQ(dragon.maxSpellPoints, 45);
+    CHECK_EQ(summary.spellPoints.maximum, 45);
     CHECK_EQ(summary.combat.attack, 9);
     REQUIRE(summary.combat.shoot.has_value());
     CHECK_EQ(*summary.combat.shoot, 9);
@@ -121,10 +121,10 @@ TEST_CASE("base resource formulas include bodybuilding and meditation skill bonu
 
     CHECK_EQ(OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxHealth(
         dragon,
-        &gameData.classMultiplierTable), 90);
+        &gameData.classMultiplierTable), 150);
     CHECK_EQ(OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxSpellPoints(
         dragon,
-        &gameData.classMultiplierTable), 45);
+        &gameData.classMultiplierTable), 65);
 }
 
 TEST_CASE("class multiplier table drives promoted class resource progression")
@@ -141,8 +141,9 @@ TEST_CASE("class multiplier table drives promoted class resource progression")
     REQUIRE(pDragon != nullptr);
     REQUIRE(pGreatWyrm != nullptr);
     CHECK_EQ(pKnight->healthPerLevel, 5);
-    CHECK_EQ(pChampion->healthPerLevel, 9);
-    CHECK_GT(pGreatWyrm->healthPerLevel, pDragon->healthPerLevel);
+    CHECK_EQ(pChampion->healthPerLevel, 8);
+    CHECK_EQ(pDragon->healthPerLevel, 10);
+    CHECK_EQ(pGreatWyrm->healthPerLevel, 10);
     CHECK_GT(pGreatWyrm->manaPerLevel, pDragon->manaPerLevel);
 
     OpenYAMM::Game::Character character = {};
@@ -153,7 +154,7 @@ TEST_CASE("class multiplier table drives promoted class resource progression")
 
     CHECK_EQ(OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxHealth(
         character,
-        &gameData.classMultiplierTable), 49);
+        &gameData.classMultiplierTable), 43);
 }
 
 TEST_CASE("character sheet primary stats do not double count equipment bonuses")

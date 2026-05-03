@@ -3600,7 +3600,8 @@ void GameplayPartyOverlayRenderer::renderUtilitySpellOverlay(GameplayScreenRunti
     const float mouseY = pointerInput.mouseY;
     const bool isLeftMousePressed = pointerInput.isLeftMousePressed;
 
-    if (context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::TownPortal)
+    if (context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::TownPortal
+        || context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::DimensionDoor)
     {
         if (!context.ensureTownPortalDestinationsLoaded())
         {
@@ -3608,24 +3609,9 @@ void GameplayPartyOverlayRenderer::renderUtilitySpellOverlay(GameplayScreenRunti
         }
 
         const Party *pParty = context.partyReadOnly();
-        const std::vector<std::string> orderedLayoutIds = context.sortedHudLayoutIdsForScreen("TownPortal");
-        const auto findDestinationByLayoutId =
-            [&context](const std::string &layoutId) -> const GameplayTownPortalDestination *
-            {
-                const std::string normalizedLayoutId = toLowerCopy(layoutId);
-
-                for (const GameplayTownPortalDestination &destination : context.townPortalDestinations())
-                {
-                    if (toLowerCopy(destination.buttonLayoutId) == normalizedLayoutId)
-                    {
-                        return &destination;
-                    }
-                }
-
-                return nullptr;
-            };
         const auto resolveLayout =
-            [&context, width, height](const std::string &layoutId) -> std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement>
+            [&context, width, height](
+                const std::string &layoutId) -> std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement>
             {
                 const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(layoutId);
 
@@ -3636,58 +3622,122 @@ void GameplayPartyOverlayRenderer::renderUtilitySpellOverlay(GameplayScreenRunti
 
                 return context.resolveHudLayoutElement(layoutId, width, height, pLayout->width, pLayout->height);
             };
+        const auto renderTexture =
+            [&context](const std::string &textureName, const GameplayScreenRuntime::ResolvedHudLayoutElement &resolved)
+            {
+                if (textureName.empty())
+                {
+                    return;
+                }
+
+                const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
+                    context.gameplayUiRuntime().ensureHudTextureLoaded(textureName);
+
+                if (!texture.has_value())
+                {
+                    return;
+                }
+
+                context.submitHudTexturedQuad(*texture, resolved.x, resolved.y, resolved.width, resolved.height);
+            };
 
         std::string hoveredDestinationLabel;
+        const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> backgroundResolved =
+            resolveLayout("TownPortalBackground");
 
-        for (const std::string &layoutId : orderedLayoutIds)
+        if (!backgroundResolved.has_value())
         {
-            const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+            return;
+        }
 
-            if (pLayout == nullptr || !pLayout->visible)
-            {
-                continue;
-            }
+        renderTexture(context.townPortalBackgroundTextureName(), *backgroundResolved);
 
-            const GameplayTownPortalDestination *pDestination = findDestinationByLayoutId(layoutId);
+        const float townPortalScale = backgroundResolved->width / 640.0f;
 
-            if (pDestination != nullptr && !isUtilityTownPortalDestinationUnlocked(pParty, *pDestination))
-            {
-                continue;
-            }
+        const GameplayUtilitySpellPointerTarget pressedTarget =
+            context.interactionState().utilitySpellPressedTarget;
 
-            const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved = resolveLayout(layoutId);
+        for (size_t destinationIndex = 0; destinationIndex < context.townPortalDestinations().size(); ++destinationIndex)
+        {
+            const GameplayTownPortalDestination &destination = context.townPortalDestinations()[destinationIndex];
 
-            if (!resolved.has_value())
-            {
-                continue;
-            }
-
-            if (pDestination != nullptr
-                && hoveredDestinationLabel.empty()
-                && context.isPointerInsideResolvedElement(*resolved, mouseX, mouseY))
-            {
-                hoveredDestinationLabel = pDestination->label;
-            }
-
-            const std::string *pAssetName =
-                pLayout->interactive
-                    ? context.resolveInteractiveAssetName(*pLayout, *resolved, mouseX, mouseY, isLeftMousePressed)
-                    : &pLayout->primaryAsset;
-
-            if (pAssetName == nullptr || pAssetName->empty())
+            if (!isUtilityTownPortalDestinationUnlocked(pParty, destination))
             {
                 continue;
             }
 
             const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
-                context.gameplayUiRuntime().ensureHudTextureLoaded(*pAssetName);
+                context.gameplayUiRuntime().ensureHudTextureLoaded(destination.iconTextureName);
 
             if (!texture.has_value())
             {
                 continue;
             }
 
-            context.submitHudTexturedQuad(*texture, resolved->x, resolved->y, resolved->width, resolved->height);
+            const uint32_t iconWidth =
+                destination.iconWidth != 0 ? destination.iconWidth : static_cast<uint32_t>(texture->width);
+            const uint32_t iconHeight =
+                destination.iconHeight != 0 ? destination.iconHeight : static_cast<uint32_t>(texture->height);
+            const GameplayScreenRuntime::ResolvedHudLayoutElement drawResolved = {
+                backgroundResolved->x + static_cast<float>(destination.iconX) * townPortalScale,
+                backgroundResolved->y + static_cast<float>(destination.iconY) * townPortalScale,
+                static_cast<float>(iconWidth) * townPortalScale,
+                static_cast<float>(iconHeight) * townPortalScale,
+                townPortalScale};
+            const int32_t hitX = destination.hitWidth != 0 ? destination.hitX : destination.iconX;
+            const int32_t hitY = destination.hitHeight != 0 ? destination.hitY : destination.iconY;
+            const uint32_t hitWidth = destination.hitWidth != 0 ? destination.hitWidth : iconWidth;
+            const uint32_t hitHeight = destination.hitHeight != 0 ? destination.hitHeight : iconHeight;
+            const GameplayScreenRuntime::ResolvedHudLayoutElement hitResolved = {
+                backgroundResolved->x + static_cast<float>(hitX) * townPortalScale,
+                backgroundResolved->y + static_cast<float>(hitY) * townPortalScale,
+                static_cast<float>(hitWidth) * townPortalScale,
+                static_cast<float>(hitHeight) * townPortalScale,
+                townPortalScale};
+
+            const bool isHovered = context.isPointerInsideResolvedElement(hitResolved, mouseX, mouseY);
+
+            if (hoveredDestinationLabel.empty() && isHovered)
+            {
+                hoveredDestinationLabel = destination.label;
+            }
+
+            const bool isPressed =
+                isLeftMousePressed
+                && pressedTarget.type == GameplayUtilitySpellPointerTargetType::TownPortalDestination
+                && pressedTarget.index == destinationIndex;
+
+            if (!isHovered && !isPressed)
+            {
+                continue;
+            }
+
+            context.submitHudTexturedQuad(*texture, drawResolved.x, drawResolved.y, drawResolved.width, drawResolved.height);
+        }
+
+        const GameplayScreenRuntime::HudLayoutElement *pCloseLayout =
+            context.findHudLayoutElement("TownPortalCloseButton");
+
+        if (pCloseLayout != nullptr && pCloseLayout->visible)
+        {
+            const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> closeResolved =
+                resolveLayout("TownPortalCloseButton");
+
+            if (closeResolved.has_value())
+            {
+                const std::string *pAssetName =
+                    context.resolveInteractiveAssetName(
+                        *pCloseLayout,
+                        *closeResolved,
+                        mouseX,
+                        mouseY,
+                        isLeftMousePressed);
+
+                if (pAssetName != nullptr)
+                {
+                    renderTexture(*pAssetName, *closeResolved);
+                }
+            }
         }
 
         if (!hoveredDestinationLabel.empty())

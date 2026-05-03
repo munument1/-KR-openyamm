@@ -33,6 +33,8 @@ namespace
 {
 constexpr uint64_t PartyPortraitDoubleClickWindowMs = 500;
 constexpr uint64_t CharacterDismissConfirmWindowMs = 2000;
+constexpr uint32_t DaderossLetterDeliveredQBit = 4;
+constexpr uint32_t EmeraldIslandFinishedQBit = 519;
 
 struct HudPointerState
 {
@@ -91,6 +93,16 @@ struct CharacterSkillUiData
     std::vector<CharacterSkillUiRow> magicRows;
     std::vector<CharacterSkillUiRow> armorRows;
     std::vector<CharacterSkillUiRow> miscRows;
+};
+
+struct DimensionDoorLanding
+{
+    std::string mapName;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
+    std::optional<int32_t> directionDegrees;
+    bool useMapStartPosition = false;
 };
 
 constexpr const char *WeaponSkillNames[] = {
@@ -248,6 +260,108 @@ bool isTownPortalDestinationUnlocked(
     }
 
     return pParty->hasQuestBit(destination.unlockQBitId);
+}
+
+bool isTownPortalOverlayMode(GameplayUiController::UtilitySpellOverlayMode mode)
+{
+    return mode == GameplayUiController::UtilitySpellOverlayMode::TownPortal
+        || mode == GameplayUiController::UtilitySpellOverlayMode::DimensionDoor;
+}
+
+bool isDimensionDoorOverlayMode(GameplayUiController::UtilitySpellOverlayMode mode)
+{
+    return mode == GameplayUiController::UtilitySpellOverlayMode::DimensionDoor;
+}
+
+void applyDimensionDoorCastOverrides(PartySpellCastRequest &request)
+{
+    request.skillLevelOverride = 10;
+    request.skillMasteryOverride = SkillMastery::Grandmaster;
+    request.spendMana = false;
+    request.applyRecovery = false;
+    request.utilityMapMoveUseFullscreenLoading = true;
+}
+
+std::optional<DimensionDoorLanding> resolveDimensionDoorLanding(
+    const Party *pParty,
+    const GameplayTownPortalDestination &destination)
+{
+    if (destination.id == "TPGlobal:0")
+    {
+        if (pParty != nullptr && pParty->hasQuestBit(DaderossLetterDeliveredQBit))
+        {
+            return DimensionDoorLanding{
+                "out02.odm",
+                10296,
+                -12283,
+                1,
+                0,
+                false};
+        }
+
+        return DimensionDoorLanding{
+            "out01.odm",
+            0,
+            0,
+            0,
+            std::nullopt,
+            true};
+    }
+
+    if (destination.id == "TPGlobal:2")
+    {
+        if (pParty != nullptr && pParty->hasQuestBit(EmeraldIslandFinishedQBit))
+        {
+            return DimensionDoorLanding{
+                "7out02.odm",
+                -16832,
+                12512,
+                372,
+                0,
+                false};
+        }
+
+        return DimensionDoorLanding{
+            "7out01.odm",
+            12552,
+            800,
+            193,
+            90,
+            false};
+    }
+
+    if (destination.id == "TPGlobal:4")
+    {
+        return DimensionDoorLanding{
+            "oute3.odm",
+            -9728,
+            -11319,
+            160,
+            90,
+            false};
+    }
+
+    return std::nullopt;
+}
+
+void applyDimensionDoorLandingOverride(
+    PartySpellCastRequest &request,
+    const Party *pParty,
+    const GameplayTownPortalDestination &destination)
+{
+    const std::optional<DimensionDoorLanding> landing = resolveDimensionDoorLanding(pParty, destination);
+
+    if (!landing.has_value())
+    {
+        return;
+    }
+
+    request.utilityMapMoveMapName = landing->mapName;
+    request.utilityMapMoveX = landing->x;
+    request.utilityMapMoveY = landing->y;
+    request.utilityMapMoveZ = landing->z;
+    request.utilityMapMoveDirectionDegrees = landing->directionDegrees;
+    request.utilityMapMoveUseMapStartPosition = landing->useMapStartPosition;
 }
 
 std::optional<std::pair<int, int>> computeHeldInventoryPlacement(
@@ -644,6 +758,11 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
     const auto resolveSpellName =
         [&context]() -> std::string
         {
+            if (isDimensionDoorOverlayMode(context.utilitySpellOverlayReadOnly().mode))
+            {
+                return "Dimension Door";
+            }
+
             if (context.spellTable() == nullptr)
             {
                 return "Spell";
@@ -654,7 +773,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             return pEntry != nullptr && !pEntry->name.empty() ? pEntry->name : "Spell";
         };
 
-    if (context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::TownPortal)
+    if (isTownPortalOverlayMode(context.utilitySpellOverlayReadOnly().mode))
     {
         if (!context.ensureTownPortalDestinationsLoaded())
         {
@@ -665,23 +784,8 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
         }
 
         const Party *pParty = context.partyReadOnly();
-        const auto findDestinationIndexByLayoutId =
-            [&context](const std::string &layoutId) -> std::optional<size_t>
-            {
-                const std::string normalizedLayoutId = toLowerCopy(layoutId);
-
-                for (size_t index = 0; index < context.townPortalDestinations().size(); ++index)
-                {
-                    if (toLowerCopy(context.townPortalDestinations()[index].buttonLayoutId) == normalizedLayoutId)
-                    {
-                        return index;
-                    }
-                }
-
-                return std::nullopt;
-            };
         const auto findTownPortalTarget =
-            [&context, screenWidth, screenHeight, pParty, &findDestinationIndexByLayoutId](
+            [&context, screenWidth, screenHeight, pParty](
                 float pointerX,
                 float pointerY) -> GameplayUtilitySpellPointerTarget
             {
@@ -705,47 +809,76 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                     }
                 }
 
-                for (const std::string &layoutId : context.sortedHudLayoutIdsForScreen("TownPortal"))
+                const GameplayScreenRuntime::HudLayoutElement *pBackgroundLayout =
+                    context.findHudLayoutElement("TownPortalBackground");
+
+                if (pBackgroundLayout == nullptr || !pBackgroundLayout->visible)
                 {
-                    const std::optional<size_t> destinationIndex = findDestinationIndexByLayoutId(layoutId);
+                    return {};
+                }
 
-                    if (!destinationIndex.has_value())
-                    {
-                        continue;
-                    }
+                const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> backgroundResolved =
+                    context.resolveHudLayoutElement(
+                        "TownPortalBackground",
+                        screenWidth,
+                        screenHeight,
+                        pBackgroundLayout->width,
+                        pBackgroundLayout->height);
 
-                    if (*destinationIndex >= context.townPortalDestinations().size())
-                    {
-                        continue;
-                    }
+                if (!backgroundResolved.has_value())
+                {
+                    return {};
+                }
 
-                    const GameplayTownPortalDestination &destination = context.townPortalDestinations()[*destinationIndex];
+                const float townPortalScale = backgroundResolved->width / 640.0f;
+
+                for (size_t destinationIndex = 0;
+                     destinationIndex < context.townPortalDestinations().size();
+                     ++destinationIndex)
+                {
+                    const GameplayTownPortalDestination &destination =
+                        context.townPortalDestinations()[destinationIndex];
 
                     if (!isTownPortalDestinationUnlocked(pParty, destination))
                     {
                         continue;
                     }
 
-                    const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+                    const int32_t hitX = destination.hitWidth != 0 ? destination.hitX : destination.iconX;
+                    const int32_t hitY = destination.hitHeight != 0 ? destination.hitY : destination.iconY;
+                    uint32_t hitWidth = destination.hitWidth != 0 ? destination.hitWidth : destination.iconWidth;
+                    uint32_t hitHeight = destination.hitHeight != 0 ? destination.hitHeight : destination.iconHeight;
 
-                    if (pLayout == nullptr || !pLayout->visible)
+                    if (hitWidth == 0 || hitHeight == 0)
+                    {
+                        int textureWidth = 0;
+                        int textureHeight = 0;
+
+                        if (!context.gameplayUiRuntime().ensureHudTextureDimensions(
+                                destination.iconTextureName,
+                                textureWidth,
+                                textureHeight))
+                        {
+                            continue;
+                        }
+
+                        hitWidth = static_cast<uint32_t>(textureWidth);
+                        hitHeight = static_cast<uint32_t>(textureHeight);
+                    }
+
+                    const GameplayScreenRuntime::ResolvedHudLayoutElement resolved = {
+                        backgroundResolved->x + static_cast<float>(hitX) * townPortalScale,
+                        backgroundResolved->y + static_cast<float>(hitY) * townPortalScale,
+                        static_cast<float>(hitWidth) * townPortalScale,
+                        static_cast<float>(hitHeight) * townPortalScale,
+                        townPortalScale};
+
+                    if (!context.isPointerInsideResolvedElement(resolved, pointerX, pointerY))
                     {
                         continue;
                     }
 
-                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved = context.resolveHudLayoutElement(
-                        layoutId,
-                        screenWidth,
-                        screenHeight,
-                        pLayout->width,
-                        pLayout->height);
-
-                    if (!resolved.has_value() || !context.isPointerInsideResolvedElement(*resolved, pointerX, pointerY))
-                    {
-                        continue;
-                    }
-
-                    return {GameplayUtilitySpellPointerTargetType::TownPortalDestination, *destinationIndex};
+                    return {GameplayUtilitySpellPointerTargetType::TownPortalDestination, destinationIndex};
                 }
 
                 return {};
@@ -757,8 +890,11 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
         if (hoveredTarget.type == GameplayUtilitySpellPointerTargetType::TownPortalDestination
             && hoveredTarget.index < context.townPortalDestinations().size())
         {
+            const std::string actionLabel = isDimensionDoorOverlayMode(context.utilitySpellOverlayReadOnly().mode)
+                ? "Dimension Door to "
+                : "Town Portal to ";
             context.mutableStatusBarHoverText() =
-                "Town Portal to " + context.townPortalDestinations()[hoveredTarget.index].label;
+                actionLabel + context.townPortalDestinations()[hoveredTarget.index].label;
         }
         else
         {
@@ -771,7 +907,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             context.interactionState().utilitySpellPressedTarget,
             noneTarget,
             findTownPortalTarget,
-            [&context, &resolveSpellName](const GameplayUtilitySpellPointerTarget &target)
+            [&context, &resolveSpellName, pParty](const GameplayUtilitySpellPointerTarget &target)
             {
                 if (target.type == GameplayUtilitySpellPointerTargetType::Close)
                 {
@@ -801,6 +937,11 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                 request.utilityMapMoveDirectionDegrees = destination.directionDegrees;
                 request.utilityMapMoveUseMapStartPosition = destination.useMapStartPosition;
                 request.utilityStatusText = destination.label;
+                if (isDimensionDoorOverlayMode(context.utilitySpellOverlayReadOnly().mode))
+                {
+                    applyDimensionDoorCastOverrides(request);
+                    applyDimensionDoorLandingOverride(request, pParty, destination);
+                }
                 context.tryCastSpellRequest(request, resolveSpellName());
             });
         return;

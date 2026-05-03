@@ -624,4 +624,33 @@ float sampleOutdoorPlacementFloorHeight(const OutdoorMapData &outdoorMapData, fl
         std::numeric_limits<float>::max(),
         FloorCheckSlack).height;
 }
+
+float sampleOutdoorActorPlacementFloorHeight(
+    const OutdoorMapData &outdoorMapData,
+    float x,
+    float y,
+    float z,
+    float xySlack)
+{
+    const OutdoorSupportFloorSample support = sampleOutdoorSupportFloor(
+        outdoorMapData,
+        x,
+        y,
+        z,
+        std::numeric_limits<float>::max(),
+        xySlack);
+    const float terrainHeight = sampleOutdoorRenderedTerrainHeight(outdoorMapData, x, y);
+
+    if (support.fromBModel && z + GeometryEpsilon >= support.height)
+    {
+        return std::max(terrainHeight, support.height);
+    }
+
+    return terrainHeight;
+}
+
+float sampleOutdoorActorPlacementFloorHeight(const OutdoorMapData &outdoorMapData, float x, float y, float z)
+{
+    return sampleOutdoorActorPlacementFloorHeight(outdoorMapData, x, y, z, FloorCheckSlack);
+}
 }

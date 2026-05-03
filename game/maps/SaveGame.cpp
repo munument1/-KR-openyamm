@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 31;
+constexpr uint32_t SaveVersion = 34;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -29,6 +29,8 @@ constexpr uint32_t SaveVersionIndoorSaveLoadParity = 29;
 constexpr uint32_t SaveVersionCombatEffectState = 30;
 constexpr uint32_t SaveVersionGlobalNpcState = 31;
 constexpr uint32_t SaveVersionInputPromptAnswers = 32;
+constexpr uint32_t SaveVersionDialogueParticipantPicture = 33;
+constexpr uint32_t SaveVersionOutdoorJournalRevealMask = 34;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1348,6 +1350,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::PendingDialogueCo
     writeValue(writer, value.sourceId);
     writeValue(writer, value.hostHouseId);
     writeValue(writer, value.newsId);
+    writeValue(writer, value.participantPictureId);
     writeValue(writer, value.titleOverride);
     writeValue(writer, value.transitionMapMove);
     writeValue(writer, value.transitionTextId);
@@ -1360,6 +1363,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState::PendingDialogueContext &
         && readValue(reader, value.sourceId)
         && readValue(reader, value.hostHouseId)
         && readValue(reader, value.newsId)
+        && (reader.version() < SaveVersionDialogueParticipantPicture
+            || readValue(reader, value.participantPictureId))
         && readValue(reader, value.titleOverride)
         && (reader.version() < SaveVersionDungeonTransitionDialogue || readValue(reader, value.transitionMapMove))
         && (reader.version() < SaveVersionDungeonTransitionDialogue || readValue(reader, value.transitionTextId))
@@ -2411,6 +2416,8 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::Snapshot &value
     writeValue(writer, value.nextProjectileImpactId);
     writeValue(writer, value.projectiles);
     writeValue(writer, value.projectileImpacts);
+    writeValue(writer, value.fullyRevealedCells);
+    writeValue(writer, value.partiallyRevealedCells);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
@@ -2434,7 +2441,11 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
         && readValue(reader, value.nextProjectileId)
         && readValue(reader, value.nextProjectileImpactId)
         && readValue(reader, value.projectiles)
-        && readValue(reader, value.projectileImpacts);
+        && readValue(reader, value.projectileImpacts)
+        && (reader.version() < SaveVersionOutdoorJournalRevealMask
+            || readValue(reader, value.fullyRevealedCells))
+        && (reader.version() < SaveVersionOutdoorJournalRevealMask
+            || readValue(reader, value.partiallyRevealedCells));
 }
 
 void writeValue(BinaryWriter &writer, const IndoorSceneRuntime::Snapshot &value)

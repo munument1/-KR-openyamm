@@ -1545,6 +1545,55 @@ std::optional<uint16_t> findSyntheticTriggerEventId(
     return std::nullopt;
 }
 
+std::optional<uint8_t> firstSyntheticTriggerLabelStep(const EvtEvent &event)
+{
+    std::optional<uint8_t> firstStep;
+
+    for (const EvtInstruction &instruction : event.instructions)
+    {
+        if (instruction.opcode != EvtOpcode::OnMapReload && instruction.opcode != EvtOpcode::OnMapLeave)
+        {
+            continue;
+        }
+
+        if (!triggerNeedsSyntheticEntry(event, instruction.opcode))
+        {
+            continue;
+        }
+
+        if (!firstStep || instruction.step < *firstStep)
+        {
+            firstStep = instruction.step;
+        }
+    }
+
+    return firstStep;
+}
+
+LegacyLuaEvent directEventWithoutSyntheticTriggerContinuations(
+    const LegacyLuaEvent &event,
+    const EvtEvent &sourceEvent)
+{
+    const std::optional<uint8_t> firstTriggerStep = firstSyntheticTriggerLabelStep(sourceEvent);
+    if (!firstTriggerStep)
+    {
+        return event;
+    }
+
+    LegacyLuaEvent directEvent = event;
+    directEvent.instructions.erase(
+        std::remove_if(
+            directEvent.instructions.begin(),
+            directEvent.instructions.end(),
+            [firstTriggerStep](const LegacyLuaInstruction &instruction)
+            {
+                return instruction.step >= *firstTriggerStep;
+            }),
+        directEvent.instructions.end());
+
+    return directEvent;
+}
+
 std::optional<std::string> resolveInstructionText(
     const EvtInstruction &instruction,
     const StrTable &strTable,
@@ -10014,33 +10063,29 @@ void emitNormalEventFunction(
     const std::string title = buildGeneratedEventTitle(sourceEvent, strTable, lookups);
     const std::string_view registerFunction = tableName == LuaScopeGlobal ? "RegisterGlobalEvent" : "RegisterEvent";
     const std::string_view noOpFunction = tableName == LuaScopeGlobal ? "RegisterGlobalNoOpEvent" : "RegisterNoOpEvent";
-    const bool usesTriggerContinuation =
-        triggerNeedsSyntheticEntry(sourceEvent, EvtOpcode::OnMapReload)
-        || triggerNeedsSyntheticEntry(sourceEvent, EvtOpcode::OnMapLeave);
-
+    const LegacyLuaEvent directEvent = directEventWithoutSyntheticTriggerContinuations(event, sourceEvent);
     if (isHintOnlyLegacyEvent(sourceEvent))
     {
-        emitHintOnlyEventRegistration(stream, registerFunction, event.eventId, title, hint);
+        emitHintOnlyEventRegistration(stream, registerFunction, directEvent.eventId, title, hint);
         return;
     }
 
-    if (isNoOpEvent(event))
+    if (isNoOpEvent(directEvent))
     {
-        emitEventRegistrationHeader(stream, noOpFunction, event.eventId, title, hint);
+        emitEventRegistrationHeader(stream, noOpFunction, directEvent.eventId, title, hint);
         return;
     }
 
-    if (!usesTriggerContinuation)
     {
         std::ostringstream guardedStream;
 
         if (tryEmitReadableGuardedTwoArmEventFunction(
                 guardedStream,
                 registerFunction,
-                event.eventId,
+                directEvent.eventId,
                 title,
                 hint,
-                event,
+                directEvent,
                 lookups))
         {
             stream << guardedStream.str();
@@ -10048,22 +10093,21 @@ void emitNormalEventFunction(
         }
     }
 
-    if (!usesTriggerContinuation)
     {
         std::ostringstream readableStream;
 
         if (tryEmitReadablePromptEventFunction(
                 readableStream,
                 registerFunction,
-                event.eventId,
+                directEvent.eventId,
                 title,
                 hint,
-                event,
+                directEvent,
                 lookups))
         {
             const std::string readableLua = readableStream.str();
-            const std::vector<uint8_t> steps = collectNormalEventSteps(event);
-            const NormalEventCfgMetrics metrics = collectNormalEventCfgMetrics(event, steps);
+            const std::vector<uint8_t> steps = collectNormalEventSteps(directEvent);
+            const NormalEventCfgMetrics metrics = collectNormalEventCfgMetrics(directEvent, steps);
             const bool preferCompact = shouldPreferCompactNormalEvent(readableLua, metrics);
 
             if (preferCompact)
@@ -10073,10 +10117,10 @@ void emitNormalEventFunction(
                 if (tryEmitCompactCfgNormalEventFunction(
                         compactStream,
                         registerFunction,
-                        event.eventId,
+                        directEvent.eventId,
                         title,
                         hint,
-                        event,
+                        directEvent,
                         lookups))
                 {
                     stream << compactStream.str();
@@ -10092,22 +10136,21 @@ void emitNormalEventFunction(
         }
     }
 
-    if (!usesTriggerContinuation)
     {
         std::ostringstream readableStream;
 
         if (tryEmitReadableLinearEventFunction(
                 readableStream,
                 registerFunction,
-                event.eventId,
+                directEvent.eventId,
                 title,
                 hint,
-                event,
+                directEvent,
                 lookups))
         {
             const std::string readableLua = readableStream.str();
-            const std::vector<uint8_t> steps = collectNormalEventSteps(event);
-            const NormalEventCfgMetrics metrics = collectNormalEventCfgMetrics(event, steps);
+            const std::vector<uint8_t> steps = collectNormalEventSteps(directEvent);
+            const NormalEventCfgMetrics metrics = collectNormalEventCfgMetrics(directEvent, steps);
             const bool preferCompact = shouldPreferCompactNormalEvent(readableLua, metrics);
 
             if (preferCompact)
@@ -10117,10 +10160,10 @@ void emitNormalEventFunction(
                 if (tryEmitCompactCfgNormalEventFunction(
                         compactStream,
                         registerFunction,
-                        event.eventId,
+                        directEvent.eventId,
                         title,
                         hint,
-                        event,
+                        directEvent,
                         lookups))
                 {
                     stream << compactStream.str();
@@ -10136,19 +10179,19 @@ void emitNormalEventFunction(
         }
     }
 
-    const bool usesPromptContinuation = usesTriggerContinuation || !collectPromptContinuations(event).empty();
+    const bool usesPromptContinuation = !collectPromptContinuations(directEvent).empty();
 
     if (usesPromptContinuation)
     {
-        stream << registerFunction << "(" << event.eventId << ", " << luaQuoted(title)
+        stream << registerFunction << "(" << directEvent.eventId << ", " << luaQuoted(title)
                << ", function(continueStep)\n";
     }
     else
     {
-        emitEventRegistrationHeader(stream, registerFunction, event.eventId, title, hint);
+        emitEventRegistrationHeader(stream, registerFunction, directEvent.eventId, title, hint);
     }
 
-    const std::vector<uint8_t> steps = collectNormalEventSteps(event);
+    const std::vector<uint8_t> steps = collectNormalEventSteps(directEvent);
 
     for (size_t stepIndex = 0; stepIndex < steps.size(); ++stepIndex)
     {
@@ -10160,14 +10203,14 @@ void emitNormalEventFunction(
         stream << "    local function Step_" << static_cast<unsigned>(step) << "()\n";
         bool stepTerminated = false;
 
-        for (const LegacyLuaInstruction &instruction : event.instructions)
+        for (const LegacyLuaInstruction &instruction : directEvent.instructions)
         {
             if (instruction.step != step)
             {
                 continue;
             }
 
-            emitNormalInstruction(stream, event, instruction, lookups, nextStep, stepTerminated);
+            emitNormalInstruction(stream, directEvent, instruction, lookups, nextStep, stepTerminated);
         }
 
         if (!stepTerminated)
@@ -11030,6 +11073,8 @@ void emitMetadata(
 void emitSyntheticTriggerEventFunctions(
     std::ostringstream &stream,
     std::string_view scopeTableName,
+    const std::vector<LegacyLuaEvent> &decodedEvents,
+    const LegacyLuaExportLookups &lookups,
     const std::vector<SyntheticTriggerEvent> &syntheticTriggerEvents)
 {
     if (syntheticTriggerEvents.empty())
@@ -11044,8 +11089,43 @@ void emitSyntheticTriggerEventFunctions(
     for (const SyntheticTriggerEvent &syntheticEvent : syntheticTriggerEvents)
     {
         stream << registerFunction << "(" << syntheticEvent.syntheticEventId << ", \"\", function()\n";
-        stream << "    return evt." << scopeTableName << "[" << syntheticEvent.sourceEventId << "]("
-               << static_cast<unsigned>(syntheticEvent.continuationStep) << ")\n";
+
+        const auto sourceEventIterator = std::find_if(
+            decodedEvents.begin(),
+            decodedEvents.end(),
+            [&syntheticEvent](const LegacyLuaEvent &event)
+            {
+                return event.eventId == syntheticEvent.sourceEventId;
+            });
+
+        if (sourceEventIterator != decodedEvents.end())
+        {
+            const std::vector<uint8_t> steps = collectNormalEventSteps(*sourceEventIterator);
+            std::optional<uint8_t> currentStep = syntheticEvent.continuationStep;
+            std::vector<uint8_t> visited;
+            std::ostringstream bodyStream;
+
+            if (!emitReadableBlock(
+                    bodyStream,
+                    *sourceEventIterator,
+                    steps,
+                    currentStep,
+                    std::nullopt,
+                    lookups,
+                    1,
+                    visited)
+                || currentStep)
+            {
+                stream << "    -- Failed to inline legacy trigger continuation "
+                       << static_cast<unsigned>(syntheticEvent.continuationStep) << "\n";
+            }
+            else
+            {
+                trimTrailingTopLevelReturn(bodyStream);
+                stream << bodyStream.str();
+            }
+        }
+
         stream << "end)\n\n";
     }
 }
@@ -11097,7 +11177,7 @@ std::string generateLegacyEventLuaChunk(
         stream << '\n';
     }
 
-    emitSyntheticTriggerEventFunctions(stream, scopeTableName, syntheticTriggerEvents);
+    emitSyntheticTriggerEventFunctions(stream, scopeTableName, decodedEvents, lookups, syntheticTriggerEvents);
 
     return stream.str();
 }

@@ -366,6 +366,8 @@ public:
     void collectGameplayMinimapLines(std::vector<GameplayMinimapLineState> &lines);
     void collectGameplayMinimapMarkers(std::vector<GameplayMinimapMarkerState> &markers) const;
     bool ensureTownPortalDestinationsLoaded();
+    bool ensureDimensionDoorDestinationsLoaded();
+    const std::string &townPortalBackgroundTextureName() const;
     const std::vector<GameplayTownPortalDestination> &townPortalDestinations() const;
     std::string resolveMapLocationName(const std::string &mapFileName) const;
     float measureHudTextWidth(const std::string &fontName, const std::string &text) const;

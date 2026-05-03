@@ -90,6 +90,7 @@ inline GameplayHudScreenState resolveGameplayHudScreenState(
         switch (uiController.utilitySpellOverlay().mode)
         {
             case GameplayUiController::UtilitySpellOverlayMode::TownPortal:
+            case GameplayUiController::UtilitySpellOverlayMode::DimensionDoor:
                 return GameplayHudScreenState::TownPortal;
             case GameplayUiController::UtilitySpellOverlayMode::LloydsBeacon:
                 return GameplayHudScreenState::LloydsBeacon;
@@ -257,7 +258,7 @@ struct GameplayTownPortalDestination
 {
     std::string id;
     std::string label;
-    std::string buttonLayoutId;
+    std::string iconTextureName;
     std::string mapName;
     int32_t x = 0;
     int32_t y = 0;
@@ -265,6 +266,14 @@ struct GameplayTownPortalDestination
     std::optional<int32_t> directionDegrees;
     bool useMapStartPosition = false;
     uint32_t unlockQBitId = 0;
+    int32_t iconX = 0;
+    int32_t iconY = 0;
+    uint32_t iconWidth = 0;
+    uint32_t iconHeight = 0;
+    int32_t hitX = 0;
+    int32_t hitY = 0;
+    uint32_t hitWidth = 0;
+    uint32_t hitHeight = 0;
 };
 
 enum class GameplayUtilitySpellPointerTargetType
@@ -373,6 +382,7 @@ enum class GameplayHudPointerTargetType
     MenuButton,
     RestButton,
     BooksButton,
+    DimensionDoorButton,
     MinimapZoomInButton,
     MinimapZoomOutButton
 };

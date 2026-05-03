@@ -446,9 +446,9 @@ TEST_CASE("default party seed grants first member full spell access and preserve
         CHECK(pSkill->mastery == OpenYAMM::Game::SkillMastery::Grandmaster);
     }
 
-    CHECK_EQ(pMember->maxHealth, 2037);
+    CHECK_EQ(pMember->maxHealth, 2042);
     CHECK_EQ(pMember->health, pMember->maxHealth);
-    CHECK_EQ(pMember->maxSpellPoints, 3034);
+    CHECK_EQ(pMember->maxSpellPoints, 3039);
     CHECK_EQ(pMember->spellPoints, pMember->maxSpellPoints);
 
     static constexpr std::array<uint32_t, 10> ExpectedInventoryIds = {{

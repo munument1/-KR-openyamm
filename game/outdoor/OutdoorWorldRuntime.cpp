@@ -44,6 +44,9 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float GameMinutesPerRealSecond = 0.5f;
+constexpr float CollisionEpsilon = 0.01f;
+constexpr int MinutesPerDay = 24 * 60;
+constexpr int DaysPerMonth = 28;
 constexpr uint32_t ActorInvisibleBit = static_cast<uint32_t>(EvtActorAttribute::Invisible);
 constexpr uint32_t ActorAggressorBit = static_cast<uint32_t>(EvtActorAttribute::Aggressor);
 constexpr uint32_t ActorHostileBit = static_cast<uint32_t>(EvtActorAttribute::Hostile);
@@ -552,6 +555,93 @@ std::string resolveRenderedSkyTextureName(const std::string &sourceSkyTextureNam
     }
 
     return normalizedSourceSkyTextureName;
+}
+
+int monthFromGameMinutes(float gameMinutes)
+{
+    const int totalMinutes = std::max(0, static_cast<int>(std::floor(gameMinutes)));
+    const int totalDays = totalMinutes / MinutesPerDay;
+    return 1 + (totalDays / DaysPerMonth) % 12;
+}
+
+int mmergeSeasonalWeatherOffset(int month)
+{
+    if (month < 3)
+    {
+        return 1;
+    }
+
+    if (month < 6)
+    {
+        return 2;
+    }
+
+    if (month < 9)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+int mmergeWeatherStateForProfile(const OutdoorWeatherProfile &profile, float gameMinutes, int mapId)
+{
+    if (profile.mmergeSkyTextureNames.empty())
+    {
+        return 0;
+    }
+
+    const float minutesOfDay = std::fmod(std::max(gameMinutes, 0.0f), static_cast<float>(MinutesPerDay));
+    const int hour = static_cast<int>(minutesOfDay / 60.0f);
+    int weatherState = (hour > 21 || hour < 5) ? 1 : 0;
+    weatherState += mmergeSeasonalWeatherOffset(monthFromGameMinutes(gameMinutes));
+
+    const int randomMax = std::max(0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 2);
+    const int dayIndex = std::max(0, static_cast<int>(std::floor(gameMinutes / static_cast<float>(MinutesPerDay))));
+    uint32_t seed = 0x6d2b79f5u;
+    seed ^= static_cast<uint32_t>(std::max(mapId, 0)) * 2246822519u;
+    seed ^= static_cast<uint32_t>(dayIndex) * 3266489917u;
+    std::mt19937 rng(seed);
+    weatherState += std::uniform_int_distribution<int>(0, randomMax)(rng);
+
+    return std::clamp(weatherState, 0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 1);
+}
+
+std::string mmergeSkyTextureNameForProfile(const OutdoorWeatherProfile &profile, int weatherState)
+{
+    if (!profile.mmergeCustomSkyTextureName.empty())
+    {
+        return profile.mmergeCustomSkyTextureName;
+    }
+
+    if (profile.mmergeSkyTextureNames.empty())
+    {
+        return {};
+    }
+
+    const int skyIndex = std::clamp(weatherState, 0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 1);
+    return profile.mmergeSkyTextureNames[static_cast<size_t>(skyIndex)];
+}
+
+bool mmergeWeatherStateUsesSnow(float gameMinutes, int mapId, int weatherState)
+{
+    const int month = monthFromGameMinutes(gameMinutes);
+
+    if (month == 12 || month <= 2)
+    {
+        return true;
+    }
+
+    if (month >= 3 && month <= 5)
+    {
+        uint32_t seed = 0xa511e9b3u;
+        seed ^= static_cast<uint32_t>(std::max(mapId, 0)) * 668265263u;
+        seed ^= static_cast<uint32_t>(std::max(weatherState, 0)) * 374761393u;
+        std::mt19937 rng(seed);
+        return std::uniform_int_distribution<int>(0, 1)(rng) == 1;
+    }
+
+    return false;
 }
 
 OutdoorWorldRuntime::AtmosphereState buildAtmosphereSourceState(
@@ -1561,15 +1651,20 @@ float resolveActorGroundZ(
         return currentZ;
     }
 
-    const float supportFloorZ = sampleOutdoorSupportFloor(
+    const OutdoorSupportFloorSample supportFloor = sampleOutdoorSupportFloor(
         *pOutdoorMapData,
         x,
         y,
         currentZ,
         5.0f,
-        std::max(5.0f, static_cast<float>(radius))).height;
+        std::max(5.0f, static_cast<float>(radius)));
     const float terrainFloorZ = sampleOutdoorRenderedTerrainHeight(*pOutdoorMapData, x, y);
-    const float floorZ = std::max(supportFloorZ, terrainFloorZ);
+    float floorZ = terrainFloorZ;
+
+    if (supportFloor.fromBModel && currentZ + CollisionEpsilon >= supportFloor.height)
+    {
+        floorZ = std::max(floorZ, supportFloor.height);
+    }
 
     if (pStats != nullptr && pStats->canFly)
     {
@@ -1624,15 +1719,12 @@ float resolveInitialActorGroundZ(
         return currentZ;
     }
 
-    const float supportFloorZ = sampleOutdoorSupportFloor(
+    const float floorZ = sampleOutdoorActorPlacementFloorHeight(
         *pOutdoorMapData,
         x,
         y,
         currentZ,
-        std::numeric_limits<float>::max(),
-        std::max(5.0f, static_cast<float>(radius))).height;
-    const float terrainFloorZ = sampleOutdoorRenderedTerrainHeight(*pOutdoorMapData, x, y);
-    const float floorZ = std::max(supportFloorZ, terrainFloorZ);
+        std::max(5.0f, static_cast<float>(radius)));
 
     if (pStats != nullptr && pStats->canFly)
     {
@@ -3994,7 +4086,7 @@ void OutdoorWorldRuntime::initialize(
             {
                 const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(actor.monsterId);
                 const float collisionRadius = actorCollisionRadius(actor, pStats);
-                actor.movementState = m_outdoorMovementController->initializeStateForBody(
+                actor.movementState = m_outdoorMovementController->initializeActorStateForBody(
                     actor.preciseX,
                     actor.preciseY,
                     actor.preciseZ + GroundSnapHeight,
@@ -5153,6 +5245,11 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
     snapshot.armageddon = m_armageddonState;
     snapshot.hasRainIntensityOverride = m_hasRainIntensityOverride;
     snapshot.rainIntensityPreset = m_rainIntensityPreset;
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        snapshot.fullyRevealedCells = m_pOutdoorMapDeltaData->fullyRevealedCells;
+        snapshot.partiallyRevealedCells = m_pOutdoorMapDeltaData->partiallyRevealedCells;
+    }
     snapshot.openedChestFlags.reserve(m_openedChests.size());
 
     for (bool opened : m_openedChests)
@@ -5204,6 +5301,12 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_armageddonState = snapshot.armageddon;
     m_hasRainIntensityOverride = snapshot.hasRainIntensityOverride;
     m_rainIntensityPreset = snapshot.rainIntensityPreset;
+    if (m_pOutdoorMapDeltaData != nullptr
+        && (!snapshot.fullyRevealedCells.empty() || !snapshot.partiallyRevealedCells.empty()))
+    {
+        m_pOutdoorMapDeltaData->fullyRevealedCells = snapshot.fullyRevealedCells;
+        m_pOutdoorMapDeltaData->partiallyRevealedCells = snapshot.partiallyRevealedCells;
+    }
     m_openedChests.clear();
     m_openedChests.reserve(snapshot.openedChestFlags.size());
 
@@ -5344,6 +5447,11 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
         return;
     }
 
+    if (applyMmergeWeatherProfile())
+    {
+        return;
+    }
+
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
 
     if (profile.defaultPrecipitation == OutdoorPrecipitationKind::Snow)
@@ -5385,6 +5493,78 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
     syncAtmosphereStateToMapDelta();
 }
 
+bool OutdoorWorldRuntime::applyMmergeWeatherProfile()
+{
+    if (!m_outdoorWeatherProfile.has_value()
+        || !m_outdoorWeatherProfile->mmergeWeatherConfigured
+        || m_outdoorWeatherProfile->mmergeMapId != static_cast<uint32_t>(std::max(m_mapId, 0)))
+    {
+        return false;
+    }
+
+    const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
+    const int weatherState = mmergeWeatherStateForProfile(profile, m_gameMinutes, m_mapId);
+    const std::string skyTextureName = mmergeSkyTextureNameForProfile(profile, weatherState);
+
+    if (!skyTextureName.empty())
+    {
+        m_atmosphereState.sourceSkyTextureName = skyTextureName;
+        m_atmosphereState.skyTextureName = skyTextureName;
+    }
+
+    m_atmosphereState.redFog = profile.redFog;
+    m_atmosphereState.hasFogTint = profile.hasFogTint;
+    m_atmosphereState.fogTintRed = profile.fogTintRgb[0];
+    m_atmosphereState.fogTintGreen = profile.fogTintRgb[1];
+    m_atmosphereState.fogTintBlue = profile.fogTintRgb[2];
+
+    if (!profile.mmergeWeatherEnabled)
+    {
+        m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
+        syncAtmosphereStateToMapDelta();
+        return true;
+    }
+
+    const int skyCount = static_cast<int>(profile.mmergeSkyTextureNames.size());
+    const int fogThreshold = skyCount / 3;
+    const int precipitationThreshold = skyCount / 2;
+
+    if (weatherState > fogThreshold)
+    {
+        const int divisor = std::max(weatherState, 1);
+        m_atmosphereState.weatherFlags |= MapWeatherFoggy;
+        m_atmosphereState.fogWeakDistance = (4096 / divisor) * 2;
+        m_atmosphereState.fogStrongDistance = (8096 / divisor) * 2;
+    }
+    else
+    {
+        m_atmosphereState.weatherFlags &= ~MapWeatherFoggy;
+        m_atmosphereState.fogWeakDistance = 0;
+        m_atmosphereState.fogStrongDistance = 0;
+    }
+
+    if (weatherState > precipitationThreshold)
+    {
+        if (mmergeWeatherStateUsesSnow(m_gameMinutes, m_mapId, weatherState))
+        {
+            m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
+            m_atmosphereState.weatherFlags |= MapWeatherSnowing;
+        }
+        else
+        {
+            m_atmosphereState.weatherFlags &= ~MapWeatherSnowing;
+            m_atmosphereState.weatherFlags |= MapWeatherRaining;
+        }
+    }
+    else
+    {
+        m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
+    }
+
+    syncAtmosphereStateToMapDelta();
+    return true;
+}
+
 void OutdoorWorldRuntime::applyDailyWeatherRollover(int weatherDayIndex)
 {
     if (!m_outdoorWeatherProfile.has_value())
@@ -5393,6 +5573,12 @@ void OutdoorWorldRuntime::applyDailyWeatherRollover(int weatherDayIndex)
     }
 
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
+
+    if (profile.mmergeWeatherConfigured && profile.mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+    {
+        applyMmergeWeatherProfile();
+        return;
+    }
 
     if (profile.fogMode != OutdoorFogMode::DailyRandom)
     {
@@ -5500,6 +5686,12 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.fogTintRed = m_outdoorWeatherProfile->fogTintRgb[0];
         m_atmosphereState.fogTintGreen = m_outdoorWeatherProfile->fogTintRgb[1];
         m_atmosphereState.fogTintBlue = m_outdoorWeatherProfile->fogTintRgb[2];
+
+        if (m_outdoorWeatherProfile->mmergeWeatherConfigured
+            && m_outdoorWeatherProfile->mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+        {
+            applyMmergeWeatherProfile();
+        }
     }
 
     if (m_eventRuntimeState && m_eventRuntimeState->snowEnabled.has_value())
@@ -5573,8 +5765,21 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.fogDensity = 1.0f;
     }
 
-    m_atmosphereState.skyTextureName =
-        resolveRenderedSkyTextureName(m_atmosphereState.sourceSkyTextureName, minutesOfDay);
+    if (m_outdoorWeatherProfile.has_value()
+        && m_outdoorWeatherProfile->mmergeWeatherConfigured
+        && m_outdoorWeatherProfile->mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+    {
+        const int weatherState = mmergeWeatherStateForProfile(*m_outdoorWeatherProfile, m_gameMinutes, m_mapId);
+        const std::string skyTextureName = mmergeSkyTextureNameForProfile(*m_outdoorWeatherProfile, weatherState);
+        m_atmosphereState.skyTextureName = !skyTextureName.empty()
+            ? skyTextureName
+            : m_atmosphereState.sourceSkyTextureName;
+    }
+    else
+    {
+        m_atmosphereState.skyTextureName =
+            resolveRenderedSkyTextureName(m_atmosphereState.sourceSkyTextureName, minutesOfDay);
+    }
 
     if (m_mapId == DwiMapId)
     {
@@ -6391,7 +6596,7 @@ void OutdoorWorldRuntime::ensureOutdoorActorMovementState(
     }
 
     const float collisionRadius = actorCollisionRadius(actor, &stats);
-    actor.movementState = m_outdoorMovementController->initializeStateForBody(
+    actor.movementState = m_outdoorMovementController->initializeActorStateForBody(
         actor.preciseX,
         actor.preciseY,
         actor.preciseZ + GroundSnapHeight,
@@ -10206,7 +10411,7 @@ bool OutdoorWorldRuntime::spawnEncounterFromResolvedData(
         if (m_outdoorMovementController)
         {
             const float collisionRadius = actorCollisionRadius(actor, pStats);
-            actor.movementState = m_outdoorMovementController->initializeStateForBody(
+            actor.movementState = m_outdoorMovementController->initializeActorStateForBody(
                 actor.preciseX,
                 actor.preciseY,
                 actor.preciseZ + GroundSnapHeight,
@@ -10298,7 +10503,10 @@ void OutdoorWorldRuntime::aggroNearbyMapActorFaction(size_t actorIndex, float pa
             continue;
         }
 
-        if (!m_pMonsterTable->isLikelySameFaction(victim.monsterId, otherActor.monsterId))
+        const bool sameEventGroup = victim.group != 0 && victim.group == otherActor.group;
+        const bool sameMonsterFaction = m_pMonsterTable->isLikelySameFaction(victim.monsterId, otherActor.monsterId);
+
+        if (!sameEventGroup && !sameMonsterFaction)
         {
             continue;
         }
@@ -13055,12 +13263,8 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
 
             if (m_eventRuntimeState)
             {
-                const OutdoorEntity &entity = m_pOutdoorMapData->entities[entityIndex];
-                const uint32_t overrideKey =
-                    entity.eventIdPrimary != 0 ? entity.eventIdPrimary : entity.eventIdSecondary;
-                const auto overrideIterator = overrideKey != 0
-                    ? m_eventRuntimeState->spriteOverrides.find(overrideKey)
-                    : m_eventRuntimeState->spriteOverrides.end();
+                const uint32_t overrideKey = static_cast<uint32_t>(entityIndex);
+                const auto overrideIterator = m_eventRuntimeState->spriteOverrides.find(overrideKey);
 
                 if (overrideIterator != m_eventRuntimeState->spriteOverrides.end() && overrideIterator->second.hidden)
                 {

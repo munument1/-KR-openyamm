@@ -301,6 +301,111 @@ TEST_CASE("AssetFileSystem merges inactive world audio roots")
     std::filesystem::remove_all(temporaryRoot);
 }
 
+TEST_CASE("AssetFileSystem merges inactive world video roots")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "worlds" / "mm6" / "videos" / "Houses" / "temprich.ogv", "mm6-house-video");
+    writeTextFile(assetRoot / "worlds" / "mm7" / "videos" / "Houses" / "elf weapon smith.ogv", "mm7-house-video");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "videos" / "Houses" / "ltemple.ogv", "mm8-house-video");
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            "mm8"));
+
+        const std::optional<std::string> mm6HouseVideoText =
+            assetFileSystem.readTextFile("Videos/Houses/temprich.ogv");
+        REQUIRE(mm6HouseVideoText.has_value());
+        CHECK_EQ(*mm6HouseVideoText, "mm6-house-video");
+
+        const std::optional<std::string> mm7HouseVideoText =
+            assetFileSystem.readTextFile("Videos/Houses/elf weapon smith.ogv");
+        REQUIRE(mm7HouseVideoText.has_value());
+        CHECK_EQ(*mm7HouseVideoText, "mm7-house-video");
+
+        const std::optional<std::string> mm8HouseVideoText =
+            assetFileSystem.readTextFile("Videos/Houses/ltemple.ogv");
+        REQUIRE(mm8HouseVideoText.has_value());
+        CHECK_EQ(*mm8HouseVideoText, "mm8-house-video");
+
+        const std::optional<std::filesystem::path> mm6PhysicalPath =
+            assetFileSystem.resolvePhysicalPath("Videos/Houses/temprich.ogv");
+        REQUIRE(mm6PhysicalPath.has_value());
+        CHECK(mm6PhysicalPath->generic_string().ends_with("assets_dev/worlds/mm6/videos/Houses/temprich.ogv"));
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "worlds" / "mm6" / "maps" / "shared.odm", "active-map");
+    writeTextFile(assetRoot / "worlds" / "mm6" / "events" / "maps" / "shared.lua", "active-script");
+    writeTextFile(assetRoot / "worlds" / "mm6" / "textures" / "shared.bmp", "active-texture");
+    writeTextFile(assetRoot / "worlds" / "mm6" / "_legacy" / "map_delta" / "shared.odm", "active-delta");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "maps" / "out01.odm", "inactive-map");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "maps" / "shared.odm", "inactive-map");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "events" / "maps" / "out01.lua", "inactive-script");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "events" / "maps" / "shared.lua", "inactive-script");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "textures" / "sky01.bmp", "inactive-texture");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "textures" / "shared.bmp", "inactive-texture");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "_legacy" / "map_delta" / "out01.odm", "inactive-delta");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "_legacy" / "map_delta" / "shared.odm", "inactive-delta");
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            "mm6"));
+
+        const std::optional<std::string> inactiveMapText =
+            assetFileSystem.readTextFile("Data/games/out01.odm");
+        REQUIRE(inactiveMapText.has_value());
+        CHECK_EQ(*inactiveMapText, "inactive-map");
+
+        const std::optional<std::string> inactiveScriptText =
+            assetFileSystem.readTextFile("Data/scripts/maps/out01.lua");
+        REQUIRE(inactiveScriptText.has_value());
+        CHECK_EQ(*inactiveScriptText, "inactive-script");
+
+        const std::optional<std::string> inactiveTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/sky01.bmp");
+        REQUIRE(inactiveTextureText.has_value());
+        CHECK_EQ(*inactiveTextureText, "inactive-texture");
+
+        const std::optional<std::string> inactiveDeltaText =
+            assetFileSystem.readTextFile("_legacy/map_delta/out01.odm");
+        REQUIRE(inactiveDeltaText.has_value());
+        CHECK_EQ(*inactiveDeltaText, "inactive-delta");
+
+        const std::optional<std::string> sharedMapText =
+            assetFileSystem.readTextFile("Data/games/shared.odm");
+        REQUIRE(sharedMapText.has_value());
+        CHECK_EQ(*sharedMapText, "active-map");
+
+        const std::vector<std::string> mapEntries = assetFileSystem.enumerate("Data/games");
+        CHECK(containsEntry(mapEntries, "out01.odm"));
+        CHECK(containsEntry(mapEntries, "shared.odm"));
+
+        const std::optional<std::filesystem::path> inactiveMapPhysicalPath =
+            assetFileSystem.resolvePhysicalPath("Data/games/out01.odm");
+        REQUIRE(inactiveMapPhysicalPath.has_value());
+        CHECK(inactiveMapPhysicalPath->generic_string().ends_with("assets_dev/worlds/mm8/maps/out01.odm"));
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
 TEST_CASE("AssetFileSystem rejects conflicting merged world audio")
 {
     const std::filesystem::path temporaryRoot = makeTemporaryRoot();

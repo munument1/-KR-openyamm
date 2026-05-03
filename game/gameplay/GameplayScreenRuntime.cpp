@@ -17,6 +17,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <optional>
@@ -385,7 +386,9 @@ GameplayDialogController::Context GameplayScreenRuntime::buildDialogContext(Even
         rosterTable(),
         &m_session.data().arcomageLibrary(),
         currentHudScreenState() == GameplayHudScreenState::Dialogue,
-        this);
+        this,
+        &m_session.data().mmergeNpcProfessionTable(),
+        &m_session.data().mmergeNewsProfessionTopicTable());
 }
 
 void GameplayScreenRuntime::presentPendingEventDialog(
@@ -3125,7 +3128,27 @@ void GameplayScreenRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMi
 
 bool GameplayScreenRuntime::ensureTownPortalDestinationsLoaded()
 {
-    return uiRuntime().ensureTownPortalDestinationsLoaded();
+    if (utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::DimensionDoor)
+    {
+        return ensureDimensionDoorDestinationsLoaded();
+    }
+
+    return uiRuntime().ensureTownPortalDestinationsLoaded(m_session.currentMapFileName());
+}
+
+bool GameplayScreenRuntime::ensureDimensionDoorDestinationsLoaded()
+{
+    constexpr float MinutesPerDay = 24.0f * 60.0f;
+
+    const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+    const float gameMinutes = pWorldRuntime != nullptr ? std::max(0.0f, pWorldRuntime->gameMinutes()) : 0.0f;
+    const uint32_t dayIndex = static_cast<uint32_t>(std::floor(gameMinutes / MinutesPerDay));
+    return uiRuntime().ensureDimensionDoorDestinationsLoaded(dayIndex);
+}
+
+const std::string &GameplayScreenRuntime::townPortalBackgroundTextureName() const
+{
+    return uiRuntime().townPortalBackgroundTextureName();
 }
 
 const std::vector<GameplayTownPortalDestination> &GameplayScreenRuntime::townPortalDestinations() const

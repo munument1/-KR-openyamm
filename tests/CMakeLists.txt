@@ -19,6 +19,7 @@ add_executable(openyamm_unit_tests
     MapStatsRegressionTests.cpp
     MapDeltaDataTests.cpp
     MonsterTableRegressionTests.cpp
+    MmergeBaseTablesTests.cpp
     PartyRegressionTests.cpp
     RegressionMapLoader.cpp
     SpellRegressionTests.cpp
@@ -106,6 +107,7 @@ add_executable(openyamm_unit_tests
     ../game/tables/JournalQuestTable.cpp
     ../game/tables/MonsterTable.cpp
     ../game/tables/MonsterProjectileTable.cpp
+    ../game/tables/MmergeBaseTables.cpp
     ../game/tables/MapStats.cpp
     ../game/tables/NpcDialogTable.cpp
     ../game/tables/ObjectTable.cpp

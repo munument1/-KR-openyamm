@@ -643,6 +643,8 @@ struct GameApplicationTestAccess
             &application.m_gameDataLoader.getMapStats().getEntries(),
             &application.m_gameDataLoader.getRosterTable(),
             &application.m_gameDataLoader.getArcomageLibrary(),
+            &application.m_gameDataLoader.getMmergeNpcProfessionTable(),
+            &application.m_gameDataLoader.getMmergeNewsProfessionTopicTable(),
             false
         };
 
@@ -1634,7 +1636,9 @@ EventDialogContent buildHeadlessDialog(
         &gameDataLoader.getMapStats().getEntries(),
         pParty,
         nullptr,
-        currentGameMinutes
+        currentGameMinutes,
+        &gameDataLoader.getMmergeNpcProfessionTable(),
+        &gameDataLoader.getMmergeNewsProfessionTopicTable()
     );
 }
 
@@ -3001,7 +3005,10 @@ bool openActorInScenario(
         actorName,
         actor.group,
         *scenario.pEventRuntimeState,
-        gameDataLoader.getNpcDialogTable()
+        gameDataLoader.getNpcDialogTable(),
+        &gameDataLoader.getMmergeMonsterPortraitTable(),
+        &selectedMap.map,
+        &gameDataLoader.getMmergeNewsAreaTopicTable()
     );
 
     if (!resolution)
@@ -3009,7 +3016,8 @@ bool openActorInScenario(
         return false;
     }
 
-    const std::optional<std::string> newsText = gameDataLoader.getNpcDialogTable().getNewsText(resolution->newsId);
+    const std::optional<std::string> newsText =
+        gameDataLoader.getNpcDialogTable().getNewsDialogText(resolution->newsId);
 
     if (!newsText)
     {
@@ -3020,6 +3028,7 @@ bool openActorInScenario(
     context.kind = DialogueContextKind::NpcNews;
     context.sourceId = resolution->npcId;
     context.newsId = resolution->newsId;
+    context.participantPictureId = resolution->portraitPictureId;
     context.titleOverride = actorName;
     scenario.pEventRuntimeState->pendingDialogueContext = std::move(context);
     scenario.pEventRuntimeState->messages.push_back(*newsText);
@@ -3054,7 +3063,9 @@ EventDialogContent buildScenarioDialog(
         &gameDataLoader.getMapStats().getEntries(),
         &scenario.party,
         &scenario.world,
-        scenario.world.gameMinutes()
+        scenario.world.gameMinutes(),
+        &gameDataLoader.getMmergeNpcProfessionTable(),
+        &gameDataLoader.getMmergeNewsProfessionTopicTable()
     );
 }
 
@@ -4361,7 +4372,10 @@ int HeadlessGameplayDiagnostics::runOpenActor(
             actorName,
             actor.group,
             *pEventRuntimeState,
-            gameDataLoader.getNpcDialogTable()
+            gameDataLoader.getNpcDialogTable(),
+            &gameDataLoader.getMmergeMonsterPortraitTable(),
+            &selectedMap->map,
+            &gameDataLoader.getMmergeNewsAreaTopicTable()
         );
 
         std::cout << "  resolved_generic_npc="
@@ -4373,7 +4387,7 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         if (resolution)
         {
             const std::optional<std::string> newsText =
-                gameDataLoader.getNpcDialogTable().getNewsText(resolution->newsId);
+                gameDataLoader.getNpcDialogTable().getNewsDialogText(resolution->newsId);
 
             if (newsText)
             {
@@ -4381,6 +4395,7 @@ int HeadlessGameplayDiagnostics::runOpenActor(
                 context.kind = DialogueContextKind::NpcNews;
                 context.sourceId = resolution->npcId;
                 context.newsId = resolution->newsId;
+                context.participantPictureId = resolution->portraitPictureId;
                 context.titleOverride = actorName;
                 pEventRuntimeState->pendingDialogueContext = std::move(context);
                 pEventRuntimeState->messages.push_back(*newsText);
@@ -9074,11 +9089,10 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
-                const int terrainZ = static_cast<int>(std::lround(sampleOutdoorSupportFloorHeight(
+                const int terrainZ = static_cast<int>(std::lround(sampleOutdoorRenderedTerrainHeight(
                     *selectedMap->outdoorMapData,
                     static_cast<float>(pActor->x),
-                    static_cast<float>(pActor->y),
-                    static_cast<float>(pActor->z))));
+                    static_cast<float>(pActor->y))));
 
                 if (pActor->z != terrainZ)
                 {
@@ -9813,7 +9827,8 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             const MapDeltaActor &rawActor = selectedMap->outdoorMapDeltaData->actors[51];
             const float worldX = static_cast<float>(rawActor.x);
             const float worldY = static_cast<float>(rawActor.y);
-            const float terrainHeight = sampleOutdoorTerrainHeight(*selectedMap->outdoorMapData, worldX, worldY);
+            const float terrainHeight =
+                sampleOutdoorRenderedTerrainHeight(*selectedMap->outdoorMapData, worldX, worldY);
             const float placementHeight = sampleOutdoorPlacementFloorHeight(
                 *selectedMap->outdoorMapData,
                 worldX,
@@ -9824,6 +9839,12 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (pActor == nullptr)
             {
                 failure = "actor 51 missing";
+                return false;
+            }
+
+            if (pActor->movementState.supportKind != OutdoorSupportKind::BModelFace)
+            {
+                failure = "actor 51 movement state did not use bmodel support";
                 return false;
             }
 
@@ -9864,6 +9885,11 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
 
             const float startZ = pBefore->preciseZ;
+            if (pBefore->movementState.supportKind != OutdoorSupportKind::BModelFace)
+            {
+                failure = "actor 51 did not start on bmodel support";
+                return false;
+            }
 
             for (int step = 0; step < 300; ++step)
             {
@@ -9882,9 +9908,105 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            if (pAfter->movementState.supportKind != OutdoorSupportKind::BModelFace)
+            {
+                failure = "actor 51 movement support changed away from bmodel";
+                return false;
+            }
+
             if (std::fabs(pAfter->preciseZ - startZ) > 2.0f)
             {
                 failure = "actor 51 fell off ship support while moving";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "jeric_whistlebone_actor_stays_on_terrain_floor_under_tent",
+        [&](std::string &failure)
+        {
+            GameDataLoader garroteLoader;
+
+            if (!garroteLoader.loadForHeadlessGameplay(assetFileSystem)
+                || !garroteLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "out05.odm"))
+            {
+                failure = "could not load out05.odm";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &garroteMap = garroteLoader.getSelectedMap();
+
+            if (!garroteMap || !garroteMap->outdoorMapData || !garroteMap->outdoorMapDeltaData)
+            {
+                failure = "out05 map missing outdoor data";
+                return false;
+            }
+
+            constexpr size_t JericActorIndex = 3;
+
+            if (garroteMap->outdoorMapDeltaData->actors.size() <= JericActorIndex)
+            {
+                failure = "Jeric actor missing from out05";
+                return false;
+            }
+
+            const MapDeltaActor &rawActor = garroteMap->outdoorMapDeltaData->actors[JericActorIndex];
+            const float worldX = static_cast<float>(rawActor.x);
+            const float worldY = static_cast<float>(rawActor.y);
+            const float rawZ = static_cast<float>(rawActor.z);
+            const float terrainHeight = sampleOutdoorRenderedTerrainHeight(*garroteMap->outdoorMapData, worldX, worldY);
+            const float legacyPlacementHeight = sampleOutdoorPlacementFloorHeight(
+                *garroteMap->outdoorMapData,
+                worldX,
+                worldY,
+                rawZ);
+            const float actorPlacementHeight = sampleOutdoorActorPlacementFloorHeight(
+                *garroteMap->outdoorMapData,
+                worldX,
+                worldY,
+                rawZ,
+                static_cast<float>(rawActor.radius));
+
+            if (legacyPlacementHeight <= terrainHeight + 32.0f)
+            {
+                failure = "Jeric test actor is not under a raised tent support";
+                return false;
+            }
+
+            if (std::fabs(actorPlacementHeight - terrainHeight) > 2.0f)
+            {
+                failure = "Jeric actor placement did not resolve to terrain";
+                return false;
+            }
+
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(garroteLoader, *garroteMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(JericActorIndex);
+
+            if (pActor == nullptr)
+            {
+                failure = "Jeric actor missing from runtime";
+                return false;
+            }
+
+            if (pActor->movementState.supportKind != OutdoorSupportKind::Terrain)
+            {
+                failure = "Jeric movement state did not use terrain support";
+                return false;
+            }
+
+            if (std::fabs(pActor->preciseZ - terrainHeight) > 2.0f)
+            {
+                failure = "Jeric runtime z does not match terrain floor";
                 return false;
             }
 
@@ -14275,6 +14397,32 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             saveData.outdoorParty.partyMovementState.flying = true;
             saveData.outdoorParty.partyMovementState.waterWalk = true;
             saveData.outdoorParty.partyMovementState.featherFall = true;
+
+            MapDeltaData *pRevealMapDeltaData = scenario.world.mapDeltaData();
+
+            if (pRevealMapDeltaData == nullptr)
+            {
+                failure = "outdoor scenario missing map delta data";
+                return false;
+            }
+
+            const std::vector<uint8_t> expectedFullyRevealedCells = {0x80u, 0x01u, 0x55u};
+            const std::vector<uint8_t> expectedPartiallyRevealedCells = {0x40u, 0x02u, 0xaau};
+            pRevealMapDeltaData->fullyRevealedCells = expectedFullyRevealedCells;
+            pRevealMapDeltaData->partiallyRevealedCells = expectedPartiallyRevealedCells;
+
+            OutdoorWorldRuntime::Snapshot revealSnapshot = scenario.world.snapshot();
+            pRevealMapDeltaData->fullyRevealedCells.clear();
+            pRevealMapDeltaData->partiallyRevealedCells.clear();
+            scenario.world.restoreSnapshot(revealSnapshot);
+
+            if (pRevealMapDeltaData->fullyRevealedCells != expectedFullyRevealedCells
+                || pRevealMapDeltaData->partiallyRevealedCells != expectedPartiallyRevealedCells)
+            {
+                failure = "outdoor journal reveal mask did not restore from runtime snapshot";
+                return false;
+            }
+
             saveData.outdoorWorld = scenario.world.snapshot();
             saveData.outdoorWorld.atmosphere.sourceSkyTextureName = "sky06";
             saveData.outdoorWorld.atmosphere.skyTextureName = "sunsetclouds";
@@ -14319,9 +14467,18 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
             if (!loadedSave->outdoorWorldStates.contains(saveData.mapFileName)
                 || savedOut02It == loadedSave->outdoorWorldStates.end()
-                || std::abs(savedOut02It->second.gameMinutes - (saveData.outdoorWorld.gameMinutes + 12.0f)) > 0.01f)
+                || std::abs(savedOut02It->second.gameMinutes - (saveData.outdoorWorld.gameMinutes + 12.0f)) > 0.01f
+                || savedOut02It->second.fullyRevealedCells != expectedFullyRevealedCells
+                || savedOut02It->second.partiallyRevealedCells != expectedPartiallyRevealedCells)
             {
                 failure = "visited map world states did not roundtrip";
+                return false;
+            }
+
+            if (loadedSave->outdoorWorld.fullyRevealedCells != expectedFullyRevealedCells
+                || loadedSave->outdoorWorld.partiallyRevealedCells != expectedPartiallyRevealedCells)
+            {
+                failure = "current outdoor journal reveal mask did not roundtrip";
                 return false;
             }
 

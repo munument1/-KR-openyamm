@@ -249,8 +249,8 @@ end, "Drink from the well")
 
 RegisterEvent(104, "Drink from the fountain", function()
     evt.StatusText("Refreshing")
-    if IsQBitSet(QBit(183)) then return end -- Hareckburg Town Portal
-    SetQBit(QBit(183)) -- Hareckburg Town Portal
+    if IsQBitSet(QBit(304)) then return end -- TP Buff Regna
+    SetQBit(QBit(304)) -- TP Buff Regna
 end, "Drink from the fountain")
 
 RegisterEvent(150, "Obelisk", function()

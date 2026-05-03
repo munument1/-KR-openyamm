@@ -42,6 +42,65 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+double millisecondsFromNanoseconds(uint64_t nanoseconds)
+{
+    return static_cast<double>(nanoseconds) / 1000000.0;
+}
+
+bool mapLoadTimingEnabled()
+{
+    const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
+    return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
+}
+
+class MapLoadTimingLogger
+{
+public:
+    MapLoadTimingLogger(const std::string &mapFileName, const std::string &scope)
+        : m_enabled(mapLoadTimingEnabled())
+        , m_mapFileName(mapFileName)
+        , m_scope(scope)
+        , m_startTickNanoseconds(SDL_GetTicksNS())
+        , m_lastTickNanoseconds(m_startTickNanoseconds)
+    {
+        if (m_enabled)
+        {
+            std::cerr
+                << "[MapLoadTiming] map=" << m_mapFileName
+                << " begin=" << m_scope
+                << '\n';
+        }
+    }
+
+    void stage(const std::string &stageName)
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const uint64_t nowNanoseconds = SDL_GetTicksNS();
+        const uint64_t stageNanoseconds = nowNanoseconds - m_lastTickNanoseconds;
+        const uint64_t totalNanoseconds = nowNanoseconds - m_startTickNanoseconds;
+        m_lastTickNanoseconds = nowNanoseconds;
+
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " scope=" << m_scope
+            << " stage=\"" << stageName << "\""
+            << " delta_ms=" << millisecondsFromNanoseconds(stageNanoseconds)
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
+    }
+
+private:
+    bool m_enabled = false;
+    std::string m_mapFileName;
+    std::string m_scope;
+    uint64_t m_startTickNanoseconds = 0;
+    uint64_t m_lastTickNanoseconds = 0;
+};
+
 constexpr float Pi = 3.14159265358979323846f;
 constexpr uint32_t DefaultRosterPartyMemberCount = 3;
 constexpr const char *DefaultStartupMapFile = "out01.odm";
@@ -61,7 +120,10 @@ constexpr const char *EventMovieCutsceneDirectory = "Videos/Cutscenes";
 constexpr const char *WinGameCutsceneStem = "wingame";
 constexpr size_t MaxPendingInputLength = 64;
 constexpr std::array<uint32_t, 3> Level1ReagentItemIds = {{200, 205, 210}};
-constexpr std::array<uint32_t, 6> DebugUnlockedTownPortalQBits = {{180, 181, 182, 183, 184, 185}};
+constexpr std::array<uint32_t, 18> DebugUnlockedTownPortalQBits = {{
+    301, 302, 303, 304, 305, 306,
+    310, 311, 312, 313, 314, 315,
+    718, 719, 720, 721, 722, 723}};
 constexpr float EnterDungeonSpeechDelaySeconds = 2.0f;
 
 bool sameMapFileName(const std::string &left, const std::string &right)
@@ -692,6 +754,14 @@ Character buildFreshCreatedCharacter(
 
     return character;
 }
+
+void setDebugTownPortalUnlocks(Party &party, bool unlocked)
+{
+    for (uint32_t qbitId : DebugUnlockedTownPortalQBits)
+    {
+        party.setQuestBit(qbitId, unlocked);
+    }
+}
 }
 
 GameApplication::GameApplication(const Engine::ApplicationConfig &config)
@@ -993,7 +1063,9 @@ void GameApplication::presentPendingInputPromptDialogResult(size_t previousMessa
         &m_gameDataLoader.getMapStats().getEntries(),
         pWorldRuntime->party(),
         pWorldRuntime,
-        pWorldRuntime->gameMinutes());
+        pWorldRuntime->gameMinutes(),
+        &m_gameDataLoader.getMmergeNpcProfessionTable(),
+        &m_gameDataLoader.getMmergeNewsProfessionTopicTable());
 
 }
 
@@ -1089,12 +1161,6 @@ void GameApplication::applyStartupDebugSettingsToActiveRuntime()
         }
     }
 
-    Party &party = m_pMapSceneRuntime->party();
-
-    for (uint32_t qbitId : DebugUnlockedTownPortalQBits)
-    {
-        party.setQuestBit(qbitId, true);
-    }
 }
 
 void GameApplication::shutdownApplication()
@@ -1233,6 +1299,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         return false;
     }
 
+    MapLoadTimingLogger timingLogger(selectedMap->map.fileName, "selected_map_runtime");
+
     if (selectedMap->outdoorMapData)
     {
         m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
@@ -1291,6 +1359,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameSession.gameplayCombatController(),
             &m_gameSession.gameplayFxService()
         );
+        timingLogger.stage("outdoor runtime initialized");
 
         restoreSavedOutdoorWorldStateForSelectedMap();
         if (EventRuntimeState *pEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState())
@@ -1306,6 +1375,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_pOutdoorWorldRuntime->applyEventRuntimeState(true);
             m_pOutdoorPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
         }
+        timingLogger.stage("outdoor on-load events applied");
 
         m_pMapSceneRuntime = std::make_unique<OutdoorSceneRuntime>(
             selectedMap->map.fileName,
@@ -1319,6 +1389,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
 
         m_gameAudioSystem.setBackgroundMusicTrack(selectedMap->map.redbookTrack);
         applyCurrentSettingsToActiveRuntime();
+        timingLogger.stage("outdoor scene runtime bound");
 
         if (!initializeView)
         {
@@ -1342,7 +1413,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             selectedMap->outdoorMapDeltaData,
             &m_gameAudioSystem,
             *static_cast<OutdoorSceneRuntime *>(m_pMapSceneRuntime.get()),
-            m_settings);
+                m_settings);
+        timingLogger.stage("outdoor view initialized");
 
         if (!initialized)
         {
@@ -1393,6 +1465,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             pIndoorProjectileSpriteFrameTable,
             selectedMap->indoorDecorationBillboardSet ? &*selectedMap->indoorDecorationBillboardSet : nullptr
         );
+        timingLogger.stage("indoor runtime initialized");
         std::unordered_map<std::string, IndoorSceneRuntime::Snapshot>::const_iterator indoorStateIt =
             m_gameSession.indoorSceneStates().find(selectedMap->map.canonicalId);
 
@@ -1405,6 +1478,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         {
             pIndoorSceneRuntime->restoreSnapshot(indoorStateIt->second);
         }
+        timingLogger.stage("indoor saved state restored");
 
         pIndoorSceneRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
         pIndoorSceneRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);
@@ -1432,6 +1506,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
                 << '\n';
             return false;
         }
+        timingLogger.stage("indoor renderer initialized");
 
         if (initializeView)
         {
@@ -1452,11 +1527,13 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
                 << '\n';
             return false;
         }
+        timingLogger.stage("indoor view initialized");
 
         m_indoorGameView.setSettingsSnapshot(m_settings);
 
         m_pMapSceneRuntime = std::move(pIndoorSceneRuntime);
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
+        timingLogger.stage("indoor scene runtime bound");
         return true;
     }
 
@@ -1561,18 +1638,25 @@ bool GameApplication::loadCurrentSessionMap(
         return false;
     }
 
+    MapLoadTimingLogger timingLogger(m_gameSession.currentMapFileName(), "current_session_map");
+
     if (progressCallback)
     {
         progressCallback(10);
     }
 
-    if (!m_gameDataLoader.loadMapByFileNameForGameplay(
-            *m_pAssetFileSystem,
-            m_gameSession.currentMapFileName(),
-            [this]()
-            {
-                pumpLoadingOverlayAnimation();
-            }))
+    const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+    const bool selectedMapMatchesSession =
+        selectedMap.has_value() && sameMapFileName(selectedMap->map.fileName, m_gameSession.currentMapFileName());
+
+    if (!selectedMapMatchesSession
+        && !m_gameDataLoader.loadMapByFileNameForGameplay(
+                *m_pAssetFileSystem,
+                m_gameSession.currentMapFileName(),
+                [this]()
+                {
+                    pumpLoadingOverlayAnimation();
+                }))
     {
         std::cerr
             << "GameApplication: loadCurrentSessionMap failed to load map assets for "
@@ -1581,12 +1665,18 @@ bool GameApplication::loadCurrentSessionMap(
         return false;
     }
 
+    timingLogger.stage(
+        selectedMapMatchesSession
+            ? "game data loader map load reused selected map"
+            : "game data loader map load");
+
     if (progressCallback)
     {
         progressCallback(55);
     }
 
     shutdownRenderer();
+    timingLogger.stage("renderer shutdown");
 
     if (!initializeSelectedMapRuntime(initializeView))
     {
@@ -1596,6 +1686,8 @@ bool GameApplication::loadCurrentSessionMap(
             << '\n';
         return false;
     }
+
+    timingLogger.stage(initializeView ? "runtime and view initialized" : "runtime initialized");
 
     if (progressCallback)
     {
@@ -1607,6 +1699,7 @@ bool GameApplication::loadCurrentSessionMap(
         progressCallback(100);
     }
 
+    timingLogger.stage("current session map load complete");
     return true;
 }
 
@@ -2113,6 +2206,7 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
             m_gameDataLoader.getRosterTable(),
             effectiveRosterId.has_value() && pRosterEntry != nullptr ? effectiveRosterId : std::nullopt);
         seedDebugWandsIntoParty(party, m_gameDataLoader.getItemTable());
+        setDebugTownPortalUnlocks(party, true);
     }
 
     if (!loadCurrentSessionMap(initializeView))
@@ -2198,6 +2292,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(const Character &char
 
     Party &sessionParty = ensureSessionPartyState();
     sessionParty.seed(seed);
+    setDebugTownPortalUnlocks(sessionParty, false);
     renderLoadingOverlayProgress(15);
 
     if (!loadCurrentSessionMap(
@@ -2497,7 +2592,10 @@ bool GameApplication::processPendingMapMove()
     captureCurrentSceneState();
 
     m_gameSession.setCurrentMapFileName(targetMapName);
-    beginLoadingOverlay(LoadingOverlayScreen::Presentation::DungeonTransition);
+    const LoadingOverlayScreen::Presentation loadingPresentation = pendingMapMove->useFullscreenLoading
+        ? LoadingOverlayScreen::Presentation::Fullscreen
+        : LoadingOverlayScreen::Presentation::DungeonTransition;
+    beginLoadingOverlay(loadingPresentation);
     renderLoadingOverlayProgress(15);
 
     if (!loadCurrentSessionMap(
@@ -2633,11 +2731,12 @@ bool GameApplication::processPendingPartyDefeat()
     }
 
     m_pendingPartyDefeatRespawnMapFileName = resolvePartyDefeatRespawnMapFileName();
+    const std::string cutsceneStem = resolvePartyDefeatCutsceneStem();
     m_screenManager.setActiveScreen(std::make_unique<CutsceneVideoScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         PartyDefeatCutsceneDirectory,
-        PartyDefeatCutsceneStem,
+        cutsceneStem,
         m_screenManager.currentMode()));
     return true;
 }
@@ -2864,6 +2963,36 @@ std::string GameApplication::resolvePartyDefeatRespawnMapFileName() const
     }
 
     return RavenshoreRespawnMapFile;
+}
+
+std::string GameApplication::resolvePartyDefeatCutsceneStem() const
+{
+    if (m_pAssetFileSystem == nullptr)
+    {
+        return PartyDefeatCutsceneStem;
+    }
+
+    const std::string currentMapFileName = toLowerCopy(m_gameSession.currentMapFileName());
+    const MapStatsEntry *pCurrentMap = m_gameDataLoader.getMapStats().findByFileName(currentMapFileName);
+
+    if (pCurrentMap != nullptr)
+    {
+        const MmergeContinentSettingEntry *pContinentSetting =
+            m_gameDataLoader.findMmergeContinentSettingsForMap(*pCurrentMap);
+
+        if (pContinentSetting != nullptr && !trimCopy(pContinentSetting->deathMovie).empty())
+        {
+            const std::string resolvedMovieStem =
+                resolveEventMovieStem(*m_pAssetFileSystem, pContinentSetting->deathMovie);
+
+            if (!resolvedMovieStem.empty())
+            {
+                return resolvedMovieStem;
+            }
+        }
+    }
+
+    return PartyDefeatCutsceneStem;
 }
 
 void GameApplication::applyPartyDefeatConsequences()

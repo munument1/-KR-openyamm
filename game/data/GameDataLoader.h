@@ -21,6 +21,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
+#include "game/tables/MmergeBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/ObjectTable.h"
 #include "game/tables/PortraitFrameTable.h"
@@ -99,6 +100,40 @@ public:
     const PortraitFxEventTable &getPortraitFxEventTable() const;
     const FaceAnimationTable &getFaceAnimationTable() const;
     const TransitionTable &getTransitionTable() const;
+    const MmergeClassExtraTable &getMmergeClassExtraTable() const;
+    const MmergeCharacterSelectionTable &getMmergeCharacterSelectionTable() const;
+    const MmergeRaceSkillTable &getMmergeRaceSkillTable() const;
+    const MmergeTeacherTopicTable &getMmergeTeacherTopicTable() const;
+    const MmergeTeacherAutonoteTable &getMmergeTeacherAutonoteTable() const;
+    const MmergeNpcProfessionTable &getMmergeNpcProfessionTable() const;
+    const MmergeNpcNameTable &getMmergeNpcNameTable() const;
+    const MmergeNpcBtbTable &getMmergeNpcBtbTable() const;
+    const MmergeNewsTopicTable &getMmergeNewsAreaTopicTable() const;
+    const MmergeNewsTopicTable &getMmergeNewsContinentTopicTable() const;
+    const MmergeNewsProfessionTopicTable &getMmergeNewsProfessionTopicTable() const;
+    const MmergeMonsterPortraitTable &getMmergeMonsterPortraitTable() const;
+    const MmergeMonsterKindTable &getMmergeMonsterKindTable() const;
+    const MmergePotionSettingTable &getMmergePotionSettingTable() const;
+    const MmergeReagentSettingTable &getMmergeReagentSettingTable() const;
+    const MmergeAdditionalUiTable &getMmergeAdditionalUiTable() const;
+    const MmergeBolsterFormulaTable &getMmergeBolsterFormulaTable() const;
+    const MmergeBolsterMapTable &getMmergeBolsterMapTable() const;
+    const MmergeBolsterMonsterTable &getMmergeBolsterMonsterTable() const;
+    const MmergeCharacterVoiceTable &getMmergeCharacterVoiceTable() const;
+    const MmergeClassStartingStatTable &getMmergeClassStartingStatsSourceTable() const;
+    const MmergeComplexItemPictureOffsetTable &getMmergeComplexItemPictureOffsetTable() const;
+    const MmergeComplexItemPictureTable &getMmergeComplexItemPictureTable() const;
+    const MmergeContinentSettingTable &getMmergeContinentSettingTable() const;
+    const MmergeContinentSettingEntry *findMmergeContinentSettingsForMap(const MapStatsEntry &map) const;
+    const MmergeHardwareWaterTextureTable &getMmergeHardwareWaterTextureTable() const;
+    const MmergeHouseExitTable &getMmergeHouseExitTable() const;
+    const MmergeHouseRuleTable &getMmergeHouseRuleTable() const;
+    const MmergeHistoryTable &getMmergeMm7HistoryTable() const;
+    const MmergeOutdoorTravelTable &getMmergeOutdoorTravelTable() const;
+    const MmergeOverlayTable &getMmergeOverlayTable() const;
+    const MmergeTownPortalSwitchTable &getMmergeTownPortalSwitchTable() const;
+    const MmergeTransportIndexTable &getMmergeTransportIndexTable() const;
+    const MmergeTransportLocationTable &getMmergeTransportLocationTable() const;
 
 private:
     bool loadInternal(const Engine::AssetFileSystem &assetFileSystem, MapLoadPurpose mapLoadPurpose);
@@ -115,6 +150,7 @@ private:
         int mapId,
         MapLoadPurpose mapLoadPurpose,
         const MapLoadProgressPump &progressPump = {});
+    void applyMmergeContinentSettingsToSelectedMap(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMapStats(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMonsterTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMonsterProjectileTable(const Engine::AssetFileSystem &assetFileSystem);
@@ -142,6 +178,8 @@ private:
     bool loadPortraitFxEventTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadFaceAnimationTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadTransitionTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMmergeBaseTables(const Engine::AssetFileSystem &assetFileSystem);
+    bool applyMmergeRuntimeTables();
     bool loadFirstTextTableRows(
         const Engine::AssetFileSystem &assetFileSystem,
         const std::vector<std::string> &virtualPaths,
@@ -187,6 +225,39 @@ private:
     PortraitFxEventTable m_portraitFxEventTable;
     FaceAnimationTable m_faceAnimationTable;
     TransitionTable m_transitionTable;
+    MmergeClassExtraTable m_mmergeClassExtraTable;
+    MmergeCharacterSelectionTable m_mmergeCharacterSelectionTable;
+    MmergeRaceSkillTable m_mmergeRaceSkillTable;
+    MmergeTeacherTopicTable m_mmergeTeacherTopicTable;
+    MmergeTeacherAutonoteTable m_mmergeTeacherAutonoteTable;
+    MmergeNpcProfessionTable m_mmergeNpcProfessionTable;
+    MmergeNpcNameTable m_mmergeNpcNameTable;
+    MmergeNpcBtbTable m_mmergeNpcBtbTable;
+    MmergeNewsTopicTable m_mmergeNewsAreaTopicTable;
+    MmergeNewsTopicTable m_mmergeNewsContinentTopicTable;
+    MmergeNewsProfessionTopicTable m_mmergeNewsProfessionTopicTable;
+    MmergeMonsterPortraitTable m_mmergeMonsterPortraitTable;
+    MmergeMonsterKindTable m_mmergeMonsterKindTable;
+    MmergePotionSettingTable m_mmergePotionSettingTable;
+    MmergeReagentSettingTable m_mmergeReagentSettingTable;
+    MmergeAdditionalUiTable m_mmergeAdditionalUiTable;
+    MmergeBolsterFormulaTable m_mmergeBolsterFormulaTable;
+    MmergeBolsterMapTable m_mmergeBolsterMapTable;
+    MmergeBolsterMonsterTable m_mmergeBolsterMonsterTable;
+    MmergeCharacterVoiceTable m_mmergeCharacterVoiceTable;
+    MmergeClassStartingStatTable m_mmergeClassStartingStatsSourceTable;
+    MmergeComplexItemPictureOffsetTable m_mmergeComplexItemPictureOffsetTable;
+    MmergeComplexItemPictureTable m_mmergeComplexItemPictureTable;
+    MmergeContinentSettingTable m_mmergeContinentSettingTable;
+    MmergeHardwareWaterTextureTable m_mmergeHardwareWaterTextureTable;
+    MmergeHouseExitTable m_mmergeHouseExitTable;
+    MmergeHouseRuleTable m_mmergeHouseRuleTable;
+    MmergeHistoryTable m_mmergeMm7HistoryTable;
+    MmergeOutdoorTravelTable m_mmergeOutdoorTravelTable;
+    MmergeOverlayTable m_mmergeOverlayTable;
+    MmergeTownPortalSwitchTable m_mmergeTownPortalSwitchTable;
+    MmergeTransportIndexTable m_mmergeTransportIndexTable;
+    MmergeTransportLocationTable m_mmergeTransportLocationTable;
     std::optional<MapAssetInfo> m_selectedMap;
 };
 }
