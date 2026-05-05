@@ -342,6 +342,47 @@ TEST_CASE("AssetFileSystem merges inactive world video roots")
     std::filesystem::remove_all(temporaryRoot);
 }
 
+TEST_CASE("AssetFileSystem merges inactive world music roots")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "worlds" / "mm6" / "music" / "37.mp3", "mm6-music");
+    writeTextFile(assetRoot / "worlds" / "mm7" / "music" / "19.mp3", "mm7-music");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "music" / "5.mp3", "mm8-music");
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            "mm8"));
+
+        const std::optional<std::string> mm6MusicText =
+            assetFileSystem.readTextFile("Music/37.mp3");
+        REQUIRE(mm6MusicText.has_value());
+        CHECK_EQ(*mm6MusicText, "mm6-music");
+
+        const std::optional<std::string> mm7MusicText =
+            assetFileSystem.readTextFile("Music/19.mp3");
+        REQUIRE(mm7MusicText.has_value());
+        CHECK_EQ(*mm7MusicText, "mm7-music");
+
+        const std::optional<std::string> mm8MusicText =
+            assetFileSystem.readTextFile("Music/5.mp3");
+        REQUIRE(mm8MusicText.has_value());
+        CHECK_EQ(*mm8MusicText, "mm8-music");
+
+        const std::optional<std::filesystem::path> mm6PhysicalPath =
+            assetFileSystem.resolvePhysicalPath("Music/37.mp3");
+        REQUIRE(mm6PhysicalPath.has_value());
+        CHECK(mm6PhysicalPath->generic_string().ends_with("assets_dev/worlds/mm6/music/37.mp3"));
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
 TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
 {
     const std::filesystem::path temporaryRoot = makeTemporaryRoot();
@@ -474,6 +515,240 @@ TEST_CASE("AssetFileSystem resolves English data tables through engine data tabl
             assetFileSystem.readTextFile("Data/data_tables/english/quest.txt");
         REQUIRE(questText.has_value());
         CHECK_EQ(*questText, "engine-quest");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem applies asset scale by package category")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "wall.bmp", "base-wall");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "wall.bmp", "scaled-wall");
+    writeTextFile(assetRoot / "engine" / "terrain" / "grass.bmp", "base-grass");
+    writeTextFile(assetRoot / "engine" / "terrain_x4" / "grass.bmp", "scaled-grass");
+    writeTextFile(assetRoot / "engine" / "sprites" / "tree.bmp", "base-tree");
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+        assetScaleProfile.terrain = OpenYAMM::Engine::AssetScaleTier::X4;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> textureText =
+            assetFileSystem.readTextFile("Data/bitmaps/wall.bmp");
+        REQUIRE(textureText.has_value());
+        CHECK_EQ(*textureText, "scaled-wall");
+
+        const std::optional<std::string> terrainText =
+            assetFileSystem.readTextFile("terrain/grass.bmp");
+        REQUIRE(terrainText.has_value());
+        CHECK_EQ(*terrainText, "scaled-grass");
+
+        const std::optional<std::string> spriteText =
+            assetFileSystem.readTextFile("Data/sprites/tree.bmp");
+        REQUIRE(spriteText.has_value());
+        CHECK_EQ(*spriteText, "base-tree");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem lets terrain fall back to base textures independently of texture scale")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "grass.bmp", "base-grass");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "wall.bmp", "scaled-wall");
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+        assetScaleProfile.terrain = OpenYAMM::Engine::AssetScaleTier::X1;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> bmodelTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/wall.bmp");
+        REQUIRE(bmodelTextureText.has_value());
+        CHECK_EQ(*bmodelTextureText, "scaled-wall");
+
+        const std::optional<std::string> terrainFallbackText =
+            assetFileSystem.readTextFile("terrain_textures/grass.bmp");
+        REQUIRE(terrainFallbackText.has_value());
+        CHECK_EQ(*terrainFallbackText, "base-grass");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem does not use scaled geometry textures as terrain fallback")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "water.bmp", "base-water");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "water.bmp", "scaled-geometry-water");
+    writeTextFile(assetRoot / "engine" / "terrain_x4" / "grass.bmp", "scaled-grass");
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+        assetScaleProfile.terrain = OpenYAMM::Engine::AssetScaleTier::X4;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> terrainFallbackText =
+            assetFileSystem.readTextFile("terrain_textures/water.bmp");
+        REQUIRE(terrainFallbackText.has_value());
+        CHECK_EQ(*terrainFallbackText, "base-water");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem requires explicit scaled terrain directory for scaled terrain")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "water.bmp", "base-water");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "water.bmp", "scaled-geometry-water");
+
+    OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+        OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+    assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+    assetScaleProfile.terrain = OpenYAMM::Engine::AssetScaleTier::X4;
+
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    CHECK_FALSE(assetFileSystem.initialize(
+        temporaryRoot,
+        assetRoot,
+        OpenYAMM::Engine::AssetScaleTier::X1,
+        assetScaleProfile,
+        "mm8"));
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem falls back to base files when a scaled texture file is absent")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "wall.bmp", "base-wall");
+    writeTextFile(assetRoot / "engine" / "textures" / "water.bmp", "base-water");
+    writeTextFile(assetRoot / "engine" / "textures" / "pal123.act", "base-palette");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "wall.bmp", "scaled-wall");
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> scaledTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/wall.bmp");
+        REQUIRE(scaledTextureText.has_value());
+        CHECK_EQ(*scaledTextureText, "scaled-wall");
+
+        const std::optional<std::string> fallbackTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/water.bmp");
+        REQUIRE(fallbackTextureText.has_value());
+        CHECK_EQ(*fallbackTextureText, "base-water");
+
+        const std::optional<std::string> fallbackPaletteText =
+            assetFileSystem.readTextFile("Data/bitmaps/pal123.act");
+        REQUIRE(fallbackPaletteText.has_value());
+        CHECK_EQ(*fallbackPaletteText, "base-palette");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem resolves sky textures independently of geometry texture scale")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "textures" / "sky01.bmp", "base-sky");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "sky01.bmp", "scaled-sky");
+    writeTextFile(assetRoot / "engine" / "textures_x4" / "wall.bmp", "scaled-wall");
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.textures = OpenYAMM::Engine::AssetScaleTier::X4;
+        assetScaleProfile.sky = OpenYAMM::Engine::AssetScaleTier::X1;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> bmodelTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/wall.bmp");
+        REQUIRE(bmodelTextureText.has_value());
+        CHECK_EQ(*bmodelTextureText, "scaled-wall");
+
+        const std::optional<std::string> baseSkyText =
+            assetFileSystem.readTextFile("sky_textures/sky01.bmp");
+        REQUIRE(baseSkyText.has_value());
+        CHECK_EQ(*baseSkyText, "base-sky");
+    }
+
+    {
+        OpenYAMM::Engine::AssetScaleProfile assetScaleProfile =
+            OpenYAMM::Engine::createUniformAssetScaleProfile(OpenYAMM::Engine::AssetScaleTier::X1);
+        assetScaleProfile.sky = OpenYAMM::Engine::AssetScaleTier::X4;
+
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            assetScaleProfile,
+            "mm8"));
+
+        const std::optional<std::string> scaledSkyText =
+            assetFileSystem.readTextFile("sky_textures/sky01.bmp");
+        REQUIRE(scaledSkyText.has_value());
+        CHECK_EQ(*scaledSkyText, "scaled-sky");
     }
 
     std::filesystem::remove_all(temporaryRoot);

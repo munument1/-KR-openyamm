@@ -453,10 +453,47 @@ TEST_CASE("outdoor terrain descriptors use mm6 and mm7 MMerge tile tables")
     OpenYAMM::Game::SurfaceMaterialTable surfaceMaterialTable;
     std::string surfaceMaterialError;
     REQUIRE(surfaceMaterialTable.loadFromYaml(*surfaceMaterialYaml, surfaceMaterialError));
-    REQUIRE(surfaceMaterialTable.findMatch("6wtrtyl", 0, true) != nullptr);
+    const OpenYAMM::Game::SurfaceMaterialDefinition *pMm6WaterMaterial =
+        surfaceMaterialTable.findMatch("6wtrtyl", 0, true);
+    REQUIRE(pMm6WaterMaterial != nullptr);
+    REQUIRE(pMm6WaterMaterial->animation.frames.size() == 14);
+    CHECK(pMm6WaterMaterial->animation.animationLengthTicks == 210);
+    CHECK(pMm6WaterMaterial->animation.frames.front().textureName == "6hdwtr000");
+    CHECK(pMm6WaterMaterial->animation.frames.back().textureName == "6hdwtr013");
+
+    for (const OpenYAMM::Game::SurfaceAnimationFrame &frame : pMm6WaterMaterial->animation.frames)
+    {
+        CHECK(frame.frameLengthTicks == 15);
+    }
+
     REQUIRE(surfaceMaterialTable.findMatch("6wtrdrNE", 0, true) != nullptr);
-    REQUIRE(surfaceMaterialTable.findMatch("7wtrtyl", 0, true) != nullptr);
+
+    const OpenYAMM::Game::SurfaceMaterialDefinition *pMm7WaterMaterial =
+        surfaceMaterialTable.findMatch("7wtrtyl", 0, true);
+    REQUIRE(pMm7WaterMaterial != nullptr);
+    CHECK(pMm7WaterMaterial->animation.frames.front().textureName == "7hdwtr000");
+    CHECK(pMm7WaterMaterial->animation.frames.back().textureName == "7hdwtr013");
     REQUIRE(surfaceMaterialTable.findMatch("7hwtrdrne", 0, true) != nullptr);
+
+    const OpenYAMM::Game::SurfaceMaterialDefinition *pMm8WaterMaterial =
+        surfaceMaterialTable.findMatch("wtrtyl", 0, true);
+    REQUIRE(pMm8WaterMaterial != nullptr);
+    CHECK(pMm8WaterMaterial->animation.frames.front().textureName == "hdwtr000");
+    CHECK(pMm8WaterMaterial->animation.frames.back().textureName == "hdwtr013");
+
+    const OpenYAMM::Game::SurfaceMaterialDefinition *pLavaMaterial =
+        surfaceMaterialTable.findMatch("lavtyl", 0, true);
+    REQUIRE(pLavaMaterial != nullptr);
+    REQUIRE(pLavaMaterial->animation.frames.size() == 14);
+    CHECK(pLavaMaterial->animation.frames.front().textureName == "hdlav000");
+    CHECK(pLavaMaterial->animation.frames.back().textureName == "hdlav013");
+
+    const OpenYAMM::Game::SurfaceMaterialDefinition *pOilMaterial =
+        surfaceMaterialTable.findMatch("tartyl", 0, true);
+    REQUIRE(pOilMaterial != nullptr);
+    REQUIRE(pOilMaterial->animation.frames.size() == 14);
+    CHECK(pOilMaterial->animation.frames.front().textureName == "hwoil000");
+    CHECK(pOilMaterial->animation.frames.back().textureName == "hwoil013");
 
     OpenYAMM::Game::OutdoorMapData newSorpigal = {};
     newSorpigal.fileName = "oute3.odm";
@@ -483,7 +520,7 @@ TEST_CASE("outdoor terrain descriptors use mm6 and mm7 MMerge tile tables")
     CHECK((*emeraldIslandDescriptors)[90].textureName == "7grastyl");
     CHECK((*emeraldIslandDescriptors)[126].textureName == "7wtrtyl");
     CHECK(((*emeraldIslandDescriptors)[126].flags & OpenYAMM::Game::TerrainTileFlagWater) != 0);
-    CHECK(assetFileSystem.exists("Data/bitmaps/7wtrtyl.bmp"));
+    CHECK(assetFileSystem.exists("terrain/7wtrtyl.bmp"));
 }
 
 TEST_CASE("outdoor terrain descriptor flags are applied to movement attributes")
@@ -627,6 +664,24 @@ TEST_CASE("corpse auto loot drops occupied cursor item before holding unplaced c
     CHECK_EQ(heldItem.item.objectDescriptionId, 5000u);
     REQUIRE_EQ(worldRuntime.dropRequests.size(), 1u);
     CHECK_EQ(worldRuntime.dropRequests.front().item.objectDescriptionId, 4000u);
+}
+
+TEST_CASE("corpse auto loot silently closes empty corpse view")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    CorpseLootTestWorldRuntime worldRuntime = {};
+    REQUIRE(worldRuntime.activeCorpseView() != nullptr);
+
+    const OpenYAMM::Game::GameplayCorpseAutoLootResult result =
+        OpenYAMM::Game::autoLootActiveCorpseView(worldRuntime, party, nullptr, nullptr);
+
+    CHECK_FALSE(result.lootedAny);
+    CHECK_FALSE(result.blockedByInventory);
+    CHECK(result.empty);
+    CHECK(result.statusText.empty());
+    CHECK(worldRuntime.activeCorpseView() == nullptr);
 }
 
 TEST_CASE("charged wand attack profile prefers wand over equipped bow")
@@ -1865,6 +1920,30 @@ TEST_CASE("lua MoveToMap with transition ids opens shared transition dialog inst
     CHECK_EQ(runtimeState.pendingDialogueContext->transitionImageId, 9u);
 }
 
+TEST_CASE("lua MoveToMap without transition ids queues direct map move")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0, \"outb3.odm\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticDirectMapMove.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+    CHECK_FALSE(runtimeState.pendingDialogueContext.has_value());
+    REQUIRE(runtimeState.pendingMapMove.has_value());
+    CHECK_EQ(runtimeState.pendingMapMove->mapName, std::optional<std::string>("outb3.odm"));
+    CHECK_EQ(runtimeState.pendingMapMove->x, 12808);
+    CHECK_EQ(runtimeState.pendingMapMove->y, 6832);
+    CHECK_EQ(runtimeState.pendingMapMove->z, 64);
+}
+
 TEST_CASE("dungeon transition dialog uses trans table title text icon and transition video metadata")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -1955,6 +2034,36 @@ TEST_CASE("merged dungeon transition dialog uses world house movie metadata befo
     CHECK_EQ(mm6Dialog.videoName, "d02");
     CHECK_EQ(mm6Dialog.videoDirectory, "Videos/Transitions");
 
+    OpenYAMM::Game::EventRuntimeState mm6ExitRuntimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingMapMove mm6ExitMapMove = {};
+    mm6ExitMapMove.mapName = std::string("oute3.odm");
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext mm6ExitContext = {};
+    mm6ExitContext.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    mm6ExitContext.transitionMapMove = mm6ExitMapMove;
+    mm6ExitContext.transitionImageId = 1;
+    mm6ExitRuntimeState.pendingDialogueContext = mm6ExitContext;
+
+    const OpenYAMM::Game::EventDialogContent mm6ExitDialog = OpenYAMM::Game::buildEventDialogContent(
+        mm6ExitRuntimeState,
+        0,
+        true,
+        nullptr,
+        &gameData.houseTable,
+        nullptr,
+        nullptr,
+        &gameData.transitionTable,
+        &mm6AbandonedTemple,
+        &mm6MapEntries,
+        nullptr,
+        nullptr,
+        0.0f);
+
+    REQUIRE(mm6ExitDialog.isActive);
+    CHECK_EQ(mm6ExitDialog.title, "Abandoned Temple");
+    CHECK_EQ(mm6ExitDialog.videoName, "d02");
+    CHECK_EQ(mm6ExitDialog.videoDirectory, "Videos/Transitions");
+
     OpenYAMM::Game::EventRuntimeState mm7RuntimeState = {};
     OpenYAMM::Game::EventRuntimeState::PendingMapMove mm7MapMove = {};
     mm7MapMove.mapName = std::string("7d06.blv");
@@ -1995,6 +2104,36 @@ TEST_CASE("merged dungeon transition dialog uses world house movie metadata befo
     CHECK_EQ(mm7Dialog.title, "The Temple of the Moon");
     CHECK_EQ(mm7Dialog.videoName, "out01 temple of the moon");
     CHECK_EQ(mm7Dialog.videoDirectory, "Videos/Transitions");
+
+    OpenYAMM::Game::EventRuntimeState mm7ExitRuntimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingMapMove mm7ExitMapMove = {};
+    mm7ExitMapMove.mapName = std::string("7out01.odm");
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext mm7ExitContext = {};
+    mm7ExitContext.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    mm7ExitContext.transitionMapMove = mm7ExitMapMove;
+    mm7ExitContext.transitionImageId = 1;
+    mm7ExitRuntimeState.pendingDialogueContext = mm7ExitContext;
+
+    const OpenYAMM::Game::EventDialogContent mm7ExitDialog = OpenYAMM::Game::buildEventDialogContent(
+        mm7ExitRuntimeState,
+        0,
+        true,
+        nullptr,
+        &gameData.houseTable,
+        nullptr,
+        nullptr,
+        &gameData.transitionTable,
+        &mm7TempleOfTheMoon,
+        &mm7MapEntries,
+        nullptr,
+        nullptr,
+        0.0f);
+
+    REQUIRE(mm7ExitDialog.isActive);
+    CHECK_EQ(mm7ExitDialog.title, "The Temple of the Moon");
+    CHECK_EQ(mm7ExitDialog.videoName, "out01 temple of the moon");
+    CHECK_EQ(mm7ExitDialog.videoDirectory, "Videos/Transitions");
 }
 
 TEST_CASE("outdoor boundary transition dialog uses default outdoor map icon")

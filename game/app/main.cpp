@@ -30,12 +30,14 @@ bool parseCommonArguments(
     char **argv,
     OpenYAMM::Engine::ApplicationConfig &config,
     std::vector<std::string> &arguments,
-    bool &worldArgumentProvided)
+    bool &worldArgumentProvided,
+    bool &assetScaleArgumentProvided)
 {
     bool hasAssetScaleArgument = false;
     bool hasMapOverrideArgument = false;
     bool hasWorldArgument = false;
     worldArgumentProvided = false;
+    assetScaleArgumentProvided = false;
 
     for (int argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
     {
@@ -92,22 +94,20 @@ bool parseCommonArguments(
         }
 
         config.assetScaleTier = *assetScaleTier;
+        config.assetScaleProfile = OpenYAMM::Engine::createUniformAssetScaleProfile(*assetScaleTier);
         hasAssetScaleArgument = true;
+        assetScaleArgumentProvided = true;
         ++argumentIndex;
     }
 
     return true;
 }
 
-void applySettingsStartupWorldIfConfigured(
+void applySettingsConfigOverridesIfConfigured(
     OpenYAMM::Engine::ApplicationConfig &config,
-    bool worldArgumentProvided)
+    bool worldArgumentProvided,
+    bool assetScaleArgumentProvided)
 {
-    if (worldArgumentProvided)
-    {
-        return;
-    }
-
     const std::filesystem::path settingsPath = "settings.ini";
 
     if (!std::filesystem::exists(settingsPath))
@@ -121,13 +121,18 @@ void applySettingsStartupWorldIfConfigured(
 
     if (!settings)
     {
-        std::cerr << "Failed to read startup world from " << settingsPath.string() << ": " << error << '\n';
+        std::cerr << "Failed to read settings from " << settingsPath.string() << ": " << error << '\n';
         return;
     }
 
-    if (!settings->startWorldId.empty())
+    if (!worldArgumentProvided && !settings->startWorldId.empty())
     {
         config.activeWorldId = settings->startWorldId;
+    }
+
+    if (!assetScaleArgumentProvided)
+    {
+        config.assetScaleProfile = settings->assetScaleProfile;
     }
 }
 
@@ -138,13 +143,14 @@ int runApplication(int argc, char **argv)
     OpenYAMM::Engine::ApplicationConfig config = OpenYAMM::Engine::ApplicationConfig::createDefault();
     std::vector<std::string> arguments;
     bool worldArgumentProvided = false;
+    bool assetScaleArgumentProvided = false;
 
-    if (!parseCommonArguments(argc, argv, config, arguments, worldArgumentProvided))
+    if (!parseCommonArguments(argc, argv, config, arguments, worldArgumentProvided, assetScaleArgumentProvided))
     {
         return 2;
     }
 
-    applySettingsStartupWorldIfConfigured(config, worldArgumentProvided);
+    applySettingsConfigOverridesIfConfigured(config, worldArgumentProvided, assetScaleArgumentProvided);
 
     if (!arguments.empty() && arguments[0].rfind("--headless-", 0) == 0)
     {

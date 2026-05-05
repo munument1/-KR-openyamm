@@ -12,6 +12,7 @@ ApplicationConfig ApplicationConfig::createDefault()
     config.activeWorldId = "mm8";
     config.startupMapFileOverride.clear();
     config.assetScaleTier = AssetScaleTier::X1;
+    config.assetScaleProfile = createUniformAssetScaleProfile(config.assetScaleTier);
     config.windowWidth = OPENYAMM_WINDOW_WIDTH;
     config.windowHeight = OPENYAMM_WINDOW_HEIGHT;
     config.windowMode = WindowMode::Windowed;

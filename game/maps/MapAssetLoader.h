@@ -33,6 +33,7 @@ struct OutdoorTerrainAtlasRegion
     float v1 = 0.0f;
     bool isValid = false;
     bool isWater = false;
+    bool isTransitionOverlay = false;
 };
 
 struct OutdoorAnimatedWaterTileSource

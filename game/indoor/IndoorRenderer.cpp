@@ -2562,8 +2562,8 @@ void IndoorRenderer::render(
     // safer visibility gate for billboard rendering than hard sector culling here.
     const std::vector<uint8_t> billboardSectorMask;
     renderDecorationBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame);
-    renderActorPreviewBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame);
-    renderSpriteObjectBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame);
+    renderActorPreviewBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame, settings.spriteOutline);
+    renderSpriteObjectBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame, settings.spriteOutline);
 
     ParticleRenderer::renderParticles(
         m_worldFxRenderResources,
@@ -4568,7 +4568,8 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
             textureName,
             paletteId,
             textureWidth,
-            textureHeight);
+            textureHeight,
+            m_map.has_value() ? m_map->worldId : std::string());
 
     if (!pixels || textureWidth <= 0 || textureHeight <= 0)
     {
@@ -5111,7 +5112,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
-    const IndoorLightingFrame &lightingFrame
+    const IndoorLightingFrame &lightingFrame,
+    bool spriteOutlineEnabled
 )
 {
     if (!m_indoorActorPreviewBillboardSet
@@ -5256,7 +5258,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
-            drawItem.hovered = hoveredActorIndex && *hoveredActorIndex == billboard.actorIndex;
+            drawItem.hovered =
+                spriteOutlineEnabled && hoveredActorIndex && *hoveredActorIndex == billboard.actorIndex;
             drawItem.heightScale = billboard.heightScale;
             if (drawItem.hovered && mapDeltaData && billboard.actorIndex < mapDeltaData->actors.size())
             {
@@ -5587,7 +5590,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
-    const IndoorLightingFrame &lightingFrame
+    const IndoorLightingFrame &lightingFrame,
+    bool spriteOutlineEnabled
 )
 {
     if (!bgfx::isValid(m_billboardProgramHandle)
@@ -5865,7 +5869,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
-            drawItem.hovered = hoveredWorldItemIndex && *hoveredWorldItemIndex == billboard.objectIndex;
+            drawItem.hovered =
+                spriteOutlineEnabled && hoveredWorldItemIndex && *hoveredWorldItemIndex == billboard.objectIndex;
             drawItem.hoveredOutlineColorAbgr =
                 drawItem.hovered ? hoveredIndoorWorldItemOutlineColor() : 0;
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
@@ -7156,15 +7161,10 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
         return false;
     }
 
-    EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
-
-    if (pEventRuntimeState != nullptr)
-    {
-        promotePendingMapMoveToTransitionDialog(*pEventRuntimeState);
-    }
-
     if (!rebuildDerivedGeometryResources())
     {
+        EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+
         if (pEventRuntimeState != nullptr)
         {
             pEventRuntimeState->lastActivationResult = "event " + std::to_string(eventId) + " execute failed";

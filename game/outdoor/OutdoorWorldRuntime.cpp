@@ -11730,6 +11730,8 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
         if (corpse.items.empty())
         {
+            m_mapActors[actorIndex].isInvisible = true;
+            m_mapActorCorpseViews[actorIndex].reset();
             return false;
         }
 

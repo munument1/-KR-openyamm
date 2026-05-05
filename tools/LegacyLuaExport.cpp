@@ -214,6 +214,18 @@ std::optional<std::string> readPayloadString(const std::vector<uint8_t> &payload
     return std::nullopt;
 }
 
+std::optional<std::string> readMoveToMapName(const std::vector<uint8_t> &payload, size_t offset)
+{
+    std::optional<std::string> mapName = readPayloadString(payload, offset);
+
+    if (mapName && mapName->empty())
+    {
+        mapName = readPayloadString(payload, offset + 1);
+    }
+
+    return mapName;
+}
+
 std::string escapeLuaString(std::string_view text)
 {
     std::string escaped;
@@ -1904,7 +1916,7 @@ LegacyLuaInstruction decodeInstruction(
             };
         }
 
-        decoded.text = readPayloadString(instruction.rawPayload, mapNameOffset);
+        decoded.text = readMoveToMapName(instruction.rawPayload, mapNameOffset);
     }
 
     if (decoded.operation == LegacyLuaOperation::ShowFace

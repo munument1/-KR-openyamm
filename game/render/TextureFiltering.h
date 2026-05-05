@@ -10,14 +10,34 @@ enum class TextureFilterProfile
 {
     Terrain,
     BModel,
+    Sky,
     Billboard,
     Ui,
     Text,
 };
 
+enum class TextureFilterMode
+{
+    Nearest,
+    Linear,
+    Anisotropic,
+};
+
+struct TextureFilteringConfig
+{
+    bool enabled = true;
+    TextureFilterMode terrain = TextureFilterMode::Anisotropic;
+    TextureFilterMode bmodel = TextureFilterMode::Anisotropic;
+    TextureFilterMode sky = TextureFilterMode::Anisotropic;
+    TextureFilterMode billboard = TextureFilterMode::Linear;
+    TextureFilterMode ui = TextureFilterMode::Linear;
+    TextureFilterMode text = TextureFilterMode::Nearest;
+};
+
 uint64_t textureFilterSamplerFlags(TextureFilterProfile profile);
 bool textureFilteringEnabled();
 void setTextureFilteringEnabled(bool enabled);
+void setTextureFilteringConfig(const TextureFilteringConfig &config);
 bool toggleTextureFilteringEnabled();
 uint32_t textureBindingSamplerFlags(TextureFilterProfile profile, uint32_t extraFlags = BGFX_SAMPLER_NONE);
 void bindTexture(

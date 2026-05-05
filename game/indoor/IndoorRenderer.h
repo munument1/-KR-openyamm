@@ -352,14 +352,16 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
-        const IndoorLightingFrame &lightingFrame
+        const IndoorLightingFrame &lightingFrame,
+        bool spriteOutlineEnabled
     );
     void renderSpriteObjectBillboards(
         uint16_t viewId,
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
-        const IndoorLightingFrame &lightingFrame
+        const IndoorLightingFrame &lightingFrame,
+        bool spriteOutlineEnabled
     );
     bgfx::TextureHandle ensureBloodSplatTexture();
     void ensureBloodSplatVertexBuffer();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/AssetScaleTier.h"
 #include "game/app/KeyboardBindings.h"
 
 #include <SDL3/SDL.h>
@@ -76,14 +77,17 @@ struct GameSettings
     bool coloredLights = true;
     bool tinting = true;
     bool shadows = false;
+    bool spriteOutline = false;
     bool textureFiltering = true;
     std::string terrainFiltering = "anisotropic";
     std::string terrainAnisotropy = "8x";
-    std::string bmodelFiltering = "linear";
+    std::string bmodelFiltering = "anisotropic";
     std::string billboardFiltering = "linear";
     std::string uiFiltering = "linear";
     std::string textFiltering = "nearest";
     std::string minimapFiltering = "linear";
+    std::string viewDistance = "default";
+    Engine::AssetScaleProfile assetScaleProfile = Engine::createUniformAssetScaleProfile(Engine::AssetScaleTier::X1);
     GameplayUiLayout gameplayUiLayout = GameplayUiLayout::Widescreen;
     WindowMode windowMode = WindowMode::Windowed;
     int resolutionWidth = 1600;
@@ -112,4 +116,5 @@ struct GameSettings
 
 std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, std::string &error);
 bool saveGameSettings(const std::filesystem::path &path, const GameSettings &settings, std::string &error);
+float resolveViewDistanceSetting(const std::string &value, float defaultDistance);
 }

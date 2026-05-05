@@ -201,7 +201,7 @@ RegisterEvent(451, "Shrine", nil, "Shrine")
 
 RegisterEvent(452, "Altar", function()
     SetQBit(QBit(758)) -- Visited The Land of the giants
-    evt.MoveToMap(7598, -5250, 129, 1024, 0, 0, 0, 0)
+    evt.MoveToMap(7598, -5250, 129, 1024, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end, "Altar")
 
 RegisterEvent(453, "Obelisk", function()

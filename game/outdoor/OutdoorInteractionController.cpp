@@ -4294,7 +4294,6 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
             {
                 if (!view.m_pOutdoorWorldRuntime->openMapActorCorpseView(*runtimeActorIndex))
                 {
-                    view.setStatusBarEvent("Nothing here");
                     pEventRuntimeState->lastActivationResult =
                         "corpse " + std::to_string(*runtimeActorIndex) + " empty";
                     return true;
@@ -4704,8 +4703,6 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
         return false;
     }
 
-    promotePendingMapMoveToTransitionDialog(*pEventRuntimeState);
-
     for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
     {
         view.setStatusBarEvent(statusMessage);
@@ -5044,8 +5041,6 @@ bool OutdoorInteractionController::tryTriggerLocalEventById(OutdoorGameView &vie
         pEventRuntimeState->lastActivationResult = "event " + std::to_string(eventId) + " unresolved";
         return false;
     }
-
-    promotePendingMapMoveToTransitionDialog(*pEventRuntimeState);
 
     for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
     {

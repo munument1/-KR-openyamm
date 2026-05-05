@@ -60,12 +60,43 @@ vec3 getFxLighting()
 void main()
 {
     vec2 texcoord = v_texcoord0;
-    texcoord.xy += v_flowInfo.xy * u_secretPulseParams.y;
+    bool terrainWater = v_texcoord1.x < -0.5;
 
-    if (v_flowInfo.z > 0.5)
+    if (terrainWater)
     {
-        float lavaPhase = sin(mod(u_secretPulseParams.y, 8.0) * 6.2831853 / 8.0);
-        texcoord.y += lavaPhase;
+        vec2 atlasMin = v_flowInfo.xy;
+        vec2 atlasMax = v_flowInfo.zw;
+        vec2 atlasSpan = max(atlasMax - atlasMin, vec2(0.0001, 0.0001));
+        vec2 localCoord = clamp((texcoord - atlasMin) / atlasSpan, vec2(0.0, 0.0), vec2(1.0, 1.0));
+
+        float pongPhase = sin(mod(u_secretPulseParams.y, 10.0) * 6.2831853 / 10.0);
+        float swirlPhase = mod(u_secretPulseParams.y, 8.0) * 6.2831853 / 8.0;
+        float ripplePhase = mod(u_secretPulseParams.y, 6.0) * 6.2831853 / 6.0;
+
+        vec2 localDelta = vec2(0.0, 0.0);
+        localDelta.x += pongPhase * 0.004 * sin(localCoord.x * 6.2831853);
+        localDelta.y += pongPhase * 0.004 * sin(localCoord.y * 6.2831853);
+        localDelta.x += 0.0025 * sin(swirlPhase + localCoord.y * 6.2831853);
+        localDelta.y += 0.0025 * cos(swirlPhase + localCoord.x * 6.2831853);
+        localDelta.x -= 0.001 * cos(ripplePhase + (localCoord.y + localDelta.y) * 6.2831853 * 6.0);
+        float edgeFade =
+            safeSmoothstep(0.04, 0.12, localCoord.x)
+            * (1.0 - safeSmoothstep(0.88, 0.96, localCoord.x))
+            * safeSmoothstep(0.04, 0.12, localCoord.y)
+            * (1.0 - safeSmoothstep(0.88, 0.96, localCoord.y));
+        localDelta *= edgeFade;
+
+        texcoord = clamp(texcoord + localDelta * atlasSpan, atlasMin, atlasMax);
+    }
+    else
+    {
+        texcoord.xy += v_flowInfo.xy * u_secretPulseParams.y;
+
+        if (v_flowInfo.z > 0.5)
+        {
+            float lavaPhase = sin(mod(u_secretPulseParams.y, 8.0) * 6.2831853 / 8.0);
+            texcoord.y += lavaPhase;
+        }
     }
 
     vec4 textureColor = texture2D(s_texColor, texcoord);

@@ -170,8 +170,11 @@ TEST_CASE("settings debug startup options round trip")
         std::filesystem::temp_directory_path() / "openyamm_debug_god_lich_settings.ini";
 
     OpenYAMM::Game::GameSettings settings = OpenYAMM::Game::GameSettings::createDefault();
+    CHECK_FALSE(settings.spriteOutline);
     settings.startWorldId = "mm7";
     settings.startMapFile.clear();
+    settings.spriteOutline = true;
+    settings.viewDistance = "unlimited";
     settings.newGameGodLich = true;
 
     std::string error;
@@ -183,6 +186,9 @@ TEST_CASE("settings debug startup options round trip")
     REQUIRE(loadedSettings.has_value());
     CHECK_EQ(loadedSettings->startWorldId, "mm7");
     CHECK(loadedSettings->startMapFile.empty());
+    CHECK(loadedSettings->spriteOutline);
+    CHECK_EQ(loadedSettings->viewDistance, "unlimited");
+    CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->newGameGodLich);
 
     std::filesystem::remove(path);

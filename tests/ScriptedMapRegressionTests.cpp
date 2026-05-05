@@ -6,9 +6,11 @@
 #include "game/maps/MapAssetLoader.h"
 #include "game/StringUtils.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
+#include "game/outdoor/OutdoorWorldRuntime.h"
 
 #include "tests/RegressionMapLoader.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <fstream>
@@ -92,6 +94,40 @@ bool loadIndoorMapWithCompanionOptions(
 
     mapAssetInfo = *loadedMap;
     return true;
+}
+
+bool bitmapTextureSetContains(
+    const std::vector<OpenYAMM::Game::OutdoorBitmapTexture> &textures,
+    const std::string &textureName)
+{
+    const std::string normalizedTextureName = OpenYAMM::Game::toLowerCopy(textureName);
+
+    for (const OpenYAMM::Game::OutdoorBitmapTexture &texture : textures)
+    {
+        if (OpenYAMM::Game::toLowerCopy(texture.textureName) == normalizedTextureName)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+const OpenYAMM::Game::SurfaceAnimationSequence *findSurfaceAnimationBinding(
+    const std::vector<std::pair<std::string, OpenYAMM::Game::SurfaceAnimationSequence>> &bindings,
+    const std::string &textureName)
+{
+    const std::string normalizedTextureName = OpenYAMM::Game::toLowerCopy(textureName);
+
+    for (const auto &binding : bindings)
+    {
+        if (OpenYAMM::Game::toLowerCopy(binding.first) == normalizedTextureName)
+        {
+            return &binding.second;
+        }
+    }
+
+    return nullptr;
 }
 
 OpenYAMM::Game::Character makeRegressionPartyMember(
@@ -513,6 +549,40 @@ TEST_CASE("mm6 new sorpigal tree event stores decoration sprite override")
     CHECK_EQ(*overrideIterator->second.textureName, "6tree06");
 }
 
+TEST_CASE("mm6 new sorpigal dragonsand exit keeps destination map name")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    const std::optional<std::string> oute3Lua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/maps/oute3.lua");
+
+    REQUIRE(supportLua.has_value());
+    REQUIRE(oute3Lua.has_value());
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *oute3Lua,
+            "@events/maps/oute3.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 104, runtimeState, &party, nullptr));
+    REQUIRE(runtimeState.pendingMapMove.has_value());
+    CHECK_EQ(runtimeState.pendingMapMove->mapName, std::optional<std::string>("outb3.odm"));
+    CHECK_EQ(runtimeState.pendingMapMove->x, 12808);
+    CHECK_EQ(runtimeState.pendingMapMove->y, 6832);
+    CHECK_EQ(runtimeState.pendingMapMove->z, 64);
+}
+
 TEST_CASE("d19 blv MoveNPC updates party global npc house overrides")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
@@ -676,6 +746,202 @@ TEST_CASE("out05 authored special actors preserve relation override and carried 
     naturalDragonslayer.group = 24;
     naturalDragon.group = 24;
     CHECK_FALSE(actorService.resolveActorTargetPolicy(naturalDragonslayer, naturalDragon).canTarget);
+}
+
+TEST_CASE("mm7 world prefixed monster sprites resolve on Emerald Island")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    OpenYAMM::Game::MapAssetInfo loadedMap = {};
+
+    REQUIRE(loadOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7out01.odm",
+        OpenYAMM::Game::MapLoadPurpose::Full,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        },
+        loadedMap));
+    REQUIRE(loadedMap.outdoorActorPreviewBillboardSet.has_value());
+
+    const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
+        *loadedMap.outdoorActorPreviewBillboardSet;
+    CHECK(billboardSet.spriteFrameTable.findFrameIndexBySpriteName("7m409s").has_value());
+
+    const auto standingTextureIt = std::find_if(
+        billboardSet.textures.begin(),
+        billboardSet.textures.end(),
+        [](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+        {
+            return texture.textureName == "m406sa0" && texture.paletteId == 409;
+        });
+    REQUIRE(standingTextureIt != billboardSet.textures.end());
+    REQUIRE_GE(standingTextureIt->physicalWidth, 133);
+    REQUIRE_GE(standingTextureIt->physicalHeight, 94);
+
+    const size_t torsoPixelOffset =
+        (static_cast<size_t>(78) * static_cast<size_t>(standingTextureIt->physicalWidth) + 127u) * 4u;
+    REQUIRE_LT(torsoPixelOffset + 3u, standingTextureIt->pixels.size());
+    CHECK_EQ(standingTextureIt->pixels[torsoPixelOffset + 0u], 68u);
+    CHECK_EQ(standingTextureIt->pixels[torsoPixelOffset + 1u], 73u);
+    CHECK_EQ(standingTextureIt->pixels[torsoPixelOffset + 2u], 82u);
+    CHECK_EQ(standingTextureIt->pixels[torsoPixelOffset + 3u], 255u);
+
+    bool foundAdventurer = false;
+
+    for (const OpenYAMM::Game::ActorPreviewBillboard &billboard : billboardSet.billboards)
+    {
+        if (billboard.monsterId != 405)
+        {
+            continue;
+        }
+
+        foundAdventurer = true;
+        CHECK_NE(billboard.spriteFrameIndex, 0u);
+        CHECK_NE(
+            billboard.actionSpriteFrameIndices[
+                static_cast<size_t>(OpenYAMM::Game::OutdoorWorldRuntime::ActorAnimation::Standing)],
+            0u);
+    }
+
+    CHECK(foundAdventurer);
+}
+
+TEST_CASE("outdoor water bmodel faces load terrain-owned animation frames")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+
+    struct WaterMapCase
+    {
+        const char *pMapFileName = nullptr;
+        const char *pBaseTextureName = nullptr;
+        const char *pFirstFrameTextureName = nullptr;
+        const char *pLastFrameTextureName = nullptr;
+    };
+
+    const std::array<WaterMapCase, 3> waterMapCases = {{
+        {"out01.odm", "wtrtyl", "hdwtr000", "hdwtr013"},
+        {"7out01.odm", "7wtrtyl", "7hdwtr000", "7hdwtr013"},
+        {"oute3.odm", "6wtrtyl", "6hdwtr000", "6hdwtr013"},
+    }};
+
+    for (const WaterMapCase &waterMapCase : waterMapCases)
+    {
+        OpenYAMM::Game::MapAssetInfo loadedMap = {};
+
+        REQUIRE(loadOutdoorMapWithCompanionOptions(
+            mapLoader.assetFileSystem,
+            mapLoader.gameDataLoader,
+            waterMapCase.pMapFileName,
+            OpenYAMM::Game::MapLoadPurpose::Full,
+            OpenYAMM::Game::MapCompanionLoadOptions{
+                .allowSceneYml = true,
+                .allowLegacyCompanion = true,
+            },
+            loadedMap));
+        REQUIRE(loadedMap.outdoorBModelTextureSet.has_value());
+
+        const OpenYAMM::Game::OutdoorBModelTextureSet &textureSet = *loadedMap.outdoorBModelTextureSet;
+        CHECK(bitmapTextureSetContains(textureSet.textures, waterMapCase.pBaseTextureName));
+        CHECK(bitmapTextureSetContains(textureSet.textures, waterMapCase.pFirstFrameTextureName));
+        CHECK(bitmapTextureSetContains(textureSet.textures, waterMapCase.pLastFrameTextureName));
+
+        const OpenYAMM::Game::SurfaceAnimationSequence *pAnimation =
+            findSurfaceAnimationBinding(textureSet.animationBindings, waterMapCase.pBaseTextureName);
+        REQUIRE(pAnimation != nullptr);
+        CHECK(pAnimation->frames.size() == 14);
+        CHECK(pAnimation->animationLengthTicks == 210);
+        CHECK(pAnimation->frames.front().textureName == waterMapCase.pFirstFrameTextureName);
+        CHECK(pAnimation->frames.back().textureName == waterMapCase.pLastFrameTextureName);
+    }
+}
+
+TEST_CASE("outdoor terrain water transition tiles do not use full-tile shader warp")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+
+    struct WaterTransitionMapCase
+    {
+        const char *pMapFileName = nullptr;
+        uint8_t fullWaterTileId = 0;
+        uint8_t transitionWaterTileId = 0;
+    };
+
+    const std::array<WaterTransitionMapCase, 3> waterMapCases = {{
+        {"out01.odm", 126, 138},
+        {"7out01.odm", 126, 138},
+        {"oute3.odm", 126, 138},
+    }};
+
+    for (const WaterTransitionMapCase &waterMapCase : waterMapCases)
+    {
+        OpenYAMM::Game::MapAssetInfo loadedMap = {};
+
+        REQUIRE(loadOutdoorMapWithCompanionOptions(
+            mapLoader.assetFileSystem,
+            mapLoader.gameDataLoader,
+            waterMapCase.pMapFileName,
+            OpenYAMM::Game::MapLoadPurpose::Full,
+            OpenYAMM::Game::MapCompanionLoadOptions{
+                .allowSceneYml = true,
+                .allowLegacyCompanion = true,
+            },
+            loadedMap));
+        REQUIRE(loadedMap.outdoorTerrainTextureAtlas.has_value());
+
+        const OpenYAMM::Game::OutdoorTerrainTextureAtlas &atlas = *loadedMap.outdoorTerrainTextureAtlas;
+        const OpenYAMM::Game::OutdoorTerrainAtlasRegion &fullWaterRegion =
+            atlas.tileRegions[static_cast<size_t>(waterMapCase.fullWaterTileId)];
+        const OpenYAMM::Game::OutdoorTerrainAtlasRegion &cachedFullWaterRegion =
+            atlas.tileRegions[static_cast<size_t>(waterMapCase.fullWaterTileId + 1)];
+        const OpenYAMM::Game::OutdoorTerrainAtlasRegion &transitionWaterRegion =
+            atlas.tileRegions[static_cast<size_t>(waterMapCase.transitionWaterTileId)];
+
+        REQUIRE(fullWaterRegion.isValid);
+        CHECK(fullWaterRegion.isWater);
+        CHECK_FALSE(fullWaterRegion.isTransitionOverlay);
+
+        REQUIRE(cachedFullWaterRegion.isValid);
+        CHECK(cachedFullWaterRegion.isWater);
+        CHECK_FALSE(cachedFullWaterRegion.isTransitionOverlay);
+
+        REQUIRE(transitionWaterRegion.isValid);
+        CHECK(transitionWaterRegion.isWater);
+        CHECK(transitionWaterRegion.isTransitionOverlay);
+
+        const auto findAnimatedTileSource =
+            [&](const OpenYAMM::Game::OutdoorTerrainAtlasRegion &region)
+            -> const OpenYAMM::Game::OutdoorAnimatedWaterTileSource *
+            {
+                for (const OpenYAMM::Game::OutdoorAnimatedWaterTileSource &source : atlas.animatedWaterTiles)
+                {
+                    if (source.region.u0 == region.u0
+                        && source.region.v0 == region.v0
+                        && source.region.u1 == region.u1
+                        && source.region.v1 == region.v1)
+                    {
+                        return &source;
+                    }
+                }
+
+                return nullptr;
+            };
+
+        const OpenYAMM::Game::OutdoorAnimatedWaterTileSource *pFullWaterSource =
+            findAnimatedTileSource(fullWaterRegion);
+        const OpenYAMM::Game::OutdoorAnimatedWaterTileSource *pCachedFullWaterSource =
+            findAnimatedTileSource(cachedFullWaterRegion);
+
+        REQUIRE(pFullWaterSource != nullptr);
+        REQUIRE(pCachedFullWaterSource != nullptr);
+        CHECK(pFullWaterSource->framePixels.size() == 14);
+        CHECK(pFullWaterSource->animation.frames.size() == 14);
+        CHECK(pFullWaterSource->animation.animationLengthTicks == 210);
+        CHECK(pCachedFullWaterSource->framePixels.size() == 14);
+        CHECK(pCachedFullWaterSource->animation.frames.size() == 14);
+        CHECK(pCachedFullWaterSource->animation.animationLengthTicks == 210);
+    }
 }
 
 TEST_CASE("d06 indoor actor loader preserves Blackwell Cooper guaranteed key drop")

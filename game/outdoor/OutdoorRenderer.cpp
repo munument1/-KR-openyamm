@@ -40,8 +40,6 @@ constexpr uint16_t MainViewId = 1;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float ActorBillboardRenderDistance = 16384.0f;
-constexpr float ActorBillboardRenderDistanceSquared =
-    ActorBillboardRenderDistance * ActorBillboardRenderDistance;
 constexpr float SkyProjectionPitchOffsetRadians = Pi / 64.0f;
 constexpr float SkyFogHorizonPixels = 39.0f;
 constexpr int32_t MapWeatherFoggy = 1;
@@ -57,6 +55,17 @@ constexpr float OutdoorWorldFogNearOpacity = 0.04f;
 constexpr float OutdoorWorldFogStrongOpacity = 176.0f / 255.0f;
 constexpr float OutdoorSkyFogNearOpacity = 0.02f;
 constexpr float OutdoorSkyFogStrongOpacity = 208.0f / 255.0f;
+
+float outdoorActorBillboardRenderDistance(const std::string &viewDistance)
+{
+    return resolveViewDistanceSetting(viewDistance, ActorBillboardRenderDistance);
+}
+
+float outdoorActorBillboardRenderDistanceSquared(const std::string &viewDistance)
+{
+    const float renderDistance = outdoorActorBillboardRenderDistance(viewDistance);
+    return renderDistance * renderDistance;
+}
 
 bool outdoorActorIsPartyControlled(OutdoorWorldRuntime::ActorControlMode mode)
 {
@@ -346,8 +355,117 @@ float resolveActorAabbBaseZ(
         static_cast<float>(actorZ));
 }
 
+std::vector<uint8_t> downsampleBgraRegion(const std::vector<uint8_t> &sourcePixels, int sourceWidth, int sourceHeight)
+{
+    if (sourceWidth <= 0
+        || sourceHeight <= 0
+        || sourcePixels.size() < static_cast<size_t>(sourceWidth * sourceHeight * 4))
+    {
+        return {};
+    }
+
+    const int targetWidth = std::max(1, (sourceWidth + 1) / 2);
+    const int targetHeight = std::max(1, (sourceHeight + 1) / 2);
+    std::vector<uint8_t> targetPixels(static_cast<size_t>(targetWidth * targetHeight * 4), 0);
+
+    for (int targetY = 0; targetY < targetHeight; ++targetY)
+    {
+        for (int targetX = 0; targetX < targetWidth; ++targetX)
+        {
+            uint32_t blue = 0;
+            uint32_t green = 0;
+            uint32_t red = 0;
+            uint32_t alpha = 0;
+            uint32_t sampleCount = 0;
+
+            for (int offsetY = 0; offsetY < 2; ++offsetY)
+            {
+                const int sourceY = targetY * 2 + offsetY;
+
+                if (sourceY >= sourceHeight)
+                {
+                    continue;
+                }
+
+                for (int offsetX = 0; offsetX < 2; ++offsetX)
+                {
+                    const int sourceX = targetX * 2 + offsetX;
+
+                    if (sourceX >= sourceWidth)
+                    {
+                        continue;
+                    }
+
+                    const size_t sourceOffset = static_cast<size_t>((sourceY * sourceWidth + sourceX) * 4);
+
+                    blue += sourcePixels[sourceOffset + 0];
+                    green += sourcePixels[sourceOffset + 1];
+                    red += sourcePixels[sourceOffset + 2];
+                    alpha += sourcePixels[sourceOffset + 3];
+                    ++sampleCount;
+                }
+            }
+
+            if (sampleCount == 0)
+            {
+                continue;
+            }
+
+            const size_t targetOffset = static_cast<size_t>((targetY * targetWidth + targetX) * 4);
+            targetPixels[targetOffset + 0] = static_cast<uint8_t>((blue + sampleCount / 2) / sampleCount);
+            targetPixels[targetOffset + 1] = static_cast<uint8_t>((green + sampleCount / 2) / sampleCount);
+            targetPixels[targetOffset + 2] = static_cast<uint8_t>((red + sampleCount / 2) / sampleCount);
+            targetPixels[targetOffset + 3] = static_cast<uint8_t>((alpha + sampleCount / 2) / sampleCount);
+        }
+    }
+
+    return targetPixels;
+}
+
+std::vector<TerrainTextureAtlasMipPixels> buildTerrainAtlasMipPixels(
+    const std::vector<uint8_t> &atlasPixels,
+    int atlasWidth,
+    int atlasHeight)
+{
+    std::vector<TerrainTextureAtlasMipPixels> mipPixels;
+
+    if (atlasWidth <= 0
+        || atlasHeight <= 0
+        || atlasPixels.size() < static_cast<size_t>(atlasWidth * atlasHeight * 4))
+    {
+        return mipPixels;
+    }
+
+    TerrainTextureAtlasMipPixels baseMip = {};
+    baseMip.width = atlasWidth;
+    baseMip.height = atlasHeight;
+    baseMip.pixels = atlasPixels;
+    mipPixels.push_back(std::move(baseMip));
+
+    while (mipPixels.back().width > 1 || mipPixels.back().height > 1)
+    {
+        const TerrainTextureAtlasMipPixels &previousMip = mipPixels.back();
+        TerrainTextureAtlasMipPixels nextMip = {};
+        nextMip.width = std::max(1, (previousMip.width + 1) / 2);
+        nextMip.height = std::max(1, (previousMip.height + 1) / 2);
+        nextMip.pixels = downsampleBgraRegion(previousMip.pixels, previousMip.width, previousMip.height);
+
+        if (nextMip.pixels.empty())
+        {
+            break;
+        }
+
+        mipPixels.push_back(std::move(nextMip));
+    }
+
+    return mipPixels;
+}
+
 void updateTerrainAtlasTileTexture(
     bgfx::TextureHandle textureHandle,
+    std::vector<TerrainTextureAtlasMipPixels> &atlasMipPixels,
+    int atlasWidth,
+    int atlasHeight,
     uint16_t innerAtlasX,
     uint16_t innerAtlasY,
     int tileSize,
@@ -355,8 +473,14 @@ void updateTerrainAtlasTileTexture(
     const std::vector<uint8_t> &tilePixels)
 {
     if (!bgfx::isValid(textureHandle)
+        || atlasWidth <= 0
+        || atlasHeight <= 0
         || tileSize <= 0
         || tilePadding < 0
+        || atlasMipPixels.empty()
+        || atlasMipPixels.front().width != atlasWidth
+        || atlasMipPixels.front().height != atlasHeight
+        || atlasMipPixels.front().pixels.size() < static_cast<size_t>(atlasWidth * atlasHeight * 4)
         || tilePixels.size() < static_cast<size_t>(tileSize * tileSize * 4))
     {
         return;
@@ -381,15 +505,138 @@ void updateTerrainAtlasTileTexture(
         }
     }
 
-    bgfx::updateTexture2D(
-        textureHandle,
-        0,
-        0,
-        static_cast<uint16_t>(innerAtlasX - tilePadding),
-        static_cast<uint16_t>(innerAtlasY - tilePadding),
-        static_cast<uint16_t>(paddedTileSize),
-        static_cast<uint16_t>(paddedTileSize),
-        bgfx::copy(paddedPixels.data(), static_cast<uint32_t>(paddedPixels.size())));
+    const int atlasX = innerAtlasX - tilePadding;
+    const int atlasY = innerAtlasY - tilePadding;
+    TerrainTextureAtlasMipPixels &baseMip = atlasMipPixels.front();
+
+    for (int paddedY = 0; paddedY < paddedTileSize; ++paddedY)
+    {
+        const int targetY = atlasY + paddedY;
+
+        if (targetY < 0 || targetY >= atlasHeight)
+        {
+            continue;
+        }
+
+        for (int paddedX = 0; paddedX < paddedTileSize; ++paddedX)
+        {
+            const int targetX = atlasX + paddedX;
+
+            if (targetX < 0 || targetX >= atlasWidth)
+            {
+                continue;
+            }
+
+            const size_t sourceOffset = static_cast<size_t>((paddedY * paddedTileSize + paddedX) * 4);
+            const size_t targetOffset = static_cast<size_t>((targetY * atlasWidth + targetX) * 4);
+            std::memcpy(
+                baseMip.pixels.data() + static_cast<ptrdiff_t>(targetOffset),
+                paddedPixels.data() + static_cast<ptrdiff_t>(sourceOffset),
+                4);
+        }
+    }
+
+    for (uint8_t mipLevel = 0; mipLevel < atlasMipPixels.size(); ++mipLevel)
+    {
+        const int mipScale = 1 << mipLevel;
+        TerrainTextureAtlasMipPixels &targetMip = atlasMipPixels[mipLevel];
+        const int mipX0 = atlasX / mipScale;
+        const int mipY0 = atlasY / mipScale;
+        const int mipX1 = std::min(targetMip.width, (atlasX + paddedTileSize + mipScale - 1) / mipScale);
+        const int mipY1 = std::min(targetMip.height, (atlasY + paddedTileSize + mipScale - 1) / mipScale);
+        const int updateWidth = std::max(1, mipX1 - mipX0);
+        const int updateHeight = std::max(1, mipY1 - mipY0);
+        std::vector<uint8_t> updatePixels(static_cast<size_t>(updateWidth * updateHeight * 4), 0);
+
+        if (mipLevel == 0)
+        {
+            updatePixels = paddedPixels;
+        }
+        else
+        {
+            const TerrainTextureAtlasMipPixels &sourceMip = atlasMipPixels[mipLevel - 1];
+
+            for (int targetY = 0; targetY < updateHeight; ++targetY)
+            {
+                const int mipY = mipY0 + targetY;
+
+                for (int targetX = 0; targetX < updateWidth; ++targetX)
+                {
+                    const int mipX = mipX0 + targetX;
+                    uint32_t blue = 0;
+                    uint32_t green = 0;
+                    uint32_t red = 0;
+                    uint32_t alpha = 0;
+                    uint32_t sampleCount = 0;
+
+                    for (int offsetY = 0; offsetY < 2; ++offsetY)
+                    {
+                        const int sourceY = mipY * 2 + offsetY;
+
+                        if (sourceY >= sourceMip.height)
+                        {
+                            continue;
+                        }
+
+                        for (int offsetX = 0; offsetX < 2; ++offsetX)
+                        {
+                            const int sourceX = mipX * 2 + offsetX;
+
+                            if (sourceX >= sourceMip.width)
+                            {
+                                continue;
+                            }
+
+                            const size_t sourceOffset =
+                                static_cast<size_t>((sourceY * sourceMip.width + sourceX) * 4);
+                            blue += sourceMip.pixels[sourceOffset + 0];
+                            green += sourceMip.pixels[sourceOffset + 1];
+                            red += sourceMip.pixels[sourceOffset + 2];
+                            alpha += sourceMip.pixels[sourceOffset + 3];
+                            ++sampleCount;
+                        }
+                    }
+
+                    if (sampleCount == 0)
+                    {
+                        continue;
+                    }
+
+                    const size_t updateOffset = static_cast<size_t>((targetY * updateWidth + targetX) * 4);
+                    updatePixels[updateOffset + 0] = static_cast<uint8_t>((blue + sampleCount / 2) / sampleCount);
+                    updatePixels[updateOffset + 1] = static_cast<uint8_t>((green + sampleCount / 2) / sampleCount);
+                    updatePixels[updateOffset + 2] = static_cast<uint8_t>((red + sampleCount / 2) / sampleCount);
+                    updatePixels[updateOffset + 3] = static_cast<uint8_t>((alpha + sampleCount / 2) / sampleCount);
+                }
+            }
+
+            for (int targetY = 0; targetY < updateHeight; ++targetY)
+            {
+                const size_t sourceOffset = static_cast<size_t>(targetY * updateWidth * 4);
+                const size_t targetOffset =
+                    static_cast<size_t>(((mipY0 + targetY) * targetMip.width + mipX0) * 4);
+                std::memcpy(
+                    targetMip.pixels.data() + static_cast<ptrdiff_t>(targetOffset),
+                    updatePixels.data() + static_cast<ptrdiff_t>(sourceOffset),
+                    static_cast<size_t>(updateWidth * 4));
+            }
+        }
+
+        bgfx::updateTexture2D(
+            textureHandle,
+            0,
+            mipLevel,
+            static_cast<uint16_t>(mipX0),
+            static_cast<uint16_t>(mipY0),
+            static_cast<uint16_t>(updateWidth),
+            static_cast<uint16_t>(updateHeight),
+            bgfx::copy(updatePixels.data(), static_cast<uint32_t>(updatePixels.size())));
+
+        if (targetMip.width == 1 && targetMip.height == 1)
+        {
+            break;
+        }
+    }
 }
 
 std::vector<uint8_t> extractAtlasRegionPixels(
@@ -1058,12 +1305,21 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
     const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas)
 {
     view.m_animatedWaterTerrainTiles.clear();
+    view.m_terrainTextureAtlasMipPixels.clear();
+    view.m_terrainTextureAtlasWidth = 0;
+    view.m_terrainTextureAtlasHeight = 0;
 
     if (!outdoorTerrainTextureAtlas || outdoorTerrainTextureAtlas->animatedWaterTiles.empty())
     {
         return;
     }
 
+    view.m_terrainTextureAtlasWidth = outdoorTerrainTextureAtlas->width;
+    view.m_terrainTextureAtlasHeight = outdoorTerrainTextureAtlas->height;
+    view.m_terrainTextureAtlasMipPixels = buildTerrainAtlasMipPixels(
+        outdoorTerrainTextureAtlas->pixels,
+        outdoorTerrainTextureAtlas->width,
+        outdoorTerrainTextureAtlas->height);
     view.m_animatedWaterTerrainTiles.reserve(outdoorTerrainTextureAtlas->animatedWaterTiles.size());
 
     for (const OutdoorAnimatedWaterTileSource &source : outdoorTerrainTextureAtlas->animatedWaterTiles)
@@ -1086,7 +1342,11 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
 
 void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
 {
-    if (!bgfx::isValid(view.m_terrainTextureAtlasHandle) || view.m_animatedWaterTerrainTiles.empty())
+    if (!bgfx::isValid(view.m_terrainTextureAtlasHandle)
+        || view.m_animatedWaterTerrainTiles.empty()
+        || view.m_terrainTextureAtlasMipPixels.empty()
+        || view.m_terrainTextureAtlasWidth <= 0
+        || view.m_terrainTextureAtlasHeight <= 0)
     {
         return;
     }
@@ -1121,19 +1381,24 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
             continue;
         }
 
-        const int atlasWidth = static_cast<int>(std::lround(static_cast<float>(tileSize) / regionWidth));
-        const int atlasHeight = static_cast<int>(std::lround(static_cast<float>(tileSize) / regionHeight));
+        const int atlasWidth = view.m_terrainTextureAtlasWidth;
+        const int atlasHeight = view.m_terrainTextureAtlasHeight;
 
         if (atlasWidth <= 0 || atlasHeight <= 0)
         {
             continue;
         }
 
-        const uint16_t atlasX = static_cast<uint16_t>(std::lround(tileState.region.u0 * static_cast<float>(atlasWidth)));
-        const uint16_t atlasY = static_cast<uint16_t>(std::lround(tileState.region.v0 * static_cast<float>(atlasHeight)));
+        const uint16_t atlasX = static_cast<uint16_t>(
+            std::lround(tileState.region.u0 * static_cast<float>(atlasWidth)));
+        const uint16_t atlasY = static_cast<uint16_t>(
+            std::lround(tileState.region.v0 * static_cast<float>(atlasHeight)));
 
         updateTerrainAtlasTileTexture(
             view.m_terrainTextureAtlasHandle,
+            view.m_terrainTextureAtlasMipPixels,
+            view.m_terrainTextureAtlasWidth,
+            view.m_terrainTextureAtlasHeight,
             atlasX,
             atlasY,
             tileSize,
@@ -1258,6 +1523,19 @@ std::vector<OutdoorGameView::TexturedTerrainVertex> OutdoorRenderer::buildTextur
             bottomRight.z = static_cast<float>(mapData.heightMap[bottomRightIndex] * OutdoorMapData::TerrainHeightScale);
             bottomRight.u = region.u1;
             bottomRight.v = region.v1;
+
+            if (region.isWater && !region.isTransitionOverlay)
+            {
+                for (OutdoorGameView::TexturedTerrainVertex *pVertex :
+                    {&topLeft, &topRight, &bottomLeft, &bottomRight})
+                {
+                    pVertex->secretPulse = -1.0f;
+                    pVertex->flowUPerSecond = region.u0;
+                    pVertex->flowVPerSecond = region.v0;
+                    pVertex->lavaFlow = region.u1;
+                    pVertex->fluidFlow = region.v1;
+                }
+            }
 
             vertices.push_back(topLeft);
             vertices.push_back(bottomLeft);
@@ -1891,11 +2169,11 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
         return &view.m_skyTextureHandles[cachedTextureIt->second];
     }
 
-    std::optional<std::string> bitmapPath = view.findCachedAssetPath("Data/bitmaps", textureName + ".png");
+    std::optional<std::string> bitmapPath = view.findCachedAssetPath("sky_textures", textureName + ".png");
 
     if (!bitmapPath)
     {
-        bitmapPath = view.findCachedAssetPath("Data/bitmaps", textureName + ".bmp");
+        bitmapPath = view.findCachedAssetPath("sky_textures", textureName + ".bmp");
     }
 
     if (!bitmapPath)
@@ -1926,10 +2204,14 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
     textureHandle.textureName = normalizedTextureName;
     textureHandle.width = Engine::scalePhysicalPixelsToLogical(
         textureWidth,
-        view.m_pAssetFileSystem != nullptr ? view.m_pAssetFileSystem->getAssetScaleTier() : Engine::AssetScaleTier::X1);
+        view.m_pAssetFileSystem != nullptr
+            ? view.m_pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Sky)
+            : Engine::AssetScaleTier::X1);
     textureHandle.height = Engine::scalePhysicalPixelsToLogical(
         textureHeight,
-        view.m_pAssetFileSystem != nullptr ? view.m_pAssetFileSystem->getAssetScaleTier() : Engine::AssetScaleTier::X1);
+        view.m_pAssetFileSystem != nullptr
+            ? view.m_pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Sky)
+            : Engine::AssetScaleTier::X1);
     textureHandle.physicalWidth = textureWidth;
     textureHandle.physicalHeight = textureHeight;
     textureHandle.bgraPixels = pixels;
@@ -1965,7 +2247,7 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
         uint16_t(textureHandle.physicalHeight),
         pixels.data(),
         uint32_t(pixels.size()),
-        TextureFilterProfile::Ui);
+        TextureFilterProfile::Sky);
 
     if (!bgfx::isValid(textureHandle.textureHandle))
     {
@@ -3184,7 +3466,7 @@ void OutdoorRenderer::renderOutdoorSky(
         0,
         view.m_terrainTextureSamplerHandle,
         pTexture->textureHandle,
-        TextureFilterProfile::Ui);
+        TextureFilterProfile::Sky);
     applyOutdoorFogUniforms(
         view.m_outdoorFogColorUniformHandle,
         view.m_outdoorFogDensitiesUniformHandle,
@@ -3534,7 +3816,7 @@ void OutdoorRenderer::renderActorCollisionOverlays(
             const float overlayDistanceSquared =
                 overlayDeltaX * overlayDeltaX + overlayDeltaY * overlayDeltaY + overlayDeltaZ * overlayDeltaZ;
 
-            if (overlayDistanceSquared > ActorBillboardRenderDistanceSquared)
+            if (overlayDistanceSquared > outdoorActorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance))
             {
                 continue;
             }
@@ -3574,7 +3856,7 @@ void OutdoorRenderer::renderActorCollisionOverlays(
             const float overlayDistanceSquared =
                 overlayDeltaX * overlayDeltaX + overlayDeltaY * overlayDeltaY + overlayDeltaZ * overlayDeltaZ;
 
-            if (overlayDistanceSquared > ActorBillboardRenderDistanceSquared)
+            if (overlayDistanceSquared > outdoorActorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance))
             {
                 continue;
             }

@@ -431,7 +431,6 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
     else
     {
         result.empty = true;
-        result.statusText = "Nothing here";
     }
 
     worldRuntime.closeActiveCorpseView();

@@ -81,6 +81,13 @@ class ItemTable;
 struct GameApplicationTestAccess;
 struct ItemDefinition;
 
+struct TerrainTextureAtlasMipPixels
+{
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+};
+
 class OutdoorGameView
     : public IGameplayOverlaySceneAdapter
 {
@@ -532,6 +539,9 @@ private:
     bgfx::ProgramHandle m_outdoorTexturedFogProgramHandle;
     bgfx::ProgramHandle m_outdoorForcePerspectiveProgramHandle;
     bgfx::TextureHandle m_terrainTextureAtlasHandle;
+    std::vector<TerrainTextureAtlasMipPixels> m_terrainTextureAtlasMipPixels;
+    int m_terrainTextureAtlasWidth = 0;
+    int m_terrainTextureAtlasHeight = 0;
     bgfx::TextureHandle m_bloodSplatTextureHandle;
     bgfx::TextureHandle m_forcePerspectiveSolidTextureHandle;
     bgfx::UniformHandle m_terrainTextureSamplerHandle;

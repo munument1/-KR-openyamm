@@ -23,20 +23,36 @@ constexpr const char *WorldsDevelopmentRootName = "worlds";
 constexpr const char *DefaultActiveWorldId = "mm8";
 constexpr const char *IconsDirectoryName = "icons";
 constexpr const char *AudioDirectoryName = "audio";
+constexpr const char *MusicDirectoryName = "music";
 constexpr const char *VideosDirectoryName = "videos";
 constexpr const char *MapsDirectoryName = "maps";
 constexpr const char *EventsDirectoryName = "events";
 constexpr const char *TexturesDirectoryName = "textures";
+constexpr const char *TerrainDirectoryName = "terrain";
+constexpr const char *TerrainTextureFallbackDirectoryName = "terrain_textures";
+constexpr const char *SkyTextureDirectoryName = "sky_textures";
 constexpr const char *LegacyDirectoryName = "_legacy";
 
-constexpr std::array<const char *, 7> TieredAssetDirectories = {
-    "Data/bitmaps",
-    "Data/sprites",
-    "Data/icons",
-    "bitmaps",
-    "sprites",
-    "icons",
-    "textures"
+struct TieredAssetDirectory
+{
+    const char *pCanonicalDirectory;
+    AssetScaleCategory category;
+};
+
+constexpr std::array<TieredAssetDirectory, 13> TieredAssetDirectories = {
+    TieredAssetDirectory{"Data/bitmaps", AssetScaleCategory::Textures},
+    TieredAssetDirectory{"Data/terrain", AssetScaleCategory::Terrain},
+    TieredAssetDirectory{"Data/sprites", AssetScaleCategory::Sprites},
+    TieredAssetDirectory{"Data/icons", AssetScaleCategory::Icons},
+    TieredAssetDirectory{"Data/ui", AssetScaleCategory::Ui},
+    TieredAssetDirectory{"bitmaps", AssetScaleCategory::Textures},
+    TieredAssetDirectory{"textures", AssetScaleCategory::Textures},
+    TieredAssetDirectory{"terrain", AssetScaleCategory::Terrain},
+    TieredAssetDirectory{"sprites", AssetScaleCategory::Sprites},
+    TieredAssetDirectory{"icons", AssetScaleCategory::Icons},
+    TieredAssetDirectory{"ui", AssetScaleCategory::Ui},
+    TieredAssetDirectory{"effects", AssetScaleCategory::Effects},
+    TieredAssetDirectory{"fonts", AssetScaleCategory::Fonts}
 };
 
 struct VirtualPathAlias
@@ -51,7 +67,7 @@ struct MergedRootFile
     std::filesystem::path filePath;
 };
 
-constexpr std::array<VirtualPathAlias, 19> PackagePathAliases = {
+constexpr std::array<VirtualPathAlias, 20> PackagePathAliases = {
     VirtualPathAlias{"Data/data_tables/english", "data_tables/english"},
     VirtualPathAlias{"Data/data_tables", "data_tables"},
     VirtualPathAlias{"Data/games", "maps"},
@@ -67,6 +83,7 @@ constexpr std::array<VirtualPathAlias, 19> PackagePathAliases = {
     VirtualPathAlias{"Data/icons", "fonts/icons"},
     VirtualPathAlias{"Data/bitmaps", "textures"},
     VirtualPathAlias{"Data/bitmaps", "effects"},
+    VirtualPathAlias{"Data/terrain", "terrain"},
     VirtualPathAlias{"Data/sprites", "sprites"},
     VirtualPathAlias{"Data/sprites", "effects"},
     VirtualPathAlias{"Videos", "videos"},
@@ -190,6 +207,63 @@ std::vector<std::filesystem::path> collectExistingWorldPackageRoots(
     return packageRoots;
 }
 
+bool anyWorldPackageRootExists(const std::filesystem::path &assetRoot, const std::string &packageDirectoryName)
+{
+    const std::filesystem::path worldsRoot = assetRoot / WorldsDevelopmentRootName;
+
+    if (!std::filesystem::exists(worldsRoot))
+    {
+        return false;
+    }
+
+    for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(worldsRoot))
+    {
+        if (entry.is_directory() && std::filesystem::is_directory(entry.path() / packageDirectoryName))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool packageDirectoryExistsForTier(
+    const std::filesystem::path &assetRoot,
+    const std::string &packageDirectoryName,
+    AssetScaleTier assetScaleTier)
+{
+    if (assetScaleTier == AssetScaleTier::X1)
+    {
+        return true;
+    }
+
+    const std::string scaledDirectoryName = packageDirectoryName + assetScaleTierDirectorySuffix(assetScaleTier);
+
+    return std::filesystem::is_directory(assetRoot / scaledDirectoryName)
+        || std::filesystem::is_directory(assetRoot / EngineDevelopmentRootName / scaledDirectoryName)
+        || anyWorldPackageRootExists(assetRoot, scaledDirectoryName);
+}
+
+bool legacyDirectoryExistsForTier(
+    const std::filesystem::path &assetRoot,
+    const std::string &legacyDirectoryName,
+    AssetScaleTier assetScaleTier)
+{
+    if (assetScaleTier == AssetScaleTier::X1)
+    {
+        return true;
+    }
+
+    const std::filesystem::path legacyPath(legacyDirectoryName);
+    const std::filesystem::path parentPath = legacyPath.parent_path();
+    const std::string scaledDirectoryName =
+        legacyPath.filename().string() + assetScaleTierDirectorySuffix(assetScaleTier);
+    const std::filesystem::path scaledLegacyPath =
+        parentPath.empty() ? std::filesystem::path(scaledDirectoryName) : parentPath / scaledDirectoryName;
+
+    return std::filesystem::is_directory(assetRoot / scaledLegacyPath);
+}
+
 struct PhysicsFsListDeleter
 {
     void operator()(char **pList) const
@@ -260,6 +334,7 @@ AssetFileSystem::AssetFileSystem()
     : m_isInitialized(false)
     , m_activeWorldId(DefaultActiveWorldId)
     , m_assetScaleTier(AssetScaleTier::X1)
+    , m_assetScaleProfile(createUniformAssetScaleProfile(AssetScaleTier::X1))
 {
 }
 
@@ -282,6 +357,21 @@ bool AssetFileSystem::initialize(
     AssetScaleTier assetScaleTier,
     const std::string &activeWorldId)
 {
+    return initialize(
+        basePath,
+        assetRoot,
+        assetScaleTier,
+        createUniformAssetScaleProfile(assetScaleTier),
+        activeWorldId);
+}
+
+bool AssetFileSystem::initialize(
+    const std::filesystem::path &basePath,
+    const std::filesystem::path &assetRoot,
+    AssetScaleTier assetScaleTier,
+    const AssetScaleProfile &assetScaleProfile,
+    const std::string &activeWorldId)
+{
     shutdown();
 
     if (!PHYSFS_init(basePath.string().c_str()))
@@ -293,6 +383,7 @@ bool AssetFileSystem::initialize(
     m_isInitialized = true;
     m_basePath = basePath;
     m_assetScaleTier = assetScaleTier;
+    m_assetScaleProfile = assetScaleProfile;
     m_activeWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
 
     if (!validateTierDirectories(assetRoot))
@@ -367,8 +458,9 @@ bool AssetFileSystem::switchActiveWorld(const std::string &activeWorldId)
     const std::filesystem::path basePath = m_basePath;
     const std::filesystem::path assetRoot = m_developmentRoot;
     const AssetScaleTier assetScaleTier = m_assetScaleTier;
+    const AssetScaleProfile assetScaleProfile = m_assetScaleProfile;
 
-    return initialize(basePath, assetRoot, assetScaleTier, activeWorldId);
+    return initialize(basePath, assetRoot, assetScaleTier, assetScaleProfile, activeWorldId);
 }
 
 bool AssetFileSystem::mountDevelopmentRoot(const std::filesystem::path &assetRoot)
@@ -429,6 +521,16 @@ bool AssetFileSystem::mountDevelopmentPackageRoots(
     }
 
     if (!mountMergedWorldAudioRoots(assetRoot, normalizedWorldId))
+    {
+        return false;
+    }
+
+    if (!validateMergedMusicRoots(assetRoot))
+    {
+        return false;
+    }
+
+    if (!mountMergedWorldMusicRoots(assetRoot, normalizedWorldId))
     {
         return false;
     }
@@ -554,24 +656,46 @@ bool AssetFileSystem::validateMergedAudioRoots(const std::filesystem::path &asse
     return validateMergedPackageRoots(assetRoot, AudioDirectoryName, "audio");
 }
 
+bool AssetFileSystem::validateMergedMusicRoots(const std::filesystem::path &assetRoot) const
+{
+    return validateMergedPackageRoots(assetRoot, MusicDirectoryName, "music");
+}
+
 bool AssetFileSystem::mountMergedWorldPackageRoots(
     const std::filesystem::path &assetRoot,
     const std::string &activeWorldId,
     const char *pPackageDirectoryName)
 {
     const std::string normalizedWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
+    const std::filesystem::path activeWorldPackageRoot =
+        assetRoot / WorldsDevelopmentRootName / normalizedWorldId / pPackageDirectoryName;
+    const std::filesystem::path enginePackageRoot =
+        assetRoot / EngineDevelopmentRootName / pPackageDirectoryName;
+    std::vector<std::filesystem::path> packageRoots;
+
+    if (std::filesystem::is_directory(activeWorldPackageRoot))
+    {
+        packageRoots.push_back(activeWorldPackageRoot);
+    }
+
+    if (std::filesystem::is_directory(enginePackageRoot))
+    {
+        packageRoots.push_back(enginePackageRoot);
+    }
+
     const std::vector<std::filesystem::path> worldPackageRoots =
         collectExistingWorldPackageRoots(assetRoot, pPackageDirectoryName);
 
-    for (const std::filesystem::path &packageRoot : worldPackageRoots)
+    for (const std::filesystem::path &worldPackageRoot : worldPackageRoots)
     {
-        const std::string worldId = toLowerAscii(packageRoot.parent_path().filename().string());
-
-        if (worldId == normalizedWorldId)
+        if (worldPackageRoot != activeWorldPackageRoot)
         {
-            continue;
+            packageRoots.push_back(worldPackageRoot);
         }
+    }
 
+    for (const std::filesystem::path &packageRoot : packageRoots)
+    {
         if (!mountSearchRootAt(packageRoot, "/" + std::string(pPackageDirectoryName), true))
         {
             return false;
@@ -595,6 +719,13 @@ bool AssetFileSystem::mountMergedWorldAudioRoots(
     return mountMergedWorldPackageRoots(assetRoot, activeWorldId, AudioDirectoryName);
 }
 
+bool AssetFileSystem::mountMergedWorldMusicRoots(
+    const std::filesystem::path &assetRoot,
+    const std::string &activeWorldId)
+{
+    return mountMergedWorldPackageRoots(assetRoot, activeWorldId, MusicDirectoryName);
+}
+
 bool AssetFileSystem::mountMergedWorldVideoRoots(
     const std::filesystem::path &assetRoot,
     const std::string &activeWorldId)
@@ -609,7 +740,34 @@ bool AssetFileSystem::mountMergedWorldMapRuntimeRoots(
     return mountMergedWorldPackageRoots(assetRoot, activeWorldId, MapsDirectoryName)
         && mountMergedWorldPackageRoots(assetRoot, activeWorldId, EventsDirectoryName)
         && mountMergedWorldPackageRoots(assetRoot, activeWorldId, TexturesDirectoryName)
+        && mountMergedWorldPackageRoots(assetRoot, activeWorldId, TerrainDirectoryName)
+        && mountMergedWorldScaledPackageRoots(
+            assetRoot,
+            activeWorldId,
+            TexturesDirectoryName,
+            assetScaleTierForCategory(m_assetScaleProfile, AssetScaleCategory::Textures))
+        && mountMergedWorldScaledPackageRoots(
+            assetRoot,
+            activeWorldId,
+            TerrainDirectoryName,
+            assetScaleTierForCategory(m_assetScaleProfile, AssetScaleCategory::Terrain))
         && mountMergedWorldPackageRoots(assetRoot, activeWorldId, LegacyDirectoryName);
+}
+
+bool AssetFileSystem::mountMergedWorldScaledPackageRoots(
+    const std::filesystem::path &assetRoot,
+    const std::string &activeWorldId,
+    const char *pPackageDirectoryName,
+    AssetScaleTier assetScaleTier)
+{
+    if (assetScaleTier == AssetScaleTier::X1)
+    {
+        return true;
+    }
+
+    const std::string scaledPackageDirectoryName =
+        std::string(pPackageDirectoryName) + assetScaleTierDirectorySuffix(assetScaleTier);
+    return mountMergedWorldPackageRoots(assetRoot, activeWorldId, scaledPackageDirectoryName.c_str());
 }
 
 bool AssetFileSystem::exists(const std::string &virtualPath) const
@@ -835,6 +993,21 @@ AssetScaleTier AssetFileSystem::getAssetScaleTier() const
     return m_assetScaleTier;
 }
 
+AssetScaleTier AssetFileSystem::getAssetScaleTier(AssetScaleCategory assetScaleCategory) const
+{
+    return assetScaleTierForCategory(m_assetScaleProfile, assetScaleCategory);
+}
+
+AssetScaleTier AssetFileSystem::getAssetScaleTierForVirtualPath(const std::string &virtualPath) const
+{
+    return getAssetScaleTier(assetScaleCategoryForVirtualPath(normalizeVirtualPath(virtualPath)));
+}
+
+const AssetScaleProfile &AssetFileSystem::getAssetScaleProfile() const
+{
+    return m_assetScaleProfile;
+}
+
 void AssetFileSystem::shutdown()
 {
     if (!isInitialized())
@@ -849,6 +1022,7 @@ void AssetFileSystem::shutdown()
     m_editorDevelopmentRoot.clear();
     m_activeWorldId = DefaultActiveWorldId;
     m_assetScaleTier = AssetScaleTier::X1;
+    m_assetScaleProfile = createUniformAssetScaleProfile(AssetScaleTier::X1);
     m_searchMounts.clear();
 }
 
@@ -859,28 +1033,41 @@ bool AssetFileSystem::isInitialized() const
 
 bool AssetFileSystem::validateTierDirectories(const std::filesystem::path &assetRoot) const
 {
-    if (m_assetScaleTier == AssetScaleTier::X1)
+    struct RequiredTieredDirectory
     {
-        return true;
-    }
+        AssetScaleCategory category;
+        const char *pPackageDirectoryName;
+        const char *pLegacyDirectoryName;
+    };
 
-    const std::string directorySuffix = assetScaleTierDirectorySuffix(m_assetScaleTier);
+    constexpr std::array<RequiredTieredDirectory, 4> RequiredTieredDirectories = {
+        RequiredTieredDirectory{AssetScaleCategory::Textures, "textures", "Data/bitmaps"},
+        RequiredTieredDirectory{AssetScaleCategory::Terrain, "terrain", "Data/terrain"},
+        RequiredTieredDirectory{AssetScaleCategory::Sprites, "sprites", "Data/sprites"},
+        RequiredTieredDirectory{AssetScaleCategory::Icons, "icons", "Data/icons"}
+    };
 
-    for (const char *pCanonicalDirectory : TieredAssetDirectories)
+    for (const RequiredTieredDirectory &requiredDirectory : RequiredTieredDirectories)
     {
-        const std::filesystem::path tieredDirectory =
-            assetRoot / std::filesystem::path(std::string(pCanonicalDirectory) + directorySuffix);
+        const AssetScaleTier assetScaleTier =
+            assetScaleTierForCategory(m_assetScaleProfile, requiredDirectory.category);
 
-        if (!std::filesystem::exists(tieredDirectory))
+        if (assetScaleTier == AssetScaleTier::X1)
         {
-            std::cerr << "Selected asset tier " << assetScaleTierToString(m_assetScaleTier)
-                      << " is missing required directory: " << tieredDirectory << '\n';
-            return false;
+            continue;
         }
 
-        if (!std::filesystem::is_directory(tieredDirectory))
+        const bool packageDirectoryExists = packageDirectoryExistsForTier(
+            assetRoot,
+            requiredDirectory.pPackageDirectoryName,
+            assetScaleTier);
+        const bool legacyDirectoryExists = requiredDirectory.pLegacyDirectoryName[0] != '\0'
+            && legacyDirectoryExistsForTier(assetRoot, requiredDirectory.pLegacyDirectoryName, assetScaleTier);
+        if (!packageDirectoryExists && !legacyDirectoryExists)
         {
-            std::cerr << "Selected asset tier path is not a directory: " << tieredDirectory << '\n';
+            std::cerr << "Selected " << requiredDirectory.pPackageDirectoryName << " asset tier "
+                      << assetScaleTierToString(assetScaleTier)
+                      << " is missing required directory under " << assetRoot << '\n';
             return false;
         }
     }
@@ -901,22 +1088,24 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
     const std::string normalizedPath = normalizeVirtualPath(virtualPath);
     const std::vector<std::string> aliasCandidates = expandPackageAliasCandidates(normalizedPath);
 
+    const auto appendCandidate = [&resolvedPaths, &knownPaths](const std::string &candidate)
+    {
+        if (knownPaths.insert(candidate).second)
+        {
+            resolvedPaths.push_back(candidate);
+        }
+    };
+
     for (const std::string &candidate : aliasCandidates)
     {
-        const std::string remappedCandidate = remapTieredVirtualPath(candidate, m_assetScaleTier);
-
-        if (knownPaths.insert(remappedCandidate).second)
-        {
-            resolvedPaths.push_back(remappedCandidate);
-        }
+        const std::string remappedCandidate = remapTieredVirtualPath(candidate, m_assetScaleProfile);
+        appendCandidate(remappedCandidate);
+        appendCandidate(baseTieredVirtualPath(candidate));
     }
 
-    const std::string remappedLegacyPath = remapTieredVirtualPath(normalizedPath, m_assetScaleTier);
-
-    if (knownPaths.insert(remappedLegacyPath).second)
-    {
-        resolvedPaths.push_back(remappedLegacyPath);
-    }
+    const std::string remappedLegacyPath = remapTieredVirtualPath(normalizedPath, m_assetScaleProfile);
+    appendCandidate(remappedLegacyPath);
+    appendCandidate(baseTieredVirtualPath(normalizedPath));
 
     return resolvedPaths;
 }
@@ -1003,30 +1192,125 @@ std::vector<std::string> AssetFileSystem::expandPackageAliasCandidates(const std
     return candidates;
 }
 
-std::string AssetFileSystem::remapTieredVirtualPath(const std::string &virtualPath, AssetScaleTier assetScaleTier)
+AssetScaleCategory AssetFileSystem::assetScaleCategoryForVirtualPath(const std::string &virtualPath)
 {
-    if (assetScaleTier == AssetScaleTier::X1)
+    if (virtualPath == TerrainTextureFallbackDirectoryName
+        || virtualPath.starts_with(std::string(TerrainTextureFallbackDirectoryName) + "/"))
     {
-        return virtualPath;
+        return AssetScaleCategory::Terrain;
     }
 
-    const std::string directorySuffix = assetScaleTierDirectorySuffix(assetScaleTier);
-
-    for (const char *pCanonicalDirectory : TieredAssetDirectories)
+    if (virtualPath == SkyTextureDirectoryName
+        || virtualPath.starts_with(std::string(SkyTextureDirectoryName) + "/"))
     {
-        const std::string canonicalDirectory = pCanonicalDirectory;
+        return AssetScaleCategory::Sky;
+    }
+
+    for (const TieredAssetDirectory &tieredDirectory : TieredAssetDirectories)
+    {
+        const std::string canonicalDirectory = tieredDirectory.pCanonicalDirectory;
 
         if (virtualPath == canonicalDirectory)
         {
-            return canonicalDirectory + directorySuffix;
+            return tieredDirectory.category;
         }
 
         const std::string directoryPrefix = canonicalDirectory + "/";
 
         if (virtualPath.starts_with(directoryPrefix))
         {
-            return canonicalDirectory + directorySuffix + virtualPath.substr(canonicalDirectory.size());
+            return tieredDirectory.category;
         }
+    }
+
+    return AssetScaleCategory::Textures;
+}
+
+std::string AssetFileSystem::baseTieredVirtualPath(const std::string &virtualPath)
+{
+    if (virtualPath == TerrainTextureFallbackDirectoryName
+        || virtualPath.starts_with(std::string(TerrainTextureFallbackDirectoryName) + "/"))
+    {
+        if (virtualPath == TerrainTextureFallbackDirectoryName)
+        {
+            return TexturesDirectoryName;
+        }
+
+        return std::string(TexturesDirectoryName)
+            + virtualPath.substr(std::string(TerrainTextureFallbackDirectoryName).size());
+    }
+
+    if (virtualPath == SkyTextureDirectoryName
+        || virtualPath.starts_with(std::string(SkyTextureDirectoryName) + "/"))
+    {
+        if (virtualPath == SkyTextureDirectoryName)
+        {
+            return TexturesDirectoryName;
+        }
+
+        return std::string(TexturesDirectoryName) + virtualPath.substr(std::string(SkyTextureDirectoryName).size());
+    }
+
+    return virtualPath;
+}
+
+std::string AssetFileSystem::remapTieredVirtualPath(
+    const std::string &virtualPath,
+    const AssetScaleProfile &assetScaleProfile)
+{
+    if (virtualPath == TerrainTextureFallbackDirectoryName
+        || virtualPath.starts_with(std::string(TerrainTextureFallbackDirectoryName) + "/"))
+    {
+        if (virtualPath == TerrainTextureFallbackDirectoryName)
+        {
+            return TexturesDirectoryName;
+        }
+
+        return std::string(TexturesDirectoryName)
+            + virtualPath.substr(std::string(TerrainTextureFallbackDirectoryName).size());
+    }
+
+    if (virtualPath == SkyTextureDirectoryName
+        || virtualPath.starts_with(std::string(SkyTextureDirectoryName) + "/"))
+    {
+        const AssetScaleTier assetScaleTier =
+            assetScaleTierForCategory(assetScaleProfile, AssetScaleCategory::Sky);
+        const std::string remappedDirectory =
+            std::string(TexturesDirectoryName) + assetScaleTierDirectorySuffix(assetScaleTier);
+
+        if (virtualPath == SkyTextureDirectoryName)
+        {
+            return remappedDirectory;
+        }
+
+        return remappedDirectory + virtualPath.substr(std::string(SkyTextureDirectoryName).size());
+    }
+
+    for (const TieredAssetDirectory &tieredDirectory : TieredAssetDirectories)
+    {
+        const std::string canonicalDirectory = tieredDirectory.pCanonicalDirectory;
+
+        if (virtualPath != canonicalDirectory && !virtualPath.starts_with(canonicalDirectory + "/"))
+        {
+            continue;
+        }
+
+        const AssetScaleTier assetScaleTier =
+            assetScaleTierForCategory(assetScaleProfile, tieredDirectory.category);
+
+        if (assetScaleTier == AssetScaleTier::X1)
+        {
+            return virtualPath;
+        }
+
+        const std::string directorySuffix = assetScaleTierDirectorySuffix(assetScaleTier);
+
+        if (virtualPath == canonicalDirectory)
+        {
+            return canonicalDirectory + directorySuffix;
+        }
+
+        return canonicalDirectory + directorySuffix + virtualPath.substr(canonicalDirectory.size());
     }
 
     return virtualPath;

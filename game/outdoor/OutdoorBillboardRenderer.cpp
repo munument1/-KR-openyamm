@@ -33,14 +33,8 @@ namespace
 {
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float RuntimeProjectileRenderDistance = 12288.0f;
-constexpr float RuntimeProjectileRenderDistanceSquared =
-    RuntimeProjectileRenderDistance * RuntimeProjectileRenderDistance;
 constexpr float DecorationBillboardRenderDistance = 16384.0f;
-constexpr float DecorationBillboardRenderDistanceSquared =
-    DecorationBillboardRenderDistance * DecorationBillboardRenderDistance;
 constexpr float ActorBillboardRenderDistance = 16384.0f;
-constexpr float ActorBillboardRenderDistanceSquared =
-    ActorBillboardRenderDistance * ActorBillboardRenderDistance;
 constexpr uint64_t RenderHitchLogThresholdNanoseconds = 16 * 1000 * 1000;
 constexpr float BillboardNearDepth = 0.1f;
 constexpr bool DebugProjectileDrawLogging = false;
@@ -68,6 +62,39 @@ constexpr const char *ContactShadowTextureName = "__contact_shadow_blob__";
 constexpr float HoveredActorOutlineThicknessPixels = 2.0f;
 constexpr float OutdoorFogNearOpacity = 0.04f;
 constexpr float OutdoorFogStrongOpacity = 176.0f / 255.0f;
+
+float runtimeProjectileRenderDistance(const std::string &viewDistance)
+{
+    return resolveViewDistanceSetting(viewDistance, RuntimeProjectileRenderDistance);
+}
+
+float runtimeProjectileRenderDistanceSquared(const std::string &viewDistance)
+{
+    const float renderDistance = runtimeProjectileRenderDistance(viewDistance);
+    return renderDistance * renderDistance;
+}
+
+float decorationBillboardRenderDistance(const std::string &viewDistance)
+{
+    return resolveViewDistanceSetting(viewDistance, DecorationBillboardRenderDistance);
+}
+
+float decorationBillboardRenderDistanceSquared(const std::string &viewDistance)
+{
+    const float renderDistance = decorationBillboardRenderDistance(viewDistance);
+    return renderDistance * renderDistance;
+}
+
+float actorBillboardRenderDistance(const std::string &viewDistance)
+{
+    return resolveViewDistanceSetting(viewDistance, ActorBillboardRenderDistance);
+}
+
+float actorBillboardRenderDistanceSquared(const std::string &viewDistance)
+{
+    const float renderDistance = actorBillboardRenderDistance(viewDistance);
+    return renderDistance * renderDistance;
+}
 
 uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
 {
@@ -846,7 +873,8 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             const float cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
 
-            if (distanceSquared > DecorationBillboardRenderDistanceSquared || cameraDepth <= BillboardNearDepth)
+            if (distanceSquared > decorationBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance)
+                || cameraDepth <= BillboardNearDepth)
             {
                 continue;
             }
@@ -990,7 +1018,8 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             const float cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
 
-            if (distanceSquared > ActorBillboardRenderDistanceSquared || cameraDepth <= BillboardNearDepth)
+            if (distanceSquared > actorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance)
+                || cameraDepth <= BillboardNearDepth)
             {
                 continue;
             }
@@ -1731,7 +1760,7 @@ void OutdoorBillboardRenderer::invalidateRenderAssets(OutdoorGameView &view)
     view.m_spriteLoadCache.directoryAssetPathsByPath.clear();
     view.m_spriteLoadCache.assetPathByKey.clear();
     view.m_spriteLoadCache.binaryFilesByPath.clear();
-    view.m_spriteLoadCache.actPalettesById.clear();
+    view.m_spriteLoadCache.actPalettesByKey.clear();
     view.m_pendingSpriteFrameWarmups.clear();
     view.m_queuedSpriteFrameWarmups.clear();
     view.m_nextPendingSpriteFrameWarmupIndex = 0;
@@ -1780,7 +1809,8 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
         std::sin(view.m_cameraYawRadians) * cosPitch,
         std::sin(view.m_cameraPitchRadians)
     };
-    applyBillboardFogUniforms(view, DecorationBillboardRenderDistance);
+    const float decorationRenderDistance = decorationBillboardRenderDistance(view.m_gameSettings.viewDistance);
+    applyBillboardFogUniforms(view, decorationRenderDistance);
     const uint32_t animationTimeTicks = currentAnimationTicks();
 
     struct BillboardDrawItem
@@ -1844,10 +1874,10 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
 
     std::vector<size_t> candidateBillboardIndices;
     OutdoorInteractionController::collectDecorationBillboardCandidates(view, 
-        cameraPosition.x - DecorationBillboardRenderDistance,
-        cameraPosition.y - DecorationBillboardRenderDistance,
-        cameraPosition.x + DecorationBillboardRenderDistance,
-        cameraPosition.y + DecorationBillboardRenderDistance,
+        cameraPosition.x - decorationRenderDistance,
+        cameraPosition.y - decorationRenderDistance,
+        cameraPosition.x + decorationRenderDistance,
+        cameraPosition.y + decorationRenderDistance,
         candidateBillboardIndices);
 
     if (candidateBillboardIndices.empty())
@@ -1879,7 +1909,7 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
         const float deltaZ = baseZ - cameraPosition.z;
         const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 
-        if (distanceSquared > DecorationBillboardRenderDistanceSquared)
+        if (distanceSquared > decorationRenderDistance * decorationRenderDistance)
         {
             continue;
         }
@@ -2159,8 +2189,9 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         placeholderVertices.reserve(view.m_outdoorActorPreviewBillboardSet->billboards.size() * 6);
     }
 
+    const bool spriteOutlineEnabled = view.settingsSnapshot().spriteOutline;
     const std::optional<OutdoorGameView::InspectHit> hoveredInspectHit =
-        resolveHoveredOutlineInspectHit(view, pViewMatrix);
+        spriteOutlineEnabled ? resolveHoveredOutlineInspectHit(view, pViewMatrix) : std::nullopt;
     std::optional<size_t> hoveredRuntimeActorIndex;
 
     if (hoveredInspectHit && hoveredInspectHit->kind == "actor")
@@ -2200,7 +2231,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float deltaZ = static_cast<float>(actorZ) - cameraPosition.z;
             const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 
-            if (distanceSquared > ActorBillboardRenderDistanceSquared)
+            if (distanceSquared > actorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance))
             {
                 return;
             }
@@ -2337,7 +2368,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             const float cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
 
-            if (distanceSquared > DecorationBillboardRenderDistanceSquared || cameraDepth <= BillboardNearDepth)
+            if (distanceSquared > decorationBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance)
+                || cameraDepth <= BillboardNearDepth)
             {
                 continue;
             }
@@ -2533,7 +2565,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
     sortStageNanoseconds += SDL_GetTicksNS() - sortStageStartTickCount;
 
     const uint32_t vertexCount = 6;
-    applyBillboardFogUniforms(view, ActorBillboardRenderDistance);
+    applyBillboardFogUniforms(view, actorBillboardRenderDistance(view.m_gameSettings.viewDistance));
 
     for (const BillboardDrawItem &drawItem : drawItems)
     {
@@ -2752,7 +2784,7 @@ void OutdoorBillboardRenderer::renderRuntimeWorldItems(
 
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    applyBillboardFogUniforms(view, ActorBillboardRenderDistance);
+    applyBillboardFogUniforms(view, actorBillboardRenderDistance(view.m_gameSettings.viewDistance));
 
     struct BillboardDrawItem
     {
@@ -2768,8 +2800,9 @@ void OutdoorBillboardRenderer::renderRuntimeWorldItems(
 
     std::vector<BillboardDrawItem> drawItems;
     drawItems.reserve(view.m_pOutdoorWorldRuntime->worldItemCount());
+    const bool spriteOutlineEnabled = view.settingsSnapshot().spriteOutline;
     const std::optional<OutdoorGameView::InspectHit> hoveredInspectHit =
-        resolveHoveredOutlineInspectHit(view, pViewMatrix);
+        spriteOutlineEnabled ? resolveHoveredOutlineInspectHit(view, pViewMatrix) : std::nullopt;
     std::optional<size_t> hoveredWorldItemIndex;
 
     if (hoveredInspectHit && hoveredInspectHit->kind == "world_item")
@@ -3051,7 +3084,7 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
 
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    applyBillboardFogUniforms(view, RuntimeProjectileRenderDistance);
+    applyBillboardFogUniforms(view, runtimeProjectileRenderDistance(view.m_gameSettings.viewDistance));
 
     struct BillboardDrawItem
     {
@@ -3095,7 +3128,7 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             const float deltaZ = z - cameraPosition.z;
             const float distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 
-            if (distanceSquared > RuntimeProjectileRenderDistanceSquared)
+            if (distanceSquared > runtimeProjectileRenderDistanceSquared(view.m_gameSettings.viewDistance))
             {
                 if (shouldLog)
                 {
@@ -3420,7 +3453,7 @@ void OutdoorBillboardRenderer::renderFxContactShadows(
         return;
     }
 
-    applyBillboardFogUniforms(view, ActorBillboardRenderDistance);
+    applyBillboardFogUniforms(view, actorBillboardRenderDistance(view.m_gameSettings.viewDistance));
 
     std::vector<OutdoorGameView::LitBillboardVertex> vertices;
     vertices.reserve(shadows.size() * 6);
@@ -3535,7 +3568,7 @@ void OutdoorBillboardRenderer::renderSpriteObjectBillboards(
 
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    applyBillboardFogUniforms(view, ActorBillboardRenderDistance);
+    applyBillboardFogUniforms(view, actorBillboardRenderDistance(view.m_gameSettings.viewDistance));
 
     struct BillboardDrawItem
     {

@@ -20,6 +20,7 @@ struct ApplicationConfig
     std::string activeWorldId;
     std::string startupMapFileOverride;
     AssetScaleTier assetScaleTier;
+    AssetScaleProfile assetScaleProfile;
     int windowWidth;
     int windowHeight;
     WindowMode windowMode;

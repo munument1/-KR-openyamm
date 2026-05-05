@@ -481,6 +481,6 @@ RegisterEvent(74, "Desk", function()
 end, "Desk")
 
 RegisterEvent(75, "Exit", function()
-    evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0)
+    evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0, "outb3.odm") -- Dragonsand
 end, "Exit")
 

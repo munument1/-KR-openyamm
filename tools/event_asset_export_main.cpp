@@ -107,6 +107,7 @@ bool parseArguments(
             }
 
             config.assetScaleTier = *assetScaleTier;
+            config.assetScaleProfile = OpenYAMM::Engine::createUniformAssetScaleProfile(*assetScaleTier);
             hasAssetScaleArgument = true;
             ++argumentIndex;
             continue;
@@ -2065,6 +2066,7 @@ int main(int argc, char **argv)
             std::filesystem::current_path(),
             config.assetRoot,
             config.assetScaleTier,
+            config.assetScaleProfile,
             config.activeWorldId))
     {
         std::cerr << "Failed to initialize asset file system\n";

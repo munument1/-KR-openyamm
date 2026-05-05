@@ -257,7 +257,7 @@ bool skyTextureAssetExists(const Engine::AssetFileSystem &assetFileSystem, const
         return false;
     }
 
-    const std::string basePath = "Data/bitmaps/" + textureName;
+    const std::string basePath = "sky_textures/" + textureName;
     return assetFileSystem.exists(basePath + ".png") || assetFileSystem.exists(basePath + ".bmp");
 }
 
@@ -876,6 +876,8 @@ void appendDecorationScriptBillboardTextures(
 
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
     std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
+    const Engine::AssetScaleTier decorationAssetScaleTier =
+        assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Decorations);
 
     for (const std::string &spriteName : spriteNames)
     {
@@ -935,8 +937,8 @@ void appendDecorationScriptBillboardTextures(
 
             OutdoorBitmapTexture texture = {};
             texture.textureName = toLowerCopy(textureName);
-            texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, assetFileSystem.getAssetScaleTier());
-            texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, assetFileSystem.getAssetScaleTier());
+            texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, decorationAssetScaleTier);
+            texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, decorationAssetScaleTier);
             texture.physicalWidth = textureWidth;
             texture.physicalHeight = textureHeight;
             texture.pixels = *pixels;
@@ -980,6 +982,8 @@ void appendIndoorScriptTextures(
 
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
     std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
+    const Engine::AssetScaleTier textureAssetScaleTier =
+        assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Textures);
 
     for (const std::string &textureName : textureNames)
     {
@@ -1018,8 +1022,8 @@ void appendIndoorScriptTextures(
 
         OutdoorBitmapTexture texture = {};
         texture.textureName = textureName;
-        texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, assetFileSystem.getAssetScaleTier());
-        texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, assetFileSystem.getAssetScaleTier());
+        texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, textureAssetScaleTier);
+        texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, textureAssetScaleTier);
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
         texture.pixels = *pixels;

@@ -43,6 +43,18 @@ std::optional<std::string> readPayloadString(const std::vector<uint8_t> &payload
     return std::nullopt;
 }
 
+std::optional<std::string> readMoveToMapName(const std::vector<uint8_t> &payload, size_t offset)
+{
+    std::optional<std::string> mapName = readPayloadString(payload, offset);
+
+    if (mapName && mapName->empty())
+    {
+        mapName = readPayloadString(payload, offset + 1);
+    }
+
+    return mapName;
+}
+
 std::string hexValue(uint32_t value)
 {
     std::ostringstream stream;
@@ -590,7 +602,7 @@ EventIrInstruction convertInstruction(
             };
         }
 
-        irInstruction.text = readPayloadString(evtInstruction.rawPayload, mapNameOffset);
+        irInstruction.text = readMoveToMapName(evtInstruction.rawPayload, mapNameOffset);
     }
 
     switch (irInstruction.operation)

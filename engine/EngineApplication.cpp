@@ -268,7 +268,15 @@ int EngineApplication::run() const
 
     std::cout << m_config.appName << '\n';
     std::cout << "Development assets: " << m_config.assetRoot << '\n';
-    std::cout << "Asset scale: " << assetScaleTierToString(m_config.assetScaleTier) << '\n';
+    const AssetScaleProfile &assetScaleProfile = m_config.assetScaleProfile;
+    std::cout << "Asset scale: default=" << assetScaleTierToString(m_config.assetScaleTier)
+              << " texture=" << assetScaleTierToString(assetScaleProfile.textures)
+              << " terrain=" << assetScaleTierToString(assetScaleProfile.terrain)
+              << " sky=" << assetScaleTierToString(assetScaleProfile.sky)
+              << " sprites=" << assetScaleTierToString(assetScaleProfile.sprites)
+              << " decorations=" << assetScaleTierToString(assetScaleProfile.decorations)
+              << " icons=" << assetScaleTierToString(assetScaleProfile.icons)
+              << " ui=" << assetScaleTierToString(assetScaleProfile.ui) << '\n';
     std::cout << "Window mode: " << windowModeName(m_config.windowMode) << '\n';
     std::cout << "Window requested: " << m_config.windowWidth << "x" << m_config.windowHeight << '\n';
     std::cout << "Window drawable: " << drawableWidth << "x" << drawableHeight << '\n';
@@ -405,6 +413,11 @@ bool EngineApplication::initializeAssetFileSystem(AssetFileSystem &assetFileSyst
         basePath = pBasePathChars;
     }
 
-    return assetFileSystem.initialize(basePath, m_config.assetRoot, m_config.assetScaleTier, m_config.activeWorldId);
+    return assetFileSystem.initialize(
+        basePath,
+        m_config.assetRoot,
+        m_config.assetScaleTier,
+        m_config.assetScaleProfile,
+        m_config.activeWorldId);
 }
 }

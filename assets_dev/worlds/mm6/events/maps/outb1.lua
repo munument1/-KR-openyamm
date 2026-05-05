@@ -170,7 +170,7 @@ end, "Demon Lair")
 
 RegisterEvent(100, "Drink from Well.", function()
     evt.StatusText("You feel Strange.")
-    evt.MoveToMap(12768, 4192, 512, 0, 0, 0, 0, 0)
+    evt.MoveToMap(12768, 4192, 512, 0, 0, 0, 0, 0, "cd3.blv") -- Castle Kriegspire
 end, "Drink from Well.")
 
 RegisterEvent(101, "Drink from Well.", function()

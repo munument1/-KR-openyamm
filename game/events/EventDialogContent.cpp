@@ -607,8 +607,11 @@ EventDialogContent buildEventDialogContent(
             dialog.title = !transitionMapName.empty() ? transitionMapName : "Travel";
         }
 
-        dialog.videoName = destinationIsDungeon
-            ? transitionVideoNameForDungeonHouse(pHouseTable, pCurrentMap, dialog.title)
+        const MapStatsEntry *pDungeonHouseMap = destinationIsDungeon
+            ? pCurrentMap
+            : (leavingCurrentDungeon ? pDestinationMap : nullptr);
+        dialog.videoName = pDungeonHouseMap != nullptr
+            ? transitionVideoNameForDungeonHouse(pHouseTable, pDungeonHouseMap, dialog.title)
             : std::string();
         if (dialog.videoName.empty() && pTransitionText != nullptr && !pTransitionText->title.empty())
         {

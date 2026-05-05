@@ -1,6 +1,7 @@
 #include "game/ui/GameplayHudCommon.h"
 
 #include "engine/ImageAssetLoader.h"
+#include "game/maps/MapIdentity.h"
 #include "game/StringUtils.h"
 
 #include <algorithm>
@@ -35,6 +36,28 @@ struct ParsedHudBitmapFont
     std::array<uint32_t, 256> glyphOffsets = {{}};
     std::vector<uint8_t> pixels;
 };
+
+std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
+{
+    const std::string normalizedWorldId = worldId.empty() ? std::string() : normalizeWorldId(worldId);
+    return normalizedWorldId + "|" + std::to_string(static_cast<int>(paletteId));
+}
+
+std::vector<std::string> actPaletteCandidatePaths(int16_t paletteId, const std::string &worldId)
+{
+    char paletteFileName[32] = {};
+    std::snprintf(paletteFileName, sizeof(paletteFileName), "pal%03d.act", static_cast<int>(paletteId));
+
+    std::vector<std::string> paths;
+
+    if (!worldId.empty())
+    {
+        paths.push_back("worlds/" + normalizeWorldId(worldId) + "/textures/" + paletteFileName);
+    }
+
+    paths.push_back(std::string("Data/bitmaps/") + paletteFileName);
+    return paths;
+}
 
 int32_t readInt32Le(const uint8_t *pBytes)
 {
@@ -619,43 +642,40 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::readCachedBinaryFile(
 std::optional<std::array<uint8_t, 256 * 3>> GameplayHudCommon::loadCachedActPalette(
     const Engine::AssetFileSystem *pAssetFileSystem,
     GameplayAssetLoadCache &cache,
-    int16_t paletteId)
+    int16_t paletteId,
+    const std::string &worldId)
 {
     if (paletteId <= 0)
     {
         return std::nullopt;
     }
 
-    const auto cachedPaletteIt = cache.actPalettesById.find(paletteId);
+    const std::string cacheKey = actPaletteCacheKey(paletteId, worldId);
+    const auto cachedPaletteIt = cache.actPalettesByKey.find(cacheKey);
 
-    if (cachedPaletteIt != cache.actPalettesById.end())
+    if (cachedPaletteIt != cache.actPalettesByKey.end())
     {
         return cachedPaletteIt->second;
     }
 
-    char paletteFileName[32] = {};
-    std::snprintf(paletteFileName, sizeof(paletteFileName), "pal%03d.act", static_cast<int>(paletteId));
-    const std::optional<std::string> palettePath =
-        findCachedAssetPath(pAssetFileSystem, cache, "Data/bitmaps", paletteFileName);
-
-    if (!palettePath)
+    for (const std::string &palettePath : actPaletteCandidatePaths(paletteId, worldId))
     {
-        cache.actPalettesById[paletteId] = std::nullopt;
-        return std::nullopt;
+        const std::optional<std::vector<uint8_t>> paletteBytes =
+            readCachedBinaryFile(pAssetFileSystem, cache, palettePath);
+
+        if (!paletteBytes || paletteBytes->size() < 256 * 3)
+        {
+            continue;
+        }
+
+        std::array<uint8_t, 256 * 3> palette = {};
+        std::memcpy(palette.data(), paletteBytes->data(), palette.size());
+        cache.actPalettesByKey[cacheKey] = palette;
+        return palette;
     }
 
-    const std::optional<std::vector<uint8_t>> paletteBytes = readCachedBinaryFile(pAssetFileSystem, cache, *palettePath);
-
-    if (!paletteBytes || paletteBytes->size() < 256 * 3)
-    {
-        cache.actPalettesById[paletteId] = std::nullopt;
-        return std::nullopt;
-    }
-
-    std::array<uint8_t, 256 * 3> palette = {};
-    std::memcpy(palette.data(), paletteBytes->data(), palette.size());
-    cache.actPalettesById[paletteId] = palette;
-    return palette;
+    cache.actPalettesByKey[cacheKey] = std::nullopt;
+    return std::nullopt;
 }
 
 std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCached(
@@ -700,7 +720,8 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadSpriteBitmapPixelsBgr
     const std::string &textureName,
     int16_t paletteId,
     int &width,
-    int &height)
+    int &height,
+    const std::string &worldId)
 {
     if (pAssetFileSystem == nullptr)
     {
@@ -708,7 +729,7 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadSpriteBitmapPixelsBgr
     }
 
     Engine::ImageDecodeOptions decodeOptions = {};
-    decodeOptions.overridePalette = loadCachedActPalette(pAssetFileSystem, cache, paletteId);
+    decodeOptions.overridePalette = loadCachedActPalette(pAssetFileSystem, cache, paletteId, worldId);
     decodeOptions.applyPaletteZeroTransparencyKey = true;
     decodeOptions.applyMagentaTransparencyKey = true;
     decodeOptions.applyTealTransparencyKey = true;

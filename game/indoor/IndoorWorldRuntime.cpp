@@ -8993,6 +8993,8 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
         if (corpse.items.empty())
         {
+            pMapDeltaData->actors[actorIndex].attributes |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+            m_mapActorCorpseViews[actorIndex].reset();
             return false;
         }
 
@@ -9009,11 +9011,6 @@ bool IndoorWorldRuntime::autoLootMapActorCorpse(size_t actorIndex)
 {
     if (!openMapActorCorpseView(actorIndex))
     {
-        if (m_pGameplayView != nullptr)
-        {
-            m_pGameplayView->setStatusBarEvent("Nothing here");
-        }
-
         if (m_pEventRuntimeState != nullptr && *m_pEventRuntimeState)
         {
             (*m_pEventRuntimeState)->lastActivationResult = "corpse " + std::to_string(actorIndex) + " empty";

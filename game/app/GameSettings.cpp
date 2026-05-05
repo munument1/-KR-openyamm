@@ -11,6 +11,9 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr float MinimumViewDistance = 1024.0f;
+constexpr float UnlimitedViewDistance = 200000.0f;
+
 using IniSection = std::unordered_map<std::string, std::string>;
 using IniDocument = std::unordered_map<std::string, IniSection>;
 
@@ -310,11 +313,56 @@ bool parseResolutionValue(const std::string &value, int &width, int &height)
     height = parsedHeight;
     return true;
 }
+
+void parseAssetScaleProfileValue(
+    const IniDocument &document,
+    const std::string &key,
+    Engine::AssetScaleProfile &assetScaleProfile,
+    Engine::AssetScaleCategory assetScaleCategory)
+{
+    const std::optional<std::string> value = getIniValue(document, "video_quality", key);
+
+    if (!value)
+    {
+        return;
+    }
+
+    const std::optional<Engine::AssetScaleTier> assetScaleTier = Engine::parseAssetScaleTier(*value);
+
+    if (assetScaleTier)
+    {
+        Engine::setAssetScaleTierForCategory(assetScaleProfile, assetScaleCategory, *assetScaleTier);
+    }
+}
 }
 
 GameSettings GameSettings::createDefault()
 {
     return GameSettings();
+}
+
+float resolveViewDistanceSetting(const std::string &value, float defaultDistance)
+{
+    const std::string normalized = toLowerCopy(trimCopy(value));
+
+    if (normalized.empty() || normalized == "default")
+    {
+        return defaultDistance;
+    }
+
+    if (normalized == "unlimited")
+    {
+        return UnlimitedViewDistance;
+    }
+
+    float parsed = defaultDistance;
+
+    if (!parseFloatValue(normalized, parsed) || parsed <= 0.0f)
+    {
+        return defaultDistance;
+    }
+
+    return std::clamp(parsed, MinimumViewDistance, UnlimitedViewDistance);
 }
 
 std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, std::string &error)
@@ -477,6 +525,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "sprite_outline"))
+    {
+        bool parsed = settings.spriteOutline;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.spriteOutline = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "texture_filtering"))
     {
         bool parsed = settings.textureFiltering;
@@ -522,6 +580,11 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         settings.minimapFiltering = trimCopy(*value);
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "view_distance"))
+    {
+        settings.viewDistance = trimCopy(*value);
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "gameplay_ui_layout"))
     {
         settings.gameplayUiLayout = parseGameplayUiLayout(*value);
@@ -543,6 +606,57 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
             settings.resolutionHeight = std::clamp(parsedHeight, 200, 16384);
         }
     }
+
+    parseAssetScaleProfileValue(
+        document,
+        "texture",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Textures);
+    parseAssetScaleProfileValue(
+        document,
+        "textures",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Textures);
+    parseAssetScaleProfileValue(
+        document,
+        "terrain",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Terrain);
+    parseAssetScaleProfileValue(
+        document,
+        "sky",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Sky);
+    parseAssetScaleProfileValue(
+        document,
+        "sprites",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Sprites);
+    parseAssetScaleProfileValue(
+        document,
+        "decorations",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Decorations);
+    parseAssetScaleProfileValue(
+        document,
+        "icons",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Icons);
+    parseAssetScaleProfileValue(
+        document,
+        "ui",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Ui);
+    parseAssetScaleProfileValue(
+        document,
+        "effects",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Effects);
+    parseAssetScaleProfileValue(
+        document,
+        "fonts",
+        settings.assetScaleProfile,
+        Engine::AssetScaleCategory::Fonts);
 
     if (const std::optional<std::string> value = getIniValue(document, "startup", "start_in_main_menu"))
     {
@@ -743,6 +857,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "colored_lights=" << (settings.coloredLights ? "true" : "false") << '\n'
         << "tinting=" << (settings.tinting ? "true" : "false") << '\n'
         << "shadows=" << (settings.shadows ? "true" : "false") << '\n'
+        << "sprite_outline=" << (settings.spriteOutline ? "true" : "false") << '\n'
         << "texture_filtering=" << (settings.textureFiltering ? "true" : "false") << '\n'
         << "terrain_filtering=" << settings.terrainFiltering << '\n'
         << "terrain_anisotropy=" << settings.terrainAnisotropy << '\n'
@@ -751,10 +866,21 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "ui_filtering=" << settings.uiFiltering << '\n'
         << "text_filtering=" << settings.textFiltering << '\n'
         << "minimap_filtering=" << settings.minimapFiltering << '\n'
+        << "view_distance=" << settings.viewDistance << '\n'
         << "window_mode=" << windowModeString(settings.windowMode) << '\n'
         << "resolution=" << std::clamp(settings.resolutionWidth, 320, 16384)
         << 'x' << std::clamp(settings.resolutionHeight, 200, 16384) << '\n'
         << "gameplay_ui_layout=" << gameplayUiLayoutString(settings.gameplayUiLayout) << "\n\n"
+        << "[video_quality]\n"
+        << "texture=" << Engine::assetScaleTierToString(settings.assetScaleProfile.textures) << '\n'
+        << "terrain=" << Engine::assetScaleTierToString(settings.assetScaleProfile.terrain) << '\n'
+        << "sky=" << Engine::assetScaleTierToString(settings.assetScaleProfile.sky) << '\n'
+        << "sprites=" << Engine::assetScaleTierToString(settings.assetScaleProfile.sprites) << '\n'
+        << "decorations=" << Engine::assetScaleTierToString(settings.assetScaleProfile.decorations) << '\n'
+        << "icons=" << Engine::assetScaleTierToString(settings.assetScaleProfile.icons) << '\n'
+        << "ui=" << Engine::assetScaleTierToString(settings.assetScaleProfile.ui) << '\n'
+        << "effects=" << Engine::assetScaleTierToString(settings.assetScaleProfile.effects) << '\n'
+        << "fonts=" << Engine::assetScaleTierToString(settings.assetScaleProfile.fonts) << "\n\n"
         << "[debug]\n"
         << "preseed_party=" << (settings.preseedParty ? "true" : "false") << '\n'
         << "party_seed_roster_id=" << settings.partySeedRosterId << '\n'

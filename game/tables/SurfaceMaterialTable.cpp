@@ -124,6 +124,59 @@ void distributeEvenFrameLengths(SurfaceAnimationSequence &animation, uint32_t an
         }
     }
 }
+
+std::optional<uint32_t> frameLengthTicksFromNode(const YAML::Node &frameNode)
+{
+    if (const YAML::Node ticksNode = frameNode["ticks"]; ticksNode && ticksNode.IsScalar())
+    {
+        return ticksNode.as<uint32_t>();
+    }
+
+    if (const YAML::Node ticksNode = frameNode["frame_length_ticks"]; ticksNode && ticksNode.IsScalar())
+    {
+        return ticksNode.as<uint32_t>();
+    }
+
+    if (const YAML::Node ticksNode = frameNode["length_ticks"]; ticksNode && ticksNode.IsScalar())
+    {
+        return ticksNode.as<uint32_t>();
+    }
+
+    return std::nullopt;
+}
+
+std::string frameTextureNameFromNode(const YAML::Node &frameNode)
+{
+    if (const YAML::Node textureNode = frameNode["texture"]; textureNode && textureNode.IsScalar())
+    {
+        return textureNode.as<std::string>();
+    }
+
+    if (const YAML::Node textureNode = frameNode["texture_name"]; textureNode && textureNode.IsScalar())
+    {
+        return textureNode.as<std::string>();
+    }
+
+    if (const YAML::Node nameNode = frameNode["name"]; nameNode && nameNode.IsScalar())
+    {
+        return nameNode.as<std::string>();
+    }
+
+    return {};
+}
+
+void normalizeExplicitFrameLengths(SurfaceAnimationSequence &animation)
+{
+    uint32_t animationLengthTicks = 0;
+
+    for (SurfaceAnimationFrame &frame : animation.frames)
+    {
+        frame.frameLengthTicks = std::max(1u, frame.frameLengthTicks);
+        animationLengthTicks += frame.frameLengthTicks;
+    }
+
+    animation.animationLengthTicks = animationLengthTicks;
+}
 }
 
 bool SurfaceMaterialTable::loadFromYaml(const std::string &yamlText, std::string &errorMessage)
@@ -250,24 +303,50 @@ bool SurfaceMaterialTable::loadFromYaml(const std::string &yamlText, std::string
 
             if (framesNode && framesNode.IsSequence())
             {
+                bool explicitFrameLengths = false;
+
                 for (const YAML::Node &frameNode : framesNode)
                 {
-                    if (!frameNode.IsScalar())
+                    SurfaceAnimationFrame frame = {};
+
+                    if (frameNode.IsScalar())
+                    {
+                        frame.textureName = frameNode.as<std::string>();
+                    }
+                    else if (frameNode.IsMap())
+                    {
+                        frame.textureName = frameTextureNameFromNode(frameNode);
+
+                        if (const std::optional<uint32_t> frameLengthTicks = frameLengthTicksFromNode(frameNode))
+                        {
+                            frame.frameLengthTicks = *frameLengthTicks;
+                            explicitFrameLengths = true;
+                        }
+                    }
+                    else
                     {
                         continue;
                     }
 
-                    SurfaceAnimationFrame frame = {};
-                    frame.textureName = frameNode.as<std::string>();
-                    material.animation.frames.push_back(std::move(frame));
+                    if (!frame.textureName.empty())
+                    {
+                        material.animation.frames.push_back(std::move(frame));
+                    }
                 }
-            }
 
-            const uint32_t animationLengthTicks = animationNode["animation_length_ticks"].as<uint32_t>(0);
+                const uint32_t animationLengthTicks = animationNode["animation_length_ticks"].as<uint32_t>(0);
 
-            if (!material.animation.frames.empty())
-            {
-                distributeEvenFrameLengths(material.animation, animationLengthTicks);
+                if (!material.animation.frames.empty())
+                {
+                    if (explicitFrameLengths)
+                    {
+                        normalizeExplicitFrameLengths(material.animation);
+                    }
+                    else
+                    {
+                        distributeEvenFrameLengths(material.animation, animationLengthTicks);
+                    }
+                }
             }
         }
 

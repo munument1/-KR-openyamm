@@ -23,7 +23,7 @@ struct GameplayAssetLoadCache
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
     std::unordered_map<std::string, std::optional<std::string>> assetPathByKey;
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> binaryFilesByPath;
-    std::unordered_map<int16_t, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesById;
+    std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesByKey;
 };
 
 struct GameplayHudTextureData
@@ -150,7 +150,8 @@ public:
     static std::optional<std::array<uint8_t, 256 * 3>> loadCachedActPalette(
         const Engine::AssetFileSystem *pAssetFileSystem,
         GameplayAssetLoadCache &cache,
-        int16_t paletteId);
+        int16_t paletteId,
+        const std::string &worldId = {});
     static std::optional<std::vector<uint8_t>> loadHudBitmapPixelsBgraCached(
         const Engine::AssetFileSystem *pAssetFileSystem,
         GameplayAssetLoadCache &cache,
@@ -163,7 +164,8 @@ public:
         const std::string &textureName,
         int16_t paletteId,
         int &width,
-        int &height);
+        int &height,
+        const std::string &worldId = {});
     static const GameplayHudTextureData *findHudTexture(
         const std::vector<GameplayHudTextureData> &textures,
         const std::unordered_map<std::string, size_t> &textureIndexByName,

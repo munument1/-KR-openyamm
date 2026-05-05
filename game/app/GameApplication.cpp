@@ -53,6 +53,41 @@ bool mapLoadTimingEnabled()
     return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
 }
 
+TextureFilterMode textureFilterModeFromSetting(const std::string &value, TextureFilterMode fallback)
+{
+    const std::string normalized = toLowerCopy(value);
+
+    if (normalized == "nearest" || normalized == "point")
+    {
+        return TextureFilterMode::Nearest;
+    }
+
+    if (normalized == "linear" || normalized == "bilinear")
+    {
+        return TextureFilterMode::Linear;
+    }
+
+    if (normalized == "anisotropic" || normalized == "aniso")
+    {
+        return TextureFilterMode::Anisotropic;
+    }
+
+    return fallback;
+}
+
+TextureFilteringConfig textureFilteringConfigFromSettings(const GameSettings &settings)
+{
+    TextureFilteringConfig config = {};
+    config.enabled = settings.textureFiltering;
+    config.terrain = textureFilterModeFromSetting(settings.terrainFiltering, TextureFilterMode::Anisotropic);
+    config.bmodel = textureFilterModeFromSetting(settings.bmodelFiltering, TextureFilterMode::Anisotropic);
+    config.sky = config.terrain;
+    config.billboard = textureFilterModeFromSetting(settings.billboardFiltering, TextureFilterMode::Linear);
+    config.ui = textureFilterModeFromSetting(settings.uiFiltering, TextureFilterMode::Linear);
+    config.text = textureFilterModeFromSetting(settings.textFiltering, TextureFilterMode::Nearest);
+    return config;
+}
+
 class MapLoadTimingLogger
 {
 public:
@@ -1115,7 +1150,7 @@ void GameApplication::loadOrCreateSettings()
 
 void GameApplication::applyCurrentSettingsToActiveRuntime()
 {
-    setTextureFilteringEnabled(m_settings.textureFiltering);
+    setTextureFilteringConfig(textureFilteringConfigFromSettings(m_settings));
     m_gameAudioSystem.setSoundVolume(normalizedVolumeLevel(m_settings.soundVolume));
     m_gameAudioSystem.setMusicVolume(normalizedVolumeLevel(m_settings.musicVolume));
     m_gameAudioSystem.setVoiceVolume(normalizedVolumeLevel(m_settings.voiceVolume));

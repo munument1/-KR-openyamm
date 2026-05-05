@@ -25,6 +25,7 @@
 #include "game/outdoor/OutdoorRenderer.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/items/PriceCalculator.h"
+#include "game/maps/MapIdentity.h"
 #include "game/maps/SaveGame.h"
 #include "game/scene/OutdoorSceneRuntime.h"
 #include "game/SpawnPreview.h"
@@ -519,15 +520,6 @@ constexpr uint16_t HudViewId = 2;
 constexpr float DefaultOutdoorFarClip = 16192.0f;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
-constexpr float RuntimeProjectileRenderDistance = 12288.0f;
-constexpr float RuntimeProjectileRenderDistanceSquared =
-    RuntimeProjectileRenderDistance * RuntimeProjectileRenderDistance;
-constexpr float DecorationBillboardRenderDistance = 16384.0f;
-constexpr float DecorationBillboardRenderDistanceSquared =
-    DecorationBillboardRenderDistance * DecorationBillboardRenderDistance;
-constexpr float ActorBillboardRenderDistance = 16384.0f;
-constexpr float ActorBillboardRenderDistanceSquared =
-    ActorBillboardRenderDistance * ActorBillboardRenderDistance;
 constexpr float BillboardSpatialCellSize = 2048.0f;
 constexpr float CameraVerticalFovRadians = CameraVerticalFovDegrees * (Pi / 180.0f);
 constexpr int DebugTextCellWidthPixels = 8;
@@ -553,6 +545,28 @@ constexpr float HudReferenceWidth = 640.0f;
 constexpr float HudReferenceHeight = 480.0f;
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
+
+std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
+{
+    const std::string normalizedWorldId = worldId.empty() ? std::string() : normalizeWorldId(worldId);
+    return normalizedWorldId + "|" + std::to_string(static_cast<int>(paletteId));
+}
+
+std::vector<std::string> actPaletteCandidatePaths(int16_t paletteId, const std::string &worldId)
+{
+    char paletteFileName[32] = {};
+    std::snprintf(paletteFileName, sizeof(paletteFileName), "pal%03d.act", static_cast<int>(paletteId));
+
+    std::vector<std::string> paths;
+
+    if (!worldId.empty())
+    {
+        paths.push_back("worlds/" + normalizeWorldId(worldId) + "/textures/" + paletteFileName);
+    }
+
+    paths.push_back(std::string("Data/bitmaps/") + paletteFileName);
+    return paths;
+}
 constexpr uint32_t SkyDomeHorizontalSegmentCount = 24;
 constexpr uint32_t SkyDomeVerticalSegmentCount = 8;
 constexpr uint64_t PartyPortraitDoubleClickWindowMs = 500;
@@ -3121,7 +3135,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState =
         m_pOutdoorWorldRuntime != nullptr ? &m_pOutdoorWorldRuntime->atmosphereState() : nullptr;
     const uint32_t clearColorAbgr = pAtmosphereState != nullptr ? pAtmosphereState->clearColorAbgr : 0x000000ffu;
-    const float farClipDistance = DefaultOutdoorFarClip;
+    const float farClipDistance = resolveViewDistanceSetting(m_gameSettings.viewDistance, DefaultOutdoorFarClip);
     const bool captureSavePreviewThisFrame =
         m_pendingSavePreviewCapture.active && !m_pendingSavePreviewCapture.screenshotRequested;
     const bool captureLloydsBeaconPreviewThisFrame =
@@ -3316,6 +3330,9 @@ void OutdoorGameView::shutdown()
         m_outdoorForcePerspectiveProgramHandle = BGFX_INVALID_HANDLE;
         m_bloodSplatVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_terrainTextureAtlasHandle = BGFX_INVALID_HANDLE;
+        m_terrainTextureAtlasMipPixels.clear();
+        m_terrainTextureAtlasWidth = 0;
+        m_terrainTextureAtlasHeight = 0;
         m_bloodSplatTextureHandle = BGFX_INVALID_HANDLE;
         m_forcePerspectiveSolidTextureHandle = BGFX_INVALID_HANDLE;
         m_terrainTextureSamplerHandle = BGFX_INVALID_HANDLE;
@@ -3402,6 +3419,9 @@ void OutdoorGameView::shutdown()
         bgfx::destroy(m_terrainTextureAtlasHandle);
         m_terrainTextureAtlasHandle = BGFX_INVALID_HANDLE;
     }
+    m_terrainTextureAtlasMipPixels.clear();
+    m_terrainTextureAtlasWidth = 0;
+    m_terrainTextureAtlasHeight = 0;
 
     if (bgfx::isValid(m_bloodSplatTextureHandle))
     {
@@ -4777,35 +4797,32 @@ std::optional<std::array<uint8_t, 256 * 3>> OutdoorGameView::loadCachedActPalett
         return std::nullopt;
     }
 
-    const auto cachedPaletteIt = m_spriteLoadCache.actPalettesById.find(paletteId);
+    const std::string worldId = m_map.has_value() ? m_map->worldId : std::string();
+    const std::string cacheKey = actPaletteCacheKey(paletteId, worldId);
+    const auto cachedPaletteIt = m_spriteLoadCache.actPalettesByKey.find(cacheKey);
 
-    if (cachedPaletteIt != m_spriteLoadCache.actPalettesById.end())
+    if (cachedPaletteIt != m_spriteLoadCache.actPalettesByKey.end())
     {
         return cachedPaletteIt->second;
     }
 
-    char paletteFileName[32] = {};
-    std::snprintf(paletteFileName, sizeof(paletteFileName), "pal%03d.act", static_cast<int>(paletteId));
-    const std::optional<std::string> palettePath = findCachedAssetPath("Data/bitmaps", paletteFileName);
-
-    if (!palettePath)
+    for (const std::string &palettePath : actPaletteCandidatePaths(paletteId, worldId))
     {
-        m_spriteLoadCache.actPalettesById[paletteId] = std::nullopt;
-        return std::nullopt;
+        const std::optional<std::vector<uint8_t>> paletteBytes = readCachedBinaryFile(palettePath);
+
+        if (!paletteBytes || paletteBytes->size() < 256 * 3)
+        {
+            continue;
+        }
+
+        std::array<uint8_t, 256 * 3> palette = {};
+        std::memcpy(palette.data(), paletteBytes->data(), palette.size());
+        m_spriteLoadCache.actPalettesByKey[cacheKey] = palette;
+        return palette;
     }
 
-    const std::optional<std::vector<uint8_t>> paletteBytes = readCachedBinaryFile(*palettePath);
-
-    if (!paletteBytes || paletteBytes->size() < 256 * 3)
-    {
-        m_spriteLoadCache.actPalettesById[paletteId] = std::nullopt;
-        return std::nullopt;
-    }
-
-    std::array<uint8_t, 256 * 3> palette = {};
-    std::memcpy(palette.data(), paletteBytes->data(), palette.size());
-    m_spriteLoadCache.actPalettesById[paletteId] = palette;
-    return palette;
+    m_spriteLoadCache.actPalettesByKey[cacheKey] = std::nullopt;
+    return std::nullopt;
 }
 
 std::optional<std::vector<uint8_t>> OutdoorGameView::loadSpriteBitmapPixelsBgraCached(

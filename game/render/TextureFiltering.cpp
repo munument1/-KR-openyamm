@@ -1,11 +1,6 @@
 #include "game/render/TextureFiltering.h"
 
-#include <bimg/bimg.h>
-#include <bimg/encode.h>
-#include <bx/allocator.h>
-#include <bx/error.h>
-#include <bx/readerwriter.h>
-
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -15,10 +10,13 @@ namespace OpenYAMM::Game
 namespace
 {
 bool g_textureFilteringEnabled = true;
+TextureFilteringConfig g_textureFilteringConfig = {};
 
 bool profileUsesMipmaps(TextureFilterProfile profile)
 {
-    return profile == TextureFilterProfile::Terrain;
+    return profile == TextureFilterProfile::Terrain
+        || profile == TextureFilterProfile::BModel
+        || profile == TextureFilterProfile::Sky;
 }
 
 bool profileNeedsTransparentEdgeBleed(TextureFilterProfile profile)
@@ -31,11 +29,55 @@ bool profileNeedsTransparentEdgeBleed(TextureFilterProfile profile)
 
         case TextureFilterProfile::Terrain:
         case TextureFilterProfile::BModel:
+        case TextureFilterProfile::Sky:
         case TextureFilterProfile::Text:
             return false;
     }
 
     return false;
+}
+
+TextureFilterMode textureFilterModeForProfile(TextureFilterProfile profile)
+{
+    switch (profile)
+    {
+        case TextureFilterProfile::Terrain:
+            return g_textureFilteringConfig.terrain;
+
+        case TextureFilterProfile::BModel:
+            return g_textureFilteringConfig.bmodel;
+
+        case TextureFilterProfile::Sky:
+            return g_textureFilteringConfig.sky;
+
+        case TextureFilterProfile::Billboard:
+            return g_textureFilteringConfig.billboard;
+
+        case TextureFilterProfile::Ui:
+            return g_textureFilteringConfig.ui;
+
+        case TextureFilterProfile::Text:
+            return g_textureFilteringConfig.text;
+    }
+
+    return TextureFilterMode::Linear;
+}
+
+uint64_t textureFilterSamplerFlagsForMode(TextureFilterMode mode)
+{
+    switch (mode)
+    {
+        case TextureFilterMode::Nearest:
+            return BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT;
+
+        case TextureFilterMode::Linear:
+            return BGFX_SAMPLER_NONE;
+
+        case TextureFilterMode::Anisotropic:
+            return BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC;
+    }
+
+    return BGFX_SAMPLER_NONE;
 }
 
 bool hasMixedTransparency(const uint8_t *pPixels, size_t pixelCount)
@@ -178,6 +220,107 @@ std::vector<uint8_t> prepareTexturePixelsForUpload(
     return preparedPixels;
 }
 
+struct BgraMipLevel
+{
+    uint16_t width = 0;
+    uint16_t height = 0;
+    std::vector<uint8_t> pixels;
+};
+
+std::vector<uint8_t> downsampleBgraPixels(
+    const std::vector<uint8_t> &sourcePixels,
+    uint16_t sourceWidth,
+    uint16_t sourceHeight,
+    uint16_t targetWidth,
+    uint16_t targetHeight)
+{
+    std::vector<uint8_t> targetPixels(static_cast<size_t>(targetWidth) * static_cast<size_t>(targetHeight) * 4, 0);
+
+    if (sourceWidth == 0 || sourceHeight == 0 || targetWidth == 0 || targetHeight == 0)
+    {
+        return targetPixels;
+    }
+
+    for (uint16_t targetY = 0; targetY < targetHeight; ++targetY)
+    {
+        for (uint16_t targetX = 0; targetX < targetWidth; ++targetX)
+        {
+            uint32_t blue = 0;
+            uint32_t green = 0;
+            uint32_t red = 0;
+            uint32_t alpha = 0;
+
+            for (uint16_t offsetY = 0; offsetY < 2; ++offsetY)
+            {
+                const uint16_t sourceY =
+                    std::min<uint16_t>(static_cast<uint16_t>(targetY * 2 + offsetY), sourceHeight - 1);
+
+                for (uint16_t offsetX = 0; offsetX < 2; ++offsetX)
+                {
+                    const uint16_t sourceX =
+                        std::min<uint16_t>(static_cast<uint16_t>(targetX * 2 + offsetX), sourceWidth - 1);
+                    const size_t sourceOffset =
+                        (static_cast<size_t>(sourceY) * static_cast<size_t>(sourceWidth) + sourceX) * 4;
+
+                    blue += sourcePixels[sourceOffset + 0];
+                    green += sourcePixels[sourceOffset + 1];
+                    red += sourcePixels[sourceOffset + 2];
+                    alpha += sourcePixels[sourceOffset + 3];
+                }
+            }
+
+            const size_t targetOffset =
+                (static_cast<size_t>(targetY) * static_cast<size_t>(targetWidth) + targetX) * 4;
+            targetPixels[targetOffset + 0] = static_cast<uint8_t>((blue + 2) / 4);
+            targetPixels[targetOffset + 1] = static_cast<uint8_t>((green + 2) / 4);
+            targetPixels[targetOffset + 2] = static_cast<uint8_t>((red + 2) / 4);
+            targetPixels[targetOffset + 3] = static_cast<uint8_t>((alpha + 2) / 4);
+        }
+    }
+
+    return targetPixels;
+}
+
+std::vector<BgraMipLevel> buildBgraMipLevels(
+    uint16_t width,
+    uint16_t height,
+    const uint8_t *pPixels,
+    uint32_t pixelBytes)
+{
+    std::vector<BgraMipLevel> mipLevels;
+
+    if (pPixels == nullptr || width == 0 || height == 0)
+    {
+        return mipLevels;
+    }
+
+    const size_t expectedPixelBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+
+    if (pixelBytes < expectedPixelBytes)
+    {
+        return mipLevels;
+    }
+
+    BgraMipLevel baseLevel = {};
+    baseLevel.width = width;
+    baseLevel.height = height;
+    baseLevel.pixels.assign(pPixels, pPixels + expectedPixelBytes);
+    mipLevels.push_back(std::move(baseLevel));
+
+    while (mipLevels.back().width > 1 || mipLevels.back().height > 1)
+    {
+        const BgraMipLevel &sourceLevel = mipLevels.back();
+        BgraMipLevel targetLevel = {};
+        targetLevel.width = std::max<uint16_t>(1, sourceLevel.width / 2);
+        targetLevel.height = std::max<uint16_t>(1, sourceLevel.height / 2);
+        targetLevel.pixels =
+            downsampleBgraPixels(sourceLevel.pixels, sourceLevel.width, sourceLevel.height, targetLevel.width, targetLevel.height);
+        mipLevels.push_back(std::move(targetLevel));
+    }
+
+    return mipLevels;
+}
+
 bgfx::TextureHandle createBgraTextureWithMipChain(
     uint16_t width,
     uint16_t height,
@@ -191,70 +334,47 @@ bgfx::TextureHandle createBgraTextureWithMipChain(
         return BGFX_INVALID_HANDLE;
     }
 
-    bx::DefaultAllocator allocator;
-    bimg::ImageContainer *pBaseImage = bimg::imageAlloc(
-        &allocator,
-        bimg::TextureFormat::BGRA8,
-        width,
-        height,
-        1,
-        1,
-        false,
-        false,
-        pPixels);
+    const std::vector<BgraMipLevel> mipLevels = buildBgraMipLevels(width, height, pPixels, pixelBytes);
 
-    if (pBaseImage == nullptr)
+    if (mipLevels.empty())
     {
         return BGFX_INVALID_HANDLE;
     }
 
-    bimg::ImageContainer *pMipImage = bimg::imageGenerateMips(&allocator, *pBaseImage);
-    bimg::ImageContainer *pImage = pMipImage != nullptr ? pMipImage : pBaseImage;
-    bx::MemoryBlock memoryBlock(&allocator);
-    bx::MemoryWriter writer(&memoryBlock);
-    bx::Error error;
-    bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
+    const bgfx::TextureHandle textureHandle = bgfx::createTexture2D(
+        width,
+        height,
+        true,
+        1,
+        bgfx::TextureFormat::BGRA8,
+        textureFilterSamplerFlags(profile) | extraFlags);
 
-    if (bimg::imageWriteKtx(&writer, *pImage, pImage->m_data, pImage->m_size, &error) > 0 && error.isOk())
+    if (!bgfx::isValid(textureHandle))
     {
-        const void *pTextureBytes = memoryBlock.more();
-        const uint32_t textureByteCount = memoryBlock.getSize();
-
-        if (pTextureBytes != nullptr && textureByteCount > 0)
-        {
-            textureHandle = bgfx::createTexture(
-                bgfx::copy(pTextureBytes, textureByteCount),
-                textureFilterSamplerFlags(profile) | extraFlags);
-        }
+        return BGFX_INVALID_HANDLE;
     }
 
-    if (pMipImage != nullptr && pMipImage != pBaseImage)
+    for (uint8_t mipLevelIndex = 0; mipLevelIndex < mipLevels.size(); ++mipLevelIndex)
     {
-        bimg::imageFree(pMipImage);
+        const BgraMipLevel &mipLevel = mipLevels[mipLevelIndex];
+        bgfx::updateTexture2D(
+            textureHandle,
+            0,
+            mipLevelIndex,
+            0,
+            0,
+            mipLevel.width,
+            mipLevel.height,
+            bgfx::copy(mipLevel.pixels.data(), static_cast<uint32_t>(mipLevel.pixels.size())));
     }
 
-    bimg::imageFree(pBaseImage);
     return textureHandle;
 }
 }
 
 uint64_t textureFilterSamplerFlags(TextureFilterProfile profile)
 {
-    switch (profile)
-    {
-        case TextureFilterProfile::Terrain:
-            return BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC;
-
-        case TextureFilterProfile::BModel:
-        case TextureFilterProfile::Billboard:
-        case TextureFilterProfile::Ui:
-            return BGFX_SAMPLER_NONE;
-
-        case TextureFilterProfile::Text:
-            return BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT;
-    }
-
-    return BGFX_SAMPLER_NONE;
+    return textureFilterSamplerFlagsForMode(textureFilterModeForProfile(profile));
 }
 
 bool textureFilteringEnabled()
@@ -265,11 +385,19 @@ bool textureFilteringEnabled()
 void setTextureFilteringEnabled(bool enabled)
 {
     g_textureFilteringEnabled = enabled;
+    g_textureFilteringConfig.enabled = enabled;
+}
+
+void setTextureFilteringConfig(const TextureFilteringConfig &config)
+{
+    g_textureFilteringConfig = config;
+    g_textureFilteringEnabled = config.enabled;
 }
 
 bool toggleTextureFilteringEnabled()
 {
     g_textureFilteringEnabled = !g_textureFilteringEnabled;
+    g_textureFilteringConfig.enabled = g_textureFilteringEnabled;
     return g_textureFilteringEnabled;
 }
 

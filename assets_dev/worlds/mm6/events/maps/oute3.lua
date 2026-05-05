@@ -307,7 +307,7 @@ RegisterEvent(103, "Legacy event 103", function()
 end)
 
 RegisterEvent(104, "Legacy event 104", function()
-    evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0)
+    evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0, "outb3.odm") -- Dragonsand
 end)
 
 RegisterEvent(109, "Well", function()
