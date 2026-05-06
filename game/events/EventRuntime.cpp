@@ -4143,6 +4143,7 @@ int luaEnterHouse(lua_State *pLuaState)
     context.kind = DialogueContextKind::HouseService;
     context.sourceId = houseId;
     context.hostHouseId = context.sourceId;
+    context.mapNoteSourcePoint = pRuntimeState->activeEventMapNoteSourcePoint;
     pRuntimeState->dialogueState.hostHouseId = context.sourceId;
     pRuntimeState->pendingDialogueContext = std::move(context);
     return 0;

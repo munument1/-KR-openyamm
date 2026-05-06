@@ -811,6 +811,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "debug", "console"))
+    {
+        bool parsed = settings.debugConsole;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.debugConsole = parsed;
+        }
+    }
+
     error.clear();
     return settings;
 }
@@ -894,7 +904,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "movement_speed_multiplier=" << settings.movementSpeedMultiplier << '\n'
         << "immortal=" << (settings.immortal ? "true" : "false") << '\n'
         << "unlimited_mana=" << (settings.unlimitedMana ? "true" : "false") << '\n'
-        << "new_game_god_lich=" << (settings.newGameGodLich ? "true" : "false") << '\n';
+        << "new_game_god_lich=" << (settings.newGameGodLich ? "true" : "false") << '\n'
+        << "console=" << (settings.debugConsole ? "true" : "false") << '\n';
 
     if (!output.good())
     {

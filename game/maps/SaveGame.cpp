@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 41;
+constexpr uint32_t SaveVersion = 42;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -38,6 +38,7 @@ constexpr uint32_t SaveVersionHiredNpcFollowers = 38;
 constexpr uint32_t SaveVersionGeneratedNpcOverrides = 39;
 constexpr uint32_t SaveVersionDialogueActorSource = 40;
 constexpr uint32_t SaveVersionPartyHiredNpcFollowers = 41;
+constexpr uint32_t SaveVersionRuntimeMapNoteMapFile = 42;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1566,16 +1567,33 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::RuntimeMapNote &v
     writeValue(writer, value.id);
     writeValue(writer, value.x);
     writeValue(writer, value.y);
+    writeValue(writer, value.mapFileName);
     writeValue(writer, value.text);
     writeValue(writer, value.active);
 }
 
 bool readValue(BinaryReader &reader, EventRuntimeState::RuntimeMapNote &value)
 {
-    return readValue(reader, value.id)
-        && readValue(reader, value.x)
-        && readValue(reader, value.y)
-        && readValue(reader, value.text)
+    if (!readValue(reader, value.id)
+        || !readValue(reader, value.x)
+        || !readValue(reader, value.y))
+    {
+        return false;
+    }
+
+    if (reader.version() >= SaveVersionRuntimeMapNoteMapFile)
+    {
+        if (!readValue(reader, value.mapFileName))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        value.mapFileName.clear();
+    }
+
+    return readValue(reader, value.text)
         && readValue(reader, value.active);
 }
 

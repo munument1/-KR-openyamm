@@ -111,6 +111,54 @@ bool shouldUseHouseTradeItemReaction(
     return true;
 }
 
+EventRuntimeState::MapNoteSourcePoint mapNoteSourcePointForInspectHit(
+    const OutdoorMapData *pMapData,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (inspectHit.kind == "face"
+        && pMapData != nullptr
+        && inspectHit.bModelIndex < pMapData->bmodels.size())
+    {
+        const OutdoorBModel &bmodel = pMapData->bmodels[inspectHit.bModelIndex];
+
+        if (inspectHit.faceIndex < bmodel.faces.size())
+        {
+            const OutdoorBModelFace &face = bmodel.faces[inspectHit.faceIndex];
+            float x = 0.0f;
+            float y = 0.0f;
+            size_t validVertexCount = 0;
+
+            for (uint16_t vertexIndex : face.vertexIndices)
+            {
+                if (vertexIndex >= bmodel.vertices.size())
+                {
+                    continue;
+                }
+
+                const bx::Vec3 vertex = outdoorBModelVertexToWorld(bmodel.vertices[vertexIndex]);
+                x += vertex.x;
+                y += vertex.y;
+                ++validVertexCount;
+            }
+
+            if (validVertexCount > 0)
+            {
+                const float vertexCount = static_cast<float>(validVertexCount);
+
+                return {
+                    static_cast<int32_t>(std::lround(x / vertexCount)),
+                    static_cast<int32_t>(std::lround(y / vertexCount))
+                };
+            }
+        }
+    }
+
+    return {
+        static_cast<int32_t>(std::lround(inspectHit.hitX)),
+        static_cast<int32_t>(std::lround(inspectHit.hitY))
+    };
+}
+
 struct DirectInteractiveDecorationBindingSpec
 {
     uint16_t baseEventId = 0;
@@ -4814,6 +4862,10 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
     }
 
     size_t previousMessageCount = 0;
+    const std::optional<EventRuntimeState::MapNoteSourcePoint> previousMapNoteSourcePoint =
+        pEventRuntimeState->activeEventMapNoteSourcePoint;
+    const OutdoorMapData *pMapData = view.m_outdoorMapData ? &*view.m_outdoorMapData : nullptr;
+    pEventRuntimeState->activeEventMapNoteSourcePoint = mapNoteSourcePointForInspectHit(pMapData, inspectHit);
 
     if (view.m_pOutdoorWorldRuntime != nullptr)
     {
@@ -4834,6 +4886,8 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
 
     if (!executed)
     {
+        pEventRuntimeState->activeEventMapNoteSourcePoint = previousMapNoteSourcePoint;
+
         if (view.m_pOutdoorWorldRuntime != nullptr)
         {
             view.m_pOutdoorWorldRuntime->setPendingEventSourcePoint(std::nullopt);
@@ -4842,6 +4896,8 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
         pEventRuntimeState->lastActivationResult = "event " + std::to_string(eventId) + " unresolved";
         return false;
     }
+
+    pEventRuntimeState->activeEventMapNoteSourcePoint = previousMapNoteSourcePoint;
 
     for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
     {

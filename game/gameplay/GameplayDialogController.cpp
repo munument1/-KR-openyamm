@@ -339,14 +339,28 @@ bool tryAddRuntimeMapNote(
     EventRuntimeState &eventRuntimeState,
     const MasteryTeacherTopicDefinition &teacherTopic,
     uint32_t continent,
+    const MapStatsEntry *pCurrentMap,
     const IGameplayWorldRuntime *pWorldRuntime,
     const Party *pParty)
 {
     const uint32_t noteId = continent * 1000 + teacherTopic.masteryRank * 100 + teacherTopic.skillId;
+    const std::string noteMapFileName = pCurrentMap != nullptr ? toLowerCopy(pCurrentMap->fileName) : std::string();
+    const std::optional<EventRuntimeState::MapNoteSourcePoint> mapNoteSourcePoint =
+        eventRuntimeState.pendingDialogueContext
+            ? eventRuntimeState.pendingDialogueContext->mapNoteSourcePoint
+            : std::nullopt;
     const auto noteIt = eventRuntimeState.runtimeMapNotes.find(noteId);
 
-    if (noteIt != eventRuntimeState.runtimeMapNotes.end() && noteIt->second.active)
+    if (noteIt != eventRuntimeState.runtimeMapNotes.end()
+        && noteIt->second.active
+        && toLowerCopy(noteIt->second.mapFileName) == noteMapFileName)
     {
+        if (mapNoteSourcePoint)
+        {
+            noteIt->second.x = mapNoteSourcePoint->x;
+            noteIt->second.y = mapNoteSourcePoint->y;
+        }
+
         return false;
     }
 
@@ -354,8 +368,14 @@ bool tryAddRuntimeMapNote(
     note.id = noteId;
     note.text = displaySkillName(teacherTopic.skillName) + " - " + masteryDisplayName(teacherTopic.targetMastery);
     note.active = true;
+    note.mapFileName = noteMapFileName;
 
-    if (pWorldRuntime != nullptr)
+    if (mapNoteSourcePoint)
+    {
+        note.x = mapNoteSourcePoint->x;
+        note.y = mapNoteSourcePoint->y;
+    }
+    else if (pWorldRuntime != nullptr)
     {
         note.x = static_cast<int32_t>(std::lround(pWorldRuntime->partyX()));
         note.y = static_cast<int32_t>(std::lround(pWorldRuntime->partyY()));
@@ -396,6 +416,7 @@ bool tryRegisterTrainerNote(
             eventRuntimeState,
             *teacherTopic,
             continentForMap(pCurrentMap, pBolsterMapTable),
+            pCurrentMap,
             pWorldRuntime,
             pParty);
     }

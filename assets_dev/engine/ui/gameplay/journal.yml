@@ -128,7 +128,7 @@ elements:
       - id: JournalMapCoordinatesText
         anchor: top_left
         offset_x: 131
-        offset_y: 415
+        offset_y: 452
         width: 300
         height: 20
         z_index: 25
@@ -137,6 +137,29 @@ elements:
           font: Create
           align_x: center
           align_y: top
+
+      - id: JournalMapNoteTextBackground
+        anchor: top_left
+        offset_x: 98
+        offset_y: 408
+        width: 364
+        height: 24
+        z_index: 24
+        asset:
+          default: mtextbar
+
+      - id: JournalMapNoteText
+        anchor: top_left
+        offset_x: 106
+        offset_y: 411
+        width: 348
+        height: 18
+        z_index: 25
+        text:
+          value: "{map_note}"
+          font: Create
+          align_x: left
+          align_y: middle
 
       - id: JournalMapZoomInButton
         anchor: top_left

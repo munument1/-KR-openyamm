@@ -20,12 +20,13 @@ void GameInputSystem::updateFromEngineInput(
     int screenWidth,
     int screenHeight,
     float mouseWheelDelta,
-    const GameSettings &settings)
+    const GameSettings &settings,
+    bool blockGameplayInput)
 {
     m_frame = {};
     m_frame.screenWidth = screenWidth;
     m_frame.screenHeight = screenHeight;
-    m_frame.mouseWheelDelta = mouseWheelDelta;
+    m_frame.mouseWheelDelta = blockGameplayInput ? 0.0f : mouseWheelDelta;
 
     int keyboardStateCount = 0;
     const bool *pKeyboardState = SDL_GetKeyboardState(&keyboardStateCount);
@@ -34,7 +35,7 @@ void GameInputSystem::updateFromEngineInput(
     {
         for (int scancode = 0; scancode < keyboardStateCount && scancode < SDL_SCANCODE_COUNT; ++scancode)
         {
-            m_frame.keyboardHeld[scancode] = pKeyboardState[scancode];
+            m_frame.keyboardHeld[scancode] = blockGameplayInput ? false : pKeyboardState[scancode];
         }
     }
 
@@ -47,12 +48,12 @@ void GameInputSystem::updateFromEngineInput(
     float relativeMouseX = 0.0f;
     float relativeMouseY = 0.0f;
     SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
-    m_frame.relativeMouseX = relativeMouseX;
-    m_frame.relativeMouseY = relativeMouseY;
+    m_frame.relativeMouseX = blockGameplayInput ? 0.0f : relativeMouseX;
+    m_frame.relativeMouseY = blockGameplayInput ? 0.0f : relativeMouseY;
 
-    const bool leftMouseButtonHeld = (mouseButtons & SDL_BUTTON_LMASK) != 0;
-    const bool rightMouseButtonHeld = (mouseButtons & SDL_BUTTON_RMASK) != 0;
-    const bool middleMouseButtonHeld = (mouseButtons & SDL_BUTTON_MMASK) != 0;
+    const bool leftMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_LMASK) != 0;
+    const bool rightMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_RMASK) != 0;
+    const bool middleMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_MMASK) != 0;
     m_frame.leftMouseButton = buildButtonState(leftMouseButtonHeld, m_previousLeftMouseButtonHeld);
     m_frame.rightMouseButton = buildButtonState(rightMouseButtonHeld, m_previousRightMouseButtonHeld);
     m_frame.middleMouseButton = buildButtonState(middleMouseButtonHeld, m_previousMiddleMouseButtonHeld);

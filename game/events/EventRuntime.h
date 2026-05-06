@@ -80,6 +80,12 @@ struct EventRuntimeState
         bool useFullscreenLoading = false;
     };
 
+    struct MapNoteSourcePoint
+    {
+        int32_t x = 0;
+        int32_t y = 0;
+    };
+
     struct PendingDialogueContext
     {
         DialogueContextKind kind = DialogueContextKind::None;
@@ -92,6 +98,7 @@ struct EventRuntimeState
         std::optional<PendingMapMove> transitionMapMove;
         uint32_t transitionTextId = 0;
         uint32_t transitionImageId = 0;
+        std::optional<MapNoteSourcePoint> mapNoteSourcePoint;
     };
 
     struct PendingMovie
@@ -201,6 +208,7 @@ struct EventRuntimeState
         uint32_t id = 0;
         int32_t x = 0;
         int32_t y = 0;
+        std::string mapFileName;
         std::string text;
         bool active = false;
     };
@@ -214,6 +222,7 @@ struct EventRuntimeState
 
     std::unordered_map<uint32_t, int32_t> variables;
     std::unordered_map<uint32_t, RuntimeMapNote> runtimeMapNotes;
+    std::optional<MapNoteSourcePoint> activeEventMapNoteSourcePoint;
     uint32_t activeHistoryContinentId = 1;
     std::unordered_map<uint32_t, int32_t> historyEventTimes;
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, int32_t>> historyEventTimesByContinent;

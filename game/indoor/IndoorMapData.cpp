@@ -5,15 +5,29 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cctype>
 #include <cstring>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr std::string_view PartyStartEntityName = "party start";
+
+std::string lowerText(std::string value)
+{
+    for (char &character : value)
+    {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+
+    return value;
+}
+
 void copyFaceVertex(IndoorFace &face, size_t sourceIndex, size_t destinationIndex)
 {
     face.vertexIndices[destinationIndex] = face.vertexIndices[sourceIndex];
@@ -761,6 +775,17 @@ std::optional<IndoorMapData> IndoorMapDataLoader::loadFromBytes(const std::vecto
         }
 
         entity.name = readFixedString(reader, spriteNamesOffset + spriteIndex * SpriteNameSize, SpriteNameSize);
+
+        if (lowerText(entity.name) == PartyStartEntityName)
+        {
+            indoorMapData.partyStartPoint = IndoorPartyStartPoint{
+                .x = entity.x,
+                .y = entity.y,
+                .z = entity.z,
+                .facingDegrees = entity.facing,
+            };
+        }
+
         indoorMapData.entities.push_back(entity);
     }
 

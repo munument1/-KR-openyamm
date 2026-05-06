@@ -135,6 +135,14 @@ struct IndoorSpawn
     uint32_t group = 0;
 };
 
+struct IndoorPartyStartPoint
+{
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    int facingDegrees = 0;
+};
+
 struct IndoorMapData
 {
     int version = 0;
@@ -153,6 +161,7 @@ struct IndoorMapData
     std::vector<IndoorBspNode> bspNodes;
     std::vector<IndoorSpawn> spawns;
     std::vector<IndoorOutline> outlines;
+    std::optional<IndoorPartyStartPoint> partyStartPoint;
     uint32_t doorCount = 0;
     size_t sectorCount = 0;
     size_t spriteCount = 0;

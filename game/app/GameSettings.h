@@ -108,6 +108,7 @@ struct GameSettings
     bool immortal = true;
     bool unlimitedMana = true;
     bool newGameGodLich = false;
+    bool debugConsole = true;
     int keyboardInteractionDepth = 512;
     int mouseInteractionDepth = 512;
 

@@ -348,12 +348,14 @@ enum class GameplayJournalPointerTargetType
     NotesTrainerButton,
     MapZoomInButton,
     MapZoomOutButton,
+    MapNote,
     CloseButton
 };
 
 struct GameplayJournalPointerTarget
 {
     GameplayJournalPointerTargetType type = GameplayJournalPointerTargetType::None;
+    uint32_t noteId = 0;
 
     bool operator==(const GameplayJournalPointerTarget &other) const = default;
 };

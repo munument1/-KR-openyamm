@@ -329,6 +329,11 @@ public:
         float mapDragStartMouseY = 0.0f;
         float mapDragStartCenterX = 0.0f;
         float mapDragStartCenterY = 0.0f;
+        uint32_t selectedMapNoteId = 0;
+        uint32_t hoveredMapNoteId = 0;
+        float mapCursorWorldX = 0.0f;
+        float mapCursorWorldY = 0.0f;
+        bool mapCursorWorldValid = false;
         float hoverAnimationElapsedSeconds = 0.0f;
         bool cachedMapValid = false;
         int cachedMapWidth = 0;

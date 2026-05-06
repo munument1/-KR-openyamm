@@ -8,6 +8,7 @@
 #include "game/tables/ItemTable.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/KeyboardScreenLayout.h"
+#include "game/ui/GameplayJournalMapUi.h"
 
 #include <SDL3/SDL.h>
 
@@ -16,6 +17,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -55,6 +57,64 @@ struct HudPointerState
     float y = 0.0f;
     bool leftButtonPressed = false;
 };
+
+bool runtimeMapNoteMatchesCurrentMap(
+    const EventRuntimeState::RuntimeMapNote &note,
+    const std::string &normalizedCurrentMapFileName)
+{
+    return note.active
+        && !note.mapFileName.empty()
+        && gameplayJournalNormalizeMapFileName(note.mapFileName) == normalizedCurrentMapFileName;
+}
+
+uint32_t findJournalMapNoteAtPointer(
+    const EventRuntimeState *pEventRuntimeState,
+    const std::string &normalizedCurrentMapFileName,
+    const GameplayUiController::JournalScreenState &journalScreen,
+    const GameplayScreenRuntime::ResolvedHudLayoutElement &mapViewport,
+    float pointerX,
+    float pointerY)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    const float hitRadius = std::max(8.0f, GameplayJournalMapPinLogicalSize * mapViewport.scale * 0.6f);
+    const float hitRadiusSquared = hitRadius * hitRadius;
+    uint32_t bestNoteId = 0;
+    float bestDistanceSquared = hitRadiusSquared;
+
+    for (const auto &[noteId, note] : pEventRuntimeState->runtimeMapNotes)
+    {
+        (void) noteId;
+
+        if (!runtimeMapNoteMatchesCurrentMap(note, normalizedCurrentMapFileName))
+        {
+            continue;
+        }
+
+        const GameplayJournalMapPoint screenPoint = gameplayJournalWorldToScreen(
+            static_cast<float>(note.x),
+            static_cast<float>(note.y),
+            mapViewport.x,
+            mapViewport.y,
+            mapViewport.width,
+            mapViewport.height,
+            journalScreen);
+        const float dx = pointerX - screenPoint.x;
+        const float dy = pointerY - screenPoint.y;
+        const float distanceSquared = dx * dx + dy * dy;
+
+        if (distanceSquared <= bestDistanceSquared)
+        {
+            bestDistanceSquared = distanceSquared;
+            bestNoteId = note.id;
+        }
+    }
+
+    return bestNoteId;
+}
 
 HudPointerState pointerStateFromInput(const GameplayInputFrame &input)
 {
@@ -1962,6 +2022,8 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
         view.interactionState().journalClickLatch = false;
         view.interactionState().journalPressedTarget = {};
         view.interactionState().journalMapKeyZoomLatch = false;
+        journalScreen.hoveredMapNoteId = 0;
+        journalScreen.mapCursorWorldValid = false;
         return false;
     }
 
@@ -2071,6 +2133,10 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
 
     const HudPointerState journalPointerState = pointerStateFromInput(input);
     const GameplayJournalPointerTarget noneJournalTarget = {};
+    const EventRuntimeState *pJournalEventRuntimeState =
+        view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr;
+    const std::string normalizedCurrentMapFileName =
+        gameplayJournalNormalizeMapFileName(view.currentMapFileName());
 
     const auto resolveJournalTarget =
         [&view, screenWidth, screenHeight](
@@ -2103,7 +2169,15 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
         };
 
     const auto findJournalPointerTarget =
-        [&journalScreen, &resolveJournalTarget](float pointerX, float pointerY) -> GameplayJournalPointerTarget
+        [
+            &view,
+            &journalScreen,
+            &resolveJournalTarget,
+            screenWidth,
+            screenHeight,
+            pJournalEventRuntimeState,
+            &normalizedCurrentMapFileName
+        ](float pointerX, float pointerY) -> GameplayJournalPointerTarget
         {
             static const std::pair<const char *, GameplayJournalPointerTargetType> CommonTargets[] = {
                 {"JournalMainViewMap", GameplayJournalPointerTargetType::MainMapView},
@@ -2142,6 +2216,36 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
 
             if (journalScreen.view == GameplayUiController::JournalView::Map)
             {
+                const GameplayScreenRuntime::HudLayoutElement *pMapLayout =
+                    view.findHudLayoutElement("JournalMapViewport");
+
+                if (pMapLayout != nullptr)
+                {
+                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> mapViewport =
+                        view.resolveHudLayoutElement(
+                            "JournalMapViewport",
+                            screenWidth,
+                            screenHeight,
+                            pMapLayout->width,
+                            pMapLayout->height);
+
+                    if (mapViewport && view.isPointerInsideResolvedElement(*mapViewport, pointerX, pointerY))
+                    {
+                        const uint32_t noteId = findJournalMapNoteAtPointer(
+                            pJournalEventRuntimeState,
+                            normalizedCurrentMapFileName,
+                            journalScreen,
+                            *mapViewport,
+                            pointerX,
+                            pointerY);
+
+                        if (noteId != 0)
+                        {
+                            return {GameplayJournalPointerTargetType::MapNote, noteId};
+                        }
+                    }
+                }
+
                 for (const auto &[layoutId, targetType] : MapTargets)
                 {
                     const GameplayJournalPointerTarget target =
@@ -2201,6 +2305,45 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                 pLayout->width,
                 pLayout->height);
         };
+
+    if (journalScreen.view == GameplayUiController::JournalView::Map)
+    {
+        const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> mapViewport = resolveJournalViewport();
+
+        if (mapViewport
+            && view.isPointerInsideResolvedElement(*mapViewport, journalPointerState.x, journalPointerState.y))
+        {
+            const GameplayJournalMapPoint cursorWorld = gameplayJournalScreenToWorld(
+                journalPointerState.x,
+                journalPointerState.y,
+                mapViewport->x,
+                mapViewport->y,
+                mapViewport->width,
+                mapViewport->height,
+                journalScreen);
+
+            journalScreen.mapCursorWorldX = cursorWorld.x;
+            journalScreen.mapCursorWorldY = cursorWorld.y;
+            journalScreen.mapCursorWorldValid = true;
+            journalScreen.hoveredMapNoteId = findJournalMapNoteAtPointer(
+                pJournalEventRuntimeState,
+                normalizedCurrentMapFileName,
+                journalScreen,
+                *mapViewport,
+                journalPointerState.x,
+                journalPointerState.y);
+        }
+        else
+        {
+            journalScreen.mapCursorWorldValid = false;
+            journalScreen.hoveredMapNoteId = 0;
+        }
+    }
+    else
+    {
+        journalScreen.mapCursorWorldValid = false;
+        journalScreen.hoveredMapNoteId = 0;
+    }
 
     const auto activateJournalTarget =
         [&view, &journalScreen, &adjustPage](const GameplayJournalPointerTarget &target)
@@ -2299,6 +2442,12 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                 journalScreen.cachedMapValid = false;
                 break;
 
+            case GameplayJournalPointerTargetType::MapNote:
+                journalScreen.view = GameplayUiController::JournalView::Map;
+                journalScreen.selectedMapNoteId = target.noteId;
+                journalScreen.hoveredMapNoteId = target.noteId;
+                break;
+
             case GameplayJournalPointerTargetType::CloseButton:
                 view.closeJournalOverlay();
                 break;
@@ -2330,6 +2479,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
             case GameplayJournalPointerTargetType::NotesSeerButton:
             case GameplayJournalPointerTargetType::NotesMiscButton:
             case GameplayJournalPointerTargetType::NotesTrainerButton:
+            case GameplayJournalPointerTargetType::MapNote:
             case GameplayJournalPointerTargetType::CloseButton:
                 return false;
             }
@@ -2395,6 +2545,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
             if (mapViewport.has_value()
                 && view.isPointerInsideResolvedElement(*mapViewport, journalPointerState.x, journalPointerState.y))
             {
+                journalScreen.selectedMapNoteId = 0;
                 journalScreen.mapDragActive = true;
                 journalScreen.mapDragStartMouseX = journalPointerState.x;
                 journalScreen.mapDragStartMouseY = journalPointerState.y;

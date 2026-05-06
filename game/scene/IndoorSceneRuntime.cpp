@@ -77,6 +77,8 @@ bool hasPersistedDecorationState(const std::optional<MapDeltaData> &mapDeltaData
     return false;
 }
 
+void initializeIndoorPartyStart(IndoorPartyRuntime &partyRuntime, const IndoorMapData &indoorMapData);
+
 void seedIndoorInteractiveDecorationRuntimeStateIfNeeded(
     const IndoorMapData &indoorMapData,
     const DecorationBillboardSet *pDecorationBillboardSet,
@@ -253,6 +255,46 @@ EventRuntimeState::PendingSound buildStopMechanismSound(uint32_t doorId)
     sound.key = mechanismAudioKey(doorId);
     return sound;
 }
+
+void initializeIndoorPartyStart(IndoorPartyRuntime &partyRuntime, const IndoorMapData &indoorMapData)
+{
+    if (indoorMapData.partyStartPoint.has_value())
+    {
+        const IndoorPartyStartPoint &startPoint = *indoorMapData.partyStartPoint;
+        partyRuntime.initializePartyPosition(
+            static_cast<float>(startPoint.x),
+            static_cast<float>(startPoint.y),
+            static_cast<float>(startPoint.z),
+            false);
+        return;
+    }
+
+    if (indoorMapData.vertices.empty())
+    {
+        return;
+    }
+
+    int minX = indoorMapData.vertices.front().x;
+    int maxX = indoorMapData.vertices.front().x;
+    int minY = indoorMapData.vertices.front().y;
+    int minZ = indoorMapData.vertices.front().z;
+    int maxZ = indoorMapData.vertices.front().z;
+
+    for (const IndoorVertex &vertex : indoorMapData.vertices)
+    {
+        minX = std::min(minX, vertex.x);
+        maxX = std::max(maxX, vertex.x);
+        minY = std::min(minY, vertex.y);
+        minZ = std::min(minZ, vertex.z);
+        maxZ = std::max(maxZ, vertex.z);
+    }
+
+    partyRuntime.initializeEyePosition(
+        static_cast<float>((minX + maxX) / 2),
+        static_cast<float>(minY - 256),
+        static_cast<float>((minZ + maxZ) / 2),
+        false);
+}
 }
 
 IndoorSceneRuntime::IndoorSceneRuntime(
@@ -327,31 +369,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 
-    if (!indoorMapData.vertices.empty())
-    {
-        int minX = indoorMapData.vertices.front().x;
-        int maxX = indoorMapData.vertices.front().x;
-        int minY = indoorMapData.vertices.front().y;
-        int maxY = indoorMapData.vertices.front().y;
-        int minZ = indoorMapData.vertices.front().z;
-        int maxZ = indoorMapData.vertices.front().z;
-
-        for (const IndoorVertex &vertex : indoorMapData.vertices)
-        {
-            minX = std::min(minX, vertex.x);
-            maxX = std::max(maxX, vertex.x);
-            minY = std::min(minY, vertex.y);
-            maxY = std::max(maxY, vertex.y);
-            minZ = std::min(minZ, vertex.z);
-            maxZ = std::max(maxZ, vertex.z);
-        }
-
-        m_partyRuntime.initializeEyePosition(
-            static_cast<float>((minX + maxX) / 2),
-            static_cast<float>(minY - 256),
-            static_cast<float>((minZ + maxZ) / 2),
-            false);
-    }
+    initializeIndoorPartyStart(m_partyRuntime, indoorMapData);
 }
 
 IndoorSceneRuntime::IndoorSceneRuntime(
@@ -416,31 +434,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 
-    if (!indoorMapData.vertices.empty())
-    {
-        int minX = indoorMapData.vertices.front().x;
-        int maxX = indoorMapData.vertices.front().x;
-        int minY = indoorMapData.vertices.front().y;
-        int maxY = indoorMapData.vertices.front().y;
-        int minZ = indoorMapData.vertices.front().z;
-        int maxZ = indoorMapData.vertices.front().z;
-
-        for (const IndoorVertex &vertex : indoorMapData.vertices)
-        {
-            minX = std::min(minX, vertex.x);
-            maxX = std::max(maxX, vertex.x);
-            minY = std::min(minY, vertex.y);
-            maxY = std::max(maxY, vertex.y);
-            minZ = std::min(minZ, vertex.z);
-            maxZ = std::max(maxZ, vertex.z);
-        }
-
-        m_partyRuntime.initializeEyePosition(
-            static_cast<float>((minX + maxX) / 2),
-            static_cast<float>(minY - 256),
-            static_cast<float>((minZ + maxZ) / 2),
-            false);
-    }
+    initializeIndoorPartyStart(m_partyRuntime, indoorMapData);
 }
 
 SceneKind IndoorSceneRuntime::kind() const

@@ -1,5 +1,9 @@
 include(Ffmpeg)
+include(FetchContent)
 openyamm_configure_ffmpeg()
+
+FetchContent_GetProperties(imgui SOURCE_DIR OPENYAMM_IMGUI_SOURCE_DIR)
+FetchContent_GetProperties(bgfx SOURCE_DIR OPENYAMM_BGFX_FETCH_SOURCE_DIR)
 
 add_executable(openyamm
     app/ScreenManager.cpp
@@ -8,6 +12,8 @@ add_executable(openyamm
     arcomage/ArcomageLoader.cpp
     arcomage/ArcomageRules.cpp
     data/ActorNameResolver.cpp
+    debug/DebugConsole.cpp
+    debug/GameImGuiBgfxRenderer.cpp
     data/GameDataRepository.cpp
     app/GameSession.cpp
     audio/GameAudioSystem.cpp
@@ -170,11 +176,23 @@ add_executable(openyamm
     app/GameApplication.cpp
     app/KeyboardBindings.cpp
     app/GameSettings.cpp
+    ${OPENYAMM_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
 )
 
 target_include_directories(openyamm
     PRIVATE
         ${CMAKE_SOURCE_DIR}
+        ${OPENYAMM_IMGUI_SOURCE_DIR}
+        ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
+)
+
+set_property(
+    SOURCE debug/GameImGuiBgfxRenderer.cpp
+    APPEND
+    PROPERTY INCLUDE_DIRECTORIES
+        ${OPENYAMM_IMGUI_SOURCE_DIR}
+        ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/examples/common/imgui
+        ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
 )
 
 target_compile_definitions(openyamm
@@ -185,6 +203,7 @@ target_compile_definitions(openyamm
 target_link_libraries(openyamm
     PRIVATE
         openyamm_engine
+        imgui::imgui
         Threads::Threads
         yaml-cpp::yaml-cpp
 )

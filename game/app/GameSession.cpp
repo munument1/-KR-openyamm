@@ -469,6 +469,13 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
     m_gameplayScreenRuntime.updateHouseVideoBackgroundPreloads();
 }
 
+void GameSession::clearSharedInputFrameResult()
+{
+    m_sharedInputFrameResult = {};
+    m_sharedWorldInteractionBlockedThisFrame = false;
+    m_gameplayScreenState.gameplayMouseLookState().clear();
+}
+
 void GameSession::consumePendingGameplayAudioRequests()
 {
     m_gameplayScreenRuntime.consumePendingEventRuntimeAudioRequests();

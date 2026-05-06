@@ -12,6 +12,7 @@
 #include "game/tables/MonsterTable.h"
 #include "game/tables/RosterTable.h"
 #include "game/ui/GameplayHudCommon.h"
+#include "game/ui/GameplayJournalMapUi.h"
 #include "game/party/SkillData.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/SpellbookUiLayout.h"
@@ -61,7 +62,6 @@ constexpr int JournalMapBaseZoom = 384;
 constexpr float JournalMainIconAnimationFps = 10.0f;
 constexpr float JournalMapWorldHalfExtent = 32768.0f;
 constexpr char JournalMapTextureCacheName[] = "__journal_map_composited__";
-constexpr std::array<int, 3> JournalMapZoomLevels = {384, 768, 1536};
 constexpr float Pi = 3.14159265358979323846f;
 
 struct PointerRenderInput
@@ -255,8 +255,7 @@ bool packedRevealBit(const std::vector<uint8_t> &bytes, size_t index)
 
 int clampedJournalMapZoomValue(int zoomStep)
 {
-    const int clampedStep = std::clamp(zoomStep, 0, static_cast<int>(JournalMapZoomLevels.size()) - 1);
-    return JournalMapZoomLevels[clampedStep];
+    return clampedGameplayJournalMapZoomValue(zoomStep);
 }
 
 void submitJournalTextureClipped(
@@ -296,6 +295,197 @@ void submitJournalTextureClipped(
         v0,
         u1,
         v1);
+}
+
+bool runtimeMapNoteMatchesMap(
+    const EventRuntimeState::RuntimeMapNote &note,
+    const std::string &normalizedCurrentMapFileName)
+{
+    return note.active
+        && !note.mapFileName.empty()
+        && gameplayJournalNormalizeMapFileName(note.mapFileName) == normalizedCurrentMapFileName;
+}
+
+const EventRuntimeState::RuntimeMapNote *findVisibleRuntimeMapNote(
+    const EventRuntimeState *pEventRuntimeState,
+    const std::string &normalizedCurrentMapFileName,
+    uint32_t noteId)
+{
+    if (pEventRuntimeState == nullptr || noteId == 0)
+    {
+        return nullptr;
+    }
+
+    const auto noteIt = pEventRuntimeState->runtimeMapNotes.find(noteId);
+
+    if (noteIt == pEventRuntimeState->runtimeMapNotes.end()
+        || !runtimeMapNoteMatchesMap(noteIt->second, normalizedCurrentMapFileName))
+    {
+        return nullptr;
+    }
+
+    return &noteIt->second;
+}
+
+const EventRuntimeState::RuntimeMapNote *activeJournalMapNote(
+    const EventRuntimeState *pEventRuntimeState,
+    const std::string &normalizedCurrentMapFileName,
+    const GameplayUiController::JournalScreenState &journalScreen)
+{
+    const EventRuntimeState::RuntimeMapNote *pHoveredNote =
+        findVisibleRuntimeMapNote(pEventRuntimeState, normalizedCurrentMapFileName, journalScreen.hoveredMapNoteId);
+
+    if (pHoveredNote != nullptr)
+    {
+        return pHoveredNote;
+    }
+
+    return findVisibleRuntimeMapNote(pEventRuntimeState, normalizedCurrentMapFileName, journalScreen.selectedMapNoteId);
+}
+
+void renderRuntimeMapNotes(
+    GameplayScreenRuntime &context,
+    const GameplayScreenRuntime::ResolvedHudLayoutElement &mapResolved,
+    const GameplayUiController::JournalScreenState &journalScreen,
+    const EventRuntimeState *pEventRuntimeState,
+    const std::string &normalizedCurrentMapFileName)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return;
+    }
+
+    const uint32_t highlightedNoteId =
+        journalScreen.hoveredMapNoteId != 0 ? journalScreen.hoveredMapNoteId : journalScreen.selectedMapNoteId;
+    std::vector<const EventRuntimeState::RuntimeMapNote *> notes;
+
+    for (const auto &[noteId, note] : pEventRuntimeState->runtimeMapNotes)
+    {
+        (void) noteId;
+
+        if (runtimeMapNoteMatchesMap(note, normalizedCurrentMapFileName))
+        {
+            notes.push_back(&note);
+        }
+    }
+
+    std::sort(
+        notes.begin(),
+        notes.end(),
+        [](const EventRuntimeState::RuntimeMapNote *pLeft, const EventRuntimeState::RuntimeMapNote *pRight)
+        {
+            return pLeft->id < pRight->id;
+        });
+
+    const auto renderNote =
+        [&context, &mapResolved, &journalScreen](const EventRuntimeState::RuntimeMapNote &note, bool highlighted)
+        {
+            const std::optional<GameplayScreenRuntime::HudTextureHandle> pinTexture =
+                context.gameplayUiRuntime().ensureHudTextureLoaded(highlighted ? "map-pin2" : "map-pin");
+
+            if (!pinTexture)
+            {
+                return;
+            }
+
+            const GameplayJournalMapPoint screenPoint = gameplayJournalWorldToScreen(
+                static_cast<float>(note.x),
+                static_cast<float>(note.y),
+                mapResolved.x,
+                mapResolved.y,
+                mapResolved.width,
+                mapResolved.height,
+                journalScreen);
+            const float pinWidth = static_cast<float>(pinTexture->width) * mapResolved.scale;
+            const float pinHeight = static_cast<float>(pinTexture->height) * mapResolved.scale;
+
+            submitJournalTextureClipped(
+                context,
+                *pinTexture,
+                screenPoint.x - pinWidth * 0.5f,
+                screenPoint.y - pinHeight * 0.5f,
+                pinWidth,
+                pinHeight,
+                mapResolved);
+        };
+
+    for (const EventRuntimeState::RuntimeMapNote *pNote : notes)
+    {
+        if (pNote->id != highlightedNoteId)
+        {
+            renderNote(*pNote, false);
+        }
+    }
+
+    for (const EventRuntimeState::RuntimeMapNote *pNote : notes)
+    {
+        if (pNote->id == highlightedNoteId)
+        {
+            renderNote(*pNote, true);
+        }
+    }
+}
+
+std::string journalMapCoordinatesText(
+    const GameplayScreenRuntime &context,
+    const GameplayUiController::JournalScreenState &journalScreen,
+    const EventRuntimeState::RuntimeMapNote *pActiveNote)
+{
+    if (pActiveNote != nullptr)
+    {
+        return "x: " + std::to_string(pActiveNote->x) + "  y: " + std::to_string(pActiveNote->y);
+    }
+
+    if (journalScreen.mapCursorWorldValid)
+    {
+        return "x: " + std::to_string(static_cast<int>(std::round(journalScreen.mapCursorWorldX)))
+            + "  y: " + std::to_string(static_cast<int>(std::round(journalScreen.mapCursorWorldY)));
+    }
+
+    return "x: " + std::to_string(static_cast<int>(std::round(context.partyX())))
+        + "  y: " + std::to_string(static_cast<int>(std::round(context.partyY())));
+}
+
+void renderJournalMapTextFields(
+    GameplayScreenRuntime &context,
+    const GameplayUiController::JournalScreenState &journalScreen,
+    int width,
+    int height,
+    const EventRuntimeState::RuntimeMapNote *pActiveNote)
+{
+    const GameplayScreenRuntime::HudLayoutElement *pNoteLayout =
+        context.findHudLayoutElement("JournalMapNoteText");
+    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> noteResolved =
+        pNoteLayout != nullptr
+            ? context.resolveHudLayoutElement(
+                "JournalMapNoteText",
+                width,
+                height,
+                pNoteLayout->width,
+                pNoteLayout->height)
+            : std::nullopt;
+    const GameplayScreenRuntime::HudLayoutElement *pCoordsLayout =
+        context.findHudLayoutElement("JournalMapCoordinatesText");
+    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> coordsResolved =
+        pCoordsLayout != nullptr
+            ? context.resolveHudLayoutElement(
+                "JournalMapCoordinatesText",
+                width,
+                height,
+                pCoordsLayout->width,
+                pCoordsLayout->height)
+            : std::nullopt;
+
+    if (pNoteLayout != nullptr && noteResolved)
+    {
+        context.renderLayoutLabel(*pNoteLayout, *noteResolved, pActiveNote != nullptr ? pActiveNote->text : "");
+    }
+
+    if (pCoordsLayout != nullptr && coordsResolved)
+    {
+        const std::string coordsText = journalMapCoordinatesText(context, journalScreen, pActiveNote);
+        context.renderLayoutLabel(*pCoordsLayout, *coordsResolved, coordsText);
+    }
 }
 
 void renderJournalVectorMap(
@@ -398,10 +588,19 @@ void renderJournalVectorMap(
         return;
     }
 
-    const float markerX =
-        mapResolved.x + ((minimapState.partyU - uOrigin) / std::max(uSpan, 0.000001f)) * mapResolved.width;
-    const float markerY =
-        mapResolved.y + ((minimapState.partyV - vOrigin) / std::max(vSpan, 0.000001f)) * mapResolved.height;
+    const EventRuntimeState *pEventRuntimeState = context.worldRuntime()->eventRuntimeState();
+    const std::string normalizedCurrentMapFileName =
+        gameplayJournalNormalizeMapFileName(context.currentMapFileName());
+    renderRuntimeMapNotes(context, mapResolved, journalScreen, pEventRuntimeState, normalizedCurrentMapFileName);
+
+    const GameplayJournalMapPoint markerPoint = gameplayJournalWorldToScreen(
+        context.partyX(),
+        context.partyY(),
+        mapResolved.x,
+        mapResolved.y,
+        mapResolved.width,
+        mapResolved.height,
+        journalScreen);
     const int arrowIndex = outdoorMinimapArrowIndex(context.gameplayCameraYawRadians());
     const std::optional<GameplayScreenRuntime::HudTextureHandle> arrowTexture =
         context.gameplayUiRuntime().ensureHudTextureLoaded("MAPDIR" + std::to_string(arrowIndex + 1));
@@ -413,30 +612,11 @@ void renderJournalVectorMap(
         submitJournalTextureClipped(
             context,
             *arrowTexture,
-            markerX - arrowWidth * 0.5f,
-            markerY - arrowHeight * 0.5f,
+            markerPoint.x - arrowWidth * 0.5f,
+            markerPoint.y - arrowHeight * 0.5f,
             arrowWidth,
             arrowHeight,
             mapResolved);
-    }
-
-    const GameplayScreenRuntime::HudLayoutElement *pCoordsLayout =
-        context.findHudLayoutElement("JournalMapCoordinatesText");
-    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> coordsResolved =
-        context.resolveHudLayoutElement(
-            "JournalMapCoordinatesText",
-            width,
-            height,
-            HudReferenceWidth,
-            HudReferenceHeight);
-
-    if (pCoordsLayout != nullptr && coordsResolved)
-    {
-        const std::string coordsText =
-            "X: " + std::to_string(static_cast<int>(std::round(context.partyX())))
-            + "  Y: " + std::to_string(static_cast<int>(std::round(context.partyY())))
-            + "  Z: " + std::to_string(zoom);
-        context.renderLayoutLabel(*pCoordsLayout, *coordsResolved, coordsText);
     }
 }
 
@@ -3170,12 +3350,19 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
     {
         renderInteractiveTextureLayout("JournalMapZoomInButton");
         renderInteractiveTextureLayout("JournalMapZoomOutButton");
+        renderTextureLayout("JournalMapNoteTextBackground", "mtextbar");
 
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> mapResolved = resolveLayout("JournalMapViewport");
         const GameplayScreenRuntime::HudLayoutElement *pMapTitleLayout = context.findHudLayoutElement("JournalMapTitleText");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> mapTitleResolved =
             resolveLayout("JournalMapTitleText");
         IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+        const EventRuntimeState *pEventRuntimeState =
+            pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+        const std::string normalizedCurrentMapFileName =
+            gameplayJournalNormalizeMapFileName(context.currentMapFileName());
+        const EventRuntimeState::RuntimeMapNote *pActiveMapNote =
+            activeJournalMapNote(pEventRuntimeState, normalizedCurrentMapFileName, journalScreen);
 
         if (pMapTitleLayout != nullptr && mapTitleResolved && pWorldRuntime != nullptr)
         {
@@ -3333,33 +3520,21 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
 
                 if (pWorldRuntime != nullptr && context.partyReadOnly() != nullptr)
                 {
-                    const float zoomFactor = static_cast<float>(zoom) / static_cast<float>(JournalMapBaseZoom);
-                    const float sourceCenterX =
-                        ((journalScreen.mapCenterX + JournalMapWorldHalfExtent) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureWidth);
-                    const float sourceCenterY =
-                        ((JournalMapWorldHalfExtent - journalScreen.mapCenterY) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureHeight);
-                    const float sourceWindowWidth =
-                        static_cast<float>(mapTextureWidth) / std::max(zoomFactor, 0.000001f);
-                    const float sourceWindowHeight =
-                        static_cast<float>(mapTextureHeight) / std::max(zoomFactor, 0.000001f);
-                    const float sourceOriginX = sourceCenterX - sourceWindowWidth * 0.5f;
-                    const float sourceOriginY = sourceCenterY - sourceWindowHeight * 0.5f;
-                    const float partySourceX =
-                        ((context.partyX() + JournalMapWorldHalfExtent) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureWidth);
-                    const float partySourceY =
-                        ((JournalMapWorldHalfExtent - context.partyY()) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureHeight);
-                    const float markerX =
-                        mapResolved->x
-                        + ((partySourceX - sourceOriginX) / std::max(sourceWindowWidth, 0.000001f))
-                            * mapResolved->width;
-                    const float markerY =
-                        mapResolved->y
-                        + ((partySourceY - sourceOriginY) / std::max(sourceWindowHeight, 0.000001f))
-                            * mapResolved->height;
+                    renderRuntimeMapNotes(
+                        context,
+                        *mapResolved,
+                        journalScreen,
+                        pEventRuntimeState,
+                        normalizedCurrentMapFileName);
+
+                    const GameplayJournalMapPoint markerPoint = gameplayJournalWorldToScreen(
+                        context.partyX(),
+                        context.partyY(),
+                        mapResolved->x,
+                        mapResolved->y,
+                        mapResolved->width,
+                        mapResolved->height,
+                        journalScreen);
                     const int arrowIndex = outdoorMinimapArrowIndex(context.gameplayCameraYawRadians());
                     const std::optional<GameplayScreenRuntime::HudTextureHandle> arrowTexture =
                         loadHudTexture("MAPDIR" + std::to_string(arrowIndex + 1));
@@ -3370,28 +3545,14 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                         const float arrowHeight = static_cast<float>(arrowTexture->height) * mapResolved->scale;
                         submitTexturedQuadClipped(
                             *arrowTexture,
-                            markerX - arrowWidth * 0.5f,
-                            markerY - arrowHeight * 0.5f,
+                            markerPoint.x - arrowWidth * 0.5f,
+                            markerPoint.y - arrowHeight * 0.5f,
                             arrowWidth,
                             arrowHeight,
                             mapResolved->x,
                             mapResolved->y,
                             mapResolved->width,
                             mapResolved->height);
-                    }
-
-                    const GameplayScreenRuntime::HudLayoutElement *pCoordsLayout =
-                        context.findHudLayoutElement("JournalMapCoordinatesText");
-                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> coordsResolved =
-                        resolveLayout("JournalMapCoordinatesText");
-
-                    if (pCoordsLayout != nullptr && coordsResolved)
-                    {
-                        const std::string coordsText =
-                            "X: " + std::to_string(static_cast<int>(std::round(context.partyX())))
-                            + "  Y: " + std::to_string(static_cast<int>(std::round(context.partyY())))
-                            + "  Z: " + std::to_string(zoom);
-                        context.renderLayoutLabel(*pCoordsLayout, *coordsResolved, coordsText);
                     }
                 }
             }
@@ -3400,6 +3561,8 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                 renderJournalVectorMap(context, *mapResolved, journalScreen, width, height);
             }
         }
+
+        renderJournalMapTextFields(context, journalScreen, width, height, pActiveMapNote);
     }
     else if (pTitleLayout != nullptr && titleResolved && pTextLayout != nullptr && textResolved && bodyFont)
     {

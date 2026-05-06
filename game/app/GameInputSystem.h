@@ -14,7 +14,8 @@ public:
         int screenWidth,
         int screenHeight,
         float mouseWheelDelta,
-        const GameSettings &settings);
+        const GameSettings &settings,
+        bool blockGameplayInput = false);
 
     const GameplayInputFrame &frame() const;
     void resetRelativeMouseMotion();

@@ -18,6 +18,8 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/app/ScreenManager.h"
 #include "game/content/ContentManifest.h"
+#include "game/debug/DebugConsole.h"
+#include "game/debug/GameImGuiBgfxRenderer.h"
 #include "game/maps/SaveGame.h"
 #include "game/scene/IMapSceneRuntime.h"
 #include "game/ui/screens/LoadingOverlayScreen.h"
@@ -45,6 +47,20 @@ public:
     int run();
 
 private:
+    struct DebugMapJumpStart
+    {
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t z = 0;
+        int32_t directionYawUnits = 0;
+    };
+
+    struct PendingDebugMapJump
+    {
+        int mapId = 0;
+        std::optional<DebugMapJumpStart> start;
+    };
+
     friend class HeadlessGameplayDiagnostics;
     friend struct GameApplicationTestAccess;
 
@@ -52,6 +68,13 @@ private:
     void shutdownApplication();
     bool initializeSelectedMapRuntime(bool initializeView);
     bool initializeRenderer();
+    bool initializeDebugConsoleRenderer();
+    void shutdownDebugConsoleRenderer();
+    void configureDebugConsoleStyle();
+    void registerDebugConsoleCommands();
+    void beginDebugConsoleFrame();
+    void renderDebugConsoleFrame(int width, int height);
+    bool processPendingDebugMapJump();
     void shutdownRenderer();
     Party &ensureSessionPartyState();
     void bindPartyDependencies(Party &party) const;
@@ -158,5 +181,11 @@ private:
     std::string m_pendingInputStatusText;
     bool m_pendingInputTextActive = false;
     bool m_skipGameplayUpdateUntilPromptSubmitKeysReleased = false;
+    DebugConsole m_debugConsole;
+    GameImGuiBgfxRenderer m_debugConsoleRenderer;
+    bool m_debugConsoleRendererInitialized = false;
+    bool m_debugConsoleFrameBegun = false;
+    bool m_debugConsoleCommandsRegistered = false;
+    std::optional<PendingDebugMapJump> m_pendingDebugMapJump;
 };
 }

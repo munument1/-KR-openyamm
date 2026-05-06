@@ -23,7 +23,10 @@
 #include "game/ui/screens/MainMenuScreen.h"
 #include "game/ui/screens/NewGameScreen.h"
 #include "game/ui/screens/WinGameScreen.h"
+#include "engine/TextTable.h"
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 
@@ -36,6 +39,7 @@
 #include <functional>
 #include <iostream>
 #include <random>
+#include <sstream>
 #include <string_view>
 
 namespace OpenYAMM::Game
@@ -188,6 +192,288 @@ std::string trimCopy(std::string_view value)
     }
 
     return std::string(value.substr(first, last - first));
+}
+
+std::optional<int32_t> parseInt32Argument(const std::string &value)
+{
+    if (value.empty())
+    {
+        return std::nullopt;
+    }
+
+    char *pEnd = nullptr;
+    const long parsed = std::strtol(value.c_str(), &pEnd, 10);
+
+    if (pEnd == nullptr || *pEnd != '\0')
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<int32_t>(parsed);
+}
+
+std::optional<float> parseFloatArgument(const std::string &value)
+{
+    if (value.empty())
+    {
+        return std::nullopt;
+    }
+
+    char *pEnd = nullptr;
+    const float parsed = std::strtof(value.c_str(), &pEnd);
+
+    if (pEnd == nullptr || *pEnd != '\0')
+    {
+        return std::nullopt;
+    }
+
+    return parsed;
+}
+
+std::string boolString(bool value)
+{
+    return value ? "true" : "false";
+}
+
+std::string debugEngineEnglishDataTablePath(std::string_view fileName)
+{
+    return "engine/data_tables/english/" + std::string(fileName);
+}
+
+std::vector<std::vector<std::string>> rowsFromTextTable(const Engine::TextTable &table)
+{
+    std::vector<std::vector<std::string>> rows;
+    rows.reserve(table.getRowCount());
+
+    for (size_t rowIndex = 0; rowIndex < table.getRowCount(); ++rowIndex)
+    {
+        rows.push_back(table.getRow(rowIndex));
+    }
+
+    return rows;
+}
+
+std::string lowerSearchText(const std::string &value)
+{
+    std::string result;
+    result.reserve(value.size());
+
+    for (char character : value)
+    {
+        if (std::isalnum(static_cast<unsigned char>(character)) != 0)
+        {
+            result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
+        }
+        else if (!result.empty() && result.back() != ' ')
+        {
+            result.push_back(' ');
+        }
+    }
+
+    while (!result.empty() && result.back() == ' ')
+    {
+        result.pop_back();
+    }
+
+    return result;
+}
+
+std::string compactSearchText(const std::string &value)
+{
+    std::string result;
+
+    for (char character : lowerSearchText(value))
+    {
+        if (character != ' ')
+        {
+            result.push_back(character);
+        }
+    }
+
+    return result;
+}
+
+std::vector<std::string> searchTokens(const std::string &query)
+{
+    std::vector<std::string> tokens;
+    std::istringstream stream(lowerSearchText(query));
+    std::string token;
+
+    while (stream >> token)
+    {
+        tokens.push_back(token);
+    }
+
+    return tokens;
+}
+
+std::string upperSearchText(std::string value)
+{
+    for (char &character : value)
+    {
+        character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+    }
+
+    return value;
+}
+
+int itemSearchScore(const ItemDefinition &item, const std::string &query)
+{
+    const std::string normalizedQuery = lowerSearchText(query);
+    const std::string compactQuery = compactSearchText(query);
+
+    if (normalizedQuery.empty())
+    {
+        return 0;
+    }
+
+    const std::string idText = std::to_string(item.itemId);
+
+    if (idText == normalizedQuery)
+    {
+        return 20000;
+    }
+
+    const std::string haystack =
+        item.name + " " + item.unidentifiedName + " " + item.iconName + " " + item.skillGroup + " " + item.notes;
+    const std::string normalizedHaystack = lowerSearchText(haystack);
+    const std::string compactHaystack = compactSearchText(haystack);
+    int score = 0;
+
+    if (lowerSearchText(item.name) == normalizedQuery)
+    {
+        score = std::max(score, 12000);
+    }
+
+    if (!compactQuery.empty() && compactSearchText(item.name).find(compactQuery) != std::string::npos)
+    {
+        score = std::max(score, 9000 - static_cast<int>(item.name.size()));
+    }
+
+    if (!compactQuery.empty() && compactHaystack.find(compactQuery) != std::string::npos)
+    {
+        score = std::max(score, 7000 - static_cast<int>(compactHaystack.find(compactQuery)));
+    }
+
+    const std::vector<std::string> tokens = searchTokens(query);
+    int tokenScore = 0;
+
+    for (const std::string &token : tokens)
+    {
+        if (normalizedHaystack.find(token) == std::string::npos)
+        {
+            tokenScore = 0;
+            break;
+        }
+
+        tokenScore += 500;
+    }
+
+    return std::max(score, tokenScore);
+}
+
+std::vector<const ItemDefinition *> findItemMatches(const ItemTable &itemTable, const std::string &query, size_t limit)
+{
+    struct ScoredItem
+    {
+        const ItemDefinition *pItem = nullptr;
+        int score = 0;
+    };
+
+    std::vector<ScoredItem> scoredItems;
+
+    for (const ItemDefinition &item : itemTable.entries())
+    {
+        const int score = itemSearchScore(item, query);
+
+        if (score > 0)
+        {
+            scoredItems.push_back({.pItem = &item, .score = score});
+        }
+    }
+
+    std::sort(
+        scoredItems.begin(),
+        scoredItems.end(),
+        [](const ScoredItem &left, const ScoredItem &right)
+        {
+            if (left.score != right.score)
+            {
+                return left.score > right.score;
+            }
+
+            return left.pItem->itemId < right.pItem->itemId;
+        });
+
+    std::vector<const ItemDefinition *> result;
+    result.reserve(std::min(limit, scoredItems.size()));
+
+    for (const ScoredItem &scoredItem : scoredItems)
+    {
+        if (result.size() >= limit)
+        {
+            break;
+        }
+
+        result.push_back(scoredItem.pItem);
+    }
+
+    return result;
+}
+
+struct DebugAwardEntry
+{
+    uint32_t id = 0;
+    std::string text;
+    std::string notes;
+};
+
+std::vector<DebugAwardEntry> loadDebugAwardEntries(const Engine::AssetFileSystem *pAssetFileSystem)
+{
+    std::vector<DebugAwardEntry> entries;
+
+    if (pAssetFileSystem == nullptr)
+    {
+        return entries;
+    }
+
+    const std::optional<std::string> contents =
+        pAssetFileSystem->readTextFile(debugEngineEnglishDataTablePath("awards.txt"));
+
+    if (!contents)
+    {
+        return entries;
+    }
+
+    const std::optional<Engine::TextTable> table = Engine::TextTable::parseTabSeparated(*contents);
+
+    if (!table)
+    {
+        return entries;
+    }
+
+    for (const std::vector<std::string> &row : rowsFromTextTable(*table))
+    {
+        if (row.size() < 2 || row[0] == "A Bit")
+        {
+            continue;
+        }
+
+        const std::optional<int32_t> id = parseInt32Argument(row[0]);
+
+        if (!id || *id <= 0)
+        {
+            continue;
+        }
+
+        DebugAwardEntry entry = {};
+        entry.id = static_cast<uint32_t>(*id);
+        entry.text = row[1];
+        entry.notes = row.size() > 3 ? row[3] : std::string();
+        entries.push_back(std::move(entry));
+    }
+
+    return entries;
 }
 
 std::string normalizePromptAnswer(const std::string &value)
@@ -853,8 +1139,1164 @@ int GameApplication::run()
     return m_engineApplication.run();
 }
 
+void GameApplication::configureDebugConsoleStyle()
+{
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.WindowRounding = 4.0f;
+    style.FrameRounding = 3.0f;
+    style.PopupRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 1.0f;
+    style.WindowPadding = ImVec2(8.0f, 8.0f);
+    style.FramePadding = ImVec2(7.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 6.0f);
+
+    ImVec4 *pColors = style.Colors;
+    pColors[ImGuiCol_Text] = ImVec4(0.91f, 0.92f, 0.93f, 1.0f);
+    pColors[ImGuiCol_WindowBg] = ImVec4(0.08f, 0.09f, 0.10f, 0.94f);
+    pColors[ImGuiCol_ChildBg] = ImVec4(0.11f, 0.12f, 0.14f, 0.96f);
+    pColors[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.11f, 0.13f, 0.98f);
+    pColors[ImGuiCol_Border] = ImVec4(0.20f, 0.23f, 0.27f, 1.0f);
+    pColors[ImGuiCol_FrameBg] = ImVec4(0.15f, 0.17f, 0.19f, 1.0f);
+    pColors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.20f, 0.23f, 1.0f);
+    pColors[ImGuiCol_FrameBgActive] = ImVec4(0.22f, 0.25f, 0.29f, 1.0f);
+    pColors[ImGuiCol_Button] = ImVec4(0.14f, 0.16f, 0.18f, 1.0f);
+    pColors[ImGuiCol_ButtonHovered] = ImVec4(0.18f, 0.20f, 0.23f, 1.0f);
+    pColors[ImGuiCol_ButtonActive] = ImVec4(0.22f, 0.25f, 0.29f, 1.0f);
+    pColors[ImGuiCol_Header] = ImVec4(0.16f, 0.18f, 0.20f, 1.0f);
+    pColors[ImGuiCol_HeaderHovered] = ImVec4(0.20f, 0.23f, 0.26f, 1.0f);
+    pColors[ImGuiCol_HeaderActive] = ImVec4(0.34f, 0.25f, 0.14f, 1.0f);
+    pColors[ImGuiCol_CheckMark] = ImVec4(0.82f, 0.67f, 0.34f, 1.0f);
+}
+
+void GameApplication::registerDebugConsoleCommands()
+{
+    if (m_debugConsoleCommandsRegistered)
+    {
+        return;
+    }
+
+    const auto commandResult = [](bool success, const std::string &message)
+    {
+        return DebugConsole::CommandResult{.success = success, .message = message};
+    };
+
+    const auto activeParty = [this]() -> Party *
+    {
+        if (m_pMapSceneRuntime != nullptr)
+        {
+            return &m_pMapSceneRuntime->party();
+        }
+
+        return m_gameSession.partyState() ? &*m_gameSession.partyState() : nullptr;
+    };
+
+    m_debugConsole.registerCommand({
+        .name = "help",
+        .description = "Show available commands.",
+        .usage = "help",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &)
+        {
+            std::ostringstream out;
+            out << "Commands: help, cls, map, event <id>, qbit get|set|clear <id>, qbit dump [active|all|filter], "
+                << "award get|set|clear <id>, award dump [active|all|filter], gold get|add|set <amount>, "
+                << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
+                << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
+            return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "cls",
+        .description = "Clear console output.",
+        .usage = "cls",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &)
+        {
+            m_debugConsole.clearMessages();
+            m_debugConsole.addMessage(DebugConsole::MessageKind::Info, "Console cleared.");
+            return commandResult(true, "");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "map",
+        .description = "Show current map information.",
+        .usage = "map",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &)
+        {
+            const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+            std::ostringstream out;
+            out << "world=" << m_activeWorldManifest.id
+                << " session_map=" << m_gameSession.currentMapFileName();
+
+            if (selectedMap)
+            {
+                out << " selected=" << selectedMap->map.fileName
+                    << " canonical=" << selectedMap->map.canonicalId
+                    << " scene=" << (selectedMap->outdoorMapData ? "outdoor" : "indoor")
+                    << " local_events=" << (selectedMap->localEventProgram
+                        ? selectedMap->localEventProgram->eventIds().size() : 0)
+                    << " global_events=" << (selectedMap->globalEventProgram
+                        ? selectedMap->globalEventProgram->eventIds().size() : 0);
+            }
+
+            return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "goto",
+        .description = "Jump directly to a map by merged map id.",
+        .usage = "goto <map-id> [x y z direction-yaw-units]",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: goto <map-id> [x y z direction-yaw-units]");
+            }
+
+            const std::optional<int32_t> mapId = parseInt32Argument(context.args[0]);
+
+            if (!mapId || *mapId <= 0)
+            {
+                return commandResult(false, "Invalid map id.");
+            }
+
+            if (m_gameDataLoader.getMapStats().findById(static_cast<uint32_t>(*mapId)) == nullptr)
+            {
+                return commandResult(false, "Unknown map id.");
+            }
+
+            PendingDebugMapJump pendingJump = {};
+            pendingJump.mapId = *mapId;
+
+            if (context.args.size() != 1 && context.args.size() != 5)
+            {
+                return commandResult(false, "Usage: goto <map-id> [x y z direction-yaw-units]");
+            }
+
+            if (context.args.size() == 5)
+            {
+                std::optional<int32_t> x = parseInt32Argument(context.args[1]);
+                std::optional<int32_t> y = parseInt32Argument(context.args[2]);
+                std::optional<int32_t> z = parseInt32Argument(context.args[3]);
+                std::optional<int32_t> direction = parseInt32Argument(context.args[4]);
+
+                if (!x || !y || !z || !direction)
+                {
+                    return commandResult(false, "Invalid map start coordinates.");
+                }
+
+                pendingJump.start = DebugMapJumpStart{
+                    .x = *x,
+                    .y = *y,
+                    .z = *z,
+                    .directionYawUnits = *direction,
+                };
+            }
+
+            m_pendingDebugMapJump = pendingJump;
+            return commandResult(true, "Queued map jump " + std::to_string(*mapId));
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "event",
+        .description = "Execute a map event by id.",
+        .usage = "event <id>",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: event <id>");
+            }
+
+            const std::optional<int32_t> eventId = parseInt32Argument(context.args[0]);
+
+            if (!eventId || *eventId < 0 || *eventId > 65535)
+            {
+                return commandResult(false, "Invalid event id.");
+            }
+
+            if (m_pMapSceneRuntime == nullptr || m_pMapSceneRuntime->eventRuntimeState() == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+
+            if (!selectedMap)
+            {
+                return commandResult(false, "No selected map.");
+            }
+
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            const bool executed = eventRuntime.executeEventById(
+                selectedMap->localEventProgram,
+                selectedMap->globalEventProgram,
+                static_cast<uint16_t>(*eventId),
+                *m_pMapSceneRuntime->eventRuntimeState(),
+                &m_pMapSceneRuntime->party(),
+                m_pMapSceneRuntime->sceneEventContext());
+            return commandResult(executed, executed ? "Executed event " + std::to_string(*eventId) : "Event failed.");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "qbit",
+        .description = "Inspect or mutate party quest bits.",
+        .usage = "qbit get|set|clear <id> | qbit dump [active|all|filter]",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+
+            if (action == "dump")
+            {
+                const std::string filter = context.args.size() >= 2 ? lowerSearchText(context.args[1]) : "active";
+                const bool activeOnly = filter.empty() || filter == "active";
+                const bool allRows = filter == "all";
+                const Party::Snapshot snapshot = pParty->snapshot();
+                std::ostringstream out;
+                size_t emitted = 0;
+
+                out << "QBits";
+
+                if (activeOnly)
+                {
+                    out << " active";
+                }
+                else if (!allRows)
+                {
+                    out << " matching '" << context.args[1] << "'";
+                }
+
+                out << ":\n";
+
+                for (const JournalQuestEntry &entry : m_gameSession.data().journalQuestTable().entries())
+                {
+                    const bool isActive = snapshot.questBits.contains(entry.qbitId);
+                    const std::string haystack =
+                        lowerSearchText(entry.text + " " + entry.notes + " " + entry.owner);
+
+                    if ((activeOnly && !isActive)
+                        || (!activeOnly && !allRows && haystack.find(filter) == std::string::npos))
+                    {
+                        continue;
+                    }
+
+                    out << entry.qbitId << " [" << (isActive ? "set" : "clear") << "] "
+                        << (!entry.text.empty() ? entry.text : entry.notes) << '\n';
+                    ++emitted;
+
+                    if (emitted >= 120)
+                    {
+                        out << "... truncated\n";
+                        break;
+                    }
+                }
+
+                if (emitted == 0)
+                {
+                    out << "<none>";
+                }
+
+                return commandResult(true, out.str());
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+            }
+
+            const std::optional<int32_t> qbitId = parseInt32Argument(context.args[1]);
+
+            if (!qbitId || *qbitId < 0)
+            {
+                return commandResult(false, "Invalid qbit id.");
+            }
+
+            const uint32_t id = static_cast<uint32_t>(*qbitId);
+
+            if (action == "get")
+            {
+                return commandResult(true, "qbit " + std::to_string(id) + "=" + boolString(pParty->hasQuestBit(id)));
+            }
+
+            if (action == "set")
+            {
+                pParty->setQuestBit(id, true);
+                return commandResult(true, "qbit " + std::to_string(id) + "=true");
+            }
+
+            if (action == "clear")
+            {
+                pParty->setQuestBit(id, false);
+                return commandResult(true, "qbit " + std::to_string(id) + "=false");
+            }
+
+            return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "award",
+        .description = "Inspect or mutate party awards.",
+        .usage = "award get|set|clear <id> | award dump [active|all|filter]",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: award get|set|clear <id> | award dump [active|all|filter]");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+
+            if (action == "dump")
+            {
+                const std::string filter = context.args.size() >= 2 ? lowerSearchText(context.args[1]) : "active";
+                const bool activeOnly = filter.empty() || filter == "active";
+                const bool allRows = filter == "all";
+                const std::vector<DebugAwardEntry> awards = loadDebugAwardEntries(m_pAssetFileSystem);
+                std::ostringstream out;
+                size_t emitted = 0;
+
+                out << "Awards";
+
+                if (activeOnly)
+                {
+                    out << " active";
+                }
+                else if (!allRows)
+                {
+                    out << " matching '" << context.args[1] << "'";
+                }
+
+                out << ":\n";
+
+                for (const DebugAwardEntry &entry : awards)
+                {
+                    const bool isActive = pParty->hasAward(entry.id);
+                    const std::string haystack = lowerSearchText(entry.text + " " + entry.notes);
+
+                    if ((activeOnly && !isActive)
+                        || (!activeOnly && !allRows && haystack.find(filter) == std::string::npos))
+                    {
+                        continue;
+                    }
+
+                    out << entry.id << " [" << (isActive ? "set" : "clear") << "] " << entry.text << '\n';
+                    ++emitted;
+
+                    if (emitted >= 120)
+                    {
+                        out << "... truncated\n";
+                        break;
+                    }
+                }
+
+                if (emitted == 0)
+                {
+                    out << "<none>";
+                }
+
+                return commandResult(true, out.str());
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: award get|set|clear <id> | award dump [active|all|filter]");
+            }
+
+            const std::optional<int32_t> awardId = parseInt32Argument(context.args[1]);
+
+            if (!awardId || *awardId < 0)
+            {
+                return commandResult(false, "Invalid award id.");
+            }
+
+            const uint32_t id = static_cast<uint32_t>(*awardId);
+
+            if (action == "get")
+            {
+                return commandResult(true, "award " + std::to_string(id) + "=" + boolString(pParty->hasAward(id)));
+            }
+
+            if (action == "set")
+            {
+                pParty->addAward(id);
+                return commandResult(true, "award " + std::to_string(id) + "=true");
+            }
+
+            if (action == "clear")
+            {
+                pParty->removeAward(id);
+                return commandResult(true, "award " + std::to_string(id) + "=false");
+            }
+
+            return commandResult(false, "Usage: award get|set|clear <id> | award dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "gold",
+        .description = "Inspect or mutate party gold.",
+        .usage = "gold get|add|set <amount>",
+        .callback = [activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            if (context.args.empty() || toLowerCopy(context.args[0]) == "get")
+            {
+                return commandResult(true, "gold=" + std::to_string(pParty->gold()));
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: gold get|add|set <amount>");
+            }
+
+            const std::optional<int32_t> amount = parseInt32Argument(context.args[1]);
+
+            if (!amount)
+            {
+                return commandResult(false, "Invalid amount.");
+            }
+
+            if (toLowerCopy(context.args[0]) == "add")
+            {
+                pParty->addGold(*amount);
+            }
+            else if (toLowerCopy(context.args[0]) == "set")
+            {
+                pParty->addGold(*amount - pParty->gold());
+            }
+            else
+            {
+                return commandResult(false, "Usage: gold get|add|set <amount>");
+            }
+
+            return commandResult(true, "gold=" + std::to_string(pParty->gold()));
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "food",
+        .description = "Inspect or mutate party food.",
+        .usage = "food get|add|set <amount>",
+        .callback = [activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            if (context.args.empty() || toLowerCopy(context.args[0]) == "get")
+            {
+                return commandResult(true, "food=" + std::to_string(pParty->food()));
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: food get|add|set <amount>");
+            }
+
+            const std::optional<int32_t> amount = parseInt32Argument(context.args[1]);
+
+            if (!amount)
+            {
+                return commandResult(false, "Invalid amount.");
+            }
+
+            if (toLowerCopy(context.args[0]) == "add")
+            {
+                pParty->addFood(*amount);
+            }
+            else if (toLowerCopy(context.args[0]) == "set")
+            {
+                pParty->addFood(*amount - pParty->food());
+            }
+            else
+            {
+                return commandResult(false, "Usage: food get|add|set <amount>");
+            }
+
+            return commandResult(true, "food=" + std::to_string(pParty->food()));
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "hp",
+        .description = "Heal the party.",
+        .usage = "hp full",
+        .callback = [activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty() || toLowerCopy(context.args[0]) != "full")
+            {
+                return commandResult(false, "Usage: hp full");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            pParty->restoreAll();
+            return commandResult(true, "Party restored.");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "item",
+        .description = "Search for or grant an item to the party.",
+        .usage = "item search <text> | item give <id|text> [qty] | item add <id> [qty]",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: item search <text> | item give <id|text> [qty]");
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+            const ItemTable &itemTable = m_gameDataLoader.getItemTable();
+
+            if (action == "search")
+            {
+                const std::vector<const ItemDefinition *> matches = findItemMatches(itemTable, context.args[1], 24);
+                std::ostringstream out;
+                out << "Item matches for '" << context.args[1] << "':\n";
+
+                for (const ItemDefinition *pItem : matches)
+                {
+                    out << pItem->itemId << " " << pItem->name;
+
+                    if (!pItem->unidentifiedName.empty() && pItem->unidentifiedName != pItem->name)
+                    {
+                        out << " (" << pItem->unidentifiedName << ")";
+                    }
+
+                    if (!pItem->skillGroup.empty())
+                    {
+                        out << " [" << pItem->skillGroup << "]";
+                    }
+
+                    out << '\n';
+                }
+
+                if (matches.empty())
+                {
+                    out << "<none>";
+                }
+
+                return commandResult(true, out.str());
+            }
+
+            if (action != "add" && action != "give")
+            {
+                return commandResult(false, "Usage: item search <text> | item give <id|text> [qty]");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            const std::optional<int32_t> quantity =
+                context.args.size() >= 3 ? parseInt32Argument(context.args[2]) : std::optional<int32_t>(1);
+
+            if (!quantity || *quantity <= 0)
+            {
+                return commandResult(false, "Invalid quantity.");
+            }
+
+            const std::optional<int32_t> parsedItemId = parseInt32Argument(context.args[1]);
+            const ItemDefinition *pItem = nullptr;
+
+            if (parsedItemId && *parsedItemId > 0)
+            {
+                pItem = itemTable.get(static_cast<uint32_t>(*parsedItemId));
+            }
+            else
+            {
+                const std::vector<const ItemDefinition *> matches = findItemMatches(itemTable, context.args[1], 1);
+                pItem = !matches.empty() ? matches.front() : nullptr;
+            }
+
+            if (pItem == nullptr)
+            {
+                return commandResult(false, "No matching item.");
+            }
+
+            pParty->grantItem(pItem->itemId, static_cast<uint32_t>(*quantity));
+            return commandResult(
+                true,
+                "Granted " + std::to_string(*quantity) + "x " + pItem->name
+                    + " (" + std::to_string(pItem->itemId) + ")");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "tp",
+        .description = "Teleport the party on the current map.",
+        .usage = "tp <x> <y> <z>",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 3)
+            {
+                return commandResult(false, "Usage: tp <x> <y> <z>");
+            }
+
+            const std::optional<float> x = parseFloatArgument(context.args[0]);
+            const std::optional<float> y = parseFloatArgument(context.args[1]);
+            const std::optional<float> z = parseFloatArgument(context.args[2]);
+
+            if (!x || !y || !z)
+            {
+                return commandResult(false, "Invalid coordinates.");
+            }
+
+            if (m_pMapSceneRuntime == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            if (m_pMapSceneRuntime->kind() == SceneKind::Outdoor && m_pOutdoorPartyRuntime != nullptr)
+            {
+                m_pOutdoorPartyRuntime->teleportTo(*x, *y, *z);
+            }
+            else if (m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+            {
+                IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+                pIndoorRuntime->partyRuntime().teleportPartyPosition(*x, *y, *z);
+            }
+
+            synchronizeSessionFromRuntime();
+            return commandResult(true, "Teleported.");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "config",
+        .description = "Inspect or mutate debug settings.",
+        .usage = "config get|set|toggle <name> [value]",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 2)
+            {
+                return commandResult(
+                    false,
+                    "Usage: config get|set|toggle immortal|unlimited_mana|invisible|start_flying [value]");
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+            const std::string name = toLowerCopy(context.args[1]);
+
+            const auto getSetting = [this, activeParty, &name]() -> std::optional<bool>
+            {
+                if (name == "immortal")
+                {
+                    return m_settings.immortal;
+                }
+
+                if (name == "unlimited_mana")
+                {
+                    return m_settings.unlimitedMana;
+                }
+
+                if (name == "start_flying" || name == "flying")
+                {
+                    return m_settings.startFlying;
+                }
+
+                if (name == "invisible" || name == "invisibility")
+                {
+                    Party *pParty = activeParty();
+                    return pParty != nullptr
+                        ? std::optional<bool>(pParty->hasPartyBuff(PartyBuffId::Invisibility))
+                        : std::nullopt;
+                }
+
+                return std::nullopt;
+            };
+
+            const auto setSetting = [this, &name](bool value) -> bool
+            {
+                if (name == "immortal")
+                {
+                    m_settings.immortal = value;
+                }
+                else if (name == "unlimited_mana")
+                {
+                    m_settings.unlimitedMana = value;
+                }
+                else if (name == "start_flying" || name == "flying")
+                {
+                    m_settings.startFlying = value;
+                }
+                else
+                {
+                    return false;
+                }
+
+                applyCurrentSettingsToActiveRuntime();
+
+                if (Party *pParty = m_pMapSceneRuntime != nullptr ? &m_pMapSceneRuntime->party() : nullptr)
+                {
+                    pParty->setDebugDamageImmune(m_settings.immortal);
+                    pParty->setDebugUnlimitedMana(m_settings.unlimitedMana);
+                }
+
+                std::string error;
+
+                if (!saveGameSettings(settingsFilePath(), m_settings, error))
+                {
+                    std::cerr << "GameApplication: failed to write settings.ini: " << error << '\n';
+                }
+
+                return true;
+            };
+
+            const auto setRuntimeSetting = [activeParty, &name](bool value) -> bool
+            {
+                if (name != "invisible" && name != "invisibility")
+                {
+                    return false;
+                }
+
+                Party *pParty = activeParty();
+
+                if (pParty == nullptr)
+                {
+                    return false;
+                }
+
+                if (value)
+                {
+                    pParty->applyPartyBuff(
+                        PartyBuffId::Invisibility,
+                        365.0f * 24.0f * 60.0f * 60.0f,
+                        0,
+                        static_cast<uint32_t>(SpellId::Invisibility),
+                        10,
+                        SkillMastery::Grandmaster,
+                        0);
+                }
+                else
+                {
+                    pParty->clearPartyBuff(PartyBuffId::Invisibility);
+                }
+
+                return true;
+            };
+
+            if (action == "get")
+            {
+                const std::optional<bool> value = getSetting();
+                return value
+                    ? commandResult(true, name + "=" + boolString(*value))
+                    : commandResult(false, "Unknown setting.");
+            }
+
+            if (action == "toggle")
+            {
+                const std::optional<bool> value = getSetting();
+
+                if (!value || (!setSetting(!*value) && !setRuntimeSetting(!*value)))
+                {
+                    return commandResult(false, "Unknown setting.");
+                }
+
+                return commandResult(true, name + "=" + boolString(!*value));
+            }
+
+            if (action == "set")
+            {
+                if (context.args.size() < 3)
+                {
+                    return commandResult(false, "Usage: config set <name> true|false");
+                }
+
+                const std::string raw = toLowerCopy(context.args[2]);
+                const bool value = raw == "1" || raw == "true" || raw == "yes" || raw == "on";
+
+                if (!setSetting(value) && !setRuntimeSetting(value))
+                {
+                    return commandResult(false, "Unknown setting.");
+                }
+
+                return commandResult(true, name + "=" + boolString(value));
+            }
+
+            return commandResult(false, "Usage: config get|set|toggle <name> [value]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "reload",
+        .description = "Reload current map.",
+        .usage = "reload map",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty() || toLowerCopy(context.args[0]) != "map")
+            {
+                return commandResult(false, "Usage: reload map");
+            }
+
+            if (m_pAssetFileSystem == nullptr || m_gameSession.currentMapFileName().empty())
+            {
+                return commandResult(false, "No map to reload.");
+            }
+
+            synchronizeSessionFromRuntime();
+
+            if (!loadCurrentSessionMap(true))
+            {
+                return commandResult(false, "Reload failed.");
+            }
+
+            return commandResult(true, "Reloaded " + m_gameSession.currentMapFileName());
+        }});
+
+    std::vector<DebugConsole::ItemOption> itemOptions;
+
+    for (const ItemDefinition &item : m_gameDataLoader.getItemTable().entries())
+    {
+        if (item.itemId == 0 || item.name.empty())
+        {
+            continue;
+        }
+
+        itemOptions.push_back({
+            .itemId = item.itemId,
+            .name = item.name,
+            .unidentifiedName = item.unidentifiedName,
+            .iconName = item.iconName,
+            .skillGroup = item.skillGroup,
+            .notes = item.notes,
+        });
+    }
+
+    m_debugConsole.setItemOptions(std::move(itemOptions));
+
+    if (m_pAssetFileSystem != nullptr)
+    {
+        m_debugConsole.setMapOptionsFromMapStats(m_gameDataLoader.getMapStats());
+    }
+    else
+    {
+        m_debugConsole.setMapOptions({});
+    }
+    m_debugConsole.addMessage(DebugConsole::MessageKind::Info, "OpenYAMM debug console ready. Type help.");
+    m_debugConsoleCommandsRegistered = true;
+}
+
+bool GameApplication::initializeDebugConsoleRenderer()
+{
+    if (!m_settings.debugConsole)
+    {
+        return true;
+    }
+
+    if (m_debugConsoleRendererInitialized)
+    {
+        return true;
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr;
+    configureDebugConsoleStyle();
+
+    SDL_Window *pWindow = SDL_GetKeyboardFocus();
+
+    if (pWindow == nullptr)
+    {
+        pWindow = SDL_GetMouseFocus();
+    }
+
+    if (pWindow == nullptr)
+    {
+        int windowCount = 0;
+        SDL_Window **ppWindows = SDL_GetWindows(&windowCount);
+
+        if (ppWindows != nullptr && windowCount > 0)
+        {
+            pWindow = ppWindows[0];
+        }
+
+        SDL_free(ppWindows);
+    }
+
+    if (pWindow == nullptr || !ImGui_ImplSDL3_InitForOther(pWindow))
+    {
+        return false;
+    }
+
+    if (!m_debugConsoleRenderer.initialize())
+    {
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+        return false;
+    }
+
+    registerDebugConsoleCommands();
+    m_debugConsoleRendererInitialized = true;
+    return true;
+}
+
+void GameApplication::shutdownDebugConsoleRenderer()
+{
+    if (!m_debugConsoleRendererInitialized)
+    {
+        return;
+    }
+
+    m_debugConsoleRenderer.shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+    m_debugConsoleRendererInitialized = false;
+    m_debugConsoleFrameBegun = false;
+}
+
+void GameApplication::beginDebugConsoleFrame()
+{
+    if (!m_debugConsoleRendererInitialized || m_debugConsoleFrameBegun)
+    {
+        return;
+    }
+
+    if (m_debugConsole.enabled())
+    {
+        SDL_Window *pWindow = SDL_GetMouseFocus();
+
+        if (pWindow == nullptr)
+        {
+            pWindow = SDL_GetKeyboardFocus();
+        }
+
+        if (pWindow != nullptr)
+        {
+            SDL_SetWindowRelativeMouseMode(pWindow, false);
+        }
+
+        SDL_ShowCursor();
+    }
+
+    ImGui_ImplSDL3_NewFrame();
+    m_debugConsoleRenderer.newFrame();
+    ImGui::NewFrame();
+    m_debugConsoleFrameBegun = true;
+}
+
+void GameApplication::renderDebugConsoleFrame(int width, int height)
+{
+    if (!m_debugConsoleRendererInitialized || !m_debugConsoleFrameBegun)
+    {
+        return;
+    }
+
+    const Party *pActiveParty = nullptr;
+
+    if (m_pMapSceneRuntime != nullptr)
+    {
+        pActiveParty = &m_pMapSceneRuntime->party();
+    }
+    else if (m_gameSession.partyState())
+    {
+        pActiveParty = &*m_gameSession.partyState();
+    }
+
+    m_debugConsole.setDebugToggleStates(
+        m_settings.immortal,
+        m_settings.unlimitedMana,
+        pActiveParty != nullptr && pActiveParty->hasPartyBuff(PartyBuffId::Invisibility));
+    m_debugConsole.render(width, height);
+    ImGui::Render();
+    m_debugConsoleRenderer.renderDrawData(ImGui::GetDrawData());
+    m_debugConsoleFrameBegun = false;
+}
+
+bool GameApplication::processPendingDebugMapJump()
+{
+    if (!m_pendingDebugMapJump.has_value())
+    {
+        return false;
+    }
+
+    const PendingDebugMapJump pendingJump = *m_pendingDebugMapJump;
+    const int mapId = pendingJump.mapId;
+    m_pendingDebugMapJump.reset();
+
+    if (m_pAssetFileSystem == nullptr)
+    {
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump unavailable: no asset filesystem.");
+        return false;
+    }
+
+    const MapStatsEntry *pTargetMap = m_gameDataLoader.getMapStats().findById(static_cast<uint32_t>(mapId));
+
+    if (pTargetMap == nullptr)
+    {
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: unknown map id.");
+        return false;
+    }
+
+    if (m_pMapSceneRuntime != nullptr)
+    {
+        captureCurrentSceneState();
+    }
+
+    const std::string targetWorldId = normalizeWorldId(pTargetMap->worldId);
+    WorldManifest targetManifest = {};
+    targetManifest.id = targetWorldId;
+    targetManifest.name = upperSearchText(targetWorldId);
+    targetManifest.sourceGame = targetWorldId;
+    targetManifest.start.mapFileName = pTargetMap->fileName;
+
+    m_config.activeWorldId = targetWorldId;
+    m_settings.startWorldId = targetWorldId;
+    m_activeWorldManifest = std::move(targetManifest);
+    m_gameDataLoader.setActiveWorldId(targetWorldId);
+
+    beginLoadingOverlay(LoadingOverlayScreen::Presentation::Fullscreen);
+    renderLoadingOverlayProgress(15);
+
+    if (!m_gameDataLoader.loadMapByIdForGameplay(*m_pAssetFileSystem, mapId))
+    {
+        cancelLoadingOverlay();
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: map load failed.");
+        return false;
+    }
+
+    renderLoadingOverlayProgress(70);
+    const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+
+    if (!selectedMap)
+    {
+        cancelLoadingOverlay();
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: selected map missing.");
+        return false;
+    }
+
+    m_gameSession.setCurrentMapFileName(selectedMap->map.fileName);
+    shutdownRenderer();
+
+    if (!initializeSelectedMapRuntime(true))
+    {
+        cancelLoadingOverlay();
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: runtime init failed.");
+        return false;
+    }
+
+    if (pendingJump.start.has_value())
+    {
+        const DebugMapJumpStart &start = *pendingJump.start;
+
+        if (m_pMapSceneRuntime != nullptr
+            && m_pMapSceneRuntime->kind() == SceneKind::Outdoor
+            && m_pOutdoorPartyRuntime != nullptr)
+        {
+            m_pOutdoorPartyRuntime->teleportTo(
+                static_cast<float>(start.x),
+                static_cast<float>(start.y),
+                static_cast<float>(start.z));
+        }
+        else if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+        {
+            IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+            pIndoorRuntime->partyRuntime().teleportPartyPosition(
+                static_cast<float>(start.x),
+                static_cast<float>(start.y),
+                static_cast<float>(start.z));
+        }
+
+        const int32_t normalizedYawUnits = ((start.directionYawUnits % 2048) + 2048) % 2048;
+        const int32_t directionDegrees = normalizedYawUnits * 360 / 2048;
+        const float yawRadians = mapMoveHeadingDegreesToYawRadians(directionDegrees);
+
+        if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Outdoor)
+        {
+            m_outdoorGameView.setCameraAngles(yawRadians, m_outdoorGameView.cameraPitchRadians());
+        }
+        else if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+        {
+            m_indoorRenderer.setCameraAngles(yawRadians, m_indoorRenderer.cameraPitchRadians());
+        }
+    }
+
+    renderLoadingOverlayProgress(95);
+    completeLoadingOverlay();
+    synchronizeSessionFromRuntime();
+    m_debugConsole.addMessage(
+        DebugConsole::MessageKind::Success,
+        "Jumped to [" + upperSearchText(targetWorldId) + "] "
+            + selectedMap->map.fileName + " - " + selectedMap->map.name);
+
+    if (selectedMap->indoorMapData.has_value()
+        && !selectedMap->indoorMapData->partyStartPoint.has_value()
+        && !pendingJump.start.has_value())
+    {
+        m_debugConsole.addMessage(
+            DebugConsole::MessageKind::Warning,
+            "Indoor debug jump used the fallback start because this BLV has no Party Start marker.");
+    }
+
+    return true;
+}
+
 void GameApplication::handleSdlEvent(const SDL_Event &event)
 {
+    if (m_debugConsoleRendererInitialized)
+    {
+        ImGui_ImplSDL3_ProcessEvent(&event);
+
+        if (m_settings.debugConsole
+            && event.type == SDL_EVENT_KEY_DOWN
+            && !event.key.repeat
+            && (event.key.key == SDLK_GRAVE || event.key.scancode == SDL_SCANCODE_GRAVE))
+        {
+            m_debugConsole.toggleEnabled();
+            m_gameSession.requestRelativeMouseMotionReset();
+            return;
+        }
+
+        if (m_debugConsole.wantsGameplayInputBlocked())
+        {
+            const ImGuiIO &io = ImGui::GetIO();
+
+            if (event.type == SDL_EVENT_TEXT_INPUT
+                || event.type == SDL_EVENT_KEY_DOWN
+                || event.type == SDL_EVENT_KEY_UP
+                || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+                || event.type == SDL_EVENT_MOUSE_BUTTON_UP
+                || event.type == SDL_EVENT_MOUSE_WHEEL
+                || io.WantCaptureKeyboard
+                || io.WantCaptureMouse)
+            {
+                return;
+            }
+        }
+    }
+
     if (handlePendingInputPromptSdlEvent(event))
     {
         return;
@@ -1177,6 +2619,12 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
         pIndoorRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);
         pIndoorRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
     }
+
+    if (m_pMapSceneRuntime != nullptr)
+    {
+        m_pMapSceneRuntime->party().setDebugDamageImmune(m_settings.immortal);
+        m_pMapSceneRuntime->party().setDebugUnlimitedMana(m_settings.unlimitedMana);
+    }
 }
 
 void GameApplication::applyStartupDebugSettingsToActiveRuntime()
@@ -1206,6 +2654,7 @@ void GameApplication::shutdownApplication()
     m_screenManager.setActiveScreen(nullptr);
     m_pLoadingOverlayScreen.reset();
     shutdownRenderer();
+    shutdownDebugConsoleRenderer();
     m_gameAudioSystem.shutdown();
 }
 
@@ -1277,6 +2726,12 @@ bool GameApplication::loadGameData(const Engine::AssetFileSystem &assetFileSyste
 bool GameApplication::initializeRenderer()
 {
     shutdownRenderer();
+
+    if (!initializeDebugConsoleRenderer())
+    {
+        std::cerr << "GameApplication: debug console renderer initialization failed\n";
+        return false;
+    }
 
     if (m_bootSeededDwiOnNextRendererInit)
     {
@@ -2407,14 +3862,36 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     m_lastFrameWidth = width;
     m_lastFrameHeight = height;
 
+    if (processPendingDebugMapJump())
+    {
+        return;
+    }
+
+    beginDebugConsoleFrame();
+    const bool debugConsoleOpen = m_debugConsole.wantsGameplayInputBlocked();
+    const bool debugConsoleFreezesGameplay = m_debugConsole.freezesGameplay();
+
     if (m_gameSession.consumeRelativeMouseMotionResetRequest())
     {
         m_gameInputSystem.resetRelativeMouseMotion();
     }
 
-    m_gameInputSystem.updateFromEngineInput(width, height, mouseWheelDelta, m_settings);
+    m_gameInputSystem.updateFromEngineInput(
+        width,
+        height,
+        mouseWheelDelta,
+        m_settings,
+        debugConsoleOpen);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());
-    processPendingArcomageGame();
+
+    if (debugConsoleFreezesGameplay)
+    {
+        m_gameSession.clearSharedInputFrameResult();
+    }
+    else
+    {
+        processPendingArcomageGame();
+    }
 
     if (IScreen *pActiveScreen = m_screenManager.activeScreen())
     {
@@ -2424,6 +3901,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         handleCompletedWinGameScreen();
         handleCompletedArcomageScreen();
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        renderDebugConsoleFrame(width, height);
         return;
     }
 
@@ -2440,6 +3918,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
 
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        renderDebugConsoleFrame(width, height);
         return;
     }
 
@@ -2453,6 +3932,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
 
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        renderDebugConsoleFrame(width, height);
         return;
     }
 
@@ -2466,6 +3946,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
 
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        renderDebugConsoleFrame(width, height);
         return;
     }
 
@@ -2486,13 +3967,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
     }
 
-    if (!skipGameplayUpdateAfterInputPrompt)
+    if (!debugConsoleFreezesGameplay && !skipGameplayUpdateAfterInputPrompt)
     {
         m_gameSession.updateGameplay(m_gameInputSystem.frame(), deltaSeconds);
     }
 
-    updatePendingInputPrompt();
-    processPendingDimensionDoorOverlay();
+    if (!debugConsoleFreezesGameplay)
+    {
+        updatePendingInputPrompt();
+        processPendingDimensionDoorOverlay();
+    }
 
     IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
 
@@ -2504,7 +3988,8 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             sharedInput.mouseLookPolicy.cursorModeActive
             || sharedInput.worldInputBlocked
             || pendingSpellTargetActive
-            || m_gameSession.sharedWorldInteractionBlockedThisFrame();
+            || m_gameSession.sharedWorldInteractionBlockedThisFrame()
+            || debugConsoleFreezesGameplay;
 
         if (!gameplayWorldPaused)
         {
@@ -2523,12 +4008,14 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         if (m_gameSession.consumePendingOpenNewGameScreenRequest())
         {
             openNewGameScreen();
+            renderDebugConsoleFrame(width, height);
             return;
         }
 
         if (m_gameSession.consumePendingOpenLoadGameScreenRequest())
         {
             openLoadGameScreen(true);
+            renderDebugConsoleFrame(width, height);
             return;
         }
 
@@ -2551,11 +4038,13 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (processPendingWinGame())
         {
+            renderDebugConsoleFrame(width, height);
             return;
         }
 
         if (processPendingEventMovie())
         {
+            renderDebugConsoleFrame(width, height);
             return;
         }
 
@@ -2563,11 +4052,15 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (processPendingQuickSaveInput())
         {
+            renderDebugConsoleFrame(width, height);
             return;
         }
 
+        renderDebugConsoleFrame(width, height);
         return;
     }
+
+    renderDebugConsoleFrame(width, height);
 }
 
 bool GameApplication::processPendingMapMove()
