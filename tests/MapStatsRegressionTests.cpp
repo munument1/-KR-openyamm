@@ -4,7 +4,7 @@
 #include "game/maps/MapIdentity.h"
 #include "game/maps/MapRegistry.h"
 #include "game/tables/MapStats.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <array>
 #include <fstream>
@@ -45,9 +45,13 @@ OpenYAMM::Game::MapStats loadMapStats()
     REQUIRE(mapStats.applyOutdoorNavigationRows(
         loadTextTableRows("assets_dev/engine/data_tables/map_navigation.txt")));
 
-    OpenYAMM::Game::MmergeOutdoorTravelTable outdoorTravels = {};
+    OpenYAMM::Game::MergedBolsterMapTable bolsterMaps = {};
+    REQUIRE(bolsterMaps.loadFromRows(loadTextTableRows("assets_dev/engine/data_tables/bolster_maps.txt")));
+    REQUIRE(mapStats.applyMergedBolsterMaps(bolsterMaps));
+
+    OpenYAMM::Game::MergedOutdoorTravelTable outdoorTravels = {};
     REQUIRE(outdoorTravels.loadFromRows(loadTextTableRows("assets_dev/engine/data_tables/outdoor_travels.txt")));
-    REQUIRE(mapStats.applyMmergeOutdoorTravels(outdoorTravels));
+    REQUIRE(mapStats.applyMergedOutdoorTravels(outdoorTravels));
     return mapStats;
 }
 
@@ -113,7 +117,7 @@ TEST_CASE("map stats parse perception difficulty")
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
 }
 
-TEST_CASE("mmerge outdoor travels add mm6 map boundary transitions")
+TEST_CASE("merged outdoor travels add mm6 map boundary transitions")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
     const OpenYAMM::Game::MapStatsEntry *pNewSorpigal = mapStats.findByFileName("oute3.odm");
@@ -170,6 +174,7 @@ TEST_CASE("map registry supports canonical id and world/file compatibility looku
         registry.findByWorldAndFileName("mm7", "7out01.odm");
     REQUIRE(mm7Entry.has_value());
     CHECK_EQ(mm7Entry->canonicalId, "world.mm7.map.7out01");
+    CHECK_EQ(mm7Entry->mergedContinentId, 2u);
 }
 
 TEST_CASE("map stats parse chest trap difficulty and damage dice")

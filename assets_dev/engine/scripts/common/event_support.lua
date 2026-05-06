@@ -379,6 +379,46 @@ local function ensureMetaScope(scopeName)
     return meta
 end
 
+local function removeArrayValue(values, value)
+    if values == nil then
+        return
+    end
+
+    local writeIndex = 1
+
+    for readIndex = 1, #values do
+        if values[readIndex] ~= value then
+            values[writeIndex] = values[readIndex]
+            writeIndex = writeIndex + 1
+        end
+    end
+
+    for index = writeIndex, #values do
+        values[index] = nil
+    end
+end
+
+local function removeTimersForEvent(timers, eventId)
+    if timers == nil then
+        return
+    end
+
+    local writeIndex = 1
+
+    for readIndex = 1, #timers do
+        local timer = timers[readIndex]
+
+        if timer == nil or timer.eventId ~= eventId then
+            timers[writeIndex] = timer
+            writeIndex = writeIndex + 1
+        end
+    end
+
+    for index = writeIndex, #timers do
+        timers[index] = nil
+    end
+end
+
 function support.packSelector(tag, index)
     return math.floor(index or 0) * 65536 + tag
 end
@@ -605,6 +645,42 @@ function support.registerScopeEvent(scopeName, tableName, eventId, title, handle
     end
 end
 
+function support.removeScopeEvent(scopeName, tableName, eventId)
+    local meta = ensureMetaScope(scopeName)
+
+    if evt[tableName] ~= nil then
+        evt[tableName][eventId] = nil
+    end
+
+    meta.title[eventId] = nil
+    meta.hint[eventId] = nil
+    meta.summary = meta.summary or {}
+    meta.summary[eventId] = nil
+    meta.openedChestIds[eventId] = nil
+
+    removeArrayValue(meta.onLoad, eventId)
+    removeArrayValue(meta.onLeave, eventId)
+    removeTimersForEvent(meta.timers, eventId)
+end
+
+function support.removeMapEvent(eventId)
+    support.removeScopeEvent("map", "map", eventId)
+end
+
+function support.removeGlobalEvent(eventId)
+    support.removeScopeEvent("global", "global", eventId)
+end
+
+function support.replaceMapEvent(eventId, title, handler, hint)
+    support.removeMapEvent(eventId)
+    support.registerEvent(eventId, title, handler, hint)
+end
+
+function support.replaceGlobalEvent(eventId, title, handler, hint)
+    support.removeGlobalEvent(eventId)
+    support.registerGlobalEvent(eventId, title, handler, hint)
+end
+
 function support.registerEvent(eventId, title, handler, hint)
     support.registerScopeEvent("map", "map", eventId, title, handler, hint)
 end
@@ -664,6 +740,61 @@ end
 function support.appendMapOnLoadEvent(eventId)
     local meta = ensureMetaScope("map")
     table.insert(meta.onLoad, eventId)
+end
+
+function support.appendMapOnLeaveEvent(eventId)
+    local meta = ensureMetaScope("map")
+    table.insert(meta.onLeave, eventId)
+end
+
+function support.registerMapOnLoadEvent(eventId, title, handler, hint)
+    support.registerEvent(eventId, title, handler, hint)
+    support.appendMapOnLoadEvent(eventId)
+end
+
+function support.registerMapOnLeaveEvent(eventId, title, handler, hint)
+    support.registerEvent(eventId, title, handler, hint)
+    support.appendMapOnLeaveEvent(eventId)
+end
+
+function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title, hint)
+    support.removeMapEvent(eventId)
+    support.registerEvent(eventId, title, handler, hint)
+
+    local meta = ensureMetaScope("map")
+    local intervalGameMinutes = (intervalSeconds or 0) / 60
+    table.insert(meta.timers, {
+        eventId = eventId,
+        repeating = true,
+        intervalGameMinutes = intervalGameMinutes,
+        remainingGameMinutes = intervalGameMinutes,
+    })
+end
+
+function support.isFlying()
+    return evt.Cmp(support.varTag.IsFlying, 1)
+end
+
+function support.isInvisible()
+    return evt.Cmp(support.varTag.Invisible, 1)
+end
+
+function support.hasFollowerProfession(professionId)
+    return evt.Cmp(support.packSelector(support.varTag.HiredNpcHasSpeciality, professionId), 1)
+end
+
+function support.removeFollowerProfession(professionId)
+    return evt.RemoveFollowerProfession(professionId)
+end
+
+function support.applyLocalMonsterRelations(relations)
+    if relations == nil then
+        return
+    end
+
+    for _, relation in ipairs(relations) do
+        evt.SetMonsterRelation(relation[1] or 0, relation[2] or 0, relation[3] or 0)
+    end
 end
 
 function support.setGlobalMetadata(metadata)
@@ -737,6 +868,10 @@ RegisterEvent = support.registerEvent
 RegisterGlobalEvent = support.registerGlobalEvent
 RegisterNoOpEvent = support.registerNoOpEvent
 RegisterGlobalNoOpEvent = support.registerGlobalNoOpEvent
+RemoveMapEvent = support.removeMapEvent
+RemoveGlobalEvent = support.removeGlobalEvent
+ReplaceMapEvent = support.replaceMapEvent
+ReplaceGlobalEvent = support.replaceGlobalEvent
 RegisterCanShowTopic = support.registerCanShowTopic
 Point = support.point
 MoveToMap = support.moveToMap
@@ -744,6 +879,15 @@ CastSpellFromTo = support.castSpellFromTo
 PickRandomOption = support.pickRandomOption
 SetMapMetadata = support.setMapMetadata
 AppendMapOnLoadEvent = support.appendMapOnLoadEvent
+AppendMapOnLeaveEvent = support.appendMapOnLeaveEvent
+RegisterMapOnLoadEvent = support.registerMapOnLoadEvent
+RegisterMapOnLeaveEvent = support.registerMapOnLeaveEvent
+RegisterMapTimerEvent = support.registerMapTimerEvent
+IsFlying = support.isFlying
+IsInvisible = support.isInvisible
+HasFollowerProfession = support.hasFollowerProfession
+RemoveFollowerProfession = support.removeFollowerProfession
+ApplyLocalMonsterRelations = support.applyLocalMonsterRelations
 SetGlobalMetadata = support.setGlobalMetadata
 exportTableEntries(support.varTag)
 Players = support.players
@@ -796,3 +940,7 @@ castSpellFromTo = support.castSpellFromTo
 pickRandomOption = support.pickRandomOption
 setMapMetadata = support.setMapMetadata
 setGlobalMetadata = support.setGlobalMetadata
+registerMapTimerEvent = support.registerMapTimerEvent
+isFlying = support.isFlying
+isInvisible = support.isInvisible
+applyLocalMonsterRelations = support.applyLocalMonsterRelations

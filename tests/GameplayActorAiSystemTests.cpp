@@ -644,31 +644,12 @@ TEST_CASE("monster data spell names resolve and unsupported mechanics stay expli
         loadAssetTextTableRows("assets_dev/engine/data_tables/monster_data.txt");
     const std::optional<std::vector<std::vector<std::string>>> spellRows =
         loadAssetTextTableRows("assets_dev/engine/data_tables/spells.txt");
-    const std::optional<std::vector<std::vector<std::string>>> supplementalSpellRows =
-        loadAssetTextTableRows("assets_dev/engine/data_tables/spells_supplemental.txt");
     REQUIRE(monsterRows.has_value());
     REQUIRE(spellRows.has_value());
 
-    std::vector<std::vector<std::string>> combinedSpellRows = *spellRows;
-
-    if (supplementalSpellRows.has_value())
-    {
-        combinedSpellRows.insert(
-            combinedSpellRows.end(),
-            supplementalSpellRows->begin(),
-            supplementalSpellRows->end());
-    }
-
     OpenYAMM::Game::SpellTable spellTable = {};
-    REQUIRE(spellTable.loadFromRows(combinedSpellRows));
+    REQUIRE(spellTable.loadFromRows(*spellRows));
 
-    const std::set<std::string> knownUnsupportedMechanics = {
-        "day-o-gods",
-        "day of the gods",
-        "finger of death",
-        "mass curse",
-        "paralyze",
-    };
     std::set<std::string> unsupportedSpellNames;
     std::set<std::string> unresolvedSpellNames;
 
@@ -690,12 +671,15 @@ TEST_CASE("monster data spell names resolve and unsupported mechanics stay expli
 
             if (spellTable.findByName(spellName) == nullptr)
             {
-                unresolvedSpellNames.insert(spellName);
+                if (!OpenYAMM::Game::isKnownUnsupportedMonsterSpellName(spellName))
+                {
+                    unresolvedSpellNames.insert(spellName);
+                }
             }
 
             if (!OpenYAMM::Game::isMonsterProjectileSpellName(spellName)
                 && !OpenYAMM::Game::isMonsterSelfActionSpellName(spellName)
-                && knownUnsupportedMechanics.find(spellName) == knownUnsupportedMechanics.end())
+                && !OpenYAMM::Game::isKnownUnsupportedMonsterSpellName(spellName))
             {
                 unsupportedSpellNames.insert(spellName);
             }

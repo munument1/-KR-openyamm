@@ -2,7 +2,6 @@
 
 #include "game/arcomage/ArcomageTypes.h"
 #include "game/items/ItemEnchantTables.h"
-#include "game/items/ItemEquipPosTable.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/tables/CharacterInspectTable.h"
 #include "game/tables/ChestTable.h"
@@ -18,7 +17,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/ObjectTable.h"
 #include "game/tables/PortraitFrameTable.h"
@@ -53,7 +52,6 @@ public:
     const ItemTable &itemTable() const;
     const StandardItemEnchantTable &standardItemEnchantTable() const;
     const SpecialItemEnchantTable &specialItemEnchantTable() const;
-    const ItemEquipPosTable &itemEquipPosTable() const;
     const ChestTable &chestTable() const;
     const HouseTable &houseTable() const;
     const JournalQuestTable &journalQuestTable() const;
@@ -75,11 +73,22 @@ public:
     const PortraitFxEventTable &portraitFxEventTable() const;
     const FaceAnimationTable &faceAnimationTable() const;
     const TransitionTable &transitionTable() const;
-    const MmergeTownPortalSwitchTable &mmergeTownPortalSwitchTable() const;
-    const MmergeNewsTopicTable &mmergeNewsAreaTopicTable() const;
-    const MmergeNpcProfessionTable &mmergeNpcProfessionTable() const;
-    const MmergeNewsProfessionTopicTable &mmergeNewsProfessionTopicTable() const;
-    const MmergeMonsterPortraitTable &mmergeMonsterPortraitTable() const;
+    const MergedTownPortalSwitchTable &mergedTownPortalSwitchTable() const;
+    const MergedNewsTopicTable &mergedNewsAreaTopicTable() const;
+    const MergedNewsTopicTable &mergedNewsContinentTopicTable() const;
+    const MergedNpcProfessionTable &mergedNpcProfessionTable() const;
+    const MergedNpcNameTable &mergedNpcNameTable() const;
+    const MergedNpcBtbTable &mergedNpcBtbTable() const;
+    const MergedNewsProfessionTopicTable &mergedNewsProfessionTopicTable() const;
+    const MergedBolsterMapTable &mergedBolsterMapTable() const;
+    const MergedBolsterMonsterTable &mergedBolsterMonsterTable() const;
+    const MergedContinentSettingTable &mergedContinentSettingTable() const;
+    const MergedMonsterPortraitTable &mergedMonsterPortraitTable() const;
+    const MergedPotionSettingTable &mergedPotionSettingTable() const;
+    const MergedReagentSettingTable &mergedReagentSettingTable() const;
+    const MergedComplexItemPictureTable &mergedComplexItemPictureTable() const;
+    const MergedTeacherTopicTable &mergedTeacherTopicTable() const;
+    const MergedTeacherAutonoteTable &mergedTeacherAutonoteTable() const;
 
 private:
     const MapStats *m_pMapStats = nullptr;
@@ -90,7 +99,6 @@ private:
     const ItemTable *m_pItemTable = nullptr;
     const StandardItemEnchantTable *m_pStandardItemEnchantTable = nullptr;
     const SpecialItemEnchantTable *m_pSpecialItemEnchantTable = nullptr;
-    const ItemEquipPosTable *m_pItemEquipPosTable = nullptr;
     const ChestTable *m_pChestTable = nullptr;
     const HouseTable *m_pHouseTable = nullptr;
     const JournalQuestTable *m_pJournalQuestTable = nullptr;
@@ -112,10 +120,21 @@ private:
     const PortraitFxEventTable *m_pPortraitFxEventTable = nullptr;
     const FaceAnimationTable *m_pFaceAnimationTable = nullptr;
     const TransitionTable *m_pTransitionTable = nullptr;
-    const MmergeTownPortalSwitchTable *m_pMmergeTownPortalSwitchTable = nullptr;
-    const MmergeNewsTopicTable *m_pMmergeNewsAreaTopicTable = nullptr;
-    const MmergeNpcProfessionTable *m_pMmergeNpcProfessionTable = nullptr;
-    const MmergeNewsProfessionTopicTable *m_pMmergeNewsProfessionTopicTable = nullptr;
-    const MmergeMonsterPortraitTable *m_pMmergeMonsterPortraitTable = nullptr;
+    const MergedTownPortalSwitchTable *m_pMergedTownPortalSwitchTable = nullptr;
+    const MergedNewsTopicTable *m_pMergedNewsAreaTopicTable = nullptr;
+    const MergedNewsTopicTable *m_pMergedNewsContinentTopicTable = nullptr;
+    const MergedNpcProfessionTable *m_pMergedNpcProfessionTable = nullptr;
+    const MergedNpcNameTable *m_pMergedNpcNameTable = nullptr;
+    const MergedNpcBtbTable *m_pMergedNpcBtbTable = nullptr;
+    const MergedNewsProfessionTopicTable *m_pMergedNewsProfessionTopicTable = nullptr;
+    const MergedBolsterMapTable *m_pMergedBolsterMapTable = nullptr;
+    const MergedBolsterMonsterTable *m_pMergedBolsterMonsterTable = nullptr;
+    const MergedContinentSettingTable *m_pMergedContinentSettingTable = nullptr;
+    const MergedMonsterPortraitTable *m_pMergedMonsterPortraitTable = nullptr;
+    const MergedPotionSettingTable *m_pMergedPotionSettingTable = nullptr;
+    const MergedReagentSettingTable *m_pMergedReagentSettingTable = nullptr;
+    const MergedComplexItemPictureTable *m_pMergedComplexItemPictureTable = nullptr;
+    const MergedTeacherTopicTable *m_pMergedTeacherTopicTable = nullptr;
+    const MergedTeacherAutonoteTable *m_pMergedTeacherAutonoteTable = nullptr;
 };
 } // namespace OpenYAMM::Game

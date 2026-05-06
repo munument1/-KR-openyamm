@@ -4,7 +4,7 @@
 #include "game/StringUtils.h"
 #include "game/render/TextureFiltering.h"
 #include "game/tables/MapStats.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
@@ -25,7 +25,7 @@ bool canUseBgfxResources()
     return Engine::BgfxContext::isBgfxInitialized();
 }
 
-constexpr int32_t MmergeYawUnitsPerTurn = 2048;
+constexpr int32_t MergedYawUnitsPerTurn = 2048;
 constexpr int32_t DegreesPerTurn = 360;
 struct TownPortalDestinationOverride
 {
@@ -40,11 +40,11 @@ struct TownPortalDestinationOverride
     uint32_t hitHeight = 0;
 };
 
-int32_t directionDegreesFromMmergeYawUnits(int32_t yawUnits)
+int32_t directionDegreesFromMergedYawUnits(int32_t yawUnits)
 {
     const int32_t normalizedYawUnits =
-        ((yawUnits % MmergeYawUnitsPerTurn) + MmergeYawUnitsPerTurn) % MmergeYawUnitsPerTurn;
-    return normalizedYawUnits * DegreesPerTurn / MmergeYawUnitsPerTurn;
+        ((yawUnits % MergedYawUnitsPerTurn) + MergedYawUnitsPerTurn) % MergedYawUnitsPerTurn;
+    return normalizedYawUnits * DegreesPerTurn / MergedYawUnitsPerTurn;
 }
 
 std::string townPortalIconTextureName(const std::string &iconName)
@@ -97,13 +97,13 @@ const MapStatsEntry *findMapEntryById(const std::vector<MapStatsEntry> &mapEntri
     return nullptr;
 }
 
-const MmergeTownPortalSwitchGroup *findTownPortalGroup(
-    const MmergeTownPortalSwitchTable &townPortalSwitchTable,
+const MergedTownPortalSwitchGroup *findTownPortalGroup(
+    const MergedTownPortalSwitchTable &townPortalSwitchTable,
     const std::string &groupName)
 {
     const std::string normalizedGroupName = toLowerCopy(groupName);
 
-    for (const MmergeTownPortalSwitchGroup &group : townPortalSwitchTable.groups())
+    for (const MergedTownPortalSwitchGroup &group : townPortalSwitchTable.groups())
     {
         if (toLowerCopy(group.name) == normalizedGroupName)
         {
@@ -131,8 +131,8 @@ std::string townPortalGroupNameForMap(const MapStatsEntry &mapEntry)
 
 bool appendTownPortalDestination(
     std::vector<GameplayTownPortalDestination> &destinations,
-    const MmergeTownPortalSwitchGroup &group,
-    const MmergeTownPortalDestination &sourceDestination,
+    const MergedTownPortalSwitchGroup &group,
+    const MergedTownPortalDestination &sourceDestination,
     const std::vector<MapStatsEntry> &mapEntries,
     const TownPortalDestinationOverride *pOverride = nullptr)
 {
@@ -164,7 +164,7 @@ bool appendTownPortalDestination(
     destination.z = sourceDestination.z;
     if (pOverride == nullptr || !pOverride->clearDirection)
     {
-        destination.directionDegrees = directionDegreesFromMmergeYawUnits(sourceDestination.direction);
+        destination.directionDegrees = directionDegreesFromMergedYawUnits(sourceDestination.direction);
     }
     destination.useMapStartPosition = pOverride != nullptr && pOverride->useMapStartPosition;
     destination.unlockQBitId =
@@ -190,7 +190,7 @@ bool appendTownPortalDestination(
 }
 
 bool resolveDimensionDoorDestinationOverride(
-    const MmergeTownPortalDestination &sourceDestination,
+    const MergedTownPortalDestination &sourceDestination,
     uint32_t /*dayIndex*/,
     TownPortalDestinationOverride &destinationOverride)
 {
@@ -515,8 +515,8 @@ bool GameplayUiRuntime::ensureTownPortalDestinationsLoaded(const std::string &cu
         return false;
     }
 
-    const MmergeTownPortalSwitchGroup *pGroup = findTownPortalGroup(
-        m_pDataRepository->mmergeTownPortalSwitchTable(),
+    const MergedTownPortalSwitchGroup *pGroup = findTownPortalGroup(
+        m_pDataRepository->mergedTownPortalSwitchTable(),
         townPortalGroupNameForMap(*pCurrentMap));
 
     if (pGroup == nullptr)
@@ -527,7 +527,7 @@ bool GameplayUiRuntime::ensureTownPortalDestinationsLoaded(const std::string &cu
     std::vector<GameplayTownPortalDestination> destinations;
     const std::vector<MapStatsEntry> &mapEntries = m_pDataRepository->mapEntries();
 
-    for (const MmergeTownPortalDestination &sourceDestination : pGroup->destinations)
+    for (const MergedTownPortalDestination &sourceDestination : pGroup->destinations)
     {
         appendTownPortalDestination(destinations, *pGroup, sourceDestination, mapEntries);
     }
@@ -558,8 +558,8 @@ bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex)
         return false;
     }
 
-    const MmergeTownPortalSwitchGroup *pGroup = findTownPortalGroup(
-        m_pDataRepository->mmergeTownPortalSwitchTable(),
+    const MergedTownPortalSwitchGroup *pGroup = findTownPortalGroup(
+        m_pDataRepository->mergedTownPortalSwitchTable(),
         "TPGlobal");
 
     if (pGroup == nullptr)
@@ -570,7 +570,7 @@ bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex)
     std::vector<GameplayTownPortalDestination> destinations;
     const std::vector<MapStatsEntry> &mapEntries = m_pDataRepository->mapEntries();
 
-    for (const MmergeTownPortalDestination &sourceDestination : pGroup->destinations)
+    for (const MergedTownPortalDestination &sourceDestination : pGroup->destinations)
     {
         TownPortalDestinationOverride destinationOverride = {};
         const bool hasOverride =

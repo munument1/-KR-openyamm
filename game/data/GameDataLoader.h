@@ -13,7 +13,6 @@
 #include "game/tables/JournalAutonoteTable.h"
 #include "game/tables/JournalHistoryTable.h"
 #include "game/tables/JournalQuestTable.h"
-#include "game/items/ItemEquipPosTable.h"
 #include "game/items/ItemEnchantTables.h"
 #include "game/tables/ItemTable.h"
 #include "game/maps/MapAssetLoader.h"
@@ -21,7 +20,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/ObjectTable.h"
 #include "game/tables/PortraitFrameTable.h"
@@ -78,7 +77,6 @@ public:
     const ItemTable &getItemTable() const;
     const StandardItemEnchantTable &getStandardItemEnchantTable() const;
     const SpecialItemEnchantTable &getSpecialItemEnchantTable() const;
-    const ItemEquipPosTable &getItemEquipPosTable() const;
     const ChestTable &getChestTable() const;
     const HouseTable &getHouseTable() const;
     const JournalQuestTable &getJournalQuestTable() const;
@@ -100,40 +98,40 @@ public:
     const PortraitFxEventTable &getPortraitFxEventTable() const;
     const FaceAnimationTable &getFaceAnimationTable() const;
     const TransitionTable &getTransitionTable() const;
-    const MmergeClassExtraTable &getMmergeClassExtraTable() const;
-    const MmergeCharacterSelectionTable &getMmergeCharacterSelectionTable() const;
-    const MmergeRaceSkillTable &getMmergeRaceSkillTable() const;
-    const MmergeTeacherTopicTable &getMmergeTeacherTopicTable() const;
-    const MmergeTeacherAutonoteTable &getMmergeTeacherAutonoteTable() const;
-    const MmergeNpcProfessionTable &getMmergeNpcProfessionTable() const;
-    const MmergeNpcNameTable &getMmergeNpcNameTable() const;
-    const MmergeNpcBtbTable &getMmergeNpcBtbTable() const;
-    const MmergeNewsTopicTable &getMmergeNewsAreaTopicTable() const;
-    const MmergeNewsTopicTable &getMmergeNewsContinentTopicTable() const;
-    const MmergeNewsProfessionTopicTable &getMmergeNewsProfessionTopicTable() const;
-    const MmergeMonsterPortraitTable &getMmergeMonsterPortraitTable() const;
-    const MmergeMonsterKindTable &getMmergeMonsterKindTable() const;
-    const MmergePotionSettingTable &getMmergePotionSettingTable() const;
-    const MmergeReagentSettingTable &getMmergeReagentSettingTable() const;
-    const MmergeAdditionalUiTable &getMmergeAdditionalUiTable() const;
-    const MmergeBolsterFormulaTable &getMmergeBolsterFormulaTable() const;
-    const MmergeBolsterMapTable &getMmergeBolsterMapTable() const;
-    const MmergeBolsterMonsterTable &getMmergeBolsterMonsterTable() const;
-    const MmergeCharacterVoiceTable &getMmergeCharacterVoiceTable() const;
-    const MmergeClassStartingStatTable &getMmergeClassStartingStatsSourceTable() const;
-    const MmergeComplexItemPictureOffsetTable &getMmergeComplexItemPictureOffsetTable() const;
-    const MmergeComplexItemPictureTable &getMmergeComplexItemPictureTable() const;
-    const MmergeContinentSettingTable &getMmergeContinentSettingTable() const;
-    const MmergeContinentSettingEntry *findMmergeContinentSettingsForMap(const MapStatsEntry &map) const;
-    const MmergeHardwareWaterTextureTable &getMmergeHardwareWaterTextureTable() const;
-    const MmergeHouseExitTable &getMmergeHouseExitTable() const;
-    const MmergeHouseRuleTable &getMmergeHouseRuleTable() const;
-    const MmergeHistoryTable &getMmergeMm7HistoryTable() const;
-    const MmergeOutdoorTravelTable &getMmergeOutdoorTravelTable() const;
-    const MmergeOverlayTable &getMmergeOverlayTable() const;
-    const MmergeTownPortalSwitchTable &getMmergeTownPortalSwitchTable() const;
-    const MmergeTransportIndexTable &getMmergeTransportIndexTable() const;
-    const MmergeTransportLocationTable &getMmergeTransportLocationTable() const;
+    const MergedClassExtraTable &getMergedClassExtraTable() const;
+    const MergedCharacterSelectionTable &getMergedCharacterSelectionTable() const;
+    const MergedRaceSkillTable &getMergedRaceSkillTable() const;
+    const MergedTeacherTopicTable &getMergedTeacherTopicTable() const;
+    const MergedTeacherAutonoteTable &getMergedTeacherAutonoteTable() const;
+    const MergedNpcProfessionTable &getMergedNpcProfessionTable() const;
+    const MergedNpcNameTable &getMergedNpcNameTable() const;
+    const MergedNpcBtbTable &getMergedNpcBtbTable() const;
+    const MergedNewsTopicTable &getMergedNewsAreaTopicTable() const;
+    const MergedNewsTopicTable &getMergedNewsContinentTopicTable() const;
+    const MergedNewsProfessionTopicTable &getMergedNewsProfessionTopicTable() const;
+    const MergedMonsterPortraitTable &getMergedMonsterPortraitTable() const;
+    const MergedMonsterKindTable &getMergedMonsterKindTable() const;
+    const MergedPotionSettingTable &getMergedPotionSettingTable() const;
+    const MergedReagentSettingTable &getMergedReagentSettingTable() const;
+    const MergedAdditionalUiTable &getMergedAdditionalUiTable() const;
+    const MergedBolsterFormulaTable &getMergedBolsterFormulaTable() const;
+    const MergedBolsterMapTable &getMergedBolsterMapTable() const;
+    const MergedBolsterMonsterTable &getMergedBolsterMonsterTable() const;
+    const MergedCharacterVoiceTable &getMergedCharacterVoiceTable() const;
+    const MergedClassStartingStatTable &getMergedClassStartingStatsSourceTable() const;
+    const MergedComplexItemPictureOffsetTable &getMergedComplexItemPictureOffsetTable() const;
+    const MergedComplexItemPictureTable &getMergedComplexItemPictureTable() const;
+    const MergedContinentSettingTable &getMergedContinentSettingTable() const;
+    const MergedContinentSettingEntry *findMergedContinentSettingsForMap(const MapStatsEntry &map) const;
+    const MergedHardwareWaterTextureTable &getMergedHardwareWaterTextureTable() const;
+    const MergedHouseExitTable &getMergedHouseExitTable() const;
+    const MergedHouseRuleTable &getMergedHouseRuleTable() const;
+    const MergedHistoryTable &getMergedMm7HistoryTable() const;
+    const MergedOutdoorTravelTable &getMergedOutdoorTravelTable() const;
+    const MergedOverlayTable &getMergedOverlayTable() const;
+    const MergedTownPortalSwitchTable &getMergedTownPortalSwitchTable() const;
+    const MergedTransportIndexTable &getMergedTransportIndexTable() const;
+    const MergedTransportLocationTable &getMergedTransportLocationTable() const;
 
 private:
     bool loadInternal(const Engine::AssetFileSystem &assetFileSystem, MapLoadPurpose mapLoadPurpose);
@@ -150,7 +148,7 @@ private:
         int mapId,
         MapLoadPurpose mapLoadPurpose,
         const MapLoadProgressPump &progressPump = {});
-    void applyMmergeContinentSettingsToSelectedMap(const Engine::AssetFileSystem &assetFileSystem);
+    void applyMergedContinentSettingsToSelectedMap(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMapStats(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMonsterTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMonsterProjectileTable(const Engine::AssetFileSystem &assetFileSystem);
@@ -158,7 +156,6 @@ private:
     bool loadSpellTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadItemTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadItemEnchantTables(const Engine::AssetFileSystem &assetFileSystem);
-    bool loadItemEquipPosTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadChestTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadHouseTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadJournalTables(const Engine::AssetFileSystem &assetFileSystem);
@@ -178,8 +175,8 @@ private:
     bool loadPortraitFxEventTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadFaceAnimationTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadTransitionTable(const Engine::AssetFileSystem &assetFileSystem);
-    bool loadMmergeBaseTables(const Engine::AssetFileSystem &assetFileSystem);
-    bool applyMmergeRuntimeTables();
+    bool loadMergedBaseTables(const Engine::AssetFileSystem &assetFileSystem);
+    bool applyMergedRuntimeTables();
     bool loadFirstTextTableRows(
         const Engine::AssetFileSystem &assetFileSystem,
         const std::vector<std::string> &virtualPaths,
@@ -203,7 +200,6 @@ private:
     ItemTable m_itemTable;
     StandardItemEnchantTable m_standardItemEnchantTable;
     SpecialItemEnchantTable m_specialItemEnchantTable;
-    ItemEquipPosTable m_itemEquipPosTable;
     ChestTable m_chestTable;
     HouseTable m_houseTable;
     JournalQuestTable m_journalQuestTable;
@@ -225,39 +221,39 @@ private:
     PortraitFxEventTable m_portraitFxEventTable;
     FaceAnimationTable m_faceAnimationTable;
     TransitionTable m_transitionTable;
-    MmergeClassExtraTable m_mmergeClassExtraTable;
-    MmergeCharacterSelectionTable m_mmergeCharacterSelectionTable;
-    MmergeRaceSkillTable m_mmergeRaceSkillTable;
-    MmergeTeacherTopicTable m_mmergeTeacherTopicTable;
-    MmergeTeacherAutonoteTable m_mmergeTeacherAutonoteTable;
-    MmergeNpcProfessionTable m_mmergeNpcProfessionTable;
-    MmergeNpcNameTable m_mmergeNpcNameTable;
-    MmergeNpcBtbTable m_mmergeNpcBtbTable;
-    MmergeNewsTopicTable m_mmergeNewsAreaTopicTable;
-    MmergeNewsTopicTable m_mmergeNewsContinentTopicTable;
-    MmergeNewsProfessionTopicTable m_mmergeNewsProfessionTopicTable;
-    MmergeMonsterPortraitTable m_mmergeMonsterPortraitTable;
-    MmergeMonsterKindTable m_mmergeMonsterKindTable;
-    MmergePotionSettingTable m_mmergePotionSettingTable;
-    MmergeReagentSettingTable m_mmergeReagentSettingTable;
-    MmergeAdditionalUiTable m_mmergeAdditionalUiTable;
-    MmergeBolsterFormulaTable m_mmergeBolsterFormulaTable;
-    MmergeBolsterMapTable m_mmergeBolsterMapTable;
-    MmergeBolsterMonsterTable m_mmergeBolsterMonsterTable;
-    MmergeCharacterVoiceTable m_mmergeCharacterVoiceTable;
-    MmergeClassStartingStatTable m_mmergeClassStartingStatsSourceTable;
-    MmergeComplexItemPictureOffsetTable m_mmergeComplexItemPictureOffsetTable;
-    MmergeComplexItemPictureTable m_mmergeComplexItemPictureTable;
-    MmergeContinentSettingTable m_mmergeContinentSettingTable;
-    MmergeHardwareWaterTextureTable m_mmergeHardwareWaterTextureTable;
-    MmergeHouseExitTable m_mmergeHouseExitTable;
-    MmergeHouseRuleTable m_mmergeHouseRuleTable;
-    MmergeHistoryTable m_mmergeMm7HistoryTable;
-    MmergeOutdoorTravelTable m_mmergeOutdoorTravelTable;
-    MmergeOverlayTable m_mmergeOverlayTable;
-    MmergeTownPortalSwitchTable m_mmergeTownPortalSwitchTable;
-    MmergeTransportIndexTable m_mmergeTransportIndexTable;
-    MmergeTransportLocationTable m_mmergeTransportLocationTable;
+    MergedClassExtraTable m_mergedClassExtraTable;
+    MergedCharacterSelectionTable m_mergedCharacterSelectionTable;
+    MergedRaceSkillTable m_mergedRaceSkillTable;
+    MergedTeacherTopicTable m_mergedTeacherTopicTable;
+    MergedTeacherAutonoteTable m_mergedTeacherAutonoteTable;
+    MergedNpcProfessionTable m_mergedNpcProfessionTable;
+    MergedNpcNameTable m_mergedNpcNameTable;
+    MergedNpcBtbTable m_mergedNpcBtbTable;
+    MergedNewsTopicTable m_mergedNewsAreaTopicTable;
+    MergedNewsTopicTable m_mergedNewsContinentTopicTable;
+    MergedNewsProfessionTopicTable m_mergedNewsProfessionTopicTable;
+    MergedMonsterPortraitTable m_mergedMonsterPortraitTable;
+    MergedMonsterKindTable m_mergedMonsterKindTable;
+    MergedPotionSettingTable m_mergedPotionSettingTable;
+    MergedReagentSettingTable m_mergedReagentSettingTable;
+    MergedAdditionalUiTable m_mergedAdditionalUiTable;
+    MergedBolsterFormulaTable m_mergedBolsterFormulaTable;
+    MergedBolsterMapTable m_mergedBolsterMapTable;
+    MergedBolsterMonsterTable m_mergedBolsterMonsterTable;
+    MergedCharacterVoiceTable m_mergedCharacterVoiceTable;
+    MergedClassStartingStatTable m_mergedClassStartingStatsSourceTable;
+    MergedComplexItemPictureOffsetTable m_mergedComplexItemPictureOffsetTable;
+    MergedComplexItemPictureTable m_mergedComplexItemPictureTable;
+    MergedContinentSettingTable m_mergedContinentSettingTable;
+    MergedHardwareWaterTextureTable m_mergedHardwareWaterTextureTable;
+    MergedHouseExitTable m_mergedHouseExitTable;
+    MergedHouseRuleTable m_mergedHouseRuleTable;
+    MergedHistoryTable m_mergedMm7HistoryTable;
+    MergedOutdoorTravelTable m_mergedOutdoorTravelTable;
+    MergedOverlayTable m_mergedOverlayTable;
+    MergedTownPortalSwitchTable m_mergedTownPortalSwitchTable;
+    MergedTransportIndexTable m_mergedTransportIndexTable;
+    MergedTransportLocationTable m_mergedTransportLocationTable;
     std::optional<MapAssetInfo> m_selectedMap;
 };
 }

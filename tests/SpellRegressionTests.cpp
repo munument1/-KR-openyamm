@@ -3,6 +3,7 @@
 #include "game/StringUtils.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/MonsterSpellSupport.h"
 #include "game/maps/SaveGame.h"
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/party/PartySpellSystem.h"
@@ -679,6 +680,19 @@ TEST_CASE("party spell backend supports all defined non utility spells")
         CHECK(result.status != OpenYAMM::Game::PartySpellCastStatus::NeedUtilityUi);
         CHECK(result.status != OpenYAMM::Game::PartySpellCastStatus::Unsupported);
     }
+}
+
+TEST_CASE("spell table stays within authoritative merged spell ids")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    CHECK(gameData.spellTable.findById(132) != nullptr);
+    CHECK(gameData.spellTable.findById(136) == nullptr);
+    CHECK(gameData.spellTable.findByName("Cannonball") == nullptr);
+    CHECK(gameData.spellTable.findByName("Mass Curse") == nullptr);
+    CHECK(gameData.spellTable.findByName("Finger of Death") == nullptr);
+    CHECK(OpenYAMM::Game::isKnownUnsupportedMonsterSpellName("Mass Curse"));
+    CHECK(OpenYAMM::Game::isKnownUnsupportedMonsterSpellName("Finger of Death"));
 }
 
 TEST_CASE("party spell backend recharge item restores wand charges")

@@ -2,13 +2,17 @@
 
 #include "game/StringUtils.h"
 #include "game/audio/SoundIds.h"
+#include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
+#include "game/party/EventSpellBuffs.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/MapStats.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/party/Party.h"
+#include "game/party/SpellIds.h"
 #include "game/tables/RosterTable.h"
 
 #include <algorithm>
@@ -16,6 +20,7 @@
 #include <cstdlib>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,15 +31,30 @@ namespace
 constexpr uint32_t DefaultAdventurersInnHouseId = 185;
 constexpr uint32_t ArcomageRulesTextId = 136;
 constexpr uint32_t AutoNoteVariableTag = 0x00E1u;
-constexpr uint32_t ExpertTrainerTopicIdFirst = 300;
-constexpr uint32_t GrandMasterTrainerTopicIdLast = 416;
-constexpr uint32_t TeacherHintTopicIdFirst = 417;
-constexpr uint32_t TeacherHintTopicIdLast = 530;
-constexpr uint32_t TrainerAutoNoteIdFirst = 128;
 constexpr uint32_t HeroismEffectSoundId = 14060;
 constexpr float MinutesPerDay = 24.0f * 60.0f;
 constexpr float OeYellowAlertDistance = 5120.0f;
 constexpr int OutdoorMapTravelFoodCost = 5;
+constexpr size_t MaxNpcFollowerCount = 4;
+constexpr uint32_t MaxNpcFollowerFeePercent = 100;
+constexpr uint32_t NpcBribeTopicId = 1768;
+constexpr int MaxFoodForCookFollower = 14;
+constexpr int CookFollowerFoodAmount = 1;
+constexpr int ChefFollowerFoodAmount = 2;
+
+enum class NpcProfessionId : uint32_t
+{
+    Healer = 10,
+    ExpertHealer = 11,
+    MasterHealer = 12,
+    Cook = 33,
+    Chef = 34,
+    WindMaster = 39,
+    WaterMaster = 40,
+    GateMaster = 41,
+    Acolyte = 42,
+    Piper = 43,
+};
 
 std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
 {
@@ -181,12 +201,14 @@ void setPendingDialogueContext(
     EventRuntimeState &eventRuntimeState,
     DialogueContextKind kind,
     uint32_t sourceId,
-    uint32_t hostHouseId)
+    uint32_t hostHouseId,
+    std::optional<uint32_t> sourceActorIndex = std::nullopt)
 {
     EventRuntimeState::PendingDialogueContext context = {};
     context.kind = kind;
     context.sourceId = sourceId;
     context.hostHouseId = hostHouseId;
+    context.sourceActorIndex = sourceActorIndex;
     eventRuntimeState.pendingDialogueContext = std::move(context);
 }
 
@@ -231,6 +253,7 @@ bool samePendingDialogueContext(
 
     return left->kind == right->kind
         && left->sourceId == right->sourceId
+        && left->sourceActorIndex == right->sourceActorIndex
         && left->hostHouseId == right->hostHouseId
         && left->newsId == right->newsId
         && left->participantPictureId == right->participantPictureId
@@ -248,27 +271,6 @@ void refreshCurrentHouseServiceDialog(GameplayDialogController::Context &context
         DialogueContextKind::HouseService,
         houseId,
         houseId);
-}
-
-std::optional<uint32_t> trainerAutoNoteRawIdForTopic(uint32_t topicId)
-{
-    uint32_t noteId = 0;
-
-    // MM8 keeps mastery-teacher topics and trainer-location autonotes in matching table order.
-    if (topicId >= ExpertTrainerTopicIdFirst && topicId <= GrandMasterTrainerTopicIdLast)
-    {
-        noteId = TrainerAutoNoteIdFirst + (topicId - ExpertTrainerTopicIdFirst);
-    }
-    else if (topicId >= TeacherHintTopicIdFirst && topicId <= TeacherHintTopicIdLast)
-    {
-        noteId = TrainerAutoNoteIdFirst + (topicId - TeacherHintTopicIdFirst);
-    }
-    else
-    {
-        return std::nullopt;
-    }
-
-    return (noteId << 16) | AutoNoteVariableTag;
 }
 
 void queuePortraitFxRequest(
@@ -295,26 +297,119 @@ void queuePortraitFxRequest(
     }
 }
 
-bool tryUnlockTrainerAutoNote(
+uint32_t continentForMap(
+    const MapStatsEntry *pCurrentMap,
+    const MergedBolsterMapTable *pBolsterMapTable)
+{
+    if (pCurrentMap == nullptr)
+    {
+        return 0;
+    }
+
+    if (pBolsterMapTable != nullptr)
+    {
+        const MergedBolsterMapEntry *pBolsterMap =
+            pBolsterMapTable->findById(static_cast<uint32_t>(pCurrentMap->id));
+
+        if (pBolsterMap != nullptr && pBolsterMap->continent != 0)
+        {
+            return pBolsterMap->continent;
+        }
+    }
+
+    if (pCurrentMap->id >= 0 && pCurrentMap->id <= 61)
+    {
+        return 1;
+    }
+
+    if (pCurrentMap->id >= 62 && pCurrentMap->id <= 136)
+    {
+        return 2;
+    }
+
+    if (pCurrentMap->id >= 137 && pCurrentMap->id <= 203)
+    {
+        return 3;
+    }
+
+    return 0;
+}
+
+bool tryAddRuntimeMapNote(
     EventRuntimeState &eventRuntimeState,
-    uint32_t topicId,
+    const MasteryTeacherTopicDefinition &teacherTopic,
+    uint32_t continent,
+    const IGameplayWorldRuntime *pWorldRuntime,
     const Party *pParty)
 {
-    const std::optional<uint32_t> rawId = trainerAutoNoteRawIdForTopic(topicId);
+    const uint32_t noteId = continent * 1000 + teacherTopic.masteryRank * 100 + teacherTopic.skillId;
+    const auto noteIt = eventRuntimeState.runtimeMapNotes.find(noteId);
 
-    if (!rawId.has_value())
+    if (noteIt != eventRuntimeState.runtimeMapNotes.end() && noteIt->second.active)
     {
         return false;
     }
 
-    const auto variableIt = eventRuntimeState.variables.find(*rawId);
+    EventRuntimeState::RuntimeMapNote note = {};
+    note.id = noteId;
+    note.text = displaySkillName(teacherTopic.skillName) + " - " + masteryDisplayName(teacherTopic.targetMastery);
+    note.active = true;
+
+    if (pWorldRuntime != nullptr)
+    {
+        note.x = static_cast<int32_t>(std::lround(pWorldRuntime->partyX()));
+        note.y = static_cast<int32_t>(std::lround(pWorldRuntime->partyY()));
+    }
+
+    eventRuntimeState.runtimeMapNotes[noteId] = std::move(note);
+    queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
+    return true;
+}
+
+bool tryRegisterTrainerNote(
+    EventRuntimeState &eventRuntimeState,
+    uint32_t topicId,
+    uint32_t npcId,
+    const MergedTeacherAutonoteTable *pTeacherAutonoteTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
+    const MapStatsEntry *pCurrentMap,
+    const MergedBolsterMapTable *pBolsterMapTable,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    const Party *pParty)
+{
+    const std::optional<uint32_t> autonoteId =
+        pTeacherAutonoteTable != nullptr
+            ? pTeacherAutonoteTable->autonoteIdForTopicAndNpc(topicId, npcId)
+            : std::nullopt;
+
+    if (!autonoteId.has_value())
+    {
+        const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
+            resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
+
+        if (!teacherTopic.has_value())
+        {
+            return false;
+        }
+
+        return tryAddRuntimeMapNote(
+            eventRuntimeState,
+            *teacherTopic,
+            continentForMap(pCurrentMap, pBolsterMapTable),
+            pWorldRuntime,
+            pParty);
+    }
+
+    const uint32_t rawId = (*autonoteId << 16) | AutoNoteVariableTag;
+
+    const auto variableIt = eventRuntimeState.variables.find(rawId);
 
     if (variableIt != eventRuntimeState.variables.end() && variableIt->second != 0)
     {
         return false;
     }
 
-    eventRuntimeState.variables[*rawId] = 1;
+    eventRuntimeState.variables[rawId] = 1;
     queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
     return true;
 }
@@ -479,22 +574,69 @@ bool tryOpenAdventurersInnOverlay(GameplayDialogController::Context &context, ui
 std::optional<uint32_t> masteryTeacherTopicIdForNpc(
     const NpcDialogTable &npcDialogTable,
     const EventRuntimeState &eventRuntimeState,
+    const Party *pParty,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
     uint32_t npcId)
 {
-    const auto overrideIt = eventRuntimeState.npcTopicOverrides.find(npcId);
+    EventRuntimeState npcRuntimeState = eventRuntimeState;
+
+    if (pParty != nullptr)
+    {
+        pParty->applyGlobalNpcStateTo(npcRuntimeState);
+    }
+
+    const auto overrideIt = npcRuntimeState.npcTopicOverrides.find(npcId);
     const std::unordered_map<uint32_t, uint32_t> *pTopicOverrides =
-        overrideIt != eventRuntimeState.npcTopicOverrides.end() ? &overrideIt->second : nullptr;
+        overrideIt != npcRuntimeState.npcTopicOverrides.end() ? &overrideIt->second : nullptr;
     const std::vector<NpcDialogTable::ResolvedTopic> topics = npcDialogTable.getTopicsForNpc(npcId, pTopicOverrides);
 
     for (const NpcDialogTable::ResolvedTopic &topic : topics)
     {
-        if (topic.specialKind == NpcTopicEntry::SpecialKind::MasteryTeacherOffer)
+        if (isMasteryTeacherTopic(topic.id, pTeacherTopicTable))
         {
             return topic.id;
         }
     }
 
     return std::nullopt;
+}
+
+void registerTrainerNotesForNpc(
+    EventRuntimeState &eventRuntimeState,
+    const NpcDialogTable &npcDialogTable,
+    uint32_t npcId,
+    const MergedTeacherAutonoteTable *pTeacherAutonoteTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
+    const MapStatsEntry *pCurrentMap,
+    const MergedBolsterMapTable *pBolsterMapTable,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    const Party *pParty)
+{
+    EventRuntimeState npcRuntimeState = eventRuntimeState;
+
+    if (pParty != nullptr)
+    {
+        pParty->applyGlobalNpcStateTo(npcRuntimeState);
+    }
+
+    const auto overrideIt = npcRuntimeState.npcTopicOverrides.find(npcId);
+    const std::unordered_map<uint32_t, uint32_t> *pTopicOverrides =
+        overrideIt != npcRuntimeState.npcTopicOverrides.end() ? &overrideIt->second : nullptr;
+    const std::vector<NpcDialogTable::ResolvedTopic> topics = npcDialogTable.getTopicsForNpc(npcId, pTopicOverrides);
+
+    for (const NpcDialogTable::ResolvedTopic &topic : topics)
+    {
+        tryRegisterTrainerNote(
+            eventRuntimeState,
+            topic.id,
+            npcId,
+            pTeacherAutonoteTable,
+            pTeacherTopicTable,
+            pCurrentMap,
+            pBolsterMapTable,
+            pWorldRuntime,
+            pParty);
+    }
 }
 
 const HouseEntry *pendingHouseEntry(
@@ -660,6 +802,237 @@ bool executeNpcTopicEvent(
         && context.pWorldRuntime->executeNpcTopicEvent(eventId, previousMessageCount);
 }
 
+std::optional<NpcEntry> runtimeNpcEntry(
+    const NpcDialogTable *pNpcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId);
+
+bool npcCanOfferProfessionHire(
+    const NpcEntry &npc,
+    const MergedNpcProfessionEntry &profession)
+{
+    return npc.joins || profession.joins;
+}
+
+int currentMaximumHealth(const Character &member)
+{
+    return std::max(1, member.maxHealth + member.permanentBonuses.maxHealth + member.magicalBonuses.maxHealth);
+}
+
+int currentMaximumSpellPoints(const Character &member)
+{
+    return std::max(
+        0,
+        member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints);
+}
+
+void restorePartyHealth(Party &party)
+{
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        Character *pMember = party.member(memberIndex);
+
+        if (pMember != nullptr)
+        {
+            pMember->health = currentMaximumHealth(*pMember);
+        }
+    }
+}
+
+void clearPartyCondition(Party &party, CharacterCondition condition)
+{
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        party.clearMemberCondition(memberIndex, condition);
+    }
+}
+
+void restorePartyMana(Party &party)
+{
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        Character *pMember = party.member(memberIndex);
+
+        if (pMember != nullptr)
+        {
+            pMember->spellPoints = currentMaximumSpellPoints(*pMember);
+        }
+    }
+}
+
+void clearAllPartyConditions(Party &party)
+{
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        Character *pMember = party.member(memberIndex);
+
+        if (pMember != nullptr)
+        {
+            pMember->conditions.reset();
+        }
+    }
+}
+
+void markNpcProfessionActionUsed(
+    EventRuntimeState &eventRuntimeState,
+    uint32_t npcId,
+    const IGameplayWorldRuntime *pWorldRuntime)
+{
+    eventRuntimeState.variables[npcProfessionActionCooldownVariableKey(npcId)] =
+        static_cast<int32_t>(npcProfessionActionCooldownDay(
+            pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f));
+}
+
+bool npcProfessionActionUsedToday(
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId,
+    const IGameplayWorldRuntime *pWorldRuntime)
+{
+    const std::unordered_map<uint32_t, int32_t>::const_iterator cooldownIt =
+        eventRuntimeState.variables.find(npcProfessionActionCooldownVariableKey(npcId));
+    return cooldownIt != eventRuntimeState.variables.end()
+        && cooldownIt->second == static_cast<int32_t>(
+            npcProfessionActionCooldownDay(
+                pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f));
+}
+
+struct NpcProfessionActionExecution
+{
+    bool handled = false;
+    bool closeDialog = false;
+};
+
+NpcProfessionActionExecution executeNpcFollowerProfessionAction(
+    GameplayDialogController::Context &context,
+    uint32_t topicId)
+{
+    NpcProfessionActionExecution execution = {};
+
+    if (!npcProfessionActionTopicHasDailyCooldown(topicId))
+    {
+        return execution;
+    }
+
+    execution.handled = true;
+
+    if (context.pParty == nullptr || context.pNpcDialogTable == nullptr)
+    {
+        context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
+        return execution;
+    }
+
+    const uint32_t npcId = context.activeEventDialog.sourceId;
+    const std::optional<NpcEntry> npc = runtimeNpcEntry(
+        context.pNpcDialogTable,
+        context.eventRuntimeState,
+        npcId);
+    const NpcProfessionId professionId = static_cast<NpcProfessionId>(npc ? npc->professionId : 0u);
+
+    if (npcProfessionActionUsedToday(context.eventRuntimeState, npcId, context.pWorldRuntime))
+    {
+        context.eventRuntimeState.messages.push_back("Sorry, come back another day");
+        return execution;
+    }
+
+    bool applied = false;
+
+    switch (topicId)
+    {
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::HealParty):
+            if (professionId == NpcProfessionId::Healer
+                || professionId == NpcProfessionId::ExpertHealer
+                || professionId == NpcProfessionId::MasterHealer)
+            {
+                restorePartyHealth(*context.pParty);
+
+                if (professionId == NpcProfessionId::ExpertHealer)
+                {
+                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonWeak);
+                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonMedium);
+                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonSevere);
+                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseWeak);
+                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseMedium);
+                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseSevere);
+                }
+                else if (professionId == NpcProfessionId::MasterHealer)
+                {
+                    clearAllPartyConditions(*context.pParty);
+                    restorePartyMana(*context.pParty);
+                }
+
+                applied = true;
+            }
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::MakeFood):
+            if (professionId == NpcProfessionId::Cook || professionId == NpcProfessionId::Chef)
+            {
+                if (context.pParty->food() > MaxFoodForCookFollower)
+                {
+                    context.eventRuntimeState.messages.push_back("Your packs are already full!");
+                    return execution;
+                }
+
+                context.pParty->addFood(
+                    professionId == NpcProfessionId::Chef
+                        ? ChefFollowerFoodAmount
+                        : CookFollowerFoodAmount);
+                applied = true;
+            }
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::CastFly):
+            applied = professionId == NpcProfessionId::WindMaster
+                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Fly), 2, 4);
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::CastWaterWalk):
+            applied = professionId == NpcProfessionId::WaterMaster
+                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::WaterWalk), 3, 4);
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::CastTownPortal):
+            if (professionId == NpcProfessionId::GateMaster)
+            {
+                markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime);
+
+                const size_t casterMemberIndex =
+                    context.pParty->members().empty() ? 0u : context.pParty->activeMemberIndex();
+                context.uiController.openUtilitySpellOverlay(
+                    GameplayUiController::UtilitySpellOverlayMode::TownPortal,
+                    spellIdValue(SpellId::TownPortal),
+                    casterMemberIndex);
+
+                execution.closeDialog = true;
+                return execution;
+            }
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::CastBless):
+            applied = professionId == NpcProfessionId::Acolyte
+                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Bless), 5, 3);
+            break;
+
+        case static_cast<uint32_t>(NpcFollowerActionTopicId::CastHeroism):
+            applied = professionId == NpcProfessionId::Piper
+                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Heroism), 5, 3);
+            break;
+
+        default:
+            break;
+    }
+
+    if (!applied)
+    {
+        context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
+        return execution;
+    }
+
+    markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime);
+    context.eventRuntimeState.messages.push_back("Done!");
+    return execution;
+}
+
 uint32_t guildMembershipVariableKey(uint32_t guildType)
 {
     constexpr uint32_t GuildMembershipVariableBase = 0x80000000u;
@@ -715,6 +1088,117 @@ std::string npcTextOrFallback(const NpcDialogTable *pNpcDialogTable, uint32_t te
 
     const std::optional<std::string> text = pNpcDialogTable->getText(textId);
     return text && !text->empty() ? *text : fallback;
+}
+
+std::optional<NpcEntry> runtimeNpcEntry(
+    const NpcDialogTable *pNpcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId)
+{
+    if (pNpcDialogTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const NpcEntry *pBaseNpc = pNpcDialogTable->getNpc(npcId);
+    const bool hasRuntimeNpc =
+        eventRuntimeState.npcNameOverrides.contains(npcId)
+        || eventRuntimeState.npcPictureOverrides.contains(npcId)
+        || eventRuntimeState.npcProfessionOverrides.contains(npcId);
+
+    if (pBaseNpc == nullptr && !hasRuntimeNpc)
+    {
+        return std::nullopt;
+    }
+
+    NpcEntry entry = pBaseNpc != nullptr ? *pBaseNpc : NpcEntry{};
+    entry.id = npcId;
+
+    const std::unordered_map<uint32_t, std::string>::const_iterator nameIt =
+        eventRuntimeState.npcNameOverrides.find(npcId);
+    if (nameIt != eventRuntimeState.npcNameOverrides.end())
+    {
+        entry.name = nameIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator pictureIt =
+        eventRuntimeState.npcPictureOverrides.find(npcId);
+    if (pictureIt != eventRuntimeState.npcPictureOverrides.end())
+    {
+        entry.pictureId = pictureIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator professionIt =
+        eventRuntimeState.npcProfessionOverrides.find(npcId);
+    if (professionIt != eventRuntimeState.npcProfessionOverrides.end())
+    {
+        entry.professionId = professionIt->second;
+    }
+
+    return entry;
+}
+
+void replaceAllInPlace(std::string &text, const std::string &from, const std::string &to)
+{
+    if (from.empty())
+    {
+        return;
+    }
+
+    size_t position = 0;
+    while ((position = text.find(from, position)) != std::string::npos)
+    {
+        text.replace(position, from.length(), to);
+        position += to.length();
+    }
+}
+
+std::string formatNpcProfessionText(
+    std::string text,
+    const NpcEntry &npc,
+    const MergedNpcProfessionEntry &profession,
+    const Party *pParty)
+{
+    const Character *pActiveMember = nullptr;
+
+    if (pParty != nullptr)
+    {
+        pActiveMember = pParty->member(pParty->activeMemberIndex());
+    }
+
+    const std::string activeMemberName = pActiveMember != nullptr && !pActiveMember->name.empty()
+        ? pActiveMember->name
+        : "traveler";
+
+    replaceAllInPlace(text, "%01", npc.name);
+    replaceAllInPlace(text, "%02", activeMemberName);
+    replaceAllInPlace(text, "%04", std::to_string(profession.weeklyCost));
+    replaceAllInPlace(text, "%14", profession.profession);
+    replaceAllInPlace(text, "%17", std::to_string(profession.weeklyCost / 100u));
+    return text;
+}
+
+bool hasHiredNpcFollower(const EventRuntimeState &eventRuntimeState, uint32_t npcId)
+{
+    return std::find_if(
+        eventRuntimeState.hiredNpcFollowers.begin(),
+        eventRuntimeState.hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        }) != eventRuntimeState.hiredNpcFollowers.end();
+}
+
+uint32_t hiredNpcFollowerFeePercent(const EventRuntimeState &eventRuntimeState)
+{
+    uint32_t total = 0;
+
+    for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
+    {
+        total += follower.weeklyCost / 100u;
+    }
+
+    return total;
 }
 }
 
@@ -851,6 +1335,42 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
         const HouseActionId houseActionId = static_cast<HouseActionId>(action.id);
         const DialogueMenuId menuId = dialogueMenuIdForHouseAction(houseActionId);
+
+        if (houseActionId == HouseActionId::ExtraExit)
+        {
+            if (!pHouseEntry->extraExit.has_value())
+            {
+                return result;
+            }
+
+            const HouseEntry::ExtraExit &extraExit = *pHouseEntry->extraExit;
+
+            if (extraExit.requiredQuestBit != 0
+                && (context.pParty == nullptr || !context.pParty->hasQuestBit(extraExit.requiredQuestBit)))
+            {
+                return result;
+            }
+
+            if (context.pScreenRuntime != nullptr)
+            {
+                context.pScreenRuntime->stopAllAudioPlayback();
+            }
+
+            if (context.pWorldRuntime != nullptr)
+            {
+                context.pWorldRuntime->requestTravelAutosave();
+            }
+
+            EventRuntimeState::PendingMapMove pendingMapMove = {};
+            pendingMapMove.mapName = extraExit.destinationMapFileName;
+            pendingMapMove.x = extraExit.x;
+            pendingMapMove.y = extraExit.y;
+            pendingMapMove.z = extraExit.z;
+            pendingMapMove.useMapStartPosition = false;
+            context.eventRuntimeState.pendingMapMove = std::move(pendingMapMove);
+            result.shouldCloseActiveDialog = true;
+            return result;
+        }
 
         if (menuId != DialogueMenuId::None)
         {
@@ -1122,9 +1642,9 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         {
             if (pRosterEntry != nullptr && !context.pParty->hasRosterMember(invite.rosterId))
             {
-                const NpcEntry *pNpcEntry =
-                    context.pNpcDialogTable != nullptr ? context.pNpcDialogTable->getNpc(invite.npcId) : nullptr;
-                const uint32_t portraitPictureId = pNpcEntry != nullptr ? pNpcEntry->pictureId : 0;
+        const std::optional<NpcEntry> npcEntry =
+            runtimeNpcEntry(context.pNpcDialogTable, context.eventRuntimeState, invite.npcId);
+        const uint32_t portraitPictureId = npcEntry ? npcEntry->pictureId : 0;
                 context.pParty->addAdventurersInnMember(*pRosterEntry, portraitPictureId);
             }
 
@@ -1201,7 +1721,16 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
     if (action.kind == EventDialogActionKind::MasteryTeacherOffer)
     {
-        tryUnlockTrainerAutoNote(context.eventRuntimeState, action.id, context.pParty);
+        tryRegisterTrainerNote(
+            context.eventRuntimeState,
+            action.id,
+            context.activeEventDialog.sourceId,
+            context.pTeacherAutonoteTable,
+            context.pTeacherTopicTable,
+            context.pCurrentMap,
+            context.pBolsterMapTable,
+            context.pWorldRuntime,
+            context.pParty);
 
         EventRuntimeState::DialogueOfferState offer = {};
         offer.kind = DialogueOfferKind::MasteryTeacher;
@@ -1236,6 +1765,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 *context.pParty,
                 *context.pClassSkillTable,
                 *context.pNpcDialogTable,
+                context.pTeacherTopicTable,
                 message))
         {
             if (!message.empty())
@@ -1256,7 +1786,8 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.eventRuntimeState.dialogueState.currentOffer->topicId,
                 *context.pParty,
                 *context.pClassSkillTable,
-                *context.pNpcDialogTable
+                *context.pNpcDialogTable,
+                context.pTeacherTopicTable
             );
 
             if (evaluation && !evaluation->displayText.empty())
@@ -1377,6 +1908,349 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         return result;
     }
 
+    if (action.kind == EventDialogActionKind::NpcHireOffer)
+    {
+        if (context.pNpcDialogTable == nullptr || context.pNpcProfessionTable == nullptr)
+        {
+            return result;
+        }
+
+        const uint32_t npcId = context.activeEventDialog.sourceId;
+        const std::optional<NpcEntry> npcEntry =
+            runtimeNpcEntry(context.pNpcDialogTable, context.eventRuntimeState, npcId);
+        const NpcEntry *pNpc = npcEntry ? &*npcEntry : nullptr;
+        const MergedNpcProfessionEntry *pProfession =
+            pNpc != nullptr ? context.pNpcProfessionTable->get(pNpc->professionId) : nullptr;
+
+        if (pNpc == nullptr || pProfession == nullptr || !npcCanOfferProfessionHire(*pNpc, *pProfession))
+        {
+            context.eventRuntimeState.messages.push_back("That follower is not available.");
+            result.shouldOpenPendingEventDialog = true;
+            return result;
+        }
+
+        std::string message = npcTextOrFallback(
+            context.pNpcDialogTable,
+            pProfession->joinTextId,
+            "I will join you.");
+
+        if (pProfession->descriptionTextId != 0)
+        {
+            const std::optional<std::string> description = context.pNpcDialogTable->getText(pProfession->descriptionTextId);
+
+            if (description && !description->empty())
+            {
+                message += "\n(" + *description + ")";
+            }
+        }
+
+        context.eventRuntimeState.messages.push_back(formatNpcProfessionText(message, *pNpc, *pProfession, context.pParty));
+
+        EventRuntimeState::DialogueOfferState offerState = {};
+        offerState.kind = DialogueOfferKind::NpcHire;
+        offerState.npcId = npcId;
+        offerState.topicId = pNpc->professionId;
+        offerState.messageTextId = pProfession->joinTextId;
+        offerState.sourceActorIndex = context.activeEventDialog.sourceActorIndex;
+        context.eventRuntimeState.dialogueState.currentOffer = std::move(offerState);
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            npcId,
+            currentDialogueHostHouseId(context.eventRuntimeState),
+            offerState.sourceActorIndex);
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcHireAccept)
+    {
+        if (!context.eventRuntimeState.dialogueState.currentOffer
+            || context.eventRuntimeState.dialogueState.currentOffer->kind != DialogueOfferKind::NpcHire
+            || context.pNpcDialogTable == nullptr
+            || context.pNpcProfessionTable == nullptr
+            || context.pParty == nullptr)
+        {
+            return result;
+        }
+
+        const EventRuntimeState::DialogueOfferState offer = *context.eventRuntimeState.dialogueState.currentOffer;
+        context.eventRuntimeState.dialogueState.currentOffer.reset();
+        bool hired = false;
+
+        const std::optional<NpcEntry> npcEntry =
+            runtimeNpcEntry(context.pNpcDialogTable, context.eventRuntimeState, offer.npcId);
+        const NpcEntry *pNpc = npcEntry ? &*npcEntry : nullptr;
+        const MergedNpcProfessionEntry *pProfession =
+            pNpc != nullptr ? context.pNpcProfessionTable->get(pNpc->professionId) : nullptr;
+
+        if (pNpc == nullptr || pProfession == nullptr || !npcCanOfferProfessionHire(*pNpc, *pProfession))
+        {
+            context.eventRuntimeState.messages.push_back("That follower is not available.");
+        }
+        else if (hasHiredNpcFollower(context.eventRuntimeState, offer.npcId))
+        {
+            context.eventRuntimeState.messages.push_back(pNpc->name + " is already following you.");
+        }
+        else if (context.eventRuntimeState.hiredNpcFollowers.size() >= MaxNpcFollowerCount
+            || hiredNpcFollowerFeePercent(context.eventRuntimeState) >= MaxNpcFollowerFeePercent)
+        {
+            context.eventRuntimeState.messages.push_back(npcTextOrFallback(
+                context.pNpcDialogTable,
+                533,
+                "You already have enough followers."));
+        }
+        else if (context.pParty->gold() < static_cast<int>(pProfession->weeklyCost))
+        {
+            context.eventRuntimeState.messages.push_back(npcTextOrFallback(
+                context.pNpcDialogTable,
+                155,
+                "You do not have enough gold."));
+        }
+        else
+        {
+            context.pParty->addGold(-static_cast<int>(pProfession->weeklyCost));
+
+            EventRuntimeState::HiredNpcFollower follower = {};
+            follower.npcId = offer.npcId;
+            follower.professionId = pNpc->professionId;
+            follower.weeklyCost = pProfession->weeklyCost;
+            context.eventRuntimeState.hiredNpcFollowers.push_back(follower);
+            context.eventRuntimeState.unavailableNpcIds.insert(offer.npcId);
+            context.eventRuntimeState.npcHouseOverrides.erase(offer.npcId);
+            context.pParty->addHiredNpcFollower(follower);
+            context.pParty->setNpcUnavailable(offer.npcId, true);
+            context.pParty->clearNpcHouseOverride(offer.npcId);
+            if (offer.sourceActorIndex)
+            {
+                hideMapActorByIndex(context.eventRuntimeState, *offer.sourceActorIndex);
+            }
+            else
+            {
+                hideGeneratedNpcActor(context.eventRuntimeState, offer.npcId, context.pCurrentMap);
+            }
+
+            if (context.pWorldRuntime != nullptr)
+            {
+                context.pWorldRuntime->applyEventRuntimeState();
+            }
+
+            context.eventRuntimeState.messages.push_back(pNpc->name + " joined the followers.");
+            hired = true;
+        }
+
+        if (hired)
+        {
+            result.shouldCloseActiveDialog = true;
+            return result;
+        }
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            offer.npcId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        result.allowNpcFallbackContent = false;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcHireDecline)
+    {
+        const uint32_t npcId =
+            (context.eventRuntimeState.dialogueState.currentOffer
+             && context.eventRuntimeState.dialogueState.currentOffer->kind == DialogueOfferKind::NpcHire)
+            ? context.eventRuntimeState.dialogueState.currentOffer->npcId
+            : context.activeEventDialog.sourceId;
+        context.eventRuntimeState.dialogueState.currentOffer.reset();
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            npcId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcDismiss)
+    {
+        const uint32_t npcId = context.activeEventDialog.sourceId;
+        const std::optional<NpcEntry> npcEntry =
+            runtimeNpcEntry(context.pNpcDialogTable, context.eventRuntimeState, npcId);
+        const NpcEntry *pNpc = npcEntry ? &*npcEntry : nullptr;
+        std::vector<EventRuntimeState::HiredNpcFollower> &followers = context.eventRuntimeState.hiredNpcFollowers;
+        const auto followerIt = std::find_if(
+            followers.begin(),
+            followers.end(),
+            [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+            {
+                return follower.npcId == npcId;
+            });
+
+        if (followerIt != followers.end())
+        {
+            followers.erase(followerIt);
+            context.eventRuntimeState.unavailableNpcIds.erase(npcId);
+
+            if (context.pParty != nullptr)
+            {
+                context.pParty->removeHiredNpcFollower(npcId);
+                context.pParty->setNpcUnavailable(npcId, false);
+            }
+
+            context.eventRuntimeState.messages.push_back(
+                (pNpc != nullptr && !pNpc->name.empty() ? pNpc->name : "The follower") + " left the followers.");
+        }
+
+        result.shouldCloseActiveDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcProfessionDescription)
+    {
+        if (context.pNpcDialogTable != nullptr && action.secondaryId != 0)
+        {
+            const std::optional<std::string> description = context.pNpcDialogTable->getText(action.secondaryId);
+
+            if (description && !description->empty())
+            {
+                context.eventRuntimeState.messages.push_back(*description);
+            }
+        }
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            context.activeEventDialog.sourceId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcBtb)
+    {
+        bool accepted = action.argument == "accepted";
+        bool bribePaid = false;
+
+        if (context.pNpcDialogTable != nullptr && action.secondaryId != 0)
+        {
+            const uint32_t npcId = context.activeEventDialog.sourceId;
+            const std::optional<NpcEntry> npcEntry =
+                runtimeNpcEntry(context.pNpcDialogTable, context.eventRuntimeState, npcId);
+            const NpcEntry *pNpc = npcEntry ? &*npcEntry : nullptr;
+            const MergedNpcProfessionEntry *pProfession =
+                pNpc != nullptr && context.pNpcProfessionTable != nullptr
+                    ? context.pNpcProfessionTable->get(pNpc->professionId)
+                    : nullptr;
+            uint32_t textId = action.secondaryId;
+
+            if (accepted && action.id == NpcBribeTopicId)
+            {
+                const uint32_t bribeCost =
+                    pProfession != nullptr && pProfession->weeklyCost != 0 ? pProfession->weeklyCost : 50u;
+
+                if (context.pParty == nullptr || context.pParty->gold() <= static_cast<int>(bribeCost))
+                {
+                    accepted = false;
+                    textId = 0;
+                    context.eventRuntimeState.messages.push_back("You don't have enough gold.");
+                }
+                else
+                {
+                    context.pParty->addGold(-static_cast<int>(bribeCost));
+                    bribePaid = true;
+                }
+            }
+
+            const std::optional<std::string> text = context.pNpcDialogTable->getText(textId);
+
+            if (text && !text->empty())
+            {
+                context.eventRuntimeState.messages.push_back(
+                    pNpc != nullptr && pProfession != nullptr
+                        ? formatNpcProfessionText(*text, *pNpc, *pProfession, context.pParty)
+                        : *text);
+            }
+        }
+
+        if (accepted || bribePaid)
+        {
+            context.eventRuntimeState.variables[npcBtbDialogueAccessVariableKey(context.activeEventDialog.sourceId)] =
+                static_cast<int32_t>(npcBtbDialogueAccessDay(
+                    context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f));
+        }
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            context.activeEventDialog.sourceId,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::NpcProfessionAction)
+    {
+        const uint32_t npcId = context.activeEventDialog.sourceId;
+        const std::optional<EventRuntimeState::PendingDialogueContext> previousPendingDialogueContext =
+            context.eventRuntimeState.pendingDialogueContext;
+        bool executed = false;
+
+        const NpcProfessionActionExecution professionExecution =
+            executeNpcFollowerProfessionAction(context, action.id);
+
+        if (professionExecution.handled)
+        {
+            executed = true;
+        }
+
+        if (professionExecution.closeDialog)
+        {
+            result.shouldCloseActiveDialog = true;
+            return result;
+        }
+
+        if (!executed && context.pNpcDialogTable != nullptr)
+        {
+            const std::optional<NpcDialogTable::ResolvedTopic> topic =
+                context.pNpcDialogTable->getTopicById(action.id);
+
+            if (topic && !topic->text.empty())
+            {
+                context.eventRuntimeState.messages.push_back(topic->text);
+                executed = true;
+            }
+        }
+
+        if (!executed)
+        {
+            size_t executionPreviousMessageCount = result.previousMessageCount;
+            executed = executeNpcTopicEvent(context, static_cast<uint16_t>(action.id), executionPreviousMessageCount);
+        }
+
+        if (!executed)
+        {
+            context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
+        }
+
+        if (!context.eventRuntimeState.pendingDialogueContext
+            || samePendingDialogueContext(
+                context.eventRuntimeState.pendingDialogueContext,
+                previousPendingDialogueContext))
+        {
+            setPendingDialogueContext(
+                context.eventRuntimeState,
+                DialogueContextKind::NpcTalk,
+                npcId,
+                currentDialogueHostHouseId(context.eventRuntimeState));
+        }
+
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
     if (action.kind == EventDialogActionKind::NpcTopic)
     {
         const uint32_t npcId = context.activeEventDialog.sourceId;
@@ -1391,7 +2265,16 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
             if (topic && !topic->text.empty())
             {
-                tryUnlockTrainerAutoNote(context.eventRuntimeState, topic->id, context.pParty);
+                tryRegisterTrainerNote(
+                    context.eventRuntimeState,
+                    topic->id,
+                    npcId,
+                    context.pTeacherAutonoteTable,
+                    context.pTeacherTopicTable,
+                    context.pCurrentMap,
+                    context.pBolsterMapTable,
+                    context.pWorldRuntime,
+                    context.pParty);
                 context.eventRuntimeState.messages.push_back(topic->text);
                 executed = true;
             }
@@ -1502,7 +2385,10 @@ GameplayDialogController::PresentPendingDialogResult GameplayDialogController::p
         context.pWorldRuntime,
         context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f,
         context.pNpcProfessionTable,
-        context.pNewsProfessionTopicTable
+        context.pNewsProfessionTopicTable,
+        context.pNpcBtbTable,
+        context.pTeacherTopicTable,
+        context.pContinentSettingTable
     ));
 
     if (context.eventRuntimeState.pendingDialogueContext.has_value()
@@ -1513,11 +2399,22 @@ GameplayDialogController::PresentPendingDialogResult GameplayDialogController::p
         const std::optional<uint32_t> masteryTopicId = masteryTeacherTopicIdForNpc(
             *context.pNpcDialogTable,
             context.eventRuntimeState,
+            context.pParty,
+            context.pTeacherTopicTable,
             context.eventRuntimeState.pendingDialogueContext->sourceId);
 
         if (masteryTopicId.has_value())
         {
-            tryUnlockTrainerAutoNote(context.eventRuntimeState, *masteryTopicId, context.pParty);
+            registerTrainerNotesForNpc(
+                context.eventRuntimeState,
+                *context.pNpcDialogTable,
+                context.eventRuntimeState.pendingDialogueContext->sourceId,
+                context.pTeacherAutonoteTable,
+                context.pTeacherTopicTable,
+                context.pCurrentMap,
+                context.pBolsterMapTable,
+                context.pWorldRuntime,
+                context.pParty);
         }
     }
 
@@ -1562,7 +2459,8 @@ GameplayDialogController::PresentPendingDialogResult GameplayDialogController::p
 GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
     Context &context,
     uint32_t npcId,
-    uint32_t hostHouseId) const
+    uint32_t hostHouseId,
+    std::optional<uint32_t> sourceActorIndex) const
 {
     Result result = {};
     result.previousMessageCount = context.eventRuntimeState.messages.size();
@@ -1573,7 +2471,12 @@ GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
     }
 
     context.eventRuntimeState.dialogueState.hostHouseId = hostHouseId;
-    setPendingDialogueContext(context.eventRuntimeState, DialogueContextKind::NpcTalk, npcId, hostHouseId);
+    setPendingDialogueContext(
+        context.eventRuntimeState,
+        DialogueContextKind::NpcTalk,
+        npcId,
+        hostHouseId,
+        sourceActorIndex);
     result.shouldOpenPendingEventDialog = true;
     return result;
 }

@@ -3,7 +3,6 @@
 #include "game/audio/GameAudioSystem.h"
 #include "game/app/GameSettings.h"
 #include "game/items/ItemEnchantTables.h"
-#include "game/items/ItemEquipPosTable.h"
 #include "game/party/SpeechIds.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/tables/CharacterInspectTable.h"

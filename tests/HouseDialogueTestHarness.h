@@ -48,6 +48,11 @@ public:
         return m_eventRuntimeState;
     }
 
+    void setCurrentMap(Game::MapStatsEntry map)
+    {
+        m_currentMap = std::move(map);
+    }
+
     Game::GameplayUiController &uiController()
     {
         return m_uiController;
@@ -93,11 +98,14 @@ public:
         return presentPendingDialog(0, true);
     }
 
-    const Game::EventDialogContent &openNpcDialogue(uint32_t npcId, uint32_t hostHouseId = 0)
+    const Game::EventDialogContent &openNpcDialogue(
+        uint32_t npcId,
+        uint32_t hostHouseId = 0,
+        std::optional<uint32_t> sourceActorIndex = std::nullopt)
     {
         Game::GameplayDialogController::Context context = buildContext();
         const Game::GameplayDialogController::Result result =
-            m_controller.openNpcDialogue(context, npcId, hostHouseId);
+            m_controller.openNpcDialogue(context, npcId, hostHouseId, sourceActorIndex);
         return presentPendingDialog(result.previousMessageCount, result.allowNpcFallbackContent);
     }
 
@@ -243,11 +251,16 @@ public:
             &m_gameData.classSkillTable,
             &m_gameData.npcDialogTable,
             &m_gameData.transitionTable,
-            nullptr,
+            m_currentMap.has_value() ? &*m_currentMap : nullptr,
             nullptr,
             &m_party,
             &m_worldRuntime,
-            m_worldRuntime.gameMinutes());
+            m_worldRuntime.gameMinutes(),
+            &m_gameData.mergedNpcProfessionTable,
+            &m_gameData.mergedNewsProfessionTopicTable,
+            &m_gameData.mergedNpcBtbTable,
+            &m_gameData.mergedTeacherTopicTable,
+            &m_gameData.mergedContinentSettingTable);
     }
 
 private:
@@ -286,12 +299,19 @@ private:
             &m_gameData.classSkillTable,
             &m_gameData.npcDialogTable,
             &m_gameData.transitionTable,
-            nullptr,
+            m_currentMap.has_value() ? &*m_currentMap : nullptr,
             nullptr,
             &m_gameData.rosterTable,
             &m_gameData.arcomageLibrary,
             true,
-            nullptr);
+            nullptr,
+            &m_gameData.mergedNpcProfessionTable,
+            &m_gameData.mergedNewsProfessionTopicTable,
+            &m_gameData.mergedNpcBtbTable,
+            nullptr,
+            &m_gameData.mergedContinentSettingTable,
+            &m_gameData.mergedTeacherTopicTable,
+            &m_gameData.mergedTeacherAutonoteTable);
     }
 
     const RegressionGameData &m_gameData;
@@ -300,5 +320,6 @@ private:
     Game::GameplayUiController m_uiController = {};
     Game::GameplayDialogController m_controller = {};
     Game::EventRuntimeState m_eventRuntimeState = {};
+    std::optional<Game::MapStatsEntry> m_currentMap;
 };
 }

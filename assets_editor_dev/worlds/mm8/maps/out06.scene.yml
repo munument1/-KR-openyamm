@@ -42,6 +42,7 @@ environment:
   ceiling: 0
 terrain:
   attribute_overrides: []
+  footstep_sound_overrides: []
 bmodel_faces:
   interactive_faces:
     - bmodel_index: 0

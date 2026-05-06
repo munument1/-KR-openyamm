@@ -50,6 +50,8 @@ enum class HouseActionId : uint32_t
     TavernArcomageVictoryConditions,
     TavernArcomagePlay,
     TransportRoute,
+    ExtraExit,
+    LorettaPriceFixing,
 };
 
 enum class HouseSoundType : uint32_t

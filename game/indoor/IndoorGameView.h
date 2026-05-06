@@ -5,7 +5,6 @@
 #include "game/gameplay/GameplayDialogController.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/items/ItemEnchantTables.h"
-#include "game/items/ItemEquipPosTable.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/tables/CharacterInspectTable.h"
 #include "game/tables/ChestTable.h"
@@ -73,6 +72,8 @@ public:
     float gameplayCameraYawRadians() const override;
     bool activeMemberKnowsSpell(uint32_t spellId) const;
     bool activeMemberHasSpellbookSchool(GameplayUiController::SpellbookSchool school) const;
+    bool canActivateMapActorDialogue(size_t actorIndex) const;
+    bool activateMapActorDialogue(size_t actorIndex);
     GameplayUiController::HeldInventoryItemState &heldInventoryItem();
     const GameplayUiController::HeldInventoryItemState &heldInventoryItem() const;
     void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);

@@ -26,7 +26,6 @@ void GameDataRepository::clear()
     m_pItemTable = nullptr;
     m_pStandardItemEnchantTable = nullptr;
     m_pSpecialItemEnchantTable = nullptr;
-    m_pItemEquipPosTable = nullptr;
     m_pChestTable = nullptr;
     m_pHouseTable = nullptr;
     m_pJournalQuestTable = nullptr;
@@ -48,11 +47,22 @@ void GameDataRepository::clear()
     m_pPortraitFxEventTable = nullptr;
     m_pFaceAnimationTable = nullptr;
     m_pTransitionTable = nullptr;
-    m_pMmergeTownPortalSwitchTable = nullptr;
-    m_pMmergeNewsAreaTopicTable = nullptr;
-    m_pMmergeNpcProfessionTable = nullptr;
-    m_pMmergeNewsProfessionTopicTable = nullptr;
-    m_pMmergeMonsterPortraitTable = nullptr;
+    m_pMergedTownPortalSwitchTable = nullptr;
+    m_pMergedNewsAreaTopicTable = nullptr;
+    m_pMergedNewsContinentTopicTable = nullptr;
+    m_pMergedNpcProfessionTable = nullptr;
+    m_pMergedNpcNameTable = nullptr;
+    m_pMergedNpcBtbTable = nullptr;
+    m_pMergedNewsProfessionTopicTable = nullptr;
+    m_pMergedBolsterMapTable = nullptr;
+    m_pMergedBolsterMonsterTable = nullptr;
+    m_pMergedContinentSettingTable = nullptr;
+    m_pMergedMonsterPortraitTable = nullptr;
+    m_pMergedPotionSettingTable = nullptr;
+    m_pMergedReagentSettingTable = nullptr;
+    m_pMergedComplexItemPictureTable = nullptr;
+    m_pMergedTeacherTopicTable = nullptr;
+    m_pMergedTeacherAutonoteTable = nullptr;
 }
 
 void GameDataRepository::bind(const GameDataLoader &loader)
@@ -65,7 +75,6 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pItemTable = &loader.getItemTable();
     m_pStandardItemEnchantTable = &loader.getStandardItemEnchantTable();
     m_pSpecialItemEnchantTable = &loader.getSpecialItemEnchantTable();
-    m_pItemEquipPosTable = &loader.getItemEquipPosTable();
     m_pChestTable = &loader.getChestTable();
     m_pHouseTable = &loader.getHouseTable();
     m_pJournalQuestTable = &loader.getJournalQuestTable();
@@ -87,11 +96,22 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pPortraitFxEventTable = &loader.getPortraitFxEventTable();
     m_pFaceAnimationTable = &loader.getFaceAnimationTable();
     m_pTransitionTable = &loader.getTransitionTable();
-    m_pMmergeTownPortalSwitchTable = &loader.getMmergeTownPortalSwitchTable();
-    m_pMmergeNewsAreaTopicTable = &loader.getMmergeNewsAreaTopicTable();
-    m_pMmergeNpcProfessionTable = &loader.getMmergeNpcProfessionTable();
-    m_pMmergeNewsProfessionTopicTable = &loader.getMmergeNewsProfessionTopicTable();
-    m_pMmergeMonsterPortraitTable = &loader.getMmergeMonsterPortraitTable();
+    m_pMergedTownPortalSwitchTable = &loader.getMergedTownPortalSwitchTable();
+    m_pMergedNewsAreaTopicTable = &loader.getMergedNewsAreaTopicTable();
+    m_pMergedNewsContinentTopicTable = &loader.getMergedNewsContinentTopicTable();
+    m_pMergedNpcProfessionTable = &loader.getMergedNpcProfessionTable();
+    m_pMergedNpcNameTable = &loader.getMergedNpcNameTable();
+    m_pMergedNpcBtbTable = &loader.getMergedNpcBtbTable();
+    m_pMergedNewsProfessionTopicTable = &loader.getMergedNewsProfessionTopicTable();
+    m_pMergedBolsterMapTable = &loader.getMergedBolsterMapTable();
+    m_pMergedBolsterMonsterTable = &loader.getMergedBolsterMonsterTable();
+    m_pMergedContinentSettingTable = &loader.getMergedContinentSettingTable();
+    m_pMergedMonsterPortraitTable = &loader.getMergedMonsterPortraitTable();
+    m_pMergedPotionSettingTable = &loader.getMergedPotionSettingTable();
+    m_pMergedReagentSettingTable = &loader.getMergedReagentSettingTable();
+    m_pMergedComplexItemPictureTable = &loader.getMergedComplexItemPictureTable();
+    m_pMergedTeacherTopicTable = &loader.getMergedTeacherTopicTable();
+    m_pMergedTeacherAutonoteTable = &loader.getMergedTeacherAutonoteTable();
 }
 
 bool GameDataRepository::isBound() const
@@ -142,11 +162,6 @@ const StandardItemEnchantTable &GameDataRepository::standardItemEnchantTable() c
 const SpecialItemEnchantTable &GameDataRepository::specialItemEnchantTable() const
 {
     return requireBound(m_pSpecialItemEnchantTable);
-}
-
-const ItemEquipPosTable &GameDataRepository::itemEquipPosTable() const
-{
-    return requireBound(m_pItemEquipPosTable);
 }
 
 const ChestTable &GameDataRepository::chestTable() const
@@ -254,28 +269,83 @@ const TransitionTable &GameDataRepository::transitionTable() const
     return requireBound(m_pTransitionTable);
 }
 
-const MmergeTownPortalSwitchTable &GameDataRepository::mmergeTownPortalSwitchTable() const
+const MergedTownPortalSwitchTable &GameDataRepository::mergedTownPortalSwitchTable() const
 {
-    return requireBound(m_pMmergeTownPortalSwitchTable);
+    return requireBound(m_pMergedTownPortalSwitchTable);
 }
 
-const MmergeNewsTopicTable &GameDataRepository::mmergeNewsAreaTopicTable() const
+const MergedNewsTopicTable &GameDataRepository::mergedNewsAreaTopicTable() const
 {
-    return requireBound(m_pMmergeNewsAreaTopicTable);
+    return requireBound(m_pMergedNewsAreaTopicTable);
 }
 
-const MmergeNpcProfessionTable &GameDataRepository::mmergeNpcProfessionTable() const
+const MergedNewsTopicTable &GameDataRepository::mergedNewsContinentTopicTable() const
 {
-    return requireBound(m_pMmergeNpcProfessionTable);
+    return requireBound(m_pMergedNewsContinentTopicTable);
 }
 
-const MmergeNewsProfessionTopicTable &GameDataRepository::mmergeNewsProfessionTopicTable() const
+const MergedNpcProfessionTable &GameDataRepository::mergedNpcProfessionTable() const
 {
-    return requireBound(m_pMmergeNewsProfessionTopicTable);
+    return requireBound(m_pMergedNpcProfessionTable);
 }
 
-const MmergeMonsterPortraitTable &GameDataRepository::mmergeMonsterPortraitTable() const
+const MergedNpcNameTable &GameDataRepository::mergedNpcNameTable() const
 {
-    return requireBound(m_pMmergeMonsterPortraitTable);
+    return requireBound(m_pMergedNpcNameTable);
+}
+
+const MergedNpcBtbTable &GameDataRepository::mergedNpcBtbTable() const
+{
+    return requireBound(m_pMergedNpcBtbTable);
+}
+
+const MergedNewsProfessionTopicTable &GameDataRepository::mergedNewsProfessionTopicTable() const
+{
+    return requireBound(m_pMergedNewsProfessionTopicTable);
+}
+
+const MergedBolsterMapTable &GameDataRepository::mergedBolsterMapTable() const
+{
+    return requireBound(m_pMergedBolsterMapTable);
+}
+
+const MergedBolsterMonsterTable &GameDataRepository::mergedBolsterMonsterTable() const
+{
+    return requireBound(m_pMergedBolsterMonsterTable);
+}
+
+const MergedContinentSettingTable &GameDataRepository::mergedContinentSettingTable() const
+{
+    return requireBound(m_pMergedContinentSettingTable);
+}
+
+const MergedMonsterPortraitTable &GameDataRepository::mergedMonsterPortraitTable() const
+{
+    return requireBound(m_pMergedMonsterPortraitTable);
+}
+
+const MergedPotionSettingTable &GameDataRepository::mergedPotionSettingTable() const
+{
+    return requireBound(m_pMergedPotionSettingTable);
+}
+
+const MergedReagentSettingTable &GameDataRepository::mergedReagentSettingTable() const
+{
+    return requireBound(m_pMergedReagentSettingTable);
+}
+
+const MergedComplexItemPictureTable &GameDataRepository::mergedComplexItemPictureTable() const
+{
+    return requireBound(m_pMergedComplexItemPictureTable);
+}
+
+const MergedTeacherTopicTable &GameDataRepository::mergedTeacherTopicTable() const
+{
+    return requireBound(m_pMergedTeacherTopicTable);
+}
+
+const MergedTeacherAutonoteTable &GameDataRepository::mergedTeacherAutonoteTable() const
+{
+    return requireBound(m_pMergedTeacherAutonoteTable);
 }
 } // namespace OpenYAMM::Game

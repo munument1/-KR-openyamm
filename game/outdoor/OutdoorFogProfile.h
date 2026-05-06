@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 
 namespace OpenYAMM::Game
 {
@@ -42,5 +43,33 @@ inline OutdoorFogProfile buildOutdoorFogProfile(
     profile.strongDistance = softenedStrongDistance;
     profile.farDistance = softenedFarDistance;
     return profile;
+}
+
+inline OutdoorFogProfile buildOutdoorClearDistanceFogProfile(float visibleDistance)
+{
+    const float clampedVisibleDistance = std::max(visibleDistance, 1.0f);
+
+    OutdoorFogProfile profile = {};
+    profile.nearOpacity = 0.0f;
+    profile.strongOpacity = 0.0f;
+    profile.weakDistance = clampedVisibleDistance * 0.75f;
+    profile.strongDistance = clampedVisibleDistance * 0.875f;
+    profile.farDistance = clampedVisibleDistance;
+    return profile;
+}
+
+inline uint8_t outdoorClearDistanceFogBrightness(float gameMinutes)
+{
+    const float minutesOfDay = std::fmod(std::max(gameMinutes, 0.0f), 1440.0f);
+
+    if (minutesOfDay < 300.0f || minutesOfDay >= 1260.0f)
+    {
+        return 39;
+    }
+
+    const float daylightMinutes = minutesOfDay - 300.0f;
+    const float mirroredDaylightMinutes = daylightMinutes >= 480.0f ? 960.0f - daylightMinutes : daylightMinutes;
+    const int maxTerrainDimmingLevel = static_cast<int>(20.0f - mirroredDaylightMinutes / 480.0f * 20.0f);
+    return static_cast<uint8_t>(std::clamp(255 - 8 * maxTerrainDimmingLevel, 0, 255));
 }
 } // namespace OpenYAMM::Game

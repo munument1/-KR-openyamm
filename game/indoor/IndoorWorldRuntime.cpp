@@ -5,6 +5,7 @@
 #include "game/audio/SoundIds.h"
 #include "game/data/ActorNameResolver.h"
 #include "game/events/EvtEnums.h"
+#include "game/events/EventProjectileSpells.h"
 #include "game/StringUtils.h"
 #include "game/gameplay/ChestRuntime.h"
 #include "game/gameplay/CorpseLootRuntime.h"
@@ -66,6 +67,159 @@ constexpr float ActorInertiaReferenceFrameRate = 60.0f;
 constexpr float ActorStopVelocitySquared = 400.0f;
 constexpr float ActorKnockbackVelocityStep = 50.0f;
 constexpr int ActorMaxKnockbackSteps = 10;
+
+uint32_t nextInspectPreviewRandom(IndoorWorldRuntime::ActorInspectPreviewAnimationState &state)
+{
+    state.randomState = state.randomState * 1664525u + 1013904223u;
+    return state.randomState;
+}
+
+uint32_t randomInspectPreviewSecondsTicks(
+    IndoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    uint32_t minimumSeconds,
+    uint32_t maximumSeconds)
+{
+    const uint32_t span = maximumSeconds >= minimumSeconds ? maximumSeconds - minimumSeconds + 1u : 1u;
+    return (minimumSeconds + nextInspectPreviewRandom(state) % span) * static_cast<uint32_t>(TicksPerSecond);
+}
+
+uint32_t monsterTypeGroupId(int16_t monsterId)
+{
+    return monsterId > 0 ? (static_cast<uint32_t>(monsterId - 1) / 3u) + 1u : 0u;
+}
+
+bool monsterInspectPreviewIsPeasant(int16_t monsterId, const std::string &displayName)
+{
+    const uint32_t groupId = monsterTypeGroupId(monsterId);
+
+    if ((groupId >= 39u && groupId <= 62u) || (groupId >= 78u && groupId <= 83u))
+    {
+        return true;
+    }
+
+    const std::string lowercaseName = toLowerCopy(displayName);
+    return lowercaseName.find("peasant") != std::string::npos
+        || lowercaseName.find("farmer") != std::string::npos
+        || lowercaseName.find("villager") != std::string::npos;
+}
+
+int monsterInspectPreviewYOffset(int16_t monsterId)
+{
+    // Copied from OE's monster_popup_y_offsets table; OE subtracts another 40 before drawing.
+    // Merged MM8 ids can map past OE's MONSTER_TYPE_LAST and should not inherit the OE fallback offset.
+    static constexpr std::array<int, 93> yOffsets = {{
+        0, -20, 20, 0, -40, 0, 0, 0, 0, 0,
+        0, -50, 20, 0, -10, -10, -20, 10, -10, 0,
+        0, 0, -20, 10, -10, 0, 0, 0, -20, -10,
+        0, 0, 0, -40, -20, 0, 0, 0, -50, -30,
+        -30, -30, -30, -30, -30, 0, 0, 0, 0, 0,
+        0, -20, -20, -20, 20, 20, 20, 10, 10, 10,
+        10, 10, 10, -90, -60, -40, -20, -20, -80, -10,
+        0, 0, -40, 0, 0, 0, -20, 10, 0, 0,
+        0, 0, 0, 0, 0, -60, 0, 0, 0, 0,
+        0, 0, 0,
+    }};
+    const uint32_t groupId = monsterTypeGroupId(monsterId);
+
+    if (groupId == 0)
+    {
+        return -40;
+    }
+
+    if (groupId >= yOffsets.size())
+    {
+        return 0;
+    }
+
+    return yOffsets[groupId] - 40;
+}
+
+uint32_t spriteAnimationLengthTicks(
+    const SpriteFrameTable *pSpriteFrameTable,
+    uint16_t spriteFrameIndex,
+    uint32_t fallbackTicks)
+{
+    if (pSpriteFrameTable == nullptr || spriteFrameIndex == 0)
+    {
+        return fallbackTicks;
+    }
+
+    const SpriteFrameEntry *pFrame = pSpriteFrameTable->getFrame(spriteFrameIndex, 0);
+
+    if (pFrame == nullptr || pFrame->animationLengthTicks <= 0)
+    {
+        return fallbackTicks;
+    }
+
+    return static_cast<uint32_t>(pFrame->animationLengthTicks);
+}
+
+uint16_t actorInspectPreviewSpriteFrameIndex(
+    const IndoorWorldRuntime::MapActorAiState &actor,
+    ActorAiAnimationState animation)
+{
+    const size_t animationIndex = static_cast<size_t>(animation);
+
+    if (animationIndex < actor.actionSpriteFrameIndices.size()
+        && actor.actionSpriteFrameIndices[animationIndex] != 0)
+    {
+        return actor.actionSpriteFrameIndices[animationIndex];
+    }
+
+    return actor.spriteFrameIndex;
+}
+
+void resetActorInspectPreviewAnimation(
+    IndoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    const IndoorWorldRuntime::MapActorAiState &actor,
+    uint32_t nowTicks)
+{
+    state.monsterId = actor.monsterId;
+    state.animation = ActorAiAnimationState::Bored;
+    state.actionTimeTicks = 0;
+    state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 3);
+    state.lastUpdateTicks = nowTicks;
+}
+
+void advanceActorInspectPreviewAnimation(
+    IndoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    const IndoorWorldRuntime::MapActorAiState &actor,
+    const SpriteFrameTable *pSpriteFrameTable,
+    uint32_t nowTicks)
+{
+    if (state.monsterId != actor.monsterId)
+    {
+        resetActorInspectPreviewAnimation(state, actor, nowTicks);
+        return;
+    }
+
+    const uint32_t elapsedTicks = nowTicks >= state.lastUpdateTicks ? nowTicks - state.lastUpdateTicks : 0u;
+    state.lastUpdateTicks = nowTicks;
+    state.actionTimeTicks += elapsedTicks;
+
+    if (state.actionLengthTicks != 0 && state.actionTimeTicks <= state.actionLengthTicks)
+    {
+        return;
+    }
+
+    state.actionTimeTicks = 0;
+
+    if (state.animation == ActorAiAnimationState::Bored
+        || state.animation == ActorAiAnimationState::AttackMelee)
+    {
+        state.animation = ActorAiAnimationState::Standing;
+        state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 2);
+        return;
+    }
+
+    state.animation = monsterInspectPreviewIsPeasant(actor.monsterId, actor.displayName)
+        ? ActorAiAnimationState::Bored
+        : ActorAiAnimationState::AttackMelee;
+    state.actionLengthTicks = spriteAnimationLengthTicks(
+        pSpriteFrameTable,
+        actorInspectPreviewSpriteFrameIndex(actor, state.animation),
+        static_cast<uint32_t>(TicksPerSecond));
+}
 
 float actorInertiaDecayForStep(float deltaSeconds)
 {
@@ -1163,6 +1317,45 @@ uint32_t defaultActorAttributes(bool hostileToParty)
     }
 
     return attributes;
+}
+
+bool chestViewContainsItem(const GameplayChestViewState &view, uint32_t itemId)
+{
+    for (const GameplayChestItemState &item : view.items)
+    {
+        if (!item.isGold && (item.itemId == itemId || item.item.objectDescriptionId == itemId))
+        {
+            return true;
+        }
+    }
+
+    for (const GameplayChestItemState &item : view.hiddenItems)
+    {
+        if (!item.isGold && (item.itemId == itemId || item.item.objectDescriptionId == itemId))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::optional<GameplayChestItemState> buildFixedChestItem(uint32_t itemId, const ItemTable *pItemTable)
+{
+    if (itemId == 0 || pItemTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    GameplayChestItemState item = {};
+    item.item = ItemGenerator::makeInventoryItem(itemId, *pItemTable, ItemGenerationMode::ChestLoot);
+    item.itemId = item.item.objectDescriptionId;
+    item.quantity = item.item.quantity;
+
+    const ItemDefinition *pDefinition = pItemTable->get(item.itemId);
+    item.width = pDefinition != nullptr ? std::max<uint8_t>(1, pDefinition->inventoryWidth) : 1;
+    item.height = pDefinition != nullptr ? std::max<uint8_t>(1, pDefinition->inventoryHeight) : 1;
+    return item;
 }
 
 bool hasActiveActorSpellEffectOverride(const GameplayActorSpellEffectState &state)
@@ -5978,6 +6171,11 @@ bool IndoorWorldRuntime::isIndoorMap() const
     return true;
 }
 
+bool IndoorWorldRuntime::allowsLloydsBeacon() const
+{
+    return !m_map || m_map->runtimeRestrictions.allowLloydsBeacon;
+}
+
 const std::vector<uint8_t> *IndoorWorldRuntime::journalMapFullyRevealedCells() const
 {
     return nullptr;
@@ -6408,23 +6606,44 @@ bool IndoorWorldRuntime::castEventSpell(
         return true;
     }
 
-    if (m_pGameplayProjectileService == nullptr || m_pObjectTable == nullptr || m_pSpellTable == nullptr)
-    {
-        return false;
-    }
-
-    const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(spellId));
-
-    if (pSpellEntry == nullptr)
+    if (m_pGameplayProjectileService == nullptr || m_pObjectTable == nullptr)
     {
         return false;
     }
 
     IndoorResolvedProjectileDefinition definition = {};
 
-    if (!fillIndoorProjectileDefinitionFromSpell(*pSpellEntry, *m_pObjectTable, definition))
+    if (const EventProjectileSpellDefinition *pEventProjectile = eventProjectileSpellDefinition(spellId))
     {
-        return false;
+        if (!fillIndoorProjectileDefinitionFromObject(
+                pEventProjectile->objectId,
+                pEventProjectile->impactObjectId,
+                *m_pObjectTable,
+                definition))
+        {
+            return false;
+        }
+
+        definition.spellId = static_cast<int>(spellId);
+    }
+    else
+    {
+        if (m_pSpellTable == nullptr)
+        {
+            return false;
+        }
+
+        const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(spellId));
+
+        if (pSpellEntry == nullptr)
+        {
+            return false;
+        }
+
+        if (!fillIndoorProjectileDefinitionFromSpell(*pSpellEntry, *m_pObjectTable, definition))
+        {
+            return false;
+        }
     }
 
     const uint16_t objectSpriteFrameIndex = resolveRuntimeProjectileSpriteFrameIndex(
@@ -6442,9 +6661,20 @@ bool IndoorWorldRuntime::castEventSpell(
     spawnRequest.sourceX = static_cast<float>(fromX);
     spawnRequest.sourceY = static_cast<float>(fromY);
     spawnRequest.sourceZ = static_cast<float>(fromZ);
-    spawnRequest.targetX = static_cast<float>(toX);
-    spawnRequest.targetY = static_cast<float>(toY);
-    spawnRequest.targetZ = static_cast<float>(toZ);
+
+    if (toX == 0 && toY == 0 && toZ == 0 && m_pPartyRuntime != nullptr)
+    {
+        spawnRequest.targetX = partyX();
+        spawnRequest.targetY = partyY();
+        spawnRequest.targetZ = partyFootZ() + PartyTargetHeightOffset;
+    }
+    else
+    {
+        spawnRequest.targetX = static_cast<float>(toX);
+        spawnRequest.targetY = static_cast<float>(toY);
+        spawnRequest.targetZ = static_cast<float>(toZ);
+    }
+
     if (m_pIndoorMapData != nullptr)
     {
         RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
@@ -6650,6 +6880,7 @@ bool IndoorWorldRuntime::actorInspectState(
 
     state.displayName = resolveMapDeltaActorName(*m_pMonsterTable, actor);
     state.monsterId = resolvedMonsterId;
+    state.previewYOffset = monsterInspectPreviewYOffset(resolvedMonsterId);
     state.currentHp = std::max(0, static_cast<int>(actor.hp));
     state.maxHp = std::max(0, pStats->hitPoints);
     state.isDead = actorIndex < m_mapActorAiStates.size()
@@ -6714,14 +6945,27 @@ bool IndoorWorldRuntime::actorInspectState(
         return true;
     }
 
-    const uint16_t spriteFrameIndex = m_mapActorAiStates[actorIndex].spriteFrameIndex;
+    if (pAiState == nullptr)
+    {
+        return true;
+    }
+
+    advanceActorInspectPreviewAnimation(
+        m_actorInspectPreviewAnimation,
+        *pAiState,
+        m_pActorSpriteFrameTable,
+        animationTicks);
+
+    const uint16_t spriteFrameIndex =
+        actorInspectPreviewSpriteFrameIndex(*pAiState, m_actorInspectPreviewAnimation.animation);
 
     if (spriteFrameIndex == 0)
     {
         return true;
     }
 
-    const SpriteFrameEntry *pFrame = m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, animationTicks);
+    const SpriteFrameEntry *pFrame =
+        m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, m_actorInspectPreviewAnimation.actionTimeTicks);
 
     if (pFrame == nullptr)
     {
@@ -7777,9 +8021,10 @@ bool IndoorWorldRuntime::canActivateWorldHit(
         return pMapDeltaData != nullptr
             && actorIndex < pMapDeltaData->actors.size()
             && pAiState != nullptr
-            && pAiState->motionState == ActorAiMotionState::Dead
             && (pMapDeltaData->actors[actorIndex].attributes
-                & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0;
+                & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0
+            && (pAiState->motionState == ActorAiMotionState::Dead
+                || (m_pGameplayView != nullptr && m_pGameplayView->canActivateMapActorDialogue(actorIndex)));
     }
 
     if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
@@ -7798,6 +8043,15 @@ bool IndoorWorldRuntime::activateWorldHit(const GameplayWorldHit &hit)
 {
     if (hit.kind == GameplayWorldHitKind::Actor && hit.actor)
     {
+        const size_t actorIndex = hit.actor->actorIndex;
+        const MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        if (pAiState != nullptr && pAiState->motionState != ActorAiMotionState::Dead)
+        {
+            return m_pGameplayView != nullptr && m_pGameplayView->activateMapActorDialogue(actorIndex);
+        }
+
         return autoLootMapActorCorpse(hit.actor->actorIndex);
     }
 
@@ -9549,6 +9803,46 @@ void IndoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMask
             {
                 m_activeChestView->flags = pMapDeltaData->chests[chestId].flags;
             }
+        }
+    }
+
+    for (const auto &[chestId, requests] : pEventRuntimeState->chestItemRequests)
+    {
+        if (chestId >= pMapDeltaData->chests.size())
+        {
+            continue;
+        }
+
+        if (chestId >= m_materializedChestViews.size())
+        {
+            m_materializedChestViews.resize(chestId + 1);
+        }
+
+        if (!m_materializedChestViews[chestId].has_value())
+        {
+            m_materializedChestViews[chestId] = buildChestView(chestId);
+        }
+
+        GameplayChestViewState &view = *m_materializedChestViews[chestId];
+
+        for (const EventRuntimeState::ChestItemRequest &request : requests)
+        {
+            if (chestViewContainsItem(view, request.itemId))
+            {
+                continue;
+            }
+
+            const std::optional<GameplayChestItemState> item = buildFixedChestItem(request.itemId, m_pItemTable);
+
+            if (item)
+            {
+                tryPlaceChestItemAt(view, *item, request.gridX, request.gridY);
+            }
+        }
+
+        if (m_activeChestView && m_activeChestView->chestId == chestId)
+        {
+            m_activeChestView = view;
         }
     }
 

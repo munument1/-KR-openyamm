@@ -73,4 +73,19 @@ bool isMonsterSelfActionSpellName(const std::string &spellName)
         || lowered == "dispel magic"
         || isMonsterSelfBuffSpellName(lowered);
 }
+
+bool isKnownUnsupportedMonsterSpellName(const std::string &spellName)
+{
+    static constexpr std::array<const char *, 5> UnsupportedMonsterSpellNames = {
+        "day-o-gods",
+        "day of the gods",
+        "finger of death",
+        "mass curse",
+        "paralyze",
+    };
+
+    const std::string lowered = toLowerCopy(spellName);
+    return std::find(UnsupportedMonsterSpellNames.begin(), UnsupportedMonsterSpellNames.end(), lowered)
+        != UnsupportedMonsterSpellNames.end();
+}
 }

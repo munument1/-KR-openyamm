@@ -28,6 +28,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="do not overwrite existing staged .scene.yml files",
     )
+    parser.add_argument(
+        "--world",
+        choices=("auto", "mm6", "mm7", "mm8"),
+        default="auto",
+        help="source world format passed to export_indoor_scene_yml.py",
+    )
     return parser.parse_args()
 
 
@@ -77,6 +83,8 @@ def main() -> int:
                     str(dlv_path),
                     "--output",
                     str(output_scene_path),
+                    "--world",
+                    args.world,
                 ],
                 check=True,
             )

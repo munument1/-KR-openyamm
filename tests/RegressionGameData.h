@@ -9,6 +9,7 @@
 #include "game/tables/HouseTable.h"
 #include "game/tables/ItemTable.h"
 #include "game/tables/MonsterTable.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/PotionMixingTable.h"
 #include "game/tables/ReadableScrollTable.h"
@@ -30,6 +31,18 @@ struct RegressionGameData
     Game::StandardItemEnchantTable standardItemEnchantTable = {};
     Game::SpecialItemEnchantTable specialItemEnchantTable = {};
     Game::PotionMixingTable potionMixingTable = {};
+    Game::MergedPotionSettingTable mergedPotionSettingTable = {};
+    Game::MergedReagentSettingTable mergedReagentSettingTable = {};
+    Game::MergedTeacherTopicTable mergedTeacherTopicTable = {};
+    Game::MergedTeacherAutonoteTable mergedTeacherAutonoteTable = {};
+    Game::MergedNpcProfessionTable mergedNpcProfessionTable = {};
+    Game::MergedNpcNameTable mergedNpcNameTable = {};
+    Game::MergedNpcBtbTable mergedNpcBtbTable = {};
+    Game::MergedNewsProfessionTopicTable mergedNewsProfessionTopicTable = {};
+    Game::MergedBolsterMapTable mergedBolsterMapTable = {};
+    Game::MergedBolsterMonsterTable mergedBolsterMonsterTable = {};
+    Game::MergedMonsterPortraitTable mergedMonsterPortraitTable = {};
+    Game::MergedContinentSettingTable mergedContinentSettingTable = {};
     Game::ReadableScrollTable readableScrollTable = {};
     Game::SpellTable spellTable = {};
     Game::CharacterDollTable characterDollTable = {};

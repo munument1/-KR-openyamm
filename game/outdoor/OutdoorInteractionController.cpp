@@ -15,6 +15,7 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
 #include "game/SpriteObjectDefs.h"
 #include "game/StringUtils.h"
@@ -41,6 +42,15 @@ bool pendingSpellAllowsDeadActorTarget(const GameSession &gameSession)
     const GameplayScreenState::PendingSpellTargetState &pendingSpellTarget =
         gameSession.gameplayScreenState().pendingSpellTarget();
     return pendingSpellTarget.active && isSpellId(pendingSpellTarget.spellId, SpellId::Reanimate);
+}
+
+bool actorIsInDeathSequence(const OutdoorWorldRuntime::MapActorState &actor)
+{
+    return actor.currentHp <= 0
+        || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying
+        || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead
+        || actor.animation == OutdoorWorldRuntime::ActorAnimation::Dying
+        || actor.animation == OutdoorWorldRuntime::ActorAnimation::Dead;
 }
 
 constexpr float QuickCastForwardFallbackDistance = 8192.0f;
@@ -284,6 +294,14 @@ std::optional<DirectInteractiveDecorationBindingSpec> resolveDirectInteractiveDe
         spec.baseEventId = 531;
         spec.eventCount = 12;
         spec.initialState = static_cast<uint8_t>(*internalNumber - 44);
+        return spec;
+    }
+
+    if (*internalNumber >= 64 && *internalNumber <= 75)
+    {
+        spec.baseEventId = 531;
+        spec.eventCount = 12;
+        spec.initialState = static_cast<uint8_t>(*internalNumber - 64);
         return spec;
     }
 
@@ -1545,8 +1563,13 @@ GameplayDialogController::Context OutdoorInteractionController::createGameplayDi
             view.m_pOutdoorWorldRuntime)
             == GameplayHudScreenState::Dialogue,
         &screenRuntime,
-        &view.data().mmergeNpcProfessionTable(),
-        &view.data().mmergeNewsProfessionTopicTable());
+        &view.data().mergedNpcProfessionTable(),
+        &view.data().mergedNewsProfessionTopicTable(),
+        &view.data().mergedNpcBtbTable(),
+        &view.data().mergedBolsterMapTable(),
+        &view.data().mergedContinentSettingTable(),
+        &view.data().mergedTeacherTopicTable(),
+        &view.data().mergedTeacherAutonoteTable());
 }
 
 void OutdoorInteractionController::executeActiveDialogAction(OutdoorGameView &view)
@@ -1864,6 +1887,65 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
     return std::nullopt;
 }
 
+std::string OutdoorInteractionController::resolveActorInspectDisplayName(
+    const OutdoorGameView &view,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (inspectHit.kind != "actor" || view.m_pOutdoorWorldRuntime == nullptr)
+    {
+        return inspectHit.name;
+    }
+
+    const EventRuntimeState *pEventRuntimeState = view.m_pOutdoorWorldRuntime->eventRuntimeState();
+    const std::optional<size_t> actorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
+    const OutdoorWorldRuntime::MapActorState *pActorState =
+        actorIndex ? view.m_pOutdoorWorldRuntime->mapActorState(*actorIndex) : nullptr;
+
+    if (pEventRuntimeState == nullptr || pActorState == nullptr)
+    {
+        return inspectHit.name;
+    }
+
+    if (pActorState->hostileToParty)
+    {
+        return inspectHit.name;
+    }
+
+    const uint32_t monsterId = pActorState->monsterId > 0 ? static_cast<uint32_t>(pActorState->monsterId) : 0;
+    const std::optional<GenericActorDialogResolution> resolution = resolveGenericActorDialog(
+        view.m_map ? view.m_map->fileName : std::string(),
+        pActorState->displayName,
+        pActorState->group,
+        *pEventRuntimeState,
+        view.data().npcDialogTable(),
+        &view.data().mergedMonsterPortraitTable(),
+        view.m_map ? &*view.m_map : nullptr,
+        &view.data().mergedNewsAreaTopicTable(),
+        &view.data().mergedNewsContinentTopicTable(),
+        &view.data().mergedNpcNameTable(),
+        &view.data().mergedNpcProfessionTable(),
+        &view.data().mergedBolsterMapTable(),
+        &view.data().mergedBolsterMonsterTable(),
+        monsterId,
+        actorIndex);
+
+    if (!resolution.has_value() || !resolution->generatedNpc || resolution->generatedName.empty())
+    {
+        return inspectHit.name;
+    }
+
+    const MergedNpcProfessionEntry *pProfession =
+        view.data().mergedNpcProfessionTable().get(resolution->generatedProfessionId);
+
+    if (pProfession == nullptr || pProfession->profession.empty())
+    {
+        return resolution->generatedName;
+    }
+
+    // MMerge assigns NPC_ID to the monster; the original display path then uses NameAndTitle(NPC).
+    return resolution->generatedName + " the " + pProfession->profession;
+}
+
 GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorldHit(
     const OutdoorGameView &view,
     const OutdoorGameView::InspectHit &inspectHit)
@@ -1885,7 +1967,7 @@ GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorl
         GameplayActorTargetHit actorHit = {};
         const std::optional<size_t> actorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
         actorHit.actorIndex = actorIndex.value_or(GameplayInvalidWorldIndex);
-        actorHit.displayName = inspectHit.name;
+        actorHit.displayName = resolveActorInspectDisplayName(view, inspectHit);
         actorHit.isFriendly = inspectHit.isFriendly;
         actorHit.npcId = inspectHit.npcId;
         actorHit.actorGroup = inspectHit.actorGroup;
@@ -4333,6 +4415,13 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
 
                 return lootResult.lootedAny || lootResult.blockedByInventory || lootResult.empty;
             }
+
+            if (pActorState != nullptr && actorIsInDeathSequence(*pActorState))
+            {
+                pEventRuntimeState->lastActivationResult =
+                    "dying actor " + std::to_string(*runtimeActorIndex) + " interaction blocked";
+                return false;
+            }
         }
     }
 
@@ -4363,6 +4452,24 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
             }
         };
 
+    const std::optional<size_t> resolvedRuntimeActorIndex =
+        inspectHit.kind == "actor" ? resolveRuntimeActorIndexForInspectHit(view, inspectHit) : std::nullopt;
+    const std::optional<uint32_t> resolvedRuntimeActorIndex32 =
+        resolvedRuntimeActorIndex
+            ? std::optional<uint32_t>(static_cast<uint32_t>(*resolvedRuntimeActorIndex))
+            : std::nullopt;
+    const OutdoorWorldRuntime::MapActorState *pResolvedActorState =
+        resolvedRuntimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
+            ? view.m_pOutdoorWorldRuntime->mapActorState(*resolvedRuntimeActorIndex)
+            : nullptr;
+    const uint32_t resolvedMonsterId = pResolvedActorState != nullptr && pResolvedActorState->monsterId > 0
+        ? static_cast<uint32_t>(pResolvedActorState->monsterId)
+        : 0;
+    const std::string resolvedActorName =
+        pResolvedActorState != nullptr ? pResolvedActorState->displayName : inspectHit.name;
+    const uint32_t resolvedActorGroup =
+        pResolvedActorState != nullptr ? pResolvedActorState->group : inspectHit.actorGroup;
+
     if (inspectHit.kind == "actor" && inspectHit.npcId > 0)
     {
         if (inspectHitTargetsLivingHostileActor(view, inspectHit))
@@ -4377,7 +4484,9 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
         const GameplayDialogController::Result result =
             view.m_gameSession.gameplayDialogController().openNpcDialogue(
                 context,
-                static_cast<uint32_t>(inspectHit.npcId));
+                static_cast<uint32_t>(inspectHit.npcId),
+                0,
+                resolvedRuntimeActorIndex32);
         pEventRuntimeState->lastActivationResult = "npc " + std::to_string(inspectHit.npcId) + " engaged";
 
         if (result.shouldOpenPendingEventDialog)
@@ -4401,17 +4510,51 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
 
         const std::optional<GenericActorDialogResolution> resolution = resolveGenericActorDialog(
             view.m_map ? view.m_map->fileName : std::string(),
-            inspectHit.name,
-            inspectHit.actorGroup,
+            resolvedActorName,
+            resolvedActorGroup,
             *pEventRuntimeState,
             view.data().npcDialogTable(),
-            &view.data().mmergeMonsterPortraitTable(),
+            &view.data().mergedMonsterPortraitTable(),
             view.m_map ? &*view.m_map : nullptr,
-            &view.data().mmergeNewsAreaTopicTable()
+            &view.data().mergedNewsAreaTopicTable(),
+            &view.data().mergedNewsContinentTopicTable(),
+            &view.data().mergedNpcNameTable(),
+            &view.data().mergedNpcProfessionTable(),
+            &view.data().mergedBolsterMapTable(),
+            &view.data().mergedBolsterMonsterTable(),
+            resolvedMonsterId,
+            resolvedRuntimeActorIndex
         );
 
         if (resolution)
         {
+            faceTalkingActor();
+            GameplayDialogController::Context context =
+                createGameplayDialogContext(view, *pEventRuntimeState, "activate_actor_news_dialog");
+
+            if (resolution->opensNpcTalk)
+            {
+                applyGenericActorDialogResolution(*pEventRuntimeState, *resolution);
+                const GameplayDialogController::Result result =
+                    view.m_gameSession.gameplayDialogController().openNpcDialogue(
+                        context,
+                        resolution->npcId,
+                        0,
+                        resolvedRuntimeActorIndex32);
+                pEventRuntimeState->lastActivationResult =
+                    "generated npc " + std::to_string(resolution->npcId) + " engaged";
+
+                if (result.shouldOpenPendingEventDialog)
+                {
+                    OutdoorInteractionController::presentPendingEventDialog(
+                        view,
+                        result.previousMessageCount,
+                        result.allowNpcFallbackContent);
+                }
+
+                return true;
+            }
+
             const std::optional<std::string> newsText =
                 view.data().npcDialogTable().getNewsDialogText(resolution->newsId);
 
@@ -4420,9 +4563,6 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
                 return false;
             }
 
-            faceTalkingActor();
-            GameplayDialogController::Context context =
-                createGameplayDialogContext(view, *pEventRuntimeState, "activate_actor_news_dialog");
             const GameplayDialogController::Result result = view.m_gameSession.gameplayDialogController().openNpcNews(
                 context,
                 resolution->npcId,
@@ -4792,6 +4932,11 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
             {
                 return true;
             }
+
+            if (pActorState != nullptr && actorIsInDeathSequence(*pActorState))
+            {
+                return false;
+            }
         }
     }
 
@@ -4805,15 +4950,35 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
         return false;
     }
 
+    const std::optional<size_t> resolvedRuntimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
+    const OutdoorWorldRuntime::MapActorState *pResolvedActorState =
+        resolvedRuntimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
+            ? view.m_pOutdoorWorldRuntime->mapActorState(*resolvedRuntimeActorIndex)
+            : nullptr;
+    const uint32_t resolvedMonsterId = pResolvedActorState != nullptr && pResolvedActorState->monsterId > 0
+        ? static_cast<uint32_t>(pResolvedActorState->monsterId)
+        : 0;
+    const std::string resolvedActorName =
+        pResolvedActorState != nullptr ? pResolvedActorState->displayName : inspectHit.name;
+    const uint32_t resolvedActorGroup =
+        pResolvedActorState != nullptr ? pResolvedActorState->group : inspectHit.actorGroup;
+
     return resolveGenericActorDialog(
         view.m_map ? view.m_map->fileName : std::string(),
-        inspectHit.name,
-        inspectHit.actorGroup,
+        resolvedActorName,
+        resolvedActorGroup,
         *pEventRuntimeState,
         view.data().npcDialogTable(),
-        &view.data().mmergeMonsterPortraitTable(),
+        &view.data().mergedMonsterPortraitTable(),
         view.m_map ? &*view.m_map : nullptr,
-        &view.data().mmergeNewsAreaTopicTable()
+        &view.data().mergedNewsAreaTopicTable(),
+        &view.data().mergedNewsContinentTopicTable(),
+        &view.data().mergedNpcNameTable(),
+        &view.data().mergedNpcProfessionTable(),
+        &view.data().mergedBolsterMapTable(),
+        &view.data().mergedBolsterMonsterTable(),
+        resolvedMonsterId,
+        resolvedRuntimeActorIndex
     ).has_value();
 }
 

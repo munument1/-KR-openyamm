@@ -70,6 +70,9 @@ public:
     static std::optional<size_t> resolveRuntimeActorIndexForInspectHit(
         const OutdoorGameView &view,
         const OutdoorGameView::InspectHit &inspectHit);
+    static std::string resolveActorInspectDisplayName(
+        const OutdoorGameView &view,
+        const OutdoorGameView::InspectHit &inspectHit);
     static bool tryActivateInspectEvent(OutdoorGameView &view, const OutdoorGameView::InspectHit &inspectHit);
 
 private:

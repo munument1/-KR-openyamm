@@ -8,6 +8,7 @@
 #include "game/ui/GameplaySpellTargetingOverlayRenderer.h"
 
 #include <cassert>
+#include <algorithm>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -26,6 +27,21 @@ Party buildConfiguredParty(
     party.setClassSkillTable(&data.classSkillTable());
     party.restoreSnapshot(snapshot);
     return party;
+}
+
+void migrateSavedRuntimeFollowersToParty(
+    Party &party,
+    const std::optional<EventRuntimeState> &eventRuntimeState)
+{
+    if (!eventRuntimeState)
+    {
+        return;
+    }
+
+    for (const HiredNpcFollower &follower : eventRuntimeState->hiredNpcFollowers)
+    {
+        party.addHiredNpcFollower(follower);
+    }
 }
 
 void synchronizeGameplayActiveMemberToReadyMember(
@@ -118,6 +134,7 @@ void GameSession::clear()
     m_outdoorWorldStates.clear();
     m_currentIndoorSceneState.reset();
     m_indoorSceneStates.clear();
+    m_gameMinutes = 9.0f * 60.0f;
     m_outdoorCameraYawRadians = 0.0f;
     m_outdoorCameraPitchRadians = 0.0f;
     m_currentSavePath.reset();
@@ -172,6 +189,16 @@ void GameSession::setCurrentMapFileName(const std::string &mapFileName)
 void GameSession::setCurrentMapFileName(std::string &&mapFileName)
 {
     m_currentMapFileName = std::move(mapFileName);
+}
+
+float GameSession::gameMinutes() const
+{
+    return m_gameMinutes;
+}
+
+void GameSession::setGameMinutes(float gameMinutes)
+{
+    m_gameMinutes = std::max(0.0f, gameMinutes);
 }
 
 GameplayUiController &GameSession::gameplayUiController()
@@ -548,11 +575,13 @@ const std::optional<OutdoorWorldRuntime::Snapshot> &GameSession::currentOutdoorW
 void GameSession::setCurrentOutdoorWorldState(const OutdoorWorldRuntime::Snapshot &snapshot)
 {
     m_currentOutdoorWorldState = snapshot;
+    m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
 }
 
 void GameSession::setCurrentOutdoorWorldState(OutdoorWorldRuntime::Snapshot &&snapshot)
 {
     m_currentOutdoorWorldState = std::move(snapshot);
+    m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
 }
 
 const std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> &GameSession::outdoorWorldStates() const
@@ -567,7 +596,9 @@ std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> &GameSession::out
 
 void GameSession::storeOutdoorWorldState(const std::string &mapFileName, const OutdoorWorldRuntime::Snapshot &snapshot)
 {
-    m_outdoorWorldStates[mapFileName] = snapshot;
+    OutdoorWorldRuntime::Snapshot normalizedSnapshot = snapshot;
+    normalizedSnapshot.gameMinutes = m_gameMinutes;
+    m_outdoorWorldStates[mapFileName] = normalizedSnapshot;
 }
 
 const std::optional<IndoorSceneRuntime::Snapshot> &GameSession::currentIndoorSceneState() const
@@ -578,11 +609,13 @@ const std::optional<IndoorSceneRuntime::Snapshot> &GameSession::currentIndoorSce
 void GameSession::setCurrentIndoorSceneState(const IndoorSceneRuntime::Snapshot &snapshot)
 {
     m_currentIndoorSceneState = snapshot;
+    m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
 }
 
 void GameSession::setCurrentIndoorSceneState(IndoorSceneRuntime::Snapshot &&snapshot)
 {
     m_currentIndoorSceneState = std::move(snapshot);
+    m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
 }
 
 const std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> &GameSession::indoorSceneStates() const
@@ -597,7 +630,9 @@ std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> &GameSession::indo
 
 void GameSession::storeIndoorSceneState(const std::string &mapFileName, const IndoorSceneRuntime::Snapshot &snapshot)
 {
-    m_indoorSceneStates[mapFileName] = snapshot;
+    IndoorSceneRuntime::Snapshot normalizedSnapshot = snapshot;
+    normalizedSnapshot.worldRuntime.gameMinutes = m_gameMinutes;
+    m_indoorSceneStates[mapFileName] = normalizedSnapshot;
 }
 
 void GameSession::setOutdoorCameraAngles(float yawRadians, float pitchRadians)
@@ -722,8 +757,12 @@ void GameSession::captureOutdoorRuntimeState(
     m_currentMapFileName = mapFileName;
     m_partyState = party;
     m_outdoorPartyState = partySnapshot;
-    m_currentOutdoorWorldState = worldSnapshot;
-    m_outdoorWorldStates[mapFileName] = worldSnapshot;
+    m_gameMinutes = std::max(0.0f, worldSnapshot.gameMinutes);
+
+    OutdoorWorldRuntime::Snapshot normalizedWorldSnapshot = worldSnapshot;
+    normalizedWorldSnapshot.gameMinutes = m_gameMinutes;
+    m_currentOutdoorWorldState = normalizedWorldSnapshot;
+    m_outdoorWorldStates[mapFileName] = normalizedWorldSnapshot;
     m_outdoorCameraYawRadians = yawRadians;
     m_outdoorCameraPitchRadians = pitchRadians;
 }
@@ -736,8 +775,12 @@ void GameSession::captureIndoorRuntimeState(
     m_currentSceneKind = SceneKind::Indoor;
     m_currentMapFileName = mapFileName;
     m_partyState = party;
-    m_currentIndoorSceneState = snapshot;
-    m_indoorSceneStates[mapFileName] = snapshot;
+    m_gameMinutes = std::max(0.0f, snapshot.worldRuntime.gameMinutes);
+
+    IndoorSceneRuntime::Snapshot normalizedSnapshot = snapshot;
+    normalizedSnapshot.worldRuntime.gameMinutes = m_gameMinutes;
+    m_currentIndoorSceneState = normalizedSnapshot;
+    m_indoorSceneStates[mapFileName] = normalizedSnapshot;
 }
 
 std::optional<GameSaveData> GameSession::buildSaveData() const
@@ -761,24 +804,35 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
     saveData.currentSceneKind = m_currentSceneKind;
     saveData.mapFileName = m_currentMapFileName;
     saveData.party = m_partyState->snapshot();
+    saveData.savedGameMinutes = m_gameMinutes;
 
     if (m_outdoorPartyState && m_currentOutdoorWorldState)
     {
         saveData.hasOutdoorRuntimeState = true;
         saveData.outdoorParty = *m_outdoorPartyState;
         saveData.outdoorWorld = *m_currentOutdoorWorldState;
-        saveData.savedGameMinutes = m_currentOutdoorWorldState->gameMinutes;
+        saveData.outdoorWorld.gameMinutes = m_gameMinutes;
     }
 
     saveData.outdoorWorldStates = m_outdoorWorldStates;
+    for (auto &[mapFileName, worldState] : saveData.outdoorWorldStates)
+    {
+        worldState.gameMinutes = m_gameMinutes;
+    }
 
     if (m_currentIndoorSceneState)
     {
         saveData.hasIndoorSceneState = true;
         saveData.indoorScene = *m_currentIndoorSceneState;
+        saveData.indoorScene.worldRuntime.gameMinutes = m_gameMinutes;
     }
 
     saveData.indoorSceneStates = m_indoorSceneStates;
+    for (auto &[mapFileName, sceneState] : saveData.indoorSceneStates)
+    {
+        sceneState.worldRuntime.gameMinutes = m_gameMinutes;
+    }
+
     saveData.outdoorCameraYawRadians = m_outdoorCameraYawRadians;
     saveData.outdoorCameraPitchRadians = m_outdoorCameraPitchRadians;
     return saveData;
@@ -787,29 +841,74 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
 void GameSession::restoreFromSaveData(const GameSaveData &saveData)
 {
     m_partyState = buildConfiguredParty(saveData.party, data());
+
+    if (m_partyState)
+    {
+        if (saveData.currentSceneKind == SceneKind::Outdoor && saveData.hasOutdoorRuntimeState)
+        {
+            migrateSavedRuntimeFollowersToParty(*m_partyState, saveData.outdoorWorld.eventRuntimeState);
+        }
+        else if (saveData.currentSceneKind == SceneKind::Indoor && saveData.hasIndoorSceneState)
+        {
+            migrateSavedRuntimeFollowersToParty(*m_partyState, saveData.indoorScene.eventRuntimeState);
+        }
+    }
+
     m_currentSceneKind = saveData.currentSceneKind;
     m_currentMapFileName = saveData.mapFileName;
+    m_gameMinutes = std::max(0.0f, saveData.savedGameMinutes);
+
+    if (m_gameMinutes <= 0.0f)
+    {
+        if (saveData.currentSceneKind == SceneKind::Outdoor && saveData.hasOutdoorRuntimeState)
+        {
+            m_gameMinutes = std::max(0.0f, saveData.outdoorWorld.gameMinutes);
+        }
+        else if (saveData.currentSceneKind == SceneKind::Indoor && saveData.hasIndoorSceneState)
+        {
+            m_gameMinutes = std::max(0.0f, saveData.indoorScene.worldRuntime.gameMinutes);
+        }
+    }
+
     m_outdoorPartyState = saveData.hasOutdoorRuntimeState
         ? std::optional<OutdoorPartyRuntime::Snapshot>(saveData.outdoorParty)
         : std::nullopt;
     m_currentOutdoorWorldState = saveData.hasOutdoorRuntimeState
         ? std::optional<OutdoorWorldRuntime::Snapshot>(saveData.outdoorWorld)
         : std::nullopt;
+    if (m_currentOutdoorWorldState)
+    {
+        m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
+    }
+
     m_outdoorWorldStates = saveData.outdoorWorldStates;
+    for (auto &[mapFileName, worldState] : m_outdoorWorldStates)
+    {
+        worldState.gameMinutes = m_gameMinutes;
+    }
 
     if (saveData.hasOutdoorRuntimeState && m_currentSceneKind == SceneKind::Outdoor)
     {
-        m_outdoorWorldStates[m_currentMapFileName] = saveData.outdoorWorld;
+        m_outdoorWorldStates[m_currentMapFileName] = *m_currentOutdoorWorldState;
     }
 
     m_currentIndoorSceneState = saveData.hasIndoorSceneState
         ? std::optional<IndoorSceneRuntime::Snapshot>(saveData.indoorScene)
         : std::nullopt;
+    if (m_currentIndoorSceneState)
+    {
+        m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
+    }
+
     m_indoorSceneStates = saveData.indoorSceneStates;
+    for (auto &[mapFileName, sceneState] : m_indoorSceneStates)
+    {
+        sceneState.worldRuntime.gameMinutes = m_gameMinutes;
+    }
 
     if (saveData.hasIndoorSceneState && m_currentSceneKind == SceneKind::Indoor)
     {
-        m_indoorSceneStates[m_currentMapFileName] = saveData.indoorScene;
+        m_indoorSceneStates[m_currentMapFileName] = *m_currentIndoorSceneState;
     }
 
     m_outdoorCameraYawRadians = saveData.outdoorCameraYawRadians;

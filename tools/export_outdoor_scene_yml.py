@@ -921,6 +921,11 @@ def build_scene_model(odm_model: dict[str, object], ddm_model: dict[str, object]
             "geometry_file": odm_model["path"].name,
             "legacy_companion_file": ddm_model["path"].name,
         },
+        "runtime_restrictions": {
+            "allow_save_game": True,
+            "allow_lloyds_beacon": True,
+            "arena": False,
+        },
         "environment": {
             "sky_texture": sky_texture,
             "ground_tileset_name": odm_model["ground_tileset_name"],
@@ -947,6 +952,7 @@ def build_scene_model(odm_model: dict[str, object], ddm_model: dict[str, object]
         },
         "terrain": {
             "attribute_overrides": odm_model["terrain_attribute_overrides"],
+            "footstep_sound_overrides": [],
         },
         "bmodel_faces": {
             "interactive_faces": odm_model["interactive_faces"],
@@ -969,12 +975,17 @@ def build_scene_model(odm_model: dict[str, object], ddm_model: dict[str, object]
 
 def validate_scene_model(scene_model: dict[str, object]) -> None:
     terrain_overrides = scene_model["terrain"]["attribute_overrides"]
+    footstep_sound_overrides = scene_model["terrain"].get("footstep_sound_overrides", [])
 
     for entry in terrain_overrides:
         if not (0 <= entry["x"] < TERRAIN_WIDTH and 0 <= entry["y"] < TERRAIN_HEIGHT):
             raise ParseError(
                 f"terrain attribute override out of range: x={entry['x']} y={entry['y']}"
             )
+
+    for entry in footstep_sound_overrides:
+        if not (0 <= entry["tile_id"] <= 255):
+            raise ParseError(f"terrain footstep override tile id out of range: {entry['tile_id']}")
 
     tile_set_lookup_indices = scene_model["environment"]["tile_set_lookup_indices"]
     if len(tile_set_lookup_indices) != 4:
@@ -991,6 +1002,12 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
     lines.append("source:")
     write_yaml_scalar(lines, "  ", "geometry_file", scene_model["source"]["geometry_file"])
     write_yaml_scalar(lines, "  ", "legacy_companion_file", scene_model["source"]["legacy_companion_file"])
+
+    restrictions = scene_model["runtime_restrictions"]
+    lines.append("runtime_restrictions:")
+    write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
+    write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
+    write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
 
     environment = scene_model["environment"]
     lines.append("environment:")
@@ -1030,6 +1047,15 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
             lines.append(f"      legacy_attributes: {entry['legacy_attributes']}")
             write_yaml_scalar(lines, "      ", "burn", entry["burn"])
             write_yaml_scalar(lines, "      ", "water", entry["water"])
+    footstep_sound_overrides = scene_model["terrain"].get("footstep_sound_overrides", [])
+    if not footstep_sound_overrides:
+        lines.append("  footstep_sound_overrides: []")
+    else:
+        lines.append("  footstep_sound_overrides:")
+        for entry in footstep_sound_overrides:
+            lines.append(f"    - tile_id: {entry['tile_id']}")
+            lines.append(f"      walk_sound_id: {entry['walk_sound_id']}")
+            lines.append(f"      run_sound_id: {entry['run_sound_id']}")
 
     lines.append("bmodel_faces:")
     interactive_faces = scene_model["bmodel_faces"]["interactive_faces"]

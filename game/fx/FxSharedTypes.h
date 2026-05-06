@@ -33,6 +33,7 @@ enum class FxParticleTag
     Impact,
     DecorationEmitter,
     Buff,
+    Weather,
     Misc,
 };
 

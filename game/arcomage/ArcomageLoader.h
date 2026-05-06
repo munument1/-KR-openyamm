@@ -6,11 +6,19 @@
 
 namespace OpenYAMM::Game
 {
+class HouseTable;
+class MergedHouseRuleTable;
+
 class ArcomageLoader
 {
 public:
     bool load(
         const std::vector<std::vector<std::string>> &ruleRows,
+        const std::vector<std::vector<std::string>> &cardRows
+    );
+    bool loadFromHouseRules(
+        const MergedHouseRuleTable &houseRules,
+        const HouseTable &houseTable,
         const std::vector<std::vector<std::string>> &cardRows
     );
 

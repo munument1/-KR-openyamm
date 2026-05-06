@@ -51,9 +51,7 @@ float resolveDoorDistance(
         }
     }
 
-    return runtimeMechanism.isMoving
-        ? EventRuntime::calculateMechanismDistance(door, runtimeMechanism)
-        : runtimeMechanism.currentDistance;
+    return runtimeMechanism.currentDistance;
 }
 
 bool shouldTolerateExistingActorOverlap(

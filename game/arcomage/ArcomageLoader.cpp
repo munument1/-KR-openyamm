@@ -1,5 +1,8 @@
 #include "game/arcomage/ArcomageLoader.h"
 
+#include "game/tables/HouseTable.h"
+#include "game/tables/MergedBaseTables.h"
+
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -138,6 +141,58 @@ bool ArcomageLoader::load(
     }
 
     return true;
+}
+
+bool ArcomageLoader::loadFromHouseRules(
+    const MergedHouseRuleTable &houseRules,
+    const HouseTable &houseTable,
+    const std::vector<std::vector<std::string>> &cardRows
+)
+{
+    (void)houseRules;
+    m_library = {};
+
+    std::unordered_set<uint32_t> seenHouseIds;
+
+    for (const auto &[houseId, houseEntry] : houseTable.entries())
+    {
+        if (!houseEntry.arcomageRule.has_value())
+        {
+            continue;
+        }
+
+        if (!seenHouseIds.insert(houseId).second)
+        {
+            std::cerr << "Duplicate Arcomage tavern rule row\n";
+            return false;
+        }
+
+        const HouseEntry::ArcomageRule &sourceRule = *houseEntry.arcomageRule;
+        ArcomageTavernRule rule = {};
+        rule.houseId = houseId;
+        rule.victoryTextId = sourceRule.rulesTextId;
+        rule.firstWinAwardId = houseEntry.typeIndex <= 11 ? 63u + houseEntry.typeIndex : 0u;
+        rule.startTower = sourceRule.towerAtStart;
+        rule.startWall = sourceRule.wallAtStart;
+        rule.startQuarry = sourceRule.quarry;
+        rule.startMagic = sourceRule.magic;
+        rule.startDungeon = sourceRule.dungeon;
+        rule.startBricks = sourceRule.bricks;
+        rule.startGems = sourceRule.gems;
+        rule.startRecruits = sourceRule.recruits;
+        rule.winTower = sourceRule.towerToWin;
+        rule.winResources = sourceRule.resourceToWin;
+        rule.aiMastery = sourceRule.ai;
+        m_library.tavernRulesByHouseId[houseId] = rule;
+    }
+
+    if (m_library.tavernRulesByHouseId.empty())
+    {
+        std::cerr << "No Arcomage tavern rules resolved from house rules\n";
+        return false;
+    }
+
+    return loadCards(cardRows);
 }
 
 const ArcomageLibrary &ArcomageLoader::library() const

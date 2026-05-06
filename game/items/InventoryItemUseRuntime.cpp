@@ -1,6 +1,7 @@
 #include "game/items/InventoryItemUseRuntime.h"
 
 #include "game/tables/ItemTable.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/party/SpellSchool.h"
 
 #include <algorithm>
@@ -16,8 +17,6 @@ constexpr int MinutesPerDay = 24 * 60;
 constexpr int DaysPerMonth = 28;
 constexpr uint32_t GreenAppleItemId = 655;
 constexpr uint32_t HorseshoeItemId = 656;
-constexpr uint32_t ReagentFirstItemId = 200;
-constexpr uint32_t ReagentLastItemId = 219;
 
 std::string lowerAscii(std::string value)
 {
@@ -459,7 +458,11 @@ InventoryItemUseResult makeFailure(
 }
 }
 
-InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(const InventoryItem &item, const ItemTable &itemTable)
+InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(
+    const InventoryItem &item,
+    const ItemTable &itemTable,
+    const MergedPotionSettingTable *pPotionSettingTable,
+    const MergedReagentSettingTable *pReagentSettingTable)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -476,6 +479,14 @@ InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(const InventoryI
     if (pItemDefinition->equipStat == "Book")
     {
         return InventoryItemUseAction::LearnSpell;
+    }
+
+    const MergedPotionSettingEntry *pPotionSetting =
+        pPotionSettingTable != nullptr ? pPotionSettingTable->getByItemId(item.objectDescriptionId) : nullptr;
+
+    if (pPotionSetting != nullptr)
+    {
+        return pPotionSetting->drinkable ? InventoryItemUseAction::ConsumePotion : InventoryItemUseAction::None;
     }
 
     if (pItemDefinition->equipStat == "Bottle")
@@ -513,9 +524,13 @@ InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(const InventoryI
         return InventoryItemUseAction::UseTempleInABottle;
     }
 
-    if (item.objectDescriptionId >= ReagentFirstItemId
-        && item.objectDescriptionId <= ReagentLastItemId
-        && pItemDefinition->equipStat == "Reagent")
+    if (pReagentSettingTable != nullptr
+        && pReagentSettingTable->resultItemIdForReagent(item.objectDescriptionId).has_value())
+    {
+        return InventoryItemUseAction::UseReagent;
+    }
+
+    if (pItemDefinition->equipStat == "Reagent")
     {
         return InventoryItemUseAction::UseReagent;
     }
@@ -537,10 +552,12 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
     const InventoryItem &item,
     const ItemTable &itemTable,
     const ReadableScrollTable *pReadableScrollTable,
+    const MergedPotionSettingTable *pPotionSettingTable,
+    const MergedReagentSettingTable *pReagentSettingTable,
     const InventoryItemUseContext &context)
 {
     InventoryItemUseResult result = {};
-    result.action = classifyItemUse(item, itemTable);
+    result.action = classifyItemUse(item, itemTable, pPotionSettingTable, pReagentSettingTable);
 
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
     Character *pTargetMember = party.member(targetMemberIndex);

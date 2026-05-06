@@ -1,14 +1,13 @@
 #include "game/tables/HouseTable.h"
 
 #include "game/tables/MapStats.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <limits>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 
@@ -16,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr int MmergeYawUnitsPerTurn = 2048;
+constexpr int MergedYawUnitsPerTurn = 2048;
 constexpr int DegreesPerTurn = 360;
 
 bool isNumericOnly(const std::string &value)
@@ -67,49 +66,6 @@ std::unordered_map<uint32_t, std::string> movieStemsByAnimationIdFromRows(
     return result;
 }
 
-int parseTrainingMaxLevel(const std::string &value)
-{
-    if (value.empty())
-    {
-        return 0;
-    }
-
-    if (value == "No Max" || value == "no max")
-    {
-        return std::numeric_limits<int>::max();
-    }
-
-    return std::atoi(value.c_str());
-}
-
-int parseStandardStockTier(float priceMultiplier)
-{
-    if (priceMultiplier <= 0.0f)
-    {
-        return 0;
-    }
-
-    return std::clamp(static_cast<int>(std::floor(priceMultiplier)), 1, 6);
-}
-
-int parseSpecialStockTier(float priceMultiplier, float skillPriceMultiplier)
-{
-    const int standardTier = parseStandardStockTier(priceMultiplier);
-
-    if (standardTier == 0)
-    {
-        return 0;
-    }
-
-    if (skillPriceMultiplier <= 0.0f)
-    {
-        return standardTier;
-    }
-
-    const int bonusTier = std::max(1, static_cast<int>(std::ceil(skillPriceMultiplier * 0.5f)));
-    return std::clamp(standardTier + bonusTier, standardTier, 6);
-}
-
 uint32_t parseUnsigned(const std::string &value)
 {
     if (value.empty())
@@ -130,29 +86,55 @@ int parseSigned(const std::string &value)
     return std::atoi(value.c_str());
 }
 
-bool parseBoolDefaultTrue(const std::string &value)
-{
-    if (value.empty())
-    {
-        return true;
-    }
-
-    std::string lowered = value;
-    std::transform(
-        lowered.begin(),
-        lowered.end(),
-        lowered.begin(),
-        [](unsigned char character)
-        {
-            return static_cast<char>(std::tolower(character));
-        });
-
-    return lowered == "1" || lowered == "true" || lowered == "yes" || lowered == "y";
-}
-
 bool isTransportHouseTypeName(const std::string &houseType)
 {
     return houseType == "Stables" || houseType == "Boats";
+}
+
+uint32_t houseRuleId(const HouseEntry &entry)
+{
+    return entry.typeIndex != 0 ? entry.typeIndex : entry.mapId;
+}
+
+std::optional<std::pair<std::string, std::string>> stockSectionNamesForHouseType(const std::string &houseType)
+{
+    if (houseType == "Weapon Shop")
+    {
+        return std::pair<std::string, std::string>{"Weapon shops Standart", "Weapon shops Special"};
+    }
+
+    if (houseType == "Armor Shop")
+    {
+        return std::pair<std::string, std::string>{"Armor shops Standart", "Armor shops Special"};
+    }
+
+    if (houseType == "Magic Shop")
+    {
+        return std::pair<std::string, std::string>{"Magic shops Standart", "Magic shops Special"};
+    }
+
+    if (houseType == "Alchemist")
+    {
+        return std::pair<std::string, std::string>{"Alchem shops Standart", "Alchem shops Special"};
+    }
+
+    return std::nullopt;
+}
+
+bool isSpellbookHouseType(const std::string &houseType)
+{
+    return houseType == "Elemental Guild"
+        || houseType == "Light Guild"
+        || houseType == "Dark Guild"
+        || houseType == "Self Guild"
+        || houseType == "Fire Guild"
+        || houseType == "Air Guild"
+        || houseType == "Water Guild"
+        || houseType == "Earth Guild"
+        || houseType == "Spirit Guild"
+        || houseType == "Mind Guild"
+        || houseType == "Body Guild"
+        || houseType == "Spell Shop";
 }
 
 std::string stemFromMapFileName(const std::string &fileName)
@@ -169,23 +151,37 @@ std::string stemFromMapFileName(const std::string &fileName)
     return fileName.substr(nameStart, dotPosition - nameStart);
 }
 
-int directionDegreesFromMmergeYawUnits(int32_t yawUnits)
+std::string normalizedMapFileName(const std::string &fileName)
 {
-    int32_t normalized = yawUnits % MmergeYawUnitsPerTurn;
+    std::string result = fileName;
+    std::transform(
+        result.begin(),
+        result.end(),
+        result.begin(),
+        [](unsigned char character)
+        {
+            return static_cast<char>(std::tolower(character));
+        });
+    return result;
+}
+
+int directionDegreesFromMergedYawUnits(int32_t yawUnits)
+{
+    int32_t normalized = yawUnits % MergedYawUnitsPerTurn;
 
     if (normalized < 0)
     {
-        normalized += MmergeYawUnitsPerTurn;
+        normalized += MergedYawUnitsPerTurn;
     }
 
-    return static_cast<int>((normalized * DegreesPerTurn) / MmergeYawUnitsPerTurn);
+    return static_cast<int>((normalized * DegreesPerTurn) / MergedYawUnitsPerTurn);
 }
 
-const MmergeHouseRuleSection *findHouseRuleSection(
-    const MmergeHouseRuleTable &houseRules,
+const MergedHouseRuleSection *findHouseRuleSection(
+    const MergedHouseRuleTable &houseRules,
     const std::string &sectionName)
 {
-    for (const MmergeHouseRuleSection &section : houseRules.sections())
+    for (const MergedHouseRuleSection &section : houseRules.sections())
     {
         if (section.name == sectionName)
         {
@@ -196,11 +192,11 @@ const MmergeHouseRuleSection *findHouseRuleSection(
     return nullptr;
 }
 
-const std::vector<int32_t> *findHouseRuleRow(const MmergeHouseRuleSection &section, uint32_t mapId)
+const std::vector<int32_t> *findHouseRuleRow(const MergedHouseRuleSection &section, uint32_t ruleId)
 {
     for (const std::vector<int32_t> &row : section.numericRows)
     {
-        if (!row.empty() && row[0] == static_cast<int32_t>(mapId))
+        if (!row.empty() && row[0] == static_cast<int32_t>(ruleId))
         {
             return &row;
         }
@@ -209,8 +205,182 @@ const std::vector<int32_t> *findHouseRuleRow(const MmergeHouseRuleSection &secti
     return nullptr;
 }
 
-const MmergeTransportLocationEntry *findTransportLocation(
-    const MmergeTransportLocationTable &transportLocations,
+std::vector<uint32_t> itemTypesFromRuleRow(
+    const std::vector<int32_t> &row,
+    size_t beginColumn,
+    size_t endColumn)
+{
+    std::vector<uint32_t> itemTypes;
+
+    for (size_t columnIndex = beginColumn; columnIndex < endColumn && columnIndex < row.size(); ++columnIndex)
+    {
+        if (row[columnIndex] > 0)
+        {
+            itemTypes.push_back(static_cast<uint32_t>(row[columnIndex]));
+        }
+    }
+
+    return itemTypes;
+}
+
+HouseEntry::StockRule stockRuleFromRow(const std::string &houseType, const std::vector<int32_t> &row)
+{
+    HouseEntry::StockRule rule = {};
+
+    if (row.size() < 2)
+    {
+        return rule;
+    }
+
+    rule.quality = row[1];
+
+    if (houseType == "Armor Shop")
+    {
+        rule.itemTypes = itemTypesFromRuleRow(row, 2, 6);
+
+        if (row.size() > 6)
+        {
+            rule.secondaryQuality = row[6];
+            rule.secondaryItemTypes = itemTypesFromRuleRow(row, 7, 11);
+        }
+
+        return rule;
+    }
+
+    rule.itemTypes = itemTypesFromRuleRow(row, 2, row.size());
+    return rule;
+}
+
+bool applyStockRuleSection(
+    HouseEntry &entry,
+    const MergedHouseRuleTable &houseRules,
+    const std::string &sectionName,
+    HouseEntry::StockRule &targetRule)
+{
+    const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, sectionName);
+
+    if (pSection == nullptr)
+    {
+        std::cerr << "merged house rules are missing stock section: " << sectionName << '\n';
+        return false;
+    }
+
+    const std::vector<int32_t> *pRow = findHouseRuleRow(*pSection, houseRuleId(entry));
+
+    if (pRow == nullptr)
+    {
+        return true;
+    }
+
+    targetRule = stockRuleFromRow(entry.type, *pRow);
+    return true;
+}
+
+bool applyShopStockRules(HouseEntry &entry, const MergedHouseRuleTable &houseRules)
+{
+    const std::optional<std::pair<std::string, std::string>> sectionNames =
+        stockSectionNamesForHouseType(entry.type);
+
+    if (!sectionNames.has_value())
+    {
+        return true;
+    }
+
+    if (!applyStockRuleSection(entry, houseRules, sectionNames->first, entry.standardStockRule)
+        || !applyStockRuleSection(entry, houseRules, sectionNames->second, entry.specialStockRule))
+    {
+        return false;
+    }
+
+    entry.standardStockTier = entry.standardStockRule.quality;
+    entry.specialStockTier = entry.specialStockRule.quality;
+    return true;
+}
+
+bool applySpellbookRule(HouseEntry &entry, const MergedHouseRuleTable &houseRules)
+{
+    const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, "Spellbook shops");
+
+    if (pSection == nullptr)
+    {
+        std::cerr << "merged house rules are missing spellbook shop section\n";
+        return false;
+    }
+
+    const std::vector<int32_t> *pRow = findHouseRuleRow(*pSection, houseRuleId(entry));
+
+    if (pRow == nullptr || pRow->size() < 2)
+    {
+        return true;
+    }
+
+    entry.spellbookStockRule.quality = (*pRow)[1];
+    return true;
+}
+
+bool applyTrainingRule(HouseEntry &entry, const MergedHouseRuleTable &houseRules)
+{
+    const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, "Training halls");
+
+    if (pSection == nullptr)
+    {
+        std::cerr << "merged house rules are missing training hall section\n";
+        return false;
+    }
+
+    const std::vector<int32_t> *pRow = findHouseRuleRow(*pSection, houseRuleId(entry));
+
+    if (pRow == nullptr || pRow->size() < 2)
+    {
+        return true;
+    }
+
+    entry.trainingMaxLevel = (*pRow)[1];
+    return true;
+}
+
+bool applyArcomageRule(HouseEntry &entry, const MergedHouseRuleTable &houseRules)
+{
+    const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, "Arcomage in taverns");
+
+    if (pSection == nullptr)
+    {
+        std::cerr << "merged house rules are missing Arcomage tavern section\n";
+        return false;
+    }
+
+    const std::vector<int32_t> *pRow = findHouseRuleRow(*pSection, houseRuleId(entry));
+
+    if (pRow == nullptr || pRow->size() < 12)
+    {
+        entry.arcomageRule.reset();
+        return true;
+    }
+
+    HouseEntry::ArcomageRule rule = {};
+    rule.towerToWin = (*pRow)[1];
+    rule.resourceToWin = (*pRow)[2];
+    rule.towerAtStart = (*pRow)[3];
+    rule.wallAtStart = (*pRow)[4];
+    rule.quarry = (*pRow)[5];
+    rule.magic = (*pRow)[6];
+    rule.dungeon = (*pRow)[7];
+    rule.bricks = (*pRow)[8];
+    rule.gems = (*pRow)[9];
+    rule.recruits = (*pRow)[10];
+    rule.ai = (*pRow)[11];
+
+    if (pRow->size() > 12 && (*pRow)[12] > 0)
+    {
+        rule.rulesTextId = static_cast<uint32_t>((*pRow)[12]);
+    }
+
+    entry.arcomageRule = rule;
+    return true;
+}
+
+const MergedTransportLocationEntry *findTransportLocation(
+    const MergedTransportLocationTable &transportLocations,
     int32_t locationId)
 {
     if (locationId < 0)
@@ -218,7 +388,7 @@ const MmergeTransportLocationEntry *findTransportLocation(
         return nullptr;
     }
 
-    for (const MmergeTransportLocationEntry &entry : transportLocations.entries())
+    for (const MergedTransportLocationEntry &entry : transportLocations.entries())
     {
         if (entry.id == static_cast<uint32_t>(locationId))
         {
@@ -230,7 +400,7 @@ const MmergeTransportLocationEntry *findTransportLocation(
 }
 
 std::string destinationNameForTransportLocation(
-    const MmergeTransportLocationEntry &location,
+    const MergedTransportLocationEntry &location,
     const MapStats &mapStats)
 {
     const MapStatsEntry *pMapStatsEntry = mapStats.findByFileName(location.mapName);
@@ -360,12 +530,12 @@ bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
             (row.size() > 12 && !row[12].empty()) ? std::strtof(row[12].c_str(), nullptr) : 0.0f;
         entry.skillPriceMultiplier =
             (row.size() > 13 && !row[13].empty()) ? std::strtof(row[13].c_str(), nullptr) : 0.0f;
-        entry.standardStockTier = parseStandardStockTier(entry.priceMultiplier);
-        entry.specialStockTier = parseSpecialStockTier(entry.priceMultiplier, entry.skillPriceMultiplier);
         entry.stockRefreshDays = (row.size() > 15 && !row[15].empty()) ? std::atoi(row[15].c_str()) : 0;
-        entry.trainingMaxLevel = row.size() > 17 ? parseTrainingMaxLevel(row[17]) : 0;
         entry.openHour = (row.size() > 18 && !row[18].empty()) ? std::atoi(row[18].c_str()) : 0;
         entry.closeHour = (row.size() > 19 && !row[19].empty()) ? std::atoi(row[19].c_str()) : 0;
+        entry.rawExtraExitPictureIndex = row.size() > 20 ? parseUnsigned(row[20]) : 0;
+        entry.rawExtraExitMapId = row.size() > 21 ? parseUnsigned(row[21]) : 0;
+        entry.rawExtraExitRestriction = row.size() > 22 ? parseSigned(row[22]) : 0;
         entry.enterText = row.size() > 23 ? row[23] : "";
 
         if (row.size() > 24 && !row[24].empty())
@@ -516,93 +686,49 @@ bool HouseTable::loadAnimationRows(
     return true;
 }
 
-bool HouseTable::loadTransportScheduleRows(const std::vector<std::vector<std::string>> &rows)
-{
-    for (const std::vector<std::string> &row : rows)
-    {
-        if (row.empty() || row[0].empty() || row[0][0] == '#')
-        {
-            continue;
-        }
-
-        const uint32_t houseId = parseUnsigned(row[0]);
-
-        if (houseId == 0)
-        {
-            continue;
-        }
-
-        HouseEntry &entry = m_entries[houseId];
-        entry.id = houseId;
-
-        HouseEntry::TransportRoute route = {};
-        route.routeIndex = row.size() > 1 ? parseUnsigned(row[1]) : 0;
-        route.destinationName = row.size() > 2 ? row[2] : "";
-        route.mapFileName = row.size() > 3 ? row[3] : "";
-        route.travelDays = row.size() > 4 ? parseUnsigned(row[4]) : 0;
-
-        for (size_t dayIndex = 0; dayIndex < route.daysAvailable.size(); ++dayIndex)
-        {
-            route.daysAvailable[dayIndex] = row.size() > (5 + dayIndex)
-                ? parseBoolDefaultTrue(row[5 + dayIndex])
-                : true;
-        }
-
-        route.x = row.size() > 12 ? parseSigned(row[12]) : 0;
-        route.y = row.size() > 13 ? parseSigned(row[13]) : 0;
-        route.z = row.size() > 14 ? parseSigned(row[14]) : 0;
-        route.directionDegrees = row.size() > 15 ? parseSigned(row[15]) : 0;
-        route.requiredQBit = row.size() > 16 ? parseUnsigned(row[16]) : 0;
-        route.useMapStartPosition =
-            row.size() > 17
-            ? parseBoolDefaultTrue(row[17])
-            : (row.size() <= 14 || (row[12].empty() && row[13].empty() && row[14].empty()));
-        entry.transportRoutes.push_back(std::move(route));
-    }
-
-    for (auto &[houseId, entry] : m_entries)
-    {
-        (void)houseId;
-        std::sort(
-            entry.transportRoutes.begin(),
-            entry.transportRoutes.end(),
-            [](const HouseEntry::TransportRoute &left, const HouseEntry::TransportRoute &right)
-            {
-                if (left.routeIndex != right.routeIndex)
-                {
-                    return left.routeIndex < right.routeIndex;
-                }
-
-                return left.destinationName < right.destinationName;
-            });
-    }
-
-    return true;
-}
-
-bool HouseTable::applyMmergeTransportRoutes(
-    const MmergeHouseRuleTable &houseRules,
-    const MmergeTransportLocationTable &transportLocations,
+bool HouseTable::applyHouseRules(
+    const MergedHouseRuleTable &houseRules,
+    const MergedTransportLocationTable &transportLocations,
     const MapStats &mapStats)
 {
     for (auto &[houseId, entry] : m_entries)
     {
         (void)houseId;
 
+        if (!applyShopStockRules(entry, houseRules))
+        {
+            return false;
+        }
+
+        if (entry.type == "Training" && !applyTrainingRule(entry, houseRules))
+        {
+            return false;
+        }
+
+        if (entry.type == "Tavern" && !applyArcomageRule(entry, houseRules))
+        {
+            return false;
+        }
+
+        if (isSpellbookHouseType(entry.type) && !applySpellbookRule(entry, houseRules))
+        {
+            return false;
+        }
+
         if (!isTransportHouseTypeName(entry.type) || !entry.transportRoutes.empty())
         {
             continue;
         }
 
-        const MmergeHouseRuleSection *pSection = findHouseRuleSection(houseRules, entry.type);
+        const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, entry.type);
 
         if (pSection == nullptr)
         {
-            std::cerr << "MMerge house rules are missing transport section: " << entry.type << '\n';
+            std::cerr << "merged house rules are missing transport section: " << entry.type << '\n';
             return false;
         }
 
-        const uint32_t routeRuleId = entry.typeIndex != 0 ? entry.typeIndex : entry.mapId;
+        const uint32_t routeRuleId = houseRuleId(entry);
         const std::vector<int32_t> *pRouteLocationRow = findHouseRuleRow(*pSection, routeRuleId);
 
         if (pRouteLocationRow == nullptr)
@@ -626,11 +752,11 @@ bool HouseTable::applyMmergeTransportRoutes(
                 continue;
             }
 
-            const MmergeTransportLocationEntry *pLocation = findTransportLocation(transportLocations, locationId);
+            const MergedTransportLocationEntry *pLocation = findTransportLocation(transportLocations, locationId);
 
             if (pLocation == nullptr)
             {
-                std::cerr << "MMerge house route references unknown transport location " << locationId
+                std::cerr << "merged house route references unknown transport location " << locationId
                           << " for house " << entry.id << '\n';
                 return false;
             }
@@ -644,12 +770,89 @@ bool HouseTable::applyMmergeTransportRoutes(
             route.x = pLocation->x;
             route.y = pLocation->y;
             route.z = pLocation->z;
-            route.directionDegrees = directionDegreesFromMmergeYawUnits(pLocation->direction);
+            route.directionDegrees = directionDegreesFromMergedYawUnits(pLocation->direction);
             route.requiredQBit = pLocation->qbit;
             route.useMapStartPosition = false;
             entry.transportRoutes.push_back(std::move(route));
             addedLocationIds.push_back(locationId);
         }
+    }
+
+    return true;
+}
+
+bool HouseTable::applyHouseExits(const MergedHouseExitTable &houseExits, const MapStats &mapStats)
+{
+    const MergedHouseExitTableData &exitData = houseExits.data();
+
+    for (auto &[houseId, entry] : m_entries)
+    {
+        (void)houseId;
+        entry.extraExit.reset();
+
+        if (entry.rawExtraExitPictureIndex == 0 || entry.rawExtraExitMapId == 0)
+        {
+            continue;
+        }
+
+        const MapStatsEntry *pDestinationMap = mapStats.findById(entry.rawExtraExitMapId);
+
+        if (pDestinationMap == nullptr)
+        {
+            std::cerr << "merged house exit references unknown map id " << entry.rawExtraExitMapId
+                      << " for house " << entry.id << '\n';
+            return false;
+        }
+
+        HouseEntry::ExtraExit extraExit = {};
+        extraExit.destinationMapId = entry.rawExtraExitMapId;
+        extraExit.destinationMapFileName = pDestinationMap->fileName;
+        extraExit.destinationName = pDestinationMap->name;
+        extraExit.label = !entry.enterText.empty() && entry.enterText != "0" ? entry.enterText : pDestinationMap->name;
+
+        const size_t pictureIndex = static_cast<size_t>(entry.rawExtraExitPictureIndex - 1);
+
+        if (pictureIndex >= exitData.npcPictureIds.size())
+        {
+            std::cerr << "merged house exit references unknown picture slot " << entry.rawExtraExitPictureIndex
+                      << " for house " << entry.id << '\n';
+            return false;
+        }
+
+        extraExit.pictureId = exitData.npcPictureIds[pictureIndex];
+
+        if (entry.rawExtraExitRestriction > 0)
+        {
+            extraExit.requiredQuestBit = static_cast<uint32_t>(entry.rawExtraExitRestriction);
+        }
+        else if (entry.rawExtraExitRestriction < 0)
+        {
+            const size_t entranceIndex = static_cast<size_t>(-entry.rawExtraExitRestriction - 1);
+            const std::string destinationFileName = normalizedMapFileName(pDestinationMap->fileName);
+            const MergedHouseExitEntry *pEntranceEntry = nullptr;
+
+            for (const MergedHouseExitEntry &candidate : exitData.exits)
+            {
+                if (normalizedMapFileName(candidate.mapName) == destinationFileName)
+                {
+                    pEntranceEntry = &candidate;
+                    break;
+                }
+            }
+
+            if (pEntranceEntry == nullptr || entranceIndex >= pEntranceEntry->positions.size())
+            {
+                std::cerr << "merged house exit references unknown entrance " << -entry.rawExtraExitRestriction
+                          << " for map " << pDestinationMap->fileName << " and house " << entry.id << '\n';
+                return false;
+            }
+
+            extraExit.x = pEntranceEntry->positions[entranceIndex].x;
+            extraExit.y = pEntranceEntry->positions[entranceIndex].y;
+            extraExit.z = pEntranceEntry->positions[entranceIndex].z;
+        }
+
+        entry.extraExit = std::move(extraExit);
     }
 
     return true;

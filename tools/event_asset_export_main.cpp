@@ -249,7 +249,6 @@ struct LuaExportTablePaths
     std::string monsterData = "engine/data_tables/monster_data.txt";
     std::string placeMon = "engine/data_tables/english/place_mon.txt";
     std::string spells = "engine/data_tables/spells.txt";
-    std::string spellsSupplemental = "engine/data_tables/spells_supplemental.txt";
     std::string npc = "engine/data_tables/npc.txt";
     std::string roster = "engine/data_tables/roster.txt";
     std::string npcGroup = "engine/data_tables/english/npc_group.txt";
@@ -358,10 +357,6 @@ bool loadLuaExportConfig(const std::filesystem::path &path, LuaExportTablePaths 
         else if (key == "spells")
         {
             tablePaths.spells = value;
-        }
-        else if (key == "spells_supplemental")
-        {
-            tablePaths.spellsSupplemental = value;
         }
         else if (key == "npc")
         {
@@ -770,17 +765,10 @@ void appendSpellNamesFromPath(
 
 std::unordered_map<uint32_t, std::string> loadSpellNames(
     const AssetFileSystem &assetFileSystem,
-    const std::string &spellsPath,
-    const std::string &supplementalPath)
+    const std::string &spellsPath)
 {
     std::unordered_map<uint32_t, std::string> names;
     appendSpellNamesFromPath(assetFileSystem, spellsPath, names);
-
-    if (assetFileSystem.exists(supplementalPath))
-    {
-        appendSpellNamesFromPath(assetFileSystem, supplementalPath, names);
-    }
-
     return names;
 }
 
@@ -2095,7 +2083,7 @@ int main(int argc, char **argv)
     lookups.objectPayloadNames = loadObjectPayloadNames(assetFileSystem, tablePaths.objectList);
     lookups.monsterNames = loadMonsterNames(assetFileSystem, tablePaths.monsterData);
     lookups.placedMonsterNames = loadPlacedMonsterNames(assetFileSystem, tablePaths.placeMon);
-    lookups.spellNames = loadSpellNames(assetFileSystem, tablePaths.spells, tablePaths.spellsSupplemental);
+    lookups.spellNames = loadSpellNames(assetFileSystem, tablePaths.spells);
     std::string questNotesError;
     lookups.questNotes = loadQuestNotes(assetFileSystem, tablePaths.quests, questNotesError);
 

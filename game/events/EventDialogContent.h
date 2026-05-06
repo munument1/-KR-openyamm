@@ -11,14 +11,18 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace OpenYAMM::Game
 {
 class Party;
-class MmergeNpcProfessionTable;
-class MmergeNewsProfessionTopicTable;
+class MergedNpcProfessionTable;
+class MergedNewsProfessionTopicTable;
+class MergedNpcBtbTable;
+class MergedTeacherTopicTable;
+class MergedContinentSettingTable;
 
 enum class EventDialogActionKind
 {
@@ -27,6 +31,13 @@ enum class EventDialogActionKind
     HouseResident,
     NpcTopic,
     NpcProfessionNews,
+    NpcProfessionAction,
+    NpcProfessionDescription,
+    NpcHireOffer,
+    NpcHireAccept,
+    NpcHireDecline,
+    NpcDismiss,
+    NpcBtb,
     MapTransitionConfirm,
     MapTransitionCancel,
     RosterJoinOffer,
@@ -50,6 +61,17 @@ enum class EventDialogPresentation
     Transition,
 };
 
+enum class NpcFollowerActionTopicId : uint32_t
+{
+    HealParty = 1714,
+    MakeFood = 1715,
+    CastFly = 1716,
+    CastWaterWalk = 1717,
+    CastTownPortal = 1718,
+    CastBless = 1719,
+    CastHeroism = 1720,
+};
+
 struct EventDialogAction
 {
     EventDialogActionKind kind = EventDialogActionKind::None;
@@ -67,6 +89,7 @@ struct EventDialogContent
     bool isActive = false;
     bool isHouseDialog = false;
     uint32_t sourceId = 0;
+    std::optional<uint32_t> sourceActorIndex;
     uint32_t participantPictureId = 0;
     EventDialogParticipantVisual participantVisual = EventDialogParticipantVisual::Portrait;
     EventDialogPresentation presentation = EventDialogPresentation::Standard;
@@ -85,6 +108,12 @@ std::vector<uint32_t> collectSelectableResidentNpcIds(
     const EventRuntimeState &eventRuntimeState
 );
 
+uint32_t npcBtbDialogueAccessVariableKey(uint32_t npcId);
+uint32_t npcBtbDialogueAccessDay(float currentGameMinutes);
+bool npcProfessionActionTopicHasDailyCooldown(uint32_t topicId);
+uint32_t npcProfessionActionCooldownVariableKey(uint32_t npcId);
+uint32_t npcProfessionActionCooldownDay(float currentGameMinutes);
+
 EventDialogContent buildEventDialogContent(
     EventRuntimeState &eventRuntimeState,
     size_t previousMessageCount,
@@ -99,7 +128,10 @@ EventDialogContent buildEventDialogContent(
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
     float currentGameMinutes,
-    const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr,
-    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr
+    const MergedNpcProfessionTable *pNpcProfessionTable = nullptr,
+    const MergedNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr,
+    const MergedNpcBtbTable *pNpcBtbTable = nullptr,
+    const MergedTeacherTopicTable *pTeacherTopicTable = nullptr,
+    const MergedContinentSettingTable *pContinentSettingTable = nullptr
 );
 }

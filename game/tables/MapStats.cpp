@@ -1,7 +1,7 @@
 #include "game/tables/MapStats.h"
 
 #include "game/maps/MapIdentity.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <algorithm>
 #include <cctype>
@@ -70,10 +70,10 @@ constexpr size_t RedbookTrackColumn = 28;
 constexpr size_t EnvironmentColumn = 29;
 constexpr size_t AreaIdColumn = 32;
 constexpr size_t InAreaColumn = 33;
-constexpr int MmergeOutdoorBoundsMinX = -23143;
-constexpr int MmergeOutdoorBoundsMaxX = 23143;
-constexpr int MmergeOutdoorBoundsMinY = -23143;
-constexpr int MmergeOutdoorBoundsMaxY = 23143;
+constexpr int MergedOutdoorBoundsMinX = -23143;
+constexpr int MergedOutdoorBoundsMaxX = 23143;
+constexpr int MergedOutdoorBoundsMinY = -23143;
+constexpr int MergedOutdoorBoundsMaxY = 23143;
 
 std::string getColumnValue(const std::vector<std::string> &row, size_t index)
 {
@@ -320,10 +320,10 @@ size_t navigationArrivalZColumn(MapBoundaryEdge edge)
     return NavigationNorthArrivalZColumn;
 }
 
-void applyMmergeOutdoorTravelDirection(
+void applyMergedOutdoorTravelDirection(
     MapStatsEntry &entry,
     MapBoundaryEdge edge,
-    const MmergeOutdoorTravelDirection &direction)
+    const MergedOutdoorTravelDirection &direction)
 {
     std::optional<MapEdgeTransition> *pTransition = entry.edgeTransition(edge);
 
@@ -494,6 +494,21 @@ bool MapStats::loadFromRows(const std::vector<std::vector<std::string>> &rows, c
     return true;
 }
 
+bool MapStats::applyMergedBolsterMaps(const MergedBolsterMapTable &bolsterMaps)
+{
+    for (MapStatsEntry &entry : m_entries)
+    {
+        const MergedBolsterMapEntry *pBolsterMap = bolsterMaps.findById(static_cast<uint32_t>(entry.id));
+
+        if (pBolsterMap != nullptr && pBolsterMap->continent != 0)
+        {
+            entry.mergedContinentId = pBolsterMap->continent;
+        }
+    }
+
+    return true;
+}
+
 bool MapStats::applyOutdoorNavigationRows(const std::vector<std::vector<std::string>> &rows)
 {
     for (const std::vector<std::string> &row : rows)
@@ -621,30 +636,30 @@ bool MapStats::applyOutdoorNavigationRows(const std::vector<std::vector<std::str
     return true;
 }
 
-bool MapStats::applyMmergeOutdoorTravels(const MmergeOutdoorTravelTable &outdoorTravels)
+bool MapStats::applyMergedOutdoorTravels(const MergedOutdoorTravelTable &outdoorTravels)
 {
-    for (const MmergeOutdoorTravelEntry &outdoorTravel : outdoorTravels.entries())
+    for (const MergedOutdoorTravelEntry &outdoorTravel : outdoorTravels.entries())
     {
         MapStatsEntry *pEntry = findMutableByFileName(outdoorTravel.keyMap);
 
         if (pEntry == nullptr)
         {
-            std::cerr << "MMerge outdoor travel row references unknown map file: " << outdoorTravel.keyMap << '\n';
+            std::cerr << "merged outdoor travel row references unknown map file: " << outdoorTravel.keyMap << '\n';
             return false;
         }
 
         MapBounds bounds = {};
         bounds.enabled = true;
-        bounds.minX = MmergeOutdoorBoundsMinX;
-        bounds.maxX = MmergeOutdoorBoundsMaxX;
-        bounds.minY = MmergeOutdoorBoundsMinY;
-        bounds.maxY = MmergeOutdoorBoundsMaxY;
+        bounds.minX = MergedOutdoorBoundsMinX;
+        bounds.maxX = MergedOutdoorBoundsMaxX;
+        bounds.minY = MergedOutdoorBoundsMinY;
+        bounds.maxY = MergedOutdoorBoundsMaxY;
         pEntry->outdoorBounds = bounds;
 
-        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up);
-        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down);
-        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left);
-        applyMmergeOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right);
+        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up);
+        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down);
+        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left);
+        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right);
     }
 
     return true;
@@ -653,6 +668,19 @@ bool MapStats::applyMmergeOutdoorTravels(const MmergeOutdoorTravelTable &outdoor
 const std::vector<MapStatsEntry> &MapStats::getEntries() const
 {
     return m_entries;
+}
+
+const MapStatsEntry *MapStats::findById(uint32_t id) const
+{
+    for (const MapStatsEntry &entry : m_entries)
+    {
+        if (entry.id >= 0 && static_cast<uint32_t>(entry.id) == id)
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
 }
 
 const MapStatsEntry *MapStats::findByFileName(const std::string &fileName) const

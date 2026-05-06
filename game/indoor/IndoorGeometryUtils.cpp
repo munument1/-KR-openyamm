@@ -37,11 +37,6 @@ float calculateMechanismDistance(
         return 0.0f;
     }
 
-    if (runtimeMechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
-    {
-        return static_cast<float>(door.moveLength);
-    }
-
     if (runtimeMechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing))
     {
         const float closingDistance =
@@ -54,6 +49,11 @@ float calculateMechanismDistance(
         const float openingDistance =
             runtimeMechanism.timeSinceTriggeredMs * static_cast<float>(door.openSpeed) / 1000.0f;
         return std::max(0.0f, static_cast<float>(door.moveLength) - openingDistance);
+    }
+
+    if (runtimeMechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
+    {
+        return static_cast<float>(door.moveLength);
     }
 
     return 0.0f;
@@ -651,10 +651,7 @@ std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
 
             if (mechanismIterator != pEventRuntimeState->mechanisms.end())
             {
-                door.state = mechanismIterator->second.state;
-                distance = mechanismIterator->second.isMoving
-                    ? calculateMechanismDistance(door, mechanismIterator->second)
-                    : mechanismIterator->second.currentDistance;
+                distance = mechanismIterator->second.currentDistance;
             }
         }
 

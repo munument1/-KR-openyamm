@@ -44,7 +44,8 @@ TEST_CASE("AssetFileSystem resolves package aliases before legacy asset paths")
     writeTextFile(assetRoot / "engine" / "ui" / "layout.yml", "engine-ui");
     writeTextFile(assetRoot / "Data" / "games" / "out01.scene.yml", "legacy-map");
     writeTextFile(assetRoot / "worlds" / "mm8" / "maps" / "out01.scene.yml", "world-map");
-    writeTextFile(editorAssetRoot / "worlds" / "mm8" / "maps" / "editor.scene.yml", "editor-world-map");
+    writeTextFile(editorAssetRoot / "worlds" / "mm8" / "maps" / "out01.scene.yml", "editor-world-map");
+    writeTextFile(editorAssetRoot / "worlds" / "mm8" / "maps" / "editor.scene.yml", "editor-only-map");
 
     {
         OpenYAMM::Engine::AssetFileSystem assetFileSystem;
@@ -67,10 +68,14 @@ TEST_CASE("AssetFileSystem resolves package aliases before legacy asset paths")
         REQUIRE(mapText.has_value());
         CHECK_EQ(*mapText, "world-map");
 
-        const std::optional<std::string> editorMapText =
+        const std::optional<std::string> editorOverrideMapText =
+            assetFileSystem.readTextFile("Data/games/out01.scene.yml");
+        REQUIRE(editorOverrideMapText.has_value());
+        CHECK_EQ(*editorOverrideMapText, "world-map");
+
+        const std::optional<std::string> editorOnlyMapText =
             assetFileSystem.readTextFile("Data/games/editor.scene.yml");
-        REQUIRE(editorMapText.has_value());
-        CHECK_EQ(*editorMapText, "editor-world-map");
+        CHECK_FALSE(editorOnlyMapText.has_value());
     }
 
     std::filesystem::remove_all(temporaryRoot);

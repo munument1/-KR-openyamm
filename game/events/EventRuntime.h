@@ -3,6 +3,7 @@
 #include "game/audio/SoundRef.h"
 #include "game/events/EvtEnums.h"
 #include "game/events/ScriptedEventProgram.h"
+#include "game/gameplay/NpcFollowerTypes.h"
 #include "game/maps/MapDeltaData.h"
 #include "game/party/Party.h"
 #include "game/tables/PortraitFxEventTable.h"
@@ -22,6 +23,7 @@ namespace OpenYAMM::Game
 {
 class Party;
 class ISceneEventContext;
+class HouseTable;
 struct LuaSessionCache;
 
 enum class DialogueContextKind
@@ -47,6 +49,7 @@ enum class DialogueOfferKind : uint32_t
     RosterJoin,
     MasteryTeacher,
     GuildMembership,
+    NpcHire,
 };
 
 enum class MechanismAction
@@ -81,6 +84,7 @@ struct EventRuntimeState
     {
         DialogueContextKind kind = DialogueContextKind::None;
         uint32_t sourceId = 0;
+        std::optional<uint32_t> sourceActorIndex;
         uint32_t hostHouseId = 0;
         uint32_t newsId = 0;
         uint32_t participantPictureId = 0;
@@ -158,6 +162,7 @@ struct EventRuntimeState
         uint32_t messageTextId = 0;
         uint32_t rosterId = 0;
         uint32_t partyFullTextId = 0;
+        std::optional<uint32_t> sourceActorIndex;
     };
 
     struct DialogueRuntimeState
@@ -167,6 +172,8 @@ struct EventRuntimeState
         std::optional<DialogueOfferState> currentOffer;
         std::array<uint8_t, 4> templeDonationCounters = {};
     };
+
+    using HiredNpcFollower = ::OpenYAMM::Game::HiredNpcFollower;
 
     struct ActiveDecorationContext
     {
@@ -189,8 +196,27 @@ struct EventRuntimeState
         std::vector<size_t> memberIndices;
     };
 
+    struct RuntimeMapNote
+    {
+        uint32_t id = 0;
+        int32_t x = 0;
+        int32_t y = 0;
+        std::string text;
+        bool active = false;
+    };
+
+    struct ChestItemRequest
+    {
+        uint32_t itemId = 0;
+        uint8_t gridX = 0;
+        uint8_t gridY = 0;
+    };
+
     std::unordered_map<uint32_t, int32_t> variables;
+    std::unordered_map<uint32_t, RuntimeMapNote> runtimeMapNotes;
+    uint32_t activeHistoryContinentId = 1;
     std::unordered_map<uint32_t, int32_t> historyEventTimes;
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, int32_t>> historyEventTimesByContinent;
     std::array<uint8_t, 75> mapVars = {};
     std::unordered_map<uint32_t, uint32_t> facetSetMasks;
     std::unordered_map<uint32_t, uint32_t> facetClearMasks;
@@ -201,10 +227,14 @@ struct EventRuntimeState
     mutable std::vector<uint8_t> facetInvisibleOverrideCache;
     std::unordered_map<uint32_t, RuntimeMechanismState> mechanisms;
     std::unordered_map<uint32_t, std::string> textureOverrides;
+    std::unordered_map<uint32_t, std::string> outdoorModelFacetTextureOverrides;
     std::unordered_map<uint32_t, SpriteOverride> spriteOverrides;
     std::unordered_map<uint32_t, bool> indoorLightsEnabled;
     std::optional<bool> snowEnabled;
     std::optional<bool> rainEnabled;
+    std::optional<std::string> outdoorSkyTextureOverride;
+    std::optional<int32_t> outdoorFogWeakDistanceOverride;
+    std::optional<int32_t> outdoorFogStrongDistanceOverride;
     std::unordered_map<uint32_t, uint32_t> actorSetMasks;
     std::unordered_map<uint32_t, uint32_t> actorClearMasks;
     std::unordered_map<uint32_t, uint32_t> actorGroupSetMasks;
@@ -221,9 +251,17 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, uint32_t> npcGreetingOverrides;
     std::unordered_map<uint32_t, uint32_t> npcGreetingDisplayCounts;
     std::unordered_map<uint32_t, uint32_t> npcHouseOverrides;
+    std::unordered_map<uint32_t, std::string> npcNameOverrides;
+    std::unordered_map<uint32_t, uint32_t> npcPictureOverrides;
+    std::unordered_map<uint32_t, uint32_t> npcProfessionOverrides;
+    std::unordered_map<std::string, uint32_t> generatedNpcIdsByActorKey;
     std::unordered_map<uint32_t, uint32_t> npcItemOverrides;
     std::unordered_map<uint32_t, uint32_t> actorItemOverrides;
+    std::unordered_map<uint32_t, int32_t> monsterRelationOverrides;
+    std::unordered_map<uint32_t, std::vector<ChestItemRequest>> chestItemRequests;
     std::unordered_set<uint32_t> unavailableNpcIds;
+    std::vector<HiredNpcFollower> hiredNpcFollowers;
+    bool pendingDimensionDoorOverlay = false;
     DialogueRuntimeState dialogueState;
     std::array<uint8_t, 125> decorVars = {};
     std::optional<ActiveDecorationContext> activeDecorationContext;
@@ -267,11 +305,15 @@ struct EventRuntimeBindingReport
 };
 
 void clearTransientEventRuntimeState(EventRuntimeState &runtimeState);
+uint32_t normalizedHistoryContinentId(uint32_t continentId);
+void setActiveHistoryContinent(EventRuntimeState &runtimeState, uint32_t continentId);
+const std::unordered_map<uint32_t, int32_t> &historyEventTimesForActiveContinent(
+    const EventRuntimeState &runtimeState);
 
 class EventRuntime
 {
 public:
-    EventRuntime();
+    EventRuntime(const HouseTable *pHouseTable = nullptr);
     ~EventRuntime();
 
     EventRuntime(const EventRuntime &) = delete;
@@ -279,6 +321,12 @@ public:
 
     EventRuntime(EventRuntime &&other) noexcept;
     EventRuntime &operator=(EventRuntime &&other) noexcept;
+
+    void bindHouseTable(const HouseTable *pHouseTable);
+    const HouseTable *houseTable() const;
+
+    static uint32_t outdoorModelFacetTextureOverrideKey(uint32_t modelIndex, uint32_t faceIndex);
+    static uint32_t monsterRelationOverrideKey(uint32_t leftMonsterId, uint32_t rightMonsterId);
 
     static float calculateMechanismDistance(const MapDeltaDoor &door, const RuntimeMechanismState &runtimeMechanism);
     bool buildOnLoadState(
@@ -432,5 +480,6 @@ public:
     mutable std::unique_ptr<LuaSessionCache> m_luaSessionCache;
     mutable const ScriptedEventProgram *m_pCachedLocalProgram = nullptr;
     mutable const ScriptedEventProgram *m_pCachedGlobalProgram = nullptr;
+    const HouseTable *m_pHouseTable = nullptr;
 };
 }

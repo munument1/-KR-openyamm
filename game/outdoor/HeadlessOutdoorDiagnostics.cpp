@@ -643,8 +643,13 @@ struct GameApplicationTestAccess
             &application.m_gameDataLoader.getMapStats().getEntries(),
             &application.m_gameDataLoader.getRosterTable(),
             &application.m_gameDataLoader.getArcomageLibrary(),
-            &application.m_gameDataLoader.getMmergeNpcProfessionTable(),
-            &application.m_gameDataLoader.getMmergeNewsProfessionTopicTable(),
+            &application.m_gameDataLoader.getMergedNpcProfessionTable(),
+            &application.m_gameDataLoader.getMergedNewsProfessionTopicTable(),
+            &application.m_gameDataLoader.getMergedNpcBtbTable(),
+            &application.m_gameDataLoader.getMergedBolsterMapTable(),
+            &application.m_gameDataLoader.getMergedContinentSettingTable(),
+            &application.m_gameDataLoader.getMergedTeacherTopicTable(),
+            &application.m_gameDataLoader.getMergedTeacherAutonoteTable(),
             false
         };
 
@@ -1637,8 +1642,11 @@ EventDialogContent buildHeadlessDialog(
         pParty,
         nullptr,
         currentGameMinutes,
-        &gameDataLoader.getMmergeNpcProfessionTable(),
-        &gameDataLoader.getMmergeNewsProfessionTopicTable()
+        &gameDataLoader.getMergedNpcProfessionTable(),
+        &gameDataLoader.getMergedNewsProfessionTopicTable(),
+        &gameDataLoader.getMergedNpcBtbTable(),
+        nullptr,
+        &gameDataLoader.getMergedContinentSettingTable()
     );
 }
 
@@ -2996,6 +3004,7 @@ bool openActorInScenario(
         EventRuntimeState::PendingDialogueContext context = {};
         context.kind = DialogueContextKind::NpcTalk;
         context.sourceId = static_cast<uint32_t>(actor.npcId);
+        context.sourceActorIndex = static_cast<uint32_t>(actorIndex);
         scenario.pEventRuntimeState->pendingDialogueContext = std::move(context);
         return true;
     }
@@ -3006,14 +3015,32 @@ bool openActorInScenario(
         actor.group,
         *scenario.pEventRuntimeState,
         gameDataLoader.getNpcDialogTable(),
-        &gameDataLoader.getMmergeMonsterPortraitTable(),
+        &gameDataLoader.getMergedMonsterPortraitTable(),
         &selectedMap.map,
-        &gameDataLoader.getMmergeNewsAreaTopicTable()
+        &gameDataLoader.getMergedNewsAreaTopicTable(),
+        &gameDataLoader.getMergedNewsContinentTopicTable(),
+        &gameDataLoader.getMergedNpcNameTable(),
+        &gameDataLoader.getMergedNpcProfessionTable(),
+        &gameDataLoader.getMergedBolsterMapTable(),
+        &gameDataLoader.getMergedBolsterMonsterTable(),
+        actor.monsterId > 0 ? static_cast<uint32_t>(actor.monsterId) : 0,
+        actorIndex
     );
 
     if (!resolution)
     {
         return false;
+    }
+
+    if (resolution->opensNpcTalk)
+    {
+        applyGenericActorDialogResolution(*scenario.pEventRuntimeState, *resolution);
+        EventRuntimeState::PendingDialogueContext context = {};
+        context.kind = DialogueContextKind::NpcTalk;
+        context.sourceId = resolution->npcId;
+        context.sourceActorIndex = static_cast<uint32_t>(actorIndex);
+        scenario.pEventRuntimeState->pendingDialogueContext = std::move(context);
+        return true;
     }
 
     const std::optional<std::string> newsText =
@@ -3064,8 +3091,11 @@ EventDialogContent buildScenarioDialog(
         &scenario.party,
         &scenario.world,
         scenario.world.gameMinutes(),
-        &gameDataLoader.getMmergeNpcProfessionTable(),
-        &gameDataLoader.getMmergeNewsProfessionTopicTable()
+        &gameDataLoader.getMergedNpcProfessionTable(),
+        &gameDataLoader.getMergedNewsProfessionTopicTable(),
+        &gameDataLoader.getMergedNpcBtbTable(),
+        nullptr,
+        &gameDataLoader.getMergedContinentSettingTable()
     );
 }
 
@@ -3294,6 +3324,7 @@ bool executeDialogActionInScenario(
                 scenario.party,
                 gameDataLoader.getClassSkillTable(),
                 gameDataLoader.getNpcDialogTable(),
+                &gameDataLoader.getMergedTeacherTopicTable(),
                 message))
         {
             EventRuntimeState::PendingDialogueContext context = {};
@@ -4403,6 +4434,7 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         EventRuntimeState::PendingDialogueContext context = {};
         context.kind = DialogueContextKind::NpcTalk;
         context.sourceId = static_cast<uint32_t>(actor.npcId);
+        context.sourceActorIndex = static_cast<uint32_t>(actorIndex);
         pEventRuntimeState->pendingDialogueContext = std::move(context);
     }
     else
@@ -4413,9 +4445,16 @@ int HeadlessGameplayDiagnostics::runOpenActor(
             actor.group,
             *pEventRuntimeState,
             gameDataLoader.getNpcDialogTable(),
-            &gameDataLoader.getMmergeMonsterPortraitTable(),
+            &gameDataLoader.getMergedMonsterPortraitTable(),
             &selectedMap->map,
-            &gameDataLoader.getMmergeNewsAreaTopicTable()
+            &gameDataLoader.getMergedNewsAreaTopicTable(),
+            &gameDataLoader.getMergedNewsContinentTopicTable(),
+            &gameDataLoader.getMergedNpcNameTable(),
+            &gameDataLoader.getMergedNpcProfessionTable(),
+            &gameDataLoader.getMergedBolsterMapTable(),
+            &gameDataLoader.getMergedBolsterMonsterTable(),
+            actor.monsterId > 0 ? static_cast<uint32_t>(actor.monsterId) : 0,
+            actorIndex
         );
 
         std::cout << "  resolved_generic_npc="
@@ -4426,6 +4465,17 @@ int HeadlessGameplayDiagnostics::runOpenActor(
 
         if (resolution)
         {
+            if (resolution->opensNpcTalk)
+            {
+                applyGenericActorDialogResolution(*pEventRuntimeState, *resolution);
+                EventRuntimeState::PendingDialogueContext context = {};
+                context.kind = DialogueContextKind::NpcTalk;
+                context.sourceId = resolution->npcId;
+                context.sourceActorIndex = static_cast<uint32_t>(actorIndex);
+                pEventRuntimeState->pendingDialogueContext = std::move(context);
+            }
+            else
+            {
             const std::optional<std::string> newsText =
                 gameDataLoader.getNpcDialogTable().getNewsDialogText(resolution->newsId);
 
@@ -4439,6 +4489,7 @@ int HeadlessGameplayDiagnostics::runOpenActor(
                 context.titleOverride = actorName;
                 pEventRuntimeState->pendingDialogueContext = std::move(context);
                 pEventRuntimeState->messages.push_back(*newsText);
+            }
             }
         }
     }
@@ -4766,6 +4817,7 @@ int HeadlessGameplayDiagnostics::runDialogSequence(
                     party,
                     gameDataLoader.getClassSkillTable(),
                     gameDataLoader.getNpcDialogTable(),
+                    &gameDataLoader.getMergedTeacherTopicTable(),
                     message))
             {
                 if (!message.empty())

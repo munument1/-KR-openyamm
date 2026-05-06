@@ -34,7 +34,11 @@ struct GameplayInputFrame;
 class GameplayItemService;
 class GameplaySpellService;
 class ItemTable;
+class MergedComplexItemPictureTable;
 class MonsterTable;
+class MergedPotionSettingTable;
+class MergedReagentSettingTable;
+class MergedNpcProfessionTable;
 class StandardItemEnchantTable;
 class SpecialItemEnchantTable;
 struct HouseEntry;
@@ -98,7 +102,10 @@ public:
     const CharacterInspectTable *characterInspectTable() const;
     const RosterTable *rosterTable() const;
     const ReadableScrollTable *readableScrollTable() const;
-    const ItemEquipPosTable *itemEquipPosTable() const;
+    const MergedPotionSettingTable *mergedPotionSettingTable() const;
+    const MergedReagentSettingTable *mergedReagentSettingTable() const;
+    const MergedNpcProfessionTable *mergedNpcProfessionTable() const;
+    const MergedComplexItemPictureTable *mergedComplexItemPictureTable() const;
     const SpellTable *spellTable() const;
     const HouseTable *houseTable() const;
     const ChestTable *chestTable() const;
@@ -140,6 +147,7 @@ public:
     const GameplayUiController::JournalScreenState &journalScreenStateReadOnly() const;
     const JournalQuestTable *journalQuestTable() const;
     const JournalHistoryTable *journalHistoryTable() const;
+    uint32_t activeHistoryContinentId() const;
     const JournalAutonoteTable *journalAutonoteTable() const;
     const std::string &currentMapFileName() const;
     float gameplayCameraYawRadians() const;
@@ -191,6 +199,7 @@ public:
     void openJournalOverlay();
     void closeJournalOverlay();
     void closeHouseShopOverlay();
+    void openFollowerNpcDialogue(size_t followerSlotIndex);
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);
     void ensurePendingEventDialogPresented(
         bool allowNpcFallbackContent,

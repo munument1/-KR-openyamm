@@ -3,12 +3,16 @@
 #include "engine/scripting/LuaStateOwner.h"
 #include "game/audio/SoundIds.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/GameplayRuntimeInterfaces.h"
+#include "game/gameplay/HouseInteraction.h"
 #include "game/items/ItemGenerator.h"
 #include "game/party/Party.h"
 #include "game/party/SkillData.h"
+#include "game/tables/HouseTable.h"
 #include "game/tables/JournalQuestTable.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <limits>
 #include <string_view>
@@ -29,6 +33,8 @@ constexpr int OeDaysPerYear = 12 * OeDaysPerMonth;
 constexpr int OeGameStartingYear = 1168;
 constexpr uint32_t DefaultEventPortraitDurationTicks = 96;
 constexpr uint32_t MaxBitfieldFlagIndex = 31;
+constexpr uint32_t DefaultHistoryContinentId = 1;
+constexpr uint32_t Mm7HistoryContinentId = 2;
 
 int resolveMonthFromDayOfYear(int dayOfYear);
 int currentGameMinutesFromRuntimeState(const EventRuntimeState &runtimeState);
@@ -44,6 +50,77 @@ const MapDeltaDoor *findMechanismDoorById(const MapDeltaData *pMapDeltaData, uin
 void initializeRuntimeMechanismStateFromDoor(
     const MapDeltaDoor &door,
     RuntimeMechanismState &runtimeMechanism);
+
+uint32_t normalizedHistoryContinent(uint32_t continentId)
+{
+    return continentId != 0 ? continentId : DefaultHistoryContinentId;
+}
+
+std::unordered_map<uint32_t, int32_t> &mutableHistoryEventTimesForActiveContinent(EventRuntimeState &runtimeState)
+{
+    const uint32_t continentId = normalizedHistoryContinent(runtimeState.activeHistoryContinentId);
+    runtimeState.activeHistoryContinentId = continentId;
+
+    if (continentId == DefaultHistoryContinentId
+        && runtimeState.historyEventTimesByContinent.find(continentId)
+            == runtimeState.historyEventTimesByContinent.end()
+        && !runtimeState.historyEventTimes.empty())
+    {
+        runtimeState.historyEventTimesByContinent[continentId] = runtimeState.historyEventTimes;
+    }
+
+    return runtimeState.historyEventTimesByContinent[continentId];
+}
+
+const std::unordered_map<uint32_t, int32_t> &historyEventTimesForContinent(
+    const EventRuntimeState &runtimeState,
+    uint32_t continentId)
+{
+    const uint32_t normalizedContinentId = normalizedHistoryContinent(continentId);
+    const std::unordered_map<uint32_t, std::unordered_map<uint32_t, int32_t>>::const_iterator found =
+        runtimeState.historyEventTimesByContinent.find(normalizedContinentId);
+
+    if (found != runtimeState.historyEventTimesByContinent.end())
+    {
+        return found->second;
+    }
+
+    if (normalizedContinentId == DefaultHistoryContinentId)
+    {
+        return runtimeState.historyEventTimes;
+    }
+
+    static const std::unordered_map<uint32_t, int32_t> emptyTimes;
+    return emptyTimes;
+}
+
+void synchronizeLegacyHistoryMirror(EventRuntimeState &runtimeState)
+{
+    const std::unordered_map<uint32_t, std::unordered_map<uint32_t, int32_t>>::const_iterator found =
+        runtimeState.historyEventTimesByContinent.find(DefaultHistoryContinentId);
+
+    runtimeState.historyEventTimes = found != runtimeState.historyEventTimesByContinent.end()
+        ? found->second
+        : std::unordered_map<uint32_t, int32_t>{};
+}
+
+void seedForwardHistoryEntries(EventRuntimeState &runtimeState)
+{
+    std::unordered_map<uint32_t, int32_t> &historyTimes = mutableHistoryEventTimesForActiveContinent(runtimeState);
+    const uint32_t continentId = normalizedHistoryContinent(runtimeState.activeHistoryContinentId);
+
+    if (continentId == DefaultHistoryContinentId)
+    {
+        historyTimes[1] = 1;
+    }
+    else if (continentId == Mm7HistoryContinentId)
+    {
+        historyTimes[1] = 1;
+        historyTimes[2] = 2;
+    }
+
+    synchronizeLegacyHistoryMirror(runtimeState);
+}
 
 int32_t moveToMapYawUnitsToDegrees(int32_t yawUnits)
 {
@@ -177,11 +254,6 @@ float mechanismDistanceForState(const MapDeltaDoor &door, uint16_t state, float 
         return 0.0f;
     }
 
-    if (state == static_cast<uint16_t>(EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
-    {
-        return static_cast<float>(door.moveLength);
-    }
-
     const float elapsedMilliseconds = static_cast<float>(timeSinceTriggeredMs);
 
     if (state == static_cast<uint16_t>(EvtMechanismState::Closing))
@@ -194,6 +266,11 @@ float mechanismDistanceForState(const MapDeltaDoor &door, uint16_t state, float 
     {
         const float openingDistance = elapsedMilliseconds * static_cast<float>(door.openSpeed) / 1000.0f;
         return std::max(0.0f, static_cast<float>(door.moveLength) - openingDistance);
+    }
+
+    if (state == static_cast<uint16_t>(EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
+    {
+        return static_cast<float>(door.moveLength);
     }
 
     return 0.0f;
@@ -1642,8 +1719,9 @@ int32_t EventRuntime::getVariableValue(
 
     if (variable.kind == VariableKind::History)
     {
-        const std::unordered_map<uint32_t, int32_t>::const_iterator iterator = runtimeState.variables.find(variable.rawId);
-        return iterator != runtimeState.variables.end() ? iterator->second : 0;
+        const std::unordered_map<uint32_t, int32_t> &historyTimes =
+            historyEventTimesForContinent(runtimeState, runtimeState.activeHistoryContinentId);
+        return historyTimes.find(variable.index) != historyTimes.end() ? 1 : 0;
     }
 
     if (variable.kind == VariableKind::Awards)
@@ -1976,6 +2054,16 @@ int32_t EventRuntime::getVariableValue(
             case EvtVariable::IsFlying:
                 return pParty != nullptr && pParty->hasPartyBuff(PartyBuffId::Fly) ? 1 : 0;
 
+            case EvtVariable::HiredNpcHasSpeciality:
+                for (const EventRuntimeState::HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)
+                {
+                    if (follower.professionId == variable.index)
+                    {
+                        return 1;
+                    }
+                }
+                return 0;
+
             case EvtVariable::NumSkillPoints:
                 return pMember != nullptr ? static_cast<int32_t>(pMember->skillPoints) : 0;
 
@@ -2158,15 +2246,19 @@ void EventRuntime::setVariableValue(
     {
         const int32_t normalizedValue = value != 0 ? 1 : 0;
         runtimeState.variables[variable.rawId] = normalizedValue;
+        std::unordered_map<uint32_t, int32_t> &historyTimes =
+            mutableHistoryEventTimesForActiveContinent(runtimeState);
 
         if (normalizedValue != 0 && previousValue == 0)
         {
-            runtimeState.historyEventTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
+            historyTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
         }
         else if (normalizedValue == 0)
         {
-            runtimeState.historyEventTimes.erase(variable.index);
+            historyTimes.erase(variable.index);
         }
+
+        synchronizeLegacyHistoryMirror(runtimeState);
 
         return;
     }
@@ -2679,15 +2771,19 @@ void EventRuntime::setVariableValue(
     {
         const int32_t normalizedValue = value != 0 ? 1 : 0;
         runtimeState.variables[variable.rawId] = normalizedValue;
+        std::unordered_map<uint32_t, int32_t> &historyTimes =
+            mutableHistoryEventTimesForActiveContinent(runtimeState);
 
         if (normalizedValue != 0 && previousValue == 0)
         {
-            runtimeState.historyEventTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
+            historyTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
         }
         else if (normalizedValue == 0)
         {
-            runtimeState.historyEventTimes.erase(variable.index);
+            historyTimes.erase(variable.index);
         }
+
+        synchronizeLegacyHistoryMirror(runtimeState);
 
         return;
     }
@@ -2854,10 +2950,13 @@ void EventRuntime::addVariableValue(
     {
         const int32_t updatedValue = previousValue != 0 ? previousValue : (value != 0 ? 1 : 0);
         runtimeState.variables[variable.rawId] = updatedValue;
+        std::unordered_map<uint32_t, int32_t> &historyTimes =
+            mutableHistoryEventTimesForActiveContinent(runtimeState);
 
         if (updatedValue != 0 && previousValue == 0)
         {
-            runtimeState.historyEventTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
+            historyTimes[variable.index] = std::max(1, currentGameMinutesFromRuntimeState(runtimeState));
+            synchronizeLegacyHistoryMirror(runtimeState);
         }
 
         return;
@@ -3248,7 +3347,10 @@ void EventRuntime::subtractVariableValue(
         if (value > 0)
         {
             runtimeState.variables[variable.rawId] = 0;
-            runtimeState.historyEventTimes.erase(variable.index);
+            std::unordered_map<uint32_t, int32_t> &historyTimes =
+                mutableHistoryEventTimesForActiveContinent(runtimeState);
+            historyTimes.erase(variable.index);
+            synchronizeLegacyHistoryMirror(runtimeState);
         }
 
         return;
@@ -3588,6 +3690,7 @@ struct LuaScopeProgram
 
 struct LuaExecutionContext
 {
+    const EventRuntime *pEventRuntime = nullptr;
     EventRuntimeState *pRuntimeState = nullptr;
     const EventRuntimeState *pReadonlyRuntimeState = nullptr;
     Party *pParty = nullptr;
@@ -3689,6 +3792,45 @@ const ISceneEventContext *readonlySceneEventContext(const LuaExecutionContext *p
         : pExecutionContext->pSceneEventContext;
 }
 
+bool sceneEventContextIsIndoorMap(const LuaExecutionContext *pExecutionContext)
+{
+    const ISceneEventContext *pSceneEventContext = readonlySceneEventContext(pExecutionContext);
+    const IGameplayWorldRuntime *pWorldRuntime = dynamic_cast<const IGameplayWorldRuntime *>(pSceneEventContext);
+    return pWorldRuntime != nullptr && pWorldRuntime->isIndoorMap();
+}
+
+bool eventStringEndsWithIgnoreCase(const std::string &value, std::string_view suffix)
+{
+    if (value.size() < suffix.size())
+    {
+        return false;
+    }
+
+    const size_t offset = value.size() - suffix.size();
+
+    for (size_t index = 0; index < suffix.size(); ++index)
+    {
+        const unsigned char valueCharacter = static_cast<unsigned char>(value[offset + index]);
+        const unsigned char suffixCharacter = static_cast<unsigned char>(suffix[index]);
+
+        if (std::tolower(valueCharacter) != std::tolower(suffixCharacter))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool moveToMapLeavesIndoorDungeon(
+    const LuaExecutionContext *pExecutionContext,
+    const EventRuntimeState::PendingMapMove &move)
+{
+    return sceneEventContextIsIndoorMap(pExecutionContext)
+        && move.mapName.has_value()
+        && eventStringEndsWithIgnoreCase(*move.mapName, ".odm");
+}
+
 EventRuntimeState *writableRuntimeState(lua_State *pLuaState)
 {
     LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
@@ -3729,6 +3871,12 @@ Party *writableParty(lua_State *pLuaState)
     }
 
     return pExecutionContext->pParty;
+}
+
+const EventRuntime *readableEventRuntime(lua_State *pLuaState)
+{
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    return pExecutionContext != nullptr ? pExecutionContext->pEventRuntime : nullptr;
 }
 
 std::vector<size_t> selectedTargetMemberIndices(lua_State *pLuaState)
@@ -3905,6 +4053,49 @@ int luaSetRain(lua_State *pLuaState)
     return 0;
 }
 
+int luaSetOutdoorSky(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (lua_gettop(pLuaState) >= 1 && lua_type(pLuaState, 1) == LUA_TSTRING)
+    {
+        pRuntimeState->outdoorSkyTextureOverride = sanitizeEventString(lua_tostring(pLuaState, 1));
+    }
+    else
+    {
+        pRuntimeState->outdoorSkyTextureOverride.reset();
+    }
+
+    return 0;
+}
+
+int luaSetOutdoorFog(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (lua_gettop(pLuaState) >= 2)
+    {
+        pRuntimeState->outdoorFogWeakDistanceOverride =
+            static_cast<int32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+        pRuntimeState->outdoorFogStrongDistanceOverride =
+            static_cast<int32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
+    }
+    else
+    {
+        pRuntimeState->outdoorFogWeakDistanceOverride.reset();
+        pRuntimeState->outdoorFogStrongDistanceOverride.reset();
+    }
+
+    return 0;
+}
+
+int luaOpenDimensionDoor(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    pRuntimeState->pendingDimensionDoorOverlay = true;
+    return 0;
+}
+
 int luaShowMovie(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -3972,6 +4163,7 @@ int luaSpeakNpc(lua_State *pLuaState)
 int luaMoveToMap(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
     EventRuntimeState::PendingMapMove move = {};
     const int argumentCount = lua_gettop(pLuaState);
     move.x = static_cast<int32_t>(luaL_checkinteger(pLuaState, 1));
@@ -4013,7 +4205,7 @@ int luaMoveToMap(lua_State *pLuaState)
             ? static_cast<uint32_t>(std::max(0, static_cast<int>(luaL_checkinteger(pLuaState, 8))))
             : 0u;
 
-    if (transitionTextId != 0 || transitionImageId != 0)
+    if (transitionTextId != 0 || transitionImageId != 0 || moveToMapLeavesIndoorDungeon(pExecutionContext, move))
     {
         EventRuntimeState::PendingDialogueContext context = {};
         context.kind = DialogueContextKind::MapTransition;
@@ -4295,6 +4487,53 @@ int luaSetChestBit(lua_State *pLuaState)
     return 0;
 }
 
+int luaEnsureChestItem(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    const uint32_t chestId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    EventRuntimeState::ChestItemRequest request = {};
+    request.itemId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    request.gridX = static_cast<uint8_t>(std::clamp(static_cast<int>(luaL_optinteger(pLuaState, 3, 0)), 0, 255));
+    request.gridY = static_cast<uint8_t>(std::clamp(static_cast<int>(luaL_optinteger(pLuaState, 4, 0)), 0, 255));
+
+    if (request.itemId != 0)
+    {
+        pRuntimeState->chestItemRequests[chestId].push_back(request);
+    }
+
+    return 0;
+}
+
+int luaRemoveFollowerProfession(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t professionId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    const auto iterator = std::find_if(
+        pRuntimeState->hiredNpcFollowers.begin(),
+        pRuntimeState->hiredNpcFollowers.end(),
+        [professionId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.professionId == professionId;
+        });
+
+    if (iterator != pRuntimeState->hiredNpcFollowers.end())
+    {
+        pRuntimeState->hiredNpcFollowers.erase(iterator);
+        lua_pushboolean(pLuaState, 1);
+        return 1;
+    }
+
+    lua_pushboolean(pLuaState, 0);
+    return 1;
+}
+
 void appendLuaStringTable(lua_State *pLuaState, int tableIndex, std::vector<std::string> &values)
 {
     const lua_Integer tableLength = static_cast<lua_Integer>(lua_rawlen(pLuaState, tableIndex));
@@ -4450,6 +4689,47 @@ int luaCheckMonstersKilled(lua_State *pLuaState)
             static_cast<uint32_t>(luaL_checkinteger(pLuaState, 3)),
             luaEventBoolean(pLuaState, 4)));
     return 1;
+}
+
+int luaIsHouseOpen(lua_State *pLuaState)
+{
+    const EventRuntime *pEventRuntime = readableEventRuntime(pLuaState);
+    const HouseTable *pHouseTable = pEventRuntime != nullptr ? pEventRuntime->houseTable() : nullptr;
+    const HouseEntry *pHouse = pHouseTable != nullptr
+        ? pHouseTable->get(static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1)))
+        : nullptr;
+
+    if (pHouse == nullptr)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const ISceneEventContext *pSceneEventContext = readonlySceneEventContext(pExecutionContext);
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    const float currentGameMinutes = pSceneEventContext != nullptr
+        ? pSceneEventContext->currentGameMinutes()
+        : (pRuntimeState != nullptr ? static_cast<float>(currentGameMinutesFromRuntimeState(*pRuntimeState)) : 0.0f);
+    lua_pushboolean(pLuaState, isHouseOpenAtGameMinute(*pHouse, currentGameMinutes));
+    return 1;
+}
+
+int luaSetMonsterRelation(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    const uint32_t leftMonsterId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t rightMonsterId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    const int32_t relation = static_cast<int32_t>(luaL_checkinteger(pLuaState, 3));
+    pRuntimeState->monsterRelationOverrides[
+        EventRuntime::monsterRelationOverrideKey(leftMonsterId, rightMonsterId)] = relation;
+    return 0;
 }
 
 int luaAdd(lua_State *pLuaState)
@@ -4671,6 +4951,32 @@ int luaSetTexture(lua_State *pLuaState)
     else
     {
         pRuntimeState->textureOverrides.erase(cogNumber);
+    }
+
+    markOutdoorSurfaceStateChanged(*pRuntimeState);
+    return 0;
+}
+
+int luaSetOutdoorModelFacetTexture(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    const uint32_t modelIndex = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t faceIndex = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    const uint32_t key = EventRuntime::outdoorModelFacetTextureOverrideKey(modelIndex, faceIndex);
+
+    if (lua_gettop(pLuaState) >= 3 && lua_type(pLuaState, 3) == LUA_TSTRING)
+    {
+        pRuntimeState->outdoorModelFacetTextureOverrides[key] = sanitizeEventString(lua_tostring(pLuaState, 3));
+    }
+    else
+    {
+        pRuntimeState->outdoorModelFacetTextureOverrides.erase(key);
     }
 
     markOutdoorSurfaceStateChanged(*pRuntimeState);
@@ -4923,8 +5229,12 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "DamagePlayer", luaDamagePlayer);
     registerLuaFunction(pLuaState, "SetSnow", luaSetSnow);
     registerLuaFunction(pLuaState, "SetRain", luaSetRain);
+    registerLuaFunction(pLuaState, "SetOutdoorSky", luaSetOutdoorSky);
+    registerLuaFunction(pLuaState, "SetOutdoorFog", luaSetOutdoorFog);
+    registerLuaFunction(pLuaState, "OpenDimensionDoor", luaOpenDimensionDoor);
     registerLuaFunction(pLuaState, "SetTexture", luaSetTexture);
     registerLuaFunction(pLuaState, "SetTextureOutdoors", luaSetTexture);
+    registerLuaFunction(pLuaState, "SetOutdoorModelFacetTexture", luaSetOutdoorModelFacetTexture);
     registerLuaFunction(pLuaState, "ShowMovie", luaShowMovie);
     registerLuaFunction(pLuaState, "SetSprite", luaSetSprite);
     registerLuaFunction(pLuaState, "SetDoorState", luaSetDoorState);
@@ -4954,11 +5264,15 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetNPCItem", luaSetNpcItem);
     registerLuaFunction(pLuaState, "SetNPCGreeting", luaSetNpcGreeting);
     registerLuaFunction(pLuaState, "CheckMonstersKilled", luaCheckMonstersKilled);
+    registerLuaFunction(pLuaState, "IsHouseOpen", luaIsHouseOpen);
     registerLuaFunction(pLuaState, "ChangeGroupToGroup", luaChangeGroupToGroup);
     registerLuaFunction(pLuaState, "ChangeGroupAlly", luaChangeGroupAlly);
     registerLuaFunction(pLuaState, "CheckSeason", luaCheckSeason);
     registerLuaFunction(pLuaState, "SetMonGroupBit", luaSetMonGroupBit);
     registerLuaFunction(pLuaState, "SetChestBit", luaSetChestBit);
+    registerLuaFunction(pLuaState, "EnsureChestItem", luaEnsureChestItem);
+    registerLuaFunction(pLuaState, "RemoveFollowerProfession", luaRemoveFollowerProfession);
+    registerLuaFunction(pLuaState, "SetMonsterRelation", luaSetMonsterRelation);
     registerLuaFunction(pLuaState, "FaceAnimation", luaFaceAnimation);
     registerLuaFunction(pLuaState, "SetMonsterItem", luaSetMonsterItem);
     registerLuaFunction(pLuaState, "StopDoor", luaStopDoor);
@@ -5263,10 +5577,52 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.lastActivationResult.reset();
 }
 
-EventRuntime::EventRuntime() = default;
+uint32_t normalizedHistoryContinentId(uint32_t continentId)
+{
+    return normalizedHistoryContinent(continentId);
+}
+
+void setActiveHistoryContinent(EventRuntimeState &runtimeState, uint32_t continentId)
+{
+    runtimeState.activeHistoryContinentId = normalizedHistoryContinent(continentId);
+    mutableHistoryEventTimesForActiveContinent(runtimeState);
+    seedForwardHistoryEntries(runtimeState);
+}
+
+const std::unordered_map<uint32_t, int32_t> &historyEventTimesForActiveContinent(
+    const EventRuntimeState &runtimeState)
+{
+    return historyEventTimesForContinent(runtimeState, runtimeState.activeHistoryContinentId);
+}
+
+EventRuntime::EventRuntime(const HouseTable *pHouseTable)
+    : m_pHouseTable(pHouseTable)
+{
+}
+
 EventRuntime::~EventRuntime() = default;
 EventRuntime::EventRuntime(EventRuntime &&other) noexcept = default;
 EventRuntime &EventRuntime::operator=(EventRuntime &&other) noexcept = default;
+
+void EventRuntime::bindHouseTable(const HouseTable *pHouseTable)
+{
+    m_pHouseTable = pHouseTable;
+}
+
+const HouseTable *EventRuntime::houseTable() const
+{
+    return m_pHouseTable;
+}
+
+uint32_t EventRuntime::outdoorModelFacetTextureOverrideKey(uint32_t modelIndex, uint32_t faceIndex)
+{
+    return (modelIndex << 16) | (faceIndex & 0xFFFFu);
+}
+
+uint32_t EventRuntime::monsterRelationOverrideKey(uint32_t leftMonsterId, uint32_t rightMonsterId)
+{
+    return (leftMonsterId << 16) | (rightMonsterId & 0xFFFFu);
+}
 
 
 bool EventRuntime::buildOnLoadState(
@@ -5319,6 +5675,7 @@ bool EventRuntime::executeOnLoadEvents(
     }
 
     LuaExecutionContext executionContext = {};
+    executionContext.pEventRuntime = this;
     executionContext.pRuntimeState = &runtimeState;
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
@@ -5372,6 +5729,7 @@ bool EventRuntime::executeOnLeaveEvents(
     }
 
     LuaExecutionContext executionContext = {};
+    executionContext.pEventRuntime = this;
     executionContext.pRuntimeState = &runtimeState;
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
@@ -5484,6 +5842,7 @@ bool EventRuntime::executeEventById(
     }
 
     LuaExecutionContext executionContext = {};
+    executionContext.pEventRuntime = this;
     executionContext.pRuntimeState = &runtimeState;
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
@@ -5533,6 +5892,7 @@ bool EventRuntime::executeNpcTopicEventById(
     }
 
     LuaExecutionContext executionContext = {};
+    executionContext.pEventRuntime = this;
     executionContext.pRuntimeState = &runtimeState;
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
@@ -5592,6 +5952,7 @@ bool EventRuntime::canShowTopic(
     }
 
     LuaExecutionContext executionContext = {};
+    executionContext.pEventRuntime = this;
     executionContext.pReadonlyRuntimeState = &runtimeState;
     executionContext.pReadonlyParty = pParty;
     executionContext.pReadonlySceneEventContext = pSceneEventContext;

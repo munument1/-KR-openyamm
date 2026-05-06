@@ -456,14 +456,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
+      vertex_ids: [201, 173, 174, 175, 199]
+      face_ids: [456, 457, 564, 568, 455, 454, 972, 973, 974, 975, 563]
+      sector_ids: [5, 16]
       delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0, 0]
+      x_offsets: [-2560, -2304, -2432, -2560, -2304]
+      y_offsets: [2048, 2304, 2304, 2304, 2048]
+      z_offsets: [-2, -2, -2, -2, -2]
     - door_index: 1
       legacy_attributes: 3
       door_id: 3
@@ -476,14 +476,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 2
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0]
-      sector_ids: [0]
+      vertex_ids: [155, 158, 156, 157]
+      face_ids: [322, 323, 324, 325, 326]
+      sector_ids: [4]
       delta_us: [0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-672, -672, -640, -640]
+      y_offsets: [24, 24, 24, 24]
+      z_offsets: [128, 160, 128, 160]
     - door_index: 2
       legacy_attributes: 2
       door_id: 4
@@ -496,14 +496,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [112, 2, 1, 113]
+      face_ids: [138, 139, 142, 145, 146, 140, 143, 137, 141, 150]
+      sector_ids: [1, 3]
+      delta_us: [0, 64, 0, 0, 0, 64, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-512, -480, -480, -512]
+      y_offsets: [1216, 1216, 1088, 1088]
+      z_offsets: [6, 6, 6, 6]
     - door_index: 3
       legacy_attributes: 2
       door_id: 10
@@ -516,14 +516,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [1272, 1279, 1135, 1134]
+      face_ids: [434, 435, 437, 443, 436, 438, 439, 442, 441, 317]
+      sector_ids: [17, 20]
+      delta_us: [0, 0, 64, 0, 64, 0, 4608, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-2816, -2816, -2784, -2784]
+      y_offsets: [4544, 4416, 4544, 4416]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 4
       legacy_attributes: 2
       door_id: 2
@@ -536,14 +536,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [49, 161, 46, 162]
+      face_ids: [122, 125, 132, 130, 121, 124, 133, 131, 129, 149]
+      sector_ids: [2, 4]
+      delta_us: [0, 0, 64, 0, 0, 0, 64, 0, 64, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-480, -512, -480, -512]
+      y_offsets: [-192, -192, -64, -64]
+      z_offsets: [6, 6, 6, 6]
     - door_index: 5
       legacy_attributes: 2
       door_id: 6
@@ -556,14 +556,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [870, 780, 781, 869]
+      face_ids: [234, 235, 240, 232, 233, 230, 237, 236, 238, 239]
+      sector_ids: [11, 13]
+      delta_us: [0, 64, 0, 0, 0, 0, 64, 0, 64, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [256, 224, 224, 256]
+      y_offsets: [3648, 3776, 3648, 3776]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 6
       legacy_attributes: 2
       door_id: 7
@@ -576,14 +576,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [993, 909, 991, 908]
+      face_ids: [282, 283, 284, 289, 290, 287, 285, 298, 286, 291]
+      sector_ids: [14, 15]
+      delta_us: [0, 64, 0, 0, 0, 0, 0, 0, 64, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-2048, -2080, -2048, -2080]
+      y_offsets: [5056, 4928, 4928, 5056]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 7
       legacy_attributes: 2
       door_id: 14
@@ -596,14 +596,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [1328, 1399, 1400, 1329]
+      face_ids: [527, 528, 525, 532, 531, 533, 529, 530, 535, 534]
+      sector_ids: [22, 21]
+      delta_us: [0, 0, 0, 64, 0, 64, 0, 64, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-2784, -2816, -2816, -2784]
+      y_offsets: [1088, 1088, 1216, 1216]
+      z_offsets: [6, 6, 6, 6]
     - door_index: 8
       legacy_attributes: 2
       door_id: 1
@@ -616,14 +616,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0, 0]
+      vertex_ids: [8, 4, 7, 260, 263]
+      face_ids: [11, 14, 327, 328, 119, 120, 81, 82, 117, 84, 984, 83]
+      sector_ids: [1, 7, 8]
       delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0, 0]
+      x_offsets: [-128, 0, -256, -256, 0]
+      y_offsets: [1280, 1280, 1280, 1536, 1536]
+      z_offsets: [254, 254, 254, 254, 254]
     - door_index: 9
       legacy_attributes: 3
       door_id: 8
@@ -636,14 +636,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 2
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0]
-      sector_ids: [0]
+      vertex_ids: [957, 958, 955, 956]
+      face_ids: [334, 332, 333, 335, 336]
+      sector_ids: [14]
       delta_us: [0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-1888, -1888, -1920, -1920]
+      y_offsets: [4840, 4840, 4840, 4840]
+      z_offsets: [-96, -128, -128, -96]
     - door_index: 10
       legacy_attributes: 2
       door_id: 16
@@ -656,14 +656,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [794, 795, 988, 989]
+      face_ids: [254, 255, 256, 259, 257, 258, 261, 262, 260, 277]
+      sector_ids: [14, 12]
+      delta_us: [-4864, 64, 128, 0, 0, 64, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-480, -480, -512, -512]
+      y_offsets: [4928, 5056, 5056, 4928]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 11
       legacy_attributes: 2
       door_id: 15
@@ -676,14 +676,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [119, 212, 221, 118, 114, 213]
+      face_ids: [38, 40, 69, 39, 72, 73, 77, 78, 569, 71, 74, 75]
+      sector_ids: [6, 4]
+      delta_us: [0, 0, 0, 0, 0, 0, 96, 32, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0, 0, 0]
+      x_offsets: [-2048, -2080, -2080, -2048, -2048, -2080]
+      y_offsets: [-128, -256, -128, 0, -256, 0]
+      z_offsets: [2, 2, 2, 2, 2, 2]
     - door_index: 12
       legacy_attributes: 3
       door_id: 13
@@ -696,14 +696,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 2
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0]
-      sector_ids: [0]
+      vertex_ids: [1381, 1382, 1383, 1384]
+      face_ids: [559, 557, 558, 560, 561]
+      sector_ids: [21]
       delta_us: [0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-2944, -2944, -2976, -2976]
+      y_offsets: [1304, 1304, 1304, 1304]
+      z_offsets: [128, 160, 160, 128]
     - door_index: 13
       legacy_attributes: 2
       door_id: 9
@@ -716,14 +716,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [1216, 1207, 1149, 1150]
+      face_ids: [391, 371, 372, 374, 392, 385, 376, 373, 375, 390]
+      sector_ids: [19, 18]
+      delta_us: [0, 0, 0, 64, 0, 0, 0, 0, 64, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-2048, -2048, -2080, -2080]
+      y_offsets: [3520, 3648, 3520, 3648]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 14
       legacy_attributes: 2
       door_id: 5
@@ -736,14 +736,14 @@ initial_state:
       open_speed: 100
       close_speed: 50
       state: 0
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      sector_ids: [0, 0]
-      delta_us: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      vertex_ids: [265, 325, 348, 266]
+      face_ids: [152, 153, 154, 159, 151, 155, 156, 157, 158, 161]
+      sector_ids: [9, 8]
+      delta_us: [64, 0, 0, 0, 64, 0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [224, 256, 256, 224]
+      y_offsets: [2240, 2240, 2112, 2112]
+      z_offsets: [-250, -250, -250, -250]
     - door_index: 15
       legacy_attributes: 3
       door_id: 12
@@ -756,14 +756,14 @@ initial_state:
       open_speed: 50
       close_speed: 50
       state: 2
-      vertex_ids: [0, 0, 0, 0]
-      face_ids: [0, 0, 0, 0, 0]
-      sector_ids: [0]
+      vertex_ids: [1208, 1209, 1210, 1211]
+      face_ids: [462, 465, 463, 464, 467]
+      sector_ids: [18]
       delta_us: [0, 0, 0, 0, 0]
       delta_vs: [0, 0, 0, 0, 0]
-      x_offsets: [0, 0, 0, 0]
-      y_offsets: [0, 0, 0, 0]
-      z_offsets: [0, 0, 0, 0]
+      x_offsets: [-1664, -1664, -1632, -1632]
+      y_offsets: [3048, 3048, 3048, 3048]
+      z_offsets: [-128, -96, -96, -128]
   variables:
     map: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     decor: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

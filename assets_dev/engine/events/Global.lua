@@ -7352,6 +7352,7 @@ RegisterGlobalEvent(771, "Legacy event 771", function()
 end)
 RegisterCanShowTopic(771, function()
     evt._BeginCanShowTopic(771)
+    evt.ForPlayer(Players.All)
     local visible = true
     if HasItem(1433) then -- Wealthy Hat
         visible = true
@@ -7363,7 +7364,7 @@ RegisterCanShowTopic(771, function()
 end)
 
 RegisterGlobalEvent(772, "Legacy event 772", function()
-    evt.SimpleMessage("This Temple is a pretty nasty place.")
+    evt.SimpleMessage("This Temple is a pretty nasty place.\nYou should probably watch your back around here-- you never know what might want to kill you.")
 end)
 
 RegisterGlobalEvent(773, "Legacy event 773", function()
@@ -7376,14 +7377,14 @@ RegisterGlobalEvent(773, "Legacy event 773", function()
 end)
 
 RegisterGlobalEvent(774, "Legacy event 774", function()
-    evt.SimpleMessage("You should have accepted my offer…")
+    evt.SimpleMessage("You should have accepted my offer...")
     evt.SetNPCTopic(346, 0, 0) -- Sal Sharktooth topic 0 cleared
     evt.SetNPCTopic(346, 1, 0) -- Sal Sharktooth topic 1 cleared
     evt.SetMonGroupBit(54, MonsterBits.Hostile, 1)
 end)
 
 RegisterGlobalEvent(775, "Legacy event 775", function()
-    evt.SimpleMessage("You should have listened to me; I warned you this was a nasty place.")
+    evt.SimpleMessage("You should have listened to me; I warned you this was a nasty place.\nNow get out of here before I decide to take something else from you.")
 end)
 
 RegisterGlobalEvent(776, "Legacy event 776", function()

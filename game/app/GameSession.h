@@ -62,6 +62,8 @@ public:
     const std::string &currentMapFileName() const;
     void setCurrentMapFileName(const std::string &mapFileName);
     void setCurrentMapFileName(std::string &&mapFileName);
+    float gameMinutes() const;
+    void setGameMinutes(float gameMinutes);
 
     GameplayUiController &gameplayUiController();
     const GameplayUiController &gameplayUiController() const;
@@ -198,6 +200,7 @@ private:
     std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> m_outdoorWorldStates;
     std::optional<IndoorSceneRuntime::Snapshot> m_currentIndoorSceneState;
     std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> m_indoorSceneStates;
+    float m_gameMinutes = 9.0f * 60.0f;
     float m_outdoorCameraYawRadians = 0.0f;
     float m_outdoorCameraPitchRadians = 0.0f;
     std::optional<std::filesystem::path> m_currentSavePath;

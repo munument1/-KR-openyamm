@@ -10,5 +10,5 @@ void main()
     gl_Position = mul(u_modelViewProj, worldPosition);
     v_texcoord0 = a_texcoord0;
     v_color0 = a_color0;
-    v_depth = length(viewPosition.xyz);
+    v_depth = abs(viewPosition.z);
 }

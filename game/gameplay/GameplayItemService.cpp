@@ -8,6 +8,7 @@
 #include "game/items/InventoryItemMixingRuntime.h"
 #include "game/items/InventoryItemUseRuntime.h"
 #include "game/party/SpellIds.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/ObjectTable.h"
 
 #include <algorithm>
@@ -239,6 +240,10 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
     const ItemTable *pItemTable = m_session.hasDataRepository() ? &m_session.data().itemTable() : nullptr;
     const ReadableScrollTable *pReadableScrollTable =
         m_session.hasDataRepository() ? &m_session.data().readableScrollTable() : nullptr;
+    const MergedPotionSettingTable *pPotionSettingTable =
+        m_session.hasDataRepository() ? &m_session.data().mergedPotionSettingTable() : nullptr;
+    const MergedReagentSettingTable *pReagentSettingTable =
+        m_session.hasDataRepository() ? &m_session.data().mergedReagentSettingTable() : nullptr;
 
     if (!heldItem.active || pParty == nullptr || pItemTable == nullptr)
     {
@@ -252,6 +257,8 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
             heldItem.item,
             *pItemTable,
             pReadableScrollTable,
+            pPotionSettingTable,
+            pReagentSettingTable,
             buildInventoryItemUseContext(runtime));
 
     if (!useResult.handled)
@@ -397,8 +404,17 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
     const ItemTable *pItemTable = m_session.hasDataRepository() ? &m_session.data().itemTable() : nullptr;
     const PotionMixingTable *pPotionMixingTable =
         m_session.hasDataRepository() ? &m_session.data().potionMixingTable() : nullptr;
+    const MergedPotionSettingTable *pPotionSettingTable =
+        m_session.hasDataRepository() ? &m_session.data().mergedPotionSettingTable() : nullptr;
+    const MergedReagentSettingTable *pReagentSettingTable =
+        m_session.hasDataRepository() ? &m_session.data().mergedReagentSettingTable() : nullptr;
 
-    if (!heldItem.active || pParty == nullptr || pItemTable == nullptr || pPotionMixingTable == nullptr)
+    if (!heldItem.active
+        || pParty == nullptr
+        || pItemTable == nullptr
+        || pPotionMixingTable == nullptr
+        || pPotionSettingTable == nullptr
+        || pReagentSettingTable == nullptr)
     {
         return false;
     }
@@ -410,7 +426,9 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
         targetGridX,
         targetGridY,
         *pItemTable,
-        *pPotionMixingTable);
+        *pPotionMixingTable,
+        *pPotionSettingTable,
+        *pReagentSettingTable);
 
     if (!mixResult.handled)
     {
@@ -517,7 +535,11 @@ void GameplayItemService::updateReadableScrollOverlayForHeldItem(
     }
 
     const InventoryItemUseAction useAction =
-        InventoryItemUseRuntime::classifyItemUse(heldItem.item, *pItemTable);
+        InventoryItemUseRuntime::classifyItemUse(
+            heldItem.item,
+            *pItemTable,
+            &m_session.data().mergedPotionSettingTable(),
+            &m_session.data().mergedReagentSettingTable());
 
     if (useAction != InventoryItemUseAction::ReadMessageScroll)
     {
@@ -530,7 +552,9 @@ void GameplayItemService::updateReadableScrollOverlayForHeldItem(
             memberIndex,
             heldItem.item,
             *pItemTable,
-            pReadableScrollTable);
+            pReadableScrollTable,
+            &m_session.data().mergedPotionSettingTable(),
+            &m_session.data().mergedReagentSettingTable());
 
     if (!useResult.handled || useResult.action != InventoryItemUseAction::ReadMessageScroll)
     {

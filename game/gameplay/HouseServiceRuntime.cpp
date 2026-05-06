@@ -19,6 +19,52 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float MinutesPerDay = 24.0f * 60.0f;
+constexpr uint32_t ItemTypeAny = 0;
+constexpr uint32_t ItemTypeWeapon = 1;
+constexpr uint32_t ItemTypeWeapon2H = 2;
+constexpr uint32_t ItemTypeMissile = 3;
+constexpr uint32_t ItemTypeArmor = 4;
+constexpr uint32_t ItemTypeShield = 5;
+constexpr uint32_t ItemTypeHelm = 6;
+constexpr uint32_t ItemTypeBelt = 7;
+constexpr uint32_t ItemTypeCloak = 8;
+constexpr uint32_t ItemTypeGauntlets = 9;
+constexpr uint32_t ItemTypeBoots = 10;
+constexpr uint32_t ItemTypeRing = 11;
+constexpr uint32_t ItemTypeAmulet = 12;
+constexpr uint32_t ItemTypeWand = 13;
+constexpr uint32_t ItemTypeReagent = 14;
+constexpr uint32_t ItemTypePotion = 15;
+constexpr uint32_t ItemTypeScroll = 16;
+constexpr uint32_t ItemTypeBook = 17;
+constexpr uint32_t ItemTypeWeaponAny = 20;
+constexpr uint32_t ItemTypeArmorAny = 21;
+constexpr uint32_t ItemTypeMisc = 22;
+constexpr uint32_t ItemTypeSword = 23;
+constexpr uint32_t ItemTypeDagger = 24;
+constexpr uint32_t ItemTypeAxe = 25;
+constexpr uint32_t ItemTypeSpear = 26;
+constexpr uint32_t ItemTypeBow = 27;
+constexpr uint32_t ItemTypeMace = 28;
+constexpr uint32_t ItemTypeClub = 29;
+constexpr uint32_t ItemTypeStaff = 30;
+constexpr uint32_t ItemTypeLeather = 31;
+constexpr uint32_t ItemTypeChain = 32;
+constexpr uint32_t ItemTypePlate = 33;
+constexpr uint32_t ItemTypeShieldAny = 34;
+constexpr uint32_t ItemTypeHelmAny = 35;
+constexpr uint32_t ItemTypeBeltAny = 36;
+constexpr uint32_t ItemTypeCloakAny = 37;
+constexpr uint32_t ItemTypeGauntletsAny = 38;
+constexpr uint32_t ItemTypeBootsAny = 39;
+constexpr uint32_t ItemTypeRingAny = 40;
+constexpr uint32_t ItemTypeAmuletAny = 41;
+constexpr uint32_t ItemTypeWandAny = 42;
+constexpr uint32_t ItemTypeScrollAny = 43;
+constexpr uint32_t ItemTypePotionAny = 44;
+constexpr uint32_t ItemTypeReagentAny = 45;
+constexpr uint32_t ItemTypeGems = 46;
+constexpr uint32_t ItemTypeGems2 = 47;
 
 bool isHouseType(const HouseEntry &houseEntry, const char *pTypeName)
 {
@@ -88,6 +134,156 @@ bool isArmorShopTopRowItem(const ItemDefinition &itemDefinition)
             || itemDefinition.equipStat == "Gauntlets"
             || itemDefinition.equipStat == "Boots")
         && !isArmorShopBottomRowItem(itemDefinition);
+}
+
+bool isWeaponItem(const ItemDefinition &itemDefinition)
+{
+    return itemDefinition.equipStat == "Weapon"
+        || itemDefinition.equipStat == "Weapon1or2"
+        || itemDefinition.equipStat == "Weapon2"
+        || itemDefinition.equipStat == "Missile";
+}
+
+bool itemSkillGroupIs(const ItemDefinition &itemDefinition, const char *pSkillGroup)
+{
+    return itemDefinition.skillGroup == pSkillGroup;
+}
+
+bool itemMatchesHouseRuleType(const ItemDefinition &itemDefinition, uint32_t itemType)
+{
+    switch (itemType)
+    {
+        case ItemTypeAny:
+            return true;
+
+        case ItemTypeWeapon:
+        case ItemTypeWeaponAny:
+            return isWeaponItem(itemDefinition);
+
+        case ItemTypeWeapon2H:
+            return itemDefinition.equipStat == "Weapon2" || itemDefinition.equipStat == "Weapon1or2";
+
+        case ItemTypeMissile:
+            return itemDefinition.equipStat == "Missile";
+
+        case ItemTypeArmor:
+        case ItemTypeArmorAny:
+            return itemDefinition.equipStat == "Armor";
+
+        case ItemTypeShield:
+        case ItemTypeShieldAny:
+            return itemDefinition.equipStat == "Shield";
+
+        case ItemTypeHelm:
+        case ItemTypeHelmAny:
+            return itemDefinition.equipStat == "Helm";
+
+        case ItemTypeBelt:
+        case ItemTypeBeltAny:
+            return itemDefinition.equipStat == "Belt";
+
+        case ItemTypeCloak:
+        case ItemTypeCloakAny:
+            return itemDefinition.equipStat == "Cloak";
+
+        case ItemTypeGauntlets:
+        case ItemTypeGauntletsAny:
+            return itemDefinition.equipStat == "Gauntlets";
+
+        case ItemTypeBoots:
+        case ItemTypeBootsAny:
+            return itemDefinition.equipStat == "Boots";
+
+        case ItemTypeRing:
+        case ItemTypeRingAny:
+            return itemDefinition.equipStat == "Ring";
+
+        case ItemTypeAmulet:
+        case ItemTypeAmuletAny:
+            return itemDefinition.equipStat == "Amulet";
+
+        case ItemTypeWand:
+        case ItemTypeWandAny:
+            return itemDefinition.equipStat == "WeaponW";
+
+        case ItemTypeReagent:
+        case ItemTypeReagentAny:
+            return itemDefinition.equipStat == "Reagent";
+
+        case ItemTypePotion:
+        case ItemTypePotionAny:
+            return itemDefinition.equipStat == "Bottle";
+
+        case ItemTypeScroll:
+        case ItemTypeScrollAny:
+            return itemDefinition.equipStat == "Scroll";
+
+        case ItemTypeBook:
+            return itemDefinition.equipStat == "Book";
+
+        case ItemTypeMisc:
+            return itemDefinition.equipStat == "Misc"
+                || itemDefinition.equipStat == "Ring"
+                || itemDefinition.equipStat == "Amulet"
+                || itemDefinition.equipStat == "WeaponW"
+                || itemDefinition.equipStat == "Gem";
+
+        case ItemTypeSword:
+            return itemSkillGroupIs(itemDefinition, "Sword");
+
+        case ItemTypeDagger:
+            return itemSkillGroupIs(itemDefinition, "Dagger");
+
+        case ItemTypeAxe:
+            return itemSkillGroupIs(itemDefinition, "Axe");
+
+        case ItemTypeSpear:
+            return itemSkillGroupIs(itemDefinition, "Spear");
+
+        case ItemTypeBow:
+            return itemSkillGroupIs(itemDefinition, "Bow") || itemDefinition.equipStat == "Missile";
+
+        case ItemTypeMace:
+            return itemSkillGroupIs(itemDefinition, "Mace");
+
+        case ItemTypeClub:
+            return itemSkillGroupIs(itemDefinition, "Club");
+
+        case ItemTypeStaff:
+            return itemSkillGroupIs(itemDefinition, "Staff");
+
+        case ItemTypeLeather:
+            return itemSkillGroupIs(itemDefinition, "Leather");
+
+        case ItemTypeChain:
+            return itemSkillGroupIs(itemDefinition, "Chain");
+
+        case ItemTypePlate:
+            return itemSkillGroupIs(itemDefinition, "Plate");
+
+        case ItemTypeGems:
+        case ItemTypeGems2:
+            return itemDefinition.equipStat == "Gem";
+
+        default:
+            return false;
+    }
+}
+
+bool itemMatchesHouseRuleTypes(const ItemDefinition &itemDefinition, const std::vector<uint32_t> &itemTypes)
+{
+    if (itemTypes.empty())
+    {
+        return false;
+    }
+
+    return std::any_of(
+        itemTypes.begin(),
+        itemTypes.end(),
+        [&itemDefinition](uint32_t itemType)
+        {
+            return itemMatchesHouseRuleType(itemDefinition, itemType);
+        });
 }
 
 std::optional<uint32_t> tryParseSpellId(const ItemDefinition &itemDefinition)
@@ -179,19 +375,19 @@ bool isSpellbookAllowedForGuild(const HouseEntry &houseEntry, const ItemDefiniti
     return false;
 }
 
-int houseTreasureTier(const HouseEntry &houseEntry)
+int stockRuleTreasureTier(const HouseEntry::StockRule &rule)
 {
-    return std::clamp(houseEntry.standardStockTier, 0, 6);
+    return std::clamp(rule.quality, 0, 6);
 }
 
-int houseSpecialTreasureTier(const HouseEntry &houseEntry)
+int stockRuleSecondaryTreasureTier(const HouseEntry::StockRule &rule)
 {
-    if (houseEntry.specialStockTier > 0)
+    if (rule.secondaryQuality > 0)
     {
-        return std::clamp(houseEntry.specialStockTier, 1, 6);
+        return std::clamp(rule.secondaryQuality, 1, 6);
     }
 
-    return std::clamp(houseTreasureTier(houseEntry), 1, 6);
+    return std::clamp(rule.quality, 0, 6);
 }
 
 int itemTreasureWeightUpToTier(const ItemDefinition &entry, int tier)
@@ -238,7 +434,7 @@ int itemTreasureWeightForSpecialStock(const ItemDefinition &entry, int tier)
     return 0;
 }
 
-int spellbookFallbackTreasureTier(const ItemDefinition &entry)
+int spellbookQualityFromItemValue(const ItemDefinition &entry)
 {
     if (entry.equipStat != "Book")
     {
@@ -371,7 +567,8 @@ std::vector<InventoryItem> generateShopStandardStock(
     std::mt19937 &rng,
     size_t count)
 {
-    const int tier = houseTreasureTier(houseEntry);
+    const HouseEntry::StockRule &rule = houseEntry.standardStockRule;
+    const int tier = stockRuleTreasureTier(rule);
     const bool allowDuplicates = isHouseType(houseEntry, "Magic Shop") || isHouseType(houseEntry, "Alchemist");
 
     if (tier <= 0)
@@ -381,6 +578,7 @@ std::vector<InventoryItem> generateShopStandardStock(
 
     if (isHouseType(houseEntry, "Armor Shop"))
     {
+        const int bottomTier = stockRuleSecondaryTreasureTier(rule);
         const size_t topRowCount = std::min<size_t>(4, count);
         const size_t bottomRowCount = count > topRowCount ? count - topRowCount : 0;
         std::vector<InventoryItem> results(count);
@@ -392,9 +590,9 @@ std::vector<InventoryItem> generateShopStandardStock(
             tier,
             rng,
             topRowCount,
-            [](const ItemDefinition &entry)
+            [&rule](const ItemDefinition &entry)
             {
-                return isArmorShopTopRowItem(entry);
+                return isArmorShopTopRowItem(entry) && itemMatchesHouseRuleTypes(entry, rule.itemTypes);
             },
             [tier](const ItemDefinition &entry)
             {
@@ -408,13 +606,14 @@ std::vector<InventoryItem> generateShopStandardStock(
             tier,
             rng,
             bottomRowCount,
-            [](const ItemDefinition &entry)
+            [&rule](const ItemDefinition &entry)
             {
-                return isArmorShopBottomRowItem(entry);
+                return isArmorShopBottomRowItem(entry)
+                    && itemMatchesHouseRuleTypes(entry, rule.secondaryItemTypes);
             },
-            [tier](const ItemDefinition &entry)
+            [bottomTier](const ItemDefinition &entry)
             {
-                return itemTreasureWeightUpToTier(entry, tier);
+                return itemTreasureWeightUpToTier(entry, bottomTier);
             });
 
         for (size_t index = 0; index < topRow.size() && index < results.size(); ++index)
@@ -438,21 +637,15 @@ std::vector<InventoryItem> generateShopStandardStock(
         tier,
         rng,
         count,
-        [&houseEntry](const ItemDefinition &entry)
+        [&houseEntry, &rule](const ItemDefinition &entry)
         {
-            return isShopItemFamilyAllowed(houseEntry, entry);
+            return !rule.itemTypes.empty()
+                ? itemMatchesHouseRuleTypes(entry, rule.itemTypes)
+                : isShopItemFamilyAllowed(houseEntry, entry);
         },
         [tier](const ItemDefinition &entry)
         {
-            const int weight = itemTreasureWeightUpToTier(entry, tier);
-
-            if (weight > 0)
-            {
-                return weight;
-            }
-
-            const int spellbookTier = spellbookFallbackTreasureTier(entry);
-            return spellbookTier > 0 && spellbookTier <= tier ? 1 : 0;
+            return itemTreasureWeightUpToTier(entry, tier);
         },
         allowDuplicates);
 }
@@ -465,7 +658,8 @@ std::vector<InventoryItem> generateShopSpecialStock(
     std::mt19937 &rng,
     size_t count)
 {
-    const int tier = houseSpecialTreasureTier(houseEntry);
+    const HouseEntry::StockRule &rule = houseEntry.specialStockRule;
+    const int tier = stockRuleTreasureTier(rule);
     const bool allowDuplicates = isHouseType(houseEntry, "Magic Shop") || isHouseType(houseEntry, "Alchemist");
 
     if (tier <= 0)
@@ -475,6 +669,7 @@ std::vector<InventoryItem> generateShopSpecialStock(
 
     if (isHouseType(houseEntry, "Armor Shop"))
     {
+        const int bottomTier = stockRuleSecondaryTreasureTier(rule);
         const size_t topRowCount = std::min<size_t>(4, count);
         const size_t bottomRowCount = count > topRowCount ? count - topRowCount : 0;
         std::vector<InventoryItem> results(count);
@@ -486,9 +681,9 @@ std::vector<InventoryItem> generateShopSpecialStock(
             tier,
             rng,
             topRowCount,
-            [](const ItemDefinition &entry)
+            [&rule](const ItemDefinition &entry)
             {
-                return isArmorShopTopRowItem(entry);
+                return isArmorShopTopRowItem(entry) && itemMatchesHouseRuleTypes(entry, rule.itemTypes);
             },
             [tier](const ItemDefinition &entry)
             {
@@ -502,13 +697,14 @@ std::vector<InventoryItem> generateShopSpecialStock(
             tier,
             rng,
             bottomRowCount,
-            [](const ItemDefinition &entry)
+            [&rule](const ItemDefinition &entry)
             {
-                return isArmorShopBottomRowItem(entry);
+                return isArmorShopBottomRowItem(entry)
+                    && itemMatchesHouseRuleTypes(entry, rule.secondaryItemTypes);
             },
-            [tier](const ItemDefinition &entry)
+            [bottomTier](const ItemDefinition &entry)
             {
-                return itemTreasureWeightForSpecialStock(entry, tier);
+                return itemTreasureWeightForSpecialStock(entry, bottomTier);
             });
 
         for (size_t index = 0; index < topRow.size() && index < results.size(); ++index)
@@ -532,9 +728,11 @@ std::vector<InventoryItem> generateShopSpecialStock(
         tier,
         rng,
         count,
-        [&houseEntry](const ItemDefinition &entry)
+        [&houseEntry, &rule](const ItemDefinition &entry)
         {
-            return isShopItemFamilyAllowed(houseEntry, entry);
+            return !rule.itemTypes.empty()
+                ? itemMatchesHouseRuleTypes(entry, rule.itemTypes)
+                : isShopItemFamilyAllowed(houseEntry, entry);
         },
         [tier](const ItemDefinition &entry)
         {
@@ -551,7 +749,7 @@ std::vector<InventoryItem> generateGuildSpellbookStock(
     std::mt19937 &rng,
     size_t count)
 {
-    const int tier = houseTreasureTier(houseEntry);
+    const int tier = std::clamp(houseEntry.spellbookStockRule.quality, 0, 11);
 
     if (tier <= 0)
     {
@@ -572,14 +770,14 @@ std::vector<InventoryItem> generateGuildSpellbookStock(
         },
         [tier](const ItemDefinition &entry)
         {
-            const int weight = itemTreasureWeightUpToTier(entry, tier);
+            const int weight = itemTreasureWeightUpToTier(entry, std::min(tier, 6));
 
             if (weight > 0)
             {
                 return weight;
             }
 
-            const int spellbookTier = spellbookFallbackTreasureTier(entry);
+            const int spellbookTier = spellbookQualityFromItemValue(entry);
             return spellbookTier > 0 && spellbookTier <= tier ? 1 : 0;
         });
 }

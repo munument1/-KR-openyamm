@@ -1,17 +1,22 @@
 #include "game/gameplay/GameplayHudInputController.h"
 
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/party/SpellIds.h"
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <array>
 #include <optional>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
 constexpr uint64_t PartyPortraitDoubleClickWindowMs = 500;
+constexpr size_t VisibleFollowerPanelSlots = 3;
 
 struct HudPointerState
 {
@@ -79,6 +84,52 @@ void openDimensionDoorOverlay(GameplayScreenRuntime &context)
         casterMemberIndex);
     context.resetUtilitySpellOverlayInteractionState();
     context.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+}
+
+size_t hiredFollowerCount(const GameplayScreenRuntime &context)
+{
+    const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+    const EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    const NpcDialogTable *pNpcDialogTable = context.npcDialogTable();
+    const MergedNpcProfessionTable *pNpcProfessionTable = context.mergedNpcProfessionTable();
+
+    if (pEventRuntimeState == nullptr || pNpcDialogTable == nullptr || pNpcProfessionTable == nullptr)
+    {
+        return 0;
+    }
+
+    return buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable).size();
+}
+
+bool pointerInsideHudElement(
+    const GameplayScreenRuntime &context,
+    const GameplayHudButtonInputConfig &config,
+    const char *pLayoutId,
+    float pointerX,
+    float pointerY)
+{
+    if (pLayoutId == nullptr || *pLayoutId == '\0')
+    {
+        return false;
+    }
+
+    const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
+
+    if (pLayout == nullptr)
+    {
+        return false;
+    }
+
+    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved =
+        context.resolveHudLayoutElement(
+            pLayoutId,
+            config.screenWidth,
+            config.screenHeight,
+            pLayout->width,
+            pLayout->height);
+
+    return resolved && context.isPointerInsideResolvedElement(*resolved, pointerX, pointerY);
 }
 }
 
@@ -200,6 +251,33 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
         GameplayHudPointerTarget{},
         [&context, &config](float pointerX, float pointerY) -> GameplayHudPointerTarget
         {
+            if (context.interactionState().followerPanelOpen)
+            {
+                static constexpr std::array<const char *, VisibleFollowerPanelSlots> FollowerSlots = {{
+                    "OutdoorFollowerSlot_1",
+                    "OutdoorFollowerSlot_2",
+                    "OutdoorFollowerSlot_3"
+                }};
+
+                for (size_t slotIndex = 0; slotIndex < FollowerSlots.size(); ++slotIndex)
+                {
+                    if (pointerInsideHudElement(context, config, FollowerSlots[slotIndex], pointerX, pointerY))
+                    {
+                        return {GameplayHudPointerTargetType::FollowerPanelPortrait, slotIndex};
+                    }
+                }
+
+                if (pointerInsideHudElement(context, config, "OutdoorFollowerScrollUp", pointerX, pointerY))
+                {
+                    return {GameplayHudPointerTargetType::FollowerPanelScrollUpButton};
+                }
+
+                if (pointerInsideHudElement(context, config, "OutdoorFollowerScrollDown", pointerX, pointerY))
+                {
+                    return {GameplayHudPointerTargetType::FollowerPanelScrollDownButton};
+                }
+            }
+
             const std::pair<const char *, GameplayHudPointerTargetType> targets[] = {
                 {
                     activeGameplayButtonLayoutId(
@@ -242,11 +320,23 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                         "OutdoorMinimapZoomOut",
                         "OutdoorStandardMinimapZoomOut"),
                     GameplayHudPointerTargetType::MinimapZoomOutButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
+                        "OutdoorFollowerToggle",
+                        ""),
+                    GameplayHudPointerTargetType::FollowerPanelToggleButton
                 }
             };
 
             for (const auto &[pLayoutId, targetType] : targets)
             {
+                if (pLayoutId == nullptr || *pLayoutId == '\0')
+                {
+                    continue;
+                }
+
                 const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
 
                 if (pLayout == nullptr)
@@ -292,6 +382,27 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
             case GameplayHudPointerTargetType::MinimapZoomOutButton:
                 context.zoomGameplayMinimapOut();
                 break;
+            case GameplayHudPointerTargetType::FollowerPanelToggleButton:
+                context.interactionState().followerPanelOpen = !context.interactionState().followerPanelOpen;
+                break;
+            case GameplayHudPointerTargetType::FollowerPanelPortrait:
+                context.openFollowerNpcDialogue(target.index);
+                break;
+            case GameplayHudPointerTargetType::FollowerPanelScrollUpButton:
+                if (context.interactionState().followerPanelScrollOffset > 0)
+                {
+                    --context.interactionState().followerPanelScrollOffset;
+                }
+                break;
+            case GameplayHudPointerTargetType::FollowerPanelScrollDownButton:
+            {
+                const size_t followerCount = hiredFollowerCount(context);
+                const size_t maxOffset =
+                    followerCount > VisibleFollowerPanelSlots ? followerCount - VisibleFollowerPanelSlots : 0;
+                context.interactionState().followerPanelScrollOffset =
+                    std::min(context.interactionState().followerPanelScrollOffset + 1u, maxOffset);
+                break;
+            }
             case GameplayHudPointerTargetType::None:
                 break;
             }

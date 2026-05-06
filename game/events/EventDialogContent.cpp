@@ -4,7 +4,7 @@
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/StringUtils.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +15,10 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr const char *TransitionVideoDirectory = "Videos/Transitions";
+constexpr size_t MaxNpcFollowerCount = 4;
+constexpr uint32_t NpcBegTopicId = 1766;
+constexpr uint32_t NpcThreatTopicId = 1767;
+constexpr uint32_t NpcBribeTopicId = 1768;
 
 const char *transitionImageName(uint32_t imageId)
 {
@@ -46,9 +50,169 @@ const char *defaultOutdoorTransitionImageName()
     return "Outside";
 }
 
+NpcEntry runtimeNpcEntry(
+    const NpcDialogTable &npcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId)
+{
+    const NpcEntry *pBaseNpc = npcDialogTable.getNpc(npcId);
+    NpcEntry entry = pBaseNpc != nullptr ? *pBaseNpc : NpcEntry{};
+    entry.id = npcId;
+
+    const std::unordered_map<uint32_t, std::string>::const_iterator nameIt =
+        eventRuntimeState.npcNameOverrides.find(npcId);
+    if (nameIt != eventRuntimeState.npcNameOverrides.end())
+    {
+        entry.name = nameIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator pictureIt =
+        eventRuntimeState.npcPictureOverrides.find(npcId);
+    if (pictureIt != eventRuntimeState.npcPictureOverrides.end())
+    {
+        entry.pictureId = pictureIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator professionIt =
+        eventRuntimeState.npcProfessionOverrides.find(npcId);
+    if (professionIt != eventRuntimeState.npcProfessionOverrides.end())
+    {
+        entry.professionId = professionIt->second;
+    }
+
+    return entry;
+}
+
+std::optional<NpcEntry> runtimeNpcEntryIfExists(
+    const NpcDialogTable *pNpcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId)
+{
+    if (pNpcDialogTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const bool hasBaseNpc = pNpcDialogTable->getNpc(npcId) != nullptr;
+    const bool hasRuntimeNpc =
+        eventRuntimeState.npcNameOverrides.contains(npcId)
+        || eventRuntimeState.npcPictureOverrides.contains(npcId)
+        || eventRuntimeState.npcProfessionOverrides.contains(npcId);
+
+    if (!hasBaseNpc && !hasRuntimeNpc)
+    {
+        return std::nullopt;
+    }
+
+    return runtimeNpcEntry(*pNpcDialogTable, eventRuntimeState, npcId);
+}
+
 std::string lowerMapFileName(const std::string &fileName)
 {
     return toLowerCopy(fileName);
+}
+
+bool hasHiredNpcFollower(const EventRuntimeState &eventRuntimeState, uint32_t npcId)
+{
+    return std::find_if(
+        eventRuntimeState.hiredNpcFollowers.begin(),
+        eventRuntimeState.hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        }) != eventRuntimeState.hiredNpcFollowers.end();
+}
+
+bool npcCanOfferProfessionHire(
+    const NpcEntry &npc,
+    const MergedNpcProfessionEntry &profession)
+{
+    return npc.joins || profession.joins;
+}
+
+void appendNpcBtbAction(
+    EventDialogContent &dialog,
+    const NpcDialogTable &npcDialogTable,
+    uint32_t topicId,
+    uint32_t successTextId,
+    uint32_t failTextId,
+    bool accepts,
+    uint32_t cost = 0)
+{
+    const std::optional<NpcDialogTable::ResolvedTopic> topic = npcDialogTable.getTopicById(topicId);
+
+    EventDialogAction action = {};
+    action.kind = EventDialogActionKind::NpcBtb;
+    action.id = topicId;
+    action.secondaryId = accepts ? successTextId : failTextId;
+    action.argument = accepts ? "accepted" : "rejected";
+    action.label = topic && !topic->topic.empty() ? topic->topic : "Talk";
+    if (topicId == NpcBribeTopicId && cost != 0)
+    {
+        action.label += " " + std::to_string(cost) + " Gold";
+    }
+    dialog.actions.push_back(std::move(action));
+}
+
+bool isRuntimeRandomNpc(const EventRuntimeState &eventRuntimeState, uint32_t npcId)
+{
+    return eventRuntimeState.npcNameOverrides.contains(npcId)
+        && eventRuntimeState.npcProfessionOverrides.contains(npcId);
+}
+
+bool npcBtbDialogueAccessGrantedToday(
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId,
+    float currentGameMinutes)
+{
+    const std::unordered_map<uint32_t, int32_t>::const_iterator accessIt =
+        eventRuntimeState.variables.find(npcBtbDialogueAccessVariableKey(npcId));
+
+    if (accessIt == eventRuntimeState.variables.end())
+    {
+        return false;
+    }
+
+    const uint32_t currentDay = npcBtbDialogueAccessDay(currentGameMinutes);
+    return currentDay == 0 || accessIt->second == static_cast<int32_t>(currentDay);
+}
+
+bool continentReputationAffectsNpc(
+    const MapStatsEntry *pCurrentMap,
+    const MergedContinentSettingTable *pContinentSettingTable)
+{
+    if (pCurrentMap == nullptr || pContinentSettingTable == nullptr)
+    {
+        return true;
+    }
+
+    const MergedContinentSettingEntry *pContinentSetting =
+        pContinentSettingTable->findById(pCurrentMap->mergedContinentId);
+
+    return pContinentSetting == nullptr || pContinentSetting->reputationAffectsNpc;
+}
+
+bool randomNpcNeedsBtbGate(
+    const EventRuntimeState &eventRuntimeState,
+    const MapStatsEntry *pCurrentMap,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    const MergedContinentSettingTable *pContinentSettingTable,
+    uint32_t npcId,
+    bool npcIsHired,
+    const MergedNpcBtbEntry *pBtbEntry,
+    float currentGameMinutes)
+{
+    if (npcIsHired
+        || pBtbEntry == nullptr
+        || !isRuntimeRandomNpc(eventRuntimeState, npcId)
+        || !continentReputationAffectsNpc(pCurrentMap, pContinentSettingTable)
+        || npcBtbDialogueAccessGrantedToday(eventRuntimeState, npcId, currentGameMinutes)
+        || pWorldRuntime == nullptr)
+    {
+        return false;
+    }
+
+    return pWorldRuntime->currentLocationReputation() > 5;
 }
 
 std::string lowerTransitionTitle(const std::string &title)
@@ -461,6 +625,48 @@ std::vector<uint32_t> collectSelectableResidentNpcIds(
     return collectSelectableResidentNpcIdsImpl(houseEntry, npcDialogTable, eventRuntimeState);
 }
 
+uint32_t npcBtbDialogueAccessVariableKey(uint32_t npcId)
+{
+    constexpr uint32_t NpcBtbDialogueAccessVariableBase = 0x7B000000u;
+    return NpcBtbDialogueAccessVariableBase | (npcId & 0x00FFFFFFu);
+}
+
+uint32_t npcBtbDialogueAccessDay(float currentGameMinutes)
+{
+    if (currentGameMinutes < 0.0f)
+    {
+        return 0;
+    }
+
+    constexpr uint32_t MinutesPerDay = 24u * 60u;
+    constexpr uint32_t DaysPerMonth = 28u;
+    const uint32_t elapsedDays = static_cast<uint32_t>(currentGameMinutes) / MinutesPerDay;
+    return (elapsedDays % DaysPerMonth) + 1u;
+}
+
+bool npcProfessionActionTopicHasDailyCooldown(uint32_t topicId)
+{
+    return topicId >= static_cast<uint32_t>(NpcFollowerActionTopicId::HealParty)
+        && topicId <= static_cast<uint32_t>(NpcFollowerActionTopicId::CastHeroism);
+}
+
+uint32_t npcProfessionActionCooldownVariableKey(uint32_t npcId)
+{
+    constexpr uint32_t NpcProfessionActionCooldownVariableBase = 0x7C000000u;
+    return NpcProfessionActionCooldownVariableBase | (npcId & 0x00FFFFFFu);
+}
+
+uint32_t npcProfessionActionCooldownDay(float currentGameMinutes)
+{
+    if (currentGameMinutes < 0.0f)
+    {
+        return 0;
+    }
+
+    constexpr uint32_t MinutesPerDay = 24u * 60u;
+    return static_cast<uint32_t>(currentGameMinutes) / MinutesPerDay + 1u;
+}
+
 EventDialogContent buildEventDialogContent(
     EventRuntimeState &eventRuntimeState,
     size_t previousMessageCount,
@@ -475,8 +681,11 @@ EventDialogContent buildEventDialogContent(
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
     float currentGameMinutes,
-    const MmergeNpcProfessionTable *pNpcProfessionTable,
-    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable
+    const MergedNpcProfessionTable *pNpcProfessionTable,
+    const MergedNewsProfessionTopicTable *pNewsProfessionTopicTable,
+    const MergedNpcBtbTable *pNpcBtbTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
+    const MergedContinentSettingTable *pContinentSettingTable
 )
 {
     EventDialogContent dialog = {};
@@ -530,6 +739,7 @@ EventDialogContent buildEventDialogContent(
     dialog.isActive = true;
     dialog.isHouseDialog = context.kind == DialogueContextKind::HouseService;
     dialog.sourceId = context.sourceId;
+    dialog.sourceActorIndex = context.sourceActorIndex;
     bool allowEmptyNpcTalkDialog = false;
 
     constexpr size_t MaxLineWidth = 58;
@@ -677,6 +887,10 @@ EventDialogContent buildEventDialogContent(
         dialog.houseTitle = pHouseEntry != nullptr ? pHouseEntry->name : ("House #" + std::to_string(dialog.sourceId));
         dialog.title = dialog.houseTitle;
         dialog.participantPictureId = pHouseEntry != nullptr ? pHouseEntry->proprietorPictureId : 0;
+        if (dialog.participantPictureId == 0 && pHouseEntry != nullptr && pHouseEntry->extraExit.has_value())
+        {
+            dialog.participantPictureId = pHouseEntry->extraExit->pictureId;
+        }
         bool hasResidentActions = false;
 
         if (pHouseEntry != nullptr)
@@ -764,9 +978,9 @@ EventDialogContent buildEventDialogContent(
                 ? pNpcDialogTable->getGreeting(overriddenGreetingId)
                 : pNpcDialogTable->getGreetingForNpc(dialog.sourceId))
             : nullptr;
-        const NpcEntry *pNpc = pNpcDialogTable != nullptr
-            ? pNpcDialogTable->getNpc(dialog.sourceId)
-            : nullptr;
+        const std::optional<NpcEntry> npcEntry =
+            runtimeNpcEntryIfExists(pNpcDialogTable, npcRuntimeState, dialog.sourceId);
+        const NpcEntry *pNpc = npcEntry ? &*npcEntry : nullptr;
         const bool hasPendingRosterJoinInvite =
             pCurrentOffer != nullptr
             && pCurrentOffer->kind == DialogueOfferKind::RosterJoin
@@ -778,6 +992,10 @@ EventDialogContent buildEventDialogContent(
         const bool hasPendingGuildMembershipOffer =
             pCurrentOffer != nullptr
             && pCurrentOffer->kind == DialogueOfferKind::GuildMembership
+            && pCurrentOffer->npcId == dialog.sourceId;
+        const bool hasPendingNpcHireOffer =
+            pCurrentOffer != nullptr
+            && pCurrentOffer->kind == DialogueOfferKind::NpcHire
             && pCurrentOffer->npcId == dialog.sourceId;
         const bool hasEventMessageLines = !eventMessageLines.empty();
         allowEmptyNpcTalkDialog =
@@ -822,6 +1040,7 @@ EventDialogContent buildEventDialogContent(
             && !hasPendingRosterJoinInvite
             && !hasPendingMasteryTeacherOffer
             && !hasPendingGuildMembershipOffer
+            && !hasPendingNpcHireOffer
             && !hasEventMessageLines
             && pGreeting != nullptr)
         {
@@ -873,7 +1092,8 @@ EventDialogContent buildEventDialogContent(
                     pCurrentOffer->topicId,
                     *pParty,
                     *pClassSkillTable,
-                    *pNpcDialogTable
+                    *pNpcDialogTable,
+                    pTeacherTopicTable
                 );
 
                 if (evaluation && !evaluation->displayText.empty())
@@ -903,11 +1123,42 @@ EventDialogContent buildEventDialogContent(
                     dialog.actions.push_back(std::move(joinAction));
                 }
             }
+            else if (hasPendingNpcHireOffer)
+            {
+                EventDialogAction acceptAction = {};
+                acceptAction.kind = EventDialogActionKind::NpcHireAccept;
+                acceptAction.label = "Yes";
+                dialog.actions.push_back(std::move(acceptAction));
+
+                EventDialogAction declineAction = {};
+                declineAction.kind = EventDialogActionKind::NpcHireDecline;
+                declineAction.label = "No";
+                dialog.actions.push_back(std::move(declineAction));
+            }
             else
             {
+                const MergedNpcProfessionEntry *pProfession =
+                    pNpc != nullptr && pNpc->professionId != 0 && pNpcProfessionTable != nullptr
+                        ? pNpcProfessionTable->get(pNpc->professionId)
+                        : nullptr;
+                const bool npcIsHired =
+                    pNpc != nullptr && hasHiredNpcFollower(npcRuntimeState, pNpc->id);
+                const bool suppressProfessionTopicForHireableNpc =
+                    pNpc != nullptr
+                    && pProfession != nullptr
+                    && npcCanOfferProfessionHire(*pNpc, *pProfession)
+                    && !npcIsHired;
+
                 for (const NpcDialogTable::ResolvedTopic &topic : topics)
                 {
                     if (topic.topic.empty())
+                    {
+                        continue;
+                    }
+
+                    if (suppressProfessionTopicForHireableNpc
+                        && (topic.id == pProfession->actionTopicId
+                            || topic.id == pProfession->globalTextId))
                     {
                         continue;
                     }
@@ -926,15 +1177,17 @@ EventDialogContent buildEventDialogContent(
                     }
 
                     EventDialogAction action = {};
+                    const bool isTeacherTopic = isMasteryTeacherTopic(topic.id, pTeacherTopicTable);
+
                     action.kind = EventDialogActionKind::NpcTopic;
                     action.secondaryId = topic.id;
-                    action.textOnly = topic.specialKind == NpcTopicEntry::SpecialKind::TextOnly;
+                    action.textOnly = !isTeacherTopic && topic.specialKind == NpcTopicEntry::SpecialKind::TextOnly;
 
                     if (topic.specialKind == NpcTopicEntry::SpecialKind::RosterJoinOffer)
                     {
                         action.kind = EventDialogActionKind::RosterJoinOffer;
                     }
-                    else if (topic.specialKind == NpcTopicEntry::SpecialKind::MasteryTeacherOffer)
+                    else if (isTeacherTopic)
                     {
                         action.kind = EventDialogActionKind::MasteryTeacherOffer;
                     }
@@ -948,19 +1201,125 @@ EventDialogContent buildEventDialogContent(
                     dialog.actions.push_back(std::move(action));
                 }
 
-                if (dialog.actions.empty()
+                const bool canUseProfessionFallback =
+                    dialog.actions.empty()
+                    || npcIsHired
+                    || (pNpc != nullptr
+                        && pProfession != nullptr
+                        && !npcIsHired
+                        && npcCanOfferProfessionHire(*pNpc, *pProfession));
+                bool suppressProfessionNewsForBtbGate = false;
+
+                if (canUseProfessionFallback && pNpc != nullptr && pProfession != nullptr)
+                {
+                    const bool npcCanJoin = npcCanOfferProfessionHire(*pNpc, *pProfession);
+                    const MergedNpcBtbEntry *pBtbEntry =
+                        pNpcBtbTable != nullptr ? pNpcBtbTable->get(pProfession->personality) : nullptr;
+                    const bool showBtbGate = randomNpcNeedsBtbGate(
+                        npcRuntimeState,
+                        pCurrentMap,
+                        pWorldRuntime,
+                        pContinentSettingTable,
+                        pNpc->id,
+                        npcIsHired,
+                        pBtbEntry,
+                        currentGameMinutes);
+
+                    if (showBtbGate)
+                    {
+                        appendNpcBtbAction(
+                            dialog,
+                            *pNpcDialogTable,
+                            NpcBegTopicId,
+                            pBtbEntry->begSuccessTextId,
+                            pBtbEntry->begFailTextId,
+                            pBtbEntry->acceptBeg);
+                        appendNpcBtbAction(
+                            dialog,
+                            *pNpcDialogTable,
+                            NpcThreatTopicId,
+                            pBtbEntry->threatSuccessTextId,
+                            pBtbEntry->threatFailTextId,
+                            pBtbEntry->acceptThreat);
+                        appendNpcBtbAction(
+                            dialog,
+                            *pNpcDialogTable,
+                            NpcBribeTopicId,
+                            pBtbEntry->bribeSuccessTextId,
+                            pBtbEntry->bribeFailTextId,
+                            pBtbEntry->acceptBribe,
+                            pProfession->weeklyCost != 0 ? pProfession->weeklyCost : 50u);
+                        suppressProfessionNewsForBtbGate = true;
+                    }
+                    else if (!npcIsHired && npcCanJoin)
+                    {
+                        EventDialogAction action = {};
+                        action.kind = EventDialogActionKind::NpcHireOffer;
+                        action.id = pNpc->professionId;
+                        action.label = "Join";
+                        action.enabled = npcRuntimeState.hiredNpcFollowers.size() < MaxNpcFollowerCount;
+                        action.disabledReason = action.enabled ? std::string() : "You already have enough followers.";
+                        dialog.actions.push_back(std::move(action));
+                    }
+                    else
+                    {
+                        if (pProfession->actionTopicId != 0)
+                        {
+                            const bool actionOnCooldown = npcProfessionActionTopicHasDailyCooldown(
+                                pProfession->actionTopicId)
+                                && npcRuntimeState.variables[npcProfessionActionCooldownVariableKey(pNpc->id)]
+                                    == static_cast<int32_t>(
+                                        npcProfessionActionCooldownDay(currentGameMinutes));
+
+                            const std::optional<NpcDialogTable::ResolvedTopic> professionTopic =
+                                pNpcDialogTable->getTopicById(pProfession->actionTopicId);
+
+                            if (!actionOnCooldown)
+                            {
+                                EventDialogAction action = {};
+                                action.kind = EventDialogActionKind::NpcProfessionAction;
+                                action.id = pProfession->actionTopicId;
+                                action.label = professionTopic && !professionTopic->topic.empty()
+                                    ? professionTopic->topic
+                                    : (!pProfession->profession.empty() ? pProfession->profession : "Profession");
+                                dialog.actions.push_back(std::move(action));
+                            }
+                        }
+
+                        if (pProfession->descriptionTextId != 0)
+                        {
+                            EventDialogAction action = {};
+                            action.kind = EventDialogActionKind::NpcProfessionDescription;
+                            action.id = pNpc->professionId;
+                            action.secondaryId = pProfession->descriptionTextId;
+                            action.label = "More Info";
+                            dialog.actions.push_back(std::move(action));
+                        }
+
+                        if (npcIsHired)
+                        {
+                            EventDialogAction action = {};
+                            action.kind = EventDialogActionKind::NpcDismiss;
+                            action.id = pNpc->professionId;
+                            action.label = "Dismiss";
+                            dialog.actions.push_back(std::move(action));
+                        }
+                    }
+                }
+
+                if (canUseProfessionFallback
+                    && !suppressProfessionNewsForBtbGate
+                    && !npcIsHired
                     && pNpc != nullptr
-                    && pNpc->professionId != 0
-                    && pNpcProfessionTable != nullptr
+                    && pProfession != nullptr
                     && pNewsProfessionTopicTable != nullptr)
                 {
-                    const MmergeNpcProfessionEntry *pProfession = pNpcProfessionTable->get(pNpc->professionId);
-                    const MmergeNewsProfessionDayTopic *pProfessionTopic =
+                    const MergedNewsProfessionDayTopic *pProfessionTopic =
                         pNewsProfessionTopicTable->get(
                             pNpc->professionId,
                             weekDayIndexFromGameMinutes(currentGameMinutes));
 
-                    if (pProfession != nullptr && pProfessionTopic != nullptr && pProfessionTopic->newsTextId != 0)
+                    if (pProfessionTopic != nullptr && pProfessionTopic->newsTextId != 0)
                     {
                         EventDialogAction action = {};
                         action.kind = EventDialogActionKind::NpcProfessionNews;
@@ -1017,6 +1376,22 @@ EventDialogContent buildEventDialogContent(
         if (inviteText && !inviteText->empty())
         {
             eventMessageLines = wrapDialogText(*inviteText, MaxLineWidth);
+        }
+    }
+
+    if (context.kind == DialogueContextKind::NpcTalk
+        && pCurrentOffer != nullptr
+        && pCurrentOffer->kind == DialogueOfferKind::NpcHire
+        && pCurrentOffer->npcId == dialog.sourceId
+        && eventMessageLines.empty()
+        && pNpcDialogTable != nullptr)
+    {
+        const std::optional<std::string> hireText =
+            pNpcDialogTable->getText(pCurrentOffer->messageTextId);
+
+        if (hireText && !hireText->empty())
+        {
+            eventMessageLines = wrapDialogText(*hireText, MaxLineWidth);
         }
     }
 

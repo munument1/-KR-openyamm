@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/party/CharacterState.h"
+#include "game/gameplay/NpcFollowerTypes.h"
 #include "game/tables/ClassSkillTable.h"
 #include "game/outdoor/OutdoorMovementDriver.h"
 #include "game/tables/PortraitEnums.h"
@@ -300,6 +301,7 @@ public:
         std::unordered_map<uint32_t, uint32_t> npcHouseOverrides;
         std::unordered_map<uint32_t, uint32_t> npcItemOverrides;
         std::unordered_set<uint32_t> unavailableNpcIds;
+        std::vector<HiredNpcFollower> hiredNpcFollowers;
     };
 
     struct PendingAudioRequest
@@ -370,6 +372,8 @@ public:
     void clearNpcHouseOverride(uint32_t npcId);
     void setNpcItemOverride(uint32_t npcId, uint32_t itemId);
     void setNpcUnavailable(uint32_t npcId, bool unavailable);
+    void addHiredNpcFollower(const HiredNpcFollower &follower);
+    void removeHiredNpcFollower(uint32_t npcId);
     bool tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool tryGrantInventoryItem(const InventoryItem &item, size_t *pRecipientMemberIndex = nullptr);
     bool tryGrantInventoryItemStartingAt(
@@ -612,6 +616,7 @@ private:
     std::unordered_map<uint32_t, uint32_t> m_npcHouseOverrides;
     std::unordered_map<uint32_t, uint32_t> m_npcItemOverrides;
     std::unordered_set<uint32_t> m_unavailableNpcIds;
+    std::vector<HiredNpcFollower> m_hiredNpcFollowers;
     std::vector<PendingAudioRequest> m_pendingAudioRequests;
 };
 }

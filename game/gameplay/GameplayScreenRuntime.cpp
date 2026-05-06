@@ -2,6 +2,7 @@
 
 #include "game/app/GameSession.h"
 #include "game/gameplay/GameplayItemService.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/GameplaySpeechRules.h"
 #include "game/gameplay/GameplayDialogContextBuilder.h"
 #include "game/gameplay/GameplayDialogUiFlow.h"
@@ -13,6 +14,7 @@
 #include "game/party/SpellIds.h"
 #include "game/party/SpellSchool.h"
 #include "game/StringUtils.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/ui/SpellbookUiLayout.h"
 
 #include <SDL3/SDL.h>
@@ -387,8 +389,13 @@ GameplayDialogController::Context GameplayScreenRuntime::buildDialogContext(Even
         &m_session.data().arcomageLibrary(),
         currentHudScreenState() == GameplayHudScreenState::Dialogue,
         this,
-        &m_session.data().mmergeNpcProfessionTable(),
-        &m_session.data().mmergeNewsProfessionTopicTable());
+        &m_session.data().mergedNpcProfessionTable(),
+        &m_session.data().mergedNewsProfessionTopicTable(),
+        &m_session.data().mergedNpcBtbTable(),
+        &m_session.data().mergedBolsterMapTable(),
+        &m_session.data().mergedContinentSettingTable(),
+        &m_session.data().mergedTeacherTopicTable(),
+        &m_session.data().mergedTeacherAutonoteTable());
 }
 
 void GameplayScreenRuntime::presentPendingEventDialog(
@@ -536,9 +543,24 @@ const ReadableScrollTable *GameplayScreenRuntime::readableScrollTable() const
     return &m_session.data().readableScrollTable();
 }
 
-const ItemEquipPosTable *GameplayScreenRuntime::itemEquipPosTable() const
+const MergedPotionSettingTable *GameplayScreenRuntime::mergedPotionSettingTable() const
 {
-    return &m_session.data().itemEquipPosTable();
+    return &m_session.data().mergedPotionSettingTable();
+}
+
+const MergedReagentSettingTable *GameplayScreenRuntime::mergedReagentSettingTable() const
+{
+    return &m_session.data().mergedReagentSettingTable();
+}
+
+const MergedNpcProfessionTable *GameplayScreenRuntime::mergedNpcProfessionTable() const
+{
+    return &m_session.data().mergedNpcProfessionTable();
+}
+
+const MergedComplexItemPictureTable *GameplayScreenRuntime::mergedComplexItemPictureTable() const
+{
+    return &m_session.data().mergedComplexItemPictureTable();
 }
 
 const SpellTable *GameplayScreenRuntime::spellTable() const
@@ -739,6 +761,15 @@ const JournalQuestTable *GameplayScreenRuntime::journalQuestTable() const
 const JournalHistoryTable *GameplayScreenRuntime::journalHistoryTable() const
 {
     return &m_session.data().journalHistoryTable();
+}
+
+uint32_t GameplayScreenRuntime::activeHistoryContinentId() const
+{
+    const MapStatsEntry *pCurrentMap = m_session.hasCurrentMapFileName()
+        ? m_session.data().mapStats().findByFileName(m_session.currentMapFileName())
+        : nullptr;
+
+    return pCurrentMap != nullptr ? pCurrentMap->mergedContinentId : 1u;
 }
 
 const JournalAutonoteTable *GameplayScreenRuntime::journalAutonoteTable() const
@@ -1125,6 +1156,38 @@ void GameplayScreenRuntime::closeHouseShopOverlay()
     uiController().closeHouseShopOverlay();
     interactionState().houseShopClickLatch = false;
     interactionState().houseShopPressedSlotIndex = static_cast<size_t>(-1);
+}
+
+void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)
+{
+    IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+    EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    const NpcDialogTable *pNpcDialogTable = npcDialogTable();
+    const MergedNpcProfessionTable *pNpcProfessionTable = mergedNpcProfessionTable();
+
+    if (pEventRuntimeState == nullptr || pNpcDialogTable == nullptr || pNpcProfessionTable == nullptr)
+    {
+        return;
+    }
+
+    const std::vector<HiredNpcFollowerView> followerViews =
+        buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable);
+    const size_t followerIndex = interactionState().followerPanelScrollOffset + followerSlotIndex;
+
+    if (followerIndex >= followerViews.size())
+    {
+        return;
+    }
+
+    if (activeEventDialog().isActive)
+    {
+        closeActiveEventDialog();
+    }
+
+    GameplayDialogController::Context context = buildDialogContext(*pEventRuntimeState);
+    const GameplayDialogController::Result result =
+        m_session.gameplayDialogController().openNpcDialogue(context, followerViews[followerIndex].npcId);
+    presentPendingDialogActionResult(result);
 }
 
 void GameplayScreenRuntime::closeRestOverlay()
@@ -3339,16 +3402,19 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayScreenRuntime::resolveCh
 
     if (isBodyEquipmentVisualSlot(slot))
     {
-        const ItemEquipPosEntry *pEntry =
-            itemEquipPosTable() != nullptr ? itemEquipPosTable()->get(itemDefinition.itemId) : nullptr;
+        const MergedComplexItemPictureEntry *pEntry =
+            mergedComplexItemPictureTable() != nullptr
+                ? mergedComplexItemPictureTable()->get(itemDefinition.itemId)
+                : nullptr;
         const uint32_t dollTypeId = pCharacterDollType != nullptr ? pCharacterDollType->id : 0;
         int offsetX = 0;
         int offsetY = 0;
 
-        if (pEntry != nullptr && dollTypeId < pEntry->xByDollType.size())
+        if (pEntry != nullptr && dollTypeId < pEntry->points.size())
         {
-            offsetX = pEntry->xByDollType[dollTypeId];
-            offsetY = pEntry->yByDollType[dollTypeId];
+            const MergedPoint &point = pEntry->points[dollTypeId];
+            offsetX = point.x;
+            offsetY = point.y;
         }
 
         GameplayResolvedHudLayoutElement rect = {};

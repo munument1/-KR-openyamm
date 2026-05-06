@@ -45,6 +45,7 @@ struct NpcEntry
     uint32_t houseId = 0;
     uint32_t professionId = 0;
     uint32_t greetId = 0;
+    bool joins = false;
     std::vector<uint32_t> topicIds;
 };
 

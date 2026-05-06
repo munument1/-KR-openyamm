@@ -30,8 +30,13 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
     const ArcomageLibrary *pArcomageLibrary,
     bool dialogueHudActive,
     GameplayScreenRuntime *pScreenRuntime,
-    const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr,
-    const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr)
+    const MergedNpcProfessionTable *pNpcProfessionTable = nullptr,
+    const MergedNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr,
+    const MergedNpcBtbTable *pNpcBtbTable = nullptr,
+    const MergedBolsterMapTable *pBolsterMapTable = nullptr,
+    const MergedContinentSettingTable *pContinentSettingTable = nullptr,
+    const MergedTeacherTopicTable *pTeacherTopicTable = nullptr,
+    const MergedTeacherAutonoteTable *pTeacherAutonoteTable = nullptr)
 {
     GameplayDialogController::Context context = {
         uiController,
@@ -52,6 +57,11 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
         pArcomageLibrary,
         pNpcProfessionTable,
         pNewsProfessionTopicTable,
+        pNpcBtbTable,
+        pBolsterMapTable,
+        pContinentSettingTable,
+        pTeacherTopicTable,
+        pTeacherAutonoteTable,
         dialogueHudActive
     };
     return context;

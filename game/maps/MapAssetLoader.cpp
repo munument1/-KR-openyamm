@@ -3312,6 +3312,41 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
 
     return textureSet;
 }
+
+bool isSceneOverlayFileName(const std::string &entryName, const std::string &sceneFileName)
+{
+    const std::string lowerEntryName = toLowerCopy(entryName);
+    const std::string lowerSceneFileName = toLowerCopy(sceneFileName);
+
+    if (!lowerEntryName.ends_with(".scene.yml") || lowerEntryName == lowerSceneFileName)
+    {
+        return false;
+    }
+
+    const std::string overlayPrefix = lowerSceneFileName.substr(0, lowerSceneFileName.size() - 10) + "_";
+    return lowerEntryName.starts_with(overlayPrefix);
+}
+
+std::vector<std::string> buildSceneOverlayPathCandidates(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &sceneFileName)
+{
+    std::vector<std::string> candidates;
+
+    for (const std::string &entryName : assetFileSystem.enumerate("Data/games"))
+    {
+        if (isSceneOverlayFileName(entryName, sceneFileName))
+        {
+            candidates.push_back("Data/games/" + entryName);
+        }
+    }
+
+    std::sort(candidates.begin(), candidates.end(), [](const std::string &left, const std::string &right)
+    {
+        return toLowerCopy(left) < toLowerCopy(right);
+    });
+    return candidates;
+}
 }
 
 std::optional<MapAssetInfo> MapAssetLoader::load(
@@ -3359,6 +3394,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 
     std::optional<std::vector<uint8_t>> companionBytes;
     std::optional<std::string> sceneText;
+    std::vector<std::pair<std::string, std::string>> sceneOverlays;
 
     const std::optional<std::string> sceneFileName =
         companionLoadOptions.allowSceneYml ? buildSceneFileName(map.fileName) : std::nullopt;
@@ -3376,6 +3412,20 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 assetInfo.scenePath = scenePath;
                 assetInfo.sceneSize = sceneText->size();
                 logStageComplete("scene yml loaded");
+
+                for (const std::string &overlayPath : buildSceneOverlayPathCandidates(assetFileSystem, *sceneFileName))
+                {
+                    const std::optional<std::string> overlayText = assetFileSystem.readTextFile(overlayPath);
+
+                    if (!overlayText)
+                    {
+                        continue;
+                    }
+
+                    sceneOverlays.emplace_back(overlayPath, *overlayText);
+                    *assetInfo.scenePath += " + " + overlayPath;
+                    *assetInfo.sceneSize += overlayText->size();
+                }
             }
         }
     }
@@ -3401,10 +3451,18 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
         }
     }
 
+    const bool loadFullPresentation = purpose == MapLoadPurpose::Full || purpose == MapLoadPurpose::FullGameplay;
+    const bool loadRenderSurfaces = loadFullPresentation || purpose == MapLoadPurpose::RenderSurfaces;
+    const bool loadActorPreviews = loadFullPresentation
+        || purpose == MapLoadPurpose::ActorPreviews
+        || purpose == MapLoadPurpose::BillboardPreviews;
+    const bool loadDecorationBillboards = loadFullPresentation || purpose == MapLoadPurpose::BillboardPreviews;
+    const bool loadSpriteObjectBillboards = loadFullPresentation;
+
     std::optional<TextureFrameTable> textureFrameTable;
     std::optional<SurfaceMaterialTable> surfaceMaterialTable;
 
-    if (purpose == MapLoadPurpose::Full || purpose == MapLoadPurpose::FullGameplay)
+    if (loadRenderSurfaces)
     {
         textureFrameTable = loadTextureFrameTable(assetFileSystem);
         logStageComplete("texture frame table loaded");
@@ -3428,13 +3486,23 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
             {
                 OutdoorSceneYmlLoader sceneLoader = {};
                 std::string sceneError;
-                const std::optional<OutdoorSceneData> sceneData = sceneLoader.loadFromText(*sceneText, sceneError);
+                std::optional<OutdoorSceneData> sceneData = sceneLoader.loadFromText(*sceneText, sceneError);
 
                 if (!sceneData)
                 {
                     std::cerr << "Failed to parse outdoor scene yml for " << map.fileName
                               << ": " << sceneError << '\n';
                     return std::nullopt;
+                }
+
+                for (const std::pair<std::string, std::string> &overlay : sceneOverlays)
+                {
+                    if (!sceneLoader.applyOverlayFromText(*sceneData, overlay.second, sceneError))
+                    {
+                        std::cerr << "Failed to parse outdoor scene yml overlay for " << map.fileName
+                                  << ": " << overlay.first << ": " << sceneError << '\n';
+                        return std::nullopt;
+                    }
                 }
 
                 if (!sceneData->geometryFile.empty()
@@ -3445,6 +3513,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     return std::nullopt;
                 }
 
+                assetInfo.map.runtimeRestrictions = sceneData->runtimeRestrictions;
                 MapDeltaData sceneMapDeltaData = {};
 
                 if (!buildOutdoorMapStateFromScene(
@@ -3484,7 +3553,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 std::cerr << "Failed to apply outdoor terrain tile flags for " << map.fileName << '\n';
             }
 
-            if (purpose == MapLoadPurpose::Full || purpose == MapLoadPurpose::FullGameplay)
+            if (loadRenderSurfaces)
             {
                 assetInfo.outdoorLandMask = buildOutdoorLandMask(assetFileSystem, *assetInfo.outdoorMapData);
                 logStageComplete("outdoor land mask built");
@@ -3507,6 +3576,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         surfaceMaterialTable ? &*surfaceMaterialTable : nullptr,
                         progressPump);
                 logStageComplete("outdoor bmodel textures built");
+            }
+
+            if (loadFullPresentation)
+            {
                 assetInfo.outdoorDecorationCollisionSet =
                     buildOutdoorDecorationCollisionSet(assetFileSystem, assetInfo.outdoorMapData->entities);
                 logStageComplete("outdoor decoration collisions built");
@@ -3522,6 +3595,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 assetInfo.outdoorSpriteObjectCollisionSet =
                     buildOutdoorSpriteObjectCollisionSet(objectTable, assetInfo.outdoorMapDeltaData);
                 logStageComplete("outdoor sprite object collisions built");
+            }
+
+            if (loadDecorationBillboards)
+            {
                 assetInfo.outdoorDecorationBillboardSet =
                     buildOutdoorDecorationBillboardSet(
                         assetFileSystem,
@@ -3529,6 +3606,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         bitmapLoadCache,
                         progressPump);
                 logStageComplete("outdoor decoration billboards built");
+            }
+
+            if (loadActorPreviews)
+            {
                 assetInfo.outdoorActorPreviewBillboardSet =
                     buildActorPreviewBillboardSet(
                         assetFileSystem,
@@ -3538,10 +3619,14 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetInfo.outdoorMapData->spawns,
                         bitmapLoadCache,
                         &*assetInfo.outdoorMapData,
-                        purpose == MapLoadPurpose::Full,
+                        purpose != MapLoadPurpose::FullGameplay,
                         progressPump
                     );
                 logStageComplete("outdoor actor previews built");
+            }
+
+            if (loadSpriteObjectBillboards)
+            {
                 assetInfo.outdoorSpriteObjectBillboardSet =
                     buildSpriteObjectBillboardSet(
                         assetFileSystem,
@@ -3551,55 +3636,52 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         progressPump
                     );
                 logStageComplete("outdoor sprite objects built");
-
-                if (assetInfo.outdoorActorPreviewBillboardSet)
-                {
-                    const ActorPreviewBillboardSet &actorSet = *assetInfo.outdoorActorPreviewBillboardSet;
-                    std::cout
-                        << "  outdoor actors: total=" << actorSet.billboards.size()
-                        << " map_delta=" << actorSet.mapDeltaActorCount
-                        << " spawn=" << actorSet.spawnActorCount
-                        << " textured=" << actorSet.texturedActorCount
-                        << " missing=" << actorSet.missingTextureActorCount << '\n';
-                }
-
-                if (assetInfo.outdoorSpriteObjectBillboardSet)
-                {
-                    const SpriteObjectBillboardSet &objectSet = *assetInfo.outdoorSpriteObjectBillboardSet;
-                    std::cout
-                        << "  outdoor sprite objects: total=" << objectSet.billboards.size()
-                        << " textured=" << objectSet.texturedObjectCount
-                        << " missing=" << objectSet.missingTextureObjectCount << '\n';
-
-                    for (const SpriteObjectBillboard &billboard : objectSet.billboards)
-                    {
-                        std::cout
-                            << "    object"
-                            << " name=\"" << billboard.objectName << "\""
-                            << " desc=" << billboard.objectDescriptionId
-                            << " sprite=" << billboard.objectSpriteId
-                            << " x=" << billboard.x
-                            << " y=" << billboard.y
-                            << " z=" << billboard.z
-                            << " h=" << billboard.height
-                            << " r=" << billboard.radius
-                            << " attr=0x" << std::hex << billboard.attributes << std::dec
-                            << " sound=" << billboard.soundId
-                            << " sector=" << billboard.sectorId
-                            << " life_ticks=" << billboard.timeSinceCreatedTicks
-                            << " temp=" << billboard.temporaryLifetime
-                            << " glow=" << billboard.glowRadiusMultiplier
-                            << " spell=" << billboard.spellId
-                            << " lvl=" << billboard.spellLevel
-                            << " skill=" << billboard.spellSkill
-                            << " caster=" << billboard.spellCasterPid
-                            << " target=" << billboard.spellTargetPid
-                            << '\n';
-                    }
-                }
             }
-            else
+
+            if (assetInfo.outdoorActorPreviewBillboardSet)
             {
+                const ActorPreviewBillboardSet &actorSet = *assetInfo.outdoorActorPreviewBillboardSet;
+                std::cout
+                    << "  outdoor actors: total=" << actorSet.billboards.size()
+                    << " map_delta=" << actorSet.mapDeltaActorCount
+                    << " spawn=" << actorSet.spawnActorCount
+                    << " textured=" << actorSet.texturedActorCount
+                    << " missing=" << actorSet.missingTextureActorCount << '\n';
+            }
+
+            if (assetInfo.outdoorSpriteObjectBillboardSet)
+            {
+                const SpriteObjectBillboardSet &objectSet = *assetInfo.outdoorSpriteObjectBillboardSet;
+                std::cout
+                    << "  outdoor sprite objects: total=" << objectSet.billboards.size()
+                    << " textured=" << objectSet.texturedObjectCount
+                    << " missing=" << objectSet.missingTextureObjectCount << '\n';
+
+                for (const SpriteObjectBillboard &billboard : objectSet.billboards)
+                {
+                    std::cout
+                        << "    object"
+                        << " name=\"" << billboard.objectName << "\""
+                        << " desc=" << billboard.objectDescriptionId
+                        << " sprite=" << billboard.objectSpriteId
+                        << " x=" << billboard.x
+                        << " y=" << billboard.y
+                        << " z=" << billboard.z
+                        << " h=" << billboard.height
+                        << " r=" << billboard.radius
+                        << " attr=0x" << std::hex << billboard.attributes << std::dec
+                        << " sound=" << billboard.soundId
+                        << " sector=" << billboard.sectorId
+                        << " life_ticks=" << billboard.timeSinceCreatedTicks
+                        << " temp=" << billboard.temporaryLifetime
+                        << " glow=" << billboard.glowRadiusMultiplier
+                        << " spell=" << billboard.spellId
+                        << " lvl=" << billboard.spellLevel
+                        << " skill=" << billboard.spellSkill
+                        << " caster=" << billboard.spellCasterPid
+                        << " target=" << billboard.spellTargetPid
+                        << '\n';
+                }
             }
         }
     }
@@ -3615,13 +3697,23 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
             {
                 IndoorSceneYmlLoader sceneLoader = {};
                 std::string sceneError;
-                const std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(*sceneText, sceneError);
+                std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(*sceneText, sceneError);
 
                 if (!sceneData)
                 {
                     std::cerr << "Failed to parse indoor scene yml for " << map.fileName
                               << ": " << sceneError << '\n';
                     return std::nullopt;
+                }
+
+                for (const std::pair<std::string, std::string> &overlay : sceneOverlays)
+                {
+                    if (!sceneLoader.applyOverlayFromText(*sceneData, overlay.second, sceneError))
+                    {
+                        std::cerr << "Failed to parse indoor scene yml overlay for " << map.fileName
+                                  << ": " << overlay.first << ": " << sceneError << '\n';
+                        return std::nullopt;
+                    }
                 }
 
                 if (!sceneData->geometryFile.empty()
@@ -3632,6 +3724,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     return std::nullopt;
                 }
 
+                assetInfo.map.runtimeRestrictions = sceneData->runtimeRestrictions;
                 MapDeltaData sceneMapDeltaData = {};
 
                 if (!buildIndoorMapStateFromScene(
@@ -3662,7 +3755,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 }
             }
 
-            if (purpose == MapLoadPurpose::Full || purpose == MapLoadPurpose::FullGameplay)
+            if (loadFullPresentation)
             {
                 assetInfo.indoorTextureSet = buildIndoorTextureSet(
                     assetFileSystem,
@@ -3673,6 +3766,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     progressPump
                 );
                 logStageComplete("indoor textures built");
+            }
+
+            if (loadDecorationBillboards)
+            {
                 assetInfo.indoorDecorationBillboardSet =
                     buildIndoorDecorationBillboardSet(
                         assetFileSystem,
@@ -3680,6 +3777,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         bitmapLoadCache,
                         progressPump);
                 logStageComplete("indoor decoration billboards built");
+            }
+
+            if (loadActorPreviews)
+            {
                 assetInfo.indoorActorPreviewBillboardSet =
                     buildActorPreviewBillboardSet(
                         assetFileSystem,
@@ -3693,6 +3794,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         progressPump
                     );
                 logStageComplete("indoor actor previews built");
+            }
+
+            if (loadSpriteObjectBillboards)
+            {
                 assetInfo.indoorSpriteObjectBillboardSet =
                     buildSpriteObjectBillboardSet(
                         assetFileSystem,
@@ -3702,55 +3807,52 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         progressPump
                     );
                 logStageComplete("indoor sprite objects built");
-
-                if (assetInfo.indoorActorPreviewBillboardSet)
-                {
-                    const ActorPreviewBillboardSet &actorSet = *assetInfo.indoorActorPreviewBillboardSet;
-                    std::cout
-                        << "  indoor actors: total=" << actorSet.billboards.size()
-                        << " map_delta=" << actorSet.mapDeltaActorCount
-                        << " spawn=" << actorSet.spawnActorCount
-                        << " textured=" << actorSet.texturedActorCount
-                        << " missing=" << actorSet.missingTextureActorCount << '\n';
-                }
-
-                if (assetInfo.indoorSpriteObjectBillboardSet)
-                {
-                    const SpriteObjectBillboardSet &objectSet = *assetInfo.indoorSpriteObjectBillboardSet;
-                    std::cout
-                        << "  indoor sprite objects: total=" << objectSet.billboards.size()
-                        << " textured=" << objectSet.texturedObjectCount
-                        << " missing=" << objectSet.missingTextureObjectCount << '\n';
-
-                    for (const SpriteObjectBillboard &billboard : objectSet.billboards)
-                    {
-                        std::cout
-                            << "    object"
-                            << " name=\"" << billboard.objectName << "\""
-                            << " desc=" << billboard.objectDescriptionId
-                            << " sprite=" << billboard.objectSpriteId
-                            << " x=" << billboard.x
-                            << " y=" << billboard.y
-                            << " z=" << billboard.z
-                            << " h=" << billboard.height
-                            << " r=" << billboard.radius
-                            << " attr=0x" << std::hex << billboard.attributes << std::dec
-                            << " sound=" << billboard.soundId
-                            << " sector=" << billboard.sectorId
-                            << " life_ticks=" << billboard.timeSinceCreatedTicks
-                            << " temp=" << billboard.temporaryLifetime
-                            << " glow=" << billboard.glowRadiusMultiplier
-                            << " spell=" << billboard.spellId
-                            << " lvl=" << billboard.spellLevel
-                            << " skill=" << billboard.spellSkill
-                            << " caster=" << billboard.spellCasterPid
-                            << " target=" << billboard.spellTargetPid
-                            << '\n';
-                    }
-                }
             }
-            else
+
+            if (assetInfo.indoorActorPreviewBillboardSet)
             {
+                const ActorPreviewBillboardSet &actorSet = *assetInfo.indoorActorPreviewBillboardSet;
+                std::cout
+                    << "  indoor actors: total=" << actorSet.billboards.size()
+                    << " map_delta=" << actorSet.mapDeltaActorCount
+                    << " spawn=" << actorSet.spawnActorCount
+                    << " textured=" << actorSet.texturedActorCount
+                    << " missing=" << actorSet.missingTextureActorCount << '\n';
+            }
+
+            if (assetInfo.indoorSpriteObjectBillboardSet)
+            {
+                const SpriteObjectBillboardSet &objectSet = *assetInfo.indoorSpriteObjectBillboardSet;
+                std::cout
+                    << "  indoor sprite objects: total=" << objectSet.billboards.size()
+                    << " textured=" << objectSet.texturedObjectCount
+                    << " missing=" << objectSet.missingTextureObjectCount << '\n';
+
+                for (const SpriteObjectBillboard &billboard : objectSet.billboards)
+                {
+                    std::cout
+                        << "    object"
+                        << " name=\"" << billboard.objectName << "\""
+                        << " desc=" << billboard.objectDescriptionId
+                        << " sprite=" << billboard.objectSpriteId
+                        << " x=" << billboard.x
+                        << " y=" << billboard.y
+                        << " z=" << billboard.z
+                        << " h=" << billboard.height
+                        << " r=" << billboard.radius
+                        << " attr=0x" << std::hex << billboard.attributes << std::dec
+                        << " sound=" << billboard.soundId
+                        << " sector=" << billboard.sectorId
+                        << " life_ticks=" << billboard.timeSinceCreatedTicks
+                        << " temp=" << billboard.temporaryLifetime
+                        << " glow=" << billboard.glowRadiusMultiplier
+                        << " spell=" << billboard.spellId
+                        << " lvl=" << billboard.spellLevel
+                        << " skill=" << billboard.spellSkill
+                        << " caster=" << billboard.spellCasterPid
+                        << " target=" << billboard.spellTargetPid
+                        << '\n';
+                }
             }
         }
     }

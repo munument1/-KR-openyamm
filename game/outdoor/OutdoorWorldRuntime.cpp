@@ -11,6 +11,7 @@
 #include "game/gameplay/MonsterSpellSupport.h"
 #include "game/items/ItemGenerator.h"
 #include "game/gameplay/TreasureRuntime.h"
+#include "game/events/EventProjectileSpells.h"
 #include "game/outdoor/OutdoorGameView.h"
 #include "game/tables/ItemTable.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
@@ -57,6 +58,233 @@ constexpr float HostilityCloseRange = 1024.0f;
 constexpr float HostilityShortRange = 2560.0f;
 constexpr float HostilityMediumRange = 5120.0f;
 constexpr float HostilityLongRange = 10240.0f;
+
+uint32_t nextInspectPreviewRandom(OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state)
+{
+    state.randomState = state.randomState * 1664525u + 1013904223u;
+    return state.randomState;
+}
+
+uint32_t randomInspectPreviewSecondsTicks(
+    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    uint32_t minimumSeconds,
+    uint32_t maximumSeconds)
+{
+    const uint32_t span = maximumSeconds >= minimumSeconds ? maximumSeconds - minimumSeconds + 1u : 1u;
+    return (minimumSeconds + nextInspectPreviewRandom(state) % span) * static_cast<uint32_t>(TicksPerSecond);
+}
+
+uint32_t monsterTypeGroupId(int16_t monsterId)
+{
+    return monsterId > 0 ? (static_cast<uint32_t>(monsterId - 1) / 3u) + 1u : 0u;
+}
+
+bool monsterInspectPreviewIsPeasant(int16_t monsterId, const std::string &displayName)
+{
+    const uint32_t groupId = monsterTypeGroupId(monsterId);
+
+    if ((groupId >= 39u && groupId <= 62u) || (groupId >= 78u && groupId <= 83u))
+    {
+        return true;
+    }
+
+    const std::string lowercaseName = toLowerCopy(displayName);
+    return lowercaseName.find("peasant") != std::string::npos
+        || lowercaseName.find("farmer") != std::string::npos
+        || lowercaseName.find("villager") != std::string::npos;
+}
+
+int monsterInspectPreviewYOffset(int16_t monsterId)
+{
+    // Copied from OE's monster_popup_y_offsets table; OE subtracts another 40 before drawing.
+    // Merged MM8 ids can map past OE's MONSTER_TYPE_LAST and should not inherit the OE fallback offset.
+    static constexpr std::array<int, 93> yOffsets = {{
+        0, -20, 20, 0, -40, 0, 0, 0, 0, 0,
+        0, -50, 20, 0, -10, -10, -20, 10, -10, 0,
+        0, 0, -20, 10, -10, 0, 0, 0, -20, -10,
+        0, 0, 0, -40, -20, 0, 0, 0, -50, -30,
+        -30, -30, -30, -30, -30, 0, 0, 0, 0, 0,
+        0, -20, -20, -20, 20, 20, 20, 10, 10, 10,
+        10, 10, 10, -90, -60, -40, -20, -20, -80, -10,
+        0, 0, -40, 0, 0, 0, -20, 10, 0, 0,
+        0, 0, 0, 0, 0, -60, 0, 0, 0, 0,
+        0, 0, 0,
+    }};
+    const uint32_t groupId = monsterTypeGroupId(monsterId);
+
+    if (groupId == 0)
+    {
+        return -40;
+    }
+
+    if (groupId >= yOffsets.size())
+    {
+        return 0;
+    }
+
+    return yOffsets[groupId] - 40;
+}
+
+uint32_t spriteAnimationLengthTicks(
+    const SpriteFrameTable *pSpriteFrameTable,
+    uint16_t spriteFrameIndex,
+    uint32_t fallbackTicks)
+{
+    if (pSpriteFrameTable == nullptr || spriteFrameIndex == 0)
+    {
+        return fallbackTicks;
+    }
+
+    const SpriteFrameEntry *pFrame = pSpriteFrameTable->getFrame(spriteFrameIndex, 0);
+
+    if (pFrame == nullptr || pFrame->animationLengthTicks <= 0)
+    {
+        return fallbackTicks;
+    }
+
+    return static_cast<uint32_t>(pFrame->animationLengthTicks);
+}
+
+uint16_t actorInspectPreviewSpriteFrameIndex(
+    const OutdoorWorldRuntime::MapActorState &actor,
+    OutdoorWorldRuntime::ActorAnimation animation)
+{
+    const size_t animationIndex = static_cast<size_t>(animation);
+
+    if (animationIndex < actor.actionSpriteFrameIndices.size()
+        && actor.actionSpriteFrameIndices[animationIndex] != 0)
+    {
+        return actor.actionSpriteFrameIndices[animationIndex];
+    }
+
+    return actor.spriteFrameIndex;
+}
+
+void resetActorInspectPreviewAnimation(
+    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    const OutdoorWorldRuntime::MapActorState &actor,
+    uint32_t nowTicks)
+{
+    state.monsterId = actor.monsterId;
+    state.animation = OutdoorWorldRuntime::ActorAnimation::Bored;
+    state.actionTimeTicks = 0;
+    state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 3);
+    state.lastUpdateTicks = nowTicks;
+}
+
+void advanceActorInspectPreviewAnimation(
+    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
+    const OutdoorWorldRuntime::MapActorState &actor,
+    const SpriteFrameTable *pSpriteFrameTable,
+    uint32_t nowTicks)
+{
+    if (state.monsterId != actor.monsterId)
+    {
+        resetActorInspectPreviewAnimation(state, actor, nowTicks);
+        return;
+    }
+
+    const uint32_t elapsedTicks = nowTicks >= state.lastUpdateTicks ? nowTicks - state.lastUpdateTicks : 0u;
+    state.lastUpdateTicks = nowTicks;
+    state.actionTimeTicks += elapsedTicks;
+
+    if (state.actionLengthTicks != 0 && state.actionTimeTicks <= state.actionLengthTicks)
+    {
+        return;
+    }
+
+    state.actionTimeTicks = 0;
+
+    if (state.animation == OutdoorWorldRuntime::ActorAnimation::Bored
+        || state.animation == OutdoorWorldRuntime::ActorAnimation::AttackMelee)
+    {
+        state.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
+        state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 2);
+        return;
+    }
+
+    state.animation = monsterInspectPreviewIsPeasant(actor.monsterId, actor.displayName)
+        ? OutdoorWorldRuntime::ActorAnimation::Bored
+        : OutdoorWorldRuntime::ActorAnimation::AttackMelee;
+    state.actionLengthTicks = spriteAnimationLengthTicks(
+        pSpriteFrameTable,
+        actorInspectPreviewSpriteFrameIndex(actor, state.animation),
+        static_cast<uint32_t>(TicksPerSecond));
+}
+
+float localRelationEngagementRange(int relation)
+{
+    switch (relation)
+    {
+        case 1:
+            return HostilityCloseRange;
+        case 2:
+            return HostilityShortRange;
+        case 3:
+            return HostilityMediumRange;
+        case 4:
+            return HostilityLongRange;
+        default:
+            return 0.0f;
+    }
+}
+
+std::optional<int32_t> localMonsterRelation(
+    const EventRuntimeState *pEventRuntimeState,
+    uint32_t leftMonsterId,
+    uint32_t rightMonsterId)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const auto iterator =
+        pEventRuntimeState->monsterRelationOverrides.find(
+            EventRuntime::monsterRelationOverrideKey(leftMonsterId, rightMonsterId));
+    return iterator != pEventRuntimeState->monsterRelationOverrides.end()
+        ? std::optional<int32_t>(iterator->second)
+        : std::nullopt;
+}
+
+bool chestViewContainsItem(const GameplayChestViewState &view, uint32_t itemId)
+{
+    for (const GameplayChestItemState &item : view.items)
+    {
+        if (!item.isGold && (item.itemId == itemId || item.item.objectDescriptionId == itemId))
+        {
+            return true;
+        }
+    }
+
+    for (const GameplayChestItemState &item : view.hiddenItems)
+    {
+        if (!item.isGold && (item.itemId == itemId || item.item.objectDescriptionId == itemId))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::optional<GameplayChestItemState> buildFixedChestItem(uint32_t itemId, const ItemTable *pItemTable)
+{
+    if (itemId == 0 || pItemTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    GameplayChestItemState item = {};
+    item.item = ItemGenerator::makeInventoryItem(itemId, *pItemTable, ItemGenerationMode::ChestLoot);
+    item.itemId = item.item.objectDescriptionId;
+    item.quantity = item.item.quantity;
+
+    const ItemDefinition *pDefinition = pItemTable->get(item.itemId);
+    item.width = pDefinition != nullptr ? std::max<uint8_t>(1, pDefinition->inventoryWidth) : 1;
+    item.height = pDefinition != nullptr ? std::max<uint8_t>(1, pDefinition->inventoryHeight) : 1;
+    return item;
+}
 constexpr float ActorMeleeRange = 307.2f;
 constexpr float ActiveActorUpdateRange = 6144.0f;
 constexpr size_t MaxActiveActorUpdates = 48;
@@ -564,7 +792,7 @@ int monthFromGameMinutes(float gameMinutes)
     return 1 + (totalDays / DaysPerMonth) % 12;
 }
 
-int mmergeSeasonalWeatherOffset(int month)
+int mergedSeasonalWeatherOffset(int month)
 {
     if (month < 3)
     {
@@ -584,9 +812,9 @@ int mmergeSeasonalWeatherOffset(int month)
     return 1;
 }
 
-int mmergeWeatherStateForProfile(const OutdoorWeatherProfile &profile, float gameMinutes, int mapId)
+int mergedWeatherStateForProfile(const OutdoorWeatherProfile &profile, float gameMinutes, int mapId)
 {
-    if (profile.mmergeSkyTextureNames.empty())
+    if (profile.mergedSkyTextureNames.empty())
     {
         return 0;
     }
@@ -594,9 +822,9 @@ int mmergeWeatherStateForProfile(const OutdoorWeatherProfile &profile, float gam
     const float minutesOfDay = std::fmod(std::max(gameMinutes, 0.0f), static_cast<float>(MinutesPerDay));
     const int hour = static_cast<int>(minutesOfDay / 60.0f);
     int weatherState = (hour > 21 || hour < 5) ? 1 : 0;
-    weatherState += mmergeSeasonalWeatherOffset(monthFromGameMinutes(gameMinutes));
+    weatherState += mergedSeasonalWeatherOffset(monthFromGameMinutes(gameMinutes));
 
-    const int randomMax = std::max(0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 2);
+    const int randomMax = std::max(0, static_cast<int>(profile.mergedSkyTextureNames.size()) - 2);
     const int dayIndex = std::max(0, static_cast<int>(std::floor(gameMinutes / static_cast<float>(MinutesPerDay))));
     uint32_t seed = 0x6d2b79f5u;
     seed ^= static_cast<uint32_t>(std::max(mapId, 0)) * 2246822519u;
@@ -604,26 +832,26 @@ int mmergeWeatherStateForProfile(const OutdoorWeatherProfile &profile, float gam
     std::mt19937 rng(seed);
     weatherState += std::uniform_int_distribution<int>(0, randomMax)(rng);
 
-    return std::clamp(weatherState, 0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 1);
+    return std::clamp(weatherState, 0, static_cast<int>(profile.mergedSkyTextureNames.size()) - 1);
 }
 
-std::string mmergeSkyTextureNameForProfile(const OutdoorWeatherProfile &profile, int weatherState)
+std::string mergedSkyTextureNameForProfile(const OutdoorWeatherProfile &profile, int weatherState)
 {
-    if (!profile.mmergeCustomSkyTextureName.empty())
+    if (!profile.mergedCustomSkyTextureName.empty())
     {
-        return profile.mmergeCustomSkyTextureName;
+        return profile.mergedCustomSkyTextureName;
     }
 
-    if (profile.mmergeSkyTextureNames.empty())
+    if (profile.mergedSkyTextureNames.empty())
     {
         return {};
     }
 
-    const int skyIndex = std::clamp(weatherState, 0, static_cast<int>(profile.mmergeSkyTextureNames.size()) - 1);
-    return profile.mmergeSkyTextureNames[static_cast<size_t>(skyIndex)];
+    const int skyIndex = std::clamp(weatherState, 0, static_cast<int>(profile.mergedSkyTextureNames.size()) - 1);
+    return profile.mergedSkyTextureNames[static_cast<size_t>(skyIndex)];
 }
 
-bool mmergeWeatherStateUsesSnow(float gameMinutes, int mapId, int weatherState)
+bool mergedWeatherStateUsesSnow(float gameMinutes, int mapId, int weatherState)
 {
     const int month = monthFromGameMinutes(gameMinutes);
 
@@ -3182,6 +3410,7 @@ std::vector<OutdoorCombatTargetCandidate> buildCombatTargetCandidates(
 template <typename VisibilityFn>
 OutdoorTargetFacts resolveOutdoorTargetFacts(
     const GameplayActorService *pGameplayActorService,
+    const EventRuntimeState *pEventRuntimeState,
     const OutdoorWorldRuntime::MapActorState &actor,
     size_t actorIndex,
     std::vector<OutdoorCombatTargetCandidate> &candidates,
@@ -3262,8 +3491,28 @@ OutdoorTargetFacts resolveOutdoorTargetFacts(
 
         const GameplayActorTargetPolicyResult targetPolicy =
             pGameplayActorService->resolveActorTargetPolicy(actorPolicyState, candidate.policyState);
+        GameplayActorTargetPolicyResult effectiveTargetPolicy = targetPolicy;
+        const uint32_t actorRelationMonsterId = actorPolicyState.relationMonsterId > 0
+            ? static_cast<uint32_t>(actorPolicyState.relationMonsterId)
+            : static_cast<uint32_t>(actorPolicyState.monsterId);
+        const uint32_t candidateRelationMonsterId = candidate.policyState.relationMonsterId > 0
+            ? static_cast<uint32_t>(candidate.policyState.relationMonsterId)
+            : static_cast<uint32_t>(candidate.policyState.monsterId);
+        const std::optional<int32_t> localRelationValue =
+            localMonsterRelation(pEventRuntimeState, actorRelationMonsterId, candidateRelationMonsterId);
 
-        if (!targetPolicy.canTarget)
+        if (!targetPolicy.canTarget && localRelationValue && *localRelationValue > 0)
+        {
+            effectiveTargetPolicy.canTarget = true;
+            effectiveTargetPolicy.relationToTarget = *localRelationValue;
+            effectiveTargetPolicy.engagementRange = localRelationEngagementRange(*localRelationValue);
+        }
+        else if (targetPolicy.canTarget && localRelationValue && *localRelationValue <= 0)
+        {
+            effectiveTargetPolicy = {};
+        }
+
+        if (!effectiveTargetPolicy.canTarget)
         {
             continue;
         }
@@ -3276,7 +3525,7 @@ OutdoorTargetFacts resolveOutdoorTargetFacts(
             continue;
         }
 
-        if (!isWithinRange3d(deltaX, deltaY, deltaZ, targetPolicy.engagementRange))
+        if (!isWithinRange3d(deltaX, deltaY, deltaZ, effectiveTargetPolicy.engagementRange))
         {
             continue;
         }
@@ -3305,7 +3554,7 @@ OutdoorTargetFacts resolveOutdoorTargetFacts(
                 distanceToCandidate - static_cast<float>(actor.radius) - static_cast<float>(candidate.radius));
         target.kind = OutdoorTargetKind::Actor;
         target.actorIndex = candidate.actorIndex;
-        target.relationToTarget = targetPolicy.relationToTarget;
+        target.relationToTarget = effectiveTargetPolicy.relationToTarget;
         target.targetX = candidate.preciseX;
         target.targetY = candidate.preciseY;
         target.targetZ = candidate.targetZ;
@@ -3898,6 +4147,10 @@ void OutdoorWorldRuntime::initialize(
     m_materializedChestViews.assign(m_chests.size(), std::nullopt);
     m_activeChestView.reset();
     m_eventRuntimeState = eventRuntimeState;
+    if (m_eventRuntimeState)
+    {
+        setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
+    }
     m_pItemTable = &itemTable;
     m_pParty = pParty;
     if (m_eventRuntimeState && m_pParty != nullptr)
@@ -5143,6 +5396,11 @@ bool OutdoorWorldRuntime::isUnderwaterMap() const
     return m_outdoorWeatherProfile.has_value() && m_outdoorWeatherProfile->underwater;
 }
 
+bool OutdoorWorldRuntime::allowsLloydsBeacon() const
+{
+    return m_map.runtimeRestrictions.allowLloydsBeacon;
+}
+
 const std::vector<uint8_t> *OutdoorWorldRuntime::journalMapFullyRevealedCells() const
 {
     return m_pOutdoorMapDeltaData != nullptr ? &m_pOutdoorMapDeltaData->fullyRevealedCells : nullptr;
@@ -5279,6 +5537,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_eventRuntimeState = snapshot.eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        setActiveHistoryContinent(*m_eventRuntimeState, m_map.mergedContinentId);
         clearTransientEventRuntimeState(*m_eventRuntimeState);
         if (m_pParty != nullptr)
         {
@@ -5447,7 +5706,7 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
         return;
     }
 
-    if (applyMmergeWeatherProfile())
+    if (applyMergedWeatherProfile())
     {
         return;
     }
@@ -5493,18 +5752,18 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
     syncAtmosphereStateToMapDelta();
 }
 
-bool OutdoorWorldRuntime::applyMmergeWeatherProfile()
+bool OutdoorWorldRuntime::applyMergedWeatherProfile()
 {
     if (!m_outdoorWeatherProfile.has_value()
-        || !m_outdoorWeatherProfile->mmergeWeatherConfigured
-        || m_outdoorWeatherProfile->mmergeMapId != static_cast<uint32_t>(std::max(m_mapId, 0)))
+        || !m_outdoorWeatherProfile->mergedWeatherConfigured
+        || m_outdoorWeatherProfile->mergedMapId != static_cast<uint32_t>(std::max(m_mapId, 0)))
     {
         return false;
     }
 
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
-    const int weatherState = mmergeWeatherStateForProfile(profile, m_gameMinutes, m_mapId);
-    const std::string skyTextureName = mmergeSkyTextureNameForProfile(profile, weatherState);
+    const int weatherState = mergedWeatherStateForProfile(profile, m_gameMinutes, m_mapId);
+    const std::string skyTextureName = mergedSkyTextureNameForProfile(profile, weatherState);
 
     if (!skyTextureName.empty())
     {
@@ -5518,14 +5777,14 @@ bool OutdoorWorldRuntime::applyMmergeWeatherProfile()
     m_atmosphereState.fogTintGreen = profile.fogTintRgb[1];
     m_atmosphereState.fogTintBlue = profile.fogTintRgb[2];
 
-    if (!profile.mmergeWeatherEnabled)
+    if (!profile.mergedWeatherEnabled)
     {
         m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
         syncAtmosphereStateToMapDelta();
         return true;
     }
 
-    const int skyCount = static_cast<int>(profile.mmergeSkyTextureNames.size());
+    const int skyCount = static_cast<int>(profile.mergedSkyTextureNames.size());
     const int fogThreshold = skyCount / 3;
     const int precipitationThreshold = skyCount / 2;
 
@@ -5545,7 +5804,7 @@ bool OutdoorWorldRuntime::applyMmergeWeatherProfile()
 
     if (weatherState > precipitationThreshold)
     {
-        if (mmergeWeatherStateUsesSnow(m_gameMinutes, m_mapId, weatherState))
+        if (mergedWeatherStateUsesSnow(m_gameMinutes, m_mapId, weatherState))
         {
             m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
             m_atmosphereState.weatherFlags |= MapWeatherSnowing;
@@ -5574,9 +5833,9 @@ void OutdoorWorldRuntime::applyDailyWeatherRollover(int weatherDayIndex)
 
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
 
-    if (profile.mmergeWeatherConfigured && profile.mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+    if (profile.mergedWeatherConfigured && profile.mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
     {
-        applyMmergeWeatherProfile();
+        applyMergedWeatherProfile();
         return;
     }
 
@@ -5687,10 +5946,10 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.fogTintGreen = m_outdoorWeatherProfile->fogTintRgb[1];
         m_atmosphereState.fogTintBlue = m_outdoorWeatherProfile->fogTintRgb[2];
 
-        if (m_outdoorWeatherProfile->mmergeWeatherConfigured
-            && m_outdoorWeatherProfile->mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+        if (m_outdoorWeatherProfile->mergedWeatherConfigured
+            && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
         {
-            applyMmergeWeatherProfile();
+            applyMergedWeatherProfile();
         }
     }
 
@@ -5718,6 +5977,14 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         {
             m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
         }
+    }
+
+    if (m_eventRuntimeState && m_eventRuntimeState->outdoorFogWeakDistanceOverride.has_value())
+    {
+        m_atmosphereState.weatherFlags |= MapWeatherFoggy;
+        m_atmosphereState.fogWeakDistance = *m_eventRuntimeState->outdoorFogWeakDistanceOverride;
+        m_atmosphereState.fogStrongDistance =
+            m_eventRuntimeState->outdoorFogStrongDistanceOverride.value_or(m_atmosphereState.fogStrongDistance);
     }
 
     m_atmosphereState.rainIntensity = (m_atmosphereState.weatherFlags & MapWeatherRaining) != 0 ? 1.0f : 0.0f;
@@ -5766,11 +6033,11 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
     }
 
     if (m_outdoorWeatherProfile.has_value()
-        && m_outdoorWeatherProfile->mmergeWeatherConfigured
-        && m_outdoorWeatherProfile->mmergeMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+        && m_outdoorWeatherProfile->mergedWeatherConfigured
+        && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
     {
-        const int weatherState = mmergeWeatherStateForProfile(*m_outdoorWeatherProfile, m_gameMinutes, m_mapId);
-        const std::string skyTextureName = mmergeSkyTextureNameForProfile(*m_outdoorWeatherProfile, weatherState);
+        const int weatherState = mergedWeatherStateForProfile(*m_outdoorWeatherProfile, m_gameMinutes, m_mapId);
+        const std::string skyTextureName = mergedSkyTextureNameForProfile(*m_outdoorWeatherProfile, weatherState);
         m_atmosphereState.skyTextureName = !skyTextureName.empty()
             ? skyTextureName
             : m_atmosphereState.sourceSkyTextureName;
@@ -5784,6 +6051,12 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
     if (m_mapId == DwiMapId)
     {
         m_atmosphereState.skyTextureName = "sunsetclouds";
+    }
+
+    if (m_eventRuntimeState && m_eventRuntimeState->outdoorSkyTextureOverride.has_value())
+    {
+        m_atmosphereState.sourceSkyTextureName = *m_eventRuntimeState->outdoorSkyTextureOverride;
+        m_atmosphereState.skyTextureName = *m_eventRuntimeState->outdoorSkyTextureOverride;
     }
 
     m_atmosphereState.ambientBrightness = normalizedAmbientBrightness(minutesOfDay);
@@ -6108,6 +6381,7 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
         combatTarget =
             resolveOutdoorTargetFacts(
                 m_pGameplayActorService,
+                eventRuntimeState(),
                 actor,
                 actorIndex,
                 combatCandidates,
@@ -7684,6 +7958,32 @@ bool OutdoorWorldRuntime::castSpellFromMapActor(
 
 bool OutdoorWorldRuntime::castSpell(const SpellCastRequest &request)
 {
+    if (request.sourceKind == RuntimeSpellSourceKind::Event)
+    {
+        if (const EventProjectileSpellDefinition *pEventProjectile =
+                eventProjectileSpellDefinition(request.spellId))
+        {
+            if (m_pObjectTable == nullptr)
+            {
+                return false;
+            }
+
+            ResolvedProjectileDefinition definition = {};
+
+            if (!::OpenYAMM::Game::resolveObjectProjectileDefinition(
+                    pEventProjectile->objectId,
+                    pEventProjectile->impactObjectId,
+                    *m_pObjectTable,
+                    definition))
+            {
+                return false;
+            }
+
+            definition.spellId = static_cast<int>(request.spellId);
+            return castDirectSpellProjectile(request, definition);
+        }
+    }
+
     if (m_pObjectTable == nullptr || m_pSpellTable == nullptr)
     {
         return false;
@@ -9433,6 +9733,22 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
         }
     }
 
+    for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
+    {
+        const GameplayActorTargetPolicyState policyState =
+            buildGameplayActorTargetPolicyState(m_mapActors[actorIndex]);
+        const uint32_t relationMonsterId = policyState.relationMonsterId > 0
+            ? static_cast<uint32_t>(policyState.relationMonsterId)
+            : static_cast<uint32_t>(policyState.monsterId);
+        const std::optional<int32_t> partyRelation =
+            localMonsterRelation(&*m_eventRuntimeState, relationMonsterId, 0);
+
+        if (partyRelation)
+        {
+            setActorHostilityFromEvent(actorIndex, *partyRelation > 0);
+        }
+    }
+
     for (auto &[chestId, setMask] : m_eventRuntimeState->chestSetMasks)
     {
         if (chestId >= m_chests.size())
@@ -9470,6 +9786,46 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
         if (m_activeChestView && m_activeChestView->chestId == chestId)
         {
             m_activeChestView->flags = m_chests[chestId].flags;
+        }
+    }
+
+    for (const auto &[chestId, requests] : m_eventRuntimeState->chestItemRequests)
+    {
+        if (chestId >= m_chests.size())
+        {
+            continue;
+        }
+
+        if (chestId >= m_materializedChestViews.size())
+        {
+            m_materializedChestViews.resize(chestId + 1);
+        }
+
+        if (!m_materializedChestViews[chestId].has_value())
+        {
+            m_materializedChestViews[chestId] = buildChestView(chestId);
+        }
+
+        GameplayChestViewState &view = *m_materializedChestViews[chestId];
+
+        for (const EventRuntimeState::ChestItemRequest &request : requests)
+        {
+            if (chestViewContainsItem(view, request.itemId))
+            {
+                continue;
+            }
+
+            const std::optional<GameplayChestItemState> item = buildFixedChestItem(request.itemId, m_pItemTable);
+
+            if (item)
+            {
+                tryPlaceChestItemAt(view, *item, request.gridX, request.gridY);
+            }
+        }
+
+        if (m_activeChestView && m_activeChestView->chestId == chestId)
+        {
+            m_activeChestView = view;
         }
     }
 
@@ -9604,6 +9960,7 @@ bool OutdoorWorldRuntime::actorInspectState(
     state = {};
     state.displayName = pActor->displayName;
     state.monsterId = pActor->monsterId;
+    state.previewYOffset = monsterInspectPreviewYOffset(pActor->monsterId);
     state.currentHp = pActor->currentHp;
     state.maxHp = pActor->maxHp;
     state.armorClass = effectiveMapActorArmorClass(actorIndex);
@@ -9672,16 +10029,22 @@ bool OutdoorWorldRuntime::actorInspectState(
         return true;
     }
 
-    uint16_t spriteFrameIndex = pActor->spriteFrameIndex;
-    const size_t walkingAnimationIndex = static_cast<size_t>(ActorAnimation::Walking);
+    advanceActorInspectPreviewAnimation(
+        m_actorInspectPreviewAnimation,
+        *pActor,
+        m_pActorSpriteFrameTable,
+        animationTicks);
 
-    if (walkingAnimationIndex < pActor->actionSpriteFrameIndices.size()
-        && pActor->actionSpriteFrameIndices[walkingAnimationIndex] != 0)
+    const uint16_t spriteFrameIndex =
+        actorInspectPreviewSpriteFrameIndex(*pActor, m_actorInspectPreviewAnimation.animation);
+
+    if (spriteFrameIndex == 0)
     {
-        spriteFrameIndex = pActor->actionSpriteFrameIndices[walkingAnimationIndex];
+        return true;
     }
 
-    const SpriteFrameEntry *pFrame = m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, animationTicks);
+    const SpriteFrameEntry *pFrame =
+        m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, m_actorInspectPreviewAnimation.actionTimeTicks);
 
     if (pFrame == nullptr)
     {
@@ -9697,6 +10060,7 @@ bool OutdoorWorldRuntime::actorInspectState(
     const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, PreviewFacingOctant);
     state.previewTextureName = resolvedTexture.textureName;
     state.previewPaletteId = pFrame->paletteId;
+    state.previewYOffset = monsterInspectPreviewYOffset(pActor->monsterId);
     return true;
 }
 
@@ -10010,6 +10374,7 @@ std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> OutdoorWorldRuntime::
     const OutdoorTargetFacts combatTarget =
         resolveOutdoorTargetFacts(
             m_pGameplayActorService,
+            eventRuntimeState(),
             actor,
             actorIndex,
             combatCandidates,
@@ -12845,9 +13210,20 @@ bool OutdoorWorldRuntime::castEventSpell(
     request.sourceX = static_cast<float>(fromX);
     request.sourceY = static_cast<float>(fromY);
     request.sourceZ = static_cast<float>(fromZ);
-    request.targetX = static_cast<float>(toX);
-    request.targetY = static_cast<float>(toY);
-    request.targetZ = static_cast<float>(toZ);
+
+    if (toX == 0 && toY == 0 && toZ == 0 && m_pPartyRuntime != nullptr)
+    {
+        request.targetX = partyX();
+        request.targetY = partyY();
+        request.targetZ = partyFootZ() + PartyTargetHeightOffset;
+    }
+    else
+    {
+        request.targetX = static_cast<float>(toX);
+        request.targetY = static_cast<float>(toY);
+        request.targetZ = static_cast<float>(toZ);
+    }
+
     return castSpell(request);
 }
 

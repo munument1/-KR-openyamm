@@ -13,6 +13,8 @@
 namespace OpenYAMM::Game
 {
 class ItemTable;
+class MergedPotionSettingTable;
+class MergedReagentSettingTable;
 
 enum class InventoryItemUseAction : uint8_t
 {
@@ -55,7 +57,11 @@ struct InventoryItemUseResult
 class InventoryItemUseRuntime
 {
 public:
-    static InventoryItemUseAction classifyItemUse(const InventoryItem &item, const ItemTable &itemTable);
+    static InventoryItemUseAction classifyItemUse(
+        const InventoryItem &item,
+        const ItemTable &itemTable,
+        const MergedPotionSettingTable *pPotionSettingTable = nullptr,
+        const MergedReagentSettingTable *pReagentSettingTable = nullptr);
 
     static InventoryItemUseResult useItemOnMember(
         Party &party,
@@ -63,6 +69,8 @@ public:
         const InventoryItem &item,
         const ItemTable &itemTable,
         const ReadableScrollTable *pReadableScrollTable,
+        const MergedPotionSettingTable *pPotionSettingTable = nullptr,
+        const MergedReagentSettingTable *pReagentSettingTable = nullptr,
         const InventoryItemUseContext &context = {});
 };
 }

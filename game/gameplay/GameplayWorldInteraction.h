@@ -68,6 +68,7 @@ enum class GameplayWorldEventTargetKind
     Decoration,
     Object,
     Spawn,
+    Mechanism,
 };
 
 struct GameplayActorTargetHit

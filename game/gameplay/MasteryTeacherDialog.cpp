@@ -1,11 +1,10 @@
 #include "game/gameplay/MasteryTeacherDialog.h"
 
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/party/Party.h"
 
-#include <array>
 #include <cctype>
-#include <string_view>
 
 namespace OpenYAMM::Game
 {
@@ -41,119 +40,89 @@ std::string trimCopy(const std::string &text)
     return text.substr(start, end - start);
 }
 
-bool consumePrefix(std::string &text, std::string_view prefix)
+std::optional<std::string> skillNameForMergedSkillId(uint32_t skillId)
 {
-    if (text.rfind(std::string(prefix), 0) != 0)
+    const std::vector<std::string> skillNames = allCanonicalSkillNames();
+
+    if (skillId >= skillNames.size())
     {
-        return false;
+        return std::nullopt;
     }
 
-    text = trimCopy(text.substr(prefix.size()));
-    return true;
+    return skillNames[skillId];
 }
 
-bool consumeSuffix(std::string &text, std::string_view suffix)
+SkillMastery masteryForMergedTeacherTopic(uint32_t mastery)
 {
-    if (text.size() < suffix.size() || text.compare(text.size() - suffix.size(), suffix.size(), suffix) != 0)
+    switch (mastery)
     {
-        return false;
+        case 1:
+            return SkillMastery::Expert;
+        case 2:
+            return SkillMastery::Master;
+        case 3:
+            return SkillMastery::Grandmaster;
+        default:
+            return SkillMastery::None;
     }
-
-    text = trimCopy(text.substr(0, text.size() - suffix.size()));
-    return true;
-}
-
-std::string normalizeMasteryTeacherSkillLabel(const std::string &rawSkillName)
-{
-    std::string normalized = trimCopy(rawSkillName);
-
-    for (std::string_view suffix : {" Training", " Defense", " Fighting"})
-    {
-        consumeSuffix(normalized, suffix);
-    }
-
-    const std::string canonical = canonicalSkillName(normalized);
-    if (canonical != normalized)
-    {
-        return canonical;
-    }
-
-    struct LabelAlias
-    {
-        std::string_view label;
-        std::string_view skillName;
-    };
-
-    constexpr std::array<LabelAlias, 7> aliases = {{
-        {"Swordsmanship", "Sword"},
-        {"Knife", "Dagger"},
-        {"Knife Fighting", "Dagger"},
-        {"Bowmanship", "Bow"},
-        {"Ancient Weapon", "Blaster"},
-        {"Ancient Weapons", "Blaster"},
-        {"Identification", "IdentifyItem"},
-    }};
-
-    for (const LabelAlias &alias : aliases)
-    {
-        if (normalized == alias.label)
-        {
-            return std::string(alias.skillName);
-        }
-    }
-
-    return canonicalSkillName(normalized);
 }
 }
 
-bool tryDecodeMasteryTeacherTopicLabel(
-    const std::string &topicLabel,
-    std::string &skillName,
-    SkillMastery &targetMastery
+std::optional<MasteryTeacherTopicDefinition> resolveMasteryTeacherTopic(
+    uint32_t topicId,
+    const MergedTeacherTopicTable *pTeacherTopicTable
 )
 {
-    const std::string trimmedLabel = trimCopy(topicLabel);
-    std::string rawSkillName = trimmedLabel;
+    MasteryTeacherTopicDefinition definition = {};
 
-    if (consumePrefix(rawSkillName, "Grand Master "))
+    const MergedTeacherTopicEntry *pTeacherTopic =
+        pTeacherTopicTable != nullptr ? pTeacherTopicTable->get(topicId) : nullptr;
+
+    if (pTeacherTopic != nullptr)
     {
-        targetMastery = SkillMastery::Grandmaster;
+        definition.topicId = pTeacherTopic->topicId;
+        definition.skillId = pTeacherTopic->skillId;
+        definition.masteryRank = pTeacherTopic->mastery;
+        definition.textId = pTeacherTopic->textId;
+        definition.requiredGold = pTeacherTopic->requiredGold;
+        definition.requiredSkill = pTeacherTopic->requiredSkill;
     }
-    else if (consumePrefix(rawSkillName, "Master of the "))
+    else if (topicId >= 300 && topicId <= 416)
     {
-        targetMastery = SkillMastery::Master;
-    }
-    else if (consumePrefix(rawSkillName, "Master of "))
-    {
-        targetMastery = SkillMastery::Master;
-    }
-    else if (consumePrefix(rawSkillName, "Master "))
-    {
-        targetMastery = SkillMastery::Master;
-    }
-    else if (consumePrefix(rawSkillName, "Expert "))
-    {
-        targetMastery = SkillMastery::Expert;
-    }
-    else if (consumeSuffix(rawSkillName, " Grandmaster") || consumeSuffix(rawSkillName, " Grand Master"))
-    {
-        targetMastery = SkillMastery::Grandmaster;
-    }
-    else if (consumeSuffix(rawSkillName, " Master") || consumeSuffix(rawSkillName, " Mastery"))
-    {
-        targetMastery = SkillMastery::Master;
-    }
-    else if (consumeSuffix(rawSkillName, " Expert") || consumeSuffix(rawSkillName, " Expertise"))
-    {
-        targetMastery = SkillMastery::Expert;
+        // MMerge keeps these original MM8 topic ids active even when Teacher topics.txt only extends the table.
+        definition.topicId = topicId;
+        definition.skillId = (topicId - 300) / 3;
+        definition.masteryRank = ((topicId - 300) % 3) + 1;
+        definition.textId = topicId;
     }
     else
     {
-        return false;
+        return std::nullopt;
     }
 
-    skillName = normalizeMasteryTeacherSkillLabel(rawSkillName);
-    return !skillName.empty();
+    const std::optional<std::string> skillName = skillNameForMergedSkillId(definition.skillId);
+    if (!skillName.has_value())
+    {
+        return std::nullopt;
+    }
+
+    definition.skillName = *skillName;
+    definition.targetMastery = masteryForMergedTeacherTopic(definition.masteryRank);
+
+    if (definition.skillName.empty() || definition.targetMastery == SkillMastery::None)
+    {
+        return std::nullopt;
+    }
+
+    return definition;
+}
+
+bool isMasteryTeacherTopic(
+    uint32_t topicId,
+    const MergedTeacherTopicTable *pTeacherTopicTable
+)
+{
+    return resolveMasteryTeacherTopic(topicId, pTeacherTopicTable).has_value();
 }
 
 namespace
@@ -179,6 +148,11 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
 
     if (targetMastery == SkillMastery::Expert)
     {
+        if (canonicalSkill == "Blaster")
+        {
+            return 2000;
+        }
+
         if (canonicalSkill == "Shield"
             || canonicalSkill == "LeatherArmor"
             || canonicalSkill == "ChainArmor"
@@ -232,6 +206,11 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
 
     if (targetMastery == SkillMastery::Master)
     {
+        if (canonicalSkill == "Blaster")
+        {
+            return 5000;
+        }
+
         if (canonicalSkill == "Shield"
             || canonicalSkill == "LeatherArmor"
             || canonicalSkill == "ChainArmor"
@@ -289,6 +268,11 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
 
     if (targetMastery == SkillMastery::Grandmaster)
     {
+        if (canonicalSkill == "Blaster")
+        {
+            return 10000;
+        }
+
         if (canonicalSkill == "Shield"
             || canonicalSkill == "LeatherArmor"
             || canonicalSkill == "ChainArmor"
@@ -346,12 +330,18 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
 bool meetsMasteryRequirements(
     const Character &character,
     const std::string &skillName,
-    SkillMastery targetMastery
+    SkillMastery targetMastery,
+    uint32_t requiredSkillLevel
 )
 {
     const CharacterSkill *pSkill = character.findSkill(skillName);
 
     if (pSkill == nullptr)
+    {
+        return false;
+    }
+
+    if (requiredSkillLevel != 0 && pSkill->level < requiredSkillLevel)
     {
         return false;
     }
@@ -416,7 +406,8 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     uint32_t topicId,
     const Party &party,
     const ClassSkillTable &classSkillTable,
-    const NpcDialogTable &npcDialogTable
+    const NpcDialogTable &npcDialogTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable
 )
 {
     const Character *pCharacter = party.activeMember();
@@ -427,14 +418,27 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     }
 
     MasteryTeacherEvaluation evaluation = {};
-    const std::optional<NpcDialogTable::ResolvedTopic> topic = npcDialogTable.getTopicById(topicId);
+    const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
+        resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
 
-    if (!topic || !tryDecodeMasteryTeacherTopicLabel(topic->topic, evaluation.skillName, evaluation.targetMastery))
+    if (!teacherTopic.has_value())
     {
         return std::nullopt;
     }
 
-    evaluation.cost = masteryTeacherCost(evaluation.skillName, evaluation.targetMastery);
+    evaluation.skillName = teacherTopic->skillName;
+    evaluation.targetMastery = teacherTopic->targetMastery;
+    evaluation.cost = static_cast<int>(teacherTopic->requiredGold);
+
+    if (evaluation.skillName.empty() || evaluation.targetMastery == SkillMastery::None)
+    {
+        return std::nullopt;
+    }
+
+    if (evaluation.cost == 0)
+    {
+        evaluation.cost = masteryTeacherCost(evaluation.skillName, evaluation.targetMastery);
+    }
 
     const SkillMastery classCap = classSkillTable.getClassCap(pCharacter->className, evaluation.skillName);
 
@@ -473,7 +477,11 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
         return evaluation;
     }
 
-    if (!meetsMasteryRequirements(*pCharacter, evaluation.skillName, evaluation.targetMastery))
+    if (!meetsMasteryRequirements(
+            *pCharacter,
+            evaluation.skillName,
+            evaluation.targetMastery,
+            teacherTopic->requiredSkill))
     {
         evaluation.displayText = npcTextOrFallback(
             npcDialogTable,
@@ -502,11 +510,12 @@ bool applyMasteryTeacherTopic(
     Party &party,
     const ClassSkillTable &classSkillTable,
     const NpcDialogTable &npcDialogTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
     std::string &message
 )
 {
     const std::optional<MasteryTeacherEvaluation> evaluation =
-        evaluateMasteryTeacherTopic(topicId, party, classSkillTable, npcDialogTable);
+        evaluateMasteryTeacherTopic(topicId, party, classSkillTable, npcDialogTable, pTeacherTopicTable);
 
     if (!evaluation || !evaluation->approved)
     {

@@ -97,6 +97,13 @@ struct OutdoorSpawn
     uint32_t group = 0;
 };
 
+struct OutdoorTerrainFootstepSoundOverride
+{
+    uint8_t tileId = 0;
+    uint32_t walkSoundId = 0;
+    uint32_t runSoundId = 0;
+};
+
 struct OutdoorMapData
 {
     static constexpr int TerrainWidth = 128;
@@ -123,6 +130,7 @@ struct OutdoorMapData
     std::vector<uint16_t> decorationPidList;
     std::vector<uint32_t> decorationMap;
     std::vector<OutdoorSpawn> spawns;
+    std::vector<OutdoorTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
     size_t terrainNormalCount = 0;
     size_t bmodelCount = 0;
     size_t entityCount = 0;

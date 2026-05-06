@@ -166,6 +166,53 @@ bool parsePrecipitationKind(
     return false;
 }
 
+OutdoorSceneTerrainFootstepSoundOverride *findOutdoorTerrainFootstepSoundOverride(
+    OutdoorSceneData &sceneData,
+    uint8_t tileId)
+{
+    for (OutdoorSceneTerrainFootstepSoundOverride &overrideEntry : sceneData.terrainFootstepSoundOverrides)
+    {
+        if (overrideEntry.tileId == tileId)
+        {
+            return &overrideEntry;
+        }
+    }
+
+    return nullptr;
+}
+
+bool parseOutdoorTerrainFootstepSoundOverride(
+    const YAML::Node &overrideNode,
+    OutdoorSceneTerrainFootstepSoundOverride &overrideEntry,
+    std::string &errorMessage)
+{
+    if (!overrideNode.IsMap())
+    {
+        errorMessage = "terrain footstep sound override must be a map";
+        return false;
+    }
+
+    return readScalarNode(overrideNode, "tile_id", overrideEntry.tileId, errorMessage)
+        && readScalarNode(overrideNode, "walk_sound_id", overrideEntry.walkSoundId, errorMessage)
+        && readScalarNode(overrideNode, "run_sound_id", overrideEntry.runSoundId, errorMessage);
+}
+
+void mergeOutdoorTerrainFootstepSoundOverride(
+    OutdoorSceneData &sceneData,
+    const OutdoorSceneTerrainFootstepSoundOverride &sourceOverride)
+{
+    OutdoorSceneTerrainFootstepSoundOverride *pTargetOverride =
+        findOutdoorTerrainFootstepSoundOverride(sceneData, sourceOverride.tileId);
+
+    if (pTargetOverride == nullptr)
+    {
+        sceneData.terrainFootstepSoundOverrides.push_back(sourceOverride);
+        return;
+    }
+
+    *pTargetOverride = sourceOverride;
+}
+
 bool parseFogDistancesNode(
     const YAML::Node &parentNode,
     const char *key,
@@ -479,6 +526,39 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         sceneData.legacyCompanionFile = legacyCompanionFile;
     }
 
+    const YAML::Node runtimeRestrictionsNode = rootNode["runtime_restrictions"];
+
+    if (runtimeRestrictionsNode)
+    {
+        if (!runtimeRestrictionsNode.IsMap())
+        {
+            errorMessage = "runtime_restrictions must be a map";
+            return std::nullopt;
+        }
+
+        if (!readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_save_game",
+                sceneData.runtimeRestrictions.allowSaveGame,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_lloyds_beacon",
+                sceneData.runtimeRestrictions.allowLloydsBeacon,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "arena",
+                sceneData.runtimeRestrictions.isArena,
+                errorMessage,
+                false))
+        {
+            return std::nullopt;
+        }
+    }
+
     const YAML::Node environmentNode = rootNode["environment"];
 
     if (!environmentNode || !environmentNode.IsMap())
@@ -605,6 +685,8 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     const YAML::Node terrainNode = rootNode["terrain"];
     const YAML::Node terrainOverridesNode = terrainNode ? terrainNode["attribute_overrides"] : YAML::Node();
+    const YAML::Node terrainFootstepSoundOverridesNode =
+        terrainNode ? terrainNode["footstep_sound_overrides"] : YAML::Node();
 
     if (!terrainNode || !terrainNode.IsMap() || !terrainOverridesNode || !terrainOverridesNode.IsSequence())
     {
@@ -648,6 +730,29 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         }
 
         sceneData.terrainAttributeOverrides.push_back(overrideEntry);
+    }
+
+    if (terrainFootstepSoundOverridesNode)
+    {
+        if (!terrainFootstepSoundOverridesNode.IsSequence())
+        {
+            errorMessage = "terrain.footstep_sound_overrides must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.terrainFootstepSoundOverrides.reserve(terrainFootstepSoundOverridesNode.size());
+
+        for (const YAML::Node &overrideNode : terrainFootstepSoundOverridesNode)
+        {
+            OutdoorSceneTerrainFootstepSoundOverride overrideEntry = {};
+
+            if (!parseOutdoorTerrainFootstepSoundOverride(overrideNode, overrideEntry, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            sceneData.terrainFootstepSoundOverrides.push_back(overrideEntry);
+        }
     }
 
     const YAML::Node bmodelFacesNode = rootNode["bmodel_faces"];
@@ -1071,6 +1176,144 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
     return sceneData;
 }
 
+bool OutdoorSceneYmlLoader::applyOverlayFromText(
+    OutdoorSceneData &sceneData,
+    const std::string &yamlText,
+    std::string &errorMessage) const
+{
+    YAML::Node rootNode;
+
+    try
+    {
+        rootNode = YAML::Load(yamlText);
+    }
+    catch (const std::exception &exception)
+    {
+        errorMessage = exception.what();
+        return false;
+    }
+
+    if (!rootNode || !rootNode.IsMap())
+    {
+        errorMessage = "scene overlay yaml root must be a map";
+        return false;
+    }
+
+    int formatVersion = 0;
+
+    if (!readScalarNode(rootNode, "format_version", formatVersion, errorMessage))
+    {
+        return false;
+    }
+
+    if (formatVersion != 1)
+    {
+        errorMessage = "unsupported outdoor scene overlay format_version";
+        return false;
+    }
+
+    std::string kind;
+
+    if (!readScalarNode(rootNode, "kind", kind, errorMessage) || toLowerCopy(kind) != "outdoor_scene_overlay")
+    {
+        errorMessage = "kind must be \"outdoor_scene_overlay\"";
+        return false;
+    }
+
+    const YAML::Node sourceNode = rootNode["source"];
+
+    if (sourceNode)
+    {
+        if (!sourceNode.IsMap())
+        {
+            errorMessage = "source must be a map";
+            return false;
+        }
+
+        std::string geometryFile;
+
+        if (!readScalarNode(sourceNode, "geometry_file", geometryFile, errorMessage, false))
+        {
+            return false;
+        }
+
+        if (!geometryFile.empty() && toLowerCopy(geometryFile) != toLowerCopy(sceneData.geometryFile))
+        {
+            errorMessage = "scene overlay geometry_file does not match base scene";
+            return false;
+        }
+    }
+
+    const YAML::Node runtimeRestrictionsNode = rootNode["runtime_restrictions"];
+
+    if (runtimeRestrictionsNode)
+    {
+        if (!runtimeRestrictionsNode.IsMap())
+        {
+            errorMessage = "runtime_restrictions must be a map";
+            return false;
+        }
+
+        if (!readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_save_game",
+                sceneData.runtimeRestrictions.allowSaveGame,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_lloyds_beacon",
+                sceneData.runtimeRestrictions.allowLloydsBeacon,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "arena",
+                sceneData.runtimeRestrictions.isArena,
+                errorMessage,
+                false))
+        {
+            return false;
+        }
+    }
+
+    const YAML::Node terrainNode = rootNode["terrain"];
+
+    if (terrainNode)
+    {
+        if (!terrainNode.IsMap())
+        {
+            errorMessage = "terrain must be a map";
+            return false;
+        }
+
+        const YAML::Node terrainFootstepSoundOverridesNode = terrainNode["footstep_sound_overrides"];
+
+        if (terrainFootstepSoundOverridesNode)
+        {
+            if (!terrainFootstepSoundOverridesNode.IsSequence())
+            {
+                errorMessage = "terrain.footstep_sound_overrides must be a sequence";
+                return false;
+            }
+
+            for (const YAML::Node &overrideNode : terrainFootstepSoundOverridesNode)
+            {
+                OutdoorSceneTerrainFootstepSoundOverride overrideEntry = {};
+
+                if (!parseOutdoorTerrainFootstepSoundOverride(overrideNode, overrideEntry, errorMessage))
+                {
+                    return false;
+                }
+
+                mergeOutdoorTerrainFootstepSoundOverride(sceneData, overrideEntry);
+            }
+        }
+    }
+
+    return true;
+}
+
 bool buildOutdoorMapStateFromScene(
     const OutdoorSceneData &sceneData,
     OutdoorMapData &outdoorMapData,
@@ -1084,6 +1327,17 @@ bool buildOutdoorMapStateFromScene(
     outdoorMapData.attributeMap.assign(
         OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight,
         0);
+    outdoorMapData.terrainFootstepSoundOverrides.clear();
+    outdoorMapData.terrainFootstepSoundOverrides.reserve(sceneData.terrainFootstepSoundOverrides.size());
+
+    for (const OutdoorSceneTerrainFootstepSoundOverride &overrideEntry : sceneData.terrainFootstepSoundOverrides)
+    {
+        OutdoorTerrainFootstepSoundOverride terrainOverride = {};
+        terrainOverride.tileId = overrideEntry.tileId;
+        terrainOverride.walkSoundId = overrideEntry.walkSoundId;
+        terrainOverride.runSoundId = overrideEntry.runSoundId;
+        outdoorMapData.terrainFootstepSoundOverrides.push_back(terrainOverride);
+    }
 
     for (OutdoorBModel &bmodel : outdoorMapData.bmodels)
     {

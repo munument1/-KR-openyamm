@@ -384,12 +384,17 @@ enum class GameplayHudPointerTargetType
     BooksButton,
     DimensionDoorButton,
     MinimapZoomInButton,
-    MinimapZoomOutButton
+    MinimapZoomOutButton,
+    FollowerPanelToggleButton,
+    FollowerPanelPortrait,
+    FollowerPanelScrollUpButton,
+    FollowerPanelScrollDownButton
 };
 
 struct GameplayHudPointerTarget
 {
     GameplayHudPointerTargetType type = GameplayHudPointerTargetType::None;
+    size_t index = 0;
 
     bool operator==(const GameplayHudPointerTarget &other) const = default;
 };
@@ -538,6 +543,8 @@ struct GameplayOverlayInteractionState
     GameplayRestPointerTarget restPressedTarget = {};
     bool gameplayHudClickLatch = false;
     GameplayHudPointerTarget gameplayHudPressedTarget = {};
+    bool followerPanelOpen = true;
+    size_t followerPanelScrollOffset = 0;
     bool menuToggleLatch = false;
     bool menuClickLatch = false;
     GameplayMenuPointerTarget menuPressedTarget = {};

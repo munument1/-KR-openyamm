@@ -63,6 +63,7 @@ private:
     bool processPendingMapMove();
     bool processPendingWinGame();
     bool processPendingEventMovie();
+    bool processPendingDimensionDoorOverlay();
     bool executeCurrentMapOnLeaveEvents();
     bool processPendingPartyDefeat();
     void handleCompletedPartyDefeatScreen();

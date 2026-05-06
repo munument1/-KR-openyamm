@@ -275,9 +275,7 @@ float resolveMechanismDistance(
         return runtimeMechanism.currentDistance;
     }
 
-    return mechanismIterator->second.isMoving
-        ? EventRuntime::calculateMechanismDistance(door, mechanismIterator->second)
-        : mechanismIterator->second.currentDistance;
+    return mechanismIterator->second.currentDistance;
 }
 
 uint16_t resolveMechanismState(

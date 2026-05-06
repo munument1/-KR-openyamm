@@ -208,6 +208,7 @@ public:
     {
         bool active = false;
         size_t runtimeActorIndex = static_cast<size_t>(-1);
+        std::string displayNameOverride;
         float sourceX = 0.0f;
         float sourceY = 0.0f;
         float sourceWidth = 0.0f;

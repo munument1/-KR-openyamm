@@ -1,6 +1,7 @@
 #include "game/items/InventoryItemMixingRuntime.h"
 
 #include "game/tables/ItemTable.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/PotionMixingTable.h"
 
 #include <algorithm>
@@ -11,23 +12,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t FirstReagentItemId = 200;
-constexpr uint32_t LastReagentItemId = 219;
-constexpr uint32_t PotionBottleItemId = 220;
-constexpr uint32_t CatalystPotionItemId = 221;
-constexpr uint32_t FirstPotionItemId = 222;
-constexpr uint32_t LastPotionItemId = 271;
 constexpr uint32_t RechargePotionItemId = 233;
-
-bool isReagent(uint32_t itemId)
-{
-    return itemId >= FirstReagentItemId && itemId <= LastReagentItemId;
-}
-
-bool isMixingPotion(uint32_t itemId)
-{
-    return itemId >= CatalystPotionItemId && itemId <= LastPotionItemId;
-}
 
 bool parsePositiveInteger(const std::string &value, uint32_t &result)
 {
@@ -70,54 +55,21 @@ uint32_t alchemyLevel(const Character &member)
     return pSkill != nullptr ? pSkill->level : 0;
 }
 
-uint8_t requiredFailureDamageLevel(uint32_t resultItemId, SkillMastery mastery)
+uint8_t requiredFailureDamageLevel(
+    uint32_t resultItemId,
+    SkillMastery mastery,
+    const MergedPotionSettingTable &potionSettingTable)
 {
-    if (resultItemId >= 225 && resultItemId <= 227 && mastery == SkillMastery::None)
+    const MergedPotionSettingEntry *pSetting = potionSettingTable.getByItemId(resultItemId);
+
+    if (pSetting == nullptr || !pSetting->requiredMastery.has_value() || *pSetting->requiredMastery == 0)
     {
-        return 1;
+        return 0;
     }
 
-    if (resultItemId >= 228 && resultItemId <= 239 && mastery <= SkillMastery::Normal)
-    {
-        return 2;
-    }
-
-    if (resultItemId >= 240 && resultItemId <= 261 && mastery <= SkillMastery::Expert)
-    {
-        return 3;
-    }
-
-    if (resultItemId >= 262 && mastery <= SkillMastery::Master)
-    {
-        return 4;
-    }
-
-    return 0;
-}
-
-uint32_t reagentPotionResultItemId(uint32_t reagentItemId)
-{
-    if (reagentItemId >= 200 && reagentItemId <= 204)
-    {
-        return 222;
-    }
-
-    if (reagentItemId >= 205 && reagentItemId <= 209)
-    {
-        return 223;
-    }
-
-    if (reagentItemId >= 210 && reagentItemId <= 214)
-    {
-        return 224;
-    }
-
-    if (reagentItemId >= 215 && reagentItemId <= 219)
-    {
-        return 221;
-    }
-
-    return 0;
+    return static_cast<uint32_t>(mastery) < *pSetting->requiredMastery
+        ? static_cast<uint8_t>(std::min<uint32_t>(*pSetting->requiredMastery, 255))
+        : 0;
 }
 
 uint16_t reagentPower(const ItemDefinition &itemDefinition)
@@ -128,13 +80,13 @@ uint16_t reagentPower(const ItemDefinition &itemDefinition)
         : 0;
 }
 
-InventoryItem makeBottleItem(const ItemTable &itemTable)
+InventoryItem makeBottleItem(const ItemTable &itemTable, uint32_t bottleItemId)
 {
     InventoryItem bottle = {};
-    bottle.objectDescriptionId = PotionBottleItemId;
+    bottle.objectDescriptionId = bottleItemId;
     bottle.quantity = 1;
 
-    if (const ItemDefinition *pDefinition = itemTable.get(PotionBottleItemId))
+    if (const ItemDefinition *pDefinition = itemTable.get(bottleItemId))
     {
         bottle.width = std::max<uint8_t>(1, pDefinition->inventoryWidth);
         bottle.height = std::max<uint8_t>(1, pDefinition->inventoryHeight);
@@ -147,9 +99,10 @@ void attachBottleResult(
     Party &party,
     size_t memberIndex,
     const ItemTable &itemTable,
+    uint32_t bottleItemId,
     InventoryItemMixResult &result)
 {
-    InventoryItem bottle = makeBottleItem(itemTable);
+    InventoryItem bottle = makeBottleItem(itemTable, bottleItemId);
 
     if (!party.tryAutoPlaceItemInMemberInventory(memberIndex, bottle))
     {
@@ -217,7 +170,9 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     uint8_t targetGridX,
     uint8_t targetGridY,
     const ItemTable &itemTable,
-    const PotionMixingTable &potionMixingTable)
+    const PotionMixingTable &potionMixingTable,
+    const MergedPotionSettingTable &potionSettingTable,
+    const MergedReagentSettingTable &reagentSettingTable)
 {
     Character *pMember = party.member(memberIndex);
     InventoryItem *pTargetItem = party.memberInventoryItemMutable(memberIndex, targetGridX, targetGridY);
@@ -234,6 +189,12 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     {
         return {};
     }
+
+    const uint32_t bottleItemId = potionSettingTable.emptyBottleItemId();
+    const uint32_t catalystItemId = potionSettingTable.catalystPotionItemId();
+    const MergedPotionSettingEntry *pHeldPotionSetting = potionSettingTable.getByItemId(heldItem.objectDescriptionId);
+    const MergedPotionSettingEntry *pTargetPotionSetting =
+        potionSettingTable.getByItemId(pTargetItem->objectDescriptionId);
 
     if (heldItem.objectDescriptionId == RechargePotionItemId)
     {
@@ -262,16 +223,14 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         return result;
     }
 
-    if (isReagent(heldItem.objectDescriptionId) && pTargetItem->objectDescriptionId == PotionBottleItemId)
+    const std::optional<uint32_t> heldReagentResult =
+        reagentSettingTable.resultItemIdForReagent(heldItem.objectDescriptionId);
+    const std::optional<uint32_t> targetReagentResult =
+        reagentSettingTable.resultItemIdForReagent(pTargetItem->objectDescriptionId);
+
+    if (heldReagentResult.has_value() && pTargetItem->objectDescriptionId == bottleItemId)
     {
-        const uint32_t resultItemId = reagentPotionResultItemId(heldItem.objectDescriptionId);
-
-        if (resultItemId == 0)
-        {
-            return {};
-        }
-
-        pTargetItem->objectDescriptionId = resultItemId;
+        pTargetItem->objectDescriptionId = *heldReagentResult;
         pTargetItem->standardEnchantPower =
             static_cast<uint16_t>(std::min<uint32_t>(
                 0xFFFFu,
@@ -288,16 +247,9 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         return result;
     }
 
-    if (heldItem.objectDescriptionId == PotionBottleItemId && isReagent(pTargetItem->objectDescriptionId))
+    if (heldItem.objectDescriptionId == bottleItemId && targetReagentResult.has_value())
     {
-        const uint32_t resultItemId = reagentPotionResultItemId(pTargetItem->objectDescriptionId);
-
-        if (resultItemId == 0)
-        {
-            return {};
-        }
-
-        pTargetItem->objectDescriptionId = resultItemId;
+        pTargetItem->objectDescriptionId = *targetReagentResult;
         pTargetItem->standardEnchantPower =
             static_cast<uint16_t>(std::min<uint32_t>(
                 0xFFFFu,
@@ -314,7 +266,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         return result;
     }
 
-    if (!isMixingPotion(heldItem.objectDescriptionId) || !isMixingPotion(pTargetItem->objectDescriptionId))
+    if (pHeldPotionSetting == nullptr || pTargetPotionSetting == nullptr)
     {
         return {};
     }
@@ -323,15 +275,15 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     result.handled = true;
     result.action = InventoryItemMixAction::PotionMix;
 
-    if (heldItem.objectDescriptionId == CatalystPotionItemId
-        || pTargetItem->objectDescriptionId == CatalystPotionItemId)
+    if (heldItem.objectDescriptionId == catalystItemId
+        || pTargetItem->objectDescriptionId == catalystItemId)
     {
-        if (heldItem.objectDescriptionId == CatalystPotionItemId
-            && pTargetItem->objectDescriptionId == CatalystPotionItemId)
+        if (heldItem.objectDescriptionId == catalystItemId
+            && pTargetItem->objectDescriptionId == catalystItemId)
         {
             pTargetItem->standardEnchantPower = std::max(itemPower(*pTargetItem), itemPower(heldItem));
         }
-        else if (pTargetItem->objectDescriptionId == CatalystPotionItemId)
+        else if (pTargetItem->objectDescriptionId == catalystItemId)
         {
             pTargetItem->objectDescriptionId = heldItem.objectDescriptionId;
             pTargetItem->standardEnchantPower = itemPower(heldItem);
@@ -346,7 +298,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         result.heldItemConsumed = true;
         result.targetItemChanged = true;
         result.statusText = "Mixed potion";
-        attachBottleResult(party, memberIndex, itemTable, result);
+        attachBottleResult(party, memberIndex, itemTable, bottleItemId, result);
         return result;
     }
 
@@ -360,7 +312,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
 
     const uint8_t damageLevel = combination->failureDamageLevel != 0
         ? combination->failureDamageLevel
-        : requiredFailureDamageLevel(combination->resultItemId, alchemyMastery(*pMember));
+        : requiredFailureDamageLevel(combination->resultItemId, alchemyMastery(*pMember), potionSettingTable);
 
     if (damageLevel != 0)
     {
@@ -381,7 +333,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     result.heldItemConsumed = true;
     result.targetItemChanged = true;
     result.statusText = "Mixed potion";
-    attachBottleResult(party, memberIndex, itemTable, result);
+    attachBottleResult(party, memberIndex, itemTable, bottleItemId, result);
     return result;
 }
 }

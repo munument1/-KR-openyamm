@@ -300,6 +300,16 @@ public:
         bool waterTerrainImpact = false;
     };
 
+    struct ActorInspectPreviewAnimationState
+    {
+        int16_t monsterId = 0;
+        ActorAnimation animation = ActorAnimation::Bored;
+        uint32_t actionTimeTicks = 0;
+        uint32_t actionLengthTicks = 0;
+        uint32_t lastUpdateTicks = 0;
+        uint32_t randomState = 0x6d2b79f5u;
+    };
+
     struct ProjectileFrameWorldFacts
     {
         GameplayProjectileService::ProjectileFrameFacts frame;
@@ -498,6 +508,7 @@ public:
     const std::string &mapName() const override;
     bool isIndoorMap() const override;
     bool isUnderwaterMap() const override;
+    bool allowsLloydsBeacon() const override;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
     float currentGameMinutes() const override;
@@ -514,7 +525,7 @@ public:
     void updateMapActors(float deltaSeconds, float partyX, float partyY, float partyZ);
     void queueActorAiUpdate(float deltaSeconds, float partyX, float partyY, float partyZ);
 
-    void applyEventRuntimeState(bool syncPersistentHostilityMasks = false);
+    void applyEventRuntimeState(bool syncPersistentHostilityMasks = false) override;
     bool updateTimers(
         float deltaSeconds,
         const EventRuntime &eventRuntime,
@@ -1110,6 +1121,7 @@ private:
     std::optional<ChestViewState> m_activeChestView;
     std::optional<GameplayWorldPoint> m_pendingEventSourcePoint;
     std::optional<EventRuntimeState> m_eventRuntimeState;
+    mutable ActorInspectPreviewAnimationState m_actorInspectPreviewAnimation = {};
     const ItemTable *m_pItemTable = nullptr;
     Party *m_pParty = nullptr;
     OutdoorPartyRuntime *m_pPartyRuntime = nullptr;
@@ -1250,7 +1262,7 @@ private:
     void applyActorFrameSideEffects(float deltaSeconds, float partyX, float partyY, float partyZ);
     void advanceGameMinutesInternal(float minutes);
     void applyInitialWeatherProfile();
-    bool applyMmergeWeatherProfile();
+    bool applyMergedWeatherProfile();
     void applyDailyWeatherRollover(int weatherDayIndex);
     void applyFogDistances(const OutdoorFogDistances &distances, bool foggy);
     void syncAtmosphereStateToMapDelta();

@@ -24,8 +24,13 @@ class NpcDialogTable;
 class Party;
 class RosterTable;
 class TransitionTable;
-class MmergeNpcProfessionTable;
-class MmergeNewsProfessionTopicTable;
+class MergedNpcProfessionTable;
+class MergedNewsProfessionTopicTable;
+class MergedNpcBtbTable;
+class MergedBolsterMapTable;
+class MergedContinentSettingTable;
+class MergedTeacherAutonoteTable;
+class MergedTeacherTopicTable;
 struct HouseEntry;
 class GameplayScreenRuntime;
 
@@ -50,8 +55,13 @@ public:
         const std::vector<MapStatsEntry> *pMapEntries = nullptr;
         const RosterTable *pRosterTable = nullptr;
         const ArcomageLibrary *pArcomageLibrary = nullptr;
-        const MmergeNpcProfessionTable *pNpcProfessionTable = nullptr;
-        const MmergeNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr;
+        const MergedNpcProfessionTable *pNpcProfessionTable = nullptr;
+        const MergedNewsProfessionTopicTable *pNewsProfessionTopicTable = nullptr;
+        const MergedNpcBtbTable *pNpcBtbTable = nullptr;
+        const MergedBolsterMapTable *pBolsterMapTable = nullptr;
+        const MergedContinentSettingTable *pContinentSettingTable = nullptr;
+        const MergedTeacherTopicTable *pTeacherTopicTable = nullptr;
+        const MergedTeacherAutonoteTable *pTeacherAutonoteTable = nullptr;
         bool dialogueHudActive = false;
     };
 
@@ -85,7 +95,11 @@ public:
         size_t previousMessageCount,
         bool allowNpcFallbackContent,
         bool showBankInputCursor) const;
-    Result openNpcDialogue(Context &context, uint32_t npcId, uint32_t hostHouseId = 0) const;
+    Result openNpcDialogue(
+        Context &context,
+        uint32_t npcId,
+        uint32_t hostHouseId = 0,
+        std::optional<uint32_t> sourceActorIndex = std::nullopt) const;
     Result openNpcNews(
         Context &context,
         uint32_t npcId,

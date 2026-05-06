@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/maps/MapRuntimeRestrictions.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -7,7 +9,8 @@
 
 namespace OpenYAMM::Game
 {
-class MmergeOutdoorTravelTable;
+class MergedOutdoorTravelTable;
+class MergedBolsterMapTable;
 
 enum class MapBoundaryEdge : uint8_t
 {
@@ -65,12 +68,14 @@ struct MapStatsEntry
     int redbookTrack;
     std::string environmentName;
     int areaId = 0;
+    uint32_t mergedContinentId = 1;
     bool isTopLevelArea;
     MapBounds outdoorBounds = {};
     std::optional<MapEdgeTransition> northTransition;
     std::optional<MapEdgeTransition> southTransition;
     std::optional<MapEdgeTransition> eastTransition;
     std::optional<MapEdgeTransition> westTransition;
+    MapRuntimeRestrictions runtimeRestrictions = {};
 
     const std::optional<MapEdgeTransition> *edgeTransition(MapBoundaryEdge edge) const;
     std::optional<MapEdgeTransition> *edgeTransition(MapBoundaryEdge edge);
@@ -83,9 +88,11 @@ public:
         const std::vector<std::vector<std::string>> &rows,
         const std::string &worldId = "mm8"
     );
+    bool applyMergedBolsterMaps(const MergedBolsterMapTable &bolsterMaps);
     bool applyOutdoorNavigationRows(const std::vector<std::vector<std::string>> &rows);
-    bool applyMmergeOutdoorTravels(const MmergeOutdoorTravelTable &outdoorTravels);
+    bool applyMergedOutdoorTravels(const MergedOutdoorTravelTable &outdoorTravels);
     const std::vector<MapStatsEntry> &getEntries() const;
+    const MapStatsEntry *findById(uint32_t id) const;
     const MapStatsEntry *findByFileName(const std::string &fileName) const;
 
 private:

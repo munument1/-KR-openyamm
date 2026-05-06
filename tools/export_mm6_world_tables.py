@@ -20,27 +20,6 @@ DEFAULT_MAX_X = 23143
 DEFAULT_MIN_Y = -23143
 DEFAULT_MAX_Y = 23143
 
-TRANSPORT_HEADER = [
-    "HouseId",
-    "RouteIndex",
-    "Destination",
-    "MapFileName",
-    "TravelDays",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-    "X",
-    "Y",
-    "Z",
-    "DirectionDegrees",
-    "QBit",
-    "UseMapStart",
-]
-
 OBJECT_LIST_HEADER = [
     "// Name",
     "SpriteName",
@@ -134,6 +113,71 @@ def to_int(value: str, default: int = 0) -> int:
         return int(value.strip())
     except ValueError:
         return default
+
+
+def is_sound_row(row: list[str]) -> bool:
+    return len(row) >= 2 and row[0].strip() and not row[0].startswith("/") and row[1].strip().isdigit()
+
+
+def sound_name_key(value: str) -> str:
+    return value.strip().lower()
+
+
+def mmerge_house_sound_names_by_group(expanded_sounds_path: Path) -> dict[int, str]:
+    sound_names_by_group: dict[int, str] = {}
+
+    for row in read_tab_rows(expanded_sounds_path):
+        if not is_sound_row(row):
+            continue
+
+        sound_id = to_int(row[1])
+
+        if sound_id < 30000:
+            continue
+
+        group_id = (sound_id - 30000) // 10
+        sound_type = (sound_id - 30000) % 10
+
+        if sound_type == 1:
+            sound_names_by_group.setdefault(group_id, row[0].strip())
+
+    return sound_names_by_group
+
+
+def house_sound_base_ids_by_name(sound_catalog_path: Path) -> dict[str, int]:
+    base_ids_by_name: dict[str, int] = {}
+
+    for row in read_tab_rows(sound_catalog_path):
+        if not is_sound_row(row):
+            continue
+
+        sound_id = to_int(row[1])
+
+        if sound_id < 30000:
+            continue
+
+        sound_type = sound_id % 100
+
+        if sound_type == 1:
+            base_ids_by_name.setdefault(sound_name_key(row[0]), sound_id - sound_type)
+
+    return base_ids_by_name
+
+
+def mmerge_house_sound_base_ids_by_group(expanded_sounds_path: Path, sound_catalog_path: Path) -> dict[int, int]:
+    sound_names_by_group = mmerge_house_sound_names_by_group(expanded_sounds_path)
+    base_ids_by_name = house_sound_base_ids_by_name(sound_catalog_path)
+    base_ids_by_group: dict[int, int] = {}
+
+    for group_id, sound_name in sound_names_by_group.items():
+        base_id = base_ids_by_name.get(sound_name_key(sound_name))
+
+        if base_id is None:
+            base_id = 30000 + group_id * 10
+
+        base_ids_by_group[group_id] = base_id
+
+    return base_ids_by_group
 
 
 def export_map_stats(source_path: Path, maps_dir: Path, output_path: Path) -> None:
@@ -424,6 +468,7 @@ def export_house_animations(
     npc_path: Path,
     output_path: Path,
     video_roots: Optional[list[Path]] = None,
+    house_sound_base_ids_by_group: Optional[dict[int, int]] = None,
 ) -> None:
     houses = house_rows_by_id(house_data_path)
     npc_ids = npc_ids_by_house(npc_path)
@@ -467,7 +512,17 @@ def export_house_animations(
             video_name = ""
         npc_picture_id = movie[2].strip() if len(movie) > 2 else ""
         house_movie_type = movie[3].strip() if len(movie) > 3 else ""
-        room_sound_id = movie[4].strip() if len(movie) > 4 else ""
+        movie_sound_group = to_int(movie[4]) if len(movie) > 4 else 0
+        room_sound_id = movie[4].strip() if len(movie) > 4 and house_sound_base_ids_by_group is None else ""
+        house_sound_base_id = ""
+        if movie_sound_group > 0 and house_sound_base_ids_by_group is not None:
+            house_sound_base_id_value = house_sound_base_ids_by_group.get(movie_sound_group)
+
+            if house_sound_base_id_value is None:
+                raise ValueError(f"unresolved MMerge house sound group {movie_sound_group}")
+
+            house_sound_base_id = str(house_sound_base_id_value)
+
         resident_npcs = ",".join(str(npc_id) for npc_id in sorted(npc_ids.get(house_id, [])))
         building_name = house[5].strip() if len(house) > 5 else ""
 
@@ -479,7 +534,7 @@ def export_house_animations(
             video_name,
             "",
             room_sound_id,
-            "",
+            house_sound_base_id,
             npc_picture_id,
             house_movie_type,
         ])
@@ -502,129 +557,6 @@ def collect_world_video_roots(worlds_root: Path) -> list[Path]:
         ])
 
     return video_roots
-
-
-def parse_house_rule_routes(house_rules_path: Path, section_name: str) -> dict[int, list[int]]:
-    routes: dict[int, list[int]] = {}
-    in_section = False
-
-    for row in read_tab_rows(house_rules_path):
-        if not row:
-            continue
-
-        label = row[0].strip()
-
-        if label == section_name:
-            in_section = True
-            continue
-
-        if not in_section:
-            continue
-
-        if not label.isdigit():
-            break
-
-        route_indices = [to_int(value, -1) for value in row[1:5]]
-        routes[to_int(label)] = route_indices
-
-    return routes
-
-
-def transport_locations_by_id(transport_locations_path: Path) -> dict[int, list[str]]:
-    locations: dict[int, list[str]] = {}
-
-    for row in read_tab_rows(transport_locations_path):
-        if is_data_row(row):
-            locations[to_int(row[0])] = row
-
-    return locations
-
-
-def map_names_by_file(map_stats_path: Path) -> dict[str, str]:
-    names: dict[str, str] = {}
-
-    for row in read_tab_rows(map_stats_path):
-        if is_data_row(row) and len(row) > 2:
-            names[row[2].strip().lower()] = row[1].strip()
-
-    return names
-
-
-def direction_units_to_degrees(value: str) -> str:
-    direction_units = to_int(value)
-    normalized_units = ((direction_units % 2048) + 2048) % 2048
-    return str(normalized_units * 360 // 2048)
-
-
-def day_flag(value: str) -> str:
-    return "1" if value.strip().lower() in {"x", "1", "true", "yes", "y"} else "0"
-
-
-def export_transport_schedules(
-    house_data_path: Path,
-    house_rules_path: Path,
-    transport_locations_path: Path,
-    map_stats_path: Path,
-    maps_dir: Path,
-    output_path: Path,
-) -> None:
-    houses = house_rows_by_id(house_data_path)
-    locations = transport_locations_by_id(transport_locations_path)
-    map_names = map_names_by_file(map_stats_path)
-    known_maps = world_map_files(maps_dir, ".odm") | world_map_files(maps_dir, ".blv")
-    stable_routes = parse_house_rule_routes(house_rules_path, "Stables")
-    boat_routes = parse_house_rule_routes(house_rules_path, "Boats")
-    transport_houses = {
-        "Stables": sorted(house_id for house_id, row in houses.items() if len(row) > 2 and row[2] == "Stables"),
-        "Boats": sorted(house_id for house_id, row in houses.items() if len(row) > 2 and row[2] == "Boats"),
-    }
-
-    output_rows: list[list[str]] = [TRANSPORT_HEADER]
-
-    for house_type, house_ids in transport_houses.items():
-        route_table = stable_routes if house_type == "Stables" else boat_routes
-
-        for house_order, house_id in enumerate(house_ids, start=1):
-            route_location_ids = route_table.get(house_order, [])
-            seen_location_ids: set[int] = set()
-
-            for route_index, location_id in enumerate(route_location_ids, start=1):
-                if location_id < 0 or location_id in seen_location_ids:
-                    continue
-
-                seen_location_ids.add(location_id)
-                location = locations.get(location_id)
-
-                if location is None or len(location) <= 14:
-                    continue
-
-                map_file = location[1].strip()
-
-                if map_file.lower() not in known_maps:
-                    continue
-
-                output_rows.append([
-                    str(house_id),
-                    str(route_index),
-                    map_names.get(map_file.lower(), Path(map_file).stem),
-                    map_file,
-                    location[9].strip(),
-                    day_flag(location[2]),
-                    day_flag(location[3]),
-                    day_flag(location[4]),
-                    day_flag(location[5]),
-                    day_flag(location[6]),
-                    day_flag(location[7]),
-                    day_flag(location[8]),
-                    location[10].strip(),
-                    location[11].strip(),
-                    location[12].strip(),
-                    direction_units_to_degrees(location[13]),
-                    location[14].strip(),
-                    "0",
-                ])
-
-    write_tab_rows(output_path, output_rows)
 
 
 def export_direct_tables(legacy_tables_dir: Path, data_tables_dir: Path) -> None:
@@ -691,14 +623,10 @@ def main() -> int:
         data_tables_dir / "npc.txt",
         data_tables_dir / "house_animations.txt",
         collect_world_video_roots(world_dir.parent),
-    )
-    export_transport_schedules(
-        data_tables_dir / "house_data.txt",
-        legacy_tables_dir / "House rules.txt",
-        legacy_tables_dir / "Transport Locations.txt",
-        data_tables_dir / "map_stats.txt",
-        maps_dir,
-        data_tables_dir / "transport_schedules.txt",
+        mmerge_house_sound_base_ids_by_group(
+            legacy_tables_dir / "Sounds.txt",
+            legacy_tables_dir / "sounds.txt",
+        ),
     )
     return 0
 

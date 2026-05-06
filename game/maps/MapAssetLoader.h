@@ -232,6 +232,9 @@ enum class MapLoadPurpose
     Full,
     FullGameplay,
     HeadlessGameplay,
+    RenderSurfaces,
+    ActorPreviews,
+    BillboardPreviews,
 };
 
 using MapLoadProgressPump = std::function<void()>;

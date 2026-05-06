@@ -9,6 +9,6 @@ void main()
     vec4 viewPosition = mul(u_modelView, worldPosition);
     gl_Position = mul(u_modelViewProj, worldPosition);
     v_texcoord0 = a_texcoord0;
-    v_depth = length(viewPosition.xyz);
+    v_depth = abs(viewPosition.z);
     v_worldPosition = worldPosition.xyz;
 }

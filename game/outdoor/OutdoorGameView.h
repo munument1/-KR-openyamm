@@ -22,7 +22,6 @@
 #include "game/tables/JournalHistoryTable.h"
 #include "game/tables/JournalQuestTable.h"
 #include "game/gameplay/GameplayScreenState.h"
-#include "game/items/ItemEquipPosTable.h"
 #include "game/items/ItemEnchantTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/ObjectTable.h"

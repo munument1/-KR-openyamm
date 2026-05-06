@@ -288,6 +288,11 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         IndoorMovementController(indoorMapData, &m_mapDeltaData, &m_eventRuntimeState),
         itemTable)
 {
+    if (m_eventRuntimeState)
+    {
+        setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
+    }
+
     if (m_mapDeltaData)
     {
         normalizeIndoorDoorTextureDeltas(*m_mapDeltaData, indoorMapData);
@@ -377,6 +382,11 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         IndoorMovementController(indoorMapData, &m_mapDeltaData, &m_eventRuntimeState),
         itemTable)
 {
+    if (m_eventRuntimeState)
+    {
+        setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
+    }
+
     if (m_mapDeltaData)
     {
         normalizeIndoorDoorTextureDeltas(*m_mapDeltaData, indoorMapData);
@@ -553,6 +563,7 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_eventRuntimeState = snapshot.eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        setActiveHistoryContinent(*m_eventRuntimeState, m_map.mergedContinentId);
         clearTransientEventRuntimeState(*m_eventRuntimeState);
     }
     m_worldRuntime.restoreSnapshot(snapshot.worldRuntime);

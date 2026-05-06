@@ -270,6 +270,94 @@ size_t totalIndoorFaceCount(const IndoorMapData &indoorMapData)
 {
     return indoorMapData.rawFaceCount != 0 ? indoorMapData.rawFaceCount : indoorMapData.faces.size();
 }
+
+bool parseIndoorSceneFaceAttributeOverride(
+    const YAML::Node &overrideNode,
+    IndoorSceneFaceAttributeOverride &faceOverride,
+    std::string &errorMessage)
+{
+    if (!overrideNode.IsMap())
+    {
+        errorMessage = "face attribute override entry must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(overrideNode, "face_index", faceOverride.faceIndex, errorMessage)
+        || !readOptionalScalarNode(overrideNode, "legacy_attributes", faceOverride.legacyAttributes, errorMessage)
+        || !readOptionalScalarNode(overrideNode, "facet_type", faceOverride.facetType, errorMessage)
+        || !readOptionalScalarNode(
+            overrideNode,
+            "texture_frame_table_cog",
+            faceOverride.textureFrameTableCog,
+            errorMessage)
+        || !readOptionalScalarNode(overrideNode, "cog_number", faceOverride.cogNumber, errorMessage)
+        || !readOptionalScalarNode(overrideNode, "cog_triggered", faceOverride.cogTriggered, errorMessage)
+        || !readOptionalScalarNode(
+            overrideNode,
+            "cog_trigger_type",
+            faceOverride.cogTriggerType,
+            errorMessage))
+    {
+        return false;
+    }
+
+    if (!faceOverride.legacyAttributes.has_value()
+        && !faceOverride.facetType.has_value()
+        && !faceOverride.textureFrameTableCog.has_value()
+        && !faceOverride.cogNumber.has_value()
+        && !faceOverride.cogTriggered.has_value()
+        && !faceOverride.cogTriggerType.has_value())
+    {
+        errorMessage = "face attribute override must define at least one override field";
+        return false;
+    }
+
+    return true;
+}
+
+void mergeIndoorSceneFaceAttributeOverride(
+    IndoorSceneData &sceneData,
+    const IndoorSceneFaceAttributeOverride &sourceOverride)
+{
+    IndoorSceneFaceAttributeOverride *pTargetOverride =
+        findIndoorSceneFaceOverride(sceneData, sourceOverride.faceIndex);
+
+    if (pTargetOverride == nullptr)
+    {
+        sceneData.initialState.faceAttributeOverrides.push_back(sourceOverride);
+        return;
+    }
+
+    if (sourceOverride.legacyAttributes.has_value())
+    {
+        pTargetOverride->legacyAttributes = sourceOverride.legacyAttributes;
+    }
+
+    if (sourceOverride.facetType.has_value())
+    {
+        pTargetOverride->facetType = sourceOverride.facetType;
+    }
+
+    if (sourceOverride.textureFrameTableCog.has_value())
+    {
+        pTargetOverride->textureFrameTableCog = sourceOverride.textureFrameTableCog;
+    }
+
+    if (sourceOverride.cogNumber.has_value())
+    {
+        pTargetOverride->cogNumber = sourceOverride.cogNumber;
+    }
+
+    if (sourceOverride.cogTriggered.has_value())
+    {
+        pTargetOverride->cogTriggered = sourceOverride.cogTriggered;
+    }
+
+    if (sourceOverride.cogTriggerType.has_value())
+    {
+        pTargetOverride->cogTriggerType = sourceOverride.cogTriggerType;
+    }
+}
 }
 
 const IndoorSceneFaceAttributeOverride *findIndoorSceneFaceOverride(const IndoorSceneData &sceneData, size_t faceIndex)
@@ -303,6 +391,11 @@ void applyIndoorSceneFaceOverride(const IndoorSceneFaceAttributeOverride &overri
     if (overrideEntry.legacyAttributes.has_value())
     {
         face.attributes = *overrideEntry.legacyAttributes;
+    }
+
+    if (overrideEntry.facetType.has_value())
+    {
+        face.facetType = *overrideEntry.facetType;
     }
 
     if (overrideEntry.textureFrameTableCog.has_value())
@@ -387,6 +480,39 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
         && !legacyCompanionFile.empty())
     {
         sceneData.legacyCompanionFile = legacyCompanionFile;
+    }
+
+    const YAML::Node runtimeRestrictionsNode = rootNode["runtime_restrictions"];
+
+    if (runtimeRestrictionsNode)
+    {
+        if (!runtimeRestrictionsNode.IsMap())
+        {
+            errorMessage = "runtime_restrictions must be a map";
+            return std::nullopt;
+        }
+
+        if (!readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_save_game",
+                sceneData.runtimeRestrictions.allowSaveGame,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_lloyds_beacon",
+                sceneData.runtimeRestrictions.allowLloydsBeacon,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "arena",
+                sceneData.runtimeRestrictions.isArena,
+                errorMessage,
+                false))
+        {
+            return std::nullopt;
+        }
     }
 
     const YAML::Node environmentNode = rootNode["environment"];
@@ -596,39 +722,10 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &overrideNode : faceAttributeOverridesNode)
     {
-        if (!overrideNode.IsMap())
-        {
-            errorMessage = "face attribute override entry must be a map";
-            return std::nullopt;
-        }
-
         IndoorSceneFaceAttributeOverride faceOverride = {};
 
-        if (!readScalarNode(overrideNode, "face_index", faceOverride.faceIndex, errorMessage)
-            || !readOptionalScalarNode(overrideNode, "legacy_attributes", faceOverride.legacyAttributes, errorMessage)
-            || !readOptionalScalarNode(
-                overrideNode,
-                "texture_frame_table_cog",
-                faceOverride.textureFrameTableCog,
-                errorMessage)
-            || !readOptionalScalarNode(overrideNode, "cog_number", faceOverride.cogNumber, errorMessage)
-            || !readOptionalScalarNode(overrideNode, "cog_triggered", faceOverride.cogTriggered, errorMessage)
-            || !readOptionalScalarNode(
-                overrideNode,
-                "cog_trigger_type",
-                faceOverride.cogTriggerType,
-                errorMessage))
+        if (!parseIndoorSceneFaceAttributeOverride(overrideNode, faceOverride, errorMessage))
         {
-            return std::nullopt;
-        }
-
-        if (!faceOverride.legacyAttributes.has_value()
-            && !faceOverride.textureFrameTableCog.has_value()
-            && !faceOverride.cogNumber.has_value()
-            && !faceOverride.cogTriggered.has_value()
-            && !faceOverride.cogTriggerType.has_value())
-        {
-            errorMessage = "face attribute override entry must specify at least one override field";
             return std::nullopt;
         }
 
@@ -945,6 +1042,144 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
     }
 
     return sceneData;
+}
+
+bool IndoorSceneYmlLoader::applyOverlayFromText(
+    IndoorSceneData &sceneData,
+    const std::string &yamlText,
+    std::string &errorMessage) const
+{
+    YAML::Node rootNode;
+
+    try
+    {
+        rootNode = YAML::Load(yamlText);
+    }
+    catch (const std::exception &exception)
+    {
+        errorMessage = exception.what();
+        return false;
+    }
+
+    if (!rootNode || !rootNode.IsMap())
+    {
+        errorMessage = "scene overlay yaml root must be a map";
+        return false;
+    }
+
+    int formatVersion = 0;
+
+    if (!readScalarNode(rootNode, "format_version", formatVersion, errorMessage))
+    {
+        return false;
+    }
+
+    if (formatVersion != 1)
+    {
+        errorMessage = "unsupported indoor scene overlay format_version";
+        return false;
+    }
+
+    std::string kind;
+
+    if (!readScalarNode(rootNode, "kind", kind, errorMessage) || toLowerCopy(kind) != "indoor_scene_overlay")
+    {
+        errorMessage = "kind must be \"indoor_scene_overlay\"";
+        return false;
+    }
+
+    const YAML::Node sourceNode = rootNode["source"];
+
+    if (sourceNode)
+    {
+        if (!sourceNode.IsMap())
+        {
+            errorMessage = "source must be a map";
+            return false;
+        }
+
+        std::string geometryFile;
+
+        if (!readScalarNode(sourceNode, "geometry_file", geometryFile, errorMessage, false))
+        {
+            return false;
+        }
+
+        if (!geometryFile.empty() && toLowerCopy(geometryFile) != toLowerCopy(sceneData.geometryFile))
+        {
+            errorMessage = "scene overlay geometry_file does not match base scene";
+            return false;
+        }
+    }
+
+    const YAML::Node runtimeRestrictionsNode = rootNode["runtime_restrictions"];
+
+    if (runtimeRestrictionsNode)
+    {
+        if (!runtimeRestrictionsNode.IsMap())
+        {
+            errorMessage = "runtime_restrictions must be a map";
+            return false;
+        }
+
+        if (!readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_save_game",
+                sceneData.runtimeRestrictions.allowSaveGame,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_lloyds_beacon",
+                sceneData.runtimeRestrictions.allowLloydsBeacon,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "arena",
+                sceneData.runtimeRestrictions.isArena,
+                errorMessage,
+                false))
+        {
+            return false;
+        }
+    }
+
+    const YAML::Node initialStateNode = rootNode["initial_state"];
+
+    if (initialStateNode)
+    {
+        if (!initialStateNode.IsMap())
+        {
+            errorMessage = "initial_state must be a map";
+            return false;
+        }
+
+        const YAML::Node faceAttributeOverridesNode = initialStateNode["face_attribute_overrides"];
+
+        if (faceAttributeOverridesNode)
+        {
+            if (!faceAttributeOverridesNode.IsSequence())
+            {
+                errorMessage = "initial_state.face_attribute_overrides must be a sequence";
+                return false;
+            }
+
+            for (const YAML::Node &overrideNode : faceAttributeOverridesNode)
+            {
+                IndoorSceneFaceAttributeOverride faceOverride = {};
+
+                if (!parseIndoorSceneFaceAttributeOverride(overrideNode, faceOverride, errorMessage))
+                {
+                    return false;
+                }
+
+                mergeIndoorSceneFaceAttributeOverride(sceneData, faceOverride);
+            }
+        }
+    }
+
+    return true;
 }
 
 bool buildIndoorMapStateFromScene(

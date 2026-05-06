@@ -2,6 +2,7 @@
 
 #include "game/tables/ClassSkillTable.h"
 #include "game/gameplay/HouseServiceRuntime.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/party/Party.h"
 #include "game/items/PriceCalculator.h"
@@ -17,6 +18,14 @@ namespace
 {
 constexpr int TavernFoodTarget = 14;
 constexpr int MinutesPerDay = 24 * 60;
+constexpr uint32_t LorettaPriceQuestBit = 1140;
+constexpr uint32_t LorettaPriceCompleteBit = 1141;
+constexpr uint32_t LorettaFirstStableBit = 1515;
+constexpr uint32_t LorettaLastStableBit = 1523;
+constexpr const char *pLorettaPriceFixingLabel = "Price Fixing";
+constexpr const char *pLorettaPriceFixingMessage =
+    "Well, If Loretta's got a new scheme, count me in!\n"
+    "But you better get all the other companies to sign up!";
 
 int minuteOfDayFromGameMinutes(float currentGameMinutes)
 {
@@ -184,15 +193,17 @@ bool routeAvailableToday(const HouseEntry::TransportRoute &route, float currentG
     return route.daysAvailable[dayOfWeekFromGameMinutes(currentGameMinutes)];
 }
 
-int adjustedTransportTravelDays(const HouseEntry::TransportRoute &route)
+int adjustedTransportTravelDays(
+    const HouseEntry::TransportRoute &route,
+    const EventRuntimeState *pEventRuntimeState,
+    bool stable)
 {
-    // OE also applies hired-NPC profession reductions here. OpenYAMM does not model those hirelings yet.
-    if (route.travelDays == 0)
-    {
-        return 1;
-    }
+    const int baseDays = route.travelDays == 0 ? 1 : static_cast<int>(route.travelDays);
+    const int reduction = pEventRuntimeState != nullptr
+        ? hiredNpcTransportDayReduction(*pEventRuntimeState, stable)
+        : 0;
 
-    return static_cast<int>(route.travelDays);
+    return std::max(1, baseDays - reduction);
 }
 
 std::string transportTravelDaysText(int travelDays)
@@ -247,6 +258,47 @@ std::string buildClosedStatusText(const HouseEntry &houseEntry)
         + " to "
         + std::to_string(displayHourAmPm(houseEntry.closeHour))
         + amPmSuffixForHour(houseEntry.closeHour);
+}
+
+std::optional<uint32_t> lorettaStableQuestBitForHouse(uint32_t houseId)
+{
+    switch (houseId)
+    {
+        case 477:
+            return 1515;
+        case 478:
+            return 1516;
+        case 476:
+            return 1517;
+        case 472:
+            return 1518;
+        case 473:
+            return 1519;
+        case 474:
+            return 1520;
+        case 475:
+            return 1521;
+        case 471:
+            return 1522;
+        case 470:
+            return 1523;
+        default:
+            return std::nullopt;
+    }
+}
+
+bool shouldShowLorettaPriceFixing(const HouseEntry &houseEntry, const Party *pParty)
+{
+    if (pParty == nullptr || houseEntry.type != "Stables")
+    {
+        return false;
+    }
+
+    const std::optional<uint32_t> stableQuestBit = lorettaStableQuestBitForHouse(houseEntry.id);
+
+    return stableQuestBit.has_value()
+        && pParty->hasQuestBit(LorettaPriceQuestBit)
+        && !pParty->hasQuestBit(*stableQuestBit);
 }
 
 int roundPrice(float multiplier, int scale, int minimumPrice)
@@ -595,6 +647,18 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         return options;
     }
 
+    if (houseEntry.extraExit.has_value()
+        && (houseEntry.extraExit->requiredQuestBit == 0
+            || (pParty != nullptr && pParty->hasQuestBit(houseEntry.extraExit->requiredQuestBit))))
+    {
+        options.push_back(makeOption(
+            HouseActionId::ExtraExit,
+            houseEntry.extraExit->label,
+            true,
+            std::string {}
+        ));
+    }
+
     if (serviceType == HouseServiceType::Temple)
     {
         if (pParty == nullptr || pParty->activeMemberNeedsHealing())
@@ -644,7 +708,16 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(std::move(food));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        options.push_back(makeOption(HouseActionId::OpenTavernArcomageMenu, "Play Arcomage", isHouseOpenNow, closedReason));
+
+        if (houseEntry.arcomageRule.has_value())
+        {
+            options.push_back(makeOption(
+                HouseActionId::OpenTavernArcomageMenu,
+                "Play Arcomage",
+                isHouseOpenNow,
+                closedReason));
+        }
+
         return options;
     }
 
@@ -747,6 +820,15 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (serviceType == HouseServiceType::Transport)
     {
+        if (shouldShowLorettaPriceFixing(houseEntry, pParty))
+        {
+            options.push_back(makeOption(
+                HouseActionId::LorettaPriceFixing,
+                pLorettaPriceFixingLabel,
+                isHouseOpenNow,
+                closedReason));
+        }
+
         const Character *pMember = selectedMember(pParty);
         bool anyRouteVisible = false;
         bool anyRouteHidden = false;
@@ -767,7 +849,10 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
             anyRouteVisible = true;
             const int price = PriceCalculator::transportPrice(pMember, houseEntry, isBoatHouse(houseEntry));
-            const int travelDays = adjustedTransportTravelDays(route);
+            const EventRuntimeState *pEventRuntimeState =
+                pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+            const int travelDays =
+                adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
             HouseActionOption transport = makeOption(
                 HouseActionId::TransportRoute,
                 transportTravelDaysText(travelDays)
@@ -928,6 +1013,41 @@ HouseActionResult performHouseAction(
             result.messages.push_back("The innkeeper fills your packs to " + std::to_string(TavernFoodTarget) + " days.");
             result.succeeded = true;
             result.soundType = HouseSoundType::TavernBuyFood;
+            return result;
+        }
+
+        case HouseActionId::LorettaPriceFixing:
+        {
+            const std::optional<uint32_t> stableQuestBit = lorettaStableQuestBitForHouse(houseEntry.id);
+
+            if (!stableQuestBit.has_value()
+                || !party.hasQuestBit(LorettaPriceQuestBit)
+                || party.hasQuestBit(*stableQuestBit))
+            {
+                return result;
+            }
+
+            party.setQuestBit(*stableQuestBit, true);
+            result.messages.push_back(pLorettaPriceFixingMessage);
+            result.succeeded = true;
+
+            bool allStablesFixed = true;
+
+            for (uint32_t questBit = LorettaFirstStableBit; questBit <= LorettaLastStableBit; ++questBit)
+            {
+                if (!party.hasQuestBit(questBit))
+                {
+                    allStablesFixed = false;
+                    break;
+                }
+            }
+
+            if (allStablesFixed)
+            {
+                party.addExperienceToMember(party.activeMemberIndex(), 1);
+                party.setQuestBit(LorettaPriceCompleteBit, true);
+            }
+
             return result;
         }
 
@@ -1113,7 +1233,8 @@ HouseActionResult performHouseAction(
 
             party.addGold(-price);
             party.restAndHealAll();
-            const int travelDays = adjustedTransportTravelDays(*pRoute);
+            const int travelDays =
+                adjustedTransportTravelDays(*pRoute, pEventRuntimeState, !isBoatHouse(houseEntry));
             pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays * MinutesPerDay));
 
             EventRuntimeState::PendingMapMove pendingMapMove = {};
@@ -1161,6 +1282,7 @@ HouseActionResult performHouseAction(
         case HouseActionId::OpenShopEquipmentMenu:
         case HouseActionId::OpenTavernArcomageMenu:
         case HouseActionId::BackToRootMenu:
+        case HouseActionId::ExtraExit:
         {
             return result;
         }

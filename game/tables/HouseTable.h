@@ -10,11 +10,20 @@
 namespace OpenYAMM::Game
 {
 class MapStats;
-class MmergeHouseRuleTable;
-class MmergeTransportLocationTable;
+class MergedHouseExitTable;
+class MergedHouseRuleTable;
+class MergedTransportLocationTable;
 
 struct HouseEntry
 {
+    struct StockRule
+    {
+        int quality = 0;
+        int secondaryQuality = 0;
+        std::vector<uint32_t> itemTypes;
+        std::vector<uint32_t> secondaryItemTypes;
+    };
+
     struct TransportRoute
     {
         uint32_t routeIndex = 0;
@@ -28,6 +37,35 @@ struct HouseEntry
         int directionDegrees = 0;
         uint32_t requiredQBit = 0;
         bool useMapStartPosition = false;
+    };
+
+    struct ArcomageRule
+    {
+        int towerToWin = 0;
+        int resourceToWin = 0;
+        int towerAtStart = 0;
+        int wallAtStart = 0;
+        int quarry = 0;
+        int magic = 0;
+        int dungeon = 0;
+        int bricks = 0;
+        int gems = 0;
+        int recruits = 0;
+        int ai = 0;
+        uint32_t rulesTextId = 0;
+    };
+
+    struct ExtraExit
+    {
+        uint32_t pictureId = 0;
+        uint32_t destinationMapId = 0;
+        uint32_t requiredQuestBit = 0;
+        std::string destinationMapFileName;
+        std::string destinationName;
+        std::string label;
+        int x = 0;
+        int y = 0;
+        int z = 0;
     };
 
     uint32_t id = 0;
@@ -44,6 +82,9 @@ struct HouseEntry
     std::string proprietorTitle;
     float priceMultiplier = 0.0f;
     float skillPriceMultiplier = 0.0f;
+    StockRule standardStockRule;
+    StockRule specialStockRule;
+    StockRule spellbookStockRule;
     int standardStockTier = 0;
     int specialStockTier = 0;
     int stockRefreshDays = 0;
@@ -54,6 +95,11 @@ struct HouseEntry
     std::vector<std::string> offeredSkills;
     std::vector<uint32_t> residentNpcIds;
     std::vector<TransportRoute> transportRoutes;
+    std::optional<ArcomageRule> arcomageRule;
+    uint32_t rawExtraExitPictureIndex = 0;
+    uint32_t rawExtraExitMapId = 0;
+    int rawExtraExitRestriction = 0;
+    std::optional<ExtraExit> extraExit;
 };
 
 class HouseTable
@@ -64,12 +110,12 @@ public:
     bool loadAnimationRows(
         const std::vector<std::vector<std::string>> &rows,
         const std::vector<std::vector<std::string>> &movieRows);
-    bool loadTransportScheduleRows(const std::vector<std::vector<std::string>> &rows);
-    bool applyMmergeTransportRoutes(
-        const MmergeHouseRuleTable &houseRules,
-        const MmergeTransportLocationTable &transportLocations,
+    bool applyHouseRules(
+        const MergedHouseRuleTable &houseRules,
+        const MergedTransportLocationTable &transportLocations,
         const MapStats &mapStats
     );
+    bool applyHouseExits(const MergedHouseExitTable &houseExits, const MapStats &mapStats);
     std::optional<std::string> getName(uint32_t houseId) const;
     const HouseEntry *get(uint32_t houseId) const;
     const std::unordered_map<uint32_t, HouseEntry> &entries() const;

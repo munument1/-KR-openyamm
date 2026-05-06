@@ -451,7 +451,7 @@ TEST_CASE("default party seed grants first member full spell access and preserve
     CHECK_EQ(pMember->maxSpellPoints, 3039);
     CHECK_EQ(pMember->spellPoints, pMember->maxSpellPoints);
 
-    static constexpr std::array<uint32_t, 10> ExpectedInventoryIds = {{
+    static constexpr std::array<uint32_t, 12> ExpectedInventoryIds = {{
         401,
         410,
         411,
@@ -462,6 +462,8 @@ TEST_CASE("default party seed grants first member full spell access and preserve
         266,
         253,
         656,
+        2106,
+        2125,
     }};
 
     for (uint32_t itemId : ExpectedInventoryIds)

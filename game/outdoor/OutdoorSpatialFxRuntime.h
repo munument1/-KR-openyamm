@@ -35,8 +35,13 @@ private:
     std::unordered_map<uint64_t, uint32_t> m_emitterSequenceBySourceKey;
     float m_spatialRefreshAccumulatorSeconds = 0.0f;
     float m_snowEmissionAccumulator = 0.0f;
+    float m_snowMovementEmissionAccumulator = 0.0f;
     float m_rainEmissionAccumulator = 0.0f;
     uint32_t m_weatherEmissionSequence = 0;
+    bool m_wasSnowing = false;
+    bool m_hasWeatherCameraPosition = false;
+    float m_lastWeatherCameraX = 0.0f;
+    float m_lastWeatherCameraY = 0.0f;
     bool m_hasSpatialSnapshot = false;
 };
 }

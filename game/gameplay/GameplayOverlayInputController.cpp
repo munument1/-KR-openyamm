@@ -3010,6 +3010,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     const float panelInnerWidth = resolvedEventDialog->width - panelPaddingX * 2.0f;
                     const float portraitBorderSize = 80.0f * panelScale;
                     const float sectionGap = 8.0f * panelScale;
+                    const float nameHeight = 20.0f * panelScale;
                     float contentY = resolvedEventDialog->y + panelPaddingY;
 
                     if (pHostHouseEntry != nullptr)
@@ -3017,11 +3018,23 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                         contentY += 20.0f * panelScale + sectionGap;
                     }
 
-                    for (size_t actionIndex = 0; actionIndex < view.activeEventDialog().actions.size(); ++actionIndex)
+                    const size_t residentCount = view.activeEventDialog().actions.size();
+                    const bool useTwoColumns = residentCount > 3;
+                    const size_t columnCount = useTwoColumns ? 2u : 1u;
+                    const float columnWidth = useTwoColumns ? panelInnerWidth / 2.0f : panelInnerWidth;
+                    const float rowStep = portraitBorderSize + nameHeight + sectionGap;
+
+                    for (size_t actionIndex = 0; actionIndex < residentCount; ++actionIndex)
                     {
+                        const size_t column = useTwoColumns ? actionIndex % columnCount : 0u;
+                        const size_t row = useTwoColumns ? actionIndex / columnCount : actionIndex;
+                        const float columnX = useTwoColumns
+                            ? panelInnerX + static_cast<float>(column) * columnWidth
+                            : panelInnerX;
                         const float portraitX =
-                            std::round(panelInnerX + (panelInnerWidth - portraitBorderSize) * 0.5f);
-                        const float portraitY = std::round(contentY);
+                            std::round(columnX + (columnWidth - portraitBorderSize) * 0.5f);
+                        const float portraitY = std::round(
+                            useTwoColumns ? contentY + static_cast<float>(row) * rowStep : contentY);
 
                         if (mouseX >= portraitX
                             && mouseX < portraitX + portraitBorderSize
@@ -3031,7 +3044,10 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                             return {GameplayDialoguePointerTargetType::Action, actionIndex};
                         }
 
-                        contentY += portraitBorderSize + 20.0f * panelScale + sectionGap;
+                        if (!useTwoColumns)
+                        {
+                            contentY += rowStep;
+                        }
                     }
                 }
             }

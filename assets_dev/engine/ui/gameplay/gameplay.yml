@@ -902,3 +902,114 @@ elements:
           default: map-up
           pressed: map-dn
         notes: Minimap zoom out button.
+
+  - id: OutdoorFollowerPanel
+    anchor_space: screen
+    anchor: right
+    offset_y: -56
+    width: 91
+    height: 292
+    z_index: 90
+    scale:
+      min: 1.0
+      max: 3.0
+    asset:
+      default: npcpnl
+    notes: MMerge follower panel, moved to the right screen edge and centered vertically for the widescreen HUD.
+    children:
+      - id: OutdoorFollowerSlot_1
+        anchor: top_left
+        offset_x: 10
+        offset_y: 20
+        width: 71
+        height: 81
+        interactive: true
+        asset:
+          default: evtnpc-b
+        notes: MMerge follower portrait slot 1.
+
+      - id: OutdoorFollowerPortrait_1
+        anchor: top_left
+        offset_x: 14
+        offset_y: 24
+        width: 63
+        height: 73
+        notes: Dynamic follower portrait 1 draw region.
+
+      - id: OutdoorFollowerSlot_2
+        anchor: top_left
+        offset_x: 10
+        offset_y: 105
+        width: 71
+        height: 81
+        interactive: true
+        asset:
+          default: evtnpc-b
+        notes: MMerge follower portrait slot 2.
+
+      - id: OutdoorFollowerPortrait_2
+        anchor: top_left
+        offset_x: 14
+        offset_y: 109
+        width: 63
+        height: 73
+        notes: Dynamic follower portrait 2 draw region.
+
+      - id: OutdoorFollowerSlot_3
+        anchor: top_left
+        offset_x: 10
+        offset_y: 190
+        width: 71
+        height: 81
+        interactive: true
+        asset:
+          default: evtnpc-b
+        notes: MMerge follower portrait slot 3.
+
+      - id: OutdoorFollowerPortrait_3
+        anchor: top_left
+        offset_x: 14
+        offset_y: 194
+        width: 63
+        height: 73
+        notes: Dynamic follower portrait 3 draw region.
+
+      - id: OutdoorFollowerScrollUp
+        anchor: top_left
+        offset_x: 7
+        offset_y: 5
+        width: 77
+        height: 12
+        interactive: true
+        asset:
+          default: npcupa
+          pressed: npcupb
+        notes: MMerge follower panel scroll-up button.
+
+      - id: OutdoorFollowerScrollDown
+        anchor: top_left
+        offset_x: 7
+        offset_y: 275
+        width: 77
+        height: 12
+        interactive: true
+        asset:
+          default: npcdwa
+          pressed: npcdwb
+        notes: MMerge follower panel scroll-down button.
+
+  - id: OutdoorFollowerToggle
+    anchor_space: screen
+    anchor: bottom_right
+    offset_y: -113
+    width: 26
+    height: 26
+    z_index: 95
+    scale:
+      min: 1.0
+      max: 3.0
+    interactive: true
+    asset:
+      default: npcopenup
+      pressed: npcopendw
+    notes: MMerge follower panel open/close toggle button, placed at the right screen edge above the minimap.

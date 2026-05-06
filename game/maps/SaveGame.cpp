@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 34;
+constexpr uint32_t SaveVersion = 41;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -31,6 +31,13 @@ constexpr uint32_t SaveVersionGlobalNpcState = 31;
 constexpr uint32_t SaveVersionInputPromptAnswers = 32;
 constexpr uint32_t SaveVersionDialogueParticipantPicture = 33;
 constexpr uint32_t SaveVersionOutdoorJournalRevealMask = 34;
+constexpr uint32_t SaveVersionRuntimeMapNotes = 35;
+constexpr uint32_t SaveVersionScopedHistory = 36;
+constexpr uint32_t SaveVersionMapLuaRuntimeOverlays = 37;
+constexpr uint32_t SaveVersionHiredNpcFollowers = 38;
+constexpr uint32_t SaveVersionGeneratedNpcOverrides = 39;
+constexpr uint32_t SaveVersionDialogueActorSource = 40;
+constexpr uint32_t SaveVersionPartyHiredNpcFollowers = 41;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -144,6 +151,9 @@ private:
     bool m_failed = false;
     uint32_t m_version = SaveVersion;
 };
+
+void writeValue(BinaryWriter &writer, const HiredNpcFollower &value);
+bool readValue(BinaryReader &reader, HiredNpcFollower &value);
 
 bool canReadSerializedElementCount(const BinaryReader &reader, uint64_t count)
 {
@@ -941,6 +951,7 @@ void writeValue(BinaryWriter &writer, const Party::Snapshot &value)
     writeValue(writer, value.npcHouseOverrides);
     writeValue(writer, value.npcItemOverrides);
     writeValue(writer, value.unavailableNpcIds);
+    writeValue(writer, value.hiredNpcFollowers);
 }
 
 bool readValue(BinaryReader &reader, Party::Snapshot &value)
@@ -974,7 +985,8 @@ bool readValue(BinaryReader &reader, Party::Snapshot &value)
         && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.npcGreetingDisplayCounts))
         && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.npcHouseOverrides))
         && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.npcItemOverrides))
-        && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.unavailableNpcIds));
+        && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.unavailableNpcIds))
+        && (reader.version() < SaveVersionPartyHiredNpcFollowers || readValue(reader, value.hiredNpcFollowers));
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorMoveState &value)
@@ -1348,6 +1360,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::PendingDialogueCo
 {
     writeValue(writer, value.kind);
     writeValue(writer, value.sourceId);
+    writeValue(writer, value.sourceActorIndex);
     writeValue(writer, value.hostHouseId);
     writeValue(writer, value.newsId);
     writeValue(writer, value.participantPictureId);
@@ -1361,6 +1374,7 @@ bool readValue(BinaryReader &reader, EventRuntimeState::PendingDialogueContext &
 {
     return readValue(reader, value.kind)
         && readValue(reader, value.sourceId)
+        && (reader.version() < SaveVersionDialogueActorSource || readValue(reader, value.sourceActorIndex))
         && readValue(reader, value.hostHouseId)
         && readValue(reader, value.newsId)
         && (reader.version() < SaveVersionDialogueParticipantPicture
@@ -1477,6 +1491,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::DialogueOfferStat
     writeValue(writer, value.messageTextId);
     writeValue(writer, value.rosterId);
     writeValue(writer, value.partyFullTextId);
+    writeValue(writer, value.sourceActorIndex);
 }
 
 bool readValue(BinaryReader &reader, EventRuntimeState::DialogueOfferState &value)
@@ -1486,7 +1501,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState::DialogueOfferState &valu
         && readValue(reader, value.topicId)
         && readValue(reader, value.messageTextId)
         && readValue(reader, value.rosterId)
-        && readValue(reader, value.partyFullTextId);
+        && readValue(reader, value.partyFullTextId)
+        && (reader.version() < SaveVersionDialogueActorSource || readValue(reader, value.sourceActorIndex));
 }
 
 void writeValue(BinaryWriter &writer, const EventRuntimeState::DialogueRuntimeState &value)
@@ -1545,15 +1561,65 @@ bool readValue(BinaryReader &reader, EventRuntimeState::SpellFxRequest &value)
         && readValue(reader, value.memberIndices);
 }
 
+void writeValue(BinaryWriter &writer, const EventRuntimeState::RuntimeMapNote &value)
+{
+    writeValue(writer, value.id);
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.text);
+    writeValue(writer, value.active);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::RuntimeMapNote &value)
+{
+    return readValue(reader, value.id)
+        && readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.text)
+        && readValue(reader, value.active);
+}
+
+void writeValue(BinaryWriter &writer, const EventRuntimeState::ChestItemRequest &value)
+{
+    writeValue(writer, value.itemId);
+    writeValue(writer, value.gridX);
+    writeValue(writer, value.gridY);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::ChestItemRequest &value)
+{
+    return readValue(reader, value.itemId)
+        && readValue(reader, value.gridX)
+        && readValue(reader, value.gridY);
+}
+
+void writeValue(BinaryWriter &writer, const EventRuntimeState::HiredNpcFollower &value)
+{
+    writeValue(writer, value.npcId);
+    writeValue(writer, value.professionId);
+    writeValue(writer, value.weeklyCost);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::HiredNpcFollower &value)
+{
+    return readValue(reader, value.npcId)
+        && readValue(reader, value.professionId)
+        && readValue(reader, value.weeklyCost);
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
 {
     writeValue(writer, value.variables);
+    writeValue(writer, value.runtimeMapNotes);
+    writeValue(writer, value.activeHistoryContinentId);
     writeValue(writer, value.historyEventTimes);
+    writeValue(writer, value.historyEventTimesByContinent);
     writeValue(writer, value.mapVars);
     writeValue(writer, value.facetSetMasks);
     writeValue(writer, value.facetClearMasks);
     writeValue(writer, value.mechanisms);
     writeValue(writer, value.textureOverrides);
+    writeValue(writer, value.outdoorModelFacetTextureOverrides);
     writeValue(writer, value.spriteOverrides);
     writeValue(writer, value.indoorLightsEnabled);
     writeValue(writer, value.snowEnabled);
@@ -1572,9 +1638,16 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.npcGreetingOverrides);
     writeValue(writer, value.npcGreetingDisplayCounts);
     writeValue(writer, value.npcHouseOverrides);
+    writeValue(writer, value.npcNameOverrides);
+    writeValue(writer, value.npcPictureOverrides);
+    writeValue(writer, value.npcProfessionOverrides);
+    writeValue(writer, value.generatedNpcIdsByActorKey);
     writeValue(writer, value.npcItemOverrides);
     writeValue(writer, value.actorItemOverrides);
+    writeValue(writer, value.monsterRelationOverrides);
+    writeValue(writer, value.chestItemRequests);
     writeValue(writer, value.unavailableNpcIds);
+    writeValue(writer, value.hiredNpcFollowers);
     writeValue(writer, value.dialogueState);
     writeValue(writer, value.decorVars);
     writeValue(writer, value.activeDecorationContext);
@@ -1602,13 +1675,18 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
 
 bool readValue(BinaryReader &reader, EventRuntimeState &value)
 {
-    return readValue(reader, value.variables)
+    const bool ok = readValue(reader, value.variables)
+        && (reader.version() < SaveVersionRuntimeMapNotes || readValue(reader, value.runtimeMapNotes))
+        && (reader.version() < SaveVersionScopedHistory || readValue(reader, value.activeHistoryContinentId))
         && readValue(reader, value.historyEventTimes)
+        && (reader.version() < SaveVersionScopedHistory || readValue(reader, value.historyEventTimesByContinent))
         && readValue(reader, value.mapVars)
         && readValue(reader, value.facetSetMasks)
         && readValue(reader, value.facetClearMasks)
         && readValue(reader, value.mechanisms)
         && readValue(reader, value.textureOverrides)
+        && (reader.version() < SaveVersionMapLuaRuntimeOverlays
+            || readValue(reader, value.outdoorModelFacetTextureOverrides))
         && readValue(reader, value.spriteOverrides)
         && readValue(reader, value.indoorLightsEnabled)
         && readValue(reader, value.snowEnabled)
@@ -1627,9 +1705,16 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.npcGreetingOverrides)
         && readValue(reader, value.npcGreetingDisplayCounts)
         && readValue(reader, value.npcHouseOverrides)
+        && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.npcNameOverrides))
+        && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.npcPictureOverrides))
+        && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.npcProfessionOverrides))
+        && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.generatedNpcIdsByActorKey))
         && readValue(reader, value.npcItemOverrides)
         && readValue(reader, value.actorItemOverrides)
+        && (reader.version() < SaveVersionMapLuaRuntimeOverlays || readValue(reader, value.monsterRelationOverrides))
+        && (reader.version() < SaveVersionMapLuaRuntimeOverlays || readValue(reader, value.chestItemRequests))
         && readValue(reader, value.unavailableNpcIds)
+        && (reader.version() < SaveVersionHiredNpcFollowers || readValue(reader, value.hiredNpcFollowers))
         && readValue(reader, value.dialogueState)
         && readValue(reader, value.decorVars)
         && readValue(reader, value.activeDecorationContext)
@@ -1653,6 +1738,20 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.lastActivationResult)
         && readValue(reader, value.localOnLoadEventsExecuted)
         && readValue(reader, value.globalOnLoadEventsExecuted);
+
+    if (!ok)
+    {
+        return false;
+    }
+
+    value.activeHistoryContinentId = normalizedHistoryContinentId(value.activeHistoryContinentId);
+
+    if (value.historyEventTimesByContinent.empty() && !value.historyEventTimes.empty())
+    {
+        value.historyEventTimesByContinent[1u] = value.historyEventTimes;
+    }
+
+    return true;
 }
 
 void writeValue(BinaryWriter &writer, const MapDeltaChest &value)

@@ -10,6 +10,7 @@ namespace OpenYAMM::Game
 {
 class NpcDialogTable;
 class Party;
+class MergedTeacherTopicTable;
 
 struct MasteryTeacherEvaluation
 {
@@ -20,22 +21,39 @@ struct MasteryTeacherEvaluation
     int cost = 0;
 };
 
-bool tryDecodeMasteryTeacherTopicLabel(
-    const std::string &topicLabel,
-    std::string &skillName,
-    SkillMastery &targetMastery
+struct MasteryTeacherTopicDefinition
+{
+    uint32_t topicId = 0;
+    uint32_t skillId = 0;
+    uint32_t masteryRank = 0;
+    uint32_t textId = 0;
+    uint32_t requiredGold = 0;
+    uint32_t requiredSkill = 0;
+    std::string skillName;
+    SkillMastery targetMastery = SkillMastery::None;
+};
+
+std::optional<MasteryTeacherTopicDefinition> resolveMasteryTeacherTopic(
+    uint32_t topicId,
+    const MergedTeacherTopicTable *pTeacherTopicTable
+);
+bool isMasteryTeacherTopic(
+    uint32_t topicId,
+    const MergedTeacherTopicTable *pTeacherTopicTable
 );
 std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     uint32_t topicId,
     const Party &party,
     const ClassSkillTable &classSkillTable,
-    const NpcDialogTable &npcDialogTable
+    const NpcDialogTable &npcDialogTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable = nullptr
 );
 bool applyMasteryTeacherTopic(
     uint32_t topicId,
     Party &party,
     const ClassSkillTable &classSkillTable,
     const NpcDialogTable &npcDialogTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
     std::string &message
 );
 }

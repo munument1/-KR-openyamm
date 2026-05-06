@@ -1,6 +1,5 @@
 #include "game/tables/NpcDialogTable.h"
 
-#include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/tables/RosterTable.h"
 
 #include <algorithm>
@@ -48,6 +47,22 @@ bool parseLeadingUnsigned(const std::string &text, uint32_t &value)
 
     value = static_cast<uint32_t>(parsed);
     return true;
+}
+
+bool parseJoinFlag(const std::string &text)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+
+    if (text == "x" || text == "X" || text == "y" || text == "Y")
+    {
+        return true;
+    }
+
+    uint32_t value = 0;
+    return parseUnsigned(text, value) && value != 0;
 }
 
 std::string normalizeName(const std::string &text)
@@ -375,15 +390,6 @@ void NpcDialogTable::resolveSpecialTopics(const RosterTable &rosterTable)
             continue;
         }
 
-        std::string masteryTeacherSkillName;
-        SkillMastery masteryTeacherMastery = SkillMastery::None;
-
-        if (tryDecodeMasteryTeacherTopicLabel(entry.topic, masteryTeacherSkillName, masteryTeacherMastery))
-        {
-            entry.specialKind = NpcTopicEntry::SpecialKind::MasteryTeacherOffer;
-            continue;
-        }
-
         const std::optional<GuildMembershipOffer> guildMembershipOffer = buildGuildMembershipOffer(topicId);
 
         if (guildMembershipOffer)
@@ -448,6 +454,8 @@ bool NpcDialogTable::loadNpcRows(const std::vector<std::vector<std::string>> &ro
         {
             entry.greetId = greetId;
         }
+
+        entry.joins = parseJoinFlag(row[9]);
 
         for (size_t topicColumn = 10; topicColumn <= 15 && topicColumn < row.size(); ++topicColumn)
         {

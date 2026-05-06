@@ -663,7 +663,8 @@ std::optional<std::string> GameplayInteractionController::resolveHoverStatusText
     const GameplayWorldEventTargetKind targetKind = hit.eventTarget->targetKind;
     const bool requireNearHover =
         targetKind == GameplayWorldEventTargetKind::Surface
-        || targetKind == GameplayWorldEventTargetKind::Entity;
+        || targetKind == GameplayWorldEventTargetKind::Entity
+        || targetKind == GameplayWorldEventTargetKind::Mechanism;
 
     if (requireNearHover && hit.eventTarget->distance > NearHoverStatusDistance)
     {

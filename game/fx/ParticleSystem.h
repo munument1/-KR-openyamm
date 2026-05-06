@@ -3,6 +3,7 @@
 #include "game/fx/FxSharedTypes.h"
 
 #include <array>
+#include <functional>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -18,7 +19,7 @@ public:
         size_t rejectedThisFrame = 0;
         std::array<size_t, 5> activeByMaterial = {};
         std::array<size_t, 2> activeByBlendMode = {};
-        std::array<size_t, 5> activeByTag = {};
+        std::array<size_t, 6> activeByTag = {};
     };
 
     ParticleSystem();
@@ -27,6 +28,7 @@ public:
     void reset();
     void update(float deltaSeconds);
     bool addParticle(const FxParticleState &particle);
+    size_t removeParticlesIf(const std::function<bool(const FxParticleState &)> &predicate);
 
     const std::vector<FxParticleState> &particles() const;
     size_t particleCount() const;

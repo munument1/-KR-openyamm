@@ -9,6 +9,7 @@
 namespace OpenYAMM::Game
 {
 class GameplayScreenRuntime;
+class Party;
 struct HouseEntry;
 
 class GameplayDialogueRenderer
@@ -52,6 +53,8 @@ public:
         bool showDialogueTextFrame,
         bool showDialogueVideoArea,
         bool showEventDialogPanel,
+        const HouseEntry *pHostHouseEntry,
+        const Party *pParty,
         bool renderAboveHud);
     static void renderDialogueLabelById(
         GameplayScreenRuntime &context,
@@ -89,6 +92,8 @@ private:
         float quadHeight);
     static void renderDialogueVideoArea(
         GameplayScreenRuntime &context,
+        const HouseEntry *pHostHouseEntry,
+        const Party *pParty,
         float x,
         float y,
         float quadWidth,

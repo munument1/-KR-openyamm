@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/maps/MapRuntimeRestrictions.h"
 #include "game/maps/MapDeltaData.h"
 #include "game/indoor/IndoorMapData.h"
 
@@ -33,6 +34,7 @@ struct IndoorSceneFaceAttributeOverride
 {
     size_t faceIndex = 0;
     std::optional<uint32_t> legacyAttributes;
+    std::optional<uint8_t> facetType;
     std::optional<uint16_t> textureFrameTableCog;
     std::optional<uint16_t> cogNumber;
     std::optional<uint16_t> cogTriggered;
@@ -69,6 +71,7 @@ struct IndoorSceneData
     int formatVersion = 0;
     std::string geometryFile;
     std::optional<std::string> legacyCompanionFile;
+    MapRuntimeRestrictions runtimeRestrictions = {};
     IndoorSceneEnvironment environment = {};
     bool hasSpawns = false;
     std::vector<IndoorSceneSpawn> spawns;
@@ -79,6 +82,10 @@ class IndoorSceneYmlLoader
 {
 public:
     std::optional<IndoorSceneData> loadFromText(const std::string &yamlText, std::string &errorMessage) const;
+    bool applyOverlayFromText(
+        IndoorSceneData &sceneData,
+        const std::string &yamlText,
+        std::string &errorMessage) const;
 };
 
 const IndoorSceneFaceAttributeOverride *findIndoorSceneFaceOverride(const IndoorSceneData &sceneData, size_t faceIndex);

@@ -204,8 +204,25 @@ std::vector<std::string> buildLuaSupportPathCandidates()
     };
 }
 
+std::vector<std::string> buildLuaWorldCommonPathCandidates(const std::string &worldId)
+{
+    std::vector<std::string> candidates = {
+        "events/common/world_common.lua",
+        "events/common/common.lua",
+    };
+
+    if (!worldId.empty())
+    {
+        const std::string normalizedWorldId = normalizeWorldId(worldId);
+        candidates.push_back("events/common/" + normalizedWorldId + "_common.lua");
+    }
+
+    return candidates;
+}
+
 std::string prependLuaSupport(
     const std::optional<std::string> &supportSource,
+    const std::optional<std::string> &worldCommonSource,
     const std::optional<std::string> &scriptSource)
 {
     if (!scriptSource)
@@ -213,12 +230,22 @@ std::string prependLuaSupport(
         return {};
     }
 
-    if (!supportSource || supportSource->empty())
+    std::string combinedSource;
+
+    if (supportSource && !supportSource->empty())
     {
-        return *scriptSource;
+        combinedSource += *supportSource;
+        combinedSource += "\n\n";
     }
 
-    return *supportSource + "\n\n" + *scriptSource;
+    if (worldCommonSource && !worldCommonSource->empty())
+    {
+        combinedSource += *worldCommonSource;
+        combinedSource += "\n\n";
+    }
+
+    combinedSource += *scriptSource;
+    return combinedSource;
 }
 
 std::string dataTablePath(std::string_view fileName)
@@ -269,7 +296,7 @@ void appendCandidateIfMissing(std::vector<std::string> &candidates, const std::s
     }
 }
 
-std::string stripMmergeWorldSkyPrefix(const std::string &textureName)
+std::string stripMergedWorldSkyPrefix(const std::string &textureName)
 {
     if (textureName.size() > 1 && (textureName.front() == '6' || textureName.front() == '7'))
     {
@@ -284,7 +311,7 @@ std::string stripMmergeWorldSkyPrefix(const std::string &textureName)
     return {};
 }
 
-std::vector<std::string> buildMmergeSkyTextureCandidates(
+std::vector<std::string> buildMergedSkyTextureCandidates(
     const std::string &activeWorldId,
     const std::string &textureName)
 {
@@ -293,7 +320,7 @@ std::vector<std::string> buildMmergeSkyTextureCandidates(
 
     appendCandidateIfMissing(candidates, normalizedTextureName);
 
-    const std::string unprefixedTextureName = stripMmergeWorldSkyPrefix(normalizedTextureName);
+    const std::string unprefixedTextureName = stripMergedWorldSkyPrefix(normalizedTextureName);
     appendCandidateIfMissing(candidates, unprefixedTextureName);
 
     if (activeWorldId == "mm6")
@@ -388,12 +415,12 @@ std::vector<std::string> buildMmergeSkyTextureCandidates(
     return candidates;
 }
 
-std::string resolveMmergeSkyTextureName(
+std::string resolveMergedSkyTextureName(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::string &activeWorldId,
     const std::string &textureName)
 {
-    for (const std::string &candidate : buildMmergeSkyTextureCandidates(activeWorldId, textureName))
+    for (const std::string &candidate : buildMergedSkyTextureCandidates(activeWorldId, textureName))
     {
         if (skyTextureAssetExists(assetFileSystem, candidate))
         {
@@ -1205,11 +1232,6 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
         return false;
     }
 
-    if (!loadItemEquipPosTable(assetFileSystem))
-    {
-        return false;
-    }
-
     if (!loadChestTable(assetFileSystem))
     {
         return false;
@@ -1251,11 +1273,6 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
     }
 
     if (!loadPotionMixingTable(assetFileSystem))
-    {
-        return false;
-    }
-
-    if (!loadArcomageLibrary(assetFileSystem))
     {
         return false;
     }
@@ -1307,12 +1324,17 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
 
     m_npcDialogTable.resolveSpecialTopics(m_rosterTable);
 
-    if (!loadMmergeBaseTables(assetFileSystem))
+    if (!loadMergedBaseTables(assetFileSystem))
     {
         return false;
     }
 
-    if (!applyMmergeRuntimeTables())
+    if (!applyMergedRuntimeTables())
+    {
+        return false;
+    }
+
+    if (!loadArcomageLibrary(assetFileSystem))
     {
         return false;
     }
@@ -1465,11 +1487,6 @@ const SpecialItemEnchantTable &GameDataLoader::getSpecialItemEnchantTable() cons
     return m_specialItemEnchantTable;
 }
 
-const ItemEquipPosTable &GameDataLoader::getItemEquipPosTable() const
-{
-    return m_itemEquipPosTable;
-}
-
 const ChestTable &GameDataLoader::getChestTable() const
 {
     return m_chestTable;
@@ -1575,182 +1592,182 @@ const TransitionTable &GameDataLoader::getTransitionTable() const
     return m_transitionTable;
 }
 
-const MmergeClassExtraTable &GameDataLoader::getMmergeClassExtraTable() const
+const MergedClassExtraTable &GameDataLoader::getMergedClassExtraTable() const
 {
-    return m_mmergeClassExtraTable;
+    return m_mergedClassExtraTable;
 }
 
-const MmergeCharacterSelectionTable &GameDataLoader::getMmergeCharacterSelectionTable() const
+const MergedCharacterSelectionTable &GameDataLoader::getMergedCharacterSelectionTable() const
 {
-    return m_mmergeCharacterSelectionTable;
+    return m_mergedCharacterSelectionTable;
 }
 
-const MmergeRaceSkillTable &GameDataLoader::getMmergeRaceSkillTable() const
+const MergedRaceSkillTable &GameDataLoader::getMergedRaceSkillTable() const
 {
-    return m_mmergeRaceSkillTable;
+    return m_mergedRaceSkillTable;
 }
 
-const MmergeTeacherTopicTable &GameDataLoader::getMmergeTeacherTopicTable() const
+const MergedTeacherTopicTable &GameDataLoader::getMergedTeacherTopicTable() const
 {
-    return m_mmergeTeacherTopicTable;
+    return m_mergedTeacherTopicTable;
 }
 
-const MmergeTeacherAutonoteTable &GameDataLoader::getMmergeTeacherAutonoteTable() const
+const MergedTeacherAutonoteTable &GameDataLoader::getMergedTeacherAutonoteTable() const
 {
-    return m_mmergeTeacherAutonoteTable;
+    return m_mergedTeacherAutonoteTable;
 }
 
-const MmergeNpcProfessionTable &GameDataLoader::getMmergeNpcProfessionTable() const
+const MergedNpcProfessionTable &GameDataLoader::getMergedNpcProfessionTable() const
 {
-    return m_mmergeNpcProfessionTable;
+    return m_mergedNpcProfessionTable;
 }
 
-const MmergeNpcNameTable &GameDataLoader::getMmergeNpcNameTable() const
+const MergedNpcNameTable &GameDataLoader::getMergedNpcNameTable() const
 {
-    return m_mmergeNpcNameTable;
+    return m_mergedNpcNameTable;
 }
 
-const MmergeNpcBtbTable &GameDataLoader::getMmergeNpcBtbTable() const
+const MergedNpcBtbTable &GameDataLoader::getMergedNpcBtbTable() const
 {
-    return m_mmergeNpcBtbTable;
+    return m_mergedNpcBtbTable;
 }
 
-const MmergeNewsTopicTable &GameDataLoader::getMmergeNewsAreaTopicTable() const
+const MergedNewsTopicTable &GameDataLoader::getMergedNewsAreaTopicTable() const
 {
-    return m_mmergeNewsAreaTopicTable;
+    return m_mergedNewsAreaTopicTable;
 }
 
-const MmergeNewsTopicTable &GameDataLoader::getMmergeNewsContinentTopicTable() const
+const MergedNewsTopicTable &GameDataLoader::getMergedNewsContinentTopicTable() const
 {
-    return m_mmergeNewsContinentTopicTable;
+    return m_mergedNewsContinentTopicTable;
 }
 
-const MmergeNewsProfessionTopicTable &GameDataLoader::getMmergeNewsProfessionTopicTable() const
+const MergedNewsProfessionTopicTable &GameDataLoader::getMergedNewsProfessionTopicTable() const
 {
-    return m_mmergeNewsProfessionTopicTable;
+    return m_mergedNewsProfessionTopicTable;
 }
 
-const MmergeMonsterPortraitTable &GameDataLoader::getMmergeMonsterPortraitTable() const
+const MergedMonsterPortraitTable &GameDataLoader::getMergedMonsterPortraitTable() const
 {
-    return m_mmergeMonsterPortraitTable;
+    return m_mergedMonsterPortraitTable;
 }
 
-const MmergeMonsterKindTable &GameDataLoader::getMmergeMonsterKindTable() const
+const MergedMonsterKindTable &GameDataLoader::getMergedMonsterKindTable() const
 {
-    return m_mmergeMonsterKindTable;
+    return m_mergedMonsterKindTable;
 }
 
-const MmergePotionSettingTable &GameDataLoader::getMmergePotionSettingTable() const
+const MergedPotionSettingTable &GameDataLoader::getMergedPotionSettingTable() const
 {
-    return m_mmergePotionSettingTable;
+    return m_mergedPotionSettingTable;
 }
 
-const MmergeReagentSettingTable &GameDataLoader::getMmergeReagentSettingTable() const
+const MergedReagentSettingTable &GameDataLoader::getMergedReagentSettingTable() const
 {
-    return m_mmergeReagentSettingTable;
+    return m_mergedReagentSettingTable;
 }
 
-const MmergeAdditionalUiTable &GameDataLoader::getMmergeAdditionalUiTable() const
+const MergedAdditionalUiTable &GameDataLoader::getMergedAdditionalUiTable() const
 {
-    return m_mmergeAdditionalUiTable;
+    return m_mergedAdditionalUiTable;
 }
 
-const MmergeBolsterFormulaTable &GameDataLoader::getMmergeBolsterFormulaTable() const
+const MergedBolsterFormulaTable &GameDataLoader::getMergedBolsterFormulaTable() const
 {
-    return m_mmergeBolsterFormulaTable;
+    return m_mergedBolsterFormulaTable;
 }
 
-const MmergeBolsterMapTable &GameDataLoader::getMmergeBolsterMapTable() const
+const MergedBolsterMapTable &GameDataLoader::getMergedBolsterMapTable() const
 {
-    return m_mmergeBolsterMapTable;
+    return m_mergedBolsterMapTable;
 }
 
-const MmergeBolsterMonsterTable &GameDataLoader::getMmergeBolsterMonsterTable() const
+const MergedBolsterMonsterTable &GameDataLoader::getMergedBolsterMonsterTable() const
 {
-    return m_mmergeBolsterMonsterTable;
+    return m_mergedBolsterMonsterTable;
 }
 
-const MmergeCharacterVoiceTable &GameDataLoader::getMmergeCharacterVoiceTable() const
+const MergedCharacterVoiceTable &GameDataLoader::getMergedCharacterVoiceTable() const
 {
-    return m_mmergeCharacterVoiceTable;
+    return m_mergedCharacterVoiceTable;
 }
 
-const MmergeClassStartingStatTable &GameDataLoader::getMmergeClassStartingStatsSourceTable() const
+const MergedClassStartingStatTable &GameDataLoader::getMergedClassStartingStatsSourceTable() const
 {
-    return m_mmergeClassStartingStatsSourceTable;
+    return m_mergedClassStartingStatsSourceTable;
 }
 
-const MmergeComplexItemPictureOffsetTable &GameDataLoader::getMmergeComplexItemPictureOffsetTable() const
+const MergedComplexItemPictureOffsetTable &GameDataLoader::getMergedComplexItemPictureOffsetTable() const
 {
-    return m_mmergeComplexItemPictureOffsetTable;
+    return m_mergedComplexItemPictureOffsetTable;
 }
 
-const MmergeComplexItemPictureTable &GameDataLoader::getMmergeComplexItemPictureTable() const
+const MergedComplexItemPictureTable &GameDataLoader::getMergedComplexItemPictureTable() const
 {
-    return m_mmergeComplexItemPictureTable;
+    return m_mergedComplexItemPictureTable;
 }
 
-const MmergeContinentSettingTable &GameDataLoader::getMmergeContinentSettingTable() const
+const MergedContinentSettingTable &GameDataLoader::getMergedContinentSettingTable() const
 {
-    return m_mmergeContinentSettingTable;
+    return m_mergedContinentSettingTable;
 }
 
-const MmergeContinentSettingEntry *GameDataLoader::findMmergeContinentSettingsForMap(
+const MergedContinentSettingEntry *GameDataLoader::findMergedContinentSettingsForMap(
     const MapStatsEntry &map) const
 {
-    const MmergeBolsterMapEntry *pBolsterMap = m_mmergeBolsterMapTable.findById(static_cast<uint32_t>(map.id));
+    const MergedBolsterMapEntry *pBolsterMap = m_mergedBolsterMapTable.findById(static_cast<uint32_t>(map.id));
 
     if (pBolsterMap == nullptr || pBolsterMap->continent == 0)
     {
         return nullptr;
     }
 
-    return m_mmergeContinentSettingTable.findById(pBolsterMap->continent);
+    return m_mergedContinentSettingTable.findById(pBolsterMap->continent);
 }
 
-const MmergeHardwareWaterTextureTable &GameDataLoader::getMmergeHardwareWaterTextureTable() const
+const MergedHardwareWaterTextureTable &GameDataLoader::getMergedHardwareWaterTextureTable() const
 {
-    return m_mmergeHardwareWaterTextureTable;
+    return m_mergedHardwareWaterTextureTable;
 }
 
-const MmergeHouseExitTable &GameDataLoader::getMmergeHouseExitTable() const
+const MergedHouseExitTable &GameDataLoader::getMergedHouseExitTable() const
 {
-    return m_mmergeHouseExitTable;
+    return m_mergedHouseExitTable;
 }
 
-const MmergeHouseRuleTable &GameDataLoader::getMmergeHouseRuleTable() const
+const MergedHouseRuleTable &GameDataLoader::getMergedHouseRuleTable() const
 {
-    return m_mmergeHouseRuleTable;
+    return m_mergedHouseRuleTable;
 }
 
-const MmergeHistoryTable &GameDataLoader::getMmergeMm7HistoryTable() const
+const MergedHistoryTable &GameDataLoader::getMergedMm7HistoryTable() const
 {
-    return m_mmergeMm7HistoryTable;
+    return m_mergedMm7HistoryTable;
 }
 
-const MmergeOutdoorTravelTable &GameDataLoader::getMmergeOutdoorTravelTable() const
+const MergedOutdoorTravelTable &GameDataLoader::getMergedOutdoorTravelTable() const
 {
-    return m_mmergeOutdoorTravelTable;
+    return m_mergedOutdoorTravelTable;
 }
 
-const MmergeOverlayTable &GameDataLoader::getMmergeOverlayTable() const
+const MergedOverlayTable &GameDataLoader::getMergedOverlayTable() const
 {
-    return m_mmergeOverlayTable;
+    return m_mergedOverlayTable;
 }
 
-const MmergeTownPortalSwitchTable &GameDataLoader::getMmergeTownPortalSwitchTable() const
+const MergedTownPortalSwitchTable &GameDataLoader::getMergedTownPortalSwitchTable() const
 {
-    return m_mmergeTownPortalSwitchTable;
+    return m_mergedTownPortalSwitchTable;
 }
 
-const MmergeTransportIndexTable &GameDataLoader::getMmergeTransportIndexTable() const
+const MergedTransportIndexTable &GameDataLoader::getMergedTransportIndexTable() const
 {
-    return m_mmergeTransportIndexTable;
+    return m_mergedTransportIndexTable;
 }
 
-const MmergeTransportLocationTable &GameDataLoader::getMmergeTransportLocationTable() const
+const MergedTransportLocationTable &GameDataLoader::getMergedTransportLocationTable() const
 {
-    return m_mmergeTransportLocationTable;
+    return m_mergedTransportLocationTable;
 }
 
 bool GameDataLoader::loadTable(
@@ -2003,13 +2020,6 @@ bool GameDataLoader::loadHouseTable(const Engine::AssetFileSystem &assetFileSyst
         }
     }
 
-    std::vector<std::vector<std::string>> transportRows;
-
-    if (loadTextTableRows(assetFileSystem, dataTablePath("transport_schedules.txt"), transportRows))
-    {
-        m_houseTable.loadTransportScheduleRows(transportRows);
-    }
-
     return true;
 }
 
@@ -2124,6 +2134,20 @@ bool GameDataLoader::loadJournalTables(const Engine::AssetFileSystem &assetFileS
     if (!m_journalHistoryTable.loadFromRows(historyRows))
     {
         std::cerr << "Failed to parse journal history table\n";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> mm7HistoryRows;
+
+    if (!loadFirstTextTableRows(assetFileSystem, {engineEnglishDataTablePath("mm7_history.txt")}, mm7HistoryRows))
+    {
+        std::cerr << "Failed to read MM7 journal history table\n";
+        return false;
+    }
+
+    if (!m_journalHistoryTable.loadFromRowsForContinent(2u, mm7HistoryRows))
+    {
+        std::cerr << "Failed to parse MM7 journal history table\n";
         return false;
     }
 
@@ -2342,7 +2366,7 @@ bool GameDataLoader::loadTransitionTable(const Engine::AssetFileSystem &assetFil
     return true;
 }
 
-bool GameDataLoader::loadMmergeBaseTables(const Engine::AssetFileSystem &assetFileSystem)
+bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFileSystem)
 {
     const auto loadBaseTable =
         [this, &assetFileSystem](const char *pFileName, auto &table, const char *pDisplayName) -> bool
@@ -2352,13 +2376,13 @@ bool GameDataLoader::loadMmergeBaseTables(const Engine::AssetFileSystem &assetFi
 
             if (!loadTextTableRows(assetFileSystem, tablePath, rows))
             {
-                std::cerr << "Failed to read MMerge base table: " << tablePath << '\n';
+                std::cerr << "Failed to read merged base table: " << tablePath << '\n';
                 return false;
             }
 
             if (!table.loadFromRows(rows))
             {
-                std::cerr << "Failed to parse MMerge base table: " << pDisplayName << '\n';
+                std::cerr << "Failed to parse merged base table: " << pDisplayName << '\n';
                 return false;
             }
 
@@ -2367,152 +2391,164 @@ bool GameDataLoader::loadMmergeBaseTables(const Engine::AssetFileSystem &assetFi
 
     return loadBaseTable(
         "class_extra.txt",
-        m_mmergeClassExtraTable,
+        m_mergedClassExtraTable,
         "Class Extra.txt")
         && loadBaseTable(
             "character_selection.txt",
-            m_mmergeCharacterSelectionTable,
+            m_mergedCharacterSelectionTable,
             "Character selection.txt")
         && loadBaseTable(
             "race_skills.txt",
-            m_mmergeRaceSkillTable,
+            m_mergedRaceSkillTable,
             "Race Skills.txt")
         && loadBaseTable(
             "teacher_topics.txt",
-            m_mmergeTeacherTopicTable,
+            m_mergedTeacherTopicTable,
             "Teacher topics.txt")
         && loadBaseTable(
             "teacher_autonotes.txt",
-            m_mmergeTeacherAutonoteTable,
+            m_mergedTeacherAutonoteTable,
             "Teacher autonotes.txt")
         && loadBaseTable(
             "npc_professions.txt",
-            m_mmergeNpcProfessionTable,
+            m_mergedNpcProfessionTable,
             "NPC professions.txt")
         && loadBaseTable(
             "npc_names.txt",
-            m_mmergeNpcNameTable,
+            m_mergedNpcNameTable,
             "NPC names.txt")
         && loadBaseTable(
             "npc_btb.txt",
-            m_mmergeNpcBtbTable,
+            m_mergedNpcBtbTable,
             "NPC BTB.txt")
         && loadBaseTable(
             "news_topics_area.txt",
-            m_mmergeNewsAreaTopicTable,
+            m_mergedNewsAreaTopicTable,
             "News topics - area.txt")
         && loadBaseTable(
             "news_topics_continent.txt",
-            m_mmergeNewsContinentTopicTable,
+            m_mergedNewsContinentTopicTable,
             "News topics - continent.txt")
         && loadBaseTable(
             "news_topics_profession.txt",
-            m_mmergeNewsProfessionTopicTable,
+            m_mergedNewsProfessionTopicTable,
             "News topics - profession.txt")
         && loadBaseTable(
             "monster_portraits.txt",
-            m_mmergeMonsterPortraitTable,
+            m_mergedMonsterPortraitTable,
             "MonPortraits.txt")
         && loadBaseTable(
             "monster_kinds.txt",
-            m_mmergeMonsterKindTable,
+            m_mergedMonsterKindTable,
             "Monster Kinds.txt")
         && loadBaseTable(
             "potion_settings.txt",
-            m_mmergePotionSettingTable,
+            m_mergedPotionSettingTable,
             "Potion settings.txt")
         && loadBaseTable(
             "reagent_settings.txt",
-            m_mmergeReagentSettingTable,
+            m_mergedReagentSettingTable,
             "Reagent settings.txt")
         && loadBaseTable(
             "additional_ui.txt",
-            m_mmergeAdditionalUiTable,
+            m_mergedAdditionalUiTable,
             "Additional UI.txt")
         && loadBaseTable(
             "bolster_formulas.txt",
-            m_mmergeBolsterFormulaTable,
+            m_mergedBolsterFormulaTable,
             "Bolster - formulas.txt")
         && loadBaseTable(
             "bolster_maps.txt",
-            m_mmergeBolsterMapTable,
+            m_mergedBolsterMapTable,
             "Bolster - maps.txt")
         && loadBaseTable(
             "bolster_monsters.txt",
-            m_mmergeBolsterMonsterTable,
+            m_mergedBolsterMonsterTable,
             "Bolster - monsters.txt")
         && loadBaseTable(
             "character_voices.txt",
-            m_mmergeCharacterVoiceTable,
+            m_mergedCharacterVoiceTable,
             "Character voices.txt")
         && loadBaseTable(
             "class_starting_stats.txt",
-            m_mmergeClassStartingStatsSourceTable,
+            m_mergedClassStartingStatsSourceTable,
             "Class Starting Stats.txt")
         && loadBaseTable(
             "complex_item_picture_offsets.txt",
-            m_mmergeComplexItemPictureOffsetTable,
+            m_mergedComplexItemPictureOffsetTable,
             "Complex item pictures offsets.txt")
         && loadBaseTable(
             "complex_item_pictures.txt",
-            m_mmergeComplexItemPictureTable,
+            m_mergedComplexItemPictureTable,
             "Complex item pictures.txt")
         && loadBaseTable(
             "continent_settings.txt",
-            m_mmergeContinentSettingTable,
+            m_mergedContinentSettingTable,
             "Continent settings.txt")
         && loadBaseTable(
             "hw_water_textures.txt",
-            m_mmergeHardwareWaterTextureTable,
+            m_mergedHardwareWaterTextureTable,
             "HW water textures.txt")
         && loadBaseTable(
             "house_exits.txt",
-            m_mmergeHouseExitTable,
+            m_mergedHouseExitTable,
             "House exits.txt")
         && loadBaseTable(
             "house_rules.txt",
-            m_mmergeHouseRuleTable,
+            m_mergedHouseRuleTable,
             "House rules.txt")
         && loadBaseTable(
             "english/mm7_history.txt",
-            m_mmergeMm7HistoryTable,
+            m_mergedMm7HistoryTable,
             "MM7history.txt")
         && loadBaseTable(
             "outdoor_travels.txt",
-            m_mmergeOutdoorTravelTable,
+            m_mergedOutdoorTravelTable,
             "Outdoor travels.txt")
         && loadBaseTable(
             "overlay.txt",
-            m_mmergeOverlayTable,
+            m_mergedOverlayTable,
             "Overlay.txt")
         && loadBaseTable(
             "town_portal_switch.txt",
-            m_mmergeTownPortalSwitchTable,
+            m_mergedTownPortalSwitchTable,
             "TownPortalSwitch.txt")
         && loadBaseTable(
             "transport_index.txt",
-            m_mmergeTransportIndexTable,
+            m_mergedTransportIndexTable,
             "Transport Index.txt")
         && loadBaseTable(
             "transport_locations.txt",
-            m_mmergeTransportLocationTable,
+            m_mergedTransportLocationTable,
             "Transport Locations.txt");
 }
 
-bool GameDataLoader::applyMmergeRuntimeTables()
+bool GameDataLoader::applyMergedRuntimeTables()
 {
-    if (!m_houseTable.applyMmergeTransportRoutes(
-            m_mmergeHouseRuleTable,
-            m_mmergeTransportLocationTable,
-            m_mapStats))
+    if (!m_mapStats.applyMergedBolsterMaps(m_mergedBolsterMapTable))
     {
-        std::cerr << "Failed to apply MMerge transport routes.\n";
+        std::cerr << "Failed to apply merged bolster maps.\n";
         return false;
     }
 
-    if (!m_mapStats.applyMmergeOutdoorTravels(m_mmergeOutdoorTravelTable))
+    if (!m_houseTable.applyHouseRules(
+            m_mergedHouseRuleTable,
+            m_mergedTransportLocationTable,
+            m_mapStats))
     {
-        std::cerr << "Failed to apply MMerge outdoor travels.\n";
+        std::cerr << "Failed to apply merged house rules.\n";
+        return false;
+    }
+
+    if (!m_houseTable.applyHouseExits(m_mergedHouseExitTable, m_mapStats))
+    {
+        std::cerr << "Failed to apply merged house exits.\n";
+        return false;
+    }
+
+    if (!m_mapStats.applyMergedOutdoorTravels(m_mergedOutdoorTravelTable))
+    {
+        std::cerr << "Failed to apply merged outdoor travels.\n";
         return false;
     }
 
@@ -2522,14 +2558,6 @@ bool GameDataLoader::applyMmergeRuntimeTables()
 
 bool GameDataLoader::loadArcomageLibrary(const Engine::AssetFileSystem &assetFileSystem)
 {
-    std::vector<std::vector<std::string>> ruleRows;
-
-    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("arcomage_rules.txt"), ruleRows))
-    {
-        std::cerr << "Failed to read Arcomage tavern rule table\n";
-        return false;
-    }
-
     std::vector<std::vector<std::string>> cardRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("arcomage_cards.txt"), cardRows))
@@ -2540,7 +2568,7 @@ bool GameDataLoader::loadArcomageLibrary(const Engine::AssetFileSystem &assetFil
 
     ArcomageLoader loader;
 
-    if (!loader.load(ruleRows, cardRows))
+    if (!loader.loadFromHouseRules(m_mergedHouseRuleTable, m_houseTable, cardRows))
     {
         std::cerr << "Failed to parse Arcomage tables\n";
         return false;
@@ -2750,26 +2778,6 @@ bool GameDataLoader::loadSpellTable(const Engine::AssetFileSystem &assetFileSyst
         return false;
     }
 
-    const std::string supplementalSpellsPath = engineDataTablePath("spells_supplemental.txt");
-
-    if (assetFileSystem.exists(supplementalSpellsPath))
-    {
-        std::vector<std::vector<std::string>> supplementalRows;
-
-        if (!loadTextTableRows(assetFileSystem, supplementalSpellsPath, supplementalRows))
-        {
-            return false;
-        }
-
-        rows.insert(rows.end(), supplementalRows.begin(), supplementalRows.end());
-
-        if (!m_spellTable.loadFromRows(rows))
-        {
-            std::cerr << "Failed to parse spell table: " << supplementalSpellsPath << '\n';
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -2828,26 +2836,6 @@ bool GameDataLoader::loadItemEnchantTables(const Engine::AssetFileSystem &assetF
     if (!m_standardItemEnchantTable.load(standardRows) || !m_specialItemEnchantTable.load(specialRows))
     {
         std::cerr << "Failed to parse item enchant tables: STDITEMS / SPCITEMS\n";
-        return false;
-    }
-
-    return true;
-}
-
-bool GameDataLoader::loadItemEquipPosTable(const Engine::AssetFileSystem &assetFileSystem)
-{
-    std::vector<std::vector<std::string>> rows;
-
-    const std::string itemEquipPosPath = engineDataTablePath("item_equip_pos.txt");
-
-    if (!loadTextTableRows(assetFileSystem, itemEquipPosPath, rows))
-    {
-        return false;
-    }
-
-    if (!m_itemEquipPosTable.load(rows))
-    {
-        std::cerr << "Failed to parse item equip position table: " << itemEquipPosPath << '\n';
         return false;
     }
 
@@ -2965,7 +2953,7 @@ bool GameDataLoader::loadSelectedMap(
     }
 
     const MapAssetLoader mapAssetLoader;
-    m_selectedMap = mapAssetLoader.load(
+    std::optional<MapAssetInfo> loadedMap = mapAssetLoader.load(
         assetFileSystem,
         *selectedMap,
         m_monsterTable,
@@ -2974,13 +2962,16 @@ bool GameDataLoader::loadSelectedMap(
         {},
         progressPump);
 
-    if (!m_selectedMap)
+    if (!loadedMap)
     {
+        m_selectedMap.reset();
         std::cerr << "Failed to load initial map asset for " << selectedMap->fileName << '\n';
         return false;
     }
 
-    applyMmergeContinentSettingsToSelectedMap(assetFileSystem);
+    m_selectedMap.emplace(std::move(*loadedMap));
+
+    applyMergedContinentSettingsToSelectedMap(assetFileSystem);
 
     const std::string localScriptBaseName = mapScriptBaseName(selectedMap->fileName);
     std::string resolvedSupportLuaPath;
@@ -2988,6 +2979,11 @@ bool GameDataLoader::loadSelectedMap(
         assetFileSystem,
         buildLuaSupportPathCandidates(),
         resolvedSupportLuaPath);
+    std::string resolvedWorldCommonLuaPath;
+    const std::optional<std::string> worldCommonLuaSource = readFirstExistingText(
+        assetFileSystem,
+        buildLuaWorldCommonPathCandidates(selectedMap->worldId),
+        resolvedWorldCommonLuaPath);
     const std::vector<std::filesystem::path> localLuaSidecarCandidates =
         buildLuaScriptSidecarPathCandidates(
             localScriptBaseName,
@@ -3016,7 +3012,8 @@ bool GameDataLoader::loadSelectedMap(
                 localScriptBaseName,
                 *luaSource,
                 resolvedLuaPath);
-            const std::string combinedLuaSource = prependLuaSupport(supportLuaSource, mapLuaSource);
+            const std::string combinedLuaSource =
+                prependLuaSupport(supportLuaSource, worldCommonLuaSource, mapLuaSource);
             std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
                 combinedLuaSource,
                 "@" + resolvedLuaPath,
@@ -3044,7 +3041,8 @@ bool GameDataLoader::loadSelectedMap(
         if (luaSource)
         {
             std::string error;
-            const std::string combinedLuaSource = prependLuaSupport(supportLuaSource, luaSource);
+            const std::string combinedLuaSource =
+                prependLuaSupport(supportLuaSource, worldCommonLuaSource, luaSource);
             std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
                 combinedLuaSource,
                 "@" + resolvedLuaPath,
@@ -3086,7 +3084,7 @@ bool GameDataLoader::loadSelectedMap(
     );
 
     {
-        EventRuntime eventRuntime = {};
+        EventRuntime eventRuntime(&m_houseTable);
         const std::optional<MapDeltaData> &mapDeltaData = m_selectedMap->outdoorMapDeltaData
             ? m_selectedMap->outdoorMapDeltaData
             : m_selectedMap->indoorMapDeltaData;
@@ -3288,23 +3286,23 @@ bool GameDataLoader::loadSelectedMap(
     return true;
 }
 
-void GameDataLoader::applyMmergeContinentSettingsToSelectedMap(const Engine::AssetFileSystem &assetFileSystem)
+void GameDataLoader::applyMergedContinentSettingsToSelectedMap(const Engine::AssetFileSystem &assetFileSystem)
 {
     if (!m_selectedMap || !m_selectedMap->outdoorMapData || !m_selectedMap->outdoorMapDeltaData)
     {
         return;
     }
 
-    const MmergeBolsterMapEntry *pBolsterMap =
-        m_mmergeBolsterMapTable.findById(static_cast<uint32_t>(m_selectedMap->map.id));
+    const MergedBolsterMapEntry *pBolsterMap =
+        m_mergedBolsterMapTable.findById(static_cast<uint32_t>(m_selectedMap->map.id));
 
     if (pBolsterMap == nullptr || pBolsterMap->continent == 0)
     {
         return;
     }
 
-    const MmergeContinentSettingEntry *pContinentSetting =
-        m_mmergeContinentSettingTable.findById(pBolsterMap->continent);
+    const MergedContinentSettingEntry *pContinentSetting =
+        m_mergedContinentSettingTable.findById(pBolsterMap->continent);
 
     if (pContinentSetting == nullptr)
     {
@@ -3312,27 +3310,27 @@ void GameDataLoader::applyMmergeContinentSettingsToSelectedMap(const Engine::Ass
     }
 
     OutdoorWeatherProfile profile = m_selectedMap->outdoorWeatherProfile.value_or(OutdoorWeatherProfile{});
-    profile.mmergeWeatherConfigured = true;
-    profile.mmergeMapId = static_cast<uint32_t>(m_selectedMap->map.id);
-    profile.mmergeWeatherEnabled = pBolsterMap->weather;
-    profile.mmergeCustomSkyTextureName =
-        resolveMmergeSkyTextureName(assetFileSystem, m_activeWorldId, pBolsterMap->customSky);
-    profile.mmergeSkyTextureNames.clear();
+    profile.mergedWeatherConfigured = true;
+    profile.mergedMapId = static_cast<uint32_t>(m_selectedMap->map.id);
+    profile.mergedWeatherEnabled = pBolsterMap->weather;
+    profile.mergedCustomSkyTextureName =
+        resolveMergedSkyTextureName(assetFileSystem, m_activeWorldId, pBolsterMap->customSky);
+    profile.mergedSkyTextureNames.clear();
 
     for (const std::string &skyTextureName : pContinentSetting->skies)
     {
         const std::string resolvedSkyTextureName =
-            resolveMmergeSkyTextureName(assetFileSystem, m_activeWorldId, skyTextureName);
+            resolveMergedSkyTextureName(assetFileSystem, m_activeWorldId, skyTextureName);
 
         if (!resolvedSkyTextureName.empty())
         {
-            profile.mmergeSkyTextureNames.push_back(resolvedSkyTextureName);
+            profile.mergedSkyTextureNames.push_back(resolvedSkyTextureName);
         }
     }
 
-    const std::string initialSkyTextureName = !profile.mmergeCustomSkyTextureName.empty()
-        ? profile.mmergeCustomSkyTextureName
-        : (!profile.mmergeSkyTextureNames.empty() ? profile.mmergeSkyTextureNames.front() : std::string{});
+    const std::string initialSkyTextureName = !profile.mergedCustomSkyTextureName.empty()
+        ? profile.mergedCustomSkyTextureName
+        : (!profile.mergedSkyTextureNames.empty() ? profile.mergedSkyTextureNames.front() : std::string{});
 
     if (!initialSkyTextureName.empty())
     {

@@ -1,6 +1,7 @@
 #include "game/outdoor/OutdoorRenderer.h"
 
 #include "game/app/GameSession.h"
+#include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
@@ -39,7 +40,7 @@ constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
-constexpr float ActorBillboardRenderDistance = 16384.0f;
+constexpr float ActorBillboardRenderDistance = 18000.0f;
 constexpr float SkyProjectionPitchOffsetRadians = Pi / 64.0f;
 constexpr float SkyFogHorizonPixels = 39.0f;
 constexpr int32_t MapWeatherFoggy = 1;
@@ -159,21 +160,8 @@ float alphaChannel(uint32_t colorAbgr)
 
 uint32_t computeOutdoorSkyTintAbgr(const OutdoorWorldRuntime &worldRuntime)
 {
-    const float minutesOfDay = std::fmod(std::max(worldRuntime.gameMinutes(), 0.0f), 1440.0f);
-
-    if (minutesOfDay < 300.0f || minutesOfDay >= 1260.0f)
-    {
-        return makeAbgr(39, 39, 39);
-    }
-
-    const float daylightMinutes = minutesOfDay - 300.0f;
-    const float mirroredDaylightMinutes = daylightMinutes >= 480.0f ? 960.0f - daylightMinutes : daylightMinutes;
-    const int maxTerrainDimmingLevel = static_cast<int>(20.0f - mirroredDaylightMinutes / 480.0f * 20.0f);
-    const int skyValue = std::clamp(255 - 8 * maxTerrainDimmingLevel, 0, 255);
-    return makeAbgr(
-        static_cast<uint8_t>(skyValue),
-        static_cast<uint8_t>(skyValue),
-        static_cast<uint8_t>(skyValue));
+    const uint8_t brightness = outdoorClearDistanceFogBrightness(worldRuntime.gameMinutes());
+    return makeAbgr(brightness, brightness, brightness);
 }
 
 uint32_t computeOutdoorSkyFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
@@ -881,16 +869,16 @@ OutdoorFogParameters buildOutdoorWorldFogParameters(
         parameters.distances = {
             clampedFarClipDistance,
             clampedFarClipDistance,
-            clampedFarClipDistance + 1.0f,
+            clampedFarClipDistance,
             0.0f};
         return parameters;
     }
 
-    const uint32_t skyTintAbgr = computeOutdoorSkyTintAbgr(*pOutdoorWorldRuntime);
+    const uint32_t fogColorAbgr = computeOutdoorSkyTintAbgr(*pOutdoorWorldRuntime);
     parameters.color = {
-        static_cast<float>(skyTintAbgr & 0xffu) / 255.0f,
-        static_cast<float>((skyTintAbgr >> 8) & 0xffu) / 255.0f,
-        static_cast<float>((skyTintAbgr >> 16) & 0xffu) / 255.0f,
+        static_cast<float>(fogColorAbgr & 0xffu) / 255.0f,
+        static_cast<float>((fogColorAbgr >> 8) & 0xffu) / 255.0f,
+        static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f,
         1.0f
     };
 
@@ -922,11 +910,12 @@ OutdoorFogParameters buildOutdoorWorldFogParameters(
         return parameters;
     }
 
-    parameters.densities = {0.0f, 0.0f, 0.0f, 0.0f};
+    const OutdoorFogProfile clearFogProfile = buildOutdoorClearDistanceFogProfile(clampedFarClipDistance);
+    parameters.densities = {clearFogProfile.nearOpacity, clearFogProfile.strongOpacity, 0.0f, 0.0f};
     parameters.distances = {
-        clampedFarClipDistance,
-        clampedFarClipDistance,
-        clampedFarClipDistance,
+        clearFogProfile.weakDistance,
+        clearFogProfile.strongDistance,
+        clearFogProfile.farDistance,
         0.0f
     };
     return parameters;
@@ -945,16 +934,16 @@ OutdoorFogParameters buildOutdoorSkyFogParameters(
         parameters.distances = {
             clampedRenderDistance,
             clampedRenderDistance,
-            clampedRenderDistance + 1.0f,
+            clampedRenderDistance,
             0.0f};
         return parameters;
     }
 
-    const uint32_t skyTintAbgr = computeOutdoorSkyTintAbgr(*pOutdoorWorldRuntime);
+    const uint32_t fogColorAbgr = computeOutdoorSkyTintAbgr(*pOutdoorWorldRuntime);
     parameters.color = {
-        static_cast<float>(skyTintAbgr & 0xffu) / 255.0f,
-        static_cast<float>((skyTintAbgr >> 8) & 0xffu) / 255.0f,
-        static_cast<float>((skyTintAbgr >> 16) & 0xffu) / 255.0f,
+        static_cast<float>(fogColorAbgr & 0xffu) / 255.0f,
+        static_cast<float>((fogColorAbgr >> 8) & 0xffu) / 255.0f,
+        static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f,
         1.0f
     };
 
@@ -1172,6 +1161,8 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
     const uint64_t targetRevision = outdoorSurfaceVisualRevision(pMapDeltaData, pEventRuntimeState);
     const std::unordered_map<uint32_t, std::string> *pTextureOverrides =
         pEventRuntimeState != nullptr ? &pEventRuntimeState->textureOverrides : nullptr;
+    const std::unordered_map<uint32_t, std::string> *pModelFacetTextureOverrides =
+        pEventRuntimeState != nullptr ? &pEventRuntimeState->outdoorModelFacetTextureOverrides : nullptr;
 
     std::unordered_map<std::string, size_t> animationIndexByTextureName;
     animationIndexByTextureName.reserve(view.m_bmodelTextureAnimations.size());
@@ -1192,8 +1183,30 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
         }
 
         size_t animationIndex = batch.defaultAnimationIndex;
+        bool hasModelFacetOverride = false;
 
-        if (pTextureOverrides != nullptr)
+        if (pModelFacetTextureOverrides != nullptr)
+        {
+            const uint32_t overrideKey =
+                EventRuntime::outdoorModelFacetTextureOverrideKey(batch.bModelIndex, batch.faceIndex);
+            const auto overrideIterator = pModelFacetTextureOverrides->find(overrideKey);
+
+            if (overrideIterator != pModelFacetTextureOverrides->end())
+            {
+                hasModelFacetOverride = true;
+                const std::string normalizedOverrideTextureName = toLowerCopy(overrideIterator->second);
+                const auto animationIterator = animationIndexByTextureName.find(normalizedOverrideTextureName);
+
+                if (animationIterator == animationIndexByTextureName.end())
+                {
+                    continue;
+                }
+
+                animationIndex = animationIterator->second;
+            }
+        }
+
+        if (!hasModelFacetOverride && pTextureOverrides != nullptr)
         {
             const auto overrideIterator = pTextureOverrides->find(batch.cogNumber);
 
@@ -3269,12 +3282,6 @@ void OutdoorRenderer::renderOutdoorSky(
 
     const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState =
         view.m_pOutdoorWorldRuntime != nullptr ? &view.m_pOutdoorWorldRuntime->atmosphereState() : nullptr;
-    const bool hasAtmosphericFog =
-        pAtmosphereState != nullptr
-        && (pAtmosphereState->weatherFlags & MapWeatherFoggy) != 0
-        && pAtmosphereState->fogWeakDistance >= 0
-        && pAtmosphereState->fogStrongDistance > pAtmosphereState->fogWeakDistance;
-
     if (pAtmosphereState == nullptr)
     {
         return;
@@ -3287,7 +3294,7 @@ void OutdoorRenderer::renderOutdoorSky(
         return;
     }
 
-    if (hasAtmosphericFog && !bgfx::isValid(view.m_forcePerspectiveSolidTextureHandle))
+    if (!bgfx::isValid(view.m_forcePerspectiveSolidTextureHandle))
     {
         const uint32_t whitePixel = 0xffffffffu;
         view.m_forcePerspectiveSolidTextureHandle = bgfx::createTexture2D(
@@ -3394,7 +3401,15 @@ void OutdoorRenderer::renderOutdoorSky(
     const uint32_t skyTintAbgr =
         view.m_pOutdoorWorldRuntime != nullptr ? computeOutdoorSkyTintAbgr(*view.m_pOutdoorWorldRuntime) : 0xffffffffu;
     view.m_cachedSkyVertices[0] = {
-        topLeft.screenX, topLeft.screenY, 1.0f, topLeft.u, topLeft.v, 1.0f, renderDistance, topLeft.reciprocalW, skyTintAbgr};
+        topLeft.screenX,
+        topLeft.screenY,
+        1.0f,
+        topLeft.u,
+        topLeft.v,
+        1.0f,
+        renderDistance,
+        topLeft.reciprocalW,
+        skyTintAbgr};
     view.m_cachedSkyVertices[1] = {
         bottomLeft.screenX,
         bottomLeft.screenY,
@@ -3417,7 +3432,15 @@ void OutdoorRenderer::renderOutdoorSky(
         skyTintAbgr
     };
     view.m_cachedSkyVertices[3] = {
-        topLeft.screenX, topLeft.screenY, 1.0f, topLeft.u, topLeft.v, 1.0f, renderDistance, topLeft.reciprocalW, skyTintAbgr};
+        topLeft.screenX,
+        topLeft.screenY,
+        1.0f,
+        topLeft.u,
+        topLeft.v,
+        1.0f,
+        renderDistance,
+        topLeft.reciprocalW,
+        skyTintAbgr};
     view.m_cachedSkyVertices[4] = {
         bottomRight.screenX,
         bottomRight.screenY,
@@ -3430,7 +3453,15 @@ void OutdoorRenderer::renderOutdoorSky(
         skyTintAbgr
     };
     view.m_cachedSkyVertices[5] = {
-        topRight.screenX, topRight.screenY, 1.0f, topRight.u, topRight.v, 1.0f, renderDistance, topRight.reciprocalW, skyTintAbgr};
+        topRight.screenX,
+        topRight.screenY,
+        1.0f,
+        topRight.u,
+        topRight.v,
+        1.0f,
+        renderDistance,
+        topRight.reciprocalW,
+        skyTintAbgr};
 
     bgfx::update(
         view.m_skyVertexBufferHandle,
@@ -3475,7 +3506,7 @@ void OutdoorRenderer::renderOutdoorSky(
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA);
     bgfx::submit(viewId, view.m_outdoorForcePerspectiveProgramHandle);
 
-    if (hasAtmosphericFog && bgfx::isValid(view.m_forcePerspectiveSolidTextureHandle))
+    if (bgfx::isValid(view.m_forcePerspectiveSolidTextureHandle))
     {
         const float lowerSkyTopY = std::max(skyBottomY - SkyFogHorizonPixels, 0.0f);
         const uint32_t transparentSkyTintAbgr = withAlpha(skyTintAbgr, 0);

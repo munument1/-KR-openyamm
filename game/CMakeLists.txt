@@ -60,6 +60,7 @@ add_executable(openyamm
     gameplay/HouseInteraction.cpp
     gameplay/HouseServiceRuntime.cpp
     gameplay/JournalQuestRuntime.cpp
+    gameplay/NpcFollowerRuntime.cpp
     gameplay/SavePreviewImage.cpp
     gameplay/StoryTextFormatter.cpp
     gameplay/TreasureRuntime.cpp
@@ -75,7 +76,6 @@ add_executable(openyamm
     outdoor/HeadlessOutdoorDiagnostics.cpp
     tables/HouseTable.cpp
     tables/IconFrameTable.cpp
-    items/ItemEquipPosTable.cpp
     items/ItemEnchantTables.cpp
     items/ItemEnchantRuntime.cpp
     items/ItemGenerator.cpp
@@ -98,7 +98,7 @@ add_executable(openyamm
     gameplay/MasteryTeacherDialog.cpp
     tables/MonsterProjectileTable.cpp
     tables/MonsterTable.cpp
-    tables/MmergeBaseTables.cpp
+    tables/MergedBaseTables.cpp
     tables/NpcDialogTable.cpp
     tables/ObjectTable.cpp
     outdoor/OutdoorBillboardRenderer.cpp

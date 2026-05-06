@@ -22,6 +22,21 @@ namespace
 {
 constexpr uint16_t HudViewId = 2;
 constexpr uint32_t HoveredDialogueTopicTextColorAbgr = 0xff23cde1u;
+constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
+constexpr uint32_t PrestonSteelNpcId = 1084;
+constexpr uint32_t ToriGoldmanNpcId = 1085;
+constexpr uint32_t IsaacRockwellNpcId = 1086;
+constexpr uint32_t OlafHeimdallNpcId = 1087;
+constexpr uint32_t EuclidKeplerNpcId = 1088;
+constexpr uint32_t SlickerSilvertongueNpcId = 1089;
+constexpr float EventNpcFrameNativeWidth = 71.0f;
+constexpr float EventNpcFrameNativeHeight = 81.0f;
+constexpr float EventNpcPortraitNativeX = 4.0f;
+constexpr float EventNpcPortraitNativeY = 4.0f;
+constexpr float EventNpcPortraitNativeWidth = 63.0f;
+constexpr float EventNpcPortraitNativeHeight = 73.0f;
+constexpr float EventNpcPortraitUvCropX = 2.0f;
+constexpr float EventNpcPortraitUvCropY = 2.0f;
 
 enum class HouseShopVerticalAlign
 {
@@ -77,6 +92,155 @@ PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &view)
     input.mouseY = pInputFrame->pointerY;
     input.isLeftMousePressed = pInputFrame->leftMouseButton.held;
     return input;
+}
+
+std::optional<uint32_t> freeHavenCouncilStatusPictureId(uint32_t houseId, uint32_t npcId, const Party *pParty)
+{
+    if (houseId != FreeHavenHighCouncilHouseId || npcId < PrestonSteelNpcId || npcId > SlickerSilvertongueNpcId)
+    {
+        return std::nullopt;
+    }
+
+    const uint32_t pictureBaseId = (SlickerSilvertongueNpcId - npcId) * 3 + 1;
+
+    if (npcId == SlickerSilvertongueNpcId)
+    {
+        return pictureBaseId + 1;
+    }
+
+    uint32_t approvalAwardId = 0;
+
+    switch (npcId)
+    {
+        case PrestonSteelNpcId:
+            approvalAwardId = 59;
+            break;
+        case ToriGoldmanNpcId:
+            approvalAwardId = 61;
+            break;
+        case IsaacRockwellNpcId:
+            approvalAwardId = 60;
+            break;
+        case OlafHeimdallNpcId:
+            approvalAwardId = 62;
+            break;
+        case EuclidKeplerNpcId:
+            approvalAwardId = 58;
+            break;
+        default:
+            break;
+    }
+
+    const bool approved = pParty != nullptr && approvalAwardId != 0 && pParty->hasAward(approvalAwardId);
+    return pictureBaseId + (approved ? 0 : 1);
+}
+
+std::optional<float> freeHavenCouncilBenchCenterX(uint32_t npcId)
+{
+    switch (npcId)
+    {
+        case PrestonSteelNpcId:
+            return 0.098f;
+        case ToriGoldmanNpcId:
+            return 0.265f;
+        case IsaacRockwellNpcId:
+            return 0.415f;
+        case OlafHeimdallNpcId:
+            return 0.565f;
+        case EuclidKeplerNpcId:
+            return 0.735f;
+        case SlickerSilvertongueNpcId:
+            return 0.9f;
+        default:
+            return std::nullopt;
+    }
+}
+
+float freeHavenCouncilBenchOffsetY(uint32_t npcId)
+{
+    switch (npcId)
+    {
+        case PrestonSteelNpcId:
+            return 55.0f;
+        case ToriGoldmanNpcId:
+            return 6.0f;
+        case IsaacRockwellNpcId:
+            return 0.0f;
+        case OlafHeimdallNpcId:
+            return 0.0f;
+        case EuclidKeplerNpcId:
+            return 4.0f;
+        case SlickerSilvertongueNpcId:
+            return 53.0f;
+        default:
+            return 0.0f;
+    }
+}
+
+void renderFreeHavenCouncilBenchParticipants(
+    GameplayScreenRuntime &view,
+    const HouseEntry *pHostHouseEntry,
+    const Party *pParty,
+    float x,
+    float y,
+    float quadWidth,
+    float quadHeight)
+{
+    if (pHostHouseEntry == nullptr || pHostHouseEntry->id != FreeHavenHighCouncilHouseId)
+    {
+        return;
+    }
+
+    const float imageScale = quadWidth / 460.0f;
+    const float bottomY = y + quadHeight * 0.665f;
+
+    const EventRuntimeState *pEventRuntimeState =
+        view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr;
+
+    for (uint32_t npcId : pHostHouseEntry->residentNpcIds)
+    {
+        if (pEventRuntimeState != nullptr)
+        {
+            const auto overrideIterator = pEventRuntimeState->npcHouseOverrides.find(npcId);
+
+            if (overrideIterator != pEventRuntimeState->npcHouseOverrides.end()
+                && overrideIterator->second != FreeHavenHighCouncilHouseId)
+            {
+                continue;
+            }
+
+            if (pEventRuntimeState->unavailableNpcIds.contains(npcId))
+            {
+                continue;
+            }
+        }
+
+        const std::optional<uint32_t> pictureId =
+            freeHavenCouncilStatusPictureId(FreeHavenHighCouncilHouseId, npcId, pParty);
+        const std::optional<float> centerX = freeHavenCouncilBenchCenterX(npcId);
+
+        if (!pictureId.has_value() || !centerX.has_value())
+        {
+            continue;
+        }
+
+        char textureName[16] = {};
+        std::snprintf(textureName, sizeof(textureName), "npc%04u", *pictureId);
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
+            view.gameplayUiRuntime().ensureHudTextureLoaded(textureName);
+
+        if (!texture.has_value())
+        {
+            continue;
+        }
+
+        const float drawWidth = static_cast<float>(texture->width) * imageScale;
+        const float drawHeight = static_cast<float>(texture->height) * imageScale;
+        const float drawX = std::round(x + quadWidth * *centerX - drawWidth * 0.5f);
+        const float drawY =
+            std::round(bottomY - drawHeight + freeHavenCouncilBenchOffsetY(npcId) * imageScale);
+        view.submitHudTexturedQuad(*texture, drawX, drawY, drawWidth, drawHeight);
+    }
 }
 
 bool isHouseType(const HouseEntry &houseEntry, const char *pTypeName)
@@ -381,9 +545,10 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
     const bool residentSelectionMode = isResidentSelectionMode(view.activeEventDialog());
     const EventRuntimeState *pEventRuntimeState =
         view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr;
+    const uint32_t dialogueHostHouseId = currentDialogueHostHouseId(pEventRuntimeState);
     const HouseEntry *pHostHouseEntry =
-        (currentDialogueHostHouseId(pEventRuntimeState) != 0 && view.houseTable() != nullptr)
-        ? view.houseTable()->get(currentDialogueHostHouseId(pEventRuntimeState))
+        (dialogueHostHouseId != 0 && view.houseTable() != nullptr)
+        ? view.houseTable()->get(dialogueHostHouseId)
         : nullptr;
     const bool showDialogueVideoArea = pHostHouseEntry != nullptr || !view.activeEventDialog().videoName.empty();
     const bool hasDialogueParticipantIdentity =
@@ -602,6 +767,8 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
             showDialogueTextFrame,
             showDialogueVideoArea,
             showEventDialogPanel,
+            pHostHouseEntry,
+            pParty,
             renderAboveHud);
     }
 
@@ -1041,6 +1208,8 @@ void GameplayDialogueRenderer::renderDialogueTextureElement(
     bool showDialogueTextFrame,
     bool showDialogueVideoArea,
     bool showEventDialogPanel,
+    const HouseEntry *pHostHouseEntry,
+    const Party *pParty,
     bool renderAboveHud)
 {
     const GameplayScreenRuntime::HudLayoutElement *pLayout = view.findHudLayoutElement(layoutId);
@@ -1112,7 +1281,14 @@ void GameplayDialogueRenderer::renderDialogueTextureElement(
 
     if (normalizedLayoutId == "dialoguevideoarea")
     {
-        renderDialogueVideoArea(view, resolved->x, resolved->y, resolved->width, resolved->height);
+        renderDialogueVideoArea(
+            view,
+            pHostHouseEntry,
+            pParty,
+            resolved->x,
+            resolved->y,
+            resolved->width,
+            resolved->height);
         return;
     }
 
@@ -1226,7 +1402,6 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
     const float panelInnerX = resolvedEventDialog->x + panelPaddingX;
     const float panelInnerY = resolvedEventDialog->y + panelPaddingY;
     const float panelInnerWidth = resolvedEventDialog->width - panelPaddingX * 2.0f;
-    const float portraitInset = 4.0f * panelScale;
     const float sectionGap = 8.0f * panelScale;
     const float houseTitleToPortraitGap = 2.0f * panelScale;
     float contentY = panelInnerY;
@@ -1270,7 +1445,8 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
         : std::nullopt;
     const float portraitAreaWidth = resolvedPortraitTemplate ? resolvedPortraitTemplate->width : 80.0f * panelScale;
     const float portraitAreaHeight = resolvedPortraitTemplate ? resolvedPortraitTemplate->height : 80.0f * panelScale;
-    const float portraitBorderSize = std::min(portraitAreaWidth, portraitAreaHeight);
+    const float portraitBorderWidth = portraitAreaWidth;
+    const float portraitBorderHeight = portraitAreaHeight;
     const float portraitAreaX = resolvedPortraitTemplate
         ? resolvedPortraitTemplate->x
         : std::round(panelInnerX + (panelInnerWidth - portraitAreaWidth) * 0.5f);
@@ -1281,7 +1457,7 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
     const float nameScale = resolvedNpcNameTemplate ? resolvedNpcNameTemplate->scale : panelScale;
     const float nameOffsetY = resolvedNpcNameTemplate && resolvedPortraitTemplate
         ? (resolvedNpcNameTemplate->y - resolvedPortraitTemplate->y)
-        : portraitBorderSize + 2.0f * panelScale;
+        : portraitAreaHeight + 2.0f * panelScale;
 
     const bool isTransitionDialog =
         view.activeEventDialog().presentation == EventDialogPresentation::Transition;
@@ -1322,25 +1498,25 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
          nameHeight,
          nameOffsetY,
          nameScale,
-         nameWidth,
-         nameX,
          panelScale,
          portraitAreaHeight,
          portraitAreaWidth,
-         portraitAreaX,
-         portraitBorderSize,
-         portraitInset,
+         portraitBorderHeight,
+         portraitBorderWidth,
          renderAboveHud,
          hudZThreshold](
             float startY,
+            float cardPortraitAreaX,
+            float cardNameX,
+            float cardNameWidth,
             const std::string &name,
             uint32_t pictureId,
-            EventDialogParticipantVisual participantVisual,
-            bool selected) -> float
+            EventDialogParticipantVisual participantVisual) -> float
         {
             const float portraitY = std::round(startY);
-            const float portraitX = std::round(portraitAreaX + (portraitAreaWidth - portraitBorderSize) * 0.5f);
-            const float portraitBorderY = std::round(portraitY + (portraitAreaHeight - portraitBorderSize) * 0.5f);
+            const float portraitX =
+                std::round(cardPortraitAreaX + (portraitAreaWidth - portraitBorderWidth) * 0.5f);
+            const float portraitBorderY = std::round(portraitY + (portraitAreaHeight - portraitBorderHeight) * 0.5f);
             float nextY = portraitY + portraitAreaHeight;
             std::optional<GameplayScreenRuntime::HudTextureHandle> transitionIcon;
             const bool isMapIcon = participantVisual == EventDialogParticipantVisual::MapIcon;
@@ -1362,8 +1538,8 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                         *portraitBorder,
                         portraitX,
                         portraitBorderY,
-                        portraitBorderSize,
-                        portraitBorderSize);
+                        portraitBorderWidth,
+                        portraitBorderHeight);
                 }
             }
 
@@ -1373,7 +1549,7 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                 {
                     const float imageWidth = static_cast<float>(transitionIcon->width) * panelScale;
                     const float imageHeight = static_cast<float>(transitionIcon->height) * panelScale;
-                    const float iconX = std::round(portraitAreaX + (portraitAreaWidth - imageWidth) * 0.5f);
+                    const float iconX = std::round(cardPortraitAreaX + (portraitAreaWidth - imageWidth) * 0.5f);
                     const float iconY = std::round(portraitY);
 
                     submitTextureHandleQuadUv(
@@ -1399,35 +1575,24 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
 
                 if (portraitTexture)
                 {
-                    const float imageWidth = static_cast<float>(portraitTexture->width);
-                    const float imageHeight = static_cast<float>(portraitTexture->height);
-                    const float targetSize = portraitBorderSize - portraitInset * 2.0f;
-                    const float portraitScale = std::max(
-                        targetSize / std::max(1.0f, imageWidth),
-                        targetSize / std::max(1.0f, imageHeight));
-                    const float scaledWidth = imageWidth * portraitScale;
-                    const float scaledHeight = imageHeight * portraitScale;
-                    const float innerX = std::round(portraitX + portraitInset);
-                    const float innerY = std::round(portraitBorderY + portraitInset);
-                    const float drawWidth = std::round(targetSize);
-                    const float drawHeight = std::round(targetSize);
+                    const float portraitScaleX = portraitBorderWidth / EventNpcFrameNativeWidth;
+                    const float portraitScaleY = portraitBorderHeight / EventNpcFrameNativeHeight;
+                    const float innerX = std::round(portraitX + EventNpcPortraitNativeX * portraitScaleX);
+                    const float innerY = std::round(portraitBorderY + EventNpcPortraitNativeY * portraitScaleY);
+                    const float drawWidth = std::round(EventNpcPortraitNativeWidth * portraitScaleX);
+                    const float drawHeight = std::round(EventNpcPortraitNativeHeight * portraitScaleY);
                     float u0 = 0.0f;
                     float v0 = 0.0f;
                     float u1 = 1.0f;
                     float v1 = 1.0f;
 
-                    if (scaledWidth > targetSize)
+                    if (portraitTexture->width == static_cast<int>(EventNpcPortraitNativeWidth)
+                        && portraitTexture->height == static_cast<int>(EventNpcPortraitNativeHeight))
                     {
-                        const float croppedFraction = (scaledWidth - targetSize) / scaledWidth;
-                        u0 = croppedFraction * 0.5f;
-                        u1 = 1.0f - croppedFraction * 0.5f;
-                    }
-
-                    if (scaledHeight > targetSize)
-                    {
-                        const float croppedFraction = (scaledHeight - targetSize) / scaledHeight;
-                        v0 = croppedFraction * 0.5f;
-                        v1 = 1.0f - croppedFraction * 0.5f;
+                        u0 = EventNpcPortraitUvCropX / EventNpcPortraitNativeWidth;
+                        v0 = EventNpcPortraitUvCropY / EventNpcPortraitNativeHeight;
+                        u1 = (EventNpcPortraitNativeWidth - EventNpcPortraitUvCropX) / EventNpcPortraitNativeWidth;
+                        v1 = (EventNpcPortraitNativeHeight - EventNpcPortraitUvCropY) / EventNpcPortraitNativeHeight;
                     }
 
                     submitTextureHandleQuadUv(
@@ -1444,25 +1609,14 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                 }
             }
 
-            if (selected)
-            {
-                const std::optional<GameplayScreenRuntime::HudTextureHandle> highlight =
-                    view.gameplayUiRuntime().ensureSolidHudTextureLoaded("__dialogue_event_npc_highlight__", 0x40ffffaaU);
-
-                if (highlight)
-                {
-                    view.submitHudTexturedQuad(*highlight, portraitX, portraitBorderY, portraitBorderSize, portraitBorderSize);
-                }
-            }
-
             if (pNpcNameLayout != nullptr
                 && !name.empty()
                 && shouldRenderInCurrentPass(renderAboveHud, hudZThreshold, pNpcNameLayout->zIndex))
             {
                 GameplayScreenRuntime::ResolvedHudLayoutElement resolvedName = {};
-                resolvedName.x = nameX;
+                resolvedName.x = cardNameX;
                 resolvedName.y = portraitY + nameOffsetY;
-                resolvedName.width = nameWidth;
+                resolvedName.width = cardNameWidth;
                 resolvedName.height = nameHeight;
                 resolvedName.scale = nameScale;
                 view.renderLayoutLabel(*pNpcNameLayout, resolvedName, name);
@@ -1474,18 +1628,48 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
 
     if (isResidentSelectionMode)
     {
-        for (size_t actionIndex = 0; actionIndex < view.activeEventDialog().actions.size(); ++actionIndex)
+        const size_t residentCount = view.activeEventDialog().actions.size();
+        const bool useTwoColumns = residentCount > 3;
+        const size_t columnCount = useTwoColumns ? 2u : 1u;
+        const float columnWidth = useTwoColumns ? panelInnerWidth / 2.0f : panelInnerWidth;
+        const float rowStep = portraitAreaHeight + (useTwoColumns ? 0.0f : nameHeight) + sectionGap;
+        float maxContentY = contentY;
+
+        for (size_t actionIndex = 0; actionIndex < residentCount; ++actionIndex)
         {
             const EventDialogAction &action = view.activeEventDialog().actions[actionIndex];
             const NpcEntry *pNpc = view.npcDialogTable() ? view.npcDialogTable()->getNpc(action.id) : nullptr;
             const uint32_t pictureId = pNpc != nullptr ? pNpc->pictureId : 0;
-            contentY = drawEventNpcCard(
-                contentY,
-                action.label,
+            const size_t column = useTwoColumns ? actionIndex % columnCount : 0u;
+            const size_t row = useTwoColumns ? actionIndex / columnCount : actionIndex;
+            const float cardNameX = useTwoColumns ? panelInnerX + static_cast<float>(column) * columnWidth : nameX;
+            const float cardNameWidth = useTwoColumns ? columnWidth : nameWidth;
+            const float cardPortraitAreaX = useTwoColumns
+                ? cardNameX + (columnWidth - portraitAreaWidth) * 0.5f
+                : portraitAreaX;
+            const float cardY = useTwoColumns ? contentY + static_cast<float>(row) * rowStep : contentY;
+            const float nextY = drawEventNpcCard(
+                cardY,
+                cardPortraitAreaX,
+                cardNameX,
+                cardNameWidth,
+                useTwoColumns ? std::string() : action.label,
                 pictureId,
-                EventDialogParticipantVisual::Portrait,
-                false);
-            contentY += sectionGap;
+                EventDialogParticipantVisual::Portrait);
+
+            if (useTwoColumns)
+            {
+                maxContentY = std::max(maxContentY, nextY);
+            }
+            else
+            {
+                contentY = nextY + sectionGap;
+            }
+        }
+
+        if (useTwoColumns)
+        {
+            contentY = maxContentY + sectionGap;
         }
     }
     else
@@ -1503,10 +1687,12 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
 
         contentY = drawEventNpcCard(
             contentY,
+            portraitAreaX,
+            nameX,
+            nameWidth,
             isTransitionDialog ? std::string() : view.activeEventDialog().title,
             pictureId,
-            view.activeEventDialog().participantVisual,
-            false);
+            view.activeEventDialog().participantVisual);
         contentY += isTransitionDialog ? 15.0f * panelScale : sectionGap;
 
         if (isTransitionDialog)
@@ -1842,60 +2028,60 @@ void GameplayDialogueRenderer::submitTextureHandleQuadUv(
 
 void GameplayDialogueRenderer::renderDialogueVideoArea(
     GameplayScreenRuntime &view,
+    const HouseEntry *pHostHouseEntry,
+    const Party *pParty,
     float x,
     float y,
     float quadWidth,
     float quadHeight)
 {
-    if (view.renderHouseVideoFrame(x, y, quadWidth, quadHeight))
+    if (!view.renderHouseVideoFrame(x, y, quadWidth, quadHeight))
     {
-        return;
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> videoFillTexture =
+            view.gameplayUiRuntime().ensureSolidHudTextureLoaded("__dialogue_video_area_fill__", 0xa0181818u);
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> videoBorderTexture =
+            view.gameplayUiRuntime().ensureSolidHudTextureLoaded("__dialogue_video_area_border__", 0xff505050u);
+
+        if (videoFillTexture)
+        {
+            view.submitHudTexturedQuad(
+                *videoFillTexture,
+                x,
+                y,
+                quadWidth,
+                quadHeight);
+        }
+
+        if (videoBorderTexture)
+        {
+            static constexpr float BorderThickness = 2.0f;
+            view.submitHudTexturedQuad(
+                *videoBorderTexture,
+                x,
+                y,
+                quadWidth,
+                BorderThickness);
+            view.submitHudTexturedQuad(
+                *videoBorderTexture,
+                x,
+                y + quadHeight - BorderThickness,
+                quadWidth,
+                BorderThickness);
+            view.submitHudTexturedQuad(
+                *videoBorderTexture,
+                x,
+                y,
+                BorderThickness,
+                quadHeight);
+            view.submitHudTexturedQuad(
+                *videoBorderTexture,
+                x + quadWidth - BorderThickness,
+                y,
+                BorderThickness,
+                quadHeight);
+        }
     }
 
-    const std::optional<GameplayScreenRuntime::HudTextureHandle> videoFillTexture =
-        view.gameplayUiRuntime().ensureSolidHudTextureLoaded("__dialogue_video_area_fill__", 0xa0181818u);
-    const std::optional<GameplayScreenRuntime::HudTextureHandle> videoBorderTexture =
-        view.gameplayUiRuntime().ensureSolidHudTextureLoaded("__dialogue_video_area_border__", 0xff505050u);
-
-    if (videoFillTexture)
-    {
-        view.submitHudTexturedQuad(
-            *videoFillTexture,
-            x,
-            y,
-            quadWidth,
-            quadHeight);
-    }
-
-    if (!videoBorderTexture)
-    {
-        return;
-    }
-
-    static constexpr float BorderThickness = 2.0f;
-    view.submitHudTexturedQuad(
-        *videoBorderTexture,
-        x,
-        y,
-        quadWidth,
-        BorderThickness);
-    view.submitHudTexturedQuad(
-        *videoBorderTexture,
-        x,
-        y + quadHeight - BorderThickness,
-        quadWidth,
-        BorderThickness);
-    view.submitHudTexturedQuad(
-        *videoBorderTexture,
-        x,
-        y,
-        BorderThickness,
-        quadHeight);
-    view.submitHudTexturedQuad(
-        *videoBorderTexture,
-        x + quadWidth - BorderThickness,
-        y,
-        BorderThickness,
-        quadHeight);
+    renderFreeHavenCouncilBenchParticipants(view, pHostHouseEntry, pParty, x, y, quadWidth, quadHeight);
 }
 } // namespace OpenYAMM::Game

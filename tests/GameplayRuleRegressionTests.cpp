@@ -12,6 +12,8 @@
 #include "game/gameplay/SavePreviewImage.h"
 #include "game/items/InventoryItemMixingRuntime.h"
 #include "game/items/ItemRuntime.h"
+#include "game/maps/IndoorSceneYml.h"
+#include "game/maps/OutdoorSceneYml.h"
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorMovementController.h"
@@ -27,7 +29,9 @@
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <random>
+#include <sstream>
 
 namespace
 {
@@ -439,9 +443,75 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     CHECK(((*shadowspireDescriptors)[162].flags & OpenYAMM::Game::TerrainTileFlagBurn) == 0);
     CHECK((*shadowspireDescriptors)[174].textureName == "trne");
     CHECK(((*shadowspireDescriptors)[174].flags & OpenYAMM::Game::TerrainTileFlagTransition) != 0);
+
+    const std::filesystem::path shadowspireScenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out06.scene.yml";
+    std::ifstream shadowspireSceneFile(shadowspireScenePath);
+    REQUIRE(shadowspireSceneFile.good());
+    std::ostringstream shadowspireSceneText;
+    shadowspireSceneText << shadowspireSceneFile.rdbuf();
+
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> shadowspireScene =
+        sceneLoader.loadFromText(shadowspireSceneText.str(), sceneError);
+    REQUIRE_MESSAGE(shadowspireScene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::OutdoorSceneData mergedShadowspireScene = *shadowspireScene;
+
+    const std::filesystem::path shadowspireOverlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out06_1.scene.yml";
+    std::ifstream shadowspireOverlayFile(shadowspireOverlayPath);
+    REQUIRE(shadowspireOverlayFile.good());
+    std::ostringstream shadowspireOverlayText;
+    shadowspireOverlayText << shadowspireOverlayFile.rdbuf();
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedShadowspireScene, shadowspireOverlayText.str(), sceneError),
+        sceneError.c_str());
+    REQUIRE_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.size(), 12u);
+    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().tileId, 1);
+    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().walkSoundId, 101u);
+    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().runSoundId, 62u);
 }
 
-TEST_CASE("outdoor terrain descriptors use mm6 and mm7 MMerge tile tables")
+TEST_CASE("mm7 arena map fixups expose runtime restrictions and arena master topic")
+{
+    const std::filesystem::path arenaScenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm7/maps/7d05.scene.yml";
+    std::ifstream arenaSceneFile(arenaScenePath);
+    REQUIRE(arenaSceneFile.good());
+    std::ostringstream arenaSceneText;
+    arenaSceneText << arenaSceneFile.rdbuf();
+
+    OpenYAMM::Game::IndoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::IndoorSceneData> arenaScene =
+        sceneLoader.loadFromText(arenaSceneText.str(), sceneError);
+    REQUIRE_MESSAGE(arenaScene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::IndoorSceneData mergedArenaScene = *arenaScene;
+
+    const std::filesystem::path arenaOverlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm7/maps/7d05_1.scene.yml";
+    std::ifstream arenaOverlayFile(arenaOverlayPath);
+    REQUIRE(arenaOverlayFile.good());
+    std::ostringstream arenaOverlayText;
+    arenaOverlayText << arenaOverlayFile.rdbuf();
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedArenaScene, arenaOverlayText.str(), sceneError),
+        sceneError.c_str());
+    CHECK_FALSE(mergedArenaScene.runtimeRestrictions.allowSaveGame);
+    CHECK_FALSE(mergedArenaScene.runtimeRestrictions.allowLloydsBeacon);
+    CHECK(mergedArenaScene.runtimeRestrictions.isArena);
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::NpcEntry *pArenaMaster = gameData.npcDialogTable.getNpc(639);
+    REQUIRE(pArenaMaster != nullptr);
+    REQUIRE_FALSE(pArenaMaster->topicIds.empty());
+    CHECK_EQ(pArenaMaster->topicIds[0], 704u);
+    CHECK(std::find(pArenaMaster->topicIds.begin(), pArenaMaster->topicIds.end(), 1149u)
+          == pArenaMaster->topicIds.end());
+}
+
+TEST_CASE("outdoor terrain descriptors use mm6 and mm7 merged tile tables")
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
     REQUIRE(initializeTestAssetFileSystem(assetFileSystem));
@@ -877,7 +947,9 @@ TEST_CASE("inventory mixing creates reagent potion in target bottle")
             0,
             0,
             gameData.itemTable,
-            gameData.potionMixingTable);
+            gameData.potionMixingTable,
+            gameData.mergedPotionSettingTable,
+            gameData.mergedReagentSettingTable);
 
     REQUIRE(result.handled);
     CHECK(result.success);
@@ -918,7 +990,52 @@ TEST_CASE("inventory mixing creates reagent potion when held bottle is used on r
             0,
             0,
             gameData.itemTable,
-            gameData.potionMixingTable);
+            gameData.potionMixingTable,
+            gameData.mergedPotionSettingTable,
+            gameData.mergedReagentSettingTable);
+
+    REQUIRE(result.handled);
+    CHECK(result.success);
+    CHECK(result.heldItemConsumed);
+
+    const OpenYAMM::Game::InventoryItem *pMixedPotion = pMember->inventoryItemAt(0, 0);
+    REQUIRE(pMixedPotion != nullptr);
+    CHECK_EQ(pMixedPotion->objectDescriptionId, 222u);
+    CHECK_EQ(pMixedPotion->standardEnchantPower, 3u);
+}
+
+TEST_CASE("inventory mixing accepts merged reagent item ids")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::PartySeed seed = {};
+    seed.members.push_back(makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1));
+
+    OpenYAMM::Game::Party party = {};
+    party.setItemTable(&gameData.itemTable);
+    party.seed(seed);
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->skills["Alchemy"] = {"Alchemy", 2, OpenYAMM::Game::SkillMastery::Normal};
+
+    OpenYAMM::Game::InventoryItem bottle = {};
+    bottle.objectDescriptionId = 220;
+    REQUIRE(pMember->addInventoryItemAt(bottle, 0, 0));
+
+    OpenYAMM::Game::InventoryItem heldReagent = {};
+    heldReagent.objectDescriptionId = 1002;
+
+    const OpenYAMM::Game::InventoryItemMixResult result =
+        OpenYAMM::Game::InventoryItemMixingRuntime::tryApplyHeldItemToInventoryItem(
+            party,
+            0,
+            heldReagent,
+            0,
+            0,
+            gameData.itemTable,
+            gameData.potionMixingTable,
+            gameData.mergedPotionSettingTable,
+            gameData.mergedReagentSettingTable);
 
     REQUIRE(result.handled);
     CHECK(result.success);
@@ -961,7 +1078,9 @@ TEST_CASE("inventory mixing combines valid potions and returns an empty bottle")
             0,
             0,
             gameData.itemTable,
-            gameData.potionMixingTable);
+            gameData.potionMixingTable,
+            gameData.mergedPotionSettingTable,
+            gameData.mergedReagentSettingTable);
 
     REQUIRE(result.handled);
     CHECK(result.success);
@@ -1006,7 +1125,9 @@ TEST_CASE("inventory mixing invalid potion combination consumes both items")
             0,
             0,
             gameData.itemTable,
-            gameData.potionMixingTable);
+            gameData.potionMixingTable,
+            gameData.mergedPotionSettingTable,
+            gameData.mergedReagentSettingTable);
 
     REQUIRE(result.handled);
     CHECK_FALSE(result.success);
@@ -1014,6 +1135,23 @@ TEST_CASE("inventory mixing invalid potion combination consumes both items")
     CHECK(result.targetItemRemoved);
     CHECK_EQ(result.failureDamageLevel, 3u);
     CHECK(pMember->inventoryItemAt(0, 0) == nullptr);
+}
+
+TEST_CASE("potion mixing table uses merged potion matrix columns")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    CHECK_EQ(gameData.potionMixingTable.combinationCount(), 4900u);
+
+    const std::optional<OpenYAMM::Game::PotionMixingTable::PotionCombination> stoneToFleshWithMagic =
+        gameData.potionMixingTable.potionCombination(262, 223);
+    REQUIRE(stoneToFleshWithMagic.has_value());
+    CHECK_EQ(stoneToFleshWithMagic->resultItemId, 806u);
+
+    const std::optional<OpenYAMM::Game::PotionMixingTable::PotionCombination> strangeSelf =
+        gameData.potionMixingTable.potionCombination(806, 806);
+    REQUIRE(strangeSelf.has_value());
+    CHECK(strangeSelf->noMix);
 }
 
 TEST_CASE("potion explosion level two damages the member and breaks one regular item")
@@ -1438,6 +1576,38 @@ TEST_CASE("lua event runtime supports evt jump alias")
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
     REQUIRE_FALSE(runtimeState.statusMessages.empty());
     CHECK_EQ(runtimeState.statusMessages.back(), "jump ok");
+}
+
+TEST_CASE("history event variables are scoped to the active merged continent")
+{
+    const uint32_t historySevenVariable =
+        static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::HistoryBegin) + 6u;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.Set(" + std::to_string(historySevenVariable) + ", 1)\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticScopedHistory.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    OpenYAMM::Game::setActiveHistoryContinent(runtimeState, 2u);
+    CHECK(runtimeState.historyEventTimesByContinent[2u].contains(1u));
+    CHECK(runtimeState.historyEventTimesByContinent[2u].contains(2u));
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+    CHECK(runtimeState.historyEventTimesByContinent[2u].contains(7u));
+    CHECK_FALSE(runtimeState.historyEventTimesByContinent[1u].contains(7u));
+
+    OpenYAMM::Game::setActiveHistoryContinent(runtimeState, 1u);
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+    CHECK(runtimeState.historyEventTimesByContinent[1u].contains(1u));
+    CHECK(runtimeState.historyEventTimesByContinent[1u].contains(7u));
+    CHECK(runtimeState.historyEventTimesByContinent[2u].contains(7u));
 }
 
 TEST_CASE("lua SetSprite stores visibility and decoration id")

@@ -8,7 +8,7 @@ add_executable(openyamm_event_asset_export
     ../game/maps/MapIdentity.cpp
     ../game/tables/HouseTable.cpp
     ../game/tables/MapStats.cpp
-    ../game/tables/MmergeBaseTables.cpp
+    ../game/tables/MergedBaseTables.cpp
     legacy_events/StrTable.cpp
 )
 

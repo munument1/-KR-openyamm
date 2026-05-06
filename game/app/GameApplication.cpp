@@ -1099,8 +1099,11 @@ void GameApplication::presentPendingInputPromptDialogResult(size_t previousMessa
         pWorldRuntime->party(),
         pWorldRuntime,
         pWorldRuntime->gameMinutes(),
-        &m_gameDataLoader.getMmergeNpcProfessionTable(),
-        &m_gameDataLoader.getMmergeNewsProfessionTopicTable());
+        &m_gameDataLoader.getMergedNpcProfessionTable(),
+        &m_gameDataLoader.getMergedNewsProfessionTopicTable(),
+        &m_gameDataLoader.getMergedNpcBtbTable(),
+        nullptr,
+        &m_gameDataLoader.getMergedContinentSettingTable());
 
 }
 
@@ -1397,9 +1400,13 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         timingLogger.stage("outdoor runtime initialized");
 
         restoreSavedOutdoorWorldStateForSelectedMap();
+        OutdoorWorldRuntime::Snapshot outdoorTimeSnapshot = m_pOutdoorWorldRuntime->snapshot();
+        outdoorTimeSnapshot.gameMinutes = m_gameSession.gameMinutes();
+        m_pOutdoorWorldRuntime->restoreSnapshot(outdoorTimeSnapshot);
+
         if (EventRuntimeState *pEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState())
         {
-            EventRuntime eventRuntime = {};
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
 
             eventRuntime.executeOnLoadEvents(
                 selectedMap->localEventProgram,
@@ -1418,7 +1425,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             *m_pOutdoorPartyRuntime,
             *m_pOutdoorWorldRuntime,
             selectedMap->localEventProgram,
-            selectedMap->globalEventProgram);
+            selectedMap->globalEventProgram,
+            &m_gameDataLoader.getHouseTable());
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
         m_screenManager.setCurrentMode(AppMode::GameplayOutdoor);
 
@@ -1513,6 +1521,11 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         {
             pIndoorSceneRuntime->restoreSnapshot(indoorStateIt->second);
         }
+
+        IndoorSceneRuntime::Snapshot indoorTimeSnapshot = pIndoorSceneRuntime->snapshot();
+        indoorTimeSnapshot.worldRuntime.gameMinutes = m_gameSession.gameMinutes();
+        pIndoorSceneRuntime->restoreSnapshot(indoorTimeSnapshot);
+
         timingLogger.stage("indoor saved state restored");
 
         pIndoorSceneRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
@@ -2012,6 +2025,12 @@ bool GameApplication::quickSaveToPath(
         return false;
     }
 
+    if (!selectedMap->map.runtimeRestrictions.allowSaveGame)
+    {
+        reportQuickSaveStatus("Quick save unavailable here");
+        return false;
+    }
+
     synchronizeSessionFromRuntime();
     std::optional<GameSaveData> saveData = m_gameSession.buildSaveData();
 
@@ -2473,6 +2492,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     }
 
     updatePendingInputPrompt();
+    processPendingDimensionDoorOverlay();
 
     IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
 
@@ -2791,6 +2811,7 @@ bool GameApplication::executeCurrentMapOnLeaveEvents()
     }
 
     EventRuntime eventRuntime = {};
+    eventRuntime.bindHouseTable(&m_gameDataLoader.getHouseTable());
     return eventRuntime.executeOnLeaveEvents(
         m_pMapSceneRuntime->localEventProgram(),
         m_pMapSceneRuntime->globalEventProgram(),
@@ -2905,6 +2926,36 @@ bool GameApplication::processPendingEventMovie()
     return true;
 }
 
+bool GameApplication::processPendingDimensionDoorOverlay()
+{
+    EventRuntimeState *pRuntimeState = m_gameplayController.eventRuntimeState();
+
+    if (pRuntimeState == nullptr || !pRuntimeState->pendingDimensionDoorOverlay)
+    {
+        return false;
+    }
+
+    pRuntimeState->pendingDimensionDoorOverlay = false;
+
+    GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+
+    if (!screenRuntime.ensureDimensionDoorDestinationsLoaded())
+    {
+        screenRuntime.setStatusBarEvent("Dimension Door destinations unavailable");
+        return false;
+    }
+
+    const Party *pParty = screenRuntime.partyReadOnly();
+    const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
+    screenRuntime.openUtilitySpellOverlay(
+        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
+        spellIdValue(SpellId::TownPortal),
+        casterMemberIndex);
+    screenRuntime.resetUtilitySpellOverlayInteractionState();
+    screenRuntime.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    return true;
+}
+
 void GameApplication::handleCompletedPartyDefeatScreen()
 {
     if (!m_pendingPartyDefeatRespawnMapFileName.has_value())
@@ -2920,6 +2971,7 @@ void GameApplication::handleCompletedPartyDefeatScreen()
     }
 
     m_screenManager.setActiveScreen(nullptr);
+    m_gameSession.gameplayScreenRuntime().interactionState().menuToggleLatch = true;
     applyPartyDefeatConsequences();
     respawnPartyAfterDefeat(true);
     m_pendingPartyDefeatRespawnMapFileName.reset();
@@ -2950,6 +3002,7 @@ void GameApplication::handleCompletedEventMovieScreen()
     }
 
     m_screenManager.setActiveScreen(nullptr);
+    m_gameSession.gameplayScreenRuntime().interactionState().menuToggleLatch = true;
 }
 
 void GameApplication::handleCompletedWinGameScreen()
@@ -3012,8 +3065,8 @@ std::string GameApplication::resolvePartyDefeatCutsceneStem() const
 
     if (pCurrentMap != nullptr)
     {
-        const MmergeContinentSettingEntry *pContinentSetting =
-            m_gameDataLoader.findMmergeContinentSettingsForMap(*pCurrentMap);
+        const MergedContinentSettingEntry *pContinentSetting =
+            m_gameDataLoader.findMergedContinentSettingsForMap(*pCurrentMap);
 
         if (pContinentSetting != nullptr && !trimCopy(pContinentSetting->deathMovie).empty())
         {

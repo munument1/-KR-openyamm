@@ -103,6 +103,13 @@ bool ParticleSystem::addParticle(const FxParticleState &particle)
     return true;
 }
 
+size_t ParticleSystem::removeParticlesIf(const std::function<bool(const FxParticleState &)> &predicate)
+{
+    const size_t previousSize = m_particles.size();
+    m_particles.erase(std::remove_if(m_particles.begin(), m_particles.end(), predicate), m_particles.end());
+    return previousSize - m_particles.size();
+}
+
 const std::vector<FxParticleState> &ParticleSystem::particles() const
 {
     return m_particles;
@@ -182,8 +189,10 @@ size_t ParticleSystem::tagIndex(FxParticleTag tag)
         return 2;
     case FxParticleTag::Buff:
         return 3;
-    case FxParticleTag::Misc:
+    case FxParticleTag::Weather:
         return 4;
+    case FxParticleTag::Misc:
+        return 5;
     }
 
     return 0;

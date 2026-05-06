@@ -101,6 +101,16 @@ public:
         bool suppressLowHealthFlee = false;
     };
 
+    struct ActorInspectPreviewAnimationState
+    {
+        int16_t monsterId = 0;
+        ActorAiAnimationState animation = ActorAiAnimationState::Bored;
+        uint32_t actionTimeTicks = 0;
+        uint32_t actionLengthTicks = 0;
+        uint32_t lastUpdateTicks = 0;
+        uint32_t randomState = 0x6d2b79f5u;
+    };
+
     struct BloodSplatState
     {
         struct Vertex
@@ -186,6 +196,7 @@ public:
 
     const std::string &mapName() const override;
     bool isIndoorMap() const override;
+    bool allowsLloydsBeacon() const override;
     float currentGameMinutes() const override;
     const MapDeltaData *mapDeltaData() const override;
     MapDeltaData *mapDeltaData() override;
@@ -389,7 +400,7 @@ public:
         bool invisibleAsDead
     ) const override;
 
-    void applyEventRuntimeState(bool syncPersistentHostilityMasks = false);
+    void applyEventRuntimeState(bool syncPersistentHostilityMasks = false) override;
     void invalidateRuntimeGeometryCache();
     void refreshMechanismRuntimeGeometryCache();
     Snapshot snapshot() const;
@@ -541,6 +552,7 @@ private:
     std::vector<std::optional<CorpseViewState>> m_mapActorCorpseViews;
     std::optional<CorpseViewState> m_activeCorpseView;
     std::vector<MapActorAiState> m_mapActorAiStates;
+    mutable ActorInspectPreviewAnimationState m_actorInspectPreviewAnimation = {};
     std::vector<BloodSplatState> m_bloodSplats;
     uint64_t m_bloodSplatRevision = 0;
     float m_actorUpdateAccumulatorSeconds = 0.0f;

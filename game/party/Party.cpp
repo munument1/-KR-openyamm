@@ -1797,6 +1797,8 @@ PartySeed Party::createDefaultSeed()
     grantSeedInventoryItem(cleric, 266, true, false);
     grantSeedInventoryItem(cleric, 253, true, false);
     grantSeedInventoryItem(cleric, 656, true, false);
+    grantSeedInventoryItem(cleric, 2106, true, false);
+    grantSeedInventoryItem(cleric, 2125, true, false);
     grantSeedSpellAccess(cleric);
     grantAllSkills(cleric, 200, SkillMastery::Grandmaster);
     seed.members.push_back(cleric);
@@ -1977,6 +1979,7 @@ Party::Snapshot Party::snapshot() const
     snapshot.npcHouseOverrides = m_npcHouseOverrides;
     snapshot.npcItemOverrides = m_npcItemOverrides;
     snapshot.unavailableNpcIds = m_unavailableNpcIds;
+    snapshot.hiredNpcFollowers = m_hiredNpcFollowers;
 
     for (const auto &[houseId, state] : m_houseStockStates)
     {
@@ -2018,6 +2021,7 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_npcHouseOverrides = snapshot.npcHouseOverrides;
     m_npcItemOverrides = snapshot.npcItemOverrides;
     m_unavailableNpcIds = snapshot.unavailableNpcIds;
+    m_hiredNpcFollowers = snapshot.hiredNpcFollowers;
     m_houseStockStates.clear();
 
     for (const HouseStockState &state : snapshot.houseStockStates)
@@ -2074,6 +2078,7 @@ void Party::seed(const PartySeed &seed)
     m_npcHouseOverrides.clear();
     m_npcItemOverrides.clear();
     m_unavailableNpcIds.clear();
+    m_hiredNpcFollowers.clear();
     m_houseStockStates.clear();
 
     for (Character &member : m_members)
@@ -2316,6 +2321,15 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
     {
         removeAward(awardId);
         m_lastStatus = "award removed";
+    }
+
+    m_hiredNpcFollowers = runtimeState.hiredNpcFollowers;
+    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+    {
+        if (follower.npcId != 0)
+        {
+            m_unavailableNpcIds.insert(follower.npcId);
+        }
     }
 }
 
@@ -3347,6 +3361,27 @@ void Party::applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const
     {
         runtimeState.unavailableNpcIds.insert(npcId);
     }
+
+    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+    {
+        const auto existingFollowerIt = std::find_if(
+            runtimeState.hiredNpcFollowers.begin(),
+            runtimeState.hiredNpcFollowers.end(),
+            [&follower](const HiredNpcFollower &runtimeFollower)
+            {
+                return runtimeFollower.npcId == follower.npcId;
+            });
+
+        if (existingFollowerIt == runtimeState.hiredNpcFollowers.end())
+        {
+            runtimeState.hiredNpcFollowers.push_back(follower);
+        }
+
+        if (follower.npcId != 0)
+        {
+            runtimeState.unavailableNpcIds.insert(follower.npcId);
+        }
+    }
 }
 
 void Party::setNpcTopicOverride(uint32_t npcId, uint32_t topicSlotIndex, uint32_t topicId)
@@ -3389,6 +3424,49 @@ void Party::setNpcUnavailable(uint32_t npcId, bool unavailable)
     else
     {
         m_unavailableNpcIds.erase(npcId);
+    }
+}
+
+void Party::addHiredNpcFollower(const HiredNpcFollower &follower)
+{
+    if (follower.npcId == 0)
+    {
+        return;
+    }
+
+    const auto followerIt = std::find_if(
+        m_hiredNpcFollowers.begin(),
+        m_hiredNpcFollowers.end(),
+        [&follower](const HiredNpcFollower &existingFollower)
+        {
+            return existingFollower.npcId == follower.npcId;
+        });
+
+    if (followerIt == m_hiredNpcFollowers.end())
+    {
+        m_hiredNpcFollowers.push_back(follower);
+    }
+    else
+    {
+        *followerIt = follower;
+    }
+
+    m_unavailableNpcIds.insert(follower.npcId);
+}
+
+void Party::removeHiredNpcFollower(uint32_t npcId)
+{
+    const auto followerIt = std::remove_if(
+        m_hiredNpcFollowers.begin(),
+        m_hiredNpcFollowers.end(),
+        [npcId](const HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        });
+
+    if (followerIt != m_hiredNpcFollowers.end())
+    {
+        m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
     }
 }
 

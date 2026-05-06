@@ -21,12 +21,10 @@ SPRITE_NAME_SIZE = 0x20
 OUTLINE_RECORD_SIZE = 0x0C
 UNKNOWN9_RECORD_SIZE = 0x08
 
-LOCATION_HEADER_SIZE = 40
 INDOOR_VISIBLE_OUTLINES_BYTES = 875
-ACTOR_RECORD_SIZE = 0x3CC
-SPRITE_OBJECT_RECORD_SIZE = 0x70
 CHEST_RECORD_SIZE = 5324
 DOOR_RECORD_SIZE = 0x50
+DOOR_RECORD_SLOT_COUNT = 200
 PERSISTENT_VARIABLES_SIZE = 0xC8
 LOCATION_TIME_SIZE = 0x38
 ACTOR_NAME_SIZE = 32
@@ -35,24 +33,79 @@ SPRITE_OBJECT_CONTAINING_ITEM_SIZE = 0x24
 CHEST_ITEMS_OFFSET = 0x04
 CHEST_ITEMS_SIZE = 140 * 36
 CHEST_INVENTORY_MATRIX_OFFSET = CHEST_ITEMS_OFFSET + CHEST_ITEMS_SIZE
-ACTOR_NPC_ID_OFFSET = 0x20
-ACTOR_ATTRIBUTES_OFFSET = 0x24
-ACTOR_HP_OFFSET = 0x28
-ACTOR_HOSTILITY_TYPE_OFFSET = 0x2C
-ACTOR_MONSTER_INFO_ID_OFFSET = 0x6A
-ACTOR_MONSTER_ID_OFFSET = 0x7C
-ACTOR_RADIUS_OFFSET = 0x90
-ACTOR_HEIGHT_OFFSET = 0x92
-ACTOR_MOVE_SPEED_OFFSET = 0x94
-ACTOR_POSITION_OFFSET = 0x96
-ACTOR_SPRITE_IDS_OFFSET = 0xD4
-ACTOR_SECTOR_ID_OFFSET = 0xA6
-ACTOR_CURRENT_ACTION_ANIMATION_OFFSET = 0xBA
-ACTOR_CARRIED_ITEM_ID_OFFSET = 0xBC
-ACTOR_ALLY_OFFSET = 0x340
-ACTOR_GROUP_OFFSET = 0x34C
-ACTOR_UNIQUE_NAME_INDEX_OFFSET = 0x3BC
 TICKS_PER_REALTIME_SECOND = 128
+MECHANISM_STATE_OPEN = 0
+MECHANISM_STATE_CLOSED = 2
+
+MMERGE_INITIAL_MECHANISM_STATE_FIXUPS: dict[str, dict[int, int]] = {
+    # MMMerge corrects these Temple of the Moon mechanisms from Scripts/Maps/7d06.lua events.LoadMap.
+    # The scene YML is our DLV replacement, so export the post-load initial state directly.
+    "7d06": {
+        5: MECHANISM_STATE_CLOSED,
+        6: MECHANISM_STATE_CLOSED,
+        7: MECHANISM_STATE_CLOSED,
+        8: MECHANISM_STATE_CLOSED,
+        9: MECHANISM_STATE_OPEN,
+        10: MECHANISM_STATE_OPEN,
+    },
+}
+
+DLV_FORMATS: dict[str, dict[str, object]] = {
+    "mm7": {
+        "location_header_size": 40,
+        "has_face_bits": True,
+        "has_sprite_bits": True,
+        "actor_record_size": 0x344,
+        "sprite_object_record_size": 0x70,
+        "actor_offsets": {
+            "npc_id": 0x20,
+            "attributes": 0x24,
+            "hp": 0x28,
+            "hostility_type": 0x3D,
+            "monster_info_id": 0x5C,
+            "monster_id": 0x86,
+            "radius": 0x88,
+            "height": 0x8A,
+            "move_speed": 0x8C,
+            "position": 0x8E,
+            "sector_id": 0x9E,
+            "current_action_animation": 0xB2,
+            "carried_item_id": 0xB4,
+            "carried_item_id_size": 2,
+            "sprite_ids": 0xBC,
+            "group": 0x2C4,
+            "ally": 0x2C8,
+            "unique_name_index": 0x330,
+        },
+    },
+    "mm8": {
+        "location_header_size": 40,
+        "has_face_bits": True,
+        "has_sprite_bits": True,
+        "actor_record_size": 0x3CC,
+        "sprite_object_record_size": 0x70,
+        "actor_offsets": {
+            "npc_id": 0x20,
+            "attributes": 0x24,
+            "hp": 0x28,
+            "hostility_type": 0x2C,
+            "monster_info_id": 0x6A,
+            "monster_id": 0x7C,
+            "radius": 0x90,
+            "height": 0x92,
+            "move_speed": 0x94,
+            "position": 0x96,
+            "sector_id": 0xA6,
+            "current_action_animation": 0xBA,
+            "carried_item_id": 0xBC,
+            "carried_item_id_size": 4,
+            "sprite_ids": 0xD4,
+            "ally": 0x340,
+            "group": 0x34C,
+            "unique_name_index": 0x3BC,
+        },
+    },
+}
 
 
 class ParseError(RuntimeError):
@@ -205,74 +258,92 @@ def parse_u16_vector(reader: ByteReader, offset: int, count: int, context: str) 
     return values, offset + count * 2
 
 
-def parse_actor_vector(reader: ByteReader, offset: int) -> tuple[list[dict[str, object]], int]:
+def parse_actor_vector(
+    reader: ByteReader,
+    offset: int,
+    dlv_format: dict[str, object],
+) -> tuple[list[dict[str, object]], int]:
+    actor_record_size = int(dlv_format["actor_record_size"])
+    actor_offsets = dlv_format["actor_offsets"]
     actor_count = reader.read_u32(offset, "actor count")
     data_offset = offset + 4
-    reader.require(data_offset, actor_count * ACTOR_RECORD_SIZE, "actor records")
+    reader.require(data_offset, actor_count * actor_record_size, "actor records")
     actors: list[dict[str, object]] = []
 
     for actor_index in range(actor_count):
-        actor_offset = data_offset + actor_index * ACTOR_RECORD_SIZE
+        actor_offset = data_offset + actor_index * actor_record_size
+        carried_item_offset = actor_offset + actor_offsets["carried_item_id"]
+        carried_item_id = reader.read_u16(carried_item_offset, f"actor {actor_index} carried item id") \
+            if actor_offsets["carried_item_id_size"] == 2 \
+            else reader.read_u32(carried_item_offset, f"actor {actor_index} carried item id")
         actor = {
             "actor_index": actor_index,
             "name": reader.read_fixed_string(actor_offset, ACTOR_NAME_SIZE, f"actor {actor_index} name"),
-            "npc_id": reader.read_i16(actor_offset + ACTOR_NPC_ID_OFFSET, f"actor {actor_index} npc id"),
-            "attributes": reader.read_u32(actor_offset + ACTOR_ATTRIBUTES_OFFSET, f"actor {actor_index} attributes"),
-            "hp": reader.read_i16(actor_offset + ACTOR_HP_OFFSET, f"actor {actor_index} hp"),
+            "npc_id": reader.read_i16(actor_offset + actor_offsets["npc_id"], f"actor {actor_index} npc id"),
+            "attributes": reader.read_u32(actor_offset + actor_offsets["attributes"], f"actor {actor_index} attributes"),
+            "hp": reader.read_i16(actor_offset + actor_offsets["hp"], f"actor {actor_index} hp"),
             "hostility_type": reader.read_u8(
-                actor_offset + ACTOR_HOSTILITY_TYPE_OFFSET,
+                actor_offset + actor_offsets["hostility_type"],
                 f"actor {actor_index} hostility type"
             ),
             "monster_info_id": reader.read_i16(
-                actor_offset + ACTOR_MONSTER_INFO_ID_OFFSET,
+                actor_offset + actor_offsets["monster_info_id"],
                 f"actor {actor_index} monster info id"
             ),
-            "monster_id": reader.read_i16(actor_offset + ACTOR_MONSTER_ID_OFFSET, f"actor {actor_index} monster id"),
-            "radius": reader.read_u16(actor_offset + ACTOR_RADIUS_OFFSET, f"actor {actor_index} radius"),
-            "height": reader.read_u16(actor_offset + ACTOR_HEIGHT_OFFSET, f"actor {actor_index} height"),
-            "move_speed": reader.read_u16(actor_offset + ACTOR_MOVE_SPEED_OFFSET, f"actor {actor_index} move speed"),
+            "monster_id": reader.read_i16(
+                actor_offset + actor_offsets["monster_id"],
+                f"actor {actor_index} monster id"
+            ),
+            "radius": reader.read_u16(actor_offset + actor_offsets["radius"], f"actor {actor_index} radius"),
+            "height": reader.read_u16(actor_offset + actor_offsets["height"], f"actor {actor_index} height"),
+            "move_speed": reader.read_u16(
+                actor_offset + actor_offsets["move_speed"],
+                f"actor {actor_index} move speed"
+            ),
             "position": {
-                "x": reader.read_i16(actor_offset + ACTOR_POSITION_OFFSET + 0, f"actor {actor_index} x"),
-                "y": reader.read_i16(actor_offset + ACTOR_POSITION_OFFSET + 2, f"actor {actor_index} y"),
-                "z": reader.read_i16(actor_offset + ACTOR_POSITION_OFFSET + 4, f"actor {actor_index} z"),
+                "x": reader.read_i16(actor_offset + actor_offsets["position"] + 0, f"actor {actor_index} x"),
+                "y": reader.read_i16(actor_offset + actor_offsets["position"] + 2, f"actor {actor_index} y"),
+                "z": reader.read_i16(actor_offset + actor_offsets["position"] + 4, f"actor {actor_index} z"),
             },
             "sprite_ids": [],
-            "sector_id": reader.read_i16(actor_offset + ACTOR_SECTOR_ID_OFFSET, f"actor {actor_index} sector id"),
+            "sector_id": reader.read_i16(actor_offset + actor_offsets["sector_id"], f"actor {actor_index} sector id"),
             "current_action_animation": reader.read_u16(
-                actor_offset + ACTOR_CURRENT_ACTION_ANIMATION_OFFSET,
+                actor_offset + actor_offsets["current_action_animation"],
                 f"actor {actor_index} current action animation"
             ),
-            "carried_item_id": reader.read_u32(
-                actor_offset + ACTOR_CARRIED_ITEM_ID_OFFSET,
-                f"actor {actor_index} carried item id"
-            ),
-            "group": reader.read_u32(actor_offset + ACTOR_GROUP_OFFSET, f"actor {actor_index} group"),
-            "ally": reader.read_u32(actor_offset + ACTOR_ALLY_OFFSET, f"actor {actor_index} ally"),
+            "carried_item_id": carried_item_id,
+            "group": reader.read_u32(actor_offset + actor_offsets["group"], f"actor {actor_index} group"),
+            "ally": reader.read_u32(actor_offset + actor_offsets["ally"], f"actor {actor_index} ally"),
             "unique_name_index": reader.read_i32(
-                actor_offset + ACTOR_UNIQUE_NAME_INDEX_OFFSET,
+                actor_offset + actor_offsets["unique_name_index"],
                 f"actor {actor_index} unique name index"
             ),
         }
 
         for sprite_index in range(4):
             actor["sprite_ids"].append(reader.read_u16(
-                actor_offset + ACTOR_SPRITE_IDS_OFFSET + sprite_index * 2,
+                actor_offset + actor_offsets["sprite_ids"] + sprite_index * 2,
                 f"actor {actor_index} sprite id {sprite_index}"
             ))
 
         actors.append(actor)
 
-    return actors, data_offset + actor_count * ACTOR_RECORD_SIZE
+    return actors, data_offset + actor_count * actor_record_size
 
 
-def parse_sprite_objects(reader: ByteReader, offset: int) -> tuple[list[dict[str, object]], int]:
+def parse_sprite_objects(
+    reader: ByteReader,
+    offset: int,
+    dlv_format: dict[str, object],
+) -> tuple[list[dict[str, object]], int]:
+    sprite_object_record_size = int(dlv_format["sprite_object_record_size"])
     sprite_object_count = reader.read_u32(offset, "sprite object count")
     data_offset = offset + 4
-    reader.require(data_offset, sprite_object_count * SPRITE_OBJECT_RECORD_SIZE, "sprite object records")
+    reader.require(data_offset, sprite_object_count * sprite_object_record_size, "sprite object records")
     sprite_objects: list[dict[str, object]] = []
 
     for sprite_object_index in range(sprite_object_count):
-        object_offset = data_offset + sprite_object_index * SPRITE_OBJECT_RECORD_SIZE
+        object_offset = data_offset + sprite_object_index * sprite_object_record_size
         sprite_objects.append({
             "sprite_object_index": sprite_object_index,
             "sprite_id": reader.read_u16(object_offset + 0x00, f"sprite object {sprite_object_index} sprite id"),
@@ -337,7 +408,7 @@ def parse_sprite_objects(reader: ByteReader, offset: int) -> tuple[list[dict[str
             ),
         })
 
-    return sprite_objects, data_offset + sprite_object_count * SPRITE_OBJECT_RECORD_SIZE
+    return sprite_objects, data_offset + sprite_object_count * sprite_object_record_size
 
 
 def parse_chests(reader: ByteReader, offset: int) -> tuple[list[dict[str, object]], int]:
@@ -419,10 +490,10 @@ def parse_indoor_doors(
     door_count: int,
     doors_data_size_bytes: int,
 ) -> tuple[list[dict[str, object]], list[int], int]:
-    reader.require(offset, door_count * DOOR_RECORD_SIZE, "door records")
+    reader.require(offset, DOOR_RECORD_SLOT_COUNT * DOOR_RECORD_SIZE, "door records")
     door_headers: list[dict[str, object]] = []
 
-    for door_index in range(door_count):
+    for door_index in range(DOOR_RECORD_SLOT_COUNT):
         door_offset = offset + door_index * DOOR_RECORD_SIZE
         door_headers.append({
             "door_index": door_index,
@@ -446,7 +517,7 @@ def parse_indoor_doors(
             "state": reader.read_u16(door_offset + 0x4C, f"door {door_index} state"),
         })
 
-    data_offset = offset + door_count * DOOR_RECORD_SIZE
+    data_offset = offset + DOOR_RECORD_SLOT_COUNT * DOOR_RECORD_SIZE
     minimum_doors_data_count = 0
 
     for door in door_headers:
@@ -505,7 +576,7 @@ def parse_indoor_doors(
         has_geometry = num_vertices > 0 or num_faces > 0 or num_sectors > 0 or num_offsets > 0
         has_identity = door["door_id"] != 0 or door["legacy_attributes"] != 0 or door["state"] != 0
 
-        if has_geometry or has_identity:
+        if door["door_index"] < door_count and (has_geometry or has_identity):
             active_doors.append(door)
 
     return active_doors, doors_data, data_offset + doors_data_count * 2
@@ -635,16 +706,16 @@ def parse_indoor_blv(path: Path) -> dict[str, object]:
     offset += face_data_size_bytes
     offset += face_count * TEXTURE_NAME_SIZE
 
+    face_param_count = reader.read_i32(offset, "face param count")
+    offset += 4
+    offset += face_param_count * FACE_PARAM_RECORD_SIZE
+    offset += face_param_count * FACE_PARAM_NAME_SIZE
     face_attributes: list[int] = []
 
     for face_index in range(face_count):
         header_offset = face_headers_offset + face_index * layout["face_record_size"]
         face_struct_offset = header_offset + 0x10 if layout["version"] > 6 else header_offset
         face_attributes.append(reader.read_u32(face_struct_offset + 0x1C, f"face {face_index} attributes"))
-
-    face_param_count = reader.read_i32(offset, "face param count")
-    offset += 4 + face_param_count * FACE_PARAM_RECORD_SIZE
-    offset += face_param_count * FACE_PARAM_NAME_SIZE
 
     sector_count = reader.read_i32(offset, "sector count")
     offset += 4 + sector_count * layout["sector_record_size"]
@@ -702,7 +773,7 @@ def parse_indoor_blv(path: Path) -> dict[str, object]:
     }
 
 
-def parse_indoor_dlv(path: Path, blv_model: dict[str, object]) -> dict[str, object]:
+def parse_indoor_dlv(path: Path, blv_model: dict[str, object], dlv_format: dict[str, object]) -> dict[str, object]:
     reader = ByteReader(path, path.read_bytes())
     location = parse_location_header(reader)
 
@@ -716,13 +787,22 @@ def parse_indoor_dlv(path: Path, blv_model: dict[str, object]) -> dict[str, obje
     validate_optional_header_count("decorationCount", location["decoration_count"], blv_model["entity_count"])
     validate_optional_header_count("bmodelCount", location["bmodel_count"], 0)
 
-    offset = LOCATION_HEADER_SIZE
+    offset = int(dlv_format["location_header_size"])
     visible_outlines = reader.read_bytes(offset, INDOOR_VISIBLE_OUTLINES_BYTES, "visible outlines")
     offset += INDOOR_VISIBLE_OUTLINES_BYTES
-    face_attributes, offset = parse_u32_vector(reader, offset, blv_model["raw_face_count"], "face attribute override")
-    decoration_flags, offset = parse_u16_vector(reader, offset, blv_model["entity_count"], "decoration flag")
-    actors, offset = parse_actor_vector(reader, offset)
-    sprite_objects, offset = parse_sprite_objects(reader, offset)
+
+    if dlv_format["has_face_bits"]:
+        face_attributes, offset = parse_u32_vector(reader, offset, blv_model["raw_face_count"], "face attribute override")
+    else:
+        face_attributes = blv_model["face_attributes"]
+
+    if dlv_format["has_sprite_bits"]:
+        decoration_flags, offset = parse_u16_vector(reader, offset, blv_model["entity_count"], "decoration flag")
+    else:
+        decoration_flags = [0] * int(blv_model["entity_count"])
+
+    actors, offset = parse_actor_vector(reader, offset, dlv_format)
+    sprite_objects, offset = parse_sprite_objects(reader, offset, dlv_format)
     chests, offset = parse_chests(reader, offset)
     doors, _doors_data, offset = parse_indoor_doors(
         reader,
@@ -730,6 +810,7 @@ def parse_indoor_dlv(path: Path, blv_model: dict[str, object]) -> dict[str, obje
         blv_model["door_count"],
         blv_model["doors_data_size_bytes"]
     )
+    apply_mmerge_initial_mechanism_state_fixups(path, doors)
     variables, offset = parse_persistent_variables(reader, offset)
     location_time = parse_location_time_optional(reader, offset)
 
@@ -748,6 +829,32 @@ def parse_indoor_dlv(path: Path, blv_model: dict[str, object]) -> dict[str, obje
     }
 
 
+def apply_mmerge_initial_mechanism_state_fixups(path: Path, doors: list[dict[str, object]]) -> None:
+    state_by_door_id = MMERGE_INITIAL_MECHANISM_STATE_FIXUPS.get(path.stem.lower())
+
+    if not state_by_door_id:
+        return
+
+    for door in doors:
+        door_id = int(door["door_id"])
+
+        if door_id in state_by_door_id:
+            door["state"] = state_by_door_id[door_id]
+
+
+def infer_dlv_format_id(args: argparse.Namespace, blv_model: dict[str, object]) -> str:
+    if args.world != "auto":
+        if args.world in {"mm6", "mm7"}:
+            return "mm8"
+        return args.world
+
+    version = int(blv_model["version"])
+
+    if version == 7:
+        return "mm7"
+    return "mm8"
+
+
 def build_scene_model(blv_model: dict[str, object], dlv_model: dict[str, object]) -> dict[str, object]:
     location_time = dlv_model["location_time"]
     face_attribute_overrides: list[dict[str, int]] = []
@@ -755,10 +862,11 @@ def build_scene_model(blv_model: dict[str, object], dlv_model: dict[str, object]
     for face_index, current_value in enumerate(dlv_model["face_attributes"]):
         if current_value == blv_model["face_attributes"][face_index]:
             continue
-        face_attribute_overrides.append({
+        override = {
             "face_index": face_index,
             "legacy_attributes": current_value,
-        })
+        }
+        face_attribute_overrides.append(override)
 
     decoration_flags: list[dict[str, int]] = []
 
@@ -776,6 +884,11 @@ def build_scene_model(blv_model: dict[str, object], dlv_model: dict[str, object]
         "source": {
             "geometry_file": blv_model["path"].name,
             "legacy_companion_file": dlv_model["path"].name,
+        },
+        "runtime_restrictions": {
+            "allow_save_game": True,
+            "allow_lloyds_beacon": True,
+            "arena": False,
         },
         "environment": {
             "last_visit_time": location_time["last_visit_time"],
@@ -829,6 +942,12 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
     lines.append("source:")
     write_yaml_scalar(lines, "  ", "geometry_file", scene_model["source"]["geometry_file"])
     write_yaml_scalar(lines, "  ", "legacy_companion_file", scene_model["source"]["legacy_companion_file"])
+
+    restrictions = scene_model["runtime_restrictions"]
+    lines.append("runtime_restrictions:")
+    write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
+    write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
+    write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
 
     environment = scene_model["environment"]
     lines.append("environment:")
@@ -888,7 +1007,10 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
         lines.append("  face_attribute_overrides:")
         for entry in face_attribute_overrides:
             lines.append(f"    - face_index: {entry['face_index']}")
-            lines.append(f"      legacy_attributes: {entry['legacy_attributes']}")
+            if "legacy_attributes" in entry:
+                lines.append(f"      legacy_attributes: {entry['legacy_attributes']}")
+            if "facet_type" in entry:
+                lines.append(f"      facet_type: {entry['facet_type']}")
 
     decoration_flags = initial_state["decoration_flags"]
     if not decoration_flags:
@@ -1046,6 +1168,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--map-base", help="path without extension, e.g. assets_dev/Data/games/d01")
     parser.add_argument("--input-dir", help="directory containing map files for --map mode")
     parser.add_argument("--map", help="map basename for --input-dir mode, e.g. d01")
+    parser.add_argument(
+        "--world",
+        choices=("auto", "mm6", "mm7", "mm8"),
+        default="auto",
+        help="source world; current mm6/mm7 imports use the MMerge/MM8 DLV layout",
+    )
     return parser
 
 
@@ -1063,7 +1191,8 @@ def main() -> int:
             raise ParseError(f"missing DLV file: {dlv_path}")
 
         blv_model = parse_indoor_blv(blv_path)
-        dlv_model = parse_indoor_dlv(dlv_path, blv_model)
+        dlv_format_id = infer_dlv_format_id(args, blv_model)
+        dlv_model = parse_indoor_dlv(dlv_path, blv_model, DLV_FORMATS[dlv_format_id])
         scene_model = build_scene_model(blv_model, dlv_model)
         output_text = render_scene_yaml(scene_model)
         write_atomic_text(output_path, output_text)

@@ -4,10 +4,14 @@
 #include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/StringUtils.h"
+#include "game/tables/MergedBaseTables.h"
+#include "game/tables/NpcDialogTable.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <initializer_list>
 #include <limits>
 #include <string_view>
@@ -21,6 +25,10 @@ namespace
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float OeMeleeAlertDistance = 307.2f;
 constexpr float OeYellowAlertDistance = 5120.0f;
+constexpr int EventNpcPortraitNativeWidth = 63;
+constexpr int EventNpcPortraitNativeHeight = 73;
+constexpr float EventNpcPortraitUvCropX = 2.0f;
+constexpr float EventNpcPortraitUvCropY = 2.0f;
 
 enum class PortraitAggroIndicator
 {
@@ -72,6 +80,36 @@ std::string normalizeGameplayLayoutRoleId(const std::string &layoutId)
     }
 
     return normalizedLayoutId;
+}
+
+std::string npcPortraitTextureName(uint32_t pictureId)
+{
+    if (pictureId == 0)
+    {
+        return {};
+    }
+
+    char buffer[16] = {};
+    std::snprintf(buffer, sizeof(buffer), "npc%04u", pictureId);
+    return buffer;
+}
+
+std::optional<size_t> followerPortraitSlotIndex(const std::string &normalizedLayoutId)
+{
+    constexpr std::string_view prefix = "outdoorfollowerportrait_";
+
+    if (normalizedLayoutId.rfind(prefix, 0) != 0 || normalizedLayoutId.size() != prefix.size() + 1)
+    {
+        return std::nullopt;
+    }
+
+    const char slot = normalizedLayoutId[prefix.size()];
+    if (slot < '1' || slot > '3')
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<size_t>(slot - '1');
 }
 
 bool isOverlayHudState(GameplayHudScreenState hudScreenState)
@@ -466,6 +504,16 @@ bool isGameplayElementVisibleInHudState(
     if (gameplayHudLayout == ActiveGameplayHudLayout::Standard)
     {
         return isDescendantOfAny(context, layout, {"outdoorstandardbasebar", "outdoorstandardtopbar"});
+    }
+
+    if (isDescendantOfAny(context, layout, {"outdoorfollowerpanel"}))
+    {
+        return context.interactionState().followerPanelOpen;
+    }
+
+    if (isDescendantOfAny(context, layout, {"outdoorfollowertoggle"}))
+    {
+        return true;
     }
 
     return isDescendantOfAny(
@@ -1033,6 +1081,70 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
             minimapOverlay = *resolved;
             hasMinimapState = true;
+            continue;
+        }
+
+        const std::optional<size_t> followerSlotIndex = followerPortraitSlotIndex(normalizedRoleId);
+        if (followerSlotIndex)
+        {
+            const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+            const EventRuntimeState *pEventRuntimeState =
+                pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+            const NpcDialogTable *pNpcDialogTable = context.npcDialogTable();
+            const MergedNpcProfessionTable *pNpcProfessionTable = context.mergedNpcProfessionTable();
+
+            if (pEventRuntimeState != nullptr && pNpcDialogTable != nullptr && pNpcProfessionTable != nullptr)
+            {
+                const std::vector<HiredNpcFollowerView> followerViews =
+                    buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable);
+
+                const size_t followerIndex =
+                    context.interactionState().followerPanelScrollOffset + *followerSlotIndex;
+
+                if (followerIndex < followerViews.size())
+                {
+                    const std::string textureName =
+                        npcPortraitTextureName(followerViews[followerIndex].portraitPictureId);
+                    const std::optional<GameplayHudTextureHandle> texture =
+                        !textureName.empty()
+                            ? context.gameplayUiRuntime().ensureHudTextureLoaded(textureName)
+                            : std::nullopt;
+                    const std::optional<GameplayResolvedHudLayoutElement> resolved =
+                        resolveLayout(context, layoutId, pLayout->width, pLayout->height, width, height);
+
+                    if (texture && resolved)
+                    {
+                        if (texture->width == EventNpcPortraitNativeWidth
+                            && texture->height == EventNpcPortraitNativeHeight)
+                        {
+                            submitQuadUv(
+                                queuedHudQuads,
+                                *texture,
+                                resolved->x,
+                                resolved->y,
+                                resolved->width,
+                                resolved->height,
+                                EventNpcPortraitUvCropX / static_cast<float>(EventNpcPortraitNativeWidth),
+                                EventNpcPortraitUvCropY / static_cast<float>(EventNpcPortraitNativeHeight),
+                                (static_cast<float>(EventNpcPortraitNativeWidth) - EventNpcPortraitUvCropX)
+                                    / static_cast<float>(EventNpcPortraitNativeWidth),
+                                (static_cast<float>(EventNpcPortraitNativeHeight) - EventNpcPortraitUvCropY)
+                                    / static_cast<float>(EventNpcPortraitNativeHeight));
+                        }
+                        else
+                        {
+                            submitQuad(
+                                queuedHudQuads,
+                                *texture,
+                                resolved->x,
+                                resolved->y,
+                                resolved->width,
+                                resolved->height);
+                        }
+                    }
+                }
+            }
+
             continue;
         }
 

@@ -517,7 +517,7 @@ bool shouldSkipSpriteObjectInspectTarget(const SpriteObjectBillboard &object, co
 constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr uint16_t HudViewId = 2;
-constexpr float DefaultOutdoorFarClip = 16192.0f;
+constexpr float DefaultOutdoorFarClip = 18000.0f;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float BillboardSpatialCellSize = 2048.0f;
@@ -4070,7 +4070,8 @@ bool OutdoorGameView::beginSaveWithPreview(
     const std::string &saveName,
     bool closeUiOnSuccess)
 {
-    if (!m_gameSession.canSaveGameToPath())
+    if (!m_gameSession.canSaveGameToPath()
+        || (m_map && !m_map->runtimeRestrictions.allowSaveGame))
     {
         return false;
     }
@@ -4611,6 +4612,8 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
 
     actorInspectOverlay.active = true;
     actorInspectOverlay.runtimeActorIndex = *runtimeActorIndex;
+    actorInspectOverlay.displayNameOverride =
+        OutdoorInteractionController::resolveActorInspectDisplayName(*this, inspectHit);
     actorInspectOverlay.sourceX = rectMinX;
     actorInspectOverlay.sourceY = rectMinY;
     actorInspectOverlay.sourceWidth = std::max(1.0f, rectMaxX - rectMinX);

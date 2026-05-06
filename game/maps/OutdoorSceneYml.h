@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/maps/MapRuntimeRestrictions.h"
 #include "game/maps/MapDeltaData.h"
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/outdoor/OutdoorWeatherProfile.h"
@@ -48,6 +49,13 @@ struct OutdoorSceneTerrainAttributeOverride
     uint8_t legacyAttributes = 0;
 };
 
+struct OutdoorSceneTerrainFootstepSoundOverride
+{
+    uint8_t tileId = 0;
+    uint32_t walkSoundId = 0;
+    uint32_t runSoundId = 0;
+};
+
 struct OutdoorSceneInteractiveFace
 {
     size_t bmodelIndex = 0;
@@ -93,8 +101,10 @@ struct OutdoorSceneData
     int formatVersion = 0;
     std::string geometryFile;
     std::optional<std::string> legacyCompanionFile;
+    MapRuntimeRestrictions runtimeRestrictions = {};
     OutdoorSceneEnvironment environment = {};
     std::vector<OutdoorSceneTerrainAttributeOverride> terrainAttributeOverrides;
+    std::vector<OutdoorSceneTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
     std::vector<OutdoorSceneInteractiveFace> interactiveFaces;
     std::vector<OutdoorSceneEntity> entities;
     std::vector<OutdoorSceneSpawn> spawns;
@@ -105,6 +115,10 @@ class OutdoorSceneYmlLoader
 {
 public:
     std::optional<OutdoorSceneData> loadFromText(const std::string &yamlText, std::string &errorMessage) const;
+    bool applyOverlayFromText(
+        OutdoorSceneData &sceneData,
+        const std::string &yamlText,
+        std::string &errorMessage) const;
 };
 
 bool buildOutdoorMapStateFromScene(

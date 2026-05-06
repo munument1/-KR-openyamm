@@ -42,10 +42,10 @@ struct OutdoorWeatherProfile
     OutdoorFogDistances smallFog = {4096, 8192};
     OutdoorFogDistances averageFog = {0, 4096};
     OutdoorFogDistances denseFog = {0, 2048};
-    bool mmergeWeatherConfigured = false;
-    uint32_t mmergeMapId = 0;
-    bool mmergeWeatherEnabled = false;
-    std::string mmergeCustomSkyTextureName;
-    std::vector<std::string> mmergeSkyTextureNames;
+    bool mergedWeatherConfigured = false;
+    uint32_t mergedMapId = 0;
+    bool mergedWeatherEnabled = false;
+    std::string mergedCustomSkyTextureName;
+    std::vector<std::string> mergedSkyTextureNames;
 };
 }

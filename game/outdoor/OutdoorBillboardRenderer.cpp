@@ -2,6 +2,7 @@
 
 #include "game/app/GameSession.h"
 #include "game/data/GameDataRepository.h"
+#include "game/events/EventProjectileSpells.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/ParticleSystem.h"
 #include "game/outdoor/OutdoorGameView.h"
@@ -33,8 +34,8 @@ namespace
 {
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float RuntimeProjectileRenderDistance = 12288.0f;
-constexpr float DecorationBillboardRenderDistance = 16384.0f;
-constexpr float ActorBillboardRenderDistance = 16384.0f;
+constexpr float DecorationBillboardRenderDistance = 18000.0f;
+constexpr float ActorBillboardRenderDistance = 18000.0f;
 constexpr uint64_t RenderHitchLogThresholdNanoseconds = 16 * 1000 * 1000;
 constexpr float BillboardNearDepth = 0.1f;
 constexpr bool DebugProjectileDrawLogging = false;
@@ -161,6 +162,12 @@ uint32_t resolveHoveredActorOutlineColor(const OutdoorWorldRuntime::MapActorStat
 uint32_t hoveredWorldItemOutlineColor()
 {
     return makeAbgr(64, 128, 255);
+}
+
+uint32_t computeClearDistanceFogColorAbgr(const OutdoorWorldRuntime &worldRuntime)
+{
+    const uint8_t brightness = outdoorClearDistanceFogBrightness(worldRuntime.gameMinutes());
+    return makeAbgr(brightness, brightness, brightness);
 }
 
 uint32_t computeBillboardFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
@@ -439,6 +446,16 @@ void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, 
     {
         const OutdoorWorldRuntime::AtmosphereState &atmosphereState =
             view.m_pOutdoorWorldRuntime->atmosphereState();
+        uint32_t fogColorAbgr = computeClearDistanceFogColorAbgr(*view.m_pOutdoorWorldRuntime);
+        const OutdoorFogProfile clearFogProfile = buildOutdoorClearDistanceFogProfile(clampedRenderDistance);
+        fogColor[0] = static_cast<float>(fogColorAbgr & 0xffu) / 255.0f;
+        fogColor[1] = static_cast<float>((fogColorAbgr >> 8) & 0xffu) / 255.0f;
+        fogColor[2] = static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f;
+        fogDensities[0] = clearFogProfile.nearOpacity;
+        fogDensities[1] = clearFogProfile.strongOpacity;
+        fogDistances[0] = clearFogProfile.weakDistance;
+        fogDistances[1] = clearFogProfile.strongDistance;
+        fogDistances[2] = clearFogProfile.farDistance;
 
         if ((atmosphereState.weatherFlags & 1) != 0
             && atmosphereState.fogWeakDistance >= 0
@@ -450,7 +467,7 @@ void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, 
                 clampedRenderDistance,
                 OutdoorFogNearOpacity,
                 OutdoorFogStrongOpacity);
-            const uint32_t fogColorAbgr = computeBillboardFogColorAbgr(atmosphereState);
+            fogColorAbgr = computeBillboardFogColorAbgr(atmosphereState);
             fogColor[0] = static_cast<float>(fogColorAbgr & 0xffu) / 255.0f;
             fogColor[1] = static_cast<float>((fogColorAbgr >> 8) & 0xffu) / 255.0f;
             fogColor[2] = static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f;
@@ -1303,6 +1320,15 @@ void OutdoorBillboardRenderer::queueEventSpellBillboardTextureWarmup(
 
     for (uint32_t spellId : eventProgram.castSpellIds())
     {
+        const EventProjectileSpellDefinition *pEventProjectile = eventProjectileSpellDefinition(spellId);
+
+        if (pEventProjectile != nullptr)
+        {
+            queueSpellObjectSpriteFrame(pEventProjectile->objectId);
+            queueSpellObjectSpriteFrame(pEventProjectile->impactObjectId);
+            continue;
+        }
+
         const SpellEntry *pSpellEntry = spellTable.findById(static_cast<int>(spellId));
 
         if (pSpellEntry == nullptr)

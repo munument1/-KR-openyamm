@@ -116,6 +116,7 @@ struct GameplayActorInspectState
     std::string previewTextureName;
     int16_t monsterId = 0;
     int16_t previewPaletteId = 0;
+    int previewYOffset = -40;
     int currentHp = 0;
     int maxHp = 0;
     int armorClass = 0;
@@ -377,6 +378,10 @@ public:
     {
         return false;
     }
+    virtual bool allowsLloydsBeacon() const
+    {
+        return true;
+    }
     virtual float gameMinutes() const = 0;
     virtual int currentHour() const = 0;
     virtual const std::vector<uint8_t> *journalMapFullyRevealedCells() const = 0;
@@ -385,6 +390,10 @@ public:
     virtual void advanceGameMinutes(float minutes) = 0;
     virtual int currentLocationReputation() const = 0;
     virtual void setCurrentLocationReputation(int reputation) = 0;
+    virtual void applyEventRuntimeState(bool syncPersistentHostilityMasks = false)
+    {
+        static_cast<void>(syncPersistentHostilityMasks);
+    }
     virtual Party *party() = 0;
     virtual const Party *party() const = 0;
     virtual float partyX() const = 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -21,6 +22,7 @@ public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
 
     std::optional<PotionCombination> potionCombination(uint32_t heldItemId, uint32_t targetItemId) const;
+    size_t combinationCount() const;
 
 private:
     static uint64_t key(uint32_t heldItemId, uint32_t targetItemId);

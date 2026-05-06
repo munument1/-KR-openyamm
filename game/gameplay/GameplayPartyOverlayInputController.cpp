@@ -10,6 +10,7 @@
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/party/SkillData.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/ui/GameplayHudCommon.h"
 #include "game/ui/SpellbookUiLayout.h"
 #include "game/StringUtils.h"
@@ -2706,7 +2707,11 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
 
                 const InventoryItemUseAction useAction =
-                    InventoryItemUseRuntime::classifyItemUse(context.heldInventoryItem().item, *context.itemTable());
+                    InventoryItemUseRuntime::classifyItemUse(
+                        context.heldInventoryItem().item,
+                        *context.itemTable(),
+                        context.mergedPotionSettingTable(),
+                        context.mergedReagentSettingTable());
 
                 if (useAction != InventoryItemUseAction::None
                     && useAction != InventoryItemUseAction::Equip
@@ -2770,7 +2775,11 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             if (target.type == GameplayCharacterPointerTargetType::DollPanel && context.heldInventoryItem().active)
             {
                 const InventoryItemUseAction useAction =
-                    InventoryItemUseRuntime::classifyItemUse(context.heldInventoryItem().item, *context.itemTable());
+                    InventoryItemUseRuntime::classifyItemUse(
+                        context.heldInventoryItem().item,
+                        *context.itemTable(),
+                        context.mergedPotionSettingTable(),
+                        context.mergedReagentSettingTable());
 
                 if (useAction != InventoryItemUseAction::None
                     && useAction != InventoryItemUseAction::Equip

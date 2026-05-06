@@ -576,12 +576,15 @@ std::vector<JournalStoryPage> buildJournalStoryPages(
     const size_t linesPerPage = std::max<size_t>(
         1,
         static_cast<size_t>(std::floor(pageHeightPixels / std::max(1.0f, static_cast<float>(font.fontHeight) * fontScale))));
+    const uint32_t historyContinentId = context.activeHistoryContinentId();
+    const std::unordered_map<uint32_t, int32_t> &historyEventTimes =
+        historyEventTimesForActiveContinent(*pEventRuntimeState);
 
-    for (const JournalHistoryEntry &entry : historyTable.entries())
+    for (const JournalHistoryEntry &entry : historyTable.entriesForContinent(historyContinentId))
     {
-        const auto historyTimeIt = pEventRuntimeState->historyEventTimes.find(entry.id);
+        const auto historyTimeIt = historyEventTimes.find(entry.id);
 
-        if (historyTimeIt == pEventRuntimeState->historyEventTimes.end())
+        if (historyTimeIt == historyEventTimes.end())
         {
             continue;
         }
@@ -8281,47 +8284,46 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
 
     if (previewRect)
     {
-        submitSolidQuad(previewRect->x, previewRect->y, previewRect->width, previewRect->height, previewBorderColor);
-        submitSolidQuad(
-            previewRect->x + previewInnerInset,
-            previewRect->y + previewInnerInset,
-            std::max(1.0f, previewRect->width - previewInnerInset * 2.0f),
-            std::max(1.0f, previewRect->height - previewInnerInset * 2.0f),
-            previewBackgroundColor);
+        const float dollSize = std::round(128.0f * popupScale);
+        const float dollX = std::round(previewRect->x + (previewRect->width - dollSize) * 0.5f);
+        const float dollY = std::round(previewRect->y + (previewRect->height - dollSize) * 0.5f);
+        submitSolidQuad(dollX, dollY, dollSize, dollSize, previewBackgroundColor);
     }
 
     if (previewRect && !actorState.previewTextureName.empty())
     {
         int previewTextureWidth = 0;
         int previewTextureHeight = 0;
-        const std::optional<std::vector<uint8_t>> previewPixels = context.gameplayUiRuntime().loadSpriteBitmapPixelsBgraCached(
-            actorState.previewTextureName,
-            actorState.previewPaletteId,
-            previewTextureWidth,
-            previewTextureHeight);
+        const std::optional<std::vector<uint8_t>> previewPixels =
+            context.gameplayUiRuntime().loadSpriteBitmapPixelsBgraCached(
+                actorState.previewTextureName,
+                actorState.previewPaletteId,
+                previewTextureWidth,
+                previewTextureHeight);
 
         if (previewPixels && previewTextureWidth > 0 && previewTextureHeight > 0)
         {
             const std::string cacheName = "__actor_inspect_preview_" + actorState.previewTextureName + "_"
                 + std::to_string(actorState.previewPaletteId);
             const std::optional<GameplayScreenRuntime::HudTextureHandle> previewTexture =
-                context.gameplayUiRuntime().ensureDynamicHudTexture(cacheName, previewTextureWidth, previewTextureHeight, *previewPixels);
+                context.gameplayUiRuntime().ensureDynamicHudTexture(
+                    cacheName,
+                    previewTextureWidth,
+                    previewTextureHeight,
+                    *previewPixels);
 
             if (previewTexture)
             {
-                const float previewPadding = std::round(4.0f * popupScale);
-                const float innerX = previewRect->x + previewPadding;
-                const float innerY = previewRect->y + previewPadding;
-                const float innerWidth = std::max(1.0f, previewRect->width - previewPadding * 2.0f);
-                const float innerHeight = std::max(1.0f, previewRect->height - previewPadding * 2.0f);
-                const float fitScale = std::min(
-                    innerWidth / static_cast<float>(previewTexture->width),
-                    innerHeight / static_cast<float>(previewTexture->height));
-                const float previewScale = fitScale * 1.8f;
+                const float dollSize = std::round(128.0f * popupScale);
+                const float innerX = std::round(previewRect->x + (previewRect->width - dollSize) * 0.5f);
+                const float innerY = std::round(previewRect->y + (previewRect->height - dollSize) * 0.5f);
+                const float innerWidth = std::max(1.0f, dollSize);
+                const float innerHeight = std::max(1.0f, dollSize);
+                const float previewScale = popupScale;
                 const float scaledWidth = static_cast<float>(previewTexture->width) * previewScale;
                 const float scaledHeight = static_cast<float>(previewTexture->height) * previewScale;
                 const float scaledX = std::round(innerX + (innerWidth - scaledWidth) * 0.5f);
-                const float scaledY = std::round(innerY + (innerHeight - scaledHeight) * 0.52f);
+                const float scaledY = std::round(innerY + static_cast<float>(actorState.previewYOffset) * popupScale);
                 const float visibleLeft = std::max(scaledX, innerX);
                 const float visibleTop = std::max(scaledY, innerY);
                 const float visibleRight = std::min(scaledX + scaledWidth, innerX + innerWidth);
@@ -8350,24 +8352,27 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
 
     if (previewRect)
     {
-        submitSolidQuad(previewRect->x, previewRect->y, previewRect->width, previewBorderThickness, previewBorderColor);
+        const float dollSize = std::round(128.0f * popupScale);
+        const float dollX = std::round(previewRect->x + (previewRect->width - dollSize) * 0.5f);
+        const float dollY = std::round(previewRect->y + (previewRect->height - dollSize) * 0.5f);
+        submitSolidQuad(dollX, dollY, dollSize, previewBorderThickness, previewBorderColor);
         submitSolidQuad(
-            previewRect->x,
-            previewRect->y + previewRect->height - previewBorderThickness,
-            previewRect->width,
+            dollX,
+            dollY + dollSize - previewBorderThickness,
+            dollSize,
             previewBorderThickness,
             previewBorderColor);
         submitSolidQuad(
-            previewRect->x,
-            previewRect->y,
+            dollX,
+            dollY,
             previewBorderThickness,
-            previewRect->height,
+            dollSize,
             previewBorderColor);
         submitSolidQuad(
-            previewRect->x + previewRect->width - previewBorderThickness,
-            previewRect->y,
+            dollX + dollSize - previewBorderThickness,
+            dollY,
             previewBorderThickness,
-            previewRect->height,
+            dollSize,
             previewBorderColor);
     }
 
@@ -8541,7 +8546,10 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         }
     }
 
-    renderTextForLayout("ActorInspectTitle", actorState.displayName);
+    const std::string actorInspectTitle = !actorInspect.displayNameOverride.empty()
+        ? actorInspect.displayNameOverride
+        : actorState.displayName;
+    renderTextForLayout("ActorInspectTitle", actorInspectTitle);
     renderTextForLayout(
         "ActorInspectHitPointsValue",
         std::to_string(std::max(0, actorState.currentHp)) + " / " + std::to_string(std::max(0, actorState.maxHp)));

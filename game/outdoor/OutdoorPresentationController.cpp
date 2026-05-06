@@ -55,6 +55,31 @@ bool isDirtTerrainTileId(uint8_t tileId)
 {
     return tileId > 0 && tileId < EndDirtTileId;
 }
+
+std::optional<SoundId> terrainFootstepSoundOverride(
+    const OutdoorMapData &outdoorMapData,
+    uint8_t tileId,
+    bool running)
+{
+    for (const OutdoorTerrainFootstepSoundOverride &overrideEntry : outdoorMapData.terrainFootstepSoundOverrides)
+    {
+        if (overrideEntry.tileId != tileId)
+        {
+            continue;
+        }
+
+        const uint32_t soundId = running ? overrideEntry.runSoundId : overrideEntry.walkSoundId;
+
+        if (soundId == 0)
+        {
+            return std::nullopt;
+        }
+
+        return static_cast<SoundId>(soundId);
+    }
+
+    return std::nullopt;
+}
 } // namespace
 
 void OutdoorPresentationController::consumePendingWorldAudioEvents(OutdoorGameView &view)
@@ -229,6 +254,14 @@ void OutdoorPresentationController::updateFootstepAudio(OutdoorGameView &view, f
             if (!terrainTileId.has_value())
             {
                 return running ? SoundId::RunGrass : SoundId::WalkGrass;
+            }
+
+            const std::optional<SoundId> overrideSoundId =
+                terrainFootstepSoundOverride(*view.m_outdoorMapData, *terrainTileId, running);
+
+            if (overrideSoundId)
+            {
+                return *overrideSoundId;
             }
 
             if (isRoadTerrainTileId(*terrainTileId))

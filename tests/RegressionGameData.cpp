@@ -5,7 +5,7 @@
 #include "engine/TextTable.h"
 #include "game/arcomage/ArcomageLoader.h"
 #include "game/tables/MapStats.h"
-#include "game/tables/MmergeBaseTables.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <filesystem>
 #include <optional>
@@ -141,29 +141,12 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
 
     std::vector<std::vector<std::string>> itemRows;
 
-    std::vector<std::vector<std::string>> arcomageRuleRows;
-
-    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("arcomage_rules.txt"), arcomageRuleRows, failure))
-    {
-        return false;
-    }
-
     std::vector<std::vector<std::string>> arcomageCardRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("arcomage_cards.txt"), arcomageCardRows, failure))
     {
         return false;
     }
-
-    Game::ArcomageLoader arcomageLoader;
-
-    if (!arcomageLoader.load(arcomageRuleRows, arcomageCardRows))
-    {
-        failure = "could not load Arcomage library for regression tests";
-        return false;
-    }
-
-    data.arcomageLibrary = arcomageLoader.library();
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("items.txt"), itemRows, failure))
     {
@@ -193,6 +176,166 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!data.potionMixingTable.loadFromRows(potionRows))
     {
         failure = "could not load potion mixing table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> potionSettingRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("potion_settings.txt"), potionSettingRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedPotionSettingTable.loadFromRows(potionSettingRows))
+    {
+        failure = "could not load merged potion setting table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> reagentSettingRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("reagent_settings.txt"), reagentSettingRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedReagentSettingTable.loadFromRows(reagentSettingRows))
+    {
+        failure = "could not load merged reagent setting table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> teacherTopicRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("teacher_topics.txt"), teacherTopicRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedTeacherTopicTable.loadFromRows(teacherTopicRows))
+    {
+        failure = "could not load merged teacher topic table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> teacherAutonoteRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("teacher_autonotes.txt"), teacherAutonoteRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedTeacherAutonoteTable.loadFromRows(teacherAutonoteRows))
+    {
+        failure = "could not load merged teacher autonote table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> npcProfessionRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("npc_professions.txt"), npcProfessionRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedNpcProfessionTable.loadFromRows(npcProfessionRows))
+    {
+        failure = "could not load merged NPC profession table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> npcNameRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("npc_names.txt"), npcNameRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedNpcNameTable.loadFromRows(npcNameRows))
+    {
+        failure = "could not load merged NPC name table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> npcBtbRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("npc_btb.txt"), npcBtbRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedNpcBtbTable.loadFromRows(npcBtbRows))
+    {
+        failure = "could not load merged NPC BTB table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> newsProfessionTopicRows;
+
+    if (!loadTextTableRows(
+            assetFileSystem,
+            engineDataTablePath("news_topics_profession.txt"),
+            newsProfessionTopicRows,
+            failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedNewsProfessionTopicTable.loadFromRows(newsProfessionTopicRows))
+    {
+        failure = "could not load merged profession news topic table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> bolsterMapRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("bolster_maps.txt"), bolsterMapRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedBolsterMapTable.loadFromRows(bolsterMapRows))
+    {
+        failure = "could not load merged bolster map table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> bolsterMonsterRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("bolster_monsters.txt"), bolsterMonsterRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedBolsterMonsterTable.loadFromRows(bolsterMonsterRows))
+    {
+        failure = "could not load merged bolster monster table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> monsterPortraitRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("monster_portraits.txt"), monsterPortraitRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedMonsterPortraitTable.loadFromRows(monsterPortraitRows))
+    {
+        failure = "could not load merged monster portrait table for regression tests";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> continentSettingRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("continent_settings.txt"), continentSettingRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedContinentSettingTable.loadFromRows(continentSettingRows))
+    {
+        failure = "could not load merged continent setting table for regression tests";
         return false;
     }
 
@@ -274,21 +417,6 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("spells.txt"), spellRows, failure))
     {
         return false;
-    }
-
-    std::vector<std::vector<std::string>> supplementalSpellRows;
-
-    const std::string supplementalSpellsPath = engineDataTablePath("spells_supplemental.txt");
-
-    if (assetFileSystem.exists(supplementalSpellsPath)
-        && !loadTextTableRows(assetFileSystem, supplementalSpellsPath, supplementalSpellRows, failure))
-    {
-        return false;
-    }
-
-    if (!supplementalSpellRows.empty())
-    {
-        spellRows.insert(spellRows.end(), supplementalSpellRows.begin(), supplementalSpellRows.end());
     }
 
     if (!data.spellTable.loadFromRows(spellRows))
@@ -395,19 +523,6 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
-    std::vector<std::vector<std::string>> transportRows;
-
-    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("transport_schedules.txt"), transportRows, failure))
-    {
-        return false;
-    }
-
-    if (!data.houseTable.loadTransportScheduleRows(transportRows))
-    {
-        failure = "could not load transport schedules for regression tests";
-        return false;
-    }
-
     std::vector<std::vector<std::string>> mapStatsRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("map_stats.txt"), mapStatsRows, failure))
@@ -430,11 +545,11 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
-    Game::MmergeHouseRuleTable houseRules = {};
+    Game::MergedHouseRuleTable houseRules = {};
 
     if (!houseRules.loadFromRows(houseRuleRows))
     {
-        failure = "could not load MMerge house rules for regression tests";
+        failure = "could not load merged house rules for regression tests";
         return false;
     }
 
@@ -449,19 +564,50 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
-    Game::MmergeTransportLocationTable transportLocations = {};
+    Game::MergedTransportLocationTable transportLocations = {};
 
     if (!transportLocations.loadFromRows(transportLocationRows))
     {
-        failure = "could not load MMerge transport locations for regression tests";
+        failure = "could not load merged transport locations for regression tests";
         return false;
     }
 
-    if (!data.houseTable.applyMmergeTransportRoutes(houseRules, transportLocations, mapStats))
+    if (!data.houseTable.applyHouseRules(houseRules, transportLocations, mapStats))
     {
-        failure = "could not apply MMerge transport routes for regression tests";
+        failure = "could not apply merged house rules for regression tests";
         return false;
     }
+
+    std::vector<std::vector<std::string>> houseExitRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("house_exits.txt"), houseExitRows, failure))
+    {
+        return false;
+    }
+
+    Game::MergedHouseExitTable houseExits = {};
+
+    if (!houseExits.loadFromRows(houseExitRows))
+    {
+        failure = "could not load merged house exits for regression tests";
+        return false;
+    }
+
+    if (!data.houseTable.applyHouseExits(houseExits, mapStats))
+    {
+        failure = "could not apply merged house exits for regression tests";
+        return false;
+    }
+
+    Game::ArcomageLoader arcomageLoader;
+
+    if (!arcomageLoader.loadFromHouseRules(houseRules, data.houseTable, arcomageCardRows))
+    {
+        failure = "could not load Arcomage library for regression tests";
+        return false;
+    }
+
+    data.arcomageLibrary = arcomageLoader.library();
 
     std::vector<std::vector<std::string>> rosterRows;
 

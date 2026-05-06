@@ -9,6 +9,7 @@
 #include "game/gameplay/GameplayScreenController.h"
 #include "game/gameplay/GameplaySaveLoadUiSupport.h"
 #include "game/gameplay/GameplaySpellService.h"
+#include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/SavePreviewImage.h"
 #include "game/audio/SoundIds.h"
 #include "game/items/ItemRuntime.h"
@@ -17,6 +18,7 @@
 #include "game/party/SkillData.h"
 #include "game/party/SpellSchool.h"
 #include "game/scene/IndoorSceneRuntime.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/ui/GameplayDebugOverlayRenderer.h"
 #include "game/ui/GameplayDialogueRenderer.h"
 #include "game/ui/GameplayHudOverlaySupport.h"
@@ -869,6 +871,58 @@ uint32_t currentDialogueHostHouseId(const EventRuntimeState *pEventRuntimeState)
 {
     return pEventRuntimeState != nullptr ? pEventRuntimeState->dialogueState.hostHouseId : 0;
 }
+
+bool indoorActorExplicitlyHostile(const MapDeltaActor &actor)
+{
+    return (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Hostile)) != 0
+        || (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Aggressor)) != 0;
+}
+
+std::optional<GenericActorDialogResolution> resolveIndoorActorDialog(
+    const GameSession &gameSession,
+    const std::optional<MapStatsEntry> &map,
+    const EventRuntimeState &eventRuntimeState,
+    const MapDeltaActor &actor,
+    const GameplayActorInspectState &inspectState,
+    size_t actorIndex)
+{
+    return resolveGenericActorDialog(
+        map ? map->fileName : std::string(),
+        inspectState.displayName,
+        actor.group,
+        eventRuntimeState,
+        gameSession.data().npcDialogTable(),
+        &gameSession.data().mergedMonsterPortraitTable(),
+        map ? &*map : nullptr,
+        &gameSession.data().mergedNewsAreaTopicTable(),
+        &gameSession.data().mergedNewsContinentTopicTable(),
+        &gameSession.data().mergedNpcNameTable(),
+        &gameSession.data().mergedNpcProfessionTable(),
+        &gameSession.data().mergedBolsterMapTable(),
+        &gameSession.data().mergedBolsterMonsterTable(),
+        inspectState.monsterId > 0 ? static_cast<uint32_t>(inspectState.monsterId) : 0,
+        actorIndex);
+}
+
+std::string generatedActorDisplayTitle(
+    const GameSession &gameSession,
+    const GenericActorDialogResolution &resolution)
+{
+    if (!resolution.generatedNpc || resolution.generatedName.empty())
+    {
+        return {};
+    }
+
+    const MergedNpcProfessionEntry *pProfession =
+        gameSession.data().mergedNpcProfessionTable().get(resolution.generatedProfessionId);
+
+    if (pProfession == nullptr || pProfession->profession.empty())
+    {
+        return resolution.generatedName;
+    }
+
+    return resolution.generatedName + " the " + pProfession->profession;
+}
 }
 
 bool IndoorGameView::initialize(
@@ -1218,6 +1272,176 @@ const GameplayUiController::HeldInventoryItemState &IndoorGameView::heldInventor
     return m_gameSession.gameplayScreenRuntime().heldInventoryItem();
 }
 
+bool IndoorGameView::canActivateMapActorDialogue(size_t actorIndex) const
+{
+    if (m_pIndoorSceneRuntime == nullptr)
+    {
+        return false;
+    }
+
+    const IndoorWorldRuntime &worldRuntime = m_pIndoorSceneRuntime->worldRuntime();
+    const MapDeltaData *pMapDeltaData = worldRuntime.mapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = worldRuntime.eventRuntimeState();
+
+    if (pMapDeltaData == nullptr || pEventRuntimeState == nullptr || actorIndex >= pMapDeltaData->actors.size())
+    {
+        return false;
+    }
+
+    const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+    const IndoorWorldRuntime::MapActorAiState *pAiState = worldRuntime.mapActorAiState(actorIndex);
+    GameplayRuntimeActorState runtimeState = {};
+
+    if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0
+        || pAiState == nullptr
+        || pAiState->motionState == ActorAiMotionState::Dying
+        || !worldRuntime.actorRuntimeState(actorIndex, runtimeState)
+        || runtimeState.isDead
+        || runtimeState.isInvisible)
+    {
+        return false;
+    }
+
+    if (actor.npcId > 0)
+    {
+        return !runtimeState.hostileToParty;
+    }
+
+    GameplayActorInspectState inspectState = {};
+
+    if (!worldRuntime.actorInspectState(actorIndex, 0, inspectState))
+    {
+        return false;
+    }
+
+    const std::optional<GenericActorDialogResolution> resolution =
+        resolveIndoorActorDialog(m_gameSession, m_map, *pEventRuntimeState, actor, inspectState, actorIndex);
+
+    if (resolution && resolution->generatedNpc && resolution->opensNpcTalk)
+    {
+        return !indoorActorExplicitlyHostile(actor);
+    }
+
+    if (runtimeState.hostileToParty)
+    {
+        return false;
+    }
+
+    return resolution.has_value();
+}
+
+bool IndoorGameView::activateMapActorDialogue(size_t actorIndex)
+{
+    if (m_pIndoorSceneRuntime == nullptr)
+    {
+        return false;
+    }
+
+    IndoorWorldRuntime &worldRuntime = m_pIndoorSceneRuntime->worldRuntime();
+    MapDeltaData *pMapDeltaData = worldRuntime.mapDeltaData();
+    EventRuntimeState *pEventRuntimeState = worldRuntime.eventRuntimeState();
+
+    if (pMapDeltaData == nullptr || pEventRuntimeState == nullptr || actorIndex >= pMapDeltaData->actors.size())
+    {
+        return false;
+    }
+
+    const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+
+    if (!canActivateMapActorDialogue(actorIndex))
+    {
+        pEventRuntimeState->lastActivationResult = "actor " + std::to_string(actorIndex) + " dialogue blocked";
+        return false;
+    }
+
+    auto presentPendingDialog =
+        [this](const GameplayDialogController::Result &result, bool allowNpcFallbackContent)
+        {
+            if (!result.shouldOpenPendingEventDialog)
+            {
+                return;
+            }
+
+            m_gameSession.gameplayScreenRuntime().presentPendingEventDialog(
+                result.previousMessageCount,
+                allowNpcFallbackContent,
+                [this](EventRuntimeState &eventRuntimeState)
+                {
+                    return buildDialogContext(eventRuntimeState);
+                });
+        };
+
+    GameplayDialogController::Context context = buildDialogContext(*pEventRuntimeState);
+
+    if (actor.npcId > 0)
+    {
+        const GameplayDialogController::Result result =
+            m_gameSession.gameplayDialogController().openNpcDialogue(
+                context,
+                static_cast<uint32_t>(actor.npcId),
+                0,
+                static_cast<uint32_t>(actorIndex));
+        pEventRuntimeState->lastActivationResult = "npc " + std::to_string(actor.npcId) + " engaged";
+        presentPendingDialog(result, true);
+        return true;
+    }
+
+    GameplayActorInspectState inspectState = {};
+
+    if (!worldRuntime.actorInspectState(actorIndex, 0, inspectState))
+    {
+        return false;
+    }
+
+    const std::optional<GenericActorDialogResolution> resolution =
+        resolveIndoorActorDialog(m_gameSession, m_map, *pEventRuntimeState, actor, inspectState, actorIndex);
+
+    if (!resolution)
+    {
+        pEventRuntimeState->lastActivationResult =
+            "actor group " + std::to_string(actor.group) + " dialogue unresolved";
+        return false;
+    }
+
+    if (resolution->opensNpcTalk)
+    {
+        applyGenericActorDialogResolution(*pEventRuntimeState, *resolution);
+        const GameplayDialogController::Result result =
+            m_gameSession.gameplayDialogController().openNpcDialogue(
+                context,
+                resolution->npcId,
+                0,
+                static_cast<uint32_t>(actorIndex));
+        pEventRuntimeState->lastActivationResult =
+            "generated npc " + std::to_string(resolution->npcId) + " engaged";
+        presentPendingDialog(result, result.allowNpcFallbackContent);
+        return true;
+    }
+
+    const std::optional<std::string> newsText =
+        m_gameSession.data().npcDialogTable().getNewsDialogText(resolution->newsId);
+
+    if (!newsText || newsText->empty())
+    {
+        pEventRuntimeState->lastActivationResult =
+            "actor group " + std::to_string(actor.group) + " news text unresolved";
+        return false;
+    }
+
+    const GameplayDialogController::Result result =
+        m_gameSession.gameplayDialogController().openNpcNews(
+            context,
+            resolution->npcId,
+            resolution->newsId,
+            inspectState.displayName,
+            *newsText,
+            resolution->portraitPictureId);
+    pEventRuntimeState->lastActivationResult =
+        "npc news group " + std::to_string(actor.group) + " engaged";
+    presentPendingDialog(result, result.allowNpcFallbackContent);
+    return true;
+}
+
 void IndoorGameView::setStatusBarEvent(const std::string &text, float durationSeconds)
 {
     m_gameSession.gameplayScreenRuntime().setStatusBarEvent(text, durationSeconds);
@@ -1405,7 +1629,8 @@ bool IndoorGameView::beginSaveWithPreview(
     const std::string &saveName,
     bool closeUiOnSuccess)
 {
-    if (!m_gameSession.canSaveGameToPath())
+    if (!m_gameSession.canSaveGameToPath()
+        || (m_map && !m_map->runtimeRestrictions.allowSaveGame))
     {
         return false;
     }
@@ -1575,6 +1800,37 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
     actorInspectOverlay.sourceY = pick->sourceY;
     actorInspectOverlay.sourceWidth = pick->sourceWidth;
     actorInspectOverlay.sourceHeight = pick->sourceHeight;
+
+    const MapDeltaData *pMapDeltaData = pWorldRuntime->mapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+
+    if (pMapDeltaData == nullptr
+        || pEventRuntimeState == nullptr
+        || pick->runtimeActorIndex >= pMapDeltaData->actors.size())
+    {
+        return;
+    }
+
+    GameplayActorInspectState inspectState = {};
+
+    if (!pWorldRuntime->actorInspectState(pick->runtimeActorIndex, 0, inspectState))
+    {
+        return;
+    }
+
+    const std::optional<GenericActorDialogResolution> resolution =
+        resolveIndoorActorDialog(
+            m_gameSession,
+            m_map,
+            *pEventRuntimeState,
+            pMapDeltaData->actors[pick->runtimeActorIndex],
+            inspectState,
+            pick->runtimeActorIndex);
+
+    if (resolution)
+    {
+        actorInspectOverlay.displayNameOverride = generatedActorDisplayTitle(m_gameSession, *resolution);
+    }
 }
 
 void IndoorGameView::updateItemInspectOverlayState(int width, int height, const GameplayInputFrame &input)
@@ -1693,8 +1949,13 @@ GameplayDialogController::Context IndoorGameView::buildDialogContext(EventRuntim
         &m_gameSession.data().arcomageLibrary(),
         screenRuntime.currentHudScreenState() == GameplayHudScreenState::Dialogue,
         &screenRuntime,
-        &m_gameSession.data().mmergeNpcProfessionTable(),
-        &m_gameSession.data().mmergeNewsProfessionTopicTable());
+        &m_gameSession.data().mergedNpcProfessionTable(),
+        &m_gameSession.data().mergedNewsProfessionTopicTable(),
+        &m_gameSession.data().mergedNpcBtbTable(),
+        &m_gameSession.data().mergedBolsterMapTable(),
+        &m_gameSession.data().mergedContinentSettingTable(),
+        &m_gameSession.data().mergedTeacherTopicTable(),
+        &m_gameSession.data().mergedTeacherAutonoteTable());
 }
 
 } // namespace OpenYAMM::Game

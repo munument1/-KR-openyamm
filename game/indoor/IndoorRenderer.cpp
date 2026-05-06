@@ -947,10 +947,7 @@ float resolveMechanismDistance(
         return runtimeMechanism.currentDistance;
     }
 
-    door.state = mechanismIterator->second.state;
-    return mechanismIterator->second.isMoving
-        ? EventRuntime::calculateMechanismDistance(door, mechanismIterator->second)
-        : mechanismIterator->second.currentDistance;
+    return mechanismIterator->second.currentDistance;
 }
 
 std::optional<MechanismFaceTextureState> findMechanismFaceTextureState(
@@ -3223,9 +3220,8 @@ GameplayWorldHit IndoorRenderer::translateInspectHitToGameplayWorldHit(
     }
     else if (inspectHit.kind == "mechanism")
     {
-        worldHit.hasHit = false;
-        worldHit.kind = GameplayWorldHitKind::None;
-        return worldHit;
+        eventTargetHit.targetKind = GameplayWorldEventTargetKind::Mechanism;
+        eventTargetHit.triggeredEventId = inspectHit.mechanismLinkedEventId;
     }
     else
     {
@@ -3282,7 +3278,7 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
 
     if (inspectHit.kind == "mechanism")
     {
-        return 0;
+        return inspectHit.mechanismLinkedEventId;
     }
 
     return 0;
@@ -4100,6 +4096,11 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectHitFromGameplay
     {
         inspectHit.kind = "spawn";
     }
+    else if (eventTarget.targetKind == GameplayWorldEventTargetKind::Mechanism)
+    {
+        inspectHit.kind = "mechanism";
+        inspectHit.mechanismLinkedEventId = eventTarget.triggeredEventId;
+    }
     else if (eventTarget.targetKind == GameplayWorldEventTargetKind::Object)
     {
         return std::nullopt;
@@ -4129,6 +4130,11 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
     if (inspectHit->kind == "face")
     {
         return indoorFaceIsInteractionActivatable(inspectHit->attributes, inspectHit->cogTriggered);
+    }
+
+    if (inspectHit->kind == "mechanism")
+    {
+        return inspectHitEventId(*inspectHit) != 0;
     }
 
     return false;

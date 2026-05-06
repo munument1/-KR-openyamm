@@ -2309,6 +2309,15 @@ PartySpellCastResult PartySpellSystem::castSpell(
             }
             else if (spellId == SpellId::LloydsBeacon)
             {
+                if (!worldRuntime.allowsLloydsBeacon())
+                {
+                    return makeFailureWithRecovery(
+                        PartySpellCastStatus::Failed,
+                        rule->targetKind,
+                        rule->effectKind,
+                        SpellFailedText);
+                }
+
                 Character *pTargetMember = party.member(request.casterMemberIndex);
 
                 if (pTargetMember == nullptr || request.utilitySlotIndex >= pTargetMember->lloydsBeacons.size())

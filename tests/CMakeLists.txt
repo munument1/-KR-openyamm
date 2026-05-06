@@ -19,7 +19,7 @@ add_executable(openyamm_unit_tests
     MapStatsRegressionTests.cpp
     MapDeltaDataTests.cpp
     MonsterTableRegressionTests.cpp
-    MmergeBaseTablesTests.cpp
+    MergedBaseTablesTests.cpp
     PartyRegressionTests.cpp
     RegressionMapLoader.cpp
     SpellRegressionTests.cpp
@@ -61,7 +61,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/HouseServiceRuntime.cpp
     ../game/gameplay/JournalQuestRuntime.cpp
     ../game/gameplay/MasteryTeacherDialog.cpp
-    ../game/items/ItemEquipPosTable.cpp
+    ../game/gameplay/NpcFollowerRuntime.cpp
     ../game/gameplay/GameplayProjectileService.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
     ../game/gameplay/SavePreviewImage.cpp
@@ -107,7 +107,7 @@ add_executable(openyamm_unit_tests
     ../game/tables/JournalQuestTable.cpp
     ../game/tables/MonsterTable.cpp
     ../game/tables/MonsterProjectileTable.cpp
-    ../game/tables/MmergeBaseTables.cpp
+    ../game/tables/MergedBaseTables.cpp
     ../game/tables/MapStats.cpp
     ../game/tables/NpcDialogTable.cpp
     ../game/tables/ObjectTable.cpp

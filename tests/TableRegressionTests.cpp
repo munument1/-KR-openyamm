@@ -211,7 +211,7 @@ TEST_CASE("house data magic guild types are explicit")
     CHECK_EQ(pDarkGuild->type, "Dark Guild");
 }
 
-TEST_CASE("mmerge house movie metadata drives videos and proprietor portraits")
+TEST_CASE("merged house movie metadata drives videos and proprietor portraits")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
 
@@ -390,7 +390,7 @@ TEST_CASE("monster spell descriptors preserve skill mastery and level")
     CHECK_EQ(pStats->spell2SkillLevel, 9u);
 }
 
-TEST_CASE("monster hostility table follows merged MMerge party relations")
+TEST_CASE("monster hostility table follows merged merged party relations")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
 

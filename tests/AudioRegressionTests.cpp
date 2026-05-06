@@ -107,6 +107,16 @@ bool isUnsignedIntegerString(const std::string &value)
     return true;
 }
 
+std::string toLowerAsciiCopy(std::string value)
+{
+    for (char &character : value)
+    {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+
+    return value;
+}
+
 OpenYAMM::Game::Party makeAudioRegressionParty(const OpenYAMM::Tests::RegressionGameData &gameData)
 {
     OpenYAMM::Game::Party party = {};
@@ -426,6 +436,17 @@ TEST_CASE("sound catalog resolves registered physical audio through merged audio
         errorMessage));
     soundCatalog.initializeVirtualPathIndex(assetFileSystem);
 
+    std::unordered_set<std::string> audioFileNamesByLowerName;
+    for (const std::string &entry : assetFileSystem.enumerate("audio"))
+    {
+        const std::string lowerEntry = toLowerAsciiCopy(entry);
+
+        if (lowerEntry.size() >= 5 && lowerEntry.substr(lowerEntry.size() - 4) == ".wav")
+        {
+            audioFileNamesByLowerName.insert(lowerEntry);
+        }
+    }
+
     std::unordered_set<uint32_t> checkedSoundIds;
     size_t resolvedSoundCount = 0;
 
@@ -450,9 +471,8 @@ TEST_CASE("sound catalog resolves registered physical audio through merged audio
             continue;
         }
 
-        const std::string audioPath = "Data/EnglishD/" + row[0] + ".wav";
-
-        if (!assetFileSystem.exists(audioPath))
+        const std::string audioFileName = toLowerAsciiCopy(row[0] + ".wav");
+        if (audioFileNamesByLowerName.find(audioFileName) == audioFileNamesByLowerName.end())
         {
             continue;
         }

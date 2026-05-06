@@ -638,7 +638,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 636	Agatha Noble	0707	0	0	0	0	0	297	0	1210	1211	0	0	0	0	Hint NPC in Nighon (10)
 637	Vincent Albers	0781	0	0	0	0	0	297	0	1246	1211	0	0	0	0	Hint NPC in Nighon (10)
 638	Dallia Sparks	0714	0	0	0	1151	0	298	0	1209	1187	0	0	0	0	Hint NPC in Barrow Downs (11)
-639	Arena Master	0734	0	0	0	0	0	0	0	0	0	1149	0	0	0	
+639	Arena Master	0734	0	0	0	0	0	0	0	704	0	0	0	0	0	
 640	Adam McCarthy	0779	0	0	0	0	0	0	0	0	0	0	0	0	0	
 641	Alex Sherman	0879	0	0	0	0	0	0	0	0	0	0	0	0	0	
 642	Andrew Grumm	0929	0	0	0	0	0	0	0	0	0	0	0	0	0	

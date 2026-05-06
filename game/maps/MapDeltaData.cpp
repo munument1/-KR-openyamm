@@ -14,6 +14,7 @@ constexpr size_t ActorRecordSize = 0x3cc;
 constexpr size_t SpriteObjectRecordSize = 0x70;
 constexpr size_t ChestRecordSize = 5324;
 constexpr size_t DoorRecordSize = 0x50;
+constexpr size_t IndoorDoorRecordSlotCount = 200;
 constexpr size_t PersistentVariablesSize = 0xc8;
 constexpr size_t LocationTimeSize = 0x38;
 constexpr size_t ActorNameSize = 32;
@@ -365,15 +366,15 @@ bool parseDoors(
     mapDeltaData.doorSlotCount = doorCount;
     const size_t doorDataOffset = offset;
 
-    if (!reader.canRead(doorDataOffset, static_cast<size_t>(doorCount) * DoorRecordSize))
+    if (!reader.canRead(doorDataOffset, IndoorDoorRecordSlotCount * DoorRecordSize))
     {
         return false;
     }
 
     std::vector<MapDeltaDoor> doors;
-    doors.reserve(doorCount);
+    doors.reserve(IndoorDoorRecordSlotCount);
 
-    for (uint32_t doorIndex = 0; doorIndex < doorCount; ++doorIndex)
+    for (uint32_t doorIndex = 0; doorIndex < IndoorDoorRecordSlotCount; ++doorIndex)
     {
         const size_t doorOffset = doorDataOffset + static_cast<size_t>(doorIndex) * DoorRecordSize;
         MapDeltaDoor door = {};
@@ -408,7 +409,7 @@ bool parseDoors(
         doors.push_back(std::move(door));
     }
 
-    size_t dataVectorOffset = doorDataOffset + static_cast<size_t>(doorCount) * DoorRecordSize;
+    size_t dataVectorOffset = doorDataOffset + IndoorDoorRecordSlotCount * DoorRecordSize;
     const uint32_t doorsDataCount = static_cast<uint32_t>(std::max(indoorMapData.doorsDataSizeBytes, 0) / sizeof(int16_t));
 
     if (!reader.canRead(dataVectorOffset, static_cast<size_t>(doorsDataCount) * sizeof(int16_t)))
@@ -511,7 +512,7 @@ bool parseDoors(
             || door.numOffsets > 0;
         const bool hasIdentity = door.doorId != 0 || door.attributes != 0 || door.state != 0;
 
-        if (!hasGeometry && !hasIdentity)
+        if (door.slotIndex >= doorCount || (!hasGeometry && !hasIdentity))
         {
             continue;
         }

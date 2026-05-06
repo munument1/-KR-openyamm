@@ -419,12 +419,6 @@ bool AssetFileSystem::initialize(
         return false;
     }
 
-    if (editorDevelopmentRoot != assetRoot && !mountSearchRoot(editorDevelopmentRoot, false))
-    {
-        shutdown();
-        return false;
-    }
-
     const std::filesystem::path editorWorldRoot =
         editorDevelopmentRoot / WorldsDevelopmentRootName / m_activeWorldId;
     std::filesystem::create_directories(editorWorldRoot, createDirectoriesError);
@@ -433,12 +427,6 @@ bool AssetFileSystem::initialize(
     {
         std::cerr << "Could not create editor world package root " << editorWorldRoot << ": "
                   << createDirectoriesError.message() << '\n';
-        shutdown();
-        return false;
-    }
-
-    if (editorDevelopmentRoot != assetRoot && !mountDevelopmentPackageRoots(editorDevelopmentRoot, m_activeWorldId))
-    {
         shutdown();
         return false;
     }

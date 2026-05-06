@@ -11,6 +11,8 @@
 namespace OpenYAMM::Game
 {
 class ItemTable;
+class MergedPotionSettingTable;
+class MergedReagentSettingTable;
 class PotionMixingTable;
 struct ItemDefinition;
 
@@ -58,6 +60,8 @@ public:
         uint8_t targetGridX,
         uint8_t targetGridY,
         const ItemTable &itemTable,
-        const PotionMixingTable &potionMixingTable);
+        const PotionMixingTable &potionMixingTable,
+        const MergedPotionSettingTable &potionSettingTable,
+        const MergedReagentSettingTable &reagentSettingTable);
 };
 }
