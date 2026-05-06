@@ -120,7 +120,7 @@ public:
     void setWaterWalkActive(bool active);
     void setFeatherFallActive(bool active);
     void setSpeedMultiplier(float multiplier);
-    void requestJump();
+    void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
 
 private:
     OutdoorMovementController m_movementController;
@@ -133,6 +133,8 @@ private:
     bool m_jumpHeld = false;
     bool m_flyUpHeld = false;
     bool m_pendingJumpPress = false;
+    std::optional<float> m_pendingJumpVelocity;
+    float m_pendingJumpLift = 1.0f;
     bool m_flyingAvailable = false;
     float m_movementAccumulatorSeconds = 0.0f;
     float m_startedFallingEventSeconds = 0.0f;

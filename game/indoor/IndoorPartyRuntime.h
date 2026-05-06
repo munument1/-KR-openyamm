@@ -3,6 +3,8 @@
 #include "game/indoor/IndoorMovementController.h"
 #include "game/party/Party.h"
 
+#include <optional>
+
 namespace OpenYAMM::Game
 {
 class ItemTable;
@@ -45,7 +47,7 @@ public:
     void setAlwaysRunEnabled(bool enabled);
     bool alwaysRunEnabled() const;
     void syncSpellMovementStatesFromPartyBuffs();
-    void requestJump();
+    void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
     void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
 
 private:
@@ -59,5 +61,7 @@ private:
     float m_pendingImpulseVelocityX = 0.0f;
     float m_pendingImpulseVelocityY = 0.0f;
     float m_pendingImpulseVelocityZ = 0.0f;
+    std::optional<float> m_pendingJumpVelocity;
+    float m_pendingJumpLift = 1.0f;
 };
 }

@@ -400,11 +400,15 @@ ProjectileRecipe classifyProjectileRecipe(
         return ProjectileRecipe::Sparks;
     }
 
+    if (containsToken(objectName, "laser")
+        || containsToken(spriteName, "lzrbolt"))
+    {
+        return ProjectileRecipe::Blaster;
+    }
+
     if (spellId == 18
         || containsToken(objectName, "lightning bolt")
-        || containsToken(objectName, "laser")
-        || containsToken(spriteName, "spell18")
-        || containsToken(spriteName, "lzrbolt"))
+        || containsToken(spriteName, "spell18"))
     {
         return ProjectileRecipe::LightningBolt;
     }
@@ -515,6 +519,8 @@ uint32_t projectileRecipeColorAbgr(ProjectileRecipe recipe)
         return makeAbgr(176, 216, 255, 208);
     case ProjectileRecipe::Sparks:
         return makeAbgr(255, 220, 90, 216);
+    case ProjectileRecipe::Blaster:
+        return makeAbgr(255, 32, 24, 220);
     case ProjectileRecipe::LightningBolt:
         return makeAbgr(255, 220, 90, 220);
     case ProjectileRecipe::IceBolt:
@@ -553,6 +559,8 @@ float projectileRecipeGlowRadius(ProjectileRecipe recipe)
         return 168.0f;
     case ProjectileRecipe::Sparks:
         return 112.0f;
+    case ProjectileRecipe::Blaster:
+        return 0.0f;
     case ProjectileRecipe::LightBolt:
     case ProjectileRecipe::LightningBolt:
         return 176.0f;
@@ -655,6 +663,11 @@ void spawnProjectileTrailParticles(
     ProjectileRecipe recipe)
 {
     const SpellId spellId = spellIdFromValue(static_cast<uint32_t>(context.spellId));
+
+    if (recipe == ProjectileRecipe::Blaster)
+    {
+        return;
+    }
 
     if (spellId == SpellId::MindBlast
         || spellId == SpellId::PsychicShock
@@ -1193,6 +1206,11 @@ void spawnImpactParticles(ParticleSystem &particleSystem, const ImpactSpawnConte
     const bool isIceBolt = recipe == ProjectileRecipe::IceBolt;
     const bool isCannonball = recipe == ProjectileRecipe::Cannonball;
     const uint32_t baseSeed = static_cast<uint32_t>(std::hash<std::string>{}(context.objectName + context.spriteName));
+
+    if (recipe == ProjectileRecipe::Blaster)
+    {
+        return;
+    }
 
     const auto emitCoreFlash =
         [&](uint32_t count, float startSize, float velocityScale, float stretch)

@@ -59,6 +59,10 @@ public:
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt);
+    bool executeMapEventById(
+        uint16_t eventId,
+        size_t &previousMessageCount,
+        std::optional<uint8_t> continueStep = std::nullopt);
 
 private:
     std::string m_mapFileName;

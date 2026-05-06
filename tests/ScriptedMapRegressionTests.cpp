@@ -2,6 +2,7 @@
 
 #include "game/events/EventRuntime.h"
 #include "game/events/ISceneEventContext.h"
+#include "game/FaceEnums.h"
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/maps/MapAssetLoader.h"
@@ -762,7 +763,10 @@ TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
     REQUIRE(selectedMap->globalEventProgram.has_value());
     REQUIRE(selectedMap->globalEventProgram->luaSourceText().has_value());
     REQUIRE(selectedMap->globalEventProgram->luaSourceName().has_value());
-    CHECK_EQ(*selectedMap->globalEventProgram->luaSourceName(), "@events/Global.lua");
+    CHECK(selectedMap->globalEventProgram->luaSourceName()->starts_with("@events/Global.lua"));
+    CHECK(
+        selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mmmerge.lua")
+        != std::string::npos);
     CHECK(std::filesystem::exists(
         std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/events/Global.lua"));
     CHECK_FALSE(std::filesystem::exists(
@@ -1400,6 +1404,81 @@ TEST_CASE("mm6 shadow guild scene applies spike trap facet type fixup")
     REQUIRE(pLoadedMap->indoorMapData.has_value());
     REQUIRE_GT(pLoadedMap->indoorMapData->faces.size(), 373u);
     CHECK_EQ(pLoadedMap->indoorMapData->faces[373].facetType, 5);
+}
+
+TEST_CASE("mm6 castle alamos password plate keeps pressure trigger metadata")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "cd1.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapData.has_value());
+
+    size_t passwordPlateCount = 0;
+
+    for (const OpenYAMM::Game::IndoorFace &face : pLoadedMap->indoorMapData->faces)
+    {
+        if (face.cogTriggered == 69
+            && OpenYAMM::Game::hasFaceAttribute(face.attributes, OpenYAMM::Game::FaceAttribute::PressurePlate))
+        {
+            ++passwordPlateCount;
+        }
+    }
+
+    CHECK_GT(passwordPlateCount, 0u);
+}
+
+TEST_CASE("mm6 castle alamos wrong password sends party to current-map fallback point")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    const std::optional<std::string> cd1Lua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/maps/cd1.lua");
+
+    REQUIRE(supportLua.has_value());
+    REQUIRE(cd1Lua.has_value());
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *cd1Lua,
+            "@events/maps/cd1.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 69, runtimeState, nullptr, nullptr));
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    CHECK_EQ(runtimeState.pendingInputPrompt->eventId, 69);
+    CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 4);
+
+    runtimeState.pendingInputPrompt.reset();
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        localEventProgram,
+        std::nullopt,
+        69,
+        runtimeState,
+        nullptr,
+        nullptr,
+        4));
+    REQUIRE(runtimeState.pendingMapMove.has_value());
+    CHECK_FALSE(runtimeState.pendingDialogueContext.has_value());
+    CHECK_FALSE(runtimeState.pendingMapMove->mapName.has_value());
+    CHECK_EQ(runtimeState.pendingMapMove->x, -3136);
+    CHECK_EQ(runtimeState.pendingMapMove->y, 2240);
+    CHECK_EQ(runtimeState.pendingMapMove->z, 224);
 }
 
 TEST_CASE("mm6 new sorpigal dragonsand exit keeps destination map name")

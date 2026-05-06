@@ -1557,8 +1557,13 @@ void GameplayScreenRuntime::ensurePendingEventDialogPresented(
         return;
     }
 
+    const size_t previousMessageCount =
+        pEventRuntimeState->pendingDialogueContext->kind == DialogueContextKind::MapEvent
+            ? 0u
+            : pEventRuntimeState->messages.size();
+
     presentPendingEventDialog(
-        pEventRuntimeState->messages.size(),
+        previousMessageCount,
         allowNpcFallbackContent,
         contextBuilder,
         onOpened);

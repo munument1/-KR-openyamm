@@ -332,6 +332,38 @@ support.itemType = support.itemType or {
     Scroll_ = 43,
 }
 
+support.damage = support.damage or {
+    Fire = 0,
+    Air = 1,
+    Water = 2,
+    Earth = 3,
+    Physical = 4,
+    Magic = 5,
+    Spirit = 6,
+    Mind = 7,
+    Body = 8,
+    Light = 9,
+    Dark = 10,
+    Energy = 12,
+    Electric = 1,
+    Cold = 2,
+    Poison = 8,
+}
+
+support.skills = support.skills or {
+    Perception = 31,
+    DisarmTraps = 33,
+}
+
+support.skillCheck = support.skillCheck or {
+    Novice = 0,
+    Effective = 0,
+    Expert = 1,
+    Master = 2,
+    Grandmaster = 3,
+    GM = 3,
+}
+
 support.mechanismState = support.mechanismState or {
     Closed = 0,
     Opening = 1,
@@ -731,9 +763,33 @@ end
 
 function support.setMapMetadata(metadata)
     local meta = ensureMetaScope("map")
+    local existingOnLoad = meta.onLoad or {}
+    local existingOnLeave = meta.onLeave or {}
+    local existingTimers = meta.timers or {}
 
     for key, value in pairs(metadata) do
         meta[key] = value
+    end
+
+    if #existingOnLoad > 0 then
+        meta.onLoad = meta.onLoad or {}
+        for _, eventId in ipairs(existingOnLoad) do
+            table.insert(meta.onLoad, eventId)
+        end
+    end
+
+    if #existingOnLeave > 0 then
+        meta.onLeave = meta.onLeave or {}
+        for _, eventId in ipairs(existingOnLeave) do
+            table.insert(meta.onLeave, eventId)
+        end
+    end
+
+    if #existingTimers > 0 then
+        meta.timers = meta.timers or {}
+        for _, timer in ipairs(existingTimers) do
+            table.insert(meta.timers, timer)
+        end
     end
 end
 
@@ -757,17 +813,18 @@ function support.registerMapOnLeaveEvent(eventId, title, handler, hint)
     support.appendMapOnLeaveEvent(eventId)
 end
 
-function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title, hint)
+function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title, hint, initialDelaySeconds)
     support.removeMapEvent(eventId)
     support.registerEvent(eventId, title, handler, hint)
 
     local meta = ensureMetaScope("map")
     local intervalGameMinutes = (intervalSeconds or 0) / 60
+    local remainingGameMinutes = (initialDelaySeconds or intervalSeconds or 0) / 60
     table.insert(meta.timers, {
         eventId = eventId,
         repeating = true,
         intervalGameMinutes = intervalGameMinutes,
-        remainingGameMinutes = intervalGameMinutes,
+        remainingGameMinutes = remainingGameMinutes,
     })
 end
 
@@ -785,6 +842,38 @@ end
 
 function support.removeFollowerProfession(professionId)
     return evt.RemoveFollowerProfession(professionId)
+end
+
+function support.hasFollowerNpc(npcId)
+    return evt.HasFollowerNpc(npcId)
+end
+
+function support.addFollowerNpc(npcId, professionId, weeklyCost)
+    return evt.AddFollowerNpc(npcId, professionId or 0, weeklyCost or 0)
+end
+
+function support.removeFollowerNpc(npcId)
+    return evt.RemoveFollowerNpc(npcId)
+end
+
+function support.currentGameMinutes()
+    return evt.CurrentGameMinutes()
+end
+
+function support.getRuntimeVariable(variableId)
+    return evt.GetRuntimeVariable(variableId)
+end
+
+function support.setRuntimeVariable(variableId, value)
+    evt.SetRuntimeVariable(variableId, value or 0)
+end
+
+function support.getPartyVariable(variableId)
+    return evt.GetPartyVariable(variableId)
+end
+
+function support.setPartyVariable(variableId, value)
+    evt.SetPartyVariable(variableId, value or 0)
 end
 
 function support.applyLocalMonsterRelations(relations)
@@ -887,6 +976,14 @@ IsFlying = support.isFlying
 IsInvisible = support.isInvisible
 HasFollowerProfession = support.hasFollowerProfession
 RemoveFollowerProfession = support.removeFollowerProfession
+HasFollowerNpc = support.hasFollowerNpc
+AddFollowerNpc = support.addFollowerNpc
+RemoveFollowerNpc = support.removeFollowerNpc
+CurrentGameMinutes = support.currentGameMinutes
+GetRuntimeVariable = support.getRuntimeVariable
+SetRuntimeVariable = support.setRuntimeVariable
+GetPartyVariable = support.getPartyVariable
+SetPartyVariable = support.setPartyVariable
 ApplyLocalMonsterRelations = support.applyLocalMonsterRelations
 SetGlobalMetadata = support.setGlobalMetadata
 exportTableEntries(support.varTag)
@@ -894,6 +991,9 @@ Players = support.players
 FacetBits = support.facetBits
 MonsterBits = support.monsterBits
 ItemType = support.itemType
+Damage = support.damage
+Skills = support.skills
+SkillCheck = support.skillCheck
 DoorAction = support.doorAction
 ActorKillCheck = support.actorKillCheck
 
@@ -901,6 +1001,9 @@ const = const or {}
 const.FacetBits = support.facetBits
 const.MonsterBits = support.monsterBits
 const.ItemType = support.itemType
+const.Damage = support.damage
+const.Skills = support.skills
+const.SkillCheck = support.skillCheck
 const.DoorAction = support.doorAction
 const.ActorKillCheck = support.actorKillCheck
 const.HouseId = support.houseId
@@ -943,4 +1046,12 @@ setGlobalMetadata = support.setGlobalMetadata
 registerMapTimerEvent = support.registerMapTimerEvent
 isFlying = support.isFlying
 isInvisible = support.isInvisible
+hasFollowerNpc = support.hasFollowerNpc
+addFollowerNpc = support.addFollowerNpc
+removeFollowerNpc = support.removeFollowerNpc
+currentGameMinutes = support.currentGameMinutes
+getRuntimeVariable = support.getRuntimeVariable
+setRuntimeVariable = support.setRuntimeVariable
+getPartyVariable = support.getPartyVariable
+setPartyVariable = support.setPartyVariable
 applyLocalMonsterRelations = support.applyLocalMonsterRelations

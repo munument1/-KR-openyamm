@@ -769,6 +769,7 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                     attack.mode == CharacterAttackMode::Blaster
                         ? config.blasterProjectileObjectId
                         : config.arrowProjectileObjectId,
+                .impactObjectId = attack.mode == CharacterAttackMode::Blaster ? config.blasterProjectileObjectId + 1 : 0,
                 .damage = attack.damage,
                 .attackBonus = attack.attackBonus,
                 .useActorHitChance = true,

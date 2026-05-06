@@ -215,7 +215,7 @@ RegisterEvent(30, "L", function()
 end, "L")
 
 RegisterEvent(31, "M", function()
-    evt.MoveToMap(9000, 1916, -767, 128, 0, 0, 0, 0)
+    evt.MoveToMap(9000, 1916, -767, 128, 0, 0, 0, 0, "0.")
 end, "M")
 
 RegisterEvent(32, "N", function()

@@ -40,6 +40,7 @@ int resolveMonthFromDayOfYear(int dayOfYear);
 int currentGameMinutesFromRuntimeState(const EventRuntimeState &runtimeState);
 uint32_t randomJumpSeed(uint16_t eventId, uint8_t step, const EventRuntimeState &runtimeState);
 std::optional<std::string> skillNameForEvtVariable(EvtVariable variableId);
+SkillMastery normalizeCheckSkillMastery(uint32_t rawMastery);
 bool evaluateCompareValue(
     const EventRuntimeState &runtimeState,
     uint32_t rawVariableId,
@@ -142,6 +143,30 @@ std::string sanitizeEventString(const std::string &value)
     }
 
     return sanitized;
+}
+
+bool isCurrentMapMoveSentinel(const std::string &mapName)
+{
+    size_t begin = 0;
+    while (begin < mapName.size() && std::isspace(static_cast<unsigned char>(mapName[begin])) != 0)
+    {
+        ++begin;
+    }
+
+    size_t end = mapName.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(mapName[end - 1])) != 0)
+    {
+        --end;
+    }
+
+    std::string normalizedMapName;
+    normalizedMapName.reserve(end - begin);
+    for (size_t index = begin; index < end; ++index)
+    {
+        normalizedMapName.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(mapName[index]))));
+    }
+
+    return normalizedMapName == "0" || normalizedMapName == "0.";
 }
 
 bool matchesRandomGiveItemType(const ItemDefinition &itemDefinition, uint32_t treasureType)
@@ -868,23 +893,94 @@ void queuePendingSound(
     runtimeState.pendingSounds.push_back(std::move(request));
 }
 
-bool characterMeetsSkillCheck(const Character &member, EvtVariable skillVariable, SkillMastery mastery, uint32_t level)
+std::optional<std::string> skillNameForCheckSkillArgument(uint32_t rawSkillId)
 {
-    const std::optional<std::string> skillName = skillNameForEvtVariable(skillVariable);
-
-    if (!skillName)
+    switch (rawSkillId)
     {
-        return false;
+        case 29:
+        case 31:
+            return "Perception";
+        case 33:
+            return "DisarmTraps";
+        default:
+            break;
     }
 
-    const CharacterSkill *pSkill = member.findSkill(*skillName);
+    return skillNameForEvtVariable(static_cast<EvtVariable>(rawSkillId));
+}
+
+int masteryEffectiveMultiplier(SkillMastery mastery)
+{
+    switch (mastery)
+    {
+        case SkillMastery::Expert: return 2;
+        case SkillMastery::Master: return 3;
+        case SkillMastery::Grandmaster: return 5;
+        case SkillMastery::Normal: return 1;
+        case SkillMastery::None:
+        default:
+            return 0;
+    }
+}
+
+int characterEffectiveSkillCheckValue(const Character &member, const std::string &skillName)
+{
+    if (skillName == "Perception")
+    {
+        return GameMechanics::resolveCharacterPerceptionValue(member);
+    }
+
+    if (skillName == "DisarmTraps")
+    {
+        return GameMechanics::resolveCharacterDisarmTrapValue(member);
+    }
+
+    if (!GameMechanics::canAct(member))
+    {
+        return 0;
+    }
+
+    const CharacterSkill *pSkill = member.findSkill(skillName);
+
+    if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+    {
+        return 0;
+    }
+
+    return static_cast<int>(pSkill->level) * masteryEffectiveMultiplier(pSkill->mastery);
+}
+
+bool characterMeetsSkillCheck(
+    const Character &member,
+    const std::string &skillName,
+    uint32_t rawMastery,
+    uint32_t level)
+{
+    const CharacterSkill *pSkill = member.findSkill(skillName);
 
     if (pSkill == nullptr)
     {
         return false;
     }
 
-    return pSkill->level >= level && pSkill->mastery == mastery;
+    if (rawMastery == 0)
+    {
+        return characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+    }
+
+    const SkillMastery mastery = normalizeCheckSkillMastery(rawMastery);
+    return pSkill->mastery >= mastery
+        && characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+}
+
+SkillMastery normalizeCheckSkillMastery(uint32_t rawMastery)
+{
+    switch (rawMastery)
+    {
+        case 1: return SkillMastery::Expert;
+        case 2: return SkillMastery::Master;
+        default: return SkillMastery::Grandmaster;
+    }
 }
 
 int resolveCharacterAge(const Character &member)
@@ -2043,7 +2139,7 @@ int32_t EventRuntime::getVariableValue(
         {
             case EvtVariable::PlayerBits:
                 return pMember != nullptr
-                    ? ((pMember->playerBits & (1u << std::min<uint32_t>(variable.index, MaxBitfieldFlagIndex))) != 0 ? 1 : 0)
+                    ? (pMember->playerBits.contains(variable.index) ? 1 : 0)
                     : 0;
 
             case EvtVariable::Npcs2:
@@ -2675,18 +2771,18 @@ void EventRuntime::setVariableValue(
             {
                 Character *pMember = pParty->member(targetMemberIndex);
 
-                if (pMember == nullptr || variable.index >= 32)
+                if (pMember == nullptr)
                 {
                     continue;
                 }
 
                 if (value != 0)
                 {
-                    pMember->playerBits |= (1u << std::min<uint32_t>(variable.index, MaxBitfieldFlagIndex));
+                    pMember->playerBits.insert(variable.index);
                 }
                 else
                 {
-                    pMember->playerBits &= ~(1u << std::min<uint32_t>(variable.index, MaxBitfieldFlagIndex));
+                    pMember->playerBits.erase(variable.index);
                 }
             }
 
@@ -3148,6 +3244,21 @@ void EventRuntime::addVariableValue(
         return;
     }
 
+    if (variable.kind == VariableKind::PartyState && variableId == EvtVariable::PlayerBits && pParty != nullptr)
+    {
+        for (size_t targetMemberIndex : targetMemberIndices)
+        {
+            Character *pMember = pParty->member(targetMemberIndex);
+
+            if (pMember != nullptr && value != 0)
+            {
+                pMember->playerBits.insert(variable.index);
+            }
+        }
+
+        return;
+    }
+
     if (variable.kind == VariableKind::Skill)
     {
         if (pParty == nullptr || targetMemberIndices.empty())
@@ -3553,6 +3664,21 @@ void EventRuntime::subtractVariableValue(
         return;
     }
 
+    if (variable.kind == VariableKind::PartyState && variableId == EvtVariable::PlayerBits && pParty != nullptr)
+    {
+        for (size_t targetMemberIndex : targetMemberIndices)
+        {
+            Character *pMember = pParty->member(targetMemberIndex);
+
+            if (pMember != nullptr && value != 0)
+            {
+                pMember->playerBits.erase(variable.index);
+            }
+        }
+
+        return;
+    }
+
     if (variable.kind == VariableKind::Skill)
     {
         if (pParty == nullptr || targetMemberIndices.empty())
@@ -3703,6 +3829,7 @@ struct LuaExecutionContext
     uint16_t currentEventId = 0;
     bool readonly = false;
     bool preservePendingOutputsOnBegin = false;
+    bool allowStandaloneMapEventDialogueContext = true;
 };
 
 }
@@ -4017,8 +4144,15 @@ int luaDamagePlayer(lua_State *pLuaState)
         return 0;
     }
 
+    const PartySelector selector = decodePartySelector(static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1)));
     const int damage = static_cast<int>(luaL_checkinteger(pLuaState, 3));
-    const std::vector<size_t> targets = selectedTargetMemberIndices(pLuaState);
+    std::vector<size_t> targets = resolveTargetMemberIndices(selector, pParty);
+
+    if (targets.empty())
+    {
+        targets = selectedTargetMemberIndices(pLuaState);
+    }
+
     const std::string status = damageStatusForEvtVariable(targets);
 
     for (size_t memberIndex : targets)
@@ -4094,6 +4228,28 @@ int luaOpenDimensionDoor(lua_State *pLuaState)
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     pRuntimeState->pendingDimensionDoorOverlay = true;
     return 0;
+}
+
+void ensureMapEventDialogueContext(lua_State *pLuaState, EventRuntimeState &runtimeState)
+{
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pExecutionContext != nullptr && !pExecutionContext->allowStandaloneMapEventDialogueContext)
+    {
+        return;
+    }
+
+    if (runtimeState.pendingDialogueContext
+        && runtimeState.pendingDialogueContext->kind != DialogueContextKind::None)
+    {
+        return;
+    }
+
+    runtimeState.messages.clear();
+
+    EventRuntimeState::PendingDialogueContext context = {};
+    context.kind = DialogueContextKind::MapEvent;
+    runtimeState.pendingDialogueContext = std::move(context);
 }
 
 int luaShowMovie(lua_State *pLuaState)
@@ -4191,7 +4347,7 @@ int luaMoveToMap(lua_State *pLuaState)
     {
         const std::string mapName = sanitizeEventString(lua_tostring(pLuaState, mapNameArgumentIndex));
 
-        if (!mapName.empty())
+        if (!mapName.empty() && !isCurrentMapMoveSentinel(mapName))
         {
             move.mapName = mapName;
         }
@@ -4301,16 +4457,25 @@ int luaCheckSkill(lua_State *pLuaState)
         return 1;
     }
 
-    const EvtVariable skillVariable = static_cast<EvtVariable>(luaL_checkinteger(pLuaState, 1));
-    const SkillMastery mastery = static_cast<SkillMastery>(luaL_checkinteger(pLuaState, 2));
+    const int rawSkillArgument = std::max(0, static_cast<int>(luaL_checkinteger(pLuaState, 1)));
+    const int rawMasteryArgument = std::max(0, static_cast<int>(luaL_checkinteger(pLuaState, 2)));
+    const std::optional<std::string> skillName =
+        skillNameForCheckSkillArgument(static_cast<uint32_t>(rawSkillArgument));
     const uint32_t level = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 3));
     bool passed = false;
+
+    if (!skillName)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
 
     for (size_t memberIndex : selectedTargetMemberIndices(pLuaState))
     {
         const Character *pMember = pParty->member(memberIndex);
 
-        if (pMember != nullptr && characterMeetsSkillCheck(*pMember, skillVariable, mastery, level))
+        if (pMember != nullptr
+            && characterMeetsSkillCheck(*pMember, *skillName, static_cast<uint32_t>(rawMasteryArgument), level))
         {
             passed = true;
             break;
@@ -4516,6 +4681,12 @@ int luaRemoveFollowerProfession(lua_State *pLuaState)
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     const uint32_t professionId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
 
+    if (pRuntimeState == nullptr)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
     const auto iterator = std::find_if(
         pRuntimeState->hiredNpcFollowers.begin(),
         pRuntimeState->hiredNpcFollowers.end(),
@@ -4526,13 +4697,202 @@ int luaRemoveFollowerProfession(lua_State *pLuaState)
 
     if (iterator != pRuntimeState->hiredNpcFollowers.end())
     {
+        const uint32_t npcId = iterator->npcId;
         pRuntimeState->hiredNpcFollowers.erase(iterator);
+        pRuntimeState->unavailableNpcIds.erase(npcId);
+
+        Party *pParty = writableParty(pLuaState);
+        if (pParty != nullptr)
+        {
+            pParty->removeHiredNpcFollower(npcId);
+            pParty->setNpcUnavailable(npcId, false);
+        }
+
         lua_pushboolean(pLuaState, 1);
         return 1;
     }
 
     lua_pushboolean(pLuaState, 0);
     return 1;
+}
+
+int luaHasFollowerNpc(lua_State *pLuaState)
+{
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    if (pRuntimeState == nullptr || npcId == 0)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    const bool hasFollower = std::find_if(
+        pRuntimeState->hiredNpcFollowers.begin(),
+        pRuntimeState->hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        }) != pRuntimeState->hiredNpcFollowers.end();
+
+    lua_pushboolean(pLuaState, hasFollower ? 1 : 0);
+    return 1;
+}
+
+int luaAddFollowerNpc(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t professionId = static_cast<uint32_t>(luaL_optinteger(pLuaState, 2, 0));
+    const uint32_t weeklyCost = static_cast<uint32_t>(luaL_optinteger(pLuaState, 3, 0));
+
+    if (pRuntimeState == nullptr || npcId == 0)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    EventRuntimeState::HiredNpcFollower follower = {};
+    follower.npcId = npcId;
+    follower.professionId = professionId;
+    follower.weeklyCost = weeklyCost;
+
+    const auto iterator = std::find_if(
+        pRuntimeState->hiredNpcFollowers.begin(),
+        pRuntimeState->hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &existingFollower)
+        {
+            return existingFollower.npcId == npcId;
+        });
+
+    if (iterator == pRuntimeState->hiredNpcFollowers.end())
+    {
+        pRuntimeState->hiredNpcFollowers.push_back(follower);
+    }
+    else
+    {
+        *iterator = follower;
+    }
+
+    pRuntimeState->unavailableNpcIds.insert(npcId);
+
+    Party *pParty = writableParty(pLuaState);
+    if (pParty != nullptr)
+    {
+        pParty->addHiredNpcFollower(follower);
+        pParty->setNpcUnavailable(npcId, true);
+    }
+
+    lua_pushboolean(pLuaState, 1);
+    return 1;
+}
+
+int luaRemoveFollowerNpc(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    if (pRuntimeState == nullptr || npcId == 0)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    const auto iterator = std::remove_if(
+        pRuntimeState->hiredNpcFollowers.begin(),
+        pRuntimeState->hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        });
+
+    const bool removed = iterator != pRuntimeState->hiredNpcFollowers.end();
+    if (removed)
+    {
+        pRuntimeState->hiredNpcFollowers.erase(iterator, pRuntimeState->hiredNpcFollowers.end());
+    }
+
+    pRuntimeState->unavailableNpcIds.erase(npcId);
+
+    Party *pParty = writableParty(pLuaState);
+    if (pParty != nullptr)
+    {
+        pParty->removeHiredNpcFollower(npcId);
+        pParty->setNpcUnavailable(npcId, false);
+    }
+
+    lua_pushboolean(pLuaState, removed ? 1 : 0);
+    return 1;
+}
+
+int luaCurrentGameMinutes(lua_State *pLuaState)
+{
+    const ISceneEventContext *pSceneEventContext = readonlySceneEventContext(executionContextFromLua(pLuaState));
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    const int32_t currentGameMinutes = pSceneEventContext != nullptr
+        ? std::max(0, floorToInt(pSceneEventContext->currentGameMinutes()))
+        : (pRuntimeState != nullptr ? currentGameMinutesFromRuntimeState(*pRuntimeState) : 0);
+    lua_pushinteger(pLuaState, currentGameMinutes);
+    return 1;
+}
+
+int luaGetRuntimeVariable(lua_State *pLuaState)
+{
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    const uint32_t rawVariableId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    if (pRuntimeState == nullptr)
+    {
+        lua_pushinteger(pLuaState, 0);
+        return 1;
+    }
+
+    const std::unordered_map<uint32_t, int32_t>::const_iterator iterator = pRuntimeState->variables.find(rawVariableId);
+    lua_pushinteger(pLuaState, iterator != pRuntimeState->variables.end() ? iterator->second : 0);
+    return 1;
+}
+
+int luaSetRuntimeVariable(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t rawVariableId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const int32_t value = static_cast<int32_t>(luaL_checkinteger(pLuaState, 2));
+
+    if (pRuntimeState != nullptr)
+    {
+        if (value == 0)
+        {
+            pRuntimeState->variables.erase(rawVariableId);
+        }
+        else
+        {
+            pRuntimeState->variables[rawVariableId] = value;
+        }
+    }
+
+    return 0;
+}
+
+int luaGetPartyVariable(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const uint16_t variableId = static_cast<uint16_t>(luaL_checkinteger(pLuaState, 1));
+    lua_pushinteger(pLuaState, pParty != nullptr ? pParty->eventVariableValue(variableId) : 0);
+    return 1;
+}
+
+int luaSetPartyVariable(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const uint16_t variableId = static_cast<uint16_t>(luaL_checkinteger(pLuaState, 1));
+    const int32_t value = static_cast<int32_t>(luaL_checkinteger(pLuaState, 2));
+
+    if (pParty != nullptr)
+    {
+        pParty->setEventVariableValue(variableId, value);
+    }
+
+    return 0;
 }
 
 void appendLuaStringTable(lua_State *pLuaState, int tableIndex, std::vector<std::string> &values)
@@ -4561,6 +4921,8 @@ int luaAskQuestion(lua_State *pLuaState)
     {
         return 0;
     }
+
+    ensureMapEventDialogueContext(pLuaState, *pRuntimeState);
 
     EventRuntimeState::PendingInputPrompt prompt = {};
     prompt.kind = EventRuntimeState::PendingInputPrompt::Kind::InputString;
@@ -4624,6 +4986,8 @@ int luaAskQuestion(lua_State *pLuaState)
 int luaPressAnyKey(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    ensureMapEventDialogueContext(pLuaState, *pRuntimeState);
+
     EventRuntimeState::PendingInputPrompt prompt = {};
     prompt.kind = EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey;
     prompt.eventId = static_cast<uint16_t>(luaL_checkinteger(pLuaState, 1));
@@ -5139,6 +5503,7 @@ int luaSetMessage(lua_State *pLuaState)
 int luaSimpleMessage(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    ensureMapEventDialogueContext(pLuaState, *pRuntimeState);
 
     if (lua_gettop(pLuaState) >= 1 && lua_type(pLuaState, 1) == LUA_TSTRING)
     {
@@ -5273,6 +5638,14 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetChestBit", luaSetChestBit);
     registerLuaFunction(pLuaState, "EnsureChestItem", luaEnsureChestItem);
     registerLuaFunction(pLuaState, "RemoveFollowerProfession", luaRemoveFollowerProfession);
+    registerLuaFunction(pLuaState, "HasFollowerNpc", luaHasFollowerNpc);
+    registerLuaFunction(pLuaState, "AddFollowerNpc", luaAddFollowerNpc);
+    registerLuaFunction(pLuaState, "RemoveFollowerNpc", luaRemoveFollowerNpc);
+    registerLuaFunction(pLuaState, "CurrentGameMinutes", luaCurrentGameMinutes);
+    registerLuaFunction(pLuaState, "GetRuntimeVariable", luaGetRuntimeVariable);
+    registerLuaFunction(pLuaState, "SetRuntimeVariable", luaSetRuntimeVariable);
+    registerLuaFunction(pLuaState, "GetPartyVariable", luaGetPartyVariable);
+    registerLuaFunction(pLuaState, "SetPartyVariable", luaSetPartyVariable);
     registerLuaFunction(pLuaState, "SetMonsterRelation", luaSetMonsterRelation);
     registerLuaFunction(pLuaState, "FaceAnimation", luaFaceAnimation);
     registerLuaFunction(pLuaState, "SetMonsterItem", luaSetMonsterItem);
@@ -5898,6 +6271,7 @@ bool EventRuntime::executeNpcTopicEventById(
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
     executionContext.currentEventId = eventId;
+    executionContext.allowStandaloneMapEventDialogueContext = false;
 
     const auto globalIterator = m_luaSessionCache->globalScope.handlers.find(eventId);
 
@@ -6272,6 +6646,11 @@ bool evaluateCompareValue(
 
     if (variable.kind == EventRuntime::VariableKind::PartyState)
     {
+        if (variableId == EvtVariable::PlayerBits)
+        {
+            return currentValue != 0;
+        }
+
         if (variableId == EvtVariable::MonthIs)
         {
             return currentValue == compareValue;

@@ -739,6 +739,66 @@ std::string formatRandomItemType(uint32_t value)
     }
 }
 
+std::string formatDamageType(uint32_t value)
+{
+    switch (value)
+    {
+        case 0: return "const.Damage.Fire";
+        case 1: return "const.Damage.Air";
+        case 2: return "const.Damage.Water";
+        case 3: return "const.Damage.Earth";
+        case 4: return "const.Damage.Physical";
+        case 5: return "const.Damage.Magic";
+        case 6: return "const.Damage.Spirit";
+        case 7: return "const.Damage.Mind";
+        case 8: return "const.Damage.Body";
+        case 9: return "const.Damage.Light";
+        case 10: return "const.Damage.Dark";
+        case 12: return "const.Damage.Energy";
+        default: return std::to_string(value);
+    }
+}
+
+std::string formatCheckSkillId(uint32_t value)
+{
+    switch (value)
+    {
+        case 29:
+        case 31:
+            return "const.Skills.Perception";
+        case 33:
+            return "const.Skills.DisarmTraps";
+        default:
+            return std::to_string(value);
+    }
+}
+
+std::string formatCheckSkillMode(uint32_t value)
+{
+    switch (value)
+    {
+        case 0: return "const.SkillCheck.Novice";
+        case 1: return "const.SkillCheck.Expert";
+        case 2: return "const.SkillCheck.Master";
+        case 3: return "const.SkillCheck.Grandmaster";
+        default: return std::to_string(value);
+    }
+}
+
+std::string formatCheckSkillCall(const LegacyLuaInstruction &instruction)
+{
+    return "evt.CheckSkill(" + formatCheckSkillId(instruction.arguments[0]) + ", "
+        + formatCheckSkillMode(instruction.arguments[1]) + ", "
+        + std::to_string(instruction.arguments[2]) + ")";
+}
+
+std::string formatDamagePlayerCall(const LegacyLuaInstruction &instruction)
+{
+    return "evt.DamagePlayer(" + formatPartySelector(instruction.arguments[0]) + ", "
+        + formatDamageType(instruction.arguments[1]) + ", "
+        + std::to_string(instruction.arguments[2]) + ")";
+}
+
 uint32_t mapLegacyPlayerSelector(uint32_t value, LegacyEventVersion version)
 {
     if (version != LegacyEventVersion::Mm8 && value == 4)
@@ -3054,9 +3114,7 @@ bool formatReadableConditionInstruction(
                 return false;
             }
 
-            condition = "evt.CheckSkill(" + std::to_string(instruction.arguments[0]) + ", "
-                + std::to_string(instruction.arguments[1]) + ", "
-                + std::to_string(instruction.arguments[2]) + ")";
+            condition = formatCheckSkillCall(instruction);
             comment = std::nullopt;
             return true;
 
@@ -3728,9 +3786,7 @@ bool emitReadableActionInstruction(
             {
                 emitIndentedLineWithComment(
                     stream,
-                    "evt.DamagePlayer(" + std::to_string(instruction.arguments[0]) + ", "
-                    + std::to_string(instruction.arguments[1]) + ", "
-                    + std::to_string(instruction.arguments[2]) + ")",
+                    formatDamagePlayerCall(instruction),
                     std::nullopt,
                     indentLevel);
                 return true;
@@ -7739,9 +7795,7 @@ void emitNormalInstruction(
             {
                 emitIndentedLineWithComment(
                     stream,
-                    "evt.DamagePlayer(" + std::to_string(instruction.arguments[0]) + ", "
-                    + std::to_string(instruction.arguments[1]) + ", "
-                    + std::to_string(instruction.arguments[2]) + ")",
+                    formatDamagePlayerCall(instruction),
                     std::nullopt,
                     2);
             }
@@ -8003,9 +8057,7 @@ void emitNormalInstruction(
             {
                 emitIndentedLineWithComment(
                     stream,
-                    "if evt.CheckSkill(" + std::to_string(instruction.arguments[0]) + ", "
-                    + std::to_string(instruction.arguments[1]) + ", "
-                    + std::to_string(instruction.arguments[2]) + ") then return "
+                    "if " + formatCheckSkillCall(instruction) + " then return "
                     + std::to_string(*instruction.jumpTargetStep) + " end",
                     std::nullopt,
                     2);

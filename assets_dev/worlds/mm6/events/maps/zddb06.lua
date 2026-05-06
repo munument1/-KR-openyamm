@@ -53,7 +53,7 @@ RegisterEvent(6, "Switch", function()
         evt.SetDoorState(2, DoorAction.Close)
         evt.SetDoorState(1, DoorAction.Close)
         if not IsAtLeast(SpeedBonus, 25) then
-            evt.DamagePlayer(5, 4, 15)
+            evt.DamagePlayer(Players.All, const.Damage.Physical, 15)
             SetValue(MapVar(4), 1)
             return
         end
@@ -71,7 +71,7 @@ RegisterEvent(7, "Mine", function()
             AddValue(Gold, 350)
         elseif randomStep == 5 then
             evt.StatusText("Some loose debris overhead falls on you.")
-            evt.DamagePlayer(5, 4, 18)
+            evt.DamagePlayer(Players.All, const.Damage.Physical, 18)
         end
         AddValue(MapVar(5), 1)
         return
@@ -88,7 +88,7 @@ RegisterEvent(8, "Mine", function()
             AddValue(Gold, 350)
         elseif randomStep == 5 then
             evt.StatusText("Some loose debris overhead falls on you.")
-            evt.DamagePlayer(5, 4, 18)
+            evt.DamagePlayer(Players.All, const.Damage.Physical, 18)
         end
         AddValue(MapVar(6), 1)
         return
@@ -105,7 +105,7 @@ RegisterEvent(9, "Mine", function()
             AddValue(Gold, 350)
         elseif randomStep == 5 then
             evt.StatusText("Some loose debris overhead falls on you.")
-            evt.DamagePlayer(5, 4, 18)
+            evt.DamagePlayer(Players.All, const.Damage.Physical, 18)
         end
         AddValue(MapVar(7), 1)
         return
@@ -124,7 +124,7 @@ RegisterEvent(11, "Legacy event 11", function()
     evt.FaceExpression(31)
     AddValue(MapVar(8), 1)
     if not IsAtLeast(SpeedBonus, 25) then
-        evt.DamagePlayer(5, 4, 8)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 8)
         return
     end
     evt.StatusText("You were fast enough to dodge the bigger rocks.")
@@ -137,7 +137,7 @@ RegisterEvent(12, "Legacy event 12", function()
     evt.FaceExpression(31)
     AddValue(MapVar(9), 1)
     if not IsAtLeast(SpeedBonus, 25) then
-        evt.DamagePlayer(5, 4, 8)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 8)
         return
     end
     evt.StatusText("You were fast enough to dodge the bigger rocks.")

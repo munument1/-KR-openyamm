@@ -116,7 +116,7 @@ end)
 
 RegisterEvent(28, "Legacy event 28", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -125,7 +125,7 @@ end)
 
 RegisterEvent(29, "Legacy event 29", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(10384, 2224, 0, 0, 0, 0, 0, 0)
+        evt.MoveToMap(10384, 2224, 0, 0, 0, 0, 0, 0, "0.")
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -134,7 +134,7 @@ end)
 
 RegisterEvent(30, "Legacy event 30", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -143,7 +143,7 @@ end)
 
 RegisterEvent(31, "Legacy event 31", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(8608, 128, 630, 0, 0, 0, 0, 0)
+        evt.MoveToMap(8608, 128, 630, 0, 0, 0, 0, 0, "0.")
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -152,7 +152,7 @@ end)
 
 RegisterEvent(32, "Legacy event 32", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -161,7 +161,7 @@ end)
 
 RegisterEvent(33, "Legacy event 33", function()
     if not IsAtLeast(MapVar(3), 1) then
-        evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0)
+        evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0, "0.")
         return
     end
     if not IsAtLeast(MapVar(3), 2) then
@@ -171,7 +171,7 @@ RegisterEvent(33, "Legacy event 33", function()
         evt.StatusText("The way has been cleared")
         return
     end
-    evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0)
+    evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(34, "Podium", function()
@@ -212,7 +212,7 @@ end)
 
 RegisterEvent(37, "Legacy event 37", function()
     if not IsAtLeast(MapVar(3), 1) then
-        evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
+        evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0, "0.")
         return
     end
     if not IsAtLeast(MapVar(3), 2) then
@@ -222,55 +222,55 @@ RegisterEvent(37, "Legacy event 37", function()
         evt.StatusText("The way has been cleared")
         return
     end
-    evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
+    evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(38, "Legacy event 38", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(39, "Legacy event 39", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-7328, 10496, 600, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-7328, 10496, 600, 0, 0, 0, 0, 0, "0.")
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(40, "Legacy event 40", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-6112, 10912, 600, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-6112, 10912, 600, 0, 0, 0, 0, 0, "0.")
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(41, "Legacy event 41", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(42, "Legacy event 42", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(43, "Legacy event 43", function()
-    evt.MoveToMap(13744, 640, -180, 0, 0, 0, 0, 0)
+    evt.MoveToMap(13744, 640, -180, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(44, "Legacy event 44", function()
-    evt.MoveToMap(2528, 3568, -635, 0, 0, 0, 0, 0)
+    evt.MoveToMap(2528, 3568, -635, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(45, "Sign", function()

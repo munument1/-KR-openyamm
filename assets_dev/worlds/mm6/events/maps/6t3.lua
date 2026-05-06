@@ -143,7 +143,7 @@ end)
 
 RegisterEvent(28, "Legacy event 28", function()
     if IsAtLeast(MapVar(4), 1) then
-        evt.DamagePlayer(5, 5, 5)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 5)
     end
 end)
 

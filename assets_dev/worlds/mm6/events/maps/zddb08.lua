@@ -215,7 +215,7 @@ end, "Table with implements atop.")
 
 RegisterEvent(15, "Crystal.", function()
     evt.StatusText(" This razor sharp crystal is too immature to harvest.")
-    evt.DamagePlayer(7, 4, 2)
+    evt.DamagePlayer(Players.Current, const.Damage.Physical, 2)
 end, "Crystal.")
 
 RegisterEvent(16, "Legacy event 16", function()

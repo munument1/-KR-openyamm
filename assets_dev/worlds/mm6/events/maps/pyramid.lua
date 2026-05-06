@@ -85,13 +85,13 @@ end, "Picture Door")
 RegisterEvent(8, "Switch", function()
     evt.SetDoorState(8, DoorAction.Trigger)
     evt.StatusText("Trap!")
-    evt.DamagePlayer(7, 0, 200)
+    evt.DamagePlayer(Players.Current, const.Damage.Fire, 200)
 end, "Switch")
 
 RegisterEvent(9, "Switch", function()
     evt.SetDoorState(9, DoorAction.Trigger)
     evt.StatusText("Trap!")
-    evt.DamagePlayer(7, 5, 200)
+    evt.DamagePlayer(Players.Current, const.Damage.Magic, 200)
 end, "Switch")
 
 RegisterEvent(10, "Picture Door", function()
@@ -113,27 +113,27 @@ RegisterEvent(12, "Legacy event 12", function()
     if not HasItem(2086) then -- Crystal Skull
         local randomStep = PickRandomOption(12, 6, {6, 9, 12, 15, 18, 21})
         if randomStep == 6 then
-            evt.DamagePlayer(5, 2, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Water, 5)
             evt.StatusText("Radiation Damage!")
             return
         elseif randomStep == 9 then
-            evt.DamagePlayer(5, 0, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Fire, 5)
             evt.StatusText("Radiation Damage!")
             return
         elseif randomStep == 12 then
-            evt.DamagePlayer(5, 1, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Air, 5)
             evt.StatusText("Radiation Damage!")
             return
         elseif randomStep == 15 then
-            evt.DamagePlayer(5, 5, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Magic, 5)
             evt.StatusText("Radiation Damage!")
             return
         elseif randomStep == 18 then
-            evt.DamagePlayer(5, 4, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Physical, 5)
             evt.StatusText("Radiation Damage!")
             return
         elseif randomStep == 21 then
-            evt.DamagePlayer(5, 8, 5)
+            evt.DamagePlayer(Players.All, const.Damage.Body, 5)
             evt.StatusText("Radiation Damage!")
             return
         end
@@ -388,7 +388,7 @@ RegisterEvent(32, "Switch", function()
 end, "Switch")
 
 RegisterEvent(33, "Legacy event 33", function()
-    evt.MoveToMap(-9344, -192, 8034, 1, 0, 0, 0, 0)
+    evt.MoveToMap(-9344, -192, 8034, 1, 0, 0, 0, 0, "0.")
     evt.SetDoorState(33, DoorAction.Open)
 end)
 

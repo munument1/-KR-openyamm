@@ -75,7 +75,7 @@ end, "Chest")
 
 RegisterEvent(11, "Chest", function()
     if not IsAtLeast(MapVar(7), 1) then
-        evt.DamagePlayer(5, 5, 200)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 200)
         SetValue(MapVar(7), 1)
         evt.OpenChest(6)
         return
@@ -85,7 +85,7 @@ end, "Chest")
 
 RegisterEvent(12, "Chest", function()
     if not IsAtLeast(MapVar(8), 1) then
-        evt.DamagePlayer(5, 0, 200)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 200)
         SetValue(MapVar(8), 1)
         evt.OpenChest(7)
         return
@@ -102,28 +102,28 @@ RegisterEvent(14, "Chest", function()
 end, "Chest")
 
 RegisterEvent(16, "Legacy event 16", function()
-    evt.DamagePlayer(6, 0, 40)
+    evt.DamagePlayer(6, const.Damage.Fire, 40)
 end)
 
 RegisterEvent(17, "Legacy event 17", function()
-    evt.DamagePlayer(6, 5, 40)
+    evt.DamagePlayer(6, const.Damage.Magic, 40)
 end)
 
 RegisterEvent(18, "Legacy event 18", function()
-    evt.DamagePlayer(6, 5, 50)
+    evt.DamagePlayer(6, const.Damage.Magic, 50)
 end)
 
 RegisterEvent(19, "Legacy event 19", function()
-    evt.DamagePlayer(6, 1, 50)
+    evt.DamagePlayer(6, const.Damage.Air, 50)
 end)
 
 RegisterEvent(20, "Legacy event 20", function()
-    evt.DamagePlayer(6, 0, 50)
+    evt.DamagePlayer(6, const.Damage.Fire, 50)
 end)
 
 RegisterEvent(21, "Legacy event 21", function()
     evt.StatusText("A teleporter!")
-    evt.MoveToMap(3264, -1336, 513, 192, 0, 0, 0, 0)
+    evt.MoveToMap(3264, -1336, 513, 192, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(22, "Legacy event 22", function()

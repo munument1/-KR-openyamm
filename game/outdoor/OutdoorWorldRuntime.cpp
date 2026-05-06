@@ -5678,6 +5678,15 @@ void OutdoorWorldRuntime::advanceGameMinutes(float minutes)
     }
 
     advanceGameMinutesInternal(minutes);
+
+    for (TimerState &timer : m_timers)
+    {
+        if (!timer.hasFired || timer.repeating)
+        {
+            timer.remainingGameMinutes -= minutes;
+        }
+    }
+
     refreshAtmosphereState();
 }
 
@@ -11094,6 +11103,7 @@ bool OutdoorWorldRuntime::spawnPartyAttackProjectile(const GameplayPartyAttackPr
     PartyProjectileRequest worldRequest = {};
     worldRequest.sourcePartyMemberIndex = static_cast<uint32_t>(request.sourcePartyMemberIndex);
     worldRequest.objectId = request.objectId;
+    worldRequest.impactObjectId = request.impactObjectId;
     worldRequest.damage = request.damage;
     worldRequest.attackBonus = request.attackBonus;
     worldRequest.useActorHitChance = request.useActorHitChance;
@@ -13013,11 +13023,13 @@ void OutdoorWorldRuntime::syncSpellMovementStatesFromPartyBuffs()
     }
 }
 
-void OutdoorWorldRuntime::requestPartyJump()
+void OutdoorWorldRuntime::requestPartyJump(float verticalVelocity, float lift)
 {
     if (m_pPartyRuntime != nullptr)
     {
-        m_pPartyRuntime->requestJump();
+        const std::optional<float> velocityOverride =
+            verticalVelocity > 0.0f ? std::optional<float>(verticalVelocity) : std::nullopt;
+        m_pPartyRuntime->requestJump(velocityOverride, lift);
     }
 }
 
@@ -13075,6 +13087,19 @@ bool OutdoorWorldRuntime::executeNpcTopicEvent(
 {
     return m_pInteractionView != nullptr
         && OutdoorInteractionController::executeNpcTopicEvent(
+            *m_pInteractionView,
+            eventId,
+            previousMessageCount,
+            continueStep);
+}
+
+bool OutdoorWorldRuntime::executeMapEvent(
+    uint16_t eventId,
+    size_t &previousMessageCount,
+    std::optional<uint8_t> continueStep)
+{
+    return m_pInteractionView != nullptr
+        && OutdoorInteractionController::executeMapEvent(
             *m_pInteractionView,
             eventId,
             previousMessageCount,

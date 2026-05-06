@@ -1601,7 +1601,8 @@ OutdoorMoveState OutdoorMovementController::resolveMove(
     float flyVerticalSpeed,
     float maxFlightHeight,
     float deltaSeconds,
-    std::vector<size_t> *pContactedActorIndices
+    std::vector<size_t> *pContactedActorIndices,
+    float jumpLift
 ) const
 {
     return resolveMoveForBody(
@@ -1619,7 +1620,9 @@ OutdoorMoveState OutdoorMovementController::resolveMove(
         flyVerticalSpeed,
         maxFlightHeight,
         deltaSeconds,
-        pContactedActorIndices);
+        pContactedActorIndices,
+        std::nullopt,
+        jumpLift);
 }
 
 OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
@@ -1638,7 +1641,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     float maxFlightHeight,
     float deltaSeconds,
     std::vector<size_t> *pContactedActorIndices,
-    const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider
+    const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider,
+    float jumpLift
 ) const
 {
     const float bodyRadius = std::max(1.0f, body.radius);
@@ -1707,7 +1711,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
              jumpRequested)
     {
         partyInputSpeed.z = jumpVelocity;
-        partyNewPosition.z += 1.0f;
+        partyNewPosition.z += jumpLift;
     }
     else if (partyNotTouchingFloor)
     {

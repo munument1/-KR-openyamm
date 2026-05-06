@@ -138,6 +138,26 @@ TEST_CASE("sparks projectile uses shared lightning-style fx and light recipe")
     CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeGlowRadius(recipe) > 0.0f);
 }
 
+TEST_CASE("energy blaster projectile has no trail particles but keeps dedicated impact fx")
+{
+    const ProjectileRecipe recipe = OpenYAMM::Game::FxRecipes::classifyProjectileRecipe(
+        0,
+        "Laser",
+        "lzrbolt",
+        0);
+    OpenYAMM::Game::ParticleSystem particleSystem;
+    OpenYAMM::Game::FxRecipes::ProjectileSpawnContext context = {};
+    context.objectName = "Laser";
+    context.spriteName = "lzrbolt";
+
+    OpenYAMM::Game::FxRecipes::spawnProjectileTrailParticles(particleSystem, context, recipe);
+
+    CHECK(recipe == ProjectileRecipe::Blaster);
+    CHECK_EQ(particleSystem.particleCount(), 0u);
+    CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeGlowRadius(recipe), 0.0f);
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe));
+}
+
 TEST_CASE("fireball and dragon breath impacts add full size red area pulse")
 {
     const ProjectileRecipe recipes[] = {ProjectileRecipe::Fireball, ProjectileRecipe::DragonBreath};

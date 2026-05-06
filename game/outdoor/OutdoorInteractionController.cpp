@@ -1805,6 +1805,16 @@ bool OutdoorInteractionController::executeNpcTopicEvent(
         && view.m_pOutdoorSceneRuntime->executeNpcTopicEventById(eventId, previousMessageCount, continueStep);
 }
 
+bool OutdoorInteractionController::executeMapEvent(
+    OutdoorGameView &view,
+    uint16_t eventId,
+    size_t &previousMessageCount,
+    std::optional<uint8_t> continueStep)
+{
+    return view.m_pOutdoorSceneRuntime != nullptr
+        && view.m_pOutdoorSceneRuntime->executeMapEventById(eventId, previousMessageCount, continueStep);
+}
+
 
 
 std::optional<std::string> OutdoorInteractionController::resolveEventHintText(

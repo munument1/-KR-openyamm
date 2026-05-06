@@ -3284,10 +3284,42 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
     return 0;
 }
 
+std::optional<std::string> IndoorRenderer::resolveEntityDecorationHoverStatusText(
+    const InspectHit &inspectHit) const
+{
+    if (inspectHit.kind != "entity" || !m_indoorDecorationBillboardSet)
+    {
+        return std::nullopt;
+    }
+
+    const DecorationEntry *pDecoration =
+        m_indoorDecorationBillboardSet->decorationTable.get(inspectHit.decorationListId);
+
+    if ((pDecoration == nullptr || pDecoration->hint.empty()) && !inspectHit.name.empty())
+    {
+        pDecoration = m_indoorDecorationBillboardSet->decorationTable.findByInternalName(inspectHit.name);
+    }
+
+    if (pDecoration != nullptr && !pDecoration->hint.empty())
+    {
+        return pDecoration->hint;
+    }
+
+    return std::nullopt;
+}
+
 std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(const InspectHit &inspectHit) const
 {
     if (inspectHit.kind == "entity")
     {
+        const std::optional<std::string> decorationHint =
+            resolveEntityDecorationHoverStatusText(inspectHit);
+
+        if (decorationHint && !decorationHint->empty())
+        {
+            return decorationHint;
+        }
+
         const uint16_t directEventId =
             inspectHit.eventIdPrimary != 0 ? inspectHit.eventIdPrimary : inspectHit.eventIdSecondary;
 

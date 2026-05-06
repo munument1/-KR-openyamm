@@ -203,12 +203,12 @@ end, "Lever")
 
 RegisterEvent(31, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(1916, 6618, 1, 502, 0, 0, 0, 0)
+    evt.MoveToMap(1916, 6618, 1, 502, 0, 0, 0, 0, "0.")
 end, "Tile")
 
 RegisterEvent(32, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-2688, 1152, 1152, 1550, 0, 0, 0, 0)
+    evt.MoveToMap(-2688, 1152, 1152, 1550, 0, 0, 0, 0, "0.")
 end, "Tile")
 
 RegisterEvent(33, "Lever", function()
@@ -249,17 +249,17 @@ end, "Lever")
 
 RegisterEvent(41, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1822, 4049, 1, 502, 0, 0, 0, 0)
+    evt.MoveToMap(-1822, 4049, 1, 502, 0, 0, 0, 0, "0.")
 end, "Tile")
 
 RegisterEvent(42, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(134, 1151, 1, 502, 0, 0, 0, 0)
+    evt.MoveToMap(134, 1151, 1, 502, 0, 0, 0, 0, "0.")
 end, "Tile")
 
 RegisterEvent(43, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(2324, -141, -2047, 896, 0, 0, 0, 0)
+    evt.MoveToMap(2324, -141, -2047, 896, 0, 0, 0, 0, "0.")
 end, "Tile")
 
 RegisterEvent(44, "Chest", function()
@@ -316,7 +316,7 @@ end)
 
 RegisterEvent(54, "Legacy event 54", function()
     if IsAtLeast(MapVar(2), 1) then
-        evt.DamagePlayer(5, 5, 25)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 25)
     end
 end)
 

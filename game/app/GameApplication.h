@@ -64,7 +64,7 @@ private:
     friend class HeadlessGameplayDiagnostics;
     friend struct GameApplicationTestAccess;
 
-    bool loadGameData(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadGameData(Engine::AssetFileSystem &assetFileSystem);
     void shutdownApplication();
     bool initializeSelectedMapRuntime(bool initializeView);
     bool initializeRenderer();
@@ -82,6 +82,8 @@ private:
     bool loadCurrentSessionMap(
         bool initializeView,
         const std::function<void(int)> &progressCallback = {});
+    bool activateWorldForMap(const MapStatsEntry &map);
+    bool activateWorldForMapFileName(const std::string &mapFileName);
     bool applyCurrentSessionToRuntime(bool initializeView);
     bool processPendingMapMove();
     bool processPendingWinGame();
@@ -159,7 +161,7 @@ private:
     std::unique_ptr<OutdoorPartyRuntime> m_pOutdoorPartyRuntime;
     std::unique_ptr<OutdoorWorldRuntime> m_pOutdoorWorldRuntime;
     std::unique_ptr<IMapSceneRuntime> m_pMapSceneRuntime;
-    const Engine::AssetFileSystem *m_pAssetFileSystem;
+    Engine::AssetFileSystem *m_pAssetFileSystem;
     bool m_quickSaveLatch = false;
     bool m_quickLoadLatch = false;
     bool m_advanceTimeLatch = false;

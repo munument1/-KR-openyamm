@@ -164,8 +164,8 @@ void OutdoorPartyRuntime::syncSpellMovementStatesFromPartyBuffs()
     m_movementDriver.setFlyingAvailable(m_party.hasPartyBuff(PartyBuffId::Fly) || m_debugFlyingOverride);
 }
 
-void OutdoorPartyRuntime::requestJump()
+void OutdoorPartyRuntime::requestJump(std::optional<float> verticalVelocity, float lift)
 {
-    m_movementDriver.requestJump();
+    m_movementDriver.requestJump(verticalVelocity, lift);
 }
 }

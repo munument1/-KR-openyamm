@@ -18,7 +18,6 @@ constexpr float MaximumDrop = 160.0f;
 constexpr float MaximumStepUpFromCurrentFootZ = 128.0f;
 constexpr float SlideFactor = 0.89263916f;
 constexpr float GravityPerSecond = 960.0f;
-constexpr float JumpVelocity = 420.0f;
 constexpr float GroundSnapSlack = 8.0f;
 constexpr float CylinderCollisionHorizontalEpsilon = 0.0001f;
 
@@ -740,7 +739,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
     std::optional<size_t> ignoredActorIndex,
     bool blockActorSlide,
     IndoorMoveDebugInfo *pDebugInfo,
-    bool flyingActive
+    bool flyingActive,
+    float jumpVelocity,
+    float jumpLift
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -839,8 +840,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
         if (sweptRequest.jumpRequested)
         {
             candidateGrounded = false;
-            candidateVerticalVelocity = JumpVelocity;
-            candidateFootZ += 1.0f;
+            candidateVerticalVelocity = jumpVelocity;
+            candidateFootZ += jumpLift;
         }
     }
 

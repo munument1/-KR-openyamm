@@ -12,6 +12,7 @@ constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float GameSecondsPerRealSecond = GameMinutesPerRealSecond * 60.0f;
 constexpr float IndoorMovementStepSeconds = 1.0f / 128.0f;
 constexpr float MaxAccumulatedMovementSeconds = 0.1f;
+constexpr float DefaultJumpVelocity = 420.0f;
 }
 
 IndoorPartyRuntime::IndoorPartyRuntime(IndoorMovementController movementController, const ItemTable &itemTable)
@@ -34,6 +35,8 @@ void IndoorPartyRuntime::initializeEyePosition(float x, float y, float z, bool r
     m_pendingImpulseVelocityX = 0.0f;
     m_pendingImpulseVelocityY = 0.0f;
     m_pendingImpulseVelocityZ = 0.0f;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
 }
 
 void IndoorPartyRuntime::initializePartyPosition(float x, float y, float z, bool resetParty)
@@ -51,6 +54,8 @@ void IndoorPartyRuntime::teleportEyePosition(float x, float y, float z)
     m_pendingImpulseVelocityX = 0.0f;
     m_pendingImpulseVelocityY = 0.0f;
     m_pendingImpulseVelocityZ = 0.0f;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
 }
 
 void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
@@ -59,6 +64,8 @@ void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
     m_movementState = m_movementController.initializeStateFromEyePosition(x, y, z + body.height, body);
     m_movementAccumulatorSeconds = 0.0f;
     m_pendingJumpRequested = false;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
 }
 
 void IndoorPartyRuntime::update(
@@ -96,6 +103,8 @@ void IndoorPartyRuntime::update(
 
     while (m_movementAccumulatorSeconds >= IndoorMovementStepSeconds)
     {
+        const float jumpVelocityThisStep = m_pendingJumpVelocity.value_or(DefaultJumpVelocity);
+        const float jumpLiftThisStep = m_pendingJumpLift;
         m_movementState = m_movementController.resolveMove(
             m_movementState,
             body,
@@ -106,8 +115,13 @@ void IndoorPartyRuntime::update(
             nullptr,
             std::nullopt,
             true,
-            nullptr);
+            nullptr,
+            false,
+            jumpVelocityThisStep,
+            jumpLiftThisStep);
         m_pendingJumpRequested = false;
+        m_pendingJumpVelocity.reset();
+        m_pendingJumpLift = 1.0f;
         m_movementAccumulatorSeconds -= IndoorMovementStepSeconds;
     }
 }
@@ -183,6 +197,8 @@ void IndoorPartyRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_pendingImpulseVelocityX = snapshot.pendingImpulseVelocityX;
     m_pendingImpulseVelocityY = snapshot.pendingImpulseVelocityY;
     m_pendingImpulseVelocityZ = snapshot.pendingImpulseVelocityZ;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
     m_alwaysRunEnabled = snapshot.alwaysRunEnabled;
 }
 
@@ -205,9 +221,11 @@ void IndoorPartyRuntime::syncSpellMovementStatesFromPartyBuffs()
 {
 }
 
-void IndoorPartyRuntime::requestJump()
+void IndoorPartyRuntime::requestJump(std::optional<float> verticalVelocity, float lift)
 {
     m_pendingJumpRequested = true;
+    m_pendingJumpVelocity = verticalVelocity;
+    m_pendingJumpLift = std::max(1.0f, lift);
 }
 
 void IndoorPartyRuntime::requestSpecialJump(float velocityX, float velocityY, float velocityZ)

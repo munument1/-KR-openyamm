@@ -96,7 +96,8 @@ public:
         float flyVerticalSpeed,
         float maxFlightHeight,
         float deltaSeconds,
-        std::vector<size_t> *pContactedActorIndices = nullptr
+        std::vector<size_t> *pContactedActorIndices = nullptr,
+        float jumpLift = 1.0f
     ) const;
     OutdoorMoveState resolveMoveForBody(
         const OutdoorMoveState &state,
@@ -114,7 +115,8 @@ public:
         float maxFlightHeight,
         float deltaSeconds,
         std::vector<size_t> *pContactedActorIndices = nullptr,
-        const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider = std::nullopt
+        const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider = std::nullopt,
+        float jumpLift = 1.0f
     ) const;
     OutdoorMoveState resolveOutdoorActorMove(
         const OutdoorMoveState &state,

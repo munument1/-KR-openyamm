@@ -91,7 +91,7 @@ end, "Door")
 
 RegisterEvent(8, "Door", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.DamagePlayer(7, 0, 15)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 15)
         evt.SetDoorState(8, DoorAction.Close)
         return
     end
@@ -232,7 +232,7 @@ RegisterEvent(24, "Suspicious Floor", function()
     SetValue(MapVar(18), 1)
     evt.SetTexture(1079, "mystryb")
     evt.SummonMonsters(3, 1, 1, 2688, 3968, 1, 0, 0) -- encounter slot 3 "BGenie" tier A, count 1, pos=(2688, 3968, 1), actor group 0, no unique actor name
-    evt.MoveToMap(2179, 4314, 1, 1, 0, 0, 0, 0)
+    evt.MoveToMap(2179, 4314, 1, 1, 0, 0, 0, 0, "0.")
 end, "Suspicious Floor")
 
 RegisterEvent(25, "Suspicious Floor", function()
@@ -254,7 +254,7 @@ end, "Suspicious Floor")
 
 RegisterEvent(26, "Legacy event 26", function()
     if IsAtLeast(MapVar(18), 1) then
-        evt.MoveToMap(8832, -4992, 87, 1, 0, 0, 0, 0)
+        evt.MoveToMap(8832, -4992, 87, 1, 0, 0, 0, 0, "0.")
     end
 end)
 
@@ -263,8 +263,8 @@ RegisterEvent(31, "Bag", function()
 end, "Bag")
 
 RegisterEvent(32, "Poisoned Spike", function()
-    evt.DamagePlayer(6, 4, 16)
-    evt.DamagePlayer(6, 4, 11)
+    evt.DamagePlayer(6, const.Damage.Physical, 16)
+    evt.DamagePlayer(6, const.Damage.Physical, 11)
 end, "Poisoned Spike")
 
 RegisterEvent(34, "Suspicious Floor", function()
@@ -407,21 +407,21 @@ RegisterEvent(64, "Magic Door", function(continueStep)
 end, "Magic Door")
 
 RegisterEvent(65, "Legacy event 65", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0)
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "6d03.blv") -- Shadow Guild Hideout
     SubtractValue(Food, 5)
 end)
 
 RegisterEvent(66, "Legacy event 66", function()
-    evt.MoveToMap(1408, -1664, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(1408, -1664, 1, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(67, "Legacy event 67", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0)
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "6d06.blv") -- Dragoons' Caverns
     SubtractValue(Food, 5)
 end)
 
 RegisterEvent(68, "Legacy event 68", function()
-    evt.MoveToMap(11407, 18074, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(11407, 18074, 1, 0, 0, 0, 0, 0, "outc2.odm") -- Free Haven
     SubtractValue(Food, 5)
 end)
 

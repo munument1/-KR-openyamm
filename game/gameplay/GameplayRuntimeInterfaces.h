@@ -335,6 +335,7 @@ struct GameplayPartyAttackProjectileRequest
 {
     size_t sourcePartyMemberIndex = 0;
     uint32_t objectId = 0;
+    uint32_t impactObjectId = 0;
     int damage = 0;
     int attackBonus = 0;
     bool useActorHitChance = false;
@@ -404,7 +405,7 @@ public:
         return false;
     }
     virtual void syncSpellMovementStatesFromPartyBuffs() = 0;
-    virtual void requestPartyJump() = 0;
+    virtual void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) = 0;
     virtual void setAlwaysRunEnabled(bool enabled) = 0;
     virtual void updateWorldMovement(
         const GameplayInputFrame &input,
@@ -421,6 +422,10 @@ public:
     virtual bool requestTravelAutosave() = 0;
     virtual void cancelPendingMapTransition() = 0;
     virtual bool executeNpcTopicEvent(
+        uint16_t eventId,
+        size_t &previousMessageCount,
+        std::optional<uint8_t> continueStep = std::nullopt) = 0;
+    virtual bool executeMapEvent(
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt) = 0;

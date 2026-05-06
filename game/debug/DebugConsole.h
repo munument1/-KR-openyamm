@@ -110,6 +110,7 @@ private:
     void renderMapControls();
     void renderMapPicker(MapOptionKind kind, const char *label, char *pSearchBuffer, size_t searchBufferSize);
     void renderItemPicker();
+    void giveSelectedItem();
     void renderHelpText() const;
 
     std::unordered_map<std::string, CommandDefinition> m_commands;

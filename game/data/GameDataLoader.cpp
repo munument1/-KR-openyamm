@@ -137,6 +137,21 @@ std::vector<std::string> buildLuaScriptOverlayPathCandidates(
     return candidates;
 }
 
+std::vector<std::string> buildLuaGlobalScriptOverlayPathCandidates(const Engine::AssetFileSystem &assetFileSystem)
+{
+    std::vector<std::string> candidates;
+
+    for (const std::string &entryName : assetFileSystem.enumerate("events"))
+    {
+        if (isLuaMapOverlayFileName(entryName, "Global"))
+        {
+            candidates.push_back("events/" + entryName);
+        }
+    }
+
+    return candidates;
+}
+
 std::vector<std::filesystem::path> buildLuaScriptSidecarPathCandidates(
     const std::string &baseName,
     const std::optional<std::filesystem::path> &geometryPath,
@@ -195,6 +210,31 @@ std::string appendLuaScriptOverlays(
 
     return combinedLuaSource;
 }
+
+std::string appendLuaGlobalScriptOverlays(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &luaSource,
+    std::string &resolvedPath)
+{
+    std::string combinedLuaSource = luaSource;
+
+    for (const std::string &overlayPath : buildLuaGlobalScriptOverlayPathCandidates(assetFileSystem))
+    {
+        const std::optional<std::string> overlaySource = assetFileSystem.readTextFile(overlayPath);
+
+        if (!overlaySource)
+        {
+            continue;
+        }
+
+        combinedLuaSource += "\n\n-- global overlay: " + overlayPath + "\n";
+        combinedLuaSource += *overlaySource;
+        resolvedPath += " + " + overlayPath;
+    }
+
+    return combinedLuaSource;
+}
+
 
 std::vector<std::string> buildLuaSupportPathCandidates()
 {
@@ -3041,8 +3081,10 @@ bool GameDataLoader::loadSelectedMap(
         if (luaSource)
         {
             std::string error;
+            const std::string globalLuaSource =
+                appendLuaGlobalScriptOverlays(assetFileSystem, *luaSource, resolvedLuaPath);
             const std::string combinedLuaSource =
-                prependLuaSupport(supportLuaSource, worldCommonLuaSource, luaSource);
+                prependLuaSupport(supportLuaSource, worldCommonLuaSource, globalLuaSource);
             std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
                 combinedLuaSource,
                 "@" + resolvedLuaPath,

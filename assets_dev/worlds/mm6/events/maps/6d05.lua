@@ -20,7 +20,7 @@ RegisterEvent(3, "Switch", function()
 end, "Switch")
 
 RegisterEvent(4, "Glowing dinosaur bones", function()
-    evt.MoveToMap(1576, -1921, 1, 44, 0, 0, 0, 0)
+    evt.MoveToMap(1576, -1921, 1, 44, 0, 0, 0, 0, "0.")
 end, "Glowing dinosaur bones")
 
 RegisterEvent(6, "Lever", function()
@@ -59,13 +59,13 @@ RegisterEvent(10, "Gold vein", function()
     if IsAtLeast(MapVar(13), 1) then return end
     local randomStep = PickRandomOption(10, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(204, "t3ll6")
         SetValue(MapVar(13), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(204, "t3ll6")
@@ -93,13 +93,13 @@ RegisterEvent(11, "Gold vein", function()
     if IsAtLeast(MapVar(14), 1) then return end
     local randomStep = PickRandomOption(11, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(207, "t3ll6")
         SetValue(MapVar(14), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(207, "t3ll6")
@@ -127,13 +127,13 @@ RegisterEvent(12, "Gold vein", function()
     if IsAtLeast(MapVar(15), 1) then return end
     local randomStep = PickRandomOption(12, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(12, "t3ll6")
         SetValue(MapVar(15), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(12, "t3ll6")
@@ -161,13 +161,13 @@ RegisterEvent(13, "Gold vein", function()
     if IsAtLeast(MapVar(16), 1) then return end
     local randomStep = PickRandomOption(13, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(624, "t3ll6")
         SetValue(MapVar(16), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(624, "t3ll6")
@@ -195,13 +195,13 @@ RegisterEvent(14, "Gold vein", function()
     if IsAtLeast(MapVar(17), 1) then return end
     local randomStep = PickRandomOption(14, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(612, "t3ll6")
         SetValue(MapVar(17), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(612, "t3ll6")
@@ -254,13 +254,13 @@ RegisterEvent(26, "Gold vein", function()
     if IsAtLeast(MapVar(21), 1) then return end
     local randomStep = PickRandomOption(26, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(143, "t3ll6")
         SetValue(MapVar(21), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 1000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(143, "t3ll6")
@@ -288,13 +288,13 @@ RegisterEvent(28, "Gems", function()
     if IsAtLeast(MapVar(18), 1) then return end
     local randomStep = PickRandomOption(28, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(124, "t3ll6")
         SetValue(MapVar(18), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 2000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(124, "t3ll6")
@@ -322,13 +322,13 @@ RegisterEvent(29, "Gems", function()
     if IsAtLeast(MapVar(19), 1) then return end
     local randomStep = PickRandomOption(29, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(132, "t3ll6")
         SetValue(MapVar(19), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 2000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(132, "t3ll6")
@@ -356,13 +356,13 @@ RegisterEvent(30, "Gems", function()
     if IsAtLeast(MapVar(20), 1) then return end
     local randomStep = PickRandomOption(30, 2, {15, 20, 15, 11, 7, 3})
     if randomStep == 15 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         evt.StatusText("Cave-in!")
         evt.SetTexture(135, "t3ll6")
         SetValue(MapVar(20), 1)
         return
     elseif randomStep == 20 then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
         AddValue(Gold, 2000)
         evt.StatusText("Cave-in!")
         evt.SetTexture(135, "t3ll6")

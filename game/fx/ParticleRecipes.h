@@ -18,6 +18,7 @@ enum class ProjectileRecipe
     Starburst,
     Implosion,
     Cannonball,
+    Blaster,
     Sparks,
     LightningBolt,
     IceBolt,

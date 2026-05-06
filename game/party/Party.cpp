@@ -20,6 +20,7 @@
 #include <iostream>
 #include <limits>
 #include <random>
+#include <unordered_set>
 
 namespace OpenYAMM::Game
 {
@@ -2323,6 +2324,14 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
         m_lastStatus = "award removed";
     }
 
+    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+    {
+        if (follower.npcId != 0)
+        {
+            m_unavailableNpcIds.erase(follower.npcId);
+        }
+    }
+
     m_hiredNpcFollowers = runtimeState.hiredNpcFollowers;
     for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
     {
@@ -3324,6 +3333,35 @@ void Party::setQuestBit(uint32_t questBitId, bool value)
 
 void Party::applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const
 {
+    std::unordered_set<uint32_t> partyFollowerIds;
+    partyFollowerIds.reserve(m_hiredNpcFollowers.size());
+
+    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+    {
+        if (follower.npcId != 0)
+        {
+            partyFollowerIds.insert(follower.npcId);
+        }
+    }
+
+    const auto staleFollowerIt = std::remove_if(
+        runtimeState.hiredNpcFollowers.begin(),
+        runtimeState.hiredNpcFollowers.end(),
+        [&partyFollowerIds](const HiredNpcFollower &follower)
+        {
+            return follower.npcId != 0 && !partyFollowerIds.contains(follower.npcId);
+        });
+
+    if (staleFollowerIt != runtimeState.hiredNpcFollowers.end())
+    {
+        for (auto iterator = staleFollowerIt; iterator != runtimeState.hiredNpcFollowers.end(); ++iterator)
+        {
+            runtimeState.unavailableNpcIds.erase(iterator->npcId);
+        }
+
+        runtimeState.hiredNpcFollowers.erase(staleFollowerIt, runtimeState.hiredNpcFollowers.end());
+    }
+
     for (const auto &[npcId, topicOverrides] : m_npcTopicOverrides)
     {
         for (const auto &[topicSlotIndex, topicId] : topicOverrides)
@@ -3555,11 +3593,38 @@ int Party::inventoryItemCount(uint32_t objectDescriptionId, std::optional<size_t
 
     auto countMemberItems = [&](const Character &member)
     {
+        static constexpr EquipmentSlot EquipmentSlots[] = {
+            EquipmentSlot::OffHand,
+            EquipmentSlot::MainHand,
+            EquipmentSlot::Bow,
+            EquipmentSlot::Armor,
+            EquipmentSlot::Helm,
+            EquipmentSlot::Belt,
+            EquipmentSlot::Cloak,
+            EquipmentSlot::Gauntlets,
+            EquipmentSlot::Boots,
+            EquipmentSlot::Amulet,
+            EquipmentSlot::Ring1,
+            EquipmentSlot::Ring2,
+            EquipmentSlot::Ring3,
+            EquipmentSlot::Ring4,
+            EquipmentSlot::Ring5,
+            EquipmentSlot::Ring6,
+        };
+
         for (const InventoryItem &item : member.inventory)
         {
             if (item.objectDescriptionId == objectDescriptionId)
             {
                 totalCount += static_cast<int>(item.quantity);
+            }
+        }
+
+        for (EquipmentSlot slot : EquipmentSlots)
+        {
+            if (::OpenYAMM::Game::equippedItemId(member.equipment, slot) == objectDescriptionId)
+            {
+                totalCount += 1;
             }
         }
     };

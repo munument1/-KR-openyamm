@@ -176,6 +176,16 @@ public:
         return m_partyJumpRequested;
     }
 
+    float partyJumpVerticalVelocity() const
+    {
+        return m_partyJumpVerticalVelocity;
+    }
+
+    float partyJumpLift() const
+    {
+        return m_partyJumpLift;
+    }
+
     const std::string &mapName() const override
     {
         return m_mapName;
@@ -256,9 +266,11 @@ public:
         m_syncSpellMovementStatesCalled = true;
     }
 
-    void requestPartyJump() override
+    void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override
     {
         m_partyJumpRequested = true;
+        m_partyJumpVerticalVelocity = verticalVelocity;
+        m_partyJumpLift = lift;
     }
 
     void setAlwaysRunEnabled(bool enabled) override
@@ -328,6 +340,34 @@ public:
         const std::optional<Game::ScriptedEventProgram> &globalEventProgram =
             m_pGlobalEventProgram != nullptr ? *m_pGlobalEventProgram : emptyGlobalEventProgram;
         const bool executed = eventRuntime.executeNpcTopicEventById(
+            std::nullopt,
+            globalEventProgram,
+            eventId,
+            *eventRuntimeState(),
+            m_pParty,
+            nullptr,
+            continueStep);
+
+        if (executed && m_pParty != nullptr)
+        {
+            m_pParty->applyEventRuntimeState(*eventRuntimeState());
+        }
+
+        return executed;
+    }
+
+    bool executeMapEvent(
+        uint16_t eventId,
+        size_t &previousMessageCount,
+        std::optional<uint8_t> continueStep = std::nullopt) override
+    {
+        (void)previousMessageCount;
+
+        Game::EventRuntime eventRuntime;
+        const std::optional<Game::ScriptedEventProgram> emptyGlobalEventProgram = std::nullopt;
+        const std::optional<Game::ScriptedEventProgram> &globalEventProgram =
+            m_pGlobalEventProgram != nullptr ? *m_pGlobalEventProgram : emptyGlobalEventProgram;
+        const bool executed = eventRuntime.executeEventById(
             std::nullopt,
             globalEventProgram,
             eventId,
@@ -876,6 +916,8 @@ private:
     int m_currentLocationReputation = 0;
     bool m_syncSpellMovementStatesCalled = false;
     bool m_partyJumpRequested = false;
+    float m_partyJumpVerticalVelocity = 0.0f;
+    float m_partyJumpLift = 1.0f;
     bool m_alwaysRunEnabled = false;
 };
 }

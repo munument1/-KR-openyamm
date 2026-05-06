@@ -62,6 +62,8 @@ void OutdoorMovementDriver::initialize(float x, float y, float footZHint)
     m_jumpHeld = false;
     m_flyUpHeld = false;
     m_pendingJumpPress = false;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
     m_flyingAvailable = false;
     m_movementAccumulatorSeconds = 0.0f;
     m_startedFallingEventSeconds = 0.0f;
@@ -94,6 +96,8 @@ void OutdoorMovementDriver::restoreState(
     m_jumpHeld = false;
     m_flyUpHeld = false;
     m_pendingJumpPress = false;
+    m_pendingJumpVelocity.reset();
+    m_pendingJumpLift = 1.0f;
     m_movementAccumulatorSeconds = 0.0f;
     m_startedFallingEventSeconds = 0.0f;
     m_landedEventSeconds = 0.0f;
@@ -260,6 +264,9 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     {
         const OutdoorMoveState previousState = m_state;
         const bool jumpRequestedThisStep = m_pendingJumpPress;
+        const float jumpVelocityThisStep =
+            m_pendingJumpVelocity.value_or(m_tuning.jumpVelocity * speedMultiplier);
+        const float jumpLiftThisStep = m_pendingJumpLift;
         std::vector<size_t> contactedActorIndices;
         m_state = m_movementController.resolveMove(
             m_state,
@@ -271,13 +278,16 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
             input.flyDown,
             m_partyMovementState.flying,
             m_partyMovementState.waterWalk,
-            m_tuning.jumpVelocity * speedMultiplier,
+            jumpVelocityThisStep,
             m_tuning.flyVerticalSpeed * speedMultiplier,
             m_tuning.maxFlightHeight,
             OutdoorMovementStepSeconds,
-            &contactedActorIndices
+            &contactedActorIndices,
+            jumpLiftThisStep
         );
         m_pendingJumpPress = false;
+        m_pendingJumpVelocity.reset();
+        m_pendingJumpLift = 1.0f;
 
         if (!m_lastEvents.blockedBoundaryEdge.has_value())
         {
@@ -549,9 +559,11 @@ void OutdoorMovementDriver::setSpeedMultiplier(float multiplier)
     m_speedMultiplier = std::clamp(multiplier, 0.1f, 20.0f);
 }
 
-void OutdoorMovementDriver::requestJump()
+void OutdoorMovementDriver::requestJump(std::optional<float> verticalVelocity, float lift)
 {
     m_pendingJumpPress = true;
+    m_pendingJumpVelocity = verticalVelocity;
+    m_pendingJumpLift = std::max(1.0f, lift);
 }
 
 void OutdoorMovementDriver::setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders)

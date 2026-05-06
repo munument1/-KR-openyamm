@@ -25,6 +25,8 @@ constexpr float CameraVerticalFovRadians = Pi / 3.0f;
 constexpr float PartyMemberProjectileLateralSpacing = 28.0f;
 constexpr float ProjectileRightVectorEpsilon = 0.0001f;
 constexpr float SpellFailureRecoveryScale = 0.5f;
+constexpr float JumpSpellVerticalVelocity = 1000.0f;
+constexpr float JumpSpellLift = 5.0f;
 constexpr uint32_t FirstBaseSpellId = spellIdValue(SpellId::TorchLight);
 constexpr uint32_t LastBaseSpellId = spellIdValue(SpellId::SoulDrinker);
 constexpr int16_t SummonWispNormalMonsterId = 97;
@@ -2029,7 +2031,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
     }
     else if (rule->effectKind == PartySpellCastEffectKind::Jump)
     {
-        worldRuntime.requestPartyJump();
+        worldRuntime.requestPartyJump(JumpSpellVerticalVelocity, JumpSpellLift);
         castSucceeded = true;
     }
     else if (rule->effectKind == PartySpellCastEffectKind::UtilityUi)

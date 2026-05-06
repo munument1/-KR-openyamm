@@ -607,7 +607,7 @@ RegisterEvent(100, "Drink from Well.", function()
 end, "Drink from Well.")
 
 RegisterEvent(101, "Drink from Well.", function()
-    evt.DamagePlayer(7, 2, 40)
+    evt.DamagePlayer(Players.Current, const.Damage.Water, 40)
     SetValue(PoisonedYellow, 1)
     evt.StatusText("Poison!")
 end, "Drink from Well.")

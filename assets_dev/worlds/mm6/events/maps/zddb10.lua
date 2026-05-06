@@ -44,7 +44,7 @@ RegisterEvent(6, "Switch.", function()
 end, "Switch.")
 
 RegisterEvent(8, "Old bones.", function()
-    evt.DamagePlayer(7, 1, 10)
+    evt.DamagePlayer(Players.Current, const.Damage.Air, 10)
 end, "Old bones.")
 
 RegisterEvent(9, "Wall with missing bricks.", function()
@@ -136,7 +136,7 @@ RegisterEvent(25, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -155,7 +155,7 @@ RegisterEvent(26, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -174,7 +174,7 @@ RegisterEvent(27, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -193,7 +193,7 @@ RegisterEvent(28, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -212,7 +212,7 @@ RegisterEvent(29, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -231,7 +231,7 @@ RegisterEvent(30, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -250,7 +250,7 @@ RegisterEvent(31, "Burial niche", function()
         AddValue(Gold, 300)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -269,7 +269,7 @@ RegisterEvent(32, "Burial niche", function()
         AddValue(Gold, 500)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -288,7 +288,7 @@ RegisterEvent(33, "Burial niche", function()
         AddValue(Gold, 400)
     elseif randomStep == 5 then
         evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(7, 0, 10)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
     elseif randomStep == 8 then
         evt.StatusText("These are really old bones...really old.")
         AddValue(Age, 5)
@@ -313,7 +313,7 @@ end, "Skeleton in a cage.")
 
 RegisterEvent(37, "Legacy event 37", function()
     evt.StatusText("A strange force reaches out of the wall and grabs you.")
-    evt.MoveToMap(12416, 3200, -2304, 0, 0, 0, 0, 0)
+    evt.MoveToMap(12416, 3200, -2304, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(38, "Door.", function()

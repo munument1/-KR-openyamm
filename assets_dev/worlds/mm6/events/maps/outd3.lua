@@ -342,7 +342,7 @@ end)
 
 RegisterEvent(201, "Keep Off!", function()
     SetValue(MapVar(2), 1)
-    evt.MoveToMap(-12045, -6073, 2, 512, 0, 0, 0, 0)
+    evt.MoveToMap(-12045, -6073, 2, 512, 0, 0, 0, 0, "0.")
 end, "Keep Off!")
 
 RegisterEvent(202, "Keep Off!", function()
@@ -351,7 +351,7 @@ end, "Keep Off!")
 
 RegisterEvent(203, "Keep Off!", function()
     evt.SetSnow(1, 0)
-    evt.MoveToMap(17920, 14344, 2080, 1024, 0, 0, 0, 0)
+    evt.MoveToMap(17920, 14344, 2080, 1024, 0, 0, 0, 0, "0.")
 end, "Keep Off!")
 
 RegisterEvent(210, "Legacy event 210", function(continueStep)
@@ -362,7 +362,7 @@ RegisterEvent(210, "Legacy event 210", function(continueStep)
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
             evt.SimpleMessage("Well")
-            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0)
+            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
             return
         end
         SubtractValue(Gold, 100)
@@ -371,7 +371,7 @@ RegisterEvent(210, "Legacy event 210", function(continueStep)
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
             evt.SimpleMessage("Well")
-            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0)
+            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
             return
         end
         SubtractValue(Gold, 100)

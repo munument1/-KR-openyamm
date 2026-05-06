@@ -119,7 +119,7 @@ struct Character
     int armorClassModifier = 0;
     int levelModifier = 0;
     int ageModifier = 0;
-    uint32_t playerBits = 0;
+    std::unordered_set<uint32_t> playerBits;
     uint32_t npcs2 = 0;
     int merchantBonus = 0;
     int weaponEnchantmentDamageBonus = 0;

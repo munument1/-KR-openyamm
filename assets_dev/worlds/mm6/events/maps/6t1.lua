@@ -169,7 +169,7 @@ RegisterEvent(19, "Door", function()
         end
         SetValue(MapVar(5), 1)
     end
-    evt.DamagePlayer(5, 0, 10)
+    evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
     SetValue(MapVar(4), 0)
     SetValue(MapVar(5), 0)
     SetValue(MapVar(6), 0)
@@ -182,7 +182,7 @@ RegisterEvent(20, "Door", function()
         AddValue(MapVar(10), 1)
         if IsAtLeast(MapVar(10), 2) then
             SetValue(MapVar(10), 1)
-            evt.DamagePlayer(5, 0, 10)
+            evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
             evt.StatusText("Zap!")
             return
         elseif IsAtLeast(MapVar(4), 1) then
@@ -202,7 +202,7 @@ RegisterEvent(20, "Door", function()
             return
         end
     end
-    evt.DamagePlayer(5, 0, 10)
+    evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
     evt.StatusText("Zap!")
 end, "Door")
 
@@ -215,7 +215,7 @@ RegisterEvent(21, "Door", function()
         end
         SetValue(MapVar(5), 1)
     end
-    evt.DamagePlayer(5, 0, 10)
+    evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
     SetValue(MapVar(4), 0)
     SetValue(MapVar(5), 0)
     SetValue(MapVar(6), 0)
@@ -230,7 +230,7 @@ RegisterEvent(22, "Door", function()
         return
     end
     SetValue(MapVar(4), 1)
-    evt.DamagePlayer(5, 0, 10)
+    evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
     evt.StatusText("Zap!")
 end, "Door")
 

@@ -49,7 +49,7 @@ public:
     void setDebugFlyingOverride(bool active);
     void setMovementSpeedMultiplier(float multiplier);
     void syncSpellMovementStatesFromPartyBuffs();
-    void requestJump();
+    void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
 
 private:
     OutdoorMovementDriver m_movementDriver;

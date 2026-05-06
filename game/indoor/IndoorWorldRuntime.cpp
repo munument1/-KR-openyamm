@@ -6277,11 +6277,13 @@ void IndoorWorldRuntime::syncSpellMovementStatesFromPartyBuffs()
     }
 }
 
-void IndoorWorldRuntime::requestPartyJump()
+void IndoorWorldRuntime::requestPartyJump(float verticalVelocity, float lift)
 {
     if (m_pPartyRuntime != nullptr)
     {
-        m_pPartyRuntime->requestJump();
+        const std::optional<float> velocityOverride =
+            verticalVelocity > 0.0f ? std::optional<float>(verticalVelocity) : std::nullopt;
+        m_pPartyRuntime->requestJump(velocityOverride, lift);
     }
 }
 
@@ -6552,6 +6554,44 @@ bool IndoorWorldRuntime::executeNpcTopicEvent(
     previousMessageCount = pEventRuntimeState->messages.size();
 
     const bool executed = m_pEventRuntime->executeNpcTopicEventById(
+        m_pLocalEventProgram != nullptr ? *m_pLocalEventProgram : std::optional<ScriptedEventProgram>{},
+        m_pGlobalEventProgram != nullptr ? *m_pGlobalEventProgram : std::optional<ScriptedEventProgram>{},
+        eventId,
+        *pEventRuntimeState,
+        m_pParty,
+        this,
+        continueStep);
+
+    if (!executed)
+    {
+        return false;
+    }
+
+    applyEventRuntimeState();
+
+    if (m_pParty != nullptr)
+    {
+        m_pParty->applyEventRuntimeState(*pEventRuntimeState, false);
+    }
+
+    return true;
+}
+
+bool IndoorWorldRuntime::executeMapEvent(
+    uint16_t eventId,
+    size_t &previousMessageCount,
+    std::optional<uint8_t> continueStep)
+{
+    EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+
+    if (m_pEventRuntime == nullptr || pEventRuntimeState == nullptr || eventId == 0)
+    {
+        return false;
+    }
+
+    previousMessageCount = pEventRuntimeState->messages.size();
+
+    const bool executed = m_pEventRuntime->executeEventById(
         m_pLocalEventProgram != nullptr ? *m_pLocalEventProgram : std::optional<ScriptedEventProgram>{},
         m_pGlobalEventProgram != nullptr ? *m_pGlobalEventProgram : std::optional<ScriptedEventProgram>{},
         eventId,
@@ -8421,9 +8461,42 @@ bool IndoorWorldRuntime::spawnPartyAttackProjectile(const GameplayPartyAttackPro
 
     const bool applied = applyPartyAttackMeleeDamage(*actorIndex, request.damage, request.source);
 
-    if (applied)
+    if (applied && request.impactObjectId > 0 && m_pObjectTable != nullptr)
     {
-        spawnImmediateSpellImpactVisual(*actorIndex, 0);
+        IndoorResolvedProjectileDefinition definition = {};
+
+        if (fillIndoorProjectileDefinitionFromObject(
+                static_cast<int>(request.objectId),
+                static_cast<int>(request.impactObjectId),
+                *m_pObjectTable,
+                definition))
+        {
+            GameplayProjectileService::ProjectileState projectile = {};
+            projectile.sourceKind = GameplayProjectileService::ProjectileState::SourceKind::Party;
+            projectile.sourceId = static_cast<uint32_t>(request.sourcePartyMemberIndex + 1);
+            projectile.sourcePartyMemberIndex = static_cast<uint32_t>(request.sourcePartyMemberIndex);
+            projectile.objectDescriptionId = definition.objectDescriptionId;
+            projectile.impactObjectDescriptionId = definition.impactObjectDescriptionId;
+            projectile.objectFlags = definition.objectFlags;
+            projectile.radius = definition.radius;
+            projectile.height = definition.height;
+            projectile.objectName = definition.objectName;
+            projectile.objectSpriteName = definition.objectSpriteName;
+            projectile.sourceX = request.source.x;
+            projectile.sourceY = request.source.y;
+            projectile.sourceZ = request.source.z;
+            projectile.x = request.target.x;
+            projectile.y = request.target.y;
+            projectile.z = request.target.z;
+            projectile.damageType = request.damageType;
+
+            const std::optional<GameplayWorldPoint> impactPoint = actorImpactPoint(*actorIndex);
+
+            if (impactPoint)
+            {
+                spawnIndoorProjectileImpactVisual(projectile, *impactPoint, true);
+            }
+        }
     }
 
     return applied;

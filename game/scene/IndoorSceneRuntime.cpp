@@ -486,7 +486,20 @@ std::optional<EventRuntimeState::PendingMapMove> IndoorSceneRuntime::consumePend
 
 void IndoorSceneRuntime::advanceGameMinutes(float minutes)
 {
+    if (minutes <= 0.0f)
+    {
+        return;
+    }
+
     m_worldRuntime.advanceGameMinutes(minutes);
+
+    for (TimerState &timer : m_timers)
+    {
+        if (!timer.hasFired || timer.repeating)
+        {
+            timer.remainingGameMinutes -= minutes;
+        }
+    }
 }
 
 const std::optional<MapDeltaData> &IndoorSceneRuntime::mapDeltaData() const

@@ -176,6 +176,34 @@ TEST_CASE("dispel magic recovery is reduced by light skill")
     CHECK(result.recoverySeconds == doctest::Approx(1.833333f));
 }
 
+TEST_CASE("jump spell uses OpenEnroth vertical impulse")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+    pCaster->skills["AirMagic"] = {"AirMagic", 5, OpenYAMM::Game::SkillMastery::Expert};
+    pCaster->spellPoints = 100;
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Jump);
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    CHECK(result.status == OpenYAMM::Game::PartySpellCastStatus::Succeeded);
+    CHECK(worldRuntime.partyJumpRequested());
+    CHECK_EQ(worldRuntime.partyJumpVerticalVelocity(), 1000.0f);
+    CHECK_EQ(worldRuntime.partyJumpLift(), 5.0f);
+}
+
 TEST_CASE("divine intervention recovery is shortened by light skill")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

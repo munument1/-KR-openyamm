@@ -79,7 +79,7 @@ RegisterEvent(13, "Guardian of Kriegspire", function(continueStep)
             return
         end
         SubtractValue(Gold, 50000)
-        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
+        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
     end
     if continueStep ~= nil then return end
     if not IsQBitSet(QBit(1364)) then -- NPC
@@ -87,11 +87,11 @@ RegisterEvent(13, "Guardian of Kriegspire", function(continueStep)
         evt.AskQuestion(13, 3, 10, 5, 11, 12, "Accept (Yes/No)?", {"Yes", "Y"})
         return nil
     end
-    evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
+    evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
 end, "Guardian of Kriegspire")
 
 RegisterEvent(15, "Legacy event 15", function()
-    evt.MoveToMap(5773, 5678, -848, 0, 0, 0, 0, 0)
+    evt.MoveToMap(5773, 5678, -848, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(17, "Door", function()
@@ -244,7 +244,7 @@ RegisterEvent(45, "Chest", function()
 end, "Chest")
 
 RegisterEvent(46, "Legacy event 46", function()
-    evt.MoveToMap(6383, 4644, 222, 315, 0, 0, 0, 0)
+    evt.MoveToMap(6383, 4644, 222, 315, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(49, "Chest", function()
@@ -272,7 +272,7 @@ RegisterEvent(60, "Legacy event 60", function()
 end)
 
 RegisterEvent(61, "Legacy event 61", function()
-    evt.MoveToMap(9111, 2540, 121, 512, 0, 0, 0, 0)
+    evt.MoveToMap(9111, 2540, 121, 512, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(62, "Legacy event 62", function()

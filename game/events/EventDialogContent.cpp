@@ -760,7 +760,15 @@ EventDialogContent buildEventDialogContent(
         }
     }
 
-    if (context.kind == DialogueContextKind::MapTransition)
+    if (context.kind == DialogueContextKind::MapEvent)
+    {
+        dialog.title = context.titleOverride.value_or(
+            pCurrentMap != nullptr && !pCurrentMap->name.empty()
+                ? pCurrentMap->name
+                : "Event");
+        dialog.participantPictureId = context.participantPictureId;
+    }
+    else if (context.kind == DialogueContextKind::MapTransition)
     {
         dialog.participantVisual = EventDialogParticipantVisual::MapIcon;
         dialog.presentation = EventDialogPresentation::Transition;
@@ -1428,6 +1436,7 @@ EventDialogContent buildEventDialogContent(
     }
 
     if (!dialog.isHouseDialog
+        && context.kind != DialogueContextKind::MapEvent
         && context.kind != DialogueContextKind::MapTransition
         && context.kind != DialogueContextKind::NpcNews
         && !allowNpcFallbackContent
@@ -1438,6 +1447,11 @@ EventDialogContent buildEventDialogContent(
 
     if (dialog.lines.empty() && dialog.actions.empty())
     {
+        if (context.kind == DialogueContextKind::MapEvent)
+        {
+            return {};
+        }
+
         if (!dialog.isHouseDialog && !allowEmptyNpcTalkDialog)
         {
             dialog.lines.push_back("NPC interaction UI is not implemented yet.");

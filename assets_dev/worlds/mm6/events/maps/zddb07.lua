@@ -34,7 +34,7 @@ RegisterEvent(3, "Switch.", function()
         evt.StatusText("The torches Ignite and so does the swamp gas.")
         evt.SetTexture(225, "d8s2on")
         evt.CastSpell(6, 0, 1, -3004, -2315, 120, -3244, -2315, 120) -- Fireball
-        evt.DamagePlayer(5, 5, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 20)
         evt.SetSprite(1, 1, "torch01")
         evt.SetSprite(2, 1, "torch01")
         evt.SetSprite(3, 1, "torch01")
@@ -68,27 +68,27 @@ end, "Switch.")
 RegisterEvent(5, "Legacy event 5", function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.StatusText("Swamp gas forces you back couching and gagging.")
-    evt.DamagePlayer(5, 2, 8)
-    evt.MoveToMap(-1328, -704, 0, 0, 0, 0, 0, 0)
+    evt.DamagePlayer(Players.All, const.Damage.Water, 8)
+    evt.MoveToMap(-1328, -704, 0, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(6, "Legacy event 6", function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.StatusText("Swamp gas forces you back couching and gagging.")
-    evt.DamagePlayer(5, 2, 8)
-    evt.MoveToMap(-2128, -1152, 0, 0, 0, 0, 0, 0)
+    evt.DamagePlayer(Players.All, const.Damage.Water, 8)
+    evt.MoveToMap(-2128, -1152, 0, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(7, "Legacy event 7", function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.StatusText("Swamp gas forces you back couching and gagging.")
-    evt.DamagePlayer(5, 2, 8)
-    evt.MoveToMap(-1888, -1600, 0, 0, 0, 0, 0, 0)
+    evt.DamagePlayer(Players.All, const.Damage.Water, 8)
+    evt.MoveToMap(-1888, -1600, 0, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(8, "Legacy event 8", function()
     evt.StatusText("Hundreds of snakes crawl out of the floor and bite you.")
-    evt.DamagePlayer(5, 2, 15)
+    evt.DamagePlayer(Players.All, const.Damage.Water, 15)
 end)
 
 RegisterEvent(9, "Legacy event 9", function()

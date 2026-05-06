@@ -341,4 +341,38 @@ bool OutdoorSceneRuntime::executeNpcTopicEventById(
     m_pPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
     return true;
 }
+
+bool OutdoorSceneRuntime::executeMapEventById(
+    uint16_t eventId,
+    size_t &previousMessageCount,
+    std::optional<uint8_t> continueStep)
+{
+    EventRuntimeState *pEventRuntimeState = m_pWorldRuntime->eventRuntimeState();
+
+    if (pEventRuntimeState == nullptr || eventId == 0)
+    {
+        return false;
+    }
+
+    previousMessageCount = pEventRuntimeState->messages.size();
+
+    const bool executed = m_eventRuntime.executeEventById(
+        m_localEventProgram,
+        m_globalEventProgram,
+        eventId,
+        *pEventRuntimeState,
+        &m_pPartyRuntime->party(),
+        m_pWorldRuntime,
+        continueStep
+    );
+
+    if (!executed)
+    {
+        return false;
+    }
+
+    m_pWorldRuntime->applyEventRuntimeState();
+    m_pPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
+    return true;
+}
 }

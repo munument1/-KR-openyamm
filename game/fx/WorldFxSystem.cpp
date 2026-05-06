@@ -122,6 +122,9 @@ float impactLightDurationSeconds(
 
     switch (recipe)
     {
+    case FxRecipes::ProjectileRecipe::Blaster:
+        recipeSeconds = 0.25f;
+        break;
     case FxRecipes::ProjectileRecipe::Fireball:
     case FxRecipes::ProjectileRecipe::DragonBreath:
         recipeSeconds = 0.92f;
@@ -150,6 +153,8 @@ float impactLightRadius(FxRecipes::ProjectileRecipe recipe)
 
     switch (recipe)
     {
+    case FxRecipes::ProjectileRecipe::Blaster:
+        return 256.0f;
     case FxRecipes::ProjectileRecipe::MeteorShower:
         return std::max(recipeGlowRadius, 128.0f) * ImpactLightRadiusScale;
     case FxRecipes::ProjectileRecipe::Starburst:

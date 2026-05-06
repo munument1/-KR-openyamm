@@ -229,6 +229,11 @@ private:
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt);
+    static bool executeMapEvent(
+        OutdoorGameView &view,
+        uint16_t eventId,
+        size_t &previousMessageCount,
+        std::optional<uint8_t> continueStep = std::nullopt);
     static bool tryTriggerLocalEventById(OutdoorGameView &view, uint16_t eventId);
 
     static bool buildQuickCastInspectRayForScreenPoint(

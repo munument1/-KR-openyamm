@@ -1,10 +1,168 @@
 MM6 = MM6 or {}
 
+MM6.NicolaiNpcId = 798
+MM6.NicolaiQuestQBit = 1114
+MM6.NicolaiReturnQBit = 1119
+MM6.NicolaiFollowerQBit = 1700
+MM6.NicolaiThroneRoomHouseId = 222
+MM6.NicolaiCircusHouseId = 1595
+MM6.NicolaiKidnapTimerEventId = 65000
+MM6.NicolaiStateOnLoadEventId = 65001
+MM6.NicolaiKidnapDeadlineVariable = 0x7001
+MM6.NicolaiKidnapTimerIntervalSeconds = 5 * 60
+MM6.NicolaiKidnapInitialDelaySeconds = 60 * 60
+MM6.NicolaiKidnapMessage =
+    "The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!"
+MM6.NicolaiDisappearedMessage = "It seems that Prince Nicolai disappeared while you were resting."
+MM6.NicolaiReturnMessage =
+    "\"Well, thanks for sneaking me out of the Castle.  Sorry about the circus thing-I hope I wasn't too much trouble to find.  I'll go in myself so no one will see that it was you who kidnapped me.  Thanks again, and goodbye.  I'll remember this, and I owe you a favor! \""
+
 MM6.LorettaPriceMessage =
     "Well, If Loretta's got a new scheme, count me in!\nBut you better get all the other companies to sign up!"
 
 function MM6.ApplyLocalMonsterRelations(relations)
     ApplyLocalMonsterRelations(relations)
+end
+
+function MM6.StartNicolaiQuest()
+    AddFollowerNpc(MM6.NicolaiNpcId)
+    evt.MoveNPC(MM6.NicolaiNpcId, 0)
+    SetQBit(QBit(MM6.NicolaiQuestQBit))
+    SetQBit(QBit(MM6.NicolaiFollowerQBit))
+    SetPartyVariable(
+        MM6.NicolaiKidnapDeadlineVariable,
+        CurrentGameMinutes() + math.floor(MM6.NicolaiKidnapInitialDelaySeconds / 60))
+    evt.SetNPCTopic(MM6.NicolaiNpcId, 0, 1332)
+end
+
+function MM6.KidnapNicolai(showMessage, force)
+    if not IsQBitSet(QBit(MM6.NicolaiQuestQBit))
+        or (not force and not HasFollowerNpc(MM6.NicolaiNpcId)) then
+        return
+    end
+
+    RemoveFollowerNpc(MM6.NicolaiNpcId)
+    ClearQBit(QBit(MM6.NicolaiQuestQBit))
+    ClearQBit(QBit(MM6.NicolaiFollowerQBit))
+    SetPartyVariable(MM6.NicolaiKidnapDeadlineVariable, 0)
+    evt.MoveNPC(MM6.NicolaiNpcId, MM6.NicolaiCircusHouseId)
+    SetQBit(QBit(MM6.NicolaiReturnQBit))
+    evt.SetNPCTopic(MM6.NicolaiNpcId, 0, 1334)
+
+    if showMessage then
+        evt.SimpleMessage(MM6.NicolaiDisappearedMessage)
+    else
+        evt.StatusText(MM6.NicolaiDisappearedMessage)
+    end
+end
+
+function MM6.RecoverNicolaiAtCircus()
+    AddFollowerNpc(MM6.NicolaiNpcId)
+    SetQBit(QBit(MM6.NicolaiFollowerQBit))
+    SetPartyVariable(MM6.NicolaiKidnapDeadlineVariable, 0)
+    evt.SetNPCTopic(MM6.NicolaiNpcId, 0, 1335)
+end
+
+function MM6.NormalizeNicolaiState()
+    local hasFollower = HasFollowerNpc(MM6.NicolaiNpcId)
+    local legacyFollowerFlag = IsQBitSet(QBit(MM6.NicolaiFollowerQBit))
+
+    if IsQBitSet(QBit(MM6.NicolaiQuestQBit)) then
+        local deadline = GetPartyVariable(MM6.NicolaiKidnapDeadlineVariable)
+        if deadline > 0 and CurrentGameMinutes() >= deadline then
+            MM6.KidnapNicolai(false, true)
+            return
+        end
+
+        if hasFollower then
+            SetQBit(QBit(MM6.NicolaiFollowerQBit))
+            if deadline == 0 then
+                SetPartyVariable(
+                    MM6.NicolaiKidnapDeadlineVariable,
+                    CurrentGameMinutes() + math.floor(MM6.NicolaiKidnapInitialDelaySeconds / 60))
+            end
+        elseif legacyFollowerFlag then
+            AddFollowerNpc(MM6.NicolaiNpcId)
+            if deadline == 0 then
+                SetPartyVariable(
+                    MM6.NicolaiKidnapDeadlineVariable,
+                    CurrentGameMinutes() + math.floor(MM6.NicolaiKidnapInitialDelaySeconds / 60))
+            end
+        else
+            MM6.KidnapNicolai(false, true)
+        end
+        return
+    end
+
+    if IsQBitSet(QBit(MM6.NicolaiReturnQBit)) then
+        if hasFollower then
+            SetQBit(QBit(MM6.NicolaiFollowerQBit))
+        elseif legacyFollowerFlag then
+            AddFollowerNpc(MM6.NicolaiNpcId)
+        end
+    end
+end
+
+function MM6.EnterIronfistThroneRoom()
+    evt.EnterHouse(MM6.NicolaiThroneRoomHouseId)
+end
+
+function MM6.ShowNicolaiKidnapDenied()
+    evt.StatusText(MM6.NicolaiKidnapMessage)
+    evt.SimpleMessage(MM6.NicolaiKidnapMessage)
+end
+
+function MM6.ReturnNicolai()
+    MM6.NormalizeNicolaiState()
+
+    if IsQBitSet(QBit(MM6.NicolaiQuestQBit)) then
+        if HasFollowerNpc(MM6.NicolaiNpcId) then
+            MM6.EnterIronfistThroneRoom()
+            return
+        end
+
+        MM6.ShowNicolaiKidnapDenied()
+        return
+    end
+
+    if IsQBitSet(QBit(MM6.NicolaiReturnQBit)) then
+        if HasFollowerNpc(MM6.NicolaiNpcId) then
+            evt.MoveNPC(MM6.NicolaiNpcId, MM6.NicolaiThroneRoomHouseId)
+            ClearQBit(QBit(MM6.NicolaiFollowerQBit))
+            ClearQBit(QBit(MM6.NicolaiReturnQBit))
+            SetPartyVariable(MM6.NicolaiKidnapDeadlineVariable, 0)
+            RemoveFollowerNpc(MM6.NicolaiNpcId)
+            evt.SimpleMessage(MM6.NicolaiReturnMessage)
+            evt.ForPlayer(Players.All)
+            AddValue(Experience, 7500)
+            evt.SetNPCTopic(MM6.NicolaiNpcId, 0, 1337)
+            MM6.EnterIronfistThroneRoom()
+            return
+        end
+
+        MM6.ShowNicolaiKidnapDenied()
+        return
+    end
+
+    MM6.EnterIronfistThroneRoom()
+end
+
+function MM6.RegisterNicolaiKidnapTimer()
+    RegisterMapTimerEvent(
+        MM6.NicolaiKidnapTimerEventId,
+        MM6.NicolaiKidnapTimerIntervalSeconds,
+        function()
+            MM6.KidnapNicolai(false)
+        end,
+        "Nicolai Kidnap",
+        nil,
+        MM6.NicolaiKidnapInitialDelaySeconds)
+end
+
+function MM6.RegisterNicolaiStateOnLoad()
+    RegisterMapOnLoadEvent(MM6.NicolaiStateOnLoadEventId, "Nicolai State", function()
+        MM6.NormalizeNicolaiState()
+    end)
 end
 
 function MM6.ApplyDragonTowerState(qbitId, modelIndex, faceIndex)
@@ -168,3 +326,6 @@ function MM6.RunNewSorpigalVolcanoSequence()
         evt.CastSpell(9, 4, 10, x, y, 5084, x, y, 3000)
     end
 end
+
+MM6.RegisterNicolaiStateOnLoad()
+MM6.RegisterNicolaiKidnapTimer()

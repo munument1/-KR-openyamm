@@ -1044,7 +1044,7 @@ Character buildFreshCreatedCharacter(
     character.armorClassModifier = 0;
     character.levelModifier = 0;
     character.ageModifier = 0;
-    character.playerBits = 0;
+    character.playerBits.clear();
     character.npcs2 = 0;
     character.merchantBonus = 0;
     character.weaponEnchantmentDamageBonus = 0;
@@ -2165,17 +2165,12 @@ bool GameApplication::processPendingDebugMapJump()
         captureCurrentSceneState();
     }
 
+    if (!activateWorldForMap(*pTargetMap))
+    {
+        m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: world switch failed.");
+        return false;
+    }
     const std::string targetWorldId = normalizeWorldId(pTargetMap->worldId);
-    WorldManifest targetManifest = {};
-    targetManifest.id = targetWorldId;
-    targetManifest.name = upperSearchText(targetWorldId);
-    targetManifest.sourceGame = targetWorldId;
-    targetManifest.start.mapFileName = pTargetMap->fileName;
-
-    m_config.activeWorldId = targetWorldId;
-    m_settings.startWorldId = targetWorldId;
-    m_activeWorldManifest = std::move(targetManifest);
-    m_gameDataLoader.setActiveWorldId(targetWorldId);
 
     beginLoadingOverlay(LoadingOverlayScreen::Presentation::Fullscreen);
     renderLoadingOverlayProgress(15);
@@ -2480,8 +2475,18 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
         ? prompt.correctStep
         : prompt.continueStep;
     const EventDialogContent previousDialog = m_gameSession.gameplayScreenRuntime().activeEventDialog();
+    const bool promptStartedFromMapEvent =
+        pRuntimeState->pendingDialogueContext
+        && pRuntimeState->pendingDialogueContext->kind == DialogueContextKind::MapEvent;
     size_t previousMessageCount = 0;
-    const bool executed = pWorldRuntime->executeNpcTopicEvent(prompt.eventId, previousMessageCount, continueStep);
+    const bool executed = promptStartedFromMapEvent
+        ? pWorldRuntime->executeMapEvent(prompt.eventId, previousMessageCount, continueStep)
+        : pWorldRuntime->executeNpcTopicEvent(prompt.eventId, previousMessageCount, continueStep);
+
+    if (executed && promptStartedFromMapEvent)
+    {
+        previousMessageCount = 0;
+    }
 
     if (executed && !pRuntimeState->pendingDialogueContext && previousDialog.isActive && previousDialog.sourceId != 0)
     {
@@ -2504,6 +2509,20 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
             m_gameSession.gameplayScreenRuntime(),
             *pRuntimeState,
             m_gameSession.data().itemTable());
+    }
+
+    if (executed
+        && pRuntimeState->pendingDialogueContext
+        && pRuntimeState->pendingDialogueContext->kind == DialogueContextKind::MapEvent
+        && pRuntimeState->messages.size() <= previousMessageCount
+        && !pRuntimeState->pendingInputPrompt)
+    {
+        pRuntimeState->pendingDialogueContext.reset();
+    }
+
+    if (executed && !pRuntimeState->pendingDialogueContext)
+    {
+        m_gameSession.gameplayScreenRuntime().activeEventDialog() = {};
     }
 
     m_skipGameplayUpdateUntilPromptSubmitKeysReleased = true;
@@ -2658,7 +2677,7 @@ void GameApplication::shutdownApplication()
     m_gameAudioSystem.shutdown();
 }
 
-bool GameApplication::loadGameData(const Engine::AssetFileSystem &assetFileSystem)
+bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
 {
     m_pAssetFileSystem = &assetFileSystem;
     m_gameSession.clear();
@@ -2721,6 +2740,69 @@ bool GameApplication::loadGameData(const Engine::AssetFileSystem &assetFileSyste
     m_bootSeededDwiOnNextRendererInit = !m_settings.startInMainMenu;
 
     return true;
+}
+
+bool GameApplication::activateWorldForMap(const MapStatsEntry &map)
+{
+    if (m_pAssetFileSystem == nullptr)
+    {
+        return false;
+    }
+
+    const std::string targetWorldId = normalizeWorldId(map.worldId);
+    const std::string currentWorldId = normalizeWorldId(m_pAssetFileSystem->getActiveWorldId());
+
+    if (currentWorldId != targetWorldId && !m_pAssetFileSystem->switchActiveWorld(targetWorldId))
+    {
+        std::cerr
+            << "GameApplication: failed to switch active world from "
+            << currentWorldId
+            << " to "
+            << targetWorldId
+            << " for map "
+            << map.fileName
+            << '\n';
+        return false;
+    }
+
+    std::string manifestError;
+    WorldManifest targetManifest = loadActiveWorldManifestOrDefault(*m_pAssetFileSystem, targetWorldId, manifestError);
+
+    if (!manifestError.empty())
+    {
+        std::cerr << manifestError << '\n';
+        return false;
+    }
+
+    if (targetManifest.id != targetWorldId)
+    {
+        std::cerr
+            << "world.yml id '" << targetManifest.id
+            << "' does not match active world '" << targetWorldId << "'\n";
+        return false;
+    }
+
+    m_config.activeWorldId = targetWorldId;
+    m_activeWorldManifest = std::move(targetManifest);
+    m_gameDataLoader.setActiveWorldId(targetWorldId);
+    m_gameDataLoader.setInitialMapFileName(m_activeWorldManifest.start.mapFileName);
+    return true;
+}
+
+bool GameApplication::activateWorldForMapFileName(const std::string &mapFileName)
+{
+    const MapStatsEntry *pMap = m_gameDataLoader.getMapStats().findByFileName(mapFileName);
+
+    if (pMap == nullptr)
+    {
+        std::cerr
+            << "GameApplication: cannot resolve map world for "
+            << mapFileName
+            << '\n';
+        return false;
+    }
+
+    return activateWorldForMap(*pMap);
 }
 
 bool GameApplication::initializeRenderer()
@@ -3146,6 +3228,11 @@ bool GameApplication::loadCurrentSessionMap(
     if (progressCallback)
     {
         progressCallback(10);
+    }
+
+    if (!activateWorldForMapFileName(m_gameSession.currentMapFileName()))
+    {
+        return false;
     }
 
     const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
@@ -4083,6 +4170,7 @@ bool GameApplication::processPendingMapMove()
         !pendingMapMove->mapName
         || pendingMapMove->mapName->empty()
         || *pendingMapMove->mapName == "0"
+        || *pendingMapMove->mapName == "0."
         || (!pendingMapMove->useMapStartPosition
             && sameMapFileName(*pendingMapMove->mapName, m_gameSession.currentMapFileName()));
 

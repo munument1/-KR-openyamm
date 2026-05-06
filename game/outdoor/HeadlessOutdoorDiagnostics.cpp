@@ -324,16 +324,21 @@ bool headlessRegressionCaseMatchesSuite(const std::string &suiteName, const std:
 
 struct GameApplicationTestAccess
 {
-    static bool loadGameData(GameApplication &application, const Engine::AssetFileSystem &assetFileSystem)
+    static bool loadGameData(GameApplication &application, Engine::AssetFileSystem &assetFileSystem)
     {
         return application.loadGameData(assetFileSystem);
     }
 
     static bool loadMapByFileNameForGameplay(
         GameApplication &application,
-        const Engine::AssetFileSystem &assetFileSystem,
+        Engine::AssetFileSystem &assetFileSystem,
         const std::string &mapFileName)
     {
+        if (!application.activateWorldForMapFileName(mapFileName))
+        {
+            return false;
+        }
+
         return application.m_gameDataLoader.loadMapByFileNameForGameplay(assetFileSystem, mapFileName);
     }
 
@@ -2608,7 +2613,7 @@ struct SharedHeadlessApplicationSession
 
 bool prepareSharedHeadlessGameApplication(
     SharedHeadlessApplicationSession &session,
-    const Engine::AssetFileSystem &assetFileSystem,
+    Engine::AssetFileSystem &assetFileSystem,
     const std::string &mapFileName,
     bool initializeView,
     std::string &failure)
@@ -2662,7 +2667,7 @@ bool prepareSharedHeadlessGameApplication(
 
 bool loadHeadlessGameApplicationMap(
     GameApplication &application,
-    const Engine::AssetFileSystem &assetFileSystem,
+    Engine::AssetFileSystem &assetFileSystem,
     const std::string &mapFileName,
     std::string &failure)
 {
@@ -2693,7 +2698,7 @@ bool loadHeadlessGameApplicationMap(
 
 bool prepareSharedHeadlessStartupSession(
     SharedHeadlessApplicationSession &session,
-    const Engine::AssetFileSystem &assetFileSystem,
+    Engine::AssetFileSystem &assetFileSystem,
     bool initializeView,
     std::string &failure)
 {

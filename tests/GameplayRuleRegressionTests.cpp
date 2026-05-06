@@ -817,6 +817,44 @@ TEST_CASE("empty wand falls back to bow attack profile")
     CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Bow);
 }
 
+TEST_CASE("main-hand blaster shoots before bow and can reach zero recovery")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Character member = makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
+    member.equipment.mainHand = findFirstItemIdBySkillGroup(gameData.itemTable, "Blaster");
+    member.equipment.bow = findFirstItemIdBySkillGroup(gameData.itemTable, "Bow");
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Grandmaster};
+    member.attackRecoveryReductionTicks = 1000;
+    REQUIRE(member.equipment.mainHand != 0);
+    REQUIRE(member.equipment.bow != 0);
+
+    const OpenYAMM::Game::CharacterAttackProfile profile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable);
+    std::mt19937 rng(7);
+    const OpenYAMM::Game::CharacterAttackResult attack =
+        OpenYAMM::Game::GameMechanics::resolveCharacterAttackAgainstArmorClass(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable,
+            10,
+            1024.0f,
+            rng);
+
+    CHECK(profile.hasBlaster);
+    CHECK(profile.hasBow);
+    REQUIRE(profile.rangedAttackBonus.has_value());
+    CHECK_EQ(profile.rangedSkillLevel, 10u);
+    CHECK_EQ(profile.rangedSkillMastery, static_cast<uint32_t>(OpenYAMM::Game::SkillMastery::Grandmaster));
+    CHECK(profile.rangedRecoverySeconds == doctest::Approx(0.0f));
+    CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Blaster);
+    CHECK(attack.resolvesOnImpact);
+    CHECK(attack.recoverySeconds == doctest::Approx(0.0f));
+    CHECK(attack.attackSoundHook == "blaster_shot");
+}
+
 TEST_CASE("dragon character normal attack uses dragon ability firebolt profile")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -1664,6 +1702,8 @@ TEST_CASE("lua event runtime stores question answer metadata and resumes continu
     OpenYAMM::Game::EventRuntimeState runtimeState = {};
 
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 166, runtimeState, nullptr, nullptr));
+    REQUIRE(runtimeState.pendingDialogueContext.has_value());
+    CHECK_EQ(runtimeState.pendingDialogueContext->kind, OpenYAMM::Game::DialogueContextKind::MapEvent);
     REQUIRE(runtimeState.pendingInputPrompt.has_value());
     CHECK_EQ(runtimeState.pendingInputPrompt->eventId, 166);
     CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 2);
@@ -1678,11 +1718,96 @@ TEST_CASE("lua event runtime stores question answer metadata and resumes continu
     REQUIRE_FALSE(runtimeState.messages.empty());
     CHECK_EQ(runtimeState.messages.back(), "question");
 
+    const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+        runtimeState,
+        0,
+        true,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0.0f);
+    CHECK(dialog.isActive);
+    REQUIRE_FALSE(dialog.lines.empty());
+    CHECK_EQ(dialog.lines.back(), "question");
+
+    OpenYAMM::Game::EventRuntimeState emptyMapEventState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext emptyMapEventContext = {};
+    emptyMapEventContext.kind = OpenYAMM::Game::DialogueContextKind::MapEvent;
+    emptyMapEventState.pendingDialogueContext = emptyMapEventContext;
+    const OpenYAMM::Game::EventDialogContent emptyDialog = OpenYAMM::Game::buildEventDialogContent(
+        emptyMapEventState,
+        0,
+        true,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0.0f);
+    CHECK_FALSE(emptyDialog.isActive);
+
     runtimeState.pendingInputPrompt.reset();
 
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 166, runtimeState, nullptr, nullptr, 4));
     REQUIRE_FALSE(runtimeState.messages.empty());
     CHECK_EQ(runtimeState.messages.back(), "ok");
+}
+
+TEST_CASE("lua map event continuations prefer local handlers over colliding global handlers")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localProgram = loadSyntheticScriptedProgram(
+        "evt.map[69] = function(continueStep)\n"
+        "    evt._BeginEvent(69)\n"
+        "    if continueStep == 4 then\n"
+        "        evt.SimpleMessage(\"local\")\n"
+        "        return\n"
+        "    end\n"
+        "    evt.AskQuestion(69, 4, 0, 0, 0, 0, \"password\", {\"JBARD\"})\n"
+        "    return nil\n"
+        "end\n",
+        "@SyntheticLocalMapEvent.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram = loadSyntheticScriptedProgram(
+        "evt.global[69] = function()\n"
+        "    evt._BeginEvent(69)\n"
+        "    evt.SimpleMessage(\"global\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticGlobalEvent.lua",
+        OpenYAMM::Game::ScriptedEventScope::Global);
+    REQUIRE(localProgram.has_value());
+    REQUIRE(globalProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(localProgram, globalProgram, 69, runtimeState, nullptr, nullptr));
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    CHECK_EQ(runtimeState.messages.back(), "password");
+
+    runtimeState.pendingInputPrompt.reset();
+    REQUIRE(eventRuntime.executeEventById(localProgram, globalProgram, 69, runtimeState, nullptr, nullptr, 4));
+    CHECK_EQ(runtimeState.messages.back(), "local");
+
+    OpenYAMM::Game::EventRuntimeState npcTopicRuntimeState = {};
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        localProgram,
+        globalProgram,
+        69,
+        npcTopicRuntimeState,
+        nullptr,
+        nullptr));
+    CHECK_EQ(npcTopicRuntimeState.messages.back(), "global");
 }
 
 TEST_CASE("lua event runtime Set applies condition variables")
@@ -1810,6 +1935,196 @@ TEST_CASE("lua event runtime door locked reaction targets active member")
     CHECK_EQ(requests.front().kind, OpenYAMM::Game::Party::PendingAudioRequest::Kind::Speech);
     CHECK_EQ(requests.front().memberIndex, 2u);
     CHECK_EQ(requests.front().speechId, OpenYAMM::Game::SpeechId::DoorLocked);
+}
+
+TEST_CASE("lua event CheckSkill supports effective checks and explicit mastery checks")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.ForPlayer(5)\n"
+        "    if evt.CheckSkill(31, 0, 8) then\n"
+        "        evt.StatusText(\"skill pass\")\n"
+        "    else\n"
+        "        evt.StatusText(\"skill fail\")\n"
+        "    end\n"
+        "    return\n"
+        "end\n"
+        "evt.map[2] = function()\n"
+        "    evt._BeginEvent(2)\n"
+        "    evt.ForPlayer(5)\n"
+        "    if evt.CheckSkill(94, 3, 40) then\n"
+        "        evt.StatusText(\"gm pass\")\n"
+        "    else\n"
+        "        evt.StatusText(\"gm fail\")\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticCheckSkill.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->skills["Perception"] = {"Perception", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pMember->skills["DisarmTraps"] = {"DisarmTraps", 40, OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "skill pass");
+
+    pMember->skills["Perception"] = {"Perception", 7, OpenYAMM::Game::SkillMastery::Normal};
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "skill fail");
+
+    pMember->skills["Perception"] = {"Perception", 40, OpenYAMM::Game::SkillMastery::Master};
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 2, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "gm fail");
+
+    pMember->skills["Perception"] = {"Perception", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 2, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "gm pass");
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> disarmProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.ForPlayer(5)\n"
+        "    if evt.CheckSkill(33, 3, 40) then\n"
+        "        evt.StatusText(\"disarm pass\")\n"
+        "    else\n"
+        "        evt.StatusText(\"disarm fail\")\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticCheckDisarmSkill.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(disarmProgram.has_value());
+
+    pMember->skills["DisarmTraps"] = {"DisarmTraps", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+    REQUIRE(eventRuntime.executeEventById(disarmProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "disarm pass");
+}
+
+TEST_CASE("lua event DamagePlayer uses its explicit player argument")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.ForPlayer(5)\n"
+        "    evt.DamagePlayer(0, 0, 10)\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticDamagePlayerTarget.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        OpenYAMM::Game::Character *pMember = party.member(memberIndex);
+        REQUIRE(pMember != nullptr);
+        pMember->health = 100;
+        pMember->maxHealth = 100;
+    }
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_GE(party.members().size(), 2u);
+    CHECK_EQ(party.members()[0].health, 90);
+    CHECK_EQ(party.members()[1].health, 100);
+}
+
+TEST_CASE("lua event player bits are character specific and unbounded")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.ForPlayer(0)\n"
+        "    evt.Add(4522215, 69)\n"
+        "    evt.ForPlayer(1)\n"
+        "    if evt.Cmp(4522215, 69) then\n"
+        "        evt.StatusText(\"member1 set\")\n"
+        "    else\n"
+        "        evt.StatusText(\"member1 clear\")\n"
+        "    end\n"
+        "    evt.ForPlayer(0)\n"
+        "    if evt.Cmp(4522215, 69) then\n"
+        "        evt.StatusText(\"member0 set\")\n"
+        "    else\n"
+        "        evt.StatusText(\"member0 clear\")\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticPlayerBits.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_GE(runtimeState.statusMessages.size(), 2u);
+    CHECK_EQ(runtimeState.statusMessages[runtimeState.statusMessages.size() - 2], "member1 clear");
+    CHECK_EQ(runtimeState.statusMessages.back(), "member0 set");
+
+    const OpenYAMM::Game::Character *pMember0 = party.member(0);
+    const OpenYAMM::Game::Character *pMember1 = party.member(1);
+    REQUIRE(pMember0 != nullptr);
+    REQUIRE(pMember1 != nullptr);
+    CHECK(pMember0->playerBits.contains(69));
+    CHECK_FALSE(pMember1->playerBits.contains(69));
+}
+
+TEST_CASE("lua event inventory possession checks include equipped items")
+{
+    constexpr uint32_t CloakOfBaaItemId = 2105;
+    constexpr uint32_t InventoryVariableTag = 0x0011;
+    const uint32_t cloakInventoryVariable = (CloakOfBaaItemId << 16) | InventoryVariableTag;
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        std::string("evt.map[1] = function()\n")
+        + "    evt._BeginEvent(1)\n"
+        + "    evt.ForPlayer(5)\n"
+        "    if evt.Cmp(" + std::to_string(cloakInventoryVariable) + ", 1) then\n"
+        "        evt.StatusText(\"has cloak\")\n"
+        "    else\n"
+        "        evt.StatusText(\"missing cloak\")\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticInventoryEquipped.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->inventory.clear();
+    pMember->equipment.cloak = CloakOfBaaItemId;
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "has cloak");
 }
 
 TEST_CASE("lua event runtime SpeakNPC opens pending npc talk dialogue")
@@ -2112,6 +2427,30 @@ TEST_CASE("lua MoveToMap without transition ids queues direct map move")
     CHECK_EQ(runtimeState.pendingMapMove->x, 12808);
     CHECK_EQ(runtimeState.pendingMapMove->y, 6832);
     CHECK_EQ(runtimeState.pendingMapMove->z, 64);
+}
+
+TEST_CASE("lua MoveToMap current-map sentinel queues same-map teleport")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, \"0.\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticSameMapMove.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+    CHECK_FALSE(runtimeState.pendingDialogueContext.has_value());
+    REQUIRE(runtimeState.pendingMapMove.has_value());
+    CHECK_FALSE(runtimeState.pendingMapMove->mapName.has_value());
+    CHECK_EQ(runtimeState.pendingMapMove->x, -3136);
+    CHECK_EQ(runtimeState.pendingMapMove->y, 2240);
+    CHECK_EQ(runtimeState.pendingMapMove->z, 224);
 }
 
 TEST_CASE("dungeon transition dialog uses trans table title text icon and transition video metadata")

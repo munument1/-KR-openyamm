@@ -1121,9 +1121,22 @@ void DebugConsole::renderItemPicker()
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.08f, 0.07f, 0.05f, 1.0f));
                 }
 
-                if (ImGui::Selectable(itemLabel, selected))
+                const bool activated = ImGui::Selectable(itemLabel, selected);
+                const bool doubleClicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+
+                if (activated)
                 {
                     m_selectedItemId = item.itemId;
+
+                    if (doubleClicked)
+                    {
+                        giveSelectedItem();
+                    }
+                }
+                else if (doubleClicked)
+                {
+                    m_selectedItemId = item.itemId;
+                    giveSelectedItem();
                 }
 
                 if (selected)
@@ -1181,17 +1194,21 @@ void DebugConsole::renderItemPicker()
 
     if (ImGui::Button("Give Selected", ImVec2(-1.0f, 0.0f)))
     {
-        if (m_selectedItemId == 0)
-        {
-            addMessage(MessageKind::Error, "No item selected.");
-        }
-        else
-        {
-            char line[128] = {};
-            std::snprintf(line, sizeof(line), "item give %u %d", m_selectedItemId, m_itemQuantity);
-            executeLine(line);
-        }
+        giveSelectedItem();
     }
+}
+
+void DebugConsole::giveSelectedItem()
+{
+    if (m_selectedItemId == 0)
+    {
+        addMessage(MessageKind::Error, "No item selected.");
+        return;
+    }
+
+    char line[128] = {};
+    std::snprintf(line, sizeof(line), "item give %u %d", m_selectedItemId, m_itemQuantity);
+    executeLine(line);
 }
 
 void DebugConsole::renderHelpText() const

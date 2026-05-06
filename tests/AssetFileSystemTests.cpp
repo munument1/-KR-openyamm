@@ -447,6 +447,24 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
             assetFileSystem.resolvePhysicalPath("Data/games/out01.odm");
         REQUIRE(inactiveMapPhysicalPath.has_value());
         CHECK(inactiveMapPhysicalPath->generic_string().ends_with("assets_dev/worlds/mm8/maps/out01.odm"));
+
+        const std::optional<std::string> sharedTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/shared.bmp");
+        REQUIRE(sharedTextureText.has_value());
+        CHECK_EQ(*sharedTextureText, "active-texture");
+
+        REQUIRE(assetFileSystem.switchActiveWorld("mm8"));
+        CHECK_EQ(assetFileSystem.getActiveWorldId(), "mm8");
+
+        const std::optional<std::string> switchedSharedTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/shared.bmp");
+        REQUIRE(switchedSharedTextureText.has_value());
+        CHECK_EQ(*switchedSharedTextureText, "inactive-texture");
+
+        const std::optional<std::filesystem::path> switchedSharedTexturePhysicalPath =
+            assetFileSystem.resolvePhysicalPath("Data/bitmaps/shared.bmp");
+        REQUIRE(switchedSharedTexturePhysicalPath.has_value());
+        CHECK(switchedSharedTexturePhysicalPath->generic_string().ends_with("assets_dev/worlds/mm8/textures/shared.bmp"));
     }
 
     std::filesystem::remove_all(temporaryRoot);

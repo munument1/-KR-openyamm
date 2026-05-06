@@ -727,7 +727,7 @@ public:
     float partyFootZ() const override;
     bool partyIsAirborneForRest() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
-    void requestPartyJump() override;
+    void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     void setAlwaysRunEnabled(bool enabled) override;
     void updateWorldMovement(
         const GameplayInputFrame &input,
@@ -750,6 +750,10 @@ public:
     bool tryTriggerLocalEventById(uint16_t eventId);
     void cancelPendingMapTransition() override;
     bool executeNpcTopicEvent(
+        uint16_t eventId,
+        size_t &previousMessageCount,
+        std::optional<uint8_t> continueStep = std::nullopt) override;
+    bool executeMapEvent(
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt) override;

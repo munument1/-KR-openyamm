@@ -25,7 +25,7 @@ constexpr float OeCharacterRangedAttackDistance = 5120.0f;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 constexpr int OeMinimumMeleeRecoveryTicks = 30;
 constexpr int OeMinimumRangedRecoveryTicks = 5;
-constexpr int OeMinimumBlasterRecoveryTicks = 5;
+constexpr int OeMinimumBlasterRecoveryTicks = 0;
 constexpr uint32_t WandAttackSkillLevel = 8;
 
 constexpr int ParameterBonusThresholds[29] = {
@@ -2238,10 +2238,12 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
     profile.hasBow =
         !character.physicalAttackDisabled && equippedItems.pBow != nullptr && isRangedWeapon(*equippedItems.pBow);
     profile.hasWand = equippedItems.pMainHand != nullptr && isWandWeapon(*equippedItems.pMainHand);
+    const bool mainHandIsBlaster =
+        equippedItems.pMainHand != nullptr && canonicalSkillName(equippedItems.pMainHand->skillGroup) == "Blaster";
+    const bool bowIsBlaster =
+        equippedItems.pBow != nullptr && canonicalSkillName(equippedItems.pBow->skillGroup) == "Blaster";
     profile.hasBlaster =
-        !character.physicalAttackDisabled
-        && ((equippedItems.pBow != nullptr && canonicalSkillName(equippedItems.pBow->skillGroup) == "Blaster")
-            || (equippedItems.pMainHand != nullptr && canonicalSkillName(equippedItems.pMainHand->skillGroup) == "Blaster"));
+        !character.physicalAttackDisabled && (mainHandIsBlaster || bowIsBlaster);
     const CharacterSkill *pDragonAbility = character.findSkill("DragonAbility");
     profile.hasDragonBreath =
         !character.physicalAttackDisabled
@@ -2332,6 +2334,38 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
             }
         }
     }
+    else if (profile.hasBlaster)
+    {
+        const ItemDefinition *pBlasterItem = mainHandIsBlaster ? equippedItems.pMainHand : equippedItems.pBow;
+        profile.rangedAttackBonus = mainHandIsBlaster ? summary.combat.attack : summary.combat.shoot;
+        const std::string rangedSkillName =
+            canonicalSkillName(pBlasterItem != nullptr ? pBlasterItem->skillGroup : std::string());
+        profile.rangedSkillLevel = static_cast<uint32_t>(std::max(0, skillLevel(character, rangedSkillName)));
+        profile.rangedSkillMastery = static_cast<uint32_t>(skillMastery(character, rangedSkillName));
+
+        if (mainHandIsBlaster)
+        {
+            profile.rangedMinDamage = profile.meleeMinDamage;
+            profile.rangedMaxDamage = profile.meleeMaxDamage;
+        }
+        else
+        {
+            profile.rangedMinDamage = std::max(
+                0,
+                resolveRangedDamageSkillBonus(character, equippedItems)
+                    + (pBlasterItem != nullptr ? weaponMinDamage(*pBlasterItem) : 0)
+                    + character.weaponEnchantmentDamageBonus
+                    + character.permanentBonuses.rangedDamage
+                    + character.magicalBonuses.rangedDamage);
+            profile.rangedMaxDamage = std::max(
+                profile.rangedMinDamage,
+                resolveRangedDamageSkillBonus(character, equippedItems)
+                    + (pBlasterItem != nullptr ? weaponMaxDamage(*pBlasterItem) : 0)
+                    + character.weaponEnchantmentDamageBonus
+                    + character.permanentBonuses.rangedDamage
+                    + character.magicalBonuses.rangedDamage);
+        }
+    }
     else if (summary.combat.shoot.has_value())
     {
         profile.rangedAttackBonus = summary.combat.shoot;
@@ -2354,17 +2388,6 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
                 + character.permanentBonuses.rangedDamage
                 + character.magicalBonuses.rangedDamage);
     }
-    else if (profile.hasBlaster)
-    {
-        profile.rangedAttackBonus = summary.combat.attack;
-        const std::string rangedSkillName =
-            canonicalSkillName(equippedItems.pMainHand != nullptr ? equippedItems.pMainHand->skillGroup : std::string());
-        profile.rangedSkillLevel = static_cast<uint32_t>(std::max(0, skillLevel(character, rangedSkillName)));
-        profile.rangedSkillMastery = static_cast<uint32_t>(skillMastery(character, rangedSkillName));
-        profile.rangedMinDamage = profile.meleeMinDamage;
-        profile.rangedMaxDamage = profile.meleeMaxDamage;
-    }
-
     return profile;
 }
 

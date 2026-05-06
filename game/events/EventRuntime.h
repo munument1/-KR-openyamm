@@ -29,6 +29,7 @@ struct LuaSessionCache;
 enum class DialogueContextKind
 {
     None,
+    MapEvent,
     HouseService,
     NpcTalk,
     NpcNews,

@@ -23,8 +23,8 @@ end)
 RegisterEvent(2, "Legacy event 2", function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.StatusText("Poisonous spores force you back.")
-    evt.DamagePlayer(5, 2, 8)
-    evt.MoveToMap(-128, -1152, 0, 0, 0, 0, 0, 0)
+    evt.DamagePlayer(Players.All, const.Damage.Water, 8)
+    evt.MoveToMap(-128, -1152, 0, 0, 0, 0, 0, 0, "0.")
     SetValue(MapVar(4), 1)
 end)
 

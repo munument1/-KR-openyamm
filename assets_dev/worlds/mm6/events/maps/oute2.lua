@@ -194,12 +194,12 @@ end)
 
 RegisterEvent(91, "Legacy event 91", function()
     if IsQBitSet(QBit(1325)) then -- NPC
-        evt.MoveToMap(-18176, -1072, 96, 512, 0, 0, 0, 0)
+        evt.MoveToMap(-18176, -1072, 96, 512, 0, 0, 0, 0, "0.")
     end
 end)
 
 RegisterEvent(92, "Legacy event 92", function()
-    evt.MoveToMap(4688, -2944, 96, 1400, 0, 0, 0, 0)
+    evt.MoveToMap(4688, -2944, 96, 1400, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(101, "Tree", function()
@@ -336,7 +336,7 @@ RegisterEvent(112, "Drink from Well.", function()
 end, "Drink from Well.")
 
 RegisterEvent(113, "Drink from Trough.", function()
-    evt.DamagePlayer(7, 2, 20)
+    evt.DamagePlayer(Players.Current, const.Damage.Water, 20)
     SetValue(PoisonedYellow, 1)
     evt.StatusText("Poison!")
 end, "Drink from Trough.")

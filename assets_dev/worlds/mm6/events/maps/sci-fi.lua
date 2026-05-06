@@ -443,17 +443,17 @@ end, "Computer Terminal")
 
 RegisterEvent(62, "Legacy event 62", function()
     evt.StatusText("It's a short circuit!")
-    evt.DamagePlayer(6, 0, 200)
+    evt.DamagePlayer(6, const.Damage.Fire, 200)
 end)
 
 RegisterEvent(63, "Legacy event 63", function()
     evt.StatusText("It's a short circuit!")
-    evt.DamagePlayer(6, 0, 200)
+    evt.DamagePlayer(6, const.Damage.Fire, 200)
 end)
 
 RegisterEvent(64, "Legacy event 64", function()
     evt.StatusText("It's a short circuit!")
-    evt.DamagePlayer(6, 0, 200)
+    evt.DamagePlayer(6, const.Damage.Fire, 200)
 end)
 
 RegisterEvent(65, "Storage Container", function()

@@ -79,11 +79,11 @@ RegisterEvent(12, "Door", function()
 end, "Door")
 
 RegisterEvent(13, "Legacy event 13", function()
-    evt.MoveToMap(-2112, 14240, 40, 0, 0, 0, 0, 0)
+    evt.MoveToMap(-2112, 14240, 40, 0, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(14, "Legacy event 14", function()
-    evt.MoveToMap(4480, 8064, -340, 512, 0, 0, 0, 0)
+    evt.MoveToMap(4480, 8064, -340, 512, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(18, "Legacy event 18", function()
@@ -221,7 +221,7 @@ end, "Tree")
 RegisterEvent(69, "Legacy event 69", function(continueStep)
     if continueStep == 4 then
         evt.StatusText("Wrong!")
-        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
+        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, "0.")
         return
     end
     if continueStep == 23 then
@@ -230,7 +230,7 @@ RegisterEvent(69, "Legacy event 69", function(continueStep)
     end
     if continueStep == 17 then
         evt.StatusText("Wrong!")
-        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
+        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, "0.")
         return
     end
     if continueStep == 20 then

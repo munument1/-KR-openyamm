@@ -1107,6 +1107,7 @@ TEST_CASE("merged NPC follower action topics execute abilities instead of stale 
     constexpr uint32_t SharlaQuinnMasterHealerNpcId = 1055;
     harness.eventRuntimeState().hiredNpcFollowers.push_back({SharlaQuinnMasterHealerNpcId, 12, 5000});
     harness.eventRuntimeState().unavailableNpcIds.insert(SharlaQuinnMasterHealerNpcId);
+    harness.party().addHiredNpcFollower({SharlaQuinnMasterHealerNpcId, 12, 5000});
 
     OpenYAMM::Game::Character *pMember = harness.party().member(0);
     REQUIRE(pMember != nullptr);
@@ -1147,6 +1148,7 @@ TEST_CASE("dismissing hired NPC closes dialogue")
 
     harness.eventRuntimeState().hiredNpcFollowers.push_back({KevinWatchPeasantNpcId, 52, 1});
     harness.eventRuntimeState().unavailableNpcIds.insert(KevinWatchPeasantNpcId);
+    harness.party().addHiredNpcFollower({KevinWatchPeasantNpcId, 52, 1});
 
     const OpenYAMM::Game::EventDialogContent dialog = harness.openNpcDialogue(KevinWatchPeasantNpcId);
     const std::optional<size_t> dismissIndex = findActionIndexByLabel(dialog, "Dismiss");

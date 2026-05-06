@@ -83,7 +83,7 @@ RegisterEvent(14, "Door", function()
 end, "Door")
 
 RegisterEvent(16, "Switch", function()
-    evt.MoveToMap(468, 3690, 1, 45, 0, 0, 0, 0)
+    evt.MoveToMap(468, 3690, 1, 45, 0, 0, 0, 0, "0.")
     evt.SetDoorState(16, DoorAction.Trigger)
     SetValue(MapVar(2), 0)
     evt.StatusText("Flush system deactivated")
@@ -207,7 +207,7 @@ RegisterEvent(54, "Legacy event 54", function()
     if not IsAtLeast(MapVar(21), 1) then return end
     evt.StatusText("Flush sequence in progress.")
     if not IsAtLeast(MapVar(3), 1) then
-        evt.DamagePlayer(5, 4, 20)
+        evt.DamagePlayer(Players.All, const.Damage.Physical, 20)
     end
     SetValue(MapVar(22), 1)
     SetValue(MapVar(21), 0)
