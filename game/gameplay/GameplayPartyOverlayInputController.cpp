@@ -2438,7 +2438,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 context.utilitySpellOverlayReadOnly().active
                 && context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::InventoryTarget;
             const auto setHeldItem =
-                [&context](const InventoryItem &item)
+                [&context, pParty](const InventoryItem &item)
                 {
                     context.heldInventoryItem() = {};
                     context.heldInventoryItem().active = true;
@@ -2447,6 +2447,21 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     context.heldInventoryItem().grabCellOffsetY = 0;
                     context.heldInventoryItem().grabOffsetX = 0.0f;
                     context.heldInventoryItem().grabOffsetY = 0.0f;
+
+                    if (pParty != nullptr)
+                    {
+                        pParty->setHeldItemForQueries(item);
+                    }
+                };
+            const auto clearHeldItem =
+                [&context, pParty]()
+                {
+                    context.heldInventoryItem() = {};
+
+                    if (pParty != nullptr)
+                    {
+                        pParty->clearHeldItemForQueries();
+                    }
                 };
             const auto resolveSpellName =
                 [&context](uint32_t spellId) -> std::string
@@ -2766,7 +2781,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
                 else
                 {
-                    context.heldInventoryItem() = {};
+                    clearHeldItem();
                 }
 
                 return;
@@ -2846,7 +2861,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
                 else
                 {
-                    context.heldInventoryItem() = {};
+                    clearHeldItem();
                 }
 
                 return;
@@ -2875,7 +2890,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
                 else
                 {
-                    context.heldInventoryItem() = {};
+                    clearHeldItem();
                 }
 
                 return;
@@ -2943,15 +2958,11 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
                 if (replacedItem.has_value())
                 {
-                    context.heldInventoryItem().item = *replacedItem;
-                    context.heldInventoryItem().grabCellOffsetX = 0;
-                    context.heldInventoryItem().grabCellOffsetY = 0;
-                    context.heldInventoryItem().grabOffsetX = 0.0f;
-                    context.heldInventoryItem().grabOffsetY = 0.0f;
+                    setHeldItem(*replacedItem);
                 }
                 else
                 {
-                    context.heldInventoryItem() = {};
+                    clearHeldItem();
                 }
 
                 return;

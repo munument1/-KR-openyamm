@@ -538,6 +538,12 @@ DialogueMenuId currentDialogueMenuId(const EventRuntimeState &eventRuntimeState)
     return eventRuntimeState.dialogueState.menuStack.back();
 }
 
+DialogueMenuId currentHouseServiceMenuId(const EventRuntimeState &eventRuntimeState)
+{
+    const DialogueMenuId menuId = currentDialogueMenuId(eventRuntimeState);
+    return menuId == DialogueMenuId::HouseServiceRoot ? DialogueMenuId::None : menuId;
+}
+
 std::vector<uint32_t> collectSelectableResidentNpcIdsImpl(
     const HouseEntry &houseEntry,
     const NpcDialogTable &npcDialogTable,
@@ -614,6 +620,30 @@ std::vector<uint32_t> collectSelectableResidentNpcIdsImpl(
     }
 
     return residentNpcIds;
+}
+
+void appendHouseResidentActions(
+    EventDialogContent &dialog,
+    const NpcDialogTable &npcDialogTable,
+    const std::vector<uint32_t> &residentNpcIds)
+{
+    for (uint32_t residentNpcId : residentNpcIds)
+    {
+        const NpcEntry *pResident = npcDialogTable.getNpc(residentNpcId);
+
+        if (pResident == nullptr || pResident->name.empty())
+        {
+            continue;
+        }
+
+        EventDialogAction action = {};
+        action.kind = EventDialogActionKind::HouseResident;
+        action.id = residentNpcId;
+        action.participantPictureId = pResident->pictureId;
+        action.participantVisual = EventDialogParticipantVisual::Portrait;
+        action.label = pResident->name;
+        dialog.actions.push_back(std::move(action));
+    }
 }
 }
 
@@ -716,7 +746,7 @@ EventDialogContent buildEventDialogContent(
                 pClassSkillTable,
                 pWorldRuntime,
                 currentGameMinutes,
-                currentDialogueMenuId(eventRuntimeState)
+                currentHouseServiceMenuId(eventRuntimeState)
             );
             const std::optional<uint32_t> residentNpcId = singleSelectableResidentNpcId(
                 *pHouseEntry,
@@ -903,13 +933,42 @@ EventDialogContent buildEventDialogContent(
 
         if (pHouseEntry != nullptr)
         {
+            const HouseServiceType serviceType = resolveHouseServiceType(*pHouseEntry);
+            const DialogueMenuId menuId = currentDialogueMenuId(eventRuntimeState);
+            const DialogueMenuId houseServiceMenuId = currentHouseServiceMenuId(eventRuntimeState);
+            const std::vector<uint32_t> residentNpcIds = pNpcDialogTable != nullptr
+                ? collectSelectableResidentNpcIds(*pHouseEntry, *pNpcDialogTable, npcRuntimeState)
+                : std::vector<uint32_t>{};
+            const bool showOccupantSelection =
+                serviceType != HouseServiceType::None
+                && !residentNpcIds.empty()
+                && menuId == DialogueMenuId::None;
+
+            if (showOccupantSelection)
+            {
+                EventDialogAction proprietorAction = {};
+                proprietorAction.kind = EventDialogActionKind::HouseProprietor;
+                proprietorAction.id = pHouseEntry->id;
+                proprietorAction.participantPictureId = dialog.participantPictureId;
+                proprietorAction.participantVisual = EventDialogParticipantVisual::Portrait;
+                proprietorAction.label = buildHouseParticipantTitle(*pHouseEntry);
+                dialog.actions.push_back(std::move(proprietorAction));
+
+                if (pNpcDialogTable != nullptr)
+                {
+                    appendHouseResidentActions(dialog, *pNpcDialogTable, residentNpcIds);
+                }
+
+                return dialog;
+            }
+
             const std::vector<HouseActionOption> houseActions = buildHouseActionOptions(
                 *pHouseEntry,
                 pParty,
                 pClassSkillTable,
                 pWorldRuntime,
                 currentGameMinutes,
-                currentDialogueMenuId(eventRuntimeState)
+                houseServiceMenuId
             );
 
             for (const HouseActionOption &houseAction : houseActions)
@@ -924,50 +983,13 @@ EventDialogContent buildEventDialogContent(
                 dialog.actions.push_back(std::move(action));
             }
 
-            if (pNpcDialogTable != nullptr)
+            if (serviceType == HouseServiceType::None && pNpcDialogTable != nullptr)
             {
-                const std::vector<uint32_t> residentNpcIds =
-                    pNpcDialogTable->getNpcIdsForHouse(pHouseEntry->id, &npcRuntimeState.npcHouseOverrides);
-                std::vector<uint32_t> combinedResidentNpcIds = pHouseEntry->residentNpcIds;
-
-                for (uint32_t npcId : residentNpcIds)
-                {
-                    if (std::find(combinedResidentNpcIds.begin(), combinedResidentNpcIds.end(), npcId)
-                        == combinedResidentNpcIds.end())
-                    {
-                        combinedResidentNpcIds.push_back(npcId);
-                    }
-                }
-
-                for (uint32_t residentNpcId : combinedResidentNpcIds)
-                {
-                    const auto overrideIt = npcRuntimeState.npcHouseOverrides.find(residentNpcId);
-
-                    if (overrideIt != npcRuntimeState.npcHouseOverrides.end() && overrideIt->second != pHouseEntry->id)
-                    {
-                        continue;
-                    }
-
-                    const NpcEntry *pResident = pNpcDialogTable->getNpc(residentNpcId);
-
-                    if (pResident != nullptr && !pResident->name.empty())
-                    {
-                        if (npcRuntimeState.unavailableNpcIds.contains(residentNpcId))
-                        {
-                            continue;
-                        }
-
-                        EventDialogAction action = {};
-                        action.kind = EventDialogActionKind::HouseResident;
-                        action.id = residentNpcId;
-                        action.label = pResident->name;
-                        dialog.actions.push_back(std::move(action));
-                        hasResidentActions = true;
-                    }
-                }
+                appendHouseResidentActions(dialog, *pNpcDialogTable, residentNpcIds);
+                hasResidentActions = !residentNpcIds.empty();
             }
 
-            if (!hasResidentActions && resolveHouseServiceType(*pHouseEntry) != HouseServiceType::None)
+            if (!hasResidentActions && serviceType != HouseServiceType::None)
             {
                 dialog.title = buildHouseParticipantTitle(*pHouseEntry);
             }
@@ -1420,7 +1442,7 @@ EventDialogContent buildEventDialogContent(
 
             if (pHouseEntry != nullptr)
             {
-                const DialogueMenuId menuId = currentDialogueMenuId(eventRuntimeState);
+                const DialogueMenuId menuId = currentHouseServiceMenuId(eventRuntimeState);
                 dialog.lines = buildHouseServiceInfoLines(*pHouseEntry, pParty, pClassSkillTable, menuId);
             }
         }

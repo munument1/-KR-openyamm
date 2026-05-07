@@ -253,7 +253,7 @@ GameplayCorpseViewState buildMonsterCorpseView(
     const MonsterTable::LootPrototype &loot,
     const ItemTable *pItemTable,
     Party *pParty,
-    uint32_t guaranteedItemId)
+    const std::vector<uint32_t> &guaranteedItemIds)
 {
     GameplayCorpseViewState view = {};
     view.title = title;
@@ -314,20 +314,28 @@ GameplayCorpseViewState buildMonsterCorpseView(
         }
     }
 
-    if (guaranteedItemId != 0 && pItemTable != nullptr)
+    if (pItemTable != nullptr)
     {
-        InventoryItem inventoryItem =
-            ItemGenerator::makeInventoryItem(guaranteedItemId, *pItemTable, ItemGenerationMode::MonsterLoot);
-
-        if (inventoryItem.objectDescriptionId != 0)
+        for (uint32_t guaranteedItemId : guaranteedItemIds)
         {
-            GameplayChestItemState item = {};
-            item.item = inventoryItem;
-            item.itemId = inventoryItem.objectDescriptionId;
-            item.quantity = inventoryItem.quantity;
-            item.width = inventoryItem.width;
-            item.height = inventoryItem.height;
-            view.items.push_back(item);
+            if (guaranteedItemId == 0)
+            {
+                continue;
+            }
+
+            InventoryItem inventoryItem =
+                ItemGenerator::makeInventoryItem(guaranteedItemId, *pItemTable, ItemGenerationMode::MonsterLoot);
+
+            if (inventoryItem.objectDescriptionId != 0)
+            {
+                GameplayChestItemState item = {};
+                item.item = inventoryItem;
+                item.itemId = inventoryItem.objectDescriptionId;
+                item.quantity = inventoryItem.quantity;
+                item.width = inventoryItem.width;
+                item.height = inventoryItem.height;
+                view.items.push_back(item);
+            }
         }
     }
 
@@ -399,6 +407,7 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
             }
 
             setHeldInventoryItem(*pHeldInventoryItem, normalizedCorpseInventoryItem(removedItem));
+            party.setHeldItemForQueries(pHeldInventoryItem->item);
 
             if (result.firstItemName.empty())
             {

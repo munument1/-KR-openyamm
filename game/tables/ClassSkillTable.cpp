@@ -1,9 +1,32 @@
 #include "game/tables/ClassSkillTable.h"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace OpenYAMM::Game
 {
+namespace
+{
+bool parseUnsigned(const std::string &text, uint32_t &value)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+
+    char *pEnd = nullptr;
+    const unsigned long parsed = std::strtoul(text.c_str(), &pEnd, 10);
+
+    if (pEnd == text.c_str() || *pEnd != '\0')
+    {
+        return false;
+    }
+
+    value = static_cast<uint32_t>(parsed);
+    return true;
+}
+}
+
 bool ClassSkillTable::loadCapsFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_caps.clear();
@@ -102,6 +125,46 @@ bool ClassSkillTable::loadStartingSkillsFromRows(const std::vector<std::vector<s
     return !m_startingSkills.empty();
 }
 
+bool ClassSkillTable::loadClassMetadataFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    m_classMetadata.clear();
+
+    if (rows.size() < 2)
+    {
+        return false;
+    }
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4)
+        {
+            continue;
+        }
+
+        ClassMetadataEntry entry = {};
+
+        if (!parseUnsigned(row[0], entry.classId)
+            || !parseUnsigned(row[1], entry.classKind)
+            || !parseUnsigned(row[2], entry.promotionStep))
+        {
+            continue;
+        }
+
+        entry.className = canonicalClassName(row[3]);
+
+        if (entry.className.empty() || entry.classKind == 0)
+        {
+            continue;
+        }
+
+        m_classMetadata[entry.className] = std::move(entry);
+    }
+
+    return !m_classMetadata.empty();
+}
+
 SkillMastery ClassSkillTable::getClassCap(const std::string &className, const std::string &skillName) const
 {
     const std::string canonicalClass = canonicalClassName(className);
@@ -127,7 +190,12 @@ SkillMastery ClassSkillTable::getClassCap(const std::string &className, const st
 SkillMastery ClassSkillTable::getHighestPromotionCap(const std::string &className, const std::string &skillName) const
 {
     SkillMastery bestCap = SkillMastery::None;
-    std::vector<std::string> pendingClasses = promotionClassNames(className);
+    std::vector<std::string> pendingClasses = promotionClassNamesFromMetadata(className);
+
+    if (pendingClasses.empty())
+    {
+        pendingClasses = promotionClassNames(className);
+    }
 
     while (!pendingClasses.empty())
     {
@@ -140,11 +208,44 @@ SkillMastery ClassSkillTable::getHighestPromotionCap(const std::string &classNam
             bestCap = cap;
         }
 
-        const std::vector<std::string> nextPromotions = promotionClassNames(promotedClass);
+        std::vector<std::string> nextPromotions = promotionClassNamesFromMetadata(promotedClass);
+
+        if (nextPromotions.empty())
+        {
+            nextPromotions = promotionClassNames(promotedClass);
+        }
+
         pendingClasses.insert(pendingClasses.end(), nextPromotions.begin(), nextPromotions.end());
     }
 
     return bestCap;
+}
+
+std::vector<std::string> ClassSkillTable::promotionClassNamesFromMetadata(const std::string &className) const
+{
+    const std::string canonicalClass = canonicalClassName(className);
+    const std::unordered_map<std::string, ClassMetadataEntry>::const_iterator classIt =
+        m_classMetadata.find(canonicalClass);
+
+    if (classIt == m_classMetadata.end())
+    {
+        return {};
+    }
+
+    std::vector<std::string> result;
+    const ClassMetadataEntry &source = classIt->second;
+
+    for (const auto &[candidateClassName, candidate] : m_classMetadata)
+    {
+        if (candidate.classKind == source.classKind
+            && candidate.promotionStep == source.promotionStep + 1)
+        {
+            result.push_back(candidateClassName);
+        }
+    }
+
+    std::sort(result.begin(), result.end());
+    return result;
 }
 
 StartingSkillAvailability ClassSkillTable::getStartingSkillAvailability(

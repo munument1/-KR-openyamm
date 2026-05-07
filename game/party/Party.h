@@ -292,6 +292,7 @@ public:
         uint32_t arcomageWinCount = 0;
         uint32_t arcomageLossCount = 0;
         std::vector<HouseStockState> houseStockStates;
+        std::unordered_set<uint32_t> everOwnedItemIds;
         std::unordered_set<uint32_t> questBits;
         std::unordered_map<uint16_t, int32_t> eventVariables;
         std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> npcTopicOverrides;
@@ -413,6 +414,12 @@ public:
     void removeAward(uint32_t awardId);
     void removeAward(size_t memberIndex, uint32_t awardId);
     int inventoryItemCount(uint32_t objectDescriptionId, std::optional<size_t> memberIndex = std::nullopt) const;
+    void recordEverOwnedItem(uint32_t objectDescriptionId);
+    bool hasEverOwnedItem(uint32_t objectDescriptionId) const;
+    void setHeldItemForQueries(const InventoryItem &item);
+    uint32_t heldItemIdForQueries() const;
+    void clearHeldItemForQueries();
+    bool hasItemAnywhere(uint32_t objectDescriptionId) const;
     bool grantItemToMember(size_t memberIndex, uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool removeItemFromMember(size_t memberIndex, uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool takeItemFromMemberInventoryCell(size_t memberIndex, uint8_t gridX, uint8_t gridY, InventoryItem &item);
@@ -572,6 +579,8 @@ private:
     void applyDefaultStartingSkills(Character &member) const;
     void rebuildMagicalBonusesFromBuffs();
     void markArtifactItemFoundIfRelevant(const InventoryItem &item);
+    void recordEverOwnedItemIfRelevant(const InventoryItem &item);
+    void recordEverOwnedItemsFromCurrentState();
     void queueSound(SoundId soundId);
     void queueSpeech(size_t memberIndex, SpeechId speechId);
     SoundId resolveDamageImpactSoundForMember(size_t memberIndex) const;
@@ -602,6 +611,7 @@ private:
     std::string m_lastStatus;
     std::unordered_set<uint32_t> m_foundArtifactItems;
     std::unordered_set<uint32_t> m_arcomageWonHouseIds;
+    std::unordered_set<uint32_t> m_everOwnedItemIds;
     std::unordered_set<uint32_t> m_questBits;
     uint32_t m_arcomageWinCount = 0;
     uint32_t m_arcomageLossCount = 0;
@@ -617,6 +627,7 @@ private:
     std::unordered_map<uint32_t, uint32_t> m_npcItemOverrides;
     std::unordered_set<uint32_t> m_unavailableNpcIds;
     std::vector<HiredNpcFollower> m_hiredNpcFollowers;
+    uint32_t m_heldItemIdForQueries = 0;
     std::vector<PendingAudioRequest> m_pendingAudioRequests;
 };
 }

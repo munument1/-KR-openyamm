@@ -42,6 +42,7 @@ enum class DialogueMenuId : uint32_t
     LearnSkills,
     ShopEquipment,
     TavernArcomage,
+    HouseServiceRoot,
 };
 
 enum class DialogueOfferKind : uint32_t
@@ -58,6 +59,18 @@ enum class MechanismAction
     Trigger = 0,
     Open = 1,
     Close = 2,
+};
+
+enum class EventRuntimeHookKind : uint8_t
+{
+    NpcEnter = 0,
+    NpcExit,
+    HouseTopicFilter,
+    HouseTopicClick,
+    RestFoodCost,
+    GameplayAction,
+    MapRefill,
+    MapTransition,
 };
 
 struct RuntimeMechanismState
@@ -128,6 +141,7 @@ struct EventRuntimeState
         uint32_t textId = 0;
         std::vector<uint32_t> answerTextIds;
         std::vector<std::string> answers;
+        std::vector<uint8_t> answerContinueSteps;
         std::optional<std::string> text;
     };
 
@@ -214,6 +228,31 @@ struct EventRuntimeState
         bool active = false;
     };
 
+    struct SavedLocation
+    {
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t z = 0;
+        uint32_t continentId = 0;
+        std::string mapName;
+    };
+
+    struct TransportRouteOverride
+    {
+        uint32_t houseId = 0;
+        uint32_t routeIndex = 0;
+        std::string destinationName;
+        std::string mapFileName;
+        std::array<bool, 7> daysAvailable = {true, true, true, true, true, true, true};
+        uint32_t travelDays = 0;
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t z = 0;
+        int32_t directionDegrees = 0;
+        uint32_t requiredQBit = 0;
+        bool useMapStartPosition = false;
+    };
+
     struct ChestItemRequest
     {
         uint32_t itemId = 0;
@@ -221,8 +260,32 @@ struct EventRuntimeState
         uint8_t gridY = 0;
     };
 
+    struct ActiveHookContext
+    {
+        EventRuntimeHookKind kind = EventRuntimeHookKind::NpcEnter;
+        uint32_t npcId = 0;
+        std::optional<uint32_t> actorIndex;
+        uint32_t houseId = 0;
+        uint32_t houseServiceType = 0;
+        uint32_t menuId = 0;
+        uint32_t houseActionId = 0;
+        uint32_t gameplayActionId = 0;
+        uint32_t boundaryEdge = 0;
+        uint32_t heldItemId = 0;
+        std::string destinationMapName;
+        int32_t baseRestFoodCost = 0;
+        std::optional<int32_t> restFoodCostOverride;
+        bool blocked = false;
+        std::optional<std::string> statusText;
+        std::vector<uint32_t> houseTopicActionIds;
+    };
+
     std::unordered_map<uint32_t, int32_t> variables;
+    std::unordered_map<std::string, int32_t> namedMapVars;
+    std::unordered_map<std::string, int32_t> namedGlobalVars;
     std::unordered_map<uint32_t, RuntimeMapNote> runtimeMapNotes;
+    std::unordered_map<std::string, SavedLocation> savedLocations;
+    std::unordered_map<uint64_t, TransportRouteOverride> transportRouteOverrides;
     std::optional<MapNoteSourcePoint> activeEventMapNoteSourcePoint;
     uint32_t activeHistoryContinentId = 1;
     std::unordered_map<uint32_t, int32_t> historyEventTimes;
@@ -267,6 +330,7 @@ struct EventRuntimeState
     std::unordered_map<std::string, uint32_t> generatedNpcIdsByActorKey;
     std::unordered_map<uint32_t, uint32_t> npcItemOverrides;
     std::unordered_map<uint32_t, uint32_t> actorItemOverrides;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> actorExtraItemOverrides;
     std::unordered_map<uint32_t, int32_t> monsterRelationOverrides;
     std::unordered_map<uint32_t, std::vector<ChestItemRequest>> chestItemRequests;
     std::unordered_set<uint32_t> unavailableNpcIds;
@@ -275,11 +339,13 @@ struct EventRuntimeState
     DialogueRuntimeState dialogueState;
     std::array<uint8_t, 125> decorVars = {};
     std::optional<ActiveDecorationContext> activeDecorationContext;
+    std::optional<ActiveHookContext> activeHookContext;
     std::vector<std::string> messages;
     std::vector<std::string> statusMessages;
     std::vector<uint32_t> openedChestIds;
     std::vector<InventoryItem> grantedItems;
     std::vector<uint32_t> grantedItemIds;
+    bool clearHeldItemRequest = false;
     std::vector<uint32_t> removedItemIds;
     std::vector<uint32_t> grantedAwardIds;
     std::vector<uint32_t> removedAwardIds;
@@ -296,6 +362,7 @@ struct EventRuntimeState
     std::optional<std::string> lastActivationResult;
     size_t localOnLoadEventsExecuted = 0;
     size_t globalOnLoadEventsExecuted = 0;
+    int32_t processedMapRespawnCount = 0;
 
     bool hasFacetInvisibleOverride(uint32_t faceId) const;
 };
@@ -337,6 +404,7 @@ public:
 
     static uint32_t outdoorModelFacetTextureOverrideKey(uint32_t modelIndex, uint32_t faceIndex);
     static uint32_t monsterRelationOverrideKey(uint32_t leftMonsterId, uint32_t rightMonsterId);
+    static uint64_t transportRouteOverrideKey(uint32_t houseId, uint32_t routeIndex);
 
     static float calculateMechanismDistance(const MapDeltaDoor &door, const RuntimeMechanismState &runtimeMechanism);
     bool buildOnLoadState(
@@ -390,6 +458,22 @@ public:
         const EventRuntimeState &runtimeState,
         const Party *pParty,
         const ISceneEventContext *pSceneEventContext = nullptr
+    ) const;
+    bool executeHooks(
+        const std::optional<ScriptedEventProgram> &localProgram,
+        const std::optional<ScriptedEventProgram> &globalProgram,
+        EventRuntimeHookKind kind,
+        EventRuntimeState &runtimeState,
+        Party *pParty = nullptr,
+        ISceneEventContext *pSceneEventContext = nullptr
+    ) const;
+    bool executeMapRefillHooks(
+        const std::optional<ScriptedEventProgram> &localProgram,
+        const std::optional<ScriptedEventProgram> &globalProgram,
+        const std::optional<MapDeltaData> &mapDeltaData,
+        EventRuntimeState &runtimeState,
+        Party *pParty = nullptr,
+        ISceneEventContext *pSceneEventContext = nullptr
     ) const;
     void advanceMechanisms(
         const std::optional<MapDeltaData> &mapDeltaData,

@@ -464,6 +464,19 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
+    std::vector<std::vector<std::string>> classExtraRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("class_extra.txt"), classExtraRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.classMultiplierTable.applyClassExtraRows(classExtraRows))
+    {
+        failure = "could not apply class metadata for regression tests";
+        return false;
+    }
+
     std::vector<std::vector<std::string>> classSkillRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("class_skills.txt"), classSkillRows, failure))
@@ -487,6 +500,12 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!data.classSkillTable.loadStartingSkillsFromRows(startingSkillRows))
     {
         failure = "could not load class starting skills for regression tests";
+        return false;
+    }
+
+    if (!data.classSkillTable.loadClassMetadataFromRows(classExtraRows))
+    {
+        failure = "could not load class metadata for regression tests";
         return false;
     }
 

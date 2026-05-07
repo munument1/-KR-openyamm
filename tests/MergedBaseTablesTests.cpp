@@ -2,6 +2,7 @@
 
 #include "engine/TextTable.h"
 #include "game/tables/MergedBaseTables.h"
+#include "game/tables/RaceStartingStatsTable.h"
 
 #include <filesystem>
 #include <fstream>
@@ -42,6 +43,12 @@ std::vector<std::vector<std::string>> loadRows(const char *pFileName)
 
     return rows;
 }
+
+std::string loadDataTableText(const char *pFileName)
+{
+    return readSourceTextFile(
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/data_tables" / pFileName);
+}
 }
 
 TEST_CASE("merged base engine tables load without changing active MM8 runtime tables")
@@ -67,6 +74,7 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     OpenYAMM::Game::MergedBolsterMonsterTable bolsterMonsterTable;
     OpenYAMM::Game::MergedCharacterVoiceTable characterVoiceTable;
     OpenYAMM::Game::MergedClassStartingStatTable classStartingStatTable;
+    OpenYAMM::Game::RaceStartingStatsTable raceStartingStatsTable;
     OpenYAMM::Game::MergedComplexItemPictureOffsetTable complexItemPictureOffsetTable;
     OpenYAMM::Game::MergedComplexItemPictureTable complexItemPictureTable;
     OpenYAMM::Game::MergedContinentSettingTable continentSettingTable;
@@ -82,7 +90,8 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
 
     REQUIRE(classExtraTable.loadFromRows(loadRows("class_extra.txt")));
     REQUIRE(characterSelectionTable.loadFromRows(loadRows("character_selection.txt")));
-    REQUIRE(raceSkillTable.loadFromRows(loadRows("race_skills.txt")));
+    std::string raceSkillErrorMessage;
+    REQUIRE(raceSkillTable.loadFromYaml(loadDataTableText("race_skills.yml"), raceSkillErrorMessage));
     REQUIRE(teacherTopicTable.loadFromRows(loadRows("teacher_topics.txt")));
     REQUIRE(teacherAutonoteTable.loadFromRows(loadRows("teacher_autonotes.txt")));
     REQUIRE(npcProfessionTable.loadFromRows(loadRows("npc_professions.txt")));
@@ -101,6 +110,18 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     REQUIRE(bolsterMonsterTable.loadFromRows(loadRows("bolster_monsters.txt")));
     REQUIRE(characterVoiceTable.loadFromRows(loadRows("character_voices.txt")));
     REQUIRE(classStartingStatTable.loadFromRows(loadRows("class_starting_stats.txt")));
+    REQUIRE(raceStartingStatsTable.loadFromRows(loadRows("class_starting_stats.txt")));
+    const OpenYAMM::Game::RaceStartingStatsTable::Entry *pHumanStartingStats =
+        raceStartingStatsTable.get("Human");
+    const OpenYAMM::Game::RaceStartingStatsTable::Entry *pDragonStartingStats =
+        raceStartingStatsTable.get("Dragon");
+    REQUIRE(pHumanStartingStats != nullptr);
+    REQUIRE(pDragonStartingStats != nullptr);
+    CHECK_EQ(pHumanStartingStats->stats[0], 11);
+    CHECK_EQ(pHumanStartingStats->maximumStats[0], 25);
+    CHECK_EQ(pHumanStartingStats->addSteps[0], 1);
+    CHECK_EQ(pDragonStartingStats->maximumStats[0], 30);
+    CHECK_EQ(pDragonStartingStats->maximumStats[6], 30);
     REQUIRE(complexItemPictureOffsetTable.loadFromRows(loadRows("complex_item_picture_offsets.txt")));
     REQUIRE(complexItemPictureTable.loadFromRows(loadRows("complex_item_pictures.txt")));
     REQUIRE(continentSettingTable.loadFromRows(loadRows("continent_settings.txt")));
@@ -122,7 +143,10 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     REQUIRE_EQ(characterSelectionTable.continents().size(), 4u);
     CHECK_EQ(characterSelectionTable.continents()[0].name, "Jadam");
 
-    CHECK_GT(raceSkillTable.overrideCount(), 0u);
+    REQUIRE_EQ(raceSkillTable.overrideCount(), 18u);
+    CHECK_EQ(raceSkillTable.overrides()[0].race, "Human");
+    CHECK_EQ(raceSkillTable.overrides()[0].skillName, "Learning");
+    CHECK_EQ(raceSkillTable.overrides()[0].add, 1);
 
     REQUIRE_GT(teacherTopicTable.entries().size(), 70u);
     CHECK_EQ(teacherTopicTable.entries()[21].topicId, 971u);

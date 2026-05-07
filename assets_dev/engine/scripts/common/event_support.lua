@@ -198,6 +198,33 @@ support.houseId = support.houseId or {
     ThroneroomWinEvil = 601,
 }
 
+support.houseAction = support.houseAction or {
+    TempleHeal = 1,
+    TempleDonate = 2,
+    TavernRentRoom = 3,
+    TavernBuyFood = 4,
+    TrainingTrainActiveMember = 5,
+    BankDepositAll = 6,
+    BankWithdrawAll = 7,
+    OpenLearnSkillsMenu = 8,
+    OpenShopEquipmentMenu = 9,
+    OpenTavernArcomageMenu = 10,
+    BackToRootMenu = 11,
+    LearnSkill = 12,
+    ShopBuyStandard = 13,
+    ShopBuySpecial = 14,
+    ShopSell = 15,
+    ShopIdentify = 16,
+    ShopRepair = 17,
+    GuildBuySpellbooks = 18,
+    TavernArcomageRules = 19,
+    TavernArcomageVictoryConditions = 20,
+    TavernArcomagePlay = 21,
+    TransportRoute = 22,
+    ExtraExit = 23,
+    LorettaPriceFixing = 24,
+}
+
 support.faceAttribute = support.faceAttribute or {
     Fluid = 0x00000010,
     Invisible = 0x00002000,
@@ -400,6 +427,14 @@ local function ensureMetaScope(scopeName)
     local meta = evt.meta[scopeName]
     meta.onLoad = meta.onLoad or {}
     meta.onLeave = meta.onLeave or {}
+    meta.npcEnterHooks = meta.npcEnterHooks or {}
+    meta.npcExitHooks = meta.npcExitHooks or {}
+    meta.houseTopicFilterHooks = meta.houseTopicFilterHooks or {}
+    meta.houseTopicClickHooks = meta.houseTopicClickHooks or {}
+    meta.restFoodCostHooks = meta.restFoodCostHooks or {}
+    meta.gameplayActionHooks = meta.gameplayActionHooks or {}
+    meta.mapRefillHooks = meta.mapRefillHooks or {}
+    meta.mapTransitionHooks = meta.mapTransitionHooks or {}
     meta.title = meta.title or {}
     meta.hint = meta.hint or {}
     meta.openedChestIds = meta.openedChestIds or {}
@@ -556,12 +591,70 @@ function support.hasItem(itemId)
     return evt.Cmp(support.inventory(itemId), itemId)
 end
 
+function support.hasEverOwnedItem(itemId)
+    return evt.HasEverOwnedItem(itemId)
+end
+
+function support.hasItemAnywhere(itemId)
+    return evt.HasItemAnywhere(itemId)
+end
+
 function support.removeItem(itemId)
     evt.Subtract(support.inventory(itemId), itemId)
 end
 
 function support.giveItem(...)
     evt.GiveItem(...)
+end
+
+function support.anyQBitSet(qbits)
+    for _, qbit in ipairs(qbits or {}) do
+        if IsQBitSet(QBit(qbit)) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function support.tryRecoverLostItem(entries)
+    for _, entry in ipairs(entries or {}) do
+        local itemId = entry.Item
+        local recoveryQBit = entry.QBit
+        local recoveryQBits = entry.QBits
+        local proofQBits = entry.ProofQBits
+        local questActive = recoveryQBit == nil and recoveryQBits == nil
+        local proofActive = false
+
+        if recoveryQBit ~= nil and IsQBitSet(QBit(recoveryQBit)) then
+            questActive = true
+            proofActive = true
+        end
+
+        if recoveryQBits ~= nil then
+            questActive = support.anyQBitSet(recoveryQBits)
+        end
+
+        if proofQBits ~= nil then
+            proofActive = support.anyQBitSet(proofQBits)
+        end
+
+        local everOwned = itemId and HasEverOwnedItem(itemId)
+        local currentlyOwned = itemId and HasItemAnywhere(itemId)
+        local wasOwned = everOwned or proofActive
+
+        if itemId
+            and wasOwned
+            and not currentlyOwned
+            and questActive then
+            GiveItem(itemId)
+            evt.SimpleMessage(entry.Message or "Here is your missing item.")
+            return true
+        end
+    end
+
+    evt.SimpleMessage("You never had it!")
+    return false
 end
 
 function support.hasPlayer(rosterId)
@@ -713,6 +806,29 @@ function support.replaceGlobalEvent(eventId, title, handler, hint)
     support.registerGlobalEvent(eventId, title, handler, hint)
 end
 
+function support.appendScopeEvent(scopeName, tableName, eventId, handler)
+    local previous = evt[tableName][eventId]
+
+    evt[tableName][eventId] = function(...)
+        if previous ~= nil then
+            previous(...)
+        end
+
+        if handler ~= nil then
+            evt._BeginEvent(eventId)
+            handler(...)
+        end
+    end
+end
+
+function support.appendMapEvent(eventId, handler)
+    support.appendScopeEvent("map", "map", eventId, handler)
+end
+
+function support.appendGlobalEvent(eventId, handler)
+    support.appendScopeEvent("global", "global", eventId, handler)
+end
+
 function support.registerEvent(eventId, title, handler, hint)
     support.registerScopeEvent("map", "map", eventId, title, handler, hint)
 end
@@ -746,6 +862,30 @@ function support.moveToMap(destination)
     evt.MoveToMap(table.unpack(destination))
 end
 
+function support.saveCurrentLocation(name)
+    evt.SaveCurrentLocation(name)
+end
+
+function support.hasSavedLocation(name)
+    return evt.HasSavedLocation(name)
+end
+
+function support.moveToSavedLocation(name, clearAfterUse)
+    return evt.MoveToSavedLocation(name, clearAfterUse)
+end
+
+function support.clearSavedLocation(name)
+    evt.ClearSavedLocation(name)
+end
+
+function support.setTransportRouteOverride(houseId, routeIndex, route)
+    evt.SetTransportRouteOverride(houseId, routeIndex, route)
+end
+
+function support.clearTransportRouteOverride(houseId, routeIndex)
+    evt.ClearTransportRouteOverride(houseId, routeIndex)
+end
+
 function support.castSpellFromTo(spellId, mastery, skill, from, to)
     evt.CastSpell(spellId, mastery, skill, from.x, from.y, from.z, to.x, to.y, to.z)
 end
@@ -759,6 +899,10 @@ function support.pickRandomOption(eventId, step, options)
 
     local selectedIndex = evt._RandomJump(eventId, step, indices)
     return options[selectedIndex]
+end
+
+function support.askQuestionWithAnswerSteps(eventId, fallbackStep, question, choices)
+    evt.AskQuestionWithAnswerSteps(eventId, fallbackStep, question, choices)
 end
 
 function support.setMapMetadata(metadata)
@@ -828,6 +972,90 @@ function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title,
     })
 end
 
+local function appendHookEvent(scopeName, hookName, eventId)
+    local meta = ensureMetaScope(scopeName)
+    meta[hookName] = meta[hookName] or {}
+    table.insert(meta[hookName], eventId)
+end
+
+local function registerMapHook(hookName, eventId, title, handler)
+    support.replaceMapEvent(eventId, title, function()
+        handler(evt.GetHookContext())
+    end)
+    appendHookEvent("map", hookName, eventId)
+end
+
+local function registerGlobalHook(hookName, eventId, title, handler)
+    support.replaceGlobalEvent(eventId, title, function()
+        handler(evt.GetHookContext())
+    end)
+    appendHookEvent("global", hookName, eventId)
+end
+
+function support.registerNpcEnterHook(eventId, title, handler)
+    registerMapHook("npcEnterHooks", eventId, title, handler)
+end
+
+function support.registerGlobalNpcEnterHook(eventId, title, handler)
+    registerGlobalHook("npcEnterHooks", eventId, title, handler)
+end
+
+function support.registerNpcExitHook(eventId, title, handler)
+    registerMapHook("npcExitHooks", eventId, title, handler)
+end
+
+function support.registerGlobalNpcExitHook(eventId, title, handler)
+    registerGlobalHook("npcExitHooks", eventId, title, handler)
+end
+
+function support.registerHouseTopicFilter(eventId, title, handler)
+    registerMapHook("houseTopicFilterHooks", eventId, title, handler)
+end
+
+function support.registerGlobalHouseTopicFilter(eventId, title, handler)
+    registerGlobalHook("houseTopicFilterHooks", eventId, title, handler)
+end
+
+function support.registerHouseTopicClickHook(eventId, title, handler)
+    registerMapHook("houseTopicClickHooks", eventId, title, handler)
+end
+
+function support.registerGlobalHouseTopicClickHook(eventId, title, handler)
+    registerGlobalHook("houseTopicClickHooks", eventId, title, handler)
+end
+
+function support.registerRestFoodCostHook(eventId, title, handler)
+    registerMapHook("restFoodCostHooks", eventId, title, handler)
+end
+
+function support.registerGlobalRestFoodCostHook(eventId, title, handler)
+    registerGlobalHook("restFoodCostHooks", eventId, title, handler)
+end
+
+function support.registerGameplayActionHook(eventId, title, handler)
+    registerMapHook("gameplayActionHooks", eventId, title, handler)
+end
+
+function support.registerGlobalGameplayActionHook(eventId, title, handler)
+    registerGlobalHook("gameplayActionHooks", eventId, title, handler)
+end
+
+function support.registerMapRefillHook(eventId, title, handler)
+    registerMapHook("mapRefillHooks", eventId, title, handler)
+end
+
+function support.registerGlobalMapRefillHook(eventId, title, handler)
+    registerGlobalHook("mapRefillHooks", eventId, title, handler)
+end
+
+function support.registerMapTransitionHook(eventId, title, handler)
+    registerMapHook("mapTransitionHooks", eventId, title, handler)
+end
+
+function support.registerGlobalMapTransitionHook(eventId, title, handler)
+    registerGlobalHook("mapTransitionHooks", eventId, title, handler)
+end
+
 function support.isFlying()
     return evt.Cmp(support.varTag.IsFlying, 1)
 end
@@ -858,6 +1086,10 @@ end
 
 function support.currentGameMinutes()
     return evt.CurrentGameMinutes()
+end
+
+function support.advanceGameMinutes(minutes)
+    evt.AdvanceGameMinutes(minutes or 0)
 end
 
 function support.getRuntimeVariable(variableId)
@@ -916,6 +1148,7 @@ MechanismAction = support.mechanismAction
 DoorAction = support.doorAction
 ActorKillCheck = support.actorKillCheck
 HouseId = support.houseId
+HouseAction = support.houseAction
 SkillJoinedMask = support.skillJoinedMask
 PackSelector = support.packSelector
 EnsurePackedSelector = support.ensurePackedSelector
@@ -941,6 +1174,8 @@ IsAutonoteSet = support.isAutonoteSet
 SetAutonote = support.setAutonote
 ClearAutonote = support.clearAutonote
 HasItem = support.hasItem
+HasEverOwnedItem = support.hasEverOwnedItem
+HasItemAnywhere = support.hasItemAnywhere
 RemoveItem = support.removeItem
 GiveItem = support.giveItem
 HasPlayer = support.hasPlayer
@@ -961,17 +1196,42 @@ RemoveMapEvent = support.removeMapEvent
 RemoveGlobalEvent = support.removeGlobalEvent
 ReplaceMapEvent = support.replaceMapEvent
 ReplaceGlobalEvent = support.replaceGlobalEvent
+AppendMapEvent = support.appendMapEvent
+AppendGlobalEvent = support.appendGlobalEvent
 RegisterCanShowTopic = support.registerCanShowTopic
 Point = support.point
 MoveToMap = support.moveToMap
+SaveCurrentLocation = support.saveCurrentLocation
+HasSavedLocation = support.hasSavedLocation
+MoveToSavedLocation = support.moveToSavedLocation
+ClearSavedLocation = support.clearSavedLocation
+SetTransportRouteOverride = support.setTransportRouteOverride
+ClearTransportRouteOverride = support.clearTransportRouteOverride
 CastSpellFromTo = support.castSpellFromTo
 PickRandomOption = support.pickRandomOption
+AskQuestionWithAnswerSteps = support.askQuestionWithAnswerSteps
 SetMapMetadata = support.setMapMetadata
 AppendMapOnLoadEvent = support.appendMapOnLoadEvent
 AppendMapOnLeaveEvent = support.appendMapOnLeaveEvent
 RegisterMapOnLoadEvent = support.registerMapOnLoadEvent
 RegisterMapOnLeaveEvent = support.registerMapOnLeaveEvent
 RegisterMapTimerEvent = support.registerMapTimerEvent
+RegisterNpcEnterHook = support.registerNpcEnterHook
+RegisterGlobalNpcEnterHook = support.registerGlobalNpcEnterHook
+RegisterNpcExitHook = support.registerNpcExitHook
+RegisterGlobalNpcExitHook = support.registerGlobalNpcExitHook
+RegisterHouseTopicFilter = support.registerHouseTopicFilter
+RegisterGlobalHouseTopicFilter = support.registerGlobalHouseTopicFilter
+RegisterHouseTopicClickHook = support.registerHouseTopicClickHook
+RegisterGlobalHouseTopicClickHook = support.registerGlobalHouseTopicClickHook
+RegisterRestFoodCostHook = support.registerRestFoodCostHook
+RegisterGlobalRestFoodCostHook = support.registerGlobalRestFoodCostHook
+RegisterGameplayActionHook = support.registerGameplayActionHook
+RegisterGlobalGameplayActionHook = support.registerGlobalGameplayActionHook
+RegisterMapRefillHook = support.registerMapRefillHook
+RegisterGlobalMapRefillHook = support.registerGlobalMapRefillHook
+RegisterMapTransitionHook = support.registerMapTransitionHook
+RegisterGlobalMapTransitionHook = support.registerGlobalMapTransitionHook
 IsFlying = support.isFlying
 IsInvisible = support.isInvisible
 HasFollowerProfession = support.hasFollowerProfession
@@ -980,6 +1240,7 @@ HasFollowerNpc = support.hasFollowerNpc
 AddFollowerNpc = support.addFollowerNpc
 RemoveFollowerNpc = support.removeFollowerNpc
 CurrentGameMinutes = support.currentGameMinutes
+AdvanceGameMinutes = support.advanceGameMinutes
 GetRuntimeVariable = support.getRuntimeVariable
 SetRuntimeVariable = support.setRuntimeVariable
 GetPartyVariable = support.getPartyVariable
@@ -1007,6 +1268,7 @@ const.SkillCheck = support.skillCheck
 const.DoorAction = support.doorAction
 const.ActorKillCheck = support.actorKillCheck
 const.HouseId = support.houseId
+const.HouseAction = support.houseAction
 
 -- Compatibility aliases for older/generated scripts. New authored scripts should use CamelCase globals.
 isQBitSet = support.isQBitSet
@@ -1039,11 +1301,24 @@ registerGlobalNoOpEvent = support.registerGlobalNoOpEvent
 registerCanShowTopic = support.registerCanShowTopic
 point = support.point
 moveToMap = support.moveToMap
+saveCurrentLocation = support.saveCurrentLocation
+hasSavedLocation = support.hasSavedLocation
+moveToSavedLocation = support.moveToSavedLocation
+clearSavedLocation = support.clearSavedLocation
+setTransportRouteOverride = support.setTransportRouteOverride
+clearTransportRouteOverride = support.clearTransportRouteOverride
 castSpellFromTo = support.castSpellFromTo
 pickRandomOption = support.pickRandomOption
 setMapMetadata = support.setMapMetadata
 setGlobalMetadata = support.setGlobalMetadata
 registerMapTimerEvent = support.registerMapTimerEvent
+registerNpcEnterHook = support.registerNpcEnterHook
+registerNpcExitHook = support.registerNpcExitHook
+registerHouseTopicFilter = support.registerHouseTopicFilter
+registerHouseTopicClickHook = support.registerHouseTopicClickHook
+registerRestFoodCostHook = support.registerRestFoodCostHook
+registerGameplayActionHook = support.registerGameplayActionHook
+registerMapRefillHook = support.registerMapRefillHook
 isFlying = support.isFlying
 isInvisible = support.isInvisible
 hasFollowerNpc = support.hasFollowerNpc

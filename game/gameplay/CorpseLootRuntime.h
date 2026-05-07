@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -27,7 +28,7 @@ GameplayCorpseViewState buildMonsterCorpseView(
     const MonsterTable::LootPrototype &loot,
     const ItemTable *pItemTable,
     Party *pParty,
-    uint32_t guaranteedItemId = 0);
+    const std::vector<uint32_t> &guaranteedItemIds = {});
 
 GameplayCorpseAutoLootResult autoLootActiveCorpseView(
     IGameplayWorldRuntime &worldRuntime,

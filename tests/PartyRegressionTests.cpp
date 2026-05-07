@@ -177,6 +177,95 @@ TEST_CASE("party quest bits survive save data round trip")
     CHECK_FALSE(restoredParty.hasQuestBit(37));
 }
 
+TEST_CASE("party ever owned item ids survive save data round trip")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    CHECK_FALSE(party.hasEverOwnedItem(2170));
+    REQUIRE(party.tryGrantItem(2170));
+    CHECK(party.hasEverOwnedItem(2170));
+    CHECK(party.hasItemAnywhere(2170));
+
+    REQUIRE(party.removeItem(2170));
+    CHECK(party.hasEverOwnedItem(2170));
+    CHECK_FALSE(party.hasItemAnywhere(2170));
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "ever_owned_roundtrip.odm";
+    saveData.party = party.snapshot();
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_ever_owned_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+
+    OpenYAMM::Game::Party restoredParty = {};
+    restoredParty.seed(createRegressionPartySeed());
+    restoredParty.restoreSnapshot(loaded->party);
+
+    CHECK(restoredParty.hasEverOwnedItem(2170));
+    CHECK_FALSE(restoredParty.hasItemAnywhere(2170));
+}
+
+TEST_CASE("party records mm7 arcomage champion qbit after all antagarich taverns")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    party.recordArcomageWin(239, 0, 0);
+    CHECK_FALSE(party.hasQuestBit(750));
+
+    for (uint32_t houseId = 240; houseId < 252; ++houseId)
+    {
+        party.recordArcomageWin(houseId, 0, 0);
+    }
+
+    CHECK_FALSE(party.hasQuestBit(750));
+
+    party.recordArcomageWin(252, 0, 0);
+    CHECK(party.hasQuestBit(750));
+}
+
+TEST_CASE("party item ownership queries include the held item")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    const OpenYAMM::Game::InventoryItem item = makeInventoryItem(2119, 1, 1);
+
+    CHECK_FALSE(party.hasEverOwnedItem(2119));
+    CHECK_FALSE(party.hasItemAnywhere(2119));
+
+    party.setHeldItemForQueries(item);
+    CHECK(party.hasEverOwnedItem(2119));
+    CHECK(party.hasItemAnywhere(2119));
+
+    party.clearHeldItemForQueries();
+    CHECK(party.hasEverOwnedItem(2119));
+    CHECK_FALSE(party.hasItemAnywhere(2119));
+}
+
+TEST_CASE("party restore records currently held inventory as ever owned")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    REQUIRE(party.tryGrantItem(2122));
+
+    OpenYAMM::Game::Party::Snapshot snapshot = party.snapshot();
+    snapshot.everOwnedItemIds.clear();
+
+    OpenYAMM::Game::Party restoredParty = {};
+    restoredParty.seed(createRegressionPartySeed());
+    restoredParty.restoreSnapshot(snapshot);
+
+    CHECK(restoredParty.hasEverOwnedItem(2122));
+    CHECK(restoredParty.hasItemAnywhere(2122));
+}
+
 TEST_CASE("monster target selection prefers matching living members")
 {
     OpenYAMM::Game::Party party = {};

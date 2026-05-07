@@ -22,7 +22,9 @@ namespace
 {
 constexpr const char *IdentifyFailedText = "Identify Failed";
 constexpr const char *RepairFailedText = "Repair Failed";
-constexpr const char *NwcDungeonMapName = "nwc.blv";
+constexpr const char *NwcDungeonMapName = "7nwc.blv";
+constexpr const char *TempleInBottleReturnLocationName = "TempleInABottleReturn";
+constexpr uint32_t DimensionDoorScrollItemId = 190;
 constexpr int16_t FireballImpactObjectId = 1051;
 constexpr float PotionExplosionForwardOffset = 64.0f;
 constexpr float PotionExplosionHeightOffset = 96.0f;
@@ -156,6 +158,45 @@ bool isNwcDungeonMapName(const std::string &mapFileName)
     return normalized == NwcDungeonMapName || normalized == std::string("data/games/") + NwcDungeonMapName;
 }
 
+bool openDimensionDoorOverlay(GameplayScreenRuntime &runtime)
+{
+    if (!runtime.ensureDimensionDoorDestinationsLoaded())
+    {
+        runtime.setStatusBarEvent("Dimension Door destinations unavailable");
+        return false;
+    }
+
+    const Party *pParty = runtime.partyReadOnly();
+    const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
+    runtime.openUtilitySpellOverlay(
+        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
+        spellIdValue(SpellId::TownPortal),
+        casterMemberIndex);
+    runtime.resetUtilitySpellOverlayInteractionState();
+    runtime.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    return true;
+}
+
+void saveTempleInBottleReturnLocation(GameplayScreenRuntime &runtime)
+{
+    IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
+    EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    if (pWorldRuntime == nullptr || pEventRuntimeState == nullptr)
+    {
+        return;
+    }
+
+    EventRuntimeState::SavedLocation location = {};
+    location.x = static_cast<int32_t>(std::lround(runtime.partyX()));
+    location.y = static_cast<int32_t>(std::lround(runtime.partyY()));
+    location.z = static_cast<int32_t>(std::lround(runtime.partyFootZ()));
+    location.continentId = pEventRuntimeState->activeHistoryContinentId;
+    location.mapName = runtime.currentMapFileName();
+    pEventRuntimeState->savedLocations[TempleInBottleReturnLocationName] = std::move(location);
+}
+
 InventoryItemUseContext buildInventoryItemUseContext(const GameplayScreenRuntime &runtime)
 {
     InventoryItemUseContext context = {};
@@ -277,6 +318,21 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
         }
         else
         {
+            if (heldItem.item.objectDescriptionId == DimensionDoorScrollItemId)
+            {
+                if (openDimensionDoorOverlay(runtime))
+                {
+                    heldItem = {};
+                    pParty->clearHeldItemForQueries();
+                }
+
+                GameplayUiController::CharacterScreenState &characterScreen =
+                    m_session.gameplayScreenState().characterScreen();
+                characterScreen.open = false;
+                characterScreen.dollJewelryOverlayOpen = false;
+                return true;
+            }
+
             const SpellTable *pSpellTable = m_session.hasDataRepository() ? &m_session.data().spellTable() : nullptr;
 
             if (pSpellTable == nullptr)
@@ -307,6 +363,7 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
             }
 
             heldItem = {};
+            pParty->clearHeldItemForQueries();
         }
     }
     else if (useResult.action == InventoryItemUseAction::ReadMessageScroll)
@@ -321,6 +378,7 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
         if (useResult.consumed)
         {
             heldItem = {};
+            pParty->clearHeldItemForQueries();
         }
 
         if (useResult.action == InventoryItemUseAction::ConsumePotion
@@ -366,6 +424,8 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
         if (useResult.action == InventoryItemUseAction::UseTempleInABottle
             && !isNwcDungeonMapName(m_session.currentMapFileName()))
         {
+            saveTempleInBottleReturnLocation(runtime);
+
             EventRuntimeState::PendingMapMove pendingMapMove = {};
             pendingMapMove.mapName = NwcDungeonMapName;
             pendingMapMove.useMapStartPosition = true;
@@ -442,10 +502,12 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
         heldItem.grabCellOffsetY = 0;
         heldItem.grabOffsetX = 0.0f;
         heldItem.grabOffsetY = 0.0f;
+        pParty->setHeldItemForQueries(heldItem.item);
     }
     else if (mixResult.heldItemConsumed)
     {
         heldItem = {};
+        pParty->clearHeldItemForQueries();
     }
 
     const bool potionExplosion =

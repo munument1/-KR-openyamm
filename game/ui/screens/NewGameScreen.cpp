@@ -50,6 +50,7 @@ struct RaceStatRule
 {
     int baseStep = 1;
     int droppedStep = 1;
+    int maximumValue = MaximumStatValue;
 };
 
 struct DebugEquipmentItem
@@ -550,15 +551,15 @@ RaceStatRule raceRuleForBaseStat(int baseStatValue)
 {
     if (baseStatValue > NeutralBaseStatValue)
     {
-        return {2, 1};
+        return {2, 1, BoostedMaximumStatValue};
     }
 
     if (baseStatValue < NeutralBaseStatValue)
     {
-        return {1, 2};
+        return {1, 2, MaximumStatValue};
     }
 
-    return {1, 1};
+    return {1, 1, MaximumStatValue};
 }
 
 std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForStats(
@@ -569,6 +570,47 @@ std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForStats(
     for (size_t statIndex = 0; statIndex < baseStats.size(); ++statIndex)
     {
         rules[statIndex] = raceRuleForBaseStat(baseStats[statIndex]);
+    }
+
+    return rules;
+}
+
+std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForData(
+    const GameDataRepository *pGameData,
+    CreationRace race,
+    const std::array<int, static_cast<size_t>(StatId::Count)> &baseStats)
+{
+    std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules = raceRulesForStats(baseStats);
+
+    if (pGameData == nullptr)
+    {
+        return rules;
+    }
+
+    const RaceStartingStatsTable::Entry *pEntry =
+        pGameData->raceStartingStatsTable().get(creationRaceName(race));
+
+    if (pEntry == nullptr)
+    {
+        return rules;
+    }
+
+    for (size_t statIndex = 0; statIndex < static_cast<size_t>(StatId::Count); ++statIndex)
+    {
+        if (pEntry->addSteps[statIndex] > 0)
+        {
+            rules[statIndex].baseStep = pEntry->addSteps[statIndex];
+        }
+
+        if (pEntry->droppedSteps[statIndex] > 0)
+        {
+            rules[statIndex].droppedStep = pEntry->droppedSteps[statIndex];
+        }
+
+        if (pEntry->maximumStats[statIndex] > 0)
+        {
+            rules[statIndex].maximumValue = pEntry->maximumStats[statIndex];
+        }
     }
 
     return rules;
@@ -677,7 +719,7 @@ uint32_t statLabelColorForStats(const std::array<int, static_cast<size_t>(StatId
 
 int maximumStatValueForRule(const RaceStatRule &rule)
 {
-    return rule.baseStep > 1 ? BoostedMaximumStatValue : MaximumStatValue;
+    return rule.maximumValue;
 }
 
 int skillMasteryAvailabilityForCreation(
@@ -1019,7 +1061,8 @@ void NewGameScreen::endNameEditing(bool commitEdit)
 int NewGameScreen::currentBonusPool() const
 {
     int remainingPoints = StartingBonusPool;
-    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules = raceRulesForStats(m_state.baseStats);
+    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
+        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
 
     for (size_t statIndex = 0; statIndex < static_cast<size_t>(StatId::Count); ++statIndex)
     {
@@ -1155,7 +1198,8 @@ std::vector<std::string> NewGameScreen::wrapTextToWidth(
 bool NewGameScreen::tryIncreaseStat(StatId statId)
 {
     const size_t index = static_cast<size_t>(statId);
-    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules = raceRulesForStats(m_state.baseStats);
+    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
+        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
     const int baseValue = m_state.baseStats[index];
     const int currentValue = m_state.currentStats[index];
     int amount = rules[index].baseStep;
@@ -1180,7 +1224,8 @@ bool NewGameScreen::tryIncreaseStat(StatId statId)
 bool NewGameScreen::tryDecreaseStat(StatId statId)
 {
     const size_t index = static_cast<size_t>(statId);
-    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules = raceRulesForStats(m_state.baseStats);
+    const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
+        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
     const int baseValue = m_state.baseStats[index];
     const int currentValue = m_state.currentStats[index];
     int amount = rules[index].baseStep;

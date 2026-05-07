@@ -3593,10 +3593,12 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                                         view.heldInventoryItem().grabCellOffsetY = 0;
                                         view.heldInventoryItem().grabOffsetX = 0.0f;
                                         view.heldInventoryItem().grabOffsetY = 0.0f;
+                                        party.setHeldItemForQueries(*replacedItem);
                                     }
                                     else
                                     {
                                         view.heldInventoryItem() = {};
+                                        party.clearHeldItemForQueries();
                                     }
                                 }
                             }
@@ -3756,6 +3758,10 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                                 static_cast<uint8_t>(placement->second)))
                         {
                             view.heldInventoryItem() = {};
+                            if (view.party() != nullptr)
+                            {
+                                view.party()->clearHeldItemForQueries();
+                            }
                         }
                     }
                 }
@@ -3791,6 +3797,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         view.heldInventoryItem().grabCellOffsetY = 0;
                         view.heldInventoryItem().grabOffsetX = 0.0f;
                         view.heldInventoryItem().grabOffsetY = 0.0f;
+                        view.party()->setHeldItemForQueries(view.heldInventoryItem().item);
 
                         const ItemDefinition *pItemDefinition =
                             view.itemTable() != nullptr ? view.itemTable()->get(takenItem.itemId) : nullptr;

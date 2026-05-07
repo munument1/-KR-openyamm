@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 42;
+constexpr uint32_t SaveVersion = 47;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -39,6 +39,11 @@ constexpr uint32_t SaveVersionGeneratedNpcOverrides = 39;
 constexpr uint32_t SaveVersionDialogueActorSource = 40;
 constexpr uint32_t SaveVersionPartyHiredNpcFollowers = 41;
 constexpr uint32_t SaveVersionRuntimeMapNoteMapFile = 42;
+constexpr uint32_t SaveVersionPartyEverOwnedItems = 43;
+constexpr uint32_t SaveVersionNamedLuaVars = 44;
+constexpr uint32_t SaveVersionActorExtraItemOverrides = 45;
+constexpr uint32_t SaveVersionInputPromptAnswerSteps = 46;
+constexpr uint32_t SaveVersionPersistentLuaRuntimeState = 47;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -943,6 +948,7 @@ void writeValue(BinaryWriter &writer, const Party::Snapshot &value)
     writeValue(writer, value.arcomageWinCount);
     writeValue(writer, value.arcomageLossCount);
     writeValue(writer, value.houseStockStates);
+    writeValue(writer, value.everOwnedItemIds);
     writeValue(writer, value.questBits);
     writeValue(writer, value.eventVariables);
     writeValue(writer, value.npcTopicOverrides);
@@ -978,6 +984,7 @@ bool readValue(BinaryReader &reader, Party::Snapshot &value)
         && readValue(reader, value.arcomageWinCount)
         && readValue(reader, value.arcomageLossCount)
         && readValue(reader, value.houseStockStates)
+        && (reader.version() < SaveVersionPartyEverOwnedItems || readValue(reader, value.everOwnedItemIds))
         && readValue(reader, value.questBits)
         && readValue(reader, value.eventVariables)
         && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.npcTopicOverrides))
@@ -1407,6 +1414,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::PendingInputPromp
     writeValue(writer, value.textId);
     writeValue(writer, value.answerTextIds);
     writeValue(writer, value.answers);
+    writeValue(writer, value.answerContinueSteps);
     writeValue(writer, value.text);
 }
 
@@ -1419,6 +1427,7 @@ bool readValue(BinaryReader &reader, EventRuntimeState::PendingInputPrompt &valu
         && readValue(reader, value.textId)
         && (reader.version() < SaveVersionInputPromptAnswers || readValue(reader, value.answerTextIds))
         && (reader.version() < SaveVersionInputPromptAnswers || readValue(reader, value.answers))
+        && (reader.version() < SaveVersionInputPromptAnswerSteps || readValue(reader, value.answerContinueSteps))
         && readValue(reader, value.text);
 }
 
@@ -1625,10 +1634,64 @@ bool readValue(BinaryReader &reader, EventRuntimeState::HiredNpcFollower &value)
         && readValue(reader, value.weeklyCost);
 }
 
+void writeValue(BinaryWriter &writer, const EventRuntimeState::SavedLocation &value)
+{
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.z);
+    writeValue(writer, value.continentId);
+    writeValue(writer, value.mapName);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::SavedLocation &value)
+{
+    return readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.z)
+        && readValue(reader, value.continentId)
+        && readValue(reader, value.mapName);
+}
+
+void writeValue(BinaryWriter &writer, const EventRuntimeState::TransportRouteOverride &value)
+{
+    writeValue(writer, value.houseId);
+    writeValue(writer, value.routeIndex);
+    writeValue(writer, value.destinationName);
+    writeValue(writer, value.mapFileName);
+    writeValue(writer, value.daysAvailable);
+    writeValue(writer, value.travelDays);
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.z);
+    writeValue(writer, value.directionDegrees);
+    writeValue(writer, value.requiredQBit);
+    writeValue(writer, value.useMapStartPosition);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::TransportRouteOverride &value)
+{
+    return readValue(reader, value.houseId)
+        && readValue(reader, value.routeIndex)
+        && readValue(reader, value.destinationName)
+        && readValue(reader, value.mapFileName)
+        && readValue(reader, value.daysAvailable)
+        && readValue(reader, value.travelDays)
+        && readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.z)
+        && readValue(reader, value.directionDegrees)
+        && readValue(reader, value.requiredQBit)
+        && readValue(reader, value.useMapStartPosition);
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
 {
     writeValue(writer, value.variables);
+    writeValue(writer, value.namedMapVars);
+    writeValue(writer, value.namedGlobalVars);
     writeValue(writer, value.runtimeMapNotes);
+    writeValue(writer, value.savedLocations);
+    writeValue(writer, value.transportRouteOverrides);
     writeValue(writer, value.activeHistoryContinentId);
     writeValue(writer, value.historyEventTimes);
     writeValue(writer, value.historyEventTimesByContinent);
@@ -1662,6 +1725,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.generatedNpcIdsByActorKey);
     writeValue(writer, value.npcItemOverrides);
     writeValue(writer, value.actorItemOverrides);
+    writeValue(writer, value.actorExtraItemOverrides);
     writeValue(writer, value.monsterRelationOverrides);
     writeValue(writer, value.chestItemRequests);
     writeValue(writer, value.unavailableNpcIds);
@@ -1689,12 +1753,17 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.lastActivationResult);
     writeValue(writer, value.localOnLoadEventsExecuted);
     writeValue(writer, value.globalOnLoadEventsExecuted);
+    writeValue(writer, value.processedMapRespawnCount);
 }
 
 bool readValue(BinaryReader &reader, EventRuntimeState &value)
 {
     const bool ok = readValue(reader, value.variables)
+        && (reader.version() < SaveVersionNamedLuaVars || readValue(reader, value.namedMapVars))
+        && (reader.version() < SaveVersionNamedLuaVars || readValue(reader, value.namedGlobalVars))
         && (reader.version() < SaveVersionRuntimeMapNotes || readValue(reader, value.runtimeMapNotes))
+        && (reader.version() < SaveVersionPersistentLuaRuntimeState || readValue(reader, value.savedLocations))
+        && (reader.version() < SaveVersionPersistentLuaRuntimeState || readValue(reader, value.transportRouteOverrides))
         && (reader.version() < SaveVersionScopedHistory || readValue(reader, value.activeHistoryContinentId))
         && readValue(reader, value.historyEventTimes)
         && (reader.version() < SaveVersionScopedHistory || readValue(reader, value.historyEventTimesByContinent))
@@ -1729,6 +1798,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.generatedNpcIdsByActorKey))
         && readValue(reader, value.npcItemOverrides)
         && readValue(reader, value.actorItemOverrides)
+        && (reader.version() < SaveVersionActorExtraItemOverrides
+            || readValue(reader, value.actorExtraItemOverrides))
         && (reader.version() < SaveVersionMapLuaRuntimeOverlays || readValue(reader, value.monsterRelationOverrides))
         && (reader.version() < SaveVersionMapLuaRuntimeOverlays || readValue(reader, value.chestItemRequests))
         && readValue(reader, value.unavailableNpcIds)
@@ -1755,7 +1826,9 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.lastAffectedMechanismIds)
         && readValue(reader, value.lastActivationResult)
         && readValue(reader, value.localOnLoadEventsExecuted)
-        && readValue(reader, value.globalOnLoadEventsExecuted);
+        && readValue(reader, value.globalOnLoadEventsExecuted)
+        && (reader.version() < SaveVersionActorExtraItemOverrides
+            || readValue(reader, value.processedMapRespawnCount));
 
     if (!ok)
     {

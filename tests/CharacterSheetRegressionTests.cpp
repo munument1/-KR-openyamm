@@ -135,16 +135,40 @@ TEST_CASE("class multiplier table drives promoted class resource progression")
     const OpenYAMM::Game::ClassMultiplierEntry *pChampion = gameData.classMultiplierTable.get("Champion");
     const OpenYAMM::Game::ClassMultiplierEntry *pDragon = gameData.classMultiplierTable.get("Dragon");
     const OpenYAMM::Game::ClassMultiplierEntry *pGreatWyrm = gameData.classMultiplierTable.get("GreatWyrm");
+    const OpenYAMM::Game::ClassMultiplierEntry *pDarkArchMage = gameData.classMultiplierTable.get("DarkArchMage");
+    const OpenYAMM::Game::ClassMultiplierEntry *pHighPriest = gameData.classMultiplierTable.get("HighPriest");
+    const OpenYAMM::Game::ClassMultiplierEntry *pMasterWizard = gameData.classMultiplierTable.get("MasterWizard");
 
     REQUIRE(pKnight != nullptr);
     REQUIRE(pChampion != nullptr);
     REQUIRE(pDragon != nullptr);
     REQUIRE(pGreatWyrm != nullptr);
+    REQUIRE(pDarkArchMage != nullptr);
+    REQUIRE(pHighPriest != nullptr);
+    REQUIRE(pMasterWizard != nullptr);
     CHECK_EQ(pKnight->healthPerLevel, 5);
     CHECK_EQ(pChampion->healthPerLevel, 8);
     CHECK_EQ(pDragon->healthPerLevel, 10);
     CHECK_EQ(pGreatWyrm->healthPerLevel, 10);
     CHECK_GT(pGreatWyrm->manaPerLevel, pDragon->manaPerLevel);
+    CHECK_EQ(pKnight->classKind, 6);
+    CHECK_EQ(pKnight->promotionStep, 0);
+    CHECK_EQ(pChampion->classKind, 6);
+    CHECK_EQ(pChampion->promotionStep, 2);
+    CHECK_EQ(pDragon->classKind, 4);
+    CHECK_EQ(pDragon->promotionStep, 1);
+    CHECK_EQ(pGreatWyrm->classKind, 4);
+    CHECK_EQ(pGreatWyrm->promotionStep, 2);
+    CHECK_EQ(pDarkArchMage->classKind, 14);
+    CHECK_EQ(pDarkArchMage->promotionStep, 2);
+    CHECK_EQ(pHighPriest->classKind, 2);
+    CHECK_EQ(pHighPriest->promotionStep, 2);
+    CHECK_EQ(pMasterWizard->classKind, 14);
+    CHECK_EQ(pMasterWizard->promotionStep, 2);
+    CHECK_EQ(gameData.classSkillTable.getHighestPromotionCap("Knight", "Sword"),
+        OpenYAMM::Game::SkillMastery::Grandmaster);
+    CHECK_EQ(gameData.classSkillTable.getHighestPromotionCap("Sorcerer", "DarkMagic"),
+        OpenYAMM::Game::SkillMastery::Grandmaster);
 
     OpenYAMM::Game::Character character = {};
     character.className = "Champion";

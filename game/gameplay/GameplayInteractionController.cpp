@@ -90,6 +90,10 @@ bool dropHeldItemToActiveWorld(
 
     runtime.setStatusBarEvent("Dropped " + itemName);
     GameplayHeldItemController::clearHeldInventoryItem(heldItem);
+    if (Party *pParty = runtime.party())
+    {
+        pParty->clearHeldItemForQueries();
+    }
     return true;
 }
 
@@ -202,6 +206,7 @@ bool tryActivateWorldItem(
     }
 
     GameplayHeldItemController::setHeldInventoryItem(heldItem, removedItemState.item);
+    pParty->setHeldItemForQueries(removedItemState.item);
     pParty->requestSound(SoundId::Gold);
     runtime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::FoundItem, true);
     runtime.setStatusBarEvent(formatFoundItemStatusText(itemName));

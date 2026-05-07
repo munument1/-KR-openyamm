@@ -457,7 +457,7 @@ uint32_t currentDialogueHostHouseId(const EventRuntimeState *pEventRuntimeState)
     return pEventRuntimeState != nullptr ? pEventRuntimeState->dialogueState.hostHouseId : 0;
 }
 
-bool isResidentSelectionMode(const EventDialogContent &dialog)
+bool isHouseOccupantSelectionMode(const EventDialogContent &dialog)
 {
     return !dialog.actions.empty()
         && std::all_of(
@@ -465,7 +465,8 @@ bool isResidentSelectionMode(const EventDialogContent &dialog)
             dialog.actions.end(),
             [](const EventDialogAction &action)
             {
-                return action.kind == EventDialogActionKind::HouseResident;
+                return action.kind == EventDialogActionKind::HouseProprietor
+                    || action.kind == EventDialogActionKind::HouseResident;
             });
 }
 
@@ -542,7 +543,7 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
         renderBlackoutBackdrop(view, width, height, uiViewport.x, uiViewport.width);
     }
 
-    const bool residentSelectionMode = isResidentSelectionMode(view.activeEventDialog());
+    const bool residentSelectionMode = isHouseOccupantSelectionMode(view.activeEventDialog());
     const EventRuntimeState *pEventRuntimeState =
         view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr;
     const uint32_t dialogueHostHouseId = currentDialogueHostHouseId(pEventRuntimeState);
@@ -1638,8 +1639,12 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
         for (size_t actionIndex = 0; actionIndex < residentCount; ++actionIndex)
         {
             const EventDialogAction &action = view.activeEventDialog().actions[actionIndex];
-            const NpcEntry *pNpc = view.npcDialogTable() ? view.npcDialogTable()->getNpc(action.id) : nullptr;
-            const uint32_t pictureId = pNpc != nullptr ? pNpc->pictureId : 0;
+            const NpcEntry *pNpc = action.kind == EventDialogActionKind::HouseResident && view.npcDialogTable()
+                ? view.npcDialogTable()->getNpc(action.id)
+                : nullptr;
+            const uint32_t pictureId = action.participantPictureId != 0
+                ? action.participantPictureId
+                : (pNpc != nullptr ? pNpc->pictureId : 0);
             const size_t column = useTwoColumns ? actionIndex % columnCount : 0u;
             const size_t row = useTwoColumns ? actionIndex / columnCount : actionIndex;
             const float cardNameX = useTwoColumns ? panelInnerX + static_cast<float>(column) * columnWidth : nameX;
@@ -1655,7 +1660,7 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                 cardNameWidth,
                 useTwoColumns ? std::string() : action.label,
                 pictureId,
-                EventDialogParticipantVisual::Portrait);
+                action.participantVisual);
 
             if (useTwoColumns)
             {

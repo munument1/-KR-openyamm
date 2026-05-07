@@ -2459,21 +2459,35 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
     const std::string normalizedInput = normalizePromptAnswer(submittedInput);
 
     bool matchedAnswer = false;
+    size_t matchedAnswerIndex = 0;
     const std::vector<std::string> answers = resolvePendingInputAnswers(prompt);
 
-    for (const std::string &answer : answers)
+    for (size_t answerIndex = 0; answerIndex < answers.size(); ++answerIndex)
     {
+        const std::string &answer = answers[answerIndex];
         const std::string normalizedAnswer = normalizePromptAnswer(answer);
 
         if (!answer.empty() && normalizedAnswer == normalizedInput)
         {
             matchedAnswer = true;
+            matchedAnswerIndex = answerIndex;
+            break;
         }
     }
 
-    const uint8_t continueStep = matchedAnswer && prompt.correctStep != 0
-        ? prompt.correctStep
-        : prompt.continueStep;
+    uint8_t continueStep = prompt.continueStep;
+    if (matchedAnswer)
+    {
+        if (matchedAnswerIndex < prompt.answerContinueSteps.size()
+            && prompt.answerContinueSteps[matchedAnswerIndex] != 0)
+        {
+            continueStep = prompt.answerContinueSteps[matchedAnswerIndex];
+        }
+        else if (prompt.correctStep != 0)
+        {
+            continueStep = prompt.correctStep;
+        }
+    }
     const EventDialogContent previousDialog = m_gameSession.gameplayScreenRuntime().activeEventDialog();
     const bool promptStartedFromMapEvent =
         pRuntimeState->pendingDialogueContext
@@ -2951,6 +2965,13 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
                 *pEventRuntimeState,
                 &m_pOutdoorPartyRuntime->party(),
                 m_pOutdoorWorldRuntime.get());
+            eventRuntime.executeMapRefillHooks(
+                selectedMap->localEventProgram,
+                selectedMap->globalEventProgram,
+                selectedMap->outdoorMapDeltaData,
+                *pEventRuntimeState,
+                &m_pOutdoorPartyRuntime->party(),
+                m_pOutdoorWorldRuntime.get());
             m_pOutdoorWorldRuntime->applyEventRuntimeState(true);
             m_pOutdoorPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
         }
@@ -3064,6 +3085,20 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         pIndoorSceneRuntime->restoreSnapshot(indoorTimeSnapshot);
 
         timingLogger.stage("indoor saved state restored");
+
+        if (EventRuntimeState *pEventRuntimeState = pIndoorSceneRuntime->eventRuntimeState())
+        {
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            eventRuntime.executeMapRefillHooks(
+                selectedMap->localEventProgram,
+                selectedMap->globalEventProgram,
+                pIndoorSceneRuntime->mapDeltaData(),
+                *pEventRuntimeState,
+                &pIndoorSceneRuntime->party(),
+                pIndoorSceneRuntime->sceneEventContext());
+            pIndoorSceneRuntime->worldRuntime().applyEventRuntimeState(true);
+            pIndoorSceneRuntime->party().applyEventRuntimeState(*pEventRuntimeState, false);
+        }
 
         pIndoorSceneRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
         pIndoorSceneRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);

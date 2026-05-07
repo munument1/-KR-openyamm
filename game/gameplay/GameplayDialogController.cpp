@@ -197,6 +197,12 @@ uint32_t currentDialogueHostHouseId(const EventRuntimeState &eventRuntimeState)
     return eventRuntimeState.dialogueState.hostHouseId;
 }
 
+bool isHouseOccupantSelectionAction(const EventDialogAction &action)
+{
+    return action.kind == EventDialogActionKind::HouseProprietor
+        || action.kind == EventDialogActionKind::HouseResident;
+}
+
 void setPendingDialogueContext(
     EventRuntimeState &eventRuntimeState,
     DialogueContextKind kind,
@@ -210,6 +216,27 @@ void setPendingDialogueContext(
     context.hostHouseId = hostHouseId;
     context.sourceActorIndex = sourceActorIndex;
     eventRuntimeState.pendingDialogueContext = std::move(context);
+}
+
+void executeNpcHook(
+    GameplayDialogController::Context &context,
+    EventRuntimeHookKind kind,
+    uint32_t npcId,
+    std::optional<uint32_t> sourceActorIndex)
+{
+    if (context.pWorldRuntime == nullptr || npcId == 0)
+    {
+        return;
+    }
+
+    EventRuntimeState::ActiveHookContext hookContext = {};
+    hookContext.kind = kind;
+    hookContext.npcId = npcId;
+    hookContext.actorIndex = sourceActorIndex;
+    hookContext.heldItemId = context.pParty != nullptr ? context.pParty->heldItemIdForQueries() : 0;
+    context.eventRuntimeState.activeHookContext = std::move(hookContext);
+    context.pWorldRuntime->executeEventHooks(kind);
+    context.eventRuntimeState.activeHookContext.reset();
 }
 
 bool samePendingMapMove(
@@ -778,6 +805,44 @@ void applyMapTransitionTravelSideEffects(
     }
 }
 
+bool executeMapTransitionHook(
+    GameplayDialogController::Context &context,
+    const MapEdgeTransition &transition)
+{
+    if (context.pWorldRuntime == nullptr)
+    {
+        return false;
+    }
+
+    EventRuntimeState::ActiveHookContext hookContext = {};
+    hookContext.kind = EventRuntimeHookKind::MapTransition;
+    hookContext.heldItemId = context.pParty != nullptr ? context.pParty->heldItemIdForQueries() : 0;
+    hookContext.destinationMapName = transition.destinationMapFileName;
+
+    if (context.eventRuntimeState.pendingDialogueContext.has_value()
+        && context.eventRuntimeState.pendingDialogueContext->kind == DialogueContextKind::MapTransition)
+    {
+        hookContext.boundaryEdge = context.eventRuntimeState.pendingDialogueContext->sourceId;
+    }
+
+    context.eventRuntimeState.activeHookContext = std::move(hookContext);
+    context.pWorldRuntime->executeEventHooks(EventRuntimeHookKind::MapTransition);
+
+    const bool blocked = context.eventRuntimeState.activeHookContext
+        && context.eventRuntimeState.activeHookContext->blocked;
+    const std::optional<std::string> statusText = context.eventRuntimeState.activeHookContext
+        ? context.eventRuntimeState.activeHookContext->statusText
+        : std::nullopt;
+    context.eventRuntimeState.activeHookContext.reset();
+
+    if (blocked && statusText.has_value())
+    {
+        context.uiController.setStatusBarEvent(*statusText);
+    }
+
+    return blocked;
+}
+
 void playSpeechReaction(
     GameplayDialogController::Context &context,
     size_t memberIndex,
@@ -1300,6 +1365,13 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             return result;
         }
 
+        if (executeMapTransitionHook(context, **pTransition))
+        {
+            cancelMapTransition(context);
+            result.shouldCloseActiveDialog = true;
+            return result;
+        }
+
         applyMapTransitionTravelSideEffects(context, **pTransition);
 
         EventRuntimeState::PendingMapMove pendingMapMove = {};
@@ -1586,6 +1658,31 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             DialogueContextKind::HouseService,
             context.activeEventDialog.sourceId,
             context.activeEventDialog.sourceId);
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::HouseProprietor)
+    {
+        if (context.pHouseTable == nullptr)
+        {
+            return result;
+        }
+
+        const HouseEntry *pHouseEntry = context.pHouseTable->get(context.activeEventDialog.sourceId);
+
+        if (pHouseEntry == nullptr)
+        {
+            return result;
+        }
+
+        context.eventRuntimeState.dialogueState.hostHouseId = pHouseEntry->id;
+        context.eventRuntimeState.dialogueState.menuStack.push_back(DialogueMenuId::HouseServiceRoot);
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::HouseService,
+            pHouseEntry->id,
+            pHouseEntry->id);
         result.shouldOpenPendingEventDialog = true;
         return result;
     }
@@ -2491,6 +2588,7 @@ GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
         return result;
     }
 
+    executeNpcHook(context, EventRuntimeHookKind::NpcEnter, npcId, sourceActorIndex);
     context.eventRuntimeState.dialogueState.hostHouseId = hostHouseId;
     setPendingDialogueContext(
         context.eventRuntimeState,
@@ -2584,10 +2682,7 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
         && std::all_of(
             context.activeEventDialog.actions.begin(),
             context.activeEventDialog.actions.end(),
-            [](const EventDialogAction &action)
-            {
-                return action.kind == EventDialogActionKind::HouseResident;
-            });
+            isHouseOccupantSelectionAction);
     const uint32_t hostHouseId = currentDialogueHostHouseId(context.eventRuntimeState);
     const HouseEntry *pHostHouseEntry = hostHouseId != 0 && context.pHouseTable != nullptr
         ? context.pHouseTable->get(hostHouseId)
@@ -2600,9 +2695,14 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
     if (!context.activeEventDialog.isHouseDialog
         && !isResidentSelectionMode
         && pHostHouseEntry != nullptr
-        && hostResidentNpcIds.size() > 1)
+        && (hostResidentNpcIds.size() > 1
+            || (resolveHouseServiceType(*pHostHouseEntry) != HouseServiceType::None && !hostResidentNpcIds.empty())))
     {
-        setPendingDialogueContext(context.eventRuntimeState, DialogueContextKind::HouseService, hostHouseId, hostHouseId);
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::HouseService,
+            hostHouseId,
+            hostHouseId);
         result.shouldOpenPendingEventDialog = true;
         return result;
     }
@@ -2630,6 +2730,15 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
                 playHouseSound(context, *soundId);
             }
         }
+    }
+
+    if (!context.activeEventDialog.isHouseDialog && context.activeEventDialog.sourceId != 0)
+    {
+        executeNpcHook(
+            context,
+            EventRuntimeHookKind::NpcExit,
+            context.activeEventDialog.sourceId,
+            context.activeEventDialog.sourceActorIndex);
     }
 
     result.shouldCloseActiveDialog = true;

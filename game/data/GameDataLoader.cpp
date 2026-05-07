@@ -2216,7 +2216,16 @@ bool GameDataLoader::loadClassSkillTable(const Engine::AssetFileSystem &assetFil
         return false;
     }
 
-    if (!m_classSkillTable.loadCapsFromRows(capRows) || !m_classSkillTable.loadStartingSkillsFromRows(startingRows))
+    std::vector<std::vector<std::string>> classExtraRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("class_extra.txt"), classExtraRows))
+    {
+        return false;
+    }
+
+    if (!m_classSkillTable.loadCapsFromRows(capRows)
+        || !m_classSkillTable.loadStartingSkillsFromRows(startingRows)
+        || !m_classSkillTable.loadClassMetadataFromRows(classExtraRows))
     {
         std::cerr << "Failed to parse class skill tables\n";
         return false;
@@ -2237,6 +2246,19 @@ bool GameDataLoader::loadClassMultiplierTable(const Engine::AssetFileSystem &ass
     if (!m_classMultiplierTable.loadFromRows(rows))
     {
         std::cerr << "Failed to parse class multiplier table\n";
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> classExtraRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("class_extra.txt"), classExtraRows))
+    {
+        return false;
+    }
+
+    if (!m_classMultiplierTable.applyClassExtraRows(classExtraRows))
+    {
+        std::cerr << "Failed to apply class metadata table\n";
         return false;
     }
 
@@ -2334,17 +2356,17 @@ bool GameDataLoader::loadCharacterInspectTable(const Engine::AssetFileSystem &as
 bool GameDataLoader::loadRaceStartingStatsTable(const Engine::AssetFileSystem &assetFileSystem)
 {
     std::vector<std::vector<std::string>> rows;
-    const std::string tablePath = engineDataTablePath("race_starting_stats.txt");
+    const std::string tablePath = engineDataTablePath("class_starting_stats.txt");
 
     if (!loadTextTableRows(assetFileSystem, tablePath, rows))
     {
-        std::cerr << "Failed to read race starting stats table: " << tablePath << '\n';
+        std::cerr << "Failed to read class starting stats table: " << tablePath << '\n';
         return false;
     }
 
     if (!m_raceStartingStatsTable.loadFromRows(rows))
     {
-        std::cerr << "Failed to parse race starting stats table: " << tablePath << '\n';
+        std::cerr << "Failed to parse class starting stats table: " << tablePath << '\n';
         return false;
     }
 
@@ -2429,6 +2451,29 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
             return true;
         };
 
+    const auto loadBaseYamlTable =
+        [&assetFileSystem](const char *pFileName, auto &table, const char *pDisplayName) -> bool
+        {
+            const std::string tablePath = engineDataTablePath(pFileName);
+            const std::optional<std::string> fileContents = assetFileSystem.readTextFile(tablePath);
+
+            if (!fileContents)
+            {
+                std::cerr << "Failed to read merged base table: " << tablePath << '\n';
+                return false;
+            }
+
+            std::string errorMessage;
+
+            if (!table.loadFromYaml(*fileContents, errorMessage))
+            {
+                std::cerr << "Failed to parse merged base table: " << pDisplayName << ": " << errorMessage << '\n';
+                return false;
+            }
+
+            return true;
+        };
+
     return loadBaseTable(
         "class_extra.txt",
         m_mergedClassExtraTable,
@@ -2437,10 +2482,10 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
             "character_selection.txt",
             m_mergedCharacterSelectionTable,
             "Character selection.txt")
-        && loadBaseTable(
-            "race_skills.txt",
+        && loadBaseYamlTable(
+            "race_skills.yml",
             m_mergedRaceSkillTable,
-            "Race Skills.txt")
+            "race_skills.yml")
         && loadBaseTable(
             "teacher_topics.txt",
             m_mergedTeacherTopicTable,

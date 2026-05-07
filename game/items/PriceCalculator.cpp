@@ -82,10 +82,13 @@ int classTierForClassName(const std::string &className)
 
     if (canonicalClass == "PriestLight"
         || canonicalClass == "PriestDark"
+        || canonicalClass == "HighPriest"
+        || canonicalClass == "MasterArcher"
+        || canonicalClass == "Sniper"
         || canonicalClass == "Warlock"
         || canonicalClass == "ArchDruid"
-        || canonicalClass == "Cavalier"
         || canonicalClass == "BlackKnight"
+        || canonicalClass == "Champion"
         || canonicalClass == "Master"
         || canonicalClass == "Ninja"
         || canonicalClass == "Hero"
@@ -94,17 +97,19 @@ int classTierForClassName(const std::string &className)
         || canonicalClass == "RangerLord"
         || canonicalClass == "Assassin"
         || canonicalClass == "Spy"
-        || canonicalClass == "ArchMage")
+        || canonicalClass == "ArchMage"
+        || canonicalClass == "DarkArchMage"
+        || canonicalClass == "MasterWizard")
     {
         return 3;
     }
 
-    if (canonicalClass == "MasterArcher"
+    if (canonicalClass == "WarriorMage"
         || canonicalClass == "Priest"
         || canonicalClass == "Patriarch"
         || canonicalClass == "GreatWyrm"
         || canonicalClass == "GreatDruid"
-        || canonicalClass == "Champion"
+        || canonicalClass == "Cavalier"
         || canonicalClass == "MinotaurLord"
         || canonicalClass == "Initiate"
         || canonicalClass == "Crusader"

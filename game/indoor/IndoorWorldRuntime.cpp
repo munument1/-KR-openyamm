@@ -6615,6 +6615,38 @@ bool IndoorWorldRuntime::executeMapEvent(
     return true;
 }
 
+bool IndoorWorldRuntime::executeEventHooks(EventRuntimeHookKind kind)
+{
+    EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+
+    if (m_pEventRuntime == nullptr || pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    const bool executed = m_pEventRuntime->executeHooks(
+        m_pLocalEventProgram != nullptr ? *m_pLocalEventProgram : std::optional<ScriptedEventProgram>{},
+        m_pGlobalEventProgram != nullptr ? *m_pGlobalEventProgram : std::optional<ScriptedEventProgram>{},
+        kind,
+        *pEventRuntimeState,
+        m_pParty,
+        this);
+
+    if (!executed)
+    {
+        return false;
+    }
+
+    applyEventRuntimeState();
+
+    if (m_pParty != nullptr)
+    {
+        m_pParty->applyEventRuntimeState(*pEventRuntimeState, false);
+    }
+
+    return true;
+}
+
 const std::optional<ScriptedEventProgram> *IndoorWorldRuntime::globalEventProgram() const
 {
     return m_pGlobalEventProgram;
@@ -6890,6 +6922,11 @@ bool IndoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAct
         : pAiState != nullptr ? pAiState->hostileToParty : hostileToParty;
     state.hasDetectedParty = useEffectOverride ? pEffectState->hasDetectedParty
         : pAiState != nullptr ? pAiState->hasDetectedParty : defaultDetectedParty;
+    state.combatTargetingParty = pAiState != nullptr
+        && state.hostileToParty
+        && state.hasDetectedParty
+        && (pAiState->motionState == ActorAiMotionState::Pursuing
+            || pAiState->motionState == ActorAiMotionState::Attacking);
     return true;
 }
 
@@ -9314,9 +9351,29 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
             return false;
         }
 
+        std::vector<uint32_t> guaranteedItemIds;
+        if (actor.carriedItemId != 0)
+        {
+            guaranteedItemIds.push_back(actor.carriedItemId);
+        }
+
+        if (m_pEventRuntimeState != nullptr && *m_pEventRuntimeState)
+        {
+            const auto extraItemIterator =
+                (*m_pEventRuntimeState)->actorExtraItemOverrides.find(static_cast<uint32_t>(actorIndex));
+
+            if (extraItemIterator != (*m_pEventRuntimeState)->actorExtraItemOverrides.end())
+            {
+                guaranteedItemIds.insert(
+                    guaranteedItemIds.end(),
+                    extraItemIterator->second.begin(),
+                    extraItemIterator->second.end());
+            }
+        }
+
         const std::string &title = actor.name.empty() ? pStats->name : actor.name;
         CorpseViewState corpse =
-            buildMonsterCorpseView(title, pStats->loot, m_pItemTable, m_pParty, actor.carriedItemId);
+            buildMonsterCorpseView(title, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
 
         if (corpse.items.empty())
         {

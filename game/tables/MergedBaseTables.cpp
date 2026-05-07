@@ -1,5 +1,7 @@
 #include "game/tables/MergedBaseTables.h"
 
+#include <yaml-cpp/yaml.h>
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -133,6 +135,208 @@ bool parseDouble(const std::string &value, double &result)
 
     result = parsed;
     return true;
+}
+
+uint32_t raceSkillMasteryFromTokenPart(const std::string &value)
+{
+    const std::string normalized = normalizedKey(value);
+
+    if (normalized.empty() || normalized == "0" || normalized == "none")
+    {
+        return 0;
+    }
+
+    if (normalized == "b" || normalized == "basic")
+    {
+        return 1;
+    }
+
+    if (normalized == "e" || normalized == "expert")
+    {
+        return 2;
+    }
+
+    if (normalized == "m" || normalized == "master")
+    {
+        return 3;
+    }
+
+    if (normalized == "g" || normalized == "grandmaster")
+    {
+        return 4;
+    }
+
+    uint32_t parsed = 0;
+
+    if (parseUnsigned(value, parsed))
+    {
+        return parsed;
+    }
+
+    return 0;
+}
+
+int32_t raceSkillExceptionCodeFromTokenPart(const std::string &value)
+{
+    const std::string normalized = normalizedKey(value);
+
+    if (normalized.empty() || normalized == "0" || normalized == "none")
+    {
+        return 0;
+    }
+
+    if (normalized == "i")
+    {
+        return -1;
+    }
+
+    if (normalized == "p")
+    {
+        return -2;
+    }
+
+    if (normalized == "ip")
+    {
+        return -3;
+    }
+
+    if (normalized == "s" || normalized == "spellcaster" || normalized == "spellcasters")
+    {
+        return -4;
+    }
+
+    if (normalized == "w" || normalized == "warrior" || normalized == "warriors")
+    {
+        return -5;
+    }
+
+    int32_t parsed = 0;
+
+    if (parseSigned(value, parsed))
+    {
+        return parsed;
+    }
+
+    return 0;
+}
+
+std::string raceSkillMasteryName(uint32_t mastery)
+{
+    switch (mastery)
+    {
+    case 1:
+        return "basic";
+    case 2:
+        return "expert";
+    case 3:
+        return "master";
+    case 4:
+        return "grandmaster";
+    default:
+        return "none";
+    }
+}
+
+std::string raceSkillExceptionName(int32_t exceptionCode)
+{
+    switch (exceptionCode)
+    {
+    case -1:
+        return "i";
+    case -2:
+        return "p";
+    case -3:
+        return "ip";
+    case -4:
+        return "spellcaster";
+    case -5:
+        return "warrior";
+    case 0:
+        return "none";
+    default:
+        return std::to_string(exceptionCode);
+    }
+}
+
+std::vector<std::string> splitSlashSeparated(const std::string &value)
+{
+    std::vector<std::string> result;
+    std::stringstream stream(value);
+    std::string token;
+
+    while (std::getline(stream, token, '/'))
+    {
+        result.push_back(trimCopy(token));
+    }
+
+    return result;
+}
+
+bool applyRaceSkillRawToken(MergedRaceSkillOverride &entry, const std::string &rawToken)
+{
+    const std::vector<std::string> parts = splitSlashSeparated(rawToken);
+
+    if (parts.empty())
+    {
+        return false;
+    }
+
+    entry.rawToken = rawToken;
+    entry.minMastery = raceSkillMasteryFromTokenPart(parts[0]);
+
+    if (parts.size() > 1 && !parts[1].empty())
+    {
+        if (!parseSigned(parts[1], entry.add))
+        {
+            return false;
+        }
+    }
+
+    if (parts.size() > 2)
+    {
+        entry.exceptionCode = raceSkillExceptionCodeFromTokenPart(parts[2]);
+    }
+
+    if (entry.exception.empty())
+    {
+        entry.exception = raceSkillExceptionName(entry.exceptionCode);
+    }
+
+    return true;
+}
+
+std::optional<uint32_t> parseOptionalYamlUnsigned(const YAML::Node &node)
+{
+    if (!node || !node.IsScalar())
+    {
+        return std::nullopt;
+    }
+
+    try
+    {
+        return node.as<uint32_t>();
+    }
+    catch (const YAML::Exception &)
+    {
+        return std::nullopt;
+    }
+}
+
+std::string yamlStringOrEmpty(const YAML::Node &node)
+{
+    if (!node || !node.IsScalar())
+    {
+        return {};
+    }
+
+    try
+    {
+        return node.as<std::string>();
+    }
+    catch (const YAML::Exception &)
+    {
+        return {};
+    }
 }
 
 uint32_t parseOptionalUnsigned(const std::vector<std::string> &row, size_t index)
@@ -547,15 +751,157 @@ bool MergedRaceSkillTable::loadFromRows(const std::vector<std::vector<std::strin
             }
 
             MergedRaceSkillOverride override = {};
-            override.target = trimCopy(header[columnIndex]);
             override.skillName = skillName;
-            override.token = token;
+            override.rawToken = token;
 
-            if (!override.target.empty())
+            const std::string target = trimCopy(header[columnIndex]);
+            const size_t classSeparator = target.find(" - ");
+            const std::string raceToken = classSeparator == std::string::npos
+                ? target
+                : target.substr(0, classSeparator);
+            const size_t raceIdBegin = raceToken.find('(');
+            const size_t raceIdEnd = raceToken.find(')', raceIdBegin == std::string::npos ? 0 : raceIdBegin);
+
+            if (raceIdBegin != std::string::npos && raceIdEnd != std::string::npos && raceIdEnd > raceIdBegin)
+            {
+                uint32_t raceId = 0;
+
+                if (parseUnsigned(raceToken.substr(raceIdBegin + 1, raceIdEnd - raceIdBegin - 1), raceId))
+                {
+                    override.raceId = raceId;
+                }
+
+                override.race = trimCopy(raceToken.substr(0, raceIdBegin));
+            }
+            else
+            {
+                override.race = raceToken;
+            }
+
+            if (classSeparator != std::string::npos)
+            {
+                override.classKind = trimCopy(target.substr(classSeparator + 3));
+            }
+
+            if (!override.race.empty() && applyRaceSkillRawToken(override, token))
             {
                 m_overrides.push_back(std::move(override));
             }
         }
+    }
+
+    return !m_overrides.empty();
+}
+
+bool MergedRaceSkillTable::loadFromYaml(const std::string &yamlText, std::string &errorMessage)
+{
+    m_overrides.clear();
+
+    YAML::Node root;
+
+    try
+    {
+        root = YAML::Load(yamlText);
+    }
+    catch (const YAML::Exception &exception)
+    {
+        errorMessage = std::string("could not parse race skills yaml: ") + exception.what();
+        return false;
+    }
+
+    if (!root || !root.IsMap())
+    {
+        errorMessage = "race skills yaml root must be a map";
+        return false;
+    }
+
+    const YAML::Node rulesNode = root["rules"];
+
+    if (!rulesNode || !rulesNode.IsSequence())
+    {
+        errorMessage = "race skills yaml rules must be a sequence";
+        return false;
+    }
+
+    for (const YAML::Node &ruleNode : rulesNode)
+    {
+        if (!ruleNode || !ruleNode.IsMap())
+        {
+            errorMessage = "race skill rule must be a map";
+            return false;
+        }
+
+        MergedRaceSkillOverride entry = {};
+        entry.race = yamlStringOrEmpty(ruleNode["race"]);
+        entry.raceId = parseOptionalYamlUnsigned(ruleNode["race_id"]);
+        entry.classKind = yamlStringOrEmpty(ruleNode["class_kind"]);
+        entry.skillName = yamlStringOrEmpty(ruleNode["skill"]);
+        entry.rawToken = yamlStringOrEmpty(ruleNode["raw_token"]);
+
+        if (entry.race.empty() || entry.skillName.empty())
+        {
+            errorMessage = "race skill rule is missing race or skill";
+            return false;
+        }
+
+        if (!entry.rawToken.empty())
+        {
+            if (!applyRaceSkillRawToken(entry, entry.rawToken))
+            {
+                errorMessage = "race skill rule has invalid raw_token";
+                return false;
+            }
+        }
+
+        if (const YAML::Node masteryNode = ruleNode["min_mastery"]; masteryNode && masteryNode.IsScalar())
+        {
+            entry.minMastery = raceSkillMasteryFromTokenPart(masteryNode.as<std::string>());
+        }
+
+        if (const YAML::Node addNode = ruleNode["add"]; addNode && addNode.IsScalar())
+        {
+            try
+            {
+                entry.add = addNode.as<int32_t>();
+            }
+            catch (const YAML::Exception &)
+            {
+                errorMessage = "race skill rule has invalid add";
+                return false;
+            }
+        }
+
+        if (const YAML::Node exceptionNode = ruleNode["exception"]; exceptionNode && exceptionNode.IsScalar())
+        {
+            entry.exception = exceptionNode.as<std::string>();
+            entry.exceptionCode = raceSkillExceptionCodeFromTokenPart(entry.exception);
+        }
+        else if (const YAML::Node exceptionCodeNode = ruleNode["exception_code"];
+                 exceptionCodeNode && exceptionCodeNode.IsScalar())
+        {
+            try
+            {
+                entry.exceptionCode = exceptionCodeNode.as<int32_t>();
+                entry.exception = raceSkillExceptionName(entry.exceptionCode);
+            }
+            catch (const YAML::Exception &)
+            {
+                errorMessage = "race skill rule has invalid exception_code";
+                return false;
+            }
+        }
+        else if (entry.exception.empty())
+        {
+            entry.exception = raceSkillExceptionName(entry.exceptionCode);
+        }
+
+        if (entry.rawToken.empty())
+        {
+            entry.rawToken = raceSkillMasteryName(entry.minMastery) + "/" + std::to_string(entry.add) + "/"
+                + entry.exception;
+        }
+
+        m_overrides.push_back(std::move(entry));
     }
 
     return !m_overrides.empty();
@@ -1056,6 +1402,11 @@ MergedCharacterSelectionTable::continents() const
 size_t MergedCharacterSelectionTable::raceCount() const
 {
     return m_characterSelectionAllowedClassesByRaceId.size();
+}
+
+const std::vector<MergedRaceSkillOverride> &MergedRaceSkillTable::overrides() const
+{
+    return m_overrides;
 }
 
 size_t MergedRaceSkillTable::overrideCount() const

@@ -28,6 +28,7 @@ enum class EventDialogActionKind
 {
     None,
     HouseService,
+    HouseProprietor,
     HouseResident,
     NpcTopic,
     NpcProfessionNews,
@@ -77,6 +78,8 @@ struct EventDialogAction
     EventDialogActionKind kind = EventDialogActionKind::None;
     uint32_t id = 0;
     uint32_t secondaryId = 0;
+    uint32_t participantPictureId = 0;
+    EventDialogParticipantVisual participantVisual = EventDialogParticipantVisual::Portrait;
     std::string label;
     std::string argument;
     bool enabled = true;

@@ -33,6 +33,7 @@ constexpr uint32_t ElementalGuildHouseId = 139;
 constexpr uint32_t TrainingHallHouseId = 1564;
 constexpr uint32_t BankHouseId = 281;
 constexpr uint32_t AdventurersInnHouseId = 756;
+constexpr uint32_t ServiceTavernWithResidentHouseId = 260;
 constexpr uint32_t DaggerWoundTavernHouseId = 228;
 constexpr uint32_t BullsEyeInnHouseId = 235;
 constexpr uint32_t WindlingBoatHouseId = 479;
@@ -82,6 +83,7 @@ constexpr uint32_t BlazenJoinNpcId = 296;
 constexpr uint32_t RohaniNpcId = 267;
 constexpr uint32_t StephenNpcId = 59;
 constexpr uint32_t OverduneNpcId = 7;
+constexpr uint32_t AndoverPotbelloNpcId = 786;
 constexpr uint32_t BlazenRosterId = 35;
 constexpr uint32_t OverduneRosterId = 4;
 constexpr uint32_t GemOfRestorationItemId = 623;
@@ -836,6 +838,59 @@ TEST_CASE("generated follower actor state hides and survives save data round tri
     CHECK_EQ(loadedState.hiredNpcFollowers.front().professionId, 52u);
     CHECK_EQ(loadedState.hiredNpcFollowers.front().weeklyCost, 300u);
     CHECK((loadedState.actorSetMasks.at(4) & invisibleBit) != 0);
+}
+
+TEST_CASE("persistent lua runtime travel state survives save data round trip")
+{
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntimeState::SavedLocation location = {};
+    location.mapName = "7out03.odm";
+    location.x = 101;
+    location.y = 202;
+    location.z = 303;
+    location.continentId = 2;
+    runtimeState.savedLocations["TempleInABottleReturn"] = location;
+
+    OpenYAMM::Game::EventRuntimeState::TransportRouteOverride route = {};
+    route.houseId = 462;
+    route.routeIndex = 4;
+    route.destinationName = "Emerald Island";
+    route.mapFileName = "7Out01.odm";
+    route.daysAvailable = {false, false, true, false, false, false, false};
+    route.travelDays = 6;
+    route.x = 12552;
+    route.y = 800;
+    route.z = 193;
+    route.directionDegrees = 90;
+    runtimeState.transportRouteOverrides[
+        OpenYAMM::Game::EventRuntime::transportRouteOverrideKey(route.houseId, route.routeIndex)] = route;
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "7out03.odm";
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld.eventRuntimeState = runtimeState;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_persistent_lua_runtime_state_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->outdoorWorld.eventRuntimeState.has_value());
+    const OpenYAMM::Game::EventRuntimeState &loadedState = *loaded->outdoorWorld.eventRuntimeState;
+    REQUIRE(loadedState.savedLocations.contains("TempleInABottleReturn"));
+    CHECK_EQ(loadedState.savedLocations.at("TempleInABottleReturn").mapName, "7out03.odm");
+    CHECK_EQ(loadedState.savedLocations.at("TempleInABottleReturn").x, 101);
+
+    const uint64_t routeKey = OpenYAMM::Game::EventRuntime::transportRouteOverrideKey(462, 4);
+    REQUIRE(loadedState.transportRouteOverrides.contains(routeKey));
+    CHECK_EQ(loadedState.transportRouteOverrides.at(routeKey).mapFileName, "7Out01.odm");
+    CHECK_EQ(loadedState.transportRouteOverrides.at(routeKey).daysAvailable[2], true);
+    CHECK_EQ(loadedState.transportRouteOverrides.at(routeKey).directionDegrees, 90);
 }
 
 TEST_CASE("hired follower views use runtime NPC overrides")
@@ -1909,6 +1964,61 @@ TEST_CASE("dwi bank deposit withdraw roundtrip")
 
     CHECK_EQ(harness.party().bankGold(), 0);
     CHECK_EQ(harness.party().gold(), initialCarriedGold);
+}
+
+TEST_CASE("service house with resident opens occupant selector before service topics")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::EventDialogContent &selectorDialog =
+        harness.openHouseDialog(ServiceTavernWithResidentHouseId);
+
+    REQUIRE_GE(selectorDialog.actions.size(), 2u);
+    CHECK(selectorDialog.isHouseDialog);
+    CHECK_EQ(selectorDialog.actions[0].kind, OpenYAMM::Game::EventDialogActionKind::HouseProprietor);
+    CHECK_EQ(selectorDialog.actions[0].id, ServiceTavernWithResidentHouseId);
+    const auto andoverActionIt = std::find_if(
+        selectorDialog.actions.begin(),
+        selectorDialog.actions.end(),
+        [](const OpenYAMM::Game::EventDialogAction &action)
+        {
+            return action.kind == OpenYAMM::Game::EventDialogActionKind::HouseResident
+                && action.id == AndoverPotbelloNpcId;
+        });
+    REQUIRE(andoverActionIt != selectorDialog.actions.end());
+    CHECK_FALSE(dialogHasActionLabel(selectorDialog, "Learn Skills"));
+
+    const OpenYAMM::Game::EventDialogContent &serviceDialog = harness.executeAndPresent(0);
+
+    CHECK(serviceDialog.isHouseDialog);
+    CHECK(dialogHasActionLabel(serviceDialog, "Learn Skills"));
+    CHECK(findActionIndexByLabelPrefix(serviceDialog, "Rent room").has_value());
+
+    harness.eventRuntimeState().dialogueState.menuStack.clear();
+    const OpenYAMM::Game::EventDialogContent &freshSelectorDialog =
+        harness.openHouseDialog(ServiceTavernWithResidentHouseId);
+
+    const auto freshAndoverActionIt = std::find_if(
+        freshSelectorDialog.actions.begin(),
+        freshSelectorDialog.actions.end(),
+        [](const OpenYAMM::Game::EventDialogAction &action)
+        {
+            return action.kind == OpenYAMM::Game::EventDialogActionKind::HouseResident
+                && action.id == AndoverPotbelloNpcId;
+        });
+    REQUIRE(freshAndoverActionIt != freshSelectorDialog.actions.end());
+    const size_t freshAndoverActionIndex =
+        static_cast<size_t>(std::distance(freshSelectorDialog.actions.begin(), freshAndoverActionIt));
+    const OpenYAMM::Game::EventDialogContent &npcDialog = harness.executeAndPresent(freshAndoverActionIndex);
+
+    CHECK_FALSE(npcDialog.isHouseDialog);
+    CHECK_EQ(npcDialog.sourceId, AndoverPotbelloNpcId);
+    REQUIRE(harness.eventRuntimeState().pendingDialogueContext.has_value());
+    CHECK_EQ(
+        harness.eventRuntimeState().pendingDialogueContext->kind,
+        OpenYAMM::Game::DialogueContextKind::NpcTalk);
+    CHECK_EQ(harness.eventRuntimeState().pendingDialogueContext->hostHouseId, ServiceTavernWithResidentHouseId);
 }
 
 TEST_CASE("transport routes filter by weekday and qbit")
@@ -3246,6 +3356,67 @@ TEST_CASE("transport route travel time uses hired NPC travel reductions")
     CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(initialGameMinutes + 2.0f * 24.0f * 60.0f));
     REQUIRE_FALSE(result.messages.empty());
     CHECK_EQ(result.messages.front(), "It will take 2 days to travel to Test Harbor.");
+}
+
+TEST_CASE("transport route override changes visible route and travel target")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::HouseEntry houseEntry = {};
+    houseEntry.id = 99997;
+    houseEntry.type = "Stables";
+    houseEntry.priceMultiplier = 1.0f;
+
+    OpenYAMM::Game::HouseEntry::TransportRoute route = {};
+    route.routeIndex = 1;
+    route.destinationName = "Base Route";
+    route.mapFileName = "base.odm";
+    route.travelDays = 1;
+    houseEntry.transportRoutes.push_back(route);
+
+    OpenYAMM::Game::EventRuntimeState::TransportRouteOverride overrideRoute = {};
+    overrideRoute.houseId = houseEntry.id;
+    overrideRoute.routeIndex = 1;
+    overrideRoute.destinationName = "Override Route";
+    overrideRoute.mapFileName = "override.odm";
+    overrideRoute.travelDays = 4;
+    overrideRoute.x = 11;
+    overrideRoute.y = 22;
+    overrideRoute.z = 33;
+    overrideRoute.directionDegrees = 180;
+    harness.eventRuntimeState().transportRouteOverrides[
+        OpenYAMM::Game::EventRuntime::transportRouteOverrideKey(houseEntry.id, 1)] = overrideRoute;
+    const uint64_t routeOverrideKey =
+        OpenYAMM::Game::EventRuntime::transportRouteOverrideKey(houseEntry.id, 1);
+
+    harness.party().addGold(1000);
+    const std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        houseEntry,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+
+    REQUIRE_EQ(actions.size(), 1);
+    REQUIRE(harness.eventRuntimeState().transportRouteOverrides.contains(routeOverrideKey));
+    CHECK(actions.front().label.find("Override Route") != std::string::npos);
+    CHECK(actions.front().label.find("Base Route") == std::string::npos);
+
+    const OpenYAMM::Game::HouseActionResult result = OpenYAMM::Game::performHouseAction(
+        actions.front(),
+        houseEntry,
+        harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime());
+
+    CHECK(result.succeeded);
+    REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("override.odm"));
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->x, 11);
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->directionDegrees, std::optional<int32_t>(180));
+    REQUIRE_FALSE(result.messages.empty());
+    CHECK_EQ(result.messages.front(), "It will take 4 days to travel to Override Route.");
 }
 
 TEST_CASE("tavern rent room defers recovery until rest screen")

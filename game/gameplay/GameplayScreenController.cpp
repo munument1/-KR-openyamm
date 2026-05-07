@@ -18,7 +18,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-bool isResidentSelectionMode(const EventDialogContent &dialog)
+bool isHouseOccupantSelectionMode(const EventDialogContent &dialog)
 {
     return !dialog.actions.empty()
         && std::all_of(
@@ -26,7 +26,8 @@ bool isResidentSelectionMode(const EventDialogContent &dialog)
             dialog.actions.end(),
             [](const EventDialogAction &action)
             {
-                return action.kind == EventDialogActionKind::HouseResident;
+                return action.kind == EventDialogActionKind::HouseProprietor
+                    || action.kind == EventDialogActionKind::HouseResident;
             });
 }
 } // namespace
@@ -527,7 +528,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         pWorldRuntime != nullptr
         && (pWorldRuntime->activeChestView() != nullptr || pWorldRuntime->activeCorpseView() != nullptr);
     const bool activeEventDialog = context.activeEventDialog().isActive;
-    const bool residentSelectionMode = isResidentSelectionMode(context.activeEventDialog());
+    const bool residentSelectionMode = isHouseOccupantSelectionMode(context.activeEventDialog());
     const bool spellbookActive = context.spellbookReadOnly().active;
     const bool characterScreenOpen = context.characterScreenReadOnly().open;
     const bool restActive = context.restScreenState().active;

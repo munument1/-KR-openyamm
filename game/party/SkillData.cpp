@@ -44,7 +44,7 @@ std::string canonicalLookupKey(const std::string &value)
     return result;
 }
 
-const std::array<std::string, 50> CanonicalClassNames = {
+const std::array<std::string, 53> CanonicalClassNames = {
     "Archer",
     "WarriorMage",
     "MasterArcher",
@@ -92,8 +92,11 @@ const std::array<std::string, 50> CanonicalClassNames = {
     "Necromancer",
     "Lich",
     "ArchMage",
+    "DarkArchMage",
     "Peasant",
     "n/u",
+    "HighPriest",
+    "MasterWizard",
     "None",
 };
 
@@ -141,6 +144,10 @@ const std::array<std::string, 39> CanonicalSkillNames = {
 
 const std::unordered_map<std::string, std::string> ClassAliases = {
     {"cleric2", "Priest"},
+    {"priestoflight", "PriestLight"},
+    {"priestofthelight", "PriestLight"},
+    {"priestofdark", "PriestDark"},
+    {"priestofthedark", "PriestDark"},
     {"darkelf2", "Patriarch"},
     {"dragon2", "GreatWyrm"},
     {"knight2", "Champion"},
@@ -197,6 +204,9 @@ const std::unordered_map<std::string, std::string> DisplayClassNames = {
     {"RangerLord", "Ranger Lord"},
     {"WarTroll", "War Troll"},
     {"ArchMage", "Arch Mage"},
+    {"DarkArchMage", "Dark ArchMage"},
+    {"HighPriest", "High Priest"},
+    {"MasterWizard", "Master Wizard"},
 };
 
 const std::unordered_map<std::string, std::string> DisplaySkillNames = {
@@ -347,6 +357,16 @@ std::optional<std::string> nextPromotionClassName(const std::string &className)
         return "Priest";
     }
 
+    if (canonicalName == "Archer")
+    {
+        return "WarriorMage";
+    }
+
+    if (canonicalName == "WarriorMage")
+    {
+        return "MasterArcher";
+    }
+
     if (canonicalName == "DarkElf")
     {
         return "Patriarch";
@@ -359,7 +379,12 @@ std::optional<std::string> nextPromotionClassName(const std::string &className)
 
     if (canonicalName == "Knight")
     {
-        return "Champion";
+        return "Cavalier";
+    }
+
+    if (canonicalName == "Cavalier")
+    {
+        return "BlackKnight";
     }
 
     if (canonicalName == "Minotaur")
@@ -382,6 +407,66 @@ std::optional<std::string> nextPromotionClassName(const std::string &className)
         return "Lich";
     }
 
+    if (canonicalName == "Druid")
+    {
+        return "GreatDruid";
+    }
+
+    if (canonicalName == "GreatDruid")
+    {
+        return "Warlock";
+    }
+
+    if (canonicalName == "Monk")
+    {
+        return "Initiate";
+    }
+
+    if (canonicalName == "Initiate")
+    {
+        return "Master";
+    }
+
+    if (canonicalName == "Paladin")
+    {
+        return "Crusader";
+    }
+
+    if (canonicalName == "Crusader")
+    {
+        return "Hero";
+    }
+
+    if (canonicalName == "Ranger")
+    {
+        return "Hunter";
+    }
+
+    if (canonicalName == "Hunter")
+    {
+        return "BountyHunter";
+    }
+
+    if (canonicalName == "Thief")
+    {
+        return "Rogue";
+    }
+
+    if (canonicalName == "Rogue")
+    {
+        return "Assassin";
+    }
+
+    if (canonicalName == "Sorcerer")
+    {
+        return "Wizard";
+    }
+
+    if (canonicalName == "Wizard")
+    {
+        return "ArchMage";
+    }
+
     return std::nullopt;
 }
 
@@ -391,12 +476,12 @@ std::vector<std::string> promotionClassNames(const std::string &className)
 
     if (canonicalName == "Archer")
     {
-        return {"MasterArcher"};
+        return {"WarriorMage"};
     }
 
-    if (canonicalName == "MasterArcher")
+    if (canonicalName == "WarriorMage")
     {
-        return {"Sniper"};
+        return {"MasterArcher", "Sniper"};
     }
 
     if (canonicalName == "Cleric")
@@ -406,7 +491,7 @@ std::vector<std::string> promotionClassNames(const std::string &className)
 
     if (canonicalName == "Priest")
     {
-        return {"PriestLight", "PriestDark"};
+        return {"PriestLight", "PriestDark", "HighPriest"};
     }
 
     if (canonicalName == "DarkElf")
@@ -431,12 +516,12 @@ std::vector<std::string> promotionClassNames(const std::string &className)
 
     if (canonicalName == "Knight")
     {
-        return {"Champion"};
+        return {"Cavalier"};
     }
 
-    if (canonicalName == "Champion")
+    if (canonicalName == "Cavalier")
     {
-        return {"Cavalier", "BlackKnight"};
+        return {"BlackKnight", "Champion"};
     }
 
     if (canonicalName == "Minotaur")
@@ -501,7 +586,7 @@ std::vector<std::string> promotionClassNames(const std::string &className)
 
     if (canonicalName == "Wizard")
     {
-        return {"ArchMage"};
+        return {"ArchMage", "DarkArchMage", "MasterWizard"};
     }
 
     if (canonicalName == "Necromancer")

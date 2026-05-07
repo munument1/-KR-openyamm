@@ -36,6 +36,8 @@ CHEST_INVENTORY_MATRIX_OFFSET = CHEST_ITEMS_OFFSET + CHEST_ITEMS_SIZE
 TICKS_PER_REALTIME_SECOND = 128
 MECHANISM_STATE_OPEN = 0
 MECHANISM_STATE_CLOSED = 2
+FACE_ATTRIBUTE_INVISIBLE = 0x00002000
+FACE_ATTRIBUTE_UNTOUCHABLE = 0x20000000
 
 MMERGE_INITIAL_MECHANISM_STATE_FIXUPS: dict[str, dict[int, int]] = {
     # MMMerge corrects these Temple of the Moon mechanisms from Scripts/Maps/7d06.lua events.LoadMap.
@@ -697,12 +699,24 @@ def parse_indoor_blv(path: Path) -> dict[str, object]:
 
     offset = SECTION_OFFSET
     vertex_count = reader.read_i32(offset, "vertex count")
-    offset += 4 + vertex_count * VERTEX_RECORD_SIZE
+    offset += 4
+    vertices: list[dict[str, int]] = []
+
+    for vertex_index in range(vertex_count):
+        vertex_offset = offset + vertex_index * VERTEX_RECORD_SIZE
+        vertices.append({
+            "x": reader.read_i16(vertex_offset + 0x00, f"vertex {vertex_index} x"),
+            "y": reader.read_i16(vertex_offset + 0x02, f"vertex {vertex_index} y"),
+            "z": reader.read_i16(vertex_offset + 0x04, f"vertex {vertex_index} z"),
+        })
+
+    offset += vertex_count * VERTEX_RECORD_SIZE
 
     face_count = reader.read_i32(offset, "face count")
     offset += 4
     face_headers_offset = offset
     offset += face_count * layout["face_record_size"]
+    face_data_offset = offset
     offset += face_data_size_bytes
     offset += face_count * TEXTURE_NAME_SIZE
 
@@ -711,11 +725,32 @@ def parse_indoor_blv(path: Path) -> dict[str, object]:
     offset += face_param_count * FACE_PARAM_RECORD_SIZE
     offset += face_param_count * FACE_PARAM_NAME_SIZE
     face_attributes: list[int] = []
+    face_vertex_ids: list[list[int]] = []
+    face_data_cursor = face_data_offset
 
     for face_index in range(face_count):
         header_offset = face_headers_offset + face_index * layout["face_record_size"]
         face_struct_offset = header_offset + 0x10 if layout["version"] > 6 else header_offset
         face_attributes.append(reader.read_u32(face_struct_offset + 0x1C, f"face {face_index} attributes"))
+        vertex_count_for_face = reader.read_u8(face_struct_offset + 0x4D, f"face {face_index} vertex count")
+        stream_stride = (vertex_count_for_face + 1) * 2
+        vertex_ids: list[int] = []
+
+        if vertex_count_for_face >= 3:
+            for vertex_slot in range(vertex_count_for_face):
+                vertex_id = reader.read_u16(
+                    face_data_cursor + vertex_slot * 2,
+                    f"face {face_index} vertex {vertex_slot}",
+                )
+
+                if vertex_id < vertex_count:
+                    vertex_ids.append(vertex_id)
+                else:
+                    vertex_ids = []
+                    break
+
+        face_vertex_ids.append(vertex_ids)
+        face_data_cursor += stream_stride * 6
 
     sector_count = reader.read_i32(offset, "sector count")
     offset += 4 + sector_count * layout["sector_record_size"]
@@ -765,6 +800,8 @@ def parse_indoor_blv(path: Path) -> dict[str, object]:
         "doors_data_size_bytes": doors_data_size_bytes,
         "raw_face_count": face_count,
         "face_attributes": face_attributes,
+        "face_vertex_ids": face_vertex_ids,
+        "vertices": vertices,
         "vertex_count": vertex_count,
         "sector_count": sector_count,
         "door_count": door_count,
@@ -855,11 +892,69 @@ def infer_dlv_format_id(args: argparse.Namespace, blv_model: dict[str, object]) 
     return "mm8"
 
 
-def build_scene_model(blv_model: dict[str, object], dlv_model: dict[str, object]) -> dict[str, object]:
+def infer_source_world_id(args: argparse.Namespace, blv_path: Path) -> str:
+    if args.world != "auto":
+        return args.world
+
+    path_tokens = {part.lower() for part in blv_path.parts}
+    path_name = blv_path.as_posix().lower()
+
+    if "mm6" in path_tokens or "mm6.games.lod" in path_name:
+        return "mm6"
+
+    if "mm7" in path_tokens or "mm7.games.lod" in path_name:
+        return "mm7"
+
+    if "mm8" in path_tokens or "mm8.games.lod" in path_name:
+        return "mm8"
+
+    return "auto"
+
+
+def indoor_face_has_non_zero_normal_z(blv_model: dict[str, object], face_index: int) -> bool:
+    face_vertex_ids = blv_model["face_vertex_ids"][face_index]
+
+    if len(face_vertex_ids) < 3:
+        return False
+
+    vertices = blv_model["vertices"]
+    base_vertex = vertices[face_vertex_ids[0]]
+
+    for index in range(1, len(face_vertex_ids) - 1):
+        vertex1 = vertices[face_vertex_ids[index]]
+        vertex2 = vertices[face_vertex_ids[index + 1]]
+        dx1 = vertex1["x"] - base_vertex["x"]
+        dy1 = vertex1["y"] - base_vertex["y"]
+        dx2 = vertex2["x"] - base_vertex["x"]
+        dy2 = vertex2["y"] - base_vertex["y"]
+
+        if dx1 * dy2 - dy1 * dx2 != 0:
+            return True
+
+    return False
+
+
+def normalize_mm6_indoor_face_attributes(blv_model: dict[str, object], face_index: int, attributes: int) -> int:
+    if (attributes & FACE_ATTRIBUTE_UNTOUCHABLE) == 0:
+        return attributes
+
+    if (attributes & FACE_ATTRIBUTE_INVISIBLE) != 0:
+        return attributes
+
+    if not indoor_face_has_non_zero_normal_z(blv_model, face_index):
+        return attributes
+
+    return attributes & ~FACE_ATTRIBUTE_UNTOUCHABLE
+
+
+def build_scene_model(blv_model: dict[str, object], dlv_model: dict[str, object], source_world: str) -> dict[str, object]:
     location_time = dlv_model["location_time"]
     face_attribute_overrides: list[dict[str, int]] = []
 
     for face_index, current_value in enumerate(dlv_model["face_attributes"]):
+        if source_world == "mm6":
+            current_value = normalize_mm6_indoor_face_attributes(blv_model, face_index, current_value)
+
         if current_value == blv_model["face_attributes"][face_index]:
             continue
         override = {
@@ -944,10 +1039,17 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
     write_yaml_scalar(lines, "  ", "legacy_companion_file", scene_model["source"]["legacy_companion_file"])
 
     restrictions = scene_model["runtime_restrictions"]
-    lines.append("runtime_restrictions:")
-    write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
-    write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
-    write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
+    has_runtime_restriction_override = (
+        not restrictions["allow_save_game"]
+        or not restrictions["allow_lloyds_beacon"]
+        or restrictions["arena"]
+    )
+
+    if has_runtime_restriction_override:
+        lines.append("runtime_restrictions:")
+        write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
+        write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
+        write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
 
     environment = scene_model["environment"]
     lines.append("environment:")
@@ -1192,8 +1294,9 @@ def main() -> int:
 
         blv_model = parse_indoor_blv(blv_path)
         dlv_format_id = infer_dlv_format_id(args, blv_model)
+        source_world_id = infer_source_world_id(args, blv_path)
         dlv_model = parse_indoor_dlv(dlv_path, blv_model, DLV_FORMATS[dlv_format_id])
-        scene_model = build_scene_model(blv_model, dlv_model)
+        scene_model = build_scene_model(blv_model, dlv_model, source_world_id)
         output_text = render_scene_yaml(scene_model)
         write_atomic_text(output_path, output_text)
     except ParseError as error:

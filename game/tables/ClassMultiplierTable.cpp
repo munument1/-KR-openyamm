@@ -105,7 +105,9 @@ bool ClassMultiplierTable::loadFromRows(const std::vector<std::vector<std::strin
         }
 
         ClassMultiplierEntry entry = {};
+        entry.classId = static_cast<uint32_t>(rowIndex - 1);
         entry.className = className;
+        entry.displayName = trimCopy(row[0]);
         entry.manaMode = parseManaMode(row[5]);
 
         if (!parseInteger(row[1], entry.baseHealth)
@@ -120,6 +122,54 @@ bool ClassMultiplierTable::loadFromRows(const std::vector<std::vector<std::strin
     }
 
     return !m_entries.empty();
+}
+
+bool ClassMultiplierTable::applyClassExtraRows(const std::vector<std::vector<std::string>> &rows)
+{
+    if (rows.size() < 2)
+    {
+        return false;
+    }
+
+    bool appliedAny = false;
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 4)
+        {
+            continue;
+        }
+
+        int classId = 0;
+        int classKind = 0;
+        int promotionStep = 0;
+
+        if (!parseInteger(row[0], classId)
+            || !parseInteger(row[1], classKind)
+            || !parseInteger(row[2], promotionStep))
+        {
+            continue;
+        }
+
+        const std::string className = canonicalClassName(row[3]);
+
+        if (className.empty())
+        {
+            continue;
+        }
+
+        ClassMultiplierEntry &entry = m_entries[className];
+        entry.classId = static_cast<uint32_t>(std::max(0, classId));
+        entry.className = className;
+        entry.displayName = trimCopy(row[3]);
+        entry.classKind = static_cast<uint32_t>(std::max(0, classKind));
+        entry.promotionStep = static_cast<uint32_t>(std::max(0, promotionStep));
+        appliedAny = true;
+    }
+
+    return appliedAny;
 }
 
 const ClassMultiplierEntry *ClassMultiplierTable::get(const std::string &className) const

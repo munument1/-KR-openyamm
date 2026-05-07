@@ -2442,8 +2442,27 @@ bool GameplayScreenRuntime::trySaveToSelectedGameSlot()
 
 int GameplayScreenRuntime::restFoodRequired() const
 {
-    const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
-    return pWorldRuntime != nullptr ? pWorldRuntime->restFoodRequired() : 2;
+    IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+    const int baseFoodRequired = pWorldRuntime != nullptr ? pWorldRuntime->restFoodRequired() : 2;
+    EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    if (pWorldRuntime == nullptr || pEventRuntimeState == nullptr)
+    {
+        return baseFoodRequired;
+    }
+
+    EventRuntimeState::ActiveHookContext hookContext = {};
+    hookContext.kind = EventRuntimeHookKind::RestFoodCost;
+    hookContext.baseRestFoodCost = baseFoodRequired;
+    hookContext.heldItemId = party() != nullptr ? party()->heldItemIdForQueries() : 0;
+    pEventRuntimeState->activeHookContext = std::move(hookContext);
+    pWorldRuntime->executeEventHooks(EventRuntimeHookKind::RestFoodCost);
+
+    const std::optional<int32_t> overrideFoodCost = pEventRuntimeState->activeHookContext
+        ? pEventRuntimeState->activeHookContext->restFoodCostOverride
+        : std::nullopt;
+    pEventRuntimeState->activeHookContext.reset();
+    return std::max(0, overrideFoodCost.value_or(baseFoodRequired));
 }
 
 const GameSettings &GameplayScreenRuntime::settingsSnapshot() const

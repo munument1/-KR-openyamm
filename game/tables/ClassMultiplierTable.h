@@ -17,7 +17,11 @@ enum class ClassManaMode
 
 struct ClassMultiplierEntry
 {
+    uint32_t classId = 0;
     std::string className;
+    std::string displayName;
+    uint32_t classKind = 0;
+    uint32_t promotionStep = 0;
     int baseHealth = 0;
     int healthPerLevel = 0;
     int baseMana = 0;
@@ -29,6 +33,7 @@ class ClassMultiplierTable
 {
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
+    bool applyClassExtraRows(const std::vector<std::vector<std::string>> &rows);
     const ClassMultiplierEntry *get(const std::string &className) const;
     const std::unordered_map<std::string, ClassMultiplierEntry> &entries() const;
 

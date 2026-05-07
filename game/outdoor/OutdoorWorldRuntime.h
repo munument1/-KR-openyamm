@@ -757,6 +757,7 @@ public:
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt) override;
+    bool executeEventHooks(EventRuntimeHookKind kind) override;
     const std::optional<ScriptedEventProgram> *globalEventProgram() const override;
     const MapDeltaData *mapDeltaData() const override;
     MapDeltaData *mapDeltaData() override;

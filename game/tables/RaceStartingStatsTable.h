@@ -14,6 +14,9 @@ public:
     {
         std::string raceName;
         std::array<int, 7> stats = {};
+        std::array<int, 7> maximumStats = {};
+        std::array<int, 7> addSteps = {};
+        std::array<int, 7> droppedSteps = {};
     };
 
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);

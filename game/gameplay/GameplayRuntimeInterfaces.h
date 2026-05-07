@@ -82,6 +82,7 @@ struct GameplayRuntimeActorState
     bool isInvisible = false;
     bool hostileToParty = false;
     bool hasDetectedParty = false;
+    bool combatTargetingParty = false;
 };
 
 enum class GameplayActorControlMode : uint8_t
@@ -429,6 +430,11 @@ public:
         uint16_t eventId,
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt) = 0;
+    virtual bool executeEventHooks(EventRuntimeHookKind kind)
+    {
+        (void)kind;
+        return false;
+    }
     virtual const std::optional<ScriptedEventProgram> *globalEventProgram() const = 0;
     virtual EventRuntimeState *eventRuntimeState() = 0;
     virtual const EventRuntimeState *eventRuntimeState() const = 0;

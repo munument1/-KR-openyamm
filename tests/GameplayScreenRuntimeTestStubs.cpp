@@ -19,6 +19,12 @@ void GameplayScreenRuntime::playCommonUiSound(SoundId soundId)
     (void)soundId;
 }
 
+void GameplayScreenRuntime::setStatusBarEvent(const std::string &text, float durationSeconds)
+{
+    (void)text;
+    (void)durationSeconds;
+}
+
 void GameplayScreenRuntime::stopAllAudioPlayback()
 {
 }

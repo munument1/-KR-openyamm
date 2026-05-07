@@ -3269,6 +3269,12 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
 
 }
 
+bool OutdoorGameView::executeEventHooks(EventRuntimeHookKind kind)
+{
+    return m_pOutdoorSceneRuntime != nullptr
+        && m_pOutdoorSceneRuntime->executeEventHooks(kind);
+}
+
 GameplayWorldUiRenderState OutdoorGameView::gameplayUiRenderState(int width, int height) const
 {
     return GameplayWorldUiRenderState{

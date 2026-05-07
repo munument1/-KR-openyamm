@@ -135,9 +135,15 @@ struct MergedTeacherAutonoteMapping
 
 struct MergedRaceSkillOverride
 {
-    std::string target;
+    std::string race;
+    std::optional<uint32_t> raceId;
+    std::string classKind;
     std::string skillName;
-    std::string token;
+    std::string rawToken;
+    uint32_t minMastery = 0;
+    int32_t add = 0;
+    int32_t exceptionCode = 0;
+    std::string exception;
 };
 
 struct MergedNewsProfessionDayTopic
@@ -402,6 +408,8 @@ class MergedRaceSkillTable
 {
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
+    bool loadFromYaml(const std::string &yamlText, std::string &errorMessage);
+    const std::vector<MergedRaceSkillOverride> &overrides() const;
     size_t overrideCount() const;
 
 private:

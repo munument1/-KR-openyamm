@@ -1004,10 +1004,17 @@ def render_scene_yaml(scene_model: dict[str, object]) -> str:
     write_yaml_scalar(lines, "  ", "legacy_companion_file", scene_model["source"]["legacy_companion_file"])
 
     restrictions = scene_model["runtime_restrictions"]
-    lines.append("runtime_restrictions:")
-    write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
-    write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
-    write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
+    has_runtime_restriction_override = (
+        not restrictions["allow_save_game"]
+        or not restrictions["allow_lloyds_beacon"]
+        or restrictions["arena"]
+    )
+
+    if has_runtime_restriction_override:
+        lines.append("runtime_restrictions:")
+        write_yaml_scalar(lines, "  ", "allow_save_game", restrictions["allow_save_game"])
+        write_yaml_scalar(lines, "  ", "allow_lloyds_beacon", restrictions["allow_lloyds_beacon"])
+        write_yaml_scalar(lines, "  ", "arena", restrictions["arena"])
 
     environment = scene_model["environment"]
     lines.append("environment:")

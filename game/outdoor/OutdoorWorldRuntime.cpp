@@ -19,6 +19,7 @@
 #include "game/outdoor/OutdoorInteractionController.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/EventSpellBuffs.h"
+#include "game/scene/OutdoorSceneRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/audio/SoundIds.h"
 #include "game/SpriteObjectDefs.h"
@@ -9951,6 +9952,9 @@ bool OutdoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAc
     state.isInvisible = pActor->isInvisible;
     state.hostileToParty = pActor->hostileToParty;
     state.hasDetectedParty = pActor->hasDetectedParty;
+    state.combatTargetingParty = pActor->hostileToParty
+        && pActor->hasDetectedParty
+        && (pActor->aiState == ActorAiState::Pursuing || pActor->aiState == ActorAiState::Attacking);
     return true;
 }
 
@@ -12100,8 +12104,28 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
             return false;
         }
 
+        std::vector<uint32_t> guaranteedItemIds;
+        if (actor.specialItemId != 0)
+        {
+            guaranteedItemIds.push_back(actor.specialItemId);
+        }
+
+        if (m_eventRuntimeState)
+        {
+            const auto extraItemIterator =
+                m_eventRuntimeState->actorExtraItemOverrides.find(static_cast<uint32_t>(actorIndex));
+
+            if (extraItemIterator != m_eventRuntimeState->actorExtraItemOverrides.end())
+            {
+                guaranteedItemIds.insert(
+                    guaranteedItemIds.end(),
+                    extraItemIterator->second.begin(),
+                    extraItemIterator->second.end());
+            }
+        }
+
         CorpseViewState corpse =
-            buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, actor.specialItemId);
+            buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
 
         if (corpse.items.empty())
         {
@@ -13104,6 +13128,12 @@ bool OutdoorWorldRuntime::executeMapEvent(
             eventId,
             previousMessageCount,
             continueStep);
+}
+
+bool OutdoorWorldRuntime::executeEventHooks(EventRuntimeHookKind kind)
+{
+    return m_pInteractionView != nullptr
+        && m_pInteractionView->executeEventHooks(kind);
 }
 
 const MapDeltaData *OutdoorWorldRuntime::mapDeltaData() const

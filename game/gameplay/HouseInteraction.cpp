@@ -231,6 +231,41 @@ const HouseEntry::TransportRoute *findTransportRoute(const HouseEntry &houseEntr
     return nullptr;
 }
 
+HouseEntry::TransportRoute effectiveTransportRoute(
+    const HouseEntry &houseEntry,
+    const HouseEntry::TransportRoute &baseRoute,
+    const EventRuntimeState *pEventRuntimeState)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return baseRoute;
+    }
+
+    const uint64_t key = EventRuntime::transportRouteOverrideKey(houseEntry.id, baseRoute.routeIndex);
+    const auto iterator = pEventRuntimeState->transportRouteOverrides.find(key);
+
+    if (iterator == pEventRuntimeState->transportRouteOverrides.end())
+    {
+        return baseRoute;
+    }
+
+    const EventRuntimeState::TransportRouteOverride &overrideRoute = iterator->second;
+    HouseEntry::TransportRoute route = baseRoute;
+    route.destinationName = overrideRoute.destinationName.empty()
+        ? baseRoute.destinationName
+        : overrideRoute.destinationName;
+    route.mapFileName = overrideRoute.mapFileName.empty() ? baseRoute.mapFileName : overrideRoute.mapFileName;
+    route.daysAvailable = overrideRoute.daysAvailable;
+    route.travelDays = overrideRoute.travelDays == 0 ? baseRoute.travelDays : overrideRoute.travelDays;
+    route.x = overrideRoute.x;
+    route.y = overrideRoute.y;
+    route.z = overrideRoute.z;
+    route.directionDegrees = overrideRoute.directionDegrees;
+    route.requiredQBit = overrideRoute.requiredQBit;
+    route.useMapStartPosition = overrideRoute.useMapStartPosition;
+    return route;
+}
+
 bool isHouseOpenAtGameMinute(const HouseEntry &houseEntry, float currentGameMinutes)
 {
     if (currentGameMinutes < 0.0f || houseEntry.openHour == houseEntry.closeHour)
@@ -534,6 +569,14 @@ std::vector<std::string> buildHouseServiceInfoLines(
     return lines;
 }
 
+std::vector<HouseActionOption> finalizeHouseActionOptions(
+    const HouseEntry &houseEntry,
+    HouseServiceType serviceType,
+    DialogueMenuId menuId,
+    const Party *pParty,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    std::vector<HouseActionOption> options);
+
 std::vector<HouseActionOption> buildHouseActionOptions(
     const HouseEntry &houseEntry,
     const Party *pParty,
@@ -577,7 +620,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             options.push_back(std::move(noSkills));
         }
 
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (menuId == DialogueMenuId::ShopEquipment)
@@ -615,7 +658,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             options.push_back(std::move(repair));
         }
 
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (menuId == DialogueMenuId::TavernArcomage)
@@ -644,7 +687,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         );
         options.push_back(std::move(play));
 
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (houseEntry.extraExit.has_value()
@@ -678,7 +721,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             closedReason
         ));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Tavern)
@@ -718,7 +761,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
                 closedReason));
         }
 
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::TrainingHall)
@@ -773,7 +816,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(std::move(train));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Bank)
@@ -787,7 +830,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(std::move(deposit));
         options.push_back(std::move(withdraw));
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Shop)
@@ -802,7 +845,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             closedReason
         ));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Guild)
@@ -815,7 +858,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         ));
 
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return options;
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Transport)
@@ -832,9 +875,14 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         const Character *pMember = selectedMember(pParty);
         bool anyRouteVisible = false;
         bool anyRouteHidden = false;
+        const EventRuntimeState *pEventRuntimeState =
+            pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
 
-        for (const HouseEntry::TransportRoute &route : houseEntry.transportRoutes)
+        for (const HouseEntry::TransportRoute &baseRoute : houseEntry.transportRoutes)
         {
+            const HouseEntry::TransportRoute route =
+                effectiveTransportRoute(houseEntry, baseRoute, pEventRuntimeState);
+
             if (!routeQBitSatisfied(route, pWorldRuntime))
             {
                 anyRouteHidden = true;
@@ -849,8 +897,6 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
             anyRouteVisible = true;
             const int price = PriceCalculator::transportPrice(pMember, houseEntry, isBoatHouse(houseEntry));
-            const EventRuntimeState *pEventRuntimeState =
-                pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
             const int travelDays =
                 adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
             HouseActionOption transport = makeOption(
@@ -879,6 +925,79 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         }
     }
 
+    return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+}
+
+void applyHouseTopicFilterHook(
+    const HouseEntry &houseEntry,
+    HouseServiceType serviceType,
+    DialogueMenuId menuId,
+    const Party *pParty,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    std::vector<HouseActionOption> &options)
+{
+    if (pWorldRuntime == nullptr || options.empty())
+    {
+        return;
+    }
+
+    IGameplayWorldRuntime *pMutableWorldRuntime = const_cast<IGameplayWorldRuntime *>(pWorldRuntime);
+    EventRuntimeState *pEventRuntimeState = pMutableWorldRuntime->eventRuntimeState();
+
+    if (pEventRuntimeState == nullptr)
+    {
+        return;
+    }
+
+    EventRuntimeState::ActiveHookContext hookContext = {};
+    hookContext.kind = EventRuntimeHookKind::HouseTopicFilter;
+    hookContext.houseId = houseEntry.id;
+    hookContext.houseServiceType = static_cast<uint32_t>(serviceType);
+    hookContext.menuId = static_cast<uint32_t>(menuId);
+    hookContext.heldItemId = pParty != nullptr ? pParty->heldItemIdForQueries() : 0;
+    pEventRuntimeState->activeHookContext = std::move(hookContext);
+    pMutableWorldRuntime->executeEventHooks(EventRuntimeHookKind::HouseTopicFilter);
+
+    const std::vector<uint32_t> actionIds = pEventRuntimeState->activeHookContext
+        ? pEventRuntimeState->activeHookContext->houseTopicActionIds
+        : std::vector<uint32_t>{};
+    pEventRuntimeState->activeHookContext.reset();
+
+    if (actionIds.empty())
+    {
+        return;
+    }
+
+    std::vector<HouseActionOption> filteredOptions;
+
+    for (uint32_t actionId : actionIds)
+    {
+        const auto iterator = std::find_if(
+            options.begin(),
+            options.end(),
+            [actionId](const HouseActionOption &option)
+            {
+                return static_cast<uint32_t>(option.id) == actionId;
+            });
+
+        if (iterator != options.end())
+        {
+            filteredOptions.push_back(*iterator);
+        }
+    }
+
+    options = std::move(filteredOptions);
+}
+
+std::vector<HouseActionOption> finalizeHouseActionOptions(
+    const HouseEntry &houseEntry,
+    HouseServiceType serviceType,
+    DialogueMenuId menuId,
+    const Party *pParty,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    std::vector<HouseActionOption> options)
+{
+    applyHouseTopicFilterHook(houseEntry, serviceType, menuId, pParty, pWorldRuntime, options);
     return options;
 }
 
@@ -891,6 +1010,40 @@ HouseActionResult performHouseAction(
 )
 {
     HouseActionResult result = {};
+
+    if (pWorldRuntime != nullptr)
+    {
+        EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+
+        if (pEventRuntimeState != nullptr)
+        {
+            EventRuntimeState::ActiveHookContext hookContext = {};
+            hookContext.kind = EventRuntimeHookKind::HouseTopicClick;
+            hookContext.houseId = houseEntry.id;
+            hookContext.houseServiceType = static_cast<uint32_t>(resolveHouseServiceType(houseEntry));
+            hookContext.houseActionId = static_cast<uint32_t>(action.id);
+            hookContext.heldItemId = party.heldItemIdForQueries();
+            pEventRuntimeState->activeHookContext = std::move(hookContext);
+            pWorldRuntime->executeEventHooks(EventRuntimeHookKind::HouseTopicClick);
+
+            const bool blocked = pEventRuntimeState->activeHookContext
+                && pEventRuntimeState->activeHookContext->blocked;
+            const std::optional<std::string> statusText = pEventRuntimeState->activeHookContext
+                ? pEventRuntimeState->activeHookContext->statusText
+                : std::nullopt;
+            pEventRuntimeState->activeHookContext.reset();
+
+            if (blocked)
+            {
+                if (statusText)
+                {
+                    result.messages.push_back(*statusText);
+                }
+
+                return result;
+            }
+        }
+    }
 
     switch (action.id)
     {
@@ -1201,13 +1354,24 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            if (!routeQBitSatisfied(*pRoute, pWorldRuntime))
+            EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+
+            if (pEventRuntimeState == nullptr)
+            {
+                result.messages.push_back("Travel is unavailable right now.");
+                return result;
+            }
+
+            const HouseEntry::TransportRoute route =
+                effectiveTransportRoute(houseEntry, *pRoute, pEventRuntimeState);
+
+            if (!routeQBitSatisfied(route, pWorldRuntime))
             {
                 result.messages.push_back("That route is not available.");
                 return result;
             }
 
-            if (!routeAvailableToday(*pRoute, pWorldRuntime->gameMinutes()))
+            if (!routeAvailableToday(route, pWorldRuntime->gameMinutes()))
             {
                 result.messages.push_back("Sorry, come back another day");
                 return result;
@@ -1223,34 +1387,26 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
-
-            if (pEventRuntimeState == nullptr)
-            {
-                result.messages.push_back("Travel is unavailable right now.");
-                return result;
-            }
-
             party.addGold(-price);
             party.restAndHealAll();
             const int travelDays =
-                adjustedTransportTravelDays(*pRoute, pEventRuntimeState, !isBoatHouse(houseEntry));
+                adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
             pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays * MinutesPerDay));
 
             EventRuntimeState::PendingMapMove pendingMapMove = {};
-            pendingMapMove.mapName = pRoute->mapFileName;
-            pendingMapMove.x = pRoute->x;
-            pendingMapMove.y = pRoute->y;
-            pendingMapMove.z = pRoute->z;
-            pendingMapMove.directionDegrees = pRoute->directionDegrees;
-            pendingMapMove.useMapStartPosition = pRoute->useMapStartPosition;
+            pendingMapMove.mapName = route.mapFileName;
+            pendingMapMove.x = route.x;
+            pendingMapMove.y = route.y;
+            pendingMapMove.z = route.z;
+            pendingMapMove.directionDegrees = route.directionDegrees;
+            pendingMapMove.useMapStartPosition = route.useMapStartPosition;
             pEventRuntimeState->pendingMapMove = std::move(pendingMapMove);
 
             result.messages.push_back(
                 "It will take "
                 + transportTravelDaysText(travelDays)
                 + " to travel to "
-                + pRoute->destinationName
+                + route.destinationName
                 + "."
             );
             result.succeeded = true;

@@ -29,10 +29,26 @@ namespace
 constexpr uint32_t OeMaxCharacterExperience = 4000000000u;
 constexpr uint32_t ArcomageChampionAwardId = 41;
 constexpr size_t ArcomageTavernCount = 11;
+constexpr uint32_t Mm7ArcomageChampionQBit = 750;
+constexpr uint32_t FirstMm7ArcomageHouseId = 240;
+constexpr uint32_t LastMm7ArcomageHouseId = 252;
 constexpr uint32_t RosterNpcPortraitBaseId = 2901;
 constexpr float OeFiveGameMinuteTickRealSeconds = 10.0f;
 constexpr uint32_t FirstRegularItemId = 1;
 constexpr uint32_t LastRegularItemId = 134;
+
+bool hasWonAllMm7ArcomageTaverns(const std::unordered_set<uint32_t> &wonHouseIds)
+{
+    for (uint32_t houseId = FirstMm7ArcomageHouseId; houseId <= LastMm7ArcomageHouseId; ++houseId)
+    {
+        if (!wonHouseIds.contains(houseId))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 uint32_t resolveAdventurersInnPortraitPictureId(const Character &character, uint32_t portraitPictureId)
 {
@@ -1125,6 +1141,7 @@ InventoryItem makeInventoryItem(
     {
         InventoryItem item = {};
         item.objectDescriptionId = objectDescriptionId;
+        item.quantity = 1;
         return item;
     }
 
@@ -1971,6 +1988,7 @@ Party::Snapshot Party::snapshot() const
     snapshot.arcomageWonHouseIds = m_arcomageWonHouseIds;
     snapshot.arcomageWinCount = m_arcomageWinCount;
     snapshot.arcomageLossCount = m_arcomageLossCount;
+    snapshot.everOwnedItemIds = m_everOwnedItemIds;
     snapshot.questBits = m_questBits;
     snapshot.eventVariables = m_eventVariables;
     snapshot.npcTopicOverrides = m_npcTopicOverrides;
@@ -2013,6 +2031,7 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_arcomageWonHouseIds = snapshot.arcomageWonHouseIds;
     m_arcomageWinCount = snapshot.arcomageWinCount;
     m_arcomageLossCount = snapshot.arcomageLossCount;
+    m_everOwnedItemIds = snapshot.everOwnedItemIds;
     m_questBits = snapshot.questBits;
     m_eventVariables = snapshot.eventVariables;
     m_npcTopicOverrides = snapshot.npcTopicOverrides;
@@ -2053,7 +2072,9 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     }
 
     m_lastStatus.clear();
+    m_heldItemIdForQueries = 0;
     m_pendingAudioRequests.clear();
+    recordEverOwnedItemsFromCurrentState();
     rebuildMagicalBonusesFromBuffs();
 }
 
@@ -2070,6 +2091,7 @@ void Party::seed(const PartySeed &seed)
     m_monsterTargetSelectionCounter = 0;
     m_houseStockSeed = generateHouseStockSeed();
     m_foundArtifactItems.clear();
+    m_everOwnedItemIds.clear();
     m_questBits.clear();
     m_eventVariables.clear();
     m_npcTopicOverrides.clear();
@@ -2131,6 +2153,7 @@ void Party::seed(const PartySeed &seed)
             }
 
             markArtifactItemFoundIfRelevant(resolvedItem);
+            recordEverOwnedItemIfRelevant(resolvedItem);
         }
 
         if (member.skills.empty())
@@ -2200,7 +2223,9 @@ void Party::seed(const PartySeed &seed)
     m_hardLandingSoundCount = 0;
     m_lastFallDamageDistance = 0.0f;
     m_lastStatus.clear();
+    m_heldItemIdForQueries = 0;
     m_pendingAudioRequests.clear();
+    recordEverOwnedItemsFromCurrentState();
     rebuildMagicalBonusesFromBuffs();
 }
 
@@ -2703,7 +2728,9 @@ bool Party::tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity)
     }
 
     m_members = std::move(testMembers);
-    markArtifactItemFoundIfRelevant(makeInventoryItem(m_pItemTable, objectDescriptionId));
+    const InventoryItem recordedItem = makeInventoryItem(m_pItemTable, objectDescriptionId);
+    markArtifactItemFoundIfRelevant(recordedItem);
+    recordEverOwnedItemIfRelevant(recordedItem);
     return true;
 }
 
@@ -2741,6 +2768,7 @@ bool Party::tryGrantInventoryItemStartingAt(
         {
             m_members = std::move(testMembers);
             markArtifactItemFoundIfRelevant(item);
+            recordEverOwnedItemIfRelevant(item);
 
             if (pRecipientMemberIndex != nullptr)
             {
@@ -3649,6 +3677,43 @@ int Party::inventoryItemCount(uint32_t objectDescriptionId, std::optional<size_t
     return totalCount;
 }
 
+void Party::recordEverOwnedItem(uint32_t objectDescriptionId)
+{
+    if (objectDescriptionId == 0)
+    {
+        return;
+    }
+
+    m_everOwnedItemIds.insert(objectDescriptionId);
+}
+
+bool Party::hasEverOwnedItem(uint32_t objectDescriptionId) const
+{
+    return objectDescriptionId != 0 && m_everOwnedItemIds.contains(objectDescriptionId);
+}
+
+void Party::setHeldItemForQueries(const InventoryItem &item)
+{
+    m_heldItemIdForQueries = item.objectDescriptionId;
+    recordEverOwnedItemIfRelevant(item);
+}
+
+uint32_t Party::heldItemIdForQueries() const
+{
+    return m_heldItemIdForQueries;
+}
+
+void Party::clearHeldItemForQueries()
+{
+    m_heldItemIdForQueries = 0;
+}
+
+bool Party::hasItemAnywhere(uint32_t objectDescriptionId) const
+{
+    return objectDescriptionId != 0
+        && (inventoryItemCount(objectDescriptionId) > 0 || m_heldItemIdForQueries == objectDescriptionId);
+}
+
 bool Party::grantItemToMember(size_t memberIndex, uint32_t objectDescriptionId, uint32_t quantity)
 {
     Character *pMember = member(memberIndex);
@@ -3668,6 +3733,7 @@ bool Party::grantItemToMember(size_t memberIndex, uint32_t objectDescriptionId, 
         }
 
         markArtifactItemFoundIfRelevant(item);
+        recordEverOwnedItemIfRelevant(item);
     }
 
     m_lastStatus = "item granted";
@@ -3728,6 +3794,7 @@ bool Party::tryAutoPlaceItemInMemberInventory(size_t memberIndex, const Inventor
         return false;
     }
 
+    recordEverOwnedItemIfRelevant(item);
     m_lastStatus = "item moved";
     return true;
 }
@@ -3752,6 +3819,7 @@ bool Party::tryPlaceItemInMemberInventoryCell(
         return false;
     }
 
+    recordEverOwnedItemIfRelevant(item);
     m_lastStatus = replacedItem.has_value() ? "item swapped" : "item moved";
     return true;
 }
@@ -3882,6 +3950,7 @@ bool Party::tryEquipItemOnMember(
 
     rebuildMagicalBonusesFromBuffs();
     markArtifactItemFoundIfRelevant(item);
+    recordEverOwnedItemIfRelevant(item);
     return true;
 }
 
@@ -5337,6 +5406,11 @@ void Party::recordArcomageWin(uint32_t houseId, int goldReward, uint32_t firstWi
         {
             addAward(ArcomageChampionAwardId);
         }
+
+        if (hasWonAllMm7ArcomageTaverns(m_arcomageWonHouseIds))
+        {
+            setQuestBit(Mm7ArcomageChampionQBit, true);
+        }
     }
 }
 
@@ -5802,5 +5876,45 @@ void Party::markArtifactItemFoundIfRelevant(const InventoryItem &item)
     }
 
     markArtifactItemFound(pItemDefinition->itemId);
+}
+
+void Party::recordEverOwnedItemIfRelevant(const InventoryItem &item)
+{
+    recordEverOwnedItem(item.objectDescriptionId);
+}
+
+void Party::recordEverOwnedItemsFromCurrentState()
+{
+    static constexpr EquipmentSlot EquipmentSlots[] = {
+        EquipmentSlot::OffHand,
+        EquipmentSlot::MainHand,
+        EquipmentSlot::Bow,
+        EquipmentSlot::Armor,
+        EquipmentSlot::Helm,
+        EquipmentSlot::Belt,
+        EquipmentSlot::Cloak,
+        EquipmentSlot::Gauntlets,
+        EquipmentSlot::Boots,
+        EquipmentSlot::Amulet,
+        EquipmentSlot::Ring1,
+        EquipmentSlot::Ring2,
+        EquipmentSlot::Ring3,
+        EquipmentSlot::Ring4,
+        EquipmentSlot::Ring5,
+        EquipmentSlot::Ring6,
+    };
+
+    for (const Character &member : m_members)
+    {
+        for (const InventoryItem &item : member.inventory)
+        {
+            recordEverOwnedItemIfRelevant(item);
+        }
+
+        for (EquipmentSlot slot : EquipmentSlots)
+        {
+            recordEverOwnedItem(::OpenYAMM::Game::equippedItemId(member.equipment, slot));
+        }
+    }
 }
 }

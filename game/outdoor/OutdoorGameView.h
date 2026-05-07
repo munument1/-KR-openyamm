@@ -123,6 +123,7 @@ public:
     void reopenMenuScreen();
     bool requestQuickSave();
     void setSettingsSnapshot(const GameSettings &settings);
+    bool executeEventHooks(EventRuntimeHookKind kind);
 
 private:
     friend struct GameApplicationTestAccess;

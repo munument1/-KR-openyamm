@@ -375,4 +375,31 @@ bool OutdoorSceneRuntime::executeMapEventById(
     m_pPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
     return true;
 }
+
+bool OutdoorSceneRuntime::executeEventHooks(EventRuntimeHookKind kind)
+{
+    EventRuntimeState *pEventRuntimeState = m_pWorldRuntime->eventRuntimeState();
+
+    if (pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    const bool executed = m_eventRuntime.executeHooks(
+        m_localEventProgram,
+        m_globalEventProgram,
+        kind,
+        *pEventRuntimeState,
+        &m_pPartyRuntime->party(),
+        m_pWorldRuntime);
+
+    if (!executed)
+    {
+        return false;
+    }
+
+    m_pWorldRuntime->applyEventRuntimeState();
+    m_pPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
+    return true;
+}
 }

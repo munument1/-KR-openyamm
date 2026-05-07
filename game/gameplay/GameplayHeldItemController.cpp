@@ -57,6 +57,7 @@ bool GameplayHeldItemController::tryDisplaceHeldInventoryItem(
     if (pParty != nullptr && pParty->tryGrantInventoryItem(heldInventoryItem.item))
     {
         clearHeldInventoryItem(heldInventoryItem);
+        pParty->clearHeldItemForQueries();
         return true;
     }
 
@@ -82,6 +83,10 @@ bool GameplayHeldItemController::tryDisplaceHeldInventoryItem(
     }
 
     clearHeldInventoryItem(heldInventoryItem);
+    if (pParty != nullptr)
+    {
+        pParty->clearHeldItemForQueries();
+    }
     return true;
 }
 
@@ -90,7 +95,9 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
     EventRuntimeState &eventRuntimeState,
     const ItemTable &itemTable)
 {
-    if (eventRuntimeState.grantedItems.empty() && eventRuntimeState.grantedItemIds.empty())
+    if (eventRuntimeState.grantedItems.empty()
+        && eventRuntimeState.grantedItemIds.empty()
+        && !eventRuntimeState.clearHeldItemRequest)
     {
         return;
     }
@@ -101,6 +108,13 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
     }
 
     GameplayUiController::HeldInventoryItemState &heldInventoryItem = runtime.heldInventoryItem();
+
+    if (eventRuntimeState.clearHeldItemRequest)
+    {
+        clearHeldInventoryItem(heldInventoryItem);
+        runtime.party()->clearHeldItemForQueries();
+        eventRuntimeState.clearHeldItemRequest = false;
+    }
 
     for (const InventoryItem &item : eventRuntimeState.grantedItems)
     {
@@ -117,6 +131,7 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
         InventoryItem grantedItem = item;
         forceEventGrantedItemIdentificationState(grantedItem, itemTable);
         setHeldInventoryItem(heldInventoryItem, grantedItem);
+        runtime.party()->setHeldItemForQueries(grantedItem);
     }
 
     for (uint32_t itemId : eventRuntimeState.grantedItemIds)
@@ -134,6 +149,7 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
         InventoryItem item = ItemGenerator::makeInventoryItem(itemId, itemTable, ItemGenerationMode::Generic);
         forceEventGrantedItemIdentificationState(item, itemTable);
         setHeldInventoryItem(heldInventoryItem, item);
+        runtime.party()->setHeldItemForQueries(item);
     }
 
     eventRuntimeState.grantedItems.clear();
@@ -162,6 +178,7 @@ bool GameplayHeldItemController::tryAutoPlaceHeldInventoryItemOnPartyMember(
     }
 
     clearHeldInventoryItem(heldInventoryItem);
+    party.clearHeldItemForQueries();
     return true;
 }
 } // namespace OpenYAMM::Game
