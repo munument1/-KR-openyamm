@@ -2813,6 +2813,11 @@ void EventRuntime::setVariableValue(
         if ((variable.kind == VariableKind::BaseStat || variable.kind == VariableKind::BaseResistance)
             && value > previousValue)
         {
+            for (size_t memberIndex : targetMemberIndices)
+            {
+                pParty->requestSpeech(memberIndex, SpeechId::StatBaseIncreased);
+            }
+
             queuePermanentVariableStatusMessage(
                 runtimeState,
                 variable.rawId,
@@ -3081,6 +3086,11 @@ void EventRuntime::setVariableValue(
 
         if (pParty != nullptr)
         {
+            if (variableId == EvtVariable::PrisonTerms && value > previousValue)
+            {
+                pParty->requestSpeech(pParty->activeMemberIndex(), SpeechId::InPrison);
+            }
+
             pParty->setEventVariableValue(variable.tag, value);
             return;
         }
@@ -3585,6 +3595,11 @@ void EventRuntime::addVariableValue(
 
         if (pParty != nullptr)
         {
+            if (variableId == EvtVariable::PrisonTerms && value > 0)
+            {
+                pParty->requestSpeech(pParty->activeMemberIndex(), SpeechId::InPrison);
+            }
+
             pParty->addEventVariableValue(variable.tag, value);
             return;
         }
@@ -5321,6 +5336,7 @@ int luaEnterHouse(lua_State *pLuaState)
     context.mapNoteSourcePoint = pRuntimeState->activeEventMapNoteSourcePoint;
     pRuntimeState->dialogueState.hostHouseId = context.sourceId;
     pRuntimeState->pendingDialogueContext = std::move(context);
+
     return 0;
 }
 
@@ -6123,7 +6139,8 @@ int luaCanPlayerLearnSkill(lua_State *pLuaState)
         pMember != nullptr
             && pClassSkillTable != nullptr
             && pSkillName != nullptr
-            && pClassSkillTable->getClassCap(pMember->className, pSkillName) >= requiredMastery);
+            && pClassSkillTable->getEffectiveCap(pMember->className, pMember->raceId, pSkillName)
+                >= requiredMastery);
     return 1;
 }
 
@@ -7501,7 +7518,9 @@ bool EventRuntime::buildOnLoadState(
     ISceneEventContext *pSceneEventContext
 ) const
 {
+    const std::unordered_map<std::string, int32_t> namedGlobalVars = runtimeState.namedGlobalVars;
     runtimeState = {};
+    runtimeState.namedGlobalVars = namedGlobalVars;
 
     if (mapDeltaData)
     {
@@ -7723,6 +7742,11 @@ bool EventRuntime::executeEventById(
         return invokeLuaHandler(*this, localIterator->second, executionContext, continueStep);
     }
 
+    if (localProgram && localProgram->isHintOnlyEvent(eventId))
+    {
+        return true;
+    }
+
     const auto globalIterator = m_luaSessionCache->globalScope.handlers.find(eventId);
 
     if (globalIterator != m_luaSessionCache->globalScope.handlers.end())
@@ -7730,8 +7754,7 @@ bool EventRuntime::executeEventById(
         return invokeLuaHandler(*this, globalIterator->second, executionContext, continueStep);
     }
 
-    if ((localProgram && localProgram->isHintOnlyEvent(eventId))
-        || (globalProgram && globalProgram->isHintOnlyEvent(eventId)))
+    if (globalProgram && globalProgram->isHintOnlyEvent(eventId))
     {
         return true;
     }

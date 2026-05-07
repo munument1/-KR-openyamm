@@ -4760,6 +4760,14 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
     {
         if (inspectHitTargetsLivingHostileActor(view, inspectHit))
         {
+            GameplayScreenRuntime &screenRuntime = view.m_gameSession.gameplayScreenRuntime();
+            const Party *pParty = screenRuntime.partyReadOnly();
+
+            if (pParty != nullptr)
+            {
+                screenRuntime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::Yell, true);
+            }
+
             pEventRuntimeState->lastActivationResult = "hostile npc dialogue blocked";
             return false;
         }
@@ -4790,6 +4798,14 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
     {
         if (inspectHitTargetsLivingHostileActor(view, inspectHit))
         {
+            GameplayScreenRuntime &screenRuntime = view.m_gameSession.gameplayScreenRuntime();
+            const Party *pParty = screenRuntime.partyReadOnly();
+
+            if (pParty != nullptr)
+            {
+                screenRuntime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::Yell, true);
+            }
+
             pEventRuntimeState->lastActivationResult = "hostile actor dialogue blocked";
             return false;
         }
@@ -4869,6 +4885,17 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
 
             return true;
         }
+
+        GameplayScreenRuntime &screenRuntime = view.m_gameSession.gameplayScreenRuntime();
+        const Party *pParty = screenRuntime.partyReadOnly();
+
+        if (pParty != nullptr)
+        {
+            screenRuntime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::NpcDontTalk, true);
+        }
+
+        pEventRuntimeState->lastActivationResult =
+            "actor group " + std::to_string(inspectHit.actorGroup) + " dialogue unresolved";
     }
 
     return false;

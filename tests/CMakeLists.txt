@@ -19,6 +19,7 @@ add_executable(openyamm_unit_tests
     InventoryEquipRegressionTests.cpp
     MapStatsRegressionTests.cpp
     MapDeltaDataTests.cpp
+    MercenaryRecruitmentRuntimeTests.cpp
     MonsterTableRegressionTests.cpp
     MergedBaseTablesTests.cpp
     PartyRegressionTests.cpp
@@ -57,6 +58,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/GameplayWorldItemInteraction.cpp
     ../game/gameplay/InteractiveDecorationRules.cpp
     ../game/gameplay/MonsterSpellSupport.cpp
+    ../game/gameplay/MercenaryRecruitmentRuntime.cpp
     ../game/gameplay/GameMechanics.cpp
     ../game/gameplay/GenericActorDialog.cpp
     ../game/gameplay/HouseInteraction.cpp
@@ -117,6 +119,7 @@ add_executable(openyamm_unit_tests
     ../game/tables/PortraitFrameTable.cpp
     ../game/tables/PortraitFxEventTable.cpp
     ../game/tables/PotionMixingTable.cpp
+    ../game/tables/PotionNoteTable.cpp
     ../game/tables/RaceStartingStatsTable.cpp
     ../game/tables/RosterTable.cpp
     ../game/tables/ReadableScrollTable.cpp

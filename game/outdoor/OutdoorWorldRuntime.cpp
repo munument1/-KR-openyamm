@@ -48,6 +48,7 @@ namespace
 {
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CollisionEpsilon = 0.01f;
+constexpr float OutdoorMechanismGeometryRefreshStepSeconds = 1.0f / 30.0f;
 
 float outdoorMechanismOpenFraction(
     const RuntimeMechanismState &mechanism,
@@ -493,6 +494,23 @@ int monsterResistanceForDamageType(
             return stats.physicalResistance;
     }
 }
+
+uint32_t monsterActorAttackSeed(
+    uint32_t sourceActorId,
+    uint32_t targetActorId,
+    uint32_t attackDecisionCount,
+    int damage,
+    CombatDamageType damageType,
+    uint32_t salt)
+{
+    return sourceActorId * 1103515245u
+        ^ targetActorId * 2654435761u
+        ^ attackDecisionCount * 2246822519u
+        ^ static_cast<uint32_t>(std::max(0, damage)) * 3266489917u
+        ^ static_cast<uint32_t>(damageType) * 668265263u
+        ^ salt;
+}
+
 constexpr std::array<std::array<int, 3>, 4> EncounterDifficultyTierWeights = {{
     {{100, 0, 0}},
     {{90, 8, 2}},
@@ -582,6 +600,9 @@ void updateOutdoorJournalRevealMask(const OutdoorPartyRuntime &partyRuntime, Map
     }
 }
 constexpr float Pi = 3.14159265358979323846f;
+constexpr float SpecialJumpAngleUnitsPerTurn = 2048.0f;
+constexpr float LegacyOutdoorSpecialJumpGravity = 800.0f;
+constexpr float OutdoorMovementGravity = 1280.0f;
 
 int16_t legacyEventMonsterIdToStatsId(uint32_t eventMonsterId)
 {
@@ -1383,12 +1404,7 @@ bool isOutdoorMonsterWaterTile(
 
 bool canMonsterWalkOnWater(const MonsterTable::MonsterStatsEntry *pStats)
 {
-    if (pStats == nullptr)
-    {
-        return false;
-    }
-
-    return toLowerCopy(pStats->pictureName).find("water elemental") != std::string::npos;
+    return pStats != nullptr && pStats->hasKind(MonsterKind::Swimmer);
 }
 
 bx::Vec3 outdoorTerrainTileCenter(int tileX, int tileY)
@@ -1841,34 +1857,6 @@ bool resolveObjectProjectileDefinition(
     }
 
     return true;
-}
-
-bool actorLooksUndead(const MonsterTable::MonsterStatsEntry &stats)
-{
-    const std::string name = toLowerCopy(stats.name + " " + stats.pictureName);
-    static const std::array<const char *, 11> UndeadTokens = {{
-        "skeleton",
-        "zombie",
-        "ghost",
-        "ghoul",
-        "vampire",
-        "lich",
-        "mummy",
-        "wight",
-        "spectre",
-        "spirit",
-        "undead"
-    }};
-
-    for (const char *pToken : UndeadTokens)
-    {
-        if (name.find(pToken) != std::string::npos)
-        {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 float minutesToSeconds(float minutes)
@@ -2426,6 +2414,40 @@ void populateOutdoorActorStaticCombatFacts(
     }
 }
 
+void applyOutdoorBolsterAbilityOverrides(
+    OutdoorWorldRuntime::MapActorState &state,
+    const GameplayMonsterBolsterResult &bolster,
+    const SpellTable *pSpellTable)
+{
+    state.generatedAttack2 = bolster.generatedAttack2;
+    state.generatedAttack2IsRanged = bolster.generatedAttack2IsRanged;
+    state.copyAttack1DamageToAttack2 = bolster.copyAttack1DamageToAttack2;
+    state.generatedAttack2MissileType = bolster.generatedAttack2MissileType;
+    state.generatedAttack2Chance = bolster.generatedAttack2Chance;
+    state.generatedSpell1UseChance = bolster.generatedSpell1UseChance;
+    state.generatedSpell2UseChance = bolster.generatedSpell2UseChance;
+
+    if (pSpellTable != nullptr && bolster.generatedSpell1Id != 0)
+    {
+        if (const SpellEntry *pSpellEntry = pSpellTable->findById(static_cast<int>(bolster.generatedSpell1Id)))
+        {
+            state.spell1Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
+            state.spell1DamageType = GameMechanics::spellCombatDamageType(state.spell1Id, pSpellTable);
+            state.spell1CastSupported = outdoorMonsterSpellCastSupported(pSpellEntry->name);
+        }
+    }
+
+    if (pSpellTable != nullptr && bolster.generatedSpell2Id != 0)
+    {
+        if (const SpellEntry *pSpellEntry = pSpellTable->findById(static_cast<int>(bolster.generatedSpell2Id)))
+        {
+            state.spell2Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
+            state.spell2DamageType = GameMechanics::spellCombatDamageType(state.spell2Id, pSpellTable);
+            state.spell2CastSupported = outdoorMonsterSpellCastSupported(pSpellEntry->name);
+        }
+    }
+}
+
 OutdoorWorldRuntime::MapActorState buildMapActorState(
     const MonsterTable &monsterTable,
     const SpellTable *pSpellTable,
@@ -2477,6 +2499,7 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
     state.spell2SkillLevel = pStats != nullptr ? bolster.spell2SkillLevel : 0;
     state.spell2SkillMastery = pStats != nullptr ? bolster.spell2SkillMastery : SkillMastery::None;
     populateOutdoorActorStaticCombatFacts(state, pStats, pSpellTable);
+    applyOutdoorBolsterAbilityOverrides(state, bolster, pSpellTable);
     GameplayActorService actorService = {};
     const int16_t relationMonsterId = actorService.relationMonsterId(state.monsterId, state.ally);
     state.hostileToParty =
@@ -4413,6 +4436,7 @@ void OutdoorWorldRuntime::initialize(
             .pBolsterMapTable = m_pMergedBolsterMapTable,
             .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
             .pParty = m_pParty,
+            .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
         };
         std::vector<float> mapActorAttackAnimationSeconds(outdoorMapDeltaData->actors.size(), 0.3f);
 
@@ -5388,6 +5412,11 @@ bool OutdoorWorldRuntime::isInitialized() const
     return m_mapId != 0 || !m_mapName.empty() || m_eventRuntimeState.has_value();
 }
 
+void OutdoorWorldRuntime::setBolsterMonstersEnabled(bool enabled)
+{
+    m_bolsterMonstersEnabled = enabled;
+}
+
 void OutdoorWorldRuntime::bindInteractionView(OutdoorGameView *pView)
 {
     m_pInteractionView = pView;
@@ -5454,6 +5483,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
     }
 
     bool movedAnyMechanism = false;
+    bool completedAnyMechanism = false;
 
     for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
         m_eventRuntimeState->outdoorModelMechanisms)
@@ -5467,6 +5497,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
         }
 
         RuntimeMechanismState &mechanism = mechanismIterator->second;
+        const bool wasMoving = mechanism.isMoving;
 
         if (!mechanism.isMoving)
         {
@@ -5492,13 +5523,19 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
         }
 
         movedAnyMechanism = true;
+        completedAnyMechanism = completedAnyMechanism || (wasMoving && !mechanism.isMoving);
     }
 
     if (movedAnyMechanism)
     {
-        ++m_eventRuntimeState->outdoorSurfaceRevision;
-        rebuildOutdoorFaceGeometryCache();
-        syncOutdoorFaceGeometryAttributesFromMapDelta();
+        m_outdoorMechanismGeometryRefreshAccumulatorSeconds += deltaSeconds;
+
+        if (completedAnyMechanism
+            || m_outdoorMechanismGeometryRefreshAccumulatorSeconds >= OutdoorMechanismGeometryRefreshStepSeconds)
+        {
+            refreshOutdoorModelMechanismGeometry();
+            m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
+        }
     }
 }
 
@@ -6627,10 +6664,24 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
     facts.stats.height = actor.height;
     facts.stats.moveSpeed = actor.moveSpeed;
     facts.stats.canFly = actor.canFly;
-    facts.stats.hasSpell1 = pStats->hasSpell1;
-    facts.stats.hasSpell2 = pStats->hasSpell2;
+    facts.stats.hasSpell1 = pStats->hasSpell1 || actor.spell1Id != 0;
+    facts.stats.hasSpell2 = pStats->hasSpell2 || actor.spell2Id != 0;
     facts.stats.spell1Name = pStats->spell1Name;
     facts.stats.spell2Name = pStats->spell2Name;
+    if (actor.spell1Id != 0 && !pStats->hasSpell1 && m_pSpellTable != nullptr)
+    {
+        if (const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(actor.spell1Id)))
+        {
+            facts.stats.spell1Name = pSpellEntry->name;
+        }
+    }
+    if (actor.spell2Id != 0 && !pStats->hasSpell2 && m_pSpellTable != nullptr)
+    {
+        if (const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(actor.spell2Id)))
+        {
+            facts.stats.spell2Name = pSpellEntry->name;
+        }
+    }
     facts.stats.attack1DamageType = actor.attack1DamageType;
     facts.stats.attack2DamageType = actor.attack2DamageType;
     facts.stats.spell1Id = actor.spell1Id;
@@ -6643,17 +6694,23 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
     facts.stats.spell1SkillMastery = actor.spell1SkillMastery;
     facts.stats.spell2SkillLevel = actor.spell2SkillLevel;
     facts.stats.spell2SkillMastery = actor.spell2SkillMastery;
-    facts.stats.spell1UseChance = pStats->spell1UseChance;
-    facts.stats.spell2UseChance = pStats->spell2UseChance;
-    facts.stats.attack2Chance = pStats->attack2Chance;
+    facts.stats.spell1UseChance =
+        actor.generatedSpell1UseChance > 0 ? actor.generatedSpell1UseChance : pStats->spell1UseChance;
+    facts.stats.spell2UseChance =
+        actor.generatedSpell2UseChance > 0 ? actor.generatedSpell2UseChance : pStats->spell2UseChance;
+    facts.stats.attack2Chance =
+        actor.generatedAttack2Chance > 0 ? actor.generatedAttack2Chance : pStats->attack2Chance;
     facts.stats.attack1Damage.diceRolls = pStats->attack1Damage.diceRolls;
     facts.stats.attack1Damage.diceSides = pStats->attack1Damage.diceSides;
     facts.stats.attack1Damage.bonus = actor.attack1DamageBonus;
-    facts.stats.attack2Damage.diceRolls = pStats->attack2Damage.diceRolls;
-    facts.stats.attack2Damage.diceSides = pStats->attack2Damage.diceSides;
+    facts.stats.attack2Damage.diceRolls =
+        actor.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceRolls : pStats->attack2Damage.diceRolls;
+    facts.stats.attack2Damage.diceSides =
+        actor.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceSides : pStats->attack2Damage.diceSides;
     facts.stats.attack2Damage.bonus = actor.attack2DamageBonus;
     facts.stats.attackConstraints.attack1IsRanged = pStats->attack1HasMissile;
-    facts.stats.attackConstraints.attack2IsRanged = pStats->attack2HasMissile;
+    facts.stats.attackConstraints.attack2IsRanged = pStats->attack2HasMissile || actor.generatedAttack2IsRanged;
+    facts.stats.attack2MissileTypeOverride = actor.generatedAttack2MissileType;
     facts.stats.attackConstraints.blindActive = actor.blindRemainingSeconds > 0.0f;
     facts.stats.attackConstraints.darkGraspActive = actor.darkGraspRemainingSeconds > 0.0f;
     facts.stats.attackConstraints.rangedCommitAllowed = combatTarget.attackLineOfSight;
@@ -6938,7 +6995,11 @@ void OutdoorWorldRuntime::applyOutdoorActorProjectileRequests(
                 projectileRequest.target.y,
                 projectileRequest.target.z,
                 projectileRequest.damage,
-                projectileRequest.attackBonus);
+                projectileRequest.attackBonus,
+                projectileRequest.spellId,
+                projectileRequest.skillLevel,
+                projectileRequest.skillMastery,
+                projectileRequest.projectileTokenOverride);
         }
     }
 }
@@ -7328,11 +7389,12 @@ void OutdoorWorldRuntime::applyOutdoorActorAttackRequest(
     }
     else if (attackRequest->kind == ActorAiAttackRequestKind::ActorMelee)
     {
-        applyMonsterAttackToMapActor(
+        applyMonsterActorMeleeAttackToMapActor(
             attackRequest->targetActorIndex,
             attackRequest->damage,
             actor.actorId,
-            false);
+            attackRequest->attackBonus,
+            attackRequest->damageType);
     }
 }
 
@@ -7980,11 +8042,44 @@ bool OutdoorWorldRuntime::spawnProjectileFromMapActor(
     float targetY,
     float targetZ,
     int damage,
-    int attackBonus
+    int attackBonus,
+    uint32_t spellId,
+    uint32_t skillLevel,
+    SkillMastery skillMastery,
+    const std::string &projectileTokenOverride
 )
 {
     if (ability == MonsterAttackAbility::Spell1 || ability == MonsterAttackAbility::Spell2)
     {
+        if (spellId != 0 && m_pSpellTable != nullptr)
+        {
+            const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(spellId));
+
+            if (pSpellEntry != nullptr)
+            {
+                SpellCastRequest request = {};
+                request.sourceKind = RuntimeSpellSourceKind::Actor;
+                request.sourceId = actor.actorId;
+                request.sourceMonsterId = actor.monsterId;
+                request.fromSummonedMonster =
+                    m_pGameplayActorService != nullptr
+                    && m_pGameplayActorService->isPartyControlledActor(
+                        gameplayActorControlModeFromOutdoor(actor.controlMode));
+                request.ability = ability;
+                request.spellId = spellId;
+                request.damageType = GameMechanics::spellCombatDamageType(request.spellId, m_pSpellTable);
+                request.skillLevel = skillLevel != 0 ? skillLevel : static_cast<uint32_t>(std::max(stats.level, 1));
+                request.skillMastery = static_cast<uint32_t>(skillMastery);
+                request.sourceX = actor.preciseX;
+                request.sourceY = actor.preciseY;
+                request.sourceZ = actor.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
+                request.targetX = targetX;
+                request.targetY = targetY;
+                request.targetZ = targetZ;
+                return castSpell(request);
+            }
+        }
+
         return castSpellFromMapActor(actor, stats, ability, targetX, targetY, targetZ);
     }
 
@@ -8000,8 +8095,14 @@ bool OutdoorWorldRuntime::spawnProjectileFromMapActor(
 
     ResolvedProjectileDefinition definition = {};
 
+    MonsterTable::MonsterStatsEntry projectileStats = stats;
+    if (!projectileTokenOverride.empty() && ability == MonsterAttackAbility::Attack2)
+    {
+        projectileStats.attack2MissileType = projectileTokenOverride;
+    }
+
     if (!resolveProjectileDefinition(
-            stats,
+            projectileStats,
             ability,
             *m_pMonsterProjectileTable,
             *m_pObjectTable,
@@ -8598,8 +8699,7 @@ int OutdoorWorldRuntime::resolvePartyProjectileDamageMultiplier(
         pSourceMember,
         m_pItemTable,
         m_pSpecialItemEnchantTable,
-        pStats->name,
-        pStats->pictureName);
+        pStats->kindFlags);
 }
 
 GameplayProjectileService::ProjectileDirectActorImpactInput
@@ -8869,6 +8969,83 @@ void OutdoorWorldRuntime::syncOutdoorFaceGeometryAttributesFromMapDelta()
         {
             m_pPartyRuntime->setFaceAttributes(geometry.bModelIndex, geometry.faceIndex, attributes);
         }
+    }
+}
+
+void OutdoorWorldRuntime::setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry)
+{
+    for (OutdoorFaceGeometryData &existingGeometry : m_outdoorFaces)
+    {
+        if (existingGeometry.bModelIndex == geometry.bModelIndex
+            && existingGeometry.faceIndex == geometry.faceIndex)
+        {
+            existingGeometry = geometry;
+            return;
+        }
+    }
+
+    m_outdoorFaces.push_back(geometry);
+}
+
+void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
+{
+    if (m_pOutdoorMapData == nullptr || !m_eventRuntimeState || m_eventRuntimeState->outdoorModelMechanisms.empty())
+    {
+        return;
+    }
+
+    std::vector<OutdoorFaceGeometryData> updatedGeometries;
+
+    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+        m_eventRuntimeState->outdoorModelMechanisms)
+    {
+        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
+
+        if (definition.bmodelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        const OutdoorBModel translatedBModel = translatedOutdoorBModel(
+            m_pOutdoorMapData->bmodels[definition.bmodelIndex],
+            &*m_eventRuntimeState,
+            definition.bmodelIndex);
+
+        for (size_t faceIndex = 0; faceIndex < translatedBModel.faces.size(); ++faceIndex)
+        {
+            OutdoorFaceGeometryData geometry = {};
+
+            if (!buildOutdoorFaceGeometry(
+                    translatedBModel,
+                    definition.bmodelIndex,
+                    translatedBModel.faces[faceIndex],
+                    faceIndex,
+                    geometry,
+                    true))
+            {
+                continue;
+            }
+
+            setOutdoorFaceGeometry(geometry);
+            updatedGeometries.push_back(std::move(geometry));
+        }
+    }
+
+    if (updatedGeometries.empty())
+    {
+        return;
+    }
+
+    buildOutdoorFaceSpatialIndex();
+
+    if (m_outdoorMovementController)
+    {
+        m_outdoorMovementController->updateFaceGeometries(updatedGeometries);
+    }
+
+    if (m_pPartyRuntime != nullptr)
+    {
+        m_pPartyRuntime->updateFaceGeometries(updatedGeometries);
     }
 }
 
@@ -10343,8 +10520,22 @@ std::optional<GameplayCombatActorInfo> OutdoorWorldRuntime::combatActorInfoById(
 
         if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
         {
+            const MonsterEntry *pMonsterEntry = resolveMonsterEntry(*m_pMonsterTable, actor.monsterId, pStats);
+            const GameplayMonsterBolsterResult bolster =
+                resolveGameplayMonsterBolster(
+                    GameplayBolsterRuntimeContext{
+                        .pMap = &m_map,
+                        .pMonsterTable = m_pMonsterTable,
+                        .pBolsterMapTable = m_pMergedBolsterMapTable,
+                        .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                        .pParty = m_pParty,
+                        .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
+                    },
+                    *pStats,
+                    pMonsterEntry);
             info.monsterLevel = pStats->level;
             info.attackPreferences = pStats->attackPreferences;
+            info.bolsterAffectsPlayerArmorClass = bolster.statsEnabled;
             info.specialAttackKind = pStats->specialAttackKind;
             info.specialAttackLevel = pStats->specialAttackLevel;
         }
@@ -10818,13 +11009,97 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
     return true;
 }
 
+bool OutdoorWorldRuntime::applyMonsterActorMeleeAttackToMapActor(
+    size_t actorIndex,
+    int damage,
+    uint32_t sourceActorId,
+    int attackBonus,
+    CombatDamageType damageType)
+{
+    if (actorIndex >= m_mapActors.size() || damage <= 0)
+    {
+        return false;
+    }
+
+    MapActorState &targetActor = m_mapActors[actorIndex];
+
+    if (isActorUnavailableForCombat(targetActor))
+    {
+        return false;
+    }
+
+    const MapActorState *pSourceActor = nullptr;
+
+    for (const MapActorState &candidate : m_mapActors)
+    {
+        if (candidate.actorId == sourceActorId)
+        {
+            pSourceActor = &candidate;
+            break;
+        }
+    }
+
+    const MonsterTable::MonsterStatsEntry *pSourceStats =
+        pSourceActor != nullptr && m_pMonsterTable != nullptr
+            ? m_pMonsterTable->findStatsById(pSourceActor->monsterId)
+            : nullptr;
+
+    if (pSourceStats != nullptr)
+    {
+        std::mt19937 hitRng(
+            monsterActorAttackSeed(
+                sourceActorId,
+                targetActor.actorId,
+                pSourceActor->attackDecisionCount,
+                damage,
+                damageType,
+                0x9e3779b9u));
+
+        if (!GameMechanics::monsterAttackHitsArmorClass(
+                effectiveMapActorArmorClass(actorIndex),
+                pSourceStats->level,
+                attackBonus,
+                hitRng))
+        {
+            return false;
+        }
+    }
+
+    int appliedDamage = damage;
+    const MonsterTable::MonsterStatsEntry *pTargetStats =
+        m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(targetActor.monsterId) : nullptr;
+
+    if (pTargetStats != nullptr)
+    {
+        std::mt19937 damageRng(
+            monsterActorAttackSeed(
+                sourceActorId,
+                targetActor.actorId,
+                pSourceActor != nullptr ? pSourceActor->attackDecisionCount : 0,
+                damage,
+                damageType,
+                0x85ebca6bu));
+        appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
+            damage,
+            damageType,
+            pTargetStats->level,
+            monsterResistanceForDamageType(*pTargetStats, damageType),
+            damageRng);
+    }
+
+    return applyMonsterAttackToMapActor(actorIndex, appliedDamage, sourceActorId, false, true);
+}
+
 bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
     size_t actorIndex,
     int damage,
     uint32_t sourceActorId,
-    bool emitAudio)
+    bool emitAudio,
+    bool allowZeroDamageHit)
 {
-    if (actorIndex >= m_mapActors.size() || damage <= 0)
+    if (actorIndex >= m_mapActors.size()
+        || damage < 0
+        || (damage == 0 && !allowZeroDamageHit))
     {
         return false;
     }
@@ -11002,6 +11277,7 @@ bool OutdoorWorldRuntime::spawnEncounterFromResolvedData(
                 .pBolsterMapTable = m_pMergedBolsterMapTable,
                 .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
                 .pParty = m_pParty,
+                .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
             },
             m_nextActorId++,
             uniqueNameId,
@@ -13124,6 +13400,7 @@ bool OutdoorWorldRuntime::summonFriendlyMonsterById(
                 .pBolsterMapTable = m_pMergedBolsterMapTable,
                 .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
                 .pParty = m_pParty,
+                .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
             },
             m_nextActorId++,
             0,
@@ -13310,6 +13587,25 @@ void OutdoorWorldRuntime::requestPartyJump(float verticalVelocity, float lift)
     }
 }
 
+bool OutdoorWorldRuntime::specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity)
+{
+    if (m_pPartyRuntime == nullptr)
+    {
+        return false;
+    }
+
+    const float horizontalSpeed = static_cast<float>(encodedHorizontalVelocity >> 16);
+    const float angleRadians =
+        static_cast<float>(encodedHorizontalVelocity & 0xffffu) * (Pi * 2.0f / SpecialJumpAngleUnitsPerTurn);
+    const float verticalScale = std::sqrt(OutdoorMovementGravity / LegacyOutdoorSpecialJumpGravity);
+
+    m_pPartyRuntime->requestSpecialJump(
+        std::cos(angleRadians) * horizontalSpeed,
+        std::sin(angleRadians) * horizontalSpeed,
+        static_cast<float>(verticalVelocity) * verticalScale);
+    return true;
+}
+
 void OutdoorWorldRuntime::setAlwaysRunEnabled(bool enabled)
 {
     if (m_pPartyRuntime != nullptr)
@@ -13489,6 +13785,8 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
 
     const std::string normalizedModelName = toLowerCopy(modelName);
     size_t matchedBModelIndex = static_cast<size_t>(-1);
+    const uint32_t clickableBit = faceAttributeBit(FaceAttribute::Clickable);
+    const uint32_t hintBit = faceAttributeBit(FaceAttribute::HasHint);
 
     for (size_t bModelIndex = 0; bModelIndex < m_pOutdoorMapData->bmodels.size(); ++bModelIndex)
     {
@@ -13504,6 +13802,8 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
         for (OutdoorBModelFace &face : bmodel.faces)
         {
             face.cogTriggeredNumber = static_cast<uint16_t>(std::min<uint32_t>(mechanismId, UINT16_MAX));
+            face.attributes |= clickableBit;
+            face.attributes &= ~hintBit;
         }
 
         break;
@@ -13512,6 +13812,59 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
     if (matchedBModelIndex == static_cast<size_t>(-1))
     {
         return false;
+    }
+
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        size_t totalFaceCount = 0;
+
+        for (const OutdoorBModel &bmodel : m_pOutdoorMapData->bmodels)
+        {
+            totalFaceCount += bmodel.faces.size();
+        }
+
+        while (m_pOutdoorMapDeltaData->faceAttributes.size() < totalFaceCount)
+        {
+            size_t remainingFaceIndex = m_pOutdoorMapDeltaData->faceAttributes.size();
+
+            for (const OutdoorBModel &bmodel : m_pOutdoorMapData->bmodels)
+            {
+                if (remainingFaceIndex < bmodel.faces.size())
+                {
+                    m_pOutdoorMapDeltaData->faceAttributes.push_back(bmodel.faces[remainingFaceIndex].attributes);
+                    break;
+                }
+
+                remainingFaceIndex -= bmodel.faces.size();
+            }
+        }
+
+        bool changedAny = false;
+        size_t flattenedFaceIndex = 0;
+
+        for (size_t bModelIndex = 0; bModelIndex < m_pOutdoorMapData->bmodels.size(); ++bModelIndex)
+        {
+            const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[bModelIndex];
+
+            for (size_t faceIndex = 0; faceIndex < bmodel.faces.size(); ++faceIndex)
+            {
+                if (bModelIndex == matchedBModelIndex
+                    && flattenedFaceIndex < m_pOutdoorMapDeltaData->faceAttributes.size())
+                {
+                    const uint32_t attributes = bmodel.faces[faceIndex].attributes;
+                    uint32_t &deltaAttributes = m_pOutdoorMapDeltaData->faceAttributes[flattenedFaceIndex];
+                    changedAny = changedAny || deltaAttributes != attributes;
+                    deltaAttributes = attributes;
+                }
+
+                ++flattenedFaceIndex;
+            }
+        }
+
+        if (changedAny)
+        {
+            ++m_pOutdoorMapDeltaData->surfaceRevision;
+        }
     }
 
     EventRuntimeState::OutdoorModelMechanismDefinition definition = {};
@@ -13540,6 +13893,9 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
     ++m_eventRuntimeState->outdoorSurfaceRevision;
     rebuildOutdoorFaceGeometryCache();
     syncOutdoorFaceGeometryAttributesFromMapDelta();
+    refreshOutdoorModelMechanismGeometry();
+    m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
+
     return true;
 }
 

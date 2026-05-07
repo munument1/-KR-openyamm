@@ -668,6 +668,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "features", "bolster_monsters"))
+    {
+        bool parsed = settings.bolsterMonsters;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.bolsterMonsters = parsed;
+        }
+    }
+
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
         const std::optional<std::string> value = getIniValue(document, "keyboard", std::string(definition.iniKey));
@@ -853,6 +863,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << "\n\n"
         << "[startup]\n"
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
+        << "[features]\n"
+        << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << "\n\n"
         << "[keyboard]\n";
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())

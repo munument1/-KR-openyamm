@@ -127,6 +127,35 @@ TEST_CASE("monster stats parser ignores unsupported missile tokens for attack st
     CHECK(pEmeraldDragon->attackStyle == OpenYAMM::Game::MonsterTable::MonsterAttackStyle::Ranged);
 }
 
+TEST_CASE("monster stats parser promotes comma separated kind flags")
+{
+    OpenYAMM::Game::MonsterTable table = {};
+    std::vector<std::string> row = makeMonsterStatsRow(52, "Vampire", true, "", 0, "", 0, "");
+    row.resize(40);
+    row[39] = "undead, peasant, no_arena, titan";
+
+    REQUIRE(table.loadStatsFromRows({row}));
+
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMonster = table.findStatsById(52);
+
+    REQUIRE(pMonster != nullptr);
+    CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Undead));
+    CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Titan));
+    CHECK_FALSE(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
+}
+
+TEST_CASE("monster stats parser rejects unknown kind flags")
+{
+    OpenYAMM::Game::MonsterTable table = {};
+    std::vector<std::string> row = makeMonsterStatsRow(52, "Vampire", true, "", 0, "", 0, "");
+    row.resize(40);
+    row[39] = "undead,typo";
+
+    CHECK_FALSE(table.loadStatsFromRows({row}));
+}
+
 TEST_CASE("monster death drop parser maps multiple drops to monster id")
 {
     OpenYAMM::Game::MonsterTable table = {};

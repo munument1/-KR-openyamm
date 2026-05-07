@@ -2756,6 +2756,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 if (!plan.has_value())
                 {
                     context.setStatusBarEvent("Can't equip that item there");
+                    context.playSpeechReaction(memberIndex, SpeechId::CantEquip, true);
                     return;
                 }
 
@@ -2772,6 +2773,10 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     const std::string &partyStatus = pParty->lastStatus();
                     context.setStatusBarEvent(
                         partyStatus.empty() || partyStatus == "inventory full" ? "Pack is Full!" : partyStatus);
+                    context.playSpeechReaction(
+                        memberIndex,
+                        partyStatus == "inventory full" ? SpeechId::InventoryRoom : SpeechId::CantEquip,
+                        true);
                     return;
                 }
 
@@ -2836,6 +2841,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 if (!plan.has_value())
                 {
                     context.setStatusBarEvent("Can't equip that item");
+                    context.playSpeechReaction(memberIndex, SpeechId::CantEquip, true);
                     return;
                 }
 
@@ -2852,6 +2858,10 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     const std::string &partyStatus = pParty->lastStatus();
                     context.setStatusBarEvent(
                         partyStatus.empty() || partyStatus == "inventory full" ? "Pack is Full!" : partyStatus);
+                    context.playSpeechReaction(
+                        memberIndex,
+                        partyStatus == "inventory full" ? SpeechId::InventoryRoom : SpeechId::CantEquip,
+                        true);
                     return;
                 }
 

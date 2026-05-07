@@ -3054,6 +3054,23 @@ void applyAttackImpactOutcome(const ActorAiFacts &actor, ActorAiUpdate &update)
     request.source = actor.movement.position;
     request.target = actor.target.currentPosition;
 
+    if (actor.runtime.queuedAttackAbility == GameplayActorAttackAbility::Spell1)
+    {
+        request.spellId = actor.stats.spell1Id;
+        request.skillLevel = actor.stats.spell1SkillLevel;
+        request.skillMastery = actor.stats.spell1SkillMastery;
+    }
+    else if (actor.runtime.queuedAttackAbility == GameplayActorAttackAbility::Spell2)
+    {
+        request.spellId = actor.stats.spell2Id;
+        request.skillLevel = actor.stats.spell2SkillLevel;
+        request.skillMastery = actor.stats.spell2SkillMastery;
+    }
+    else if (actor.runtime.queuedAttackAbility == GameplayActorAttackAbility::Attack2)
+    {
+        request.projectileTokenOverride = actor.stats.attack2MissileTypeOverride;
+    }
+
     if (attackImpact.action == AttackImpactAction::RangedRelease)
     {
         request.kind =
@@ -3855,6 +3872,10 @@ void appendActorUpdate(ActorAiFrameResult &result, const ActorAiUpdate &update)
             projectileRequest.damage = update.attackRequest->damage;
             projectileRequest.attackBonus = update.attackRequest->attackBonus;
             projectileRequest.damageType = update.attackRequest->damageType;
+            projectileRequest.spellId = update.attackRequest->spellId;
+            projectileRequest.skillLevel = update.attackRequest->skillLevel;
+            projectileRequest.skillMastery = update.attackRequest->skillMastery;
+            projectileRequest.projectileTokenOverride = update.attackRequest->projectileTokenOverride;
             projectileRequest.source = update.attackRequest->source;
             projectileRequest.target = update.attackRequest->target;
             result.projectileRequests.push_back(projectileRequest);

@@ -1129,8 +1129,7 @@ int GameplayProjectileService::resolvePartyProjectileDamageMultiplier(
     const Character *pSourceMember,
     const ItemTable *pItemTable,
     const SpecialItemEnchantTable *pSpecialItemEnchantTable,
-    const std::string &targetMonsterName,
-    const std::string &targetMonsterPictureName) const
+    uint32_t targetMonsterKindFlags) const
 {
     if (projectile.sourceKind != ProjectileState::SourceKind::Party
         || projectile.damage <= 0
@@ -1146,8 +1145,7 @@ int GameplayProjectileService::resolvePartyProjectileDamageMultiplier(
         CharacterAttackMode::Bow,
         pItemTable,
         pSpecialItemEnchantTable,
-        targetMonsterName,
-        targetMonsterPictureName);
+        targetMonsterKindFlags);
 }
 
 GameplayProjectileService::ProjectileAreaImpact

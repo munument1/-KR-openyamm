@@ -2,9 +2,9 @@
 
 #include "game/gameplay/GameMechanics.h"
 #include "game/tables/ItemTable.h"
+#include "game/tables/MonsterTable.h"
 
 #include <algorithm>
-#include <cctype>
 #include <limits>
 #include <vector>
 
@@ -17,18 +17,6 @@ constexpr int StandardEnchantMaximumByTreasureLevel[6] = {0, 5, 8, 12, 17, 25};
 constexpr int StandardEnchantChanceByTreasureLevel[6] = {0, 40, 40, 40, 40, 75};
 constexpr int SpecialEnchantChanceForEquipmentByTreasureLevel[6] = {0, 0, 10, 15, 20, 25};
 constexpr int SpecialEnchantChanceForWeaponsByTreasureLevel[6] = {0, 0, 10, 20, 30, 50};
-
-std::string toLowerCopy(const std::string &value)
-{
-    std::string result = value;
-
-    for (char &character : result)
-    {
-        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-    }
-
-    return result;
-}
 
 bool isWeaponCategory(ItemEnchantCategory category)
 {
@@ -147,75 +135,9 @@ void addDiseaseImmunity(Character &member)
     addConditionImmunity(member, CharacterCondition::DiseaseSevere);
 }
 
-bool nameContainsToken(const std::string &name, const std::vector<std::string_view> &tokens)
+bool monsterHasKind(uint32_t monsterKindFlags, MonsterKind kind)
 {
-    const std::string normalizedName = toLowerCopy(name);
-
-    for (std::string_view token : tokens)
-    {
-        if (normalizedName.find(std::string(token)) != std::string::npos)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool monsterMatchesAnyToken(
-    const std::string &monsterName,
-    const std::string &monsterPictureName,
-    const std::vector<std::string_view> &tokens)
-{
-    return nameContainsToken(monsterName, tokens) || nameContainsToken(monsterPictureName, tokens);
-}
-
-bool monsterLooksOgreFamily(const std::string &monsterName, const std::string &monsterPictureName)
-{
-    static const std::vector<std::string_view> OgreTokens = {"ogre", "troll", "cyclops"};
-    return monsterMatchesAnyToken(monsterName, monsterPictureName, OgreTokens);
-}
-
-bool monsterLooksDragon(const std::string &monsterName, const std::string &monsterPictureName)
-{
-    static const std::vector<std::string_view> DragonTokens = {"dragon", "wyrm"};
-    return monsterMatchesAnyToken(monsterName, monsterPictureName, DragonTokens);
-}
-
-bool monsterLooksElemental(const std::string &monsterName, const std::string &monsterPictureName)
-{
-    static const std::vector<std::string_view> ElementalTokens = {
-        "fire elemental",
-        "air elemental",
-        "water elemental",
-        "earth elemental",
-        "elemental",
-    };
-    return monsterMatchesAnyToken(monsterName, monsterPictureName, ElementalTokens);
-}
-
-bool monsterLooksUndead(const std::string &monsterName, const std::string &monsterPictureName)
-{
-    static const std::vector<std::string_view> UndeadTokens = {
-        "skeleton",
-        "zombie",
-        "ghost",
-        "ghoul",
-        "vampire",
-        "lich",
-        "mummy",
-        "wight",
-        "spectre",
-        "spirit",
-        "undead",
-    };
-    return monsterMatchesAnyToken(monsterName, monsterPictureName, UndeadTokens);
-}
-
-bool monsterLooksTitan(const std::string &monsterName, const std::string &monsterPictureName)
-{
-    static const std::vector<std::string_view> TitanTokens = {"titan"};
-    return monsterMatchesAnyToken(monsterName, monsterPictureName, TitanTokens);
+    return (monsterKindFlags & monsterKindFlag(kind)) != 0;
 }
 
 uint32_t rareItemId(const ItemDefinition &itemDefinition, const EquippedItemRuntimeState &runtimeState)
@@ -228,23 +150,20 @@ uint32_t rareItemId(const ItemDefinition &itemDefinition, const EquippedItemRunt
     return itemDefinition.rarity != ItemRarity::Common ? itemDefinition.itemId : 0;
 }
 
-int rareItemDamageMultiplierAgainstMonster(
-    uint32_t itemId,
-    const std::string &monsterName,
-    const std::string &monsterPictureName)
+int rareItemDamageMultiplierAgainstMonster(uint32_t itemId, uint32_t monsterKindFlags)
 {
     switch (itemId)
     {
         case 503:
-            return monsterLooksOgreFamily(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Ogre) ? 2 : 1;
 
         case 506:
         case 539:
         case 540:
-            return monsterLooksDragon(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Dragon) ? 2 : 1;
 
         case 538:
-            return monsterLooksElemental(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Elemental) ? 2 : 1;
 
         default:
             return 1;
@@ -254,8 +173,7 @@ int rareItemDamageMultiplierAgainstMonster(
 int specialEnchantDamageMultiplierAgainstMonster(
     uint16_t specialEnchantId,
     const SpecialItemEnchantTable *pSpecialTable,
-    const std::string &monsterName,
-    const std::string &monsterPictureName)
+    uint32_t monsterKindFlags)
 {
     if (specialEnchantId == 0 || pSpecialTable == nullptr)
     {
@@ -272,19 +190,19 @@ int specialEnchantDamageMultiplierAgainstMonster(
     switch (pEntry->kind)
     {
         case SpecialItemEnchantKind::OgreSlaying:
-            return monsterLooksOgreFamily(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Ogre) ? 2 : 1;
 
         case SpecialItemEnchantKind::DragonSlaying:
-            return monsterLooksDragon(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Dragon) ? 2 : 1;
 
         case SpecialItemEnchantKind::ElementalSlaying:
-            return monsterLooksElemental(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Elemental) ? 2 : 1;
 
         case SpecialItemEnchantKind::UndeadSlaying:
-            return monsterLooksUndead(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Undead) ? 2 : 1;
 
         case SpecialItemEnchantKind::David:
-            return monsterLooksTitan(monsterName, monsterPictureName) ? 2 : 1;
+            return monsterHasKind(monsterKindFlags, MonsterKind::Titan) ? 2 : 1;
 
         default:
             return 1;
@@ -295,8 +213,7 @@ int weaponDamageMultiplierAgainstMonster(
     const ItemDefinition &itemDefinition,
     const EquippedItemRuntimeState &runtimeState,
     const SpecialItemEnchantTable *pSpecialTable,
-    const std::string &monsterName,
-    const std::string &monsterPictureName)
+    uint32_t monsterKindFlags)
 {
     if (runtimeState.broken)
     {
@@ -305,13 +222,11 @@ int weaponDamageMultiplierAgainstMonster(
 
     const int rareMultiplier = rareItemDamageMultiplierAgainstMonster(
         rareItemId(itemDefinition, runtimeState),
-        monsterName,
-        monsterPictureName);
+        monsterKindFlags);
     const int specialMultiplier = specialEnchantDamageMultiplierAgainstMonster(
         runtimeState.specialEnchantId,
         pSpecialTable,
-        monsterName,
-        monsterPictureName);
+        monsterKindFlags);
 
     return std::max(rareMultiplier, specialMultiplier);
 }
@@ -1419,8 +1334,7 @@ int ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
     CharacterAttackMode attackMode,
     const ItemTable *pItemTable,
     const SpecialItemEnchantTable *pSpecialTable,
-    const std::string &monsterName,
-    const std::string &monsterPictureName)
+    uint32_t monsterKindFlags)
 {
     if (pItemTable == nullptr)
     {
@@ -1465,8 +1379,7 @@ int ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
                 *pItemDefinition,
                 runtimeState,
                 pSpecialTable,
-                monsterName,
-                monsterPictureName));
+                monsterKindFlags));
     };
 
     if (attackMode == CharacterAttackMode::Bow)

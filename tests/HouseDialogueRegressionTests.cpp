@@ -1265,6 +1265,53 @@ TEST_CASE("random NPC BTB gate is disabled when merged continent does not affect
     CHECK_FALSE(findActionIndexByLabel(dialog, "Bribe 1 Gold").has_value());
 }
 
+TEST_CASE("merged continent settings gate profession news fallback")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.party().addGold(10000);
+
+    OpenYAMM::Game::MapStatsEntry jadameMap = {};
+    jadameMap.mergedContinentId = 1;
+    harness.setCurrentMap(jadameMap);
+
+    const OpenYAMM::Game::EventDialogContent jadameDialog = harness.openNpcDialogue(WilmaCookGateMasterNpcId);
+    CHECK(findActionIndexByLabel(jadameDialog, "Join").has_value());
+    CHECK_FALSE(findActionIndexByLabel(jadameDialog, "Gate Master").has_value());
+
+    OpenYAMM::Game::MapStatsEntry enrothMap = {};
+    enrothMap.mergedContinentId = 3;
+    harness.setCurrentMap(enrothMap);
+
+    const OpenYAMM::Game::EventDialogContent enrothDialog = harness.openNpcDialogue(WilmaCookGateMasterNpcId);
+    CHECK(findActionIndexByLabel(enrothDialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(enrothDialog, "Gate Master").has_value());
+}
+
+TEST_CASE("merged continent settings gate NPC follower offers")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.party().addGold(10000);
+    harness.worldRuntime().setCurrentLocationReputation(10);
+
+    OpenYAMM::Game::MapStatsEntry betweenTimeMap = {};
+    betweenTimeMap.mergedContinentId = 4;
+    harness.setCurrentMap(betweenTimeMap);
+
+    constexpr uint32_t RandomPeasantNpcId = 20003;
+    harness.eventRuntimeState().npcNameOverrides[RandomPeasantNpcId] = "Kevin";
+    harness.eventRuntimeState().npcPictureOverrides[RandomPeasantNpcId] = 1;
+    harness.eventRuntimeState().npcProfessionOverrides[RandomPeasantNpcId] = 52;
+
+    const OpenYAMM::Game::EventDialogContent dialog = harness.openNpcDialogue(RandomPeasantNpcId);
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Beg").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Threat").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Bribe 1 Gold").has_value());
+    CHECK(findActionIndexByLabel(dialog, "Peasant").has_value());
+}
+
 TEST_CASE("fredrick initial topics exact")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -3470,6 +3517,68 @@ TEST_CASE("tavern rent room defers recovery until rest screen")
     CHECK_EQ(pTavernMember->recoverySecondsRemaining, doctest::Approx(2.0f));
     CHECK(pTavernMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Asleep)));
     CHECK(harness.party().hasPartyBuff(OpenYAMM::Game::PartyBuffId::WizardEye));
+}
+
+TEST_CASE("house actions expose mmmerge speech reactions for service outcomes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pTavernHouse = gameData.houseTable.get(DaggerWoundTavernHouseId);
+    const OpenYAMM::Game::HouseEntry *pGuildHouse = gameData.houseTable.get(ElementalGuildHouseId);
+    const OpenYAMM::Game::HouseEntry *pTempleHouse = gameData.houseTable.get(TempleHouseId);
+
+    REQUIRE(pTavernHouse != nullptr);
+    REQUIRE(pGuildHouse != nullptr);
+    REQUIRE(pTempleHouse != nullptr);
+
+    harness.party().addFood(100);
+    const OpenYAMM::Game::HouseActionResult fullPacksResult = OpenYAMM::Game::performHouseAction(
+        OpenYAMM::Game::HouseActionOption{
+            OpenYAMM::Game::HouseActionId::TavernBuyFood,
+            "Buy food",
+            "",
+            true,
+            ""},
+        *pTavernHouse,
+        harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime());
+
+    CHECK_FALSE(fullPacksResult.succeeded);
+    CHECK_EQ(fullPacksResult.speechId, OpenYAMM::Game::SpeechId::TavernPacksFull);
+
+    harness.party().addGold(-harness.party().gold());
+    const OpenYAMM::Game::HouseActionResult noGoldResult = OpenYAMM::Game::performHouseAction(
+        OpenYAMM::Game::HouseActionOption{
+            OpenYAMM::Game::HouseActionId::TempleDonate,
+            "Donate",
+            "",
+            true,
+            ""},
+        *pTempleHouse,
+        harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime());
+
+    CHECK_FALSE(noGoldResult.succeeded);
+    CHECK_EQ(noGoldResult.speechId, OpenYAMM::Game::SpeechId::NotEnoughGold);
+
+    harness.party().addGold(10000);
+    REQUIRE(harness.party().setActiveMemberIndex(3));
+    const OpenYAMM::Game::HouseActionResult learnSkillResult = OpenYAMM::Game::performHouseAction(
+        OpenYAMM::Game::HouseActionOption{
+            OpenYAMM::Game::HouseActionId::LearnSkill,
+            "Learn",
+            "AirMagic",
+            true,
+            ""},
+        *pGuildHouse,
+        harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime());
+
+    CHECK(learnSkillResult.succeeded);
+    CHECK_EQ(learnSkillResult.speechId, OpenYAMM::Game::SpeechId::SkillLearned);
 }
 
 TEST_CASE("temple donate applies oe reputation gating and buffs")

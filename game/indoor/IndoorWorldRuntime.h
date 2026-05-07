@@ -210,6 +210,7 @@ public:
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
         const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
+    void setBolsterMonstersEnabled(bool enabled);
 
     const std::string &mapName() const override;
     bool isIndoorMap() const override;
@@ -511,6 +512,11 @@ private:
     GameplayWorldPoint chestTrapVisualPoint(const GameplayWorldPoint &sourcePoint) const;
     void applyChestTrapState(uint32_t chestId, const ChestTrapOpenResult &trapResult);
     void spawnChestTrapVisual(const GameplayWorldPoint &point, const ChestTrapOpenResult &trapResult);
+    bool applyActorMeleeAttackToMapActor(size_t sourceActorIndex, const ActorAttackRequest &attackRequest);
+    int effectiveIndoorActorArmorClass(
+        size_t actorIndex,
+        const MapDeltaActor &actor,
+        const MonsterTable::MonsterStatsEntry &stats) const;
     void beginMapActorHitReaction(
         size_t actorIndex,
         MapDeltaActor &actor,
@@ -554,6 +560,7 @@ private:
     const SpriteFrameTable *m_pProjectileSpriteFrameTable = nullptr;
     const IndoorMapData *m_pIndoorMapData = nullptr;
     const DecorationBillboardSet *m_pIndoorDecorationBillboardSet = nullptr;
+    bool m_bolsterMonstersEnabled = false;
     Party *m_pParty = nullptr;
     IndoorPartyRuntime *m_pPartyRuntime = nullptr;
     std::optional<MapDeltaData> *m_pMapDeltaData = nullptr;

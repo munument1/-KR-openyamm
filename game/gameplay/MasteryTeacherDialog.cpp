@@ -440,14 +440,16 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
         evaluation.cost = masteryTeacherCost(evaluation.skillName, evaluation.targetMastery);
     }
 
-    const SkillMastery classCap = classSkillTable.getClassCap(pCharacter->className, evaluation.skillName);
+    const SkillMastery classCap =
+        classSkillTable.getEffectiveCap(pCharacter->className, pCharacter->raceId, evaluation.skillName);
 
     if (classCap < evaluation.targetMastery)
     {
         const std::optional<std::string> nextPromotion = nextPromotionClassName(pCharacter->className);
 
         if (nextPromotion
-            && classSkillTable.getClassCap(*nextPromotion, evaluation.skillName) >= evaluation.targetMastery)
+            && classSkillTable.getEffectiveCap(*nextPromotion, pCharacter->raceId, evaluation.skillName)
+                >= evaluation.targetMastery)
         {
             evaluation.displayText =
                 "You have to be promoted to " + displayClassName(*nextPromotion) + " to learn this skill.";

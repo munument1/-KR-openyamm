@@ -38,6 +38,21 @@ enum class MonsterSpecialAttackKind : uint8_t
     ManaDrain,
 };
 
+enum class MonsterKind : uint32_t
+{
+    Undead = 1u << 0,
+    Dragon = 1u << 1,
+    Swimmer = 1u << 2,
+    Immobile = 1u << 3,
+    Peasant = 1u << 4,
+    NoArena = 1u << 5,
+    Ogre = 1u << 6,
+    Elemental = 1u << 7,
+    Titan = 1u << 8,
+};
+
+uint32_t monsterKindFlag(MonsterKind kind);
+
 struct MonsterEntry
 {
     uint16_t height = 0;
@@ -184,6 +199,9 @@ public:
         uint16_t deathSoundId = 0;
         uint16_t winceSoundId = 0;
         uint16_t awareSoundId = 0;
+        uint32_t kindFlags = 0;
+
+        bool hasKind(MonsterKind kind) const;
     };
 
     struct MonsterDisplayNameEntry

@@ -545,7 +545,7 @@ struct GameplayOverlayInteractionState
     GameplayRestPointerTarget restPressedTarget = {};
     bool gameplayHudClickLatch = false;
     GameplayHudPointerTarget gameplayHudPressedTarget = {};
-    bool followerPanelOpen = true;
+    bool followerPanelOpen = false;
     size_t followerPanelScrollOffset = 0;
     bool menuToggleLatch = false;
     bool menuClickLatch = false;

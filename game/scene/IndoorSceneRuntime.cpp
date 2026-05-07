@@ -319,7 +319,8 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     const SpriteFrameTable *pProjectileSpriteFrameTable,
     const DecorationBillboardSet *pIndoorDecorationBillboardSet,
     const MergedBolsterMapTable *pMergedBolsterMapTable,
-    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable)
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
+    bool bolsterMonstersEnabled)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -349,6 +350,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         m_eventRuntimeState);
 
     m_partyRuntime.setParty(*m_pSessionParty);
+    m_worldRuntime.setBolsterMonstersEnabled(bolsterMonstersEnabled);
     m_worldRuntime.initialize(
         map,
         monsterTable,
@@ -393,7 +395,8 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     const SpriteFrameTable *pActorSpriteFrameTable,
     const DecorationBillboardSet *pIndoorDecorationBillboardSet,
     const MergedBolsterMapTable *pMergedBolsterMapTable,
-    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable)
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
+    bool bolsterMonstersEnabled)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -423,6 +426,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         m_eventRuntimeState);
 
     m_partyRuntime.setParty(*m_pSessionParty);
+    m_worldRuntime.setBolsterMonstersEnabled(bolsterMonstersEnabled);
     m_worldRuntime.initialize(
         map,
         monsterTable,

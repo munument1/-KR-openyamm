@@ -3,6 +3,8 @@ kind: "outdoor_scene"
 source:
   geometry_file: "BrAlvar.odm"
   legacy_companion_file: "BrAlvar.ddm"
+runtime_restrictions:
+  allow_lloyds_beacon: false
 environment:
   sky_texture: ""
   ground_tileset_name: ""
@@ -191189,6 +191191,94 @@ initial_state:
       carried_item_id: 0
       group: 14
       ally: 0
+      unique_name_index: 0
+    - actor_index: 77
+      name: ""
+      npc_id: 772
+      attributes: 0
+      hp: 9
+      hostility_type: 0
+      monster_info_id: 360
+      monster_id: 39
+      radius: 43
+      height: 120
+      move_speed: 140
+      position:
+        x: 8300
+        y: -1300
+        z: 0
+      sprite_ids: [2180, 2181, 2182, 0]
+      sector_id: 0
+      current_action_animation: 0
+      carried_item_id: 0
+      group: 50
+      ally: 9999
+      unique_name_index: 0
+    - actor_index: 78
+      name: ""
+      npc_id: 773
+      attributes: 0
+      hp: 9
+      hostility_type: 0
+      monster_info_id: 360
+      monster_id: 39
+      radius: 43
+      height: 120
+      move_speed: 140
+      position:
+        x: 8600
+        y: -1200
+        z: 0
+      sprite_ids: [2180, 2181, 2182, 0]
+      sector_id: 0
+      current_action_animation: 0
+      carried_item_id: 0
+      group: 50
+      ally: 9999
+      unique_name_index: 0
+    - actor_index: 79
+      name: ""
+      npc_id: 774
+      attributes: 0
+      hp: 9
+      hostility_type: 0
+      monster_info_id: 360
+      monster_id: 39
+      radius: 43
+      height: 120
+      move_speed: 140
+      position:
+        x: 8900
+        y: -1400
+        z: 0
+      sprite_ids: [2180, 2181, 2182, 0]
+      sector_id: 0
+      current_action_animation: 0
+      carried_item_id: 0
+      group: 50
+      ally: 9999
+      unique_name_index: 0
+    - actor_index: 80
+      name: ""
+      npc_id: 775
+      attributes: 0
+      hp: 9
+      hostility_type: 0
+      monster_info_id: 360
+      monster_id: 39
+      radius: 43
+      height: 120
+      move_speed: 140
+      position:
+        x: 9200
+        y: -1300
+        z: 0
+      sprite_ids: [2180, 2181, 2182, 0]
+      sector_id: 0
+      current_action_animation: 0
+      carried_item_id: 0
+      group: 50
+      ally: 9999
       unique_name_index: 0
   sprite_objects:
     - sprite_object_index: 0

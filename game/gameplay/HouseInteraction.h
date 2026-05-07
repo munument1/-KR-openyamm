@@ -2,6 +2,7 @@
 
 #include "game/events/EventRuntime.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
+#include "game/party/SpeechIds.h"
 #include "game/tables/HouseTable.h"
 
 #include <cstdint>
@@ -52,6 +53,8 @@ enum class HouseActionId : uint32_t
     TransportRoute,
     ExtraExit,
     LorettaPriceFixing,
+    TavernDrink,
+    TavernTip,
 };
 
 enum class HouseSoundType : uint32_t
@@ -94,6 +97,8 @@ struct HouseActionResult
 {
     bool succeeded = false;
     std::optional<HouseSoundType> soundType;
+    SpeechId speechId = SpeechId::None;
+    std::vector<SpeechId> additionalSpeechIds;
     std::vector<std::string> messages;
     std::optional<InnRestRequest> pendingInnRest;
 };

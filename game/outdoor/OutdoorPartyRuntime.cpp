@@ -52,6 +52,11 @@ void OutdoorPartyRuntime::setFaceAttributes(size_t bModelIndex, size_t faceIndex
     m_movementDriver.setFaceAttributes(bModelIndex, faceIndex, attributes);
 }
 
+void OutdoorPartyRuntime::updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries)
+{
+    m_movementDriver.updateFaceGeometries(geometries);
+}
+
 void OutdoorPartyRuntime::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool grantItemsToInventory)
 {
     m_party.applyEventRuntimeState(runtimeState, grantItemsToInventory);
@@ -167,5 +172,10 @@ void OutdoorPartyRuntime::syncSpellMovementStatesFromPartyBuffs()
 void OutdoorPartyRuntime::requestJump(std::optional<float> verticalVelocity, float lift)
 {
     m_movementDriver.requestJump(verticalVelocity, lift);
+}
+
+void OutdoorPartyRuntime::requestSpecialJump(float velocityX, float velocityY, float velocityZ)
+{
+    m_movementDriver.requestSpecialJump(velocityX, velocityY, velocityZ);
 }
 }

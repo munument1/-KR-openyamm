@@ -41,6 +41,7 @@
 #include <random>
 #include <sstream>
 #include <string_view>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -163,6 +164,34 @@ constexpr std::array<uint32_t, 18> DebugUnlockedTownPortalQBits = {{
     301, 302, 303, 304, 305, 306,
     310, 311, 312, 313, 314, 315,
     718, 719, 720, 721, 722, 723}};
+constexpr int32_t DebugBreachEntryMapId = 205;
+constexpr std::array<std::pair<std::string_view, int32_t>, 15> DebugBreachEntryGlobals = {{
+    {"MMerge.CrossContinents.GotMainQuest", 1},
+    {"MMerge.CrossContinents.FinalQuestStarted", 1},
+    {"MMerge.CrossContinents.GotFinalQuest", 1},
+    {"MMerge.CrossContinents.GotInstructions", 1},
+    {"MMerge.CrossContinents.QuestFinished", 0},
+    {"MMerge.CrossContinents.GotEndCard", 0},
+    {"MMerge.CrossContinents.EnteredBreach", 0},
+    {"MMerge.CrossContinents.EnteredBasement", 0},
+    {"MMerge.CrossContinents.BreachSplit", 0},
+    {"MMerge.CrossContinents.BrFirstFloor", 0},
+    {"MMerge.CrossContinents.BrSecFloor", 0},
+    {"MMerge.CrossContinents.BrThirdFloor", 0},
+    {"MMerge.CrossContinents.CaughtChaos", 0},
+    {"MMerge.CrossContinents.CoughtChaos", 0},
+    {"MMerge.CrossContinents.GotFQHints", 0},
+}};
+constexpr std::array<std::string_view, 8> DebugBreachEntryClearedGlobals = {{
+    "MMerge.CrossContinents.GotFQHint1",
+    "MMerge.CrossContinents.GotFQHint2",
+    "MMerge.CrossContinents.GotFQHint3",
+    "MMerge.CrossContinents.GotFQHint4",
+    "MMerge.CrossContinents.HintByNPC.772",
+    "MMerge.CrossContinents.HintByNPC.773",
+    "MMerge.CrossContinents.HintByNPC.774",
+    "MMerge.CrossContinents.HintByNPC.775",
+}};
 constexpr float EnterDungeonSpeechDelaySeconds = 2.0f;
 
 bool sameMapFileName(const std::string &left, const std::string &right)
@@ -1231,6 +1260,11 @@ void GameApplication::registerDebugConsoleCommands()
         return m_gameSession.partyState() ? &*m_gameSession.partyState() : nullptr;
     };
 
+    const auto activeEventRuntimeState = [this]() -> EventRuntimeState *
+    {
+        return m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
+    };
+
     m_debugConsole.registerCommand({
         .name = "help",
         .description = "Show available commands.",
@@ -1238,7 +1272,9 @@ void GameApplication::registerDebugConsoleCommands()
         .callback = [this, commandResult](const DebugConsole::CommandContext &)
         {
             std::ostringstream out;
-            out << "Commands: help, cls, map, event <id>, qbit get|set|clear <id>, qbit dump [active|all|filter], "
+            out << "Commands: help, cls, map, setup breach, event <id>, "
+                << "qbit get|set|clear <id>, qbit dump [active|all|filter], "
+                << "global get|set|clear <name> [value], global dump [filter], "
                 << "award get|set|clear <id>, award dump [active|all|filter], gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
@@ -1334,6 +1370,63 @@ void GameApplication::registerDebugConsoleCommands()
 
             m_pendingDebugMapJump = pendingJump;
             return commandResult(true, "Queued map jump " + std::to_string(*mapId));
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "setup",
+        .description = "Apply predefined debug story states.",
+        .usage = "setup breach",
+        .callback = [this, activeParty, activeEventRuntimeState, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() != 1 || toLowerCopy(context.args[0]) != "breach")
+            {
+                return commandResult(false, "Usage: setup breach");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            EventRuntimeState *pRuntimeState = activeEventRuntimeState();
+
+            if (pRuntimeState != nullptr)
+            {
+                m_gameSession.mergeNamedGlobalVarsFromRuntime(*pRuntimeState);
+            }
+
+            for (const std::pair<std::string_view, int32_t> &entry : DebugBreachEntryGlobals)
+            {
+                const std::string name(entry.first);
+                m_gameSession.setNamedGlobalVar(name, entry.second);
+
+                if (pRuntimeState != nullptr)
+                {
+                    pRuntimeState->namedGlobalVars[name] = entry.second;
+                }
+            }
+
+            for (std::string_view globalName : DebugBreachEntryClearedGlobals)
+            {
+                const std::string name(globalName);
+                m_gameSession.clearNamedGlobalVar(name);
+
+                if (pRuntimeState != nullptr)
+                {
+                    pRuntimeState->namedGlobalVars.erase(name);
+                }
+            }
+
+            pParty->setQuestBit(1713, true);  // Enter The Controlled Breach and bring Runaway Chaos back.
+            pParty->setQuestBit(1714, false); // Find your friends.
+            pParty->setQuestBit(1715, false); // Find entrance to the main Breach structure.
+
+            PendingDebugMapJump pendingJump = {};
+            pendingJump.mapId = DebugBreachEntryMapId;
+            m_pendingDebugMapJump = pendingJump;
+            return commandResult(true, "Set clean Breach quest state and queued BrAlvar jump.");
         }});
 
     m_debugConsole.registerCommand({
@@ -1482,6 +1575,143 @@ void GameApplication::registerDebugConsoleCommands()
             }
 
             return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "global",
+        .description = "Inspect or mutate named Lua runtime globals.",
+        .usage = "global get|set|clear <name> [value] | global dump [filter]",
+        .callback = [this, activeEventRuntimeState, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: global get|set|clear <name> [value] | global dump [filter]");
+            }
+
+            if (EventRuntimeState *pRuntimeState = activeEventRuntimeState())
+            {
+                m_gameSession.mergeNamedGlobalVarsFromRuntime(*pRuntimeState);
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+
+            if (action == "dump")
+            {
+                const std::string filter = context.args.size() >= 2 ? lowerSearchText(context.args[1]) : "";
+                std::vector<std::pair<std::string, int32_t>> entries;
+
+                for (const auto &[name, value] : m_gameSession.namedGlobalVars())
+                {
+                    if (!filter.empty() && lowerSearchText(name).find(filter) == std::string::npos)
+                    {
+                        continue;
+                    }
+
+                    entries.emplace_back(name, value);
+                }
+
+                std::sort(
+                    entries.begin(),
+                    entries.end(),
+                    [](const auto &left, const auto &right)
+                    {
+                        return left.first < right.first;
+                    });
+
+                std::ostringstream out;
+                out << "Named globals";
+
+                if (!filter.empty())
+                {
+                    out << " matching '" << context.args[1] << "'";
+                }
+
+                out << ":\n";
+
+                size_t emitted = 0;
+
+                for (const auto &[name, value] : entries)
+                {
+                    out << name << "=" << value << '\n';
+                    ++emitted;
+
+                    if (emitted >= 120)
+                    {
+                        out << "... truncated\n";
+                        break;
+                    }
+                }
+
+                if (emitted == 0)
+                {
+                    out << "<none>";
+                }
+
+                return commandResult(true, out.str());
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: global get|set|clear <name> [value] | global dump [filter]");
+            }
+
+            const std::string &name = context.args[1];
+
+            if (name.empty())
+            {
+                return commandResult(false, "Invalid global name.");
+            }
+
+            if (action == "get")
+            {
+                const std::unordered_map<std::string, int32_t> &globals = m_gameSession.namedGlobalVars();
+                const std::unordered_map<std::string, int32_t>::const_iterator it = globals.find(name);
+
+                if (it == globals.end())
+                {
+                    return commandResult(true, "global " + name + "=0 (default)");
+                }
+
+                return commandResult(true, "global " + name + "=" + std::to_string(it->second));
+            }
+
+            if (action == "set")
+            {
+                if (context.args.size() < 3)
+                {
+                    return commandResult(false, "Usage: global set <name> <value>");
+                }
+
+                const std::optional<int32_t> value = parseInt32Argument(context.args[2]);
+
+                if (!value)
+                {
+                    return commandResult(false, "Invalid global value.");
+                }
+
+                m_gameSession.setNamedGlobalVar(name, *value);
+
+                if (EventRuntimeState *pRuntimeState = activeEventRuntimeState())
+                {
+                    pRuntimeState->namedGlobalVars[name] = *value;
+                }
+
+                return commandResult(true, "global " + name + "=" + std::to_string(*value));
+            }
+
+            if (action == "clear")
+            {
+                m_gameSession.clearNamedGlobalVar(name);
+
+                if (EventRuntimeState *pRuntimeState = activeEventRuntimeState())
+                {
+                    pRuntimeState->namedGlobalVars.erase(name);
+                }
+
+                return commandResult(true, "global " + name + " cleared");
+            }
+
+            return commandResult(false, "Usage: global get|set|clear <name> [value] | global dump [filter]");
         }});
 
     m_debugConsole.registerCommand({
@@ -2678,6 +2908,11 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
     m_outdoorGameView.setSettingsSnapshot(m_settings);
     m_indoorGameView.setSettingsSnapshot(m_settings);
 
+    if (m_pOutdoorWorldRuntime != nullptr)
+    {
+        m_pOutdoorWorldRuntime->setBolsterMonstersEnabled(m_settings.bolsterMonsters);
+    }
+
     if (m_pOutdoorPartyRuntime != nullptr)
     {
         m_pOutdoorPartyRuntime->setRunning(m_settings.alwaysRun);
@@ -2688,6 +2923,7 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
     if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
     {
         IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+        pIndoorRuntime->worldRuntime().setBolsterMonstersEnabled(m_settings.bolsterMonsters);
         pIndoorRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);
         pIndoorRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
     }
@@ -2961,6 +3197,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         }
 
         m_pOutdoorWorldRuntime = std::make_unique<OutdoorWorldRuntime>();
+        m_pOutdoorWorldRuntime->setBolsterMonstersEnabled(m_settings.bolsterMonsters);
         m_pOutdoorWorldRuntime->initialize(
             selectedMap->map,
             m_gameDataLoader.getMonsterTable(),
@@ -2999,6 +3236,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
 
         if (EventRuntimeState *pEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState())
         {
+            m_gameSession.applyNamedGlobalVarsToRuntime(*pEventRuntimeState);
+
             EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
 
             eventRuntime.executeOnLoadEvents(
@@ -3108,7 +3347,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             pIndoorProjectileSpriteFrameTable,
             selectedMap->indoorDecorationBillboardSet ? &*selectedMap->indoorDecorationBillboardSet : nullptr,
             &m_gameDataLoader.getMergedBolsterMapTable(),
-            &m_gameDataLoader.getMergedBolsterMonsterTable()
+            &m_gameDataLoader.getMergedBolsterMonsterTable(),
+            m_settings.bolsterMonsters
         );
         timingLogger.stage("indoor runtime initialized");
         std::unordered_map<std::string, IndoorSceneRuntime::Snapshot>::const_iterator indoorStateIt =
@@ -3132,6 +3372,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
 
         if (EventRuntimeState *pEventRuntimeState = pIndoorSceneRuntime->eventRuntimeState())
         {
+            m_gameSession.applyNamedGlobalVarsToRuntime(*pEventRuntimeState);
+
             EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
             eventRuntime.executeMapRefillHooks(
                 selectedMap->localEventProgram,
@@ -3820,9 +4062,9 @@ void GameApplication::openNewGameScreen()
         &m_gameAudioSystem,
         m_gameSession.data(),
         m_settings.newGameGodLich,
-        [this](const std::vector<Character> &characters)
+        [this](const std::vector<Character> &characters, uint32_t continentId)
         {
-            startNewSessionFromCharacterCreation(characters);
+            startNewSessionFromCharacterCreation(characters, continentId, true);
         },
         [this]()
         {
@@ -4052,7 +4294,17 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
     return true;
 }
 
-bool GameApplication::startNewSessionFromCharacterCreation(const std::vector<Character> &characters, bool initializeView)
+bool GameApplication::startNewSessionFromCharacterCreation(
+    const std::vector<Character> &characters,
+    bool initializeView)
+{
+    return startNewSessionFromCharacterCreation(characters, 0, initializeView);
+}
+
+bool GameApplication::startNewSessionFromCharacterCreation(
+    const std::vector<Character> &characters,
+    uint32_t continentId,
+    bool initializeView)
 {
     if (m_pAssetFileSystem == nullptr)
     {
@@ -4065,7 +4317,10 @@ bool GameApplication::startNewSessionFromCharacterCreation(const std::vector<Cha
     m_gameSession.clear();
     m_gameSession.clearCurrentSavePath();
     m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
-    const MapStartDestination startupDestination = resolveStartupDestination();
+    const std::optional<MapStartDestination> continentStartDestination =
+        continentId != 0 ? resolveContinentStartDestination(continentId) : std::nullopt;
+    const MapStartDestination startupDestination =
+        continentStartDestination.value_or(resolveStartupDestination());
     m_gameSession.setCurrentMapFileName(startupDestination.mapFileName);
     PartySeed seed = {};
     seed.gold = 200;
@@ -4270,8 +4525,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         const GameplaySharedInputFrameResult &sharedInput = m_gameSession.sharedInputFrameResult();
         const bool pendingSpellTargetActive = m_gameSession.gameplayScreenState().pendingSpellTarget().active;
         const bool gameplayWorldPaused =
-            sharedInput.mouseLookPolicy.cursorModeActive
-            || sharedInput.worldInputBlocked
+            sharedInput.worldInputBlocked
             || pendingSpellTargetActive
             || m_gameSession.sharedWorldInteractionBlockedThisFrame()
             || debugConsoleFreezesGameplay;

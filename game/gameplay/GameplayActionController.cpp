@@ -378,8 +378,7 @@ int resolveMeleeAppliedDamage(
             CharacterAttackMode::Melee,
             config.pItemTable,
             config.pSpecialItemEnchantTable,
-            pStats->name,
-            pStats->pictureName);
+            pStats->kindFlags);
     appliedDamage *= multiplier;
 
     int resistance = pStats->physicalResistance;

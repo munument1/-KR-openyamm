@@ -6,6 +6,7 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/party/Party.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@ struct GameSaveData
     SceneKind currentSceneKind = SceneKind::Outdoor;
     std::string mapFileName;
     Party::Snapshot party;
+    std::unordered_map<std::string, int32_t> namedGlobalVars;
     bool hasOutdoorRuntimeState = false;
     OutdoorPartyRuntime::Snapshot outdoorParty;
     OutdoorWorldRuntime::Snapshot outdoorWorld;

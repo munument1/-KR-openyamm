@@ -8,6 +8,7 @@
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/GameplayScreenController.h"
 #include "game/gameplay/GameplaySaveLoadUiSupport.h"
+#include "game/gameplay/MercenaryRecruitmentRuntime.h"
 #include "game/gameplay/GameplaySpellService.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/SavePreviewImage.h"
@@ -945,6 +946,32 @@ bool IndoorGameView::initialize(
     m_gameSession.gameplayScreenRuntime().bindAudioSystem(m_pGameAudioSystem);
     m_gameSession.gameplayScreenRuntime().bindSettings(&m_settings);
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    EventRuntimeState *pMutableEventRuntimeState = m_pIndoorSceneRuntime->worldRuntime().eventRuntimeState();
+
+    if (pMutableEventRuntimeState != nullptr)
+    {
+        refreshMercenaryRecruitmentForCurrentMap(
+            map,
+            sceneRuntime.partyRuntime().party(),
+            *pMutableEventRuntimeState,
+            MercenaryRecruitmentTables{
+                .pHouseTable = &data.houseTable(),
+                .pNpcNameTable = &data.mergedNpcNameTable(),
+                .pCharacterSelectionTable = &data.mergedCharacterSelectionTable(),
+                .pCharacterDollTable = &data.characterDollTable(),
+                .pClassSkillTable = &data.classSkillTable(),
+                .pClassMultiplierTable = &data.classMultiplierTable(),
+                .pRaceStartingStatsTable = &data.raceStartingStatsTable(),
+                .pItemTable = &data.itemTable(),
+                .pStandardItemEnchantTable = &data.standardItemEnchantTable(),
+                .pSpecialItemEnchantTable = &data.specialItemEnchantTable(),
+                .pSpellTable = &data.spellTable(),
+            });
+    }
+
+    const EventRuntimeState *pEventRuntimeState = pMutableEventRuntimeState;
+    screenRuntime.resetOverlayInteractionState(
+        pEventRuntimeState != nullptr && !pEventRuntimeState->hiredNpcFollowers.empty());
     const GameplayScreenRuntime::SharedUiBootstrapResult sharedUiBootstrap =
         screenRuntime.initializeSharedUiRuntime(
             GameplayScreenRuntime::SharedUiBootstrapConfig{
@@ -1350,6 +1377,21 @@ bool IndoorGameView::activateMapActorDialogue(size_t actorIndex)
 
     if (!canActivateMapActorDialogue(actorIndex))
     {
+        GameplayRuntimeActorState runtimeState = {};
+
+        if (worldRuntime.actorRuntimeState(actorIndex, runtimeState) && runtimeState.hostileToParty)
+        {
+            const Party *pParty = m_gameSession.gameplayScreenRuntime().partyReadOnly();
+
+            if (pParty != nullptr)
+            {
+                m_gameSession.gameplayScreenRuntime().playSpeechReaction(
+                    pParty->activeMemberIndex(),
+                    SpeechId::Yell,
+                    true);
+            }
+        }
+
         pEventRuntimeState->lastActivationResult = "actor " + std::to_string(actorIndex) + " dialogue blocked";
         return false;
     }
@@ -1398,6 +1440,16 @@ bool IndoorGameView::activateMapActorDialogue(size_t actorIndex)
 
     if (!resolution)
     {
+        const Party *pParty = m_gameSession.gameplayScreenRuntime().partyReadOnly();
+
+        if (pParty != nullptr)
+        {
+            m_gameSession.gameplayScreenRuntime().playSpeechReaction(
+                pParty->activeMemberIndex(),
+                SpeechId::NpcDontTalk,
+                true);
+        }
+
         pEventRuntimeState->lastActivationResult =
             "actor group " + std::to_string(actor.group) + " dialogue unresolved";
         return false;
@@ -1816,6 +1868,24 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
     if (!pWorldRuntime->actorInspectState(pick->runtimeActorIndex, 0, inspectState))
     {
         return;
+    }
+
+    if (input.rightMouseButton.pressed && !inspectState.isDead)
+    {
+        Party *pParty = screenRuntime.party();
+        const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
+
+        if (pParty != nullptr && pMember != nullptr && pStats != nullptr)
+        {
+            const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pMember, pStats->level);
+
+            if (speechId != SpeechId::None)
+            {
+                screenRuntime.playSpeechReaction(pParty->activeMemberIndex(), speechId, true);
+            }
+        }
     }
 
     const std::optional<GenericActorDialogResolution> resolution =

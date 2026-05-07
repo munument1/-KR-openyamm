@@ -64,6 +64,9 @@ void OutdoorMovementDriver::initialize(float x, float y, float footZHint)
     m_pendingJumpPress = false;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_pendingImpulseVelocityX = 0.0f;
+    m_pendingImpulseVelocityY = 0.0f;
+    m_pendingImpulseVelocityZ = 0.0f;
     m_flyingAvailable = false;
     m_movementAccumulatorSeconds = 0.0f;
     m_startedFallingEventSeconds = 0.0f;
@@ -98,6 +101,9 @@ void OutdoorMovementDriver::restoreState(
     m_pendingJumpPress = false;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_pendingImpulseVelocityX = 0.0f;
+    m_pendingImpulseVelocityY = 0.0f;
+    m_pendingImpulseVelocityZ = 0.0f;
     m_movementAccumulatorSeconds = 0.0f;
     m_startedFallingEventSeconds = 0.0f;
     m_landedEventSeconds = 0.0f;
@@ -259,6 +265,26 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     m_lastConsequences = {};
     m_movementAccumulatorSeconds =
         std::min(m_movementAccumulatorSeconds + deltaSeconds, MaxAccumulatedMovementSeconds);
+    float impulseVelocityX = 0.0f;
+    float impulseVelocityY = 0.0f;
+    float impulseVelocityZ = 0.0f;
+
+    if (m_movementAccumulatorSeconds >= OutdoorMovementStepSeconds)
+    {
+        impulseVelocityX = m_pendingImpulseVelocityX;
+        impulseVelocityY = m_pendingImpulseVelocityY;
+        impulseVelocityZ = m_pendingImpulseVelocityZ;
+        const bool hasPendingImpulse =
+            impulseVelocityX != 0.0f || impulseVelocityY != 0.0f || impulseVelocityZ != 0.0f;
+
+        if (hasPendingImpulse)
+        {
+            m_state.verticalVelocity = std::max(m_state.verticalVelocity, impulseVelocityZ);
+            m_pendingImpulseVelocityX = 0.0f;
+            m_pendingImpulseVelocityY = 0.0f;
+            m_pendingImpulseVelocityZ = 0.0f;
+        }
+    }
 
     while (m_movementAccumulatorSeconds >= OutdoorMovementStepSeconds)
     {
@@ -270,8 +296,8 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         std::vector<size_t> contactedActorIndices;
         m_state = m_movementController.resolveMove(
             m_state,
-            moveVelocityX,
-            moveVelocityY,
+            moveVelocityX + impulseVelocityX,
+            moveVelocityY + impulseVelocityY,
             moveVelocityZ,
             jumpRequestedThisStep,
             input.flyUp,
@@ -566,6 +592,13 @@ void OutdoorMovementDriver::requestJump(std::optional<float> verticalVelocity, f
     m_pendingJumpLift = std::max(1.0f, lift);
 }
 
+void OutdoorMovementDriver::requestSpecialJump(float velocityX, float velocityY, float velocityZ)
+{
+    m_pendingImpulseVelocityX = velocityX;
+    m_pendingImpulseVelocityY = velocityY;
+    m_pendingImpulseVelocityZ = velocityZ;
+}
+
 void OutdoorMovementDriver::setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders)
 {
     m_movementController.setActorColliders(actorColliders);
@@ -574,6 +607,11 @@ void OutdoorMovementDriver::setActorColliders(const std::vector<OutdoorActorColl
 void OutdoorMovementDriver::setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes)
 {
     m_movementController.setFaceAttributes(bModelIndex, faceIndex, attributes);
+}
+
+void OutdoorMovementDriver::updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries)
+{
+    m_movementController.updateFaceGeometries(geometries);
 }
 
 }

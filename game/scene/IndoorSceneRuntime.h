@@ -71,7 +71,8 @@ public:
         const SpriteFrameTable *pProjectileSpriteFrameTable = nullptr,
         const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
-        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
+        bool bolsterMonstersEnabled = false
     );
     IndoorSceneRuntime(
         const std::string &mapFileName,
@@ -90,7 +91,8 @@ public:
         const SpriteFrameTable *pActorSpriteFrameTable = nullptr,
         const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
-        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
+        bool bolsterMonstersEnabled = false
     );
 
     SceneKind kind() const override;

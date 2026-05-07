@@ -1976,6 +1976,14 @@ PartySpellCastResult PartySpellSystem::castSpell(
         {
             for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
             {
+                const Character *pMember = party.member(memberIndex);
+
+                if (pMember != nullptr
+                    && pMember->conditions.test(static_cast<size_t>(CharacterCondition::Asleep)))
+                {
+                    appendAffectedCharacterIndex(result.affectedCharacterIndices, memberIndex);
+                }
+
                 party.clearMemberCondition(memberIndex, CharacterCondition::Asleep);
             }
         }

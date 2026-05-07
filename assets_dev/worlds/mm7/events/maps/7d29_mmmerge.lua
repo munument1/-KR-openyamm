@@ -1,18 +1,11 @@
 -- MMMerge supplement: Castle Harmondale local quest state.
 
-local function appendMapEvent(eventId, title, handler)
-    local previousHandler = evt.map[eventId]
+local previousMapEvent376 = evt.map[376]
+ReplaceMapEvent(376, "MMMerge Golem follower cleanup", function(...)
+    if previousMapEvent376 ~= nil then
+        previousMapEvent376(...)
+    end
 
-    ReplaceMapEvent(eventId, title, function(...)
-        if previousHandler ~= nil then
-            previousHandler(...)
-        end
-
-        handler(...)
-    end)
-end
-
-appendMapEvent(376, "MMMerge Golem follower cleanup", function()
     MM7.RemoveGolemFollowerIfConstructed()
 end)
 

@@ -283,6 +283,7 @@ void GameplayFxService::consumePendingPortraitEventFxRequest(
             break;
 
         case PortraitFxEventKind::StatIncrease:
+            runtime.playSpeechReaction(request.memberIndices.front(), SpeechId::StatBonusIncreased, false);
             break;
 
         case PortraitFxEventKind::StatDecrease:

@@ -1,7 +1,11 @@
 #include "game/tables/ClassSkillTable.h"
 
+#include "game/tables/MergedBaseTables.h"
+
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -24,6 +28,82 @@ bool parseUnsigned(const std::string &text, uint32_t &value)
 
     value = static_cast<uint32_t>(parsed);
     return true;
+}
+
+std::string trimCopy(const std::string &text)
+{
+    size_t begin = 0;
+
+    while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin])) != 0)
+    {
+        ++begin;
+    }
+
+    size_t end = text.size();
+
+    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0)
+    {
+        --end;
+    }
+
+    return text.substr(begin, end - begin);
+}
+
+std::string normalizedToken(const std::string &text)
+{
+    std::string result;
+
+    for (unsigned char character : trimCopy(text))
+    {
+        if (std::isalnum(character))
+        {
+            result.push_back(static_cast<char>(std::tolower(character)));
+        }
+    }
+
+    return result;
+}
+
+uint32_t manaModeCodeFromToken(const std::string &text)
+{
+    const std::string token = normalizedToken(text);
+
+    if (token == "intellect" || token == "intelligence")
+    {
+        return 1;
+    }
+
+    if (token == "personality")
+    {
+        return 2;
+    }
+
+    if (token == "mixed")
+    {
+        return 3;
+    }
+
+    if (token == "level")
+    {
+        return 4;
+    }
+
+    return 0;
+}
+
+SkillMastery clampSkillMastery(int32_t mastery)
+{
+    if (mastery <= 0)
+    {
+        return SkillMastery::None;
+    }
+
+    if (mastery >= 4)
+    {
+        return SkillMastery::Grandmaster;
+    }
+
+    return static_cast<SkillMastery>(mastery);
 }
 }
 
@@ -173,6 +253,93 @@ bool ClassSkillTable::loadClassMetadataFromRows(const std::vector<std::vector<st
     return !m_classNamesById.empty();
 }
 
+bool ClassSkillTable::loadClassSpellPointMetadataFromRows(const std::vector<std::vector<std::string>> &rows)
+{
+    if (rows.size() < 2)
+    {
+        return false;
+    }
+
+    bool appliedAny = false;
+
+    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+
+        if (row.size() < 6)
+        {
+            continue;
+        }
+
+        const std::string className = canonicalClassName(row[0]);
+
+        if (className.empty())
+        {
+            continue;
+        }
+
+        ClassMetadataEntry &entry = m_classMetadata[className];
+        entry.className = className;
+        entry.manaMode = manaModeCodeFromToken(row[5]);
+        appliedAny = true;
+    }
+
+    return appliedAny;
+}
+
+bool ClassSkillTable::applyRaceSkillOverrides(const MergedRaceSkillTable &raceSkillTable)
+{
+    m_raceSkillRules.clear();
+
+    for (const MergedRaceSkillOverride &entry : raceSkillTable.overrides())
+    {
+        if (!entry.raceId)
+        {
+            continue;
+        }
+
+        RaceSkillRule rule = {};
+        rule.raceId = *entry.raceId;
+        rule.skillName = canonicalSkillName(entry.skillName);
+        rule.minMastery = clampSkillMastery(static_cast<int32_t>(entry.minMastery));
+        rule.add = entry.add;
+        rule.exceptionCode = entry.exceptionCode;
+
+        if (rule.skillName.empty())
+        {
+            continue;
+        }
+
+        if (!entry.classKind.empty())
+        {
+            uint32_t classKind = 0;
+
+            if (!parseUnsigned(entry.classKind, classKind))
+            {
+                const std::string className = canonicalClassName(entry.classKind);
+                const ClassMetadataEntry *pMetadata = metadataForClass(className);
+
+                if (pMetadata != nullptr)
+                {
+                    classKind = pMetadata->classKind;
+                }
+            }
+
+            if (classKind == 0)
+            {
+                continue;
+            }
+
+            rule.classKind = classKind;
+            rule.hasClassKind = true;
+        }
+
+        m_raceSkillRules.push_back(std::move(rule));
+    }
+
+    return true;
+}
+
 SkillMastery ClassSkillTable::getClassCap(const std::string &className, const std::string &skillName) const
 {
     const std::string canonicalClass = canonicalClassName(className);
@@ -195,6 +362,53 @@ SkillMastery ClassSkillTable::getClassCap(const std::string &className, const st
     return skillIt->second;
 }
 
+SkillMastery ClassSkillTable::getEffectiveCap(
+    const std::string &className,
+    uint32_t raceId,
+    const std::string &skillName
+) const
+{
+    const SkillMastery baseCap = getClassCap(className, skillName);
+    const std::string canonicalSkill = canonicalSkillName(skillName);
+
+    if (canonicalSkill.empty())
+    {
+        return SkillMastery::None;
+    }
+
+    SkillMastery minMastery = SkillMastery::None;
+    int32_t add = 0;
+
+    for (const RaceSkillRule &rule : m_raceSkillRules)
+    {
+        if (rule.raceId != raceId
+            || rule.skillName != canonicalSkill
+            || !raceSkillRuleApplies(rule, className))
+        {
+            continue;
+        }
+
+        if (rule.minMastery > minMastery)
+        {
+            minMastery = rule.minMastery;
+        }
+
+        if (rule.add > add)
+        {
+            add = rule.add;
+        }
+    }
+
+    int32_t result = std::max(static_cast<int32_t>(baseCap), static_cast<int32_t>(minMastery));
+
+    if (baseCap != SkillMastery::None)
+    {
+        result += add;
+    }
+
+    return clampSkillMastery(result);
+}
+
 SkillMastery ClassSkillTable::getHighestPromotionCap(const std::string &className, const std::string &skillName) const
 {
     SkillMastery bestCap = SkillMastery::None;
@@ -210,6 +424,44 @@ SkillMastery ClassSkillTable::getHighestPromotionCap(const std::string &classNam
         const std::string promotedClass = pendingClasses.back();
         pendingClasses.pop_back();
         const SkillMastery cap = getClassCap(promotedClass, skillName);
+
+        if (cap > bestCap)
+        {
+            bestCap = cap;
+        }
+
+        std::vector<std::string> nextPromotions = promotionClassNamesFromMetadata(promotedClass);
+
+        if (nextPromotions.empty())
+        {
+            nextPromotions = promotionClassNames(promotedClass);
+        }
+
+        pendingClasses.insert(pendingClasses.end(), nextPromotions.begin(), nextPromotions.end());
+    }
+
+    return bestCap;
+}
+
+SkillMastery ClassSkillTable::getHighestPromotionEffectiveCap(
+    const std::string &className,
+    uint32_t raceId,
+    const std::string &skillName
+) const
+{
+    SkillMastery bestCap = SkillMastery::None;
+    std::vector<std::string> pendingClasses = promotionClassNamesFromMetadata(className);
+
+    if (pendingClasses.empty())
+    {
+        pendingClasses = promotionClassNames(className);
+    }
+
+    while (!pendingClasses.empty())
+    {
+        const std::string promotedClass = pendingClasses.back();
+        pendingClasses.pop_back();
+        const SkillMastery cap = getEffectiveCap(promotedClass, raceId, skillName);
 
         if (cap > bestCap)
         {
@@ -256,6 +508,73 @@ std::vector<std::string> ClassSkillTable::promotionClassNamesFromMetadata(const 
     return result;
 }
 
+const ClassMetadataEntry *ClassSkillTable::metadataForClass(const std::string &className) const
+{
+    const std::unordered_map<std::string, ClassMetadataEntry>::const_iterator classIt =
+        m_classMetadata.find(canonicalClassName(className));
+
+    if (classIt == m_classMetadata.end())
+    {
+        return nullptr;
+    }
+
+    return &classIt->second;
+}
+
+uint32_t ClassSkillTable::classKindForClass(const std::string &className) const
+{
+    const ClassMetadataEntry *pMetadata = metadataForClass(className);
+    return pMetadata != nullptr ? pMetadata->classKind : 0;
+}
+
+uint32_t ClassSkillTable::manaModeForClass(const std::string &className) const
+{
+    const ClassMetadataEntry *pMetadata = metadataForClass(className);
+    return pMetadata != nullptr ? pMetadata->manaMode : 0;
+}
+
+bool ClassSkillTable::raceSkillRuleApplies(const RaceSkillRule &rule, const std::string &className) const
+{
+    const uint32_t classKind = classKindForClass(className);
+
+    if (rule.hasClassKind)
+    {
+        return classKind != 0 && classKind == rule.classKind;
+    }
+
+    if (rule.exceptionCode > 0)
+    {
+        return classKind != static_cast<uint32_t>(rule.exceptionCode);
+    }
+
+    const uint32_t manaMode = manaModeForClass(className);
+
+    switch (rule.exceptionCode)
+    {
+    case -1:
+    case -2:
+    case -3:
+        return manaMode != static_cast<uint32_t>(-rule.exceptionCode);
+    case -4:
+        return manaMode != 0;
+    case -5:
+        return manaMode == 0;
+    default:
+        return true;
+    }
+}
+
+bool ClassSkillTable::raceSkillRuleCanCreateStartingChoice(
+    const RaceSkillRule &rule,
+    const std::string &className,
+    SkillMastery baseCap
+) const
+{
+    return baseCap == SkillMastery::None
+        && rule.minMastery != SkillMastery::None
+        && raceSkillRuleApplies(rule, className);
+}
+
 StartingSkillAvailability ClassSkillTable::getStartingSkillAvailability(
     const std::string &className,
     const std::string &skillName
@@ -282,6 +601,41 @@ StartingSkillAvailability ClassSkillTable::getStartingSkillAvailability(
     return skillIt->second;
 }
 
+StartingSkillAvailability ClassSkillTable::getEffectiveStartingSkillAvailability(
+    const std::string &className,
+    uint32_t raceId,
+    const std::string &skillName
+) const
+{
+    const StartingSkillAvailability baseAvailability = getStartingSkillAvailability(className, skillName);
+    const SkillMastery baseCap = getClassCap(className, skillName);
+    const SkillMastery effectiveCap = getEffectiveCap(className, raceId, skillName);
+
+    if (effectiveCap == SkillMastery::None)
+    {
+        return StartingSkillAvailability::None;
+    }
+
+    if (baseAvailability != StartingSkillAvailability::None)
+    {
+        return baseAvailability;
+    }
+
+    const std::string canonicalSkill = canonicalSkillName(skillName);
+
+    for (const RaceSkillRule &rule : m_raceSkillRules)
+    {
+        if (rule.raceId == raceId
+            && rule.skillName == canonicalSkill
+            && raceSkillRuleCanCreateStartingChoice(rule, className, baseCap))
+        {
+            return StartingSkillAvailability::CanLearn;
+        }
+    }
+
+    return StartingSkillAvailability::None;
+}
+
 std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForClass(const std::string &className) const
 {
     std::vector<CharacterSkill> skills;
@@ -297,6 +651,39 @@ std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForClass(const std:
     for (const auto &[skillName, availability] : classIt->second)
     {
         if (availability != StartingSkillAvailability::HasByDefault)
+        {
+            continue;
+        }
+
+        CharacterSkill skill = {};
+        skill.name = skillName;
+        skill.level = 1;
+        skill.mastery = SkillMastery::Normal;
+        skills.push_back(std::move(skill));
+    }
+
+    std::sort(
+        skills.begin(),
+        skills.end(),
+        [](const CharacterSkill &left, const CharacterSkill &right)
+        {
+            return left.name < right.name;
+        }
+    );
+    return skills;
+}
+
+std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForCharacter(
+    const std::string &className,
+    uint32_t raceId
+) const
+{
+    std::vector<CharacterSkill> skills;
+
+    for (const std::string &skillName : allCanonicalSkillNames())
+    {
+        if (getEffectiveStartingSkillAvailability(className, raceId, skillName)
+            != StartingSkillAvailability::HasByDefault)
         {
             continue;
         }

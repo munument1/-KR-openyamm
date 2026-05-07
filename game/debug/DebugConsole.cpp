@@ -793,6 +793,13 @@ void DebugConsole::renderQuickActions()
 
     ImGui::SameLine();
 
+    if (ImGui::SmallButton("Set up Breach"))
+    {
+        executeLine("setup breach");
+    }
+
+    ImGui::SameLine();
+
     if (ImGui::SmallButton("Clear Log"))
     {
         clearMessages();

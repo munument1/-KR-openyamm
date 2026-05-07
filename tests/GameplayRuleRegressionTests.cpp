@@ -1147,7 +1147,8 @@ TEST_CASE("inventory mixing creates reagent potion when held bottle is used on r
             gameData.itemTable,
             gameData.potionMixingTable,
             gameData.mergedPotionSettingTable,
-            gameData.mergedReagentSettingTable);
+            gameData.mergedReagentSettingTable,
+            &gameData.potionNoteTable);
 
     REQUIRE(result.handled);
     CHECK(result.success);
@@ -1235,12 +1236,14 @@ TEST_CASE("inventory mixing combines valid potions and returns an empty bottle")
             gameData.itemTable,
             gameData.potionMixingTable,
             gameData.mergedPotionSettingTable,
-            gameData.mergedReagentSettingTable);
+            gameData.mergedReagentSettingTable,
+            &gameData.potionNoteTable);
 
     REQUIRE(result.handled);
     CHECK(result.success);
     CHECK(result.heldItemConsumed);
     CHECK_FALSE(result.heldItemReplacement.has_value());
+    CHECK_EQ(result.unlockedAutonoteId, 33u);
 
     const OpenYAMM::Game::InventoryItem *pMixedPotion = pMember->inventoryItemAt(0, 0);
     REQUIRE(pMixedPotion != nullptr);
@@ -1307,6 +1310,19 @@ TEST_CASE("potion mixing table uses merged potion matrix columns")
         gameData.potionMixingTable.potionCombination(806, 806);
     REQUIRE(strangeSelf.has_value());
     CHECK(strangeSelf->noMix);
+}
+
+TEST_CASE("potion note table maps successful mixes to autonotes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    CHECK_GT(gameData.potionNoteTable.entryCount(), 100u);
+
+    const std::optional<uint32_t> redBlueNote = gameData.potionNoteTable.autonoteIdForMix(223u, 222u);
+    REQUIRE(redBlueNote.has_value());
+    CHECK_EQ(*redBlueNote, 33u);
+
+    CHECK_FALSE(gameData.potionNoteTable.autonoteIdForMix(222u, 222u).has_value());
 }
 
 TEST_CASE("potion explosion level two damages the member and breaks one regular item")
@@ -1878,6 +1894,27 @@ TEST_CASE("lua event runtime stores question answer metadata and resumes continu
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 166, runtimeState, nullptr, nullptr, 4));
     REQUIRE_FALSE(runtimeState.messages.empty());
     CHECK_EQ(runtimeState.messages.back(), "ok");
+}
+
+TEST_CASE("lua on-load runtime preserves preseeded named globals")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[77] = function()\n"
+        "    evt._BeginEvent(77)\n"
+        "    evt.SetGlobalVar(\"Story.SeenOnLoad\", evt.GetGlobalVar(\"Story.Preseed\", 0))\n"
+        "end\n",
+        "@SyntheticNamedGlobalOnLoad.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map,
+        {77});
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.namedGlobalVars["Story.Preseed"] = 42;
+
+    REQUIRE(eventRuntime.buildOnLoadState(scriptedProgram, std::nullopt, std::nullopt, runtimeState));
+    CHECK_EQ(runtimeState.namedGlobalVars["Story.Preseed"], 42);
+    CHECK_EQ(runtimeState.namedGlobalVars["Story.SeenOnLoad"], 42);
 }
 
 TEST_CASE("lua map event continuations prefer local handlers over colliding global handlers")
@@ -2936,6 +2973,36 @@ TEST_CASE("lua event runtime treats explicit hint-only events as handled no-ops"
     OpenYAMM::Game::EventRuntimeState runtimeState = {};
 
     CHECK(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 42, runtimeState, nullptr, nullptr));
+}
+
+TEST_CASE("lua map hint-only events shadow colliding global handlers")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+        "evt.meta.map.hint = {[176] = \"Needful Things\"}\n"
+        "evt.meta.map.summary = {[176] = \"Needful Things\"}\n",
+        "@SyntheticLocalHintOnlyEvent.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map,
+        error);
+    REQUIRE_MESSAGE(localProgram.has_value(), error.c_str());
+    REQUIRE(localProgram->isHintOnlyEvent(176));
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram = loadSyntheticScriptedProgram(
+        "evt.global[176] = function()\n"
+        "    evt._BeginEvent(176)\n"
+        "    evt.SimpleMessage(\"global\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticGlobalCollisionEvent.lua",
+        OpenYAMM::Game::ScriptedEventScope::Global);
+    REQUIRE(globalProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    CHECK(eventRuntime.executeEventById(localProgram, globalProgram, 176, runtimeState, nullptr, nullptr));
+    CHECK(runtimeState.messages.empty());
 }
 
 TEST_CASE("event runtime caches facet invisible override state")

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <unordered_set>
 
 namespace OpenYAMM::Game
@@ -26,6 +27,12 @@ constexpr const char *pLorettaPriceFixingLabel = "Price Fixing";
 constexpr const char *pLorettaPriceFixingMessage =
     "Well, If Loretta's got a new scheme, count me in!\n"
     "But you better get all the other companies to sign up!";
+
+bool tavernDrinkMakesPartyDrunk()
+{
+    static thread_local std::mt19937 rng(std::random_device{}());
+    return std::uniform_int_distribution<int>(1, 4)(rng) == 1;
+}
 
 int minuteOfDayFromGameMinutes(float currentGameMinutes)
 {
@@ -433,7 +440,8 @@ std::vector<std::string> collectLearnableSkills(
             continue;
         }
 
-        if (pClassSkillTable->getClassCap(pMember->className, canonicalSkill) == SkillMastery::None)
+        if (pClassSkillTable->getEffectiveCap(pMember->className, pMember->raceId, canonicalSkill)
+            == SkillMastery::None)
         {
             continue;
         }
@@ -750,6 +758,8 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         }
 
         options.push_back(std::move(food));
+        options.push_back(makeOption(HouseActionId::TavernDrink, "Have a Drink", isHouseOpenNow, closedReason));
+        options.push_back(makeOption(HouseActionId::TavernTip, "Tip Innkeeper", isHouseOpenNow, closedReason));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
 
         if (houseEntry.arcomageRule.has_value())
@@ -1069,6 +1079,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You need " + std::to_string(price) + " gold for healing.");
                 result.soundType = HouseSoundType::GeneralNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1093,6 +1104,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You need " + std::to_string(price) + " gold to donate here.");
                 result.soundType = HouseSoundType::GeneralNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1134,6 +1146,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You need " + std::to_string(price) + " gold to rent a room.");
                 result.soundType = HouseSoundType::TavernNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1149,6 +1162,7 @@ HouseActionResult performHouseAction(
             if (party.food() >= TavernFoodTarget)
             {
                 result.messages.push_back("Your packs are already full enough.");
+                result.speechId = SpeechId::TavernPacksFull;
                 return result;
             }
 
@@ -1158,6 +1172,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You need " + std::to_string(price) + " gold for provisions.");
                 result.soundType = HouseSoundType::TavernNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1166,6 +1181,52 @@ HouseActionResult performHouseAction(
             result.messages.push_back("The innkeeper fills your packs to " + std::to_string(TavernFoodTarget) + " days.");
             result.succeeded = true;
             result.soundType = HouseSoundType::TavernBuyFood;
+            return result;
+        }
+
+        case HouseActionId::TavernDrink:
+        {
+            constexpr int DrinkPrice = 1;
+
+            if (party.gold() < DrinkPrice)
+            {
+                result.messages.push_back("You need " + std::to_string(DrinkPrice) + " gold for a drink.");
+                result.soundType = HouseSoundType::TavernNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
+                return result;
+            }
+
+            party.addGold(-DrinkPrice);
+            result.messages.push_back("Refreshing!");
+            result.succeeded = true;
+            result.speechId = SpeechId::TavernDrink;
+
+            if (tavernDrinkMakesPartyDrunk())
+            {
+                party.applyMemberCondition(party.activeMemberIndex(), CharacterCondition::Drunk);
+                result.additionalSpeechIds.push_back(SpeechId::TavernGotDrunk);
+            }
+
+            return result;
+        }
+
+        case HouseActionId::TavernTip:
+        {
+            constexpr int TipPrice = 1;
+
+            if (party.gold() < TipPrice)
+            {
+                result.messages.push_back("You need " + std::to_string(TipPrice) + " gold for a tip.");
+                result.soundType = HouseSoundType::TavernNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
+                return result;
+            }
+
+            party.addGold(-TipPrice);
+            result.messages.push_back("Thank You");
+            result.succeeded = true;
+            result.speechId = SpeechId::TavernTip;
+            result.additionalSpeechIds.push_back(SpeechId::ThankYou);
             return result;
         }
 
@@ -1243,6 +1304,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You need " + std::to_string(price) + " gold for training.");
                 result.soundType = HouseSoundType::TrainingNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1305,6 +1367,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You don't have enough gold.");
                 result.soundType = HouseSoundType::GeneralNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 
@@ -1324,6 +1387,7 @@ HouseActionResult performHouseAction(
                 + " gold."
             );
             result.succeeded = true;
+            result.speechId = SpeechId::SkillLearned;
             return result;
         }
 
@@ -1384,6 +1448,7 @@ HouseActionResult performHouseAction(
             {
                 result.messages.push_back("You don't have enough gold.");
                 result.soundType = HouseSoundType::TransportNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
                 return result;
             }
 

@@ -4,6 +4,7 @@
 #include "game/tables/MonsterTable.h"
 
 #include <cstdint>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -20,6 +21,7 @@ struct GameplayBolsterRuntimeContext
     const MergedBolsterMapTable *pBolsterMapTable = nullptr;
     const MergedBolsterMonsterTable *pBolsterMonsterTable = nullptr;
     const Party *pParty = nullptr;
+    bool bolsterMonstersEnabled = false;
 };
 
 struct GameplayMonsterBolsterResult
@@ -32,6 +34,15 @@ struct GameplayMonsterBolsterResult
     bool monsterAllowsNewSpells = false;
     bool monsterAllowsSummons = false;
     bool monsterAllowsReplicate = false;
+    bool generatedAttack2 = false;
+    bool generatedAttack2IsRanged = false;
+    bool copyAttack1DamageToAttack2 = false;
+    std::string generatedAttack2MissileType;
+    int generatedAttack2Chance = 0;
+    uint32_t generatedSpell1Id = 0;
+    uint32_t generatedSpell2Id = 0;
+    int generatedSpell1UseChance = 0;
+    int generatedSpell2UseChance = 0;
     bool immobile = false;
     bool stationarySummonAsSpawnPoint = false;
     uint32_t summonMonsterId = 0;
@@ -50,6 +61,12 @@ struct GameplayMonsterBolsterResult
 };
 
 int gameplayBolsterAveragePartyLevel(const Party *pParty);
+
+int gameplayBolsterPlayerArmorClass(
+    int armorClass,
+    int monsterLevel,
+    int playerBaseLevel,
+    bool bolsterAffectsArmorClass);
 
 GameplayMonsterBolsterResult resolveGameplayMonsterBolster(
     const GameplayBolsterRuntimeContext &context,

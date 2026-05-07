@@ -952,6 +952,34 @@ bool canReceiveUnconsciousAoeDamage(const Character &member)
         && !member.conditions.test(static_cast<size_t>(CharacterCondition::Eradicated));
 }
 
+size_t countActingMembers(const std::vector<Character> &members)
+{
+    size_t count = 0;
+
+    for (const Character &member : members)
+    {
+        if (GameMechanics::canAct(member))
+        {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+std::optional<size_t> firstActingMemberIndex(const std::vector<Character> &members)
+{
+    for (size_t memberIndex = 0; memberIndex < members.size(); ++memberIndex)
+    {
+        if (GameMechanics::canAct(members[memberIndex]))
+        {
+            return memberIndex;
+        }
+    }
+
+    return std::nullopt;
+}
+
 void updateMemberIncapacitatedCondition(Character &member, bool preservationActive)
 {
     if (member.health > 0)
@@ -2361,7 +2389,7 @@ void Party::applyMovementEffects(const OutdoorMovementEffects &effects)
 
             const int damage =
                 std::max(0, static_cast<int>(effects.maxFallDamageDistance * (m_members[memberIndex].maxHealth / 10.0f) / 256.0f));
-            applyDamageToMember(memberIndex, damage, "");
+            applyDamageToMember(memberIndex, damage, "falling");
         }
 
         m_lastStatus = "fall damage";
@@ -2540,6 +2568,7 @@ bool Party::applyDamageToMember(
 
     Character &member = m_members[memberIndex];
     const int previousHealth = member.health;
+    const size_t actingMembersBeforeDamage = countActingMembers(m_members);
 
     if (member.health <= 0 && (!allowUnconscious || !canReceiveUnconsciousAoeDamage(member)))
     {
@@ -2552,6 +2581,11 @@ bool Party::applyDamageToMember(
         const bool preservationActive =
             m_characterBuffs[memberIndex][static_cast<size_t>(CharacterBuffId::Preservation)].active();
         updateMemberIncapacitatedCondition(member, preservationActive);
+
+        if (preservationActive && previousHealth > 0 && member.health <= 0)
+        {
+            queueSpeech(memberIndex, SpeechId::CheatedDeath);
+        }
     }
 
     const bool crossedMajorDamageThreshold =
@@ -2560,14 +2594,32 @@ bool Party::applyDamageToMember(
         && member.health > 0
         && member.health <= member.maxHealth / 4;
 
-    if (GameMechanics::canAct(member))
+    if (status == "falling")
+    {
+        queueSpeech(memberIndex, SpeechId::Falling);
+    }
+    else if (GameMechanics::canAct(member))
     {
         queueSpeech(memberIndex, SpeechId::DamageMinor);
     }
 
-    if (member.health <= 0 || crossedMajorDamageThreshold)
+    if (member.health <= 0)
+    {
+        queueSpeech(memberIndex, SpeechId::Dying);
+    }
+    else if (crossedMajorDamageThreshold)
     {
         queueSpeech(memberIndex, SpeechId::DamageMajor);
+    }
+
+    if (actingMembersBeforeDamage > 1 && countActingMembers(m_members) == 1)
+    {
+        const std::optional<size_t> remainingMemberIndex = firstActingMemberIndex(m_members);
+
+        if (remainingMemberIndex)
+        {
+            queueSpeech(*remainingMemberIndex, SpeechId::LastPersonStanding);
+        }
     }
 
     if (!status.empty())
@@ -2586,6 +2638,7 @@ bool Party::applyDamageToAllLivingMembers(int damage, const std::string &status)
     }
 
     bool applied = false;
+    size_t appliedCount = 0;
 
     for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
     {
@@ -2594,7 +2647,16 @@ bool Party::applyDamageToAllLivingMembers(int damage, const std::string &status)
             continue;
         }
 
-        applied = applyDamageToMember(memberIndex, damage, "", true) || applied;
+        if (applyDamageToMember(memberIndex, damage, "", true))
+        {
+            applied = true;
+            ++appliedCount;
+        }
+    }
+
+    if (appliedCount > 1)
+    {
+        queueSpeech(activeMemberIndex(), SpeechId::DamagedParty);
     }
 
     if (applied && !status.empty())
@@ -3111,7 +3173,8 @@ bool Party::canActiveMemberLearnSkill(const std::string &skillName) const
         return false;
     }
 
-    return m_pClassSkillTable->getClassCap(pMember->className, canonicalSkill) != SkillMastery::None;
+    return m_pClassSkillTable->getEffectiveCap(pMember->className, pMember->raceId, canonicalSkill)
+        != SkillMastery::None;
 }
 
 bool Party::learnActiveMemberSkill(const std::string &skillName)
@@ -3244,6 +3307,29 @@ bool Party::recruitRosterMember(const RosterEntry &rosterEntry)
         m_pStandardItemEnchantTable,
         m_pSpecialItemEnchantTable);
 
+    m_lastStatus = "party member recruited";
+    return true;
+}
+
+bool Party::recruitCharacter(const Character &character)
+{
+    if (isFull())
+    {
+        return false;
+    }
+
+    m_members.push_back(character);
+    applyCharacterIdentityFromDollTable(m_members.back(), m_pCharacterDollTable);
+    m_members.back().className = canonicalClassName(
+        m_members.back().className.empty() ? m_members.back().role : m_members.back().className);
+    m_members.back().role = normalizeRoleName(m_members.back().className);
+
+    if (m_members.back().skills.empty() && m_pClassSkillTable != nullptr)
+    {
+        applyDefaultStartingSkills(m_members.back());
+    }
+
+    initializePortraitRuntimeState(m_members.back());
     m_lastStatus = "party member recruited";
     return true;
 }
@@ -5348,7 +5434,34 @@ bool Party::applyMemberCondition(size_t memberIndex, CharacterCondition conditio
         return false;
     }
 
+    const bool alreadyHadCondition = pMember->conditions.test(static_cast<size_t>(condition));
     pMember->conditions.set(static_cast<size_t>(condition));
+
+    if (!alreadyHadCondition)
+    {
+        switch (condition)
+        {
+            case CharacterCondition::Drunk:
+                queueSpeech(memberIndex, SpeechId::Drunk);
+                break;
+
+            case CharacterCondition::Insane:
+                queueSpeech(memberIndex, SpeechId::Insane);
+                break;
+
+            case CharacterCondition::Cursed:
+                queueSpeech(memberIndex, SpeechId::Cursed);
+                break;
+
+            case CharacterCondition::Fear:
+                queueSpeech(memberIndex, SpeechId::AfraidSilent);
+                break;
+
+            default:
+                break;
+        }
+    }
+
     return true;
 }
 
@@ -5949,7 +6062,8 @@ void Party::applyDefaultStartingSkills(Character &member) const
         return;
     }
 
-    const std::vector<CharacterSkill> defaultSkills = m_pClassSkillTable->getDefaultSkillsForClass(member.className);
+    const std::vector<CharacterSkill> defaultSkills =
+        m_pClassSkillTable->getDefaultSkillsForCharacter(member.className, member.raceId);
 
     for (const CharacterSkill &skill : defaultSkills)
     {

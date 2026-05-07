@@ -55,6 +55,7 @@ add_executable(openyamm
     gameplay/GameplayWorldItemInteraction.cpp
     gameplay/InteractiveDecorationRules.cpp
     gameplay/MonsterSpellSupport.cpp
+    gameplay/MercenaryRecruitmentRuntime.cpp
     gameplay/GameplayOverlayInputController.cpp
     gameplay/GameplayPartyOverlayInputController.cpp
     gameplay/GameplayProjectileService.cpp
@@ -129,6 +130,7 @@ add_executable(openyamm
     render/TextureFiltering.cpp
     tables/PortraitFxEventTable.cpp
     tables/PotionMixingTable.cpp
+    tables/PotionNoteTable.cpp
     tables/PortraitEnums.cpp
     tables/PortraitFrameTable.cpp
     tables/RaceStartingStatsTable.cpp

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <optional>
 #include <regex>
 #include <unordered_map>
 
@@ -95,6 +96,120 @@ bool isSupportedMonsterMissileToken(const std::string &value)
 }
 
 bool isNumericString(const std::string &value);
+
+std::string normalizedMonsterKindToken(const std::string &value)
+{
+    std::string token;
+
+    for (unsigned char character : value)
+    {
+        if (std::isalnum(character) != 0)
+        {
+            token.push_back(static_cast<char>(std::tolower(character)));
+        }
+    }
+
+    return token;
+}
+
+std::optional<MonsterKind> parseMonsterKindToken(const std::string &value)
+{
+    const std::string token = normalizedMonsterKindToken(value);
+
+    if (token.empty())
+    {
+        return std::nullopt;
+    }
+
+    if (token == "undead")
+    {
+        return MonsterKind::Undead;
+    }
+
+    if (token == "dragon")
+    {
+        return MonsterKind::Dragon;
+    }
+
+    if (token == "swimmer")
+    {
+        return MonsterKind::Swimmer;
+    }
+
+    if (token == "immobile")
+    {
+        return MonsterKind::Immobile;
+    }
+
+    if (token == "peasant")
+    {
+        return MonsterKind::Peasant;
+    }
+
+    if (token == "noarena")
+    {
+        return MonsterKind::NoArena;
+    }
+
+    if (token == "ogre")
+    {
+        return MonsterKind::Ogre;
+    }
+
+    if (token == "elemental")
+    {
+        return MonsterKind::Elemental;
+    }
+
+    if (token == "titan")
+    {
+        return MonsterKind::Titan;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<uint32_t> parseMonsterKindFlags(const std::string &value)
+{
+    const std::string trimmedValue = trimCopy(value);
+
+    if (trimmedValue.empty() || trimmedValue == "-" || trimmedValue == "0")
+    {
+        return 0;
+    }
+
+    uint32_t flags = 0;
+    size_t tokenBegin = 0;
+
+    while (tokenBegin <= value.size())
+    {
+        const size_t commaIndex = value.find(',', tokenBegin);
+        const std::string token = trimCopy(value.substr(
+            tokenBegin,
+            commaIndex == std::string::npos ? std::string::npos : commaIndex - tokenBegin));
+
+        if (!token.empty())
+        {
+            const std::optional<MonsterKind> kind = parseMonsterKindToken(token);
+
+            if (!kind)
+            {
+                return std::nullopt;
+            }
+
+            flags |= monsterKindFlag(*kind);
+        }
+
+        if (commaIndex == std::string::npos)
+        {
+            break;
+        }
+
+        tokenBegin = commaIndex + 1;
+    }
+
+    return flags;
+}
 
 MonsterTable::MonsterStatsEntry::DamageProfile parseDamageProfile(const std::string &value)
 {
@@ -631,6 +746,16 @@ MonsterTable::LootPrototype parseLootPrototype(const std::string &value)
 }
 }
 
+uint32_t monsterKindFlag(MonsterKind kind)
+{
+    return static_cast<uint32_t>(kind);
+}
+
+bool MonsterTable::MonsterStatsEntry::hasKind(MonsterKind kind) const
+{
+    return (kindFlags & monsterKindFlag(kind)) != 0;
+}
+
 bool MonsterTable::loadFromBytes(const std::vector<uint8_t> &bytes)
 {
     m_entryIndexByInternalName.clear();
@@ -871,6 +996,15 @@ bool MonsterTable::loadStatsFromRows(const std::vector<std::vector<std::string>>
         entry.lightResistance = row.size() > 35 ? parseMonsterResistanceValue(row[35]) : 0;
         entry.darkResistance = row.size() > 36 ? parseMonsterResistanceValue(row[36]) : 0;
         entry.physicalResistance = row.size() > 37 ? parseMonsterResistanceValue(row[37]) : 0;
+        const std::optional<uint32_t> kindFlags =
+            row.size() > 39 ? parseMonsterKindFlags(row[39]) : std::optional<uint32_t>(0);
+
+        if (!kindFlags)
+        {
+            return false;
+        }
+
+        entry.kindFlags = *kindFlags;
         entry.attackStyle = classifyAttackStyle(entry);
 
         const MonsterEntry *pEntry = findById(static_cast<int16_t>(entry.id));

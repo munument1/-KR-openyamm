@@ -675,6 +675,12 @@ void GameplaySpellService::applySuccessFeedback(
 
     runtime.triggerPortraitFaceAnimation(request.casterMemberIndex, FaceAnimationId::CastSpell);
     runtime.playSpeechReaction(request.casterMemberIndex, SpeechId::CastSpell, false);
+
+    if (isSpellId(request.spellId, SpellId::Awaken) && !result.affectedCharacterIndices.empty())
+    {
+        runtime.playSpeechReaction(result.affectedCharacterIndices.front(), SpeechId::Awaken, true);
+    }
+
     m_session.gameplayFxService().triggerPortraitSpellFx(result);
     if (result.screenOverlayRequest.has_value())
     {

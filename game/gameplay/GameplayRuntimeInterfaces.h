@@ -314,6 +314,7 @@ struct GameplayCombatActorInfo
     int maxHp = 0;
     uint32_t attackPreferences = 0;
     int attackBonus = 0;
+    bool bolsterAffectsPlayerArmorClass = false;
     MonsterSpecialAttackKind specialAttackKind = MonsterSpecialAttackKind::None;
     int specialAttackLevel = 0;
     std::string displayName;

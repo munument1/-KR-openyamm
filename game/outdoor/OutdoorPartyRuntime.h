@@ -26,6 +26,7 @@ public:
     void update(const OutdoorMovementInput &input, float deltaSeconds);
     void setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders);
     void setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
+    void updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries);
     void applyEventRuntimeState(const EventRuntimeState &runtimeState, bool grantItemsToInventory = true);
 
     const OutdoorMoveState &movementState() const;
@@ -50,6 +51,7 @@ public:
     void setMovementSpeedMultiplier(float multiplier);
     void syncSpellMovementStatesFromPartyBuffs();
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
+    void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
 
 private:
     OutdoorMovementDriver m_movementDriver;

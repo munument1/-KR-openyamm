@@ -46,6 +46,30 @@ MonsterTable makeMonsterTable()
     return table;
 }
 
+MonsterTable makeGeneratedAbilityMonsterTable()
+{
+    std::vector<std::string> first = monsterStatsRow(16, "Regnan Sorcerer", 10, 100, 5, "Short", 120);
+    first[18] = "2d5";
+    MonsterTable table;
+    REQUIRE(table.loadStatsFromRows({
+        first,
+        monsterStatsRow(17, "Regnan Battlemage", 10, 120, 7, "Short", 120),
+        monsterStatsRow(18, "Regnan Archmage", 10, 140, 9, "Short", 120),
+    }));
+    return table;
+}
+
+MonsterTable makeElementalMonsterTable()
+{
+    MonsterTable table;
+    REQUIRE(table.loadStatsFromRows({
+        monsterStatsRow(76, "Lesser Water Elemental", 10, 100, 5, "Short", 120),
+        monsterStatsRow(77, "Water Elemental", 10, 100, 5, "Short", 120),
+        monsterStatsRow(78, "Greater Water Elemental", 10, 100, 5, "Short", 120),
+    }));
+    return table;
+}
+
 MergedBolsterMapTable makeBolsterMapTable(bool summons)
 {
     MergedBolsterMapTable table;
@@ -82,6 +106,72 @@ MergedBolsterMonsterTable makeBolsterMonsterTable()
         {"451", "Tree", "Immobile", "", "Neutral", "", "Endurance", "", "-", "-", "x", "-", "-", "x", "226", "", "300"},
         {"452", "Tree", "Immobile", "", "Neutral", "", "Endurance", "", "-", "-", "x", "-", "-", "x", "226", "", "300"},
         {"453", "Tree", "Immobile", "", "Neutral", "", "Endurance", "", "-", "-", "x", "-", "-", "x", "226", "", "300"},
+    }));
+    return table;
+}
+
+MergedBolsterMonsterTable makeGeneratedAbilityMonsterSettingsTable()
+{
+    MergedBolsterMonsterTable table;
+    REQUIRE(table.loadFromRows({
+        {
+            "#",
+            "Note",
+            "Type",
+            "ExtraType",
+            "Creed",
+            "Gender",
+            "Style",
+            "PrefMagic",
+            "NoBounty",
+            "Ranged",
+            "Spells",
+            "HPBySize",
+            "Replicate",
+            "Summons",
+            "SummonId",
+            "Extra",
+            "MaxHP",
+        },
+        {"16", "Regnan Sorcerer", "Human", "", "Dark", "M", "Magic", "Fire", "-", "x", "x",
+         "-", "-", "-", "", "", "300"},
+        {"17", "Regnan Battlemage", "Human", "", "Dark", "M", "Magic", "Fire", "-", "x", "x",
+         "-", "-", "-", "", "", "300"},
+        {"18", "Regnan Archmage", "Human", "", "Dark", "M", "Magic", "Fire", "-", "x", "x",
+         "-", "-", "-", "", "", "300"},
+    }));
+    return table;
+}
+
+MergedBolsterMonsterTable makeElementalMonsterSettingsTable()
+{
+    MergedBolsterMonsterTable table;
+    REQUIRE(table.loadFromRows({
+        {
+            "#",
+            "Note",
+            "Type",
+            "ExtraType",
+            "Creed",
+            "Gender",
+            "Style",
+            "PrefMagic",
+            "NoBounty",
+            "Ranged",
+            "Spells",
+            "HPBySize",
+            "Replicate",
+            "Summons",
+            "SummonId",
+            "Extra",
+            "MaxHP",
+        },
+        {"76", "Lesser Water Elemental", "Elemental", "", "Neutral", "", "Magic", "Water", "-", "x",
+         "-", "x", "-", "-", "", "", ""},
+        {"77", "Water Elemental", "Elemental", "", "Neutral", "", "Magic", "Water", "-", "x",
+         "-", "x", "-", "-", "", "", ""},
+        {"78", "Greater Water Elemental", "Elemental", "", "Neutral", "", "Magic", "Water", "-", "x",
+         "-", "x", "-", "-", "", "", ""},
     }));
     return table;
 }
@@ -124,6 +214,7 @@ TEST_CASE("runtime bolster applies merged map and monster settings to MM7 tree-s
                 .pBolsterMapTable = &mapTable,
                 .pBolsterMonsterTable = &monsterSettingsTable,
                 .pParty = &party,
+                .bolsterMonstersEnabled = true,
             },
             *pStats,
             &monsterEntry);
@@ -139,6 +230,38 @@ TEST_CASE("runtime bolster applies merged map and monster settings to MM7 tree-s
     CHECK(bolster.immobile);
     CHECK(bolster.stationarySummonAsSpawnPoint);
     CHECK(bolster.summonMonsterId == 226);
+}
+
+TEST_CASE("runtime bolster is disabled by default")
+{
+    MonsterTable monsterTable = makeMonsterTable();
+    MergedBolsterMapTable mapTable = makeBolsterMapTable(true);
+    MergedBolsterMonsterTable monsterSettingsTable = makeBolsterMonsterTable();
+    Party party = makeParty(35);
+    MapStatsEntry map = {};
+    map.id = 65;
+
+    const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(451);
+    REQUIRE(pStats != nullptr);
+
+    const GameplayMonsterBolsterResult bolster =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = &map,
+                .pMonsterTable = &monsterTable,
+                .pBolsterMapTable = &mapTable,
+                .pBolsterMonsterTable = &monsterSettingsTable,
+                .pParty = &party,
+            },
+            *pStats,
+            nullptr);
+
+    CHECK_FALSE(bolster.mapEnabled);
+    CHECK_FALSE(bolster.statsEnabled);
+    CHECK_EQ(bolster.maxHp, pStats->hitPoints);
+    CHECK_EQ(bolster.armorClass, pStats->armorClass);
+    CHECK_FALSE(bolster.monsterAllowsNewSpells);
+    CHECK_FALSE(bolster.monsterAllowsSummons);
 }
 
 TEST_CASE("runtime bolster keeps summon behavior gated by the map row")
@@ -161,6 +284,7 @@ TEST_CASE("runtime bolster keeps summon behavior gated by the map row")
                 .pBolsterMapTable = &mapTable,
                 .pBolsterMonsterTable = &monsterSettingsTable,
                 .pParty = &party,
+                .bolsterMonstersEnabled = true,
             },
             *pStats,
             nullptr);
@@ -168,4 +292,79 @@ TEST_CASE("runtime bolster keeps summon behavior gated by the map row")
     CHECK(bolster.monsterAllowsNewSpells);
     CHECK_FALSE(bolster.monsterAllowsSummons);
     CHECK_FALSE(bolster.stationarySummonAsSpawnPoint);
+}
+
+TEST_CASE("runtime bolster materializes generated ranged attacks and spells")
+{
+    MonsterTable monsterTable = makeGeneratedAbilityMonsterTable();
+    MergedBolsterMapTable mapTable = makeBolsterMapTable(true);
+    MergedBolsterMonsterTable monsterSettingsTable = makeGeneratedAbilityMonsterSettingsTable();
+    Party party = makeParty(60);
+    MapStatsEntry map = {};
+    map.id = 65;
+
+    const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(16);
+    REQUIRE(pStats != nullptr);
+
+    const GameplayMonsterBolsterResult bolster =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = &map,
+                .pMonsterTable = &monsterTable,
+                .pBolsterMapTable = &mapTable,
+                .pBolsterMonsterTable = &monsterSettingsTable,
+                .pParty = &party,
+                .bolsterMonstersEnabled = true,
+            },
+            *pStats,
+            nullptr);
+
+    CHECK(bolster.generatedAttack2);
+    CHECK(bolster.generatedAttack2IsRanged);
+    CHECK(bolster.copyAttack1DamageToAttack2);
+    CHECK_EQ(bolster.generatedAttack2MissileType, "Fire");
+    CHECK_EQ(bolster.generatedAttack2Chance, 35);
+    CHECK_EQ(bolster.generatedSpell1Id, 11u);
+    CHECK_EQ(bolster.generatedSpell2Id, 5u);
+    CHECK_EQ(bolster.generatedSpell1UseChance, 60);
+    CHECK_EQ(bolster.generatedSpell2UseChance, 35);
+    CHECK_EQ(bolster.spell1SkillLevel, 4u);
+    CHECK_EQ(bolster.spell1SkillMastery, SkillMastery::Expert);
+}
+
+TEST_CASE("runtime bolster applies the special water elemental HP formula")
+{
+    MonsterTable monsterTable = makeElementalMonsterTable();
+    MergedBolsterMapTable mapTable = makeBolsterMapTable(true);
+    MergedBolsterMonsterTable monsterSettingsTable = makeElementalMonsterSettingsTable();
+    Party party = makeParty(30);
+    MapStatsEntry map = {};
+    map.id = 65;
+    MonsterEntry monsterEntry = {};
+    monsterEntry.height = 160;
+
+    const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(76);
+    REQUIRE(pStats != nullptr);
+
+    const GameplayMonsterBolsterResult bolster =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = &map,
+                .pMonsterTable = &monsterTable,
+                .pBolsterMapTable = &mapTable,
+                .pBolsterMonsterTable = &monsterSettingsTable,
+                .pParty = &party,
+                .bolsterMonstersEnabled = true,
+            },
+            *pStats,
+            &monsterEntry);
+
+    CHECK_EQ(bolster.maxHp, 300);
+}
+
+TEST_CASE("runtime bolster player armor class formula only applies to bolstered monsters")
+{
+    CHECK_EQ(gameplayBolsterPlayerArmorClass(50, 10, 20, false), 50);
+    CHECK_EQ(gameplayBolsterPlayerArmorClass(50, 10, 20, true), 25);
+    CHECK_EQ(gameplayBolsterPlayerArmorClass(50, 30, 20, true), 50);
 }

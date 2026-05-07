@@ -1708,12 +1708,22 @@ TEST_CASE("mmmerge shared Breach maps are mounted and scripted")
     };
 
     const ScriptExpectation scripts[] = {
-        {"assets_dev/worlds/mmmerge/events/maps/Breach.lua", {54, 81, 900, 101, 104, 110, 118, 125, 128, 66001}},
-        {"assets_dev/worlds/mmmerge/events/maps/BrAlvar.lua", {53, 54, 81, 66002}},
+        {
+            "assets_dev/worlds/mmmerge/events/maps/Breach.lua",
+            {54, 81, 900, 101, 104, 110, 118, 125, 128, 66001}
+        },
+        {
+            "assets_dev/worlds/mmmerge/events/maps/BrAlvar.lua",
+            {
+                5, 7, 15, 16, 30, 53, 54, 60, 81, 82, 101, 104, 110,
+                118, 125, 128, 301, 315, 1790, 1792, 1793, 1794, 65005, 66002, 66004
+            }
+        },
         {"assets_dev/worlds/mmmerge/events/maps/BrBase.lua", {1, 2, 66003}},
     };
 
     std::optional<OpenYAMM::Game::ScriptedEventProgram> breachProgram = std::nullopt;
+    std::optional<OpenYAMM::Game::ScriptedEventProgram> brAlvarProgram = std::nullopt;
 
     for (const ScriptExpectation &script : scripts)
     {
@@ -1738,9 +1748,25 @@ TEST_CASE("mmmerge shared Breach maps are mounted and scripted")
         {
             breachProgram = program;
         }
+        else if (std::strcmp(script.pPath, "assets_dev/worlds/mmmerge/events/maps/BrAlvar.lua") == 0)
+        {
+            brAlvarProgram = program;
+        }
     }
 
     REQUIRE(breachProgram.has_value());
+    REQUIRE(brAlvarProgram.has_value());
+
+    auto hasFollower = [](const OpenYAMM::Game::EventRuntimeState &state, uint32_t npcId)
+    {
+        return std::find_if(
+            state.hiredNpcFollowers.begin(),
+            state.hiredNpcFollowers.end(),
+            [npcId](const OpenYAMM::Game::EventRuntimeState::HiredNpcFollower &follower)
+            {
+                return follower.npcId == npcId;
+            }) != state.hiredNpcFollowers.end();
+    };
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
     OpenYAMM::Game::EventRuntimeState runtimeState = {};
@@ -1766,6 +1792,150 @@ TEST_CASE("mmmerge shared Breach maps are mounted and scripted")
     CHECK_EQ(sceneContext.outdoorModelMechanismCalls.back().modelName, "Elev_3_Button");
     CHECK_EQ(sceneContext.outdoorModelMechanismCalls.back().dz, 5);
     CHECK_EQ(sceneContext.outdoorModelMechanismCalls.back().moveTimeMs, 250u);
+
+    OpenYAMM::Game::EventRuntimeState brAlvarRuntimeState = {};
+    OpenYAMM::Game::Party brAlvarParty = makeScriptedRegressionParty();
+    RecordingSceneEventContext brAlvarSceneContext = {};
+
+    REQUIRE(eventRuntime.buildOnLoadState(
+        brAlvarProgram,
+        std::nullopt,
+        std::nullopt,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+
+    REQUIRE_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.size(), 28u);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.front().mechanismId, 101u);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.front().modelName, "Time_1");
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.front().dz, -10);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.front().moveTimeMs, 1000u);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.back().mechanismId, 128u);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.back().modelName, "Elev_3_Button");
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.back().dz, 5);
+    CHECK_EQ(brAlvarSceneContext.outdoorModelMechanismCalls.back().moveTimeMs, 250u);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(260, 448)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(448, 260)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(260, 449)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(449, 260)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(261, 450)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(450, 261)],
+        4);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(475, 0)],
+        0);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(476, 0)],
+        0);
+    CHECK_EQ(
+        brAlvarRuntimeState.monsterRelationOverrides[
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(477, 0)],
+        0);
+    CHECK_EQ(brAlvarRuntimeState.npcTopicOverrides[772][0], 1793u);
+    const uint32_t actorInvisibleBit = static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Invisible);
+    CHECK((brAlvarRuntimeState.actorClearMasks[77] & actorInvisibleBit) != 0);
+    CHECK((brAlvarRuntimeState.actorClearMasks[78] & actorInvisibleBit) != 0);
+    CHECK((brAlvarRuntimeState.actorClearMasks[79] & actorInvisibleBit) != 0);
+    CHECK((brAlvarRuntimeState.actorClearMasks[80] & actorInvisibleBit) != 0);
+
+    OpenYAMM::Game::EventRuntimeState::ActiveHookContext friendHook = {};
+    friendHook.kind = OpenYAMM::Game::EventRuntimeHookKind::NpcEnter;
+    friendHook.npcId = 772;
+    brAlvarRuntimeState.activeHookContext = friendHook;
+    REQUIRE(eventRuntime.executeHooks(
+        brAlvarProgram,
+        std::nullopt,
+        OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    CHECK_EQ(brAlvarRuntimeState.namedMapVars["CurrentFriendNpc"], 772);
+
+    size_t previousMessageCount = brAlvarRuntimeState.messages.size();
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        brAlvarProgram,
+        std::nullopt,
+        1793,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHints"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHint1"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.HintByNPC.772"], 1);
+    CHECK((brAlvarRuntimeState.actorSetMasks[77] & actorInvisibleBit) != 0);
+    CHECK_GT(brAlvarRuntimeState.messages.size(), previousMessageCount);
+
+    friendHook.npcId = 773;
+    brAlvarRuntimeState.activeHookContext = friendHook;
+    REQUIRE(eventRuntime.executeHooks(
+        brAlvarProgram,
+        std::nullopt,
+        OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        brAlvarProgram,
+        std::nullopt,
+        1793,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHints"], 2);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHint2"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.HintByNPC.773"], 2);
+    CHECK_EQ(brAlvarRuntimeState.npcTopicOverrides[1092][0], 1794u);
+
+    brAlvarRuntimeState.namedGlobalVars.erase("MMerge.CrossContinents.GotFQHint2");
+    brAlvarRuntimeState.namedGlobalVars.erase("MMerge.CrossContinents.GotFQHint3");
+    REQUIRE(eventRuntime.executeEventById(
+        brAlvarProgram,
+        std::nullopt,
+        5,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    CHECK_EQ(brAlvarRuntimeState.npcHouseOverrides[1092], 712u);
+    REQUIRE(brAlvarRuntimeState.pendingDialogueContext.has_value());
+    CHECK_EQ(brAlvarRuntimeState.pendingDialogueContext->kind, OpenYAMM::Game::DialogueContextKind::HouseService);
+    CHECK_EQ(brAlvarRuntimeState.pendingDialogueContext->sourceId, 712u);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHint2"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.GotFQHint3"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.RiddlesAnswered"], 5);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.ChaosReadyToFollow"], 1);
+    CHECK_EQ(brAlvarRuntimeState.npcTopicOverrides[1092][0], 1792u);
+    CHECK_EQ(brAlvarRuntimeState.npcTopicOverrides[1092][1], 0u);
+
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        brAlvarProgram,
+        std::nullopt,
+        1792,
+        brAlvarRuntimeState,
+        &brAlvarParty,
+        &brAlvarSceneContext));
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.CaughtChaos"], 1);
+    CHECK_EQ(brAlvarRuntimeState.namedGlobalVars["MMerge.CrossContinents.CoughtChaos"], 1);
+    CHECK(hasFollower(brAlvarRuntimeState, 1092));
+    CHECK_EQ(brAlvarRuntimeState.npcHouseOverrides[1092], 0u);
 }
 
 TEST_CASE("seer lost item topic recovers ever owned active quest items")

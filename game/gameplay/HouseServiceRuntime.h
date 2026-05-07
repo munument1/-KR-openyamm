@@ -37,6 +37,7 @@ public:
         AlreadyIdentified,
         NothingToRepair,
         NotEnoughGold,
+        InventoryFull,
         Failed,
     };
 
@@ -105,7 +106,8 @@ public:
         float gameMinutes,
         HouseStockMode mode,
         size_t slotIndex,
-        std::string &statusText);
+        std::string &statusText,
+        ShopItemServiceResult *pResult = nullptr);
     static bool trySellInventoryItem(
         Party &party,
         const ItemTable &itemTable,

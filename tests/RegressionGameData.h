@@ -12,6 +12,7 @@
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/tables/PotionMixingTable.h"
+#include "game/tables/PotionNoteTable.h"
 #include "game/tables/ReadableScrollTable.h"
 #include "game/tables/RosterTable.h"
 #include "game/tables/SpellTable.h"
@@ -31,6 +32,7 @@ struct RegressionGameData
     Game::StandardItemEnchantTable standardItemEnchantTable = {};
     Game::SpecialItemEnchantTable specialItemEnchantTable = {};
     Game::PotionMixingTable potionMixingTable = {};
+    Game::PotionNoteTable potionNoteTable = {};
     Game::MergedPotionSettingTable mergedPotionSettingTable = {};
     Game::MergedReagentSettingTable mergedReagentSettingTable = {};
     Game::MergedTeacherTopicTable mergedTeacherTopicTable = {};

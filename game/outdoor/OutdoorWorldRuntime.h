@@ -187,6 +187,13 @@ public:
         float wanderRadius = 0.0f;
         int attack1DamageBonus = 0;
         int attack2DamageBonus = 0;
+        bool generatedAttack2 = false;
+        bool generatedAttack2IsRanged = false;
+        bool copyAttack1DamageToAttack2 = false;
+        std::string generatedAttack2MissileType;
+        int generatedAttack2Chance = 0;
+        int generatedSpell1UseChance = 0;
+        int generatedSpell2UseChance = 0;
         uint32_t spell1SkillLevel = 0;
         SkillMastery spell1SkillMastery = SkillMastery::None;
         uint32_t spell2SkillLevel = 0;
@@ -525,6 +532,7 @@ public:
     );
 
     bool isInitialized() const;
+    void setBolsterMonstersEnabled(bool enabled);
     void bindInteractionView(OutdoorGameView *pView);
     void bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram);
     int mapId() const;
@@ -751,6 +759,7 @@ public:
     bool partyIsAirborneForRest() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
+    bool specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity) override;
     void setAlwaysRunEnabled(bool enabled) override;
     void updateWorldMovement(
         const GameplayInputFrame &input,
@@ -949,7 +958,18 @@ public:
 
 private:
 
-    bool applyMonsterAttackToMapActor(size_t actorIndex, int damage, uint32_t sourceActorId, bool emitAudio = true);
+    bool applyMonsterActorMeleeAttackToMapActor(
+        size_t actorIndex,
+        int damage,
+        uint32_t sourceActorId,
+        int attackBonus,
+        CombatDamageType damageType);
+    bool applyMonsterAttackToMapActor(
+        size_t actorIndex,
+        int damage,
+        uint32_t sourceActorId,
+        bool emitAudio = true,
+        bool allowZeroDamageHit = false);
     bool spawnEncounterFromResolvedData(
         int encounterSlot,
         char fixedTier,
@@ -991,7 +1011,11 @@ private:
         float targetY,
         float targetZ,
         int damage = 0,
-        int attackBonus = 0
+        int attackBonus = 0,
+        uint32_t spellId = 0,
+        uint32_t skillLevel = 0,
+        SkillMastery skillMastery = SkillMastery::None,
+        const std::string &projectileTokenOverride = std::string()
     );
     bool castSpellFromMapActor(
         const MapActorState &actor,
@@ -1039,6 +1063,8 @@ private:
     void rebuildOutdoorFaceGeometryCache();
     void syncOutdoorFaceGeometryAttributesFromMapDelta();
     void setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
+    void refreshOutdoorModelMechanismGeometry();
+    void setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry);
     bool materializeTreasureSpawnFromSpawnPoint(size_t spawnPointIndex);
     bool resolveWorldItemVisual(
         uint32_t itemId,
@@ -1179,6 +1205,7 @@ private:
     OutdoorMapData *m_pOutdoorMapData = nullptr;
     MapDeltaData *m_pOutdoorMapDeltaData = nullptr;
     const SpellTable *m_pSpellTable = nullptr;
+    bool m_bolsterMonstersEnabled = false;
     GameplayActorService *m_pGameplayActorService = nullptr;
     GameplayProjectileService *m_pGameplayProjectileService = nullptr;
     GameplayProjectileService m_fallbackGameplayProjectileService;
@@ -1199,6 +1226,7 @@ private:
     size_t m_outdoorFaceGridWidth = 0;
     size_t m_outdoorFaceGridHeight = 0;
     std::optional<OutdoorMovementController> m_outdoorMovementController;
+    float m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;

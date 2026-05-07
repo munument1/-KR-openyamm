@@ -1,7 +1,7 @@
 -- MMMerge supplement: Dimension Door tile and Ravenshore town-portal unlock.
 
 RegisterMapOnLoadEvent(901, "MMMerge Ravenshore travel unlock", function()
-    SetQBit(QBit(185))
+    SetQBit(QBit(185)) -- Blood Drop Town Portal
     MM8.SetMapFlag("DimensionDoorTileActive", false)
 end)
 

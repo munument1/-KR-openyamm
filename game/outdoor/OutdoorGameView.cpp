@@ -9,6 +9,7 @@
 #include "game/gameplay/GameplayCombatController.h"
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/GameplayInputFrame.h"
+#include "game/gameplay/MercenaryRecruitmentRuntime.h"
 #include "game/gameplay/GameplaySpellActionController.h"
 #include "game/gameplay/GameplaySpellService.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -2886,6 +2887,32 @@ bool OutdoorGameView::initialize(
     m_gameSession.gameplayScreenRuntime().bindAudioSystem(m_pGameAudioSystem);
     m_gameSession.gameplayScreenRuntime().bindSettings(&m_gameSettings);
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    EventRuntimeState *pMutableEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState();
+
+    if (pMutableEventRuntimeState != nullptr && m_pOutdoorPartyRuntime != nullptr)
+    {
+        refreshMercenaryRecruitmentForCurrentMap(
+            map,
+            m_pOutdoorPartyRuntime->party(),
+            *pMutableEventRuntimeState,
+            MercenaryRecruitmentTables{
+                .pHouseTable = &data.houseTable(),
+                .pNpcNameTable = &data.mergedNpcNameTable(),
+                .pCharacterSelectionTable = &data.mergedCharacterSelectionTable(),
+                .pCharacterDollTable = &data.characterDollTable(),
+                .pClassSkillTable = &data.classSkillTable(),
+                .pClassMultiplierTable = &data.classMultiplierTable(),
+                .pRaceStartingStatsTable = &data.raceStartingStatsTable(),
+                .pItemTable = &data.itemTable(),
+                .pStandardItemEnchantTable = &data.standardItemEnchantTable(),
+                .pSpecialItemEnchantTable = &data.specialItemEnchantTable(),
+                .pSpellTable = &data.spellTable(),
+            });
+    }
+
+    const EventRuntimeState *pEventRuntimeState = pMutableEventRuntimeState;
+    screenRuntime.resetOverlayInteractionState(
+        pEventRuntimeState != nullptr && !pEventRuntimeState->hiredNpcFollowers.empty());
     const GameplayScreenRuntime::SharedUiBootstrapResult sharedUiBootstrap =
         screenRuntime.initializeSharedUiRuntime(
             GameplayScreenRuntime::SharedUiBootstrapConfig{
@@ -4553,6 +4580,32 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
     if (pActorState == nullptr)
     {
         return;
+    }
+
+    if (input.rightMouseButton.pressed && !pActorState->isDead)
+    {
+        GameplayActorInspectState inspectState = {};
+        Party *pParty = m_gameSession.gameplayScreenRuntime().party();
+        const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
+
+        if (m_pOutdoorWorldRuntime->actorInspectState(*runtimeActorIndex, 0, inspectState))
+        {
+            const MonsterTable::MonsterStatsEntry *pStats =
+                m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
+
+            if (pParty != nullptr && pMember != nullptr && pStats != nullptr)
+            {
+                const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pMember, pStats->level);
+
+                if (speechId != SpeechId::None)
+                {
+                    m_gameSession.gameplayScreenRuntime().playSpeechReaction(
+                        pParty->activeMemberIndex(),
+                        speechId,
+                        true);
+                }
+            }
+        }
     }
 
     const uint16_t viewWidth = static_cast<uint16_t>(std::max(width, 1));

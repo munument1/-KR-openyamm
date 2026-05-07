@@ -3,8 +3,12 @@
 local WereratsMad = "WereratsMad"
 local WereratsMadUntil = "WereratsMadUntil"
 
-local function setWereRatState(mad)
-    if mad then
+ReplaceMapEvent(1, "MMMerge were-rat state", function()
+    if MM8.GetMapFlag(WereratsMad) and CurrentGameMinutes() >= MM8.GetMapVar(WereratsMadUntil, 0) then
+        MM8.SetMapFlag(WereratsMad, false)
+    end
+
+    if not IsQBitSet(QBit(10)) or MM8.GetMapFlag(WereratsMad) then -- Letter from Q Bit 9 delivered.
         SetValue(MapVar(11), 2)
         evt.SetMonGroupBit(8, MonsterBits.Hostile, 1)
         evt.SetMonGroupBit(10, MonsterBits.Hostile, 1)
@@ -18,14 +22,6 @@ local function setWereRatState(mad)
         evt.SetMonGroupBit(8, MonsterBits.Invisible, 1)
         evt.SetMonGroupBit(11, MonsterBits.Invisible, 0)
     end
-end
-
-ReplaceMapEvent(1, "MMMerge were-rat state", function()
-    if MM8.GetMapFlag(WereratsMad) and CurrentGameMinutes() >= MM8.GetMapVar(WereratsMadUntil, 0) then
-        MM8.SetMapFlag(WereratsMad, false)
-    end
-
-    setWereRatState((not IsQBitSet(QBit(10))) or MM8.GetMapFlag(WereratsMad))
 end)
 
 RegisterMapTimerEvent(901, 60, function()

@@ -282,7 +282,7 @@ public:
     void preloadReferencedAssets();
     bool ensurePortraitRuntimeLoaded();
     void resetPortraitFxStates(size_t memberCount);
-    void resetOverlayInteractionState();
+    void resetOverlayInteractionState(bool followerPanelOpen = false);
     bool initializeHouseVideoPlayer();
     void shutdownHouseVideoPlayer();
     void stopHouseVideoPlayback();

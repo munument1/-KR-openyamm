@@ -2955,6 +2955,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     }
 
                     std::string statusText;
+                    HouseServiceRuntime::ShopItemServiceResult serviceResult =
+                        HouseServiceRuntime::ShopItemServiceResult::None;
                     HouseServiceRuntime::tryBuyStockItem(
                         *view.party(),
                         *view.itemTable(),
@@ -2964,11 +2966,27 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                         view.worldRuntime()->gameMinutes(),
                         *stockMode,
                         slotIndex,
-                        statusText);
+                        statusText,
+                        &serviceResult);
 
                     if (!statusText.empty())
                     {
                         view.setStatusBarEvent(statusText);
+                    }
+
+                    const size_t activeMemberIndex = view.partyReadOnly()->activeMemberIndex();
+
+                    if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success)
+                    {
+                        view.playSpeechReaction(activeMemberIndex, SpeechId::ShopItemBought, true);
+                    }
+                    else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::NotEnoughGold)
+                    {
+                        view.playSpeechReaction(activeMemberIndex, SpeechId::NotEnoughGold, true);
+                    }
+                    else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::InventoryFull)
+                    {
+                        view.playSpeechReaction(activeMemberIndex, SpeechId::InventoryRoom, true);
                     }
                 });
         }
@@ -3087,6 +3105,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                             GameAudioSystem::PlaybackGroup::HouseSpeech);
                     }
                 }
+
+                view.playSpeechReaction(activeMemberIndex, SpeechId::NotEnoughGold, true);
             }
             else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success)
             {

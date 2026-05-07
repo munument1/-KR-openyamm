@@ -1317,6 +1317,11 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
         return false;
     }
 
+    if (!loadPotionNoteTable(assetFileSystem))
+    {
+        return false;
+    }
+
     if (!loadPortraitFrameTable(assetFileSystem))
     {
         return false;
@@ -1597,6 +1602,11 @@ const PotionMixingTable &GameDataLoader::getPotionMixingTable() const
     return m_potionMixingTable;
 }
 
+const PotionNoteTable &GameDataLoader::getPotionNoteTable() const
+{
+    return m_potionNoteTable;
+}
+
 const ArcomageLibrary &GameDataLoader::getArcomageLibrary() const
 {
     return m_arcomageLibrary;
@@ -1690,11 +1700,6 @@ const MergedNewsProfessionTopicTable &GameDataLoader::getMergedNewsProfessionTop
 const MergedMonsterPortraitTable &GameDataLoader::getMergedMonsterPortraitTable() const
 {
     return m_mergedMonsterPortraitTable;
-}
-
-const MergedMonsterKindTable &GameDataLoader::getMergedMonsterKindTable() const
-{
-    return m_mergedMonsterKindTable;
 }
 
 const MergedPotionSettingTable &GameDataLoader::getMergedPotionSettingTable() const
@@ -2223,9 +2228,17 @@ bool GameDataLoader::loadClassSkillTable(const Engine::AssetFileSystem &assetFil
         return false;
     }
 
+    std::vector<std::vector<std::string>> classMultiplierRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("class_multipliers.txt"), classMultiplierRows))
+    {
+        return false;
+    }
+
     if (!m_classSkillTable.loadCapsFromRows(capRows)
         || !m_classSkillTable.loadStartingSkillsFromRows(startingRows)
-        || !m_classSkillTable.loadClassMetadataFromRows(classExtraRows))
+        || !m_classSkillTable.loadClassMetadataFromRows(classExtraRows)
+        || !m_classSkillTable.loadClassSpellPointMetadataFromRows(classMultiplierRows))
     {
         std::cerr << "Failed to parse class skill tables\n";
         return false;
@@ -2410,6 +2423,24 @@ bool GameDataLoader::loadPotionMixingTable(const Engine::AssetFileSystem &assetF
     return true;
 }
 
+bool GameDataLoader::loadPotionNoteTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    std::vector<std::vector<std::string>> rows;
+
+    if (!loadFirstTextTableRows(assetFileSystem, {engineEnglishDataTablePath("potnotes.txt")}, rows))
+    {
+        return false;
+    }
+
+    if (!m_potionNoteTable.loadFromRows(rows))
+    {
+        std::cerr << "Failed to parse potion note table\n";
+        return false;
+    }
+
+    return true;
+}
+
 bool GameDataLoader::loadTransitionTable(const Engine::AssetFileSystem &assetFileSystem)
 {
     std::vector<std::vector<std::string>> rows;
@@ -2523,10 +2554,6 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
             m_mergedMonsterPortraitTable,
             "MonPortraits.txt")
         && loadBaseTable(
-            "monster_kinds.txt",
-            m_mergedMonsterKindTable,
-            "Monster Kinds.txt")
-        && loadBaseTable(
             "potion_settings.txt",
             m_mergedPotionSettingTable,
             "Potion settings.txt")
@@ -2610,6 +2637,12 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
 
 bool GameDataLoader::applyMergedRuntimeTables()
 {
+    if (!m_classSkillTable.applyRaceSkillOverrides(m_mergedRaceSkillTable))
+    {
+        std::cerr << "Failed to apply merged race skill rules.\n";
+        return false;
+    }
+
     if (!m_mapStats.applyMergedBolsterMaps(m_mergedBolsterMapTable))
     {
         std::cerr << "Failed to apply merged bolster maps.\n";

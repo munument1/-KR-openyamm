@@ -397,12 +397,13 @@ int skillMasteryAvailability(
         return 0;
     }
 
-    if (pClassSkillTable->getClassCap(pCharacter->className, skillName) >= mastery)
+    if (pClassSkillTable->getEffectiveCap(pCharacter->className, pCharacter->raceId, skillName) >= mastery)
     {
         return 0;
     }
 
-    if (pClassSkillTable->getHighestPromotionCap(pCharacter->className, skillName) >= mastery)
+    if (pClassSkillTable->getHighestPromotionEffectiveCap(pCharacter->className, pCharacter->raceId, skillName)
+        >= mastery)
     {
         return 1;
     }

@@ -25,9 +25,9 @@ ReplaceMapEvent(376, "Door", function()
         return
     end
 
-    SetQBit(QBit(1695))
+    SetQBit(QBit(1695)) -- Replacement for NPCs 71 ver. 7
     evt.ForPlayer(Players.All)
-    SetQBit(QBit(605))
+    SetQBit(QBit(605)) -- Tularean Caves. Got Loren
     AddFollowerNpc(MM7.LorenNpcId)
     evt.SpeakNPC(MM7.LorenNpcId)
 end, "Door")

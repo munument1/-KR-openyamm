@@ -103,6 +103,7 @@ public:
     void update(const OutdoorMovementInput &input, float deltaSeconds);
     void setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders);
     void setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
+    void updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries);
     const OutdoorMoveState &state() const;
     const OutdoorMovementEvents &lastEvents() const;
     const OutdoorMovementConsequences &lastConsequences() const;
@@ -121,6 +122,7 @@ public:
     void setFeatherFallActive(bool active);
     void setSpeedMultiplier(float multiplier);
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
+    void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
 
 private:
     OutdoorMovementController m_movementController;
@@ -135,6 +137,9 @@ private:
     bool m_pendingJumpPress = false;
     std::optional<float> m_pendingJumpVelocity;
     float m_pendingJumpLift = 1.0f;
+    float m_pendingImpulseVelocityX = 0.0f;
+    float m_pendingImpulseVelocityY = 0.0f;
+    float m_pendingImpulseVelocityZ = 0.0f;
     bool m_flyingAvailable = false;
     float m_movementAccumulatorSeconds = 0.0f;
     float m_startedFallingEventSeconds = 0.0f;

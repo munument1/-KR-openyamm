@@ -4,6 +4,7 @@
 #include "game/items/ItemEnchantTables.h"
 #include "game/party/Party.h"
 
+#include <cstdint>
 #include <optional>
 #include <random>
 #include <string>
@@ -77,8 +78,7 @@ public:
         CharacterAttackMode attackMode,
         const ItemTable *pItemTable,
         const SpecialItemEnchantTable *pSpecialTable,
-        const std::string &monsterName,
-        const std::string &monsterPictureName);
+        uint32_t monsterKindFlags = 0);
     static int elementalDamageBonus(
         const InventoryItem &item,
         const SpecialItemEnchantTable *pSpecialTable);

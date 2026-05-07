@@ -6,6 +6,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
+#include "game/gameplay/MercenaryRecruitmentRuntime.h"
 #include "game/party/EventSpellBuffs.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/MapStats.h"
@@ -16,6 +17,7 @@
 #include "game/tables/RosterTable.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <optional>
@@ -37,6 +39,8 @@ constexpr float OeYellowAlertDistance = 5120.0f;
 constexpr int OutdoorMapTravelFoodCost = 5;
 constexpr size_t MaxNpcFollowerCount = 4;
 constexpr uint32_t MaxNpcFollowerFeePercent = 100;
+constexpr uint32_t NpcBegTopicId = 1766;
+constexpr uint32_t NpcThreatTopicId = 1767;
 constexpr uint32_t NpcBribeTopicId = 1768;
 constexpr int MaxFoodForCookFollower = 14;
 constexpr int CookFollowerFoodAmount = 1;
@@ -85,6 +89,29 @@ bool isDungeonMapFileName(const std::string &mapFileName)
 bool isOutdoorMapFileName(const std::string &mapFileName)
 {
     return toLowerCopy(mapFileName).ends_with(".odm");
+}
+
+const char *mercenarySelfImpression(uint32_t level)
+{
+    static constexpr std::array<const char *, 5> Impressions = {
+        "apprentice",
+        "skilled",
+        "well known",
+        "masterful",
+        "great",
+    };
+    const uint32_t bucket = std::clamp<uint32_t>((std::max<uint32_t>(1, level) + 9) / 10, 1, 5);
+    return Impressions[bucket - 1];
+}
+
+std::string generatedMercenaryJoinOfferText(
+    const EventRuntimeState::GeneratedMercenaryRecruit &recruit)
+{
+    return "Good tidings. I am " + recruit.character.name
+        + ", " + mercenarySelfImpression(recruit.character.level)
+        + " " + displayClassName(recruit.character.className)
+        + ". I'd love to see the world and taste the adventure, but it'd be foolish to go alone. "
+          "Perhaps I could come with you?";
 }
 
 int mapTransitionTravelFoodRequired(
@@ -551,6 +578,31 @@ void syncAvailableRosterMembersToAdventurersInn(GameplayDialogController::Contex
     if (context.pNpcDialogTable == nullptr)
     {
         return;
+    }
+
+    std::vector<uint32_t> generatedMercenaryNpcIdsToMoveToInn;
+
+    for (const auto &[npcId, recruit] : context.eventRuntimeState.generatedMercenaryRecruitsByNpcId)
+    {
+        if (!isAdventurersInnHouse(context, recruit.houseId)
+            || context.eventRuntimeState.unavailableNpcIds.contains(npcId)
+            || context.pParty->hasRosterMember(recruit.rosterId)
+            || partyHasAdventurersInnRosterMember(*context.pParty, recruit.rosterId))
+        {
+            continue;
+        }
+
+        context.pParty->addAdventurersInnMember(recruit.character, recruit.portraitPictureId);
+        generatedMercenaryNpcIdsToMoveToInn.push_back(npcId);
+    }
+
+    for (uint32_t npcId : generatedMercenaryNpcIdsToMoveToInn)
+    {
+        context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.erase(npcId);
+        context.eventRuntimeState.unavailableNpcIds.insert(npcId);
+        context.eventRuntimeState.npcHouseOverrides.erase(npcId);
+        context.pParty->setNpcUnavailable(npcId, true);
+        context.pParty->clearNpcHouseOverride(npcId);
     }
 
     for (const auto &[npcId, houseId] : context.eventRuntimeState.npcHouseOverrides)
@@ -1275,6 +1327,21 @@ bool hasHiredNpcFollower(const EventRuntimeState &eventRuntimeState, uint32_t np
         }) != eventRuntimeState.hiredNpcFollowers.end();
 }
 
+bool continentAllowsNpcFollowers(
+    const MapStatsEntry *pCurrentMap,
+    const MergedContinentSettingTable *pContinentSettingTable)
+{
+    if (pCurrentMap == nullptr || pContinentSettingTable == nullptr)
+    {
+        return true;
+    }
+
+    const MergedContinentSettingEntry *pContinentSetting =
+        pContinentSettingTable->findById(pCurrentMap->mergedContinentId);
+
+    return pContinentSetting == nullptr || pContinentSetting->npcFollowers;
+}
+
 uint32_t hiredNpcFollowerFeePercent(const EventRuntimeState &eventRuntimeState)
 {
     uint32_t total = 0;
@@ -1332,6 +1399,11 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
     if (action.kind == EventDialogActionKind::MapTransitionConfirm)
     {
+        if (context.pParty != nullptr)
+        {
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::Yes, true);
+        }
+
         if (!context.eventRuntimeState.pendingDialogueContext.has_value())
         {
             result.shouldCloseActiveDialog = true;
@@ -1613,6 +1685,23 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                     true);
             }
 
+            if (houseResult.speechId != SpeechId::None)
+            {
+                playSpeechReaction(
+                    context,
+                    context.pParty->activeMemberIndex(),
+                    houseResult.speechId,
+                    true);
+            }
+
+            for (SpeechId speechId : houseResult.additionalSpeechIds)
+            {
+                if (speechId != SpeechId::None)
+                {
+                    playSpeechReaction(context, context.pParty->activeMemberIndex(), speechId, true);
+                }
+            }
+
             if (houseResult.succeeded && option.id == HouseActionId::TempleHeal)
             {
                 playCommonUiSound(context, SoundId::Heal);
@@ -1631,6 +1720,11 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                     context,
                     context.pParty->activeMemberIndex(),
                     SpeechId::TempleDonate,
+                    true);
+                playSpeechReaction(
+                    context,
+                    context.pParty->activeMemberIndex(),
+                    SpeechId::ThankYou,
                     true);
             }
 
@@ -1699,6 +1793,33 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         return result;
     }
 
+    if (action.kind == EventDialogActionKind::GeneratedMercenaryJoinOffer)
+    {
+        const auto recruitIt = context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.find(action.id);
+
+        if (recruitIt == context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.end())
+        {
+            context.eventRuntimeState.messages.push_back("That companion is not ready to join yet.");
+            result.shouldOpenPendingEventDialog = true;
+            return result;
+        }
+
+        EventRuntimeState::DialogueOfferState offerState = {};
+        offerState.kind = DialogueOfferKind::RosterJoin;
+        offerState.npcId = action.id;
+        offerState.rosterId = recruitIt->second.rosterId;
+        context.eventRuntimeState.dialogueState.currentOffer = std::move(offerState);
+        context.eventRuntimeState.messages.push_back(generatedMercenaryJoinOfferText(recruitIt->second));
+
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::NpcTalk,
+            action.id,
+            currentDialogueHostHouseId(context.eventRuntimeState));
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
     if (action.kind == EventDialogActionKind::RosterJoinOffer)
     {
         if (context.pNpcDialogTable == nullptr)
@@ -1745,14 +1866,79 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
     {
         if (!context.eventRuntimeState.dialogueState.currentOffer
             || context.eventRuntimeState.dialogueState.currentOffer->kind != DialogueOfferKind::RosterJoin
-            || context.pParty == nullptr
-            || context.pRosterTable == nullptr)
+            || context.pParty == nullptr)
         {
             return result;
         }
 
         const EventRuntimeState::DialogueOfferState invite = *context.eventRuntimeState.dialogueState.currentOffer;
         context.eventRuntimeState.dialogueState.currentOffer.reset();
+
+        const auto generatedRecruitIt =
+            context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.find(invite.npcId);
+
+        if (generatedRecruitIt != context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.end())
+        {
+            const EventRuntimeState::GeneratedMercenaryRecruit recruit = generatedRecruitIt->second;
+
+            if (context.pParty->isFull())
+            {
+                if (!partyHasAdventurersInnRosterMember(*context.pParty, recruit.rosterId))
+                {
+                    context.pParty->addAdventurersInnMember(recruit.character, recruit.portraitPictureId);
+                }
+
+                context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.erase(invite.npcId);
+                context.eventRuntimeState.unavailableNpcIds.insert(invite.npcId);
+                context.eventRuntimeState.npcHouseOverrides.erase(invite.npcId);
+                context.pParty->setNpcUnavailable(invite.npcId, true);
+                context.pParty->clearNpcHouseOverride(invite.npcId);
+                context.eventRuntimeState.messages.push_back(
+                    recruit.character.name + " waits at the Adventurer's Inn.");
+                setPendingDialogueContext(
+                    context.eventRuntimeState,
+                    DialogueContextKind::NpcTalk,
+                    invite.npcId,
+                    currentDialogueHostHouseId(context.eventRuntimeState));
+                result.shouldOpenPendingEventDialog = true;
+                result.allowNpcFallbackContent = false;
+                return result;
+            }
+
+            if (!context.pParty->recruitCharacter(recruit.character))
+            {
+                context.eventRuntimeState.messages.push_back("Recruitment is not available for this companion yet.");
+                setPendingDialogueContext(
+                    context.eventRuntimeState,
+                    DialogueContextKind::NpcTalk,
+                    invite.npcId,
+                    currentDialogueHostHouseId(context.eventRuntimeState));
+                result.shouldOpenPendingEventDialog = true;
+                return result;
+            }
+
+            context.eventRuntimeState.generatedMercenaryRecruitsByNpcId.erase(invite.npcId);
+            context.eventRuntimeState.unavailableNpcIds.insert(invite.npcId);
+            context.eventRuntimeState.npcHouseOverrides.erase(invite.npcId);
+            context.pParty->setNpcUnavailable(invite.npcId, true);
+            context.pParty->clearNpcHouseOverride(invite.npcId);
+            context.eventRuntimeState.messages.push_back(recruit.character.name + " joined the party.");
+            queueUiSound(context.eventRuntimeState, HeroismEffectSoundId);
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::HireNpc, true);
+            setPendingDialogueContext(
+                context.eventRuntimeState,
+                DialogueContextKind::NpcTalk,
+                invite.npcId,
+                currentDialogueHostHouseId(context.eventRuntimeState));
+            result.shouldOpenPendingEventDialog = true;
+            result.allowNpcFallbackContent = false;
+            return result;
+        }
+
+        if (context.pRosterTable == nullptr)
+        {
+            return result;
+        }
 
         const RosterEntry *pRosterEntry = context.pRosterTable->get(invite.rosterId);
 
@@ -1809,6 +1995,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         context.pParty->clearNpcHouseOverride(invite.npcId);
         context.eventRuntimeState.messages.push_back(pRosterEntry->name + " joined the party.");
         queueUiSound(context.eventRuntimeState, HeroismEffectSoundId);
+        playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::HireNpc, true);
         setPendingDialogueContext(
             context.eventRuntimeState,
             DialogueContextKind::NpcTalk,
@@ -1891,6 +2078,11 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.uiController.setStatusBarEvent(message);
             }
 
+            playSpeechReaction(
+                context,
+                context.pParty->activeMemberIndex(),
+                SpeechId::SkillMasteryIncreased,
+                true);
             setPendingDialogueContext(
                 context.eventRuntimeState,
                 DialogueContextKind::NpcTalk,
@@ -2003,11 +2195,13 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.pNpcDialogTable,
                 125,
                 "You don't have enough gold!"));
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::NotEnoughGold, true);
         }
         else
         {
             context.pParty->addGold(-static_cast<int>(offer->cost));
             grantGuildMembership(context.eventRuntimeState, context.pParty, *offer);
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::JoinedGuild, true);
 
             const std::optional<std::string> description = context.pNpcDialogTable->getText(offer->descriptionTextId);
             if (description && !description->empty())
@@ -2040,7 +2234,10 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         const MergedNpcProfessionEntry *pProfession =
             pNpc != nullptr ? context.pNpcProfessionTable->get(pNpc->professionId) : nullptr;
 
-        if (pNpc == nullptr || pProfession == nullptr || !npcCanOfferProfessionHire(*pNpc, *pProfession))
+        if (pNpc == nullptr
+            || pProfession == nullptr
+            || !npcCanOfferProfessionHire(*pNpc, *pProfession)
+            || !continentAllowsNpcFollowers(context.pCurrentMap, context.pContinentSettingTable))
         {
             context.eventRuntimeState.messages.push_back("That follower is not available.");
             result.shouldOpenPendingEventDialog = true;
@@ -2103,7 +2300,10 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         const MergedNpcProfessionEntry *pProfession =
             pNpc != nullptr ? context.pNpcProfessionTable->get(pNpc->professionId) : nullptr;
 
-        if (pNpc == nullptr || pProfession == nullptr || !npcCanOfferProfessionHire(*pNpc, *pProfession))
+        if (pNpc == nullptr
+            || pProfession == nullptr
+            || !npcCanOfferProfessionHire(*pNpc, *pProfession)
+            || !continentAllowsNpcFollowers(context.pCurrentMap, context.pContinentSettingTable))
         {
             context.eventRuntimeState.messages.push_back("That follower is not available.");
         }
@@ -2155,6 +2355,12 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             }
 
             context.eventRuntimeState.messages.push_back(pNpc->name + " joined the followers.");
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::HireNpc, true);
+            if (context.pScreenRuntime != nullptr)
+            {
+                context.pScreenRuntime->interactionState().followerPanelOpen = true;
+                context.pScreenRuntime->interactionState().followerPanelScrollOffset = 0;
+            }
             hired = true;
         }
 
@@ -2298,6 +2504,29 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             context.eventRuntimeState.variables[npcBtbDialogueAccessVariableKey(context.activeEventDialog.sourceId)] =
                 static_cast<int32_t>(npcBtbDialogueAccessDay(
                     context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f));
+        }
+
+        if (context.pParty != nullptr)
+        {
+            SpeechId speechId = SpeechId::None;
+
+            if (action.id == NpcBegTopicId)
+            {
+                speechId = accepted ? SpeechId::Beg : SpeechId::BegFail;
+            }
+            else if (action.id == NpcThreatTopicId)
+            {
+                speechId = accepted ? SpeechId::Threat : SpeechId::ThreatFail;
+            }
+            else if (action.id == NpcBribeTopicId)
+            {
+                speechId = (accepted || bribePaid) ? SpeechId::Bribe : SpeechId::BribeFail;
+            }
+
+            if (speechId != SpeechId::None)
+            {
+                playSpeechReaction(context, context.pParty->activeMemberIndex(), speechId, true);
+            }
         }
 
         setPendingDialogueContext(
@@ -2730,6 +2959,21 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
                 playHouseSound(context, *soundId);
             }
         }
+        else if (resolveHouseServiceType(*pHostHouseEntry) == HouseServiceType::Shop
+                 && context.pParty != nullptr
+                 && context.pWorldRuntime != nullptr
+                 && context.pWorldRuntime->currentLocationReputation() < -10)
+        {
+            const std::optional<uint32_t> soundId =
+                deriveHouseSoundId(*pHostHouseEntry, HouseSoundType::ShopGoodbyeRude);
+
+            if (soundId.has_value())
+            {
+                playHouseSound(context, *soundId);
+            }
+
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::ShopRude, true);
+        }
     }
 
     if (!context.activeEventDialog.isHouseDialog && context.activeEventDialog.sourceId != 0)
@@ -2844,6 +3088,7 @@ GameplayDialogController::Result GameplayDialogController::confirmHouseBankInput
                 playHouseSound(context, *soundId);
             }
 
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::NotEnoughGold, true);
             depositedAmount = context.pParty->gold();
         }
 
@@ -2873,6 +3118,7 @@ GameplayDialogController::Result GameplayDialogController::confirmHouseBankInput
                 playHouseSound(context, *soundId);
             }
 
+            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::NotEnoughGold, true);
             withdrawnAmount = context.pParty->bankGold();
         }
 

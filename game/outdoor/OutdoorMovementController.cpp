@@ -2777,6 +2777,31 @@ void OutdoorMovementController::setFaceAttributes(size_t bModelIndex, size_t fac
     m_faces[iterator->second].attributes = attributes;
 }
 
+void OutdoorMovementController::updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries)
+{
+    bool changedAny = false;
+
+    for (const OutdoorFaceGeometryData &geometry : geometries)
+    {
+        const uint64_t faceId =
+            (static_cast<uint64_t>(geometry.bModelIndex) << 32) | static_cast<uint32_t>(geometry.faceIndex);
+        const auto iterator = m_faceIndexById.find(faceId);
+
+        if (iterator == m_faceIndexById.end() || iterator->second >= m_faces.size())
+        {
+            continue;
+        }
+
+        m_faces[iterator->second] = geometry;
+        changedAny = true;
+    }
+
+    if (changedAny)
+    {
+        buildFaceSpatialIndex();
+    }
+}
+
 void OutdoorMovementController::buildDecorationColliderCache(
     const std::optional<OutdoorDecorationCollisionSet> &outdoorDecorationCollisionSet)
 {

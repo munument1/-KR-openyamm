@@ -113,15 +113,13 @@ int ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
     CharacterAttackMode attackMode,
     const ItemTable *pItemTable,
     const SpecialItemEnchantTable *pSpecialTable,
-    const std::string &monsterName,
-    const std::string &monsterPictureName)
+    uint32_t monsterKindFlags)
 {
     (void)character;
     (void)attackMode;
     (void)pItemTable;
     (void)pSpecialTable;
-    (void)monsterName;
-    (void)monsterPictureName;
+    (void)monsterKindFlags;
     return 1;
 }
 
@@ -180,10 +178,29 @@ SkillMastery ClassSkillTable::getClassCap(const std::string &className, const st
     return SkillMastery::None;
 }
 
+SkillMastery ClassSkillTable::getEffectiveCap(
+    const std::string &className,
+    uint32_t raceId,
+    const std::string &skillName
+) const
+{
+    (void)raceId;
+    return getClassCap(className, skillName);
+}
+
 std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForClass(const std::string &className) const
 {
     (void)className;
     return {};
+}
+
+std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForCharacter(
+    const std::string &className,
+    uint32_t raceId
+) const
+{
+    (void)raceId;
+    return getDefaultSkillsForClass(className);
 }
 
 InventoryItem ItemGenerator::makeInventoryItem(

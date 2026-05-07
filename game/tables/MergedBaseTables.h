@@ -97,20 +97,6 @@ struct MergedNewsTopicEntry
     uint32_t newsTextId = 0;
 };
 
-struct MergedMonsterKindEntry
-{
-    uint32_t monsterId = 0;
-    std::string name;
-    bool undead = false;
-    bool dragon = false;
-    bool swimmer = false;
-    bool immobile = false;
-    bool peasant = false;
-    bool noArena = false;
-    bool ogre = false;
-    bool elemental = false;
-};
-
 struct MergedPotionSettingEntry
 {
     uint32_t potionId = 0;
@@ -519,16 +505,6 @@ public:
 private:
     std::unordered_map<uint32_t, std::vector<uint32_t>> m_monsterPortraitsByGroupId;
     std::unordered_map<std::string, std::vector<uint32_t>> m_monsterPortraitsByName;
-};
-
-class MergedMonsterKindTable
-{
-public:
-    bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
-    const std::vector<MergedMonsterKindEntry> &entries() const;
-
-private:
-    std::vector<MergedMonsterKindEntry> m_entries;
 };
 
 class MergedPotionSettingTable

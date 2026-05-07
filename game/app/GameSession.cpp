@@ -134,6 +134,7 @@ void GameSession::clear()
     m_outdoorWorldStates.clear();
     m_currentIndoorSceneState.reset();
     m_indoorSceneStates.clear();
+    m_namedGlobalVars.clear();
     m_gameMinutes = 9.0f * 60.0f;
     m_outdoorCameraYawRadians = 0.0f;
     m_outdoorCameraPitchRadians = 0.0f;
@@ -583,12 +584,22 @@ void GameSession::setCurrentOutdoorWorldState(const OutdoorWorldRuntime::Snapsho
 {
     m_currentOutdoorWorldState = snapshot;
     m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
+    if (m_currentOutdoorWorldState->eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+    }
 }
 
 void GameSession::setCurrentOutdoorWorldState(OutdoorWorldRuntime::Snapshot &&snapshot)
 {
     m_currentOutdoorWorldState = std::move(snapshot);
     m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
+    if (m_currentOutdoorWorldState->eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+    }
 }
 
 const std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> &GameSession::outdoorWorldStates() const
@@ -605,6 +616,11 @@ void GameSession::storeOutdoorWorldState(const std::string &mapFileName, const O
 {
     OutdoorWorldRuntime::Snapshot normalizedSnapshot = snapshot;
     normalizedSnapshot.gameMinutes = m_gameMinutes;
+    if (normalizedSnapshot.eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*normalizedSnapshot.eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*normalizedSnapshot.eventRuntimeState);
+    }
     m_outdoorWorldStates[mapFileName] = normalizedSnapshot;
 }
 
@@ -617,12 +633,22 @@ void GameSession::setCurrentIndoorSceneState(const IndoorSceneRuntime::Snapshot 
 {
     m_currentIndoorSceneState = snapshot;
     m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
+    if (m_currentIndoorSceneState->eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+    }
 }
 
 void GameSession::setCurrentIndoorSceneState(IndoorSceneRuntime::Snapshot &&snapshot)
 {
     m_currentIndoorSceneState = std::move(snapshot);
     m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
+    if (m_currentIndoorSceneState->eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+    }
 }
 
 const std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> &GameSession::indoorSceneStates() const
@@ -639,7 +665,57 @@ void GameSession::storeIndoorSceneState(const std::string &mapFileName, const In
 {
     IndoorSceneRuntime::Snapshot normalizedSnapshot = snapshot;
     normalizedSnapshot.worldRuntime.gameMinutes = m_gameMinutes;
+    if (normalizedSnapshot.eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*normalizedSnapshot.eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*normalizedSnapshot.eventRuntimeState);
+    }
     m_indoorSceneStates[mapFileName] = normalizedSnapshot;
+}
+
+const std::unordered_map<std::string, int32_t> &GameSession::namedGlobalVars() const
+{
+    return m_namedGlobalVars;
+}
+
+int32_t GameSession::namedGlobalVar(const std::string &name, int32_t defaultValue) const
+{
+    const std::unordered_map<std::string, int32_t>::const_iterator it = m_namedGlobalVars.find(name);
+    return it != m_namedGlobalVars.end() ? it->second : defaultValue;
+}
+
+void GameSession::setNamedGlobalVar(const std::string &name, int32_t value)
+{
+    if (name.empty())
+    {
+        return;
+    }
+
+    m_namedGlobalVars[name] = value;
+}
+
+void GameSession::clearNamedGlobalVar(const std::string &name)
+{
+    m_namedGlobalVars.erase(name);
+}
+
+void GameSession::mergeNamedGlobalVarsFromRuntime(const EventRuntimeState &runtimeState)
+{
+    for (const auto &[name, value] : runtimeState.namedGlobalVars)
+    {
+        if (!name.empty())
+        {
+            m_namedGlobalVars[name] = value;
+        }
+    }
+}
+
+void GameSession::applyNamedGlobalVarsToRuntime(EventRuntimeState &runtimeState) const
+{
+    for (const auto &[name, value] : m_namedGlobalVars)
+    {
+        runtimeState.namedGlobalVars[name] = value;
+    }
 }
 
 void GameSession::setOutdoorCameraAngles(float yawRadians, float pitchRadians)
@@ -768,6 +844,11 @@ void GameSession::captureOutdoorRuntimeState(
 
     OutdoorWorldRuntime::Snapshot normalizedWorldSnapshot = worldSnapshot;
     normalizedWorldSnapshot.gameMinutes = m_gameMinutes;
+    if (normalizedWorldSnapshot.eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*normalizedWorldSnapshot.eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*normalizedWorldSnapshot.eventRuntimeState);
+    }
     m_currentOutdoorWorldState = normalizedWorldSnapshot;
     m_outdoorWorldStates[mapFileName] = normalizedWorldSnapshot;
     m_outdoorCameraYawRadians = yawRadians;
@@ -786,6 +867,11 @@ void GameSession::captureIndoorRuntimeState(
 
     IndoorSceneRuntime::Snapshot normalizedSnapshot = snapshot;
     normalizedSnapshot.worldRuntime.gameMinutes = m_gameMinutes;
+    if (normalizedSnapshot.eventRuntimeState)
+    {
+        mergeNamedGlobalVarsFromRuntime(*normalizedSnapshot.eventRuntimeState);
+        applyNamedGlobalVarsToRuntime(*normalizedSnapshot.eventRuntimeState);
+    }
     m_currentIndoorSceneState = normalizedSnapshot;
     m_indoorSceneStates[mapFileName] = normalizedSnapshot;
 }
@@ -811,6 +897,7 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
     saveData.currentSceneKind = m_currentSceneKind;
     saveData.mapFileName = m_currentMapFileName;
     saveData.party = m_partyState->snapshot();
+    saveData.namedGlobalVars = m_namedGlobalVars;
     saveData.savedGameMinutes = m_gameMinutes;
 
     if (m_outdoorPartyState && m_currentOutdoorWorldState)
@@ -819,12 +906,20 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
         saveData.outdoorParty = *m_outdoorPartyState;
         saveData.outdoorWorld = *m_currentOutdoorWorldState;
         saveData.outdoorWorld.gameMinutes = m_gameMinutes;
+        if (saveData.outdoorWorld.eventRuntimeState)
+        {
+            applyNamedGlobalVarsToRuntime(*saveData.outdoorWorld.eventRuntimeState);
+        }
     }
 
     saveData.outdoorWorldStates = m_outdoorWorldStates;
     for (auto &[mapFileName, worldState] : saveData.outdoorWorldStates)
     {
         worldState.gameMinutes = m_gameMinutes;
+        if (worldState.eventRuntimeState)
+        {
+            applyNamedGlobalVarsToRuntime(*worldState.eventRuntimeState);
+        }
     }
 
     if (m_currentIndoorSceneState)
@@ -832,12 +927,20 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
         saveData.hasIndoorSceneState = true;
         saveData.indoorScene = *m_currentIndoorSceneState;
         saveData.indoorScene.worldRuntime.gameMinutes = m_gameMinutes;
+        if (saveData.indoorScene.eventRuntimeState)
+        {
+            applyNamedGlobalVarsToRuntime(*saveData.indoorScene.eventRuntimeState);
+        }
     }
 
     saveData.indoorSceneStates = m_indoorSceneStates;
     for (auto &[mapFileName, sceneState] : saveData.indoorSceneStates)
     {
         sceneState.worldRuntime.gameMinutes = m_gameMinutes;
+        if (sceneState.eventRuntimeState)
+        {
+            applyNamedGlobalVarsToRuntime(*sceneState.eventRuntimeState);
+        }
     }
 
     saveData.outdoorCameraYawRadians = m_outdoorCameraYawRadians;
@@ -864,6 +967,8 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
     m_currentSceneKind = saveData.currentSceneKind;
     m_currentMapFileName = saveData.mapFileName;
     m_gameMinutes = std::max(0.0f, saveData.savedGameMinutes);
+    m_namedGlobalVars = saveData.namedGlobalVars;
+    const bool collectLegacyNamedGlobalVars = m_namedGlobalVars.empty();
 
     if (m_gameMinutes <= 0.0f)
     {
@@ -886,12 +991,28 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
     if (m_currentOutdoorWorldState)
     {
         m_currentOutdoorWorldState->gameMinutes = m_gameMinutes;
+        if (m_currentOutdoorWorldState->eventRuntimeState)
+        {
+            if (collectLegacyNamedGlobalVars)
+            {
+                mergeNamedGlobalVarsFromRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+            }
+            applyNamedGlobalVarsToRuntime(*m_currentOutdoorWorldState->eventRuntimeState);
+        }
     }
 
     m_outdoorWorldStates = saveData.outdoorWorldStates;
     for (auto &[mapFileName, worldState] : m_outdoorWorldStates)
     {
         worldState.gameMinutes = m_gameMinutes;
+        if (worldState.eventRuntimeState)
+        {
+            if (collectLegacyNamedGlobalVars)
+            {
+                mergeNamedGlobalVarsFromRuntime(*worldState.eventRuntimeState);
+            }
+            applyNamedGlobalVarsToRuntime(*worldState.eventRuntimeState);
+        }
     }
 
     if (saveData.hasOutdoorRuntimeState && m_currentSceneKind == SceneKind::Outdoor)
@@ -905,12 +1026,28 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
     if (m_currentIndoorSceneState)
     {
         m_currentIndoorSceneState->worldRuntime.gameMinutes = m_gameMinutes;
+        if (m_currentIndoorSceneState->eventRuntimeState)
+        {
+            if (collectLegacyNamedGlobalVars)
+            {
+                mergeNamedGlobalVarsFromRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+            }
+            applyNamedGlobalVarsToRuntime(*m_currentIndoorSceneState->eventRuntimeState);
+        }
     }
 
     m_indoorSceneStates = saveData.indoorSceneStates;
     for (auto &[mapFileName, sceneState] : m_indoorSceneStates)
     {
         sceneState.worldRuntime.gameMinutes = m_gameMinutes;
+        if (sceneState.eventRuntimeState)
+        {
+            if (collectLegacyNamedGlobalVars)
+            {
+                mergeNamedGlobalVarsFromRuntime(*sceneState.eventRuntimeState);
+            }
+            applyNamedGlobalVarsToRuntime(*sceneState.eventRuntimeState);
+        }
     }
 
     if (saveData.hasIndoorSceneState && m_currentSceneKind == SceneKind::Indoor)

@@ -179,6 +179,19 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
+    std::vector<std::vector<std::string>> potionNoteRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineEnglishDataTablePath("potnotes.txt"), potionNoteRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.potionNoteTable.loadFromRows(potionNoteRows))
+    {
+        failure = "could not load potion note table for regression tests";
+        return false;
+    }
+
     std::vector<std::vector<std::string>> potionSettingRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("potion_settings.txt"), potionSettingRows, failure))
@@ -519,6 +532,36 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!data.classSkillTable.loadClassMetadataFromRows(classExtraRows))
     {
         failure = "could not load class metadata for regression tests";
+        return false;
+    }
+
+    if (!data.classSkillTable.loadClassSpellPointMetadataFromRows(classMultiplierRows))
+    {
+        failure = "could not load class spell point metadata for regression tests";
+        return false;
+    }
+
+    const std::optional<std::string> raceSkillYaml =
+        assetFileSystem.readTextFile(engineDataTablePath("race_skills.yml"));
+
+    if (!raceSkillYaml)
+    {
+        failure = "could not read race skill yaml for regression tests";
+        return false;
+    }
+
+    Game::MergedRaceSkillTable raceSkillTable = {};
+    std::string raceSkillErrorMessage;
+
+    if (!raceSkillTable.loadFromYaml(*raceSkillYaml, raceSkillErrorMessage))
+    {
+        failure = "could not load race skill yaml for regression tests: " + raceSkillErrorMessage;
+        return false;
+    }
+
+    if (!data.classSkillTable.applyRaceSkillOverrides(raceSkillTable))
+    {
+        failure = "could not apply race skill rules for regression tests";
         return false;
     }
 

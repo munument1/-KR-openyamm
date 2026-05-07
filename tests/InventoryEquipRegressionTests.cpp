@@ -565,8 +565,11 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     const std::optional<uint16_t> dragonSlayingEnchantId =
         findSpecialEnchantId(gameData.specialItemEnchantTable, OpenYAMM::Game::SpecialItemEnchantKind::DragonSlaying);
+    const std::optional<uint16_t> davidEnchantId =
+        findSpecialEnchantId(gameData.specialItemEnchantTable, OpenYAMM::Game::SpecialItemEnchantKind::David);
     const OpenYAMM::Game::ItemDefinition *pBowDefinition = gameData.itemTable.get(56);
     REQUIRE(dragonSlayingEnchantId.has_value());
+    REQUIRE(davidEnchantId.has_value());
     REQUIRE(pBowDefinition != nullptr);
 
     OpenYAMM::Game::Character meleeCharacter = {};
@@ -580,17 +583,14 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
             OpenYAMM::Game::CharacterAttackMode::Melee,
             &gameData.itemTable,
             &gameData.specialItemEnchantTable,
-            "Cyclops",
-            "Cyclops"),
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Ogre)),
         2);
     CHECK_EQ(
         OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
             meleeCharacter,
             OpenYAMM::Game::CharacterAttackMode::Melee,
             &gameData.itemTable,
-            &gameData.specialItemEnchantTable,
-            "Lizardman",
-            "Lizardman"),
+            &gameData.specialItemEnchantTable),
         1);
 
     OpenYAMM::Game::Character rangedCharacter = {};
@@ -603,8 +603,7 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
             OpenYAMM::Game::CharacterAttackMode::Bow,
             &gameData.itemTable,
             &gameData.specialItemEnchantTable,
-            "Red Dragon",
-            "Dragon"),
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Dragon)),
         2);
     CHECK_EQ(
         OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
@@ -612,9 +611,26 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
             OpenYAMM::Game::CharacterAttackMode::Bow,
             &gameData.itemTable,
             &gameData.specialItemEnchantTable,
-            "Minotaur",
-            "Minotaur"),
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Dragon)),
+        2);
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
+            rangedCharacter,
+            OpenYAMM::Game::CharacterAttackMode::Bow,
+            &gameData.itemTable,
+            &gameData.specialItemEnchantTable),
         1);
+
+    rangedCharacter.equipmentRuntime.bow.specialEnchantId = *davidEnchantId;
+
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
+            rangedCharacter,
+            OpenYAMM::Game::CharacterAttackMode::Bow,
+            &gameData.itemTable,
+            &gameData.specialItemEnchantTable,
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Titan)),
+        2);
 }
 
 TEST_CASE("ring auto equip uses the first free slot then replaces the first ring")

@@ -660,8 +660,7 @@ public:
         const Character *pSourceMember,
         const ItemTable *pItemTable,
         const SpecialItemEnchantTable *pSpecialItemEnchantTable,
-        const std::string &targetMonsterName,
-        const std::string &targetMonsterPictureName) const;
+        uint32_t targetMonsterKindFlags) const;
     ProjectileAreaImpact buildProjectileAreaImpact(
         const ProjectileState &projectile,
         const ProjectileAreaImpactInput &input) const;

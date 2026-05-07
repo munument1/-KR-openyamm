@@ -23,6 +23,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -125,6 +126,13 @@ public:
     std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> &indoorSceneStates();
     void storeIndoorSceneState(const std::string &mapFileName, const IndoorSceneRuntime::Snapshot &snapshot);
 
+    const std::unordered_map<std::string, int32_t> &namedGlobalVars() const;
+    int32_t namedGlobalVar(const std::string &name, int32_t defaultValue = 0) const;
+    void setNamedGlobalVar(const std::string &name, int32_t value);
+    void clearNamedGlobalVar(const std::string &name);
+    void mergeNamedGlobalVarsFromRuntime(const EventRuntimeState &runtimeState);
+    void applyNamedGlobalVarsToRuntime(EventRuntimeState &runtimeState) const;
+
     void setOutdoorCameraAngles(float yawRadians, float pitchRadians);
     float outdoorCameraYawRadians() const;
     float outdoorCameraPitchRadians() const;
@@ -201,6 +209,7 @@ private:
     std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> m_outdoorWorldStates;
     std::optional<IndoorSceneRuntime::Snapshot> m_currentIndoorSceneState;
     std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> m_indoorSceneStates;
+    std::unordered_map<std::string, int32_t> m_namedGlobalVars;
     float m_gameMinutes = 9.0f * 60.0f;
     float m_outdoorCameraYawRadians = 0.0f;
     float m_outdoorCameraPitchRadians = 0.0f;

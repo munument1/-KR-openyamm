@@ -90,6 +90,7 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pRaceStartingStatsTable = &loader.getRaceStartingStatsTable();
     m_pReadableScrollTable = &loader.getReadableScrollTable();
     m_pPotionMixingTable = &loader.getPotionMixingTable();
+    m_pPotionNoteTable = &loader.getPotionNoteTable();
     m_pArcomageLibrary = &loader.getArcomageLibrary();
     m_pPortraitFrameTable = &loader.getPortraitFrameTable();
     m_pIconFrameTable = &loader.getIconFrameTable();
@@ -234,6 +235,11 @@ const ReadableScrollTable &GameDataRepository::readableScrollTable() const
 const PotionMixingTable &GameDataRepository::potionMixingTable() const
 {
     return requireBound(m_pPotionMixingTable);
+}
+
+const PotionNoteTable &GameDataRepository::potionNoteTable() const
+{
+    return requireBound(m_pPotionNoteTable);
 }
 
 const ArcomageLibrary &GameDataRepository::arcomageLibrary() const

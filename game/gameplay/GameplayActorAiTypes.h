@@ -134,6 +134,7 @@ struct ActorStatsFacts
     int spell1UseChance = 0;
     int spell2UseChance = 0;
     int attack2Chance = 0;
+    std::string attack2MissileTypeOverride;
     AttackDamageFacts attack1Damage = {};
     AttackDamageFacts attack2Damage = {};
     CombatDamageType attack1DamageType = CombatDamageType::Physical;
@@ -336,6 +337,7 @@ struct ActorAttackRequest
     uint32_t spellId = 0;
     uint32_t skillLevel = 0;
     SkillMastery skillMastery = SkillMastery::None;
+    std::string projectileTokenOverride;
     int damage = 0;
     int attackBonus = 0;
     CombatDamageType damageType = CombatDamageType::Physical;
@@ -352,6 +354,7 @@ struct ActorProjectileRequest
     uint32_t spellId = 0;
     uint32_t skillLevel = 0;
     SkillMastery skillMastery = SkillMastery::None;
+    std::string projectileTokenOverride;
     int damage = 0;
     int attackBonus = 0;
     CombatDamageType damageType = CombatDamageType::Physical;

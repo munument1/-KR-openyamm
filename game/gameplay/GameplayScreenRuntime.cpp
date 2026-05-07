@@ -1008,7 +1008,7 @@ void GameplayScreenRuntime::beginRestAction(
         if (currentParty.food() < foodRequired)
         {
             setStatusBarEvent("You don't have enough food to rest.");
-            playCantRestHereReaction();
+            playSpeechReaction(currentParty.activeMemberIndex(), SpeechId::Hungry, true);
             return;
         }
 
@@ -1721,6 +1721,8 @@ bool GameplayScreenRuntime::tryAutoPlaceHeldInventoryItemOnPartyMember(size_t me
         {
             setStatusBarEvent(failureStatus.empty() ? "Pack is Full!" : failureStatus);
         }
+
+        playSpeechReaction(memberIndex, SpeechId::InventoryRoom, true);
 
         return false;
     }
@@ -2526,9 +2528,10 @@ void GameplayScreenRuntime::resetPortraitFxStates(size_t memberCount)
     uiRuntime().resetPortraitPresentationState(memberCount);
 }
 
-void GameplayScreenRuntime::resetOverlayInteractionState()
+void GameplayScreenRuntime::resetOverlayInteractionState(bool followerPanelOpen)
 {
     interactionState() = {};
+    interactionState().followerPanelOpen = followerPanelOpen;
 }
 
 bool GameplayScreenRuntime::initializeHouseVideoPlayer()

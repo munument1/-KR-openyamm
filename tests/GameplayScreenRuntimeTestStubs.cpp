@@ -2,6 +2,12 @@
 
 namespace OpenYAMM::Game
 {
+GameplayOverlayInteractionState &GameplayScreenRuntime::interactionState() const
+{
+    static GameplayOverlayInteractionState interactionState = {};
+    return interactionState;
+}
+
 void GameplayScreenRuntime::playSpeechReaction(size_t memberIndex, SpeechId speechId, bool triggerFaceAnimation)
 {
     (void)memberIndex;

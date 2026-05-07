@@ -10,6 +10,7 @@
 #include <array>
 #include <cassert>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <optional>
 #include <string>
@@ -27,6 +28,7 @@ using CreationCandidate = NewGameScreen::CreationCandidate;
 constexpr float RootWidth = 640.0f;
 constexpr float RootHeight = 480.0f;
 constexpr const char *CharacterCreationLayoutPath = "Data/ui/gameplay/character_creation.yml";
+constexpr const char *ContinentSelectionLayoutPath = "Data/ui/gameplay/continent_selection.yml";
 constexpr uint32_t DefaultCreationCharacterDataId = 1;
 constexpr const char *DefaultCreationClassName = "Knight";
 constexpr const char *DefaultNewGameContinentKey = "jadame";
@@ -789,12 +791,13 @@ int skillMasteryAvailabilityForCreation(
         return 0;
     }
 
-    if (pClassSkillTable->getClassCap(character.className, skillName) >= mastery)
+    if (pClassSkillTable->getEffectiveCap(character.className, character.raceId, skillName) >= mastery)
     {
         return 0;
     }
 
-    if (pClassSkillTable->getHighestPromotionCap(character.className, skillName) >= mastery)
+    if (pClassSkillTable->getHighestPromotionEffectiveCap(character.className, character.raceId, skillName)
+        >= mastery)
     {
         return 1;
     }
@@ -880,6 +883,20 @@ AppMode NewGameScreen::mode() const
 
 void NewGameScreen::onEnter()
 {
+    ensureContinentLayoutLoaded();
+    ensureLayoutLoaded();
+    m_stage = FlowStage::ContinentSelection;
+    m_characterCreationInitialized = false;
+    m_selectedContinent = {};
+}
+
+void NewGameScreen::initializeCharacterCreationForSelectedContinent()
+{
+    if (m_characterCreationInitialized)
+    {
+        return;
+    }
+
     ensureLayoutLoaded();
     rebuildCandidates();
     m_partySize = 1;
@@ -903,6 +920,7 @@ void NewGameScreen::onEnter()
     resetStateForCandidate(defaultCandidateIndex);
     ensurePartyStates();
     saveActivePartyState();
+    m_characterCreationInitialized = true;
 }
 
 void NewGameScreen::onExit()
@@ -934,6 +952,26 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
 
     if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat)
     {
+        return;
+    }
+
+    if (m_stage == FlowStage::ContinentSelection)
+    {
+        switch (event.key.key)
+        {
+            case SDLK_ESCAPE:
+                m_escapePressed = true;
+                break;
+
+            case SDLK_RETURN:
+            case SDLK_KP_ENTER:
+                m_returnPressed = true;
+                break;
+
+            default:
+                break;
+        }
+
         return;
     }
 
@@ -1096,7 +1134,12 @@ void NewGameScreen::rebuildCandidates()
 
     const MergedCharacterSelectionTable &selectionTable = m_pGameData->mergedCharacterSelectionTable();
     const MergedCharacterSelectionContinent *pContinent =
-        findNewGameContinent(selectionTable, DefaultNewGameContinentKey);
+        findNewGameContinent(selectionTable, m_selectedContinent.key);
+
+    if (pContinent == nullptr)
+    {
+        pContinent = findNewGameContinent(selectionTable, DefaultNewGameContinentKey);
+    }
 
     if (pContinent == nullptr)
     {
@@ -1277,7 +1320,10 @@ void NewGameScreen::refreshSkillChoices(bool applyCandidateDefaults)
         for (const char *pSkillName : OrderedSkillNames)
         {
             const StartingSkillAvailability availability =
-                m_pGameData->classSkillTable().getStartingSkillAvailability(selectedClassName(), pSkillName);
+                m_pGameData->classSkillTable().getEffectiveStartingSkillAvailability(
+                    selectedClassName(),
+                    candidate.raceId,
+                    pSkillName);
 
             if (availability == StartingSkillAvailability::HasByDefault)
             {
@@ -2100,7 +2146,7 @@ void NewGameScreen::confirmCreation()
 
     if (m_continueAction)
     {
-        m_continueAction(buildPartyCharacters());
+        m_continueAction(buildPartyCharacters(), m_selectedContinent.id);
     }
 }
 
@@ -2114,6 +2160,31 @@ void NewGameScreen::cancelCreation()
     }
 }
 
+void NewGameScreen::selectContinent(const std::string &continentKey)
+{
+    if (m_pGameData == nullptr)
+    {
+        return;
+    }
+
+    const MergedCharacterSelectionTable &selectionTable = m_pGameData->mergedCharacterSelectionTable();
+    const MergedCharacterSelectionContinent *pContinent = findNewGameContinent(selectionTable, continentKey);
+
+    if (pContinent == nullptr)
+    {
+        return;
+    }
+
+    m_selectedContinent = {
+        .id = pContinent->id,
+        .key = pContinent->key,
+        .name = pContinent->name,
+    };
+    m_stage = FlowStage::CharacterCreation;
+    m_characterCreationInitialized = false;
+    initializeCharacterCreationForSelectedContinent();
+}
+
 bool NewGameScreen::ensureLayoutLoaded()
 {
     if (m_layoutLoaded)
@@ -2124,6 +2195,19 @@ bool NewGameScreen::ensureLayoutLoaded()
     m_layoutManager.clear();
     m_layoutLoaded = m_layoutManager.loadLayoutFile(assetFileSystem(), CharacterCreationLayoutPath);
     return m_layoutLoaded;
+}
+
+bool NewGameScreen::ensureContinentLayoutLoaded()
+{
+    if (m_continentLayoutLoaded)
+    {
+        return true;
+    }
+
+    m_continentLayoutManager.clear();
+    m_continentLayoutLoaded =
+        m_continentLayoutManager.loadLayoutFile(assetFileSystem(), ContinentSelectionLayoutPath);
+    return m_continentLayoutLoaded;
 }
 
 std::optional<MenuScreenBase::Rect> NewGameScreen::resolveLayoutRect(
@@ -2139,6 +2223,39 @@ std::optional<MenuScreenBase::Rect> NewGameScreen::resolveLayoutRect(
     std::unordered_set<std::string> visited;
     const std::optional<ResolvedLayoutElement> resolved = resolveLayoutElementRecursive(
         m_layoutManager,
+        layoutId,
+        frameWidth(),
+        frameHeight(),
+        fallbackWidth,
+        fallbackHeight,
+        visited);
+
+    if (!resolved.has_value())
+    {
+        return std::nullopt;
+    }
+
+    return MenuScreenBase::Rect{
+        std::round(resolved->x),
+        std::round(resolved->y),
+        std::round(resolved->width),
+        std::round(resolved->height)
+    };
+}
+
+std::optional<MenuScreenBase::Rect> NewGameScreen::resolveContinentLayoutRect(
+    const std::string &layoutId,
+    float fallbackWidth,
+    float fallbackHeight) const
+{
+    if (!m_continentLayoutLoaded)
+    {
+        return std::nullopt;
+    }
+
+    std::unordered_set<std::string> visited;
+    const std::optional<ResolvedLayoutElement> resolved = resolveLayoutElementRecursive(
+        m_continentLayoutManager,
         layoutId,
         frameWidth(),
         frameHeight(),
@@ -2195,6 +2312,42 @@ MenuScreenBase::ButtonVisualSet NewGameScreen::resolveButtonVisuals(
     return visuals;
 }
 
+MenuScreenBase::ButtonVisualSet NewGameScreen::resolveContinentButtonVisuals(
+    const std::string &layoutId,
+    const ButtonVisualSet &fallbackVisuals) const
+{
+    if (!m_continentLayoutLoaded)
+    {
+        return fallbackVisuals;
+    }
+
+    const UiLayoutManager::LayoutElement *pLayout = m_continentLayoutManager.findElement(layoutId);
+
+    if (pLayout == nullptr)
+    {
+        return fallbackVisuals;
+    }
+
+    ButtonVisualSet visuals = fallbackVisuals;
+
+    if (!pLayout->primaryAsset.empty())
+    {
+        visuals.defaultTextureName = pLayout->primaryAsset;
+    }
+
+    if (!pLayout->hoverAsset.empty())
+    {
+        visuals.highlightedTextureName = pLayout->hoverAsset;
+    }
+
+    if (!pLayout->pressedAsset.empty())
+    {
+        visuals.pressedTextureName = pLayout->pressedAsset;
+    }
+
+    return visuals;
+}
+
 std::string NewGameScreen::resolveAssetName(const std::string &layoutId, const std::string &fallbackAssetName) const
 {
     if (!m_layoutLoaded)
@@ -2212,10 +2365,147 @@ std::string NewGameScreen::resolveAssetName(const std::string &layoutId, const s
     return pLayout->primaryAsset;
 }
 
-void NewGameScreen::drawScreen(float deltaSeconds)
+std::string NewGameScreen::resolveContinentAssetName(
+    const std::string &layoutId,
+    const std::string &fallbackAssetName) const
+{
+    if (!m_continentLayoutLoaded)
+    {
+        return fallbackAssetName;
+    }
+
+    const UiLayoutManager::LayoutElement *pLayout = m_continentLayoutManager.findElement(layoutId);
+
+    if (pLayout == nullptr || pLayout->primaryAsset.empty())
+    {
+        return fallbackAssetName;
+    }
+
+    return pLayout->primaryAsset;
+}
+
+MenuScreenBase::ButtonState NewGameScreen::drawEllipseButton(const ButtonVisualSet &visuals, const Rect &rect)
+{
+    const float radiusX = rect.width * 0.5f;
+    const float radiusY = rect.height * 0.5f;
+    const float centerX = rect.x + radiusX;
+    const float centerY = rect.y + radiusY;
+    ButtonState state = {};
+
+    if (radiusX > 0.0f && radiusY > 0.0f)
+    {
+        const float normalizedX = (mouseX() - centerX) / radiusX;
+        const float normalizedY = (mouseY() - centerY) / radiusY;
+        state.hovered = normalizedX * normalizedX + normalizedY * normalizedY <= 1.0f;
+    }
+
+    state.pressed = state.hovered && leftMouseDown();
+    state.clicked = state.hovered && leftMouseJustReleased();
+
+    const std::string *pTextureName = &visuals.defaultTextureName;
+
+    if (state.pressed && !visuals.pressedTextureName.empty())
+    {
+        pTextureName = &visuals.pressedTextureName;
+    }
+    else if (state.hovered && !visuals.highlightedTextureName.empty())
+    {
+        pTextureName = &visuals.highlightedTextureName;
+    }
+
+    if (!pTextureName->empty())
+    {
+        drawTexture(*pTextureName, rect);
+    }
+
+    return state;
+}
+
+void NewGameScreen::drawContinentSelection(float deltaSeconds)
 {
     static_cast<void>(deltaSeconds);
 
+    ensureContinentLayoutLoaded();
+
+    const float fallbackScale = std::min(
+        static_cast<float>(frameWidth()) / RootWidth,
+        static_cast<float>(frameHeight()) / RootHeight);
+    const float fallbackRootX = (static_cast<float>(frameWidth()) - RootWidth * fallbackScale) * 0.5f;
+    const float fallbackRootY = (static_cast<float>(frameHeight()) - RootHeight * fallbackScale) * 0.5f;
+    const MenuScreenBase::Rect rootRect =
+        resolveContinentLayoutRect("ContinentSelectionRoot", RootWidth, RootHeight).value_or(
+            scaledRect(fallbackRootX, fallbackRootY, fallbackScale, 0.0f, 0.0f, RootWidth, RootHeight));
+    const float scale = rootRect.width > 0.0f ? rootRect.width / RootWidth : fallbackScale;
+    const float rootX = rootRect.x;
+    const float rootY = rootRect.y;
+    const auto resolveRect =
+        [this, rootX, rootY, scale](const std::string &layoutId, float x, float y, float width, float height)
+        {
+            return resolveContinentLayoutRect(layoutId, width, height).value_or(
+                scaledRect(rootX, rootY, scale, x, y, width, height));
+        };
+    const bool returnPressed = m_returnPressed;
+    const bool escapePressed = m_escapePressed;
+    m_returnPressed = false;
+    m_escapePressed = false;
+
+    if (escapePressed)
+    {
+        cancelCreation();
+        return;
+    }
+
+    drawTexture(resolveContinentAssetName("ContinentSelectionBackground", "slbackgr"), rootRect);
+
+    const MenuScreenBase::Rect jadameRect =
+        resolveRect("ContinentSelectionJadameButton", 208.0f, 31.0f, 222.0f, 222.0f);
+    const MenuScreenBase::Rect antagarichRect =
+        resolveRect("ContinentSelectionAntagarichButton", 322.0f, 228.0f, 222.0f, 222.0f);
+    const MenuScreenBase::Rect enrothRect =
+        resolveRect("ContinentSelectionEnrothButton", 94.0f, 229.0f, 222.0f, 222.0f);
+    const ButtonState jadameState = drawEllipseButton(
+        resolveContinentButtonVisuals("ContinentSelectionJadameButton", {"sljadamdw", "sljadamup", "sljadamup"}),
+        jadameRect);
+    const ButtonState antagarichState = drawEllipseButton(
+        resolveContinentButtonVisuals("ContinentSelectionAntagarichButton", {"slantagdw", "slantagup", "slantagup"}),
+        antagarichRect);
+    const ButtonState enrothState = drawEllipseButton(
+        resolveContinentButtonVisuals("ContinentSelectionEnrothButton", {"slenrothdw", "slenrothup", "slenrothup"}),
+        enrothRect);
+
+    if (jadameState.clicked)
+    {
+        playUiClickSound(SoundId::ClickIn);
+        selectContinent("jadame");
+    }
+    else if (antagarichState.clicked)
+    {
+        playUiClickSound(SoundId::ClickIn);
+        selectContinent("antagarich");
+    }
+    else if (enrothState.clicked)
+    {
+        playUiClickSound(SoundId::ClickIn);
+        selectContinent("enroth");
+    }
+    else if (returnPressed)
+    {
+        playUiClickSound(SoundId::ClickIn);
+        selectContinent(DefaultNewGameContinentKey);
+    }
+}
+
+void NewGameScreen::drawScreen(float deltaSeconds)
+{
+    if (m_stage == FlowStage::ContinentSelection)
+    {
+        drawContinentSelection(deltaSeconds);
+        return;
+    }
+
+    static_cast<void>(deltaSeconds);
+
+    initializeCharacterCreationForSelectedContinent();
     ensureLayoutLoaded();
 
     const float fallbackScale = std::min(

@@ -9,6 +9,7 @@
 #include "game/tables/PortraitEnums.h"
 #include "game/tables/PortraitFrameTable.h"
 #include "game/tables/SpeechReactionTable.h"
+#include "game/tables/ClassSkillTable.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/RaceStartingStatsTable.h"
 
@@ -115,6 +116,23 @@ bool voiceSpeechResolves(
 
     return false;
 }
+
+OpenYAMM::Game::ClassSkillTable loadClassSkillTableWithRaceRules()
+{
+    OpenYAMM::Game::ClassSkillTable classSkillTable;
+
+    REQUIRE(classSkillTable.loadCapsFromRows(loadRows("class_skills.txt")));
+    REQUIRE(classSkillTable.loadStartingSkillsFromRows(loadRows("class_starting_skills.txt")));
+    REQUIRE(classSkillTable.loadClassMetadataFromRows(loadRows("class_extra.txt")));
+    REQUIRE(classSkillTable.loadClassSpellPointMetadataFromRows(loadRows("class_multipliers.txt")));
+
+    OpenYAMM::Game::MergedRaceSkillTable raceSkillTable;
+    std::string raceSkillErrorMessage;
+    REQUIRE(raceSkillTable.loadFromYaml(loadDataTableText("race_skills.yml"), raceSkillErrorMessage));
+    REQUIRE(classSkillTable.applyRaceSkillOverrides(raceSkillTable));
+
+    return classSkillTable;
+}
 }
 
 TEST_CASE("merged base engine tables load without changing active MM8 runtime tables")
@@ -131,7 +149,6 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     OpenYAMM::Game::MergedNewsTopicTable newsContinentTopicTable;
     OpenYAMM::Game::MergedNewsProfessionTopicTable newsProfessionTopicTable;
     OpenYAMM::Game::MergedMonsterPortraitTable monsterPortraitTable;
-    OpenYAMM::Game::MergedMonsterKindTable monsterKindTable;
     OpenYAMM::Game::MergedPotionSettingTable potionSettingTable;
     OpenYAMM::Game::MergedReagentSettingTable reagentSettingTable;
     OpenYAMM::Game::MergedAdditionalUiTable additionalUiTable;
@@ -170,7 +187,6 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     REQUIRE(newsContinentTopicTable.loadFromRows(loadRows("news_topics_continent.txt")));
     REQUIRE(newsProfessionTopicTable.loadFromRows(loadRows("news_topics_profession.txt")));
     REQUIRE(monsterPortraitTable.loadFromRows(loadRows("monster_portraits.txt")));
-    REQUIRE(monsterKindTable.loadFromRows(loadRows("monster_kinds.txt")));
     REQUIRE(potionSettingTable.loadFromRows(loadRows("potion_settings.txt")));
     REQUIRE(reagentSettingTable.loadFromRows(loadRows("reagent_settings.txt")));
     REQUIRE(additionalUiTable.loadFromRows(loadRows("additional_ui.txt")));
@@ -253,9 +269,6 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     CHECK_NE(
         *monsterPortraitTable.portraitForName("Peasant", 0),
         *monsterPortraitTable.portraitForName("Peasant", 1));
-    REQUIRE_GT(monsterKindTable.entries().size(), 100u);
-    CHECK(monsterKindTable.entries()[1].peasant);
-    CHECK(monsterKindTable.entries()[1].noArena);
 
     REQUIRE_GT(potionSettingTable.entries().size(), 50u);
     CHECK_EQ(potionSettingTable.entries()[1].itemId, 221u);
@@ -416,6 +429,91 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
 
     CHECK_GT(transportLocationTable.entries().size(), 20u);
     CHECK_EQ(transportLocationTable.entries()[0].mapName, "Out03.odm");
+}
+
+TEST_CASE("race skill rules apply additive effective caps without changing class caps")
+{
+    const OpenYAMM::Game::ClassSkillTable classSkillTable = loadClassSkillTableWithRaceRules();
+
+    CHECK_EQ(classSkillTable.getClassCap("Archer", "Learning"), OpenYAMM::Game::SkillMastery::Master);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Archer", 0, "Learning"),
+        OpenYAMM::Game::SkillMastery::Grandmaster);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Archer", 4, "Learning"),
+        OpenYAMM::Game::SkillMastery::Master);
+
+    CHECK_EQ(classSkillTable.getClassCap("Troll", "Regeneration"), OpenYAMM::Game::SkillMastery::Master);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Troll", 4, "Regeneration"),
+        OpenYAMM::Game::SkillMastery::Grandmaster);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Peasant", 4, "Regeneration"),
+        OpenYAMM::Game::SkillMastery::None);
+}
+
+TEST_CASE("race skill rules grant minimum caps and honor class-kind exceptions")
+{
+    const OpenYAMM::Game::ClassSkillTable classSkillTable = loadClassSkillTableWithRaceRules();
+
+    CHECK_EQ(classSkillTable.getClassCap("Knight", "VampireAbility"), OpenYAMM::Game::SkillMastery::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Knight", 1, "VampireAbility"),
+        OpenYAMM::Game::SkillMastery::Expert);
+
+    CHECK_EQ(classSkillTable.getClassCap("Knight", "Axe"), OpenYAMM::Game::SkillMastery::Expert);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Knight", 3, "Axe"),
+        OpenYAMM::Game::SkillMastery::Master);
+
+    CHECK_EQ(classSkillTable.getClassCap("Cleric", "Axe"), OpenYAMM::Game::SkillMastery::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Cleric", 3, "Axe"),
+        OpenYAMM::Game::SkillMastery::None);
+}
+
+TEST_CASE("race skill warrior exception uses class spell point metadata")
+{
+    const OpenYAMM::Game::ClassSkillTable classSkillTable = loadClassSkillTableWithRaceRules();
+
+    CHECK_EQ(classSkillTable.getClassCap("Knight", "Meditation"), OpenYAMM::Game::SkillMastery::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Knight", 1, "Meditation"),
+        OpenYAMM::Game::SkillMastery::Expert);
+
+    CHECK_EQ(classSkillTable.getClassCap("Thief", "Meditation"), OpenYAMM::Game::SkillMastery::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Thief", 1, "Meditation"),
+        OpenYAMM::Game::SkillMastery::Expert);
+
+    CHECK_EQ(classSkillTable.getClassCap("Rogue", "Meditation"), OpenYAMM::Game::SkillMastery::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveCap("Rogue", 1, "Meditation"),
+        OpenYAMM::Game::SkillMastery::None);
+}
+
+TEST_CASE("race granted skills become creation choices but not default skills")
+{
+    const OpenYAMM::Game::ClassSkillTable classSkillTable = loadClassSkillTableWithRaceRules();
+
+    CHECK_EQ(
+        classSkillTable.getStartingSkillAvailability("Knight", "VampireAbility"),
+        OpenYAMM::Game::StartingSkillAvailability::None);
+    CHECK_EQ(
+        classSkillTable.getEffectiveStartingSkillAvailability("Knight", 1, "VampireAbility"),
+        OpenYAMM::Game::StartingSkillAvailability::CanLearn);
+
+    const std::vector<OpenYAMM::Game::CharacterSkill> defaultSkills =
+        classSkillTable.getDefaultSkillsForCharacter("Knight", 1);
+    CHECK_EQ(
+        std::find_if(
+            defaultSkills.begin(),
+            defaultSkills.end(),
+            [](const OpenYAMM::Game::CharacterSkill &skill)
+            {
+                return skill.name == "VampireAbility";
+            }),
+        defaultSkills.end());
 }
 
 TEST_CASE("Antagarich continent skies referenced by merged tables are available")

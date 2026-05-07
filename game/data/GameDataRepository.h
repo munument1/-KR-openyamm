@@ -23,6 +23,7 @@
 #include "game/tables/PortraitFrameTable.h"
 #include "game/tables/PortraitFxEventTable.h"
 #include "game/tables/PotionMixingTable.h"
+#include "game/tables/PotionNoteTable.h"
 #include "game/tables/RaceStartingStatsTable.h"
 #include "game/tables/ReadableScrollTable.h"
 #include "game/tables/RosterTable.h"
@@ -66,6 +67,7 @@ public:
     const RaceStartingStatsTable &raceStartingStatsTable() const;
     const ReadableScrollTable &readableScrollTable() const;
     const PotionMixingTable &potionMixingTable() const;
+    const PotionNoteTable &potionNoteTable() const;
     const ArcomageLibrary &arcomageLibrary() const;
     const PortraitFrameTable &portraitFrameTable() const;
     const IconFrameTable &iconFrameTable() const;
@@ -114,6 +116,7 @@ private:
     const RaceStartingStatsTable *m_pRaceStartingStatsTable = nullptr;
     const ReadableScrollTable *m_pReadableScrollTable = nullptr;
     const PotionMixingTable *m_pPotionMixingTable = nullptr;
+    const PotionNoteTable *m_pPotionNoteTable = nullptr;
     const ArcomageLibrary *m_pArcomageLibrary = nullptr;
     const PortraitFrameTable *m_pPortraitFrameTable = nullptr;
     const IconFrameTable *m_pIconFrameTable = nullptr;

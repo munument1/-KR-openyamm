@@ -9,7 +9,7 @@ ReplaceMapEvent(9, "Royal Lines", function()
 end, "Royal Lines")
 
 ReplaceMapEvent(42, "King's Library", function()
-    if IsQBitSet(QBit(1201)) then
+    if IsQBitSet(QBit(1201)) then -- Freed Archibald
         evt.EnterHouse(1244)
         return
     end

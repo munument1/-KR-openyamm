@@ -1,12 +1,10 @@
 #include "game/gameplay/GameplayActorService.h"
 
-#include "game/StringUtils.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/MonsterTable.h"
 #include "game/tables/SpellTable.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 
 namespace OpenYAMM::Game
@@ -26,34 +24,6 @@ float minutesToSeconds(float minutes)
 float hoursToSeconds(float hours)
 {
     return hours * 3600.0f;
-}
-
-bool looksUndeadByName(const std::string &name, const std::string &pictureName)
-{
-    const std::string normalizedName = toLowerCopy(name + " " + pictureName);
-    static const std::array<const char *, 11> UndeadTokens = {{
-        "skeleton",
-        "zombie",
-        "ghost",
-        "ghoul",
-        "vampire",
-        "lich",
-        "mummy",
-        "wight",
-        "spectre",
-        "spirit",
-        "undead"
-    }};
-
-    for (const char *pToken : UndeadTokens)
-    {
-        if (normalizedName.find(pToken) != std::string::npos)
-        {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 float hostilityRangeForRelation(int relation)
@@ -151,7 +121,7 @@ bool GameplayActorService::actorLooksUndead(int16_t monsterId) const
     }
 
     const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(monsterId);
-    return pStats != nullptr && looksUndeadByName(pStats->name, pStats->pictureName);
+    return pStats != nullptr && pStats->hasKind(MonsterKind::Undead);
 }
 
 int16_t GameplayActorService::relationMonsterId(int16_t monsterId, uint32_t allyMonsterType) const

@@ -1,0 +1,57 @@
+screen: ContinentSelection
+
+elements:
+  - id: ContinentSelectionRoot
+    anchor: center
+    width: 640
+    height: 480
+    z_index: 0
+    visible: true
+    scale:
+      min: 1.0
+      max: 3.0
+    children:
+      - id: ContinentSelectionBackground
+        anchor: top_left
+        offset_x: 0
+        offset_y: 0
+        width: 640
+        height: 480
+        asset:
+          default: slbackgr
+
+      - id: ContinentSelectionJadameButton
+        anchor: top_left
+        offset_x: 208
+        offset_y: 31
+        width: 222
+        height: 222
+        interactive: true
+        asset:
+          default: sljadamdw
+          highlighted: sljadamup
+          pressed: sljadamup
+
+      - id: ContinentSelectionAntagarichButton
+        anchor: top_left
+        offset_x: 322
+        offset_y: 228
+        width: 222
+        height: 222
+        interactive: true
+        asset:
+          default: slantagdw
+          highlighted: slantagup
+          pressed: slantagup
+
+      - id: ContinentSelectionEnrothButton
+        anchor: top_left
+        offset_x: 94
+        offset_y: 229
+        width: 222
+        height: 222
+        interactive: true
+        asset:
+          default: slenrothdw
+          highlighted: slenrothup
+          pressed: slenrothup

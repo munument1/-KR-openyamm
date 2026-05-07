@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayCombatController.h"
 
+#include "game/gameplay/GameplayBolsterRuntime.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
@@ -168,7 +169,12 @@ bool monsterImpactHitsMember(
         return false;
     }
 
-    const int armorClass = incomingAttackArmorClass(*pMember, context.pRuntime);
+    const int armorClass =
+        gameplayBolsterPlayerArmorClass(
+            incomingAttackArmorClass(*pMember, context.pRuntime),
+            sourceActor.monsterLevel,
+            static_cast<int>(std::max<uint32_t>(1, pMember->level)),
+            sourceActor.bolsterAffectsPlayerArmorClass);
     std::mt19937 rng = buildMonsterAttackRng(event, targetMemberIndex, animationTicks(context.pRuntime));
     const int attackBonus = event.attackBonus > 0 ? event.attackBonus : sourceActor.attackBonus;
     return GameMechanics::monsterAttackHitsArmorClass(
@@ -952,6 +958,11 @@ void GameplayCombatController::handlePartyAttackPresentation(
                     attack.memberIndex,
                     attack.attacked && attack.attack.hit ? FaceAnimationId::AttackHit : FaceAnimationId::AttackMiss);
                 playSpeechReaction(pRuntime, attack.memberIndex, speechId, false);
+
+                if (attack.killed && attack.attack.criticalDamage)
+                {
+                    playSpeechReaction(pRuntime, attack.memberIndex, SpeechId::DeathBlow, false);
+                }
             }
         }
         else
@@ -1191,6 +1202,7 @@ void GameplayCombatController::handlePendingCombatEvents(
             if (event.affectsAllParty)
             {
                 triggerPortraitFaceAnimationForAllLivingMembers(context.pRuntime, FaceAnimationId::DamagedParty);
+                playSpeechReaction(context.pRuntime, context.party.activeMemberIndex(), SpeechId::DamagedParty, false);
             }
             else
             {

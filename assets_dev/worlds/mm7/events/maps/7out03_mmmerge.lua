@@ -1,7 +1,7 @@
 -- MMMerge supplement: Erathia transport and scavenger advertisement triggers.
 
-local function setErathiaContestTransportRoute()
-    if IsQBitSet(QBit(519)) then
+RegisterMapOnLoadEvent(65005, "MMMerge Erathia contest transport", function()
+    if IsQBitSet(QBit(519)) then -- Finished Scavenger Hunt
         evt.SetTransportRouteOverride(462, 4, {
             destinationName = "Bracada Desert",
             mapFileName = "7Out06.odm",
@@ -24,9 +24,7 @@ local function setErathiaContestTransportRoute()
             directionDegrees = 90,
         })
     end
-end
-
-RegisterMapOnLoadEvent(65005, "MMMerge Erathia contest transport", setErathiaContestTransportRoute)
+end)
 
 RegisterMapTimerEvent(65004, 180, function()
     MM7.GiveScavengerAdvertisementIfNear(-10511, 6119, false)

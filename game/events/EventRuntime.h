@@ -210,6 +210,16 @@ struct EventRuntimeState
 
     using HiredNpcFollower = ::OpenYAMM::Game::HiredNpcFollower;
 
+    struct GeneratedMercenaryRecruit
+    {
+        uint32_t npcId = 0;
+        uint32_t rosterId = 0;
+        uint32_t houseId = 0;
+        uint32_t portraitPictureId = 0;
+        uint32_t npcPictureId = 0;
+        Character character = {};
+    };
+
     struct ActiveDecorationContext
     {
         uint8_t decorVarIndex = 0;
@@ -342,6 +352,7 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, uint32_t> npcPictureOverrides;
     std::unordered_map<uint32_t, uint32_t> npcProfessionOverrides;
     std::unordered_map<std::string, uint32_t> generatedNpcIdsByActorKey;
+    std::unordered_map<uint32_t, GeneratedMercenaryRecruit> generatedMercenaryRecruitsByNpcId;
     std::unordered_map<uint32_t, uint32_t> npcItemOverrides;
     std::unordered_map<uint32_t, uint32_t> actorItemOverrides;
     std::unordered_map<uint32_t, std::vector<uint32_t>> actorExtraItemOverrides;

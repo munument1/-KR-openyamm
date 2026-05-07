@@ -26,6 +26,7 @@
 #include "game/tables/PortraitFrameTable.h"
 #include "game/tables/PortraitFxEventTable.h"
 #include "game/tables/PotionMixingTable.h"
+#include "game/tables/PotionNoteTable.h"
 #include "game/tables/ReadableScrollTable.h"
 #include "game/tables/RaceStartingStatsTable.h"
 #include "game/tables/RosterTable.h"
@@ -91,6 +92,7 @@ public:
     const RaceStartingStatsTable &getRaceStartingStatsTable() const;
     const ReadableScrollTable &getReadableScrollTable() const;
     const PotionMixingTable &getPotionMixingTable() const;
+    const PotionNoteTable &getPotionNoteTable() const;
     const ArcomageLibrary &getArcomageLibrary() const;
     const PortraitFrameTable &getPortraitFrameTable() const;
     const IconFrameTable &getIconFrameTable() const;
@@ -110,7 +112,6 @@ public:
     const MergedNewsTopicTable &getMergedNewsContinentTopicTable() const;
     const MergedNewsProfessionTopicTable &getMergedNewsProfessionTopicTable() const;
     const MergedMonsterPortraitTable &getMergedMonsterPortraitTable() const;
-    const MergedMonsterKindTable &getMergedMonsterKindTable() const;
     const MergedPotionSettingTable &getMergedPotionSettingTable() const;
     const MergedReagentSettingTable &getMergedReagentSettingTable() const;
     const MergedAdditionalUiTable &getMergedAdditionalUiTable() const;
@@ -168,6 +169,7 @@ private:
     bool loadRaceStartingStatsTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadReadableScrollTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadPotionMixingTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadPotionNoteTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadArcomageLibrary(const Engine::AssetFileSystem &assetFileSystem);
     bool loadPortraitFrameTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadIconFrameTable(const Engine::AssetFileSystem &assetFileSystem);
@@ -214,6 +216,7 @@ private:
     RaceStartingStatsTable m_raceStartingStatsTable;
     ReadableScrollTable m_readableScrollTable;
     PotionMixingTable m_potionMixingTable;
+    PotionNoteTable m_potionNoteTable;
     ArcomageLibrary m_arcomageLibrary;
     PortraitFrameTable m_portraitFrameTable;
     IconFrameTable m_iconFrameTable;
@@ -233,7 +236,6 @@ private:
     MergedNewsTopicTable m_mergedNewsContinentTopicTable;
     MergedNewsProfessionTopicTable m_mergedNewsProfessionTopicTable;
     MergedMonsterPortraitTable m_mergedMonsterPortraitTable;
-    MergedMonsterKindTable m_mergedMonsterKindTable;
     MergedPotionSettingTable m_mergedPotionSettingTable;
     MergedReagentSettingTable m_mergedReagentSettingTable;
     MergedAdditionalUiTable m_mergedAdditionalUiTable;

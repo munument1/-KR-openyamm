@@ -48,6 +48,7 @@ enum class EventDialogActionKind
     MasteryTeacherLearn,
     GuildMembershipOffer,
     GuildMembershipJoin,
+    GeneratedMercenaryJoinOffer,
 };
 
 enum class EventDialogParticipantVisual

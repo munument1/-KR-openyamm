@@ -1,24 +1,24 @@
 -- MMMerge global supplement: MM7 quest follower behavior.
 
-local function appendGlobalEvent(eventId, title, handler)
-    local previousHandler = evt.global[eventId]
+local previousGlobalEvent858 = evt.global[858]
+ReplaceGlobalEvent(858, "MMMerge rescued dwarf cleanup", function(...)
+    if previousGlobalEvent858 ~= nil then
+        previousGlobalEvent858(...)
+    end
 
-    ReplaceGlobalEvent(eventId, title, function(...)
-        if previousHandler ~= nil then
-            previousHandler(...)
-        end
-
-        handler(...)
-    end)
-end
-
-appendGlobalEvent(858, "MMMerge rescued dwarf cleanup", function()
     MM7.RemoveRescuedDwarfFollowers()
 end)
 
 for offset = 0, 6 do
     local npcId = 399 + offset
-    appendGlobalEvent(859 + offset, "MMMerge rescued dwarf follower", function()
+    local eventId = 859 + offset
+    local previousHandler = evt.global[eventId]
+
+    ReplaceGlobalEvent(eventId, "MMMerge rescued dwarf follower", function(...)
+        if previousHandler ~= nil then
+            previousHandler(...)
+        end
+
         AddFollowerNpc(npcId)
     end)
 end
@@ -281,31 +281,66 @@ ReplaceGlobalEvent(783, "MMMerge Cast Off to Harmondale", function()
     MM7.CastOffToHarmondale()
 end)
 
-appendGlobalEvent(875, "MMMerge Loren cleanup", function()
+local previousGlobalEvent875 = evt.global[875]
+ReplaceGlobalEvent(875, "MMMerge Loren cleanup", function(...)
+    if previousGlobalEvent875 ~= nil then
+        previousGlobalEvent875(...)
+    end
+
     MM7.RemoveLorenFollowersIfResolved()
 end)
 
-appendGlobalEvent(876, "MMMerge Loren cleanup", function()
+local previousGlobalEvent876 = evt.global[876]
+ReplaceGlobalEvent(876, "MMMerge Loren cleanup", function(...)
+    if previousGlobalEvent876 ~= nil then
+        previousGlobalEvent876(...)
+    end
+
     MM7.RemoveLorenFollowersIfResolved()
 end)
 
-appendGlobalEvent(884, "MMMerge fake Loren follower", function()
+local previousGlobalEvent884 = evt.global[884]
+ReplaceGlobalEvent(884, "MMMerge fake Loren follower", function(...)
+    if previousGlobalEvent884 ~= nil then
+        previousGlobalEvent884(...)
+    end
+
     MM7.AddFakeLorenFollowerIfActive()
 end)
 
-appendGlobalEvent(885, "MMMerge Loren cleanup", function()
+local previousGlobalEvent885 = evt.global[885]
+ReplaceGlobalEvent(885, "MMMerge Loren cleanup", function(...)
+    if previousGlobalEvent885 ~= nil then
+        previousGlobalEvent885(...)
+    end
+
     MM7.RemoveLorenFollowersIfResolved()
 end)
 
-appendGlobalEvent(886, "MMMerge Loren cleanup", function()
+local previousGlobalEvent886 = evt.global[886]
+ReplaceGlobalEvent(886, "MMMerge Loren cleanup", function(...)
+    if previousGlobalEvent886 ~= nil then
+        previousGlobalEvent886(...)
+    end
+
     MM7.RemoveLorenFollowersIfResolved()
 end)
 
-appendGlobalEvent(891, "MMMerge Judge Sleen follower", function()
+local previousGlobalEvent891 = evt.global[891]
+ReplaceGlobalEvent(891, "MMMerge Judge Sleen follower", function(...)
+    if previousGlobalEvent891 ~= nil then
+        previousGlobalEvent891(...)
+    end
+
     MM7.ChooseJudgeSleenFollower()
 end)
 
-appendGlobalEvent(893, "MMMerge Judge Fairweather follower", function()
+local previousGlobalEvent893 = evt.global[893]
+ReplaceGlobalEvent(893, "MMMerge Judge Fairweather follower", function(...)
+    if previousGlobalEvent893 ~= nil then
+        previousGlobalEvent893(...)
+    end
+
     MM7.ChooseJudgeFairweatherFollower()
 end)
 

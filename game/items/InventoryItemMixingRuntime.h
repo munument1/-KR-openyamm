@@ -14,6 +14,7 @@ class ItemTable;
 class MergedPotionSettingTable;
 class MergedReagentSettingTable;
 class PotionMixingTable;
+class PotionNoteTable;
 struct ItemDefinition;
 
 enum class InventoryItemMixAction : uint8_t
@@ -33,6 +34,7 @@ struct InventoryItemMixResult
     bool targetItemChanged = false;
     InventoryItemMixAction action = InventoryItemMixAction::None;
     uint8_t failureDamageLevel = 0;
+    uint32_t unlockedAutonoteId = 0;
     std::optional<InventoryItem> heldItemReplacement;
     std::string statusText;
 };
@@ -62,6 +64,7 @@ public:
         const ItemTable &itemTable,
         const PotionMixingTable &potionMixingTable,
         const MergedPotionSettingTable &potionSettingTable,
-        const MergedReagentSettingTable &reagentSettingTable);
+        const MergedReagentSettingTable &reagentSettingTable,
+        const PotionNoteTable *pPotionNoteTable = nullptr);
 };
 }

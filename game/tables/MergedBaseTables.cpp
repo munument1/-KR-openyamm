@@ -441,30 +441,6 @@ double parseOptionalDouble(const std::vector<std::string> &row, size_t index)
     return parseDouble(row[index], result) ? result : 0.0;
 }
 
-bool parseLeadingUnsignedAndName(const std::string &value, uint32_t &id, std::string &name)
-{
-    const std::string trimmed = trimCopy(value);
-    size_t end = 0;
-
-    while (end < trimmed.size() && std::isdigit(static_cast<unsigned char>(trimmed[end])) != 0)
-    {
-        ++end;
-    }
-
-    if (end == 0)
-    {
-        return false;
-    }
-
-    if (!parseUnsigned(trimmed.substr(0, end), id))
-    {
-        return false;
-    }
-
-    name = trimCopy(trimmed.substr(end));
-    return true;
-}
-
 bool parsePrefixedUnsigned(const std::string &value, const char *pPrefix, uint32_t &result)
 {
     const std::string trimmed = trimCopy(value);
@@ -1447,40 +1423,6 @@ std::optional<uint32_t> MergedMonsterPortraitTable::portraitForName(const std::s
     return it->second[seed % it->second.size()];
 }
 
-bool MergedMonsterKindTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
-{
-    m_entries.clear();
-
-    for (size_t rowIndex = 1; rowIndex < rows.size(); ++rowIndex)
-    {
-        const std::vector<std::string> &row = rows[rowIndex];
-
-        if (row.size() < 9)
-        {
-            continue;
-        }
-
-        MergedMonsterKindEntry entry = {};
-
-        if (!parseLeadingUnsignedAndName(row[0], entry.monsterId, entry.name))
-        {
-            continue;
-        }
-
-        entry.undead = isMarkerCell(row[1]);
-        entry.dragon = isMarkerCell(row[2]);
-        entry.swimmer = isMarkerCell(row[3]);
-        entry.immobile = isMarkerCell(row[4]);
-        entry.peasant = isMarkerCell(row[5]);
-        entry.noArena = isMarkerCell(row[6]);
-        entry.ogre = isMarkerCell(row[7]);
-        entry.elemental = isMarkerCell(row[8]);
-        m_entries.push_back(std::move(entry));
-    }
-
-    return !m_entries.empty();
-}
-
 bool MergedPotionSettingTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_entries.clear();
@@ -1688,11 +1630,6 @@ size_t MergedNewsProfessionTopicTable::topicCount() const
 size_t MergedMonsterPortraitTable::groupCount() const
 {
     return m_monsterPortraitsByGroupId.size();
-}
-
-const std::vector<MergedMonsterKindEntry> &MergedMonsterKindTable::entries() const
-{
-    return m_entries;
 }
 
 const std::vector<MergedPotionSettingEntry> &MergedPotionSettingTable::entries() const

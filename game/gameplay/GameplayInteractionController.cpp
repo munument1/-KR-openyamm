@@ -167,6 +167,12 @@ bool tryActivateWorldItem(
 
     if (pickupDecision.destination == GameplayWorldItemPickupDestination::None)
     {
+        if (!worldItemState.isGold && !canStoreInInventory && heldItem.active)
+        {
+            runtime.setStatusBarEvent("Pack is Full!");
+            runtime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::InventoryRoom, true);
+        }
+
         return false;
     }
 

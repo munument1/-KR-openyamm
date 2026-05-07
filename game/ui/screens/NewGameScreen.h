@@ -45,7 +45,7 @@ public:
         std::array<std::string, 2> defaultOptionalSkills = {};
     };
 
-    using ContinueAction = std::function<void(const std::vector<Character> &)>;
+    using ContinueAction = std::function<void(const std::vector<Character> &, uint32_t)>;
     using BackAction = std::function<void()>;
 
     NewGameScreen(
@@ -62,6 +62,19 @@ public:
     void handleSdlEvent(const SDL_Event &event) override;
 
 private:
+    enum class FlowStage
+    {
+        ContinentSelection,
+        CharacterCreation
+    };
+
+    struct SelectedContinent
+    {
+        uint32_t id = 1;
+        std::string key = "jadame";
+        std::string name = "Jadam";
+    };
+
     struct CreationState
     {
         size_t selectedCandidateIndex = 0;
@@ -79,6 +92,9 @@ private:
     };
 
     void drawScreen(float deltaSeconds) override;
+    void drawContinentSelection(float deltaSeconds);
+    void selectContinent(const std::string &continentKey);
+    void initializeCharacterCreationForSelectedContinent();
     void ensurePartyStates();
     void saveActivePartyState();
     void switchActivePartySlot(size_t slotIndex);
@@ -115,14 +131,24 @@ private:
     void confirmCreation();
     void cancelCreation();
     bool ensureLayoutLoaded();
+    bool ensureContinentLayoutLoaded();
     std::optional<MenuScreenBase::Rect> resolveLayoutRect(
+        const std::string &layoutId,
+        float fallbackWidth = 0.0f,
+        float fallbackHeight = 0.0f) const;
+    std::optional<MenuScreenBase::Rect> resolveContinentLayoutRect(
         const std::string &layoutId,
         float fallbackWidth = 0.0f,
         float fallbackHeight = 0.0f) const;
     ButtonVisualSet resolveButtonVisuals(
         const std::string &layoutId,
         const ButtonVisualSet &fallbackVisuals) const;
+    ButtonVisualSet resolveContinentButtonVisuals(
+        const std::string &layoutId,
+        const ButtonVisualSet &fallbackVisuals) const;
     std::string resolveAssetName(const std::string &layoutId, const std::string &fallbackAssetName) const;
+    std::string resolveContinentAssetName(const std::string &layoutId, const std::string &fallbackAssetName) const;
+    ButtonState drawEllipseButton(const ButtonVisualSet &visuals, const Rect &rect);
     Character buildVoicePreviewCharacter() const;
     void renderSkillInspectPopup(
         const SkillInspectEntry &entry,
@@ -143,12 +169,17 @@ private:
     ContinueAction m_continueAction;
     BackAction m_backAction;
     UiLayoutManager m_layoutManager;
+    UiLayoutManager m_continentLayoutManager;
+    FlowStage m_stage = FlowStage::ContinentSelection;
+    SelectedContinent m_selectedContinent = {};
     std::vector<CreationCandidate> m_candidates;
     std::vector<CreationState> m_partyStates;
     CreationState m_state = {};
     size_t m_partySize = 1;
     size_t m_activePartySlot = 0;
     bool m_layoutLoaded = false;
+    bool m_continentLayoutLoaded = false;
+    bool m_characterCreationInitialized = false;
     bool m_escapePressed = false;
     bool m_returnPressed = false;
 };

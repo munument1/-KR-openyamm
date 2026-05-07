@@ -94,6 +94,7 @@ struct GameSettings
     int resolutionHeight = 900;
 
     bool startInMainMenu = false;
+    bool bolsterMonsters = false;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;
     uint32_t partySeedRosterId = 0;

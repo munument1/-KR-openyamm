@@ -86,6 +86,24 @@ OpenYAMM::Game::Party makeInventoryParty()
 
     return party;
 }
+
+bool hasPendingSpeech(
+    const OpenYAMM::Game::Party &party,
+    size_t memberIndex,
+    OpenYAMM::Game::SpeechId speechId)
+{
+    for (const OpenYAMM::Game::Party::PendingAudioRequest &request : party.pendingAudioRequests())
+    {
+        if (request.kind == OpenYAMM::Game::Party::PendingAudioRequest::Kind::Speech
+            && request.memberIndex == memberIndex
+            && request.speechId == speechId)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 }
 
 TEST_CASE("default party seed only creates the first test member")
@@ -175,6 +193,34 @@ TEST_CASE("party quest bits survive save data round trip")
     CHECK(restoredParty.hasQuestBit(6));
     CHECK(restoredParty.hasQuestBit(36));
     CHECK_FALSE(restoredParty.hasQuestBit(37));
+}
+
+TEST_CASE("named runtime globals survive save data round trip")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "named_global_roundtrip.odm";
+    saveData.party = party.snapshot();
+    saveData.namedGlobalVars["MMerge.CrossContinents.GotFinalQuest"] = 1;
+    saveData.namedGlobalVars["MMerge.CrossContinents.GotFQHint2"] = 1;
+    saveData.namedGlobalVars["MMerge.CrossContinents.GotFQHint3"] = 1;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_named_globals_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->namedGlobalVars.contains("MMerge.CrossContinents.GotFinalQuest"));
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFinalQuest"), 1);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFQHint2"), 1);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFQHint3"), 1);
 }
 
 TEST_CASE("party ever owned item ids survive save data round trip")
@@ -346,6 +392,69 @@ TEST_CASE("party damage sets dead below endurance threshold")
     REQUIRE(party.applyDamageToMember(0, 20, ""));
     CHECK(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead)));
     CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Unconscious)));
+}
+
+TEST_CASE("party damage queues mmmerge dying and last standing reactions")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    for (size_t memberIndex = 2; memberIndex < party.members().size(); ++memberIndex)
+    {
+        OpenYAMM::Game::Character *pMember = party.member(memberIndex);
+        REQUIRE(pMember != nullptr);
+        pMember->health = 0;
+        pMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Unconscious));
+    }
+
+    OpenYAMM::Game::Character *pTargetMember = party.member(1);
+    REQUIRE(pTargetMember != nullptr);
+    pTargetMember->health = 10;
+    pTargetMember->endurance = 5;
+
+    REQUIRE(party.applyDamageToMember(1, 20, ""));
+    CHECK(hasPendingSpeech(party, 1, OpenYAMM::Game::SpeechId::Dying));
+    CHECK(hasPendingSpeech(party, 0, OpenYAMM::Game::SpeechId::LastPersonStanding));
+}
+
+TEST_CASE("party damage queues mmmerge fall and preservation reactions")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->health = 10;
+    pMember->endurance = 5;
+    party.applyCharacterBuff(
+        0,
+        OpenYAMM::Game::CharacterBuffId::Preservation,
+        60.0f,
+        1,
+        0,
+        0,
+        OpenYAMM::Game::SkillMastery::None,
+        0);
+
+    REQUIRE(party.applyDamageToMember(0, 20, "falling"));
+    CHECK(hasPendingSpeech(party, 0, OpenYAMM::Game::SpeechId::Falling));
+    CHECK(hasPendingSpeech(party, 0, OpenYAMM::Game::SpeechId::CheatedDeath));
+}
+
+TEST_CASE("party condition acquisition queues mmmerge condition reactions")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    REQUIRE(party.applyMemberCondition(0, OpenYAMM::Game::CharacterCondition::Drunk));
+    REQUIRE(party.applyMemberCondition(1, OpenYAMM::Game::CharacterCondition::Insane));
+    REQUIRE(party.applyMemberCondition(2, OpenYAMM::Game::CharacterCondition::Cursed));
+    REQUIRE(party.applyMemberCondition(3, OpenYAMM::Game::CharacterCondition::Fear));
+
+    CHECK(hasPendingSpeech(party, 0, OpenYAMM::Game::SpeechId::Drunk));
+    CHECK(hasPendingSpeech(party, 1, OpenYAMM::Game::SpeechId::Insane));
+    CHECK(hasPendingSpeech(party, 2, OpenYAMM::Game::SpeechId::Cursed));
+    CHECK(hasPendingSpeech(party, 3, OpenYAMM::Game::SpeechId::AfraidSilent));
 }
 
 TEST_CASE("aoe damage can move unconscious member to dead")

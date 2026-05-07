@@ -402,6 +402,7 @@ public:
     int withdrawAllBankGold();
     bool isFull() const;
     bool recruitRosterMember(const RosterEntry &rosterEntry);
+    bool recruitCharacter(const Character &character);
     bool addAdventurersInnMember(const RosterEntry &rosterEntry, uint32_t portraitPictureId);
     bool addAdventurersInnMember(const Character &character, uint32_t portraitPictureId);
     bool hireAdventurersInnMember(size_t innIndex);

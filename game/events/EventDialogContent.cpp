@@ -192,6 +192,38 @@ bool continentReputationAffectsNpc(
     return pContinentSetting == nullptr || pContinentSetting->reputationAffectsNpc;
 }
 
+const MergedContinentSettingEntry *currentContinentSetting(
+    const MapStatsEntry *pCurrentMap,
+    const MergedContinentSettingTable *pContinentSettingTable)
+{
+    if (pCurrentMap == nullptr || pContinentSettingTable == nullptr)
+    {
+        return nullptr;
+    }
+
+    return pContinentSettingTable->findById(pCurrentMap->mergedContinentId);
+}
+
+bool continentAllowsProfessionNews(
+    const MapStatsEntry *pCurrentMap,
+    const MergedContinentSettingTable *pContinentSettingTable)
+{
+    const MergedContinentSettingEntry *pContinentSetting =
+        currentContinentSetting(pCurrentMap, pContinentSettingTable);
+
+    return pContinentSetting == nullptr || pContinentSetting->tellProfessionNews;
+}
+
+bool continentAllowsNpcFollowers(
+    const MapStatsEntry *pCurrentMap,
+    const MergedContinentSettingTable *pContinentSettingTable)
+{
+    const MergedContinentSettingEntry *pContinentSetting =
+        currentContinentSetting(pCurrentMap, pContinentSettingTable);
+
+    return pContinentSetting == nullptr || pContinentSetting->npcFollowers;
+}
+
 bool randomNpcNeedsBtbGate(
     const EventRuntimeState &eventRuntimeState,
     const MapStatsEntry *pCurrentMap,
@@ -625,13 +657,15 @@ std::vector<uint32_t> collectSelectableResidentNpcIdsImpl(
 void appendHouseResidentActions(
     EventDialogContent &dialog,
     const NpcDialogTable &npcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
     const std::vector<uint32_t> &residentNpcIds)
 {
     for (uint32_t residentNpcId : residentNpcIds)
     {
-        const NpcEntry *pResident = npcDialogTable.getNpc(residentNpcId);
+        const std::optional<NpcEntry> resident =
+            runtimeNpcEntryIfExists(&npcDialogTable, eventRuntimeState, residentNpcId);
 
-        if (pResident == nullptr || pResident->name.empty())
+        if (!resident || resident->name.empty())
         {
             continue;
         }
@@ -639,9 +673,9 @@ void appendHouseResidentActions(
         EventDialogAction action = {};
         action.kind = EventDialogActionKind::HouseResident;
         action.id = residentNpcId;
-        action.participantPictureId = pResident->pictureId;
+        action.participantPictureId = resident->pictureId;
         action.participantVisual = EventDialogParticipantVisual::Portrait;
-        action.label = pResident->name;
+        action.label = resident->name;
         dialog.actions.push_back(std::move(action));
     }
 }
@@ -956,7 +990,7 @@ EventDialogContent buildEventDialogContent(
 
                 if (pNpcDialogTable != nullptr)
                 {
-                    appendHouseResidentActions(dialog, *pNpcDialogTable, residentNpcIds);
+                    appendHouseResidentActions(dialog, *pNpcDialogTable, eventRuntimeState, residentNpcIds);
                 }
 
                 return dialog;
@@ -985,7 +1019,7 @@ EventDialogContent buildEventDialogContent(
 
             if (serviceType == HouseServiceType::None && pNpcDialogTable != nullptr)
             {
-                appendHouseResidentActions(dialog, *pNpcDialogTable, residentNpcIds);
+                appendHouseResidentActions(dialog, *pNpcDialogTable, eventRuntimeState, residentNpcIds);
                 hasResidentActions = !residentNpcIds.empty();
             }
 
@@ -1167,6 +1201,19 @@ EventDialogContent buildEventDialogContent(
             }
             else
             {
+                const bool isGeneratedMercenary =
+                    npcRuntimeState.generatedMercenaryRecruitsByNpcId.contains(dialog.sourceId)
+                    && !npcRuntimeState.unavailableNpcIds.contains(dialog.sourceId);
+
+                if (isGeneratedMercenary)
+                {
+                    EventDialogAction joinAction = {};
+                    joinAction.kind = EventDialogActionKind::GeneratedMercenaryJoinOffer;
+                    joinAction.id = dialog.sourceId;
+                    joinAction.label = "Join";
+                    dialog.actions.push_back(std::move(joinAction));
+                }
+
                 const MergedNpcProfessionEntry *pProfession =
                     pNpc != nullptr && pNpc->professionId != 0 && pNpcProfessionTable != nullptr
                         ? pNpcProfessionTable->get(pNpc->professionId)
@@ -1243,17 +1290,21 @@ EventDialogContent buildEventDialogContent(
                 if (canUseProfessionFallback && pNpc != nullptr && pProfession != nullptr)
                 {
                     const bool npcCanJoin = npcCanOfferProfessionHire(*pNpc, *pProfession);
+                    const bool canUseNpcFollowers =
+                        continentAllowsNpcFollowers(pCurrentMap, pContinentSettingTable);
                     const MergedNpcBtbEntry *pBtbEntry =
                         pNpcBtbTable != nullptr ? pNpcBtbTable->get(pProfession->personality) : nullptr;
-                    const bool showBtbGate = randomNpcNeedsBtbGate(
-                        npcRuntimeState,
-                        pCurrentMap,
-                        pWorldRuntime,
-                        pContinentSettingTable,
-                        pNpc->id,
-                        npcIsHired,
-                        pBtbEntry,
-                        currentGameMinutes);
+                    const bool showBtbGate =
+                        canUseNpcFollowers
+                        && randomNpcNeedsBtbGate(
+                            npcRuntimeState,
+                            pCurrentMap,
+                            pWorldRuntime,
+                            pContinentSettingTable,
+                            pNpc->id,
+                            npcIsHired,
+                            pBtbEntry,
+                            currentGameMinutes);
 
                     if (showBtbGate)
                     {
@@ -1281,7 +1332,7 @@ EventDialogContent buildEventDialogContent(
                             pProfession->weeklyCost != 0 ? pProfession->weeklyCost : 50u);
                         suppressProfessionNewsForBtbGate = true;
                     }
-                    else if (!npcIsHired && npcCanJoin)
+                    else if (!npcIsHired && npcCanJoin && canUseNpcFollowers)
                     {
                         EventDialogAction action = {};
                         action.kind = EventDialogActionKind::NpcHireOffer;
@@ -1342,7 +1393,8 @@ EventDialogContent buildEventDialogContent(
                     && !npcIsHired
                     && pNpc != nullptr
                     && pProfession != nullptr
-                    && pNewsProfessionTopicTable != nullptr)
+                    && pNewsProfessionTopicTable != nullptr
+                    && continentAllowsProfessionNews(pCurrentMap, pContinentSettingTable))
                 {
                     const MergedNewsProfessionDayTopic *pProfessionTopic =
                         pNewsProfessionTopicTable->get(

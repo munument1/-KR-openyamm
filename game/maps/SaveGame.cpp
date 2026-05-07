@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 49;
+constexpr uint32_t SaveVersion = 52;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -46,6 +46,9 @@ constexpr uint32_t SaveVersionInputPromptAnswerSteps = 46;
 constexpr uint32_t SaveVersionPersistentLuaRuntimeState = 47;
 constexpr uint32_t SaveVersionOutdoorModelMechanisms = 48;
 constexpr uint32_t SaveVersionOutdoorActorBolsterCache = 49;
+constexpr uint32_t SaveVersionGeneratedMercenaryRecruits = 50;
+constexpr uint32_t SaveVersionSessionNamedGlobalVars = 51;
+constexpr uint32_t SaveVersionGeneratedMercenaryNpcPicture = 52;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1557,6 +1560,34 @@ bool readValue(BinaryReader &reader, EventRuntimeState::DialogueRuntimeState &va
         && readValue(reader, value.currentOffer);
 }
 
+void writeValue(BinaryWriter &writer, const EventRuntimeState::GeneratedMercenaryRecruit &value)
+{
+    writeValue(writer, value.npcId);
+    writeValue(writer, value.rosterId);
+    writeValue(writer, value.houseId);
+    writeValue(writer, value.portraitPictureId);
+    writeValue(writer, value.npcPictureId);
+    writeValue(writer, value.character);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::GeneratedMercenaryRecruit &value)
+{
+    const bool loaded = readValue(reader, value.npcId)
+        && readValue(reader, value.rosterId)
+        && readValue(reader, value.houseId)
+        && readValue(reader, value.portraitPictureId)
+        && (reader.version() < SaveVersionGeneratedMercenaryNpcPicture
+            || readValue(reader, value.npcPictureId))
+        && readValue(reader, value.character);
+
+    if (loaded && reader.version() < SaveVersionGeneratedMercenaryNpcPicture)
+    {
+        value.npcPictureId = value.portraitPictureId;
+    }
+
+    return loaded;
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState::ActiveDecorationContext &value)
 {
     writeValue(writer, value.decorVarIndex);
@@ -1752,6 +1783,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.npcPictureOverrides);
     writeValue(writer, value.npcProfessionOverrides);
     writeValue(writer, value.generatedNpcIdsByActorKey);
+    writeValue(writer, value.generatedMercenaryRecruitsByNpcId);
     writeValue(writer, value.npcItemOverrides);
     writeValue(writer, value.actorItemOverrides);
     writeValue(writer, value.actorExtraItemOverrides);
@@ -1827,6 +1859,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.npcPictureOverrides))
         && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.npcProfessionOverrides))
         && (reader.version() < SaveVersionGeneratedNpcOverrides || readValue(reader, value.generatedNpcIdsByActorKey))
+        && (reader.version() < SaveVersionGeneratedMercenaryRecruits
+            || readValue(reader, value.generatedMercenaryRecruitsByNpcId))
         && readValue(reader, value.npcItemOverrides)
         && readValue(reader, value.actorItemOverrides)
         && (reader.version() < SaveVersionActorExtraItemOverrides
@@ -2714,6 +2748,7 @@ void writeValue(BinaryWriter &writer, const GameSaveData &value)
     writeValue(writer, value.currentSceneKind);
     writeValue(writer, value.mapFileName);
     writeValue(writer, value.party);
+    writeValue(writer, value.namedGlobalVars);
     writeValue(writer, value.hasOutdoorRuntimeState);
     writeValue(writer, value.outdoorParty);
     writeValue(writer, value.outdoorWorld);
@@ -2733,6 +2768,7 @@ bool readValue(BinaryReader &reader, GameSaveData &value)
     return readValue(reader, value.currentSceneKind)
         && readValue(reader, value.mapFileName)
         && readValue(reader, value.party)
+        && (reader.version() < SaveVersionSessionNamedGlobalVars || readValue(reader, value.namedGlobalVars))
         && readValue(reader, value.hasOutdoorRuntimeState)
         && readValue(reader, value.outdoorParty)
         && readValue(reader, value.outdoorWorld)

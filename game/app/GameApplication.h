@@ -131,6 +131,10 @@ private:
     std::string resolveStartupMapFile() const;
     bool startNewSession(std::optional<uint32_t> rosterId, bool initializeView = true);
     bool startNewSessionFromCharacterCreation(const std::vector<Character> &characters, bool initializeView = true);
+    bool startNewSessionFromCharacterCreation(
+        const std::vector<Character> &characters,
+        uint32_t continentId,
+        bool initializeView);
     bool loadSessionFromPath(const std::filesystem::path &path);
     void beginLoadingOverlay(
         LoadingOverlayScreen::Presentation presentation = LoadingOverlayScreen::Presentation::Fullscreen);

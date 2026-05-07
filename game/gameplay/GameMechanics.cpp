@@ -2630,6 +2630,50 @@ bool GameMechanics::monsterAttackHitsArmorClass(
     return hitRoll + bonus > armorClass + 5;
 }
 
+SpeechId GameMechanics::resolveIdentifyMonsterSpeech(const Character &character, int monsterLevel)
+{
+    const int level = skillLevel(character, "IdentifyMonster");
+    const SkillMastery mastery = skillMastery(character, "IdentifyMonster");
+
+    if (level <= 0 || mastery == SkillMastery::None)
+    {
+        return SpeechId::None;
+    }
+
+    bool success = false;
+
+    switch (mastery)
+    {
+        case SkillMastery::Normal:
+            success = level + 10 >= monsterLevel;
+            break;
+
+        case SkillMastery::Expert:
+            success = 2 * level + 10 >= monsterLevel;
+            break;
+
+        case SkillMastery::Master:
+            success = 3 * level + 10 >= monsterLevel;
+            break;
+
+        case SkillMastery::Grandmaster:
+            success = true;
+            break;
+
+        case SkillMastery::None:
+            break;
+    }
+
+    if (!success)
+    {
+        return SpeechId::IdentifyMonsterFail;
+    }
+
+    return monsterLevel >= static_cast<int>(character.level) - 5
+        ? SpeechId::IdentifyMonsterBig
+        : SpeechId::IdentifyMonsterWeak;
+}
+
 CombatDamageType GameMechanics::parseCombatDamageType(const std::string &value)
 {
     const std::string normalized = normalizedToken(value);

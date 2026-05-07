@@ -12,6 +12,6 @@ end, "Enter the Throne Room")
 
 RegisterNpcExitHook(65024, "MMMerge Dwarf King cleanup", function(context)
     if context.npcId == 398 then -- Dwarf King
-        ClearQBit(QBit(658))
+        ClearQBit(QBit(658)) -- Repair Castle Harmondale through the Dwarves in Stone City.
     end
 end)

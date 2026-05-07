@@ -1333,9 +1333,16 @@ bool HouseServiceRuntime::tryBuyStockItem(
     float gameMinutes,
     HouseStockMode mode,
     size_t slotIndex,
-    std::string &statusText)
+    std::string &statusText,
+    ShopItemServiceResult *pResult)
 {
     statusText.clear();
+
+    if (pResult != nullptr)
+    {
+        *pResult = ShopItemServiceResult::None;
+    }
+
     Party::HouseStockState &state = ensureHouseStockGenerated(
         party,
         itemTable,
@@ -1348,6 +1355,12 @@ bool HouseServiceRuntime::tryBuyStockItem(
     if (pStock == nullptr || slotIndex >= pStock->size() || (*pStock)[slotIndex].objectDescriptionId == 0)
     {
         statusText = "Nothing is for sale in that slot.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::NoItem;
+        }
+
         return false;
     }
 
@@ -1357,6 +1370,12 @@ bool HouseServiceRuntime::tryBuyStockItem(
     if (pItemDefinition == nullptr)
     {
         statusText = "That item is unavailable.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::Unavailable;
+        }
+
         return false;
     }
 
@@ -1371,12 +1390,24 @@ bool HouseServiceRuntime::tryBuyStockItem(
     if (party.gold() < price)
     {
         statusText = "Not enough gold.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::NotEnoughGold;
+        }
+
         return false;
     }
 
     if (!party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item))
     {
         statusText = "Inventory full.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::InventoryFull;
+        }
+
         return false;
     }
 
@@ -1386,6 +1417,12 @@ bool HouseServiceRuntime::tryBuyStockItem(
         "Bought "
         + ItemRuntime::displayName(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable)
         + " for " + std::to_string(price) + " gold.";
+
+    if (pResult != nullptr)
+    {
+        *pResult = ShopItemServiceResult::Success;
+    }
+
     return true;
 }
 

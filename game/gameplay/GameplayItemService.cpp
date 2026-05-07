@@ -2,6 +2,7 @@
 
 #include "game/app/GameSession.h"
 #include "game/audio/GameAudioSystem.h"
+#include "game/events/EventRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/items/ItemRuntime.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -10,6 +11,7 @@
 #include "game/party/SpellIds.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/ObjectTable.h"
+#include "game/tables/PotionNoteTable.h"
 
 #include <algorithm>
 #include <cctype>
@@ -36,6 +38,7 @@ constexpr int32_t ConnectorStoneDivineInterventionCooldownMinutes = 24 * 60;
 constexpr int16_t FireballImpactObjectId = 1051;
 constexpr float PotionExplosionForwardOffset = 64.0f;
 constexpr float PotionExplosionHeightOffset = 96.0f;
+constexpr uint32_t AutoNoteVariableTag = 0x00E1u;
 
 enum class ActiveLootOperation
 {
@@ -565,13 +568,16 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
         m_session.hasDataRepository() ? &m_session.data().mergedPotionSettingTable() : nullptr;
     const MergedReagentSettingTable *pReagentSettingTable =
         m_session.hasDataRepository() ? &m_session.data().mergedReagentSettingTable() : nullptr;
+    const PotionNoteTable *pPotionNoteTable =
+        m_session.hasDataRepository() ? &m_session.data().potionNoteTable() : nullptr;
 
     if (!heldItem.active
         || pParty == nullptr
         || pItemTable == nullptr
         || pPotionMixingTable == nullptr
         || pPotionSettingTable == nullptr
-        || pReagentSettingTable == nullptr)
+        || pReagentSettingTable == nullptr
+        || pPotionNoteTable == nullptr)
     {
         return false;
     }
@@ -585,7 +591,8 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
         *pItemTable,
         *pPotionMixingTable,
         *pPotionSettingTable,
-        *pReagentSettingTable);
+        *pReagentSettingTable,
+        pPotionNoteTable);
 
     if (!mixResult.handled)
     {
@@ -605,6 +612,21 @@ bool GameplayItemService::tryUseHeldItemOnInventoryItem(
     {
         heldItem = {};
         pParty->clearHeldItemForQueries();
+    }
+
+    if (mixResult.unlockedAutonoteId != 0)
+    {
+        IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
+        EventRuntimeState *pEventRuntimeState =
+            pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+        if (pEventRuntimeState != nullptr)
+        {
+            const uint32_t rawId = (mixResult.unlockedAutonoteId << 16) | AutoNoteVariableTag;
+            const EventRuntime::VariableRef variable = EventRuntime::decodeVariable(rawId);
+            const std::vector<size_t> targetMemberIndices = {memberIndex};
+            EventRuntime::setVariableValue(*pEventRuntimeState, variable, 1, pParty, targetMemberIndices);
+        }
     }
 
     const bool potionExplosion =

@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "engine/TextTable.h"
 #include "game/app/GameSettings.h"
 #include "game/party/Party.h"
 #include "game/tables/MonsterTable.h"
@@ -133,6 +134,24 @@ OpenYAMM::Game::SpriteFrameTable loadCommonSpriteFrameTable()
     return spriteFrameTable;
 }
 
+std::vector<std::vector<std::string>> loadAssetTextTableRows(const std::string &relativePath)
+{
+    const std::optional<OpenYAMM::Engine::TextTable> textTable =
+        OpenYAMM::Engine::TextTable::parseTabSeparated(readSourceTextFile(
+            std::filesystem::path(OPENYAMM_SOURCE_DIR) / relativePath));
+    REQUIRE(textTable.has_value());
+
+    std::vector<std::vector<std::string>> rows;
+    rows.reserve(textTable->getRowCount());
+
+    for (size_t index = 0; index < textTable->getRowCount(); ++index)
+    {
+        rows.push_back(textTable->getRow(index));
+    }
+
+    return rows;
+}
+
 std::string lowercaseFileName(const std::filesystem::path &path)
 {
     std::string name = path.filename().string();
@@ -176,6 +195,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.spriteOutline = true;
     settings.viewDistance = "unlimited";
     settings.newGameGodLich = true;
+    settings.bolsterMonsters = true;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -190,6 +210,31 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->viewDistance, "unlimited");
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->newGameGodLich);
+    CHECK(loadedSettings->bolsterMonsters);
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("settings monster bolster feature defaults off")
+{
+    CHECK_FALSE(OpenYAMM::Game::GameSettings::createDefault().bolsterMonsters);
+
+    const std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "openyamm_default_bolster_settings.ini";
+
+    {
+        std::ofstream output(path);
+        REQUIRE(output.good());
+        output << "[audio]\n";
+        output << "sound_volume=4\n";
+    }
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::GameSettings> loadedSettings =
+        OpenYAMM::Game::loadGameSettings(path, error);
+
+    REQUIRE(loadedSettings.has_value());
+    CHECK_FALSE(loadedSettings->bolsterMonsters);
 
     std::filesystem::remove(path);
 }
@@ -388,6 +433,37 @@ TEST_CASE("monster spell descriptors preserve skill mastery and level")
     CHECK_EQ(pStats->spell2Name, "fireball");
     CHECK_EQ(pStats->spell2SkillMastery, OpenYAMM::Game::SkillMastery::Grandmaster);
     CHECK_EQ(pStats->spell2SkillLevel, 9u);
+}
+
+TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
+{
+    OpenYAMM::Game::MonsterTable monsterTable;
+    REQUIRE(monsterTable.loadStatsFromRows(loadAssetTextTableRows("assets_dev/engine/data_tables/monster_data.txt")));
+
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pLizardmanPeasant =
+        monsterTable.findStatsById(1);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pVampire =
+        monsterTable.findStatsById(52);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pDragon =
+        monsterTable.findStatsById(70);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pWaterElemental =
+        monsterTable.findStatsById(76);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pTitan =
+        monsterTable.findStatsById(640);
+
+    REQUIRE(pLizardmanPeasant != nullptr);
+    REQUIRE(pVampire != nullptr);
+    REQUIRE(pDragon != nullptr);
+    REQUIRE(pWaterElemental != nullptr);
+    REQUIRE(pTitan != nullptr);
+    CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pVampire->hasKind(OpenYAMM::Game::MonsterKind::Undead));
+    CHECK(pDragon->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
+    CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::Swimmer));
+    CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::Elemental));
+    CHECK(pTitan->hasKind(OpenYAMM::Game::MonsterKind::Titan));
 }
 
 TEST_CASE("monster hostility table follows merged merged party relations")

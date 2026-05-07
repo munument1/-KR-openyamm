@@ -3,6 +3,7 @@
 #include "game/tables/ItemTable.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/PotionMixingTable.h"
+#include "game/tables/PotionNoteTable.h"
 
 #include <algorithm>
 #include <cctype>
@@ -172,7 +173,8 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     const ItemTable &itemTable,
     const PotionMixingTable &potionMixingTable,
     const MergedPotionSettingTable &potionSettingTable,
-    const MergedReagentSettingTable &reagentSettingTable)
+    const MergedReagentSettingTable &reagentSettingTable,
+    const PotionNoteTable *pPotionNoteTable)
 {
     Character *pMember = party.member(memberIndex);
     InventoryItem *pTargetItem = party.memberInventoryItemMutable(memberIndex, targetGridX, targetGridY);
@@ -192,6 +194,8 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
 
     const uint32_t bottleItemId = potionSettingTable.emptyBottleItemId();
     const uint32_t catalystItemId = potionSettingTable.catalystPotionItemId();
+    const uint32_t heldItemId = heldItem.objectDescriptionId;
+    const uint32_t targetItemId = pTargetItem->objectDescriptionId;
     const MergedPotionSettingEntry *pHeldPotionSetting = potionSettingTable.getByItemId(heldItem.objectDescriptionId);
     const MergedPotionSettingEntry *pTargetPotionSetting =
         potionSettingTable.getByItemId(pTargetItem->objectDescriptionId);
@@ -332,6 +336,15 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
     result.success = true;
     result.heldItemConsumed = true;
     result.targetItemChanged = true;
+    if (pPotionNoteTable != nullptr)
+    {
+        const std::optional<uint32_t> autonoteId = pPotionNoteTable->autonoteIdForMix(targetItemId, heldItemId);
+
+        if (autonoteId.has_value())
+        {
+            result.unlockedAutonoteId = *autonoteId;
+        }
+    }
     result.statusText = "Mixed potion";
     attachBottleResult(party, memberIndex, itemTable, bottleItemId, result);
     return result;
