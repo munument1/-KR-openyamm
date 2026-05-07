@@ -70,7 +70,7 @@ end, "Door")
 RegisterEvent(9, "Door", function()
     if not IsAtLeast(ActualIntellect, 40) then
         evt.ForPlayer(Players.All)
-        evt.DamagePlayer(5, 0, 30)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 30)
         evt.StatusText("You are not smart enough!")
         return
     end

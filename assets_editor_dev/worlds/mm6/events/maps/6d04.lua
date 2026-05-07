@@ -174,42 +174,29 @@ RegisterEvent(25, "Legacy event 25", function()
 end)
 
 RegisterEvent(27, "Stone Face", function()
+    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(0, 4, 50)
+            evt.DamagePlayer(player, const.Damage.Physical, 50)
             SetValue(MapVar(2), 1)
         end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(1, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(2, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(3, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
+    end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
 end, "Stone Face")
 
 RegisterEvent(28, "Legacy event 28", function()
-    evt.MoveToMap(-2853, 1600, -2655, 1024, 0, 0, 0, 0)
+    evt.MoveToMap(-2853, 1600, -2655, 1024, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(29, "Legacy event 29", function()
-    evt.MoveToMap(2823, 1534, -2655, 45, 0, 0, 0, 0)
+    evt.MoveToMap(2823, 1534, -2655, 45, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(30, "Door", function()
@@ -301,34 +288,21 @@ RegisterEvent(53, "Chest", function()
 end, "Chest")
 
 RegisterEvent(54, "Stone Face", function()
+    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(0, 4, 50)
+            evt.DamagePlayer(player, const.Damage.Physical, 50)
             SetValue(MapVar(2), 1)
         end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(1, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(2, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(3, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
+    end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
 end, "Stone Face")
 
 RegisterEvent(55, "Door", function()
@@ -344,34 +318,21 @@ RegisterEvent(57, "Legacy event 57", function()
 end)
 
 RegisterEvent(58, "Stone Face", function()
+    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(0, 4, 50)
+            evt.DamagePlayer(player, const.Damage.Physical, 50)
             SetValue(MapVar(2), 1)
         end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(1, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(2, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
-        evt.ForPlayer(player)
-        if not HasItem(2102) then -- Amber
-            evt.DamagePlayer(3, 4, 50)
-            SetValue(MapVar(2), 1)
-        end
+    end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
 end, "Stone Face")
 
 RegisterEvent(59, "Bag", function()

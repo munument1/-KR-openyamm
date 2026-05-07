@@ -275,13 +275,13 @@ end)
 
 RegisterEvent(47, "Mural", function()
     if not IsAtLeast(MapVar(3), 3) then
-        evt.MoveToMap(7, 3107, 1, 0, 0, 0, 0, 0)
+        evt.MoveToMap(7, 3107, 1, 0, 0, 0, 0, 0, "0.")
         evt.SummonMonsters(1, 2, 2, 4, 2120, 1, 0, 0) -- encounter slot 1 "Nobleman" tier B, count 2, pos=(4, 2120, 1), actor group 0, no unique actor name
         evt.SummonMonsters(3, 1, 3, 1630, 3072, 350, 0, 0) -- encounter slot 3 "Guard" tier A, count 3, pos=(1630, 3072, 350), actor group 0, no unique actor name
         AddValue(MapVar(3), 1)
         return
     end
-    evt.MoveToMap(7, 3107, 1, 0, 0, 0, 0, 0)
+    evt.MoveToMap(7, 3107, 1, 0, 0, 0, 0, 0, "0.")
 end, "Mural")
 
 RegisterEvent(48, "Chest", function()
@@ -294,7 +294,7 @@ end, "Chest")
 
 RegisterEvent(50, "Mural", function()
     if IsAtLeast(MapVar(4), 3) then return end
-    evt.MoveToMap(-1635, 5470, 257, 0, 0, 0, 0, 0)
+    evt.MoveToMap(-1635, 5470, 257, 0, 0, 0, 0, 0, "0.")
     evt.SummonMonsters(3, 1, 2, -1418, 4986, 257, 0, 0) -- encounter slot 3 "Guard" tier A, count 2, pos=(-1418, 4986, 257), actor group 0, no unique actor name
     evt.SummonMonsters(3, 2, 1, -1418, 4811, 257, 0, 0) -- encounter slot 3 "Guard" tier B, count 1, pos=(-1418, 4811, 257), actor group 0, no unique actor name
     evt.SetDoorState(44, DoorAction.Open)

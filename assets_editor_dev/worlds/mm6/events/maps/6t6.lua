@@ -151,7 +151,7 @@ RegisterEvent(33, "Legacy event 33", function()
 end)
 
 RegisterEvent(34, "Legacy event 34", function()
-    evt.DamagePlayer(5, 5, 1000)
+    evt.DamagePlayer(Players.All, const.Damage.Magic, 1000)
 end)
 
 RegisterEvent(35, "Exit", function()
@@ -180,7 +180,7 @@ end)
 RegisterEvent(40, "Altar of Fire", function()
     if not IsQBitSet(QBit(1339)) then -- NPC
         SetQBit(QBit(1339)) -- NPC
-        evt.DamagePlayer(5, 5, 75)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 75)
         evt.StatusText("Trial by Fire")
         return
     end
@@ -190,7 +190,7 @@ end, "Altar of Fire")
 RegisterEvent(41, "Altar of Cold", function()
     if not IsQBitSet(QBit(1340)) then -- NPC
         SetQBit(QBit(1340)) -- NPC
-        evt.DamagePlayer(5, 1, 75)
+        evt.DamagePlayer(Players.All, const.Damage.Air, 75)
         evt.StatusText("Trial by Cold")
         return
     end
@@ -200,7 +200,7 @@ end, "Altar of Cold")
 RegisterEvent(42, "Altar of Pain", function()
     if not IsQBitSet(QBit(1341)) then -- NPC
         SetQBit(QBit(1341)) -- NPC
-        evt.DamagePlayer(5, 5, 75)
+        evt.DamagePlayer(Players.All, const.Damage.Magic, 75)
         evt.StatusText("Altar of Pain")
         return
     end

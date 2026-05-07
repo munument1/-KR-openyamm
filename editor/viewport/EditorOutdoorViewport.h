@@ -189,6 +189,7 @@ public:
         const EditorDocument &document,
         size_t doorIndex,
         uint16_t &state,
+        float &timeSinceTriggeredMs,
         float &distance,
         bool &isMoving) const;
     void setIndoorDoorFaceEditMode(IndoorDoorFaceEditMode mode, std::optional<size_t> doorIndex = std::nullopt);

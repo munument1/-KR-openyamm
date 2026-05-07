@@ -10,6 +10,7 @@
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/SpriteObjectDefs.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <SDL3/SDL.h>
 #include <bimg/bimg.h>
@@ -827,6 +828,23 @@ bool loadEditorMapStats(const Engine::AssetFileSystem &assetFileSystem, Game::Ma
         }
     }
 
+    std::vector<std::vector<std::string>> outdoorTravelRows;
+
+    if (loadTextTableRows(assetFileSystem, "engine/data_tables/outdoor_travels.txt", outdoorTravelRows))
+    {
+        Game::MergedOutdoorTravelTable outdoorTravelTable = {};
+
+        if (!outdoorTravelTable.loadFromRows(outdoorTravelRows))
+        {
+            return false;
+        }
+
+        if (!mapStats.applyMergedOutdoorTravels(outdoorTravelTable))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -1196,6 +1214,60 @@ std::vector<std::string> buildLuaScriptPathCandidates(const std::string &baseNam
     };
 }
 
+bool isLuaMapOverlayFileName(const std::string &entryName, const std::string &baseName)
+{
+    const std::string lowerEntryName = toLowerCopy(entryName);
+    const std::string lowerBaseName = toLowerCopy(baseName);
+
+    if (!lowerEntryName.ends_with(".lua"))
+    {
+        return false;
+    }
+
+    return lowerEntryName.starts_with(lowerBaseName + "_")
+        || lowerEntryName == lowerBaseName + ".fixup.lua";
+}
+
+std::vector<std::string> buildLuaScriptOverlayPathCandidates(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &baseName)
+{
+    std::vector<std::string> candidates;
+
+    for (const std::string &entryName : assetFileSystem.enumerate("Data/scripts/maps"))
+    {
+        if (isLuaMapOverlayFileName(entryName, baseName))
+        {
+            candidates.push_back("Data/scripts/maps/" + entryName);
+        }
+    }
+
+    return candidates;
+}
+
+std::string appendLuaScriptOverlays(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &baseName,
+    const std::string &luaSource)
+{
+    std::string combinedLuaSource = luaSource;
+
+    for (const std::string &overlayPath : buildLuaScriptOverlayPathCandidates(assetFileSystem, baseName))
+    {
+        const std::optional<std::string> overlaySource = assetFileSystem.readTextFile(overlayPath);
+
+        if (!overlaySource)
+        {
+            continue;
+        }
+
+        combinedLuaSource += "\n\n-- map overlay: " + overlayPath + "\n";
+        combinedLuaSource += *overlaySource;
+    }
+
+    return combinedLuaSource;
+}
+
 std::vector<std::filesystem::path> buildLuaScriptSidecarPathCandidates(
     const std::string &baseName,
     const std::filesystem::path &geometryPath,
@@ -1237,8 +1309,24 @@ std::vector<std::string> buildLuaSupportPathCandidates()
     };
 }
 
+std::vector<std::string> buildLuaWorldCommonPathCandidates(const std::string &worldId)
+{
+    std::vector<std::string> candidates = {
+        "Data/scripts/common/world_common.lua",
+        "Data/scripts/common/common.lua",
+    };
+
+    if (!worldId.empty())
+    {
+        candidates.push_back("Data/scripts/common/" + toLowerCopy(worldId) + "_common.lua");
+    }
+
+    return candidates;
+}
+
 std::string prependLuaSupport(
     const std::optional<std::string> &supportSource,
+    const std::optional<std::string> &worldCommonSource,
     const std::optional<std::string> &scriptSource)
 {
     if (!scriptSource)
@@ -1246,12 +1334,22 @@ std::string prependLuaSupport(
         return {};
     }
 
-    if (!supportSource || supportSource->empty())
+    std::string combinedSource;
+
+    if (supportSource && !supportSource->empty())
     {
-        return *scriptSource;
+        combinedSource += *supportSource;
+        combinedSource += "\n\n";
     }
 
-    return *supportSource + "\n\n" + *scriptSource;
+    if (worldCommonSource && !worldCommonSource->empty())
+    {
+        combinedSource += *worldCommonSource;
+        combinedSource += "\n\n";
+    }
+
+    combinedSource += *scriptSource;
+    return combinedSource;
 }
 
 constexpr char LuaScopeMap[] = "map";
@@ -1350,11 +1448,6 @@ float previewMechanismDistanceForState(const Game::MapDeltaDoor &door, uint16_t 
         return 0.0f;
     }
 
-    if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
-    {
-        return static_cast<float>(door.moveLength);
-    }
-
     if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closing))
     {
         return std::min(
@@ -1368,6 +1461,11 @@ float previewMechanismDistanceForState(const Game::MapDeltaDoor &door, uint16_t 
             0.0f,
             static_cast<float>(door.moveLength)
                 - timeSinceTriggeredMs * static_cast<float>(door.openSpeed) / 1000.0f);
+    }
+
+    if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
+    {
+        return static_cast<float>(door.moveLength);
     }
 
     return 0.0f;
@@ -1718,12 +1816,12 @@ void registerPreviewEventBindings(lua_State *pLuaState)
     registerPreviewLuaFunction(pLuaState, "SetMessage", luaPreviewSetMessage);
     registerPreviewLuaFunction(pLuaState, "SimpleMessage", luaPreviewSimpleMessage);
 
-    const std::array<const char *, 31> noOpFunctions = {{
+    const std::array<const char *, 33> noOpFunctions = {{
         "_InputString", "_PressAnyKey", "_SpecialJump", "ForPlayer", "EnterHouse", "PlaySound", "MoveToMap",
         "OpenChest", "FaceExpression", "DamagePlayer", "SetSnow", "SetRain", "SetTexture", "SetTextureOutdoors",
-        "ShowMovie", "SetSprite", "SummonMonsters", "CastSpell", "SpeakNPC", "SetFacetBit",
+        "SetOutdoorModelFacetTexture", "ShowMovie", "SetSprite", "SummonMonsters", "CastSpell", "SpeakNPC", "SetFacetBit",
         "SetFacetBitOutdoors", "SetMonsterBit", "Question", "SetLight", "SummonItem", "SummonObject",
-        "SetNPCTopic", "MoveNPC", "GiveItem", "ChangeEvent", "RefundChestArtifacts"
+        "SetNPCTopic", "MoveNPC", "GiveItem", "ChangeEvent", "RefundChestArtifacts", "EnsureChestItem"
     }};
 
     for (const char *pFunctionName : noOpFunctions)
@@ -1731,11 +1829,11 @@ void registerPreviewEventBindings(lua_State *pLuaState)
         registerPreviewLuaNoOp(pLuaState, pFunctionName, luaPreviewNoOp);
     }
 
-    const std::array<const char *, 16> falseFunctions = {{
+    const std::array<const char *, 18> falseFunctions = {{
         "_IsNpcInParty", "CheckSkill", "CheckMonstersKilled", "CheckItemsCount", "Jump",
         "IsTotalBountyInRange", "CanPlayerAct", "SetNPCGroupNews", "SetMonsterGroup", "SetNPCItem",
         "SetNPCGreeting", "ChangeGroupToGroup", "ChangeGroupAlly", "SetMonGroupBit", "SetChestBit",
-        "SetMonsterItem"
+        "SetMonsterItem", "IsHouseOpen", "SetMonsterRelation"
     }};
 
     for (const char *pFunctionName : falseFunctions)
@@ -5795,7 +5893,12 @@ bool EditorSession::ensurePreviewEventRuntimeState(std::string &errorMessage)
     return true;
 }
 
-void EditorSession::syncPreviewMechanismState(uint32_t mechanismId, uint16_t state, float distance, bool isMoving)
+void EditorSession::syncPreviewMechanismState(
+    uint32_t mechanismId,
+    uint16_t state,
+    float timeSinceTriggeredMs,
+    float distance,
+    bool isMoving)
 {
     if (!m_hasPreviewEventRuntimeState || mechanismId == 0)
     {
@@ -5804,6 +5907,7 @@ void EditorSession::syncPreviewMechanismState(uint32_t mechanismId, uint16_t sta
 
     EditorPreviewMechanismState &mechanism = m_previewEventMechanisms[mechanismId];
     mechanism.state = state;
+    mechanism.timeSinceTriggeredMs = timeSinceTriggeredMs;
     mechanism.currentDistance = distance;
     mechanism.isMoving = isMoving;
 }
@@ -7375,6 +7479,12 @@ void EditorSession::loadOutdoorEditorSupportData(const std::string &mapFileName)
     std::string resolvedSupportLuaPath;
     const std::optional<std::string> supportLuaSource =
         readFirstExistingText(*m_pAssetFileSystem, buildLuaSupportPathCandidates(), resolvedSupportLuaPath);
+    std::string resolvedWorldCommonLuaPath;
+    const std::optional<std::string> worldCommonLuaSource =
+        readFirstExistingText(
+            *m_pAssetFileSystem,
+            buildLuaWorldCommonPathCandidates(m_pAssetFileSystem->getActiveWorldId()),
+            resolvedWorldCommonLuaPath);
 
     const std::string packageScriptModule = m_document.outdoorMapPackageMetadata().scriptModule;
     std::vector<std::string> localLuaCandidates;
@@ -7405,7 +7515,10 @@ void EditorSession::loadOutdoorEditorSupportData(const std::string &mapFileName)
         if (luaSource)
         {
             std::string errorMessage;
-            const std::string combinedLuaSource = prependLuaSupport(supportLuaSource, luaSource);
+            const std::string mapLuaSource =
+                appendLuaScriptOverlays(*m_pAssetFileSystem, mapBaseName, *luaSource);
+            const std::string combinedLuaSource =
+                prependLuaSupport(supportLuaSource, worldCommonLuaSource, mapLuaSource);
             std::optional<Game::ScriptedEventProgram> program = Game::ScriptedEventProgram::loadFromLuaText(
                 combinedLuaSource,
                 "@" + resolvedLuaPath,
@@ -7428,7 +7541,8 @@ void EditorSession::loadOutdoorEditorSupportData(const std::string &mapFileName)
         if (luaSource)
         {
             std::string errorMessage;
-            const std::string combinedLuaSource = prependLuaSupport(supportLuaSource, luaSource);
+            const std::string combinedLuaSource =
+                prependLuaSupport(supportLuaSource, worldCommonLuaSource, luaSource);
             std::optional<Game::ScriptedEventProgram> program = Game::ScriptedEventProgram::loadFromLuaText(
                 combinedLuaSource,
                 "@" + resolvedLuaPath,

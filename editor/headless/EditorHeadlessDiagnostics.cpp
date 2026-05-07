@@ -6,6 +6,7 @@
 #include "engine/AssetFileSystem.h"
 #include "engine/ImageAssetLoader.h"
 #include "game/events/EvtEnums.h"
+#include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorMapData.h"
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/MapDeltaData.h"
@@ -545,6 +546,11 @@ bool loadLegacyOutdoorMapDelta(
 
     if (!companionBytes)
     {
+        companionBytes = assetFileSystem.readBinaryFile("_legacy/map_delta/" + companionFileName);
+    }
+
+    if (!companionBytes)
+    {
         failure = "could not read legacy companion for " + mapFileName;
         return false;
     }
@@ -577,6 +583,11 @@ bool loadLegacyIndoorMapDelta(
     if (!companionBytes)
     {
         companionBytes = assetFileSystem.readBinaryFile("Data/games/" + companionFileName);
+    }
+
+    if (!companionBytes)
+    {
+        companionBytes = assetFileSystem.readBinaryFile("_legacy/map_delta/" + companionFileName);
     }
 
     if (!companionBytes)
@@ -3133,7 +3144,123 @@ bool verifyEditorWorldMapScriptLoad(
     const std::string scriptVirtualPath = "Data/scripts/maps/out09.lua";
     const std::filesystem::path expectedScriptPhysicalPath =
         assetFileSystem.getEditorDevelopmentRoot() / "worlds/mm7/events/maps/out09.lua";
-    return verifyScriptVirtualPathResolvesTo(assetFileSystem, scriptVirtualPath, expectedScriptPhysicalPath, failure);
+
+    if (!verifyScriptVirtualPathResolvesTo(assetFileSystem, scriptVirtualPath, expectedScriptPhysicalPath, failure))
+    {
+        return false;
+    }
+
+    EditorSession session = {};
+    session.initialize(assetFileSystem);
+    const std::filesystem::path mapPath =
+        activeWorldEditorPath(assetFileSystem, std::filesystem::path("maps") / "7d06.blv");
+
+    if (!session.openMapPhysicalPath(mapPath, failure))
+    {
+        failure = "could not open mm7 7d06 mechanism test map: " + failure;
+        return false;
+    }
+
+    if (session.document().kind() != EditorDocument::Kind::Indoor)
+    {
+        failure = "mm7 7d06 mechanism test did not load an indoor scene";
+        return false;
+    }
+
+    if (!session.ensurePreviewEventRuntimeState(failure))
+    {
+        failure = "could not initialize mm7 7d06 preview event state: " + failure;
+        return false;
+    }
+
+    const std::optional<EditorPreviewMechanismState> initialDoor5 = session.previewMechanismState(5);
+    const std::optional<EditorPreviewMechanismState> initialDoor6 = session.previewMechanismState(6);
+    const uint16_t closedState = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Closed);
+
+    if (!initialDoor5 || !initialDoor6 || initialDoor5->state != closedState || initialDoor6->state != closedState)
+    {
+        failure = "mm7 7d06 doors 5 and 6 did not initialize closed";
+        return false;
+    }
+
+    if (!session.simulateMapEvent(2, failure))
+    {
+        failure = "could not simulate mm7 7d06 event 2: " + failure;
+        return false;
+    }
+
+    const std::optional<EditorPreviewMechanismState> eventDoor5 = session.previewMechanismState(5);
+    const std::optional<EditorPreviewMechanismState> eventDoor6 = session.previewMechanismState(6);
+    const uint16_t openingState = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Opening);
+
+    if (!eventDoor5 || !eventDoor6 || eventDoor5->state != openingState || eventDoor6->state != openingState)
+    {
+        failure = "mm7 7d06 event 2 did not start opening doors 5 and 6";
+        return false;
+    }
+
+    const OpenYAMM::Game::MapDeltaDoor *pDoor5 = nullptr;
+
+    for (const OpenYAMM::Game::IndoorSceneDoor &door : session.document().indoorSceneData().initialState.doors)
+    {
+        if (door.door.doorId == 5)
+        {
+            pDoor5 = &door.door;
+            break;
+        }
+    }
+
+    if (pDoor5 == nullptr)
+    {
+        failure = "mm7 7d06 door 5 was not found in scene data";
+        return false;
+    }
+
+    if (pDoor5->vertexIds.empty() || pDoor5->xOffsets.empty())
+    {
+        failure = "mm7 7d06 door 5 has no movement vertices";
+        return false;
+    }
+
+    OpenYAMM::Game::MapDeltaData previewMapDeltaData = {};
+
+    for (const OpenYAMM::Game::IndoorSceneDoor &door : session.document().indoorSceneData().initialState.doors)
+    {
+        previewMapDeltaData.doors.push_back(door.door);
+    }
+
+    OpenYAMM::Game::EventRuntimeState previewRuntimeState = {};
+    OpenYAMM::Game::RuntimeMechanismState movingDoor5 = {};
+    movingDoor5.state = openingState;
+    movingDoor5.timeSinceTriggeredMs = 1000.0f;
+    movingDoor5.currentDistance = 110.0f;
+    movingDoor5.isMoving = true;
+    previewRuntimeState.mechanisms[5] = movingDoor5;
+    const std::vector<OpenYAMM::Game::IndoorVertex> adjustedVertices =
+        OpenYAMM::Game::buildIndoorMechanismAdjustedVertices(
+            session.document().indoorGeometry(),
+            &previewMapDeltaData,
+            &previewRuntimeState);
+    const uint16_t firstVertexId = pDoor5->vertexIds.front();
+
+    if (firstVertexId >= adjustedVertices.size())
+    {
+        failure = "mm7 7d06 door 5 first movement vertex is out of range";
+        return false;
+    }
+
+    const float directionX = static_cast<float>(pDoor5->directionX) / 65536.0f;
+    const float openX = static_cast<float>(pDoor5->xOffsets.front());
+    const float closedX = openX + directionX * static_cast<float>(pDoor5->moveLength);
+    const float adjustedX = static_cast<float>(adjustedVertices[firstVertexId].x);
+
+    if (!(adjustedX > std::min(openX, closedX) && adjustedX < std::max(openX, closedX)))
+    {
+        failure = "mm7 7d06 door 5 adjusted vertex did not move between closed and open";
+        return false;
+    }
+
+    return true;
 }
 
 bool isCanonicalLegacyBackedOutdoorMap(const std::filesystem::path &gamesPath, const std::string &mapFileName)
@@ -3147,17 +3274,24 @@ bool isCanonicalLegacyBackedOutdoorMap(const std::filesystem::path &gamesPath, c
         return false;
     }
 
+    bool hasLegacyCompanionFile = false;
+    bool hasOutdoorSceneKind = false;
     std::string line;
 
     while (std::getline(input, line))
     {
         if (line.find("legacy_companion_file:") != std::string::npos)
         {
-            return true;
+            hasLegacyCompanionFile = true;
+        }
+
+        if (line.find("kind:") != std::string::npos && line.find("outdoor_scene") != std::string::npos)
+        {
+            hasOutdoorSceneKind = true;
         }
     }
 
-    return false;
+    return hasLegacyCompanionFile && hasOutdoorSceneKind;
 }
 
 void removeTemporaryRoundTripScenes(const std::filesystem::path &gamesPath)
@@ -3352,7 +3486,12 @@ int EditorHeadlessDiagnostics::runRegressionSuite(
 
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
 
-    if (!assetFileSystem.initialize(basePath, m_config.assetRoot, m_config.assetScaleTier, m_config.activeWorldId))
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
     {
         std::cerr << "Editor headless diagnostics failed: could not initialize asset file system\n";
         return 1;
@@ -3523,9 +3662,10 @@ int EditorHeadlessDiagnostics::runRegressionSuite(
             return 1;
         }
 
-        std::cout << "Editor headless regression: suite=" << suiteName << " maps=3\n";
+        std::cout << "Editor headless regression: suite=" << suiteName << " maps=4\n";
         std::cout << "  pass mm6/oute3.odm\n";
         std::cout << "  pass mm7/out09.lua\n";
+        std::cout << "  pass mm7/7d06.blv\n";
         std::cout << "  pass mm8/out01.odm\n";
         std::cout << "Editor headless regression passed: suite=" << suiteName << '\n';
         removeTemporaryRoundTripScenes(activeWorldEditorPath(assetFileSystem, "maps"));
@@ -3619,7 +3759,12 @@ int EditorHeadlessDiagnostics::runCompareOutdoorScene(
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
 
-    if (!assetFileSystem.initialize(basePath, m_config.assetRoot, m_config.assetScaleTier, m_config.activeWorldId))
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
     {
         std::cerr << "Editor headless diagnostics failed: could not initialize asset file system\n";
         return 1;

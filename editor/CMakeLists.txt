@@ -38,6 +38,7 @@ add_executable(openyamm-editor
     ${CMAKE_SOURCE_DIR}/game/tables/ItemTable.cpp
     ${CMAKE_SOURCE_DIR}/game/tables/MapStats.cpp
     ${CMAKE_SOURCE_DIR}/game/tables/MonsterTable.cpp
+    ${CMAKE_SOURCE_DIR}/game/tables/MergedBaseTables.cpp
     ${CMAKE_SOURCE_DIR}/game/tables/ObjectTable.cpp
     ${CMAKE_SOURCE_DIR}/game/tables/SpriteTables.cpp
     ${CMAKE_SOURCE_DIR}/tools/legacy_events/StrTable.cpp

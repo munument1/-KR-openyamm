@@ -279,7 +279,12 @@ public:
     std::optional<std::string> describeMapEvent(uint16_t eventId) const;
     std::optional<std::string> localScriptModulePath() const;
     bool ensurePreviewEventRuntimeState(std::string &errorMessage);
-    void syncPreviewMechanismState(uint32_t mechanismId, uint16_t state, float distance, bool isMoving);
+    void syncPreviewMechanismState(
+        uint32_t mechanismId,
+        uint16_t state,
+        float timeSinceTriggeredMs,
+        float distance,
+        bool isMoving);
     bool simulateMapEvent(uint16_t eventId, std::string &errorMessage);
     void resetPreviewEventRuntimeState();
     std::optional<EditorPreviewMechanismState> previewMechanismState(uint32_t mechanismId) const;

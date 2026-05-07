@@ -22,8 +22,8 @@ SetMapMetadata({
 
 RegisterEvent(1, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 8) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 8) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(1, DoorAction.Close)
@@ -31,8 +31,8 @@ end, "Door")
 
 RegisterEvent(2, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(2, DoorAction.Close)
@@ -40,8 +40,8 @@ end, "Door")
 
 RegisterEvent(3, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(3, DoorAction.Close)
@@ -49,8 +49,8 @@ end, "Door")
 
 RegisterEvent(4, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(4, DoorAction.Close)
@@ -58,8 +58,8 @@ end, "Door")
 
 RegisterEvent(5, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(5, DoorAction.Close)
@@ -67,8 +67,8 @@ end, "Door")
 
 RegisterEvent(6, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(6, DoorAction.Close)
@@ -76,8 +76,8 @@ end, "Door")
 
 RegisterEvent(7, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(7, DoorAction.Close)
@@ -85,8 +85,8 @@ end, "Door")
 
 RegisterEvent(8, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(8, DoorAction.Close)
@@ -94,8 +94,8 @@ end, "Door")
 
 RegisterEvent(9, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(9, DoorAction.Close)
@@ -103,8 +103,8 @@ end, "Door")
 
 RegisterEvent(10, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -112,8 +112,8 @@ end, "Door")
 
 RegisterEvent(11, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(11, DoorAction.Close)
@@ -121,8 +121,8 @@ end, "Door")
 
 RegisterEvent(12, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(12, DoorAction.Close)
@@ -130,8 +130,8 @@ end, "Door")
 
 RegisterEvent(13, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(13, DoorAction.Close)
@@ -139,8 +139,8 @@ end, "Door")
 
 RegisterEvent(14, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(14, DoorAction.Close)
@@ -148,8 +148,8 @@ end, "Door")
 
 RegisterEvent(15, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(15, DoorAction.Close)
@@ -157,8 +157,8 @@ end, "Door")
 
 RegisterEvent(16, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(16, DoorAction.Close)
@@ -166,8 +166,8 @@ end, "Door")
 
 RegisterEvent(17, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(17, DoorAction.Close)
@@ -175,8 +175,8 @@ end, "Door")
 
 RegisterEvent(18, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(18, DoorAction.Close)
@@ -193,8 +193,8 @@ end, "Door")
 
 RegisterEvent(20, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(20, DoorAction.Close)
@@ -202,8 +202,8 @@ end, "Door")
 
 RegisterEvent(21, "Door", function()
     evt.ForPlayer(Players.All)
-    if not evt.CheckSkill(31, 0, 4) then
-        evt.DamagePlayer(7, 0, 50)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 4) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 50)
         return
     end
     evt.SetDoorState(21, DoorAction.Close)
@@ -232,8 +232,8 @@ RegisterEvent(38, "Chest", function()
 end, "Chest")
 
 RegisterEvent(39, "Chest", function()
-    if not evt.CheckSkill(31, 0, 2) then
-        evt.DamagePlayer(7, 0, 200)
+    if not evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Novice, 2) then
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 200)
         return
     end
     evt.OpenChest(3)
@@ -346,7 +346,7 @@ end, "Baa Head One")
 
 RegisterEvent(72, "Baa Head Two", function()
     if not IsAtLeast(MapVar(11), 1) then
-        evt.DamagePlayer(7, 0, 20)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 20)
         evt.StatusText("Baa!  Baa!")
         return
     end
@@ -356,7 +356,7 @@ end, "Baa Head Two")
 
 RegisterEvent(73, "Baa Head Three", function()
     if not IsAtLeast(MapVar(12), 1) then
-        evt.DamagePlayer(7, 0, 20)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 20)
         evt.StatusText("Baa!  Baa!")
         return
     end
@@ -366,7 +366,7 @@ end, "Baa Head Three")
 
 RegisterEvent(74, "Baa Head Four", function()
     if not IsAtLeast(MapVar(13), 1) then
-        evt.DamagePlayer(7, 0, 20)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 20)
         evt.StatusText("Baa!  Baa!")
         return
     end
@@ -380,7 +380,7 @@ end, "Baa Head Four")
 RegisterEvent(75, "Almighty Head of Baa.", function()
     if not IsAtLeast(MapVar(16), 1) then
         evt.StatusText("You're not worthy of Baa!")
-        evt.DamagePlayer(7, 0, 100)
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 100)
         return
     end
     if not IsPlayerBitSet(PlayerBit(69)) then
@@ -394,6 +394,6 @@ RegisterEvent(75, "Almighty Head of Baa.", function()
 end, "Almighty Head of Baa.")
 
 RegisterEvent(76, "Lava pool", function()
-    evt.DamagePlayer(5, 5, 30)
+    evt.DamagePlayer(Players.All, const.Damage.Magic, 30)
 end, "Lava pool")
 

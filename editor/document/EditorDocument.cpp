@@ -3,6 +3,7 @@
 #include "engine/ImageAssetLoader.h"
 #include "editor/import/IndoorSourceGeometryCompiler.h"
 #include "editor/import/ObjModelImport.h"
+#include "game/StringUtils.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -325,6 +326,103 @@ bool readTextFile(const std::filesystem::path &path, std::string &text)
     return true;
 }
 
+bool isSceneOverlayFileName(const std::string &entryName, const std::string &sceneFileName)
+{
+    std::string lowerEntryName = Game::toLowerCopy(entryName);
+    std::string lowerSceneFileName = Game::toLowerCopy(sceneFileName);
+
+    if (!lowerEntryName.ends_with(".scene.yml") || lowerEntryName == lowerSceneFileName)
+    {
+        return false;
+    }
+
+    const std::string overlayPrefix = lowerSceneFileName.substr(0, lowerSceneFileName.size() - 10) + "_";
+    return lowerEntryName.starts_with(overlayPrefix);
+}
+
+std::vector<std::filesystem::path> sceneOverlayPhysicalPaths(const std::filesystem::path &scenePhysicalPath)
+{
+    std::vector<std::filesystem::path> overlayPaths;
+    const std::filesystem::path sceneDirectory = scenePhysicalPath.parent_path();
+    const std::string sceneFileName = scenePhysicalPath.filename().string();
+
+    if (sceneDirectory.empty() || !std::filesystem::is_directory(sceneDirectory))
+    {
+        return overlayPaths;
+    }
+
+    for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(sceneDirectory))
+    {
+        if (!entry.is_regular_file())
+        {
+            continue;
+        }
+
+        if (isSceneOverlayFileName(entry.path().filename().string(), sceneFileName))
+        {
+            overlayPaths.push_back(entry.path());
+        }
+    }
+
+    std::sort(overlayPaths.begin(), overlayPaths.end(), [](const std::filesystem::path &left, const std::filesystem::path &right)
+    {
+        return Game::toLowerCopy(left.filename().string()) < Game::toLowerCopy(right.filename().string());
+    });
+    return overlayPaths;
+}
+
+bool applyOutdoorSceneOverlaysFromPhysicalPath(
+    Game::OutdoorSceneYmlLoader &sceneLoader,
+    Game::OutdoorSceneData &sceneData,
+    const std::filesystem::path &scenePhysicalPath,
+    std::string &errorMessage)
+{
+    for (const std::filesystem::path &overlayPath : sceneOverlayPhysicalPaths(scenePhysicalPath))
+    {
+        std::string overlayText;
+
+        if (!readTextFile(overlayPath, overlayText))
+        {
+            errorMessage = "could not read outdoor scene overlay: " + overlayPath.string();
+            return false;
+        }
+
+        if (!sceneLoader.applyOverlayFromText(sceneData, overlayText, errorMessage))
+        {
+            errorMessage = "could not parse outdoor scene overlay " + overlayPath.string() + ": " + errorMessage;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool applyIndoorSceneOverlaysFromPhysicalPath(
+    Game::IndoorSceneYmlLoader &sceneLoader,
+    Game::IndoorSceneData &sceneData,
+    const std::filesystem::path &scenePhysicalPath,
+    std::string &errorMessage)
+{
+    for (const std::filesystem::path &overlayPath : sceneOverlayPhysicalPaths(scenePhysicalPath))
+    {
+        std::string overlayText;
+
+        if (!readTextFile(overlayPath, overlayText))
+        {
+            errorMessage = "could not read indoor scene overlay: " + overlayPath.string();
+            return false;
+        }
+
+        if (!sceneLoader.applyOverlayFromText(sceneData, overlayText, errorMessage))
+        {
+            errorMessage = "could not parse indoor scene overlay " + overlayPath.string() + ": " + errorMessage;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool readBinaryFile(const std::filesystem::path &path, std::vector<uint8_t> &bytes)
 {
     bytes.clear();
@@ -401,6 +499,14 @@ std::optional<std::vector<uint8_t>> loadLegacyIndoorCompanionBytes(
     if (virtualCandidates.empty() || virtualCandidates.front() != defaultGamesPath)
     {
         virtualCandidates.push_back(defaultGamesPath);
+    }
+
+    const std::string legacyMapDeltaPath =
+        (std::filesystem::path("_legacy/map_delta") / legacyCompanionFile).generic_string();
+
+    if (std::find(virtualCandidates.begin(), virtualCandidates.end(), legacyMapDeltaPath) == virtualCandidates.end())
+    {
+        virtualCandidates.push_back(legacyMapDeltaPath);
     }
 
     for (const std::string &candidate : virtualCandidates)
@@ -2901,9 +3007,14 @@ bool EditorDocument::loadOutdoorScenePhysicalPath(
     std::string &errorMessage)
 {
     Game::OutdoorSceneYmlLoader sceneLoader = {};
-    const std::optional<Game::OutdoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, errorMessage);
+    std::optional<Game::OutdoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, errorMessage);
 
     if (!sceneData)
+    {
+        return false;
+    }
+
+    if (!applyOutdoorSceneOverlaysFromPhysicalPath(sceneLoader, *sceneData, scenePhysicalPath, errorMessage))
     {
         return false;
     }
@@ -3071,9 +3182,14 @@ bool EditorDocument::loadIndoorScenePhysicalPath(
     std::string &errorMessage)
 {
     Game::IndoorSceneYmlLoader sceneLoader = {};
-    const std::optional<Game::IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, errorMessage);
+    std::optional<Game::IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, errorMessage);
 
     if (!sceneData)
+    {
+        return false;
+    }
+
+    if (!applyIndoorSceneOverlaysFromPhysicalPath(sceneLoader, *sceneData, scenePhysicalPath, errorMessage))
     {
         return false;
     }
@@ -3522,7 +3638,11 @@ std::vector<std::string> EditorDocument::validate() const
 
         if (m_outdoorMapPackageMetadata.sourceFingerprint != currentFingerprint)
         {
-            issues.push_back("Map package source fingerprint is stale relative to current source files.");
+            issues.push_back(
+                "Map package source fingerprint is stale relative to current source files. stored="
+                + m_outdoorMapPackageMetadata.sourceFingerprint
+                + " current="
+                + currentFingerprint);
         }
     }
 
@@ -4233,6 +4353,12 @@ std::string EditorDocument::serializeOutdoorScene(
     }
 
     emitter << YAML::EndMap;
+    emitter << YAML::Key << "runtime_restrictions" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "allow_save_game" << YAML::Value << sceneData.runtimeRestrictions.allowSaveGame;
+    emitter << YAML::Key << "allow_lloyds_beacon" << YAML::Value
+            << sceneData.runtimeRestrictions.allowLloydsBeacon;
+    emitter << YAML::Key << "arena" << YAML::Value << sceneData.runtimeRestrictions.isArena;
+    emitter << YAML::EndMap;
 
     emitter << YAML::Key << "environment" << YAML::Value << YAML::BeginMap;
     emitter << YAML::Key << "sky_texture" << YAML::Value << sceneData.environment.skyTexture;
@@ -4316,6 +4442,19 @@ std::string EditorDocument::serializeOutdoorScene(
                 << static_cast<int>(overrideEntry.legacyAttributes);
         emitter << YAML::Key << "burn" << YAML::Value << ((overrideEntry.legacyAttributes & 0x01) != 0);
         emitter << YAML::Key << "water" << YAML::Value << ((overrideEntry.legacyAttributes & 0x02) != 0);
+        emitter << YAML::EndMap;
+    }
+
+    emitter << YAML::EndSeq;
+    emitter << YAML::Key << "footstep_sound_overrides" << YAML::Value << YAML::BeginSeq;
+
+    for (const Game::OutdoorSceneTerrainFootstepSoundOverride &overrideEntry :
+         sceneData.terrainFootstepSoundOverrides)
+    {
+        emitter << YAML::BeginMap;
+        emitter << YAML::Key << "tile_id" << YAML::Value << static_cast<int>(overrideEntry.tileId);
+        emitter << YAML::Key << "walk_sound_id" << YAML::Value << overrideEntry.walkSoundId;
+        emitter << YAML::Key << "run_sound_id" << YAML::Value << overrideEntry.runSoundId;
         emitter << YAML::EndMap;
     }
 
@@ -4526,6 +4665,12 @@ std::string EditorDocument::serializeIndoorScene(
         emitter << YAML::Key << "legacy_companion_file" << YAML::Value << *sceneData.legacyCompanionFile;
     }
 
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "runtime_restrictions" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "allow_save_game" << YAML::Value << sceneData.runtimeRestrictions.allowSaveGame;
+    emitter << YAML::Key << "allow_lloyds_beacon" << YAML::Value
+            << sceneData.runtimeRestrictions.allowLloydsBeacon;
+    emitter << YAML::Key << "arena" << YAML::Value << sceneData.runtimeRestrictions.isArena;
     emitter << YAML::EndMap;
 
     emitter << YAML::Key << "environment" << YAML::Value << YAML::BeginMap;

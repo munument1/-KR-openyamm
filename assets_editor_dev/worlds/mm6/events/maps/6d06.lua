@@ -228,33 +228,33 @@ end, "Chest")
 RegisterEvent(45, "Chest", function()
     local randomStep = PickRandomOption(45, 1, {1, 3, 5, 7, 9, 11})
     if randomStep == 1 then
-        evt.MoveToMap(2752, -256, 0, 1024, 0, 0, 0, 0)
+        evt.MoveToMap(2752, -256, 0, 1024, 0, 0, 0, 0, "0.")
         return
     elseif randomStep == 3 then
-        evt.MoveToMap(3222, -2076, -31, 1012, 0, 0, 0, 0)
+        evt.MoveToMap(3222, -2076, -31, 1012, 0, 0, 0, 0, "0.")
         return
     elseif randomStep == 5 then
-        evt.MoveToMap(1152, -5193, -511, 0, 0, 0, 0, 0)
+        evt.MoveToMap(1152, -5193, -511, 0, 0, 0, 0, 0, "0.")
         return
     elseif randomStep == 7 then
-        evt.MoveToMap(-59, 1997, -896, 512, 0, 0, 0, 0)
+        evt.MoveToMap(-59, 1997, -896, 512, 0, 0, 0, 0, "0.")
         return
     elseif randomStep == 9 then
-        evt.MoveToMap(-831, 3109, -128, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-831, 3109, -128, 0, 0, 0, 0, 0, "0.")
         return
     elseif randomStep == 11 then
         local randomStep = PickRandomOption(45, 12, {13, 15, 17, 19})
         if randomStep == 13 then
-            evt.MoveToMap(-7023, -1413, -383, 512, 0, 0, 0, 0)
+            evt.MoveToMap(-7023, -1413, -383, 512, 0, 0, 0, 0, "0.")
             return
         elseif randomStep == 15 then
-            evt.MoveToMap(1847, 8410, -767, 1536, 0, 0, 0, 0)
+            evt.MoveToMap(1847, 8410, -767, 1536, 0, 0, 0, 0, "0.")
             return
         elseif randomStep == 17 then
-            evt.MoveToMap(-843, 6440, -767, 1024, 0, 0, 0, 0)
+            evt.MoveToMap(-843, 6440, -767, 1024, 0, 0, 0, 0, "0.")
             return
         elseif randomStep == 19 then
-            evt.MoveToMap(-3622, 5464, -639, 1024, 0, 0, 0, 0)
+            evt.MoveToMap(-3622, 5464, -639, 1024, 0, 0, 0, 0, "0.")
             return
         end
     end

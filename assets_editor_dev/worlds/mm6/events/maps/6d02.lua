@@ -58,7 +58,7 @@ RegisterEvent(9, "Door", function()
 end, "Door")
 
 RegisterEvent(11, "Teleporter", function()
-    evt.MoveToMap(247, 2331, -740, 1088, 0, 0, 0, 0)
+    evt.MoveToMap(247, 2331, -740, 1088, 0, 0, 0, 0, "0.")
 end, "Teleporter")
 
 RegisterEvent(12, "Legacy event 12", function()
@@ -160,7 +160,7 @@ RegisterEvent(30, "Legacy event 30", function()
 end)
 
 RegisterEvent(31, "Teleporter", function()
-    evt.MoveToMap(16519, -18589, 753, 1024, 50, 0, 0, 0)
+    evt.MoveToMap(16519, -18589, 753, 1024, 50, 0, 0, 0, "0.")
 end, "Teleporter")
 
 RegisterEvent(35, "Legacy event 35", function()

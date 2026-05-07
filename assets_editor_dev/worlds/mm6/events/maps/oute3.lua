@@ -658,3 +658,4 @@ RegisterEvent(65526, "", function()
     if not IsQBitSet(QBit(1326)) then return end -- NPC
     evt.SetSprite(339, 1, "swrdstx")
 end)
+

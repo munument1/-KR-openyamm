@@ -88,7 +88,7 @@ RegisterEvent(12, "Sewer Grate", function()
         AddValue(MapVar(2), 1)
         local randomStep = PickRandomOption(12, 9, {19, 23, 19})
         if randomStep == 19 then
-            evt.DamagePlayer(5, 2, 30)
+            evt.DamagePlayer(Players.All, const.Damage.Water, 30)
             evt.StatusText("Ouch!")
             AddValue(MapVar(2), 1)
             return

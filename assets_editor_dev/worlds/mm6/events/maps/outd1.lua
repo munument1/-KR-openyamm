@@ -444,19 +444,19 @@ RegisterEvent(211, "Circle of Stones", function()
 end, "Circle of Stones")
 
 RegisterEvent(212, "Legacy event 212", function()
-    evt.MoveToMap(-12344, 17112, 1, 1536, 0, 0, 0, 0)
+    evt.MoveToMap(-12344, 17112, 1, 1536, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(213, "Legacy event 213", function()
-    evt.MoveToMap(-9400, 17184, 1, 1536, 0, 0, 0, 0)
+    evt.MoveToMap(-9400, 17184, 1, 1536, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(214, "Legacy event 214", function()
-    evt.MoveToMap(-11512, 19368, 1, 1536, 0, 0, 0, 0)
+    evt.MoveToMap(-11512, 19368, 1, 1536, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(215, "Legacy event 215", function()
-    evt.MoveToMap(-9192, 21936, 160, 1536, 0, 0, 0, 0)
+    evt.MoveToMap(-9192, 21936, 160, 1536, 0, 0, 0, 0, "0.")
 end)
 
 RegisterEvent(220, "Legacy event 220", function()

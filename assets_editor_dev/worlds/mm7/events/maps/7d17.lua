@@ -45,8 +45,8 @@ end)
 RegisterEvent(4, "Legacy event 4", function()
     if IsAtLeast(MapVar(2), 1) then return end
     evt.SetDoorState(4, DoorAction.Trigger)
-    if evt.CheckSkill(31, 3, 40) then
-        if not evt.CheckSkill(33, 3, 40) then
+    if evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Grandmaster, 40) then
+        if not evt.CheckSkill(const.Skills.DisarmTraps, const.SkillCheck.Grandmaster, 40) then
             evt.CastSpell(32, 15, 4, -512, 3936, 246, 608, 3936, 246) -- Ice Blast
             return
         end
@@ -168,7 +168,7 @@ RegisterEvent(196, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
@@ -186,7 +186,7 @@ RegisterEvent(197, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
@@ -204,7 +204,7 @@ RegisterEvent(198, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
@@ -239,4 +239,3 @@ RegisterEvent(65533, "", function()
         evt.SetTexture(4, "c2b")
     end
 end)
-

@@ -134,7 +134,7 @@ RegisterEvent(197, "Legacy event 197", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
@@ -151,7 +151,7 @@ RegisterEvent(198, "Legacy event 198", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
@@ -168,7 +168,7 @@ RegisterEvent(199, "Legacy event 199", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
@@ -196,7 +196,7 @@ RegisterEvent(455, "Legacy event 455", function()
 end)
 
 RegisterEvent(456, "Legacy event 456", function()
-    if evt.CheckSkill(33, 3, 40) then return end
+    if evt.CheckSkill(const.Skills.DisarmTraps, const.SkillCheck.Grandmaster, 40) then return end
     evt.CastSpell(24, 5, 4, 12023, 15154, -639, 11704, 15854, -479) -- Poison Spray
     evt.CastSpell(24, 5, 4, 11398, 15726, -639, 11673, 15051, -479) -- Poison Spray
     evt.CastSpell(24, 5, 4, 11066, 15649, -639, 11360, 14922, -479) -- Poison Spray
@@ -229,4 +229,3 @@ RegisterEvent(65533, "", function()
         evt.SetTexture(4, "cwb1")
     end
 end)
-

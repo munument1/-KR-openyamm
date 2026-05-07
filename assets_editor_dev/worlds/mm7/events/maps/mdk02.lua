@@ -150,17 +150,17 @@ end, "Lever")
 
 RegisterEvent(501, "Leave the Dwarven Barrow", function()
     if not IsAtLeast(MapVar(3), 2) then
-        evt.MoveToMap(1114, 1881, 129, 1796, 0, 0, 0, 0)
+        evt.MoveToMap(1114, 1881, 129, 1796, 0, 0, 0, 0, "mdr02.blv") -- Barrow XII
         return
     end
-    evt.MoveToMap(-404, -1041, 1, 256, 0, 0, 0, 0)
+    evt.MoveToMap(-404, -1041, 1, 256, 0, 0, 0, 0, "mdk05.blv") -- Barrow III
 end, "Leave the Dwarven Barrow")
 
 RegisterEvent(502, "Leave the Dwarven Barrow", function()
     if not IsAtLeast(MapVar(2), 2) then
-        evt.MoveToMap(28, -1374, 1, 512, 0, 0, 0, 0)
+        evt.MoveToMap(28, -1374, 1, 512, 0, 0, 0, 0, "7d13.blv") -- Zokarr's Tomb
         return
     end
-    evt.MoveToMap(915, 2418, 65, 1408, 0, 0, 0, 0)
+    evt.MoveToMap(915, 2418, 65, 1408, 0, 0, 0, 0, "mdr05.blv") -- Barrow XV
 end, "Leave the Dwarven Barrow")
 

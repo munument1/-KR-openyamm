@@ -20,8 +20,44 @@ MM6.NicolaiReturnMessage =
 MM6.LorettaPriceMessage =
     "Well, If Loretta's got a new scheme, count me in!\nBut you better get all the other companies to sign up!"
 
+MM6.SeerRecoverableItems = {
+    {Item = 2125, QBits = {1105, 1106, 1205}}, -- The Letter
+    {
+        Item = 2119,
+        QBits = {1110, 1206},
+        ProofQBits = {1206},
+    },
+    {Item = 2053, QBit = 1207}, -- Hourglass of Time
+    {Item = 2126, QBit = 1208}, -- Devil Plans
+    {Item = 2075, QBit = 1209}, -- Dragon Claw
+    {Item = 2077, QBit = 1210}, -- Crystal of Terrax
+    {Item = 2128, QBit = 1211}, -- Discharge Papers
+    {Item = 2054, QBit = 1212}, -- Sacred Chalice
+    {Item = 2106, QBit = 1213}, -- Dragon Tower Keys
+    {Item = 2122, QBit = 1214}, -- Smoking Gun
+    {Item = 2170, QBit = 1215}, -- Memory Crystal Alpha
+    {Item = 2171, QBit = 1216}, -- Memory Crystal Beta
+    {Item = 2172, QBit = 1217}, -- Memory Crystal Delta
+    {Item = 2173, QBit = 1218}, -- Memory Crystal Epsilon
+    {Item = 2076, QBit = 1219}, -- Control Cube
+    {Item = 2066, QBit = 1220}, -- Third Eye
+    {Item = 2081, QBit = 1221}, -- Tanir's Bell
+    {Item = 2200, QBit = 1222}, -- Dark Containment
+    {Item = 2107, QBit = 1223}, -- Key to Gharik's Laboratory
+    {Item = 2158, QBit = 1253}, -- First Mate's Code
+    {Item = 2162, QBit = 1254}, -- Doctor's Code
+    {Item = 2157, QBit = 1255}, -- Captain's Code
+    {Item = 2159, QBit = 1256}, -- Navigator's Code
+    {Item = 2161, QBit = 1257}, -- Engineer's Code
+    {Item = 2160, QBit = 1258}, -- Communication Officer's Code
+}
+
 function MM6.ApplyLocalMonsterRelations(relations)
     ApplyLocalMonsterRelations(relations)
+end
+
+function MM6.RecoverLostItem()
+    support.tryRecoverLostItem(MM6.SeerRecoverableItems)
 end
 
 function MM6.StartNicolaiQuest()

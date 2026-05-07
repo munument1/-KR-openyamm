@@ -46,6 +46,7 @@ bool parseCommonArguments(
         }
 
         config.assetScaleTier = *assetScaleTier;
+        config.assetScaleProfile = OpenYAMM::Engine::createUniformAssetScaleProfile(*assetScaleTier);
         hasAssetScaleArgument = true;
         ++argumentIndex;
     }

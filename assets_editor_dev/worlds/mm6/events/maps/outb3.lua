@@ -90,11 +90,11 @@ RegisterEvent(90, "Legacy event 90", function()
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0)
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end)
 
 RegisterEvent(92, "Legacy event 92", function()
-    evt.MoveToMap(-640, 512, -416, 512, 0, 0, 0, 0)
+    evt.MoveToMap(-640, 512, -416, 512, 0, 0, 0, 0, "znwc.blv") -- New World Computing
 end)
 
 RegisterEvent(100, "Drink from Fountain", function()

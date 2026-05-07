@@ -14757,15 +14757,27 @@ void EditorMainWindow::syncIndoorEventPreviewFromViewport(EditorSession &session
     for (size_t doorIndex = 0; doorIndex < sceneData.initialState.doors.size(); ++doorIndex)
     {
         uint16_t state = 0;
+        float timeSinceTriggeredMs = 0.0f;
         float distance = 0.0f;
         bool isMoving = false;
 
-        if (!m_viewport.tryGetIndoorMechanismPreview(session.document(), doorIndex, state, distance, isMoving))
+        if (!m_viewport.tryGetIndoorMechanismPreview(
+                session.document(),
+                doorIndex,
+                state,
+                timeSinceTriggeredMs,
+                distance,
+                isMoving))
         {
             continue;
         }
 
-        session.syncPreviewMechanismState(sceneData.initialState.doors[doorIndex].door.doorId, state, distance, isMoving);
+        session.syncPreviewMechanismState(
+            sceneData.initialState.doors[doorIndex].door.doorId,
+            state,
+            timeSinceTriggeredMs,
+            distance,
+            isMoving);
     }
 }
 
@@ -14843,19 +14855,20 @@ void EditorMainWindow::renderIndoorDoorInspector(EditorSession &session, size_t 
     float currentDistance = 0.0f;
     bool previewMoving = false;
     uint16_t previewState = door.door.state;
-    bool hasPreviewState =
-        m_viewport.tryGetIndoorMechanismPreview(session.document(), doorIndex, previewState, currentDistance, previewMoving);
+    float previewTimeSinceTriggeredMs = 0.0f;
+    bool hasPreviewState = m_viewport.tryGetIndoorMechanismPreview(
+        session.document(),
+        doorIndex,
+        previewState,
+        previewTimeSinceTriggeredMs,
+        currentDistance,
+        previewMoving);
 
     if (!hasPreviewState)
     {
         if (door.door.state == static_cast<uint16_t>(Game::EvtMechanismState::Open))
         {
             currentDistance = 0.0f;
-        }
-        else if (door.door.state == static_cast<uint16_t>(Game::EvtMechanismState::Closed)
-            || (door.door.attributes & 0x2) != 0)
-        {
-            currentDistance = static_cast<float>(door.door.moveLength);
         }
         else if (door.door.state == static_cast<uint16_t>(Game::EvtMechanismState::Closing))
         {
@@ -14870,6 +14883,11 @@ void EditorMainWindow::renderIndoorDoorInspector(EditorSession &session, size_t 
                 static_cast<float>(door.door.moveLength)
                     - static_cast<float>(door.door.timeSinceTriggered)
                         * static_cast<float>(door.door.openSpeed) / 1000.0f);
+        }
+        else if (door.door.state == static_cast<uint16_t>(Game::EvtMechanismState::Closed)
+            || (door.door.attributes & 0x2) != 0)
+        {
+            currentDistance = static_cast<float>(door.door.moveLength);
         }
     }
 

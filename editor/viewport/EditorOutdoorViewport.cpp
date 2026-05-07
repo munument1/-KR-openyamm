@@ -317,7 +317,9 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     BitmapLoadCache &bitmapLoadCache)
 {
     const int forcedTerrainTileSize =
-        forceTerrainTileSize ? terrainTexturePhysicalTileSize(assetFileSystem.getAssetScaleTier()) : 0;
+        forceTerrainTileSize
+            ? terrainTexturePhysicalTileSize(assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Terrain))
+            : 0;
     const std::string cacheKey =
         directoryPath + "|" + toLowerCopy(textureName) + "|" + std::to_string(forcedTerrainTileSize);
     const auto cachedPixelsIt = bitmapLoadCache.pixelsByKey.find(cacheKey);
@@ -392,6 +394,24 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     return pixels;
 }
 
+std::optional<std::vector<uint8_t>> loadTerrainBitmapPixelsBgra(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &textureName,
+    int &width,
+    int &height,
+    BitmapLoadCache &bitmapLoadCache)
+{
+    std::optional<std::vector<uint8_t>> pixels =
+        loadBitmapPixelsBgra(assetFileSystem, "terrain", textureName, width, height, true, bitmapLoadCache);
+
+    if (pixels)
+    {
+        return pixels;
+    }
+
+    return loadBitmapPixelsBgra(assetFileSystem, "terrain_textures", textureName, width, height, true, bitmapLoadCache);
+}
+
 std::optional<TerrainAtlasData> buildTerrainAtlasData(
     const Engine::AssetFileSystem &assetFileSystem,
     const Game::OutdoorMapData &outdoorMapData,
@@ -405,7 +425,8 @@ std::optional<TerrainAtlasData> buildTerrainAtlasData(
         return std::nullopt;
     }
 
-    const int terrainTileSize = terrainTexturePhysicalTileSize(assetFileSystem.getAssetScaleTier());
+    const int terrainTileSize = terrainTexturePhysicalTileSize(
+        assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Terrain));
     TerrainAtlasData atlas = {};
     atlas.tileSize = terrainTileSize;
     atlas.width = TerrainTextureAtlasColumns * terrainTileSize;
@@ -427,13 +448,11 @@ std::optional<TerrainAtlasData> buildTerrainAtlasData(
         int textureWidth = 0;
         int textureHeight = 0;
         const std::optional<std::vector<uint8_t>> tilePixels =
-            loadBitmapPixelsBgra(
+            loadTerrainBitmapPixelsBgra(
                 assetFileSystem,
-                "Data/bitmaps",
                 textureName,
                 textureWidth,
                 textureHeight,
-                true,
                 bitmapLoadCache);
 
         if (!tilePixels || textureWidth != terrainTileSize || textureHeight != terrainTileSize)
@@ -2853,11 +2872,6 @@ float indoorEditorMechanismDistanceForState(
         return 0.0f;
     }
 
-    if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
-    {
-        return static_cast<float>(door.moveLength);
-    }
-
     if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closing))
     {
         const float closingDistance = timeSinceTriggeredMs * static_cast<float>(door.closeSpeed) / 1000.0f;
@@ -2868,6 +2882,11 @@ float indoorEditorMechanismDistanceForState(
     {
         const float openingDistance = timeSinceTriggeredMs * static_cast<float>(door.openSpeed) / 1000.0f;
         return std::max(0.0f, static_cast<float>(door.moveLength) - openingDistance);
+    }
+
+    if (state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
+    {
+        return static_cast<float>(door.moveLength);
     }
 
     return 0.0f;
@@ -2900,13 +2919,7 @@ float resolveIndoorEditorMechanismDistance(
         return runtimeMechanism.currentDistance;
     }
 
-    door.state = mechanismIterator->second.state;
-    return mechanismIterator->second.isMoving
-        ? indoorEditorMechanismDistanceForState(
-            door,
-            mechanismIterator->second.state,
-            mechanismIterator->second.timeSinceTriggeredMs)
-        : mechanismIterator->second.currentDistance;
+    return mechanismIterator->second.currentDistance;
 }
 
 std::optional<IndoorEditorMechanismTextureState> findIndoorEditorMechanismTextureState(
@@ -3253,11 +3266,6 @@ float calculateMechanismPreviewDistance(
         return 0.0f;
     }
 
-    if (previewState.state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
-    {
-        return static_cast<float>(door.moveLength);
-    }
-
     if (previewState.state == static_cast<uint16_t>(Game::EvtMechanismState::Closing))
     {
         const float closingDistance =
@@ -3270,6 +3278,11 @@ float calculateMechanismPreviewDistance(
         const float openingDistance =
             previewState.timeSinceTriggeredMs * static_cast<float>(door.openSpeed) / 1000.0f;
         return std::max(0.0f, static_cast<float>(door.moveLength) - openingDistance);
+    }
+
+    if (previewState.state == static_cast<uint16_t>(Game::EvtMechanismState::Closed) || (door.attributes & 0x2) != 0)
+    {
+        return static_cast<float>(door.moveLength);
     }
 
     return 0.0f;
@@ -4232,10 +4245,16 @@ void EditorOutdoorViewport::renderOverlayUi(const EditorSession &session)
             const Game::IndoorSceneDoor &door =
                 session.document().indoorSceneData().initialState.doors[session.selection().index];
             uint16_t previewState = 0;
+            float previewTimeSinceTriggeredMs = 0.0f;
             float currentDistance = 0.0f;
             bool isMoving = false;
-            const bool hasPreview =
-                tryGetIndoorMechanismPreview(session.document(), session.selection().index, previewState, currentDistance, isMoving);
+            const bool hasPreview = tryGetIndoorMechanismPreview(
+                session.document(),
+                session.selection().index,
+                previewState,
+                previewTimeSinceTriggeredMs,
+                currentDistance,
+                isMoving);
             const float resolvedDistance =
                 hasPreview
                     ? currentDistance
@@ -5705,6 +5724,7 @@ bool EditorOutdoorViewport::tryGetIndoorMechanismPreview(
     const EditorDocument &document,
     size_t doorIndex,
     uint16_t &state,
+    float &timeSinceTriggeredMs,
     float &distance,
     bool &isMoving) const
 {
@@ -5722,6 +5742,7 @@ bool EditorOutdoorViewport::tryGetIndoorMechanismPreview(
             ? previewIterator->second
             : buildMechanismPreviewState(door);
     state = previewState.state;
+    timeSinceTriggeredMs = previewState.timeSinceTriggeredMs;
     distance = previewState.currentDistance;
     isMoving = previewState.isMoving;
     return true;
@@ -11746,16 +11767,23 @@ void EditorOutdoorViewport::submitMarkerGeometry(
             const Game::MapDeltaDoor &door = sceneData.initialState.doors[selection.index].door;
             const std::optional<bx::Vec3> currentCenter = selectedWorldPosition(document, selection);
             uint16_t previewStateValue = 0;
+            float previewTimeSinceTriggeredMs = 0.0f;
             float previewDistance = 0.0f;
             bool previewMoving = false;
-            const bool hasPreviewState =
-                tryGetIndoorMechanismPreview(document, selection.index, previewStateValue, previewDistance, previewMoving);
+            const bool hasPreviewState = tryGetIndoorMechanismPreview(
+                document,
+                selection.index,
+                previewStateValue,
+                previewTimeSinceTriggeredMs,
+                previewDistance,
+                previewMoving);
             std::optional<Game::RuntimeMechanismState> previewState;
 
             if (hasPreviewState)
             {
                 previewState = Game::RuntimeMechanismState{};
                 previewState->state = previewStateValue;
+                previewState->timeSinceTriggeredMs = previewTimeSinceTriggeredMs;
                 previewState->currentDistance = previewDistance;
                 previewState->isMoving = previewMoving;
             }
