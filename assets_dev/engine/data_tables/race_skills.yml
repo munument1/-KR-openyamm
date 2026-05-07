@@ -1,0 +1,128 @@
+version: 1
+rules:
+  - race: Human
+    race_id: 0
+    skill: Learning
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Vampire
+    race_id: 1
+    skill: VampireAbility
+    raw_token: "E/0/0"
+    min_mastery: expert
+    add: 0
+    exception: none
+  - race: Vampire
+    race_id: 1
+    skill: Meditation
+    raw_token: "E/0/W"
+    min_mastery: expert
+    add: 0
+    exception: warrior
+  - race: Vampire
+    race_id: 1
+    skill: Perception
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: DarkElf
+    race_id: 2
+    skill: DarkElfAbility
+    raw_token: "E/0/0"
+    min_mastery: expert
+    add: 0
+    exception: none
+  - race: DarkElf
+    race_id: 2
+    skill: Merchant
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: DarkElf
+    race_id: 2
+    skill: Meditation
+    raw_token: "E/0/W"
+    min_mastery: expert
+    add: 0
+    exception: warrior
+  - race: Minotaur
+    race_id: 3
+    skill: Axe
+    raw_token: "E/1/2"
+    min_mastery: expert
+    add: 1
+    exception: "2"
+  - race: Minotaur
+    race_id: 3
+    skill: Plate
+    raw_token: "E/1/0"
+    min_mastery: expert
+    add: 1
+    exception: none
+  - race: Minotaur
+    race_id: 3
+    skill: Bodybuilding
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Troll
+    race_id: 4
+    skill: Regeneration
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Dragon
+    race_id: 5
+    skill: DragonAbility
+    raw_token: "E/0/0"
+    min_mastery: expert
+    add: 0
+    exception: none
+  - race: Dragon
+    race_id: 5
+    skill: Meditation
+    raw_token: "E/0/W"
+    min_mastery: expert
+    add: 0
+    exception: warrior
+  - race: Dragon
+    race_id: 5
+    skill: IdentifyMonster
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Elf
+    race_id: 7
+    skill: Meditation
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Goblin
+    race_id: 8
+    skill: DisarmTraps
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
+  - race: Dwarf
+    race_id: 9
+    skill: Axe
+    raw_token: "E/1/2"
+    min_mastery: expert
+    add: 1
+    exception: "2"
+  - race: Dwarf
+    race_id: 9
+    skill: Repair
+    raw_token: "0/1/0"
+    min_mastery: none
+    add: 1
+    exception: none
