@@ -1088,6 +1088,10 @@ function support.currentGameMinutes()
     return evt.CurrentGameMinutes()
 end
 
+function support.currentContinent()
+    return evt.GetCurrentContinent()
+end
+
 function support.advanceGameMinutes(minutes)
     evt.AdvanceGameMinutes(minutes or 0)
 end
@@ -1116,6 +1120,18 @@ function support.applyLocalMonsterRelations(relations)
     for _, relation in ipairs(relations) do
         evt.SetMonsterRelation(relation[1] or 0, relation[2] or 0, relation[3] or 0)
     end
+end
+
+function support.setNpcName(npcId, name)
+    evt.SetNPCName(npcId, name or "")
+end
+
+function support.setNpcPicture(npcId, pictureId)
+    evt.SetNPCPicture(npcId, pictureId or 0)
+end
+
+function support.setNpcProfession(npcId, professionId)
+    evt.SetNPCProfession(npcId, professionId or 0)
 end
 
 function support.setGlobalMetadata(metadata)
@@ -1240,12 +1256,16 @@ HasFollowerNpc = support.hasFollowerNpc
 AddFollowerNpc = support.addFollowerNpc
 RemoveFollowerNpc = support.removeFollowerNpc
 CurrentGameMinutes = support.currentGameMinutes
+CurrentContinent = support.currentContinent
 AdvanceGameMinutes = support.advanceGameMinutes
 GetRuntimeVariable = support.getRuntimeVariable
 SetRuntimeVariable = support.setRuntimeVariable
 GetPartyVariable = support.getPartyVariable
 SetPartyVariable = support.setPartyVariable
 ApplyLocalMonsterRelations = support.applyLocalMonsterRelations
+SetNPCName = support.setNpcName
+SetNPCPicture = support.setNpcPicture
+SetNPCProfession = support.setNpcProfession
 SetGlobalMetadata = support.setGlobalMetadata
 exportTableEntries(support.varTag)
 Players = support.players

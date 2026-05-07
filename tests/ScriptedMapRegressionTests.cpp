@@ -2174,6 +2174,116 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
     }
 }
 
+TEST_CASE("mm7 global mmmerge supplement applies custom CrossContinents and hatchling fixups")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalEventProgram =
+        loadMm7GlobalSupplementProgram(OPENYAMM_SOURCE_DIR, error);
+    REQUIRE_MESSAGE(globalEventProgram.has_value(), error.c_str());
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        runtimeState.activeHistoryContinentId = 2;
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1778, runtimeState, &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.MetVerdant"], 1);
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.IntroStep"], 1);
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1778, runtimeState, &party));
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1778, runtimeState, &party));
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1778, runtimeState, &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.GotMainQuest"], 1);
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.StartedContinent"], 2);
+        REQUIRE(runtimeState.npcTopicOverrides.contains(803));
+        CHECK_EQ(runtimeState.npcTopicOverrides[803][0], 1783u);
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1788, runtimeState, &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.GotConnectorStone"], 1);
+        REQUIRE_FALSE(runtimeState.grantedItemIds.empty());
+        CHECK_EQ(runtimeState.grantedItemIds.back(), 624u);
+
+        party.setQuestBit(783, true);
+        runtimeState.activeHookContext = OpenYAMM::Game::EventRuntimeState::ActiveHookContext{};
+        runtimeState.activeHookContext->kind = OpenYAMM::Game::EventRuntimeHookKind::NpcEnter;
+        runtimeState.activeHookContext->npcId = 803;
+        REQUIRE(eventRuntime.executeHooks(
+            std::nullopt,
+            globalEventProgram,
+            OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+            runtimeState,
+            &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.Finished.2"], 1);
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.Reward.2"], 1);
+        CHECK_EQ(runtimeState.npcHouseOverrides[803], 641u);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.addFood(200);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        RecordingSceneEventContext sceneContext = {};
+        sceneContext.setCurrentGameMinutes(0.0f);
+
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt,
+            globalEventProgram,
+            789,
+            runtimeState,
+            &party,
+            &sceneContext));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.DragonFood"], 5);
+        CHECK_EQ(party.food(), 195);
+
+        runtimeState.namedGlobalVars["MMerge.CrossContinents.DragonFood"] = 95;
+        runtimeState.namedGlobalVars["MMerge.CrossContinents.DragonFirstFeedMinutes"] = 1;
+        sceneContext.setCurrentGameMinutes(29.0f * 24.0f * 60.0f);
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt,
+            globalEventProgram,
+            789,
+            runtimeState,
+            &party,
+            &sceneContext));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.DragonGrown"], 1);
+
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt,
+            globalEventProgram,
+            789,
+            runtimeState,
+            &party,
+            &sceneContext));
+        CHECK_EQ(runtimeState.namedGlobalVars["MMerge.CrossContinents.DragonJoined"], 1);
+        CHECK(runtimeState.unavailableNpcIds.contains(396));
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(611, true);
+        party.setQuestBit(1613, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 850, runtimeState, &party));
+        CHECK(party.hasQuestBit(566));
+        CHECK_EQ(runtimeState.npcTopicOverrides[389][1], 851u);
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 852, runtimeState, &party));
+        CHECK(party.hasQuestBit(567));
+        CHECK_EQ(runtimeState.npcTopicOverrides[390][0], 853u);
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 950, runtimeState, &party));
+        const OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        const OpenYAMM::Game::CharacterSkill *pBlasterSkill = pMember->findSkill("Blaster");
+        REQUIRE(pBlasterSkill != nullptr);
+        CHECK_EQ(pBlasterSkill->level, 1);
+    }
+}
+
 TEST_CASE("mm7 lincoln mmmerge exit requires each active member to have a wetsuit")
 {
     std::string error;

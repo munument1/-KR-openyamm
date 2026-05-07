@@ -3225,12 +3225,23 @@ bool GameplayScreenRuntime::ensureTownPortalDestinationsLoaded()
 
 bool GameplayScreenRuntime::ensureDimensionDoorDestinationsLoaded()
 {
+    constexpr const char *CrossContinentsGotMainQuestVar = "MMerge.CrossContinents.GotMainQuest";
     constexpr float MinutesPerDay = 24.0f * 60.0f;
 
     const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
     const float gameMinutes = pWorldRuntime != nullptr ? std::max(0.0f, pWorldRuntime->gameMinutes()) : 0.0f;
     const uint32_t dayIndex = static_cast<uint32_t>(std::floor(gameMinutes / MinutesPerDay));
-    return uiRuntime().ensureDimensionDoorDestinationsLoaded(dayIndex);
+    const EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    bool crossContinentsUnlocked = false;
+
+    if (pEventRuntimeState != nullptr)
+    {
+        const auto iterator = pEventRuntimeState->namedGlobalVars.find(CrossContinentsGotMainQuestVar);
+        crossContinentsUnlocked = iterator != pEventRuntimeState->namedGlobalVars.end() && iterator->second != 0;
+    }
+
+    return uiRuntime().ensureDimensionDoorDestinationsLoaded(dayIndex, crossContinentsUnlocked);
 }
 
 const std::string &GameplayScreenRuntime::townPortalBackgroundTextureName() const

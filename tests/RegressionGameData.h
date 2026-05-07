@@ -41,6 +41,7 @@ struct RegressionGameData
     Game::MergedNewsProfessionTopicTable mergedNewsProfessionTopicTable = {};
     Game::MergedBolsterMapTable mergedBolsterMapTable = {};
     Game::MergedBolsterMonsterTable mergedBolsterMonsterTable = {};
+    Game::MergedCharacterVoiceTable mergedCharacterVoiceTable = {};
     Game::MergedMonsterPortraitTable mergedMonsterPortraitTable = {};
     Game::MergedContinentSettingTable mergedContinentSettingTable = {};
     Game::ReadableScrollTable readableScrollTable = {};

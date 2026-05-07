@@ -24,7 +24,15 @@ constexpr const char *IdentifyFailedText = "Identify Failed";
 constexpr const char *RepairFailedText = "Repair Failed";
 constexpr const char *NwcDungeonMapName = "7nwc.blv";
 constexpr const char *TempleInBottleReturnLocationName = "TempleInABottleReturn";
+constexpr const char *ConnectorStoneRechargeGlobalVar = "MMerge.CrossContinents.NextConnectorRecharge";
+constexpr const char *ConnectorStoneImprovedGlobalVar = "MMerge.CrossContinents.ImprovedConnector";
+constexpr const char *ConnectorStoneDivineInterventionGlobalVar = "MMerge.CrossContinents.DivineInterventionLastUsed";
 constexpr uint32_t DimensionDoorScrollItemId = 190;
+constexpr uint32_t ChargedConnectorStoneItemId = 624;
+constexpr uint32_t DischargedConnectorStoneItemId = 625;
+constexpr uint32_t VerdantNpcId = 803;
+constexpr int32_t ConnectorStoneRechargeMinutes = 24 * 60;
+constexpr int32_t ConnectorStoneDivineInterventionCooldownMinutes = 24 * 60;
 constexpr int16_t FireballImpactObjectId = 1051;
 constexpr float PotionExplosionForwardOffset = 64.0f;
 constexpr float PotionExplosionHeightOffset = 96.0f;
@@ -222,6 +230,90 @@ void closeCharacterInventoryAfterPotionExplosion(GameplayScreenRuntime &runtime)
     runtime.characterDetailOverlay() = {};
 }
 
+bool tryUseConnectorStone(GameplayScreenRuntime &runtime, GameplayUiController::HeldInventoryItemState &heldItem)
+{
+    const uint32_t itemId = heldItem.item.objectDescriptionId;
+
+    if (itemId != ChargedConnectorStoneItemId && itemId != DischargedConnectorStoneItemId)
+    {
+        return false;
+    }
+
+    IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
+    EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    Party *pParty = runtime.party();
+
+    if (pEventRuntimeState == nullptr || pParty == nullptr || pWorldRuntime == nullptr)
+    {
+        return true;
+    }
+
+    const int32_t currentMinutes = static_cast<int32_t>(std::lround(pWorldRuntime->gameMinutes()));
+    const auto rechargeIterator = pEventRuntimeState->namedGlobalVars.find(ConnectorStoneRechargeGlobalVar);
+    const int32_t rechargeMinutes = rechargeIterator != pEventRuntimeState->namedGlobalVars.end()
+        ? rechargeIterator->second
+        : 0;
+
+    if (itemId == DischargedConnectorStoneItemId && rechargeMinutes > currentMinutes)
+    {
+        runtime.setStatusBarEvent("The connector stone is recharging.");
+        return true;
+    }
+
+    const auto improvedIterator = pEventRuntimeState->namedGlobalVars.find(ConnectorStoneImprovedGlobalVar);
+    const bool improved = improvedIterator != pEventRuntimeState->namedGlobalVars.end()
+        && improvedIterator->second != 0;
+    const auto lastInterventionIterator =
+        pEventRuntimeState->namedGlobalVars.find(ConnectorStoneDivineInterventionGlobalVar);
+    const int32_t lastInterventionMinutes = lastInterventionIterator != pEventRuntimeState->namedGlobalVars.end()
+        ? lastInterventionIterator->second
+        : -ConnectorStoneDivineInterventionCooldownMinutes;
+
+    if (improved && currentMinutes >= lastInterventionMinutes + ConnectorStoneDivineInterventionCooldownMinutes)
+    {
+        bool needsRestore = false;
+
+        for (const Character &member : pParty->members())
+        {
+            if (member.health < member.maxHealth || member.spellPoints < member.maxSpellPoints)
+            {
+                needsRestore = true;
+                break;
+            }
+        }
+
+        if (needsRestore)
+        {
+            pParty->restoreAll();
+            pEventRuntimeState->namedGlobalVars[ConnectorStoneDivineInterventionGlobalVar] = currentMinutes;
+        }
+    }
+
+    heldItem.item.objectDescriptionId = DischargedConnectorStoneItemId;
+    pParty->setHeldItemForQueries(heldItem.item);
+    pEventRuntimeState->namedGlobalVars[ConnectorStoneRechargeGlobalVar] =
+        currentMinutes + ConnectorStoneRechargeMinutes;
+
+    const auto mainQuestIterator =
+        pEventRuntimeState->namedGlobalVars.find("MMerge.CrossContinents.GotMainQuest");
+    const bool hasMainQuest = mainQuestIterator != pEventRuntimeState->namedGlobalVars.end()
+        && mainQuestIterator->second != 0;
+    pEventRuntimeState->npcTopicOverrides[VerdantNpcId][0] = hasMainQuest ? 1788u : 1778u;
+
+    EventRuntimeState::PendingDialogueContext dialogueContext = {};
+    dialogueContext.kind = DialogueContextKind::NpcTalk;
+    dialogueContext.sourceId = VerdantNpcId;
+    pEventRuntimeState->pendingDialogueContext = std::move(dialogueContext);
+
+    GameplayUiController::CharacterScreenState &characterScreen = runtime.characterScreen();
+    characterScreen.open = false;
+    characterScreen.dollJewelryOverlayOpen = false;
+    characterScreen.adventurersInnRosterOverlayOpen = false;
+    runtime.closeInventoryNestedOverlay();
+    runtime.setStatusBarEvent("The connector stone calls Verdant.");
+    return true;
+}
+
 void spawnPotionExplosionImpactVisual(GameSession &session, GameplayScreenRuntime &runtime)
 {
     if (!session.hasDataRepository())
@@ -289,6 +381,11 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
     if (!heldItem.active || pParty == nullptr || pItemTable == nullptr)
     {
         return false;
+    }
+
+    if (tryUseConnectorStone(runtime, heldItem))
+    {
+        return true;
     }
 
     const InventoryItemUseResult useResult =

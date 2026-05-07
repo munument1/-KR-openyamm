@@ -14,7 +14,7 @@ struct SpeechReactionEntry
 {
     SpeechId speechId = SpeechId::None;
     std::string name;
-    std::string commentKey;
+    std::vector<std::string> soundTypes;
     std::optional<FaceAnimationId> faceAnimationId;
 };
 

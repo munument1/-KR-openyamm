@@ -565,16 +565,18 @@ bool decodeAudioSamplesFromBytes(const std::vector<uint8_t> &bytes, std::vector<
 bool GameAudioSystem::initialize(
     const Engine::AssetFileSystem &assetFileSystem,
     const CharacterDollTable &characterDollTable,
+    const MergedCharacterVoiceTable &characterVoiceTable,
     const SpellTable &spellTable)
 {
     shutdown();
     m_pCharacterDollTable = &characterDollTable;
+    m_pCharacterVoiceTable = &characterVoiceTable;
     m_pAssetFileSystem = &assetFileSystem;
 
     const std::optional<std::string> engineSoundCatalogText =
         assetFileSystem.readTextFile("engine/data_tables/sounds.txt");
     const std::optional<std::string> speechReactionText =
-        assetFileSystem.readTextFile("engine/data_tables/speech_reactions.txt");
+        assetFileSystem.readTextFile("engine/data_tables/character_speech_events.txt");
 
     if (!engineSoundCatalogText || !speechReactionText)
     {
@@ -634,6 +636,7 @@ void GameAudioSystem::shutdown()
     m_soundCatalog = {};
     m_speechReactionTable = {};
     m_pCharacterDollTable = nullptr;
+    m_pCharacterVoiceTable = nullptr;
     m_pAssetFileSystem = nullptr;
 }
 
@@ -1048,7 +1051,7 @@ bool GameAudioSystem::playSpeech(const Character &character, SpeechId speechId, 
         return false;
     }
 
-    if (pReaction->commentKey.empty())
+    if (pReaction->soundTypes.empty() || m_pCharacterVoiceTable == nullptr || m_pAssetFileSystem == nullptr)
     {
         return false;
     }
@@ -1060,21 +1063,35 @@ bool GameAudioSystem::playSpeech(const Character &character, SpeechId speechId, 
         return false;
     }
 
-    const std::optional<uint32_t> soundId = m_soundCatalog.pickSpeechSoundId(
-        *voiceId,
-        pReaction->commentKey,
-        seed == 0 ? SDL_GetTicks() : seed);
+    const std::vector<uint32_t> soundIds = m_pCharacterVoiceTable->soundIdsForTypes(*voiceId, pReaction->soundTypes);
 
-    if (!soundId)
+    if (soundIds.empty())
     {
         return false;
     }
 
-    const std::optional<std::string> virtualPath = m_soundCatalog.buildVirtualPath(*soundId);
+    const uint32_t pickSeed = seed == 0 ? SDL_GetTicks() : seed;
+    std::optional<uint32_t> selectedSoundId;
+    std::optional<std::string> selectedVirtualPath;
 
-    if (!virtualPath)
+    for (size_t offset = 0; offset < soundIds.size(); ++offset)
     {
-        logAudioTraceUnresolvedSound("playSpeech", *soundId, PlaybackGroup::Speech, std::nullopt, false);
+        const uint32_t candidateSoundId = soundIds[(pickSeed + offset) % soundIds.size()];
+        const std::optional<std::string> candidateVirtualPath = m_soundCatalog.buildVirtualPath(candidateSoundId);
+
+        if (!candidateVirtualPath || !m_pAssetFileSystem->exists(*candidateVirtualPath))
+        {
+            continue;
+        }
+
+        selectedSoundId = candidateSoundId;
+        selectedVirtualPath = candidateVirtualPath;
+        break;
+    }
+
+    if (!selectedSoundId || !selectedVirtualPath)
+    {
+        logAudioTraceUnresolvedSound("playSpeech", soundIds.front(), PlaybackGroup::Speech, std::nullopt, false);
         return false;
     }
 
@@ -1088,7 +1105,7 @@ bool GameAudioSystem::playSpeech(const Character &character, SpeechId speechId, 
             if (audioTraceEnabled())
             {
                 logAudioTracePrefix("stop-speech", "playSpeech");
-                std::cerr << " soundId=" << *soundId
+                std::cerr << " soundId=" << *selectedSoundId
                           << " speechId=" << static_cast<uint32_t>(speechId)
                           << " speakerKey=" << speakerKey
                           << " stoppedInstance=" << activeIt->second << '\n';
@@ -1099,7 +1116,13 @@ bool GameAudioSystem::playSpeech(const Character &character, SpeechId speechId, 
     }
 
     const uint64_t instanceId =
-        playResolvedSound(*virtualPath, PlaybackGroup::Speech, std::nullopt, false, *soundId, "playSpeech");
+        playResolvedSound(
+            *selectedVirtualPath,
+            PlaybackGroup::Speech,
+            std::nullopt,
+            false,
+            *selectedSoundId,
+            "playSpeech");
 
     if (instanceId == 0)
     {

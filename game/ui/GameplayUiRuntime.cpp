@@ -538,9 +538,10 @@ bool GameplayUiRuntime::ensureTownPortalDestinationsLoaded(const std::string &cu
     return !m_townPortalDestinations.empty();
 }
 
-bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex)
+bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex, bool crossContinentsUnlocked)
 {
-    const std::string cacheKey = "__dimension_door:" + std::to_string(dayIndex);
+    const std::string cacheKey = "__dimension_door:" + std::to_string(dayIndex)
+        + (crossContinentsUnlocked ? ":unlocked" : ":locked");
 
     if (m_townPortalDestinationsLoaded
         && toLowerCopy(m_townPortalDestinationsMapFileName) == toLowerCopy(cacheKey))
@@ -552,6 +553,12 @@ bool GameplayUiRuntime::ensureDimensionDoorDestinationsLoaded(uint32_t dayIndex)
     m_townPortalBackgroundTextureName.clear();
     m_townPortalDestinations.clear();
     m_townPortalDestinationsLoaded = false;
+
+    if (!crossContinentsUnlocked)
+    {
+        m_townPortalDestinationsLoaded = true;
+        return false;
+    }
 
     if (m_pDataRepository == nullptr || !m_pDataRepository->isBound())
     {

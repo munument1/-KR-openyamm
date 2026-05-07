@@ -4170,6 +4170,13 @@ int luaGetCurrentMapName(lua_State *pLuaState)
     return 1;
 }
 
+int luaGetCurrentContinent(lua_State *pLuaState)
+{
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    lua_pushinteger(pLuaState, pRuntimeState != nullptr ? pRuntimeState->activeHistoryContinentId : 0);
+    return 1;
+}
+
 int32_t luaIntegerField(lua_State *pLuaState, int tableIndex, const char *pFieldName, int32_t defaultValue)
 {
     const int absoluteIndex = lua_absindex(pLuaState, tableIndex);
@@ -5245,6 +5252,69 @@ int luaSetNpcGreeting(lua_State *pLuaState)
     if (pExecutionContext->pParty != nullptr)
     {
         pExecutionContext->pParty->setNpcGreetingOverride(npcId, greetingId);
+    }
+
+    return 0;
+}
+
+int luaSetNpcName(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const char *pName = luaL_checkstring(pLuaState, 2);
+
+    if (pRuntimeState != nullptr)
+    {
+        if (pName[0] == '\0')
+        {
+            pRuntimeState->npcNameOverrides.erase(npcId);
+        }
+        else
+        {
+            pRuntimeState->npcNameOverrides[npcId] = pName;
+        }
+    }
+
+    return 0;
+}
+
+int luaSetNpcPicture(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t pictureId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+
+    if (pRuntimeState != nullptr)
+    {
+        if (pictureId == 0)
+        {
+            pRuntimeState->npcPictureOverrides.erase(npcId);
+        }
+        else
+        {
+            pRuntimeState->npcPictureOverrides[npcId] = pictureId;
+        }
+    }
+
+    return 0;
+}
+
+int luaSetNpcProfession(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t npcId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t professionId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+
+    if (pRuntimeState != nullptr)
+    {
+        if (professionId == 0)
+        {
+            pRuntimeState->npcProfessionOverrides.erase(npcId);
+        }
+        else
+        {
+            pRuntimeState->npcProfessionOverrides[npcId] = professionId;
+        }
     }
 
     return 0;
@@ -6419,6 +6489,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "GetEnemyDetectorState", luaGetEnemyDetectorState);
     registerLuaFunction(pLuaState, "GetCurrentScreen", luaGetCurrentScreen);
     registerLuaFunction(pLuaState, "GetCurrentMapName", luaGetCurrentMapName);
+    registerLuaFunction(pLuaState, "GetCurrentContinent", luaGetCurrentContinent);
     registerLuaFunction(pLuaState, "SaveCurrentLocation", luaSaveCurrentLocation);
     registerLuaFunction(pLuaState, "HasSavedLocation", luaHasSavedLocation);
     registerLuaFunction(pLuaState, "MoveToSavedLocation", luaMoveToSavedLocation);
@@ -6483,6 +6554,9 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetMonsterGroup", luaSetMonsterGroup);
     registerLuaFunction(pLuaState, "SetNPCItem", luaSetNpcItem);
     registerLuaFunction(pLuaState, "SetNPCGreeting", luaSetNpcGreeting);
+    registerLuaFunction(pLuaState, "SetNPCName", luaSetNpcName);
+    registerLuaFunction(pLuaState, "SetNPCPicture", luaSetNpcPicture);
+    registerLuaFunction(pLuaState, "SetNPCProfession", luaSetNpcProfession);
     registerLuaFunction(pLuaState, "CheckMonstersKilled", luaCheckMonstersKilled);
     registerLuaFunction(pLuaState, "IsHouseOpen", luaIsHouseOpen);
     registerLuaFunction(pLuaState, "ChangeGroupToGroup", luaChangeGroupToGroup);

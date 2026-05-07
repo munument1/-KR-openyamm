@@ -9,6 +9,7 @@ ReplaceMapEvent(301, "Enter Castle Harmondale", function()
 end, "Enter Castle Harmondale")
 
 RegisterMapOnLoadEvent(65002, "MMMerge Harmondale judge and invasion state", function()
+    MM7.UpdateCrossContinentsState()
     MM7.UpdateHarmondaleInvasion()
     MM7.UpdateJudgeGreyDeath()
 end)

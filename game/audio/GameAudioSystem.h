@@ -8,6 +8,7 @@
 #include "game/tables/SpellTable.h"
 #include "game/party/SpeechIds.h"
 #include "game/tables/SpeechReactionTable.h"
+#include "game/tables/MergedBaseTables.h"
 
 #include <optional>
 #include <string>
@@ -39,6 +40,7 @@ public:
     bool initialize(
         const Engine::AssetFileSystem &assetFileSystem,
         const CharacterDollTable &characterDollTable,
+        const MergedCharacterVoiceTable &characterVoiceTable,
         const SpellTable &spellTable);
     void shutdown();
     void update(float listenerX, float listenerY, float listenerZ, float deltaSeconds);
@@ -111,6 +113,7 @@ private:
     std::optional<uint32_t> resolveCharacterVoiceId(const Character &character) const;
 
     const CharacterDollTable *m_pCharacterDollTable = nullptr;
+    const MergedCharacterVoiceTable *m_pCharacterVoiceTable = nullptr;
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
     SoundCatalog m_soundCatalog;
     SpeechReactionTable m_speechReactionTable;

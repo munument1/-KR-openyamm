@@ -67,7 +67,11 @@ bool initializeRegressionAudioSystem(
         return false;
     }
 
-    if (!audioSystem.initialize(assetFileSystem, gameData.characterDollTable, gameData.spellTable))
+    if (!audioSystem.initialize(
+            assetFileSystem,
+            gameData.characterDollTable,
+            gameData.mergedCharacterVoiceTable,
+            gameData.spellTable))
     {
         failure = "could not initialize game audio system for regression audio tests";
         return false;
@@ -304,41 +308,37 @@ TEST_CASE("damage speech audio resolves for roster seeded party members")
     }
 }
 
-TEST_CASE("speech catalog maps lich reaction voices from sound id blocks")
+TEST_CASE("character voice table maps lich reaction voices directly")
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
     std::string failure;
 
     REQUIRE_MESSAGE(initializeRegressionAssetFileSystem(assetFileSystem, failure), failure.c_str());
 
-    const std::optional<std::string> engineSoundCatalogText =
-        assetFileSystem.readTextFile("engine/data_tables/sounds.txt");
-    REQUIRE(engineSoundCatalogText.has_value());
+    const std::optional<std::string> characterVoiceText =
+        assetFileSystem.readTextFile("engine/data_tables/character_voices.txt");
+    REQUIRE(characterVoiceText.has_value());
 
-    const std::optional<OpenYAMM::Engine::TextTable> parsedEngineSoundCatalog =
-        OpenYAMM::Engine::TextTable::parseTabSeparated(*engineSoundCatalogText);
-    REQUIRE(parsedEngineSoundCatalog.has_value());
+    const std::optional<OpenYAMM::Engine::TextTable> parsedCharacterVoices =
+        OpenYAMM::Engine::TextTable::parseTabSeparated(*characterVoiceText);
+    REQUIRE(parsedCharacterVoices.has_value());
 
-    OpenYAMM::Game::SoundCatalog soundCatalog;
-    std::string errorMessage;
-    REQUIRE(soundCatalog.loadFromScopedRows(
-        rowsFromTextTable(*parsedEngineSoundCatalog),
-        {},
-        errorMessage));
+    OpenYAMM::Game::MergedCharacterVoiceTable characterVoiceTable;
+    REQUIRE(characterVoiceTable.loadFromRows(rowsFromTextTable(*parsedCharacterVoices)));
 
-    const std::optional<uint32_t> maleLichTrap =
-        soundCatalog.pickSpeechSoundId(26, "disarm_trap", 0);
-    const std::optional<uint32_t> femaleLichTrap =
-        soundCatalog.pickSpeechSoundId(27, "disarm_trap", 0);
-    const std::optional<uint32_t> ordinaryVoiceTrap =
-        soundCatalog.pickSpeechSoundId(1, "disarm_trap", 2);
+    const std::vector<uint32_t> maleLichTrap =
+        characterVoiceTable.soundIdsForTypes(26, {"Disarmed"});
+    const std::vector<uint32_t> femaleLichTrap =
+        characterVoiceTable.soundIdsForTypes(27, {"Disarmed"});
+    const std::vector<uint32_t> ordinaryVoiceTrap =
+        characterVoiceTable.soundIdsForTypes(1, {"Disarmed"});
 
-    REQUIRE(maleLichTrap.has_value());
-    REQUIRE(femaleLichTrap.has_value());
-    REQUIRE(ordinaryVoiceTrap.has_value());
-    CHECK_EQ(*maleLichTrap, 7600);
-    CHECK_EQ(*femaleLichTrap, 7700);
-    CHECK(*ordinaryVoiceTrap < 5200);
+    REQUIRE_FALSE(maleLichTrap.empty());
+    REQUIRE_FALSE(femaleLichTrap.empty());
+    REQUIRE_FALSE(ordinaryVoiceTrap.empty());
+    CHECK_EQ(maleLichTrap[0], 7600);
+    CHECK_EQ(femaleLichTrap[0], 7700);
+    CHECK_EQ(ordinaryVoiceTrap[0], 5100);
 }
 
 TEST_CASE("sound catalog scopes world monster sounds independently from engine sounds")

@@ -201,6 +201,328 @@ function MM7.MarkAntagarichEndgameComplete()
     SetQBit(QBit(783))
 end
 
+MM7.CrossContinents = {
+    VerdantNpcId = 803,
+    RunawayChaosNpcId = 1092,
+    ChargedConnectorStoneItemId = 624,
+    DischargedConnectorStoneItemId = 625,
+    SharedLifeRingItemId = 543,
+    FinalQuestQBit = 1713,
+    CompleteQBits = {
+        [1] = 228, -- Enroth
+        [2] = 783, -- Antagarich
+        [3] = 784, -- Jadame
+    },
+    ContinentTopicIds = {
+        [1] = 1784, -- Enroth
+        [2] = 1783, -- Antagarich
+        [3] = 1782, -- Jadame
+    },
+    MeetSpotHouseIds = {
+        [1] = 185,
+        [2] = 641,
+        [3] = 1195,
+    },
+    ContinentMessageText = {
+        [1] = "Enroth is the simple path: train hard, help where you can, and try not to mistake every future devil for an apprentice wizard.",
+        [2] = "Antagarich begins with the Emerald Island scavenger hunt and leads to Harmondale. Become lords, then keep your land alive.",
+        [3] = "Jadame starts on Dagger Wound. Help the caravan, reach Ravenshore, and hold the alliance together.",
+    },
+}
+
+function MM7.CrossVar(name)
+    return "MMerge.CrossContinents." .. name
+end
+
+function MM7.GetCrossVar(name, defaultValue)
+    return evt.GetGlobalVar(MM7.CrossVar(name), defaultValue or 0)
+end
+
+function MM7.SetCrossVar(name, value)
+    evt.SetGlobalVar(MM7.CrossVar(name), value or 0)
+end
+
+function MM7.CurrentMergedContinent()
+    local continent = CurrentContinent()
+    if continent >= 1 and continent <= 3 then
+        return continent
+    end
+
+    local mapName = string.lower(evt.GetCurrentMapName() or "")
+    if string.sub(mapName, 1, 1) == "7" then
+        return 2
+    end
+
+    return continent
+end
+
+function MM7.IsCrossContinentFinished(continent)
+    local qbitId = MM7.CrossContinents.CompleteQBits[continent]
+    if qbitId == nil then
+        return false
+    end
+
+    return IsQBitSet(QBit(qbitId)) or MM7.GetCrossVar("Finished." .. tostring(continent), 0) ~= 0
+end
+
+function MM7.MarkCrossContinentFinished(continent)
+    MM7.SetCrossVar("Finished." .. tostring(continent), 1)
+end
+
+function MM7.MarkCrossContinentAntagarichIfComplete()
+    if IsQBitSet(QBit(633)) or IsQBitSet(QBit(783)) then
+        MM7.MarkCrossContinentFinished(2)
+    end
+end
+
+function MM7.CrossRewardCount()
+    local count = 0
+    for continent = 1, 3 do
+        if MM7.GetCrossVar("Reward." .. tostring(continent), 0) ~= 0 then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function MM7.PlaceVerdantForCurrentContinent()
+    if MM7.GetCrossVar("MetVerdant", 0) == 0 and MM7.GetCrossVar("GotMainQuest", 0) == 0 then
+        return
+    end
+
+    local houseId = MM7.CrossContinents.MeetSpotHouseIds[MM7.CurrentMergedContinent()]
+    if houseId ~= nil then
+        evt.MoveNPC(MM7.CrossContinents.VerdantNpcId, houseId)
+    end
+end
+
+function MM7.UpdateVerdantTopics()
+    local npcId = MM7.CrossContinents.VerdantNpcId
+    evt.SetNPCTopic(npcId, 0, 0)
+    evt.SetNPCTopic(npcId, 1, 0)
+    evt.SetNPCTopic(npcId, 2, 0)
+    evt.SetNPCTopic(npcId, 3, 0)
+
+    if MM7.GetCrossVar("GotMainQuest", 0) == 0 then
+        evt.SetNPCTopic(npcId, 0, 1778) -- Important Matter
+        return
+    end
+
+    local continent = MM7.CurrentMergedContinent()
+    local topicId = MM7.CrossContinents.ContinentTopicIds[continent]
+    if topicId ~= nil then
+        evt.SetNPCTopic(npcId, 0, topicId)
+    else
+        evt.SetNPCTopic(npcId, 0, 1781) -- Time Travel Guide
+    end
+
+    evt.SetNPCTopic(npcId, 1, 1781) -- Time Travel Guide
+
+    if MM7.GetCrossVar("AllStoriesFinished", 0) ~= 0 then
+        evt.SetNPCTopic(npcId, 0, 1787) -- What's next?
+        evt.SetNPCTopic(npcId, 1, 1785) -- Something terrible
+        evt.SetNPCTopic(npcId, 2, 1786) -- Controlled Breach
+    elseif MM7.GetCrossVar("GotConnectorStone", 0) ~= 0 then
+        evt.SetNPCTopic(npcId, 2, 1788) -- Connector gem
+    end
+end
+
+function MM7.UpdateCrossContinentsState()
+    MM7.PlaceVerdantForCurrentContinent()
+
+    for continent = 1, 3 do
+        if MM7.IsCrossContinentFinished(continent) then
+            MM7.MarkCrossContinentFinished(continent)
+        end
+    end
+
+    local currentContinent = MM7.CurrentMergedContinent()
+    if MM7.GetCrossVar("GotMainQuest", 0) ~= 0
+        and currentContinent >= 1 and currentContinent <= 3
+        and MM7.GetCrossVar("StartedContinent", 0) ~= 0
+        and currentContinent ~= MM7.GetCrossVar("StartedContinent", currentContinent)
+        and MM7.GetCrossVar("GotConnectorStone", 0) == 0 then
+        MM7.SetCrossVar("GotConnectorStone", 1)
+        AddValue(InventoryItem(MM7.CrossContinents.ChargedConnectorStoneItemId), MM7.CrossContinents.ChargedConnectorStoneItemId)
+        evt.SetNPCGreeting(MM7.CrossContinents.VerdantNpcId, 331)
+    end
+
+    if currentContinent >= 1
+        and currentContinent <= 3
+        and MM7.IsCrossContinentFinished(currentContinent)
+        and MM7.GetCrossVar("Reward." .. tostring(currentContinent), 0) == 0 then
+        local rewardCount = MM7.CrossRewardCount()
+        MM7.SetCrossVar("Reward." .. tostring(currentContinent), 1)
+
+        if rewardCount < 2 then
+            AddValue(InventoryItem(MM7.CrossContinents.SharedLifeRingItemId), MM7.CrossContinents.SharedLifeRingItemId)
+        else
+            MM7.SetCrossVar("ImprovedConnector", 1)
+            MM7.SetCrossVar("AllStoriesFinished", 1)
+        end
+    end
+
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.HandleVerdantIntro()
+    local step = MM7.GetCrossVar("IntroStep", 0)
+    MM7.SetCrossVar("MetVerdant", 1)
+
+    if step == 0 then
+        evt.SimpleMessage("Verdant introduces herself as a time traveler and says the world needs your help.")
+        MM7.SetCrossVar("IntroStep", 1)
+    elseif step == 1 then
+        evt.SimpleMessage("Verdant explains that missing heroes have left several histories without champions.")
+        MM7.SetCrossVar("IntroStep", 2)
+    elseif step == 2 then
+        evt.SimpleMessage("Verdant believes your party can take their place without causing another disaster.")
+        MM7.SetCrossVar("IntroStep", 3)
+    else
+        evt.SimpleMessage("Verdant asks you to save each continent's story and use dimension doors to move between them.")
+        MM7.SetCrossVar("GotMainQuest", 1)
+        MM7.SetCrossVar("StartedContinent", MM7.CurrentMergedContinent())
+        evt.SetNPCGreeting(MM7.CrossContinents.VerdantNpcId, 328)
+    end
+
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainCurrentCrossContinent(continent)
+    evt.SimpleMessage(MM7.CrossContinents.ContinentMessageText[continent] or "Use dimension doors to continue the displaced heroes' stories.")
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainDimensionDoors()
+    evt.SimpleMessage("Dimension doors in magically active places let you step onto the other heroes' paths.")
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainRunawayChaos()
+    SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
+    MM7.SetCrossVar("FinalQuestStarted", 1)
+    evt.SimpleMessage("Verdant says the timeline damage has a source: a Runaway Chaos that must be contained.")
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainControlledBreach()
+    SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
+    MM7.SetCrossVar("FinalQuestStarted", 1)
+    evt.SimpleMessage("The Controlled Breach is Verdant's safe arena for reaching and containing the Runaway Chaos.")
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainCrossContinentsNextStep()
+    MM7.SetCrossVar("FinalQuestStarted", 1)
+    SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
+    evt.SimpleMessage("Verdant has another anomaly to investigate and asks you to keep helping her.")
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.ExplainConnectorStone()
+    if MM7.GetCrossVar("GotConnectorStone", 0) == 0 then
+        MM7.SetCrossVar("GotConnectorStone", 1)
+        AddValue(InventoryItem(MM7.CrossContinents.ChargedConnectorStoneItemId), MM7.CrossContinents.ChargedConnectorStoneItemId)
+    end
+
+    local message = "The connector stone lets you call Verdant, but it must recharge after each use."
+    if MM7.GetCrossVar("ImprovedConnector", 0) ~= 0 then
+        message = message .. " Verdant has improved it so the charged stone can also help restore the party."
+    end
+    evt.SimpleMessage(message)
+    MM7.UpdateVerdantTopics()
+end
+
+function MM7.HandleVerdantEnter(context)
+    if context == nil or context.npcId ~= MM7.CrossContinents.VerdantNpcId then
+        return
+    end
+
+    MM7.UpdateCrossContinentsState()
+end
+
+function MM7.UpdateDragonHatchlingTopics()
+    local npcId = 396
+    evt.SetNPCTopic(npcId, 0, 789) -- Dragon
+    evt.SetNPCTopic(npcId, 1, 0)
+    evt.SetNPCTopic(npcId, 2, 0)
+    evt.SetNPCTopic(npcId, 3, 0)
+end
+
+function MM7.HandleDragonHatchlingTopic()
+    if MM7.GetCrossVar("DragonJoined", 0) ~= 0 then
+        evt.SimpleMessage("The dragon is already traveling with you.")
+        return
+    end
+
+    if MM7.GetCrossVar("DragonGrown", 0) ~= 0 then
+        AddFollowerNpc(396)
+        MM7.SetCrossVar("DragonJoined", 1)
+        evt.SetNPCName(396, "Dragon")
+        evt.SimpleMessage("The grown dragon joins your company.")
+        return
+    end
+
+    if not IsAtLeast(Food, 5) then
+        evt.SimpleMessage("The hatchling is hungry, but you need five food to feed it.")
+        return
+    end
+
+    SubtractValue(Food, 5)
+
+    local firstFeed = MM7.GetCrossVar("DragonFirstFeedMinutes", 0)
+    if firstFeed == 0 then
+        MM7.SetCrossVar("DragonFirstFeedMinutes", CurrentGameMinutes())
+    end
+
+    local foodEaten = MM7.GetCrossVar("DragonFood", 0) + 5
+    MM7.SetCrossVar("DragonFood", foodEaten)
+
+    if foodEaten >= 100 and CurrentGameMinutes() >= MM7.GetCrossVar("DragonFirstFeedMinutes", CurrentGameMinutes()) + 28 * 24 * 60 then
+        MM7.SetCrossVar("DragonGrown", 1)
+        evt.SimpleMessage("The hatchling has grown enough to travel with you.")
+    else
+        evt.SimpleMessage("The hatchling eats the food.")
+    end
+end
+
+function MM7.UpdateDragonHatchlingNpc(context)
+    if context == nil or context.npcId ~= 396 then
+        return
+    end
+
+    MM7.UpdateDragonHatchlingTopics()
+end
+
+function MM7.StartWarlockPromotionFromEitherPath()
+    if (IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)))
+        and (IsQBitSet(QBit(1613)) or IsQBitSet(QBit(1614))) then
+        SetQBit(QBit(567))
+        evt.SetNPCTopic(390, 0, 853)
+        evt.SimpleMessage("The Warlock promotion task is now available.")
+    else
+        evt.SimpleMessage("Return after choosing a path and proving your druidic standing.")
+    end
+end
+
+function MM7.StartArchDruidPromotionFromEitherPath()
+    if (IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)))
+        and (IsQBitSet(QBit(1613)) or IsQBitSet(QBit(1614))) then
+        SetQBit(QBit(566))
+        evt.SetNPCTopic(389, 1, 851)
+        evt.SimpleMessage("The Arch Druid promotion task is now available.")
+    else
+        evt.SimpleMessage("Return after choosing a path and proving your druidic standing.")
+    end
+end
+
+function MM7.TeachBlasterSkill()
+    evt.ForPlayer(Players.All)
+    if not IsAtLeast(BlasterSkill, 1) then
+        SetValue(BlasterSkill, SkillJoinedMask.Normal + 1)
+    end
+end
+
 function MM7.UpdateEvenmornObeliskTreasure()
     local allObelisksFound = true
 

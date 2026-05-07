@@ -21,9 +21,12 @@ struct MergedClassExtraEntry
 
 struct MergedCharacterSelectionContinent
 {
+    uint32_t id = 0;
+    std::string key;
     std::string name;
     std::vector<uint32_t> availableClassIds;
     std::vector<uint32_t> availableRaceIds;
+    std::vector<std::string> portraitExceptions;
 };
 
 struct MergedTeacherTopicEntry
@@ -396,6 +399,7 @@ class MergedCharacterSelectionTable
 {
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
+    bool loadFromYaml(const std::string &yamlText, std::string &errorMessage);
     const std::vector<MergedCharacterSelectionContinent> &continents() const;
     size_t raceCount() const;
 
@@ -597,6 +601,7 @@ class MergedCharacterVoiceTable
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
     const std::vector<MergedCharacterVoiceEntry> &entries() const;
+    std::vector<uint32_t> soundIdsForTypes(uint32_t voiceSetId, const std::vector<std::string> &soundTypes) const;
 
 private:
     std::vector<MergedCharacterVoiceEntry> m_entries;

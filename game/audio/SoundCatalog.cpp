@@ -93,37 +93,6 @@ std::optional<uint32_t> parseSoundId(const std::string &value)
     return static_cast<uint32_t>(parsedValue);
 }
 
-struct SpeechSoundInfo
-{
-    uint32_t voiceId = 0;
-    std::string groupKey;
-};
-
-std::optional<SpeechSoundInfo> speechSoundInfoForSoundId(uint32_t soundId)
-{
-    constexpr uint32_t SpeechSoundBaseId = 5000;
-    constexpr uint32_t SpeechSoundsPerVoice = 100;
-    constexpr uint32_t SpeechSoundSlotsPerVoice = 94;
-
-    if (soundId < SpeechSoundBaseId)
-    {
-        return std::nullopt;
-    }
-
-    const uint32_t offset = soundId - SpeechSoundBaseId;
-    const uint32_t voiceOffset = offset % SpeechSoundsPerVoice;
-
-    if (voiceOffset >= SpeechSoundSlotsPerVoice)
-    {
-        return std::nullopt;
-    }
-
-    SpeechSoundInfo info = {};
-    info.voiceId = offset / SpeechSoundsPerVoice;
-    info.groupKey = std::to_string(info.voiceId) + ":" + std::to_string(voiceOffset / 2u);
-    return info;
-}
-
 std::string soundScopeName(SoundScope scope)
 {
     switch (scope)
@@ -176,10 +145,8 @@ bool SoundCatalog::loadFromRows(const std::vector<std::vector<std::string>> &row
     m_entries.clear();
     m_engineEntryIndexById.clear();
     m_worldEntryIndexById.clear();
-    m_speechSoundIdsByVoiceId.clear();
 
-    std::unordered_map<std::string, std::string> inheritedCommentBySpeechGroup;
-    return appendRows(rows, SoundScope::Engine, true, inheritedCommentBySpeechGroup, nullptr) && !m_entries.empty();
+    return appendRows(rows, SoundScope::Engine, nullptr) && !m_entries.empty();
 }
 
 bool SoundCatalog::loadFromScopedRows(
@@ -191,12 +158,9 @@ bool SoundCatalog::loadFromScopedRows(
     m_entries.clear();
     m_engineEntryIndexById.clear();
     m_worldEntryIndexById.clear();
-    m_speechSoundIdsByVoiceId.clear();
 
-    std::unordered_map<std::string, std::string> inheritedCommentBySpeechGroup;
-
-    if (!appendRows(engineRows, SoundScope::Engine, true, inheritedCommentBySpeechGroup, &errorMessage)
-        || !appendRows(worldRows, SoundScope::World, false, inheritedCommentBySpeechGroup, &errorMessage))
+    if (!appendRows(engineRows, SoundScope::Engine, &errorMessage)
+        || !appendRows(worldRows, SoundScope::World, &errorMessage))
     {
         return false;
     }
@@ -213,8 +177,6 @@ bool SoundCatalog::loadFromScopedRows(
 bool SoundCatalog::appendRows(
     const std::vector<std::vector<std::string>> &rows,
     SoundScope scope,
-    bool indexSpeechSounds,
-    std::unordered_map<std::string, std::string> &inheritedCommentBySpeechGroup,
     std::string *pErrorMessage)
 {
     for (const std::vector<std::string> &row : rows)
@@ -249,36 +211,8 @@ bool SoundCatalog::appendRows(
             return false;
         }
 
-        const std::optional<SpeechSoundInfo> speechInfo =
-            indexSpeechSounds ? speechSoundInfoForSoundId(entry.soundId) : std::nullopt;
-        std::string normalizedComment = row.size() > 4 ? normalizeComment(row[4]) : "";
-
-        if (speechInfo)
-        {
-            if (normalizedComment.empty())
-            {
-                const std::unordered_map<std::string, std::string>::const_iterator commentIt =
-                    inheritedCommentBySpeechGroup.find(speechInfo->groupKey);
-
-                if (commentIt != inheritedCommentBySpeechGroup.end())
-                {
-                    normalizedComment = commentIt->second;
-                }
-            }
-            else
-            {
-                inheritedCommentBySpeechGroup[speechInfo->groupKey] = normalizedComment;
-            }
-        }
-
-        entry.normalizedComment = normalizedComment;
         entryIndex[entry.soundId] = m_entries.size();
         m_entries.push_back(entry);
-
-        if (!normalizedComment.empty() && speechInfo)
-        {
-            m_speechSoundIdsByVoiceId[speechInfo->voiceId][normalizedComment].push_back(entry.soundId);
-        }
     }
 
     return true;
@@ -420,28 +354,4 @@ std::optional<std::string> SoundCatalog::buildVirtualPath(SoundRef sound) const
     return scopedAudioDirectory(SoundScope::Engine, m_activeWorldId) + "/" + pEntry->name + ".wav";
 }
 
-std::optional<uint32_t> SoundCatalog::pickSpeechSoundId(
-    uint32_t voiceId,
-    const std::string &commentKey,
-    uint32_t seed) const
-{
-    const std::unordered_map<uint32_t, std::unordered_map<std::string, std::vector<uint32_t>>>::const_iterator voiceIt =
-        m_speechSoundIdsByVoiceId.find(voiceId);
-
-    if (voiceIt == m_speechSoundIdsByVoiceId.end())
-    {
-        return std::nullopt;
-    }
-
-    const std::string normalizedCommentKey = normalizeComment(commentKey);
-    const std::unordered_map<std::string, std::vector<uint32_t>>::const_iterator speechIt =
-        voiceIt->second.find(normalizedCommentKey);
-
-    if (speechIt == voiceIt->second.end() || speechIt->second.empty())
-    {
-        return std::nullopt;
-    }
-
-    return speechIt->second[seed % speechIt->second.size()];
-}
 }

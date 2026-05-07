@@ -2478,10 +2478,10 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
         "class_extra.txt",
         m_mergedClassExtraTable,
         "Class Extra.txt")
-        && loadBaseTable(
-            "character_selection.txt",
+        && loadBaseYamlTable(
+            "character_selection.yml",
             m_mergedCharacterSelectionTable,
-            "Character selection.txt")
+            "character_selection.yml")
         && loadBaseYamlTable(
             "race_skills.yml",
             m_mergedRaceSkillTable,

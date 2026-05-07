@@ -2737,6 +2737,7 @@ bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
     if (!m_gameAudioSystem.initialize(
             assetFileSystem,
             m_gameDataLoader.getCharacterDollTable(),
+            m_gameDataLoader.getMergedCharacterVoiceTable(),
             m_gameDataLoader.getSpellTable()))
     {
         return false;

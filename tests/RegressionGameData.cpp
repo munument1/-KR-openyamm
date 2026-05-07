@@ -313,6 +313,19 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         return false;
     }
 
+    std::vector<std::vector<std::string>> characterVoiceRows;
+
+    if (!loadTextTableRows(assetFileSystem, engineDataTablePath("character_voices.txt"), characterVoiceRows, failure))
+    {
+        return false;
+    }
+
+    if (!data.mergedCharacterVoiceTable.loadFromRows(characterVoiceRows))
+    {
+        failure = "could not load merged character voice table for regression tests";
+        return false;
+    }
+
     std::vector<std::vector<std::string>> monsterPortraitRows;
 
     if (!loadTextTableRows(assetFileSystem, engineDataTablePath("monster_portraits.txt"), monsterPortraitRows, failure))

@@ -1,0 +1,61 @@
+Id	Name	SoundTypes	FaceAnimation
+DisarmTrap	Disarm Trap	Disarmed	AttackHit
+StoreClosed	Store Closed	Closed1,Closed2	StoreClosed
+TrapExploded	Trap Exploded	FailedDisarm1,FailedDisarm2	Damaged
+SelectCharacter	Select Character	ChooseMe1,ChooseMe2	Hello
+IdentifyWeakItem	Identify Weak Item	BadItem1,BadItem2	IdentifyUseless
+IdentifyGreatItem	Identify Great Item	GoodItem1,GoodItem2	IdentifyGreat
+IdentifyFailItem	Identify Fail Item	CantIdent1,CantIdent2	IdentifyFail
+RepairSuccess	Repair Success	Repaired1,Repaired2	RepairItem
+RepairFail	Repair Fail	CantRep1,CantRep2	RepairFail
+SetQuickSpell	Set Quick Spell	QuickSpell1,QuickSpell2	SetQuickSpell
+Hungry	Hungry	Hungry1,Hungry2	Tired
+DamageMinor	Damage Minor	SoftInjure1	Damaged
+DamageMajor	Damage Major	HardInjured1,HardInjured2	Damaged
+Dying	Dying	Dying1,Dying2	AlmostDead
+Drunk	Drunk	Drunk1,Drunk2	Drunk
+Insane	Insane	Insane1,Insane2	Insane
+Poisoned	Poisoned	Poison1,Poison2	Poisoned
+Cursed	Cursed	Cursed1,Cursed2	Cursed
+Falling	Falling	Fall1,Fall2	Damaged
+CantRestHere	Can't Rest Here	CantRestHere1,CantRestHere2	CantRestHere
+NotEnoughGold	Not Enough Gold	NeedMoreGold1,NeedMoreGold2	NotEnoughGold
+InventoryRoom	Inventory Room	InventoryFull1,InventoryFull2	InventoryFull
+PotionSuccess	Potion Success	PotionMixed1,PotionMixed2	DrinkPotion
+PotionFail	Potion Fail	FailMixing1,FailMixing2	PotionExplode
+DoorLocked	Door Locked	NeedAKey1,NeedAKey2	DoorLocked
+LearnSpell	Learn Spell	LearnSpell1,LearnSpell2	LearnSpell
+CantLearnSpell	Can't Learn Spell	CantLearn1,CantLearn2	CantLearnSpell
+CantEquip	Can't Equip	CantEquip1,CantEquip2	CantEquip
+HelloDay	Hello Day	Hello1,Hello2	Hello
+HelloEvening	Hello Evening	Hello3,Hello4	HelloNight
+HelloHouse	Hello House	Hello5,Hello6	Hello
+KillStrongEnemy	Kill Strong Enemy	BigMonster1,BigMonster2	AttackHit
+KillWeakEnemy	Kill Weak Enemy	WeakMonster1,WeakMonster2	AttackHit
+LastPersonStanding	Last Person Standing	LastStanding1,LastStanding2	Yell
+LeaveDungeon	Leave Dungeon	Leave1,Leave2	LeaveDungeon
+EnterDungeon	Enter Dungeon	Enter1,Enter2	EnterDungeon
+Yes	Yes	Yes1,Yes2	AttackHit
+ThankYou	Thank You	Thanks1,Thanks2	AttackHit
+Indignant	Indignant	Indignant	AttackMiss
+Yell	Yell	Move!1,Move!2	Yell
+AttackHit	Attack Hit	Heh1,Heh2	AttackHit
+AttackMiss	Attack Miss	Indignant	AttackMiss
+Shoot	Shoot	Heh1,Heh2	Shoot
+CastSpell	Cast Spell		CastSpell
+DamagedParty	Damaged Party	SoftInjure1	DamagedParty
+FoundItem	Found Item	Thanks1,Thanks2	AttackHit
+SkillIncreased	Skill Increased	Thanks1,Thanks2	SkillIncreased
+QuestGot	Quest Got	Thanks1,Thanks2	AttackHit
+AwardGot	Award Got	Thanks1,Thanks2	AttackHit
+TempleHeal	Temple Heal	Thanks1,Thanks2	AttackHit
+TempleDonate	Temple Donate	Thanks1,Thanks2	AttackHit
+TravelBoat	Travel Boat	Thanks1,Thanks2	AttackHit
+TravelHorse	Travel Horse	Thanks1,Thanks2	AttackHit
+ShopIdentify	Shop Identify	GoodItem1,GoodItem2	ShopIdentify
+ShopRepair	Shop Repair	Repaired1,Repaired2	ShopRepair
+AlreadyIdentified	Already Identified	CantIdent1,CantIdent2	AlreadyIdentified
+ItemSold	Item Sold	Thanks1,Thanks2	ItemSold
+WrongShop	Wrong Shop	CantEquip1,CantEquip2	WrongShop
+BankDeposit	Bank Deposit	Thanks1,Thanks2	AttackHit
+LevelUp	Level Up	Win!1,Win!2	AttackHit

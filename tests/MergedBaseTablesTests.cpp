@@ -89,7 +89,10 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     OpenYAMM::Game::MergedTransportLocationTable transportLocationTable;
 
     REQUIRE(classExtraTable.loadFromRows(loadRows("class_extra.txt")));
-    REQUIRE(characterSelectionTable.loadFromRows(loadRows("character_selection.txt")));
+    std::string characterSelectionErrorMessage;
+    REQUIRE(characterSelectionTable.loadFromYaml(
+        loadDataTableText("character_selection.yml"),
+        characterSelectionErrorMessage));
     std::string raceSkillErrorMessage;
     REQUIRE(raceSkillTable.loadFromYaml(loadDataTableText("race_skills.yml"), raceSkillErrorMessage));
     REQUIRE(teacherTopicTable.loadFromRows(loadRows("teacher_topics.txt")));

@@ -339,6 +339,64 @@ std::string yamlStringOrEmpty(const YAML::Node &node)
     }
 }
 
+bool yamlUnsignedSequence(const YAML::Node &node, std::vector<uint32_t> &values)
+{
+    values.clear();
+
+    if (!node || !node.IsSequence())
+    {
+        return false;
+    }
+
+    try
+    {
+        for (const YAML::Node &entryNode : node)
+        {
+            if (!entryNode.IsScalar())
+            {
+                return false;
+            }
+
+            values.push_back(entryNode.as<uint32_t>());
+        }
+    }
+    catch (const YAML::Exception &)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool yamlStringSequence(const YAML::Node &node, std::vector<std::string> &values)
+{
+    values.clear();
+
+    if (!node || !node.IsSequence())
+    {
+        return false;
+    }
+
+    try
+    {
+        for (const YAML::Node &entryNode : node)
+        {
+            if (!entryNode.IsScalar())
+            {
+                return false;
+            }
+
+            values.push_back(entryNode.as<std::string>());
+        }
+    }
+    catch (const YAML::Exception &)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 uint32_t parseOptionalUnsigned(const std::vector<std::string> &row, size_t index)
 {
     if (index >= row.size())
@@ -712,6 +770,107 @@ bool MergedCharacterSelectionTable::loadFromRows(const std::vector<std::vector<s
     }
 
     return !m_characterSelectionAllowedClassesByRaceId.empty() && !m_characterSelectionContinents.empty();
+}
+
+bool MergedCharacterSelectionTable::loadFromYaml(const std::string &yamlText, std::string &errorMessage)
+{
+    m_characterSelectionAllowedClassesByRaceId.clear();
+    m_characterSelectionContinents.clear();
+
+    YAML::Node root;
+
+    try
+    {
+        root = YAML::Load(yamlText);
+    }
+    catch (const YAML::Exception &exception)
+    {
+        errorMessage = exception.what();
+        return false;
+    }
+
+    const YAML::Node raceClassAvailabilityNode = root["race_class_availability"];
+
+    if (!raceClassAvailabilityNode || !raceClassAvailabilityNode.IsSequence())
+    {
+        errorMessage = "missing race_class_availability sequence";
+        return false;
+    }
+
+    for (const YAML::Node &raceNode : raceClassAvailabilityNode)
+    {
+        const std::optional<uint32_t> raceId = parseOptionalYamlUnsigned(raceNode["race_id"]);
+
+        if (!raceId.has_value())
+        {
+            errorMessage = "race_class_availability entry is missing race_id";
+            return false;
+        }
+
+        std::vector<std::string> classNames;
+
+        if (!yamlStringSequence(raceNode["classes"], classNames))
+        {
+            errorMessage = "race_class_availability entry has invalid classes sequence";
+            return false;
+        }
+
+        m_characterSelectionAllowedClassesByRaceId[*raceId] = std::move(classNames);
+    }
+
+    const YAML::Node continentsNode = root["new_game_continents"];
+
+    if (!continentsNode || !continentsNode.IsSequence())
+    {
+        errorMessage = "missing new_game_continents sequence";
+        return false;
+    }
+
+    for (const YAML::Node &continentNode : continentsNode)
+    {
+        MergedCharacterSelectionContinent continent = {};
+        const std::optional<uint32_t> continentId = parseOptionalYamlUnsigned(continentNode["id"]);
+        continent.id = continentId.value_or(0);
+        continent.key = yamlStringOrEmpty(continentNode["key"]);
+        continent.name = yamlStringOrEmpty(continentNode["name"]);
+
+        if (continent.name.empty())
+        {
+            errorMessage = "new_game_continents entry is missing name";
+            return false;
+        }
+
+        if (!yamlUnsignedSequence(continentNode["available_class_ids"], continent.availableClassIds))
+        {
+            errorMessage = "new_game_continents entry has invalid available_class_ids sequence";
+            return false;
+        }
+
+        if (!yamlUnsignedSequence(continentNode["available_race_ids"], continent.availableRaceIds))
+        {
+            errorMessage = "new_game_continents entry has invalid available_race_ids sequence";
+            return false;
+        }
+
+        if (const YAML::Node portraitExceptionsNode = continentNode["portrait_exceptions"])
+        {
+            if (!yamlStringSequence(portraitExceptionsNode, continent.portraitExceptions))
+            {
+                errorMessage = "new_game_continents entry has invalid portrait_exceptions sequence";
+                return false;
+            }
+        }
+
+        m_characterSelectionContinents.push_back(std::move(continent));
+    }
+
+    if (m_characterSelectionAllowedClassesByRaceId.empty() || m_characterSelectionContinents.empty())
+    {
+        errorMessage = "character selection table has no usable rows";
+        return false;
+    }
+
+    return true;
 }
 
 bool MergedRaceSkillTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
@@ -1785,6 +1944,40 @@ bool MergedCharacterVoiceTable::loadFromRows(const std::vector<std::vector<std::
 const std::vector<MergedCharacterVoiceEntry> &MergedCharacterVoiceTable::entries() const
 {
     return m_entries;
+}
+
+std::vector<uint32_t> MergedCharacterVoiceTable::soundIdsForTypes(
+    uint32_t voiceSetId,
+    const std::vector<std::string> &soundTypes) const
+{
+    std::vector<uint32_t> soundIds;
+
+    for (const std::string &soundType : soundTypes)
+    {
+        const std::string requestedType = normalizedKey(soundType);
+
+        for (const MergedCharacterVoiceEntry &entry : m_entries)
+        {
+            if (normalizedKey(entry.soundType) != requestedType)
+            {
+                continue;
+            }
+
+            if (voiceSetId >= entry.soundIdsByVoiceSetId.size())
+            {
+                continue;
+            }
+
+            const uint32_t soundId = entry.soundIdsByVoiceSetId[voiceSetId];
+
+            if (soundId != 0)
+            {
+                soundIds.push_back(soundId);
+            }
+        }
+    }
+
+    return soundIds;
 }
 
 bool MergedClassStartingStatTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <sstream>
 
 namespace OpenYAMM::Game
 {
@@ -79,6 +80,11 @@ std::optional<SpeechId> speechIdFromName(const std::string &value)
         {"templedonate", SpeechId::TempleDonate},
         {"travelboat", SpeechId::TravelBoat},
         {"travelhorse", SpeechId::TravelHorse},
+        {"shopidentify", SpeechId::ShopIdentify},
+        {"shoprepair", SpeechId::ShopRepair},
+        {"alreadyidentified", SpeechId::AlreadyIdentified},
+        {"itemsold", SpeechId::ItemSold},
+        {"wrongshop", SpeechId::WrongShop},
         {"bankdeposit", SpeechId::BankDeposit},
         {"levelup", SpeechId::LevelUp},
     };
@@ -92,6 +98,44 @@ std::optional<SpeechId> speechIdFromName(const std::string &value)
     }
 
     return speechIt->second;
+}
+
+std::string trimCopy(const std::string &value)
+{
+    size_t begin = 0;
+
+    while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin])) != 0)
+    {
+        ++begin;
+    }
+
+    size_t end = value.size();
+
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
+    {
+        --end;
+    }
+
+    return value.substr(begin, end - begin);
+}
+
+std::vector<std::string> splitSoundTypes(const std::string &value)
+{
+    std::vector<std::string> result;
+    std::stringstream stream(value);
+    std::string item;
+
+    while (std::getline(stream, item, ','))
+    {
+        item = trimCopy(item);
+
+        if (!item.empty())
+        {
+            result.push_back(std::move(item));
+        }
+    }
+
+    return result;
 }
 }
 
@@ -117,7 +161,7 @@ bool SpeechReactionTable::loadFromRows(const std::vector<std::vector<std::string
         SpeechReactionEntry entry = {};
         entry.speechId = *speechId;
         entry.name = row[1];
-        entry.commentKey = row.size() > 2 ? row[2] : "";
+        entry.soundTypes = row.size() > 2 ? splitSoundTypes(row[2]) : std::vector<std::string>{};
 
         if (row.size() > 3 && !row[3].empty())
         {

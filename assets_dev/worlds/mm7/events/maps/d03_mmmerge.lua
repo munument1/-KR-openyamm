@@ -3,3 +3,7 @@
 ReplaceMapEvent(5, "Enter the Throne Room", function()
     MM7.EnterCastleGloamingThroneRoom()
 end, "Enter the Throne Room")
+
+RegisterMapOnLoadEvent(65073, "MMMerge CrossContinents Antagarich completion", function()
+    MM7.MarkCrossContinentAntagarichIfComplete()
+end)
