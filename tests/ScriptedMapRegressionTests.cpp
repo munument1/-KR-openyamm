@@ -5010,6 +5010,479 @@ TEST_CASE("mm6 oute3 overlay ports dimension door and volcano events")
     CHECK_EQ(volcanoState.pendingSounds.front().soundId, 18090u);
 }
 
+TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
+{
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "sci-fi", "sci-fi_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::PartySeed partySeed = {};
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        OpenYAMM::Game::Party party = {};
+        party.seed(partySeed);
+        party.setClassSkillTable(&OpenYAMM::Tests::regressionGameData().classSkillTable);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 61, runtimeState, &party));
+
+        for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+        {
+            const OpenYAMM::Game::Character *pMember = party.member(memberIndex);
+            REQUIRE(pMember != nullptr);
+            const OpenYAMM::Game::CharacterSkill *pSkill = pMember->findSkill("Blaster");
+            REQUIRE(pSkill != nullptr);
+            CHECK_EQ(pSkill->level, 1);
+        }
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outb2", "outb2_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 68, runtimeState, &party));
+        REQUIRE(runtimeState.chestItemRequests.contains(1));
+        REQUIRE_FALSE(runtimeState.chestItemRequests.at(1).empty());
+        CHECK_EQ(runtimeState.chestItemRequests.at(1).front().itemId, 2119u);
+
+        OpenYAMM::Game::Party ownedParty = makeScriptedRegressionParty();
+        ownedParty.grantItem(2119);
+        OpenYAMM::Game::EventRuntimeState ownedState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 68, ownedState, &ownedParty));
+        CHECK_FALSE(ownedState.chestItemRequests.contains(1));
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6d07", "6d07_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party noKeyParty = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState noKeyState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 16, noKeyState, &noKeyParty));
+        CHECK_EQ(noKeyState.mapVars[4], 1u);
+        CHECK(noKeyParty.hasQuestBit(1035));
+        CHECK(noKeyParty.hasQuestBit(1223));
+        REQUIRE_FALSE(noKeyState.openedChestIds.empty());
+        CHECK_EQ(noKeyState.openedChestIds.back(), 1u);
+
+        OpenYAMM::Game::Party keyParty = makeScriptedRegressionParty();
+        keyParty.grantItem(2107);
+        OpenYAMM::Game::EventRuntimeState keyState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 16, keyState, &keyParty));
+        CHECK_FALSE(keyParty.hasQuestBit(1035));
+        REQUIRE_FALSE(keyState.openedChestIds.empty());
+        CHECK_EQ(keyState.openedChestIds.back(), 6u);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6d08", "6d08_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 62, runtimeState, &party));
+        REQUIRE(runtimeState.pendingInputPrompt.has_value());
+        REQUIRE_EQ(runtimeState.pendingInputPrompt->answers.size(), 2u);
+        CHECK_EQ(runtimeState.pendingInputPrompt->answers[0], "arrow");
+        CHECK_EQ(runtimeState.pendingInputPrompt->answers[1], "an arrow");
+
+        runtimeState.pendingInputPrompt.reset();
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            62,
+            runtimeState,
+            &party,
+            nullptr,
+            4));
+        REQUIRE(runtimeState.mechanisms.contains(62));
+        CHECK_EQ(
+            runtimeState.mechanisms.at(62).state,
+            static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Closing));
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6d13", "6d13_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::PartySeed partySeed = {};
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        partySeed.members.push_back(makeScriptedRegressionMember());
+        OpenYAMM::Game::Party party = {};
+        party.seed(partySeed);
+        party.setClassSkillTable(&OpenYAMM::Tests::regressionGameData().classSkillTable);
+        REQUIRE(party.member(0) != nullptr);
+        REQUIRE(party.member(1) != nullptr);
+        REQUIRE(party.member(2) != nullptr);
+        party.member(0)->className = "Cleric";
+        party.member(0)->personality = 11;
+        party.member(1)->className = "Druid";
+        party.member(1)->personality = 12;
+        party.member(2)->className = "Knight";
+        party.member(2)->personality = 13;
+
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 24, runtimeState, &party));
+        CHECK_EQ(party.member(0)->personality, 16);
+        CHECK_EQ(party.member(1)->personality, 17);
+        CHECK_EQ(party.member(2)->personality, 13);
+        CHECK(party.hasQuestBit(1047));
+        CHECK_EQ(runtimeState.textureOverrides[949], "d6flora");
+
+        OpenYAMM::Game::PartySeed mapVarPartySeed = {};
+        mapVarPartySeed.members.push_back(makeScriptedRegressionMember());
+        OpenYAMM::Game::Party mapVarParty = {};
+        mapVarParty.seed(mapVarPartySeed);
+        mapVarParty.setClassSkillTable(&OpenYAMM::Tests::regressionGameData().classSkillTable);
+        REQUIRE(mapVarParty.member(0) != nullptr);
+        mapVarParty.member(0)->className = "Knight";
+        mapVarParty.member(0)->personality = 20;
+
+        OpenYAMM::Game::EventRuntimeState mapVarState = {};
+        mapVarState.mapVars[7] = 1;
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 24, mapVarState, &mapVarParty));
+        CHECK_EQ(mapVarParty.member(0)->personality, 25);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6t7", "6t7_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 1, runtimeState, &party));
+        CHECK(runtimeState.lastAffectedMechanismIds.empty());
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "cd1", "cd1_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 69, runtimeState, nullptr, nullptr));
+        REQUIRE(runtimeState.pendingInputPrompt.has_value());
+        CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 4);
+
+        runtimeState.pendingInputPrompt.reset();
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            69,
+            runtimeState,
+            nullptr,
+            nullptr,
+            23));
+        CHECK_EQ(runtimeState.mapVars[6], 1u);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "cd2", "cd2_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setItemTable(&gameData.itemTable);
+        party.setItemEnchantTables(&gameData.standardItemEnchantTable, &gameData.specialItemEnchantTable);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 61, runtimeState, &party));
+        REQUIRE(runtimeState.pendingInputPrompt.has_value());
+        REQUIRE_EQ(runtimeState.pendingInputPrompt->answers.size(), 2u);
+        CHECK_EQ(runtimeState.pendingInputPrompt->answers[0], "Yes");
+        CHECK_EQ(runtimeState.pendingInputPrompt->answers[1], "Y");
+
+        runtimeState.pendingInputPrompt.reset();
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            61,
+            runtimeState,
+            &party,
+            nullptr,
+            4));
+        CHECK_EQ(runtimeState.mapVars[9], 1u);
+        REQUIRE_FALSE(runtimeState.grantedItems.empty());
+        CHECK_NE(runtimeState.grantedItems.back().objectDescriptionId, 0u);
+        CHECK_EQ(runtimeState.currentLocationReputation, 200);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "cd3", "cd3_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.addGold(60000);
+        OpenYAMM::Game::EventRuntimeState guardianState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            13,
+            guardianState,
+            &party,
+            nullptr,
+            5));
+        CHECK_EQ(party.gold(), 10000);
+        REQUIRE(guardianState.pendingMapMove.has_value());
+        CHECK_EQ(guardianState.pendingMapMove->x, 13487);
+
+        OpenYAMM::Game::Party curatorParty = makeScriptedRegressionParty();
+        curatorParty.addGold(10000);
+        OpenYAMM::Game::EventRuntimeState curatorState = {};
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            27,
+            curatorState,
+            &curatorParty,
+            nullptr,
+            4));
+        CHECK_EQ(curatorParty.gold(), 0);
+        CHECK_EQ(curatorState.currentLocationReputation, 50);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outb3", "outb3_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 105, runtimeState, &party));
+        CHECK(runtimeState.pendingDimensionDoorOverlay);
+
+        OpenYAMM::Game::Party shrineParty = makeScriptedRegressionParty();
+        OpenYAMM::Game::Character *pMember = shrineParty.member(0);
+        REQUIRE(pMember != nullptr);
+        OpenYAMM::Game::EventRuntimeState shrineState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 103, shrineState, &shrineParty));
+        CHECK_EQ(shrineState.namedMapVars["ShrineOfGodsBlessed0"], 1);
+        CHECK_EQ(pMember->might, 34u);
+        CHECK_EQ(pMember->intellect, 34u);
+        CHECK_EQ(pMember->baseResistances.fire, 20);
+        CHECK_EQ(pMember->baseResistances.body, 20);
+        REQUIRE_FALSE(shrineState.pendingSounds.empty());
+        CHECK_EQ(shrineState.pendingSounds.back().soundId, 42797u);
+
+        shrineParty.applyMemberCondition(0, OpenYAMM::Game::CharacterCondition::Weak);
+        REQUIRE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak)));
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 103, shrineState, &shrineParty));
+        CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak)));
+        CHECK_EQ(pMember->might, 34u);
+
+        OpenYAMM::Game::MapDeltaData mapDeltaData = {};
+        mapDeltaData.locationInfo.respawnCount = 1;
+        shrineState.namedMapVars["ShrineOfGodsBlessed0"] = 1;
+        REQUIRE(eventRuntime.executeMapRefillHooks(localEventProgram, std::nullopt, mapDeltaData, shrineState, &party));
+        CHECK_EQ(shrineState.namedMapVars["ShrineOfGodsBlessed0"], 0);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "pyramid", "pyramid_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party firstMateParty = makeScriptedRegressionParty();
+        firstMateParty.grantItem(2158);
+        firstMateParty.setQuestBit(1253, true);
+        OpenYAMM::Game::EventRuntimeState firstMateState = {};
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            21,
+            firstMateState,
+            &firstMateParty,
+            nullptr,
+            9));
+        CHECK_EQ(firstMateState.mapVars[10], 1u);
+        CHECK_FALSE(firstMateParty.hasQuestBit(1253));
+        CHECK_EQ(firstMateParty.inventoryItemCount(2158), 0);
+
+        OpenYAMM::Game::Party allCodesParty = makeScriptedRegressionParty();
+        allCodesParty.grantItem(2162);
+        allCodesParty.setQuestBit(1254, true);
+        OpenYAMM::Game::EventRuntimeState allCodesState = {};
+        allCodesState.mapVars[10] = 1;
+        allCodesState.mapVars[11] = 1;
+        allCodesState.mapVars[12] = 1;
+        allCodesState.mapVars[13] = 1;
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            25,
+            allCodesState,
+            &allCodesParty,
+            nullptr,
+            9));
+        CHECK_EQ(allCodesState.mapVars[14], 1u);
+        CHECK_EQ(allCodesState.mapVars[27], 1u);
+
+        OpenYAMM::Game::Party captainParty = makeScriptedRegressionParty();
+        captainParty.grantItem(2157);
+        captainParty.setQuestBit(1255, true);
+        OpenYAMM::Game::EventRuntimeState captainState = {};
+        captainState.mapVars[27] = 1;
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            1,
+            captainState,
+            &captainParty,
+            nullptr,
+            14));
+        CHECK_EQ(captainState.mapVars[15], 1u);
+        REQUIRE(captainState.mechanisms.contains(1));
+        CHECK_EQ(
+            captainState.mechanisms.at(1).state,
+            static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Closing));
+        CHECK_FALSE(captainParty.hasQuestBit(1255));
+        CHECK_EQ(captainParty.inventoryItemCount(2157), 0);
+
+        OpenYAMM::Game::EventRuntimeState bookState = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 26, bookState));
+        CHECK_EQ(bookState.mapVars[25], 1u);
+        CHECK_EQ(bookState.grantedItemIds.back(), 2160u);
+
+        OpenYAMM::Game::EventRuntimeState controlRoomState = {};
+        controlRoomState.mapVars[15] = 1;
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 35, controlRoomState));
+        CHECK(controlRoomState.mechanisms.contains(39));
+        CHECK(controlRoomState.mechanisms.contains(40));
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "hive", "hive_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState damageState = {};
+        OpenYAMM::Game::EventRuntimeState::ActiveHookContext damageContext = {};
+        damageContext.kind = OpenYAMM::Game::EventRuntimeHookKind::MonsterDamage;
+        damageContext.actorIndex = 3;
+        damageContext.monsterId = 647;
+        damageContext.damage = 200;
+        damageContext.damageType = 4;
+        damageState.activeHookContext = damageContext;
+        REQUIRE(eventRuntime.executeHooks(
+            localEventProgram,
+            std::nullopt,
+            OpenYAMM::Game::EventRuntimeHookKind::MonsterDamage,
+            damageState,
+            &party));
+        REQUIRE(damageState.activeHookContext.has_value());
+        REQUIRE(damageState.activeHookContext->damageOverride.has_value());
+        CHECK_GE(*damageState.activeHookContext->damageOverride, 2);
+        CHECK_LE(*damageState.activeHookContext->damageOverride, 40);
+
+        OpenYAMM::Game::Party reactorParty = makeScriptedRegressionParty();
+        reactorParty.grantItem(2164);
+        OpenYAMM::Game::EventRuntimeState reactorState = {};
+        OpenYAMM::Game::EventRuntimeState::ActiveHookContext killedContext = {};
+        killedContext.kind = OpenYAMM::Game::EventRuntimeHookKind::MonsterKilled;
+        killedContext.actorIndex = 4;
+        killedContext.monsterId = 647;
+        reactorState.activeHookContext = killedContext;
+        RecordingSceneEventContext reactorContext = {};
+        REQUIRE(eventRuntime.executeHooks(
+            localEventProgram,
+            std::nullopt,
+            OpenYAMM::Game::EventRuntimeHookKind::MonsterKilled,
+            reactorState,
+            &reactorParty,
+            &reactorContext));
+        CHECK_EQ(reactorState.namedMapVars["HiveReactorKilled"], 1);
+        CHECK_EQ(reactorContext.summonMonstersCalls.size(), 16u);
+        CHECK(reactorState.mechanisms.contains(28));
+        CHECK(reactorState.mechanisms.contains(30));
+        REQUIRE(reactorState.pendingMapMove.has_value());
+        CHECK_EQ(reactorState.pendingMapMove->directionDegrees.value_or(0), 90);
+
+        OpenYAMM::Game::EventRuntimeState queenState = {};
+        queenState.namedMapVars["HiveReactorKilled"] = 1;
+        killedContext.monsterId = 646;
+        queenState.activeHookContext = killedContext;
+        REQUIRE(eventRuntime.executeHooks(
+            localEventProgram,
+            std::nullopt,
+            OpenYAMM::Game::EventRuntimeHookKind::MonsterKilled,
+            queenState,
+            &party));
+        CHECK_EQ(queenState.namedMapVars["HiveQueenKilled"], 1);
+        CHECK(party.hasQuestBit(1226));
+
+        OpenYAMM::Game::Party endingParty = makeScriptedRegressionParty();
+        endingParty.grantItem(2164);
+        endingParty.setQuestBit(1222, true);
+        OpenYAMM::Game::EventRuntimeState endingState = {};
+        endingState.namedMapVars["HiveReactorKilled"] = 1;
+        endingState.namedMapVars["HiveQueenKilled"] = 1;
+        REQUIRE(eventRuntime.executeOnLeaveEvents(localEventProgram, std::nullopt, endingState, &endingParty));
+        REQUIRE(endingState.pendingMovie.has_value());
+        CHECK_EQ(endingState.pendingMovie->movieName, "mm6end1");
+        CHECK(endingParty.hasQuestBit(784));
+        CHECK_FALSE(endingParty.hasQuestBit(1222));
+        REQUIRE(endingParty.member(0) != nullptr);
+        CHECK(endingParty.member(0)->awards.contains(78));
+
+        OpenYAMM::Game::EventRuntimeState badEndingState = {};
+        badEndingState.namedMapVars["HiveReactorKilled"] = 1;
+        REQUIRE(eventRuntime.executeOnLeaveEvents(localEventProgram, std::nullopt, badEndingState, &party));
+        REQUIRE(badEndingState.pendingMovie.has_value());
+        CHECK_EQ(badEndingState.pendingMovie->movieName, "mm6end2");
+        CHECK(badEndingState.pendingReturnToMainMenu);
+        REQUIRE_FALSE(badEndingState.pendingSounds.empty());
+        CHECK_EQ(badEndingState.pendingSounds.back().soundId, 130u);
+
+        OpenYAMM::Game::EventRuntimeState lockedExitState = {};
+        OpenYAMM::Game::Party lockedExitParty = makeScriptedRegressionParty();
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 60, lockedExitState, &lockedExitParty));
+        REQUIRE_FALSE(lockedExitState.statusMessages.empty());
+        CHECK_EQ(lockedExitState.statusMessages.back(), "The door is locked");
+
+        OpenYAMM::Game::EventRuntimeState openExitState = {};
+        party.setQuestBit(1226, true);
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 60, openExitState, &party));
+        REQUIRE(openExitState.pendingMapMove.has_value());
+        REQUIRE(openExitState.pendingMapMove->mapName.has_value());
+        CHECK_EQ(*openExitState.pendingMapMove->mapName, "oute3.odm");
+    }
+}
+
 TEST_CASE("mm6 shadow guild scene applies spike trap facet type fixup")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();

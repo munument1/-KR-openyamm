@@ -17,6 +17,7 @@ constexpr int MinutesPerDay = 24 * 60;
 constexpr int DaysPerMonth = 28;
 constexpr uint32_t GreenAppleItemId = 655;
 constexpr uint32_t HorseshoeItemId = 656;
+constexpr uint32_t ExtraPotionPlayerBitBase = 200000;
 
 std::string lowerAscii(std::string value)
 {
@@ -157,6 +158,215 @@ bool applyPermanentStatPotion(Character &member, uint32_t itemId)
             return true;
         case 270:
             member.permanentBonuses.might += 50;
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool markExtraPotionUsed(Character &member, uint32_t itemId)
+{
+    const uint32_t bit = ExtraPotionPlayerBitBase + itemId;
+
+    if (member.playerBits.contains(bit))
+    {
+        return false;
+    }
+
+    member.playerBits.insert(bit);
+    return true;
+}
+
+void applyTemporaryStatPotion(Character &member, int CharacterStatBonuses::*field, int power)
+{
+    member.magicalBonuses.*field += std::max(1, power);
+}
+
+void applyTemporaryResistancePotion(Character &member, int CharacterResistanceSet::*field, int power)
+{
+    member.magicalBonuses.resistances.*field += std::max(1, power);
+}
+
+bool applyBoostPotion(Character &member, uint32_t potionId, int power)
+{
+    switch (potionId)
+    {
+        case 20:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::might, power);
+            return true;
+        case 21:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::intellect, power);
+            return true;
+        case 22:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::personality, power);
+            return true;
+        case 23:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::endurance, power);
+            return true;
+        case 24:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::speed, power);
+            return true;
+        case 25:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::accuracy, power);
+            return true;
+        case 35:
+            applyTemporaryStatPotion(member, &CharacterStatBonuses::luck, power);
+            return true;
+        case 36:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::fire, power);
+            return true;
+        case 37:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::air, power);
+            return true;
+        case 38:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::water, power);
+            return true;
+        case 39:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::earth, power);
+            return true;
+        case 40:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::mind, power);
+            return true;
+        case 41:
+            applyTemporaryResistancePotion(member, &CharacterResistanceSet::body, power);
+            return true;
+        default:
+            return false;
+    }
+}
+
+void decreaseBaseStat(uint32_t &stat, uint32_t amount)
+{
+    stat = stat > amount ? stat - amount : 0;
+}
+
+bool applyEssencePotion(Character &member, uint32_t itemId, uint32_t Character::*primary, uint32_t Character::*penalty)
+{
+    if (!markExtraPotionUsed(member, itemId))
+    {
+        return false;
+    }
+
+    member.*primary += 15;
+    decreaseBaseStat(member.*penalty, 5);
+    return true;
+}
+
+bool applyExtraPotionEffect(Party &party, size_t targetMemberIndex, Character &member, uint32_t potionId, uint32_t itemId, int power)
+{
+    switch (potionId)
+    {
+        case 51:
+            member.ageModifier -= std::max(1, static_cast<int>(std::ceil(static_cast<double>(power) / 10.0)));
+            return true;
+        case 52:
+            return applyEssencePotion(member, itemId, &Character::might, &Character::intellect);
+        case 53:
+            return applyEssencePotion(member, itemId, &Character::intellect, &Character::might);
+        case 54:
+            return applyEssencePotion(member, itemId, &Character::personality, &Character::speed);
+        case 55:
+            if (!markExtraPotionUsed(member, itemId))
+            {
+                return false;
+            }
+            decreaseBaseStat(member.might, 1);
+            decreaseBaseStat(member.intellect, 1);
+            decreaseBaseStat(member.personality, 1);
+            decreaseBaseStat(member.accuracy, 1);
+            decreaseBaseStat(member.speed, 1);
+            decreaseBaseStat(member.luck, 1);
+            member.endurance += 15;
+            return true;
+        case 56:
+            return applyEssencePotion(member, itemId, &Character::accuracy, &Character::luck);
+        case 57:
+            return applyEssencePotion(member, itemId, &Character::speed, &Character::personality);
+        case 58:
+            return applyEssencePotion(member, itemId, &Character::luck, &Character::accuracy);
+        case 59:
+            member.might += 1;
+            member.intellect += 1;
+            member.personality += 1;
+            member.endurance += 1;
+            member.accuracy += 1;
+            member.speed += 1;
+            member.luck += 1;
+            member.baseResistances.fire += 1;
+            member.baseResistances.air += 1;
+            member.baseResistances.water += 1;
+            member.baseResistances.earth += 1;
+            member.baseResistances.mind += 1;
+            member.baseResistances.body += 1;
+            member.ageModifier += 5;
+            return true;
+        case 60:
+            member.magicalBonuses.might += power * 3;
+            member.magicalBonuses.intellect += power * 3;
+            member.magicalBonuses.personality += power * 3;
+            member.magicalBonuses.endurance += power * 3;
+            member.magicalBonuses.accuracy += power * 3;
+            member.magicalBonuses.speed += power * 3;
+            member.magicalBonuses.luck += power * 3;
+            return true;
+        case 61:
+            member.magicalBonuses.resistances.fire += power * 3;
+            member.magicalBonuses.resistances.air += power * 3;
+            member.magicalBonuses.resistances.water += power * 3;
+            member.magicalBonuses.resistances.earth += power * 3;
+            member.magicalBonuses.resistances.mind += power * 3;
+            member.magicalBonuses.resistances.body += power * 3;
+            return true;
+        case 62:
+            member.levelModifier += 20;
+            return true;
+        case 63:
+            if (!markExtraPotionUsed(member, itemId))
+            {
+                return false;
+            }
+            member.might += 20;
+            member.intellect += 20;
+            member.personality += 20;
+            member.endurance += 20;
+            member.accuracy += 20;
+            member.speed += 20;
+            member.luck += 20;
+            member.ageModifier += 10;
+            return true;
+        case 64:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.fire += 40;
+            return true;
+        case 65:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.air += 40;
+            return true;
+        case 66:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.water += 40;
+            return true;
+        case 67:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.earth += 40;
+            return true;
+        case 68:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.mind += 40;
+            return true;
+        case 69:
+            if (!markExtraPotionUsed(member, itemId)) return false;
+            member.baseResistances.body += 40;
+            return true;
+        case 70:
+            party.applyPartyBuff(
+                PartyBuffId::ProtectionFromMagic,
+                30.0f * 60.0f * static_cast<float>(std::max(1, power)),
+                3,
+                0,
+                10,
+                SkillMastery::Grandmaster,
+                static_cast<uint32_t>(targetMemberIndex));
             return true;
         default:
             return false;
@@ -667,6 +877,128 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
 
         case InventoryItemUseAction::ConsumePotion:
         {
+            const MergedPotionSettingEntry *pPotionSetting =
+                pPotionSettingTable != nullptr ? pPotionSettingTable->getByItemId(item.objectDescriptionId) : nullptr;
+            const uint32_t potionId = pPotionSetting != nullptr ? pPotionSetting->potionId : 0;
+            const int potionPower = std::max(1, static_cast<int>(item.standardEnchantPower));
+
+            if (potionId >= 51 && potionId <= 70)
+            {
+                if (applyExtraPotionEffect(
+                        party,
+                        targetMemberIndex,
+                        *pTargetMember,
+                        potionId,
+                        item.objectDescriptionId,
+                        potionPower))
+                {
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                }
+
+                return makeFailure(result.action, itemCannotBeUsedStatusText(*pItemDefinition), SpeechId::PotionFail);
+            }
+
+            if (applyBoostPotion(*pTargetMember, potionId, potionPower))
+            {
+                result.handled = true;
+                result.consumed = true;
+                return result;
+            }
+
+            switch (potionId)
+            {
+                case 4:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Weak);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 5:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::DiseaseWeak);
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::DiseaseMedium);
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::DiseaseSevere);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 6:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::PoisonWeak);
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::PoisonMedium);
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::PoisonSevere);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 7:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Asleep);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 8:
+                    party.applyPartyBuff(PartyBuffId::Haste, 30.0f * 60.0f * potionPower, potionPower, 0, potionPower,
+                        SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 9:
+                    party.applyPartyBuff(PartyBuffId::Heroism, 30.0f * 60.0f * potionPower, potionPower, 0, potionPower,
+                        SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 10:
+                    party.applyCharacterBuff(targetMemberIndex, CharacterBuffId::Bless, 30.0f * 60.0f * potionPower,
+                        potionPower, 0, potionPower, SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 11:
+                    party.applyCharacterBuff(targetMemberIndex, CharacterBuffId::Preservation, 30.0f * 60.0f * potionPower,
+                        potionPower, 0, potionPower, SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 12:
+                    party.applyPartyBuff(PartyBuffId::Shield, 30.0f * 60.0f * potionPower, potionPower, 0, potionPower,
+                        SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 14:
+                    party.applyPartyBuff(PartyBuffId::Stoneskin, 30.0f * 60.0f * potionPower, potionPower, 0, potionPower,
+                        SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 15:
+                    party.applyPartyBuff(PartyBuffId::WaterWalk, 30.0f * 60.0f * potionPower, potionPower, 0, potionPower,
+                        SkillMastery::Expert, static_cast<uint32_t>(targetMemberIndex));
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 17:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Fear);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 18:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Cursed);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 19:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Insane);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                case 31:
+                    party.clearMemberCondition(targetMemberIndex, CharacterCondition::Paralyzed);
+                    result.handled = true;
+                    result.consumed = true;
+                    return result;
+                default:
+                    break;
+            }
+
             if (item.objectDescriptionId == 222)
             {
                 party.healMember(targetMemberIndex, 10);

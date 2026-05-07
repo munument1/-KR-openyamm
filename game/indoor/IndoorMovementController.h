@@ -164,6 +164,9 @@ private:
         std::vector<uint8_t> nonBlockingMechanismFaceMask;
         std::vector<uint8_t> mechanismBlockingFaceMask;
         std::vector<uint8_t> collisionFaceMask;
+        std::vector<uint16_t> mechanismSupportFaceIds;
+        std::vector<std::vector<uint16_t>> sectorMechanismSupportFaceIds;
+        std::vector<uint16_t> invisibleSupportRampFaceIds;
         IndoorFaceGeometryCache geometryCache;
         uint64_t surfaceRevision = 0;
     };

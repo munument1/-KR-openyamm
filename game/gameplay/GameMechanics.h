@@ -13,6 +13,7 @@ class ClassMultiplierTable;
 class SpellTable;
 class StandardItemEnchantTable;
 class SpecialItemEnchantTable;
+struct EventRuntimeState;
 struct MapStatsEntry;
 struct ItemDefinition;
 struct CharacterDollTypeEntry;
@@ -179,7 +180,8 @@ public:
         const Character &character,
         const ItemTable *pItemTable,
         const StandardItemEnchantTable *pStandardItemEnchantTable = nullptr,
-        const SpecialItemEnchantTable *pSpecialItemEnchantTable = nullptr);
+        const SpecialItemEnchantTable *pSpecialItemEnchantTable = nullptr,
+        const EventRuntimeState *pEventRuntimeState = nullptr);
     static CharacterAttackProfile buildCharacterAttackProfile(
         const Character &character,
         const ItemTable *pItemTable,

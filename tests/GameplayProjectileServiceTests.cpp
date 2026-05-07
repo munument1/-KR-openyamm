@@ -8,6 +8,8 @@
 #include "game/party/SkillData.h"
 #include "game/party/SpellIds.h"
 
+#include <algorithm>
+
 using OpenYAMM::Game::GameplayProjectileService;
 using OpenYAMM::Game::SoundId;
 using OpenYAMM::Game::SkillMastery;
@@ -199,6 +201,68 @@ TEST_CASE("fireball and dragon breath impacts add full size red area pulse")
         CHECK_GT(pPulse->fadeOutStartSeconds, 0.0f);
         CHECK_LT(pPulse->fadeOutStartSeconds, 0.01f);
         CHECK_LT(pPulse->lifetimeSeconds, 0.7f);
+    }
+}
+
+TEST_CASE("fireball and spell dragon breath keep dedicated impact particles and show impact billboards")
+{
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe::Fireball));
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::Fireball));
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe::DragonBreath));
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::DragonBreath));
+
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe::FireBolt));
+    CHECK_FALSE(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::FireBolt));
+    CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe::Sparks));
+    CHECK_FALSE(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::Sparks));
+}
+
+TEST_CASE("fireball and spell dragon breath travel particles are scaled without changing fire bolt")
+{
+    struct RecipeFixture
+    {
+        ProjectileRecipe recipe = ProjectileRecipe::None;
+        int spellId = 0;
+        const char *pObjectName = "";
+        const char *pSpriteName = "";
+        float expectedMinimumMaxSize = 0.0f;
+        float expectedMaximumMaxSize = 0.0f;
+    };
+
+    const RecipeFixture fixtures[] = {
+        {ProjectileRecipe::Fireball, static_cast<int>(SpellId::Fireball), "Fireball", "fire04", 20.0f, 50.0f},
+        {
+            ProjectileRecipe::DragonBreath,
+            static_cast<int>(SpellId::DragonBreath),
+            "Dragon Breath",
+            "spell97",
+            30.0f,
+            60.0f
+        },
+        {ProjectileRecipe::FireBolt, static_cast<int>(SpellId::FireBolt), "Fire Bolt", "fire02", 0.0f, 25.0f},
+    };
+
+    for (const RecipeFixture &fixture : fixtures)
+    {
+        OpenYAMM::Game::ParticleSystem particleSystem;
+        OpenYAMM::Game::FxRecipes::ProjectileSpawnContext context = {};
+        context.projectileId = 42;
+        context.spellId = fixture.spellId;
+        context.objectName = fixture.pObjectName;
+        context.spriteName = fixture.pSpriteName;
+        context.velocityX = 256.0f;
+
+        OpenYAMM::Game::FxRecipes::spawnProjectileTrailParticles(particleSystem, context, fixture.recipe);
+
+        float maxParticleSize = 0.0f;
+
+        for (const OpenYAMM::Game::FxParticleState &particle : particleSystem.particles())
+        {
+            maxParticleSize = std::max(maxParticleSize, particle.size);
+        }
+
+        CHECK_GT(maxParticleSize, fixture.expectedMinimumMaxSize);
+        CHECK_LT(maxParticleSize, fixture.expectedMaximumMaxSize);
     }
 }
 

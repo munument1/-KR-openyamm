@@ -16,6 +16,7 @@
 
 namespace OpenYAMM::Game
 {
+class MergedBolsterMonsterTable;
 struct GameplayMinimapState;
 struct GameplayMinimapLineState;
 struct GameplayMinimapMarkerState;
@@ -376,6 +377,14 @@ public:
     virtual ~IGameplayWorldRuntime() = default;
 
     virtual const std::string &mapName() const = 0;
+    virtual const MonsterTable *monsterTable() const
+    {
+        return nullptr;
+    }
+    virtual const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const
+    {
+        return nullptr;
+    }
     virtual bool isIndoorMap() const = 0;
     virtual bool isUnderwaterMap() const
     {
@@ -451,6 +460,13 @@ public:
         int32_t toZ) = 0;
     virtual size_t mapActorCount() const = 0;
     virtual bool actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const = 0;
+    virtual bool tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll)
+    {
+        (void)actorIndex;
+        (void)successRoll;
+        (void)caughtRoll;
+        return false;
+    }
     virtual bool actorInspectState(
         size_t actorIndex,
         uint32_t animationTicks,
@@ -503,6 +519,22 @@ public:
         float x,
         float y,
         float z) = 0;
+    virtual bool summonHostileMonsterById(
+        int16_t monsterId,
+        uint32_t count,
+        float x,
+        float y,
+        float z,
+        uint32_t group)
+    {
+        (void)monsterId;
+        (void)count;
+        (void)x;
+        (void)y;
+        (void)z;
+        (void)group;
+        return false;
+    }
     virtual bool tryStartArmageddon(
         size_t casterMemberIndex,
         uint32_t skillLevel,

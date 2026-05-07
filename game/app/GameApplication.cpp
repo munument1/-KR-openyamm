@@ -3,6 +3,7 @@
 #include "game/StringUtils.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayHeldItemController.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/scene/IndoorSceneRuntime.h"
 #include "game/scene/OutdoorSceneRuntime.h"
 #include "game/items/ItemGenerator.h"
@@ -39,6 +40,7 @@
 #include <functional>
 #include <iostream>
 #include <random>
+#include <set>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -211,6 +213,53 @@ int effectiveRespawnAreaIdForMap(const MapStatsEntry &mapEntry, const std::strin
     return mapEntry.isTopLevelArea ? mapEntry.id : mapEntry.areaId;
 }
 
+const MergedContinentSettingEntry *mergedContinentSettingForMap(
+    const MapStatsEntry &map,
+    const MergedContinentSettingTable &continentSettingTable)
+{
+    if (map.mergedContinentId == 0)
+    {
+        return nullptr;
+    }
+
+    return continentSettingTable.findById(map.mergedContinentId);
+}
+
+void applyPartyReputationToWorld(
+    const Party &party,
+    IGameplayWorldRuntime &worldRuntime,
+    const MapStatsEntry &map,
+    const MergedContinentSettingTable &continentSettingTable)
+{
+    const MergedContinentSettingEntry *pContinentSetting =
+        mergedContinentSettingForMap(map, continentSettingTable);
+
+    if (!continentUsesMergedReputation(pContinentSetting))
+    {
+        return;
+    }
+
+    worldRuntime.setCurrentLocationReputation(party.continentReputation(map.mergedContinentId));
+    applyReputationGuardHostility(worldRuntime, 25);
+}
+
+void storeWorldReputationInParty(
+    Party &party,
+    const IGameplayWorldRuntime &worldRuntime,
+    const MapStatsEntry &map,
+    const MergedContinentSettingTable &continentSettingTable)
+{
+    const MergedContinentSettingEntry *pContinentSetting =
+        mergedContinentSettingForMap(map, continentSettingTable);
+
+    if (!continentUsesMergedReputation(pContinentSetting))
+    {
+        return;
+    }
+
+    party.setContinentReputation(map.mergedContinentId, worldRuntime.currentLocationReputation());
+}
+
 bool mapMatchesDeathDestination(
     const MapStatsEntry &currentMap,
     const std::string &currentMapFileName,
@@ -359,6 +408,83 @@ std::string compactSearchText(const std::string &value)
     }
 
     return result;
+}
+
+const JournalQuestEntry *findJournalQuestEntry(
+    const std::vector<JournalQuestEntry> &entries,
+    uint32_t qbitId)
+{
+    const std::vector<JournalQuestEntry>::const_iterator iterator = std::lower_bound(
+        entries.begin(),
+        entries.end(),
+        qbitId,
+        [](const JournalQuestEntry &entry, uint32_t value)
+        {
+            return entry.qbitId < value;
+        });
+
+    return iterator != entries.end() && iterator->qbitId == qbitId ? &*iterator : nullptr;
+}
+
+std::string journalQuestEntryDetails(const JournalQuestEntry *pEntry)
+{
+    if (pEntry == nullptr)
+    {
+        return "<undocumented>";
+    }
+
+    std::vector<std::string> parts;
+
+    if (!pEntry->text.empty())
+    {
+        parts.push_back(pEntry->text);
+    }
+
+    if (!pEntry->notes.empty())
+    {
+        parts.push_back("notes: " + pEntry->notes);
+    }
+
+    if (!pEntry->owner.empty())
+    {
+        parts.push_back("owner: " + pEntry->owner);
+    }
+
+    if (parts.empty())
+    {
+        return "<no description>";
+    }
+
+    std::ostringstream out;
+
+    for (size_t partIndex = 0; partIndex < parts.size(); ++partIndex)
+    {
+        if (partIndex > 0)
+        {
+            out << " | ";
+        }
+
+        out << parts[partIndex];
+    }
+
+    return out.str();
+}
+
+std::string journalQuestEntrySearchText(uint32_t qbitId, const JournalQuestEntry *pEntry)
+{
+    if (pEntry == nullptr)
+    {
+        return std::to_string(qbitId);
+    }
+
+    return lowerSearchText(
+        std::to_string(qbitId)
+        + " "
+        + pEntry->text
+        + " "
+        + pEntry->notes
+        + " "
+        + pEntry->owner);
 }
 
 std::vector<std::string> searchTokens(const std::string &query)
@@ -1496,6 +1622,9 @@ void GameApplication::registerDebugConsoleCommands()
                 const bool activeOnly = filter.empty() || filter == "active";
                 const bool allRows = filter == "all";
                 const Party::Snapshot snapshot = pParty->snapshot();
+                const std::vector<JournalQuestEntry> &questEntries =
+                    m_gameSession.data().journalQuestTable().entries();
+                std::set<uint32_t> qbitIds;
                 std::ostringstream out;
                 size_t emitted = 0;
 
@@ -1512,20 +1641,62 @@ void GameApplication::registerDebugConsoleCommands()
 
                 out << ":\n";
 
-                for (const JournalQuestEntry &entry : m_gameSession.data().journalQuestTable().entries())
+                if (activeOnly)
                 {
-                    const bool isActive = snapshot.questBits.contains(entry.qbitId);
-                    const std::string haystack =
-                        lowerSearchText(entry.text + " " + entry.notes + " " + entry.owner);
+                    qbitIds.insert(snapshot.questBits.begin(), snapshot.questBits.end());
+                }
+                else
+                {
+                    for (const JournalQuestEntry &entry : questEntries)
+                    {
+                        if (!allRows)
+                        {
+                            const std::string haystack = journalQuestEntrySearchText(entry.qbitId, &entry);
 
-                    if ((activeOnly && !isActive)
-                        || (!activeOnly && !allRows && haystack.find(filter) == std::string::npos))
+                            if (haystack.find(filter) == std::string::npos)
+                            {
+                                continue;
+                            }
+                        }
+
+                        qbitIds.insert(entry.qbitId);
+                    }
+
+                    for (uint32_t qbitId : snapshot.questBits)
+                    {
+                        if (allRows)
+                        {
+                            qbitIds.insert(qbitId);
+                            continue;
+                        }
+
+                        const JournalQuestEntry *pEntry = findJournalQuestEntry(questEntries, qbitId);
+                        const std::string haystack = journalQuestEntrySearchText(qbitId, pEntry);
+
+                        if (haystack.find(filter) != std::string::npos)
+                        {
+                            qbitIds.insert(qbitId);
+                        }
+                    }
+                }
+
+                for (uint32_t qbitId : qbitIds)
+                {
+                    if (qbitId == 0)
                     {
                         continue;
                     }
 
-                    out << entry.qbitId << " [" << (isActive ? "set" : "clear") << "] "
-                        << (!entry.text.empty() ? entry.text : entry.notes) << '\n';
+                    const bool isActive = snapshot.questBits.contains(qbitId);
+
+                    if (activeOnly && !isActive)
+                    {
+                        continue;
+                    }
+
+                    const JournalQuestEntry *pEntry = findJournalQuestEntry(questEntries, qbitId);
+                    out << qbitId << " [" << (isActive ? "set" : "clear") << "] "
+                        << journalQuestEntryDetails(pEntry) << '\n';
                     ++emitted;
 
                     if (emitted >= 120)
@@ -3233,6 +3404,11 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         OutdoorWorldRuntime::Snapshot outdoorTimeSnapshot = m_pOutdoorWorldRuntime->snapshot();
         outdoorTimeSnapshot.gameMinutes = m_gameSession.gameMinutes();
         m_pOutdoorWorldRuntime->restoreSnapshot(outdoorTimeSnapshot);
+        applyPartyReputationToWorld(
+            m_pOutdoorPartyRuntime->party(),
+            *m_pOutdoorWorldRuntime,
+            selectedMap->map,
+            m_gameDataLoader.getMergedContinentSettingTable());
 
         if (EventRuntimeState *pEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState())
         {
@@ -3367,6 +3543,11 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         IndoorSceneRuntime::Snapshot indoorTimeSnapshot = pIndoorSceneRuntime->snapshot();
         indoorTimeSnapshot.worldRuntime.gameMinutes = m_gameSession.gameMinutes();
         pIndoorSceneRuntime->restoreSnapshot(indoorTimeSnapshot);
+        applyPartyReputationToWorld(
+            pIndoorSceneRuntime->party(),
+            pIndoorSceneRuntime->worldRuntime(),
+            selectedMap->map,
+            m_gameDataLoader.getMergedContinentSettingTable());
 
         timingLogger.stage("indoor saved state restored");
 
@@ -3478,6 +3659,28 @@ void GameApplication::bindPartyDependencies(Party &party) const
     party.setClassSkillTable(&data.classSkillTable());
 }
 
+void GameApplication::synchronizeActiveReputationToParty()
+{
+    if (m_pMapSceneRuntime == nullptr)
+    {
+        return;
+    }
+
+    const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+    IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+
+    if (!selectedMap || pWorldRuntime == nullptr)
+    {
+        return;
+    }
+
+    storeWorldReputationInParty(
+        m_pMapSceneRuntime->party(),
+        *pWorldRuntime,
+        selectedMap->map,
+        m_gameDataLoader.getMergedContinentSettingTable());
+}
+
 void GameApplication::synchronizeSessionFromRuntime()
 {
     if (m_pMapSceneRuntime == nullptr)
@@ -3486,6 +3689,7 @@ void GameApplication::synchronizeSessionFromRuntime()
     }
 
     m_gameplayController.synchronizeSessionFromRuntime();
+    synchronizeActiveReputationToParty();
     m_gameSession.setCurrentSceneKind(m_pMapSceneRuntime->kind());
     m_gameSession.setCurrentMapFileName(m_pMapSceneRuntime->currentMapFileName());
 
@@ -4490,6 +4694,18 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         return;
     }
 
+    if (processPendingReturnToMainMenu())
+    {
+        if (IScreen *pActiveScreen = m_screenManager.activeScreen())
+        {
+            pActiveScreen->renderFrame(width, height, m_gameInputSystem.frame(), deltaSeconds);
+        }
+
+        m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        renderDebugConsoleFrame(width, height);
+        return;
+    }
+
     const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
     const bool *pKeyboardState = m_gameInputSystem.frame().keyboardState();
     bool skipGameplayUpdateAfterInputPrompt = false;
@@ -4582,6 +4798,12 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
 
         if (processPendingEventMovie())
+        {
+            renderDebugConsoleFrame(width, height);
+            return;
+        }
+
+        if (processPendingReturnToMainMenu())
         {
             renderDebugConsoleFrame(width, height);
             return;
@@ -4961,6 +5183,29 @@ bool GameApplication::processPendingEventMovie()
     return true;
 }
 
+bool GameApplication::processPendingReturnToMainMenu()
+{
+    if (m_screenManager.activeScreen() != nullptr)
+    {
+        return false;
+    }
+
+    EventRuntimeState *pRuntimeState = m_gameplayController.eventRuntimeState();
+
+    if (pRuntimeState == nullptr
+        || !pRuntimeState->pendingReturnToMainMenu
+        || pRuntimeState->pendingMovie.has_value()
+        || pRuntimeState->pendingWinGame.has_value())
+    {
+        return false;
+    }
+
+    pRuntimeState->pendingReturnToMainMenu = false;
+    m_gameSession.gameplayScreenRuntime().closeActiveEventDialog();
+    openMainMenuScreen();
+    return true;
+}
+
 bool GameApplication::processPendingDimensionDoorOverlay()
 {
     EventRuntimeState *pRuntimeState = m_gameplayController.eventRuntimeState();
@@ -5034,6 +5279,15 @@ void GameApplication::handleCompletedEventMovieScreen()
             buildWinGameCertificate(),
             pCutsceneScreen->mode()));
         m_pendingWinGameCertificateAfterMovie = false;
+        return;
+    }
+
+    EventRuntimeState *pRuntimeState = m_gameplayController.eventRuntimeState();
+
+    if (pRuntimeState != nullptr && pRuntimeState->pendingReturnToMainMenu)
+    {
+        pRuntimeState->pendingReturnToMainMenu = false;
+        openMainMenuScreen();
         return;
     }
 

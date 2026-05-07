@@ -9,9 +9,12 @@
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/gameplay/SavePreviewImage.h"
+#include "game/indoor/IndoorMovementController.h"
 #include "game/items/InventoryItemMixingRuntime.h"
 #include "game/items/ItemRuntime.h"
+#include "game/items/PriceCalculator.h"
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/OutdoorSceneYml.h"
 #include "game/maps/TerrainTileData.h"
@@ -20,6 +23,7 @@
 #include "game/party/Party.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/JournalQuestTable.h"
+#include "game/tables/MonsterTable.h"
 #include "game/tables/SurfaceMaterialTable.h"
 
 #include "tests/RegressionGameData.h"
@@ -518,6 +522,74 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().tileId, 1);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().walkSoundId, 101u);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().runSoundId, 62u);
+}
+
+TEST_CASE("mm6 outdoor scene overlays restore mmmerge footstep sound overrides")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+
+    const auto loadSceneText = [](const std::filesystem::path &path)
+    {
+        std::ifstream file(path);
+        REQUIRE(file.good());
+        std::ostringstream text;
+        text << file.rdbuf();
+        return text.str();
+    };
+
+    const auto loadMergedScene =
+        [&](const char *pMapName, const char *pOverlayName)
+        {
+            const std::filesystem::path scenePath =
+                std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm6/maps" / pMapName;
+            const std::filesystem::path overlayPath =
+                std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm6/maps" / pOverlayName;
+
+            const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+                sceneLoader.loadFromText(loadSceneText(scenePath), sceneError);
+            REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+            OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+            REQUIRE_MESSAGE(
+                sceneLoader.applyOverlayFromText(mergedScene, loadSceneText(overlayPath), sceneError),
+                sceneError);
+            return mergedScene;
+        };
+
+    const auto findOverride =
+        [](const OpenYAMM::Game::OutdoorSceneData &scene, uint16_t tileId)
+        {
+            return std::find_if(
+                scene.terrainFootstepSoundOverrides.begin(),
+                scene.terrainFootstepSoundOverrides.end(),
+                [tileId](const OpenYAMM::Game::OutdoorSceneTerrainFootstepSoundOverride &overrideEntry)
+                {
+                    return overrideEntry.tileId == tileId;
+                });
+        };
+
+    const OpenYAMM::Game::OutdoorSceneData outa2Scene = loadMergedScene("outa2.scene.yml", "outa2_1.scene.yml");
+    const auto outa2DefaultOverride = findOverride(outa2Scene, 0);
+    REQUIRE(outa2DefaultOverride != outa2Scene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(outa2DefaultOverride->walkSoundId, 91u);
+    CHECK_EQ(outa2DefaultOverride->runSoundId, 52u);
+
+    const OpenYAMM::Game::OutdoorSceneData outa3Scene = loadMergedScene("outa3.scene.yml", "outa3_1.scene.yml");
+    const auto outa3DefaultOverride = findOverride(outa3Scene, 0);
+    REQUIRE(outa3DefaultOverride != outa3Scene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(outa3DefaultOverride->walkSoundId, 91u);
+    CHECK_EQ(outa3DefaultOverride->runSoundId, 52u);
+    const auto outa3TileSetOverride = findOverride(outa3Scene, 6);
+    REQUIRE(outa3TileSetOverride != outa3Scene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(outa3TileSetOverride->walkSoundId, 90u);
+    CHECK_EQ(outa3TileSetOverride->runSoundId, 51u);
+
+    const OpenYAMM::Game::OutdoorSceneData outb3Scene = loadMergedScene("outb3.scene.yml", "outb3_1.scene.yml");
+    const auto outb3TileSetOverride = findOverride(outb3Scene, 6);
+    REQUIRE(outb3TileSetOverride != outb3Scene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(outb3TileSetOverride->walkSoundId, 91u);
+    CHECK_EQ(outb3TileSetOverride->runSoundId, 52u);
 }
 
 TEST_CASE("mm7 arena map fixups expose runtime restrictions and arena master topic")
@@ -3048,6 +3120,74 @@ TEST_CASE("outdoor bmodel collision geometry keeps invisible faces and uses auth
     CHECK(OpenYAMM::Game::buildOutdoorFaceGeometry(bmodel, 0, face, 0, geometry, true));
 }
 
+TEST_CASE("indoor support sampling includes mechanism floor faces omitted from sector floor lists")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {0, 0, 0},
+        {512, 0, 0},
+        {512, 1024, 0},
+        {0, 1024, 0},
+        {512, 0, 0},
+        {1024, 0, 0},
+        {1024, 1024, 0},
+        {512, 1024, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace staticFloor = {};
+    staticFloor.vertexIndices = {0, 1, 2, 3};
+    staticFloor.facetType = 3;
+    staticFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace platformFloor = {};
+    platformFloor.vertexIndices = {4, 5, 6, 7};
+    platformFloor.facetType = 3;
+    platformFloor.roomNumber = 1;
+
+    mapData.faces = {staticFloor, platformFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = 0;
+    sector.maxX = 1024;
+    sector.minY = 0;
+    sector.maxY = 1024;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    OpenYAMM::Game::MapDeltaDoor platform = {};
+    platform.doorId = 71;
+    platform.directionZ = 65536;
+    platform.moveLength = 640;
+    platform.openSpeed = 150;
+    platform.closeSpeed = 150;
+    platform.state = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Open);
+    platform.vertexIds = {4, 5, 6, 7};
+    platform.faceIds = {1};
+    platform.xOffsets = {512, 1024, 1024, 512};
+    platform.yOffsets = {0, 0, 1024, 1024};
+    platform.zOffsets = {0, 0, 0, 0};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    mapDeltaData->doors.push_back(platform);
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState state =
+        controller.initializeStateFromEyePosition(768.0f, 512.0f, 160.0f, body);
+
+    CHECK(state.grounded);
+    CHECK_EQ(state.supportFaceIndex, 1u);
+    CHECK_EQ(state.footZ, doctest::Approx(0.0f));
+}
+
 TEST_CASE("resolve character attack sound id uses shared weapon family mapping")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -3141,4 +3281,112 @@ TEST_CASE("audio shutdown remains safe after SDL quit")
     SDL_Quit();
     audioSystem.shutdown();
     CHECK(SDL_Init(0));
+}
+
+TEST_CASE("event reputation variable mutates runtime location reputation")
+{
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::Party party;
+    const OpenYAMM::Game::EventRuntime::VariableRef reputationVariable =
+        OpenYAMM::Game::EventRuntime::decodeVariable(
+            static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::ReputationInCurrentLocation));
+
+    const std::vector<size_t> targetMemberIndices = {};
+
+    OpenYAMM::Game::EventRuntime::setVariableValue(
+        runtimeState,
+        reputationVariable,
+        12,
+        &party,
+        targetMemberIndices);
+    CHECK_EQ(runtimeState.currentLocationReputation, 12);
+    CHECK_EQ(
+        party.eventVariableValue(
+            static_cast<uint16_t>(OpenYAMM::Game::EvtVariable::ReputationInCurrentLocation)),
+        0);
+
+    OpenYAMM::Game::EventRuntime::addVariableValue(
+        runtimeState,
+        reputationVariable,
+        3,
+        &party,
+        targetMemberIndices);
+    CHECK_EQ(runtimeState.currentLocationReputation, 15);
+
+    OpenYAMM::Game::EventRuntime::subtractVariableValue(
+        runtimeState,
+        reputationVariable,
+        20,
+        &party,
+        targetMemberIndices);
+    CHECK_EQ(runtimeState.currentLocationReputation, -5);
+
+    OpenYAMM::Game::EventRuntime::subtractVariableValue(
+        runtimeState,
+        reputationVariable,
+        20000,
+        &party,
+        targetMemberIndices);
+    CHECK_EQ(runtimeState.currentLocationReputation, OpenYAMM::Game::MinReputation);
+}
+
+TEST_CASE("effective reputation includes OE criminal follower penalty")
+{
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.hiredNpcFollowers.push_back({100, 45, 0});
+    runtimeState.hiredNpcFollowers.push_back({101, 51, 0});
+    runtimeState.hiredNpcFollowers.push_back({102, 36, 0});
+
+    CHECK_EQ(OpenYAMM::Game::hiredNpcReputationPenalty(runtimeState), 10);
+    CHECK_EQ(OpenYAMM::Game::effectivePartyReputation(-6, &runtimeState), 4);
+    CHECK_EQ(OpenYAMM::Game::reputationLabel(-25), "Saintly");
+    CHECK_EQ(OpenYAMM::Game::reputationLabel(25), "Notorious");
+}
+
+TEST_CASE("merchant pricing uses effective reputation")
+{
+    OpenYAMM::Game::Character merchant = {};
+    merchant.skills["Merchant"] = {"Merchant", 4, OpenYAMM::Game::SkillMastery::Normal};
+
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&merchant, 0), 11);
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&merchant, 10), 1);
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&merchant, -10), 21);
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::applyMerchantDiscount(&merchant, 1000, 10), 990);
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::applyMerchantDiscount(&merchant, 1000, -10), 790);
+
+    OpenYAMM::Game::Character grandmaster = {};
+    grandmaster.skills["Merchant"] = {"Merchant", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&grandmaster, 50), 100);
+}
+
+TEST_CASE("peasant kill reputation penalty uses map stealing fine and active reputation")
+{
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.setCurrentLocationReputation(4);
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
+    peasant.level = 3;
+    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
+
+    const OpenYAMM::Game::PeasantKillReputationResult result =
+        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
+
+    CHECK(result.applied);
+    CHECK_EQ(result.reputationDelta, 1);
+    CHECK_EQ(result.fineDelta, 900);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 5);
+    CHECK_EQ(party.fineGold(), 900);
+    CHECK_EQ(
+        party.eventVariableValue(static_cast<uint16_t>(OpenYAMM::Game::EvtVariable::NumBounties)),
+        0);
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry monster = {};
+    monster.level = 10;
+    const OpenYAMM::Game::PeasantKillReputationResult ignored =
+        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &monster, 2);
+    CHECK_FALSE(ignored.applied);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 5);
 }

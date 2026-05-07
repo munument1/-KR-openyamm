@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 
 namespace OpenYAMM::Game
 {
@@ -254,6 +255,81 @@ EventRuntimeState::PendingSound buildStopMechanismSound(uint32_t doorId)
     sound.kind = EventRuntimeState::PendingSound::Kind::StopKeyed;
     sound.key = mechanismAudioKey(doorId);
     return sound;
+}
+
+float fixedMechanismDirectionComponentToFloat(int value)
+{
+    return static_cast<float>(value) / 65536.0f;
+}
+
+bool mechanismDoorContainsFace(const MapDeltaDoor &door, size_t faceIndex)
+{
+    for (uint16_t doorFaceId : door.faceIds)
+    {
+        if (static_cast<size_t>(doorFaceId) == faceIndex)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+float mechanismDistanceFromBaseDoorState(const MapDeltaDoor &door)
+{
+    RuntimeMechanismState mechanism = {};
+    mechanism.state = door.state;
+    mechanism.timeSinceTriggeredMs = static_cast<float>(door.timeSinceTriggered);
+    mechanism.currentDistance = EventRuntime::calculateMechanismDistance(door, mechanism);
+    return mechanism.currentDistance;
+}
+
+void applyMovingMechanismSupportMovement(
+    const MapDeltaData &mapDeltaData,
+    const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms,
+    EventRuntimeState &eventRuntimeState,
+    IndoorPartyRuntime &partyRuntime)
+{
+    const IndoorMoveState &moveState = partyRuntime.movementState();
+
+    if (!moveState.grounded || moveState.supportFaceIndex == static_cast<size_t>(-1))
+    {
+        return;
+    }
+
+    for (const MapDeltaDoor &door : mapDeltaData.doors)
+    {
+        if (!mechanismDoorContainsFace(door, moveState.supportFaceIndex))
+        {
+            continue;
+        }
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator currentIterator =
+            eventRuntimeState.mechanisms.find(door.doorId);
+
+        if (currentIterator == eventRuntimeState.mechanisms.end())
+        {
+            continue;
+        }
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator previousIterator =
+            previousMechanisms.find(door.doorId);
+        const float previousDistance =
+            previousIterator != previousMechanisms.end()
+                ? previousIterator->second.currentDistance
+                : mechanismDistanceFromBaseDoorState(door);
+        const float distanceDelta = currentIterator->second.currentDistance - previousDistance;
+
+        if (std::abs(distanceDelta) <= 0.0001f)
+        {
+            continue;
+        }
+
+        partyRuntime.translatePartyPosition(
+            fixedMechanismDirectionComponentToFloat(door.directionX) * distanceDelta,
+            fixedMechanismDirectionComponentToFloat(door.directionY) * distanceDelta,
+            fixedMechanismDirectionComponentToFloat(door.directionZ) * distanceDelta);
+    }
 }
 
 void initializeIndoorPartyStart(IndoorPartyRuntime &partyRuntime, const IndoorMapData &indoorMapData)
@@ -633,6 +709,11 @@ bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
         const std::unordered_map<uint32_t, RuntimeMechanismState> previousMechanisms =
             m_eventRuntimeState->mechanisms;
         m_eventRuntime.advanceMechanisms(m_mapDeltaData, MechanismStepMilliseconds, *m_eventRuntimeState);
+        applyMovingMechanismSupportMovement(
+            *m_mapDeltaData,
+            previousMechanisms,
+            *m_eventRuntimeState,
+            m_partyRuntime);
         updateMechanismAudio(previousMechanisms, MechanismStepMilliseconds);
         m_mechanismAccumulatorMilliseconds -= MechanismStepMilliseconds;
         ++mechanismSteps;

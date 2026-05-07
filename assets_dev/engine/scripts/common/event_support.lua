@@ -492,6 +492,8 @@ local function ensureMetaScope(scopeName)
     meta.gameplayActionHooks = meta.gameplayActionHooks or {}
     meta.mapRefillHooks = meta.mapRefillHooks or {}
     meta.mapTransitionHooks = meta.mapTransitionHooks or {}
+    meta.monsterKilledHooks = meta.monsterKilledHooks or {}
+    meta.monsterDamageHooks = meta.monsterDamageHooks or {}
     meta.title = meta.title or {}
     meta.hint = meta.hint or {}
     meta.openedChestIds = meta.openedChestIds or {}
@@ -1129,6 +1131,22 @@ function support.registerGlobalMapTransitionHook(eventId, title, handler)
     registerGlobalHook("mapTransitionHooks", eventId, title, handler)
 end
 
+function support.registerMonsterKilledHook(eventId, title, handler)
+    registerMapHook("monsterKilledHooks", eventId, title, handler)
+end
+
+function support.registerGlobalMonsterKilledHook(eventId, title, handler)
+    registerGlobalHook("monsterKilledHooks", eventId, title, handler)
+end
+
+function support.registerMonsterDamageHook(eventId, title, handler)
+    registerMapHook("monsterDamageHooks", eventId, title, handler)
+end
+
+function support.registerGlobalMonsterDamageHook(eventId, title, handler)
+    registerGlobalHook("monsterDamageHooks", eventId, title, handler)
+end
+
 function support.isFlying()
     return evt.Cmp(support.varTag.IsFlying, 1)
 end
@@ -1479,6 +1497,10 @@ RegisterMapRefillHook = support.registerMapRefillHook
 RegisterGlobalMapRefillHook = support.registerGlobalMapRefillHook
 RegisterMapTransitionHook = support.registerMapTransitionHook
 RegisterGlobalMapTransitionHook = support.registerGlobalMapTransitionHook
+RegisterMonsterKilledHook = support.registerMonsterKilledHook
+RegisterGlobalMonsterKilledHook = support.registerGlobalMonsterKilledHook
+RegisterMonsterDamageHook = support.registerMonsterDamageHook
+RegisterGlobalMonsterDamageHook = support.registerGlobalMonsterDamageHook
 IsFlying = support.isFlying
 IsInvisible = support.isInvisible
 HasFollowerProfession = support.hasFollowerProfession

@@ -4,6 +4,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 
 #include "game/gameplay/HouseServiceRuntime.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/tables/ItemTable.h"
 #include "game/StringUtils.h"
 
@@ -20,6 +21,14 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+int effectiveReputationForView(const GameplayScreenRuntime &view)
+{
+    const IGameplayWorldRuntime *pWorldRuntime = view.worldRuntime();
+    return pWorldRuntime != nullptr
+        ? effectivePartyReputation(pWorldRuntime->currentLocationReputation(), pWorldRuntime->eventRuntimeState())
+        : 0;
+}
+
 constexpr uint16_t HudViewId = 2;
 constexpr uint32_t HoveredDialogueTopicTextColorAbgr = 0xff23cde1u;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
@@ -712,7 +721,8 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
                                 *view.standardItemEnchantTable(),
                                 *view.specialItemEnchantTable(),
                                 *pHostHouseEntry,
-                                *pItem);
+                                *pItem,
+                                effectiveReputationForView(view));
                         }
                         else if (view.inventoryNestedOverlay().mode
                             == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify)
@@ -723,7 +733,8 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
                                 *view.standardItemEnchantTable(),
                                 *view.specialItemEnchantTable(),
                                 *pHostHouseEntry,
-                                *pItem);
+                                *pItem,
+                                effectiveReputationForView(view));
                         }
                         else if (view.inventoryNestedOverlay().mode
                             == GameplayUiController::InventoryNestedOverlayMode::ShopRepair)
@@ -734,7 +745,8 @@ void GameplayDialogueRenderer::renderDialogueOverlay(
                                 *view.standardItemEnchantTable(),
                                 *view.specialItemEnchantTable(),
                                 *pHostHouseEntry,
-                                *pItem);
+                                *pItem,
+                                effectiveReputationForView(view));
 
                             if (!hoverText.empty())
                             {
@@ -1014,7 +1026,8 @@ void GameplayDialogueRenderer::updateHouseShopHoverTopicText(
                     *view.standardItemEnchantTable(),
                     *view.specialItemEnchantTable(),
                     *pHouseEntry,
-                    item);
+                    item,
+                    effectiveReputationForView(view));
             return;
         }
     }

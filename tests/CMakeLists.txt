@@ -19,6 +19,7 @@ add_executable(openyamm_unit_tests
     InventoryEquipRegressionTests.cpp
     MapStatsRegressionTests.cpp
     MapDeltaDataTests.cpp
+    MM7MechanicsRuntimeTests.cpp
     MercenaryRecruitmentRuntimeTests.cpp
     MonsterTableRegressionTests.cpp
     MergedBaseTablesTests.cpp
@@ -57,6 +58,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/GameplaySpeechRules.cpp
     ../game/gameplay/GameplayWorldItemInteraction.cpp
     ../game/gameplay/InteractiveDecorationRules.cpp
+    ../game/gameplay/BountyHuntRuntime.cpp
     ../game/gameplay/MonsterSpellSupport.cpp
     ../game/gameplay/MercenaryRecruitmentRuntime.cpp
     ../game/gameplay/GameMechanics.cpp
@@ -66,6 +68,8 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/JournalQuestRuntime.cpp
     ../game/gameplay/MasteryTeacherDialog.cpp
     ../game/gameplay/NpcFollowerRuntime.cpp
+    ../game/gameplay/ReputationRuntime.cpp
+    ../game/gameplay/StealingRuntime.cpp
     ../game/gameplay/GameplayProjectileService.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
     ../game/gameplay/SavePreviewImage.cpp
@@ -81,6 +85,7 @@ add_executable(openyamm_unit_tests
     ../game/indoor/IndoorGeometryUtils.cpp
     ../game/indoor/IndoorLightingRuntime.cpp
     ../game/indoor/IndoorMapData.cpp
+    ../game/indoor/IndoorMovementController.cpp
     ../game/indoor/IndoorPortalVisibility.cpp
     ../game/fx/ParticleRecipes.cpp
     ../game/fx/ParticleSystem.cpp

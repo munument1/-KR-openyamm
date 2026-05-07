@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 52;
+constexpr uint32_t SaveVersion = 54;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -49,6 +49,8 @@ constexpr uint32_t SaveVersionOutdoorActorBolsterCache = 49;
 constexpr uint32_t SaveVersionGeneratedMercenaryRecruits = 50;
 constexpr uint32_t SaveVersionSessionNamedGlobalVars = 51;
 constexpr uint32_t SaveVersionGeneratedMercenaryNpcPicture = 52;
+constexpr uint32_t SaveVersionPartyContinentReputations = 53;
+constexpr uint32_t SaveVersionPartyFineGold = 54;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -940,6 +942,7 @@ void writeValue(BinaryWriter &writer, const Party::Snapshot &value)
     writeValue(writer, value.gold);
     writeValue(writer, value.bankGold);
     writeValue(writer, value.food);
+    writeValue(writer, value.fineGold);
     writeValue(writer, value.waterDamageTicks);
     writeValue(writer, value.burningDamageTicks);
     writeValue(writer, value.splashCount);
@@ -954,6 +957,7 @@ void writeValue(BinaryWriter &writer, const Party::Snapshot &value)
     writeValue(writer, value.arcomageLossCount);
     writeValue(writer, value.houseStockStates);
     writeValue(writer, value.everOwnedItemIds);
+    writeValue(writer, value.continentReputations);
     writeValue(writer, value.questBits);
     writeValue(writer, value.eventVariables);
     writeValue(writer, value.npcTopicOverrides);
@@ -976,6 +980,7 @@ bool readValue(BinaryReader &reader, Party::Snapshot &value)
         && readValue(reader, value.gold)
         && readValue(reader, value.bankGold)
         && readValue(reader, value.food)
+        && (reader.version() < SaveVersionPartyFineGold || readValue(reader, value.fineGold))
         && readValue(reader, value.waterDamageTicks)
         && readValue(reader, value.burningDamageTicks)
         && readValue(reader, value.splashCount)
@@ -990,6 +995,8 @@ bool readValue(BinaryReader &reader, Party::Snapshot &value)
         && readValue(reader, value.arcomageLossCount)
         && readValue(reader, value.houseStockStates)
         && (reader.version() < SaveVersionPartyEverOwnedItems || readValue(reader, value.everOwnedItemIds))
+        && (reader.version() < SaveVersionPartyContinentReputations
+            || readValue(reader, value.continentReputations))
         && readValue(reader, value.questBits)
         && readValue(reader, value.eventVariables)
         && (reader.version() < SaveVersionGlobalNpcState || readValue(reader, value.npcTopicOverrides))
@@ -1755,6 +1762,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.historyEventTimes);
     writeValue(writer, value.historyEventTimesByContinent);
     writeValue(writer, value.mapVars);
+    writeValue(writer, value.currentLocationReputation);
     writeValue(writer, value.facetSetMasks);
     writeValue(writer, value.facetClearMasks);
     writeValue(writer, value.mechanisms);
@@ -1829,6 +1837,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.historyEventTimes)
         && (reader.version() < SaveVersionScopedHistory || readValue(reader, value.historyEventTimesByContinent))
         && readValue(reader, value.mapVars)
+        && (reader.version() < SaveVersionPartyContinentReputations
+            || readValue(reader, value.currentLocationReputation))
         && readValue(reader, value.facetSetMasks)
         && readValue(reader, value.facetClearMasks)
         && readValue(reader, value.mechanisms)

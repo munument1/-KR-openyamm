@@ -32,4 +32,13 @@ uint32_t totalHiredNpcFollowerFeePercent(const EventRuntimeState &eventRuntimeSt
 uint32_t hiredNpcFollowerGoldShare(uint32_t goldAmount, const EventRuntimeState &eventRuntimeState);
 bool hiredNpcHasProfession(const EventRuntimeState &eventRuntimeState, uint32_t professionId);
 int hiredNpcTransportDayReduction(const EventRuntimeState &eventRuntimeState, bool stable);
+int hiredNpcCrossMapDayReduction(const EventRuntimeState &eventRuntimeState);
+int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState);
+int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName);
+int hiredNpcPrimaryStatBonus(const EventRuntimeState &eventRuntimeState, const std::string &statName);
+int hiredNpcResistanceBonus(const EventRuntimeState &eventRuntimeState, const std::string &resistanceName);
+uint32_t hiredNpcGoldFindBonusPercent(const EventRuntimeState &eventRuntimeState);
+uint32_t hiredNpcGoldAfterBonusAndFees(uint32_t goldAmount, const EventRuntimeState &eventRuntimeState);
+bool hiredNpcCanRepairItemKind(const EventRuntimeState &eventRuntimeState, const std::string &equipStat);
+bool hiredNpcCanIdentifyItemKind(const EventRuntimeState &eventRuntimeState, const std::string &equipStat);
 }

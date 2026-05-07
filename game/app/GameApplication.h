@@ -85,6 +85,7 @@ private:
     Party &ensureSessionPartyState();
     void bindPartyDependencies(Party &party) const;
     void synchronizeSessionFromRuntime();
+    void synchronizeActiveReputationToParty();
     bool loadCurrentSessionMap(
         bool initializeView,
         const std::function<void(int)> &progressCallback = {});
@@ -94,6 +95,7 @@ private:
     bool processPendingMapMove();
     bool processPendingWinGame();
     bool processPendingEventMovie();
+    bool processPendingReturnToMainMenu();
     bool processPendingDimensionDoorOverlay();
     bool executeCurrentMapOnLeaveEvents();
     bool processPendingPartyDefeat();

@@ -3272,7 +3272,8 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             impact.sourceObjectSpriteName,
             impact.sourceObjectFlags);
 
-        if (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe))
+        if (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe)
+            && !FxRecipes::projectileRecipeShowsImpactBillboard(recipe))
         {
             if (impact.objectName.find("Trap") != std::string::npos)
             {

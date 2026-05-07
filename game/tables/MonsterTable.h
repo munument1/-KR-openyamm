@@ -241,6 +241,7 @@ public:
     bool isHostileToParty(int16_t monsterId) const;
     bool isLikelySameFaction(int16_t leftMonsterId, int16_t rightMonsterId) const;
     const std::vector<MonsterEntry> &getEntries() const;
+    const std::unordered_map<int, MonsterStatsEntry> &statsEntries() const;
 
 private:
     static size_t relationIndexForMonsterId(int16_t monsterId);

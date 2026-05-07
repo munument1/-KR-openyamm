@@ -3,6 +3,7 @@
 #include "game/events/ISceneEventContext.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/StringUtils.h"
 #include "game/tables/MergedBaseTables.h"
 
@@ -244,7 +245,7 @@ bool randomNpcNeedsBtbGate(
         return false;
     }
 
-    return pWorldRuntime->currentLocationReputation() > 5;
+    return effectivePartyReputation(pWorldRuntime->currentLocationReputation(), &eventRuntimeState) > 5;
 }
 
 std::string lowerTransitionTitle(const std::string &title)
@@ -1014,6 +1015,15 @@ EventDialogContent buildEventDialogContent(
                 action.argument = houseAction.argument;
                 action.enabled = houseAction.enabled;
                 action.disabledReason = houseAction.disabledReason;
+                dialog.actions.push_back(std::move(action));
+            }
+
+            if (pParty != nullptr && pParty->fineGold() > 0 && pHouseEntry->type == "Throne")
+            {
+                EventDialogAction action = {};
+                action.kind = EventDialogActionKind::HouseService;
+                action.id = static_cast<uint32_t>(HouseActionId::ThroneServeSentence);
+                action.label = "Serve Sentence";
                 dialog.actions.push_back(std::move(action));
             }
 

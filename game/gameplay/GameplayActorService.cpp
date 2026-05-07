@@ -77,6 +77,17 @@ bool actorCanEngageActorTarget(
     return target.preciseZ <= actor.preciseZ + verticalReach;
 }
 
+bool canApplyMmergeStatusSpell(uint32_t skillLevel, SkillMastery skillMastery, int spellResistance)
+{
+    if (spellResistance >= 200)
+    {
+        return false;
+    }
+
+    const double masteryBonus = static_cast<double>(std::max(0, static_cast<int>(skillMastery))) * 2.5;
+    return 100.0 + static_cast<double>(skillLevel) + masteryBonus > static_cast<double>(spellResistance);
+}
+
 uint32_t mixActorDecisionSeed(uint32_t actorId, uint32_t counter, uint32_t salt)
 {
     return static_cast<uint32_t>(actorId + 1) * 1103515245u
@@ -261,7 +272,16 @@ GameplayActorService::SharedSpellEffectResult GameplayActorService::tryApplyShar
 
     if (spellName == "stun")
     {
+        if (!canApplyMmergeStatusSpell(skillLevel, skillMastery, spellResistance))
+        {
+            result.disposition = SharedSpellDisposition::Rejected;
+            return result;
+        }
+
         state.stunRemainingSeconds = std::max(state.stunRemainingSeconds, 0.5f + 0.35f * skillLevel);
+        state.paralyzeRemainingSeconds = std::max(
+            state.paralyzeRemainingSeconds,
+            60.0f + static_cast<float>(skillLevel * std::max(1, static_cast<int>(skillMastery))));
         result.disposition = SharedSpellDisposition::Applied;
         result.effectKind = SharedSpellEffectKind::Stun;
         return result;
@@ -269,6 +289,12 @@ GameplayActorService::SharedSpellEffectResult GameplayActorService::tryApplyShar
 
     if (spellName == "slow")
     {
+        if (!canApplyMmergeStatusSpell(skillLevel, skillMastery, spellResistance))
+        {
+            result.disposition = SharedSpellDisposition::Rejected;
+            return result;
+        }
+
         state.slowRemainingSeconds = std::max(
             state.slowRemainingSeconds,
             skillMastery == SkillMastery::Grandmaster
@@ -373,6 +399,13 @@ GameplayActorService::SharedSpellEffectResult GameplayActorService::tryApplyShar
         || spellName == "vampire charm")
     {
         if ((spellName == "control undead" || spellName == "vampire charm") && !actorLooksUndead)
+        {
+            result.disposition = SharedSpellDisposition::Rejected;
+            return result;
+        }
+
+        if (spellName == "control undead"
+            && spellResistance > static_cast<int>(skillLevel) * std::max(1, static_cast<int>(skillMastery)))
         {
             result.disposition = SharedSpellDisposition::Rejected;
             return result;

@@ -719,7 +719,7 @@ bool buildIndoorFaceGeometry(
             ? pMapDeltaData->faceAttributes[faceIndex]
             : face.attributes;
 
-    if (hasFaceAttribute(attributes, FaceAttribute::Invisible) || face.vertexIndices.size() < 3)
+    if (face.vertexIndices.size() < 3)
     {
         return false;
     }

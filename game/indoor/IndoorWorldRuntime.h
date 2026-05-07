@@ -213,6 +213,8 @@ public:
     void setBolsterMonstersEnabled(bool enabled);
 
     const std::string &mapName() const override;
+    const MonsterTable *monsterTable() const override;
+    const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const override;
     bool isIndoorMap() const override;
     bool allowsLloydsBeacon() const override;
     float currentGameMinutes() const override;
@@ -282,6 +284,7 @@ public:
         std::vector<GameplayProjectilePresentationState> &projectiles,
         std::vector<GameplayProjectileImpactPresentationState> &impacts) const;
     bool actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const override;
+    bool tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll) override;
     bool actorInspectState(
         size_t actorIndex,
         uint32_t animationTicks,
@@ -327,6 +330,13 @@ public:
         float x,
         float y,
         float z) override;
+    bool summonHostileMonsterById(
+        int16_t monsterId,
+        uint32_t count,
+        float x,
+        float y,
+        float z,
+        uint32_t group) override;
     bool tryStartArmageddon(
         size_t casterMemberIndex,
         uint32_t skillLevel,
@@ -341,6 +351,11 @@ public:
         bool visibleForFallback) const override;
     std::vector<GameplayPartyAttackActorFacts> collectPartyAttackFallbackActors(
         const GameplayPartyAttackFallbackQuery &query) const override;
+    bool applyPartyAttackMeleeDamage(
+        size_t actorIndex,
+        int damage,
+        CombatDamageType damageType,
+        const GameplayWorldPoint &source);
     bool applyPartyAttackMeleeDamage(
         size_t actorIndex,
         int damage,
@@ -513,6 +528,12 @@ private:
     void applyChestTrapState(uint32_t chestId, const ChestTrapOpenResult &trapResult);
     void spawnChestTrapVisual(const GameplayWorldPoint &point, const ChestTrapOpenResult &trapResult);
     bool applyActorMeleeAttackToMapActor(size_t sourceActorIndex, const ActorAttackRequest &attackRequest);
+    int applyMonsterDamageEventHooks(
+        size_t actorIndex,
+        int16_t monsterId,
+        int damage,
+        CombatDamageType damageType);
+    void notifyMonsterKilledEventHooks(size_t actorIndex, int16_t monsterId);
     int effectiveIndoorActorArmorClass(
         size_t actorIndex,
         const MapDeltaActor &actor,

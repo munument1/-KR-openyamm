@@ -1,8 +1,11 @@
 #include "game/gameplay/HouseInteraction.h"
 
+#include "game/gameplay/BountyHuntRuntime.h"
+#include "game/events/EvtEnums.h"
 #include "game/tables/ClassSkillTable.h"
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/party/Party.h"
 #include "game/items/PriceCalculator.h"
@@ -10,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <random>
 #include <unordered_set>
 
@@ -23,10 +27,16 @@ constexpr uint32_t LorettaPriceQuestBit = 1140;
 constexpr uint32_t LorettaPriceCompleteBit = 1141;
 constexpr uint32_t LorettaFirstStableBit = 1515;
 constexpr uint32_t LorettaLastStableBit = 1523;
+constexpr uint32_t BountyHuntGroup = 39;
+constexpr int ShopTheftBanDays = 336;
+constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
+constexpr uint32_t PrisonTermsAwardId = 87;
 constexpr const char *pLorettaPriceFixingLabel = "Price Fixing";
 constexpr const char *pLorettaPriceFixingMessage =
     "Well, If Loretta's got a new scheme, count me in!\n"
     "But you better get all the other companies to sign up!";
+
+int effectiveReputationForWorld(const IGameplayWorldRuntime *pWorldRuntime);
 
 bool tavernDrinkMakesPartyDrunk()
 {
@@ -70,6 +80,104 @@ int dayOfMonthFromGameMinutes(float currentGameMinutes)
 uint32_t templeSpellLevelFromGameMinutes(float currentGameMinutes)
 {
     return static_cast<uint32_t>(dayOfMonthFromGameMinutes(currentGameMinutes) % 7 + 1);
+}
+
+uint32_t monthFromGameMinutes(float currentGameMinutes)
+{
+    const int totalMinutes = std::max(0, static_cast<int>(std::floor(currentGameMinutes)));
+    const int totalDays = totalMinutes / MinutesPerDay;
+    return static_cast<uint32_t>(totalDays / 28);
+}
+
+uint32_t activeBountyMaximumLevel(const Party &party)
+{
+    const Character *pMember = party.member(0);
+    return pMember != nullptr ? pMember->level + 20u : 20u;
+}
+
+std::string bountyHuntVarPrefix(const IGameplayWorldRuntime &worldRuntime)
+{
+    return "MMerge.BountyHunt." + worldRuntime.mapName();
+}
+
+std::string shopBanUntilVar(uint32_t houseId)
+{
+    return "MMerge.ShopBanUntil." + std::to_string(houseId);
+}
+
+int32_t namedGlobalVarValue(const EventRuntimeState &state, const std::string &name)
+{
+    const auto iterator = state.namedGlobalVars.find(name);
+    return iterator != state.namedGlobalVars.end() ? iterator->second : 0;
+}
+
+BountyHuntEntry readBountyHuntEntry(const EventRuntimeState &state, const std::string &prefix)
+{
+    BountyHuntEntry entry = {};
+    entry.month = static_cast<uint32_t>(std::max<int32_t>(0, namedGlobalVarValue(state, prefix + ".Month")));
+    entry.monsterId = static_cast<int16_t>(namedGlobalVarValue(state, prefix + ".MonsterId"));
+    entry.done = namedGlobalVarValue(state, prefix + ".Done") != 0;
+    entry.claimed = namedGlobalVarValue(state, prefix + ".Claimed") != 0;
+    return entry;
+}
+
+void writeBountyHuntEntry(EventRuntimeState &state, const std::string &prefix, const BountyHuntEntry &entry)
+{
+    state.namedGlobalVars[prefix + ".Month"] = static_cast<int32_t>(entry.month);
+    state.namedGlobalVars[prefix + ".MonsterId"] = static_cast<int32_t>(entry.monsterId);
+    state.namedGlobalVars[prefix + ".Done"] = entry.done ? 1 : 0;
+    state.namedGlobalVars[prefix + ".Claimed"] = entry.claimed ? 1 : 0;
+}
+
+bool houseServiceSubjectToReputationBan(HouseServiceType serviceType)
+{
+    return serviceType == HouseServiceType::Shop
+        || serviceType == HouseServiceType::Guild
+        || serviceType == HouseServiceType::TrainingHall
+        || serviceType == HouseServiceType::Tavern
+        || serviceType == HouseServiceType::Bank;
+}
+
+bool houseHasActiveTheftBan(
+    const HouseEntry &houseEntry,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes)
+{
+    const EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    if (pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    const auto iterator = pEventRuntimeState->namedGlobalVars.find(shopBanUntilVar(houseEntry.id));
+    return iterator != pEventRuntimeState->namedGlobalVars.end()
+        && iterator->second > static_cast<int32_t>(std::floor(currentGameMinutes));
+}
+
+bool houseRefusesServiceForReputation(
+    const HouseEntry &houseEntry,
+    HouseServiceType serviceType,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes)
+{
+    if (!houseServiceSubjectToReputationBan(serviceType))
+    {
+        return false;
+    }
+
+    return houseHasActiveTheftBan(houseEntry, pWorldRuntime, currentGameMinutes)
+        || effectiveReputationForWorld(pWorldRuntime) > 25;
+}
+
+void disableHouseOptionsForReputation(std::vector<HouseActionOption> &options, const std::string &reason)
+{
+    for (HouseActionOption &option : options)
+    {
+        option.enabled = false;
+        option.disabledReason = reason;
+    }
 }
 
 int templeDonationTriggerIndexFromGameMinutes(float currentGameMinutes)
@@ -163,6 +271,18 @@ const Character *selectedMember(const Party *pParty)
 bool isTransportHouseType(const HouseEntry &houseEntry)
 {
     return isHouseType(houseEntry, "Stables") || isHouseType(houseEntry, "Boats");
+}
+
+int effectiveReputationForWorld(const IGameplayWorldRuntime *pWorldRuntime)
+{
+    return pWorldRuntime != nullptr
+        ? effectivePartyReputation(pWorldRuntime->currentLocationReputation(), pWorldRuntime->eventRuntimeState())
+        : 0;
+}
+
+bool isTempleOfBaa(const HouseEntry &houseEntry)
+{
+    return isHouseType(houseEntry, "Temple") && houseEntry.name.find("Baa") != std::string::npos;
 }
 
 }
@@ -359,15 +479,22 @@ int templeDonationCost(const HouseEntry &houseEntry)
     return roundPrice(houseEntry.priceMultiplier, 1, 1);
 }
 
-int skillLearningCost(const HouseEntry &houseEntry, bool isGuild)
+int skillLearningCost(
+    const HouseEntry &houseEntry,
+    const Party *pParty,
+    bool isGuild,
+    int effectiveReputation = 0)
 {
-    const float multiplier = isGuild ? houseEntry.priceMultiplier : houseEntry.skillPriceMultiplier;
-    return roundPrice(multiplier, 500, 1);
+    return PriceCalculator::skillLearningPrice(
+        pParty != nullptr ? pParty->activeMember() : nullptr,
+        houseEntry,
+        isGuild,
+        effectiveReputation);
 }
 
-int trainingCost(const HouseEntry &houseEntry, const Party &party)
+int trainingCost(const HouseEntry &houseEntry, const Party &party, int effectiveReputation = 0)
 {
-    return PriceCalculator::trainingPrice(party.activeMember(), houseEntry);
+    return PriceCalculator::trainingPrice(party.activeMember(), houseEntry, effectiveReputation);
 }
 
 uint64_t experienceRequiredForNextLevel(uint32_t currentLevel)
@@ -521,6 +648,11 @@ HouseServiceType resolveHouseServiceType(const HouseEntry &houseEntry)
         return HouseServiceType::Transport;
     }
 
+    if (isHouseType(houseEntry, "Town Hall"))
+    {
+        return HouseServiceType::TownHall;
+    }
+
     return HouseServiceType::None;
 }
 
@@ -583,6 +715,7 @@ std::vector<HouseActionOption> finalizeHouseActionOptions(
     DialogueMenuId menuId,
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes,
     std::vector<HouseActionOption> options);
 
 std::vector<HouseActionOption> buildHouseActionOptions(
@@ -601,7 +734,11 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (menuId == DialogueMenuId::LearnSkills)
     {
-        const int price = skillLearningCost(houseEntry, serviceType == HouseServiceType::Guild);
+        const int price = skillLearningCost(
+            houseEntry,
+            pParty,
+            serviceType == HouseServiceType::Guild,
+            effectiveReputationForWorld(pWorldRuntime));
         const std::vector<std::string> learnableSkills = collectLearnableSkills(houseEntry, pParty, pClassSkillTable);
 
         for (const std::string &skillName : learnableSkills)
@@ -628,7 +765,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             options.push_back(std::move(noSkills));
         }
 
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (menuId == DialogueMenuId::ShopEquipment)
@@ -666,7 +803,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             options.push_back(std::move(repair));
         }
 
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (menuId == DialogueMenuId::TavernArcomage)
@@ -695,7 +832,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         );
         options.push_back(std::move(play));
 
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (houseEntry.extraExit.has_value()
@@ -729,7 +866,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             closedReason
         ));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Tavern)
@@ -738,7 +875,12 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(makeOption(
             HouseActionId::TavernRentRoom,
-            "Rent room for " + std::to_string(PriceCalculator::tavernRoomPrice(pMember, houseEntry)) + " gold",
+            "Rent room for "
+                + std::to_string(PriceCalculator::tavernRoomPrice(
+                    pMember,
+                    houseEntry,
+                    effectiveReputationForWorld(pWorldRuntime)))
+                + " gold",
             isHouseOpenNow,
             closedReason
         ));
@@ -746,7 +888,10 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         HouseActionOption food = makeOption(
             HouseActionId::TavernBuyFood,
             "Fill packs to " + std::to_string(TavernFoodTarget) + " days for "
-                + std::to_string(PriceCalculator::tavernFoodPrice(pMember, houseEntry)) + " gold",
+                + std::to_string(PriceCalculator::tavernFoodPrice(
+                    pMember,
+                    houseEntry,
+                    effectiveReputationForWorld(pWorldRuntime))) + " gold",
             isHouseOpenNow,
             closedReason
         );
@@ -771,7 +916,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
                 closedReason));
         }
 
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::TrainingHall)
@@ -806,7 +951,10 @@ std::vector<HouseActionOption> buildHouseActionOptions(
                 label = "Train to level "
                     + std::to_string(member.level + 1)
                     + " for "
-                    + std::to_string(trainingCost(houseEntry, *pParty))
+                    + std::to_string(trainingCost(
+                        houseEntry,
+                        *pParty,
+                        effectiveReputationForWorld(pWorldRuntime)))
                     + " gold";
             }
         }
@@ -826,7 +974,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(std::move(train));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Bank)
@@ -840,7 +988,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
         options.push_back(std::move(deposit));
         options.push_back(std::move(withdraw));
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Shop)
@@ -855,7 +1003,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             closedReason
         ));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Guild)
@@ -868,7 +1016,35 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         ));
 
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
-        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
+    }
+
+    if (serviceType == HouseServiceType::TownHall)
+    {
+        const int currentFine = pParty != nullptr ? pParty->fineGold() : 0;
+        HouseActionOption fine = makeOption(
+            HouseActionId::TownHallCurrentFine,
+            "Current Fine: " + std::to_string(currentFine) + " gold",
+            true,
+            std::string {});
+        fine.enabled = false;
+        options.push_back(std::move(fine));
+
+        HouseActionOption payFine = makeOption(
+            HouseActionId::TownHallPayFine,
+            "Pay Fine",
+            isHouseOpenNow,
+            closedReason);
+
+        if (payFine.enabled && currentFine <= 0)
+        {
+            payFine.enabled = false;
+            payFine.disabledReason = "You do not owe a fine.";
+        }
+
+        options.push_back(std::move(payFine));
+        options.push_back(makeOption(HouseActionId::TownHallBountyHunt, "Bounty Hunt", isHouseOpenNow, closedReason));
+        return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
     if (serviceType == HouseServiceType::Transport)
@@ -906,7 +1082,11 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             }
 
             anyRouteVisible = true;
-            const int price = PriceCalculator::transportPrice(pMember, houseEntry, isBoatHouse(houseEntry));
+            const int price = PriceCalculator::transportPrice(
+                pMember,
+                houseEntry,
+                isBoatHouse(houseEntry),
+                effectiveReputationForWorld(pWorldRuntime));
             const int travelDays =
                 adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
             HouseActionOption transport = makeOption(
@@ -935,7 +1115,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         }
     }
 
-    return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, std::move(options));
+    return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
 }
 
 void applyHouseTopicFilterHook(
@@ -1005,9 +1185,19 @@ std::vector<HouseActionOption> finalizeHouseActionOptions(
     DialogueMenuId menuId,
     const Party *pParty,
     const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes,
     std::vector<HouseActionOption> options)
 {
     applyHouseTopicFilterHook(houseEntry, serviceType, menuId, pParty, pWorldRuntime, options);
+
+    if (houseRefusesServiceForReputation(houseEntry, serviceType, pWorldRuntime, currentGameMinutes))
+    {
+        const std::string reason = houseHasActiveTheftBan(houseEntry, pWorldRuntime, currentGameMinutes)
+            ? "This house refuses service after the theft."
+            : "This house refuses service because of your reputation.";
+        disableHouseOptionsForReputation(options, reason);
+    }
+
     return options;
 }
 
@@ -1112,10 +1302,14 @@ HouseActionResult performHouseAction(
 
             if (pWorldRuntime != nullptr)
             {
-                if (pWorldRuntime->currentLocationReputation() > -5)
+                if (isTempleOfBaa(houseEntry)
+                    && effectiveReputationForWorld(pWorldRuntime) < 9)
                 {
-                    pWorldRuntime->setCurrentLocationReputation(
-                        pWorldRuntime->currentLocationReputation() - 1);
+                    addStoredCurrentLocationReputation(*pWorldRuntime, 2);
+                }
+                else if (pWorldRuntime->currentLocationReputation() > -5)
+                {
+                    addStoredCurrentLocationReputation(*pWorldRuntime, -1);
                 }
 
                 if (EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState())
@@ -1140,7 +1334,10 @@ HouseActionResult performHouseAction(
 
         case HouseActionId::TavernRentRoom:
         {
-            const int price = PriceCalculator::tavernRoomPrice(party.activeMember(), houseEntry);
+            const int price = PriceCalculator::tavernRoomPrice(
+                party.activeMember(),
+                houseEntry,
+                effectiveReputationForWorld(pWorldRuntime));
 
             if (party.gold() < price)
             {
@@ -1166,7 +1363,10 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            const int price = PriceCalculator::tavernFoodPrice(party.activeMember(), houseEntry);
+            const int price = PriceCalculator::tavernFoodPrice(
+                party.activeMember(),
+                houseEntry,
+                effectiveReputationForWorld(pWorldRuntime));
 
             if (party.gold() < price)
             {
@@ -1265,6 +1465,145 @@ HouseActionResult performHouseAction(
             return result;
         }
 
+        case HouseActionId::TownHallCurrentFine:
+        {
+            result.messages.push_back("Your current fine is " + std::to_string(party.fineGold()) + " gold.");
+            return result;
+        }
+
+        case HouseActionId::TownHallPayFine:
+        {
+            const int fine = party.fineGold();
+
+            if (fine <= 0)
+            {
+                result.messages.push_back("You do not owe a fine.");
+                return result;
+            }
+
+            if (party.gold() < fine)
+            {
+                result.messages.push_back("You need " + std::to_string(fine) + " gold to pay your fine.");
+                result.soundType = HouseSoundType::GeneralNotEnoughGold;
+                result.speechId = SpeechId::NotEnoughGold;
+                return result;
+            }
+
+            party.addGold(-fine);
+            party.clearFineGold();
+            result.messages.push_back("Your fine has been paid.");
+            result.succeeded = true;
+            return result;
+        }
+
+        case HouseActionId::TownHallBountyHunt:
+        {
+            if (pWorldRuntime == nullptr || pWorldRuntime->monsterTable() == nullptr)
+            {
+                result.messages.push_back("The bounty office is unavailable right now.");
+                return result;
+            }
+
+            EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+
+            if (pEventRuntimeState == nullptr)
+            {
+                result.messages.push_back("The bounty office is unavailable right now.");
+                return result;
+            }
+
+            const uint32_t currentMonth = monthFromGameMinutes(pWorldRuntime->gameMinutes());
+            const std::string prefix = bountyHuntVarPrefix(*pWorldRuntime);
+            BountyHuntEntry entry = readBountyHuntEntry(*pEventRuntimeState, prefix);
+
+            if (entry.monsterId <= 0 || bountyHuntEntryExpired(entry, currentMonth))
+            {
+                const uint32_t seed =
+                    static_cast<uint32_t>(std::hash<std::string>{}(prefix))
+                    ^ static_cast<uint32_t>(currentMonth * 1103515245u);
+                const std::optional<int16_t> monsterId =
+                    chooseBountyHuntMonsterId(
+                        *pWorldRuntime->monsterTable(),
+                        pWorldRuntime->mergedBolsterMonsterTable(),
+                        activeBountyMaximumLevel(party),
+                        seed);
+
+                if (!monsterId.has_value())
+                {
+                    result.messages.push_back("There is no bounty this month.");
+                    return result;
+                }
+
+                entry = {};
+                entry.month = currentMonth;
+                entry.monsterId = *monsterId;
+                writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+                pWorldRuntime->summonHostileMonsterById(
+                    entry.monsterId,
+                    1,
+                    pWorldRuntime->partyX() + 1024.0f,
+                    pWorldRuntime->partyY(),
+                    pWorldRuntime->partyFootZ(),
+                    BountyHuntGroup);
+            }
+
+            const MonsterTable::MonsterStatsEntry *pStats =
+                pWorldRuntime->monsterTable()->findStatsById(entry.monsterId);
+
+            if (pStats == nullptr)
+            {
+                result.messages.push_back("The bounty office is unavailable right now.");
+                return result;
+            }
+
+            if (!entry.done)
+            {
+                result.messages.push_back(bountyHuntTargetText(*pStats));
+                result.succeeded = true;
+                return result;
+            }
+
+            const BountyHuntClaimResult claim =
+                claimBountyHuntReward(entry, *pWorldRuntime->monsterTable(), currentMonth, true);
+
+            if (!claim.claimed)
+            {
+                result.messages.push_back("You have already claimed this bounty.");
+                writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+                return result;
+            }
+
+            applyBountyHuntClaimResult(*pWorldRuntime, &party, claim);
+            writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+            result.messages.push_back(bountyHuntRewardText(*pStats));
+            result.succeeded = true;
+            return result;
+        }
+
+        case HouseActionId::ThroneServeSentence:
+        {
+            if (party.fineGold() <= 0)
+            {
+                result.messages.push_back("You do not owe a fine.");
+                return result;
+            }
+
+            party.clearFineGold();
+            party.addEventVariableValue(static_cast<uint16_t>(EvtVariable::PrisonTerms), 1);
+            party.addAward(PrisonTermsAwardId);
+            party.restAndHealAll();
+
+            if (pWorldRuntime != nullptr)
+            {
+                pWorldRuntime->advanceGameMinutes(PrisonSentenceMinutes);
+            }
+
+            result.messages.push_back("You have served one year in prison.");
+            result.succeeded = true;
+            result.speechId = SpeechId::InPrison;
+            return result;
+        }
+
         case HouseActionId::TrainingTrainActiveMember:
         {
             Character *pMember = party.activeMember();
@@ -1275,7 +1614,10 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            const int price = trainingCost(houseEntry, party);
+            const int price = trainingCost(
+                houseEntry,
+                party,
+                effectiveReputationForWorld(pWorldRuntime));
 
             if (houseEntry.trainingMaxLevel > 0
                 && pMember->level >= static_cast<uint32_t>(houseEntry.trainingMaxLevel))
@@ -1360,8 +1702,9 @@ HouseActionResult performHouseAction(
 
             const int price = skillLearningCost(
                 houseEntry,
-                resolveHouseServiceType(houseEntry) == HouseServiceType::Guild
-            );
+                &party,
+                resolveHouseServiceType(houseEntry) == HouseServiceType::Guild,
+                effectiveReputationForWorld(pWorldRuntime));
 
             if (party.gold() < price)
             {
@@ -1442,7 +1785,11 @@ HouseActionResult performHouseAction(
             }
 
             const Character *pMember = party.activeMember();
-            const int price = PriceCalculator::transportPrice(pMember, houseEntry, isBoatHouse(houseEntry));
+            const int price = PriceCalculator::transportPrice(
+                pMember,
+                houseEntry,
+                isBoatHouse(houseEntry),
+                effectiveReputationForWorld(pWorldRuntime));
 
             if (party.gold() < price)
             {

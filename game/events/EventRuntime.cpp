@@ -5,6 +5,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/HouseInteraction.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/items/ItemGenerator.h"
 #include "game/party/Party.h"
 #include "game/party/SkillData.h"
@@ -2427,6 +2428,8 @@ int32_t EventRuntime::getVariableValue(
                 return pParty != nullptr ? pParty->eventVariableValue(variable.tag) : 0;
 
             case EvtVariable::ReputationInCurrentLocation:
+                return runtimeState.currentLocationReputation;
+
             case EvtVariable::Unknown1:
             case EvtVariable::NumDeaths:
             case EvtVariable::NumBounties:
@@ -3084,6 +3087,12 @@ void EventRuntime::setVariableValue(
             return;
         }
 
+        if (variableId == EvtVariable::ReputationInCurrentLocation)
+        {
+            runtimeState.currentLocationReputation = clampReputation(value);
+            return;
+        }
+
         if (pParty != nullptr)
         {
             if (variableId == EvtVariable::PrisonTerms && value > previousValue)
@@ -3593,6 +3602,12 @@ void EventRuntime::addVariableValue(
             return;
         }
 
+        if (variableId == EvtVariable::ReputationInCurrentLocation)
+        {
+            runtimeState.currentLocationReputation = clampReputation(runtimeState.currentLocationReputation + value);
+            return;
+        }
+
         if (pParty != nullptr)
         {
             if (variableId == EvtVariable::PrisonTerms && value > 0)
@@ -4014,6 +4029,12 @@ void EventRuntime::subtractVariableValue(
             return;
         }
 
+        if (variableId == EvtVariable::ReputationInCurrentLocation)
+        {
+            runtimeState.currentLocationReputation = clampReputation(runtimeState.currentLocationReputation - value);
+            return;
+        }
+
         if (pParty != nullptr)
         {
             pParty->subtractEventVariableValue(variable.tag, value);
@@ -4080,6 +4101,8 @@ struct LuaScopeProgram
     std::vector<uint16_t> gameplayActionHookEventIds;
     std::vector<uint16_t> mapRefillHookEventIds;
     std::vector<uint16_t> mapTransitionHookEventIds;
+    std::vector<uint16_t> monsterKilledHookEventIds;
+    std::vector<uint16_t> monsterDamageHookEventIds;
 };
 
 struct LuaExecutionContext
@@ -4132,6 +4155,7 @@ void prepareRuntimeStateForEventExecution(
         runtimeState.pendingDialogueContext.reset();
         runtimeState.pendingMapMove.reset();
         runtimeState.pendingMovie.reset();
+        runtimeState.pendingReturnToMainMenu = false;
         runtimeState.pendingInputPrompt.reset();
     }
 
@@ -4828,6 +4852,13 @@ int luaGetPartyMemberCount(lua_State *pLuaState)
     return 1;
 }
 
+int luaGetCurrentPlayerIndex(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    lua_pushinteger(pLuaState, pParty != nullptr ? static_cast<lua_Integer>(pParty->activeMemberIndex()) : -1);
+    return 1;
+}
+
 std::string partyPortraitTextureName(uint32_t pictureId)
 {
     char buffer[16] = {};
@@ -5017,6 +5048,12 @@ int luaGetHookContext(lua_State *pLuaState)
     lua_setfield(pLuaState, -2, "npcId");
     lua_pushinteger(pLuaState, pContext->actorIndex.value_or(0));
     lua_setfield(pLuaState, -2, "actorIndex");
+    lua_pushinteger(pLuaState, pContext->monsterId);
+    lua_setfield(pLuaState, -2, "monsterId");
+    lua_pushinteger(pLuaState, pContext->damage);
+    lua_setfield(pLuaState, -2, "damage");
+    lua_pushinteger(pLuaState, pContext->damageType);
+    lua_setfield(pLuaState, -2, "damageType");
     lua_pushinteger(pLuaState, pContext->houseId);
     lua_setfield(pLuaState, -2, "houseId");
     lua_pushinteger(pLuaState, pContext->houseServiceType);
@@ -5036,6 +5073,19 @@ int luaGetHookContext(lua_State *pLuaState)
     lua_pushinteger(pLuaState, pContext->baseRestFoodCost);
     lua_setfield(pLuaState, -2, "baseRestFoodCost");
     return 1;
+}
+
+int luaSetHookDamage(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState != nullptr && pRuntimeState->activeHookContext)
+    {
+        const int32_t damage = static_cast<int32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+        pRuntimeState->activeHookContext->damageOverride = damage;
+    }
+
+    return 0;
 }
 
 int luaSetHookBlocked(lua_State *pLuaState)
@@ -5293,6 +5343,18 @@ int luaShowMovie(lua_State *pLuaState)
     movie.movieName = sanitizeEventString(luaL_checkstring(pLuaState, 1));
     movie.restoreAfterPlayback = luaEventBoolean(pLuaState, 2);
     pRuntimeState->pendingMovie = std::move(movie);
+    return 0;
+}
+
+int luaReturnToMainMenu(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState != nullptr)
+    {
+        pRuntimeState->pendingReturnToMainMenu = true;
+    }
+
     return 0;
 }
 
@@ -6994,6 +7056,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetHeldItem", luaSetHeldItem);
     registerLuaFunction(pLuaState, "ClearHeldItem", luaClearHeldItem);
     registerLuaFunction(pLuaState, "GetPartyMemberCount", luaGetPartyMemberCount);
+    registerLuaFunction(pLuaState, "GetCurrentPlayerIndex", luaGetCurrentPlayerIndex);
     registerLuaFunction(pLuaState, "GetPartyMemberPortraitId", luaGetPartyMemberPortraitId);
     registerLuaFunction(pLuaState, "SetPartyMemberPortraitId", luaSetPartyMemberPortraitId);
     registerLuaFunction(pLuaState, "PartyMemberHasItem", luaPartyMemberHasItem);
@@ -7004,6 +7067,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "PartyMemberHasEquippedItem", luaPartyMemberHasEquippedItem);
     registerLuaFunction(pLuaState, "GetHookContext", luaGetHookContext);
     registerLuaFunction(pLuaState, "SetHookBlocked", luaSetHookBlocked);
+    registerLuaFunction(pLuaState, "SetHookDamage", luaSetHookDamage);
     registerLuaFunction(pLuaState, "SetHookRestFoodCost", luaSetHookRestFoodCost);
     registerLuaFunction(pLuaState, "SetHookHouseTopics", luaSetHookHouseTopics);
     registerLuaFunction(pLuaState, "EnterHouse", luaEnterHouse);
@@ -7022,6 +7086,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetTextureOutdoors", luaSetTexture);
     registerLuaFunction(pLuaState, "SetOutdoorModelFacetTexture", luaSetOutdoorModelFacetTexture);
     registerLuaFunction(pLuaState, "ShowMovie", luaShowMovie);
+    registerLuaFunction(pLuaState, "ReturnToMainMenu", luaReturnToMainMenu);
     registerLuaFunction(pLuaState, "SetSprite", luaSetSprite);
     registerLuaFunction(pLuaState, "SetDoorState", luaSetDoorState);
     registerLuaFunction(pLuaState, "RegisterOutdoorModelMechanism", luaRegisterOutdoorModelMechanism);
@@ -7165,6 +7230,8 @@ void releaseScopeProgram(Engine::LuaStateOwner &lua, LuaScopeProgram &scopeProgr
     scopeProgram.gameplayActionHookEventIds.clear();
     scopeProgram.mapRefillHookEventIds.clear();
     scopeProgram.mapTransitionHookEventIds.clear();
+    scopeProgram.monsterKilledHookEventIds.clear();
+    scopeProgram.monsterDamageHookEventIds.clear();
 }
 
 void freezeHandlerTable(
@@ -7273,6 +7340,8 @@ LuaScopeProgram buildScopeProgram(
     scopeProgram.gameplayActionHookEventIds = readMetaEventIdArray(session.lua, scopeName, "gameplayActionHooks");
     scopeProgram.mapRefillHookEventIds = readMetaEventIdArray(session.lua, scopeName, "mapRefillHooks");
     scopeProgram.mapTransitionHookEventIds = readMetaEventIdArray(session.lua, scopeName, "mapTransitionHooks");
+    scopeProgram.monsterKilledHookEventIds = readMetaEventIdArray(session.lua, scopeName, "monsterKilledHooks");
+    scopeProgram.monsterDamageHookEventIds = readMetaEventIdArray(session.lua, scopeName, "monsterDamageHooks");
 
     return scopeProgram;
 }
@@ -7450,6 +7519,7 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.pendingMapMove.reset();
     runtimeState.pendingMovie.reset();
     runtimeState.pendingWinGame.reset();
+    runtimeState.pendingReturnToMainMenu = false;
     runtimeState.pendingInputPrompt.reset();
     runtimeState.pendingArcomageGame.reset();
     runtimeState.pendingSounds.clear();
@@ -7525,6 +7595,7 @@ bool EventRuntime::buildOnLoadState(
     if (mapDeltaData)
     {
         runtimeState.processedMapRespawnCount = mapDeltaData->locationInfo.respawnCount;
+        runtimeState.currentLocationReputation = mapDeltaData->locationInfo.reputation;
         runtimeState.decorVars = mapDeltaData->eventVariables.decorVars;
 
         for (const MapDeltaDoor &door : mapDeltaData->doors)
@@ -7881,6 +7952,10 @@ const std::vector<uint16_t> &hookEventIdsForKind(
             return scopeProgram.mapRefillHookEventIds;
         case EventRuntimeHookKind::MapTransition:
             return scopeProgram.mapTransitionHookEventIds;
+        case EventRuntimeHookKind::MonsterKilled:
+            return scopeProgram.monsterKilledHookEventIds;
+        case EventRuntimeHookKind::MonsterDamage:
+            return scopeProgram.monsterDamageHookEventIds;
     }
 
     return scopeProgram.npcEnterHookEventIds;

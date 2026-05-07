@@ -1,5 +1,7 @@
 #include "game/gameplay/HouseServiceRuntime.h"
 
+#include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/StealingRuntime.h"
 #include "game/items/ItemEnchantTables.h"
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
@@ -9,6 +11,7 @@
 #include "game/party/SkillData.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
 #include <random>
 #include <sstream>
@@ -18,6 +21,14 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr int ShopTheftBanDays = 336;
+constexpr int ShopTheftBanMinutesPerDay = 24 * 60;
+
+std::string shopBanUntilVar(uint32_t houseId)
+{
+    return "MMerge.ShopBanUntil." + std::to_string(houseId);
+}
+
 constexpr float MinutesPerDay = 24.0f * 60.0f;
 constexpr uint32_t ItemTypeAny = 0;
 constexpr uint32_t ItemTypeWeapon = 1;
@@ -942,7 +953,8 @@ std::string buildSellPhrase(
     const ItemDefinition &itemDefinition,
     const InventoryItem &item,
     const StandardItemEnchantTable *pStandardItemEnchantTable,
-    const SpecialItemEnchantTable *pSpecialItemEnchantTable)
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable,
+    int effectiveReputation)
 {
     const std::string itemName = itemDisplayName(item, itemDefinition, pStandardItemEnchantTable, pSpecialItemEnchantTable);
 
@@ -957,7 +969,8 @@ std::string buildSellPhrase(
         itemDefinition,
         houseEntry.priceMultiplier,
         pStandardItemEnchantTable,
-        pSpecialItemEnchantTable);
+        pSpecialItemEnchantTable,
+        effectiveReputation);
     const int listedPrice = std::max(1, static_cast<int>(std::round(
         static_cast<float>(std::max(
             1,
@@ -989,7 +1002,8 @@ std::string buildIdentifyPhrase(
     const InventoryItem &item,
     const ItemDefinition &itemDefinition,
     const StandardItemEnchantTable *pStandardItemEnchantTable,
-    const SpecialItemEnchantTable *pSpecialItemEnchantTable)
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable,
+    int effectiveReputation)
 {
     if (!ItemRuntime::requiresIdentification(itemDefinition) || item.identified)
     {
@@ -1008,7 +1022,8 @@ std::string buildIdentifyPhrase(
         itemDefinition,
         houseEntry.priceMultiplier,
         pStandardItemEnchantTable,
-        pSpecialItemEnchantTable);
+        pSpecialItemEnchantTable,
+        effectiveReputation);
     return "I'll tell you what it is for " + std::to_string(actualPrice) + " gold pieces.";
 }
 
@@ -1018,7 +1033,8 @@ std::string buildRepairPhrase(
     const InventoryItem &item,
     const ItemDefinition &itemDefinition,
     const StandardItemEnchantTable *pStandardItemEnchantTable,
-    const SpecialItemEnchantTable *pSpecialItemEnchantTable)
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable,
+    int effectiveReputation)
 {
     const std::string itemName =
         itemDisplayName(item, itemDefinition, pStandardItemEnchantTable, pSpecialItemEnchantTable);
@@ -1039,7 +1055,8 @@ std::string buildRepairPhrase(
         itemDefinition,
         houseEntry.priceMultiplier,
         pStandardItemEnchantTable,
-        pSpecialItemEnchantTable);
+        pSpecialItemEnchantTable,
+        effectiveReputation);
     const int listedPrice = std::max(
         1,
         static_cast<int>(static_cast<float>(std::max(
@@ -1139,7 +1156,8 @@ int HouseServiceRuntime::buyPrice(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1150,7 +1168,11 @@ int HouseServiceRuntime::buyPrice(
 
     const int actualValue =
         PriceCalculator::itemValue(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable);
-    const int price = PriceCalculator::itemBuyingPrice(party.activeMember(), actualValue, houseEntry.priceMultiplier);
+    const int price = PriceCalculator::itemBuyingPrice(
+        party.activeMember(),
+        actualValue,
+        houseEntry.priceMultiplier,
+        effectiveReputation);
     return std::max(actualValue, price);
 }
 
@@ -1160,7 +1182,8 @@ int HouseServiceRuntime::sellPrice(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1175,7 +1198,8 @@ int HouseServiceRuntime::sellPrice(
         *pItemDefinition,
         houseEntry.priceMultiplier,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 }
 
 bool HouseServiceRuntime::canSellItemToHouse(
@@ -1199,7 +1223,8 @@ std::string HouseServiceRuntime::buildBuyHoverText(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1215,7 +1240,8 @@ std::string HouseServiceRuntime::buildBuyHoverText(
         standardItemEnchantTable,
         specialItemEnchantTable,
         houseEntry,
-        item);
+        item,
+        effectiveReputation);
     const int realValue =
         PriceCalculator::itemValue(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable);
     const int listedPrice = baseBuyPrice(realValue, houseEntry.priceMultiplier);
@@ -1245,7 +1271,8 @@ std::string HouseServiceRuntime::buildSellHoverText(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1260,7 +1287,8 @@ std::string HouseServiceRuntime::buildSellHoverText(
         *pItemDefinition,
         item,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 }
 
 std::string HouseServiceRuntime::buildIdentifyHoverText(
@@ -1269,7 +1297,8 @@ std::string HouseServiceRuntime::buildIdentifyHoverText(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1291,7 +1320,8 @@ std::string HouseServiceRuntime::buildIdentifyHoverText(
         item,
         *pItemDefinition,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 }
 
 std::string HouseServiceRuntime::buildRepairHoverText(
@@ -1300,7 +1330,8 @@ std::string HouseServiceRuntime::buildRepairHoverText(
     const StandardItemEnchantTable &standardItemEnchantTable,
     const SpecialItemEnchantTable &specialItemEnchantTable,
     const HouseEntry &houseEntry,
-    const InventoryItem &item)
+    const InventoryItem &item,
+    int effectiveReputation)
 {
     const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
 
@@ -1321,7 +1352,8 @@ std::string HouseServiceRuntime::buildRepairHoverText(
         item,
         *pItemDefinition,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 }
 
 bool HouseServiceRuntime::tryBuyStockItem(
@@ -1334,7 +1366,8 @@ bool HouseServiceRuntime::tryBuyStockItem(
     HouseStockMode mode,
     size_t slotIndex,
     std::string &statusText,
-    ShopItemServiceResult *pResult)
+    ShopItemServiceResult *pResult,
+    int effectiveReputation)
 {
     statusText.clear();
 
@@ -1385,7 +1418,8 @@ bool HouseServiceRuntime::tryBuyStockItem(
         standardItemEnchantTable,
         specialItemEnchantTable,
         houseEntry,
-        item);
+        item,
+        effectiveReputation);
 
     if (party.gold() < price)
     {
@@ -1426,6 +1460,165 @@ bool HouseServiceRuntime::tryBuyStockItem(
     return true;
 }
 
+bool HouseServiceRuntime::tryStealStockItem(
+    Party &party,
+    IGameplayWorldRuntime &worldRuntime,
+    const ItemTable &itemTable,
+    const StandardItemEnchantTable &standardItemEnchantTable,
+    const SpecialItemEnchantTable &specialItemEnchantTable,
+    const HouseEntry &houseEntry,
+    float gameMinutes,
+    HouseStockMode mode,
+    size_t slotIndex,
+    uint32_t successRoll,
+    uint32_t caughtRoll,
+    std::string &statusText,
+    ShopItemServiceResult *pResult,
+    int effectiveReputation)
+{
+    statusText.clear();
+
+    if (pResult != nullptr)
+    {
+        *pResult = ShopItemServiceResult::None;
+    }
+
+    Party::HouseStockState &state = ensureHouseStockGenerated(
+        party,
+        itemTable,
+        standardItemEnchantTable,
+        specialItemEnchantTable,
+        houseEntry,
+        gameMinutes);
+    std::vector<InventoryItem> *pStock = selectStockVector(state, mode);
+
+    if (pStock == nullptr || slotIndex >= pStock->size() || (*pStock)[slotIndex].objectDescriptionId == 0)
+    {
+        statusText = "Nothing is for sale in that slot.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::NoItem;
+        }
+
+        return false;
+    }
+
+    const InventoryItem item = (*pStock)[slotIndex];
+    const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
+    const Character *pMember = party.activeMember();
+
+    if (pItemDefinition == nullptr || pMember == nullptr)
+    {
+        statusText = "That item is unavailable.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::Unavailable;
+        }
+
+        return false;
+    }
+
+    const int itemValue =
+        PriceCalculator::itemValue(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable);
+    const Party::Snapshot snapshot = party.snapshot();
+    const bool inventoryHasRoom = party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item);
+    party.restoreSnapshot(snapshot);
+
+    StealingAttemptInput input = {};
+    input.targetKind = StealingTargetKind::Shop;
+    input.itemValue = itemValue;
+    input.inventoryHasRoom = inventoryHasRoom;
+    input.successRoll = successRoll;
+    input.caughtRoll = caughtRoll;
+
+    const StealingAttemptResult stealResult = resolveStealingAttempt(*pMember, input);
+
+    if (!stealResult.handled)
+    {
+        statusText = "You need Stealing skill to steal that.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::Failed;
+        }
+
+        return false;
+    }
+
+    applyStealingAttemptResult(worldRuntime, &party, stealResult);
+
+    if (stealResult.outcome == StealingOutcomeKind::NoInventoryRoom)
+    {
+        statusText = "Inventory full.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::InventoryFull;
+        }
+
+        return false;
+    }
+
+    if (stealResult.outcome == StealingOutcomeKind::Success)
+    {
+        if (!party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item))
+        {
+            statusText = "Inventory full.";
+
+            if (pResult != nullptr)
+            {
+                *pResult = ShopItemServiceResult::InventoryFull;
+            }
+
+            return false;
+        }
+
+        (*pStock)[slotIndex] = {};
+        statusText = "Stole "
+            + ItemRuntime::displayName(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable)
+            + ".";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::Stolen;
+        }
+
+        return true;
+    }
+
+    if (stealResult.caught)
+    {
+        statusText = "Caught stealing.";
+
+        if (EventRuntimeState *pEventRuntimeState = worldRuntime.eventRuntimeState())
+        {
+            pEventRuntimeState->namedGlobalVars[shopBanUntilVar(houseEntry.id)] =
+                static_cast<int32_t>(
+                    std::floor(worldRuntime.gameMinutes())
+                    + ShopTheftBanDays * ShopTheftBanMinutesPerDay);
+        }
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::TheftCaught;
+        }
+
+        (void)effectiveReputation;
+        return false;
+    }
+
+    statusText = "You failed to steal it.";
+
+    if (pResult != nullptr)
+    {
+        *pResult = ShopItemServiceResult::Failed;
+    }
+
+    return false;
+}
+
 bool HouseServiceRuntime::trySellInventoryItem(
     Party &party,
     const ItemTable &itemTable,
@@ -1436,7 +1629,8 @@ bool HouseServiceRuntime::trySellInventoryItem(
     uint8_t gridX,
     uint8_t gridY,
     std::string &statusText,
-    ShopItemServiceResult *pResult)
+    ShopItemServiceResult *pResult,
+    int effectiveReputation)
 {
     statusText.clear();
 
@@ -1495,7 +1689,8 @@ bool HouseServiceRuntime::trySellInventoryItem(
         standardItemEnchantTable,
         specialItemEnchantTable,
         houseEntry,
-        *pItem);
+        *pItem,
+        effectiveReputation);
     InventoryItem removedItem = {};
 
     if (!party.takeItemFromMemberInventoryCell(memberIndex, pItem->gridX, pItem->gridY, removedItem))
@@ -1533,7 +1728,9 @@ bool HouseServiceRuntime::tryIdentifyInventoryItem(
     uint8_t gridX,
     uint8_t gridY,
     std::string &statusText,
-    ShopItemServiceResult *pResult)
+    ShopItemServiceResult *pResult,
+    int effectiveReputation,
+    const EventRuntimeState *pEventRuntimeState)
 {
     statusText.clear();
 
@@ -1586,7 +1783,11 @@ bool HouseServiceRuntime::tryIdentifyInventoryItem(
         return false;
     }
 
-    if (!supportsIdentify(houseEntry) || !isShopItemFamilyAllowed(houseEntry, *pItemDefinition))
+    const bool houseCanIdentify = supportsIdentify(houseEntry) && isShopItemFamilyAllowed(houseEntry, *pItemDefinition);
+    const bool followerCanIdentify = pEventRuntimeState != nullptr
+        && hiredNpcCanIdentifyItemKind(*pEventRuntimeState, pItemDefinition->equipStat);
+
+    if (!houseCanIdentify && !followerCanIdentify)
     {
         if (pResult != nullptr)
         {
@@ -1602,7 +1803,8 @@ bool HouseServiceRuntime::tryIdentifyInventoryItem(
         *pItemDefinition,
         houseEntry.priceMultiplier,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 
     if (party.gold() < price)
     {
@@ -1651,7 +1853,9 @@ bool HouseServiceRuntime::tryRepairInventoryItem(
     uint8_t gridX,
     uint8_t gridY,
     std::string &statusText,
-    ShopItemServiceResult *pResult)
+    ShopItemServiceResult *pResult,
+    int effectiveReputation,
+    const EventRuntimeState *pEventRuntimeState)
 {
     statusText.clear();
 
@@ -1704,7 +1908,11 @@ bool HouseServiceRuntime::tryRepairInventoryItem(
         return false;
     }
 
-    if (!supportsRepair(houseEntry) || !isShopItemFamilyAllowed(houseEntry, *pItemDefinition))
+    const bool houseCanRepair = supportsRepair(houseEntry) && isShopItemFamilyAllowed(houseEntry, *pItemDefinition);
+    const bool followerCanRepair = pEventRuntimeState != nullptr
+        && hiredNpcCanRepairItemKind(*pEventRuntimeState, pItemDefinition->equipStat);
+
+    if (!houseCanRepair && !followerCanRepair)
     {
         if (pResult != nullptr)
         {
@@ -1720,7 +1928,8 @@ bool HouseServiceRuntime::tryRepairInventoryItem(
         *pItemDefinition,
         houseEntry.priceMultiplier,
         &standardItemEnchantTable,
-        &specialItemEnchantTable);
+        &specialItemEnchantTable,
+        effectiveReputation);
 
     if (party.gold() < price)
     {

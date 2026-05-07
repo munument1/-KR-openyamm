@@ -117,6 +117,18 @@ TEST_CASE("map stats parse perception difficulty")
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
 }
 
+TEST_CASE("map stats parse base stealing fine")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pDaggerWound = mapStats.findByFileName("Out01.odm");
+    const OpenYAMM::Game::MapStatsEntry *pRavenshore = mapStats.findByFileName("Out02.odm");
+
+    REQUIRE(pDaggerWound != nullptr);
+    REQUIRE(pRavenshore != nullptr);
+    CHECK_EQ(pDaggerWound->baseStealingFine, 1);
+    CHECK_EQ(pRavenshore->baseStealingFine, 2);
+}
+
 TEST_CASE("merged bolster map metadata marks Antagarich outdoor maps")
 {
     OpenYAMM::Game::MergedBolsterMapTable bolsterMaps = {};

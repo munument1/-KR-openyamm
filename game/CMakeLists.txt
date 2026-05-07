@@ -41,6 +41,7 @@ add_executable(openyamm
     gameplay/GameplayController.cpp
     gameplay/CorpseLootRuntime.cpp
     gameplay/ChestRuntime.cpp
+    gameplay/BountyHuntRuntime.cpp
     gameplay/GameplayBolsterRuntime.cpp
     gameplay/GameplayActorAiSystem.cpp
     gameplay/GameplayActorService.cpp
@@ -69,6 +70,8 @@ add_executable(openyamm
     gameplay/HouseServiceRuntime.cpp
     gameplay/JournalQuestRuntime.cpp
     gameplay/NpcFollowerRuntime.cpp
+    gameplay/ReputationRuntime.cpp
+    gameplay/StealingRuntime.cpp
     gameplay/SavePreviewImage.cpp
     gameplay/StoryTextFormatter.cpp
     gameplay/TreasureRuntime.cpp

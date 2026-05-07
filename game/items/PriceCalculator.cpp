@@ -127,7 +127,7 @@ int classTierForClassName(const std::string &className)
 }
 }
 
-int PriceCalculator::playerMerchant(const Character *pCharacter)
+int PriceCalculator::playerMerchant(const Character *pCharacter, int effectiveReputation)
 {
     if (pCharacter == nullptr)
     {
@@ -139,7 +139,7 @@ int PriceCalculator::playerMerchant(const Character *pCharacter)
 
     if (pMerchant == nullptr || pMerchant->mastery == SkillMastery::None)
     {
-        return std::clamp(merchantBonus, 0, 100);
+        return std::min(merchantBonus - effectiveReputation, 100);
     }
 
     if (pMerchant->mastery == SkillMastery::Grandmaster)
@@ -151,29 +151,33 @@ int PriceCalculator::playerMerchant(const Character *pCharacter)
 
     if (bonus <= 0)
     {
-        return 0;
+        return std::min(merchantBonus - effectiveReputation, 100);
     }
 
-    return std::clamp(bonus + 7, 0, 100);
+    return std::min(bonus - effectiveReputation + 7, 100);
 }
 
-int PriceCalculator::applyMerchantDiscount(const Character *pCharacter, int goldAmount)
+int PriceCalculator::applyMerchantDiscount(const Character *pCharacter, int goldAmount, int effectiveReputation)
 {
     if (goldAmount <= 0)
     {
         return 0;
     }
 
-    return goldAmount * (100 - playerMerchant(pCharacter)) / 100;
+    return goldAmount * (100 - playerMerchant(pCharacter, effectiveReputation)) / 100;
 }
 
 int PriceCalculator::itemBuyingPrice(
     const Character *pCharacter,
     int realValue,
-    float priceMultiplier)
+    float priceMultiplier,
+    int effectiveReputation)
 {
     const int clampedValue = std::max(1, realValue);
-    int price = applyMerchantDiscount(pCharacter, static_cast<int>(static_cast<float>(clampedValue) * priceMultiplier));
+    int price = applyMerchantDiscount(
+        pCharacter,
+        static_cast<int>(static_cast<float>(clampedValue) * priceMultiplier),
+        effectiveReputation);
     return std::max(clampedValue, price);
 }
 
@@ -192,7 +196,8 @@ int PriceCalculator::itemSellingPrice(
     const ItemDefinition &itemDefinition,
     float priceMultiplier,
     const StandardItemEnchantTable *pStandardEnchantTable,
-    const SpecialItemEnchantTable *pSpecialEnchantTable)
+    const SpecialItemEnchantTable *pSpecialEnchantTable,
+    int effectiveReputation)
 {
     if (item.broken)
     {
@@ -206,7 +211,7 @@ int PriceCalculator::itemSellingPrice(
         return 1;
     }
 
-    const int merchant = playerMerchant(pCharacter);
+    const int merchant = playerMerchant(pCharacter, effectiveReputation);
     const int result = static_cast<int>(
         static_cast<float>(realValue) / (priceMultiplier + 2.0f)
         + static_cast<float>(realValue * merchant) / 100.0f);
@@ -219,12 +224,13 @@ int PriceCalculator::itemIdentificationPrice(
     const ItemDefinition &itemDefinition,
     float priceMultiplier,
     const StandardItemEnchantTable *pStandardEnchantTable,
-    const SpecialItemEnchantTable *pSpecialEnchantTable)
+    const SpecialItemEnchantTable *pSpecialEnchantTable,
+    int effectiveReputation)
 {
     const int realValue = itemValue(item, itemDefinition, pStandardEnchantTable, pSpecialEnchantTable);
     const int basePrice = std::max(1, static_cast<int>(static_cast<float>(realValue) * priceMultiplier / 32.0f));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
 int PriceCalculator::itemRepairPrice(
@@ -233,45 +239,60 @@ int PriceCalculator::itemRepairPrice(
     const ItemDefinition &itemDefinition,
     float priceMultiplier,
     const StandardItemEnchantTable *pStandardEnchantTable,
-    const SpecialItemEnchantTable *pSpecialEnchantTable)
+    const SpecialItemEnchantTable *pSpecialEnchantTable,
+    int effectiveReputation)
 {
     const int realValue = std::max(1, itemValue(item, itemDefinition, pStandardEnchantTable, pSpecialEnchantTable));
     const int basePrice = std::max(1, static_cast<int>(static_cast<float>(realValue) / (6.0f - priceMultiplier)));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
-int PriceCalculator::skillLearningPrice(const Character *pCharacter, const HouseEntry &houseEntry, bool isGuild)
+int PriceCalculator::skillLearningPrice(
+    const Character *pCharacter,
+    const HouseEntry &houseEntry,
+    bool isGuild,
+    int effectiveReputation)
 {
     const float multiplier = isGuild ? houseEntry.priceMultiplier : houseEntry.skillPriceMultiplier;
     const int basePrice = std::max(1, static_cast<int>(std::round(multiplier * 500.0f)));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
-int PriceCalculator::transportPrice(const Character *pCharacter, const HouseEntry &houseEntry, bool isBoat)
+int PriceCalculator::transportPrice(
+    const Character *pCharacter,
+    const HouseEntry &houseEntry,
+    bool isBoat,
+    int effectiveReputation)
 {
     const int basePrice = isBoat ? 50 : 25;
     const int scaledBasePrice = std::max(1, static_cast<int>(std::round(static_cast<float>(basePrice) * houseEntry.priceMultiplier)));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, scaledBasePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, scaledBasePrice, effectiveReputation));
 }
 
-int PriceCalculator::tavernRoomPrice(const Character *pCharacter, const HouseEntry &houseEntry)
+int PriceCalculator::tavernRoomPrice(
+    const Character *pCharacter,
+    const HouseEntry &houseEntry,
+    int effectiveReputation)
 {
     const float houseMultiplier = houseEntry.priceMultiplier;
     const int basePrice = std::max(1, static_cast<int>(std::round(houseMultiplier * houseMultiplier / 10.0f)));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
-int PriceCalculator::tavernFoodPrice(const Character *pCharacter, const HouseEntry &houseEntry)
+int PriceCalculator::tavernFoodPrice(
+    const Character *pCharacter,
+    const HouseEntry &houseEntry,
+    int effectiveReputation)
 {
     const float houseMultiplier = houseEntry.priceMultiplier;
     const int basePrice = std::max(1, static_cast<int>(std::round(
         houseMultiplier * houseMultiplier * houseMultiplier / 100.0f)));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
 int PriceCalculator::templeHealPrice(const Character *pCharacter, const HouseEntry &houseEntry)
@@ -283,7 +304,10 @@ int PriceCalculator::templeHealPrice(const Character *pCharacter, const HouseEnt
     return std::clamp(result, 1, 10000);
 }
 
-int PriceCalculator::trainingPrice(const Character *pCharacter, const HouseEntry &houseEntry)
+int PriceCalculator::trainingPrice(
+    const Character *pCharacter,
+    const HouseEntry &houseEntry,
+    int effectiveReputation)
 {
     if (pCharacter == nullptr)
     {
@@ -304,6 +328,6 @@ int PriceCalculator::trainingPrice(const Character *pCharacter, const HouseEntry
         static_cast<int>(std::round(
             static_cast<float>(pCharacter->level) * houseEntry.priceMultiplier * static_cast<float>(classTier))));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice));
+    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 }

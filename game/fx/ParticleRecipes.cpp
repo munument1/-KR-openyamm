@@ -64,6 +64,17 @@ void tuneProjectileTrailLayer(LayerRecipe &layer)
     layer.lifetimeSeconds *= ProjectileTrailParticleLifetimeScale;
 }
 
+float projectileTrailParticleSizeMultiplier(ProjectileRecipe recipe)
+{
+    return recipe == ProjectileRecipe::Fireball || recipe == ProjectileRecipe::DragonBreath ? 2.0f : 1.0f;
+}
+
+void scaleLayerParticleSize(LayerRecipe &layer, float multiplier)
+{
+    layer.startSize *= multiplier;
+    layer.endSize *= multiplier;
+}
+
 uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
 {
     return (static_cast<uint32_t>(alpha) << 24)
@@ -657,6 +668,11 @@ bool projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe recipe)
     return recipe != ProjectileRecipe::None;
 }
 
+bool projectileRecipeShowsImpactBillboard(ProjectileRecipe recipe)
+{
+    return recipe == ProjectileRecipe::Fireball || recipe == ProjectileRecipe::DragonBreath;
+}
+
 void spawnProjectileTrailParticles(
     ParticleSystem &particleSystem,
     const ProjectileSpawnContext &context,
@@ -713,6 +729,7 @@ void spawnProjectileTrailParticles(
 
     const uint32_t colorAbgr = projectileRecipeColorAbgr(recipe);
     const uint32_t baseSeed = context.projectileId * 2246822519u;
+    const float trailParticleSizeMultiplier = projectileTrailParticleSizeMultiplier(recipe);
 
     if (recipe == ProjectileRecipe::Cannonball)
     {
@@ -794,6 +811,7 @@ void spawnProjectileTrailParticles(
         emberLayer.material = FxParticleMaterial::HardBlob;
         emberLayer.tag = FxParticleTag::Trail;
         applyGravityTrailTuning(emberLayer);
+        scaleLayerParticleSize(emberLayer, trailParticleSizeMultiplier);
         tuneProjectileTrailLayer(emberLayer);
         emitLayerParticles(
             particleSystem,
@@ -847,6 +865,7 @@ void spawnProjectileTrailParticles(
         smokeLayer.material = FxParticleMaterial::Smoke;
         smokeLayer.tag = FxParticleTag::Trail;
         applyGravityTrailTuning(smokeLayer);
+        scaleLayerParticleSize(smokeLayer, trailParticleSizeMultiplier);
         tuneProjectileTrailLayer(smokeLayer);
         emitLayerParticles(
             particleSystem,

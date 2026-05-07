@@ -1241,6 +1241,9 @@ TEST_CASE("random NPC BTB gate follows merged continent reputation rules")
         harness.executeAndPresent(*findActionIndexByLabel(dialog, "Threat"));
     CHECK(findActionIndexByLabel(normalDialog, "Join").has_value());
     CHECK_FALSE(findActionIndexByLabel(normalDialog, "Threat").has_value());
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(harness.eventRuntimeState().messages.back().find("%11") == std::string::npos);
+    CHECK(harness.eventRuntimeState().messages.back().find("%12") == std::string::npos);
 }
 
 TEST_CASE("random NPC BTB gate is disabled when merged continent does not affect NPC reputation")
@@ -1381,6 +1384,35 @@ TEST_CASE("sandro thant throne room residents")
     REQUIRE(thantIndex.has_value());
     CHECK_EQ(dialog.actions[*thantIndex].id, ThantNpcId);
     CHECK_FALSE(dialogHasActionLabel(dialog, "Brekish Onefang"));
+}
+
+TEST_CASE("throne room sentence clears fines without hiding residents by default")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::EventDialogContent &normalDialog =
+        harness.openHouseDialog(SandroThantThroneRoomHouseId);
+    CHECK_FALSE(findActionIndexByLabel(normalDialog, "Serve Sentence").has_value());
+    CHECK(findActionIndexByLabel(normalDialog, "Sandro").has_value());
+    CHECK(findActionIndexByLabel(normalDialog, "Thant").has_value());
+
+    harness.party().addFineGold(2500);
+    const float beforeMinutes = harness.worldRuntime().gameMinutes();
+    const OpenYAMM::Game::EventDialogContent &fineDialog =
+        harness.openHouseDialog(SandroThantThroneRoomHouseId);
+    const std::optional<size_t> serveSentenceIndex = findActionIndexByLabel(fineDialog, "Serve Sentence");
+    REQUIRE(serveSentenceIndex.has_value());
+
+    harness.executeAndPresent(*serveSentenceIndex);
+
+    CHECK_EQ(harness.party().fineGold(), 0);
+    CHECK_EQ(
+        harness.party().eventVariableValue(
+            static_cast<uint16_t>(OpenYAMM::Game::EvtVariable::PrisonTerms)),
+        1);
+    CHECK(harness.party().hasAward(87));
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), beforeMinutes + 365.0f * 24.0f * 60.0f);
 }
 
 TEST_CASE("relocated thant is silent after necromancer alliance")

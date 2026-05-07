@@ -537,6 +537,8 @@ public:
     void bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram);
     int mapId() const;
     const std::string &mapName() const override;
+    const MonsterTable *monsterTable() const override;
+    const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const override;
     bool isIndoorMap() const override;
     bool isUnderwaterMap() const override;
     bool allowsLloydsBeacon() const override;
@@ -566,6 +568,7 @@ public:
     bool isChestOpened(uint32_t chestId) const;
     size_t mapActorCount() const override;
     bool actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const override;
+    bool tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll) override;
     bool actorInspectState(
         size_t actorIndex,
         uint32_t animationTicks,
@@ -845,6 +848,14 @@ public:
         float x,
         float y,
         float z
+    ) override;
+    bool summonHostileMonsterById(
+        int16_t monsterId,
+        uint32_t count,
+        float x,
+        float y,
+        float z,
+        uint32_t group
     ) override;
     void setWorldFxSystem(WorldFxSystem *pWorldFxSystem);
     bool checkMonstersKilled(uint32_t checkType, uint32_t id, uint32_t count, bool invisibleAsDead) const override;

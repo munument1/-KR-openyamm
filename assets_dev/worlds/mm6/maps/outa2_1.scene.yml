@@ -1,0 +1,9 @@
+format_version: 1
+kind: outdoor_scene_overlay
+source:
+  geometry_file: outa2.odm
+terrain:
+  footstep_sound_overrides:
+    - tile_id: 0
+      walk_sound_id: 91
+      run_sound_id: 52

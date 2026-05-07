@@ -18,6 +18,7 @@ constexpr size_t MapIdColumn = 0;
 constexpr size_t NameColumn = 1;
 constexpr size_t FileNameColumn = 2;
 constexpr size_t PerceptionDifficultyColumn = 5;
+constexpr size_t BaseStealingFineColumn = 8;
 constexpr size_t DisarmDifficultyColumn = 9;
 constexpr size_t TrapDamageD20DiceCountColumn = 10;
 constexpr size_t NavigationMapFileNameColumn = 0;
@@ -411,6 +412,12 @@ bool MapStats::loadFromRows(const std::vector<std::vector<std::string>> &rows, c
         if (!parseInteger(getColumnValue(row, PerceptionDifficultyColumn), entry.perceptionDifficulty))
         {
             std::cerr << "MapStats row has invalid perception difficulty for map id " << entry.id << '\n';
+            return false;
+        }
+
+        if (!parseInteger(getColumnValue(row, BaseStealingFineColumn), entry.baseStealingFine))
+        {
+            std::cerr << "MapStats row has invalid base stealing fine for map id " << entry.id << '\n';
             return false;
         }
 

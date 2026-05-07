@@ -7,6 +7,7 @@
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/gameplay/MercenaryRecruitmentRuntime.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/party/EventSpellBuffs.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/MapStats.h"
@@ -1295,7 +1296,9 @@ std::string formatNpcProfessionText(
     std::string text,
     const NpcEntry &npc,
     const MergedNpcProfessionEntry &profession,
-    const Party *pParty)
+    const Party *pParty,
+    int effectiveReputation = 0,
+    std::optional<int> requiredReputation = std::nullopt)
 {
     const Character *pActiveMember = nullptr;
 
@@ -1311,9 +1314,31 @@ std::string formatNpcProfessionText(
     replaceAllInPlace(text, "%01", npc.name);
     replaceAllInPlace(text, "%02", activeMemberName);
     replaceAllInPlace(text, "%04", std::to_string(profession.weeklyCost));
+    replaceAllInPlace(text, "%11", reputationLabel(effectiveReputation));
+    replaceAllInPlace(
+        text,
+        "%12",
+        reputationLabel(requiredReputation.has_value() ? *requiredReputation : effectiveReputation));
     replaceAllInPlace(text, "%14", profession.profession);
     replaceAllInPlace(text, "%17", std::to_string(profession.weeklyCost / 100u));
     return text;
+}
+
+int effectiveReputationForContext(const GameplayDialogController::Context &context)
+{
+    return context.pWorldRuntime != nullptr
+        ? effectivePartyReputation(
+            context.pWorldRuntime->currentLocationReputation(),
+            context.pWorldRuntime->eventRuntimeState())
+        : 0;
+}
+
+int requiredNpcReputationForBtb(const MergedNpcBtbEntry &btbEntry)
+{
+    const std::string creed = toLowerCopy(btbEntry.creed);
+    return creed == "dark"
+        ? static_cast<int>(btbEntry.requiredReputation)
+        : -static_cast<int>(btbEntry.requiredReputation);
 }
 
 bool hasHiredNpcFollower(const EventRuntimeState &eventRuntimeState, uint32_t npcId)
@@ -2259,7 +2284,12 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             }
         }
 
-        context.eventRuntimeState.messages.push_back(formatNpcProfessionText(message, *pNpc, *pProfession, context.pParty));
+        context.eventRuntimeState.messages.push_back(formatNpcProfessionText(
+            message,
+            *pNpc,
+            *pProfession,
+            context.pParty,
+            effectiveReputationForContext(context)));
 
         EventRuntimeState::DialogueOfferState offerState = {};
         offerState.kind = DialogueOfferKind::NpcHire;
@@ -2468,6 +2498,10 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 pNpc != nullptr && context.pNpcProfessionTable != nullptr
                     ? context.pNpcProfessionTable->get(pNpc->professionId)
                     : nullptr;
+            const MergedNpcBtbEntry *pBtbEntry =
+                pProfession != nullptr && context.pNpcBtbTable != nullptr
+                    ? context.pNpcBtbTable->get(pProfession->personality)
+                    : nullptr;
             uint32_t textId = action.secondaryId;
 
             if (accepted && action.id == NpcBribeTopicId)
@@ -2494,7 +2528,15 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             {
                 context.eventRuntimeState.messages.push_back(
                     pNpc != nullptr && pProfession != nullptr
-                        ? formatNpcProfessionText(*text, *pNpc, *pProfession, context.pParty)
+                        ? formatNpcProfessionText(
+                            *text,
+                            *pNpc,
+                            *pProfession,
+                            context.pParty,
+                            effectiveReputationForContext(context),
+                            pBtbEntry != nullptr
+                                ? std::optional<int>(requiredNpcReputationForBtb(*pBtbEntry))
+                                : std::nullopt)
                         : *text);
             }
         }
@@ -2962,7 +3004,9 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
         else if (resolveHouseServiceType(*pHostHouseEntry) == HouseServiceType::Shop
                  && context.pParty != nullptr
                  && context.pWorldRuntime != nullptr
-                 && context.pWorldRuntime->currentLocationReputation() < -10)
+                 && effectivePartyReputation(
+                        context.pWorldRuntime->currentLocationReputation(),
+                        context.pWorldRuntime->eventRuntimeState()) > 10)
         {
             const std::optional<uint32_t> soundId =
                 deriveHouseSoundId(*pHostHouseEntry, HouseSoundType::ShopGoodbyeRude);

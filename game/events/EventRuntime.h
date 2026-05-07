@@ -71,6 +71,8 @@ enum class EventRuntimeHookKind : uint8_t
     GameplayAction,
     MapRefill,
     MapTransition,
+    MonsterKilled,
+    MonsterDamage,
 };
 
 struct RuntimeMechanismState
@@ -288,6 +290,9 @@ struct EventRuntimeState
         EventRuntimeHookKind kind = EventRuntimeHookKind::NpcEnter;
         uint32_t npcId = 0;
         std::optional<uint32_t> actorIndex;
+        uint32_t monsterId = 0;
+        int32_t damage = 0;
+        uint32_t damageType = 0;
         uint32_t houseId = 0;
         uint32_t houseServiceType = 0;
         uint32_t menuId = 0;
@@ -298,6 +303,7 @@ struct EventRuntimeState
         std::string destinationMapName;
         int32_t baseRestFoodCost = 0;
         std::optional<int32_t> restFoodCostOverride;
+        std::optional<int32_t> damageOverride;
         bool blocked = false;
         std::optional<std::string> statusText;
         std::vector<uint32_t> houseTopicActionIds;
@@ -314,6 +320,7 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, int32_t> historyEventTimes;
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, int32_t>> historyEventTimesByContinent;
     std::array<uint8_t, 75> mapVars = {};
+    int32_t currentLocationReputation = 0;
     std::unordered_map<uint32_t, uint32_t> facetSetMasks;
     std::unordered_map<uint32_t, uint32_t> facetClearMasks;
     uint64_t outdoorSurfaceRevision = 0;
@@ -380,6 +387,7 @@ struct EventRuntimeState
     std::optional<PendingMapMove> pendingMapMove;
     std::optional<PendingMovie> pendingMovie;
     std::optional<PendingWinGame> pendingWinGame;
+    bool pendingReturnToMainMenu = false;
     std::optional<PendingInputPrompt> pendingInputPrompt;
     std::optional<PendingArcomageGame> pendingArcomageGame;
     std::vector<PendingSound> pendingSounds;

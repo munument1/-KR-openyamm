@@ -7030,7 +7030,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             *pCharacter,
             context.itemTable(),
             context.standardItemEnchantTable(),
-            context.specialItemEnchantTable());
+            context.specialItemEnchantTable(),
+            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr);
 
         const auto formatPair = [](int actualValue, int baseValue) -> std::string
         {

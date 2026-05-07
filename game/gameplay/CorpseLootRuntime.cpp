@@ -2,6 +2,7 @@
 
 #include "game/audio/SoundIds.h"
 #include "game/items/ItemGenerator.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/party/Party.h"
 #include "game/tables/ItemTable.h"
 
@@ -147,6 +148,16 @@ bool itemMatchesLootKind(const ItemDefinition &item, MonsterTable::LootItemKind 
 std::string foundGoldStatusText(int goldAmount)
 {
     return "You found " + std::to_string(std::max(0, goldAmount)) + " gold!";
+}
+
+int followerAdjustedGoldAmount(int goldAmount, const EventRuntimeState *pEventRuntimeState)
+{
+    if (pEventRuntimeState == nullptr || goldAmount <= 0)
+    {
+        return std::max(0, goldAmount);
+    }
+
+    return static_cast<int>(hiredNpcGoldAfterBonusAndFees(static_cast<uint32_t>(goldAmount), *pEventRuntimeState));
 }
 
 std::string foundItemStatusText(int goldAmount, const std::string &itemName)
@@ -368,7 +379,9 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
                 break;
             }
 
-            const int goldAmount = static_cast<int>(removedItem.goldAmount);
+            const int goldAmount = followerAdjustedGoldAmount(
+                static_cast<int>(removedItem.goldAmount),
+                worldRuntime.eventRuntimeState());
             party.addGold(goldAmount);
             party.requestSound(SoundId::Gold);
             result.goldAmount += goldAmount;

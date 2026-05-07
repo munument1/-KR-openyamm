@@ -195,6 +195,36 @@ TEST_CASE("party quest bits survive save data round trip")
     CHECK_FALSE(restoredParty.hasQuestBit(37));
 }
 
+TEST_CASE("party continent reputations survive save data round trip")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.setContinentReputation(3, 28);
+    party.setContinentReputation(4, -11);
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "reputation_roundtrip.odm";
+    saveData.party = party.snapshot();
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_continent_reputation_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+
+    OpenYAMM::Game::Party restoredParty = {};
+    restoredParty.seed(createRegressionPartySeed());
+    restoredParty.restoreSnapshot(loaded->party);
+
+    CHECK_EQ(restoredParty.continentReputation(3), 28);
+    CHECK_EQ(restoredParty.continentReputation(4), -11);
+}
+
 TEST_CASE("named runtime globals survive save data round trip")
 {
     OpenYAMM::Game::Party party = {};

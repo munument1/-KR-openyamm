@@ -3,6 +3,7 @@
 #include "game/tables/ChestTable.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/WorldFxSystem.h"
+#include "game/gameplay/BountyHuntRuntime.h"
 #include "game/gameplay/ChestRuntime.h"
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameplayBolsterRuntime.h"
@@ -10,6 +11,9 @@
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/MonsterSpellSupport.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/ReputationRuntime.h"
+#include "game/gameplay/StealingRuntime.h"
 #include "game/items/ItemGenerator.h"
 #include "game/gameplay/TreasureRuntime.h"
 #include "game/events/EventProjectileSpells.h"
@@ -4940,6 +4944,12 @@ void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(const MapActorState &ac
         return;
     }
 
+    if (m_pGameplayActorService != nullptr
+        && m_pGameplayActorService->isPartyControlledActor(gameplayActorControlModeFromOutdoor(actor.controlMode)))
+    {
+        return;
+    }
+
     const std::vector<MonsterTable::MonsterDeathDropEntry> &drops =
         m_pMonsterTable->deathDropsForMonsterId(actor.monsterId);
 
@@ -5630,6 +5640,16 @@ const std::string &OutdoorWorldRuntime::mapName() const
     return m_mapName;
 }
 
+const MonsterTable *OutdoorWorldRuntime::monsterTable() const
+{
+    return m_pMonsterTable;
+}
+
+const MergedBolsterMonsterTable *OutdoorWorldRuntime::mergedBolsterMonsterTable() const
+{
+    return m_pMergedBolsterMonsterTable;
+}
+
 bool OutdoorWorldRuntime::isIndoorMap() const
 {
     return false;
@@ -5863,12 +5883,19 @@ int OutdoorWorldRuntime::currentLocationReputation() const
 
 void OutdoorWorldRuntime::setCurrentLocationReputation(int reputation)
 {
+    reputation = clampReputation(reputation);
+
     if (m_pOutdoorMapDeltaData == nullptr)
     {
         return;
     }
 
     m_pOutdoorMapDeltaData->locationInfo.reputation = reputation;
+
+    if (m_eventRuntimeState)
+    {
+        m_eventRuntimeState->currentLocationReputation = reputation;
+    }
 }
 
 const OutdoorWorldRuntime::AtmosphereState &OutdoorWorldRuntime::atmosphereState() const
@@ -9953,6 +9980,10 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
 
     if (m_pOutdoorMapDeltaData != nullptr)
     {
+        const int reputation = clampReputation(m_eventRuntimeState->currentLocationReputation);
+        m_eventRuntimeState->currentLocationReputation = reputation;
+        m_pOutdoorMapDeltaData->locationInfo.reputation = reputation;
+
         std::vector<uint32_t> appliedFacetSetMasks;
         appliedFacetSetMasks.reserve(m_eventRuntimeState->facetSetMasks.size());
 
@@ -10374,6 +10405,187 @@ bool OutdoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAc
     return true;
 }
 
+bool OutdoorWorldRuntime::tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll)
+{
+    if (actorIndex >= m_mapActors.size() || m_pMonsterTable == nullptr || m_pParty == nullptr)
+    {
+        return false;
+    }
+
+    MapActorState &actor = m_mapActors[actorIndex];
+
+    if (actor.isDead || actor.isInvisible)
+    {
+        return false;
+    }
+
+    Character *pMember = m_pParty->activeMember();
+
+    if (pMember == nullptr)
+    {
+        return false;
+    }
+
+    const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId);
+
+    if (pStats == nullptr)
+    {
+        return false;
+    }
+
+    if (actorIndex >= m_mapActorCorpseViews.size())
+    {
+        m_mapActorCorpseViews.resize(actorIndex + 1);
+    }
+
+    if (!m_mapActorCorpseViews[actorIndex].has_value())
+    {
+        std::vector<uint32_t> guaranteedItemIds;
+
+        if (actor.specialItemId != 0)
+        {
+            guaranteedItemIds.push_back(actor.specialItemId);
+        }
+
+        if (m_eventRuntimeState)
+        {
+            const auto extraItemIterator =
+                m_eventRuntimeState->actorExtraItemOverrides.find(static_cast<uint32_t>(actorIndex));
+
+            if (extraItemIterator != m_eventRuntimeState->actorExtraItemOverrides.end())
+            {
+                guaranteedItemIds.insert(
+                    guaranteedItemIds.end(),
+                    extraItemIterator->second.begin(),
+                    extraItemIterator->second.end());
+            }
+        }
+
+        GameplayCorpseViewState corpse =
+            buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
+        corpse.fromSummonedMonster = false;
+        corpse.sourceIndex = static_cast<uint32_t>(actorIndex);
+        m_mapActorCorpseViews[actorIndex] = std::move(corpse);
+    }
+
+    GameplayCorpseViewState &corpse = *m_mapActorCorpseViews[actorIndex];
+    const float deltaX = partyX() - actor.preciseX;
+    const float deltaY = partyY() - actor.preciseY;
+    const float deltaZ = partyFootZ() - actor.preciseZ;
+    const bool reputationSensitiveTarget =
+        actor.group == 38
+        || actor.group == 55
+        || pStats->hasKind(MonsterKind::Peasant);
+
+    StealingAttemptInput input = {};
+    input.targetKind = StealingTargetKind::Monster;
+    input.monsterLevel = static_cast<int>(pStats->level);
+    input.distanceSquared = static_cast<int>(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+    input.hasLoot = !corpse.items.empty();
+    input.reputationSensitiveTarget = reputationSensitiveTarget;
+    input.successRoll = successRoll;
+    input.caughtRoll = caughtRoll;
+    const StealingAttemptResult stealResult = resolveStealingAttempt(*pMember, input);
+
+    applyStealingAttemptResult(*this, m_pParty, stealResult);
+
+    if (!stealResult.handled)
+    {
+        if (m_pInteractionView != nullptr)
+        {
+            m_pInteractionView->setStatusBarEvent("You need Stealing skill.");
+        }
+
+        return true;
+    }
+
+    if (stealResult.outcome != StealingOutcomeKind::Success)
+    {
+        if (m_pInteractionView != nullptr)
+        {
+            const char *pStatusText = stealResult.outcome == StealingOutcomeKind::TooFar
+                ? "Too far away."
+                : stealResult.outcome == StealingOutcomeKind::NothingToSteal
+                    ? "Nothing to steal."
+                    : stealResult.caught
+                        ? "Caught stealing!"
+                        : "Failed to steal.";
+            m_pInteractionView->setStatusBarEvent(pStatusText);
+        }
+
+        return true;
+    }
+
+    if (corpse.items.empty())
+    {
+        return true;
+    }
+
+    GameplayChestItemState stolenItem = corpse.items.front();
+
+    if (stolenItem.isGold)
+    {
+        const EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+        const int adjustedGold = static_cast<int>(
+            pEventRuntimeState != nullptr
+                ? hiredNpcGoldAfterBonusAndFees(stolenItem.goldAmount, *pEventRuntimeState)
+                : stolenItem.goldAmount);
+        m_pParty->addGold(adjustedGold);
+        corpse.items.erase(corpse.items.begin());
+
+        if (m_pInteractionView != nullptr)
+        {
+            m_pInteractionView->setStatusBarEvent("You found " + std::to_string(std::max(0, adjustedGold)) + " gold!");
+        }
+
+        return true;
+    }
+
+    InventoryItem inventoryItem = stolenItem.item;
+
+    if (inventoryItem.objectDescriptionId == 0)
+    {
+        inventoryItem.objectDescriptionId = stolenItem.itemId;
+    }
+
+    if (inventoryItem.quantity == 0)
+    {
+        inventoryItem.quantity = stolenItem.quantity;
+    }
+
+    if (inventoryItem.width == 0)
+    {
+        inventoryItem.width = stolenItem.width;
+    }
+
+    if (inventoryItem.height == 0)
+    {
+        inventoryItem.height = stolenItem.height;
+    }
+
+    if (!m_pParty->tryGrantInventoryItemStartingAt(m_pParty->activeMemberIndex(), inventoryItem))
+    {
+        if (m_pInteractionView != nullptr)
+        {
+            m_pInteractionView->setStatusBarEvent("Pack is Full!");
+        }
+
+        return true;
+    }
+
+    corpse.items.erase(corpse.items.begin());
+
+    if (m_pInteractionView != nullptr)
+    {
+        const ItemDefinition *pDefinition = m_pItemTable != nullptr ? m_pItemTable->get(stolenItem.itemId) : nullptr;
+        const std::string itemName =
+            pDefinition != nullptr && !pDefinition->name.empty() ? pDefinition->name : "item";
+        m_pInteractionView->setStatusBarEvent("You found an item (" + itemName + ")!");
+    }
+
+    return true;
+}
+
 bool OutdoorWorldRuntime::actorInspectState(
     size_t actorIndex,
     uint32_t animationTicks,
@@ -10614,6 +10826,8 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
 
             if (pStats != nullptr)
             {
+                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine);
+
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
                     m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
@@ -10971,6 +11185,7 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
 
     if (!wasDead && isDead && m_pMonsterTable != nullptr)
     {
+        markRuntimeBountyHuntMonsterKilled(*this, actor.monsterId);
         const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId);
 
         if (pStats != nullptr)
@@ -11504,6 +11719,8 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         {
             if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
             {
+                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine);
+
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
                     m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
@@ -13435,6 +13652,89 @@ bool OutdoorWorldRuntime::summonFriendlyMonsterById(
         actor.hasDetectedParty = false;
         m_mapActors.push_back(std::move(actor));
         spawnedAny = true;
+    }
+
+    return spawnedAny;
+}
+
+bool OutdoorWorldRuntime::summonHostileMonsterById(
+    int16_t monsterId,
+    uint32_t count,
+    float x,
+    float y,
+    float z,
+    uint32_t group)
+{
+    if (m_pMonsterTable == nullptr || count == 0)
+    {
+        return false;
+    }
+
+    const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(monsterId);
+
+    if (pStats == nullptr)
+    {
+        return false;
+    }
+
+    bool spawnedAny = false;
+
+    for (uint32_t summonIndex = 0; summonIndex < count; ++summonIndex)
+    {
+        const MonsterEntry *pMonsterEntry = resolveMonsterEntry(*m_pMonsterTable, monsterId, pStats);
+        const uint16_t actorRadius = pMonsterEntry != nullptr ? std::max<uint16_t>(pMonsterEntry->radius, 32) : 32;
+        const bx::Vec3 spawnPosition =
+            calculateEncounterSpawnPosition(x, y, z, 128, actorRadius, summonIndex);
+        MapActorState actor = buildSpawnedMapActorState(
+            *m_pMonsterTable,
+            m_pSpellTable,
+            m_pOutdoorMapData,
+            *pStats,
+            GameplayBolsterRuntimeContext{
+                .pMap = &m_map,
+                .pMonsterTable = m_pMonsterTable,
+                .pBolsterMapTable = m_pMergedBolsterMapTable,
+                .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                .pParty = m_pParty,
+                .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
+            },
+            m_nextActorId++,
+            0,
+            false,
+            static_cast<size_t>(-1),
+            group,
+            0,
+            spawnPosition.x,
+            spawnPosition.y,
+            spawnPosition.z);
+
+        const auto visualIt = m_monsterVisualsById.find(actor.monsterId);
+
+        if (visualIt != m_monsterVisualsById.end())
+        {
+            applyMonsterVisualState(actor, visualIt->second);
+        }
+        else if (m_pActorSpriteFrameTable != nullptr)
+        {
+            const MonsterVisualState visualState = buildMonsterVisualState(*m_pActorSpriteFrameTable, pMonsterEntry);
+
+            if (visualState.spriteFrameIndex != 0)
+            {
+                m_monsterVisualsById[actor.monsterId] = visualState;
+                applyMonsterVisualState(actor, visualState);
+            }
+        }
+
+        actor.hostileToParty = true;
+        actor.hasDetectedParty = true;
+        actor.hostilityType = std::max<uint8_t>(actor.hostilityType, 4);
+        m_mapActors.push_back(std::move(actor));
+        spawnedAny = true;
+    }
+
+    if (spawnedAny)
+    {
+        applyEventRuntimeState(true);
     }
 
     return spawnedAny;

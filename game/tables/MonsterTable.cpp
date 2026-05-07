@@ -1314,4 +1314,9 @@ const std::vector<MonsterEntry> &MonsterTable::getEntries() const
 {
     return m_entries;
 }
+
+const std::unordered_map<int, MonsterTable::MonsterStatsEntry> &MonsterTable::statsEntries() const
+{
+    return m_statsById;
+}
 }

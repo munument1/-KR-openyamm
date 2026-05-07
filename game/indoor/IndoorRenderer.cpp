@@ -6001,7 +6001,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 impact.sourceObjectSpriteName,
                 impact.sourceObjectFlags);
 
-            if (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe))
+            if (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe)
+                && !FxRecipes::projectileRecipeShowsImpactBillboard(recipe))
             {
                 continue;
             }

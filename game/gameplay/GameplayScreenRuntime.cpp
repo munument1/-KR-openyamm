@@ -2464,7 +2464,7 @@ int GameplayScreenRuntime::restFoodRequired() const
         ? pEventRuntimeState->activeHookContext->restFoodCostOverride
         : std::nullopt;
     pEventRuntimeState->activeHookContext.reset();
-    return std::max(0, overrideFoodCost.value_or(baseFoodRequired));
+    return std::max(0, overrideFoodCost.value_or(baseFoodRequired) - hiredNpcRestFoodReduction(*pEventRuntimeState));
 }
 
 const GameSettings &GameplayScreenRuntime::settingsSnapshot() const

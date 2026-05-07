@@ -19,6 +19,12 @@ ReplaceMapEvent(11, "Blackshire Coach and Buggy", function()
     evt.EnterHouse(478)
 end, "Blackshire Coach and Buggy")
 
+AppendMapEvent(68, function()
+    if not HasEverOwnedItem(2119) then -- Lord Kilburn's Shield
+        MM6.EnsureChestItem(1, 2119, 0, 0)
+    end
+end)
+
 MM6.RegisterDragonTowerTimer(210, -17921, 9724, 2742, 1184)
 
 ReplaceMapEvent(211, "Dragon Tower", function()

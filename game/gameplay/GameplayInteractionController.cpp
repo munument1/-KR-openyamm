@@ -7,6 +7,7 @@
 #include "game/gameplay/GameplaySpellActionController.h"
 #include "game/gameplay/GameplaySpellService.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/tables/ItemTable.h"
 
 #include <SDL3/SDL_timer.h>
@@ -45,6 +46,16 @@ std::string formatFoundItemStatusText(const std::string &itemName)
 std::string formatFoundGoldStatusText(int goldAmount)
 {
     return "You found " + std::to_string(std::max(0, goldAmount)) + " gold!";
+}
+
+int followerAdjustedGoldAmount(int goldAmount, const EventRuntimeState *pEventRuntimeState)
+{
+    if (pEventRuntimeState == nullptr || goldAmount <= 0)
+    {
+        return std::max(0, goldAmount);
+    }
+
+    return static_cast<int>(hiredNpcGoldAfterBonusAndFees(static_cast<uint32_t>(goldAmount), *pEventRuntimeState));
 }
 
 std::string heldItemDisplayName(const GameplayScreenRuntime &runtime)
@@ -185,13 +196,16 @@ bool tryActivateWorldItem(
 
     if (pickupDecision.destination == GameplayWorldItemPickupDestination::Gold)
     {
-        pParty->addGold(pickupDecision.goldAmount);
+        const int goldAmount = followerAdjustedGoldAmount(
+            pickupDecision.goldAmount,
+            worldRuntime.eventRuntimeState());
+        pParty->addGold(goldAmount);
         pParty->requestSound(SoundId::Gold);
-        const std::string statusText = formatFoundGoldStatusText(pickupDecision.goldAmount);
+        const std::string statusText = formatFoundGoldStatusText(goldAmount);
         runtime.setStatusBarEvent(statusText);
         recordWorldItemActivationResult(
             worldRuntime,
-            "picked up " + std::to_string(pickupDecision.goldAmount) + " gold");
+            "picked up " + std::to_string(goldAmount) + " gold");
         return true;
     }
 
@@ -262,6 +276,14 @@ uint32_t partyAttackRandomSeed()
 {
     const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     return uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+}
+
+uint32_t interactionRandomSeed(uint32_t salt)
+{
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    const uint64_t ticks = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
+    return static_cast<uint32_t>((ticks >> 32u) ^ ticks ^ salt);
 }
 
 GameplayActionController::WorldPoint toActionWorldPoint(const GameplayWorldPoint &point)
@@ -1019,6 +1041,25 @@ GameplayInteractionController::updateWorldInteractionFrame(
         || worldInteractionInputState.inspectMouseActivateLatch)
     {
         pickCurrentHit();
+    }
+
+    const bool stealPressed =
+        input.leftMouseButton.pressed
+        && pointerPolicy.leftMousePressed
+        && (input.isScancodeHeld(SDL_SCANCODE_LCTRL) || input.isScancodeHeld(SDL_SCANCODE_RCTRL));
+
+    if (stealPressed
+        && currentHit.kind == GameplayWorldHitKind::Actor
+        && currentHit.actor
+        && pWorldRuntime != nullptr
+        && pWorldRuntime->tryStealFromActor(
+            currentHit.actor->actorIndex,
+            interactionRandomSeed(0x9e3779b9u),
+            interactionRandomSeed(0x7f4a7c15u)))
+    {
+        result.mouseActivationActivated = true;
+        clearWorldHover(pWorldRuntime);
+        return result;
     }
 
     const bool hadLootViewBeforeActivation = hasActiveLootView(runtime);

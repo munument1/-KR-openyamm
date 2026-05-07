@@ -25,6 +25,7 @@ enum class HouseServiceType : uint32_t
     TrainingHall,
     Guild,
     Transport,
+    TownHall,
 };
 
 enum class HouseActionId : uint32_t
@@ -55,6 +56,10 @@ enum class HouseActionId : uint32_t
     LorettaPriceFixing,
     TavernDrink,
     TavernTip,
+    TownHallCurrentFine,
+    TownHallPayFine,
+    TownHallBountyHunt,
+    ThroneServeSentence,
 };
 
 enum class HouseSoundType : uint32_t

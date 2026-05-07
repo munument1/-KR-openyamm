@@ -4,6 +4,8 @@
 #include "game/gameplay/GameplaySaveLoadUiSupport.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/StringUtils.h"
 #include "game/tables/ItemTable.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -17,6 +19,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -24,6 +27,14 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+int effectiveReputationForView(const GameplayScreenRuntime &view)
+{
+    const IGameplayWorldRuntime *pWorldRuntime = view.worldRuntime();
+    return pWorldRuntime != nullptr
+        ? effectivePartyReputation(pWorldRuntime->currentLocationReputation(), pWorldRuntime->eventRuntimeState())
+        : 0;
+}
+
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr uint64_t SaveGameDoubleClickWindowMs = 500;
 constexpr size_t SaveLoadVisibleSlotCount = 10;
@@ -145,6 +156,16 @@ struct InventoryItemScreenRect
 std::string formatFoundGoldStatusText(int goldAmount)
 {
     return "You found " + std::to_string(std::max(0, goldAmount)) + " gold!";
+}
+
+int followerAdjustedGoldAmount(int goldAmount, const EventRuntimeState *pEventRuntimeState)
+{
+    if (pEventRuntimeState == nullptr || goldAmount <= 0)
+    {
+        return std::max(0, goldAmount);
+    }
+
+    return static_cast<int>(hiredNpcGoldAfterBonusAndFees(static_cast<uint32_t>(goldAmount), *pEventRuntimeState));
 }
 
 enum class HouseShopVerticalAlign
@@ -2943,7 +2964,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                 view.interactionState().houseShopPressedSlotIndex,
                 std::numeric_limits<size_t>::max(),
                 resolveHoveredSlotIndex,
-                [&view, pDialogueHouseEntry, stockMode](size_t slotIndex)
+                [&view, pDialogueHouseEntry, stockMode, &input](size_t slotIndex)
                 {
                     if (slotIndex == std::numeric_limits<size_t>::max()
                         || view.party() == nullptr
@@ -2957,17 +2978,43 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     std::string statusText;
                     HouseServiceRuntime::ShopItemServiceResult serviceResult =
                         HouseServiceRuntime::ShopItemServiceResult::None;
-                    HouseServiceRuntime::tryBuyStockItem(
-                        *view.party(),
-                        *view.itemTable(),
-                        *view.standardItemEnchantTable(),
-                        *view.specialItemEnchantTable(),
-                        *pDialogueHouseEntry,
-                        view.worldRuntime()->gameMinutes(),
-                        *stockMode,
-                        slotIndex,
-                        statusText,
-                        &serviceResult);
+                    const bool stealRequested = input.isScancodeHeld(SDL_SCANCODE_LCTRL)
+                        || input.isScancodeHeld(SDL_SCANCODE_RCTRL);
+
+                    if (stealRequested)
+                    {
+                        static thread_local std::mt19937 rng(std::random_device{}());
+                        HouseServiceRuntime::tryStealStockItem(
+                            *view.party(),
+                            *view.worldRuntime(),
+                            *view.itemTable(),
+                            *view.standardItemEnchantTable(),
+                            *view.specialItemEnchantTable(),
+                            *pDialogueHouseEntry,
+                            view.worldRuntime()->gameMinutes(),
+                            *stockMode,
+                            slotIndex,
+                            std::uniform_int_distribution<uint32_t>(0, 1000000u)(rng),
+                            std::uniform_int_distribution<uint32_t>(0, 1000000u)(rng),
+                            statusText,
+                            &serviceResult,
+                            effectiveReputationForView(view));
+                    }
+                    else
+                    {
+                        HouseServiceRuntime::tryBuyStockItem(
+                            *view.party(),
+                            *view.itemTable(),
+                            *view.standardItemEnchantTable(),
+                            *view.specialItemEnchantTable(),
+                            *pDialogueHouseEntry,
+                            view.worldRuntime()->gameMinutes(),
+                            *stockMode,
+                            slotIndex,
+                            statusText,
+                            &serviceResult,
+                            effectiveReputationForView(view));
+                    }
 
                     if (!statusText.empty())
                     {
@@ -2976,9 +3023,14 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
 
                     const size_t activeMemberIndex = view.partyReadOnly()->activeMemberIndex();
 
-                    if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success)
+                    if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success
+                        || serviceResult == HouseServiceRuntime::ShopItemServiceResult::Stolen)
                     {
                         view.playSpeechReaction(activeMemberIndex, SpeechId::ShopItemBought, true);
+                    }
+                    else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::TheftCaught)
+                    {
+                        view.playSpeechReaction(activeMemberIndex, SpeechId::WrongShop, true);
                     }
                     else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::NotEnoughGold)
                     {
@@ -3040,7 +3092,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     gridX,
                     gridY,
                     statusText,
-                    &serviceResult);
+                    &serviceResult,
+                    effectiveReputationForView(view));
             }
             else if (view.inventoryNestedOverlay().mode
                 == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify)
@@ -3055,7 +3108,9 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     gridX,
                     gridY,
                     statusText,
-                    &serviceResult);
+                    &serviceResult,
+                    effectiveReputationForView(view),
+                    view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
             }
             else if (view.inventoryNestedOverlay().mode
                 == GameplayUiController::InventoryNestedOverlayMode::ShopRepair)
@@ -3070,7 +3125,9 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     gridX,
                     gridY,
                     statusText,
-                    &serviceResult);
+                    &serviceResult,
+                    effectiveReputationForView(view),
+                    view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
             }
 
             const size_t activeMemberIndex = view.partyReadOnly()->activeMemberIndex();
@@ -3794,8 +3851,11 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                 {
                     if (takenItem.isGold)
                     {
-                        view.party()->addGold(static_cast<int>(takenItem.goldAmount));
-                        view.setStatusBarEvent(formatFoundGoldStatusText(static_cast<int>(takenItem.goldAmount)));
+                        const int goldAmount = followerAdjustedGoldAmount(
+                            static_cast<int>(takenItem.goldAmount),
+                            view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
+                        view.party()->addGold(goldAmount);
+                        view.setStatusBarEvent(formatFoundGoldStatusText(goldAmount));
 
                         if (view.audioSystem() != nullptr)
                         {
@@ -3942,8 +4002,11 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                     {
                         if (removedItem.isGold)
                         {
-                            view.party()->addGold(static_cast<int>(removedItem.goldAmount));
-                            view.setStatusBarEvent(formatFoundGoldStatusText(static_cast<int>(removedItem.goldAmount)));
+                            const int goldAmount = followerAdjustedGoldAmount(
+                                static_cast<int>(removedItem.goldAmount),
+                                view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
+                            view.party()->addGold(goldAmount);
+                            view.setStatusBarEvent(formatFoundGoldStatusText(goldAmount));
 
                             if (view.audioSystem() != nullptr)
                             {

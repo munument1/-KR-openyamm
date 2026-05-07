@@ -68,6 +68,15 @@ void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
     m_pendingJumpLift = 1.0f;
 }
 
+void IndoorPartyRuntime::translatePartyPosition(float deltaX, float deltaY, float deltaZ)
+{
+    m_movementState.x += deltaX;
+    m_movementState.y += deltaY;
+    m_movementState.footZ += deltaZ;
+    m_movementState.verticalVelocity = 0.0f;
+    m_movementState.grounded = true;
+}
+
 void IndoorPartyRuntime::update(
     float desiredVelocityX,
     float desiredVelocityY,

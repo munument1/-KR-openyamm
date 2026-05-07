@@ -71,6 +71,7 @@ float projectileRecipeGlowRadius(ProjectileRecipe recipe);
 float projectileRecipeAnchorOffset(ProjectileRecipe recipe, uint16_t radius, uint16_t height);
 float projectileRecipeBackOffset(ProjectileRecipe recipe, uint16_t radius);
 bool projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe recipe);
+bool projectileRecipeShowsImpactBillboard(ProjectileRecipe recipe);
 
 void spawnProjectileTrailParticles(
     ParticleSystem &particleSystem,

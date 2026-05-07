@@ -13,9 +13,11 @@ namespace OpenYAMM::Game
 struct InventoryItem;
 struct ItemDefinition;
 class ItemTable;
+class IGameplayWorldRuntime;
 class Party;
 class StandardItemEnchantTable;
 class SpecialItemEnchantTable;
+struct EventRuntimeState;
 
 enum class HouseStockMode : uint8_t
 {
@@ -38,6 +40,8 @@ public:
         NothingToRepair,
         NotEnoughGold,
         InventoryFull,
+        Stolen,
+        TheftCaught,
         Failed,
     };
 
@@ -60,14 +64,16 @@ public:
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static int sellPrice(
         const Party &party,
         const ItemTable &itemTable,
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static bool canSellItemToHouse(const ItemTable &itemTable, const HouseEntry &houseEntry, const InventoryItem &item);
     static std::string buildBuyHoverText(
         const Party &party,
@@ -75,28 +81,32 @@ public:
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static std::string buildSellHoverText(
         const Party &party,
         const ItemTable &itemTable,
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static std::string buildIdentifyHoverText(
         const Party &party,
         const ItemTable &itemTable,
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static std::string buildRepairHoverText(
         const Party &party,
         const ItemTable &itemTable,
         const StandardItemEnchantTable &standardItemEnchantTable,
         const SpecialItemEnchantTable &specialItemEnchantTable,
         const HouseEntry &houseEntry,
-        const InventoryItem &item);
+        const InventoryItem &item,
+        int effectiveReputation = 0);
     static bool tryBuyStockItem(
         Party &party,
         const ItemTable &itemTable,
@@ -107,7 +117,23 @@ public:
         HouseStockMode mode,
         size_t slotIndex,
         std::string &statusText,
-        ShopItemServiceResult *pResult = nullptr);
+        ShopItemServiceResult *pResult = nullptr,
+        int effectiveReputation = 0);
+    static bool tryStealStockItem(
+        Party &party,
+        IGameplayWorldRuntime &worldRuntime,
+        const ItemTable &itemTable,
+        const StandardItemEnchantTable &standardItemEnchantTable,
+        const SpecialItemEnchantTable &specialItemEnchantTable,
+        const HouseEntry &houseEntry,
+        float gameMinutes,
+        HouseStockMode mode,
+        size_t slotIndex,
+        uint32_t successRoll,
+        uint32_t caughtRoll,
+        std::string &statusText,
+        ShopItemServiceResult *pResult = nullptr,
+        int effectiveReputation = 0);
     static bool trySellInventoryItem(
         Party &party,
         const ItemTable &itemTable,
@@ -118,7 +144,8 @@ public:
         uint8_t gridX,
         uint8_t gridY,
         std::string &statusText,
-        ShopItemServiceResult *pResult = nullptr);
+        ShopItemServiceResult *pResult = nullptr,
+        int effectiveReputation = 0);
     static bool tryIdentifyInventoryItem(
         Party &party,
         const ItemTable &itemTable,
@@ -129,7 +156,9 @@ public:
         uint8_t gridX,
         uint8_t gridY,
         std::string &statusText,
-        ShopItemServiceResult *pResult = nullptr);
+        ShopItemServiceResult *pResult = nullptr,
+        int effectiveReputation = 0,
+        const EventRuntimeState *pEventRuntimeState = nullptr);
     static bool tryRepairInventoryItem(
         Party &party,
         const ItemTable &itemTable,
@@ -140,6 +169,8 @@ public:
         uint8_t gridX,
         uint8_t gridY,
         std::string &statusText,
-        ShopItemServiceResult *pResult = nullptr);
+        ShopItemServiceResult *pResult = nullptr,
+        int effectiveReputation = 0,
+        const EventRuntimeState *pEventRuntimeState = nullptr);
 };
 }

@@ -279,6 +279,7 @@ public:
         int gold = 0;
         int bankGold = 0;
         int food = 0;
+        int fineGold = 0;
         uint32_t waterDamageTicks = 0;
         uint32_t burningDamageTicks = 0;
         uint32_t splashCount = 0;
@@ -293,6 +294,7 @@ public:
         uint32_t arcomageLossCount = 0;
         std::vector<HouseStockState> houseStockStates;
         std::unordered_set<uint32_t> everOwnedItemIds;
+        std::unordered_map<uint32_t, int32_t> continentReputations;
         std::unordered_set<uint32_t> questBits;
         std::unordered_map<uint16_t, int32_t> eventVariables;
         std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> npcTopicOverrides;
@@ -335,6 +337,11 @@ public:
     void setEventVariableValue(uint16_t variableId, int32_t value);
     void addEventVariableValue(uint16_t variableId, int32_t value);
     void subtractEventVariableValue(uint16_t variableId, int32_t value);
+    int fineGold() const;
+    void addFineGold(int amount);
+    void clearFineGold();
+    int32_t continentReputation(uint32_t continentId) const;
+    void setContinentReputation(uint32_t continentId, int32_t value);
     void setClassMultiplierTable(const ClassMultiplierTable *pClassMultiplierTable);
     const ClassMultiplierTable *classMultiplierTable() const;
     void setClassSkillTable(const ClassSkillTable *pClassSkillTable);
@@ -534,6 +541,7 @@ public:
     bool reviveMember(size_t memberIndex, int health, bool applyWeak);
 
     const std::vector<Character> &members() const;
+    size_t memberCount() const;
     const std::vector<AdventurersInnMember> &adventurersInnMembers() const;
     const AdventurersInnMember *adventurersInnMember(size_t innIndex) const;
     AdventurersInnMember *adventurersInnMember(size_t innIndex);
@@ -603,6 +611,7 @@ private:
     int m_gold = 0;
     int m_bankGold = 0;
     int m_food = 0;
+    int m_fineGold = 0;
     uint32_t m_waterDamageTicks = 0;
     uint32_t m_burningDamageTicks = 0;
     uint32_t m_splashCount = 0;
@@ -615,6 +624,7 @@ private:
     std::unordered_set<uint32_t> m_foundArtifactItems;
     std::unordered_set<uint32_t> m_arcomageWonHouseIds;
     std::unordered_set<uint32_t> m_everOwnedItemIds;
+    std::unordered_map<uint32_t, int32_t> m_continentReputations;
     std::unordered_set<uint32_t> m_questBits;
     uint32_t m_arcomageWinCount = 0;
     uint32_t m_arcomageLossCount = 0;

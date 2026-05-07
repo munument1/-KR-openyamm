@@ -1,5 +1,6 @@
 #include "game/gameplay/GameMechanics.h"
 
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/party/SkillData.h"
@@ -2007,7 +2008,8 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     const Character &character,
     const ItemTable *pItemTable,
     const StandardItemEnchantTable *pStandardItemEnchantTable,
-    const SpecialItemEnchantTable *pSpecialItemEnchantTable)
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable,
+    const EventRuntimeState *pEventRuntimeState)
 {
     CharacterSheetSummary summary = {};
     const EquippedItems equippedItems = resolveEquippedItems(character, pItemTable);
@@ -2039,7 +2041,9 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     summary.endurance = makeSheetValue(baseEndurance, actualEndurance);
     summary.accuracy = makeSheetValue(baseAccuracy, actualAccuracy);
     summary.speed = makeSheetValue(baseSpeed, actualSpeed);
-    summary.luck = makeSheetValue(baseLuck, actualLuck);
+    const int followerLuckBonus =
+        pEventRuntimeState != nullptr ? hiredNpcPrimaryStatBonus(*pEventRuntimeState, "Luck") : 0;
+    summary.luck = makeSheetValue(baseLuck, actualLuck + followerLuckBonus);
 
     summary.health.baseMaximum = character.maxHealth + character.permanentBonuses.maxHealth;
     summary.health.maximum = summary.health.baseMaximum + character.magicalBonuses.maxHealth;
@@ -2109,21 +2113,30 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
         + character.magicalBonuses.resistances.body
         - equippedItemBonuses.resistances.body;
 
+    const int followerFireResistance =
+        pEventRuntimeState != nullptr ? hiredNpcResistanceBonus(*pEventRuntimeState, "Fire") : 0;
+    const int followerAirResistance =
+        pEventRuntimeState != nullptr ? hiredNpcResistanceBonus(*pEventRuntimeState, "Air") : 0;
+    const int followerWaterResistance =
+        pEventRuntimeState != nullptr ? hiredNpcResistanceBonus(*pEventRuntimeState, "Water") : 0;
+    const int followerEarthResistance =
+        pEventRuntimeState != nullptr ? hiredNpcResistanceBonus(*pEventRuntimeState, "Earth") : 0;
+
     summary.fireResistance = makeResistanceValue(
         fireBase,
-        fireActual,
+        fireActual + followerFireResistance,
         character.permanentImmunities.fire || character.magicalImmunities.fire);
     summary.airResistance = makeResistanceValue(
         airBase,
-        airActual,
+        airActual + followerAirResistance,
         character.permanentImmunities.air || character.magicalImmunities.air);
     summary.waterResistance = makeResistanceValue(
         waterBase,
-        waterActual,
+        waterActual + followerWaterResistance,
         character.permanentImmunities.water || character.magicalImmunities.water);
     summary.earthResistance = makeResistanceValue(
         earthBase,
-        earthActual,
+        earthActual + followerEarthResistance,
         character.permanentImmunities.earth || character.magicalImmunities.earth);
     summary.mindResistance = makeResistanceValue(
         mindBase,

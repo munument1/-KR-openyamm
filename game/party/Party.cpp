@@ -2,6 +2,7 @@
 
 #include "game/events/EventRuntime.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemEnchantTables.h"
 #include "game/items/ItemGenerator.h"
@@ -2030,6 +2031,42 @@ void Party::subtractEventVariableValue(uint16_t variableId, int32_t value)
     setEventVariableValue(variableId, eventVariableValue(variableId) - value);
 }
 
+int Party::fineGold() const
+{
+    return m_fineGold;
+}
+
+void Party::addFineGold(int amount)
+{
+    if (amount == 0)
+    {
+        return;
+    }
+
+    m_fineGold = std::clamp(m_fineGold + amount, 0, 4000000);
+}
+
+void Party::clearFineGold()
+{
+    m_fineGold = 0;
+}
+
+int32_t Party::continentReputation(uint32_t continentId) const
+{
+    const std::unordered_map<uint32_t, int32_t>::const_iterator it = m_continentReputations.find(continentId);
+    return it != m_continentReputations.end() ? it->second : 0;
+}
+
+void Party::setContinentReputation(uint32_t continentId, int32_t value)
+{
+    if (continentId == 0)
+    {
+        return;
+    }
+
+    m_continentReputations[continentId] = clampReputation(value);
+}
+
 void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
 {
     m_pClassSkillTable = pClassSkillTable;
@@ -2092,6 +2129,7 @@ Party::Snapshot Party::snapshot() const
     snapshot.gold = m_gold;
     snapshot.bankGold = m_bankGold;
     snapshot.food = m_food;
+    snapshot.fineGold = m_fineGold;
     snapshot.waterDamageTicks = m_waterDamageTicks;
     snapshot.burningDamageTicks = m_burningDamageTicks;
     snapshot.splashCount = m_splashCount;
@@ -2105,6 +2143,7 @@ Party::Snapshot Party::snapshot() const
     snapshot.arcomageWinCount = m_arcomageWinCount;
     snapshot.arcomageLossCount = m_arcomageLossCount;
     snapshot.everOwnedItemIds = m_everOwnedItemIds;
+    snapshot.continentReputations = m_continentReputations;
     snapshot.questBits = m_questBits;
     snapshot.eventVariables = m_eventVariables;
     snapshot.npcTopicOverrides = m_npcTopicOverrides;
@@ -2135,6 +2174,7 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_gold = snapshot.gold;
     m_bankGold = snapshot.bankGold;
     m_food = snapshot.food;
+    m_fineGold = snapshot.fineGold;
     m_waterDamageTicks = snapshot.waterDamageTicks;
     m_burningDamageTicks = snapshot.burningDamageTicks;
     m_splashCount = snapshot.splashCount;
@@ -2148,6 +2188,7 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_arcomageWinCount = snapshot.arcomageWinCount;
     m_arcomageLossCount = snapshot.arcomageLossCount;
     m_everOwnedItemIds = snapshot.everOwnedItemIds;
+    m_continentReputations = snapshot.continentReputations;
     m_questBits = snapshot.questBits;
     m_eventVariables = snapshot.eventVariables;
     m_npcTopicOverrides = snapshot.npcTopicOverrides;
@@ -2204,10 +2245,12 @@ void Party::seed(const PartySeed &seed)
     m_gold = std::max(0, seed.gold);
     m_bankGold = 0;
     m_food = std::max(0, seed.food);
+    m_fineGold = 0;
     m_monsterTargetSelectionCounter = 0;
     m_houseStockSeed = generateHouseStockSeed();
     m_foundArtifactItems.clear();
     m_everOwnedItemIds.clear();
+    m_continentReputations.clear();
     m_questBits.clear();
     m_eventVariables.clear();
     m_npcTopicOverrides.clear();
@@ -4981,6 +5024,11 @@ uint8_t Party::resolveInventoryHeight(uint32_t objectDescriptionId) const
 const std::vector<Character> &Party::members() const
 {
     return m_members;
+}
+
+size_t Party::memberCount() const
+{
+    return m_members.size();
 }
 
 const std::vector<AdventurersInnMember> &Party::adventurersInnMembers() const
