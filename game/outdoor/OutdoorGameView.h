@@ -265,6 +265,18 @@ private:
         size_t currentFrameIndex = 0;
     };
 
+    struct ViewDistanceCache
+    {
+        std::string sourceValue;
+        float farClipDistance = 18000.0f;
+        float runtimeProjectileDistance = 12288.0f;
+        float runtimeProjectileDistanceSquared = 12288.0f * 12288.0f;
+        float decorationBillboardDistance = 18000.0f;
+        float decorationBillboardDistanceSquared = 18000.0f * 18000.0f;
+        float actorBillboardDistance = 18000.0f;
+        float actorBillboardDistanceSquared = 18000.0f * 18000.0f;
+    };
+
     using HudFontGlyphMetrics = GameplayHudFontGlyphMetricsData;
     using HudFontHandle = GameplayHudFontData;
     using HudFontColorTextureHandle = GameplayHudFontColorTextureData;
@@ -509,6 +521,7 @@ private:
     float innRestDurationMinutes(uint32_t houseId) const;
     void syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled);
     void syncCursorToGameplayCrosshair();
+    void refreshViewDistanceCache();
     const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId = 0) const;
     bool m_isInitialized;
     bool m_isRenderable;
@@ -586,6 +599,7 @@ private:
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
+    std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
     std::vector<uint16_t> m_pendingSpriteFrameWarmups;
     std::vector<bool> m_queuedSpriteFrameWarmups;
@@ -645,6 +659,7 @@ private:
     OutdoorPartyRuntime *m_pOutdoorPartyRuntime;
     const Engine::AssetFileSystem *m_pAssetFileSystem;
     GameSettings m_gameSettings = GameSettings::createDefault();
+    ViewDistanceCache m_viewDistanceCache;
     std::filesystem::path m_autosavePath =
         std::filesystem::path("saves") / "autosave.oysav";
     PendingSavePreviewCaptureState m_pendingSavePreviewCapture;

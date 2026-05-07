@@ -2650,7 +2650,7 @@ GameplayHudScreenState GameplayScreenRuntime::currentHudScreenState() const
     return resolveGameplayHudScreenState(uiController(), activeEventDialog(), worldRuntime());
 }
 
-std::vector<std::string> GameplayScreenRuntime::sortedHudLayoutIdsForScreen(const std::string &screen) const
+const std::vector<std::string> &GameplayScreenRuntime::sortedHudLayoutIdsForScreen(const std::string &screen) const
 {
     return uiRuntime().sortedHudLayoutIdsForScreen(screen);
 }

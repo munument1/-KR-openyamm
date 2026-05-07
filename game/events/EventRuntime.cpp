@@ -8,6 +8,7 @@
 #include "game/items/ItemGenerator.h"
 #include "game/party/Party.h"
 #include "game/party/SkillData.h"
+#include "game/tables/ClassSkillTable.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/JournalQuestTable.h"
 
@@ -48,6 +49,7 @@ bool evaluateCompareValue(
     int32_t compareValue,
     const Party *pParty,
     const std::vector<size_t> &targetMemberIndices);
+const Party *readableParty(lua_State *pLuaState);
 const MapDeltaDoor *findMechanismDoorById(const MapDeltaData *pMapDeltaData, uint32_t mechanismId);
 void initializeRuntimeMechanismStateFromDoor(
     const MapDeltaDoor &door,
@@ -467,6 +469,78 @@ bool classIdMatchesPromotionFamily(int32_t currentClassId, int32_t compareClassI
         && currentClassId == compareClassId + 1;
 }
 
+std::optional<size_t> luaMemberIndexArgument(lua_State *pLuaState, int argumentIndex)
+{
+    const Party *pParty = readableParty(pLuaState);
+
+    if (pParty == nullptr || lua_gettop(pLuaState) < argumentIndex || lua_isnil(pLuaState, argumentIndex))
+    {
+        return pParty != nullptr ? std::optional<size_t>(pParty->activeMemberIndex()) : std::nullopt;
+    }
+
+    const lua_Integer rawIndex = luaL_checkinteger(pLuaState, argumentIndex);
+
+    if (rawIndex < 0)
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<size_t>(rawIndex);
+}
+
+std::optional<uint32_t> tableBackedClassIdForName(const Party *pParty, const std::string &className)
+{
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+
+    if (pClassSkillTable != nullptr)
+    {
+        const std::optional<uint32_t> classId = pClassSkillTable->classIdForName(className);
+
+        if (classId)
+        {
+            return classId;
+        }
+    }
+
+    return mm8ClassIdForClassName(className);
+}
+
+std::optional<std::string> tableBackedClassNameForId(const Party *pParty, uint32_t classId)
+{
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+
+    if (pClassSkillTable != nullptr)
+    {
+        const std::optional<std::string> className = pClassSkillTable->classNameForId(classId);
+
+        if (className)
+        {
+            return className;
+        }
+    }
+
+    return classNameForMm8ClassId(classId);
+}
+
+std::optional<std::string> luaClassNameArgument(lua_State *pLuaState, int argumentIndex)
+{
+    const Party *pParty = readableParty(pLuaState);
+
+    if (lua_isinteger(pLuaState, argumentIndex))
+    {
+        return tableBackedClassNameForId(pParty, static_cast<uint32_t>(lua_tointeger(pLuaState, argumentIndex)));
+    }
+
+    if (lua_type(pLuaState, argumentIndex) == LUA_TSTRING)
+    {
+        const char *pClassName = lua_tostring(pLuaState, argumentIndex);
+        const std::string className = canonicalClassName(pClassName != nullptr ? pClassName : "");
+        return !className.empty() ? std::optional<std::string>(className) : std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
 std::vector<size_t> resolvePortraitFxTargetMemberIndices(const Party *pParty, const std::vector<size_t> &targetMemberIndices)
 {
     if (pParty == nullptr || pParty->members().empty())
@@ -518,8 +592,178 @@ std::optional<SpeechId> speechIdForLegacyFaceAnimationId(uint32_t faceAnimationI
 {
     switch (faceAnimationId)
     {
+        case 1:
+            return SpeechId::KillWeakEnemy;
+        case 2:
+            return SpeechId::KillStrongEnemy;
+        case 3:
+            return SpeechId::StoreClosed;
+        case 4:
+            return SpeechId::DisarmTrap;
+        case 5:
+            return SpeechId::TrapExploded;
+        case 7:
+            return SpeechId::IdentifyWeakItem;
+        case 8:
+            return SpeechId::IdentifyGreatItem;
+        case 9:
+            return SpeechId::IdentifyFailItem;
+        case 10:
+            return SpeechId::RepairSuccess;
+        case 11:
+            return SpeechId::RepairFail;
+        case 12:
+            return SpeechId::SetQuickSpell;
+        case 13:
+            return SpeechId::CantRestHere;
+        case 14:
+            return SpeechId::SkillIncreased;
+        case 15:
+            return SpeechId::InventoryRoom;
+        case 16:
+            return SpeechId::PotionSuccess;
+        case 17:
+            return SpeechId::PotionFail;
         case 18:
             return SpeechId::DoorLocked;
+        case 20:
+            return SpeechId::CantLearnSpell;
+        case 21:
+            return SpeechId::LearnSpell;
+        case 22:
+            return SpeechId::HelloDay;
+        case 23:
+            return SpeechId::HelloEvening;
+        case 24:
+            return SpeechId::DamageMinor;
+        case 27:
+            return SpeechId::Poisoned;
+        case 29:
+            return SpeechId::Insane;
+        case 30:
+            return SpeechId::Cursed;
+        case 31:
+            return SpeechId::Drunk;
+        case 33:
+            return SpeechId::Dying;
+        case 36:
+            return SpeechId::PotionSuccess;
+        case 38:
+            return SpeechId::NotEnoughGold;
+        case 39:
+            return SpeechId::CantEquip;
+        case 44:
+            return SpeechId::DamagedParty;
+        case 45:
+            return SpeechId::Hungry;
+        case 46:
+            return SpeechId::EnterDungeon;
+        case 47:
+            return SpeechId::LeaveDungeon;
+        case 48:
+            return SpeechId::Dying;
+        case 49:
+            return SpeechId::CastSpell;
+        case 50:
+            return SpeechId::Shoot;
+        case 51:
+            return SpeechId::AttackHit;
+        case 52:
+            return SpeechId::AttackMiss;
+        case 53:
+            return SpeechId::Beg;
+        case 54:
+            return SpeechId::BegFail;
+        case 55:
+            return SpeechId::Threat;
+        case 56:
+            return SpeechId::ThreatFail;
+        case 57:
+            return SpeechId::Bribe;
+        case 58:
+            return SpeechId::BribeFail;
+        case 59:
+            return SpeechId::NpcDontTalk;
+        case 60:
+            return SpeechId::FoundItem;
+        case 61:
+            return SpeechId::HireNpc;
+        case 65:
+            return SpeechId::Yell;
+        case 66:
+            return SpeechId::Falling;
+        case 67:
+            return SpeechId::TavernPacksFull;
+        case 68:
+            return SpeechId::TavernDrink;
+        case 69:
+            return SpeechId::TavernGotDrunk;
+        case 70:
+            return SpeechId::TavernTip;
+        case 71:
+            return SpeechId::TravelHorse;
+        case 72:
+            return SpeechId::TravelBoat;
+        case 73:
+            return SpeechId::ShopIdentify;
+        case 74:
+            return SpeechId::ShopRepair;
+        case 75:
+            return SpeechId::ShopItemBought;
+        case 76:
+            return SpeechId::AlreadyIdentified;
+        case 77:
+            return SpeechId::ItemSold;
+        case 78:
+            return SpeechId::SkillLearned;
+        case 79:
+            return SpeechId::WrongShop;
+        case 80:
+            return SpeechId::ShopRude;
+        case 81:
+            return SpeechId::BankDeposit;
+        case 82:
+            return SpeechId::TempleHeal;
+        case 83:
+            return SpeechId::TempleDonate;
+        case 84:
+            return SpeechId::HelloHouse;
+        case 85:
+            return SpeechId::SkillMasteryIncreased;
+        case 86:
+            return SpeechId::JoinedGuild;
+        case 87:
+            return SpeechId::LevelUp;
+        case 91:
+            return SpeechId::StatBonusIncreased;
+        case 92:
+            return SpeechId::StatBaseIncreased;
+        case 93:
+            return SpeechId::QuestGot;
+        case 96:
+            return SpeechId::AwardGot;
+        case 98:
+            return SpeechId::AfraidSilent;
+        case 99:
+            return SpeechId::CheatedDeath;
+        case 100:
+            return SpeechId::InPrison;
+        case 102:
+            return SpeechId::SelectCharacter;
+        case 103:
+            return SpeechId::Awaken;
+        case 104:
+            return SpeechId::IdentifyMonsterWeak;
+        case 105:
+            return SpeechId::IdentifyMonsterBig;
+        case 106:
+            return SpeechId::IdentifyMonsterFail;
+        case 107:
+            return SpeechId::LastPersonStanding;
+        case 108:
+            return SpeechId::Hungry;
+        case 109:
+            return SpeechId::DeathBlow;
 
         default:
             return std::nullopt;
@@ -4629,6 +4873,48 @@ int luaPartyMemberHasItem(lua_State *pLuaState)
     return 1;
 }
 
+int luaPartyMemberItemCount(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const size_t memberIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const uint32_t itemId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    const int count = pParty != nullptr ? pParty->inventoryItemCount(itemId, memberIndex) : 0;
+    lua_pushinteger(pLuaState, count);
+    return 1;
+}
+
+int luaPartyMemberKnowsSpell(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const std::optional<size_t> memberIndex = luaMemberIndexArgument(pLuaState, 1);
+    const uint32_t spellId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    const Character *pMember = pParty != nullptr && memberIndex ? pParty->member(*memberIndex) : nullptr;
+    lua_pushboolean(pLuaState, pMember != nullptr && pMember->knowsSpell(spellId));
+    return 1;
+}
+
+int luaRemovePartyMemberItem(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const size_t memberIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const uint32_t itemId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    const uint32_t quantity = lua_isnoneornil(pLuaState, 3)
+        ? 1u
+        : static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 3)));
+    const bool removed = pParty != nullptr && pParty->removeItemFromMember(memberIndex, itemId, quantity);
+    lua_pushboolean(pLuaState, removed);
+    return 1;
+}
+
+int luaApplyLichTransformation(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const size_t memberIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const bool transformed = pParty != nullptr && pParty->applyLichTransformation(memberIndex);
+    lua_pushboolean(pLuaState, transformed);
+    return 1;
+}
+
 std::optional<EquipmentSlot> equipmentSlotFromLua(lua_State *pLuaState, int index)
 {
     if (lua_isnoneornil(pLuaState, index))
@@ -4953,6 +5239,13 @@ int luaOpenDimensionDoor(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     pRuntimeState->pendingDimensionDoorOverlay = true;
+    return 0;
+}
+
+int luaClearDimensionDoorOverlay(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    pRuntimeState->pendingDimensionDoorOverlay = false;
     return 0;
 }
 
@@ -5719,6 +6012,121 @@ int luaSetPartyVariable(lua_State *pLuaState)
     return 0;
 }
 
+int luaGetClassId(lua_State *pLuaState)
+{
+    const char *pClassName = luaL_checkstring(pLuaState, 1);
+    const std::optional<uint32_t> classId =
+        tableBackedClassIdForName(readableParty(pLuaState), pClassName != nullptr ? pClassName : "");
+    lua_pushinteger(pLuaState, classId ? static_cast<lua_Integer>(*classId) : -1);
+    return 1;
+}
+
+int luaGetClassName(lua_State *pLuaState)
+{
+    const uint32_t classId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const std::optional<std::string> className = tableBackedClassNameForId(readableParty(pLuaState), classId);
+    lua_pushstring(pLuaState, className ? className->c_str() : "");
+    return 1;
+}
+
+int luaGetPlayerClass(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const std::optional<size_t> memberIndex = luaMemberIndexArgument(pLuaState, 1);
+    const Character *pMember = pParty != nullptr && memberIndex ? pParty->member(*memberIndex) : nullptr;
+
+    if (pMember == nullptr)
+    {
+        lua_pushinteger(pLuaState, -1);
+        return 1;
+    }
+
+    const std::optional<uint32_t> classId = tableBackedClassIdForName(pParty, pMember->className);
+    lua_pushinteger(pLuaState, classId ? static_cast<lua_Integer>(*classId) : -1);
+    return 1;
+}
+
+int luaGetPlayerClassName(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const std::optional<size_t> memberIndex = luaMemberIndexArgument(pLuaState, 1);
+    const Character *pMember = pParty != nullptr && memberIndex ? pParty->member(*memberIndex) : nullptr;
+    lua_pushstring(pLuaState, pMember != nullptr ? pMember->className.c_str() : "");
+    return 1;
+}
+
+int luaSetPlayerClass(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const std::optional<size_t> memberIndex = luaMemberIndexArgument(pLuaState, 1);
+    const std::optional<std::string> className = luaClassNameArgument(pLuaState, 2);
+
+    if (pParty == nullptr || !memberIndex || !className)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    lua_pushboolean(pLuaState, pParty->setMemberClassName(*memberIndex, *className) ? 1 : 0);
+    return 1;
+}
+
+int luaGetClassSkillCap(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+    const std::optional<std::string> className = luaClassNameArgument(pLuaState, 1);
+    const char *pSkillName = luaL_checkstring(pLuaState, 2);
+
+    if (pClassSkillTable == nullptr || !className || pSkillName == nullptr)
+    {
+        lua_pushinteger(pLuaState, 0);
+        return 1;
+    }
+
+    lua_pushinteger(
+        pLuaState,
+        static_cast<lua_Integer>(pClassSkillTable->getClassCap(*className, pSkillName)));
+    return 1;
+}
+
+int luaCanClassLearnSkill(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+    const std::optional<std::string> className = luaClassNameArgument(pLuaState, 1);
+    const char *pSkillName = luaL_checkstring(pLuaState, 2);
+    const SkillMastery requiredMastery =
+        static_cast<SkillMastery>(std::clamp(static_cast<int>(luaL_optinteger(pLuaState, 3, 1)), 1, 4));
+
+    lua_pushboolean(
+        pLuaState,
+        pClassSkillTable != nullptr
+            && className
+            && pSkillName != nullptr
+            && pClassSkillTable->getClassCap(*className, pSkillName) >= requiredMastery);
+    return 1;
+}
+
+int luaCanPlayerLearnSkill(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const std::optional<size_t> memberIndex = luaMemberIndexArgument(pLuaState, 1);
+    const Character *pMember = pParty != nullptr && memberIndex ? pParty->member(*memberIndex) : nullptr;
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+    const char *pSkillName = luaL_checkstring(pLuaState, 2);
+    const SkillMastery requiredMastery =
+        static_cast<SkillMastery>(std::clamp(static_cast<int>(luaL_optinteger(pLuaState, 3, 1)), 1, 4));
+
+    lua_pushboolean(
+        pLuaState,
+        pMember != nullptr
+            && pClassSkillTable != nullptr
+            && pSkillName != nullptr
+            && pClassSkillTable->getClassCap(pMember->className, pSkillName) >= requiredMastery);
+    return 1;
+}
+
 void appendLuaStringTable(lua_State *pLuaState, int tableIndex, std::vector<std::string> &values)
 {
     const lua_Integer tableLength = static_cast<lua_Integer>(lua_rawlen(pLuaState, tableIndex));
@@ -6190,6 +6598,71 @@ int luaSetDoorState(lua_State *pLuaState)
     return 0;
 }
 
+int luaRegisterOutdoorModelMechanism(lua_State *pLuaState)
+{
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pExecutionContext == nullptr || pExecutionContext->pSceneEventContext == nullptr)
+    {
+        return 0;
+    }
+
+    const uint32_t mechanismId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const std::string modelName = sanitizeEventString(luaL_checkstring(pLuaState, 2));
+    const int32_t dx = static_cast<int32_t>(luaL_checkinteger(pLuaState, 3));
+    const int32_t dy = static_cast<int32_t>(luaL_checkinteger(pLuaState, 4));
+    const int32_t dz = static_cast<int32_t>(luaL_checkinteger(pLuaState, 5));
+    const uint32_t moveTimeMs = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 6));
+    const bool closed = lua_gettop(pLuaState) < 7 || luaEventBoolean(pLuaState, 7);
+    const bool moveParty = lua_gettop(pLuaState) >= 8 && luaEventBoolean(pLuaState, 8);
+
+    pExecutionContext->pSceneEventContext->registerOutdoorModelMechanism(
+        mechanismId,
+        modelName,
+        dx,
+        dy,
+        dz,
+        moveTimeMs,
+        closed,
+        moveParty);
+    return 0;
+}
+
+int luaSetOutdoorModelMechanismState(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    const uint32_t mechanismId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const uint32_t actionValue = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+
+    if (pRuntimeState->outdoorModelMechanisms.find(mechanismId) == pRuntimeState->outdoorModelMechanisms.end())
+    {
+        return 0;
+    }
+
+    RuntimeMechanismState &runtimeMechanism = pRuntimeState->mechanisms[mechanismId];
+    MechanismAction action = MechanismAction::Open;
+
+    if (actionValue == static_cast<uint32_t>(EvtMechanismAction::Close))
+    {
+        action = MechanismAction::Close;
+    }
+    else if (actionValue == static_cast<uint32_t>(EvtMechanismAction::Trigger))
+    {
+        action = MechanismAction::Trigger;
+    }
+
+    EventRuntime::applyMechanismAction(runtimeMechanism, nullptr, action);
+    pRuntimeState->lastAffectedMechanismIds.push_back(mechanismId);
+    markOutdoorSurfaceStateChanged(*pRuntimeState);
+    return 0;
+}
+
 int luaStopDoor(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -6507,6 +6980,10 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "GetPartyMemberPortraitId", luaGetPartyMemberPortraitId);
     registerLuaFunction(pLuaState, "SetPartyMemberPortraitId", luaSetPartyMemberPortraitId);
     registerLuaFunction(pLuaState, "PartyMemberHasItem", luaPartyMemberHasItem);
+    registerLuaFunction(pLuaState, "PartyMemberItemCount", luaPartyMemberItemCount);
+    registerLuaFunction(pLuaState, "PartyMemberKnowsSpell", luaPartyMemberKnowsSpell);
+    registerLuaFunction(pLuaState, "RemovePartyMemberItem", luaRemovePartyMemberItem);
+    registerLuaFunction(pLuaState, "ApplyLichTransformation", luaApplyLichTransformation);
     registerLuaFunction(pLuaState, "PartyMemberHasEquippedItem", luaPartyMemberHasEquippedItem);
     registerLuaFunction(pLuaState, "GetHookContext", luaGetHookContext);
     registerLuaFunction(pLuaState, "SetHookBlocked", luaSetHookBlocked);
@@ -6523,12 +7000,15 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetOutdoorSky", luaSetOutdoorSky);
     registerLuaFunction(pLuaState, "SetOutdoorFog", luaSetOutdoorFog);
     registerLuaFunction(pLuaState, "OpenDimensionDoor", luaOpenDimensionDoor);
+    registerLuaFunction(pLuaState, "ClearDimensionDoorOverlay", luaClearDimensionDoorOverlay);
     registerLuaFunction(pLuaState, "SetTexture", luaSetTexture);
     registerLuaFunction(pLuaState, "SetTextureOutdoors", luaSetTexture);
     registerLuaFunction(pLuaState, "SetOutdoorModelFacetTexture", luaSetOutdoorModelFacetTexture);
     registerLuaFunction(pLuaState, "ShowMovie", luaShowMovie);
     registerLuaFunction(pLuaState, "SetSprite", luaSetSprite);
     registerLuaFunction(pLuaState, "SetDoorState", luaSetDoorState);
+    registerLuaFunction(pLuaState, "RegisterOutdoorModelMechanism", luaRegisterOutdoorModelMechanism);
+    registerLuaFunction(pLuaState, "SetOutdoorModelMechanismState", luaSetOutdoorModelMechanismState);
     registerLuaFunction(pLuaState, "Add", luaAdd);
     registerLuaFunction(pLuaState, "Subtract", luaSubtract);
     registerLuaFunction(pLuaState, "Set", luaSet);
@@ -6575,6 +7055,14 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetRuntimeVariable", luaSetRuntimeVariable);
     registerLuaFunction(pLuaState, "GetPartyVariable", luaGetPartyVariable);
     registerLuaFunction(pLuaState, "SetPartyVariable", luaSetPartyVariable);
+    registerLuaFunction(pLuaState, "GetClassId", luaGetClassId);
+    registerLuaFunction(pLuaState, "GetClassName", luaGetClassName);
+    registerLuaFunction(pLuaState, "GetPlayerClass", luaGetPlayerClass);
+    registerLuaFunction(pLuaState, "GetPlayerClassName", luaGetPlayerClassName);
+    registerLuaFunction(pLuaState, "SetPlayerClass", luaSetPlayerClass);
+    registerLuaFunction(pLuaState, "GetClassSkillCap", luaGetClassSkillCap);
+    registerLuaFunction(pLuaState, "CanClassLearnSkill", luaCanClassLearnSkill);
+    registerLuaFunction(pLuaState, "CanPlayerLearnSkill", luaCanPlayerLearnSkill);
     registerLuaFunction(pLuaState, "SetMonsterRelation", luaSetMonsterRelation);
     registerLuaFunction(pLuaState, "SetLocalMonsterRelation", luaSetMonsterRelation);
     registerLuaFunction(pLuaState, "FaceAnimation", luaFaceAnimation);
@@ -6779,13 +7267,23 @@ bool ensureLuaSession(
 {
     const ScriptedEventProgram *pLocalProgram = localProgram ? &*localProgram : nullptr;
     const ScriptedEventProgram *pGlobalProgram = globalProgram ? &*globalProgram : nullptr;
+    const uint64_t localProgramCacheId = localProgram ? localProgram->cacheId() : 0;
+    const uint64_t globalProgramCacheId = globalProgram ? globalProgram->cacheId() : 0;
 
     if (eventRuntime.m_luaSessionCache != nullptr
         && eventRuntime.m_pCachedLocalProgram == pLocalProgram
-        && eventRuntime.m_pCachedGlobalProgram == pGlobalProgram)
+        && eventRuntime.m_pCachedGlobalProgram == pGlobalProgram
+        && eventRuntime.m_cachedLocalProgramCacheId == localProgramCacheId
+        && eventRuntime.m_cachedGlobalProgramCacheId == globalProgramCacheId)
     {
         return true;
     }
+
+    eventRuntime.m_luaSessionCache.reset();
+    eventRuntime.m_pCachedLocalProgram = nullptr;
+    eventRuntime.m_pCachedGlobalProgram = nullptr;
+    eventRuntime.m_cachedLocalProgramCacheId = 0;
+    eventRuntime.m_cachedGlobalProgramCacheId = 0;
 
     auto session = std::make_unique<LuaSessionCache>();
 
@@ -6824,6 +7322,8 @@ bool ensureLuaSession(
 
     eventRuntime.m_pCachedLocalProgram = pLocalProgram;
     eventRuntime.m_pCachedGlobalProgram = pGlobalProgram;
+    eventRuntime.m_cachedLocalProgramCacheId = localProgramCacheId;
+    eventRuntime.m_cachedGlobalProgramCacheId = globalProgramCacheId;
     eventRuntime.m_luaSessionCache = std::move(session);
     return true;
 }

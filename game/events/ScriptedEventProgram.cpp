@@ -3,6 +3,7 @@
 #include "engine/scripting/LuaStateOwner.h"
 
 #include <algorithm>
+#include <atomic>
 
 extern "C"
 {
@@ -16,6 +17,8 @@ namespace
 constexpr char LuaScopeMap[] = "map";
 constexpr char LuaScopeGlobal[] = "global";
 constexpr char LuaScopeCanShowTopic[] = "CanShowTopic";
+
+std::atomic<uint64_t> NextScriptedEventProgramCacheId{1};
 
 const char *luaScopeName(ScriptedEventScope scope)
 {
@@ -386,6 +389,7 @@ std::optional<ScriptedEventProgram> ScriptedEventProgram::loadFromLuaText(
     ScriptedEventProgram program = {};
     program.m_luaSourceText = luaSourceText;
     program.m_luaSourceName = luaSourceName;
+    program.m_cacheId = NextScriptedEventProgramCacheId.fetch_add(1, std::memory_order_relaxed);
     program.m_scope = scope;
 
     if (!populateMetadataFromLua(lua.state(), scope, program, error))
@@ -404,6 +408,11 @@ const std::optional<std::string> &ScriptedEventProgram::luaSourceText() const
 const std::optional<std::string> &ScriptedEventProgram::luaSourceName() const
 {
     return m_luaSourceName;
+}
+
+uint64_t ScriptedEventProgram::cacheId() const
+{
+    return m_cacheId;
 }
 
 ScriptedEventScope ScriptedEventProgram::scope() const

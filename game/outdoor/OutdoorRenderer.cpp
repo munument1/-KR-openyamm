@@ -40,7 +40,6 @@ constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
-constexpr float ActorBillboardRenderDistance = 18000.0f;
 constexpr float SkyProjectionPitchOffsetRadians = Pi / 64.0f;
 constexpr float SkyFogHorizonPixels = 39.0f;
 constexpr int32_t MapWeatherFoggy = 1;
@@ -56,17 +55,6 @@ constexpr float OutdoorWorldFogNearOpacity = 0.04f;
 constexpr float OutdoorWorldFogStrongOpacity = 176.0f / 255.0f;
 constexpr float OutdoorSkyFogNearOpacity = 0.02f;
 constexpr float OutdoorSkyFogStrongOpacity = 208.0f / 255.0f;
-
-float outdoorActorBillboardRenderDistance(const std::string &viewDistance)
-{
-    return resolveViewDistanceSetting(viewDistance, ActorBillboardRenderDistance);
-}
-
-float outdoorActorBillboardRenderDistanceSquared(const std::string &viewDistance)
-{
-    const float renderDistance = outdoorActorBillboardRenderDistance(viewDistance);
-    return renderDistance * renderDistance;
-}
 
 bool outdoorActorIsPartyControlled(OutdoorWorldRuntime::ActorControlMode mode)
 {
@@ -845,7 +833,12 @@ uint64_t outdoorSurfaceVisualRevision(
 {
     uint64_t revision = pMapDeltaData != nullptr ? pMapDeltaData->surfaceRevision : 0;
 
-    if (pEventRuntimeState != nullptr)
+    if (pEventRuntimeState != nullptr
+        && (!pEventRuntimeState->outdoorModelMechanisms.empty()
+            || !pEventRuntimeState->textureOverrides.empty()
+            || !pEventRuntimeState->outdoorModelFacetTextureOverrides.empty()
+            || !pEventRuntimeState->facetSetMasks.empty()
+            || !pEventRuntimeState->facetClearMasks.empty()))
     {
         revision ^= pEventRuntimeState->outdoorSurfaceRevision
             + 0x9e3779b97f4a7c15ull
@@ -854,6 +847,69 @@ uint64_t outdoorSurfaceVisualRevision(
     }
 
     return revision;
+}
+
+std::array<float, 3> outdoorBModelRuntimeOffset(
+    const EventRuntimeState *pEventRuntimeState,
+    size_t bModelIndex)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    if (pEventRuntimeState->outdoorModelMechanisms.empty())
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+        pEventRuntimeState->outdoorModelMechanisms)
+    {
+        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
+
+        if (definition.bmodelIndex != bModelIndex)
+        {
+            continue;
+        }
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(entry.first);
+
+        if (mechanismIterator == pEventRuntimeState->mechanisms.end())
+        {
+            continue;
+        }
+
+        const RuntimeMechanismState &mechanism = mechanismIterator->second;
+        const float moveTimeMs = std::max(1.0f, static_cast<float>(definition.moveTimeMs));
+        float fraction = definition.closed ? 0.0f : 1.0f;
+
+        if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Open))
+        {
+            fraction = 1.0f;
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed))
+        {
+            fraction = 0.0f;
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Opening))
+        {
+            fraction = std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing))
+        {
+            fraction = 1.0f - std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
+        }
+
+        return {
+            static_cast<float>(definition.dx) * fraction,
+            static_cast<float>(definition.dy) * fraction,
+            static_cast<float>(definition.dz) * fraction
+        };
+    }
+
+    return {0.0f, 0.0f, 0.0f};
 }
 
 OutdoorFogParameters buildOutdoorWorldFogParameters(
@@ -1270,9 +1326,14 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
 
         const size_t oldSize = groupVertices.size();
         groupVertices.insert(groupVertices.end(), batch.vertices.begin(), batch.vertices.end());
+        const std::array<float, 3> bmodelOffset =
+            outdoorBModelRuntimeOffset(pEventRuntimeState, batch.bModelIndex);
 
         for (size_t vertexIndex = oldSize; vertexIndex < groupVertices.size(); ++vertexIndex)
         {
+            groupVertices[vertexIndex].x += bmodelOffset[0];
+            groupVertices[vertexIndex].y += bmodelOffset[1];
+            groupVertices[vertexIndex].z += bmodelOffset[2];
             groupVertices[vertexIndex].secretPulse = secretPulse;
             groupVertices[vertexIndex].flowUPerSecond = flowInfo[0];
             groupVertices[vertexIndex].flowVPerSecond = flowInfo[1];
@@ -1318,6 +1379,7 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
     const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas)
 {
     view.m_animatedWaterTerrainTiles.clear();
+    view.m_lastAnimatedWaterAnimationTicks.reset();
     view.m_terrainTextureAtlasMipPixels.clear();
     view.m_terrainTextureAtlasWidth = 0;
     view.m_terrainTextureAtlasHeight = 0;
@@ -1365,6 +1427,13 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
     }
 
     const uint32_t animationTicks = static_cast<uint32_t>(std::lround(view.m_elapsedTime * 128.0f));
+
+    if (view.m_lastAnimatedWaterAnimationTicks && *view.m_lastAnimatedWaterAnimationTicks == animationTicks)
+    {
+        return;
+    }
+
+    view.m_lastAnimatedWaterAnimationTicks = animationTicks;
 
     for (OutdoorGameView::AnimatedWaterTerrainTileState &tileState : view.m_animatedWaterTerrainTiles)
     {
@@ -3847,7 +3916,7 @@ void OutdoorRenderer::renderActorCollisionOverlays(
             const float overlayDistanceSquared =
                 overlayDeltaX * overlayDeltaX + overlayDeltaY * overlayDeltaY + overlayDeltaZ * overlayDeltaZ;
 
-            if (overlayDistanceSquared > outdoorActorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance))
+            if (overlayDistanceSquared > view.m_viewDistanceCache.actorBillboardDistanceSquared)
             {
                 continue;
             }
@@ -3887,7 +3956,7 @@ void OutdoorRenderer::renderActorCollisionOverlays(
             const float overlayDistanceSquared =
                 overlayDeltaX * overlayDeltaX + overlayDeltaY * overlayDeltaY + overlayDeltaZ * overlayDeltaZ;
 
-            if (overlayDistanceSquared > outdoorActorBillboardRenderDistanceSquared(view.m_gameSettings.viewDistance))
+            if (overlayDistanceSquared > view.m_viewDistanceCache.actorBillboardDistanceSquared)
             {
                 continue;
             }

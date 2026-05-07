@@ -2,81 +2,46 @@
 
 #include "game/StringUtils.h"
 
-#include <algorithm>
-#include <array>
+#include <unordered_set>
 
 namespace OpenYAMM::Game
 {
 bool isMonsterProjectileSpellName(const std::string &spellName)
 {
-    static constexpr std::array<const char *, 27> ProjectileSpellNames = {
-        "fire bolt",
-        "fireball",
-        "incinerate",
-        "lightning bolt",
-        "implosion",
-        "meteor shower",
-        "ice bolt",
-        "icebolt",
-        "ice blast",
-        "iceblast",
-        "acid burst",
-        "deadly swarm",
-        "blades",
-        "rock blast",
-        "mass distortion",
-        "sparks",
-        "mind blast",
-        "psychic shock",
-        "psychic shockt",
-        "harm",
-        "flying fist",
-        "light bolt",
-        "spirit lash",
-        "toxic cloud",
-        "shrapmetal",
-        "dragon breath",
-        "poison spray",
-    };
+    static const std::unordered_set<std::string> ProjectileSpellNames = {
+        "fire bolt", "fireball", "incinerate", "lightning bolt", "implosion", "meteor shower",
+        "ice bolt", "icebolt", "ice blast", "iceblast", "acid burst", "deadly swarm", "blades",
+        "rock blast", "mass distortion", "sparks", "mind blast", "psychic shock", "psychic shockt",
+        "harm", "flying fist", "light bolt", "spirit lash", "toxic cloud", "shrapmetal",
+        "dragon breath", "poison spray"};
 
     const std::string lowered = toLowerCopy(spellName);
-    return std::find(ProjectileSpellNames.begin(), ProjectileSpellNames.end(), lowered)
-        != ProjectileSpellNames.end();
+    return ProjectileSpellNames.find(lowered) != ProjectileSpellNames.end();
 }
 
 bool isMonsterSelfBuffSpellName(const std::string &spellName)
 {
-    static constexpr std::array<const char *, 11> SelfBuffSpellNames = {
-        "bless",
-        "day of protection",
-        "fate",
-        "hammerhands",
-        "haste",
-        "heroism",
-        "hour of power",
-        "pain reflection",
-        "shield",
-        "stone skin",
-        "stoneskin",
-    };
+    static const std::unordered_set<std::string> SelfBuffSpellNames = {
+        "bless", "day of protection", "fate", "hammerhands", "haste", "heroism", "hour of power",
+        "pain reflection", "shield", "stone skin", "stoneskin"};
 
     const std::string lowered = toLowerCopy(spellName);
-    return std::find(SelfBuffSpellNames.begin(), SelfBuffSpellNames.end(), lowered)
-        != SelfBuffSpellNames.end();
+    return SelfBuffSpellNames.find(lowered) != SelfBuffSpellNames.end();
 }
 
 bool isMonsterSelfActionSpellName(const std::string &spellName)
 {
+    static const std::unordered_set<std::string> SelfActionSpellNames = {
+        "heal", "power cure", "dispel magic", "bless", "day of protection", "fate", "hammerhands",
+        "haste", "heroism", "hour of power", "pain reflection", "shield", "stone skin", "stoneskin"};
+
     const std::string lowered = toLowerCopy(spellName);
-    return lowered == "heal"
-        || lowered == "power cure"
-        || lowered == "dispel magic"
-        || isMonsterSelfBuffSpellName(lowered);
+    return SelfActionSpellNames.find(lowered) != SelfActionSpellNames.end();
 }
 
 bool isKnownUnsupportedMonsterSpellName(const std::string &spellName)
 {
-    static constexpr std::array<const char *, 5> UnsupportedMonsterSpellNames = {
+    static const std::unordered_set<std::string> UnsupportedMonsterSpellNames = {
         "day-o-gods",
         "day of the gods",
         "finger of death",
@@ -85,7 +50,6 @@ bool isKnownUnsupportedMonsterSpellName(const std::string &spellName)
     };
 
     const std::string lowered = toLowerCopy(spellName);
-    return std::find(UnsupportedMonsterSpellNames.begin(), UnsupportedMonsterSpellNames.end(), lowered)
-        != UnsupportedMonsterSpellNames.end();
+    return UnsupportedMonsterSpellNames.find(lowered) != UnsupportedMonsterSpellNames.end();
 }
 }

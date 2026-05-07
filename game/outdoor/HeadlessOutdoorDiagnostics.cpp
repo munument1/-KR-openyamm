@@ -17187,6 +17187,28 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "7out01.odm", failure))
+            {
+                return false;
+            }
+
+            if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out01.odm")
+            {
+                failure = "Emerald Island defeat did not resolve to the Antagarich death-map-1 start map";
+                return false;
+            }
+
+            if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "7out02.odm", failure))
+            {
+                return false;
+            }
+
+            if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out02.odm")
+            {
+                failure = "Harmondale defeat did not resolve to the Antagarich death-map-2 start map";
+                return false;
+            }
+
             return true;
         }
     );

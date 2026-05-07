@@ -317,7 +317,9 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     GameplayCombatController *pGameplayCombatController,
     const SpriteFrameTable *pActorSpriteFrameTable,
     const SpriteFrameTable *pProjectileSpriteFrameTable,
-    const DecorationBillboardSet *pIndoorDecorationBillboardSet)
+    const DecorationBillboardSet *pIndoorDecorationBillboardSet,
+    const MergedBolsterMapTable *pMergedBolsterMapTable,
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -365,7 +367,9 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         pActorSpriteFrameTable,
         pProjectileSpriteFrameTable,
         &indoorMapData,
-        pIndoorDecorationBillboardSet
+        pIndoorDecorationBillboardSet,
+        pMergedBolsterMapTable,
+        pMergedBolsterMonsterTable
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 
@@ -387,7 +391,9 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     const std::optional<ScriptedEventProgram> &globalEventProgram,
     GameplayActorService *pGameplayActorService,
     const SpriteFrameTable *pActorSpriteFrameTable,
-    const DecorationBillboardSet *pIndoorDecorationBillboardSet)
+    const DecorationBillboardSet *pIndoorDecorationBillboardSet,
+    const MergedBolsterMapTable *pMergedBolsterMapTable,
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -430,7 +436,9 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         pGameplayActorService,
         pActorSpriteFrameTable,
         &indoorMapData,
-        pIndoorDecorationBillboardSet
+        pIndoorDecorationBillboardSet,
+        pMergedBolsterMapTable,
+        pMergedBolsterMonsterTable
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 

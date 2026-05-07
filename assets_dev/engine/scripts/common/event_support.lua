@@ -321,11 +321,68 @@ support.faceAnimation = support.faceAnimation or {
     Shoot = 50,
     AttackHit = 51,
     AttackMiss = 52,
-    ShopIdentify = 53,
-    ShopRepair = 54,
-    AlreadyIdentified = 55,
-    ItemSold = 56,
-    WrongShop = 57,
+    Beg = 53,
+    BegFail = 54,
+    Threat = 55,
+    ThreatFail = 56,
+    Bribe = 57,
+    BribeFail = 58,
+    NpcDontTalk = 59,
+    NPCDontTalk = 59,
+    FoundItem = 60,
+    HireNpc = 61,
+    HireNPC = 61,
+    LookUp = 63,
+    LookDown = 64,
+    Yell = 65,
+    Falling = 66,
+    TavernPacksFull = 67,
+    ShakeHeadNo = 67,
+    TavernDrink = 68,
+    TavernGotDrunk = 69,
+    TavernTip = 70,
+    TravelHorse = 71,
+    ShakeHeadYes = 71,
+    TravelBoat = 72,
+    ShopIdentify = 73,
+    ShopRepair = 74,
+    ShopItemBought = 75,
+    ShopAlreadyIdentified = 76,
+    AlreadyIdentified = 76,
+    ShopItemSold = 77,
+    ItemSold = 77,
+    SkillLearned = 78,
+    ShopWrongShop = 79,
+    WrongShop = 79,
+    ShopRude = 80,
+    BankDeposit = 81,
+    TempleHeal = 82,
+    SmileBig = 82,
+    TempleDonate = 83,
+    HelloHouse = 84,
+    SkillMasteryIncreased = 85,
+    SkillMasteryIcreased = 85,
+    JoinedGuild = 86,
+    LevelUp = 87,
+    StatBonusIncreased = 91,
+    StatBaseIncreased = 92,
+    QuestGot = 93,
+    AwardGot = 96,
+    AfraidSilent = 98,
+    CheatedDeath = 99,
+    InPrison = 100,
+    ChooseMe = 102,
+    Awaken = 103,
+    IdMonsterWeak = 104,
+    IdentifyMonsterWeak = 104,
+    IdMonsterBig = 105,
+    IdentifyMonsterBig = 105,
+    IdMonsterFail = 106,
+    IdentifyMonsterFail = 106,
+    LastManStanding = 107,
+    NotEnoughFood = 108,
+    Hungry = 108,
+    DeathBlow = 109,
 }
 
 support.players = support.players or {
@@ -862,6 +919,22 @@ function support.moveToMap(destination)
     evt.MoveToMap(table.unpack(destination))
 end
 
+function support.registerOutdoorModelMechanism(mechanismId, modelName, dx, dy, dz, moveTimeMs, closed, moveParty)
+    evt.RegisterOutdoorModelMechanism(
+        mechanismId,
+        modelName,
+        dx or 0,
+        dy or 0,
+        dz or 0,
+        moveTimeMs or 1000,
+        closed == nil and true or closed,
+        moveParty or false)
+end
+
+function support.setOutdoorModelMechanismState(mechanismId, action)
+    evt.SetOutdoorModelMechanismState(mechanismId, action)
+end
+
 function support.saveCurrentLocation(name)
     evt.SaveCurrentLocation(name)
 end
@@ -1112,6 +1185,162 @@ function support.setPartyVariable(variableId, value)
     evt.SetPartyVariable(variableId, value or 0)
 end
 
+function support.getClassId(className)
+    return evt.GetClassId(className or "")
+end
+
+function support.getClassName(classId)
+    return evt.GetClassName(classId or 0)
+end
+
+function support.getPlayerClass(playerIndex)
+    return evt.GetPlayerClass(playerIndex)
+end
+
+function support.getPlayerClassName(playerIndex)
+    return evt.GetPlayerClassName(playerIndex)
+end
+
+function support.setPlayerClass(playerIndex, classIdOrName)
+    return evt.SetPlayerClass(playerIndex, classIdOrName)
+end
+
+function support.playerItemCount(playerIndex, itemId)
+    return evt.PartyMemberItemCount(playerIndex, itemId or 0)
+end
+
+function support.playerHasItem(playerIndex, itemId)
+    return support.playerItemCount(playerIndex, itemId) > 0
+end
+
+function support.playerKnowsSpell(playerIndex, spellId)
+    return evt.PartyMemberKnowsSpell(playerIndex, spellId or 0)
+end
+
+function support.removePlayerItem(playerIndex, itemId, quantity)
+    return evt.RemovePartyMemberItem(playerIndex, itemId or 0, quantity or 1)
+end
+
+function support.applyLichTransformation(playerIndex)
+    return evt.ApplyLichTransformation(playerIndex)
+end
+
+function support.getClassSkillCap(classIdOrName, skillName)
+    return evt.GetClassSkillCap(classIdOrName, skillName or "")
+end
+
+function support.canClassLearnSkill(classIdOrName, skillName, requiredMastery)
+    return evt.CanClassLearnSkill(classIdOrName, skillName or "", requiredMastery or 1)
+end
+
+function support.canPlayerLearnSkill(playerIndex, skillName, requiredMastery)
+    return evt.CanPlayerLearnSkill(playerIndex, skillName or "", requiredMastery or 1)
+end
+
+local function normalizeClassId(classIdOrName)
+    if type(classIdOrName) == "string" then
+        return support.getClassId(classIdOrName)
+    end
+
+    return classIdOrName or -1
+end
+
+function support.playerClassMatches(playerIndex, classIdOrNameOrList)
+    local currentClassId = support.getPlayerClass(playerIndex)
+
+    if type(classIdOrNameOrList) == "table" then
+        for _, candidate in ipairs(classIdOrNameOrList) do
+            if currentClassId == normalizeClassId(candidate) then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    return currentClassId == normalizeClassId(classIdOrNameOrList)
+end
+
+function support.applyPlayerRewards(playerIndex, rewards)
+    if rewards == nil then
+        return
+    end
+
+    evt.ForPlayer(playerIndex)
+
+    for key, value in pairs(rewards) do
+        if type(key) == "number" then
+            evt.Add(key, value or 0)
+        elseif key == "Experience" then
+            evt.Add(support.varTag.Experience, value or 0)
+        elseif key == "SkillPoints" then
+            evt.Add(support.varTag.SkillPoints, value or 0)
+        elseif key == "Award" or key == "Awards" then
+            if type(value) == "table" then
+                for _, awardId in ipairs(value) do
+                    evt.Add(support.award(awardId), awardId)
+                end
+            else
+                evt.Add(support.award(value or 0), value or 0)
+            end
+        elseif key == "Inventory" or key == "Item" or key == "Items" then
+            if type(value) == "table" then
+                for _, itemId in ipairs(value) do
+                    evt.Add(support.inventory(itemId), itemId)
+                end
+            else
+                evt.Add(support.inventory(value or 0), value or 0)
+            end
+        else
+            local selector = support.varTag[key]
+            if selector ~= nil then
+                evt.Add(selector, value or 0)
+            end
+        end
+    end
+
+    evt.ForPlayer(support.players.Current)
+end
+
+function support.promotePlayers(promotion)
+    local result = {
+        promotedCount = 0,
+        promotedPlayers = {},
+        nonPromotedPlayers = {},
+    }
+
+    if promotion == nil or promotion.to == nil then
+        return result
+    end
+
+    local memberCount = evt.GetPartyMemberCount()
+    local players = promotion.players
+
+    if players == nil then
+        players = {}
+        for playerIndex = 0, memberCount - 1 do
+            table.insert(players, playerIndex)
+        end
+    end
+
+    for _, playerIndex in ipairs(players) do
+        if playerIndex >= 0 and playerIndex < memberCount then
+            if promotion.from == nil or support.playerClassMatches(playerIndex, promotion.from) then
+                if support.setPlayerClass(playerIndex, promotion.to) then
+                    result.promotedCount = result.promotedCount + 1
+                    table.insert(result.promotedPlayers, playerIndex)
+                    support.applyPlayerRewards(playerIndex, promotion.promotedRewards or promotion.rewards)
+                end
+            else
+                table.insert(result.nonPromotedPlayers, playerIndex)
+                support.applyPlayerRewards(playerIndex, promotion.nonPromotedRewards)
+            end
+        end
+    end
+
+    return result
+end
+
 function support.applyLocalMonsterRelations(relations)
     if relations == nil then
         return
@@ -1217,6 +1446,8 @@ AppendGlobalEvent = support.appendGlobalEvent
 RegisterCanShowTopic = support.registerCanShowTopic
 Point = support.point
 MoveToMap = support.moveToMap
+RegisterOutdoorModelMechanism = support.registerOutdoorModelMechanism
+SetOutdoorModelMechanismState = support.setOutdoorModelMechanismState
 SaveCurrentLocation = support.saveCurrentLocation
 HasSavedLocation = support.hasSavedLocation
 MoveToSavedLocation = support.moveToSavedLocation
@@ -1262,6 +1493,22 @@ GetRuntimeVariable = support.getRuntimeVariable
 SetRuntimeVariable = support.setRuntimeVariable
 GetPartyVariable = support.getPartyVariable
 SetPartyVariable = support.setPartyVariable
+GetClassId = support.getClassId
+GetClassName = support.getClassName
+GetPlayerClass = support.getPlayerClass
+GetPlayerClassName = support.getPlayerClassName
+SetPlayerClass = support.setPlayerClass
+PlayerItemCount = support.playerItemCount
+PlayerHasItem = support.playerHasItem
+PlayerKnowsSpell = support.playerKnowsSpell
+RemovePlayerItem = support.removePlayerItem
+ApplyLichTransformation = support.applyLichTransformation
+GetClassSkillCap = support.getClassSkillCap
+CanClassLearnSkill = support.canClassLearnSkill
+CanPlayerLearnSkill = support.canPlayerLearnSkill
+PlayerClassMatches = support.playerClassMatches
+ApplyPlayerRewards = support.applyPlayerRewards
+PromotePlayers = support.promotePlayers
 ApplyLocalMonsterRelations = support.applyLocalMonsterRelations
 SetNPCName = support.setNpcName
 SetNPCPicture = support.setNpcPicture
@@ -1349,4 +1596,20 @@ getRuntimeVariable = support.getRuntimeVariable
 setRuntimeVariable = support.setRuntimeVariable
 getPartyVariable = support.getPartyVariable
 setPartyVariable = support.setPartyVariable
+getClassId = support.getClassId
+getClassName = support.getClassName
+getPlayerClass = support.getPlayerClass
+getPlayerClassName = support.getPlayerClassName
+setPlayerClass = support.setPlayerClass
+playerItemCount = support.playerItemCount
+playerHasItem = support.playerHasItem
+playerKnowsSpell = support.playerKnowsSpell
+removePlayerItem = support.removePlayerItem
+applyLichTransformation = support.applyLichTransformation
+getClassSkillCap = support.getClassSkillCap
+canClassLearnSkill = support.canClassLearnSkill
+canPlayerLearnSkill = support.canPlayerLearnSkill
+playerClassMatches = support.playerClassMatches
+applyPlayerRewards = support.applyPlayerRewards
+promotePlayers = support.promotePlayers
 applyLocalMonsterRelations = support.applyLocalMonsterRelations

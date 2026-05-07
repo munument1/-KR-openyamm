@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -15,6 +16,27 @@ public:
     virtual const MapDeltaData *mapDeltaData() const = 0;
     virtual MapDeltaData *mapDeltaData() = 0;
     virtual bool setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn) = 0;
+
+    virtual bool registerOutdoorModelMechanism(
+        uint32_t mechanismId,
+        const std::string &modelName,
+        int32_t dx,
+        int32_t dy,
+        int32_t dz,
+        uint32_t moveTimeMs,
+        bool closed,
+        bool moveParty)
+    {
+        (void)mechanismId;
+        (void)modelName;
+        (void)dx;
+        (void)dy;
+        (void)dz;
+        (void)moveTimeMs;
+        (void)closed;
+        (void)moveParty;
+        return false;
+    }
 
     virtual bool castEventSpell(
         uint32_t spellId,

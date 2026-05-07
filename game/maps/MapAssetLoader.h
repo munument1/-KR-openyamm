@@ -254,12 +254,19 @@ public:
 
 private:
     static std::string toLower(const std::string &value);
+    static std::optional<std::string> findAssetPathInDirectory(
+        const Engine::AssetFileSystem &assetFileSystem,
+        const std::string &directoryPath,
+        const std::string &fileName
+    );
     static std::optional<std::string> findAssetPath(
         const Engine::AssetFileSystem &assetFileSystem,
+        const std::string &worldId,
         const std::string &fileName
     );
     static std::optional<std::string> findCompanionAssetPath(
         const Engine::AssetFileSystem &assetFileSystem,
+        const std::string &worldId,
         const std::string &fileName
     );
     static std::optional<std::string> buildCompanionFileName(const std::string &fileName);

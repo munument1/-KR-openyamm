@@ -422,6 +422,8 @@ bool parseDecorationFlagsCell(const std::vector<std::string> &row, size_t index,
 bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_entries.clear();
+    m_entryIndexByInternalName.clear();
+
     for (const std::vector<std::string> &row : rows)
     {
         if (row.empty() || !isNumericString(trimCopy(row[0])))
@@ -456,6 +458,10 @@ bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows
         }
 
         m_entries.push_back(std::move(entry));
+        if (!m_entries.back().internalName.empty())
+        {
+            m_entryIndexByInternalName[m_entries.back().internalName] = static_cast<uint16_t>(m_entries.size() - 1);
+        }
     }
 
     return !m_entries.empty();
@@ -473,33 +479,22 @@ const DecorationEntry *DecorationTable::get(uint16_t decorationId) const
 
 const DecorationEntry *DecorationTable::findByInternalName(const std::string &internalName) const
 {
-    std::string normalizedName;
-    normalizedName.reserve(internalName.size());
-
-    for (const char character : internalName)
-    {
-        normalizedName.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
-    }
-
-    while (!normalizedName.empty() && normalizedName.back() == ' ')
-    {
-        normalizedName.pop_back();
-    }
+    const std::string normalizedName = toLowerCopy(trimCopy(internalName));
 
     if (normalizedName.empty())
     {
         return nullptr;
     }
 
-    for (const DecorationEntry &entry : m_entries)
+    const std::unordered_map<std::string, uint16_t>::const_iterator iterator =
+        m_entryIndexByInternalName.find(normalizedName);
+
+    if (iterator == m_entryIndexByInternalName.end() || iterator->second >= m_entries.size())
     {
-        if (entry.internalName == normalizedName)
-        {
-            return &entry;
-        }
+        return nullptr;
     }
 
-    return nullptr;
+    return &m_entries[iterator->second];
 }
 
 bool SpriteFrameTable::loadFromBytes(const std::vector<uint8_t> &bytes)
@@ -524,6 +519,7 @@ bool SpriteFrameTable::loadFromBytes(const std::vector<uint8_t> &bytes)
 
     m_frames.clear();
     m_framePresent.clear();
+    m_spriteNameIndex.clear();
     m_frames.reserve(frameCount);
     m_framePresent.reserve(frameCount);
 
@@ -572,6 +568,7 @@ bool SpriteFrameTable::loadFromBytes(const std::vector<uint8_t> &bytes)
         m_eFrames.push_back(eFrame);
     }
 
+    rebuildSpriteNameIndex();
     return !m_frames.empty();
 }
 
@@ -582,6 +579,7 @@ bool SpriteFrameTable::loadFromYaml(const std::string &yamlText, std::string &er
         m_frames.clear();
         m_framePresent.clear();
         m_eFrames.clear();
+        m_spriteNameIndex.clear();
     }
 
     YAML::Node root;
@@ -799,34 +797,33 @@ std::optional<uint16_t> SpriteFrameTable::findFrameIndexBySpriteName(const std::
 {
     const std::string normalizedName = toLowerCopy(spriteName);
 
-    if (!m_eFrames.empty())
+    if (normalizedName.empty())
     {
-        const auto entryIt = std::lower_bound(m_eFrames.begin(), m_eFrames.end(), normalizedName,
-            [this](uint16_t frameIndex, const std::string &name)
-            {
-                return toLowerCopy(m_frames[frameIndex].spriteName) < name;
-            });
-
-        if (entryIt != m_eFrames.end() && toLowerCopy(m_frames[*entryIt].spriteName) == normalizedName)
-        {
-            return *entryIt;
-        }
+        return std::nullopt;
     }
 
-    for (size_t index = 0; index < m_frames.size(); ++index)
-    {
-        if (toLowerCopy(m_frames[index].spriteName) == normalizedName)
-        {
-            return static_cast<uint16_t>(index);
-        }
-    }
-
-    return std::nullopt;
+    const std::unordered_map<std::string, uint16_t>::const_iterator iterator = m_spriteNameIndex.find(normalizedName);
+    return iterator != m_spriteNameIndex.end() ? std::optional<uint16_t>(iterator->second) : std::nullopt;
 }
 
 void SpriteFrameTable::rebuildSpriteNameIndex()
 {
     m_eFrames = buildSortedFirstFrameIndices(m_frames, m_framePresent);
+    m_spriteNameIndex.clear();
+    m_spriteNameIndex.reserve(m_eFrames.size());
+
+    for (size_t frameIndex = 0; frameIndex < m_frames.size(); ++frameIndex)
+    {
+        if (frameIndex >= m_framePresent.size()
+            || !m_framePresent[frameIndex]
+            || m_frames[frameIndex].spriteName.empty()
+            || frameIndex > std::numeric_limits<uint16_t>::max())
+        {
+            continue;
+        }
+
+        m_spriteNameIndex.emplace(toLowerCopy(m_frames[frameIndex].spriteName), static_cast<uint16_t>(frameIndex));
+    }
 }
 
 ResolvedSpriteTexture SpriteFrameTable::resolveTexture(const SpriteFrameEntry &frame, int octant)

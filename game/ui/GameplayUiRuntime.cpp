@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cctype>
 #include <optional>
 #include <utility>
 
@@ -246,6 +247,40 @@ std::string portraitTextureNameForPictureFrame(uint32_t pictureId, uint16_t fram
     char buffer[16] = {};
     std::snprintf(buffer, sizeof(buffer), "PC%02u-%02u", pictureId + 1, std::max<uint16_t>(1, frameIndex));
     return buffer;
+}
+
+std::string portraitTextureNameForTextureFrame(const std::string &textureName, uint16_t frameIndex)
+{
+    if (textureName.empty())
+    {
+        return {};
+    }
+
+    std::string frameTextureName = textureName;
+
+    if (frameTextureName.size() >= 2
+        && std::isdigit(static_cast<unsigned char>(frameTextureName[frameTextureName.size() - 2])) != 0
+        && std::isdigit(static_cast<unsigned char>(frameTextureName[frameTextureName.size() - 1])) != 0)
+    {
+        char frameSuffix[8] = {};
+        std::snprintf(frameSuffix, sizeof(frameSuffix), "%02u", std::max<uint16_t>(1, frameIndex));
+        frameTextureName.replace(frameTextureName.size() - 2, 2, frameSuffix);
+    }
+
+    return frameTextureName;
+}
+
+std::string portraitTextureNameForCharacterFrame(const Character &character, uint16_t frameIndex)
+{
+    const std::string textureFrameName =
+        portraitTextureNameForTextureFrame(character.portraitTextureName, frameIndex);
+
+    if (!textureFrameName.empty())
+    {
+        return textureFrameName;
+    }
+
+    return portraitTextureNameForPictureFrame(character.portraitPictureId, frameIndex);
 }
 
 const bgfx::VertexLayout &gameplayHudQuadVertexLayout()
@@ -683,9 +718,9 @@ int GameplayUiRuntime::defaultHudLayoutZIndexForScreen(const std::string &screen
     return UiLayoutManager::defaultZIndexForScreen(screen);
 }
 
-std::vector<std::string> GameplayUiRuntime::sortedHudLayoutIdsForScreen(const std::string &screen) const
+const std::vector<std::string> &GameplayUiRuntime::sortedHudLayoutIdsForScreen(const std::string &screen) const
 {
-    return m_layoutManager.sortedLayoutIdsForScreen(screen);
+    return m_layoutManager.sortedLayoutIdsForScreenCached(screen);
 }
 
 std::optional<GameplayResolvedHudLayoutElement> GameplayUiRuntime::resolveHudLayoutElement(
@@ -1405,14 +1440,7 @@ std::string GameplayUiRuntime::resolvePortraitTextureName(const Character &chara
 
     if (character.portraitState == PortraitId::Normal)
     {
-        const std::string basePortraitTextureName = portraitTextureNameForPictureFrame(character.portraitPictureId, 1);
-
-        if (!basePortraitTextureName.empty())
-        {
-            return basePortraitTextureName;
-        }
-
-        return character.portraitTextureName;
+        return portraitTextureNameForCharacterFrame(character, 1);
     }
 
     const PortraitFrameEntry *pFrame =
@@ -1420,7 +1448,7 @@ std::string GameplayUiRuntime::resolvePortraitTextureName(const Character &chara
 
     if (pFrame != nullptr && pFrame->textureIndex > 0)
     {
-        return portraitTextureNameForPictureFrame(character.portraitPictureId, pFrame->textureIndex);
+        return portraitTextureNameForCharacterFrame(character, pFrame->textureIndex);
     }
 
     return character.portraitTextureName;

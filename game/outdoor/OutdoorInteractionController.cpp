@@ -23,9 +23,11 @@
 #include <SDL3/SDL.h>
 #include <bx/math.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <unordered_map>
 
 namespace OpenYAMM::Game
@@ -34,6 +36,98 @@ namespace
 {
 constexpr float InspectRayEpsilon = 0.0001f;
 constexpr float Pi = 3.14159265358979323846f;
+
+std::array<float, 3> outdoorBModelRuntimeOffset(
+    const EventRuntimeState *pEventRuntimeState,
+    size_t bModelIndex)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    if (pEventRuntimeState->outdoorModelMechanisms.empty())
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+        pEventRuntimeState->outdoorModelMechanisms)
+    {
+        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
+
+        if (definition.bmodelIndex != bModelIndex)
+        {
+            continue;
+        }
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(entry.first);
+
+        if (mechanismIterator == pEventRuntimeState->mechanisms.end())
+        {
+            continue;
+        }
+
+        const RuntimeMechanismState &mechanism = mechanismIterator->second;
+        const float moveTimeMs = std::max(1.0f, static_cast<float>(definition.moveTimeMs));
+        float fraction = definition.closed ? 0.0f : 1.0f;
+
+        if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Open))
+        {
+            fraction = 1.0f;
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed))
+        {
+            fraction = 0.0f;
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Opening))
+        {
+            fraction = std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
+        }
+        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing))
+        {
+            fraction = 1.0f - std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
+        }
+
+        return {
+            static_cast<float>(definition.dx) * fraction,
+            static_cast<float>(definition.dy) * fraction,
+            static_cast<float>(definition.dz) * fraction
+        };
+    }
+
+    return {0.0f, 0.0f, 0.0f};
+}
+
+std::optional<uint16_t> outdoorBModelRuntimeCogTriggeredNumber(
+    const EventRuntimeState *pEventRuntimeState,
+    size_t bModelIndex)
+{
+    if (pEventRuntimeState == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    if (pEventRuntimeState->outdoorModelMechanisms.empty())
+    {
+        return std::nullopt;
+    }
+
+    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+        pEventRuntimeState->outdoorModelMechanisms)
+    {
+        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
+
+        if (definition.bmodelIndex == bModelIndex)
+        {
+            return static_cast<uint16_t>(std::min<uint32_t>(definition.mechanismId, UINT16_MAX));
+        }
+    }
+
+    return std::nullopt;
+}
+
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float DefaultOutdoorFarClip = 16192.0f;
 
@@ -561,7 +655,8 @@ std::optional<float> intersectOutdoorFaceRay(
     const OutdoorBModel &bModel,
     const OutdoorBModelFace &face,
     const bx::Vec3 &rayOrigin,
-    const bx::Vec3 &rayDirection)
+    const bx::Vec3 &rayDirection,
+    const std::array<float, 3> &offset = {0.0f, 0.0f, 0.0f})
 {
     std::optional<float> bestDistance;
 
@@ -586,6 +681,9 @@ std::optional<float> intersectOutdoorFaceRay(
             }
 
             triangleVertices[triangleVertexSlot] = outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
+            triangleVertices[triangleVertexSlot].x += offset[0];
+            triangleVertices[triangleVertexSlot].y += offset[1];
+            triangleVertices[triangleVertexSlot].z += offset[2];
         }
 
         if (!validTriangle)
@@ -1329,6 +1427,11 @@ uint16_t OutdoorInteractionController::resolveDecorationBillboardSpriteId(
     const EventRuntimeState *pEventRuntimeState = view.m_pOutdoorWorldRuntime->eventRuntimeState();
 
     if (pEventRuntimeState == nullptr)
+    {
+        return spriteId;
+    }
+
+    if (pEventRuntimeState->spriteOverrides.empty())
     {
         return spriteId;
     }
@@ -3320,68 +3423,73 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
 
     const MapDeltaData *pMapDeltaData =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->mapDeltaData() : nullptr;
-    size_t flattenedFaceIndex = 0;
+    const EventRuntimeState *pEventRuntimeState =
+        view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
+    if (view.m_pOutdoorWorldRuntime != nullptr)
     {
-        const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
+        const float maxQueryDistance =
+            std::isfinite(terrainBlockDistance)
+                ? terrainBlockDistance + terrainDistanceEpsilon
+                : view.m_viewDistanceCache.farClipDistance;
+        const bx::Vec3 rayEnd = {
+            rayOrigin.x + rayDirection.x * maxQueryDistance,
+            rayOrigin.y + rayDirection.y * maxQueryDistance,
+            rayOrigin.z + rayDirection.z * maxQueryDistance};
+        const float queryPadding = 256.0f;
+        std::vector<size_t> candidateFaceIndices;
+        view.m_pOutdoorWorldRuntime->collectOutdoorFaceCandidates(
+            std::min(rayOrigin.x, rayEnd.x) - queryPadding,
+            std::min(rayOrigin.y, rayEnd.y) - queryPadding,
+            std::max(rayOrigin.x, rayEnd.x) + queryPadding,
+            std::max(rayOrigin.y, rayEnd.y) + queryPadding,
+            candidateFaceIndices);
 
-        for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
+        for (size_t candidateFaceIndex : candidateFaceIndices)
         {
-            const OutdoorBModelFace &face = bModel.faces[faceIndex];
-            const uint32_t effectiveAttributes =
-                pMapDeltaData != nullptr && flattenedFaceIndex < pMapDeltaData->faceAttributes.size()
-                    ? pMapDeltaData->faceAttributes[flattenedFaceIndex]
-                    : face.attributes;
-            ++flattenedFaceIndex;
+            const OutdoorFaceGeometryData *pGeometry = view.m_pOutdoorWorldRuntime->outdoorFace(candidateFaceIndex);
 
-            if (outdoorFaceHasInvisibleAttribute(effectiveAttributes) || face.vertexIndices.size() < 3)
+            if (pGeometry == nullptr
+                || pGeometry->bModelIndex >= outdoorMapData.bmodels.size()
+                || pGeometry->vertices.size() < 3)
+            {
+                continue;
+            }
+
+            const OutdoorBModel &bModel = outdoorMapData.bmodels[pGeometry->bModelIndex];
+
+            if (pGeometry->faceIndex >= bModel.faces.size())
+            {
+                continue;
+            }
+
+            const OutdoorBModelFace &face = bModel.faces[pGeometry->faceIndex];
+            const std::optional<uint16_t> runtimeCogTriggeredNumber =
+                outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, pGeometry->bModelIndex);
+            const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
+            const uint32_t effectiveAttributes = pGeometry->attributes;
+
+            if (outdoorFaceHasInvisibleAttribute(effectiveAttributes))
             {
                 continue;
             }
 
             if (facePickMode == FacePickMode::InteractionActivatable
-                && !outdoorFaceIsInteractionActivatable(effectiveAttributes, face.cogTriggeredNumber))
+                && !outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
             {
                 continue;
             }
 
-            for (size_t triangleIndex = 1; triangleIndex + 1 < face.vertexIndices.size(); ++triangleIndex)
+            for (size_t triangleIndex = 1; triangleIndex + 1 < pGeometry->vertices.size(); ++triangleIndex)
             {
-                const size_t triangleVertexIndices[3] = {0, triangleIndex, triangleIndex + 1};
-                bx::Vec3 triangleVertices[3] = {
-                    bx::Vec3 {0.0f, 0.0f, 0.0f},
-                    bx::Vec3 {0.0f, 0.0f, 0.0f},
-                    bx::Vec3 {0.0f, 0.0f, 0.0f}
-                };
-                bool isTriangleValid = true;
-
-                for (size_t triangleVertexSlot = 0; triangleVertexSlot < 3; ++triangleVertexSlot)
-                {
-                    const uint16_t vertexIndex = face.vertexIndices[triangleVertexIndices[triangleVertexSlot]];
-
-                    if (vertexIndex >= bModel.vertices.size())
-                    {
-                        isTriangleValid = false;
-                        break;
-                    }
-
-                    triangleVertices[triangleVertexSlot] = outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
-                }
-
-                if (!isTriangleValid)
-                {
-                    continue;
-                }
-
                 float distance = 0.0f;
 
                 if (!intersectRayTriangle(
                         rayOrigin,
                         rayDirection,
-                        triangleVertices[0],
-                        triangleVertices[1],
-                        triangleVertices[2],
+                        pGeometry->vertices[0],
+                        pGeometry->vertices[triangleIndex],
+                        pGeometry->vertices[triangleIndex + 1],
                         distance))
                 {
                     continue;
@@ -3396,18 +3504,121 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 {
                     bestHit.hasHit = true;
                     bestHit.kind = "face";
-                    bestHit.bModelIndex = bModelIndex;
-                    bestHit.faceIndex = faceIndex;
+                    bestHit.bModelIndex = pGeometry->bModelIndex;
+                    bestHit.faceIndex = pGeometry->faceIndex;
                     bestHit.textureName = face.textureName;
                     bestHit.distance = distance;
                     bestHit.attributes = effectiveAttributes;
                     bestHit.bitmapIndex = face.bitmapIndex;
                     bestHit.cogNumber = face.cogNumber;
-                    bestHit.cogTriggeredNumber = face.cogTriggeredNumber;
+                    bestHit.cogTriggeredNumber = cogTriggeredNumber;
                     bestHit.cogTrigger = face.cogTrigger;
                     bestHit.polygonType = face.polygonType;
                     bestHit.shade = face.shade;
                     bestHit.visibility = face.visibility;
+                }
+            }
+        }
+    }
+    else
+    {
+        size_t flattenedFaceIndex = 0;
+
+        for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
+        {
+            const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
+            const std::array<float, 3> bmodelOffset = outdoorBModelRuntimeOffset(pEventRuntimeState, bModelIndex);
+            const std::optional<uint16_t> runtimeCogTriggeredNumber =
+                outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, bModelIndex);
+
+            for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
+            {
+                const OutdoorBModelFace &face = bModel.faces[faceIndex];
+                const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
+                const uint32_t effectiveAttributes =
+                    pMapDeltaData != nullptr && flattenedFaceIndex < pMapDeltaData->faceAttributes.size()
+                        ? pMapDeltaData->faceAttributes[flattenedFaceIndex]
+                        : face.attributes;
+                ++flattenedFaceIndex;
+
+                if (outdoorFaceHasInvisibleAttribute(effectiveAttributes) || face.vertexIndices.size() < 3)
+                {
+                    continue;
+                }
+
+                if (facePickMode == FacePickMode::InteractionActivatable
+                    && !outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
+                {
+                    continue;
+                }
+
+                for (size_t triangleIndex = 1; triangleIndex + 1 < face.vertexIndices.size(); ++triangleIndex)
+                {
+                    const size_t triangleVertexIndices[3] = {0, triangleIndex, triangleIndex + 1};
+                    bx::Vec3 triangleVertices[3] = {
+                        bx::Vec3 {0.0f, 0.0f, 0.0f},
+                        bx::Vec3 {0.0f, 0.0f, 0.0f},
+                        bx::Vec3 {0.0f, 0.0f, 0.0f}
+                    };
+                    bool isTriangleValid = true;
+
+                    for (size_t triangleVertexSlot = 0; triangleVertexSlot < 3; ++triangleVertexSlot)
+                    {
+                        const uint16_t vertexIndex = face.vertexIndices[triangleVertexIndices[triangleVertexSlot]];
+
+                        if (vertexIndex >= bModel.vertices.size())
+                        {
+                            isTriangleValid = false;
+                            break;
+                        }
+
+                        triangleVertices[triangleVertexSlot] =
+                            outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
+                        triangleVertices[triangleVertexSlot].x += bmodelOffset[0];
+                        triangleVertices[triangleVertexSlot].y += bmodelOffset[1];
+                        triangleVertices[triangleVertexSlot].z += bmodelOffset[2];
+                    }
+
+                    if (!isTriangleValid)
+                    {
+                        continue;
+                    }
+
+                    float distance = 0.0f;
+
+                    if (!intersectRayTriangle(
+                            rayOrigin,
+                            rayDirection,
+                            triangleVertices[0],
+                            triangleVertices[1],
+                            triangleVertices[2],
+                            distance))
+                    {
+                        continue;
+                    }
+
+                    if (!isVisibleInspectDistance(distance))
+                    {
+                        continue;
+                    }
+
+                    if (!bestHit.hasHit || distance < bestHit.distance)
+                    {
+                        bestHit.hasHit = true;
+                        bestHit.kind = "face";
+                        bestHit.bModelIndex = bModelIndex;
+                        bestHit.faceIndex = faceIndex;
+                        bestHit.textureName = face.textureName;
+                        bestHit.distance = distance;
+                        bestHit.attributes = effectiveAttributes;
+                        bestHit.bitmapIndex = face.bitmapIndex;
+                        bestHit.cogNumber = face.cogNumber;
+                        bestHit.cogTriggeredNumber = cogTriggeredNumber;
+                        bestHit.cogTrigger = face.cogTrigger;
+                        bestHit.polygonType = face.polygonType;
+                        bestHit.shade = face.shade;
+                        bestHit.visibility = face.visibility;
+                    }
                 }
             }
         }
@@ -3492,6 +3703,11 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
             const EventRuntimeState *pEventRuntimeState = view.m_pOutdoorWorldRuntime->eventRuntimeState();
 
             if (pEventRuntimeState == nullptr)
+            {
+                return spriteId;
+            }
+
+            if (pEventRuntimeState->spriteOverrides.empty())
             {
                 return spriteId;
             }
@@ -4050,6 +4266,9 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
         return {};
     }
 
+    const EventRuntimeState *pEventRuntimeState =
+        view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
+
     const auto nearestLevelGeometryDistance =
         [&](const bx::Vec3 &rayOrigin, const bx::Vec3 &rayDirection, float maxDistance) -> float
         {
@@ -4278,12 +4497,16 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
     for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
     {
         const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
+        const std::array<float, 3> bmodelOffset = outdoorBModelRuntimeOffset(pEventRuntimeState, bModelIndex);
+        const std::optional<uint16_t> runtimeCogTriggeredNumber =
+            outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, bModelIndex);
 
         for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
         {
             const OutdoorBModelFace &face = bModel.faces[faceIndex];
+            const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
 
-            if (!outdoorFaceIsInteractionActivatable(face.attributes, face.cogTriggeredNumber)
+            if (!outdoorFaceIsInteractionActivatable(face.attributes, cogTriggeredNumber)
                 || face.vertexIndices.size() < 3)
             {
                 continue;
@@ -4303,9 +4526,13 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
                 }
 
                 ProjectedPoint projected = {};
+                bx::Vec3 vertex = outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
+                vertex.x += bmodelOffset[0];
+                vertex.y += bmodelOffset[1];
+                vertex.z += bmodelOffset[2];
 
                 if (!projectWorldPointToScreen(
-                        outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]),
+                        vertex,
                         viewWidth,
                         viewHeight,
                         viewProjectionMatrix,
@@ -4357,7 +4584,8 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
                 continue;
             }
 
-            const std::optional<float> faceDistance = intersectOutdoorFaceRay(bModel, face, rayOrigin, rayDirection);
+            const std::optional<float> faceDistance =
+                intersectOutdoorFaceRay(bModel, face, rayOrigin, rayDirection, bmodelOffset);
 
             if (!faceDistance.has_value())
             {
@@ -4381,7 +4609,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
             hit.attributes = face.attributes;
             hit.bitmapIndex = face.bitmapIndex;
             hit.cogNumber = face.cogNumber;
-            hit.cogTriggeredNumber = face.cogTriggeredNumber;
+            hit.cogTriggeredNumber = cogTriggeredNumber;
             hit.cogTrigger = face.cogTrigger;
             hit.polygonType = face.polygonType;
             hit.shade = face.shade;

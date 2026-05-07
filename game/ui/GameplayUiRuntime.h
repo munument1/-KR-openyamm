@@ -101,7 +101,7 @@ public:
     void setHudLayoutRuntimeHeightOverride(const std::string &layoutId, float height);
     const UiLayoutManager::LayoutElement *findHudLayoutElement(const std::string &layoutId) const;
     int defaultHudLayoutZIndexForScreen(const std::string &screen) const;
-    std::vector<std::string> sortedHudLayoutIdsForScreen(const std::string &screen) const;
+    const std::vector<std::string> &sortedHudLayoutIdsForScreen(const std::string &screen) const;
     std::optional<GameplayResolvedHudLayoutElement> resolveHudLayoutElement(
         const std::string &layoutId,
         int screenWidth,

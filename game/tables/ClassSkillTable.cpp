@@ -128,6 +128,7 @@ bool ClassSkillTable::loadStartingSkillsFromRows(const std::vector<std::vector<s
 bool ClassSkillTable::loadClassMetadataFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_classMetadata.clear();
+    m_classNamesById.clear();
 
     if (rows.size() < 2)
     {
@@ -154,7 +155,14 @@ bool ClassSkillTable::loadClassMetadataFromRows(const std::vector<std::vector<st
 
         entry.className = canonicalClassName(row[3]);
 
-        if (entry.className.empty() || entry.classKind == 0)
+        if (entry.className.empty())
+        {
+            continue;
+        }
+
+        m_classNamesById[entry.classId] = entry.className;
+
+        if (entry.classKind == 0)
         {
             continue;
         }
@@ -162,7 +170,7 @@ bool ClassSkillTable::loadClassMetadataFromRows(const std::vector<std::vector<st
         m_classMetadata[entry.className] = std::move(entry);
     }
 
-    return !m_classMetadata.empty();
+    return !m_classNamesById.empty();
 }
 
 SkillMastery ClassSkillTable::getClassCap(const std::string &className, const std::string &skillName) const
@@ -309,5 +317,44 @@ std::vector<CharacterSkill> ClassSkillTable::getDefaultSkillsForClass(const std:
         }
     );
     return skills;
+}
+
+std::optional<uint32_t> ClassSkillTable::classIdForName(const std::string &className) const
+{
+    const std::string canonicalClass = canonicalClassName(className);
+    const std::unordered_map<std::string, ClassMetadataEntry>::const_iterator metadataIt =
+        m_classMetadata.find(canonicalClass);
+
+    if (metadataIt != m_classMetadata.end())
+    {
+        return metadataIt->second.classId;
+    }
+
+    for (const auto &[classId, candidateClassName] : m_classNamesById)
+    {
+        if (candidateClassName == canonicalClass)
+        {
+            return classId;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::string> ClassSkillTable::classNameForId(uint32_t classId) const
+{
+    const std::unordered_map<uint32_t, std::string>::const_iterator iterator = m_classNamesById.find(classId);
+
+    if (iterator == m_classNamesById.end())
+    {
+        return std::nullopt;
+    }
+
+    return iterator->second;
+}
+
+bool ClassSkillTable::hasClass(const std::string &className) const
+{
+    return classIdForName(className).has_value();
 }
 }

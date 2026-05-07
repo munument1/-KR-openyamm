@@ -1,5 +1,104 @@
 MM8 = MM8 or {}
 
+MM8.MinutesPerDay = 1440
+
+function MM8.GetMapVar(name, defaultValue)
+    return evt.GetMapVar(name, defaultValue or 0)
+end
+
+function MM8.SetMapVar(name, value)
+    evt.SetMapVar(name, value or 0)
+end
+
+function MM8.GetMapFlag(name)
+    return MM8.GetMapVar(name, 0) ~= 0
+end
+
+function MM8.SetMapFlag(name, enabled)
+    MM8.SetMapVar(name, enabled and 1 or 0)
+end
+
+function MM8.OpenDimensionDoor()
+    evt.OpenDimensionDoor()
+end
+
+function MM8.PartyTile()
+    local x, y = evt.GetPartyPosition()
+    return math.floor(x / 512 + 64), math.floor(64 - y / 512)
+end
+
+function MM8.OpenDimensionDoorOnTile(tileX, tileY, latchName)
+    evt.ClearDimensionDoorOverlay()
+
+    local partyTileX, partyTileY = MM8.PartyTile()
+    local onTile = partyTileX == tileX and partyTileY == tileY
+
+    if onTile and not MM8.GetMapFlag(latchName) then
+        MM8.SetMapFlag(latchName, true)
+        MM8.OpenDimensionDoor()
+    elseif not onTile and MM8.GetMapFlag(latchName) then
+        MM8.SetMapFlag(latchName, false)
+    end
+end
+
+function MM8.HasCurrentPlayerSpell(spellId)
+    return PlayerKnowsSpell(nil, spellId)
+end
+
+function MM8.UnstoneStatue(spriteId, npcId, addCauriBits)
+    evt.ForPlayer(Players.All)
+    local hasScroll = HasItem(339)
+    local hasSpell = MM8.HasCurrentPlayerSpell(40)
+
+    if not hasScroll and not hasSpell then
+        evt.ForPlayer(Players.Current)
+        return
+    end
+
+    if not hasSpell then
+        RemoveItem(339)
+    end
+
+    evt.ForPlayer(Players.Current)
+    evt.SetSprite(spriteId, 0, "0")
+
+    if addCauriBits then
+        SetQBit(QBit(40))
+        SetQBit(QBit(430))
+    end
+
+    evt.SpeakNPC(npcId)
+end
+
+function MM8.TryExchangeGem(exchangeEntries)
+    evt.ForPlayer(Players.All)
+
+    for _, entry in ipairs(exchangeEntries or {}) do
+        local sourceItemId = entry[1]
+        local reward = entry[2]
+
+        if HasItem(sourceItemId) then
+            RemoveItem(sourceItemId)
+
+            if reward > 0 then
+                AddValue(InventoryItem(reward), reward)
+            elseif reward < 0 then
+                AddValue(Gold, -reward)
+            else
+                local itemTypes = {ItemType.Weapon_, ItemType.Armor_, ItemType.Misc, ItemType.Ring_, ItemType.Scroll_}
+                local index = PickRandomOption(455, sourceItemId % 250, {1, 2, 3, 4, 5})
+                evt.GiveItem(3, itemTypes[index])
+            end
+
+            evt.ForPlayer(Players.Current)
+            return true
+        end
+    end
+
+    evt.ForPlayer(Players.Current)
+    return false
+end
+
 MM8.SeerRecoverableItems = {
     {Item = 539, QBit = 199}, -- Ebonest
     {Item = 540, QBit = 200}, -- Sword of Whistlebone

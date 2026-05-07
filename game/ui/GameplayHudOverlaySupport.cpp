@@ -168,6 +168,11 @@ std::string formatCharacterDetailDuration(float remainingSeconds)
 
 std::string defaultCharacterPortraitTextureName(const Character &character)
 {
+    if (!character.portraitTextureName.empty())
+    {
+        return character.portraitTextureName;
+    }
+
     char buffer[16] = {};
     std::snprintf(buffer, sizeof(buffer), "PC%02u-01", character.portraitPictureId + 1);
     return buffer;

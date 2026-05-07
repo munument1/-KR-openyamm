@@ -19,6 +19,8 @@ struct DecorationBillboardSet;
 class GameplayActorService;
 class GameplayCombatController;
 class GameplayProjectileService;
+class MergedBolsterMapTable;
+class MergedBolsterMonsterTable;
 class MonsterProjectileTable;
 class SpriteFrameTable;
 class SpellTable;
@@ -67,7 +69,9 @@ public:
         GameplayCombatController *pGameplayCombatController = nullptr,
         const SpriteFrameTable *pActorSpriteFrameTable = nullptr,
         const SpriteFrameTable *pProjectileSpriteFrameTable = nullptr,
-        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr
+        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
+        const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
     IndoorSceneRuntime(
         const std::string &mapFileName,
@@ -84,7 +88,9 @@ public:
         const std::optional<ScriptedEventProgram> &globalEventProgram,
         GameplayActorService *pGameplayActorService,
         const SpriteFrameTable *pActorSpriteFrameTable = nullptr,
-        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr
+        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
+        const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
 
     SceneKind kind() const override;

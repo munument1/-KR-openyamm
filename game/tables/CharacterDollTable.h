@@ -72,6 +72,7 @@ public:
 
     const CharacterDollEntry *getCharacter(uint32_t characterId) const;
     const CharacterDollTypeEntry *getDollType(uint32_t dollTypeId) const;
+    const std::unordered_map<uint32_t, CharacterDollEntry> &characters() const;
 
 private:
     std::unordered_map<uint32_t, CharacterDollEntry> m_characterEntries;

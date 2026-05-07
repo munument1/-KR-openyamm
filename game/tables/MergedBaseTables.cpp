@@ -669,6 +669,7 @@ bool MergedClassExtraTable::loadFromRows(const std::vector<std::vector<std::stri
 bool MergedCharacterSelectionTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_characterSelectionAllowedClassesByRaceId.clear();
+    m_characterSelectionRaceNamesById.clear();
     m_characterSelectionContinents.clear();
 
     if (rows.empty())
@@ -775,6 +776,7 @@ bool MergedCharacterSelectionTable::loadFromRows(const std::vector<std::vector<s
 bool MergedCharacterSelectionTable::loadFromYaml(const std::string &yamlText, std::string &errorMessage)
 {
     m_characterSelectionAllowedClassesByRaceId.clear();
+    m_characterSelectionRaceNamesById.clear();
     m_characterSelectionContinents.clear();
 
     YAML::Node root;
@@ -816,6 +818,7 @@ bool MergedCharacterSelectionTable::loadFromYaml(const std::string &yamlText, st
         }
 
         m_characterSelectionAllowedClassesByRaceId[*raceId] = std::move(classNames);
+        m_characterSelectionRaceNamesById[*raceId] = yamlStringOrEmpty(raceNode["race"]);
     }
 
     const YAML::Node continentsNode = root["new_game_continents"];
@@ -1552,10 +1555,30 @@ const std::vector<MergedClassExtraEntry> &MergedClassExtraTable::entries() const
     return m_entries;
 }
 
+const std::vector<std::string> *MergedCharacterSelectionTable::allowedClassesForRaceId(uint32_t raceId) const
+{
+    const std::unordered_map<uint32_t, std::vector<std::string>>::const_iterator it =
+        m_characterSelectionAllowedClassesByRaceId.find(raceId);
+    return it != m_characterSelectionAllowedClassesByRaceId.end() ? &it->second : nullptr;
+}
+
 const std::vector<MergedCharacterSelectionContinent> &
 MergedCharacterSelectionTable::continents() const
 {
     return m_characterSelectionContinents;
+}
+
+std::optional<std::string> MergedCharacterSelectionTable::raceNameForId(uint32_t raceId) const
+{
+    const std::unordered_map<uint32_t, std::string>::const_iterator it =
+        m_characterSelectionRaceNamesById.find(raceId);
+
+    if (it == m_characterSelectionRaceNamesById.end() || it->second.empty())
+    {
+        return std::nullopt;
+    }
+
+    return it->second;
 }
 
 size_t MergedCharacterSelectionTable::raceCount() const

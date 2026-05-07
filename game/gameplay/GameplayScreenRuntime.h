@@ -300,7 +300,7 @@ public:
     const HudLayoutElement *findHudLayoutElement(const std::string &layoutId) const;
     int defaultHudLayoutZIndexForScreen(const std::string &screen) const;
     GameplayHudScreenState currentHudScreenState() const;
-    std::vector<std::string> sortedHudLayoutIdsForScreen(const std::string &screen) const;
+    const std::vector<std::string> &sortedHudLayoutIdsForScreen(const std::string &screen) const;
 
     std::optional<ResolvedHudLayoutElement> resolveHudLayoutElement(
         const std::string &layoutId,

@@ -83,6 +83,11 @@ std::string inferWorldIdFromMapFileName(const std::string &fileName, const std::
         return "mm6";
     }
 
+    if (stem == "breach" || stem == "bralvar" || stem == "brbase")
+    {
+        return "mmmerge";
+    }
+
     return normalizeWorldId(fallbackWorldId);
 }
 

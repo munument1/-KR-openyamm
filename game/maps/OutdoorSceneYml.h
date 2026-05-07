@@ -60,6 +60,12 @@ struct OutdoorSceneInteractiveFace
 {
     size_t bmodelIndex = 0;
     size_t faceIndex = 0;
+    std::string bmodelName;
+    bool allFaces = false;
+    bool hasLegacyAttributes = true;
+    bool hasCogNumber = true;
+    bool hasCogTriggeredNumber = true;
+    bool hasCogTrigger = true;
     uint32_t legacyAttributes = 0;
     uint16_t cogNumber = 0;
     uint16_t cogTriggeredNumber = 0;

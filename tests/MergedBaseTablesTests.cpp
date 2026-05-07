@@ -1,14 +1,27 @@
 #include "doctest/doctest.h"
 
+#include "engine/AssetFileSystem.h"
+#include "engine/AssetScaleTier.h"
 #include "engine/TextTable.h"
+#include "game/audio/SoundCatalog.h"
+#include "game/party/SpeechIds.h"
+#include "game/tables/FaceAnimationTable.h"
+#include "game/tables/PortraitEnums.h"
+#include "game/tables/PortraitFrameTable.h"
+#include "game/tables/SpeechReactionTable.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/RaceStartingStatsTable.h"
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -48,6 +61,59 @@ std::string loadDataTableText(const char *pFileName)
 {
     return readSourceTextFile(
         std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/data_tables" / pFileName);
+}
+
+bool assetTextureExists(const OpenYAMM::Engine::AssetFileSystem &assetFileSystem, const std::string &assetName)
+{
+    return assetFileSystem.exists("icons/" + assetName + ".bmp")
+        || assetFileSystem.exists("icons/" + assetName + ".png");
+}
+
+std::string portraitFrameTextureName(const std::string &baseTextureName, uint32_t frameIndex)
+{
+    if (baseTextureName.size() < 2
+        || !std::isdigit(static_cast<unsigned char>(baseTextureName[baseTextureName.size() - 2]))
+        || !std::isdigit(static_cast<unsigned char>(baseTextureName[baseTextureName.size() - 1])))
+    {
+        return baseTextureName;
+    }
+
+    char suffix[8] = {};
+    std::snprintf(suffix, sizeof(suffix), "%02u", frameIndex);
+
+    std::string textureName = baseTextureName;
+    textureName.replace(textureName.size() - 2, 2, suffix);
+    return textureName;
+}
+
+bool voiceSpeechResolves(
+    const OpenYAMM::Game::MergedCharacterVoiceTable &voiceTable,
+    const OpenYAMM::Game::SpeechReactionTable &speechReactionTable,
+    const OpenYAMM::Game::SoundCatalog &soundCatalog,
+    const OpenYAMM::Engine::AssetFileSystem &assetFileSystem,
+    uint32_t voiceId,
+    OpenYAMM::Game::SpeechId speechId)
+{
+    const OpenYAMM::Game::SpeechReactionEntry *pReaction = speechReactionTable.find(speechId);
+
+    if (pReaction == nullptr)
+    {
+        return false;
+    }
+
+    const std::vector<uint32_t> soundIds = voiceTable.soundIdsForTypes(voiceId, pReaction->soundTypes);
+
+    for (uint32_t soundId : soundIds)
+    {
+        const std::optional<std::string> virtualPath = soundCatalog.buildVirtualPath(soundId);
+
+        if (virtualPath && assetFileSystem.exists(*virtualPath))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 }
 
@@ -252,6 +318,21 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
 
     REQUIRE_EQ(continentSettingTable.entries().size(), 4u);
     CHECK_EQ(continentSettingTable.entries()[0].note, "Jadam");
+    const OpenYAMM::Game::MergedContinentSettingEntry *pAntagarichContinent =
+        continentSettingTable.findById(2u);
+    REQUIRE(pAntagarichContinent != nullptr);
+    CHECK_EQ(pAntagarichContinent->note, "Antagarich");
+    CHECK_EQ(pAntagarichContinent->deathMovie, "7losegame");
+    CHECK_EQ(pAntagarichContinent->deathMap1, "7out01.odm");
+    CHECK_EQ(pAntagarichContinent->deathMap1X, 12552);
+    CHECK_EQ(pAntagarichContinent->deathMap1Y, 800);
+    CHECK_EQ(pAntagarichContinent->deathMap1Z, 193);
+    CHECK_EQ(pAntagarichContinent->deathMap1Direction, 512);
+    CHECK_EQ(pAntagarichContinent->deathMap2, "7out02.odm");
+    CHECK_EQ(pAntagarichContinent->deathMap2X, -16832);
+    CHECK_EQ(pAntagarichContinent->deathMap2Y, 12512);
+    CHECK_EQ(pAntagarichContinent->deathMap2Z, 372);
+    CHECK_EQ(pAntagarichContinent->deathMap2Direction, 0);
 
     REQUIRE_EQ(hardwareWaterTextureTable.entries().size(), 6u);
     CHECK_EQ(hardwareWaterTextureTable.entries()[0].hardwareTexturePrefix, "7hdwtr");
@@ -273,10 +354,229 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
 
     CHECK_GT(townPortalSwitchTable.groups().size(), 2u);
     CHECK_EQ(townPortalSwitchTable.groups()[0].topicId, 300u);
+    const auto antagarichTownPortalGroup = std::find_if(
+        townPortalSwitchTable.groups().begin(),
+        townPortalSwitchTable.groups().end(),
+        [](const OpenYAMM::Game::MergedTownPortalSwitchGroup &group)
+        {
+            return group.name == "Antagrich";
+        });
+    REQUIRE(antagarichTownPortalGroup != townPortalSwitchTable.groups().end());
+    CHECK_EQ(antagarichTownPortalGroup->topicId, 307u);
+    REQUIRE_EQ(antagarichTownPortalGroup->destinations.size(), 6u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[0].description, "Castle Harmondale");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[0].qbitIndex, 718u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[1].description, "Tularean Forest");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[1].qbitIndex, 719u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[2].description, "City of Steadwick");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[2].qbitIndex, 720u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[3].description, "Nighon");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[3].qbitIndex, 721u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[4].description, "Celeste");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[4].qbitIndex, 722u);
+    CHECK_EQ(antagarichTownPortalGroup->destinations[5].description, "The Pit");
+    CHECK_EQ(antagarichTownPortalGroup->destinations[5].qbitIndex, 723u);
+
+    const auto jadameTownPortalGroup = std::find_if(
+        townPortalSwitchTable.groups().begin(),
+        townPortalSwitchTable.groups().end(),
+        [](const OpenYAMM::Game::MergedTownPortalSwitchGroup &group)
+        {
+            return group.name == "townport";
+        });
+    REQUIRE(jadameTownPortalGroup != townPortalSwitchTable.groups().end());
+    CHECK_EQ(jadameTownPortalGroup->topicId, 300u);
+    REQUIRE_EQ(jadameTownPortalGroup->destinations.size(), 6u);
+    CHECK_EQ(jadameTownPortalGroup->destinations[0].description, "Alvar");
+    CHECK_EQ(jadameTownPortalGroup->destinations[0].qbitIndex, 301u);
+    CHECK_EQ(jadameTownPortalGroup->destinations[1].description, "Ravenshore");
+    CHECK_EQ(jadameTownPortalGroup->destinations[1].qbitIndex, 302u);
+    CHECK_EQ(jadameTownPortalGroup->destinations[5].description, "Daggerwound islands");
+    CHECK_EQ(jadameTownPortalGroup->destinations[5].qbitIndex, 306u);
+
+    const auto dimensionDoorGroup = std::find_if(
+        townPortalSwitchTable.groups().begin(),
+        townPortalSwitchTable.groups().end(),
+        [](const OpenYAMM::Game::MergedTownPortalSwitchGroup &group)
+        {
+            return group.name == "TPGlobal";
+        });
+    REQUIRE(dimensionDoorGroup != townPortalSwitchTable.groups().end());
+    CHECK_EQ(dimensionDoorGroup->topicId, 309u);
+    REQUIRE_EQ(dimensionDoorGroup->destinations.size(), 6u);
+    CHECK_EQ(dimensionDoorGroup->destinations[0].description, "Jadame");
+    CHECK_EQ(dimensionDoorGroup->destinations[0].iconName, "TPJadam1");
+    CHECK_EQ(dimensionDoorGroup->destinations[2].description, "Antagarich");
+    CHECK_EQ(dimensionDoorGroup->destinations[2].iconName, "TPAntag1");
+    CHECK_EQ(dimensionDoorGroup->destinations[4].description, "Enroth");
+    CHECK_EQ(dimensionDoorGroup->destinations[4].iconName, "TPEnroth1");
 
     CHECK_GE(transportIndexTable.entries().size(), 20u);
     CHECK_EQ(transportIndexTable.entries()[0].houseEventId, 54u);
 
     CHECK_GT(transportLocationTable.entries().size(), 20u);
     CHECK_EQ(transportLocationTable.entries()[0].mapName, "Out03.odm");
+}
+
+TEST_CASE("Antagarich continent skies referenced by merged tables are available")
+{
+    OpenYAMM::Game::MergedContinentSettingTable continentSettingTable;
+    REQUIRE(continentSettingTable.loadFromRows(loadRows("continent_settings.txt")));
+
+    const OpenYAMM::Game::MergedContinentSettingEntry *pAntagarichContinent =
+        continentSettingTable.findById(2u);
+    REQUIRE(pAntagarichContinent != nullptr);
+    REQUIRE_FALSE(pAntagarichContinent->skies.empty());
+
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::filesystem::path assetsRoot = sourceRoot / "assets_dev";
+    REQUIRE(assetFileSystem.initialize(sourceRoot, assetsRoot, OpenYAMM::Engine::AssetScaleTier::X1));
+    REQUIRE(assetFileSystem.switchActiveWorld("mm7"));
+
+    for (const std::string &skyTextureName : pAntagarichContinent->skies)
+    {
+        const bool hasBmpSkyTexture = assetFileSystem.exists("sky_textures/" + skyTextureName + ".bmp");
+        const bool hasPngSkyTexture = assetFileSystem.exists("sky_textures/" + skyTextureName + ".png");
+        const bool hasSkyTexture = hasBmpSkyTexture || hasPngSkyTexture;
+
+        CHECK_MESSAGE(hasSkyTexture, skyTextureName.c_str());
+    }
+}
+
+TEST_CASE("merged character portrait prefixes resolve all standard expression frames")
+{
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::filesystem::path assetsRoot = sourceRoot / "assets_dev";
+    REQUIRE(assetFileSystem.initialize(sourceRoot, assetsRoot, OpenYAMM::Engine::AssetScaleTier::X1));
+
+    std::unordered_set<uint32_t> portraitFrameIndices;
+
+    for (const std::vector<std::string> &row : loadRows("portrait_frame_data.txt"))
+    {
+        if (row.size() < 2 || row[0].empty() || !std::isdigit(static_cast<unsigned char>(row[0][0])))
+        {
+            continue;
+        }
+
+        portraitFrameIndices.insert(static_cast<uint32_t>(std::stoul(row[1])));
+    }
+
+    REQUIRE_GT(portraitFrameIndices.size(), 50u);
+
+    size_t checkedPortraits = 0;
+
+    for (const std::vector<std::string> &row : loadRows("character_data.txt"))
+    {
+        if (row.size() < 20 || row[0].empty() || !std::isdigit(static_cast<unsigned char>(row[0][0]))
+            || row[2] == "-1")
+        {
+            continue;
+        }
+
+        const std::string facePrefix = row[19];
+
+        if (facePrefix.empty() || facePrefix == "none")
+        {
+            continue;
+        }
+
+        ++checkedPortraits;
+        const std::string baseTextureName = facePrefix + "01";
+        CAPTURE(row[0]);
+        CAPTURE(baseTextureName);
+        CHECK_MESSAGE(assetTextureExists(assetFileSystem, baseTextureName), baseTextureName.c_str());
+
+        for (uint32_t frameIndex : portraitFrameIndices)
+        {
+            const std::string frameTextureName = portraitFrameTextureName(baseTextureName, frameIndex);
+            CHECK_MESSAGE(assetTextureExists(assetFileSystem, frameTextureName), frameTextureName.c_str());
+        }
+    }
+
+    CHECK_GT(checkedPortraits, 70u);
+}
+
+TEST_CASE("merged character speech face animations have concrete expression mappings")
+{
+    OpenYAMM::Game::FaceAnimationTable faceAnimationTable;
+    REQUIRE(faceAnimationTable.loadFromRows(loadRows("face_animations.txt")));
+
+    size_t checkedAnimations = 0;
+
+    for (const std::vector<std::string> &row : loadRows("character_speech_events.txt"))
+    {
+        if (row.size() < 4 || row[0] == "Id" || row[3].empty())
+        {
+            continue;
+        }
+
+        const std::optional<OpenYAMM::Game::FaceAnimationId> faceAnimationId =
+            OpenYAMM::Game::faceAnimationIdFromName(row[3]);
+        CAPTURE(row[0]);
+        CAPTURE(row[3]);
+        REQUIRE(faceAnimationId.has_value());
+        CHECK(faceAnimationTable.find(*faceAnimationId) != nullptr);
+        ++checkedAnimations;
+    }
+
+    CHECK_GT(checkedAnimations, 40u);
+}
+
+TEST_CASE("merged startable character voices resolve core speech sounds")
+{
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::filesystem::path assetsRoot = sourceRoot / "assets_dev";
+    REQUIRE(assetFileSystem.initialize(sourceRoot, assetsRoot, OpenYAMM::Engine::AssetScaleTier::X1));
+
+    OpenYAMM::Game::SoundCatalog soundCatalog;
+    std::string soundCatalogError;
+    REQUIRE(soundCatalog.loadFromScopedRows(loadRows("sounds.txt"), {}, soundCatalogError));
+    soundCatalog.initializeVirtualPathIndex(assetFileSystem);
+
+    OpenYAMM::Game::MergedCharacterVoiceTable voiceTable;
+    REQUIRE(voiceTable.loadFromRows(loadRows("character_voices.txt")));
+
+    OpenYAMM::Game::SpeechReactionTable speechReactionTable;
+    REQUIRE(speechReactionTable.loadFromRows(loadRows("character_speech_events.txt")));
+
+    const std::array<OpenYAMM::Game::SpeechId, 10> checkedSpeechIds = {{
+        OpenYAMM::Game::SpeechId::SelectCharacter,
+        OpenYAMM::Game::SpeechId::DamageMinor,
+        OpenYAMM::Game::SpeechId::DamageMajor,
+        OpenYAMM::Game::SpeechId::DoorLocked,
+        OpenYAMM::Game::SpeechId::CantLearnSpell,
+        OpenYAMM::Game::SpeechId::LearnSpell,
+        OpenYAMM::Game::SpeechId::AttackHit,
+        OpenYAMM::Game::SpeechId::CantEquip,
+        OpenYAMM::Game::SpeechId::StoreClosed,
+        OpenYAMM::Game::SpeechId::NotEnoughGold,
+    }};
+    std::unordered_set<uint32_t> checkedVoiceIds;
+
+    for (const std::vector<std::string> &row : loadRows("character_data.txt"))
+    {
+        if (row.size() < 6 || row[0].empty() || !std::isdigit(static_cast<unsigned char>(row[0][0]))
+            || row[2] == "-1" || row[5] != "x")
+        {
+            continue;
+        }
+
+        const uint32_t voiceId = static_cast<uint32_t>(std::stoul(row[3]));
+
+        if (!checkedVoiceIds.insert(voiceId).second)
+        {
+            continue;
+        }
+
+        for (OpenYAMM::Game::SpeechId speechId : checkedSpeechIds)
+        {
+            CAPTURE(voiceId);
+            CHECK(voiceSpeechResolves(voiceTable, speechReactionTable, soundCatalog, assetFileSystem, voiceId, speechId));
+        }
+    }
+
+    CHECK_GT(checkedVoiceIds.size(), 50u);
 }

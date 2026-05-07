@@ -2,6 +2,7 @@
 
 #include "game/party/SkillData.h"
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -28,6 +29,9 @@ public:
     StartingSkillAvailability getStartingSkillAvailability(const std::string &className, const std::string &skillName)
         const;
     std::vector<CharacterSkill> getDefaultSkillsForClass(const std::string &className) const;
+    std::optional<uint32_t> classIdForName(const std::string &className) const;
+    std::optional<std::string> classNameForId(uint32_t classId) const;
+    bool hasClass(const std::string &className) const;
 
 private:
     std::vector<std::string> promotionClassNamesFromMetadata(const std::string &className) const;
@@ -35,5 +39,6 @@ private:
     std::unordered_map<std::string, std::unordered_map<std::string, SkillMastery>> m_caps;
     std::unordered_map<std::string, std::unordered_map<std::string, StartingSkillAvailability>> m_startingSkills;
     std::unordered_map<std::string, ClassMetadataEntry> m_classMetadata;
+    std::unordered_map<uint32_t, std::string> m_classNamesById;
 };
 }

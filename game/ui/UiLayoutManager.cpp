@@ -262,6 +262,7 @@ void UiLayoutManager::clear()
 {
     m_layoutOrder.clear();
     m_layoutElements.clear();
+    m_normalizedLayoutIdByExactId.clear();
     m_sortedLayoutIdsByScreen.clear();
 }
 
@@ -483,8 +484,11 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
                     }
                 }
 
+                element.normalizedId = toLowerCopy(element.id);
+                element.normalizedScreen = toLowerCopy(element.screen);
                 m_layoutOrder.push_back(element.id);
-                m_layoutElements[toLowerCopy(element.id)] = element;
+                m_normalizedLayoutIdByExactId[element.id] = element.normalizedId;
+                m_layoutElements[element.normalizedId] = element;
 
                 const YAML::Node childrenNode = node["children"];
 
@@ -527,7 +531,11 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
 
 const UiLayoutManager::LayoutElement *UiLayoutManager::findElement(const std::string &layoutId) const
 {
-    const auto iterator = m_layoutElements.find(toLowerCopy(layoutId));
+    std::unordered_map<std::string, std::string>::const_iterator exactIterator =
+        m_normalizedLayoutIdByExactId.find(layoutId);
+    const std::string normalizedLayoutId =
+        exactIterator != m_normalizedLayoutIdByExactId.end() ? exactIterator->second : toLowerCopy(layoutId);
+    const auto iterator = m_layoutElements.find(normalizedLayoutId);
 
     if (iterator == m_layoutElements.end())
     {
@@ -553,7 +561,7 @@ const std::vector<std::string> &UiLayoutManager::sortedLayoutIdsForScreenCached(
     {
         const LayoutElement *pLayout = findElement(layoutId);
 
-        if (pLayout == nullptr || toLowerCopy(pLayout->screen) != normalizedScreen)
+        if (pLayout == nullptr || pLayout->normalizedScreen != normalizedScreen)
         {
             continue;
         }
@@ -595,7 +603,7 @@ int UiLayoutManager::maxZIndexForScreen(const std::string &screen) const
     {
         (void)id;
 
-        if (toLowerCopy(element.screen) == normalizedScreen)
+        if (element.normalizedScreen == normalizedScreen)
         {
             maxZIndex = std::max(maxZIndex, element.zIndex);
         }

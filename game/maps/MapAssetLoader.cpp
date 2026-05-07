@@ -3367,7 +3367,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
         pumpMapLoadProgress(progressPump);
     };
 
-    const std::optional<std::string> geometryPath = findAssetPath(assetFileSystem, map.fileName);
+    const std::optional<std::string> geometryPath = findAssetPath(assetFileSystem, map.worldId, map.fileName);
 
     if (!geometryPath)
     {
@@ -3401,7 +3401,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 
     if (sceneFileName)
     {
-        const std::optional<std::string> scenePath = findAssetPath(assetFileSystem, *sceneFileName);
+        const std::optional<std::string> scenePath = findAssetPath(assetFileSystem, map.worldId, *sceneFileName);
 
         if (scenePath)
         {
@@ -3436,7 +3436,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
     if (companionFileName)
     {
         const std::optional<std::string> companionPath =
-            findCompanionAssetPath(assetFileSystem, *companionFileName);
+            findCompanionAssetPath(assetFileSystem, map.worldId, *companionFileName);
 
         if (companionPath)
         {
@@ -3874,19 +3874,20 @@ std::string MapAssetLoader::toLower(const std::string &value)
     return lowered;
 }
 
-std::optional<std::string> MapAssetLoader::findAssetPath(
+std::optional<std::string> MapAssetLoader::findAssetPathInDirectory(
     const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &directoryPath,
     const std::string &fileName
 )
 {
-    const std::vector<std::string> entries = assetFileSystem.enumerate("Data/games");
+    const std::vector<std::string> entries = assetFileSystem.enumerate(directoryPath);
     const std::string normalizedFileName = toLower(fileName);
 
     for (const std::string &entry : entries)
     {
         if (toLower(entry) == normalizedFileName)
         {
-            return std::string("Data/games/") + entry;
+            return directoryPath + "/" + entry;
         }
     }
 
@@ -3895,28 +3896,38 @@ std::optional<std::string> MapAssetLoader::findAssetPath(
 
 std::optional<std::string> MapAssetLoader::findCompanionAssetPath(
     const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &worldId,
     const std::string &fileName
 )
 {
-    const std::optional<std::string> gamesPath = findAssetPath(assetFileSystem, fileName);
+    const std::optional<std::string> gamesPath = findAssetPath(assetFileSystem, worldId, fileName);
 
     if (gamesPath)
     {
         return gamesPath;
     }
 
-    const std::vector<std::string> entries = assetFileSystem.enumerate("_legacy/map_delta");
-    const std::string normalizedFileName = toLower(fileName);
+    return findAssetPathInDirectory(assetFileSystem, "_legacy/map_delta", fileName);
+}
 
-    for (const std::string &entry : entries)
+std::optional<std::string> MapAssetLoader::findAssetPath(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::string &worldId,
+    const std::string &fileName
+)
+{
+    if (!worldId.empty())
     {
-        if (toLower(entry) == normalizedFileName)
+        const std::optional<std::string> worldPath =
+            findAssetPathInDirectory(assetFileSystem, "worlds/" + worldId + "/maps", fileName);
+
+        if (worldPath)
         {
-            return std::string("_legacy/map_delta/") + entry;
+            return worldPath;
         }
     }
 
-    return std::nullopt;
+    return findAssetPathInDirectory(assetFileSystem, "Data/games", fileName);
 }
 
 std::optional<std::string> MapAssetLoader::buildCompanionFileName(const std::string &fileName)

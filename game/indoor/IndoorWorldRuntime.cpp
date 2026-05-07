@@ -9,6 +9,7 @@
 #include "game/StringUtils.h"
 #include "game/gameplay/ChestRuntime.h"
 #include "game/gameplay/CorpseLootRuntime.h"
+#include "game/gameplay/GameplayBolsterRuntime.h"
 #include "game/gameplay/GameplayActorAiSystem.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayCombatController.h"
@@ -2601,6 +2602,7 @@ IndoorWorldRuntime::MapActorAiState buildIndoorMapActorAiState(
     const MapDeltaActor &actor,
     size_t actorIndex,
     const MonsterTable *pMonsterTable,
+    const SpellTable *pSpellTable,
     const GameplayActorService *pGameplayActorService,
     const SpriteFrameTable *pActorSpriteFrameTable)
 {
@@ -2639,6 +2641,31 @@ IndoorWorldRuntime::MapActorAiState buildIndoorMapActorAiState(
             : state.collisionRadius;
     state.movementSpeed = static_cast<uint16_t>(
         pStats != nullptr ? pStats->speed : actor.moveSpeed);
+    if (pStats != nullptr)
+    {
+        state.aiType = gameplayActorAiTypeFromMonster(pStats->aiType);
+        state.canFly = pStats->canFly;
+        state.attack1DamageType = GameMechanics::parseCombatDamageType(pStats->attack1Type);
+        state.attack2DamageType = GameMechanics::parseCombatDamageType(pStats->attack2Type);
+        state.spell1CastSupported = indoorMonsterSpellCastSupported(pStats->spell1Name);
+        state.spell2CastSupported = indoorMonsterSpellCastSupported(pStats->spell2Name);
+        state.wanderRadius = wanderRadiusForMovementType(pStats->movementType);
+
+        if (pSpellTable != nullptr)
+        {
+            if (const SpellEntry *pSpellEntry = pSpellTable->findByName(pStats->spell1Name))
+            {
+                state.spell1Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
+                state.spell1DamageType = GameMechanics::spellCombatDamageType(state.spell1Id, pSpellTable);
+            }
+
+            if (const SpellEntry *pSpellEntry = pSpellTable->findByName(pStats->spell2Name))
+            {
+                state.spell2Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
+                state.spell2DamageType = GameMechanics::spellCombatDamageType(state.spell2Id, pSpellTable);
+            }
+        }
+    }
     state.hostileToParty = hostileToParty;
     state.hasDetectedParty = defaultActorHasDetectedParty(actor, hostileToParty);
     state.motionState = actor.hp <= 0 ? ActorAiMotionState::Dead : ActorAiMotionState::Standing;
@@ -2673,6 +2700,7 @@ void refreshIndoorMapActorAiStaticFields(
     const MapDeltaActor &actor,
     size_t actorIndex,
     const MonsterTable *pMonsterTable,
+    const SpellTable *pSpellTable,
     const GameplayActorService *pGameplayActorService,
     const SpriteFrameTable *pActorSpriteFrameTable)
 {
@@ -2681,6 +2709,7 @@ void refreshIndoorMapActorAiStaticFields(
             actor,
             actorIndex,
             pMonsterTable,
+            pSpellTable,
             pGameplayActorService,
             pActorSpriteFrameTable);
 
@@ -2693,6 +2722,17 @@ void refreshIndoorMapActorAiStaticFields(
     state.collisionHeight = defaults.collisionHeight;
     state.projectileHitRadius = defaults.projectileHitRadius;
     state.movementSpeed = defaults.movementSpeed;
+    state.aiType = defaults.aiType;
+    state.canFly = defaults.canFly;
+    state.attack1DamageType = defaults.attack1DamageType;
+    state.attack2DamageType = defaults.attack2DamageType;
+    state.spell1Id = defaults.spell1Id;
+    state.spell1DamageType = defaults.spell1DamageType;
+    state.spell1CastSupported = defaults.spell1CastSupported;
+    state.spell2Id = defaults.spell2Id;
+    state.spell2DamageType = defaults.spell2DamageType;
+    state.spell2CastSupported = defaults.spell2CastSupported;
+    state.wanderRadius = defaults.wanderRadius;
     state.meleeAttackAnimationSeconds = defaults.meleeAttackAnimationSeconds;
     state.rangedAttackAnimationSeconds = defaults.rangedAttackAnimationSeconds;
     state.dyingAnimationSeconds = defaults.dyingAnimationSeconds;
@@ -2917,12 +2957,16 @@ void IndoorWorldRuntime::initialize(
     const SpriteFrameTable *pActorSpriteFrameTable,
     const SpriteFrameTable *pProjectileSpriteFrameTable,
     const IndoorMapData *pIndoorMapData,
-    const DecorationBillboardSet *pIndoorDecorationBillboardSet
+    const DecorationBillboardSet *pIndoorDecorationBillboardSet,
+    const MergedBolsterMapTable *pMergedBolsterMapTable,
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable
 )
 {
     m_map = map;
     m_mapName = map.name;
     m_pMonsterTable = &monsterTable;
+    m_pMergedBolsterMapTable = pMergedBolsterMapTable;
+    m_pMergedBolsterMonsterTable = pMergedBolsterMonsterTable;
     m_pMonsterProjectileTable = &monsterProjectileTable;
     m_pObjectTable = &objectTable;
     m_pSpellTable = &spellTable;
@@ -2981,12 +3025,16 @@ void IndoorWorldRuntime::initialize(
     GameplayActorService *pGameplayActorService,
     const SpriteFrameTable *pActorSpriteFrameTable,
     const IndoorMapData *pIndoorMapData,
-    const DecorationBillboardSet *pIndoorDecorationBillboardSet
+    const DecorationBillboardSet *pIndoorDecorationBillboardSet,
+    const MergedBolsterMapTable *pMergedBolsterMapTable,
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable
 )
 {
     m_map = map;
     m_mapName = map.name;
     m_pMonsterTable = &monsterTable;
+    m_pMergedBolsterMapTable = pMergedBolsterMapTable;
+    m_pMergedBolsterMonsterTable = pMergedBolsterMonsterTable;
     m_pMonsterProjectileTable = nullptr;
     m_pObjectTable = &objectTable;
     m_pSpellTable = nullptr;
@@ -3334,11 +3382,35 @@ void IndoorWorldRuntime::syncMapActorAiStates()
                 *pGeometryCache);
         }
 
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        const int16_t resolvedMonsterId = resolveIndoorActorStatsId(actor);
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(resolvedMonsterId) : nullptr;
+
+        if (pStats != nullptr && actor.hp > 0 && actor.hp <= pStats->hitPoints)
+        {
+            const MonsterEntry *pMonsterEntry =
+                m_pMonsterTable != nullptr ? resolveRuntimeMonsterEntry(*m_pMonsterTable, actor) : nullptr;
+            const GameplayMonsterBolsterResult bolster =
+                resolveGameplayMonsterBolster(
+                    GameplayBolsterRuntimeContext{
+                        .pMap = m_map ? &*m_map : nullptr,
+                        .pMonsterTable = m_pMonsterTable,
+                        .pBolsterMapTable = m_pMergedBolsterMapTable,
+                        .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                        .pParty = m_pParty,
+                    },
+                    *pStats,
+                    pMonsterEntry);
+            actor.hp = static_cast<int16_t>(std::clamp(bolster.maxHp, 1, 30000));
+        }
+
         m_mapActorAiStates.push_back(
             buildIndoorMapActorAiState(
-                pMapDeltaData->actors[actorIndex],
+                actor,
                 actorIndex,
                 m_pMonsterTable,
+                m_pSpellTable,
                 m_pGameplayActorService,
                 m_pActorSpriteFrameTable));
     }
@@ -5846,7 +5918,18 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
         m_pGameplayActorService != nullptr ? m_pGameplayActorService : &fallbackActorService;
     const uint16_t radius = aiState.collisionRadius;
     const uint16_t height = aiState.collisionHeight;
-    const uint16_t moveSpeed = aiState.movementSpeed != 0 ? aiState.movementSpeed : uint16_t(pStats->speed);
+    const MonsterEntry *pMonsterEntry = resolveRuntimeMonsterEntry(*m_pMonsterTable, actor);
+    const GameplayMonsterBolsterResult bolster =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = m_map ? &*m_map : nullptr,
+                .pMonsterTable = m_pMonsterTable,
+                .pBolsterMapTable = m_pMergedBolsterMapTable,
+                .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                .pParty = m_pParty,
+            },
+            *pStats,
+            pMonsterEntry);
     const bool actorInvisible = (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0;
     const bool defaultHostile = defaultActorHostileToParty(actor, m_pMonsterTable);
     const bool hasEffectOverride = hasActiveActorSpellEffectOverride(aiState.spellEffects);
@@ -5893,50 +5976,40 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     facts.identity.hostilityType = actor.hostilityType;
     facts.identity.targetPolicy = actorPolicyState;
 
-    facts.stats.aiType = gameplayActorAiTypeFromMonster(pStats->aiType);
+    facts.stats.aiType = aiState.aiType;
     facts.stats.monsterLevel = pStats->level;
     facts.stats.currentHp = actor.hp;
-    facts.stats.maxHp = pStats->hitPoints;
-    facts.stats.armorClass = pActorService->effectiveArmorClass(pStats->armorClass, aiState.spellEffects);
+    facts.stats.maxHp = bolster.maxHp;
+    facts.stats.armorClass = pActorService->effectiveArmorClass(bolster.armorClass, aiState.spellEffects);
     facts.stats.radius = radius;
     facts.stats.height = height;
-    facts.stats.moveSpeed = moveSpeed;
-    facts.stats.canFly = pStats->canFly;
+    facts.stats.moveSpeed = bolster.moveSpeed;
+    facts.stats.canFly = aiState.canFly;
     facts.stats.hasSpell1 = pStats->hasSpell1;
     facts.stats.hasSpell2 = pStats->hasSpell2;
     facts.stats.spell1Name = pStats->spell1Name;
     facts.stats.spell2Name = pStats->spell2Name;
-    facts.stats.attack1DamageType = GameMechanics::parseCombatDamageType(pStats->attack1Type);
-    facts.stats.attack2DamageType = GameMechanics::parseCombatDamageType(pStats->attack2Type);
-    facts.stats.spell1CastSupported = indoorMonsterSpellCastSupported(pStats->spell1Name);
-    facts.stats.spell2CastSupported = indoorMonsterSpellCastSupported(pStats->spell2Name);
-    if (m_pSpellTable != nullptr)
-    {
-        if (const SpellEntry *pSpellEntry = m_pSpellTable->findByName(pStats->spell1Name))
-        {
-            facts.stats.spell1Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
-            facts.stats.spell1DamageType = GameMechanics::spellCombatDamageType(facts.stats.spell1Id, m_pSpellTable);
-        }
-
-        if (const SpellEntry *pSpellEntry = m_pSpellTable->findByName(pStats->spell2Name))
-        {
-            facts.stats.spell2Id = static_cast<uint32_t>(std::max(pSpellEntry->id, 0));
-            facts.stats.spell2DamageType = GameMechanics::spellCombatDamageType(facts.stats.spell2Id, m_pSpellTable);
-        }
-    }
-    facts.stats.spell1SkillLevel = pStats->spell1SkillLevel;
-    facts.stats.spell1SkillMastery = pStats->spell1SkillMastery;
-    facts.stats.spell2SkillLevel = pStats->spell2SkillLevel;
-    facts.stats.spell2SkillMastery = pStats->spell2SkillMastery;
+    facts.stats.attack1DamageType = aiState.attack1DamageType;
+    facts.stats.attack2DamageType = aiState.attack2DamageType;
+    facts.stats.spell1Id = aiState.spell1Id;
+    facts.stats.spell1DamageType = aiState.spell1DamageType;
+    facts.stats.spell1CastSupported = aiState.spell1CastSupported;
+    facts.stats.spell2Id = aiState.spell2Id;
+    facts.stats.spell2DamageType = aiState.spell2DamageType;
+    facts.stats.spell2CastSupported = aiState.spell2CastSupported;
+    facts.stats.spell1SkillLevel = bolster.spell1SkillLevel;
+    facts.stats.spell1SkillMastery = bolster.spell1SkillMastery;
+    facts.stats.spell2SkillLevel = bolster.spell2SkillLevel;
+    facts.stats.spell2SkillMastery = bolster.spell2SkillMastery;
     facts.stats.spell1UseChance = pStats->spell1UseChance;
     facts.stats.spell2UseChance = pStats->spell2UseChance;
     facts.stats.attack2Chance = pStats->attack2Chance;
     facts.stats.attack1Damage.diceRolls = pStats->attack1Damage.diceRolls;
     facts.stats.attack1Damage.diceSides = pStats->attack1Damage.diceSides;
-    facts.stats.attack1Damage.bonus = pStats->attack1Damage.bonus;
+    facts.stats.attack1Damage.bonus = bolster.attack1DamageBonus;
     facts.stats.attack2Damage.diceRolls = pStats->attack2Damage.diceRolls;
     facts.stats.attack2Damage.diceSides = pStats->attack2Damage.diceSides;
-    facts.stats.attack2Damage.bonus = pStats->attack2Damage.bonus;
+    facts.stats.attack2Damage.bonus = bolster.attack2DamageBonus;
     facts.stats.attackConstraints.attack1IsRanged = pStats->attack1HasMissile;
     facts.stats.attackConstraints.attack2IsRanged = pStats->attack2HasMissile;
     facts.stats.attackConstraints.blindActive = aiState.spellEffects.blindRemainingSeconds > 0.0f;
@@ -6132,10 +6205,10 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     facts.movement.velocityX = aiState.velocityX;
     facts.movement.velocityY = aiState.velocityY;
     facts.movement.velocityZ = aiState.velocityZ;
-    facts.movement.wanderRadius = wanderRadiusForMovementType(pStats->movementType);
+    facts.movement.wanderRadius = aiState.wanderRadius;
     facts.movement.effectiveMoveSpeed =
         pActorService->effectiveActorMoveSpeed(
-            moveSpeed,
+            bolster.moveSpeed,
             pStats->speed,
             aiState.spellEffects.slowMoveMultiplier,
             aiState.spellEffects.darkGraspRemainingSeconds > 0.0f);
@@ -6148,7 +6221,9 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
         && facts.target.currentEdgeDistance <=
             meleeRangeForCombatTarget(facts.target.currentKind == ActorAiTargetKind::Actor);
     facts.movement.allowIdleWander = m_pGameplayActorService != nullptr;
-    facts.movement.movementAllowed = pStats->movementType != MonsterTable::MonsterMovementType::Stationary;
+    facts.movement.movementAllowed =
+        pStats->movementType != MonsterTable::MonsterMovementType::Stationary
+        && !bolster.immobile;
     facts.movement.movementBlocked = false;
 
     facts.world.targetZ = actorTargetZ;
@@ -6959,12 +7034,24 @@ bool IndoorWorldRuntime::actorInspectState(
     state.monsterId = resolvedMonsterId;
     state.previewYOffset = monsterInspectPreviewYOffset(resolvedMonsterId);
     state.currentHp = std::max(0, static_cast<int>(actor.hp));
-    state.maxHp = std::max(0, pStats->hitPoints);
+    const MonsterEntry *pMonsterEntry = resolveRuntimeMonsterEntry(*m_pMonsterTable, actor);
+    const GameplayMonsterBolsterResult bolster =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = m_map ? &*m_map : nullptr,
+                .pMonsterTable = m_pMonsterTable,
+                .pBolsterMapTable = m_pMergedBolsterMapTable,
+                .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                .pParty = m_pParty,
+            },
+            *pStats,
+            pMonsterEntry);
+    state.maxHp = std::max(0, bolster.maxHp);
     state.isDead = actorIndex < m_mapActorAiStates.size()
         ? m_mapActorAiStates[actorIndex].motionState == ActorAiMotionState::Dead
         : actor.hp <= 0;
 
-    int armorClass = pStats->armorClass;
+    int armorClass = bolster.armorClass;
     const MapActorAiState *pAiState =
         actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
     const GameplayActorSpellEffectState *pEffectState =
@@ -10352,6 +10439,7 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
                 pMapDeltaData->actors[actorIndex],
                 actorIndex,
                 m_pMonsterTable,
+                m_pSpellTable,
                 m_pGameplayActorService,
                 m_pActorSpriteFrameTable);
         }

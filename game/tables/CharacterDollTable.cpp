@@ -222,4 +222,9 @@ const CharacterDollTypeEntry *CharacterDollTable::getDollType(uint32_t dollTypeI
         m_dollTypeEntries.find(dollTypeId);
     return it != m_dollTypeEntries.end() ? &it->second : nullptr;
 }
+
+const std::unordered_map<uint32_t, CharacterDollEntry> &CharacterDollTable::characters() const
+{
+    return m_characterEntries;
+}
 }

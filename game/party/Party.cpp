@@ -416,6 +416,16 @@ std::string portraitTextureNameFromPictureId(uint32_t pictureId)
     return buffer;
 }
 
+std::string portraitTextureNameFromCharacterDollEntry(const CharacterDollEntry &entry)
+{
+    if (!entry.facePicturesPrefix.empty())
+    {
+        return entry.facePicturesPrefix + "01";
+    }
+
+    return entry.id > 0 ? portraitTextureNameFromPictureId(entry.id - 1) : std::string();
+}
+
 std::optional<uint32_t> tryParsePictureIdFromPortraitTextureName(const std::string &portraitTextureName)
 {
     if (portraitTextureName.size() < 6)
@@ -647,11 +657,21 @@ constexpr uint32_t AttackPreferenceGoblin = 0x4000;
 constexpr uint32_t CharacterSexMale = 0;
 constexpr uint32_t CharacterSexFemale = 1;
 constexpr uint32_t CharacterRaceHuman = 0;
+constexpr uint32_t CharacterRaceMinotaur = 3;
+constexpr uint32_t CharacterRaceTroll = 4;
+constexpr uint32_t CharacterRaceDragon = 5;
+constexpr uint32_t CharacterRaceUndead = 6;
 constexpr uint32_t CharacterRaceDarkElf = 2;
 constexpr uint32_t CharacterRaceElf = 7;
 constexpr uint32_t CharacterRaceGoblin = 8;
+constexpr uint32_t CharacterRaceDwarf = 9;
 constexpr uint32_t MaleLichCharacterDataId = 27;
 constexpr uint32_t FemaleLichCharacterDataId = 28;
+constexpr uint32_t MaleDwarfLichCharacterDataId = 66;
+constexpr uint32_t FemaleDwarfLichCharacterDataId = 67;
+constexpr uint32_t DragonLichCharacterDataId = 68;
+constexpr uint32_t MinotaurLichCharacterDataId = 70;
+constexpr uint32_t TrollLichCharacterDataId = 76;
 
 void applyCharacterIdentityFromDollTable(Character &member, const CharacterDollTable *pCharacterDollTable)
 {
@@ -715,15 +735,78 @@ void applyCharacterDollIdentity(Character &member, const CharacterDollTable *pCh
 
 void applyLichIdentity(Character &member, const CharacterDollTable *pCharacterDollTable)
 {
+    if (member.raceId == CharacterRaceUndead)
+    {
+        return;
+    }
+
     const bool female = member.sexId == CharacterSexFemale;
-    member.characterDataId = female ? FemaleLichCharacterDataId : MaleLichCharacterDataId;
+
+    switch (member.raceId)
+    {
+        case CharacterRaceDragon:
+            member.characterDataId = DragonLichCharacterDataId;
+            break;
+        case CharacterRaceMinotaur:
+            member.characterDataId = MinotaurLichCharacterDataId;
+            break;
+        case CharacterRaceTroll:
+            member.characterDataId = TrollLichCharacterDataId;
+            break;
+        case CharacterRaceDwarf:
+            member.characterDataId = female ? FemaleDwarfLichCharacterDataId : MaleDwarfLichCharacterDataId;
+            break;
+        default:
+            member.characterDataId = female ? FemaleLichCharacterDataId : MaleLichCharacterDataId;
+            break;
+    }
+
+    const CharacterDollEntry *pLichEntry = pCharacterDollTable != nullptr
+        ? pCharacterDollTable->getCharacter(member.characterDataId)
+        : nullptr;
     member.portraitPictureId = member.characterDataId - 1;
-    member.portraitTextureName = portraitTextureNameFromPictureId(member.portraitPictureId);
+    member.portraitTextureName = pLichEntry != nullptr
+        ? portraitTextureNameFromCharacterDollEntry(*pLichEntry)
+        : portraitTextureNameFromPictureId(member.portraitPictureId);
     member.portraitState = PortraitId::Normal;
     member.portraitElapsedTicks = 0;
     member.portraitDurationTicks = 0;
     member.portraitImageIndex = 0;
     applyCharacterDollIdentity(member, pCharacterDollTable, true);
+}
+
+void refundAndClearSkill(Character &member, const std::string &skillName)
+{
+    const std::unordered_map<std::string, CharacterSkill>::iterator skillIt = member.skills.find(skillName);
+
+    if (skillIt == member.skills.end())
+    {
+        return;
+    }
+
+    const uint32_t level = skillIt->second.level;
+
+    if (level > 0)
+    {
+        const uint32_t spentSkillPoints = level * (level + 1) / 2;
+        member.skillPoints += spentSkillPoints > 0 ? spentSkillPoints - 1 : 0;
+    }
+
+    member.skills.erase(skillIt);
+}
+
+void applyLichState(Character &member)
+{
+    member.baseResistances.fire = std::max(member.baseResistances.fire, 20);
+    member.baseResistances.air = std::max(member.baseResistances.air, 20);
+    member.baseResistances.water = std::max(member.baseResistances.water, 20);
+    member.baseResistances.earth = std::max(member.baseResistances.earth, 20);
+    member.baseResistances.light = std::max(member.baseResistances.light, 65000);
+    member.baseResistances.dark = std::max(member.baseResistances.dark, 65000);
+    member.permanentImmunities.light = true;
+    member.permanentImmunities.dark = true;
+    refundAndClearSkill(member, "ChainArmor");
+    refundAndClearSkill(member, "RepairItem");
 }
 
 bool isValidMonsterAttackTarget(const Character &member)
@@ -1953,6 +2036,11 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
         initializePortraitRuntimeState(member.character);
         member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, member.portraitPictureId);
     }
+}
+
+const ClassSkillTable *Party::classSkillTable() const
+{
+    return m_pClassSkillTable;
 }
 
 void Party::setClassMultiplierTable(const ClassMultiplierTable *pClassMultiplierTable)
@@ -4682,10 +4770,29 @@ bool Party::setMemberClassName(size_t memberIndex, const std::string &className)
     if (pMember->className == "Lich")
     {
         applyLichIdentity(*pMember, m_pCharacterDollTable);
+        applyLichState(*pMember);
     }
 
     GameMechanics::refreshCharacterBaseResources(*pMember, false, m_pClassMultiplierTable);
     m_lastStatus = "class changed";
+    return true;
+}
+
+bool Party::applyLichTransformation(size_t memberIndex)
+{
+    Character *pMember = member(memberIndex);
+
+    if (pMember == nullptr)
+    {
+        return false;
+    }
+
+    pMember->className = "Lich";
+    pMember->role = normalizeRoleName(pMember->className);
+    applyLichIdentity(*pMember, m_pCharacterDollTable);
+    applyLichState(*pMember);
+    GameMechanics::refreshCharacterBaseResources(*pMember, false, m_pClassMultiplierTable);
+    m_lastStatus = "lich transformation applied";
     return true;
 }
 

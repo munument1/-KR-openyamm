@@ -83,6 +83,19 @@ struct RuntimeMechanismState
 
 struct EventRuntimeState
 {
+    struct OutdoorModelMechanismDefinition
+    {
+        uint32_t mechanismId = 0;
+        std::string modelName;
+        size_t bmodelIndex = static_cast<size_t>(-1);
+        int32_t dx = 0;
+        int32_t dy = 0;
+        int32_t dz = 0;
+        uint32_t moveTimeMs = 0;
+        bool closed = true;
+        bool moveParty = false;
+    };
+
     struct PendingMapMove
     {
         int32_t x = 0;
@@ -299,6 +312,7 @@ struct EventRuntimeState
     mutable size_t facetInvisibleOverrideCacheClearSize = 0;
     mutable std::vector<uint8_t> facetInvisibleOverrideCache;
     std::unordered_map<uint32_t, RuntimeMechanismState> mechanisms;
+    std::unordered_map<uint32_t, OutdoorModelMechanismDefinition> outdoorModelMechanisms;
     std::unordered_map<uint32_t, std::string> textureOverrides;
     std::unordered_map<uint32_t, std::string> outdoorModelFacetTextureOverrides;
     std::unordered_map<uint32_t, SpriteOverride> spriteOverrides;
@@ -574,6 +588,8 @@ public:
     mutable std::unique_ptr<LuaSessionCache> m_luaSessionCache;
     mutable const ScriptedEventProgram *m_pCachedLocalProgram = nullptr;
     mutable const ScriptedEventProgram *m_pCachedGlobalProgram = nullptr;
+    mutable uint64_t m_cachedLocalProgramCacheId = 0;
+    mutable uint64_t m_cachedGlobalProgramCacheId = 0;
     const HouseTable *m_pHouseTable = nullptr;
 };
 }

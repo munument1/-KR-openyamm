@@ -36,6 +36,8 @@ class ChestTable;
 struct ChestTrapOpenResult;
 class GameplayFxService;
 class GameplayProjectileService;
+class MergedBolsterMapTable;
+class MergedBolsterMonsterTable;
 class OutdoorGameView;
 class StandardItemEnchantTable;
 class SpecialItemEnchantTable;
@@ -170,6 +172,25 @@ public:
         uint16_t radius = 0;
         uint16_t height = 0;
         uint16_t moveSpeed = 0;
+        GameplayActorAiType aiType = GameplayActorAiType::Normal;
+        int armorClass = 0;
+        bool immobile = false;
+        bool canFly = false;
+        CombatDamageType attack1DamageType = CombatDamageType::Physical;
+        CombatDamageType attack2DamageType = CombatDamageType::Physical;
+        uint32_t spell1Id = 0;
+        CombatDamageType spell1DamageType = CombatDamageType::Physical;
+        bool spell1CastSupported = true;
+        uint32_t spell2Id = 0;
+        CombatDamageType spell2DamageType = CombatDamageType::Physical;
+        bool spell2CastSupported = true;
+        float wanderRadius = 0.0f;
+        int attack1DamageBonus = 0;
+        int attack2DamageBonus = 0;
+        uint32_t spell1SkillLevel = 0;
+        SkillMastery spell1SkillMastery = SkillMastery::None;
+        uint32_t spell2SkillLevel = 0;
+        SkillMastery spell2SkillMastery = SkillMastery::None;
         uint16_t spriteFrameIndex = 0;
         std::array<uint16_t, 8> actionSpriteFrameIndices = {};
         bool useStaticSpriteFrame = false;
@@ -498,7 +519,9 @@ public:
         GameplayActorService *pGameplayActorService = nullptr,
         GameplayProjectileService *pGameplayProjectileService = nullptr,
         GameplayCombatController *pGameplayCombatController = nullptr,
-        GameplayFxService *pGameplayFxService = nullptr
+        GameplayFxService *pGameplayFxService = nullptr,
+        const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
 
     bool isInitialized() const;
@@ -762,6 +785,15 @@ public:
     const MapDeltaData *mapDeltaData() const override;
     MapDeltaData *mapDeltaData() override;
     bool setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn) override;
+    bool registerOutdoorModelMechanism(
+        uint32_t mechanismId,
+        const std::string &modelName,
+        int32_t dx,
+        int32_t dy,
+        int32_t dz,
+        uint32_t moveTimeMs,
+        bool closed,
+        bool moveParty) override;
     EventRuntimeState *eventRuntimeState() override;
     const EventRuntimeState *eventRuntimeState() const override;
     bool castEventSpell(
@@ -903,7 +935,12 @@ public:
         std::vector<Vertex> vertices;
     };
 
-    void collectOutdoorFaceCandidates(float minX, float minY, float maxX, float maxY, std::vector<size_t> &indices) const;
+    void collectOutdoorFaceCandidates(
+        float minX,
+        float minY,
+        float maxX,
+        float maxY,
+        std::vector<size_t> &indices) const;
     const OutdoorFaceGeometryData *outdoorFace(size_t faceIndex) const;
     bool hasClearOutdoorLineOfSight(const bx::Vec3 &start, const bx::Vec3 &end) const;
     size_t bloodSplatCount() const;
@@ -999,6 +1036,7 @@ private:
         float spawnForwardOffset
     );
     void buildOutdoorFaceSpatialIndex();
+    void rebuildOutdoorFaceGeometryCache();
     void syncOutdoorFaceGeometryAttributesFromMapDelta();
     void setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
     bool materializeTreasureSpawnFromSpawnPoint(size_t spawnPointIndex);
@@ -1134,9 +1172,11 @@ private:
     const SpecialItemEnchantTable *m_pSpecialItemEnchantTable = nullptr;
     const ChestTable *m_pChestTable = nullptr;
     const MonsterTable *m_pMonsterTable = nullptr;
+    const MergedBolsterMapTable *m_pMergedBolsterMapTable = nullptr;
+    const MergedBolsterMonsterTable *m_pMergedBolsterMonsterTable = nullptr;
     const MonsterProjectileTable *m_pMonsterProjectileTable = nullptr;
     const ObjectTable *m_pObjectTable = nullptr;
-    const OutdoorMapData *m_pOutdoorMapData = nullptr;
+    OutdoorMapData *m_pOutdoorMapData = nullptr;
     MapDeltaData *m_pOutdoorMapDeltaData = nullptr;
     const SpellTable *m_pSpellTable = nullptr;
     GameplayActorService *m_pGameplayActorService = nullptr;

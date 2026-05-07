@@ -38,6 +38,28 @@ elements:
         offset_x: 72
         offset_y: 121
 
+      - id: CharacterCreationClassLeftButton
+        anchor: top_left
+        offset_x: 65
+        offset_y: 99
+        width: 17
+        height: 17
+        interactive: true
+        asset:
+          default: slclasslu
+          pressed: slclassld
+
+      - id: CharacterCreationClassRightButton
+        anchor: top_left
+        offset_x: 83
+        offset_y: 99
+        width: 17
+        height: 17
+        interactive: true
+        asset:
+          default: slclassru
+          pressed: slclassrd
+
       - id: CharacterCreationPortraitImage
         anchor: top_left
         offset_x: 4
@@ -109,6 +131,83 @@ elements:
         anchor: top_left
         offset_x: 163
         offset_y: 262
+
+      - id: CharacterCreationAddCharacterButton
+        anchor: top_left
+        offset_x: 51
+        offset_y: 437
+        width: 19
+        height: 34
+        interactive: true
+        asset:
+          default: slcharaddu
+          pressed: slcharaddd
+
+      - id: CharacterCreationRemoveCharacterButton
+        anchor: top_left
+        offset_x: 72
+        offset_y: 437
+        width: 19
+        height: 34
+        interactive: true
+        asset:
+          default: slcharremu
+          pressed: slcharremd
+
+      - id: CharacterCreationPartySlot1Button
+        anchor: top_left
+        offset_x: 98
+        offset_y: 439
+        width: 32
+        height: 32
+        interactive: true
+        asset:
+          default: slchar1u
+          pressed: slchar1d
+
+      - id: CharacterCreationPartySlot2Button
+        anchor: top_left
+        offset_x: 138
+        offset_y: 439
+        width: 32
+        height: 32
+        interactive: true
+        asset:
+          default: slchar2u
+          pressed: slchar2d
+
+      - id: CharacterCreationPartySlot3Button
+        anchor: top_left
+        offset_x: 178
+        offset_y: 439
+        width: 32
+        height: 32
+        interactive: true
+        asset:
+          default: slchar3u
+          pressed: slchar3d
+
+      - id: CharacterCreationPartySlot4Button
+        anchor: top_left
+        offset_x: 218
+        offset_y: 439
+        width: 32
+        height: 32
+        interactive: true
+        asset:
+          default: slchar4u
+          pressed: slchar4d
+
+      - id: CharacterCreationPartySlot5Button
+        anchor: top_left
+        offset_x: 258
+        offset_y: 439
+        width: 32
+        height: 32
+        interactive: true
+        asset:
+          default: slchar5u
+          pressed: slchar5d
 
       - id: CharacterCreationMightLabel
         anchor: top_left

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -75,6 +76,7 @@ public:
 
 private:
     std::vector<DecorationEntry> m_entries;
+    std::unordered_map<std::string, uint16_t> m_entryIndexByInternalName;
 };
 
 struct SpriteFrameEntry
@@ -115,5 +117,6 @@ private:
     std::vector<SpriteFrameEntry> m_frames;
     std::vector<bool> m_framePresent;
     std::vector<uint16_t> m_eFrames;
+    std::unordered_map<std::string, uint16_t> m_spriteNameIndex;
 };
 }

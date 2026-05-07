@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <regex>
 #include <unordered_map>
 
@@ -406,6 +407,24 @@ uint32_t parseUnsignedIntegerValue(const std::string &value)
     return static_cast<uint32_t>(std::stoul(trimmed, nullptr, 0));
 }
 
+void rebuildMonsterEntryInternalNameIndex(
+    const std::vector<MonsterEntry> &entries,
+    std::unordered_map<std::string, int16_t> &indexByInternalName)
+{
+    indexByInternalName.clear();
+    indexByInternalName.reserve(entries.size());
+
+    for (size_t index = 0; index < entries.size(); ++index)
+    {
+        if (entries[index].internalName.empty() || index > static_cast<size_t>(std::numeric_limits<int16_t>::max()))
+        {
+            continue;
+        }
+
+        indexByInternalName.emplace(toLowerCopy(entries[index].internalName), static_cast<int16_t>(index));
+    }
+}
+
 MonsterTable::MonsterMovementType parseMovementType(const std::string &value)
 {
     const std::string lower = toLowerCopy(value);
@@ -614,6 +633,7 @@ MonsterTable::LootPrototype parseLootPrototype(const std::string &value)
 
 bool MonsterTable::loadFromBytes(const std::vector<uint8_t> &bytes)
 {
+    m_entryIndexByInternalName.clear();
     const ByteReader reader(bytes);
     uint32_t entryCount = 0;
 
@@ -661,11 +681,13 @@ bool MonsterTable::loadFromBytes(const std::vector<uint8_t> &bytes)
         m_entries[monsterId] = std::move(entry);
     }
 
+    rebuildMonsterEntryInternalNameIndex(m_entries, m_entryIndexByInternalName);
     return !m_entries.empty();
 }
 
 bool MonsterTable::loadEntriesFromRows(const std::vector<std::vector<std::string>> &rows)
 {
+    m_entryIndexByInternalName.clear();
     static constexpr size_t ColumnId = 0;
     static constexpr size_t ColumnInternalName = 1;
     static constexpr size_t ColumnHeight = 2;
@@ -752,6 +774,7 @@ bool MonsterTable::loadEntriesFromRows(const std::vector<std::vector<std::string
         }
     }
 
+    rebuildMonsterEntryInternalNameIndex(m_entries, m_entryIndexByInternalName);
     return !m_entries.empty();
 }
 
@@ -984,16 +1007,15 @@ bool MonsterTable::loadUniqueNamesFromRows(const std::vector<std::vector<std::st
 const MonsterEntry *MonsterTable::findByInternalName(const std::string &internalName) const
 {
     const std::string normalizedName = toLowerCopy(internalName);
+    const std::unordered_map<std::string, int16_t>::const_iterator iterator =
+        m_entryIndexByInternalName.find(normalizedName);
 
-    for (const MonsterEntry &entry : m_entries)
+    if (iterator == m_entryIndexByInternalName.end())
     {
-        if (toLowerCopy(entry.internalName) == normalizedName)
-        {
-            return &entry;
-        }
+        return nullptr;
     }
 
-    return nullptr;
+    return findById(iterator->second);
 }
 
 const MonsterEntry *MonsterTable::findById(int16_t monsterId) const

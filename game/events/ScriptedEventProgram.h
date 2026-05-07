@@ -36,6 +36,7 @@ public:
 
     const std::optional<std::string> &luaSourceText() const;
     const std::optional<std::string> &luaSourceName() const;
+    uint64_t cacheId() const;
     ScriptedEventScope scope() const;
     const std::vector<uint16_t> &eventIds() const;
     const std::vector<uint16_t> &canShowTopicEventIds() const;
@@ -60,6 +61,7 @@ private:
 
     std::optional<std::string> m_luaSourceText;
     std::optional<std::string> m_luaSourceName;
+    uint64_t m_cacheId = 0;
     ScriptedEventScope m_scope = ScriptedEventScope::Map;
     std::vector<uint16_t> m_eventIds;
     std::vector<uint16_t> m_canShowTopicEventIds;

@@ -41,6 +41,7 @@ add_executable(openyamm
     gameplay/GameplayController.cpp
     gameplay/CorpseLootRuntime.cpp
     gameplay/ChestRuntime.cpp
+    gameplay/GameplayBolsterRuntime.cpp
     gameplay/GameplayActorAiSystem.cpp
     gameplay/GameplayActorService.cpp
     gameplay/GameplayDialogController.cpp

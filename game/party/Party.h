@@ -338,6 +338,7 @@ public:
     void setClassMultiplierTable(const ClassMultiplierTable *pClassMultiplierTable);
     const ClassMultiplierTable *classMultiplierTable() const;
     void setClassSkillTable(const ClassSkillTable *pClassSkillTable);
+    const ClassSkillTable *classSkillTable() const;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
     void reset();
@@ -487,6 +488,7 @@ public:
         EquipmentSlot slot,
         std::string &statusText);
     bool setMemberClassName(size_t memberIndex, const std::string &className);
+    bool applyLichTransformation(size_t memberIndex);
     const Character *member(size_t memberIndex) const;
     Character *member(size_t memberIndex);
     bool canSelectMemberInGameplay(size_t memberIndex) const;

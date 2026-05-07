@@ -181,6 +181,22 @@ OutdoorSceneTerrainFootstepSoundOverride *findOutdoorTerrainFootstepSoundOverrid
     return nullptr;
 }
 
+OutdoorSceneInteractiveFace *findOutdoorInteractiveFace(
+    OutdoorSceneData &sceneData,
+    size_t bmodelIndex,
+    size_t faceIndex)
+{
+    for (OutdoorSceneInteractiveFace &face : sceneData.interactiveFaces)
+    {
+        if (face.bmodelIndex == bmodelIndex && face.faceIndex == faceIndex)
+        {
+            return &face;
+        }
+    }
+
+    return nullptr;
+}
+
 bool parseOutdoorTerrainFootstepSoundOverride(
     const YAML::Node &overrideNode,
     OutdoorSceneTerrainFootstepSoundOverride &overrideEntry,
@@ -197,6 +213,65 @@ bool parseOutdoorTerrainFootstepSoundOverride(
         && readScalarNode(overrideNode, "run_sound_id", overrideEntry.runSoundId, errorMessage);
 }
 
+bool parseOutdoorInteractiveFace(
+    const YAML::Node &interactiveFaceNode,
+    OutdoorSceneInteractiveFace &face,
+    std::string &errorMessage,
+    bool allowNamedFaceReference = false)
+{
+    if (!interactiveFaceNode.IsMap())
+    {
+        errorMessage = "interactive face entry must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(interactiveFaceNode, "bmodel_name", face.bmodelName, errorMessage, false)
+        || !readScalarNode(interactiveFaceNode, "all_faces", face.allFaces, errorMessage, false))
+    {
+        return false;
+    }
+
+    if (!face.bmodelName.empty())
+    {
+        if (!allowNamedFaceReference)
+        {
+            errorMessage = "bmodel_name is only supported in outdoor scene overlays";
+            return false;
+        }
+
+        if (!face.allFaces
+            && !readScalarNode(interactiveFaceNode, "face_index", face.faceIndex, errorMessage))
+        {
+            return false;
+        }
+    }
+    else if (!readScalarNode(interactiveFaceNode, "bmodel_index", face.bmodelIndex, errorMessage)
+        || !readScalarNode(interactiveFaceNode, "face_index", face.faceIndex, errorMessage))
+    {
+        return false;
+    }
+
+    face.hasLegacyAttributes = static_cast<bool>(interactiveFaceNode["legacy_attributes"]);
+    face.hasCogNumber = static_cast<bool>(interactiveFaceNode["cog_number"]);
+    face.hasCogTriggeredNumber = static_cast<bool>(interactiveFaceNode["cog_triggered_number"]);
+    face.hasCogTrigger = static_cast<bool>(interactiveFaceNode["cog_trigger"]);
+
+    if (!allowNamedFaceReference
+        && (!face.hasLegacyAttributes
+            || !face.hasCogNumber
+            || !face.hasCogTriggeredNumber
+            || !face.hasCogTrigger))
+    {
+        errorMessage = "base interactive face entries must provide all legacy face fields";
+        return false;
+    }
+
+    return readScalarNode(interactiveFaceNode, "legacy_attributes", face.legacyAttributes, errorMessage, false)
+        && readScalarNode(interactiveFaceNode, "cog_number", face.cogNumber, errorMessage, false)
+        && readScalarNode(interactiveFaceNode, "cog_triggered_number", face.cogTriggeredNumber, errorMessage, false)
+        && readScalarNode(interactiveFaceNode, "cog_trigger", face.cogTrigger, errorMessage, false);
+}
+
 void mergeOutdoorTerrainFootstepSoundOverride(
     OutdoorSceneData &sceneData,
     const OutdoorSceneTerrainFootstepSoundOverride &sourceOverride)
@@ -211,6 +286,51 @@ void mergeOutdoorTerrainFootstepSoundOverride(
     }
 
     *pTargetOverride = sourceOverride;
+}
+
+void mergeOutdoorInteractiveFace(OutdoorSceneData &sceneData, const OutdoorSceneInteractiveFace &sourceFace)
+{
+    if (!sourceFace.bmodelName.empty() || sourceFace.allFaces)
+    {
+        sceneData.interactiveFaces.push_back(sourceFace);
+        return;
+    }
+
+    OutdoorSceneInteractiveFace *pTargetFace =
+        findOutdoorInteractiveFace(sceneData, sourceFace.bmodelIndex, sourceFace.faceIndex);
+
+    if (pTargetFace == nullptr)
+    {
+        sceneData.interactiveFaces.push_back(sourceFace);
+        return;
+    }
+
+    *pTargetFace = sourceFace;
+}
+
+void applyOutdoorInteractiveFaceValues(
+    OutdoorBModelFace &targetFace,
+    const OutdoorSceneInteractiveFace &sourceFace)
+{
+    if (sourceFace.hasLegacyAttributes)
+    {
+        targetFace.attributes = sourceFace.legacyAttributes;
+    }
+
+    if (sourceFace.hasCogNumber)
+    {
+        targetFace.cogNumber = sourceFace.cogNumber;
+    }
+
+    if (sourceFace.hasCogTriggeredNumber)
+    {
+        targetFace.cogTriggeredNumber = sourceFace.cogTriggeredNumber;
+    }
+
+    if (sourceFace.hasCogTrigger)
+    {
+        targetFace.cogTrigger = sourceFace.cogTrigger;
+    }
 }
 
 bool parseFogDistancesNode(
@@ -768,24 +888,9 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &interactiveFaceNode : interactiveFacesNode)
     {
-        if (!interactiveFaceNode.IsMap())
-        {
-            errorMessage = "interactive face entry must be a map";
-            return std::nullopt;
-        }
-
         OutdoorSceneInteractiveFace face = {};
 
-        if (!readScalarNode(interactiveFaceNode, "bmodel_index", face.bmodelIndex, errorMessage)
-            || !readScalarNode(interactiveFaceNode, "face_index", face.faceIndex, errorMessage)
-            || !readScalarNode(interactiveFaceNode, "legacy_attributes", face.legacyAttributes, errorMessage)
-            || !readScalarNode(interactiveFaceNode, "cog_number", face.cogNumber, errorMessage)
-            || !readScalarNode(
-                interactiveFaceNode,
-                "cog_triggered_number",
-                face.cogTriggeredNumber,
-                errorMessage)
-            || !readScalarNode(interactiveFaceNode, "cog_trigger", face.cogTrigger, errorMessage))
+        if (!parseOutdoorInteractiveFace(interactiveFaceNode, face, errorMessage))
         {
             return std::nullopt;
         }
@@ -1311,6 +1416,40 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
         }
     }
 
+    const YAML::Node bmodelFacesNode = rootNode["bmodel_faces"];
+
+    if (bmodelFacesNode)
+    {
+        if (!bmodelFacesNode.IsMap())
+        {
+            errorMessage = "bmodel_faces must be a map";
+            return false;
+        }
+
+        const YAML::Node interactiveFacesNode = bmodelFacesNode["interactive_faces"];
+
+        if (interactiveFacesNode)
+        {
+            if (!interactiveFacesNode.IsSequence())
+            {
+                errorMessage = "bmodel_faces.interactive_faces must be a sequence";
+                return false;
+            }
+
+            for (const YAML::Node &interactiveFaceNode : interactiveFacesNode)
+            {
+                OutdoorSceneInteractiveFace face = {};
+
+                if (!parseOutdoorInteractiveFace(interactiveFaceNode, face, errorMessage, true))
+                {
+                    return false;
+                }
+
+                mergeOutdoorInteractiveFace(sceneData, face);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -1368,6 +1507,11 @@ bool buildOutdoorMapStateFromScene(
 
     for (const OutdoorSceneInteractiveFace &interactiveFace : sceneData.interactiveFaces)
     {
+        if (!interactiveFace.bmodelName.empty())
+        {
+            continue;
+        }
+
         if (interactiveFace.bmodelIndex >= outdoorMapData.bmodels.size()
             || interactiveFace.faceIndex >= outdoorMapData.bmodels[interactiveFace.bmodelIndex].faces.size())
         {
@@ -1376,10 +1520,51 @@ bool buildOutdoorMapStateFromScene(
         }
 
         OutdoorBModelFace &face = outdoorMapData.bmodels[interactiveFace.bmodelIndex].faces[interactiveFace.faceIndex];
-        face.attributes = interactiveFace.legacyAttributes;
-        face.cogNumber = interactiveFace.cogNumber;
-        face.cogTriggeredNumber = interactiveFace.cogTriggeredNumber;
-        face.cogTrigger = interactiveFace.cogTrigger;
+        applyOutdoorInteractiveFaceValues(face, interactiveFace);
+    }
+
+    for (const OutdoorSceneInteractiveFace &interactiveFace : sceneData.interactiveFaces)
+    {
+        if (interactiveFace.bmodelName.empty())
+        {
+            continue;
+        }
+
+        bool matchedBmodel = false;
+
+        for (OutdoorBModel &bmodel : outdoorMapData.bmodels)
+        {
+            if (bmodel.name != interactiveFace.bmodelName)
+            {
+                continue;
+            }
+
+            matchedBmodel = true;
+
+            if (interactiveFace.allFaces)
+            {
+                for (OutdoorBModelFace &face : bmodel.faces)
+                {
+                    applyOutdoorInteractiveFaceValues(face, interactiveFace);
+                }
+
+                continue;
+            }
+
+            if (interactiveFace.faceIndex >= bmodel.faces.size())
+            {
+                errorMessage = "scene named interactive face index is out of bounds";
+                return false;
+            }
+
+            applyOutdoorInteractiveFaceValues(bmodel.faces[interactiveFace.faceIndex], interactiveFace);
+        }
+
+        if (!matchedBmodel)
+        {
+            errorMessage = "scene named interactive face bmodel was not found: " + interactiveFace.bmodelName;
+            return false;
+        }
     }
 
     outdoorMapData.entities.assign(sceneData.entities.size(), {});

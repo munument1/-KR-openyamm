@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 47;
+constexpr uint32_t SaveVersion = 49;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -44,6 +44,8 @@ constexpr uint32_t SaveVersionNamedLuaVars = 44;
 constexpr uint32_t SaveVersionActorExtraItemOverrides = 45;
 constexpr uint32_t SaveVersionInputPromptAnswerSteps = 46;
 constexpr uint32_t SaveVersionPersistentLuaRuntimeState = 47;
+constexpr uint32_t SaveVersionOutdoorModelMechanisms = 48;
+constexpr uint32_t SaveVersionOutdoorActorBolsterCache = 49;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1344,6 +1346,32 @@ bool readValue(BinaryReader &reader, RuntimeMechanismState &value)
         && readValue(reader, value.isMoving);
 }
 
+void writeValue(BinaryWriter &writer, const EventRuntimeState::OutdoorModelMechanismDefinition &value)
+{
+    writeValue(writer, value.mechanismId);
+    writeValue(writer, value.modelName);
+    writeValue(writer, value.bmodelIndex);
+    writeValue(writer, value.dx);
+    writeValue(writer, value.dy);
+    writeValue(writer, value.dz);
+    writeValue(writer, value.moveTimeMs);
+    writeValue(writer, value.closed);
+    writeValue(writer, value.moveParty);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::OutdoorModelMechanismDefinition &value)
+{
+    return readValue(reader, value.mechanismId)
+        && readValue(reader, value.modelName)
+        && readValue(reader, value.bmodelIndex)
+        && readValue(reader, value.dx)
+        && readValue(reader, value.dy)
+        && readValue(reader, value.dz)
+        && readValue(reader, value.moveTimeMs)
+        && readValue(reader, value.closed)
+        && readValue(reader, value.moveParty);
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState::PendingMapMove &value)
 {
     writeValue(writer, value.x);
@@ -1699,6 +1727,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.facetSetMasks);
     writeValue(writer, value.facetClearMasks);
     writeValue(writer, value.mechanisms);
+    writeValue(writer, value.outdoorModelMechanisms);
     writeValue(writer, value.textureOverrides);
     writeValue(writer, value.outdoorModelFacetTextureOverrides);
     writeValue(writer, value.spriteOverrides);
@@ -1771,6 +1800,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.facetSetMasks)
         && readValue(reader, value.facetClearMasks)
         && readValue(reader, value.mechanisms)
+        && (reader.version() < SaveVersionOutdoorModelMechanisms
+            || readValue(reader, value.outdoorModelMechanisms))
         && readValue(reader, value.textureOverrides)
         && (reader.version() < SaveVersionMapLuaRuntimeOverlays
             || readValue(reader, value.outdoorModelFacetTextureOverrides))
@@ -2185,6 +2216,14 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &
     writeValue(writer, value.radius);
     writeValue(writer, value.height);
     writeValue(writer, value.moveSpeed);
+    writeValue(writer, value.armorClass);
+    writeValue(writer, value.immobile);
+    writeValue(writer, value.attack1DamageBonus);
+    writeValue(writer, value.attack2DamageBonus);
+    writeValue(writer, value.spell1SkillLevel);
+    writeValue(writer, value.spell1SkillMastery);
+    writeValue(writer, value.spell2SkillLevel);
+    writeValue(writer, value.spell2SkillMastery);
     writeValue(writer, value.spriteFrameIndex);
     writeValue(writer, value.actionSpriteFrameIndices);
     writeValue(writer, value.useStaticSpriteFrame);
@@ -2259,6 +2298,15 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
         && readValue(reader, value.radius)
         && readValue(reader, value.height)
         && readValue(reader, value.moveSpeed)
+        && (reader.version() < SaveVersionOutdoorActorBolsterCache
+            || (readValue(reader, value.armorClass)
+                && readValue(reader, value.immobile)
+                && readValue(reader, value.attack1DamageBonus)
+                && readValue(reader, value.attack2DamageBonus)
+                && readValue(reader, value.spell1SkillLevel)
+                && readValue(reader, value.spell1SkillMastery)
+                && readValue(reader, value.spell2SkillLevel)
+                && readValue(reader, value.spell2SkillMastery)))
         && readValue(reader, value.spriteFrameIndex)
         && readValue(reader, value.actionSpriteFrameIndices)
         && readValue(reader, value.useStaticSpriteFrame)

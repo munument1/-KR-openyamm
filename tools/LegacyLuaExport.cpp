@@ -423,16 +423,104 @@ std::string formatFaceAnimation(uint32_t value)
             return "FaceAnimation.AttackHit";
         case FaceAnimationId::AttackMiss:
             return "FaceAnimation.AttackMiss";
+        case FaceAnimationId::Beg:
+            return "FaceAnimation.Beg";
+        case FaceAnimationId::BegFail:
+            return "FaceAnimation.BegFail";
+        case FaceAnimationId::Threat:
+            return "FaceAnimation.Threat";
+        case FaceAnimationId::ThreatFail:
+            return "FaceAnimation.ThreatFail";
+        case FaceAnimationId::Bribe:
+            return "FaceAnimation.Bribe";
+        case FaceAnimationId::BribeFail:
+            return "FaceAnimation.BribeFail";
+        case FaceAnimationId::NpcDontTalk:
+            return "FaceAnimation.NpcDontTalk";
+        case FaceAnimationId::FoundItem:
+            return "FaceAnimation.FoundItem";
+        case FaceAnimationId::HireNpc:
+            return "FaceAnimation.HireNpc";
+        case FaceAnimationId::LookUp:
+            return "FaceAnimation.LookUp";
+        case FaceAnimationId::LookDown:
+            return "FaceAnimation.LookDown";
+        case FaceAnimationId::Yell:
+            return "FaceAnimation.Yell";
+        case FaceAnimationId::Falling:
+            return "FaceAnimation.Falling";
+        case FaceAnimationId::TavernPacksFull:
+            return "FaceAnimation.TavernPacksFull";
+        case FaceAnimationId::TavernDrink:
+            return "FaceAnimation.TavernDrink";
+        case FaceAnimationId::TavernGotDrunk:
+            return "FaceAnimation.TavernGotDrunk";
+        case FaceAnimationId::TavernTip:
+            return "FaceAnimation.TavernTip";
+        case FaceAnimationId::TravelHorse:
+            return "FaceAnimation.TravelHorse";
+        case FaceAnimationId::TravelBoat:
+            return "FaceAnimation.TravelBoat";
         case FaceAnimationId::ShopIdentify:
             return "FaceAnimation.ShopIdentify";
         case FaceAnimationId::ShopRepair:
             return "FaceAnimation.ShopRepair";
         case FaceAnimationId::AlreadyIdentified:
-            return "FaceAnimation.AlreadyIdentified";
+            return "FaceAnimation.ShopAlreadyIdentified";
+        case FaceAnimationId::ShopItemBought:
+            return "FaceAnimation.ShopItemBought";
         case FaceAnimationId::ItemSold:
-            return "FaceAnimation.ItemSold";
+            return "FaceAnimation.ShopItemSold";
+        case FaceAnimationId::SkillLearned:
+            return "FaceAnimation.SkillLearned";
         case FaceAnimationId::WrongShop:
-            return "FaceAnimation.WrongShop";
+            return "FaceAnimation.ShopWrongShop";
+        case FaceAnimationId::ShopRude:
+            return "FaceAnimation.ShopRude";
+        case FaceAnimationId::BankDeposit:
+            return "FaceAnimation.BankDeposit";
+        case FaceAnimationId::TempleHeal:
+            return "FaceAnimation.TempleHeal";
+        case FaceAnimationId::TempleDonate:
+            return "FaceAnimation.TempleDonate";
+        case FaceAnimationId::HelloHouse:
+            return "FaceAnimation.HelloHouse";
+        case FaceAnimationId::SkillMasteryIncreased:
+            return "FaceAnimation.SkillMasteryIncreased";
+        case FaceAnimationId::JoinedGuild:
+            return "FaceAnimation.JoinedGuild";
+        case FaceAnimationId::LevelUp:
+            return "FaceAnimation.LevelUp";
+        case FaceAnimationId::StatBonusIncreased:
+            return "FaceAnimation.StatBonusIncreased";
+        case FaceAnimationId::StatBaseIncreased:
+            return "FaceAnimation.StatBaseIncreased";
+        case FaceAnimationId::QuestGot:
+            return "FaceAnimation.QuestGot";
+        case FaceAnimationId::AwardGot:
+            return "FaceAnimation.AwardGot";
+        case FaceAnimationId::AfraidSilent:
+            return "FaceAnimation.AfraidSilent";
+        case FaceAnimationId::CheatedDeath:
+            return "FaceAnimation.CheatedDeath";
+        case FaceAnimationId::InPrison:
+            return "FaceAnimation.InPrison";
+        case FaceAnimationId::ChooseMe:
+            return "FaceAnimation.ChooseMe";
+        case FaceAnimationId::Awaken:
+            return "FaceAnimation.Awaken";
+        case FaceAnimationId::IdentifyMonsterWeak:
+            return "FaceAnimation.IdentifyMonsterWeak";
+        case FaceAnimationId::IdentifyMonsterBig:
+            return "FaceAnimation.IdentifyMonsterBig";
+        case FaceAnimationId::IdentifyMonsterFail:
+            return "FaceAnimation.IdentifyMonsterFail";
+        case FaceAnimationId::LastManStanding:
+            return "FaceAnimation.LastManStanding";
+        case FaceAnimationId::NotEnoughFood:
+            return "FaceAnimation.NotEnoughFood";
+        case FaceAnimationId::DeathBlow:
+            return "FaceAnimation.DeathBlow";
     }
 
     return std::to_string(value);

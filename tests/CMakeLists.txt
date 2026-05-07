@@ -9,6 +9,7 @@ add_executable(openyamm_unit_tests
     UnitTestMain.cpp
     CharacterSheetRegressionTests.cpp
     GameplayActorAiSystemTests.cpp
+    GameplayBolsterRuntimeTests.cpp
     GameplayRuleRegressionTests.cpp
     GameplayProjectileServiceTests.cpp
     ImageAssetLoaderTests.cpp
@@ -48,6 +49,7 @@ add_executable(openyamm_unit_tests
     ../game/events/EventDialogContent.cpp
     ../game/events/ScriptedEventProgram.cpp
     ../game/gameplay/ChestRuntime.cpp
+    ../game/gameplay/GameplayBolsterRuntime.cpp
     ../game/gameplay/GameplayActorAiSystem.cpp
     ../game/gameplay/GameplayActorService.cpp
     ../game/gameplay/GameplayDialogController.cpp

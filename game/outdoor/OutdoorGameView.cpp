@@ -518,6 +518,9 @@ constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr uint16_t HudViewId = 2;
 constexpr float DefaultOutdoorFarClip = 18000.0f;
+constexpr float RuntimeProjectileRenderDistance = 12288.0f;
+constexpr float DecorationBillboardRenderDistance = 18000.0f;
+constexpr float ActorBillboardRenderDistance = 18000.0f;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float BillboardSpatialCellSize = 2048.0f;
@@ -2878,6 +2881,7 @@ bool OutdoorGameView::initialize(
     m_pOutdoorWorldRuntime->bindGlobalEventProgram(&sceneRuntime.globalEventProgram());
     m_pOutdoorWorldRuntime->setWorldFxSystem(&m_worldFxSystem);
     m_gameSettings = settings;
+    refreshViewDistanceCache();
     m_gameSession.gameplayScreenRuntime().bindSceneAdapter(this);
     m_gameSession.gameplayScreenRuntime().bindAudioSystem(m_pGameAudioSystem);
     m_gameSession.gameplayScreenRuntime().bindSettings(&m_gameSettings);
@@ -3135,7 +3139,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState =
         m_pOutdoorWorldRuntime != nullptr ? &m_pOutdoorWorldRuntime->atmosphereState() : nullptr;
     const uint32_t clearColorAbgr = pAtmosphereState != nullptr ? pAtmosphereState->clearColorAbgr : 0x000000ffu;
-    const float farClipDistance = resolveViewDistanceSetting(m_gameSettings.viewDistance, DefaultOutdoorFarClip);
+    const float farClipDistance = m_viewDistanceCache.farClipDistance;
     const bool captureSavePreviewThisFrame =
         m_pendingSavePreviewCapture.active && !m_pendingSavePreviewCapture.screenshotRequested;
     const bool captureLloydsBeaconPreviewThisFrame =
@@ -4312,6 +4316,7 @@ void OutdoorGameView::showStatusBarEvent(const std::string &text, float duration
 void OutdoorGameView::setSettingsSnapshot(const GameSettings &settings)
 {
     m_gameSettings = settings;
+    refreshViewDistanceCache();
 
     if (m_pOutdoorPartyRuntime != nullptr)
     {
@@ -4319,6 +4324,30 @@ void OutdoorGameView::setSettingsSnapshot(const GameSettings &settings)
         party.setDebugDamageImmune(settings.immortal);
         party.setDebugUnlimitedMana(settings.unlimitedMana);
     }
+}
+
+void OutdoorGameView::refreshViewDistanceCache()
+{
+    if (m_viewDistanceCache.sourceValue == m_gameSettings.viewDistance)
+    {
+        return;
+    }
+
+    m_viewDistanceCache.sourceValue = m_gameSettings.viewDistance;
+    m_viewDistanceCache.farClipDistance =
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, DefaultOutdoorFarClip);
+    m_viewDistanceCache.runtimeProjectileDistance =
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, RuntimeProjectileRenderDistance);
+    m_viewDistanceCache.runtimeProjectileDistanceSquared =
+        m_viewDistanceCache.runtimeProjectileDistance * m_viewDistanceCache.runtimeProjectileDistance;
+    m_viewDistanceCache.decorationBillboardDistance =
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, DecorationBillboardRenderDistance);
+    m_viewDistanceCache.decorationBillboardDistanceSquared =
+        m_viewDistanceCache.decorationBillboardDistance * m_viewDistanceCache.decorationBillboardDistance;
+    m_viewDistanceCache.actorBillboardDistance =
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, ActorBillboardRenderDistance);
+    m_viewDistanceCache.actorBillboardDistanceSquared =
+        m_viewDistanceCache.actorBillboardDistance * m_viewDistanceCache.actorBillboardDistance;
 }
 
 const GameSettings &OutdoorGameView::settingsSnapshot() const

@@ -228,6 +228,7 @@ private:
     static size_t relationIndexForMonsterId(int16_t monsterId);
 
     std::vector<MonsterEntry> m_entries;
+    std::unordered_map<std::string, int16_t> m_entryIndexByInternalName;
     std::vector<MonsterDisplayNameEntry> m_displayNames;
     std::vector<std::string> m_uniqueNames;
     std::unordered_map<int, MonsterStatsEntry> m_statsById;

@@ -400,11 +400,14 @@ class MergedCharacterSelectionTable
 public:
     bool loadFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadFromYaml(const std::string &yamlText, std::string &errorMessage);
+    const std::vector<std::string> *allowedClassesForRaceId(uint32_t raceId) const;
     const std::vector<MergedCharacterSelectionContinent> &continents() const;
+    std::optional<std::string> raceNameForId(uint32_t raceId) const;
     size_t raceCount() const;
 
 private:
     std::unordered_map<uint32_t, std::vector<std::string>> m_characterSelectionAllowedClassesByRaceId;
+    std::unordered_map<uint32_t, std::string> m_characterSelectionRaceNamesById;
     std::vector<MergedCharacterSelectionContinent> m_characterSelectionContinents;
 };
 

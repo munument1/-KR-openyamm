@@ -69,9 +69,17 @@ PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &context)
     return input;
 }
 
+std::string normalizeGameplayLayoutRoleIdFromNormalized(const std::string &normalizedId);
+
 std::string normalizeGameplayLayoutRoleId(const std::string &layoutId)
 {
     std::string normalizedLayoutId = toLowerCopy(layoutId);
+    return normalizeGameplayLayoutRoleIdFromNormalized(normalizedLayoutId);
+}
+
+std::string normalizeGameplayLayoutRoleIdFromNormalized(const std::string &normalizedId)
+{
+    std::string normalizedLayoutId = normalizedId;
     constexpr std::string_view standardPrefix = "outdoorstandard";
 
     if (normalizedLayoutId.rfind(standardPrefix, 0) == 0)
@@ -465,7 +473,8 @@ bool isDescendantOfAny(
 
     while (pCurrent != nullptr)
     {
-        const std::string normalizedLayoutId = toLowerCopy(pCurrent->id);
+        const std::string normalizedLayoutId =
+            !pCurrent->normalizedId.empty() ? pCurrent->normalizedId : toLowerCopy(pCurrent->id);
 
         for (std::string_view ancestorId : ancestorIds)
         {
@@ -491,7 +500,10 @@ bool isGameplayElementVisibleInHudState(
     const UiLayoutManager::LayoutElement &layout,
     ActiveGameplayHudLayout gameplayHudLayout)
 {
-    if (toLowerCopy(layout.screen) != "outdoorhud")
+    const std::string normalizedScreen =
+        !layout.normalizedScreen.empty() ? layout.normalizedScreen : toLowerCopy(layout.screen);
+
+    if (normalizedScreen != "outdoorhud")
     {
         return false;
     }
@@ -976,8 +988,17 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
     for (const std::string &layoutId : context.sortedHudLayoutIdsForScreen("OutdoorHud"))
     {
-        const std::string normalizedLayoutId = toLowerCopy(layoutId);
-        const std::string normalizedRoleId = normalizeGameplayLayoutRoleId(layoutId);
+        const UiLayoutManager::LayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+
+        if (pLayout == nullptr || !pLayout->visible)
+        {
+            continue;
+        }
+
+        const std::string normalizedLayoutId =
+            !pLayout->normalizedId.empty() ? pLayout->normalizedId : toLowerCopy(layoutId);
+        const std::string normalizedRoleId = normalizeGameplayLayoutRoleIdFromNormalized(
+            normalizedLayoutId);
 
         if (normalizedLayoutId == "outdoorbasebar"
             || normalizedLayoutId == "outdoorpartystrip"
@@ -993,13 +1014,6 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
             || normalizedLayoutId == "outdoorgameplaybasebar_ornright2"
             || normalizedLayoutId.rfind("charshield_", 0) == 0
             || normalizedLayoutId.rfind("outdoorstandardcharshield_", 0) == 0)
-        {
-            continue;
-        }
-
-        const UiLayoutManager::LayoutElement *pLayout = context.findHudLayoutElement(layoutId);
-
-        if (pLayout == nullptr || !pLayout->visible)
         {
             continue;
         }

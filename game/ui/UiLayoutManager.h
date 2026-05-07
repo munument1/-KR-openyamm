@@ -69,7 +69,9 @@ public:
     struct LayoutElement
     {
         std::string id;
+        std::string normalizedId;
         std::string screen;
+        std::string normalizedScreen;
         LayoutAnchor anchor = LayoutAnchor::TopLeft;
         LayoutAnchorSpace anchorSpace = LayoutAnchorSpace::Viewport;
         std::string parentId;
@@ -120,6 +122,7 @@ public:
 private:
     std::vector<std::string> m_layoutOrder;
     std::unordered_map<std::string, LayoutElement> m_layoutElements;
+    std::unordered_map<std::string, std::string> m_normalizedLayoutIdByExactId;
     mutable std::unordered_map<std::string, std::vector<std::string>> m_sortedLayoutIdsByScreen;
 };
 }

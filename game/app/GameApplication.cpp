@@ -170,6 +170,45 @@ bool sameMapFileName(const std::string &left, const std::string &right)
     return toLowerCopy(left) == toLowerCopy(right);
 }
 
+int effectiveRespawnAreaIdForMap(const MapStatsEntry &mapEntry, const std::string &mapFileName)
+{
+    const bool indoorMap = toLowerCopy(mapFileName).ends_with(".blv");
+
+    if (indoorMap && mapEntry.areaId != 0)
+    {
+        return mapEntry.areaId;
+    }
+
+    return mapEntry.isTopLevelArea ? mapEntry.id : mapEntry.areaId;
+}
+
+bool mapMatchesDeathDestination(
+    const MapStatsEntry &currentMap,
+    const std::string &currentMapFileName,
+    const MapStatsEntry *pDeathMap)
+{
+    if (pDeathMap == nullptr)
+    {
+        return false;
+    }
+
+    if (sameMapFileName(currentMapFileName, pDeathMap->fileName))
+    {
+        return true;
+    }
+
+    const int currentAreaId = effectiveRespawnAreaIdForMap(currentMap, currentMapFileName);
+    const int deathMapAreaId = effectiveRespawnAreaIdForMap(*pDeathMap, pDeathMap->fileName);
+    return currentAreaId != 0 && deathMapAreaId != 0 && currentAreaId == deathMapAreaId;
+}
+
+std::string trimCopy(std::string_view value);
+
+std::string normalizedDeathMapName(const std::string &mapFileName)
+{
+    return toLowerCopy(trimCopy(mapFileName));
+}
+
 bool isDungeonMapFileName(const std::string &mapFileName)
 {
     return toLowerCopy(mapFileName).ends_with(".blv");
@@ -2947,7 +2986,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameSession.gameplayActorService(),
             &m_gameSession.gameplayProjectileService(),
             &m_gameSession.gameplayCombatController(),
-            &m_gameSession.gameplayFxService()
+            &m_gameSession.gameplayFxService(),
+            &m_gameDataLoader.getMergedBolsterMapTable(),
+            &m_gameDataLoader.getMergedBolsterMonsterTable()
         );
         timingLogger.stage("outdoor runtime initialized");
 
@@ -3065,7 +3106,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameSession.gameplayCombatController(),
             pIndoorActorSpriteFrameTable,
             pIndoorProjectileSpriteFrameTable,
-            selectedMap->indoorDecorationBillboardSet ? &*selectedMap->indoorDecorationBillboardSet : nullptr
+            selectedMap->indoorDecorationBillboardSet ? &*selectedMap->indoorDecorationBillboardSet : nullptr,
+            &m_gameDataLoader.getMergedBolsterMapTable(),
+            &m_gameDataLoader.getMergedBolsterMonsterTable()
         );
         timingLogger.stage("indoor runtime initialized");
         std::unordered_map<std::string, IndoorSceneRuntime::Snapshot>::const_iterator indoorStateIt =
@@ -3777,9 +3820,9 @@ void GameApplication::openNewGameScreen()
         &m_gameAudioSystem,
         m_gameSession.data(),
         m_settings.newGameGodLich,
-        [this](const Character &character)
+        [this](const std::vector<Character> &characters)
         {
-            startNewSessionFromCharacterCreation(character);
+            startNewSessionFromCharacterCreation(characters);
         },
         [this]()
         {
@@ -3787,21 +3830,132 @@ void GameApplication::openNewGameScreen()
         }));
 }
 
-std::string GameApplication::resolveStartupMapFile() const
+std::optional<uint32_t> GameApplication::activeWorldContinentId() const
+{
+    const std::string activeWorldId = normalizeWorldId(m_activeWorldManifest.id);
+
+    if (activeWorldId == "mm8")
+    {
+        return 1u;
+    }
+
+    if (activeWorldId == "mm7")
+    {
+        return 2u;
+    }
+
+    if (activeWorldId == "mm6")
+    {
+        return 3u;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<GameApplication::MapStartDestination> GameApplication::resolveContinentStartDestination(
+    uint32_t continentId) const
+{
+    const MergedContinentSettingEntry *pContinentSetting =
+        m_gameDataLoader.getMergedContinentSettingTable().findById(continentId);
+
+    if (pContinentSetting == nullptr || trimCopy(pContinentSetting->deathMap1).empty())
+    {
+        return std::nullopt;
+    }
+
+    return MapStartDestination{
+        .mapFileName = normalizedDeathMapName(pContinentSetting->deathMap1),
+        .start = DebugMapJumpStart{
+            .x = pContinentSetting->deathMap1X,
+            .y = pContinentSetting->deathMap1Y,
+            .z = pContinentSetting->deathMap1Z,
+            .directionYawUnits = pContinentSetting->deathMap1Direction,
+        },
+    };
+}
+
+GameApplication::MapStartDestination GameApplication::resolveStartupDestination() const
 {
     if (!m_config.startupMapFileOverride.empty())
     {
-        return m_config.startupMapFileOverride;
+        return MapStartDestination{.mapFileName = m_config.startupMapFileOverride};
     }
 
     if (!m_settings.startMapFile.empty())
     {
-        return m_settings.startMapFile;
+        return MapStartDestination{.mapFileName = m_settings.startMapFile};
     }
 
-    return m_activeWorldManifest.start.mapFileName.empty()
+    const std::string manifestStartMap = m_activeWorldManifest.start.mapFileName.empty()
         ? DefaultStartupMapFile
         : m_activeWorldManifest.start.mapFileName;
+
+    const std::optional<uint32_t> continentId = activeWorldContinentId();
+
+    if (continentId.has_value())
+    {
+        const std::optional<MapStartDestination> continentStart =
+            resolveContinentStartDestination(*continentId);
+
+        if (continentStart.has_value() && sameMapFileName(continentStart->mapFileName, manifestStartMap))
+        {
+            return *continentStart;
+        }
+    }
+
+    return MapStartDestination{.mapFileName = manifestStartMap};
+}
+
+std::string GameApplication::resolveStartupMapFile() const
+{
+    return resolveStartupDestination().mapFileName;
+}
+
+void GameApplication::applyMapStartDestination(const MapStartDestination &destination)
+{
+    if (!destination.start.has_value())
+    {
+        return;
+    }
+
+    if (!destination.mapFileName.empty()
+        && !sameMapFileName(destination.mapFileName, m_gameSession.currentMapFileName()))
+    {
+        return;
+    }
+
+    const DebugMapJumpStart &start = *destination.start;
+
+    if (m_pMapSceneRuntime != nullptr
+        && m_pMapSceneRuntime->kind() == SceneKind::Outdoor
+        && m_pOutdoorPartyRuntime != nullptr)
+    {
+        m_pOutdoorPartyRuntime->teleportTo(
+            static_cast<float>(start.x),
+            static_cast<float>(start.y),
+            static_cast<float>(start.z));
+    }
+    else if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+    {
+        IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+        pIndoorRuntime->partyRuntime().teleportPartyPosition(
+            static_cast<float>(start.x),
+            static_cast<float>(start.y),
+            static_cast<float>(start.z));
+    }
+
+    const int32_t normalizedYawUnits = ((start.directionYawUnits % 2048) + 2048) % 2048;
+    const int32_t directionDegrees = normalizedYawUnits * 360 / 2048;
+    const float yawRadians = mapMoveHeadingDegreesToYawRadians(directionDegrees);
+
+    if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Outdoor)
+    {
+        m_outdoorGameView.setCameraAngles(yawRadians, m_outdoorGameView.cameraPitchRadians());
+    }
+    else if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+    {
+        m_indoorRenderer.setCameraAngles(yawRadians, m_indoorRenderer.cameraPitchRadians());
+    }
 }
 
 bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool initializeView)
@@ -3817,7 +3971,8 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
     m_gameSession.clear();
     m_gameSession.clearCurrentSavePath();
     m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
-    m_gameSession.setCurrentMapFileName(resolveStartupMapFile());
+    const MapStartDestination startupDestination = resolveStartupDestination();
+    m_gameSession.setCurrentMapFileName(startupDestination.mapFileName);
 
     const bool shouldSeedParty = rosterId.has_value() || m_settings.preseedParty;
     std::optional<uint32_t> effectiveRosterId = rosterId;
@@ -3891,12 +4046,13 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
     }
 
     applyCurrentSettingsToActiveRuntime();
+    applyMapStartDestination(startupDestination);
     applyStartupDebugSettingsToActiveRuntime();
     synchronizeSessionFromRuntime();
     return true;
 }
 
-bool GameApplication::startNewSessionFromCharacterCreation(const Character &character, bool initializeView)
+bool GameApplication::startNewSessionFromCharacterCreation(const std::vector<Character> &characters, bool initializeView)
 {
     if (m_pAssetFileSystem == nullptr)
     {
@@ -3909,18 +4065,23 @@ bool GameApplication::startNewSessionFromCharacterCreation(const Character &char
     m_gameSession.clear();
     m_gameSession.clearCurrentSavePath();
     m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
-    m_gameSession.setCurrentMapFileName(resolveStartupMapFile());
+    const MapStartDestination startupDestination = resolveStartupDestination();
+    m_gameSession.setCurrentMapFileName(startupDestination.mapFileName);
     PartySeed seed = {};
     seed.gold = 200;
     seed.food = 5;
-    seed.members.push_back(
-        buildFreshCreatedCharacter(
-            character,
-            m_gameDataLoader.getClassMultiplierTable(),
-            m_gameDataLoader.getItemTable(),
-            m_gameDataLoader.getStandardItemEnchantTable(),
-            m_gameDataLoader.getSpecialItemEnchantTable(),
-            m_settings.newGameGodLich));
+
+    for (const Character &character : characters)
+    {
+        seed.members.push_back(
+            buildFreshCreatedCharacter(
+                character,
+                m_gameDataLoader.getClassMultiplierTable(),
+                m_gameDataLoader.getItemTable(),
+                m_gameDataLoader.getStandardItemEnchantTable(),
+                m_gameDataLoader.getSpecialItemEnchantTable(),
+                m_settings.newGameGodLich));
+    }
 
     Party &sessionParty = ensureSessionPartyState();
     sessionParty.seed(seed);
@@ -3948,6 +4109,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(const Character &char
 
     renderLoadingOverlayProgress(90);
     applyCurrentSettingsToActiveRuntime();
+    applyMapStartDestination(startupDestination);
     synchronizeSessionFromRuntime();
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
@@ -4402,7 +4564,9 @@ bool GameApplication::processPendingPartyDefeat()
         return false;
     }
 
-    m_pendingPartyDefeatRespawnMapFileName = resolvePartyDefeatRespawnMapFileName();
+    const MapStartDestination respawnDestination = resolvePartyDefeatRespawnDestination();
+    m_pendingPartyDefeatRespawnMapFileName = respawnDestination.mapFileName;
+    m_pendingPartyDefeatRespawnStart = respawnDestination.start;
     const std::string cutsceneStem = resolvePartyDefeatCutsceneStem();
     m_screenManager.setActiveScreen(std::make_unique<CutsceneVideoScreen>(
         *m_pAssetFileSystem,
@@ -4592,6 +4756,7 @@ void GameApplication::handleCompletedPartyDefeatScreen()
     applyPartyDefeatConsequences();
     respawnPartyAfterDefeat(true);
     m_pendingPartyDefeatRespawnMapFileName.reset();
+    m_pendingPartyDefeatRespawnStart.reset();
 }
 
 void GameApplication::handleCompletedEventMovieScreen()
@@ -4646,28 +4811,77 @@ bool GameApplication::shouldTriggerPartyDefeat() const
 
 std::string GameApplication::resolvePartyDefeatRespawnMapFileName() const
 {
+    return resolvePartyDefeatRespawnDestination().mapFileName;
+}
+
+GameApplication::MapStartDestination GameApplication::resolvePartyDefeatRespawnDestination() const
+{
     const std::string currentMapFileName = toLowerCopy(m_gameSession.currentMapFileName());
     const MapStatsEntry *pCurrentMap = m_gameDataLoader.getMapStats().findByFileName(currentMapFileName);
 
     if (pCurrentMap != nullptr)
     {
-        const bool indoorMap = currentMapFileName.ends_with(".blv");
-        const int effectiveAreaId = indoorMap && pCurrentMap->areaId != 0
-            ? pCurrentMap->areaId
-            : (pCurrentMap->isTopLevelArea ? pCurrentMap->id : pCurrentMap->areaId);
+        const MergedContinentSettingEntry *pContinentSetting =
+            m_gameDataLoader.findMergedContinentSettingsForMap(*pCurrentMap);
 
-        if (effectiveAreaId == 1)
+        if (pContinentSetting != nullptr)
         {
-            return DwiRespawnMapFile;
+            const std::string deathMap1 = normalizedDeathMapName(pContinentSetting->deathMap1);
+            const std::string deathMap2 = normalizedDeathMapName(pContinentSetting->deathMap2);
+
+            if (!deathMap1.empty() || !deathMap2.empty())
+            {
+                const MapStatsEntry *pDeathMap1 = !deathMap1.empty()
+                    ? m_gameDataLoader.getMapStats().findByFileName(deathMap1)
+                    : nullptr;
+
+                if (!deathMap1.empty()
+                    && (sameMapFileName(currentMapFileName, deathMap1)
+                        || mapMatchesDeathDestination(*pCurrentMap, currentMapFileName, pDeathMap1)))
+                {
+                    return MapStartDestination{
+                        .mapFileName = deathMap1,
+                        .start = DebugMapJumpStart{
+                            .x = pContinentSetting->deathMap1X,
+                            .y = pContinentSetting->deathMap1Y,
+                            .z = pContinentSetting->deathMap1Z,
+                            .directionYawUnits = pContinentSetting->deathMap1Direction,
+                        },
+                    };
+                }
+
+                if (!deathMap2.empty())
+                {
+                    return MapStartDestination{
+                        .mapFileName = deathMap2,
+                        .start = DebugMapJumpStart{
+                            .x = pContinentSetting->deathMap2X,
+                            .y = pContinentSetting->deathMap2Y,
+                            .z = pContinentSetting->deathMap2Z,
+                            .directionYawUnits = pContinentSetting->deathMap2Direction,
+                        },
+                    };
+                }
+
+                return MapStartDestination{
+                    .mapFileName = deathMap1,
+                    .start = DebugMapJumpStart{
+                        .x = pContinentSetting->deathMap1X,
+                        .y = pContinentSetting->deathMap1Y,
+                        .z = pContinentSetting->deathMap1Z,
+                        .directionYawUnits = pContinentSetting->deathMap1Direction,
+                    },
+                };
+            }
         }
     }
 
     if (currentMapFileName == DwiRespawnMapFile)
     {
-        return DwiRespawnMapFile;
+        return MapStartDestination{.mapFileName = DwiRespawnMapFile};
     }
 
-    return RavenshoreRespawnMapFile;
+    return MapStartDestination{.mapFileName = RavenshoreRespawnMapFile};
 }
 
 std::string GameApplication::resolvePartyDefeatCutsceneStem() const
@@ -4753,6 +4967,10 @@ bool GameApplication::respawnPartyAfterDefeat(bool initializeView)
         return false;
     }
 
+    applyMapStartDestination(MapStartDestination{
+        .mapFileName = *m_pendingPartyDefeatRespawnMapFileName,
+        .start = m_pendingPartyDefeatRespawnStart,
+    });
     synchronizeSessionFromRuntime();
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();

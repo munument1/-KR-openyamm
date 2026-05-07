@@ -117,6 +117,35 @@ TEST_CASE("map stats parse perception difficulty")
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
 }
 
+TEST_CASE("merged bolster map metadata marks Antagarich outdoor maps")
+{
+    OpenYAMM::Game::MergedBolsterMapTable bolsterMaps = {};
+    REQUIRE(bolsterMaps.loadFromRows(loadTextTableRows("assets_dev/engine/data_tables/bolster_maps.txt")));
+
+    const OpenYAMM::Game::MergedBolsterMapEntry *pTulareanForest = bolsterMaps.findById(65u);
+    REQUIRE(pTulareanForest != nullptr);
+    CHECK_EQ(pTulareanForest->note, "The Tularean Forest");
+    CHECK_EQ(pTulareanForest->continent, 2u);
+    CHECK_EQ(pTulareanForest->bolsterKind, "LowerToEqual");
+    CHECK(pTulareanForest->spells);
+    CHECK(pTulareanForest->summons);
+    CHECK(pTulareanForest->weather);
+    REQUIRE(pTulareanForest->professionMaxRarity.has_value());
+    CHECK_EQ(*pTulareanForest->professionMaxRarity, 30u);
+
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pEmeraldIsland = mapStats.findByFileName("7out01.odm");
+    const OpenYAMM::Game::MapStatsEntry *pHarmondale = mapStats.findByFileName("7out02.odm");
+    const OpenYAMM::Game::MapStatsEntry *pTulareanMap = mapStats.findByFileName("7out04.odm");
+
+    REQUIRE(pEmeraldIsland != nullptr);
+    REQUIRE(pHarmondale != nullptr);
+    REQUIRE(pTulareanMap != nullptr);
+    CHECK_EQ(pEmeraldIsland->mergedContinentId, 2u);
+    CHECK_EQ(pHarmondale->mergedContinentId, 2u);
+    CHECK_EQ(pTulareanMap->mergedContinentId, 2u);
+}
+
 TEST_CASE("merged outdoor travels add mm6 map boundary transitions")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
@@ -137,14 +166,56 @@ TEST_CASE("merged outdoor travels add mm6 map boundary transitions")
     CHECK(pNewSorpigal->westTransition->useMapStartPosition);
 }
 
+TEST_CASE("merged outdoor travels preserve original mm8 boundary transitions")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pRavenshore = mapStats.findByFileName("out02.odm");
+    const OpenYAMM::Game::MapStatsEntry *pAlvar = mapStats.findByFileName("out03.odm");
+    const OpenYAMM::Game::MapStatsEntry *pShadowspire = mapStats.findByFileName("out06.odm");
+
+    REQUIRE(pRavenshore != nullptr);
+    REQUIRE(pAlvar != nullptr);
+    REQUIRE(pShadowspire != nullptr);
+
+    REQUIRE(pRavenshore->northTransition.has_value());
+    CHECK_EQ(pRavenshore->northTransition->destinationMapFileName, "Out03.odm");
+    CHECK_EQ(pRavenshore->northTransition->travelDays, 1);
+    REQUIRE(pRavenshore->northTransition->arrivalX.has_value());
+    CHECK_EQ(*pRavenshore->northTransition->arrivalX, -15104);
+    REQUIRE(pRavenshore->eastTransition.has_value());
+    CHECK_EQ(pRavenshore->eastTransition->destinationMapFileName, "Out06.odm");
+    CHECK_EQ(pRavenshore->eastTransition->travelDays, 1);
+    REQUIRE(pRavenshore->westTransition.has_value());
+    CHECK_EQ(pRavenshore->westTransition->destinationMapFileName, "Out05.odm");
+    CHECK_EQ(pRavenshore->westTransition->travelDays, 1);
+
+    REQUIRE(pAlvar->westTransition.has_value());
+    CHECK_EQ(pAlvar->westTransition->destinationMapFileName, "Out04.odm");
+    CHECK_EQ(pAlvar->westTransition->travelDays, 1);
+    REQUIRE(pShadowspire->westTransition.has_value());
+    CHECK_EQ(pShadowspire->westTransition->destinationMapFileName, "Out02.odm");
+    CHECK_EQ(pShadowspire->westTransition->travelDays, 1);
+}
+
 TEST_CASE("map stats assign default canonical MM8 map identity")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
     const OpenYAMM::Game::MapStatsEntry *pDaggerWound = mapStats.findByFileName("Out01.odm");
+    const OpenYAMM::Game::MapStatsEntry *pBreach = mapStats.findByFileName("Breach.odm");
+    const OpenYAMM::Game::MapStatsEntry *pBrAlvar = mapStats.findByFileName("BrAlvar.odm");
+    const OpenYAMM::Game::MapStatsEntry *pBrBase = mapStats.findByFileName("BrBase.blv");
 
     REQUIRE(pDaggerWound != nullptr);
     CHECK_EQ(pDaggerWound->worldId, OpenYAMM::Game::DefaultWorldId);
     CHECK_EQ(pDaggerWound->canonicalId, "world.mm8.map.out01");
+
+    REQUIRE(pBreach != nullptr);
+    REQUIRE(pBrAlvar != nullptr);
+    REQUIRE(pBrBase != nullptr);
+    CHECK_EQ(pBreach->worldId, "mmmerge");
+    CHECK_EQ(pBreach->canonicalId, "world.mmmerge.map.breach");
+    CHECK_EQ(pBrAlvar->worldId, "mmmerge");
+    CHECK_EQ(pBrBase->worldId, "mmmerge");
 }
 
 TEST_CASE("map registry supports canonical id and world/file compatibility lookups")

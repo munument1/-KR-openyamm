@@ -229,6 +229,24 @@ std::string keyboardBindingName(SDL_Scancode scancode)
 
 std::string keyboardBindingDisplayName(SDL_Scancode scancode)
 {
+    static const std::array<std::string, SDL_SCANCODE_COUNT> DisplayNames =
+        []()
+        {
+            std::array<std::string, SDL_SCANCODE_COUNT> names = {};
+
+            for (size_t index = 0; index < names.size(); ++index)
+            {
+                names[index] = keyboardBindingName(static_cast<SDL_Scancode>(index));
+            }
+
+            return names;
+        }();
+
+    if (scancode >= 0 && static_cast<size_t>(scancode) < DisplayNames.size())
+    {
+        return DisplayNames[static_cast<size_t>(scancode)];
+    }
+
     return keyboardBindingName(scancode);
 }
 }

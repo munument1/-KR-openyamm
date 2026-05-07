@@ -31,6 +31,8 @@ class IndoorRenderer;
 class IndoorFaceGeometryCache;
 class IndoorGameView;
 class IndoorPartyRuntime;
+class MergedBolsterMapTable;
+class MergedBolsterMonsterTable;
 class MonsterProjectileTable;
 class SpellTable;
 class SpriteFrameTable;
@@ -53,6 +55,17 @@ public:
         uint16_t collisionHeight = 128;
         uint16_t projectileHitRadius = 32;
         uint16_t movementSpeed = 0;
+        GameplayActorAiType aiType = GameplayActorAiType::Normal;
+        bool canFly = false;
+        CombatDamageType attack1DamageType = CombatDamageType::Physical;
+        CombatDamageType attack2DamageType = CombatDamageType::Physical;
+        uint32_t spell1Id = 0;
+        CombatDamageType spell1DamageType = CombatDamageType::Physical;
+        bool spell1CastSupported = true;
+        uint32_t spell2Id = 0;
+        CombatDamageType spell2DamageType = CombatDamageType::Physical;
+        bool spell2CastSupported = true;
+        float wanderRadius = 0.0f;
         bool hostileToParty = false;
         bool hasDetectedParty = false;
         bool bloodSplatSpawned = false;
@@ -176,7 +189,9 @@ public:
         const SpriteFrameTable *pActorSpriteFrameTable = nullptr,
         const SpriteFrameTable *pProjectileSpriteFrameTable = nullptr,
         const IndoorMapData *pIndoorMapData = nullptr,
-        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr
+        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
+        const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
     void initialize(
         const MapStatsEntry &map,
@@ -191,7 +206,9 @@ public:
         GameplayActorService *pGameplayActorService,
         const SpriteFrameTable *pActorSpriteFrameTable = nullptr,
         const IndoorMapData *pIndoorMapData = nullptr,
-        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr
+        const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
+        const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
     );
 
     const std::string &mapName() const override;
@@ -526,6 +543,8 @@ private:
 
     std::optional<MapStatsEntry> m_map;
     const MonsterTable *m_pMonsterTable = nullptr;
+    const MergedBolsterMapTable *m_pMergedBolsterMapTable = nullptr;
+    const MergedBolsterMonsterTable *m_pMergedBolsterMonsterTable = nullptr;
     const MonsterProjectileTable *m_pMonsterProjectileTable = nullptr;
     const ObjectTable *m_pObjectTable = nullptr;
     const SpellTable *m_pSpellTable = nullptr;

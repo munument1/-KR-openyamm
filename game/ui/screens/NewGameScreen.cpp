@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cctype>
 #include <cstdio>
 #include <optional>
@@ -21,13 +22,14 @@ namespace OpenYAMM::Game
 namespace
 {
 using StatId = NewGameScreen::StatId;
-using CreationRace = NewGameScreen::CreationRace;
 using CreationCandidate = NewGameScreen::CreationCandidate;
 
 constexpr float RootWidth = 640.0f;
 constexpr float RootHeight = 480.0f;
 constexpr const char *CharacterCreationLayoutPath = "Data/ui/gameplay/character_creation.yml";
 constexpr uint32_t DefaultCreationCharacterDataId = 1;
+constexpr const char *DefaultCreationClassName = "Knight";
+constexpr const char *DefaultNewGameContinentKey = "jadame";
 constexpr uint32_t DebugGodLichCharacterDataId = 27;
 constexpr uint32_t CharacterCreationVoicePreviewSpeakerKey = 0x43525650u;
 constexpr int StartingBonusPool = 15;
@@ -85,40 +87,14 @@ constexpr std::array<const char *, static_cast<size_t>(StatId::Count)> StatLabel
     "Luck",
 };
 
-constexpr std::array<CreationCandidate, 26> CreationCandidates = {{
-    {1, "Gareth", "Knight", CreationRace::Human, true, {18, 9, 9, 15, 15, 15, 11}, {{"Bow", "RepairItem"}}},
-    {2, "Kiir", "Knight", CreationRace::Human},
-    {3, "Gareth", "Knight", CreationRace::Human},
-    {4, "Rhea", "Knight", CreationRace::Human},
-    {5, "Cedric", "Cleric", CreationRace::Human},
-    {6, "Elena", "Cleric", CreationRace::Human},
-    {7, "Tomas", "Cleric", CreationRace::Human},
-    {8, "Miriam", "Cleric", CreationRace::Human},
-    {9, "Morcar", "Necromancer", CreationRace::Human},
-    {10, "Selene", "Necromancer", CreationRace::Human},
-    {11, "Darian", "Necromancer", CreationRace::Human},
-    {12, "Nyra", "Necromancer", CreationRace::Human},
-    {13, "Valen", "Vampire", CreationRace::Vampire},
-    {14, "Serisa", "Vampire", CreationRace::Vampire},
-    {15, "Lucan", "Vampire", CreationRace::Vampire},
-    {16, "Mirelle", "Vampire", CreationRace::Vampire},
-    {17, "Soryn", "DarkElf", CreationRace::DarkElf},
-    {18, "Faelyr", "DarkElf", CreationRace::DarkElf},
-    {19, "Vaelis", "DarkElf", CreationRace::DarkElf},
-    {20, "Nym", "DarkElf", CreationRace::DarkElf},
-    {21, "Arius", "Minotaur", CreationRace::Minotaur},
-    {22, "Karn", "Minotaur", CreationRace::Minotaur},
-    {23, "Overdune", "Troll", CreationRace::Troll},
-    {24, "Brakka", "Troll", CreationRace::Troll},
-    {25, "Aleton", "Dragon", CreationRace::Dragon},
-    {26, "Beren", "Dragon", CreationRace::Dragon},
-}};
-
-constexpr CreationCandidate DebugGodLichCandidate = {
+const CreationCandidate DebugGodLichCandidate = {
     DebugGodLichCharacterDataId,
+    45,
+    0,
     "God",
     "Lich",
-    CreationRace::Human,
+    "Human",
+    {},
     true,
     {11, 11, 11, 11, 11, 11, 11},
     {{"", ""}},
@@ -218,6 +194,14 @@ constexpr std::array<const char *, 9> AvailableSkillLayoutIds = {{
     "CharacterCreationAvailableSkill07",
     "CharacterCreationAvailableSkill08",
     "CharacterCreationAvailableSkill09",
+}};
+
+constexpr std::array<const char *, 5> PartySlotButtonLayoutIds = {{
+    "CharacterCreationPartySlot1Button",
+    "CharacterCreationPartySlot2Button",
+    "CharacterCreationPartySlot3Button",
+    "CharacterCreationPartySlot4Button",
+    "CharacterCreationPartySlot5Button",
 }};
 
 constexpr std::array<const char *, 39> OrderedSkillNames = {{
@@ -522,29 +506,102 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
     return resolved;
 }
 
-std::string creationRaceName(CreationRace race)
+bool containsUnsigned(const std::vector<uint32_t> &values, uint32_t value)
 {
-    switch (race)
+    return std::find(values.begin(), values.end(), value) != values.end();
+}
+
+bool containsCanonicalClass(const std::vector<std::string> &classNames, const std::string &className)
+{
+    const std::string canonicalClassNameToFind = canonicalClassName(className);
+
+    for (const std::string &candidate : classNames)
     {
-        case CreationRace::Vampire:
-            return "Vampire";
-
-        case CreationRace::DarkElf:
-            return "DarkElf";
-
-        case CreationRace::Minotaur:
-            return "Minotaur";
-
-        case CreationRace::Troll:
-            return "Troll";
-
-        case CreationRace::Dragon:
-            return "Dragon";
-
-        case CreationRace::Human:
-        default:
-            return "Human";
+        if (canonicalClassName(candidate) == canonicalClassNameToFind)
+        {
+            return true;
+        }
     }
+
+    return false;
+}
+
+bool portraitIsExcepted(
+    const CharacterDollEntry &entry,
+    const std::vector<std::string> &portraitExceptions)
+{
+    for (const std::string &exception : portraitExceptions)
+    {
+        const std::string normalizedException = trimCopy(exception);
+
+        if (normalizedException.empty())
+        {
+            continue;
+        }
+
+        if (normalizedException == std::to_string(entry.id)
+            || normalizedException == entry.facePicturesPrefix
+            || normalizedException == entry.bodyAsset
+            || normalizedException == entry.headAsset)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+uint32_t classIdNear(uint32_t currentClassId, const std::vector<uint32_t> &availableClassIds, int direction)
+{
+    if (availableClassIds.empty())
+    {
+        return currentClassId;
+    }
+
+    if (std::find(availableClassIds.begin(), availableClassIds.end(), currentClassId) != availableClassIds.end())
+    {
+        return currentClassId;
+    }
+
+    if (direction < 0)
+    {
+        for (std::vector<uint32_t>::const_reverse_iterator it = availableClassIds.rbegin();
+             it != availableClassIds.rend();
+             ++it)
+        {
+            if (*it < currentClassId)
+            {
+                return *it;
+            }
+        }
+
+        return availableClassIds.back();
+    }
+
+    for (uint32_t classId : availableClassIds)
+    {
+        if (classId > currentClassId)
+        {
+            return classId;
+        }
+    }
+
+    return availableClassIds.front();
+}
+
+const MergedCharacterSelectionContinent *findNewGameContinent(
+    const MergedCharacterSelectionTable &selectionTable,
+    const std::string &continentKey)
+{
+    for (const MergedCharacterSelectionContinent &continent : selectionTable.continents())
+    {
+        if (continent.key == continentKey)
+        {
+            return &continent;
+        }
+    }
+
+    return nullptr;
 }
 
 RaceStatRule raceRuleForBaseStat(int baseStatValue)
@@ -577,7 +634,7 @@ std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForStats(
 
 std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForData(
     const GameDataRepository *pGameData,
-    CreationRace race,
+    const std::string &raceName,
     const std::array<int, static_cast<size_t>(StatId::Count)> &baseStats)
 {
     std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules = raceRulesForStats(baseStats);
@@ -587,8 +644,7 @@ std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> raceRulesForData(
         return rules;
     }
 
-    const RaceStartingStatsTable::Entry *pEntry =
-        pGameData->raceStartingStatsTable().get(creationRaceName(race));
+    const RaceStartingStatsTable::Entry *pEntry = pGameData->raceStartingStatsTable().get(raceName);
 
     if (pEntry == nullptr)
     {
@@ -825,12 +881,19 @@ AppMode NewGameScreen::mode() const
 void NewGameScreen::onEnter()
 {
     ensureLayoutLoaded();
+    rebuildCandidates();
+    m_partySize = 1;
+    m_activePartySlot = 0;
+    m_partyStates.clear();
 
     size_t defaultCandidateIndex = 0;
 
     for (size_t index = 0; index < candidateCount(); ++index)
     {
-        if (candidateAt(index).characterDataId == DefaultCreationCharacterDataId)
+        const CreationCandidate &candidate = candidateAt(index);
+
+        if (candidate.characterDataId == DefaultCreationCharacterDataId
+            && canonicalClassName(candidate.className) == canonicalClassName(DefaultCreationClassName))
         {
             defaultCandidateIndex = index;
             break;
@@ -838,6 +901,8 @@ void NewGameScreen::onEnter()
     }
 
     resetStateForCandidate(defaultCandidateIndex);
+    ensurePartyStates();
+    saveActivePartyState();
 }
 
 void NewGameScreen::onExit()
@@ -890,6 +955,22 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
             }
             break;
 
+        case SDLK_1:
+        case SDLK_2:
+        case SDLK_3:
+        case SDLK_4:
+        case SDLK_5:
+            if (!m_state.nameEditing && !m_debugGodLichRoster)
+            {
+                const size_t slotIndex = static_cast<size_t>(event.key.key - SDLK_1);
+
+                if (slotIndex < m_partySize)
+                {
+                    switchActivePartySlot(slotIndex);
+                }
+            }
+            break;
+
         default:
             break;
     }
@@ -897,12 +978,213 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
 
 const CreationCandidate &NewGameScreen::selectedCandidate() const
 {
-    return candidateAt(m_state.selectedCandidateIndex);
+    return candidateForState(m_state);
+}
+
+const CreationCandidate &NewGameScreen::candidateForState(const CreationState &state) const
+{
+    return candidateAt(state.selectedCandidateIndex);
+}
+
+std::string NewGameScreen::selectedClassName() const
+{
+    return classNameForState(m_state);
+}
+
+std::string NewGameScreen::classNameForState(const CreationState &state) const
+{
+    if (m_pGameData != nullptr)
+    {
+        if (const std::optional<std::string> className =
+                m_pGameData->classSkillTable().classNameForId(state.selectedClassId))
+        {
+            return *className;
+        }
+    }
+
+    return candidateForState(state).className;
+}
+
+void NewGameScreen::ensurePartyStates()
+{
+    if (m_partySize == 0)
+    {
+        m_partySize = 1;
+    }
+
+    if (m_partySize > 5)
+    {
+        m_partySize = 5;
+    }
+
+    while (m_partyStates.size() < m_partySize)
+    {
+        m_partyStates.push_back(m_state);
+    }
+
+    if (m_partyStates.size() > m_partySize)
+    {
+        m_partyStates.resize(m_partySize);
+    }
+
+    if (m_activePartySlot >= m_partySize)
+    {
+        m_activePartySlot = m_partySize - 1;
+    }
+}
+
+void NewGameScreen::saveActivePartyState()
+{
+    ensurePartyStates();
+    m_partyStates[m_activePartySlot] = m_state;
+}
+
+void NewGameScreen::switchActivePartySlot(size_t slotIndex)
+{
+    if (slotIndex >= m_partySize)
+    {
+        return;
+    }
+
+    endNameEditing(true);
+    saveActivePartyState();
+    m_activePartySlot = slotIndex;
+    ensurePartyStates();
+    m_state = m_partyStates[m_activePartySlot];
+}
+
+void NewGameScreen::addPartySlot()
+{
+    endNameEditing(true);
+    saveActivePartyState();
+
+    if (m_partySize >= 5)
+    {
+        return;
+    }
+
+    m_partySize += 1;
+    ensurePartyStates();
+    m_activePartySlot = m_partySize - 1;
+    resetStateForCandidate(0);
+    saveActivePartyState();
+}
+
+void NewGameScreen::removePartySlot()
+{
+    endNameEditing(true);
+    saveActivePartyState();
+
+    if (m_partySize <= 1)
+    {
+        return;
+    }
+
+    m_partySize -= 1;
+    ensurePartyStates();
+    m_state = m_partyStates[m_activePartySlot];
+}
+
+void NewGameScreen::rebuildCandidates()
+{
+    m_candidates.clear();
+
+    if (m_pGameData == nullptr)
+    {
+        return;
+    }
+
+    const MergedCharacterSelectionTable &selectionTable = m_pGameData->mergedCharacterSelectionTable();
+    const MergedCharacterSelectionContinent *pContinent =
+        findNewGameContinent(selectionTable, DefaultNewGameContinentKey);
+
+    if (pContinent == nullptr)
+    {
+        return;
+    }
+
+    std::vector<const CharacterDollEntry *> characterEntries;
+
+    for (const auto &[characterId, entry] : m_pGameData->characterDollTable().characters())
+    {
+        (void)characterId;
+        characterEntries.push_back(&entry);
+    }
+
+    std::sort(
+        characterEntries.begin(),
+        characterEntries.end(),
+        [](const CharacterDollEntry *pLeft, const CharacterDollEntry *pRight)
+        {
+            return pLeft->id < pRight->id;
+        });
+
+    for (const CharacterDollEntry *pEntry : characterEntries)
+    {
+        if (pEntry == nullptr || !pEntry->availableAtStart || pEntry->raceId < 0)
+        {
+            continue;
+        }
+
+        const uint32_t raceId = static_cast<uint32_t>(pEntry->raceId);
+
+        if (!containsUnsigned(pContinent->availableRaceIds, raceId)
+            || portraitIsExcepted(*pEntry, pContinent->portraitExceptions))
+        {
+            continue;
+        }
+
+        const std::vector<std::string> *pAllowedClasses = selectionTable.allowedClassesForRaceId(raceId);
+        const std::optional<std::string> raceName = selectionTable.raceNameForId(raceId);
+
+        if (pAllowedClasses == nullptr || !raceName.has_value())
+        {
+            continue;
+        }
+
+        std::vector<uint32_t> availableClassIds;
+
+        for (uint32_t classId : pContinent->availableClassIds)
+        {
+            const std::optional<std::string> className = m_pGameData->classSkillTable().classNameForId(classId);
+
+            if (!className.has_value() || !containsCanonicalClass(*pAllowedClasses, *className))
+            {
+                continue;
+            }
+
+            availableClassIds.push_back(classId);
+        }
+
+        if (availableClassIds.empty())
+        {
+            continue;
+        }
+
+        std::sort(availableClassIds.begin(), availableClassIds.end());
+        availableClassIds.erase(
+            std::unique(availableClassIds.begin(), availableClassIds.end()),
+            availableClassIds.end());
+
+        CreationCandidate candidate = {};
+        candidate.characterDataId = pEntry->id;
+        candidate.raceId = raceId;
+        candidate.defaultName = "Player";
+        candidate.raceName = *raceName;
+        candidate.availableClassIds = std::move(availableClassIds);
+        candidate.classId = classIdNear(pEntry->defaultClassId, candidate.availableClassIds, 1);
+
+        if (const std::optional<std::string> className = m_pGameData->classSkillTable().classNameForId(candidate.classId))
+        {
+            candidate.className = *className;
+            m_candidates.push_back(std::move(candidate));
+        }
+    }
 }
 
 size_t NewGameScreen::candidateCount() const
 {
-    return m_debugGodLichRoster ? 1 : CreationCandidates.size();
+    return m_debugGodLichRoster ? 1 : m_candidates.size();
 }
 
 const CreationCandidate &NewGameScreen::candidateAt(size_t candidateIndex) const
@@ -912,10 +1194,11 @@ const CreationCandidate &NewGameScreen::candidateAt(size_t candidateIndex) const
         return DebugGodLichCandidate;
     }
 
-    return CreationCandidates[std::min(candidateIndex, CreationCandidates.size() - 1)];
+    assert(!m_candidates.empty());
+    return m_candidates[std::min(candidateIndex, m_candidates.size() - 1)];
 }
 
-std::array<int, static_cast<size_t>(StatId::Count)> NewGameScreen::statsForRace(CreationRace race) const
+std::array<int, static_cast<size_t>(StatId::Count)> NewGameScreen::statsForRace(const std::string &raceName) const
 {
     const std::array<int, static_cast<size_t>(StatId::Count)> defaultStats = {
         NeutralBaseStatValue,
@@ -932,15 +1215,19 @@ std::array<int, static_cast<size_t>(StatId::Count)> NewGameScreen::statsForRace(
         return defaultStats;
     }
 
-    const RaceStartingStatsTable::Entry *pEntry =
-        m_pGameData->raceStartingStatsTable().get(creationRaceName(race));
+    const RaceStartingStatsTable::Entry *pEntry = m_pGameData->raceStartingStatsTable().get(raceName);
     return pEntry != nullptr ? pEntry->stats : defaultStats;
 }
 
 const CharacterDollEntry *NewGameScreen::selectedCharacterEntry() const
 {
+    return characterEntryForState(m_state);
+}
+
+const CharacterDollEntry *NewGameScreen::characterEntryForState(const CreationState &state) const
+{
     return m_pGameData != nullptr
-        ? m_pGameData->characterDollTable().getCharacter(selectedCandidate().characterDataId)
+        ? m_pGameData->characterDollTable().getCharacter(candidateForState(state).characterDataId)
         : nullptr;
 }
 
@@ -948,28 +1235,49 @@ void NewGameScreen::resetStateForCandidate(size_t candidateIndex)
 {
     m_state = {};
     m_state.selectedCandidateIndex = std::min(candidateIndex, candidateCount() - 1);
+    m_state.selectedClassId = selectedCandidate().classId;
     resetCurrentState(true);
 }
 
 void NewGameScreen::resetCurrentState(bool applyCandidateDefaults)
 {
     const CreationCandidate &candidate = selectedCandidate();
-    const std::array<int, static_cast<size_t>(StatId::Count)> baseStats = statsForRace(candidate.race);
+    const std::array<int, static_cast<size_t>(StatId::Count)> baseStats = statsForRace(candidate.raceName);
     m_state.baseStats = baseStats;
     m_state.currentStats = baseStats;
-    m_state.name = candidate.pDefaultName;
+    m_state.name = candidate.defaultName;
     m_state.nameEditBuffer = m_state.name;
     m_state.defaultSkills.clear();
     m_state.optionalSkills.clear();
     m_state.selectedOptionalSkills.clear();
     m_state.statusMessage.clear();
 
+    if (applyCandidateDefaults && candidate.hasCustomDefaultStats)
+    {
+        m_state.currentStats = candidate.defaultStats;
+    }
+
+    refreshSkillChoices(applyCandidateDefaults);
+
+    const CharacterDollEntry *pEntry = selectedCharacterEntry();
+    m_state.selectedVoiceId = pEntry != nullptr ? static_cast<int>(pEntry->defaultVoiceId) : 0;
+
+    endNameEditing(false);
+}
+
+void NewGameScreen::refreshSkillChoices(bool applyCandidateDefaults)
+{
+    const CreationCandidate &candidate = selectedCandidate();
+    m_state.defaultSkills.clear();
+    m_state.optionalSkills.clear();
+    m_state.selectedOptionalSkills.clear();
+
     if (m_pGameData != nullptr)
     {
         for (const char *pSkillName : OrderedSkillNames)
         {
             const StartingSkillAvailability availability =
-                m_pGameData->classSkillTable().getStartingSkillAvailability(candidate.pClassName, pSkillName);
+                m_pGameData->classSkillTable().getStartingSkillAvailability(selectedClassName(), pSkillName);
 
             if (availability == StartingSkillAvailability::HasByDefault)
             {
@@ -982,21 +1290,15 @@ void NewGameScreen::resetCurrentState(bool applyCandidateDefaults)
         }
     }
 
-    const CharacterDollEntry *pEntry = selectedCharacterEntry();
-    m_state.selectedVoiceId = pEntry != nullptr ? static_cast<int>(pEntry->defaultVoiceId) : 0;
-
     if (applyCandidateDefaults && candidate.hasCustomDefaultStats)
     {
-        m_state.currentStats = candidate.defaultStats;
-
-        for (const char *pSkillName : candidate.defaultOptionalSkills)
+        for (const std::string &skillName : candidate.defaultOptionalSkills)
         {
-            if (pSkillName == nullptr || *pSkillName == '\0')
+            if (skillName.empty())
             {
                 continue;
             }
 
-            const std::string skillName = pSkillName;
             const bool alreadyDefault =
                 std::find(m_state.defaultSkills.begin(), m_state.defaultSkills.end(), skillName) != m_state.defaultSkills.end();
             const bool optionalAllowed =
@@ -1011,8 +1313,6 @@ void NewGameScreen::resetCurrentState(bool applyCandidateDefaults)
             }
         }
     }
-
-    endNameEditing(false);
 }
 
 void NewGameScreen::beginNameEditing()
@@ -1060,14 +1360,20 @@ void NewGameScreen::endNameEditing(bool commitEdit)
 
 int NewGameScreen::currentBonusPool() const
 {
+    return bonusPoolForState(m_state);
+}
+
+int NewGameScreen::bonusPoolForState(const CreationState &state) const
+{
     int remainingPoints = StartingBonusPool;
+    const CreationCandidate &candidate = candidateForState(state);
     const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
-        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
+        raceRulesForData(m_pGameData, candidate.raceName, state.baseStats);
 
     for (size_t statIndex = 0; statIndex < static_cast<size_t>(StatId::Count); ++statIndex)
     {
-        const int currentValue = m_state.currentStats[statIndex];
-        const int baseValue = m_state.baseStats[statIndex];
+        const int currentValue = state.currentStats[statIndex];
+        const int baseValue = state.baseStats[statIndex];
         int penaltyMultiplier = 0;
         int bonusMultiplier = 0;
 
@@ -1199,7 +1505,7 @@ bool NewGameScreen::tryIncreaseStat(StatId statId)
 {
     const size_t index = static_cast<size_t>(statId);
     const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
-        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
+        raceRulesForData(m_pGameData, selectedCandidate().raceName, m_state.baseStats);
     const int baseValue = m_state.baseStats[index];
     const int currentValue = m_state.currentStats[index];
     int amount = rules[index].baseStep;
@@ -1225,7 +1531,7 @@ bool NewGameScreen::tryDecreaseStat(StatId statId)
 {
     const size_t index = static_cast<size_t>(statId);
     const std::array<RaceStatRule, static_cast<size_t>(StatId::Count)> rules =
-        raceRulesForData(m_pGameData, selectedCandidate().race, m_state.baseStats);
+        raceRulesForData(m_pGameData, selectedCandidate().raceName, m_state.baseStats);
     const int baseValue = m_state.baseStats[index];
     const int currentValue = m_state.currentStats[index];
     int amount = rules[index].baseStep;
@@ -1306,6 +1612,13 @@ void NewGameScreen::cycleCandidate(int direction)
 {
     endNameEditing(true);
     const int count = static_cast<int>(candidateCount());
+
+    if (count <= 0)
+    {
+        return;
+    }
+
+    const uint32_t previousClassId = m_state.selectedClassId;
     int nextIndex = static_cast<int>(m_state.selectedCandidateIndex) + direction;
 
     if (nextIndex < 0)
@@ -1318,6 +1631,45 @@ void NewGameScreen::cycleCandidate(int direction)
     }
 
     resetStateForCandidate(static_cast<size_t>(nextIndex));
+    m_state.selectedClassId = classIdNear(previousClassId, selectedCandidate().availableClassIds, 1);
+    refreshSkillChoices(false);
+}
+
+void NewGameScreen::cycleClass(int direction)
+{
+    endNameEditing(true);
+
+    if (m_debugGodLichRoster || m_candidates.empty() || m_pGameData == nullptr)
+    {
+        return;
+    }
+
+    const CreationCandidate &candidate = selectedCandidate();
+
+    if (candidate.availableClassIds.empty())
+    {
+        return;
+    }
+
+    const std::vector<uint32_t>::const_iterator currentIt =
+        std::find(candidate.availableClassIds.begin(), candidate.availableClassIds.end(), m_state.selectedClassId);
+    int currentIndex = currentIt != candidate.availableClassIds.end()
+        ? static_cast<int>(currentIt - candidate.availableClassIds.begin())
+        : 0;
+    currentIndex += direction;
+
+    if (currentIndex < 0)
+    {
+        currentIndex = static_cast<int>(candidate.availableClassIds.size()) - 1;
+    }
+    else if (currentIndex >= static_cast<int>(candidate.availableClassIds.size()))
+    {
+        currentIndex = 0;
+    }
+
+    m_state.selectedClassId = candidate.availableClassIds[static_cast<size_t>(currentIndex)];
+    refreshSkillChoices(false);
+    m_state.statusMessage.clear();
 }
 
 void NewGameScreen::cycleVoice(int direction)
@@ -1353,9 +1705,9 @@ Character NewGameScreen::buildVoicePreviewCharacter() const
     const CreationCandidate &candidate = selectedCandidate();
     const CharacterDollEntry *pEntry = selectedCharacterEntry();
 
-    character.name = candidate.pDefaultName;
-    character.className = candidate.pClassName;
-    character.role = displayClassName(candidate.pClassName);
+    character.name = candidate.defaultName;
+    character.className = selectedClassName();
+    character.role = displayClassName(character.className);
     character.characterDataId = candidate.characterDataId;
     character.voiceId = m_state.selectedVoiceId;
 
@@ -1657,25 +2009,30 @@ void NewGameScreen::renderStatInspectPopup(
 
 Character NewGameScreen::buildCharacter() const
 {
-    Character character = {};
-    const CreationCandidate &candidate = selectedCandidate();
-    const CharacterDollEntry *pEntry = selectedCharacterEntry();
+    return buildCharacterFromState(m_state);
+}
 
-    character.name = trimCopy(m_state.name);
-    character.className = candidate.pClassName;
-    character.role = displayClassName(candidate.pClassName);
+Character NewGameScreen::buildCharacterFromState(const CreationState &state) const
+{
+    Character character = {};
+    const CreationCandidate &candidate = candidateForState(state);
+    const CharacterDollEntry *pEntry = characterEntryForState(state);
+
+    character.name = trimCopy(state.name);
+    character.className = classNameForState(state);
+    character.role = displayClassName(character.className);
     character.characterDataId = candidate.characterDataId;
-    character.voiceId = m_state.selectedVoiceId;
+    character.voiceId = state.selectedVoiceId;
     character.birthYear = 1150;
     character.level = 1;
     character.skillPoints = 0;
-    character.might = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Might)]);
-    character.intellect = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Intellect)]);
-    character.personality = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Personality)]);
-    character.endurance = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Endurance)]);
-    character.accuracy = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Accuracy)]);
-    character.speed = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Speed)]);
-    character.luck = static_cast<uint32_t>(m_state.currentStats[static_cast<size_t>(StatId::Luck)]);
+    character.might = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Might)]);
+    character.intellect = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Intellect)]);
+    character.personality = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Personality)]);
+    character.endurance = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Endurance)]);
+    character.accuracy = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Accuracy)]);
+    character.speed = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Speed)]);
+    character.luck = static_cast<uint32_t>(state.currentStats[static_cast<size_t>(StatId::Luck)]);
 
     if (pEntry != nullptr)
     {
@@ -1685,12 +2042,12 @@ Character NewGameScreen::buildCharacter() const
         character.raceId = pEntry->raceId >= 0 ? static_cast<uint32_t>(pEntry->raceId) : 0;
     }
 
-    for (const std::string &skillName : m_state.defaultSkills)
+    for (const std::string &skillName : state.defaultSkills)
     {
         character.skills[skillName] = {skillName, 1, SkillMastery::Normal};
     }
 
-    for (const std::string &skillName : m_state.selectedOptionalSkills)
+    for (const std::string &skillName : state.selectedOptionalSkills)
     {
         character.skills[skillName] = {skillName, 1, SkillMastery::Normal};
     }
@@ -1712,25 +2069,38 @@ Character NewGameScreen::buildCharacter() const
     return character;
 }
 
+std::vector<Character> NewGameScreen::buildPartyCharacters() const
+{
+    std::vector<Character> characters;
+    const size_t count = m_debugGodLichRoster ? 1 : std::min<size_t>(m_partySize, m_partyStates.size());
+    characters.reserve(count);
+
+    for (size_t slotIndex = 0; slotIndex < count; ++slotIndex)
+    {
+        characters.push_back(buildCharacterFromState(m_partyStates[slotIndex]));
+    }
+
+    return characters;
+}
+
 void NewGameScreen::confirmCreation()
 {
     endNameEditing(true);
+    saveActivePartyState();
 
-    if (!m_debugGodLichRoster && currentBonusPool() != 0)
+    for (size_t slotIndex = 0; slotIndex < (m_debugGodLichRoster ? 1 : m_partySize); ++slotIndex)
     {
-        m_state.statusMessage = "All bonus points must be assigned.";
-        return;
-    }
-
-    if (trimCopy(m_state.name).empty())
-    {
-        m_state.statusMessage = "Character name cannot be empty.";
-        return;
+        if (trimCopy(m_partyStates[slotIndex].name).empty())
+        {
+            switchActivePartySlot(slotIndex);
+            m_state.statusMessage = "Character name cannot be empty.";
+            return;
+        }
     }
 
     if (m_continueAction)
     {
-        m_continueAction(buildCharacter());
+        m_continueAction(buildPartyCharacters());
     }
 }
 
@@ -1891,6 +2261,10 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         resolveRect("CharacterCreationNameValue", 82.0f, 72.0f, 0.0f, 0.0f);
     const MenuScreenBase::Rect classValueRect =
         resolveRect("CharacterCreationClassValue", 59.0f, 117.0f, 0.0f, 0.0f);
+    const MenuScreenBase::Rect classLeftRect =
+        resolveRect("CharacterCreationClassLeftButton", 65.0f, 99.0f, 17.0f, 17.0f);
+    const MenuScreenBase::Rect classRightRect =
+        resolveRect("CharacterCreationClassRightButton", 83.0f, 99.0f, 17.0f, 17.0f);
     const MenuScreenBase::Rect portraitImageRect =
         resolveRect("CharacterCreationPortraitImage", 11.0f, 161.0f, 59.0f, 79.0f);
     const MenuScreenBase::Rect portraitLeftRect =
@@ -1923,7 +2297,7 @@ void NewGameScreen::drawScreen(float deltaSeconds)
 
     drawText(
         fontName,
-        displayClassName(selectedCandidate().pClassName),
+        displayClassName(selectedClassName()),
         classValueRect.x,
         classValueRect.y,
         WhiteColor,
@@ -1941,6 +2315,12 @@ void NewGameScreen::drawScreen(float deltaSeconds)
     const ButtonState portraitRightState = drawButton(
         resolveButtonVisuals("CharacterCreationPortraitRightButton", {"cc_up_R", "cc_ht_R", "cc_dn_R"}),
         portraitRightRect);
+    const ButtonState classLeftState = drawButton(
+        resolveButtonVisuals("CharacterCreationClassLeftButton", {"slclasslu", "slclasslu", "slclassld"}),
+        classLeftRect);
+    const ButtonState classRightState = drawButton(
+        resolveButtonVisuals("CharacterCreationClassRightButton", {"slclassru", "slclassru", "slclassrd"}),
+        classRightRect);
     const ButtonState voiceLeftState = drawButton(
         resolveButtonVisuals("CharacterCreationVoiceLeftButton", {"cc_up_L", "cc_ht_L", "cc_dn_L"}),
         voiceLeftRect);
@@ -1962,6 +2342,16 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         playUiClickSound(SoundId::SelectingNewCharacter);
         cycleCandidate(1);
         playVoicePreview();
+    }
+    else if (classLeftState.clicked)
+    {
+        playUiClickSound(SoundId::SelectingNewCharacter);
+        cycleClass(-1);
+    }
+    else if (classRightState.clicked)
+    {
+        playUiClickSound(SoundId::SelectingNewCharacter);
+        cycleClass(1);
     }
     else if (voiceLeftState.clicked)
     {
@@ -2304,6 +2694,64 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         && !hoveredStatInspect->second->description.empty())
     {
         renderStatInspectPopup(*hoveredStatInspect->second, hoveredStatInspect->first, scale);
+    }
+
+    if (!m_debugGodLichRoster)
+    {
+        const MenuScreenBase::Rect addCharacterRect =
+            resolveRect("CharacterCreationAddCharacterButton", 51.0f, 437.0f, 19.0f, 34.0f);
+        const MenuScreenBase::Rect removeCharacterRect =
+            resolveRect("CharacterCreationRemoveCharacterButton", 72.0f, 437.0f, 19.0f, 34.0f);
+        bool addCharacterClicked = false;
+        bool removeCharacterClicked = false;
+
+        if (m_partySize < 5)
+        {
+            const ButtonState addCharacterState = drawButton(
+                resolveButtonVisuals("CharacterCreationAddCharacterButton", {"slcharaddu", "slcharaddu", "slcharaddd"}),
+                addCharacterRect);
+            addCharacterClicked = addCharacterState.clicked;
+        }
+
+        if (m_partySize > 1)
+        {
+            const ButtonState removeCharacterState = drawButton(
+                resolveButtonVisuals("CharacterCreationRemoveCharacterButton", {"slcharremu", "slcharremu", "slcharremd"}),
+                removeCharacterRect);
+            removeCharacterClicked = removeCharacterState.clicked;
+        }
+
+        if (addCharacterClicked)
+        {
+            playUiClickSound(SoundId::ClickIn);
+            addPartySlot();
+        }
+        else if (removeCharacterClicked)
+        {
+            playUiClickSound(SoundId::ClickIn);
+            removePartySlot();
+        }
+
+        for (size_t slotIndex = 0; slotIndex < PartySlotButtonLayoutIds.size() && slotIndex < m_partySize; ++slotIndex)
+        {
+            const float fallbackX = 98.0f + static_cast<float>(slotIndex) * 40.0f;
+            const MenuScreenBase::Rect slotRect =
+                resolveRect(PartySlotButtonLayoutIds[slotIndex], fallbackX, 439.0f, 32.0f, 32.0f);
+            const std::string slotNumber = std::to_string(slotIndex + 1);
+            const bool selected = slotIndex == m_activePartySlot;
+            const ButtonVisualSet slotVisuals = selected
+                ? ButtonVisualSet{"slchar" + slotNumber + "d", "slchar" + slotNumber + "d", "slchar" + slotNumber + "u"}
+                : ButtonVisualSet{"slchar" + slotNumber + "u", "slchar" + slotNumber + "u", "slchar" + slotNumber + "d"};
+            const ButtonState slotState = drawButton(
+                slotVisuals,
+                slotRect);
+
+            if (slotState.clicked)
+            {
+                playUiClickSound(SoundId::SelectingNewCharacter);
+                switchActivePartySlot(slotIndex);
+            }
+        }
     }
 
     const MenuScreenBase::Rect clearButtonRect =

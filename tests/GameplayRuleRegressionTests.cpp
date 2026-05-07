@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <random>
 #include <sstream>
 
@@ -429,6 +430,54 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     CHECK(((*ironsandDescriptors)[126].flags & OpenYAMM::Game::TerrainTileFlagWater) != 0);
     CHECK(((*ironsandDescriptors)[126].flags & OpenYAMM::Game::TerrainTileFlagBurn) != 0);
 
+    const std::filesystem::path ironsandScenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out04.scene.yml";
+    std::ifstream ironsandSceneFile(ironsandScenePath);
+    REQUIRE(ironsandSceneFile.good());
+    std::ostringstream ironsandSceneText;
+    ironsandSceneText << ironsandSceneFile.rdbuf();
+
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> ironsandScene =
+        sceneLoader.loadFromText(ironsandSceneText.str(), sceneError);
+    REQUIRE_MESSAGE(ironsandScene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::OutdoorSceneData mergedIronsandScene = *ironsandScene;
+
+    const std::filesystem::path ironsandOverlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out04_1.scene.yml";
+    std::ifstream ironsandOverlayFile(ironsandOverlayPath);
+    REQUIRE(ironsandOverlayFile.good());
+    std::ostringstream ironsandOverlayText;
+    ironsandOverlayText << ironsandOverlayFile.rdbuf();
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedIronsandScene, ironsandOverlayText.str(), sceneError),
+        sceneError.c_str());
+    REQUIRE_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.size(), 72u);
+    CHECK_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.front().tileId, 90);
+    CHECK_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.front().walkSoundId, 91u);
+    CHECK_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.front().runSoundId, 52u);
+    const auto ironsandLavaOverride = std::find_if(
+        mergedIronsandScene.terrainFootstepSoundOverrides.begin(),
+        mergedIronsandScene.terrainFootstepSoundOverrides.end(),
+        [](const OpenYAMM::Game::OutdoorSceneTerrainFootstepSoundOverride &overrideEntry)
+        {
+            return overrideEntry.tileId == 126;
+        });
+    REQUIRE(ironsandLavaOverride != mergedIronsandScene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(ironsandLavaOverride->walkSoundId, 101u);
+    CHECK_EQ(ironsandLavaOverride->runSoundId, 62u);
+    const auto ironsandDefaultOverride = std::find_if(
+        mergedIronsandScene.terrainFootstepSoundOverrides.begin(),
+        mergedIronsandScene.terrainFootstepSoundOverrides.end(),
+        [](const OpenYAMM::Game::OutdoorSceneTerrainFootstepSoundOverride &overrideEntry)
+        {
+            return overrideEntry.tileId == 162;
+        });
+    REQUIRE(ironsandDefaultOverride != mergedIronsandScene.terrainFootstepSoundOverrides.end());
+    CHECK_EQ(ironsandDefaultOverride->walkSoundId, 90u);
+    CHECK_EQ(ironsandDefaultOverride->runSoundId, 51u);
+
     OpenYAMM::Game::OutdoorMapData shadowspire = {};
     shadowspire.fileName = "out06.odm";
     shadowspire.masterTile = 2;
@@ -451,8 +500,6 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     std::ostringstream shadowspireSceneText;
     shadowspireSceneText << shadowspireSceneFile.rdbuf();
 
-    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
-    std::string sceneError;
     const std::optional<OpenYAMM::Game::OutdoorSceneData> shadowspireScene =
         sceneLoader.loadFromText(shadowspireSceneText.str(), sceneError);
     REQUIRE_MESSAGE(shadowspireScene.has_value(), sceneError.c_str());
@@ -509,6 +556,76 @@ TEST_CASE("mm7 arena map fixups expose runtime restrictions and arena master top
     CHECK_EQ(pArenaMaster->topicIds[0], 704u);
     CHECK(std::find(pArenaMaster->topicIds.begin(), pArenaMaster->topicIds.end(), 1149u)
           == pArenaMaster->topicIds.end());
+}
+
+TEST_CASE("mm8 arena map fixups expose runtime restrictions")
+{
+    const std::filesystem::path arenaScenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/d42.scene.yml";
+    std::ifstream arenaSceneFile(arenaScenePath);
+    REQUIRE(arenaSceneFile.good());
+    std::ostringstream arenaSceneText;
+    arenaSceneText << arenaSceneFile.rdbuf();
+
+    OpenYAMM::Game::IndoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::IndoorSceneData> arenaScene =
+        sceneLoader.loadFromText(arenaSceneText.str(), sceneError);
+    REQUIRE_MESSAGE(arenaScene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::IndoorSceneData mergedArenaScene = *arenaScene;
+
+    const std::filesystem::path arenaOverlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/d42_1.scene.yml";
+    std::ifstream arenaOverlayFile(arenaOverlayPath);
+    REQUIRE(arenaOverlayFile.good());
+    std::ostringstream arenaOverlayText;
+    arenaOverlayText << arenaOverlayFile.rdbuf();
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedArenaScene, arenaOverlayText.str(), sceneError),
+        sceneError.c_str());
+    CHECK_FALSE(mergedArenaScene.runtimeRestrictions.allowSaveGame);
+    CHECK_FALSE(mergedArenaScene.runtimeRestrictions.allowLloydsBeacon);
+    CHECK(mergedArenaScene.runtimeRestrictions.isArena);
+}
+
+TEST_CASE("mm7 Temple of the Moon scene keeps MMerge initial door states")
+{
+    const std::filesystem::path scenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm7/maps/7d06.scene.yml";
+    std::ifstream sceneFile(scenePath);
+    REQUIRE(sceneFile.good());
+    std::ostringstream sceneText;
+    sceneText << sceneFile.rdbuf();
+
+    OpenYAMM::Game::IndoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::IndoorSceneData> scene =
+        sceneLoader.loadFromText(sceneText.str(), sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    const auto checkDoorState =
+        [&](uint32_t doorId, uint16_t expectedState)
+        {
+            const auto doorIt = std::find_if(
+                scene->initialState.doors.begin(),
+                scene->initialState.doors.end(),
+                [doorId](const OpenYAMM::Game::IndoorSceneDoor &door)
+                {
+                    return door.door.doorId == doorId;
+                });
+            REQUIRE(doorIt != scene->initialState.doors.end());
+            CHECK_EQ(doorIt->door.state, expectedState);
+        };
+
+    for (uint32_t doorId : {5u, 6u, 7u, 8u})
+    {
+        checkDoorState(doorId, 2u);
+    }
+
+    for (uint32_t doorId : {9u, 10u})
+    {
+        checkDoorState(doorId, 0u);
+    }
 }
 
 TEST_CASE("outdoor terrain descriptors use mm6 and mm7 merged tile tables")
@@ -1937,6 +2054,35 @@ TEST_CASE("lua event runtime door locked reaction targets active member")
     CHECK_EQ(requests.front().speechId, OpenYAMM::Game::SpeechId::DoorLocked);
 }
 
+TEST_CASE("lua event runtime maps non-door face animations to speech reactions")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.ForPlayer(1)\n"
+        "    evt.FaceAnimation(47)\n"
+        "    evt.FaceAnimation(74)\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticFaceAnimationReactions.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    const std::vector<OpenYAMM::Game::Party::PendingAudioRequest> &requests = party.pendingAudioRequests();
+    REQUIRE_EQ(requests.size(), 2u);
+    CHECK_EQ(requests[0].memberIndex, 1u);
+    CHECK_EQ(requests[0].speechId, OpenYAMM::Game::SpeechId::LeaveDungeon);
+    CHECK_EQ(requests[1].memberIndex, 1u);
+    CHECK_EQ(requests[1].speechId, OpenYAMM::Game::SpeechId::ShopRepair);
+}
+
 TEST_CASE("lua event CheckSkill supports effective checks and explicit mastery checks")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -2089,6 +2235,51 @@ TEST_CASE("lua event player bits are character specific and unbounded")
     REQUIRE(pMember1 != nullptr);
     CHECK(pMember0->playerBits.contains(69));
     CHECK_FALSE(pMember1->playerBits.contains(69));
+}
+
+TEST_CASE("lua class promotion API uses merged class metadata")
+{
+    REQUIRE(OpenYAMM::Tests::regressionGameDataLoaded());
+    const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    if evt.GetClassId(\"Knight\") == 16 then\n"
+        "        evt.StatusText(\"knight id ok\")\n"
+        "    end\n"
+        "    if evt.GetPlayerClass(0) == 16 then\n"
+        "        evt.StatusText(\"member class ok\")\n"
+        "    end\n"
+        "    if evt.CanClassLearnSkill(19, \"Sword\", 4) then\n"
+        "        evt.StatusText(\"champion sword ok\")\n"
+        "    end\n"
+        "    if evt.SetPlayerClass(0, 19) then\n"
+        "        evt.StatusText(evt.GetPlayerClassName(0))\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticClassPromotionApi.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.setClassSkillTable(&gameData.classSkillTable);
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_GE(runtimeState.statusMessages.size(), 4u);
+    CHECK_EQ(runtimeState.statusMessages[runtimeState.statusMessages.size() - 4], "knight id ok");
+    CHECK_EQ(runtimeState.statusMessages[runtimeState.statusMessages.size() - 3], "member class ok");
+    CHECK_EQ(runtimeState.statusMessages[runtimeState.statusMessages.size() - 2], "champion sword ok");
+    CHECK_EQ(runtimeState.statusMessages.back(), "Champion");
+
+    const OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    CHECK_EQ(pMember->className, "Champion");
 }
 
 TEST_CASE("lua event inventory possession checks include equipped items")

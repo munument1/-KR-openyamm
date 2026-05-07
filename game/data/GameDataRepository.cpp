@@ -48,6 +48,7 @@ void GameDataRepository::clear()
     m_pFaceAnimationTable = nullptr;
     m_pTransitionTable = nullptr;
     m_pMergedTownPortalSwitchTable = nullptr;
+    m_pMergedCharacterSelectionTable = nullptr;
     m_pMergedNewsAreaTopicTable = nullptr;
     m_pMergedNewsContinentTopicTable = nullptr;
     m_pMergedNpcProfessionTable = nullptr;
@@ -97,6 +98,7 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pFaceAnimationTable = &loader.getFaceAnimationTable();
     m_pTransitionTable = &loader.getTransitionTable();
     m_pMergedTownPortalSwitchTable = &loader.getMergedTownPortalSwitchTable();
+    m_pMergedCharacterSelectionTable = &loader.getMergedCharacterSelectionTable();
     m_pMergedNewsAreaTopicTable = &loader.getMergedNewsAreaTopicTable();
     m_pMergedNewsContinentTopicTable = &loader.getMergedNewsContinentTopicTable();
     m_pMergedNpcProfessionTable = &loader.getMergedNpcProfessionTable();
@@ -272,6 +274,11 @@ const TransitionTable &GameDataRepository::transitionTable() const
 const MergedTownPortalSwitchTable &GameDataRepository::mergedTownPortalSwitchTable() const
 {
     return requireBound(m_pMergedTownPortalSwitchTable);
+}
+
+const MergedCharacterSelectionTable &GameDataRepository::mergedCharacterSelectionTable() const
+{
+    return requireBound(m_pMergedCharacterSelectionTable);
 }
 
 const MergedNewsTopicTable &GameDataRepository::mergedNewsAreaTopicTable() const

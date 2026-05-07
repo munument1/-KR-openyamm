@@ -3871,7 +3871,7 @@ TEST_CASE("repeat promotion events include first member")
         {
             CHECK_EQ(pMember0->characterDataId, 27u);
             CHECK_EQ(pMember0->portraitPictureId, 26u);
-            CHECK_EQ(pMember0->portraitTextureName, "PC27-01");
+            CHECK_EQ(pMember0->portraitTextureName, "pc27-01");
             CHECK_EQ(pMember0->voiceId, 26);
 
             for (size_t memberIndex = 0; memberIndex < harness.party().members().size(); ++memberIndex)
@@ -3884,7 +3884,7 @@ TEST_CASE("repeat promotion events include first member")
                 {
                     CHECK_EQ(pMember->characterDataId, 28u);
                     CHECK_EQ(pMember->portraitPictureId, 27u);
-                    CHECK_EQ(pMember->portraitTextureName, "PC28-01");
+                    CHECK_EQ(pMember->portraitTextureName, "pc28-01");
                     CHECK_EQ(pMember->voiceId, 27);
                 }
             }

@@ -55,6 +55,12 @@ private:
         int32_t directionYawUnits = 0;
     };
 
+    struct MapStartDestination
+    {
+        std::string mapFileName;
+        std::optional<DebugMapJumpStart> start;
+    };
+
     struct PendingDebugMapJump
     {
         int mapId = 0;
@@ -96,7 +102,12 @@ private:
     void handleCompletedWinGameScreen();
     WinGameCertificate buildWinGameCertificate() const;
     bool shouldTriggerPartyDefeat() const;
+    MapStartDestination resolveStartupDestination() const;
+    std::optional<MapStartDestination> resolveContinentStartDestination(uint32_t continentId) const;
+    std::optional<uint32_t> activeWorldContinentId() const;
+    void applyMapStartDestination(const MapStartDestination &destination);
     std::string resolvePartyDefeatRespawnMapFileName() const;
+    MapStartDestination resolvePartyDefeatRespawnDestination() const;
     std::string resolvePartyDefeatCutsceneStem() const;
     void applyPartyDefeatConsequences();
     bool respawnPartyAfterDefeat(bool initializeView);
@@ -119,7 +130,7 @@ private:
     bool initializeStartupSession(bool initializeView);
     std::string resolveStartupMapFile() const;
     bool startNewSession(std::optional<uint32_t> rosterId, bool initializeView = true);
-    bool startNewSessionFromCharacterCreation(const Character &character, bool initializeView = true);
+    bool startNewSessionFromCharacterCreation(const std::vector<Character> &characters, bool initializeView = true);
     bool loadSessionFromPath(const std::filesystem::path &path);
     void beginLoadingOverlay(
         LoadingOverlayScreen::Presentation presentation = LoadingOverlayScreen::Presentation::Fullscreen);
@@ -178,6 +189,7 @@ private:
     int m_lastFrameWidth = 640;
     int m_lastFrameHeight = 480;
     std::optional<std::string> m_pendingPartyDefeatRespawnMapFileName;
+    std::optional<DebugMapJumpStart> m_pendingPartyDefeatRespawnStart;
     bool m_pendingWinGameCertificateAfterMovie = false;
     std::string m_pendingInputText;
     std::string m_pendingInputStatusText;

@@ -31,28 +31,21 @@ public:
         Count,
     };
 
-    enum class CreationRace
-    {
-        Human,
-        Vampire,
-        DarkElf,
-        Minotaur,
-        Troll,
-        Dragon,
-    };
-
     struct CreationCandidate
     {
         uint32_t characterDataId = 0;
-        const char *pDefaultName = "";
-        const char *pClassName = "";
-        CreationRace race = CreationRace::Human;
+        uint32_t classId = 0;
+        uint32_t raceId = 0;
+        std::string defaultName;
+        std::string className;
+        std::string raceName;
+        std::vector<uint32_t> availableClassIds;
         bool hasCustomDefaultStats = false;
         std::array<int, static_cast<size_t>(StatId::Count)> defaultStats = {};
-        std::array<const char *, 2> defaultOptionalSkills = {{"", ""}};
+        std::array<std::string, 2> defaultOptionalSkills = {};
     };
 
-    using ContinueAction = std::function<void(const Character &)>;
+    using ContinueAction = std::function<void(const std::vector<Character> &)>;
     using BackAction = std::function<void()>;
 
     NewGameScreen(
@@ -72,6 +65,7 @@ private:
     struct CreationState
     {
         size_t selectedCandidateIndex = 0;
+        uint32_t selectedClassId = 0;
         int selectedVoiceId = 0;
         std::string name;
         std::array<int, static_cast<size_t>(StatId::Count)> baseStats = {};
@@ -85,7 +79,14 @@ private:
     };
 
     void drawScreen(float deltaSeconds) override;
+    void ensurePartyStates();
+    void saveActivePartyState();
+    void switchActivePartySlot(size_t slotIndex);
+    void addPartySlot();
+    void removePartySlot();
     void resetStateForCandidate(size_t candidateIndex);
+    void rebuildCandidates();
+    void refreshSkillChoices(bool applyCandidateDefaults);
     size_t candidateCount() const;
     const CreationCandidate &candidateAt(size_t candidateIndex) const;
     void beginNameEditing();
@@ -94,13 +95,21 @@ private:
     bool tryDecreaseStat(StatId statId);
     bool tryToggleOptionalSkill(const std::string &skillName);
     int currentBonusPool() const;
+    int bonusPoolForState(const CreationState &state) const;
     Character buildCharacter() const;
+    Character buildCharacterFromState(const CreationState &state) const;
+    std::vector<Character> buildPartyCharacters() const;
+    std::string selectedClassName() const;
+    std::string classNameForState(const CreationState &state) const;
     std::vector<int> availableVoiceIdsForSelectedCandidate() const;
     std::vector<std::string> wrapTextToWidth(const std::string &fontName, const std::string &text, float maxWidth, float scale);
     const CharacterDollEntry *selectedCharacterEntry() const;
+    const CharacterDollEntry *characterEntryForState(const CreationState &state) const;
     const CreationCandidate &selectedCandidate() const;
-    std::array<int, static_cast<size_t>(StatId::Count)> statsForRace(CreationRace race) const;
+    const CreationCandidate &candidateForState(const CreationState &state) const;
+    std::array<int, static_cast<size_t>(StatId::Count)> statsForRace(const std::string &raceName) const;
     void cycleCandidate(int direction);
+    void cycleClass(int direction);
     void cycleVoice(int direction);
     void resetCurrentState(bool applyCandidateDefaults = false);
     void confirmCreation();
@@ -134,7 +143,11 @@ private:
     ContinueAction m_continueAction;
     BackAction m_backAction;
     UiLayoutManager m_layoutManager;
+    std::vector<CreationCandidate> m_candidates;
+    std::vector<CreationState> m_partyStates;
     CreationState m_state = {};
+    size_t m_partySize = 1;
+    size_t m_activePartySlot = 0;
     bool m_layoutLoaded = false;
     bool m_escapePressed = false;
     bool m_returnPressed = false;

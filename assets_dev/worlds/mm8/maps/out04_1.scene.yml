@@ -1,0 +1,222 @@
+format_version: 1
+kind: "outdoor_scene_overlay"
+source:
+  geometry_file: "out04.odm"
+terrain:
+  footstep_sound_overrides:
+    - tile_id: 90
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 91
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 92
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 93
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 94
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 95
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 96
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 97
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 98
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 99
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 100
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 101
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 102
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 103
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 104
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 105
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 106
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 107
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 108
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 109
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 110
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 111
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 112
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 113
+      walk_sound_id: 91
+      run_sound_id: 52
+    - tile_id: 126
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 127
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 128
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 129
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 130
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 131
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 132
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 133
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 134
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 135
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 136
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 137
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 138
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 139
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 140
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 141
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 142
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 143
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 144
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 145
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 146
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 147
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 148
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 149
+      walk_sound_id: 101
+      run_sound_id: 62
+    - tile_id: 162
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 163
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 164
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 165
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 166
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 167
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 168
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 169
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 170
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 171
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 172
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 173
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 174
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 175
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 176
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 177
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 178
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 179
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 180
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 181
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 182
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 183
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 184
+      walk_sound_id: 90
+      run_sound_id: 51
+    - tile_id: 185
+      walk_sound_id: 90
+      run_sound_id: 51
