@@ -9,7 +9,9 @@
 #include "game/StringUtils.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -17,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -24,6 +27,67 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr bool VerboseMapLoadLogging = false;
+
+double millisecondsFromNanoseconds(uint64_t nanoseconds)
+{
+    return static_cast<double>(nanoseconds) / 1000000.0;
+}
+
+bool mapLoadTimingEnabled()
+{
+    const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
+    return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
+}
+
+class GameDataLoadTimingLogger
+{
+public:
+    GameDataLoadTimingLogger(const std::string &mapFileName, const std::string &scope)
+        : m_enabled(mapLoadTimingEnabled())
+        , m_mapFileName(mapFileName)
+        , m_scope(scope)
+        , m_startTime(std::chrono::steady_clock::now())
+        , m_lastTime(m_startTime)
+    {
+        if (m_enabled)
+        {
+            std::cerr
+                << "[MapLoadTiming] map=" << m_mapFileName
+                << " begin=" << m_scope
+                << '\n';
+        }
+    }
+
+    void stage(const std::string &stageName)
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        const uint64_t stageNanoseconds =
+            static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_lastTime).count());
+        const uint64_t totalNanoseconds =
+            static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_startTime).count());
+        m_lastTime = now;
+
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " scope=" << m_scope
+            << " stage=\"" << stageName << "\""
+            << " delta_ms=" << millisecondsFromNanoseconds(stageNanoseconds)
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
+    }
+
+private:
+    bool m_enabled = false;
+    std::string m_mapFileName;
+    std::string m_scope;
+    std::chrono::steady_clock::time_point m_startTime;
+    std::chrono::steady_clock::time_point m_lastTime;
+};
 
 std::optional<std::string> readFirstExistingText(
     const Engine::AssetFileSystem &assetFileSystem,
@@ -317,11 +381,48 @@ std::string normalizedTableTextureName(const std::string &value)
     return toLowerCopy(trimCopy(value));
 }
 
-bool skyTextureAssetExists(const Engine::AssetFileSystem &assetFileSystem, const std::string &textureName)
+std::optional<std::string> skyTextureAssetStem(const std::string &entryName)
+{
+    const std::string normalizedEntryName = toLowerCopy(entryName);
+
+    if (normalizedEntryName.ends_with(".png") || normalizedEntryName.ends_with(".bmp"))
+    {
+        return normalizedEntryName.substr(0, normalizedEntryName.size() - 4);
+    }
+
+    return std::nullopt;
+}
+
+std::unordered_set<std::string> buildSkyTextureAssetNameSet(const Engine::AssetFileSystem &assetFileSystem)
+{
+    std::unordered_set<std::string> textureNames;
+
+    for (const std::string &entryName : assetFileSystem.enumerate("sky_textures"))
+    {
+        const std::optional<std::string> textureName = skyTextureAssetStem(entryName);
+
+        if (textureName)
+        {
+            textureNames.insert(*textureName);
+        }
+    }
+
+    return textureNames;
+}
+
+bool skyTextureAssetExists(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::unordered_set<std::string> *pSkyTextureAssetNames,
+    const std::string &textureName)
 {
     if (textureName.empty())
     {
         return false;
+    }
+
+    if (pSkyTextureAssetNames != nullptr)
+    {
+        return pSkyTextureAssetNames->find(toLowerCopy(textureName)) != pSkyTextureAssetNames->end();
     }
 
     const std::string basePath = "sky_textures/" + textureName;
@@ -457,12 +558,13 @@ std::vector<std::string> buildMergedSkyTextureCandidates(
 
 std::string resolveMergedSkyTextureName(
     const Engine::AssetFileSystem &assetFileSystem,
+    const std::unordered_set<std::string> *pSkyTextureAssetNames,
     const std::string &activeWorldId,
     const std::string &textureName)
 {
     for (const std::string &candidate : buildMergedSkyTextureCandidates(activeWorldId, textureName))
     {
-        if (skyTextureAssetExists(assetFileSystem, candidate))
+        if (skyTextureAssetExists(assetFileSystem, pSkyTextureAssetNames, candidate))
         {
             return candidate;
         }
@@ -867,9 +969,25 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     int &width,
     int &height,
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &directoryAssetPathsByPath,
-    std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey
+    std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey,
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelsByKey
 )
 {
+    const std::string cacheKey = directoryPath + "|" + toLowerCopy(textureName);
+    const auto cachedPixelsIt = pixelsByKey.find(cacheKey);
+
+    if (cachedPixelsIt != pixelsByKey.end())
+    {
+        if (!cachedPixelsIt->second)
+        {
+            return std::nullopt;
+        }
+
+        width = cachedPixelsIt->second->width;
+        height = cachedPixelsIt->second->height;
+        return cachedPixelsIt->second->pixels;
+    }
+
     const std::optional<std::string> bitmapPath =
         findBitmapPath(
             assetFileSystem,
@@ -880,6 +998,7 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!bitmapPath)
     {
+        pixelsByKey[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
@@ -887,6 +1006,7 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!bitmapBytes || bitmapBytes->empty())
     {
+        pixelsByKey[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
@@ -895,11 +1015,13 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!image)
     {
+        pixelsByKey[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
     width = image->width;
     height = image->height;
+    pixelsByKey[cacheKey] = MapAssetBitmapPixelsResult{width, height, image->pixels};
     return image->pixels;
 }
 
@@ -907,7 +1029,10 @@ void appendDecorationScriptBillboardTextures(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::optional<ScriptedEventProgram> &localEventProgram,
     const std::optional<ScriptedEventProgram> &globalEventProgram,
-    std::optional<DecorationBillboardSet> &billboardSet
+    std::optional<DecorationBillboardSet> &billboardSet,
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &directoryAssetPathsByPath,
+    std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey,
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelsByKey
 )
 {
     if (!billboardSet)
@@ -941,8 +1066,6 @@ void appendDecorationScriptBillboardTextures(
         return;
     }
 
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
-    std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
     const Engine::AssetScaleTier decorationAssetScaleTier =
         assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Decorations);
 
@@ -995,7 +1118,8 @@ void appendDecorationScriptBillboardTextures(
                     textureWidth,
                     textureHeight,
                     directoryAssetPathsByPath,
-                    bitmapPathByKey);
+                    bitmapPathByKey,
+                    pixelsByKey);
 
             if (!pixels || textureWidth <= 0 || textureHeight <= 0)
             {
@@ -1018,7 +1142,10 @@ void appendIndoorScriptTextures(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::optional<ScriptedEventProgram> &localEventProgram,
     const std::optional<ScriptedEventProgram> &globalEventProgram,
-    std::optional<IndoorTextureSet> &indoorTextureSet
+    std::optional<IndoorTextureSet> &indoorTextureSet,
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &directoryAssetPathsByPath,
+    std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey,
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelsByKey
 )
 {
     if (!indoorTextureSet)
@@ -1047,8 +1174,6 @@ void appendIndoorScriptTextures(
     std::sort(textureNames.begin(), textureNames.end());
     textureNames.erase(std::unique(textureNames.begin(), textureNames.end()), textureNames.end());
 
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
-    std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
     const Engine::AssetScaleTier textureAssetScaleTier =
         assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Textures);
 
@@ -1080,7 +1205,8 @@ void appendIndoorScriptTextures(
                 textureWidth,
                 textureHeight,
                 directoryAssetPathsByPath,
-                bitmapPathByKey);
+                bitmapPathByKey,
+                pixelsByKey);
 
         if (!pixels || textureWidth <= 0 || textureHeight <= 0)
         {
@@ -1214,7 +1340,19 @@ bool GameDataLoader::load(const Engine::AssetFileSystem &assetFileSystem)
 
 void GameDataLoader::setActiveWorldId(const std::string &worldId)
 {
-    m_activeWorldId = normalizeWorldId(worldId);
+    const std::string normalizedWorldId = normalizeWorldId(worldId);
+
+    if (m_activeWorldId != normalizedWorldId)
+    {
+        m_mapAssetLoadSharedCache = {};
+        m_skyTextureAssetNames.reset();
+        m_resolvedMergedSkyTextureNameByKey.clear();
+        m_scriptBitmapDirectoryAssetPathsByPath.clear();
+        m_scriptBitmapPathByKey.clear();
+        m_scriptBitmapPixelsByKey.clear();
+    }
+
+    m_activeWorldId = normalizedWorldId;
 }
 
 void GameDataLoader::setInitialMapFileName(const std::string &fileName)
@@ -1236,6 +1374,12 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
 {
     m_activeWorldId = normalizeWorldId(assetFileSystem.getActiveWorldId());
     m_loadedTables.clear();
+    m_mapAssetLoadSharedCache = {};
+    m_skyTextureAssetNames.reset();
+    m_resolvedMergedSkyTextureNameByKey.clear();
+    m_scriptBitmapDirectoryAssetPathsByPath.clear();
+    m_scriptBitmapPathByKey.clear();
+    m_scriptBitmapPixelsByKey.clear();
 
     if (!loadMapStats(assetFileSystem))
     {
@@ -3070,6 +3214,7 @@ bool GameDataLoader::loadSelectedMap(
         return false;
     }
 
+    GameDataLoadTimingLogger timingLogger(selectedMap->fileName, "game_data_loader");
     const MapAssetLoader mapAssetLoader;
     std::optional<MapAssetInfo> loadedMap = mapAssetLoader.load(
         assetFileSystem,
@@ -3078,7 +3223,8 @@ bool GameDataLoader::loadSelectedMap(
         m_objectTable,
         mapLoadPurpose,
         {},
-        progressPump);
+        progressPump,
+        &m_mapAssetLoadSharedCache);
 
     if (!loadedMap)
     {
@@ -3086,10 +3232,12 @@ bool GameDataLoader::loadSelectedMap(
         std::cerr << "Failed to load initial map asset for " << selectedMap->fileName << '\n';
         return false;
     }
+    timingLogger.stage("map assets loaded");
 
     m_selectedMap.emplace(std::move(*loadedMap));
 
     applyMergedContinentSettingsToSelectedMap(assetFileSystem);
+    timingLogger.stage("continent settings applied");
 
     const std::string localScriptBaseName = mapScriptBaseName(selectedMap->fileName);
     std::string resolvedSupportLuaPath;
@@ -3107,6 +3255,7 @@ bool GameDataLoader::loadSelectedMap(
             localScriptBaseName,
             assetFileSystem.resolvePhysicalPath(m_selectedMap->geometryPath),
             m_selectedMap->scenePath ? assetFileSystem.resolvePhysicalPath(*m_selectedMap->scenePath) : std::nullopt);
+    timingLogger.stage("lua support sources resolved");
 
     {
         std::string resolvedLuaPath;
@@ -3147,6 +3296,7 @@ bool GameDataLoader::loadSelectedMap(
             m_selectedMap->localEventProgram = std::move(program);
         }
     }
+    timingLogger.stage("local lua loaded");
 
     {
         std::string resolvedLuaPath;
@@ -3178,30 +3328,42 @@ bool GameDataLoader::loadSelectedMap(
             m_selectedMap->globalEventProgram = std::move(program);
         }
     }
+    timingLogger.stage("global lua loaded");
 
     normalizeMapFaceHintOnlyAttributes(
         *m_selectedMap,
         m_selectedMap->localEventProgram,
         m_selectedMap->globalEventProgram);
+    timingLogger.stage("map face hints normalized");
 
     appendIndoorScriptTextures(
         assetFileSystem,
         m_selectedMap->localEventProgram,
         m_selectedMap->globalEventProgram,
-        m_selectedMap->indoorTextureSet
+        m_selectedMap->indoorTextureSet,
+        m_scriptBitmapDirectoryAssetPathsByPath,
+        m_scriptBitmapPathByKey,
+        m_scriptBitmapPixelsByKey
     );
     appendDecorationScriptBillboardTextures(
         assetFileSystem,
         m_selectedMap->localEventProgram,
         m_selectedMap->globalEventProgram,
-        m_selectedMap->indoorDecorationBillboardSet
+        m_selectedMap->indoorDecorationBillboardSet,
+        m_scriptBitmapDirectoryAssetPathsByPath,
+        m_scriptBitmapPathByKey,
+        m_scriptBitmapPixelsByKey
     );
     appendDecorationScriptBillboardTextures(
         assetFileSystem,
         m_selectedMap->localEventProgram,
         m_selectedMap->globalEventProgram,
-        m_selectedMap->outdoorDecorationBillboardSet
+        m_selectedMap->outdoorDecorationBillboardSet,
+        m_scriptBitmapDirectoryAssetPathsByPath,
+        m_scriptBitmapPathByKey,
+        m_scriptBitmapPixelsByKey
     );
+    timingLogger.stage("script textures appended");
 
     {
         EventRuntime eventRuntime(&m_houseTable);
@@ -3217,6 +3379,7 @@ bool GameDataLoader::loadSelectedMap(
         );
         m_selectedMap->eventRuntimeState = std::move(runtimeState);
     }
+    timingLogger.stage("event runtime state built");
 
     if constexpr (VerboseMapLoadLogging)
     {
@@ -3403,6 +3566,7 @@ bool GameDataLoader::loadSelectedMap(
         }
     }
 
+    timingLogger.stage("selected map data load complete");
     return true;
 }
 
@@ -3429,18 +3593,41 @@ void GameDataLoader::applyMergedContinentSettingsToSelectedMap(const Engine::Ass
         return;
     }
 
+    if (!m_skyTextureAssetNames)
+    {
+        m_skyTextureAssetNames = buildSkyTextureAssetNameSet(assetFileSystem);
+    }
+
+    auto resolveMergedSkyTextureNameCached =
+        [this, &assetFileSystem](const std::string &textureName) -> std::string
+        {
+            const std::string cacheKey = m_activeWorldId + "|" + normalizedTableTextureName(textureName);
+            const auto cachedNameIt = m_resolvedMergedSkyTextureNameByKey.find(cacheKey);
+
+            if (cachedNameIt != m_resolvedMergedSkyTextureNameByKey.end())
+            {
+                return cachedNameIt->second;
+            }
+
+            const std::string resolvedName = resolveMergedSkyTextureName(
+                assetFileSystem,
+                m_skyTextureAssetNames ? &*m_skyTextureAssetNames : nullptr,
+                m_activeWorldId,
+                textureName);
+            m_resolvedMergedSkyTextureNameByKey[cacheKey] = resolvedName;
+            return resolvedName;
+        };
+
     OutdoorWeatherProfile profile = m_selectedMap->outdoorWeatherProfile.value_or(OutdoorWeatherProfile{});
     profile.mergedWeatherConfigured = true;
     profile.mergedMapId = static_cast<uint32_t>(m_selectedMap->map.id);
     profile.mergedWeatherEnabled = pBolsterMap->weather;
-    profile.mergedCustomSkyTextureName =
-        resolveMergedSkyTextureName(assetFileSystem, m_activeWorldId, pBolsterMap->customSky);
+    profile.mergedCustomSkyTextureName = resolveMergedSkyTextureNameCached(pBolsterMap->customSky);
     profile.mergedSkyTextureNames.clear();
 
     for (const std::string &skyTextureName : pContinentSetting->skies)
     {
-        const std::string resolvedSkyTextureName =
-            resolveMergedSkyTextureName(assetFileSystem, m_activeWorldId, skyTextureName);
+        const std::string resolvedSkyTextureName = resolveMergedSkyTextureNameCached(skyTextureName);
 
         if (!resolvedSkyTextureName.empty())
         {

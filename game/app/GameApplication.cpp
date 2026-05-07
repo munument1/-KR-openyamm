@@ -2611,9 +2611,12 @@ bool GameApplication::processPendingDebugMapJump()
         return false;
     }
     const std::string targetWorldId = normalizeWorldId(pTargetMap->worldId);
+    MapLoadTimingLogger timingLogger(pTargetMap->fileName, "debug_map_jump");
+    timingLogger.stage("world activated");
 
     beginLoadingOverlay(LoadingOverlayScreen::Presentation::Fullscreen);
     renderLoadingOverlayProgress(15);
+    timingLogger.stage("loading overlay begun");
 
     if (!m_gameDataLoader.loadMapByIdForGameplay(*m_pAssetFileSystem, mapId))
     {
@@ -2621,6 +2624,7 @@ bool GameApplication::processPendingDebugMapJump()
         m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: map load failed.");
         return false;
     }
+    timingLogger.stage("game data loader map load");
 
     renderLoadingOverlayProgress(70);
     const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
@@ -2634,6 +2638,7 @@ bool GameApplication::processPendingDebugMapJump()
 
     m_gameSession.setCurrentMapFileName(selectedMap->map.fileName);
     shutdownRenderer();
+    timingLogger.stage("renderer shutdown");
 
     if (!initializeSelectedMapRuntime(true))
     {
@@ -2641,6 +2646,7 @@ bool GameApplication::processPendingDebugMapJump()
         m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: runtime init failed.");
         return false;
     }
+    timingLogger.stage("runtime and view initialized");
 
     if (pendingJump.start.has_value())
     {
@@ -2677,10 +2683,12 @@ bool GameApplication::processPendingDebugMapJump()
             m_indoorRenderer.setCameraAngles(yawRadians, m_indoorRenderer.cameraPitchRadians());
         }
     }
+    timingLogger.stage("debug start applied");
 
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
     synchronizeSessionFromRuntime();
+    timingLogger.stage("debug map jump complete");
     m_debugConsole.addMessage(
         DebugConsole::MessageKind::Success,
         "Jumped to [" + upperSearchText(targetWorldId) + "] "
@@ -3442,12 +3450,16 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             selectedMap->localEventProgram,
             selectedMap->globalEventProgram,
             &m_gameDataLoader.getHouseTable());
+        timingLogger.stage("outdoor scene runtime created");
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
+        timingLogger.stage("outdoor gameplay runtime bound");
         m_screenManager.setCurrentMode(AppMode::GameplayOutdoor);
+        timingLogger.stage("outdoor app mode set");
 
         m_gameAudioSystem.setBackgroundMusicTrack(selectedMap->map.redbookTrack);
+        timingLogger.stage("outdoor background music set");
         applyCurrentSettingsToActiveRuntime();
-        timingLogger.stage("outdoor scene runtime bound");
+        timingLogger.stage("outdoor settings applied");
 
         if (!initializeView)
         {
@@ -3759,6 +3771,7 @@ bool GameApplication::loadCurrentSessionMap(
     {
         return false;
     }
+    timingLogger.stage("world activated");
 
     const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
     const bool selectedMapMatchesSession =

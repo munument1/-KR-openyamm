@@ -12,14 +12,19 @@
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/outdoor/OutdoorWeatherProfile.h"
 #include "game/tables/SurfaceAnimation.h"
+#include "game/tables/SurfaceMaterialTable.h"
 #include "game/tables/SpriteTables.h"
+#include "game/tables/TextureFrameTable.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <future>
+#include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -132,6 +137,7 @@ struct ActorPreviewBillboardSet
 {
     SpriteFrameTable spriteFrameTable;
     std::vector<OutdoorBitmapTexture> textures;
+    std::shared_future<std::shared_ptr<std::vector<OutdoorBitmapTexture>>> texturePreloadFuture;
     std::vector<ActorPreviewBillboard> billboards;
     size_t mapDeltaActorCount = 0;
     size_t spawnActorCount = 0;
@@ -192,6 +198,13 @@ struct MapCompanionLoadOptions
     bool allowLegacyCompanion = true;
 };
 
+struct MapAssetBitmapPixelsResult
+{
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+};
+
 struct MapAssetInfo
 {
     MapStatsEntry map;
@@ -239,6 +252,21 @@ enum class MapLoadPurpose
 
 using MapLoadProgressPump = std::function<void()>;
 
+struct MapAssetLoadSharedCache
+{
+    std::optional<std::vector<std::vector<std::string>>> decorationRows;
+    std::optional<TextureFrameTable> textureFrameTable;
+    std::optional<SurfaceMaterialTable> surfaceMaterialTable;
+    std::optional<SpriteFrameTable> commonSpriteFrameTable;
+    std::optional<std::vector<std::string>> monsterSpriteFrameFamilyEntries;
+    std::unordered_map<std::string, std::optional<std::string>> monsterSpriteFrameFamilyTextByRoot;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> bitmapDirectoryAssetPathsByPath;
+    std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
+    std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> bitmapBinaryFilesByPath;
+    std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesByKey;
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> bitmapPixelsByKey;
+};
+
 class MapAssetLoader
 {
 public:
@@ -249,7 +277,8 @@ public:
         const ObjectTable &objectTable,
         MapLoadPurpose purpose = MapLoadPurpose::Full,
         const MapCompanionLoadOptions &companionLoadOptions = {},
-        const MapLoadProgressPump &progressPump = {}
+        const MapLoadProgressPump &progressPump = {},
+        MapAssetLoadSharedCache *pSharedCache = nullptr
     ) const;
 
 private:

@@ -1598,7 +1598,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
     float iterativeVerticalVelocity = candidateVerticalVelocity;
     bool sweptFaceHit = false;
     bool sweptFailed = false;
-    constexpr int MaxSweptIterations = 4;
+    constexpr int MaxSweptIterations = 8;
 
     const auto projectStepAfterFaceHit =
         [&](

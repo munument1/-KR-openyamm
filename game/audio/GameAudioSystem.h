@@ -10,9 +10,11 @@
 #include "game/tables/SpeechReactionTable.h"
 #include "game/tables/MergedBaseTables.h"
 
+#include <future>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -96,9 +98,19 @@ public:
     void stopAllPlayback();
 
 private:
+    struct PendingMusicDecodeJob
+    {
+        int redbookTrack = 0;
+        std::string clipKey;
+        std::future<std::vector<float>> samplesFuture;
+    };
+
     static bool isExclusiveGroup(PlaybackGroup group);
     void preloadSpellBuffSounds(const SpellTable &spellTable);
     void preloadArcomageUiSounds();
+    bool isBackgroundMusicTrackLoaded(int redbookTrack) const;
+    bool queueBackgroundMusicTrackDecode(int redbookTrack);
+    void updatePendingBackgroundMusicDecode();
     bool ensureBackgroundMusicTrackLoaded(int redbookTrack);
     bool startBackgroundMusicTrack(int redbookTrack);
     float targetMusicVolume() const;
@@ -122,11 +134,13 @@ private:
     std::unordered_map<uint32_t, uint64_t> m_activeSpeechInstanceIds;
     std::unordered_map<uint32_t, uint64_t> m_activeNonResettableSoundInstanceIds;
     std::unordered_map<int, std::string> m_loadedMusicClipKeys;
+    std::optional<PendingMusicDecodeJob> m_pendingMusicDecodeJob;
     int m_activeMusicTrack = 0;
     int m_pendingMusicTrack = 0;
     uint64_t m_activeMusicInstanceId = 0;
     float m_activeMusicVolume = 0.0f;
     float m_musicFadeVelocity = 0.0f;
+    float m_pendingMusicDecodeDelaySeconds = 0.0f;
     bool m_backgroundMusicPaused = false;
     float m_soundVolume = 1.0f;
     float m_musicVolume = 1.0f;

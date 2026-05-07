@@ -977,6 +977,7 @@ bool IndoorGameView::initialize(
             GameplayScreenRuntime::SharedUiBootstrapConfig{
                 .pAssetFileSystem = &assetFileSystem,
                 .portraitMemberCount = sceneRuntime.partyRuntime().party().members().size(),
+                .preloadReferencedAssets = false,
             });
 
     if (!sharedUiBootstrap.layoutsLoaded)

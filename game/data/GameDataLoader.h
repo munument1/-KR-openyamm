@@ -36,7 +36,10 @@
 
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -193,6 +196,11 @@ private:
     std::vector<LoadedTableSummary> m_loadedTables;
     std::string m_activeWorldId = "mm8";
     std::string m_initialMapFileName;
+    std::optional<std::unordered_set<std::string>> m_skyTextureAssetNames;
+    std::unordered_map<std::string, std::string> m_resolvedMergedSkyTextureNameByKey;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_scriptBitmapDirectoryAssetPathsByPath;
+    std::unordered_map<std::string, std::optional<std::string>> m_scriptBitmapPathByKey;
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> m_scriptBitmapPixelsByKey;
     MapRegistry m_mapRegistry;
     MapStats m_mapStats;
     MonsterTable m_monsterTable;
@@ -256,6 +264,7 @@ private:
     MergedTownPortalSwitchTable m_mergedTownPortalSwitchTable;
     MergedTransportIndexTable m_mergedTransportIndexTable;
     MergedTransportLocationTable m_mergedTransportLocationTable;
+    MapAssetLoadSharedCache m_mapAssetLoadSharedCache;
     std::optional<MapAssetInfo> m_selectedMap;
 };
 }

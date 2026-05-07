@@ -24,11 +24,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <iostream>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -123,6 +127,7 @@ constexpr uint32_t EnvironmentFlagUnderwater = 0x04;
 constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
 constexpr uint32_t EnvironmentFlagRedFog = 0x80;
 constexpr uint32_t MapWeatherFoggy = 0x01;
+constexpr size_t MaxActorTexturePreloadWorkerCount = 2;
 
 bool decodeOutdoorMapExtra(
     const MapDeltaLocationTime &locationTime,
@@ -574,9 +579,16 @@ std::vector<uint8_t> compositeTerrainOverlayOverBase(
 
 bool loadDecorationRows(
     const Engine::AssetFileSystem &assetFileSystem,
-    std::vector<std::vector<std::string>> &rows)
+    std::vector<std::vector<std::string>> &rows,
+    MapAssetLoadSharedCache *pSharedCache)
 {
     rows.clear();
+
+    if (pSharedCache != nullptr && pSharedCache->decorationRows)
+    {
+        rows = *pSharedCache->decorationRows;
+        return true;
+    }
 
     const std::optional<std::string> contents =
         assetFileSystem.readTextFile(engineDataTablePath("decoration_data.txt"));
@@ -598,6 +610,11 @@ bool loadDecorationRows(
     for (size_t rowIndex = 0; rowIndex < parsedTable->getRowCount(); ++rowIndex)
     {
         rows.push_back(parsedTable->getRow(rowIndex));
+    }
+
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->decorationRows = rows;
     }
 
     return true;
@@ -634,8 +651,15 @@ bool loadTextureFrameRows(
     return true;
 }
 
-std::optional<TextureFrameTable> loadTextureFrameTable(const Engine::AssetFileSystem &assetFileSystem)
+std::optional<TextureFrameTable> loadTextureFrameTable(
+    const Engine::AssetFileSystem &assetFileSystem,
+    MapAssetLoadSharedCache *pSharedCache)
 {
+    if (pSharedCache != nullptr && pSharedCache->textureFrameTable)
+    {
+        return pSharedCache->textureFrameTable;
+    }
+
     std::vector<std::vector<std::string>> rows;
 
     if (!loadTextureFrameRows(assetFileSystem, rows))
@@ -648,6 +672,11 @@ std::optional<TextureFrameTable> loadTextureFrameTable(const Engine::AssetFileSy
     if (!textureFrameTable.loadRows(rows))
     {
         return std::nullopt;
+    }
+
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->textureFrameTable = textureFrameTable;
     }
 
     return textureFrameTable;
@@ -820,8 +849,15 @@ void collectEncounterMonsterSpriteFamilies(
     }
 }
 
-std::optional<SurfaceMaterialTable> loadSurfaceMaterialTable(const Engine::AssetFileSystem &assetFileSystem)
+std::optional<SurfaceMaterialTable> loadSurfaceMaterialTable(
+    const Engine::AssetFileSystem &assetFileSystem,
+    MapAssetLoadSharedCache *pSharedCache)
 {
+    if (pSharedCache != nullptr && pSharedCache->surfaceMaterialTable)
+    {
+        return pSharedCache->surfaceMaterialTable;
+    }
+
     const std::optional<std::string> contents =
         assetFileSystem.readTextFile("Data/rendering/surface_materials.yml");
 
@@ -839,14 +875,78 @@ std::optional<SurfaceMaterialTable> loadSurfaceMaterialTable(const Engine::Asset
         return std::nullopt;
     }
 
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->surfaceMaterialTable = materialTable;
+    }
+
     return materialTable;
 }
 
-std::optional<SpriteFrameTable> loadSpriteFrameTable(
+std::optional<std::string> loadMonsterSpriteFrameFamilyText(
     const Engine::AssetFileSystem &assetFileSystem,
-    const std::unordered_set<std::string> &monsterFamilies = {},
-    const std::unordered_set<std::string> &worldPrefixedMonsterSpriteNames = {})
+    const std::string &familyRoot,
+    MapAssetLoadSharedCache *pSharedCache,
+    const std::string &familyPathOverride = {})
 {
+    const std::string normalizedFamilyRoot = toLowerCopy(familyRoot);
+
+    if (pSharedCache != nullptr)
+    {
+        const auto cachedTextIt =
+            pSharedCache->monsterSpriteFrameFamilyTextByRoot.find(normalizedFamilyRoot);
+
+        if (cachedTextIt != pSharedCache->monsterSpriteFrameFamilyTextByRoot.end())
+        {
+            if (cachedTextIt->second || familyPathOverride.empty())
+            {
+                return cachedTextIt->second;
+            }
+        }
+    }
+
+    const std::optional<std::string> familyContents =
+        assetFileSystem.readTextFile(
+            familyPathOverride.empty()
+                ? monsterSpriteFrameFamilyPath(normalizedFamilyRoot)
+                : familyPathOverride);
+
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->monsterSpriteFrameFamilyTextByRoot[normalizedFamilyRoot] = familyContents;
+    }
+
+    return familyContents;
+}
+
+std::vector<std::string> enumerateMonsterSpriteFrameFamilyEntries(
+    const Engine::AssetFileSystem &assetFileSystem,
+    MapAssetLoadSharedCache *pSharedCache)
+{
+    if (pSharedCache != nullptr && pSharedCache->monsterSpriteFrameFamilyEntries)
+    {
+        return *pSharedCache->monsterSpriteFrameFamilyEntries;
+    }
+
+    std::vector<std::string> familyEntries = assetFileSystem.enumerate(monsterSpriteFrameFamilyDirectory());
+
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->monsterSpriteFrameFamilyEntries = familyEntries;
+    }
+
+    return familyEntries;
+}
+
+std::optional<SpriteFrameTable> loadCommonSpriteFrameTable(
+    const Engine::AssetFileSystem &assetFileSystem,
+    MapAssetLoadSharedCache *pSharedCache)
+{
+    if (pSharedCache != nullptr && pSharedCache->commonSpriteFrameTable)
+    {
+        return pSharedCache->commonSpriteFrameTable;
+    }
+
     const std::optional<std::string> contents =
         assetFileSystem.readTextFile("Data/rendering/sprite_frame_data_common.yml");
 
@@ -864,13 +964,38 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
         return std::nullopt;
     }
 
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->commonSpriteFrameTable = spriteFrameTable;
+    }
+
+    return spriteFrameTable;
+}
+
+std::optional<SpriteFrameTable> loadSpriteFrameTable(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::unordered_set<std::string> &monsterFamilies = {},
+    const std::unordered_set<std::string> &worldPrefixedMonsterSpriteNames = {},
+    MapAssetLoadSharedCache *pSharedCache = nullptr)
+{
+    const std::optional<SpriteFrameTable> commonSpriteFrameTable =
+        loadCommonSpriteFrameTable(assetFileSystem, pSharedCache);
+
+    if (!commonSpriteFrameTable)
+    {
+        return std::nullopt;
+    }
+
+    SpriteFrameTable spriteFrameTable = *commonSpriteFrameTable;
+    std::string errorMessage;
+
     std::vector<std::string> sortedFamilies(monsterFamilies.begin(), monsterFamilies.end());
     std::sort(sortedFamilies.begin(), sortedFamilies.end());
 
     for (const std::string &familyRoot : sortedFamilies)
     {
         const std::optional<std::string> familyContents =
-            assetFileSystem.readTextFile(monsterSpriteFrameFamilyPath(familyRoot));
+            loadMonsterSpriteFrameFamilyText(assetFileSystem, familyRoot, pSharedCache);
 
         if (!familyContents)
         {
@@ -896,7 +1021,8 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
         }
     }
 
-    const std::vector<std::string> familyEntries = assetFileSystem.enumerate(monsterSpriteFrameFamilyDirectory());
+    const std::vector<std::string> familyEntries =
+        enumerateMonsterSpriteFrameFamilyEntries(assetFileSystem, pSharedCache);
 
     for (const std::string &familyEntry : familyEntries)
     {
@@ -920,7 +1046,11 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
         }
 
         const std::optional<std::string> familyContents =
-            assetFileSystem.readTextFile(monsterSpriteFrameFamilyDirectory() + "/" + familyEntry);
+            loadMonsterSpriteFrameFamilyText(
+                assetFileSystem,
+                familyRoot,
+                pSharedCache,
+                monsterSpriteFrameFamilyDirectory() + "/" + familyEntry);
 
         if (!familyContents)
         {
@@ -1151,13 +1281,6 @@ struct BitmapTextureRequest
     int16_t paletteId = 0;
 };
 
-struct BitmapPixelsResult
-{
-    int width = 0;
-    int height = 0;
-    std::vector<uint8_t> pixels;
-};
-
 struct IndexedBitmapData
 {
     int width = 0;
@@ -1169,13 +1292,54 @@ struct IndexedBitmapData
 
 struct BitmapLoadCache
 {
+    MapAssetLoadSharedCache *pSharedCache = nullptr;
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
     std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> binaryFilesByPath;
     std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesByKey;
     std::unordered_map<std::string, std::optional<IndexedBitmapData>> indexedBitmapsByPath;
-    std::unordered_map<std::string, std::optional<BitmapPixelsResult>> pixelsByKey;
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> pixelsByKey;
 };
+
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &bitmapDirectoryAssetPathsByPath(
+    BitmapLoadCache &bitmapLoadCache)
+{
+    return bitmapLoadCache.pSharedCache != nullptr
+        ? bitmapLoadCache.pSharedCache->bitmapDirectoryAssetPathsByPath
+        : bitmapLoadCache.directoryAssetPathsByPath;
+}
+
+std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey(
+    BitmapLoadCache &bitmapLoadCache)
+{
+    return bitmapLoadCache.pSharedCache != nullptr
+        ? bitmapLoadCache.pSharedCache->bitmapPathByKey
+        : bitmapLoadCache.bitmapPathByKey;
+}
+
+std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &bitmapBinaryFilesByPath(
+    BitmapLoadCache &bitmapLoadCache)
+{
+    return bitmapLoadCache.pSharedCache != nullptr
+        ? bitmapLoadCache.pSharedCache->bitmapBinaryFilesByPath
+        : bitmapLoadCache.binaryFilesByPath;
+}
+
+std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> &bitmapActPalettesByKey(
+    BitmapLoadCache &bitmapLoadCache)
+{
+    return bitmapLoadCache.pSharedCache != nullptr
+        ? bitmapLoadCache.pSharedCache->actPalettesByKey
+        : bitmapLoadCache.actPalettesByKey;
+}
+
+std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &bitmapPixelsByKey(
+    BitmapLoadCache &bitmapLoadCache)
+{
+    return bitmapLoadCache.pSharedCache != nullptr
+        ? bitmapLoadCache.pSharedCache->bitmapPixelsByKey
+        : bitmapLoadCache.pixelsByKey;
+}
 
 std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
 {
@@ -1210,8 +1374,8 @@ std::optional<std::string> findBitmapPath(
         assetFileSystem,
         directoryPath,
         textureName,
-        bitmapLoadCache.directoryAssetPathsByPath,
-        bitmapLoadCache.bitmapPathByKey);
+        bitmapDirectoryAssetPathsByPath(bitmapLoadCache),
+        bitmapPathByKey(bitmapLoadCache));
 }
 
 std::optional<std::string> findAssetPathCaseInsensitive(
@@ -1222,17 +1386,20 @@ std::optional<std::string> findAssetPathCaseInsensitive(
 )
 {
     const std::string cacheKey = directoryPath + "|" + toLowerCopy(fileName);
-    const auto cachedPathIt = bitmapLoadCache.bitmapPathByKey.find(cacheKey);
+    std::unordered_map<std::string, std::optional<std::string>> &pathCache = bitmapPathByKey(bitmapLoadCache);
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &directoryCache =
+        bitmapDirectoryAssetPathsByPath(bitmapLoadCache);
+    const auto cachedPathIt = pathCache.find(cacheKey);
 
-    if (cachedPathIt != bitmapLoadCache.bitmapPathByKey.end())
+    if (cachedPathIt != pathCache.end())
     {
         return cachedPathIt->second;
     }
 
-    const auto directoryAssetPathsIt = bitmapLoadCache.directoryAssetPathsByPath.find(directoryPath);
+    const auto directoryAssetPathsIt = directoryCache.find(directoryPath);
     const std::unordered_map<std::string, std::string> *pAssetPaths = nullptr;
 
-    if (directoryAssetPathsIt != bitmapLoadCache.directoryAssetPathsByPath.end())
+    if (directoryAssetPathsIt != directoryCache.end())
     {
         pAssetPaths = &directoryAssetPathsIt->second;
     }
@@ -1246,7 +1413,7 @@ std::optional<std::string> findAssetPathCaseInsensitive(
             assetPaths.emplace(toLowerCopy(entry), directoryPath + "/" + entry);
         }
 
-        pAssetPaths = &bitmapLoadCache.directoryAssetPathsByPath.emplace(directoryPath, std::move(assetPaths)).first->second;
+        pAssetPaths = &directoryCache.emplace(directoryPath, std::move(assetPaths)).first->second;
     }
 
     const std::string normalizedFileName = toLowerCopy(fileName);
@@ -1255,11 +1422,11 @@ std::optional<std::string> findAssetPathCaseInsensitive(
     if (resolvedPathIt != pAssetPaths->end())
     {
         const std::optional<std::string> resolvedPath = resolvedPathIt->second;
-        bitmapLoadCache.bitmapPathByKey[cacheKey] = resolvedPath;
+        pathCache[cacheKey] = resolvedPath;
         return resolvedPath;
     }
 
-    bitmapLoadCache.bitmapPathByKey[cacheKey] = std::nullopt;
+    pathCache[cacheKey] = std::nullopt;
     return std::nullopt;
 }
 
@@ -1300,26 +1467,30 @@ std::optional<std::array<uint8_t, 256 * 3>> loadActPalette(
     }
 
     const std::string cacheKey = actPaletteCacheKey(paletteId, worldId);
-    const auto cachedPaletteIt = bitmapLoadCache.actPalettesByKey.find(cacheKey);
+    std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> &paletteCache =
+        bitmapActPalettesByKey(bitmapLoadCache);
+    std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &binaryFileCache =
+        bitmapBinaryFilesByPath(bitmapLoadCache);
+    const auto cachedPaletteIt = paletteCache.find(cacheKey);
 
-    if (cachedPaletteIt != bitmapLoadCache.actPalettesByKey.end())
+    if (cachedPaletteIt != paletteCache.end())
     {
         return cachedPaletteIt->second;
     }
 
     for (const std::string &palettePath : actPaletteCandidatePaths(paletteId, worldId))
     {
-        const auto cachedFileIt = bitmapLoadCache.binaryFilesByPath.find(palettePath);
+        const auto cachedFileIt = binaryFileCache.find(palettePath);
         std::optional<std::vector<uint8_t>> paletteBytes;
 
-        if (cachedFileIt != bitmapLoadCache.binaryFilesByPath.end())
+        if (cachedFileIt != binaryFileCache.end())
         {
             paletteBytes = cachedFileIt->second;
         }
         else
         {
             paletteBytes = assetFileSystem.readBinaryFile(palettePath);
-            bitmapLoadCache.binaryFilesByPath[palettePath] = paletteBytes;
+            binaryFileCache[palettePath] = paletteBytes;
         }
 
         if (!paletteBytes || paletteBytes->size() < 256 * 3)
@@ -1329,11 +1500,11 @@ std::optional<std::array<uint8_t, 256 * 3>> loadActPalette(
 
         std::array<uint8_t, 256 * 3> palette = {};
         std::memcpy(palette.data(), paletteBytes->data(), palette.size());
-        bitmapLoadCache.actPalettesByKey[cacheKey] = palette;
+        paletteCache[cacheKey] = palette;
         return palette;
     }
 
-    bitmapLoadCache.actPalettesByKey[cacheKey] = std::nullopt;
+    paletteCache[cacheKey] = std::nullopt;
     return std::nullopt;
 }
 
@@ -1351,16 +1522,18 @@ std::optional<IndexedBitmapData> loadIndexedBitmapData(
     }
 
     std::optional<std::vector<uint8_t>> bitmapBytes;
-    const auto cachedFileIt = bitmapLoadCache.binaryFilesByPath.find(bitmapPath);
+    std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &binaryFileCache =
+        bitmapBinaryFilesByPath(bitmapLoadCache);
+    const auto cachedFileIt = binaryFileCache.find(bitmapPath);
 
-    if (cachedFileIt != bitmapLoadCache.binaryFilesByPath.end())
+    if (cachedFileIt != binaryFileCache.end())
     {
         bitmapBytes = cachedFileIt->second;
     }
     else
     {
         bitmapBytes = assetFileSystem.readBinaryFile(bitmapPath);
-        bitmapLoadCache.binaryFilesByPath[bitmapPath] = bitmapBytes;
+        binaryFileCache[bitmapPath] = bitmapBytes;
     }
 
     if (!bitmapBytes || bitmapBytes->empty())
@@ -1493,9 +1666,13 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         + "|" + std::to_string(applyTransparencyKey ? 1 : 0)
         + "|" + std::to_string(static_cast<int>(paletteId))
         + "|" + (paletteWorldId.empty() ? std::string() : normalizeWorldId(paletteWorldId));
-    const auto cachedPixelsIt = bitmapLoadCache.pixelsByKey.find(cacheKey);
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelCache =
+        bitmapPixelsByKey(bitmapLoadCache);
+    std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &binaryFileCache =
+        bitmapBinaryFilesByPath(bitmapLoadCache);
+    const auto cachedPixelsIt = pixelCache.find(cacheKey);
 
-    if (cachedPixelsIt != bitmapLoadCache.pixelsByKey.end())
+    if (cachedPixelsIt != pixelCache.end())
     {
         if (!cachedPixelsIt->second)
         {
@@ -1512,26 +1689,26 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!bitmapPath)
     {
-        bitmapLoadCache.pixelsByKey[cacheKey] = std::nullopt;
+        pixelCache[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
     std::optional<std::vector<uint8_t>> bitmapBytes;
-    const auto cachedFileIt = bitmapLoadCache.binaryFilesByPath.find(*bitmapPath);
+    const auto cachedFileIt = binaryFileCache.find(*bitmapPath);
 
-    if (cachedFileIt != bitmapLoadCache.binaryFilesByPath.end())
+    if (cachedFileIt != binaryFileCache.end())
     {
         bitmapBytes = cachedFileIt->second;
     }
     else
     {
         bitmapBytes = assetFileSystem.readBinaryFile(*bitmapPath);
-        bitmapLoadCache.binaryFilesByPath[*bitmapPath] = bitmapBytes;
+        binaryFileCache[*bitmapPath] = bitmapBytes;
     }
 
     if (!bitmapBytes || bitmapBytes->empty())
     {
-        bitmapLoadCache.pixelsByKey[cacheKey] = std::nullopt;
+        pixelCache[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
@@ -1548,7 +1725,7 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!image)
     {
-        bitmapLoadCache.pixelsByKey[cacheKey] = std::nullopt;
+        pixelCache[cacheKey] = std::nullopt;
         return std::nullopt;
     }
 
@@ -1562,7 +1739,7 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
         if (pixels.empty())
         {
-            bitmapLoadCache.pixelsByKey[cacheKey] = std::nullopt;
+            pixelCache[cacheKey] = std::nullopt;
             return std::nullopt;
         }
 
@@ -1570,8 +1747,118 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         height = forcedTerrainTileSize;
     }
 
-    bitmapLoadCache.pixelsByKey[cacheKey] = BitmapPixelsResult{width, height, pixels};
+    pixelCache[cacheKey] = MapAssetBitmapPixelsResult{width, height, pixels};
     return pixels;
+}
+
+size_t actorTexturePreloadWorkerCount(size_t requestCount)
+{
+    if (requestCount <= 1)
+    {
+        return requestCount;
+    }
+
+    const unsigned int hardwareThreadCount = std::thread::hardware_concurrency();
+    const size_t availableThreadCount = hardwareThreadCount > 1 ? static_cast<size_t>(hardwareThreadCount - 1) : 1;
+    const size_t cappedThreadCount = std::min(availableThreadCount, MaxActorTexturePreloadWorkerCount);
+    return std::min(cappedThreadCount, requestCount);
+}
+
+OutdoorBitmapTexture decodeActorBitmapTextureRequest(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const BitmapTextureRequest &textureRequest,
+    Engine::AssetScaleTier spriteAssetScaleTier,
+    const std::string &worldId,
+    BitmapLoadCache &bitmapLoadCache)
+{
+    int textureWidth = 0;
+    int textureHeight = 0;
+    const std::optional<std::vector<uint8_t>> pixels =
+        loadBitmapPixelsBgra(
+            assetFileSystem,
+            "Data/sprites",
+            textureRequest.textureName,
+            textureWidth,
+            textureHeight,
+            false,
+            true,
+            bitmapLoadCache,
+            textureRequest.paletteId,
+            worldId);
+
+    if (!pixels || textureWidth <= 0 || textureHeight <= 0)
+    {
+        return {};
+    }
+
+    OutdoorBitmapTexture texture = {};
+    texture.textureName = textureRequest.textureName;
+    texture.paletteId = textureRequest.paletteId;
+    texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, spriteAssetScaleTier);
+    texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, spriteAssetScaleTier);
+    texture.physicalWidth = textureWidth;
+    texture.physicalHeight = textureHeight;
+    texture.pixels = *pixels;
+    return texture;
+}
+
+std::shared_ptr<std::vector<OutdoorBitmapTexture>> decodeActorBitmapTextureRequests(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::vector<BitmapTextureRequest> &textureRequests,
+    Engine::AssetScaleTier spriteAssetScaleTier,
+    const std::string &worldId)
+{
+    std::shared_ptr<std::vector<OutdoorBitmapTexture>> pTextures =
+        std::make_shared<std::vector<OutdoorBitmapTexture>>();
+
+    if (textureRequests.empty())
+    {
+        return pTextures;
+    }
+
+    const size_t workerCount = actorTexturePreloadWorkerCount(textureRequests.size());
+    std::vector<std::future<std::vector<OutdoorBitmapTexture>>> futures;
+    futures.reserve(workerCount);
+
+    for (size_t workerIndex = 0; workerIndex < workerCount; ++workerIndex)
+    {
+        futures.push_back(std::async(
+            std::launch::async,
+            [&assetFileSystem, &textureRequests, spriteAssetScaleTier, worldId, workerIndex, workerCount]()
+            {
+                BitmapLoadCache workerBitmapLoadCache = {};
+                std::vector<OutdoorBitmapTexture> textures;
+
+                for (size_t requestIndex = workerIndex; requestIndex < textureRequests.size(); requestIndex += workerCount)
+                {
+                    OutdoorBitmapTexture texture =
+                        decodeActorBitmapTextureRequest(
+                            assetFileSystem,
+                            textureRequests[requestIndex],
+                            spriteAssetScaleTier,
+                            worldId,
+                            workerBitmapLoadCache);
+
+                    if (!texture.pixels.empty() && texture.physicalWidth > 0 && texture.physicalHeight > 0)
+                    {
+                        textures.push_back(std::move(texture));
+                    }
+                }
+
+                return textures;
+            }));
+    }
+
+    for (std::future<std::vector<OutdoorBitmapTexture>> &future : futures)
+    {
+        std::vector<OutdoorBitmapTexture> workerTextures = future.get();
+        pTextures->insert(
+            pTextures->end(),
+            std::make_move_iterator(workerTextures.begin()),
+            std::make_move_iterator(workerTextures.end()));
+    }
+
+    return pTextures;
 }
 
 std::optional<std::vector<uint8_t>> loadTerrainBitmapPixelsBgra(
@@ -1614,12 +1901,14 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::vector<EntityType> &entities,
     BitmapLoadCache &bitmapLoadCache,
-    const MapLoadProgressPump &progressPump
+    const MapLoadProgressPump &progressPump,
+    MapAssetLoadSharedCache *pSharedCache
 )
 {
     DecorationBillboardSet billboardSet = {};
 
-    const std::optional<SpriteFrameTable> spriteFrameTable = loadSpriteFrameTable(assetFileSystem);
+    const std::optional<SpriteFrameTable> spriteFrameTable =
+        loadSpriteFrameTable(assetFileSystem, {}, {}, pSharedCache);
 
     if (!spriteFrameTable)
     {
@@ -1630,7 +1919,7 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
 
     std::vector<std::vector<std::string>> decorationRows;
 
-    if (!loadDecorationRows(assetFileSystem, decorationRows)
+    if (!loadDecorationRows(assetFileSystem, decorationRows, pSharedCache)
         || !billboardSet.decorationTable.loadRows(decorationRows))
     {
         return std::nullopt;
@@ -1735,14 +2024,15 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
 template <typename EntityType>
 std::optional<OutdoorDecorationCollisionSet> buildOutdoorDecorationCollisionSet(
     const Engine::AssetFileSystem &assetFileSystem,
-    const std::vector<EntityType> &entities
+    const std::vector<EntityType> &entities,
+    MapAssetLoadSharedCache *pSharedCache
 )
 {
     DecorationTable decorationTable;
 
     std::vector<std::vector<std::string>> decorationRows;
 
-    if (!loadDecorationRows(assetFileSystem, decorationRows)
+    if (!loadDecorationRows(assetFileSystem, decorationRows, pSharedCache)
         || !decorationTable.loadRows(decorationRows))
     {
         return std::nullopt;
@@ -1912,11 +2202,17 @@ std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const OutdoorMapData &outdoorMapData,
     BitmapLoadCache &bitmapLoadCache,
-    const MapLoadProgressPump &progressPump
+    const MapLoadProgressPump &progressPump,
+    MapAssetLoadSharedCache *pSharedCache
 )
 {
     std::optional<DecorationBillboardSet> billboardSet =
-        buildDecorationBillboardSet(assetFileSystem, outdoorMapData.entities, bitmapLoadCache, progressPump);
+        buildDecorationBillboardSet(
+            assetFileSystem,
+            outdoorMapData.entities,
+            bitmapLoadCache,
+            progressPump,
+            pSharedCache);
 
     if (!billboardSet)
     {
@@ -1946,11 +2242,17 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const IndoorMapData &indoorMapData,
     BitmapLoadCache &bitmapLoadCache,
-    const MapLoadProgressPump &progressPump
+    const MapLoadProgressPump &progressPump,
+    MapAssetLoadSharedCache *pSharedCache
 )
 {
     std::optional<DecorationBillboardSet> billboardSet =
-        buildDecorationBillboardSet(assetFileSystem, indoorMapData.entities, bitmapLoadCache, progressPump);
+        buildDecorationBillboardSet(
+            assetFileSystem,
+            indoorMapData.entities,
+            bitmapLoadCache,
+            progressPump,
+            pSharedCache);
 
     if (!billboardSet)
     {
@@ -1988,7 +2290,8 @@ std::optional<SpriteObjectBillboardSet> buildSpriteObjectBillboardSet(
     const ObjectTable &objectTable,
     const std::optional<MapDeltaData> &mapDeltaData,
     BitmapLoadCache &bitmapLoadCache,
-    const MapLoadProgressPump &progressPump
+    const MapLoadProgressPump &progressPump,
+    MapAssetLoadSharedCache *pSharedCache
 )
 {
     if (!mapDeltaData || mapDeltaData->spriteObjects.empty())
@@ -1998,7 +2301,8 @@ std::optional<SpriteObjectBillboardSet> buildSpriteObjectBillboardSet(
 
     SpriteObjectBillboardSet billboardSet = {};
 
-    const std::optional<SpriteFrameTable> spriteFrameTable = loadSpriteFrameTable(assetFileSystem);
+    const std::optional<SpriteFrameTable> spriteFrameTable =
+        loadSpriteFrameTable(assetFileSystem, {}, {}, pSharedCache);
 
     if (!spriteFrameTable)
     {
@@ -2557,7 +2861,8 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
     BitmapLoadCache &bitmapLoadCache,
     const OutdoorMapData *pOutdoorMapData = nullptr,
     bool decodeTextures = true,
-    const MapLoadProgressPump &progressPump = {}
+    const MapLoadProgressPump &progressPump = {},
+    MapAssetLoadSharedCache *pSharedCache = nullptr
 )
 {
     ActorPreviewBillboardSet billboardSet = {};
@@ -2586,7 +2891,11 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
         monsterTable);
 
     const std::optional<SpriteFrameTable> spriteFrameTable =
-        loadSpriteFrameTable(assetFileSystem, neededMonsterFamilies, neededWorldPrefixedMonsterSpriteNames);
+        loadSpriteFrameTable(
+            assetFileSystem,
+            neededMonsterFamilies,
+            neededWorldPrefixedMonsterSpriteNames,
+            pSharedCache);
 
     if (!spriteFrameTable)
     {
@@ -2617,36 +2926,39 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
         for (const BitmapTextureRequest &textureRequest : textureRequests)
         {
             pumpMapLoadProgress(progressPump);
-            int textureWidth = 0;
-            int textureHeight = 0;
-            const std::optional<std::vector<uint8_t>> pixels =
-                loadBitmapPixelsBgra(
+            OutdoorBitmapTexture texture =
+                decodeActorBitmapTextureRequest(
                     assetFileSystem,
-                    "Data/sprites",
-                    textureRequest.textureName,
-                    textureWidth,
-                    textureHeight,
-                    false,
-                    true,
-                    bitmapLoadCache,
-                    textureRequest.paletteId,
-                    map.worldId);
+                    textureRequest,
+                    spriteAssetScaleTier,
+                    map.worldId,
+                    bitmapLoadCache);
 
-            if (!pixels || textureWidth <= 0 || textureHeight <= 0)
+            if (texture.pixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
             {
                 continue;
             }
 
-            OutdoorBitmapTexture texture = {};
-            texture.textureName = textureRequest.textureName;
-            texture.paletteId = textureRequest.paletteId;
-            texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, spriteAssetScaleTier);
-            texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, spriteAssetScaleTier);
-            texture.physicalWidth = textureWidth;
-            texture.physicalHeight = textureHeight;
-            texture.pixels = *pixels;
             billboardSet.textures.push_back(std::move(texture));
         }
+    }
+    else if (!textureRequests.empty())
+    {
+        const Engine::AssetScaleTier spriteAssetScaleTier =
+            assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Sprites);
+        const std::vector<BitmapTextureRequest> asyncTextureRequests = textureRequests;
+        const std::string worldId = map.worldId;
+        billboardSet.texturePreloadFuture =
+            std::async(
+                std::launch::async,
+                [&assetFileSystem, asyncTextureRequests, spriteAssetScaleTier, worldId]()
+                {
+                    return decodeActorBitmapTextureRequests(
+                        assetFileSystem,
+                        asyncTextureRequests,
+                        spriteAssetScaleTier,
+                        worldId);
+                }).share();
     }
 
     for (const ActorPreviewBillboard &billboard : billboardSet.billboards)
@@ -3356,10 +3668,12 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
     const ObjectTable &objectTable,
     MapLoadPurpose purpose,
     const MapCompanionLoadOptions &companionLoadOptions,
-    const MapLoadProgressPump &progressPump
+    const MapLoadProgressPump &progressPump,
+    MapAssetLoadSharedCache *pSharedCache
 ) const
 {
     BitmapLoadCache bitmapLoadCache = {};
+    bitmapLoadCache.pSharedCache = pSharedCache;
     MapLoadTimingLogger timingLogger(map.fileName);
     auto logStageComplete = [&progressPump, &timingLogger](const std::string &stageName)
     {
@@ -3464,9 +3778,9 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 
     if (loadRenderSurfaces)
     {
-        textureFrameTable = loadTextureFrameTable(assetFileSystem);
+        textureFrameTable = loadTextureFrameTable(assetFileSystem, pSharedCache);
         logStageComplete("texture frame table loaded");
-        surfaceMaterialTable = loadSurfaceMaterialTable(assetFileSystem);
+        surfaceMaterialTable = loadSurfaceMaterialTable(assetFileSystem, pSharedCache);
         logStageComplete("surface materials loaded");
     }
 
@@ -3553,6 +3867,24 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 std::cerr << "Failed to apply outdoor terrain tile flags for " << map.fileName << '\n';
             }
 
+            if (loadActorPreviews)
+            {
+                assetInfo.outdoorActorPreviewBillboardSet =
+                    buildActorPreviewBillboardSet(
+                        assetFileSystem,
+                        map,
+                        monsterTable,
+                        assetInfo.outdoorMapDeltaData,
+                        assetInfo.outdoorMapData->spawns,
+                        bitmapLoadCache,
+                        &*assetInfo.outdoorMapData,
+                        purpose != MapLoadPurpose::FullGameplay,
+                        progressPump,
+                        pSharedCache
+                    );
+                logStageComplete("outdoor actor previews built");
+            }
+
             if (loadRenderSurfaces)
             {
                 assetInfo.outdoorLandMask = buildOutdoorLandMask(assetFileSystem, *assetInfo.outdoorMapData);
@@ -3581,7 +3913,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
             if (loadFullPresentation)
             {
                 assetInfo.outdoorDecorationCollisionSet =
-                    buildOutdoorDecorationCollisionSet(assetFileSystem, assetInfo.outdoorMapData->entities);
+                    buildOutdoorDecorationCollisionSet(
+                        assetFileSystem,
+                        assetInfo.outdoorMapData->entities,
+                        pSharedCache);
                 logStageComplete("outdoor decoration collisions built");
                 assetInfo.outdoorActorCollisionSet =
                     buildOutdoorActorCollisionSet(
@@ -3604,25 +3939,9 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         *assetInfo.outdoorMapData,
                         bitmapLoadCache,
-                        progressPump);
+                        progressPump,
+                        pSharedCache);
                 logStageComplete("outdoor decoration billboards built");
-            }
-
-            if (loadActorPreviews)
-            {
-                assetInfo.outdoorActorPreviewBillboardSet =
-                    buildActorPreviewBillboardSet(
-                        assetFileSystem,
-                        map,
-                        monsterTable,
-                        assetInfo.outdoorMapDeltaData,
-                        assetInfo.outdoorMapData->spawns,
-                        bitmapLoadCache,
-                        &*assetInfo.outdoorMapData,
-                        purpose != MapLoadPurpose::FullGameplay,
-                        progressPump
-                    );
-                logStageComplete("outdoor actor previews built");
             }
 
             if (loadSpriteObjectBillboards)
@@ -3633,7 +3952,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         objectTable,
                         assetInfo.outdoorMapDeltaData,
                         bitmapLoadCache,
-                        progressPump
+                        progressPump,
+                        pSharedCache
                     );
                 logStageComplete("outdoor sprite objects built");
             }
@@ -3775,7 +4095,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         *assetInfo.indoorMapData,
                         bitmapLoadCache,
-                        progressPump);
+                        progressPump,
+                        pSharedCache);
                 logStageComplete("indoor decoration billboards built");
             }
 
@@ -3791,7 +4112,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         bitmapLoadCache,
                         nullptr,
                         true,
-                        progressPump
+                        progressPump,
+                        pSharedCache
                     );
                 logStageComplete("indoor actor previews built");
             }
@@ -3804,7 +4126,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         objectTable,
                         assetInfo.indoorMapDeltaData,
                         bitmapLoadCache,
-                        progressPump
+                        progressPump,
+                        pSharedCache
                     );
                 logStageComplete("indoor sprite objects built");
             }

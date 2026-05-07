@@ -18,8 +18,10 @@ extern "C"
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -622,12 +624,14 @@ void GameAudioSystem::shutdown()
     m_activeGroupInstanceIds.clear();
     m_activeSpeechInstanceIds.clear();
     m_activeNonResettableSoundInstanceIds.clear();
+    m_pendingMusicDecodeJob.reset();
     m_loadedMusicClipKeys.clear();
     m_activeMusicTrack = 0;
     m_pendingMusicTrack = 0;
     m_activeMusicInstanceId = 0;
     m_activeMusicVolume = 0.0f;
     m_musicFadeVelocity = 0.0f;
+    m_pendingMusicDecodeDelaySeconds = 0.0f;
     m_backgroundMusicPaused = false;
     m_soundVolume = 1.0f;
     m_musicVolume = 1.0f;
@@ -642,6 +646,8 @@ void GameAudioSystem::shutdown()
 
 void GameAudioSystem::update(float listenerX, float listenerY, float listenerZ, float deltaSeconds)
 {
+    updatePendingBackgroundMusicDecode();
+
     const float musicTargetVolume = targetMusicVolume();
 
     if (m_activeMusicInstanceId != 0 && !m_audioSystem.isClipPlaying(m_activeMusicInstanceId))
@@ -650,6 +656,31 @@ void GameAudioSystem::update(float listenerX, float listenerY, float listenerZ, 
         m_activeMusicTrack = 0;
         m_activeMusicVolume = 0.0f;
         m_backgroundMusicPaused = false;
+    }
+
+    if (!m_backgroundMusicPaused && m_activeMusicInstanceId == 0 && m_pendingMusicTrack > 0)
+    {
+        const int nextTrack = m_pendingMusicTrack;
+
+        if (isBackgroundMusicTrackLoaded(nextTrack))
+        {
+            m_pendingMusicTrack = 0;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+            startBackgroundMusicTrack(nextTrack);
+        }
+        else
+        {
+            if (m_pendingMusicDecodeDelaySeconds > 0.0f)
+            {
+                m_pendingMusicDecodeDelaySeconds =
+                    std::max(0.0f, m_pendingMusicDecodeDelaySeconds - std::max(deltaSeconds, 0.0f));
+            }
+
+            if (m_pendingMusicDecodeDelaySeconds <= 0.0f)
+            {
+                queueBackgroundMusicTrackDecode(nextTrack);
+            }
+        }
     }
 
     if (!m_backgroundMusicPaused && m_activeMusicInstanceId != 0 && m_musicFadeVelocity != 0.0f)
@@ -669,8 +700,20 @@ void GameAudioSystem::update(float listenerX, float listenerY, float listenerZ, 
             if (m_pendingMusicTrack > 0)
             {
                 const int nextTrack = m_pendingMusicTrack;
-                m_pendingMusicTrack = 0;
-                startBackgroundMusicTrack(nextTrack);
+
+                if (isBackgroundMusicTrackLoaded(nextTrack))
+                {
+                    m_pendingMusicTrack = 0;
+                    m_pendingMusicDecodeDelaySeconds = 0.0f;
+                    startBackgroundMusicTrack(nextTrack);
+                }
+                else
+                {
+                    if (m_pendingMusicDecodeDelaySeconds <= 0.0f)
+                    {
+                        queueBackgroundMusicTrackDecode(nextTrack);
+                    }
+                }
             }
         }
         else if (m_activeMusicVolume >= musicTargetVolume && m_musicFadeVelocity > 0.0f)
@@ -1256,6 +1299,7 @@ void GameAudioSystem::setBackgroundMusicTrack(int redbookTrack)
 
     if (m_backgroundMusicPaused && m_activeMusicTrack == normalizedTrack && m_activeMusicInstanceId != 0)
     {
+        m_pendingMusicDecodeDelaySeconds = 0.0f;
         resumeBackgroundMusic();
         return;
     }
@@ -1263,6 +1307,7 @@ void GameAudioSystem::setBackgroundMusicTrack(int redbookTrack)
     if (m_activeMusicTrack == normalizedTrack && m_activeMusicInstanceId != 0)
     {
         m_pendingMusicTrack = 0;
+        m_pendingMusicDecodeDelaySeconds = 0.0f;
         m_musicFadeVelocity = MusicFadeInSeconds > 0.0f ? (MusicVolume / MusicFadeInSeconds) : 0.0f;
         m_backgroundMusicPaused = false;
         return;
@@ -1270,11 +1315,27 @@ void GameAudioSystem::setBackgroundMusicTrack(int redbookTrack)
 
     if (m_activeMusicInstanceId == 0)
     {
-        startBackgroundMusicTrack(normalizedTrack);
+        if (isBackgroundMusicTrackLoaded(normalizedTrack))
+        {
+            startBackgroundMusicTrack(normalizedTrack);
+        }
+        else
+        {
+            m_pendingMusicTrack = normalizedTrack;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+            queueBackgroundMusicTrackDecode(normalizedTrack);
+        }
         return;
     }
 
     m_pendingMusicTrack = normalizedTrack;
+    m_pendingMusicDecodeDelaySeconds = 0.0f;
+
+    if (!isBackgroundMusicTrackLoaded(normalizedTrack))
+    {
+        queueBackgroundMusicTrackDecode(normalizedTrack);
+    }
+
     m_musicFadeVelocity = MusicFadeOutSeconds > 0.0f ? (-MusicVolume / MusicFadeOutSeconds) : -MusicVolume;
 }
 
@@ -1288,6 +1349,7 @@ void GameAudioSystem::stopBackgroundMusic()
     }
 
     m_pendingMusicTrack = 0;
+    m_pendingMusicDecodeDelaySeconds = 0.0f;
     m_backgroundMusicPaused = false;
 
     if (m_activeMusicInstanceId == 0)
@@ -1368,6 +1430,110 @@ int GameAudioSystem::currentBackgroundMusicTrack() const
 bool GameAudioSystem::isBackgroundMusicPaused() const
 {
     return m_backgroundMusicPaused;
+}
+
+bool GameAudioSystem::isBackgroundMusicTrackLoaded(int redbookTrack) const
+{
+    return m_loadedMusicClipKeys.find(redbookTrack) != m_loadedMusicClipKeys.end();
+}
+
+bool GameAudioSystem::queueBackgroundMusicTrackDecode(int redbookTrack)
+{
+    if (m_pAssetFileSystem == nullptr || redbookTrack <= 0 || isBackgroundMusicTrackLoaded(redbookTrack))
+    {
+        return false;
+    }
+
+    if (m_pendingMusicDecodeJob && m_pendingMusicDecodeJob->redbookTrack == redbookTrack)
+    {
+        return true;
+    }
+
+    if (m_pendingMusicDecodeJob)
+    {
+        return false;
+    }
+
+    const std::string virtualPath = "Music/" + std::to_string(redbookTrack) + ".mp3";
+    std::optional<std::vector<uint8_t>> musicBytes = m_pAssetFileSystem->readBinaryFile(virtualPath);
+
+    if (!musicBytes || musicBytes->empty())
+    {
+        std::cerr << "GameAudioSystem: missing music track " << virtualPath << '\n';
+        return false;
+    }
+
+    PendingMusicDecodeJob job = {};
+    job.redbookTrack = redbookTrack;
+    job.clipKey = "music_track_" + std::to_string(redbookTrack);
+    job.samplesFuture = std::async(
+        std::launch::async,
+        [bytes = std::move(*musicBytes)]() -> std::vector<float>
+        {
+            std::vector<float> decodedSamples;
+
+            if (!decodeAudioSamplesFromBytes(bytes, decodedSamples))
+            {
+                decodedSamples.clear();
+            }
+
+            return decodedSamples;
+        });
+    m_pendingMusicDecodeJob = std::move(job);
+    return true;
+}
+
+void GameAudioSystem::updatePendingBackgroundMusicDecode()
+{
+    if (!m_pendingMusicDecodeJob)
+    {
+        return;
+    }
+
+    if (m_pendingMusicDecodeJob->samplesFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    {
+        return;
+    }
+
+    const int redbookTrack = m_pendingMusicDecodeJob->redbookTrack;
+    const std::string clipKey = m_pendingMusicDecodeJob->clipKey;
+    std::vector<float> decodedSamples = m_pendingMusicDecodeJob->samplesFuture.get();
+    m_pendingMusicDecodeJob.reset();
+
+    if (decodedSamples.empty())
+    {
+        std::cerr << "GameAudioSystem: failed to decode music track Music/" << redbookTrack << ".mp3\n";
+
+        if (m_pendingMusicTrack == redbookTrack)
+        {
+            m_pendingMusicTrack = 0;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+        }
+
+        return;
+    }
+
+    if (!m_audioSystem.registerClip(clipKey, std::move(decodedSamples)))
+    {
+        std::cerr << "GameAudioSystem: failed to register decoded music clip " << clipKey << '\n';
+
+        if (m_pendingMusicTrack == redbookTrack)
+        {
+            m_pendingMusicTrack = 0;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+        }
+
+        return;
+    }
+
+    m_loadedMusicClipKeys[redbookTrack] = clipKey;
+
+    if (m_pendingMusicTrack == redbookTrack && m_activeMusicInstanceId == 0 && !m_backgroundMusicPaused)
+    {
+        m_pendingMusicTrack = 0;
+        m_pendingMusicDecodeDelaySeconds = 0.0f;
+        startBackgroundMusicTrack(redbookTrack);
+    }
 }
 
 bool GameAudioSystem::ensureBackgroundMusicTrackLoaded(int redbookTrack)

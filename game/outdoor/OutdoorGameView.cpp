@@ -73,6 +73,62 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+double millisecondsFromNanoseconds(uint64_t nanoseconds)
+{
+    return static_cast<double>(nanoseconds) / 1000000.0;
+}
+
+bool mapLoadTimingEnabled()
+{
+    const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
+    return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
+}
+
+class OutdoorViewLoadTimingLogger
+{
+public:
+    explicit OutdoorViewLoadTimingLogger(const std::string &mapFileName)
+        : m_enabled(mapLoadTimingEnabled())
+        , m_mapFileName(mapFileName)
+        , m_startTickNanoseconds(SDL_GetTicksNS())
+        , m_lastTickNanoseconds(m_startTickNanoseconds)
+    {
+        if (m_enabled)
+        {
+            std::cerr
+                << "[MapLoadTiming] map=" << m_mapFileName
+                << " begin=outdoor_view_initialize\n";
+        }
+    }
+
+    void stage(const std::string &stageName)
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const uint64_t nowNanoseconds = SDL_GetTicksNS();
+        const uint64_t stageNanoseconds = nowNanoseconds - m_lastTickNanoseconds;
+        const uint64_t totalNanoseconds = nowNanoseconds - m_startTickNanoseconds;
+        m_lastTickNanoseconds = nowNanoseconds;
+
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " scope=outdoor_view_initialize"
+            << " stage=\"" << stageName << "\""
+            << " delta_ms=" << millisecondsFromNanoseconds(stageNanoseconds)
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
+    }
+
+private:
+    bool m_enabled = false;
+    std::string m_mapFileName;
+    uint64_t m_startTickNanoseconds = 0;
+    uint64_t m_lastTickNanoseconds = 0;
+};
+
 std::string engineDataTablePath(std::string_view fileName)
 {
     return "engine/data_tables/" + std::string(fileName);
@@ -536,19 +592,19 @@ constexpr float OeMeleeAlertDistance = 307.2f;
 constexpr float OeYellowAlertDistance = 5120.0f;
 constexpr float OutdoorWalkableNormalZ = 0.70710678f;
 constexpr float OutdoorMaxStepHeight = 128.0f;
-constexpr size_t PreloadDecodeWorkerCount = 4;
 constexpr uint64_t BillboardAlphaRenderState =
     BGFX_STATE_WRITE_RGB
     | BGFX_STATE_WRITE_A
     | BGFX_STATE_DEPTH_TEST_LEQUAL
     | BGFX_STATE_BLEND_ALPHA;
 constexpr bool DebugSpritePreloadLogging = false;
-constexpr bool DebugActorRenderHitchLogging = false;
 constexpr std::string_view PartyStartDecorationName = "party start";
 constexpr float HudReferenceWidth = 640.0f;
 constexpr float HudReferenceHeight = 480.0f;
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
+constexpr uint64_t OutdoorFrameTimingWindowNanoseconds = 3ULL * 1000ULL * 1000ULL * 1000ULL;
+constexpr uint64_t OutdoorFrameTimingLogThresholdNanoseconds = 8ULL * 1000ULL * 1000ULL;
 
 std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
 {
@@ -1763,39 +1819,6 @@ uint32_t currentDialogueHostHouseId(const EventRuntimeState *pEventRuntimeState)
     return pEventRuntimeState != nullptr ? pEventRuntimeState->dialogueState.hostHouseId : 0;
 }
 
-std::vector<std::string> collectRelevantHouseVideoStemsForMap(
-    uint32_t mapId,
-    const std::optional<ScriptedEventProgram> &localProgram,
-    const std::optional<ScriptedEventProgram> &globalProgram,
-    const HouseTable &houseTable)
-{
-    static_cast<void>(localProgram);
-    static_cast<void>(globalProgram);
-
-    std::unordered_set<std::string> seenVideoStems;
-    std::vector<std::string> videoStems;
-
-    for (const auto &[houseId, houseEntry] : houseTable.entries())
-    {
-        (void)houseId;
-
-        if (houseEntry.mapId != mapId || houseEntry.videoName.empty())
-        {
-            continue;
-        }
-
-        if (!seenVideoStems.insert(houseEntry.videoName).second)
-        {
-            continue;
-        }
-
-        videoStems.push_back(houseEntry.videoName);
-    }
-
-    std::sort(videoStems.begin(), videoStems.end());
-    return videoStems;
-}
-
 uint32_t makeAbgrColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)
 {
     return static_cast<uint32_t>(alpha) << 24
@@ -2724,6 +2747,21 @@ std::filesystem::path getShaderPath(bgfx::RendererType::Enum rendererType, const
     return {};
 }
 
+bool hasOutdoorCameraMotionInput(const GameplayInputFrame &input)
+{
+    return input.relativeMouseX != 0.0f
+        || input.relativeMouseY != 0.0f
+        || input.action(KeyboardAction::Forward).held
+        || input.action(KeyboardAction::Backward).held
+        || input.action(KeyboardAction::Left).held
+        || input.action(KeyboardAction::Right).held
+        || input.action(KeyboardAction::Jump).held
+        || input.action(KeyboardAction::LookUp).held
+        || input.action(KeyboardAction::LookDown).held
+        || input.action(KeyboardAction::FlyUp).held
+        || input.action(KeyboardAction::FlyDown).held;
+}
+
 std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 {
     std::ifstream inputStream(path, std::ios::binary);
@@ -2827,6 +2865,8 @@ OutdoorGameView::OutdoorGameView(GameSession &gameSession)
     , m_pGameAudioSystem(nullptr)
     , m_nextPendingSpriteFrameWarmupIndex(0)
     , m_runtimeActorBillboardTexturesQueuedCount(0)
+    , m_renderableStartTickNanoseconds(0)
+    , m_renderFrameIndex(0)
     , m_lastFootstepX(0.0f)
     , m_lastFootstepY(0.0f)
     , m_hasLastFootstepPosition(false)
@@ -2864,6 +2904,7 @@ bool OutdoorGameView::initialize(
         const GameSettings &settings)
 {
     shutdown();
+    OutdoorViewLoadTimingLogger timingLogger(map.fileName);
     const GameDataRepository &data = m_gameSession.data();
 
     m_isInitialized = true;
@@ -2888,6 +2929,7 @@ bool OutdoorGameView::initialize(
     m_gameSession.gameplayScreenRuntime().bindSettings(&m_gameSettings);
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
     EventRuntimeState *pMutableEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState();
+    timingLogger.stage("view state assigned");
 
     if (pMutableEventRuntimeState != nullptr && m_pOutdoorPartyRuntime != nullptr)
     {
@@ -2909,6 +2951,7 @@ bool OutdoorGameView::initialize(
                 .pSpellTable = &data.spellTable(),
             });
     }
+    timingLogger.stage("mercenary recruitment refreshed");
 
     const EventRuntimeState *pEventRuntimeState = pMutableEventRuntimeState;
     screenRuntime.resetOverlayInteractionState(
@@ -2922,11 +2965,16 @@ bool OutdoorGameView::initialize(
                         ? m_pOutdoorPartyRuntime->party().members().size()
                         : 0,
                 .initializeHouseVideoPlayer = true,
+                .preloadReferencedAssets = false,
             });
+    timingLogger.stage("shared ui runtime initialized");
 
     OutdoorInteractionController::rebuildInteractiveDecorationBindings(*this);
+    timingLogger.stage("interactive decoration bindings rebuilt");
     OutdoorInteractionController::seedInteractiveDecorationRuntimeStateIfNeeded(*this);
+    timingLogger.stage("interactive decoration runtime seeded");
     OutdoorInteractionController::buildDecorationBillboardSpatialIndex(*this);
+    timingLogger.stage("decoration billboard spatial index built");
 
     const int centerGridX = OutdoorMapData::TerrainWidth / 2;
     const int centerGridY = OutdoorMapData::TerrainHeight / 2;
@@ -2966,9 +3014,11 @@ bool OutdoorGameView::initialize(
     m_cameraPitchRadians = -0.15f;
     m_cameraDistance = 0.0f;
     m_cameraOrthoScale = 1.2f;
+    timingLogger.stage("party start resolved");
 
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
     {
+        timingLogger.stage("noop renderer view initialized");
         return true;
     }
 
@@ -2981,9 +3031,12 @@ bool OutdoorGameView::initialize(
     {
         return false;
     }
+    timingLogger.stage("world render resources initialized");
 
     OutdoorBillboardRenderer::initializeBillboardResources(*this);
+    timingLogger.stage("billboard resources initialized");
     ParticleRenderer::initializeResources(m_worldFxRenderResources);
+    timingLogger.stage("particle resources initialized");
 
     if (!sharedUiBootstrap.layoutsLoaded)
     {
@@ -3007,6 +3060,7 @@ bool OutdoorGameView::initialize(
     m_spellAreaPreviewParams1UniformHandle = bgfx::createUniform("u_spellAreaParams1", bgfx::UniformType::Vec4);
     m_spellAreaPreviewColorAUniformHandle = bgfx::createUniform("u_spellAreaColorA", bgfx::UniformType::Vec4);
     m_spellAreaPreviewColorBUniformHandle = bgfx::createUniform("u_spellAreaColorB", bgfx::UniformType::Vec4);
+    timingLogger.stage("outdoor uniforms created");
 
     if (!bgfx::isValid(m_vertexBufferHandle)
         || !bgfx::isValid(m_indexBufferHandle)
@@ -3031,22 +3085,10 @@ bool OutdoorGameView::initialize(
         return false;
     }
 
-    const std::vector<std::string> relevantHouseVideoStems = collectRelevantHouseVideoStemsForMap(
-        m_pOutdoorWorldRuntime != nullptr ? static_cast<uint32_t>(m_pOutdoorWorldRuntime->mapId()) : 0,
-        m_pOutdoorSceneRuntime != nullptr
-            ? m_pOutdoorSceneRuntime->localEventProgram()
-            : std::nullopt,
-        m_pOutdoorSceneRuntime != nullptr
-            ? m_pOutdoorSceneRuntime->globalEventProgram()
-            : std::nullopt,
-        m_gameSession.data().houseTable());
-
-    for (const std::string &videoStem : relevantHouseVideoStems)
-    {
-        screenRuntime.queueBackgroundHouseVideoPreload(videoStem);
-    }
-
     m_isRenderable = true;
+    m_renderableStartTickNanoseconds = SDL_GetTicksNS();
+    m_renderFrameIndex = 0;
+    timingLogger.stage("outdoor view initialize complete");
     return true;
 }
 
@@ -3206,13 +3248,67 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
 
     const GameplayUiController::SaveGameScreenState &saveGameScreen = overlayContext.saveGameScreenState();
     const GameplayUiController::LoadGameScreenState &loadGameScreen = overlayContext.loadGameScreenState();
+    const uint64_t frameIndex = ++m_renderFrameIndex;
+    const bool frameTimingEnabled =
+        mapLoadTimingEnabled()
+        && m_renderableStartTickNanoseconds != 0
+        && SDL_GetTicksNS() - m_renderableStartTickNanoseconds <= OutdoorFrameTimingWindowNanoseconds;
+    const uint64_t frameStartTickNanoseconds = frameTimingEnabled ? SDL_GetTicksNS() : 0;
+    uint64_t stageStartTickNanoseconds = frameStartTickNanoseconds;
+    uint64_t overlayStageNanoseconds = 0;
+    uint64_t spriteWarmupStageNanoseconds = 0;
+    uint64_t matrixStageNanoseconds = 0;
+    uint64_t fxStageNanoseconds = 0;
+    uint64_t worldRenderStageNanoseconds = 0;
+    uint64_t audioStageNanoseconds = 0;
+    const auto captureFrameTimingStage =
+        [&](uint64_t &stageNanoseconds)
+        {
+            if (!frameTimingEnabled)
+            {
+                return;
+            }
+
+            const uint64_t nowNanoseconds = SDL_GetTicksNS();
+            stageNanoseconds += nowNanoseconds - stageStartTickNanoseconds;
+            stageStartTickNanoseconds = nowNanoseconds;
+        };
 
     updateHouseVideoPlayback(deltaSeconds);
     updateItemInspectOverlayState(width, height, input);
     updateActorInspectOverlayState(width, height, input);
+    captureFrameTimingStage(overlayStageNanoseconds);
 
+    const bool cameraMotionInput = hasOutdoorCameraMotionInput(input);
+    const size_t pendingSpriteWarmupsBefore =
+        m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size()
+            ? m_pendingSpriteFrameWarmups.size() - m_nextPendingSpriteFrameWarmupIndex
+            : 0;
+    const size_t pendingActorTextureUploadsBefore =
+        m_pendingActorPreviewTexturePreload
+            && m_nextPendingActorPreviewTextureUploadIndex < m_pendingActorPreviewTexturePreload->size()
+            ? m_pendingActorPreviewTexturePreload->size() - m_nextPendingActorPreviewTextureUploadIndex
+            : 0;
     OutdoorBillboardRenderer::queueRuntimeActorBillboardTextureWarmup(*this);
-    OutdoorBillboardRenderer::processPendingSpriteFrameWarmups(*this, 1);
+    const bool processSpriteWarmupsThisFrame = !cameraMotionInput;
+    OutdoorBillboardRenderer::processActorPreviewTexturePreload(*this, 1);
+
+    if (processSpriteWarmupsThisFrame)
+    {
+        OutdoorBillboardRenderer::processActorPreviewTexturePreload(*this, 2);
+        OutdoorBillboardRenderer::processPendingSpriteFrameWarmups(*this, 1);
+    }
+
+    const size_t pendingSpriteWarmupsAfter =
+        m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size()
+            ? m_pendingSpriteFrameWarmups.size() - m_nextPendingSpriteFrameWarmupIndex
+            : 0;
+    const size_t pendingActorTextureUploadsAfter =
+        m_pendingActorPreviewTexturePreload
+            && m_nextPendingActorPreviewTextureUploadIndex < m_pendingActorPreviewTexturePreload->size()
+            ? m_pendingActorPreviewTexturePreload->size() - m_nextPendingActorPreviewTextureUploadIndex
+            : 0;
+    captureFrameTimingStage(spriteWarmupStageNanoseconds);
 
     const float wireframeAspectRatio = static_cast<float>(viewWidth) / static_cast<float>(viewHeight);
 
@@ -3260,6 +3356,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     bgfx::touch(SkyViewId);
     bgfx::setViewTransform(MainViewId, wireframeViewMatrix, wireframeProjectionMatrix);
     bgfx::touch(MainViewId);
+    captureFrameTimingStage(matrixStageNanoseconds);
 
     m_worldFxSystem.setShadowsEnabled(m_gameSettings.shadows);
     m_worldFxSystem.updateParticles(deltaSeconds, gameplayMouseLookState.cursorModeActive);
@@ -3270,6 +3367,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
         m_worldFxSystem.syncProjectileFx(m_gameSession, deltaSeconds, refreshSpatialFx);
         m_outdoorSpatialFxRuntime.syncSpatialFx(*this, refreshSpatialFx);
     }
+    captureFrameTimingStage(fxStageNanoseconds);
 
     OutdoorRenderer::renderWorldPasses(
         *this,
@@ -3283,6 +3381,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
         cameraRight,
         cameraUp,
         wireframeViewMatrix);
+    captureFrameTimingStage(worldRenderStageNanoseconds);
 
     if (captureSavePreviewThisFrame)
     {
@@ -3297,6 +3396,37 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
 
     updateFootstepAudio(deltaSeconds);
     consumePendingWorldAudioEvents();
+    captureFrameTimingStage(audioStageNanoseconds);
+
+    if (frameTimingEnabled)
+    {
+        const uint64_t frameTotalNanoseconds = SDL_GetTicksNS() - frameStartTickNanoseconds;
+
+        if (frameTotalNanoseconds >= OutdoorFrameTimingLogThresholdNanoseconds)
+        {
+            const std::string mapFileName = m_map.has_value() ? m_map->fileName : std::string();
+            std::cerr
+                << "[MapLoadTiming] map=" << mapFileName
+                << " scope=outdoor_frame"
+                << " frame=" << frameIndex
+                << " since_renderable_ms="
+                << millisecondsFromNanoseconds(frameStartTickNanoseconds - m_renderableStartTickNanoseconds)
+                << " total_ms=" << millisecondsFromNanoseconds(frameTotalNanoseconds)
+                << " overlay_ms=" << millisecondsFromNanoseconds(overlayStageNanoseconds)
+                << " sprite_warmup_ms=" << millisecondsFromNanoseconds(spriteWarmupStageNanoseconds)
+                << " matrix_ms=" << millisecondsFromNanoseconds(matrixStageNanoseconds)
+                << " fx_ms=" << millisecondsFromNanoseconds(fxStageNanoseconds)
+                << " world_render_ms=" << millisecondsFromNanoseconds(worldRenderStageNanoseconds)
+                << " audio_ms=" << millisecondsFromNanoseconds(audioStageNanoseconds)
+                << " camera_input=" << (cameraMotionInput ? 1 : 0)
+                << " sprite_warmup_processed=" << (processSpriteWarmupsThisFrame ? 1 : 0)
+                << " pending_warmups_before=" << pendingSpriteWarmupsBefore
+                << " pending_warmups_after=" << pendingSpriteWarmupsAfter
+                << " pending_actor_texture_uploads_before=" << pendingActorTextureUploadsBefore
+                << " pending_actor_texture_uploads_after=" << pendingActorTextureUploadsAfter
+                << '\n';
+        }
+    }
 
 }
 

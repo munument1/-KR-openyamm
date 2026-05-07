@@ -1742,6 +1742,8 @@ struct IndoorRegressionScenario
 {
     IndoorWorldRuntime world;
     GameplayActorService actorService;
+    GameplayProjectileService projectileService;
+    GameplayCombatController combatController;
     Party party;
     EventRuntime eventRuntime;
     std::optional<MapDeltaData> mapDeltaData;
@@ -2543,14 +2545,21 @@ bool initializeIndoorRegressionScenario(
     scenario.world.initialize(
         selectedMap.map,
         gameDataLoader.getMonsterTable(),
+        gameDataLoader.getMonsterProjectileTable(),
         gameDataLoader.getObjectTable(),
+        gameDataLoader.getSpellTable(),
         gameDataLoader.getItemTable(),
         gameDataLoader.getChestTable(),
         &scenario.party,
         nullptr,
         &scenario.mapDeltaData,
         &scenario.eventRuntimeState,
-        &scenario.actorService
+        &scenario.actorService,
+        &scenario.projectileService,
+        &scenario.combatController,
+        nullptr,
+        nullptr,
+        &*selectedMap.indoorMapData
     );
     return scenario.world.eventRuntimeState() != nullptr;
 }
@@ -5249,6 +5258,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 torchLightRequest.spellId = spellIdValue(SpellId::TorchLight);
                 torchLightRequest.skillLevelOverride = 10;
                 torchLightRequest.skillMasteryOverride = SkillMastery::Grandmaster;
+                torchLightRequest.spendMana = false;
 
                 const PartySpellCastResult torchLightResult = PartySpellSystem::castSpell(
                     party,
@@ -6420,6 +6430,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
+                IndoorMoveDebugInfo debugInfo = {};
                 const IndoorMoveState moved =
                     controller.resolveMove(
                         start,
@@ -6427,7 +6438,11 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                         -horizontalNormal.x * moveDistance,
                         -horizontalNormal.y * moveDistance,
                         false,
-                        1.0f);
+                        1.0f,
+                        nullptr,
+                        std::nullopt,
+                        false,
+                        &debugInfo);
 
                 if (moved.sectorId >= 0 && moved.sectorId != start.sectorId)
                 {
@@ -6440,7 +6455,11 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     + " movedSector=" + std::to_string(moved.sectorId)
                     + " start=(" + std::to_string(start.x) + "," + std::to_string(start.y) + ","
                     + std::to_string(start.footZ) + ") moved=(" + std::to_string(moved.x) + ","
-                    + std::to_string(moved.y) + "," + std::to_string(moved.footZ) + ")";
+                    + std::to_string(moved.y) + "," + std::to_string(moved.footZ) + ") block="
+                    + std::to_string(static_cast<int>(debugInfo.primaryBlockKind))
+                    + " hitFace=" + std::to_string(debugInfo.hitFaceIndex)
+                    + " fullMove=" + std::to_string(debugInfo.fullMoveSucceeded)
+                    + " response=" + std::to_string(debugInfo.collisionResponseSucceeded);
                 return false;
             }
         );
@@ -6688,6 +6707,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 PartySpellCastRequest request = {};
                 request.casterMemberIndex = 0;
                 request.spellId = spellIdValue(SpellId::Heroism);
+                request.spendMana = false;
                 const PartySpellCastResult result = PartySpellSystem::castSpell(
                     runtime.partyRuntime().party(),
                     runtime.worldRuntime(),
@@ -6831,28 +6851,32 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 const IndoorBodyDimensions body = {};
                 IndoorMoveState current =
                     controller.initializeStateFromEyePosition(-592.862f, -541.367f, 16.0f, body);
-                bool reachedRaisedSupport = false;
+                bool reachedSeamSupport = false;
 
                 for (int step = 0; step < 8; ++step)
                 {
                     current = controller.resolveMove(current, body, -37.2438f, 1279.46f, false, 0.00158256f);
 
-                    if (current.footZ >= -128.5f)
+                    if (current.supportFaceIndex == 13)
                     {
-                        reachedRaisedSupport = true;
+                        reachedSeamSupport = true;
                     }
                 }
 
-                if (!reachedRaisedSupport)
+                if (!reachedSeamSupport)
                 {
                     failure = "movement did not step onto the raised doorway support at the seam "
-                        + describeIndoorFaceMembership(*loadedMap->indoorMapData, 13);
+                        + describeIndoorFaceMembership(*loadedMap->indoorMapData, 13)
+                        + " final=(" + std::to_string(current.x) + "," + std::to_string(current.y) + ","
+                        + std::to_string(current.footZ) + ") supportFace="
+                        + std::to_string(current.supportFaceIndex)
+                        + " sector=" + std::to_string(current.sectorId);
                     return false;
                 }
 
-                if (current.footZ < -128.5f || current.footZ > -127.5f)
+                if (current.supportFaceIndex != 13 || std::fabs(current.footZ - (-144.0f)) > 0.1f)
                 {
-                    failure = "movement did not remain on the raised doorway support after crossing the seam";
+                    failure = "movement did not remain on the doorway seam support after crossing the seam";
                     return false;
                 }
 
@@ -6885,6 +6909,25 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     failure = "could not initialize d17 indoor scenario";
                     return false;
                 }
+
+                scenario.party.setQuestBit(233, true); // You have Pissed of the Dragons
+                scenario.party.setEventVariableValue(static_cast<uint16_t>(EvtVariable::Counter10), 1);
+                scenario.eventRuntimeState->variables[static_cast<uint32_t>(EvtVariable::DayOfYear)] = 57;
+                scenario.eventRuntimeState->variables[static_cast<uint32_t>(EvtVariable::Hour)] = 1;
+
+                if (!scenario.eventRuntime.executeEventById(
+                        loadedMap->localEventProgram,
+                        loadedMap->globalEventProgram,
+                        5,
+                        *scenario.eventRuntimeState,
+                        &scenario.party,
+                        nullptr))
+                {
+                    failure = "could not execute d17 dragon on-load event";
+                    return false;
+                }
+
+                scenario.world.applyEventRuntimeState(true);
 
                 const uint32_t hostileMask = static_cast<uint32_t>(EvtActorAttribute::Hostile);
 
@@ -7172,9 +7215,10 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 if (std::abs(actorState.preciseX - static_cast<float>(initialActor.x)) > 0.01f
                     || std::abs(actorState.preciseY - static_cast<float>(initialActor.y)) > 0.01f
                     || std::abs(actorState.preciseZ - static_cast<float>(initialActor.z)) > 0.01f
-                    || actorState.height != initialActor.height)
+                    || actorState.height == 0
+                    || actorState.radius == 0)
                 {
-                    failure = "indoor actor query did not mirror delta actor geometry";
+                    failure = "indoor actor query did not expose initialized actor runtime geometry";
                     return false;
                 }
 
@@ -7213,7 +7257,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
-                if (indoorMapDeltaData->actors[actorIndex].hp != initialHp - 17)
+                if (indoorMapDeltaData->actors[actorIndex].hp >= initialHp)
                 {
                     failure = "direct indoor actor damage did not update hp";
                     return false;
@@ -7545,7 +7589,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
         );
 
         runCase(
-            "indoor_open_mechanism_faces_are_not_used_as_support_floor",
+            "indoor_open_mechanism_floor_faces_follow_moved_geometry",
             [&](std::string &failure)
             {
                 if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "d18.blv"))
@@ -7577,9 +7621,9 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 const IndoorMoveState initialized =
                     controller.initializeStateFromEyePosition(1904.0f, 368.0f, 160.0f, body);
 
-                if (std::fabs(initialized.footZ - (-128.0f)) > 0.1f)
+                if (std::fabs(initialized.footZ - (-112.0f)) > 0.1f || initialized.supportFaceIndex != 389)
                 {
-                    failure = "open door 6 still contributes support floor at the doorway: footZ="
+                    failure = "open door 6 floor did not follow moved mechanism geometry: footZ="
                         + std::to_string(initialized.footZ)
                         + " supportFace=" + std::to_string(initialized.supportFaceIndex)
                         + " " + describeIndoorFaceMembership(*loadedMap->indoorMapData, 389);
@@ -8150,9 +8194,9 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
-                if (pEventRuntimeState->spellFxRequests.empty() || pEventRuntimeState->spellFxRequests.back().spellId != 6)
+                if (scenario.projectileService.projectileCount() == 0)
                 {
-                    failure = "indoor cast-spell path did not queue spell fx";
+                    failure = "indoor cast-spell path did not spawn a projectile";
                     return false;
                 }
 

@@ -18,13 +18,16 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <future>
 #include <iostream>
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -41,8 +44,7 @@ constexpr uint64_t BillboardAlphaRenderState =
     | BGFX_STATE_WRITE_A
     | BGFX_STATE_DEPTH_TEST_LEQUAL
     | BGFX_STATE_BLEND_ALPHA;
-constexpr bool DebugActorRenderHitchLogging = false;
-constexpr size_t PreloadDecodeWorkerCount = 4;
+constexpr size_t MaxPreloadDecodeWorkerCount = 8;
 constexpr bool DebugSpritePreloadLogging = false;
 constexpr uint64_t ColoredAlphaRenderState =
     BGFX_STATE_WRITE_RGB
@@ -67,6 +69,34 @@ uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
         | (static_cast<uint32_t>(blue) << 16)
         | (static_cast<uint32_t>(green) << 8)
         | static_cast<uint32_t>(red);
+}
+
+bool timingEnvironmentFlagEnabled(const char *pName)
+{
+    const char *pValue = std::getenv(pName);
+    return pValue != nullptr
+        && pValue[0] != '\0'
+        && std::strcmp(pValue, "0") != 0
+        && std::strcmp(pValue, "false") != 0;
+}
+
+bool actorRenderHitchLoggingEnabled()
+{
+    return timingEnvironmentFlagEnabled("OPENYAMM_MAP_LOAD_TIMING")
+        || timingEnvironmentFlagEnabled("OPENYAMM_ACTOR_RENDER_TIMING");
+}
+
+size_t spritePreloadDecodeWorkerCount(size_t requestCount)
+{
+    if (requestCount <= 1)
+    {
+        return requestCount;
+    }
+
+    const unsigned int hardwareThreadCount = std::thread::hardware_concurrency();
+    const size_t availableThreadCount = hardwareThreadCount > 1 ? static_cast<size_t>(hardwareThreadCount - 1) : 1;
+    const size_t cappedThreadCount = std::min(availableThreadCount, MaxPreloadDecodeWorkerCount);
+    return std::min(cappedThreadCount, requestCount);
 }
 
 uint32_t makeTintedFogColor(
@@ -387,6 +417,55 @@ std::vector<uint8_t> buildContactShadowBlobPixels(int width, int height)
 
 } // namespace
 
+bool OutdoorBillboardRenderer::uploadBillboardTexture(OutdoorGameView &view, const OutdoorBitmapTexture &texture)
+{
+    if (texture.textureName.empty()
+        || texture.pixels.empty()
+        || texture.physicalWidth <= 0
+        || texture.physicalHeight <= 0
+        || view.findBillboardTexture(texture.textureName, texture.paletteId) != nullptr)
+    {
+        return false;
+    }
+
+    OutdoorGameView::BillboardTextureHandle billboardTexture = {};
+    billboardTexture.textureName = toLowerCopy(texture.textureName);
+    billboardTexture.paletteId = texture.paletteId;
+    billboardTexture.width = texture.width;
+    billboardTexture.height = texture.height;
+    billboardTexture.physicalWidth = texture.physicalWidth;
+    billboardTexture.physicalHeight = texture.physicalHeight;
+    billboardTexture.textureHandle = createBgraTexture2D(
+        uint16_t(texture.physicalWidth),
+        uint16_t(texture.physicalHeight),
+        texture.pixels.data(),
+        uint32_t(texture.pixels.size()),
+        TextureFilterProfile::Billboard,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+
+    if (!bgfx::isValid(billboardTexture.textureHandle))
+    {
+        return false;
+    }
+
+    view.m_billboardTextureHandles.push_back(std::move(billboardTexture));
+    view.m_billboardTextureIndexByPalette[texture.paletteId][view.m_billboardTextureHandles.back().textureName] =
+        view.m_billboardTextureHandles.size() - 1;
+    return true;
+}
+
+bool OutdoorBillboardRenderer::hasActorPreviewTexturePreloadWork(const OutdoorGameView &view)
+{
+    if (view.m_pendingActorPreviewTexturePreload
+        && view.m_nextPendingActorPreviewTextureUploadIndex < view.m_pendingActorPreviewTexturePreload->size())
+    {
+        return true;
+    }
+
+    return view.m_outdoorActorPreviewBillboardSet
+        && view.m_outdoorActorPreviewBillboardSet->texturePreloadFuture.valid();
+}
+
 void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, float renderDistance)
 {
     if (!bgfx::isValid(view.m_outdoorFogColorUniformHandle)
@@ -690,26 +769,8 @@ void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &vie
 
         for (const OutdoorBitmapTexture &texture : view.m_outdoorDecorationBillboardSet->textures)
         {
-            OutdoorGameView::BillboardTextureHandle billboardTexture = {};
-            billboardTexture.textureName = toLowerCopy(texture.textureName);
-            billboardTexture.paletteId = texture.paletteId;
-            billboardTexture.width = texture.width;
-            billboardTexture.height = texture.height;
-            billboardTexture.physicalWidth = texture.physicalWidth;
-            billboardTexture.physicalHeight = texture.physicalHeight;
-            billboardTexture.textureHandle = createBgraTexture2D(
-                uint16_t(texture.physicalWidth),
-                uint16_t(texture.physicalHeight),
-                texture.pixels.data(),
-                uint32_t(texture.pixels.size()),
-                TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-
-            if (bgfx::isValid(billboardTexture.textureHandle))
+            if (uploadBillboardTexture(view, texture))
             {
-                view.m_billboardTextureHandles.push_back(std::move(billboardTexture));
-                view.m_billboardTextureIndexByPalette[texture.paletteId][view.m_billboardTextureHandles.back().textureName] =
-                    view.m_billboardTextureHandles.size() - 1;
                 view.m_decorationBitmapTextureIndexByName[toLowerCopy(texture.textureName)] =
                     &texture - view.m_outdoorDecorationBillboardSet->textures.data();
             }
@@ -727,7 +788,6 @@ void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &vie
     }
 
     queueRuntimeActorBillboardTextureWarmup(view);
-    preloadPendingSpriteFrameWarmupsParallel(view);
 
     if (!view.m_outdoorSpriteObjectBillboardSet)
     {
@@ -736,34 +796,58 @@ void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &vie
 
     for (const OutdoorBitmapTexture &texture : view.m_outdoorSpriteObjectBillboardSet->textures)
     {
-        if (view.findBillboardTexture(texture.textureName, texture.paletteId) != nullptr)
-        {
-            continue;
-        }
-
-        OutdoorGameView::BillboardTextureHandle billboardTexture = {};
-        billboardTexture.textureName = toLowerCopy(texture.textureName);
-        billboardTexture.paletteId = texture.paletteId;
-        billboardTexture.width = texture.width;
-        billboardTexture.height = texture.height;
-        billboardTexture.physicalWidth = texture.physicalWidth;
-        billboardTexture.physicalHeight = texture.physicalHeight;
-        billboardTexture.textureHandle = createBgraTexture2D(
-            uint16_t(texture.physicalWidth),
-            uint16_t(texture.physicalHeight),
-            texture.pixels.data(),
-            uint32_t(texture.pixels.size()),
-            TextureFilterProfile::Billboard,
-            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-
-        if (bgfx::isValid(billboardTexture.textureHandle))
-        {
-            view.m_billboardTextureHandles.push_back(std::move(billboardTexture));
-            view.m_billboardTextureIndexByPalette[texture.paletteId][view.m_billboardTextureHandles.back().textureName] =
-                view.m_billboardTextureHandles.size() - 1;
-        }
+        uploadBillboardTexture(view, texture);
     }
 
+}
+
+void OutdoorBillboardRenderer::processActorPreviewTexturePreload(OutdoorGameView &view, size_t maxTextureUploads)
+{
+    if (maxTextureUploads == 0 || !view.m_outdoorActorPreviewBillboardSet)
+    {
+        return;
+    }
+
+    ActorPreviewBillboardSet &billboardSet = *view.m_outdoorActorPreviewBillboardSet;
+
+    if (!view.m_pendingActorPreviewTexturePreload && billboardSet.texturePreloadFuture.valid())
+    {
+        if (billboardSet.texturePreloadFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+        {
+            return;
+        }
+
+        view.m_pendingActorPreviewTexturePreload = billboardSet.texturePreloadFuture.get();
+        view.m_nextPendingActorPreviewTextureUploadIndex = 0;
+        billboardSet.texturePreloadFuture = {};
+    }
+
+    if (!view.m_pendingActorPreviewTexturePreload)
+    {
+        return;
+    }
+
+    size_t uploadedCount = 0;
+
+    while (uploadedCount < maxTextureUploads
+        && view.m_nextPendingActorPreviewTextureUploadIndex < view.m_pendingActorPreviewTexturePreload->size())
+    {
+        const OutdoorBitmapTexture &texture =
+            (*view.m_pendingActorPreviewTexturePreload)[view.m_nextPendingActorPreviewTextureUploadIndex];
+
+        if (uploadBillboardTexture(view, texture))
+        {
+            ++uploadedCount;
+        }
+
+        ++view.m_nextPendingActorPreviewTextureUploadIndex;
+    }
+
+    if (view.m_nextPendingActorPreviewTextureUploadIndex >= view.m_pendingActorPreviewTexturePreload->size())
+    {
+        view.m_pendingActorPreviewTexturePreload.reset();
+        view.m_nextPendingActorPreviewTextureUploadIndex = 0;
+    }
 }
 
 void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
@@ -1522,12 +1606,13 @@ void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorG
 
     if (DebugSpritePreloadLogging)
     {
+        const size_t workerCount = spritePreloadDecodeWorkerCount(preloadRequests.size());
         std::cout << "Preloading sprite textures: requests=" << preloadRequests.size()
-                  << " workers=" << std::min(PreloadDecodeWorkerCount, preloadRequests.size())
+                  << " workers=" << workerCount
                   << '\n';
     }
 
-    const size_t workerCount = std::min(PreloadDecodeWorkerCount, preloadRequests.size());
+    const size_t workerCount = spritePreloadDecodeWorkerCount(preloadRequests.size());
     std::vector<std::future<std::vector<DecodedSpriteTexture>>> futures;
     futures.reserve(workerCount);
 
@@ -2286,7 +2371,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const OutdoorGameView::BillboardTextureHandle *pExistingTexture =
                 view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
             const OutdoorGameView::BillboardTextureHandle *pTexture =
-                pExistingTexture != nullptr
+                pExistingTexture != nullptr || hasActorPreviewTexturePreloadWork(view)
                     ? pExistingTexture
                     : ensureSpriteBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId);
 
@@ -2531,7 +2616,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
     {
         const uint64_t totalActorRenderNanoseconds = SDL_GetTicksNS() - actorRenderStartTickCount;
 
-        if (DebugActorRenderHitchLogging && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
+        if (actorRenderHitchLoggingEnabled() && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
         {
             std::cout << "Actor render hitch: total_ms="
                       << static_cast<double>(totalActorRenderNanoseconds) / 1000000.0
@@ -2730,7 +2815,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     const uint64_t totalActorRenderNanoseconds = SDL_GetTicksNS() - actorRenderStartTickCount;
 
-    if (DebugActorRenderHitchLogging && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
+    if (actorRenderHitchLoggingEnabled() && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
     {
         std::cout << "Actor render hitch: total_ms="
                   << static_cast<double>(totalActorRenderNanoseconds) / 1000000.0

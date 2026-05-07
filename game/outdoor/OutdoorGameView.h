@@ -598,6 +598,8 @@ private:
     std::vector<ForcePerspectiveVertex> m_cachedSkyVertices;
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
+    std::shared_ptr<std::vector<OutdoorBitmapTexture>> m_pendingActorPreviewTexturePreload;
+    size_t m_nextPendingActorPreviewTextureUploadIndex = 0;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
@@ -605,6 +607,8 @@ private:
     std::vector<bool> m_queuedSpriteFrameWarmups;
     size_t m_nextPendingSpriteFrameWarmupIndex;
     size_t m_runtimeActorBillboardTexturesQueuedCount;
+    uint64_t m_renderableStartTickNanoseconds = 0;
+    uint64_t m_renderFrameIndex = 0;
     WorldFxSystem m_worldFxSystem;
     std::vector<std::vector<size_t>> m_decorationBillboardGridCells;
     std::vector<InteractiveDecorationBinding> m_interactiveDecorationBindings;
