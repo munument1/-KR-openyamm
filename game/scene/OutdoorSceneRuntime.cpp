@@ -1,5 +1,6 @@
 #include "game/scene/OutdoorSceneRuntime.h"
 #include "game/FaceEnums.h"
+#include "game/debug/GameplayDebugTrace.h"
 
 namespace OpenYAMM::Game
 {
@@ -217,6 +218,21 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
 
             if (hasFaceAttribute(face.attributes, FaceAttribute::PressurePlate) && face.cogTriggeredNumber != 0)
             {
+                pEventRuntimeState->lastPressurePlateTrigger = EventRuntimeState::PressurePlateTrigger{
+                    .world = "outdoor",
+                    .eventId = face.cogTriggeredNumber,
+                    .bmodelIndex = moveState.supportBModelIndex,
+                    .faceIndex = moveState.supportFaceIndex,
+                    .attributes = face.attributes,
+                };
+                gameplayDebugTraceLog(
+                    "pressure_plate_triggered world=outdoor event_id=" + std::to_string(face.cogTriggeredNumber)
+                    + " bmodel_index=" + std::to_string(moveState.supportBModelIndex)
+                    + " face_index=" + std::to_string(moveState.supportFaceIndex)
+                    + " attributes=" + std::to_string(face.attributes)
+                    + " pos=(" + std::to_string(moveState.x) + "," + std::to_string(moveState.y)
+                    + "," + std::to_string(moveState.footZ) + ")");
+
                 m_pWorldRuntime->setPendingEventSourcePoint(GameplayWorldPoint{
                     .x = moveState.x,
                     .y = moveState.y,
@@ -229,7 +245,9 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
                     face.cogTriggeredNumber,
                     *pEventRuntimeState,
                     &m_pPartyRuntime->party(),
-                    m_pWorldRuntime
+                    m_pWorldRuntime,
+                    std::nullopt,
+                    false
                 );
 
                 if (executed)
@@ -262,6 +280,51 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
             EventRuntimeState::PendingDialogueContext context = {};
             context.kind = DialogueContextKind::MapTransition;
             context.sourceId = static_cast<uint32_t>(*m_pPartyRuntime->movementEvents().blockedBoundaryEdge);
+            EventRuntimeState::PendingMapMove transitionMove = {};
+            transitionMove.mapName = (*pTransition)->destinationMapFileName;
+            transitionMove.directionDegrees = (*pTransition)->directionDegrees;
+            transitionMove.useMapStartPosition = (*pTransition)->useMapStartPosition;
+            transitionMove.traceSourceKind = "map_boundary";
+            transitionMove.traceSourceId = context.sourceId;
+            transitionMove.traceDestinationName = (*pTransition)->destinationMapFileName;
+
+            if (!(*pTransition)->useMapStartPosition
+                && (*pTransition)->arrivalX.has_value()
+                && (*pTransition)->arrivalY.has_value()
+                && (*pTransition)->arrivalZ.has_value())
+            {
+                transitionMove.x = *(*pTransition)->arrivalX;
+                transitionMove.y = *(*pTransition)->arrivalY;
+                transitionMove.z = *(*pTransition)->arrivalZ;
+            }
+
+            gameplayDebugTraceLog(
+                std::string("map_transition_requested source_kind=\"map_boundary\"")
+                + " source_id=" + std::to_string(context.sourceId)
+                + " action_id=0 event_id=0 confirmation_required=true"
+                + " destination_map=\"" + transitionMove.mapName.value_or(std::string()) + "\""
+                + " destination_name=\"" + transitionMove.traceDestinationName + "\""
+                + " use_start_position=" + (transitionMove.useMapStartPosition ? "true" : "false")
+                + " pos=(" + std::to_string(transitionMove.x)
+                + "," + std::to_string(transitionMove.y)
+                + "," + std::to_string(transitionMove.z) + ")"
+                + " direction_degrees="
+                + (transitionMove.directionDegrees.has_value()
+                    ? std::to_string(*transitionMove.directionDegrees)
+                    : std::string("none")));
+            pEventRuntimeState->lastMapTransitionRequested = EventRuntimeState::MapTransitionTrace{
+                .sourceKind = "map_boundary",
+                .sourceId = context.sourceId,
+                .confirmationRequired = true,
+                .destinationMap = transitionMove.mapName.value_or(std::string()),
+                .destinationName = transitionMove.traceDestinationName,
+                .useStartPosition = transitionMove.useMapStartPosition,
+                .x = transitionMove.x,
+                .y = transitionMove.y,
+                .z = transitionMove.z,
+                .directionDegrees = transitionMove.directionDegrees,
+            };
+            context.transitionMapMove = transitionMove;
             pEventRuntimeState->pendingDialogueContext = std::move(context);
             result.shouldOpenEventDialog = true;
         }
@@ -276,7 +339,8 @@ bool OutdoorSceneRuntime::executeEventById(
     const std::optional<ScriptedEventProgram> &localEventProgram,
     uint16_t eventId,
     const std::optional<EventRuntimeState::ActiveDecorationContext> &activeDecorationContext,
-    size_t &previousMessageCount)
+    size_t &previousMessageCount,
+    bool allowGlobalFallback)
 {
     EventRuntimeState *pEventRuntimeState = m_pWorldRuntime->eventRuntimeState();
 
@@ -287,14 +351,19 @@ bool OutdoorSceneRuntime::executeEventById(
 
     previousMessageCount = pEventRuntimeState->messages.size();
     pEventRuntimeState->activeDecorationContext = activeDecorationContext;
+    const std::optional<ScriptedEventProgram> emptyLocalProgram;
+    const std::optional<ScriptedEventProgram> &effectiveLocalEventProgram =
+        activeDecorationContext.has_value() && allowGlobalFallback ? emptyLocalProgram : localEventProgram;
 
     const bool executed = m_eventRuntime.executeEventById(
-        localEventProgram,
+        effectiveLocalEventProgram,
         m_globalEventProgram,
         eventId,
         *pEventRuntimeState,
         &m_pPartyRuntime->party(),
-        m_pWorldRuntime
+        m_pWorldRuntime,
+        std::nullopt,
+        allowGlobalFallback
     );
     pEventRuntimeState->activeDecorationContext.reset();
 

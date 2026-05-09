@@ -1,6 +1,7 @@
 #include "game/gameplay/CorpseLootRuntime.h"
 
 #include "game/audio/SoundIds.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/items/ItemGenerator.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/party/Party.h"
@@ -242,6 +243,9 @@ bool displaceHeldItemToWorld(
         return false;
     }
 
+    gameplayDebugTraceLog(
+        "held_item_changed active=false item_id=" + std::to_string(heldInventoryItem.item.objectDescriptionId)
+        + " source=corpse_loot_drop");
     heldInventoryItem = {};
     return true;
 }
@@ -250,6 +254,11 @@ void setHeldInventoryItem(
     GameplayUiController::HeldInventoryItemState &heldInventoryItem,
     const InventoryItem &item)
 {
+    gameplayDebugTraceLog(
+        "held_item_changed active=true item_id=" + std::to_string(item.objectDescriptionId)
+        + " quantity=" + std::to_string(item.quantity)
+        + " grid=(" + std::to_string(item.gridX) + "," + std::to_string(item.gridY) + ")"
+        + " source=corpse_loot");
     heldInventoryItem.active = true;
     heldInventoryItem.item = item;
     heldInventoryItem.grabCellOffsetX = 0;
@@ -386,6 +395,10 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
             party.requestSound(SoundId::Gold);
             result.goldAmount += goldAmount;
             result.lootedAny = result.lootedAny || goldAmount > 0;
+            gameplayDebugTraceLog(
+                "gold_received destination=party source=corpse"
+                " corpse_index=" + std::to_string(pCorpseView->sourceIndex)
+                + " amount=" + std::to_string(goldAmount));
             continue;
         }
 
@@ -400,6 +413,14 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
             {
                 break;
             }
+
+            gameplayDebugTraceLog(
+                "item_received destination=inventory source=corpse item_id="
+                + std::to_string(inventoryItem.objectDescriptionId)
+                + gameplayDebugTraceItemSummary(inventoryItem.objectDescriptionId, pItemTable)
+                + " corpse_index=" + std::to_string(pCorpseView->sourceIndex)
+                + " loot_item_index=0"
+                + " member_index=" + std::to_string(party.activeMemberIndex()));
 
             if (result.firstItemName.empty())
             {
@@ -421,6 +442,12 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
 
             setHeldInventoryItem(*pHeldInventoryItem, normalizedCorpseInventoryItem(removedItem));
             party.setHeldItemForQueries(pHeldInventoryItem->item);
+            gameplayDebugTraceLog(
+                "item_received destination=held source=corpse item_id="
+                + std::to_string(pHeldInventoryItem->item.objectDescriptionId)
+                + gameplayDebugTraceItemSummary(pHeldInventoryItem->item.objectDescriptionId, pItemTable)
+                + " corpse_index=" + std::to_string(pCorpseView->sourceIndex)
+                + " loot_item_index=0");
 
             if (result.firstItemName.empty())
             {

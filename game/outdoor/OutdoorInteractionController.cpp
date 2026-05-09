@@ -3,6 +3,7 @@
 #include "game/outdoor/OutdoorBillboardRenderer.h"
 #include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayDialogContextBuilder.h"
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
@@ -2586,7 +2587,8 @@ GameplayWorldHit OutdoorInteractionController::pickKeyboardInteractionTarget(
         request.viewWidth,
         request.viewHeight,
         request.viewMatrix.data(),
-        request.projectionMatrix.data());
+        request.projectionMatrix.data(),
+        request.ignoreActors);
 
     return translateInspectHitToGameplayWorldHit(view, inspectHit);
 }
@@ -2624,7 +2626,8 @@ GameplayWorldHit OutdoorInteractionController::pickHeldItemWorldTarget(
         request.viewMatrix.data(),
         request.projectionMatrix.data(),
         OutdoorGameView::DecorationPickMode::Interaction,
-        FacePickMode::InteractionActivatable);
+        FacePickMode::InteractionActivatable,
+        request.ignoreActors);
 
     return translateInspectHitToGameplayWorldHit(view, inspectHit);
 }
@@ -2663,7 +2666,8 @@ GameplayWorldHit OutdoorInteractionController::pickCurrentInteractionTarget(
         request.viewMatrix.data(),
         request.projectionMatrix.data(),
         OutdoorGameView::DecorationPickMode::Interaction,
-        FacePickMode::InteractionActivatable);
+        FacePickMode::InteractionActivatable,
+        request.ignoreActors);
 
     return translateInspectHitToGameplayWorldHit(view, inspectHit);
 }
@@ -3370,7 +3374,8 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
     const float *pViewMatrix,
     const float *pProjectionMatrix,
     OutdoorGameView::DecorationPickMode decorationPickMode,
-    FacePickMode facePickMode)
+    FacePickMode facePickMode,
+    bool ignoreActors)
 {
     OutdoorGameView::InspectHit bestHit = {};
     bestHit.distance = std::numeric_limits<float>::max();
@@ -3893,7 +3898,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
         coveredRuntimeActors.assign(view.m_pOutdoorWorldRuntime->mapActorCount(), false);
     }
 
-    if (view.m_outdoorActorPreviewBillboardSet)
+    if (!ignoreActors && view.m_outdoorActorPreviewBillboardSet)
     {
         for (size_t actorIndex = 0; actorIndex < view.m_outdoorActorPreviewBillboardSet->billboards.size(); ++actorIndex)
         {
@@ -4034,7 +4039,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
         }
     }
 
-    if (view.m_pOutdoorWorldRuntime != nullptr)
+    if (!ignoreActors && view.m_pOutdoorWorldRuntime != nullptr)
     {
         for (size_t actorIndex = 0; actorIndex < view.m_pOutdoorWorldRuntime->mapActorCount(); ++actorIndex)
         {
@@ -4256,7 +4261,8 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
     int viewWidth,
     int viewHeight,
     const float *pViewMatrix,
-    const float *pProjectionMatrix)
+    const float *pProjectionMatrix,
+    bool ignoreActors)
 {
     OutdoorGameView::InspectHit bestHit = {};
     bestHit.distance = std::numeric_limits<float>::max();
@@ -4391,6 +4397,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
             constexpr float GeometryDistanceEpsilon = 1.0f;
 
             if (!candidate.inspectHit.hasHit
+                || (ignoreActors && candidate.inspectHit.kind == "actor")
                 || !canActivateInteractionInspectEvent(view, candidate.inspectHit, InteractionInputMethod::Keyboard))
             {
                 return std::nullopt;
@@ -4960,6 +4967,12 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
         }
 
         view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
+        gameplayDebugTraceLog(
+            "item_received destination=inventory source=world_item item_id="
+            + std::to_string(pWorldItem->item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(pWorldItem->item.objectDescriptionId, &view.data().itemTable())
+            + " world_item_index=" + std::to_string(inspectHit.bModelIndex)
+            + " member_index=" + std::to_string(recipientMemberIndex));
         view.m_gameSession.gameplayScreenRuntime().playSpeechReaction(
             recipientMemberIndex,
             SpeechId::FoundItem,
@@ -4987,6 +5000,11 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
 
         GameplayHeldItemController::setHeldInventoryItem(heldInventoryItem, worldItem.item);
         view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
+        gameplayDebugTraceLog(
+            "item_received destination=held source=world_item item_id="
+            + std::to_string(worldItem.item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(worldItem.item.objectDescriptionId, &view.data().itemTable())
+            + " world_item_index=" + std::to_string(inspectHit.bModelIndex));
         view.m_gameSession.gameplayScreenRuntime().playSpeechReaction(
             view.m_pOutdoorPartyRuntime->party().activeMemberIndex(),
             SpeechId::FoundItem,
@@ -5146,7 +5164,8 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
             view.m_pOutdoorSceneRuntime->localEventProgram(),
             eventId,
             decorationContext,
-            previousMessageCount
+            previousMessageCount,
+            decorationContext.has_value()
         );
 
     if (!executed)

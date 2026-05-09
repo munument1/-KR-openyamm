@@ -1,5 +1,6 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/tables/ChestTable.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/WorldFxSystem.h"
@@ -387,7 +388,7 @@ std::optional<GameplayChestItemState> buildFixedChestItem(uint32_t itemId, const
     return item;
 }
 constexpr float ActorMeleeRange = 307.2f;
-constexpr float ActiveActorUpdateRange = 6144.0f;
+constexpr float ActiveActorUpdateRange = 5632.0f;
 constexpr size_t MaxActiveActorUpdates = 48;
 constexpr float InactiveActorDecisionIntervalSeconds = 1.5f;
 constexpr float InactiveActorBoredSeconds = 2.0f;
@@ -2807,6 +2808,17 @@ bool monsterEntryHasCorpseSprite(const MonsterEntry *pMonsterEntry)
     return !spriteName.empty() && spriteName != "null";
 }
 
+bool monsterStatsIsKreegan(const MonsterTable::MonsterStatsEntry *pStats)
+{
+    if (pStats == nullptr)
+    {
+        return false;
+    }
+
+    const std::string pictureName = toLowerCopy(pStats->pictureName);
+    return pictureName.starts_with("devil ") || pictureName.starts_with("demon");
+}
+
 bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const OutdoorWorldRuntime::MapActorState &actor)
 {
     if (pMonsterTable == nullptr)
@@ -2815,6 +2827,12 @@ bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const OutdoorWorl
     }
 
     const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(actor.monsterId);
+
+    if (monsterStatsIsKreegan(pStats))
+    {
+        return false;
+    }
+
     return monsterEntryHasCorpseSprite(resolveMonsterEntry(*pMonsterTable, actor.monsterId, pStats));
 }
 
@@ -4106,6 +4124,53 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
     }
 
     m_activeChestView = *m_materializedChestViews[chestId];
+
+    if (EventRuntimeState *pEventRuntimeState = eventRuntimeState())
+    {
+        pEventRuntimeState->lastChestOpened = EventRuntimeState::ChestOpenedTrace{
+            .sceneKind = "outdoor",
+            .map = mapName(),
+            .chestId = chestId,
+            .itemCount = m_activeChestView->items.size(),
+            .hiddenItemCount = m_activeChestView->hiddenItems.size(),
+        };
+    }
+
+    gameplayDebugTraceLog(
+        "chest_opened scene_kind=outdoor map=\"" + mapName() + "\""
+        + " chest_id=" + std::to_string(chestId)
+        + " item_count=" + std::to_string(m_activeChestView->items.size())
+        + " hidden_item_count=" + std::to_string(m_activeChestView->hiddenItems.size()));
+
+    for (const GameplayChestItemState &item : m_activeChestView->items)
+    {
+        const uint32_t itemId = item.item.objectDescriptionId != 0 ? item.item.objectDescriptionId : item.itemId;
+        const bool questLike = !item.isGold && gameplayDebugTraceItemLooksQuestRelevant(itemId, m_pItemTable);
+
+        if (!item.isGold && itemId != 0)
+        {
+            gameplayDebugTraceLog(
+                "chest_contains_item scene_kind=outdoor map=\"" + mapName() + "\""
+                + " chest_id=" + std::to_string(chestId)
+                + " item_id=" + std::to_string(itemId)
+                + gameplayDebugTraceItemSummary(itemId, m_pItemTable)
+                + " quest_like=" + (questLike ? "true" : "false")
+                + " grid=(" + std::to_string(item.gridX)
+                + "," + std::to_string(item.gridY) + ")");
+        }
+
+        if (questLike)
+        {
+            gameplayDebugTraceLog(
+                "chest_contains_quest_item scene_kind=outdoor map=\"" + mapName() + "\""
+                + " chest_id=" + std::to_string(chestId)
+                + " item_id=" + std::to_string(itemId)
+                + gameplayDebugTraceItemSummary(itemId, m_pItemTable)
+                + " grid=(" + std::to_string(item.gridX)
+                + "," + std::to_string(item.gridY) + ")");
+        }
+    }
+
     pushAudioEvent(
         static_cast<uint32_t>(SoundId::OpenChest),
         chestId,
@@ -4339,6 +4404,7 @@ void OutdoorWorldRuntime::initialize(
     m_eventRuntimeState = eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->mapFileName = map.fileName;
         setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
     }
     m_pItemTable = &itemTable;
@@ -4937,7 +5003,7 @@ bool OutdoorWorldRuntime::spawnWorldItem(
     return true;
 }
 
-void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(const MapActorState &actor)
+void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(size_t actorIndex, const MapActorState &actor)
 {
     if (m_pMonsterTable == nullptr || m_pItemTable == nullptr)
     {
@@ -4953,12 +5019,49 @@ void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(const MapActorState &ac
     const std::vector<MonsterTable::MonsterDeathDropEntry> &drops =
         m_pMonsterTable->deathDropsForMonsterId(actor.monsterId);
 
+    const bool leaveCorpse = actorShouldLeaveCorpse(m_pMonsterTable, actor);
+    const float dropX = actor.preciseX;
+    const float dropY = actor.preciseY;
+    const float dropZ = actor.preciseZ + 16.0f;
+
+    if (actor.specialItemId != 0
+        && gameplayDebugTraceItemLooksQuestRelevant(actor.specialItemId, m_pItemTable))
+    {
+        gameplayDebugTraceLog(
+            "actor_quest_item_death scene_kind=outdoor map=\"" + mapName() + "\""
+            + " actor_index=" + std::to_string(actorIndex)
+            + " actor_id=" + std::to_string(actor.actorId)
+            + " monster_id=" + std::to_string(actor.monsterId)
+            + " name=\"" + actor.displayName + "\""
+            + " delivery=" + std::string(leaveCorpse ? "corpse" : "world_item")
+            + " pos=(" + std::to_string(actor.preciseX)
+            + "," + std::to_string(actor.preciseY)
+            + "," + std::to_string(actor.preciseZ) + ")"
+            + " item_id=" + std::to_string(actor.specialItemId)
+            + gameplayDebugTraceItemSummary(actor.specialItemId, m_pItemTable));
+    }
+
     if (drops.empty())
     {
-        return;
+        if (leaveCorpse || actor.specialItemId == 0)
+        {
+            return;
+        }
     }
 
     const uint32_t timeSeed = static_cast<uint32_t>(std::lround(m_gameMinutes * TicksPerSecond));
+
+    if (!leaveCorpse && actor.specialItemId != 0)
+    {
+        const InventoryItem item =
+            ItemGenerator::makeInventoryItem(actor.specialItemId, *m_pItemTable, ItemGenerationMode::Generic);
+        spawnMonsterDeathDropWorldItem(
+            item,
+            dropX,
+            dropY,
+            dropZ,
+            m_sessionChestSeed ^ actor.actorId * 2654435761u ^ actor.specialItemId * 3266489917u ^ timeSeed);
+    }
 
     for (size_t dropIndex = 0; dropIndex < drops.size(); ++dropIndex)
     {
@@ -4977,13 +5080,29 @@ void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(const MapActorState &ac
             continue;
         }
 
+        if (gameplayDebugTraceItemLooksQuestRelevant(drop.itemId, m_pItemTable))
+        {
+            gameplayDebugTraceLog(
+                "actor_quest_item_death scene_kind=outdoor map=\"" + mapName() + "\""
+                + " actor_index=" + std::to_string(actorIndex)
+                + " actor_id=" + std::to_string(actor.actorId)
+                + " monster_id=" + std::to_string(actor.monsterId)
+                + " name=\"" + actor.displayName + "\""
+                + " delivery=world_item death_drop_index=" + std::to_string(dropIndex)
+                + " pos=(" + std::to_string(actor.preciseX)
+                + "," + std::to_string(actor.preciseY)
+                + "," + std::to_string(actor.preciseZ) + ")"
+                + " item_id=" + std::to_string(drop.itemId)
+                + gameplayDebugTraceItemSummary(drop.itemId, m_pItemTable));
+        }
+
         const InventoryItem item =
             ItemGenerator::makeInventoryItem(drop.itemId, *m_pItemTable, ItemGenerationMode::Generic);
         spawnMonsterDeathDropWorldItem(
             item,
-            actor.preciseX,
-            actor.preciseY,
-            actor.preciseZ + 16.0f,
+            dropX,
+            dropY,
+            dropZ,
             seed ^ 0x9e3779b9u);
     }
 }
@@ -5053,6 +5172,19 @@ bool OutdoorWorldRuntime::spawnMonsterDeathDropWorldItem(
     worldItem.initialZ = z;
     worldItem.lifetimeTicks = lifetimeTicks;
     m_worldItems.push_back(std::move(worldItem));
+
+    if (gameplayDebugTraceItemLooksQuestRelevant(item.objectDescriptionId, m_pItemTable))
+    {
+        gameplayDebugTraceLog(
+            "world_item_spawned source=monster_death scene_kind=outdoor map=\"" + mapName() + "\""
+            + " world_item_index=" + std::to_string(m_worldItems.size() - 1)
+            + " item_id=" + std::to_string(item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(item.objectDescriptionId, m_pItemTable)
+            + " pos=(" + std::to_string(x)
+            + "," + std::to_string(y)
+            + "," + std::to_string(z) + ")");
+    }
+
     return true;
 }
 
@@ -5519,6 +5651,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
 
         if (mechanism.timeSinceTriggeredMs >= moveTimeMs)
         {
+            const float elapsedMs = mechanism.timeSinceTriggeredMs;
             mechanism.timeSinceTriggeredMs = 0.0f;
             mechanism.isMoving = false;
 
@@ -5530,6 +5663,17 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
             {
                 mechanism.state = static_cast<uint16_t>(EvtMechanismState::Closed);
             }
+
+            gameplayDebugTraceLog(
+                "mechanism_completed kind=outdoor_model id=" + std::to_string(entry.first)
+                + " state=" + gameplayDebugTraceMechanismStateName(mechanism.state)
+                + " elapsed_seconds=" + std::to_string(elapsedMs / 1000.0f)
+                + " model=\"" + entry.second.modelName + "\""
+                + " bmodel_index=" + std::to_string(entry.second.bmodelIndex)
+                + " move_time_ms=" + std::to_string(entry.second.moveTimeMs)
+                + " delta=(" + std::to_string(entry.second.dx) + "," + std::to_string(entry.second.dy)
+                + "," + std::to_string(entry.second.dz) + ")"
+                + " move_party=" + (entry.second.moveParty ? "true" : "false"));
         }
 
         movedAnyMechanism = true;
@@ -5801,6 +5945,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_eventRuntimeState = snapshot.eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->mapFileName = m_map.fileName;
         setActiveHistoryContinent(*m_eventRuntimeState, m_map.mergedContinentId);
         clearTransientEventRuntimeState(*m_eventRuntimeState);
         if (m_pParty != nullptr)
@@ -5949,15 +6094,6 @@ void OutdoorWorldRuntime::advanceGameMinutes(float minutes)
     }
 
     advanceGameMinutesInternal(minutes);
-
-    for (TimerState &timer : m_timers)
-    {
-        if (!timer.hasFired || timer.repeating)
-        {
-            timer.remainingGameMinutes -= minutes;
-        }
-    }
-
     refreshAtmosphereState();
 }
 
@@ -10810,7 +10946,7 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
         if (actor.currentHp <= 0)
         {
             beginDyingState(actor, m_pActorSpriteFrameTable);
-            spawnMonsterDeathDropsForActor(actor);
+            spawnMonsterDeathDropsForActor(actorIndex, actor);
             const bx::Vec3 knockback = actorKnockbackVelocity(
                 actor.preciseX,
                 actor.preciseY,
@@ -11348,7 +11484,7 @@ bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
     if (actor.currentHp <= 0)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
-        spawnMonsterDeathDropsForActor(actor);
+        spawnMonsterDeathDropsForActor(actorIndex, actor);
         const float sourceX = pSourceActor != nullptr ? pSourceActor->preciseX : actor.preciseX;
         const float sourceY = pSourceActor != nullptr ? pSourceActor->preciseY : actor.preciseY;
         const float sourceZ =
@@ -11701,7 +11837,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
     if (died)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
-        spawnMonsterDeathDropsForActor(actor);
+        spawnMonsterDeathDropsForActor(actorIndex, actor);
         const bx::Vec3 knockback = actorKnockbackVelocity(
             actor.preciseX,
             actor.preciseY,
@@ -12865,6 +13001,24 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         CorpseViewState corpse =
             buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
 
+        for (const GameplayChestItemState &item : corpse.items)
+        {
+            const uint32_t itemId = item.item.objectDescriptionId != 0 ? item.item.objectDescriptionId : item.itemId;
+
+            if (!item.isGold && gameplayDebugTraceItemLooksQuestRelevant(itemId, m_pItemTable))
+            {
+                gameplayDebugTraceLog(
+                    "corpse_contains_quest_item scene_kind=outdoor map=\"" + mapName() + "\""
+                    + " actor_index=" + std::to_string(actorIndex)
+                    + " actor_id=" + std::to_string(actor.actorId)
+                    + " monster_id=" + std::to_string(actor.monsterId)
+                    + " name=\"" + actor.displayName + "\""
+                    + " corpse_index=" + std::to_string(actorIndex)
+                    + " item_id=" + std::to_string(itemId)
+                    + gameplayDebugTraceItemSummary(itemId, m_pItemTable));
+            }
+        }
+
         if (corpse.items.empty())
         {
             m_mapActors[actorIndex].isInvisible = true;
@@ -13861,6 +14015,16 @@ float OutdoorWorldRuntime::partyY() const
 float OutdoorWorldRuntime::partyFootZ() const
 {
     return m_pPartyRuntime != nullptr ? m_pPartyRuntime->partyFootZ() : 0.0f;
+}
+
+float OutdoorWorldRuntime::gameplayCameraYawRadians() const
+{
+    return m_pInteractionView != nullptr ? m_pInteractionView->cameraYawRadians() : 0.0f;
+}
+
+float OutdoorWorldRuntime::gameplayCameraPitchRadians() const
+{
+    return m_pInteractionView != nullptr ? m_pInteractionView->cameraPitchRadians() : 0.0f;
 }
 
 bool OutdoorWorldRuntime::partyIsAirborneForRest() const

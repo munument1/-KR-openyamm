@@ -132,7 +132,11 @@ std::vector<uint16_t> readHandlerIds(lua_State *pLuaState, const char *pTableNam
 }
 
 template <typename TValue>
-std::vector<TValue> readIntegerArrayFromField(lua_State *pLuaState, int tableIndex, const char *pFieldName)
+std::vector<TValue> readIntegerArrayFromField(
+    lua_State *pLuaState,
+    int tableIndex,
+    const char *pFieldName,
+    bool preserveOrder = false)
 {
     std::vector<TValue> values;
     lua_getfield(pLuaState, tableIndex, pFieldName);
@@ -156,7 +160,10 @@ std::vector<TValue> readIntegerArrayFromField(lua_State *pLuaState, int tableInd
     }
 
     lua_pop(pLuaState, 1);
-    sortAndUnique(values);
+    if (!preserveOrder)
+    {
+        sortAndUnique(values);
+    }
     return values;
 }
 
@@ -341,8 +348,8 @@ bool ScriptedEventProgram::populateMetadataFromLua(
         return false;
     }
 
-    program.m_onLoadEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLoad");
-    program.m_onLeaveEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLeave");
+    program.m_onLoadEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLoad", true);
+    program.m_onLeaveEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLeave", true);
     program.m_hints = readStringMapFromField(pLuaState, -1, "hint");
     program.m_summaries = readStringMapFromField(pLuaState, -1, "title");
 

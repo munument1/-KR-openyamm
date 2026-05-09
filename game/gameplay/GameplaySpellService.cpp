@@ -629,6 +629,12 @@ bool GameplaySpellService::tryOpenSelectionUi(
 
     if (isSpellId(request.spellId, SpellId::TownPortal))
     {
+        if (runtime.shouldTownPortalCastOpenDimensionDoor())
+        {
+            runtime.openDimensionDoorOverlay(request.casterMemberIndex, request.spellId);
+            return true;
+        }
+
         if (!runtime.ensureTownPortalDestinationsLoaded())
         {
             runtime.setStatusBarEvent("Town Portal data missing");

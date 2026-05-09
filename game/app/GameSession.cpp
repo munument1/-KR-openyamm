@@ -358,7 +358,8 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
     m_sharedInputFrameResult = {};
 
     GameplayScreenFrameUpdateConfig frameUpdateConfig = {};
-    frameUpdateConfig.updateBuffInspectOverlay = m_currentSceneKind == SceneKind::Outdoor;
+    frameUpdateConfig.updateBuffInspectOverlay =
+        m_currentSceneKind == SceneKind::Outdoor || m_currentSceneKind == SceneKind::Indoor;
     GameplayScreenController::updateSharedFrameState(
         m_gameplayScreenRuntime,
         input.screenWidth,

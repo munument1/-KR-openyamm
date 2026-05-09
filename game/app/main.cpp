@@ -4,6 +4,7 @@
 #include "game/app/GameApplication.h"
 #include "game/app/GameSettings.h"
 #include "game/outdoor/HeadlessOutdoorDiagnostics.h"
+#include "game/scenario/ScenarioHeadlessCommand.h"
 
 #include <SDL3/SDL.h>
 
@@ -42,6 +43,26 @@ bool parseCommonArguments(
     for (int argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
     {
         const std::string argument = argv[argumentIndex];
+
+        if (argument == "--gameplay-trace")
+        {
+            if (argumentIndex + 1 >= argc)
+            {
+                std::cerr << "Usage: --gameplay-trace <trace-file>\n";
+                return false;
+            }
+
+            setenv("OPENYAMM_GAMEPLAY_TRACE", "1", 1);
+            setenv("OPENYAMM_GAMEPLAY_TRACE_FILE", argv[argumentIndex + 1], 1);
+            ++argumentIndex;
+            continue;
+        }
+
+        if (argument == "--gameplay-trace-append")
+        {
+            setenv("OPENYAMM_GAMEPLAY_TRACE_APPEND", "1", 1);
+            continue;
+        }
 
         if (argument == "--map")
         {
@@ -155,6 +176,16 @@ int runApplication(int argc, char **argv)
     if (!arguments.empty() && arguments[0].rfind("--headless-", 0) == 0)
     {
         setenv("OPENYAMM_DISABLE_LOADING_OVERLAY", "1", 1);
+    }
+
+    if (arguments.size() >= 2 && arguments[0] == "--headless-validate-scenario")
+    {
+        return OpenYAMM::Game::runScenarioHeadlessCommand(argv[0], config, arguments, true);
+    }
+
+    if (arguments.size() >= 2 && arguments[0] == "--headless-run-scenario")
+    {
+        return OpenYAMM::Game::runScenarioHeadlessCommand(argv[0], config, arguments, false);
     }
 
     if (arguments.size() == 3 && arguments[0] == "--headless-open-event")

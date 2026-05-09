@@ -1,6 +1,8 @@
 #include "game/gameplay/GameplayHeldItemController.h"
 
+#include "game/audio/SoundIds.h"
 #include "game/events/EventRuntime.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
@@ -8,6 +10,7 @@
 #include "game/tables/ItemTable.h"
 
 #include <optional>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -22,12 +25,51 @@ void forceEventGrantedItemIdentificationState(InventoryItem &item, const ItemTab
         item.identified = false;
     }
 }
+
+std::string eventGrantedItemStatusName(const InventoryItem &item, const ItemTable &itemTable)
+{
+    const ItemDefinition *pItemDefinition = itemTable.get(item.objectDescriptionId);
+
+    if (pItemDefinition == nullptr)
+    {
+        return "item";
+    }
+
+    if (!pItemDefinition->unidentifiedName.empty()
+        && pItemDefinition->unidentifiedName != "0"
+        && pItemDefinition->unidentifiedName != "N / A")
+    {
+        return pItemDefinition->unidentifiedName;
+    }
+
+    return !pItemDefinition->name.empty() ? pItemDefinition->name : "item";
+}
+
+void notifyEventGrantedItemReceived(
+    GameplayScreenRuntime &runtime,
+    const InventoryItem &item,
+    const ItemTable &itemTable)
+{
+    Party *pParty = runtime.party();
+
+    if (pParty != nullptr)
+    {
+        pParty->requestSound(SoundId::Gold);
+    }
+
+    runtime.setStatusBarEvent("You found something (" + eventGrantedItemStatusName(item, itemTable) + ")!");
+}
 } // namespace
 
 void GameplayHeldItemController::setHeldInventoryItem(
     GameplayUiController::HeldInventoryItemState &heldInventoryItem,
     const InventoryItem &item)
 {
+    gameplayDebugTraceLog(
+        "held_item_changed active=true item_id=" + std::to_string(item.objectDescriptionId)
+        + " quantity=" + std::to_string(item.quantity)
+        + " grid=(" + std::to_string(item.gridX) + "," + std::to_string(item.gridY) + ")"
+        + " source=held_controller");
     heldInventoryItem.active = true;
     heldInventoryItem.item = item;
     heldInventoryItem.grabCellOffsetX = 0;
@@ -39,6 +81,13 @@ void GameplayHeldItemController::setHeldInventoryItem(
 void GameplayHeldItemController::clearHeldInventoryItem(
     GameplayUiController::HeldInventoryItemState &heldInventoryItem)
 {
+    if (heldInventoryItem.active)
+    {
+        gameplayDebugTraceLog(
+            "held_item_changed active=false item_id=" + std::to_string(heldInventoryItem.item.objectDescriptionId)
+            + " source=held_controller");
+    }
+
     heldInventoryItem = {};
 }
 
@@ -56,6 +105,10 @@ bool GameplayHeldItemController::tryDisplaceHeldInventoryItem(
 
     if (pParty != nullptr && pParty->tryGrantInventoryItem(heldInventoryItem.item))
     {
+        gameplayDebugTraceLog(
+            "item_received destination=inventory source=held_displace item_id="
+            + std::to_string(heldInventoryItem.item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(heldInventoryItem.item.objectDescriptionId, runtime.itemTable()));
         clearHeldInventoryItem(heldInventoryItem);
         pParty->clearHeldItemForQueries();
         return true;
@@ -132,6 +185,11 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
         forceEventGrantedItemIdentificationState(grantedItem, itemTable);
         setHeldInventoryItem(heldInventoryItem, grantedItem);
         runtime.party()->setHeldItemForQueries(grantedItem);
+        notifyEventGrantedItemReceived(runtime, grantedItem, itemTable);
+        gameplayDebugTraceLog(
+            "item_received destination=held source=event item_id="
+            + std::to_string(grantedItem.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(grantedItem.objectDescriptionId, &itemTable));
     }
 
     for (uint32_t itemId : eventRuntimeState.grantedItemIds)
@@ -150,6 +208,11 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
         forceEventGrantedItemIdentificationState(item, itemTable);
         setHeldInventoryItem(heldInventoryItem, item);
         runtime.party()->setHeldItemForQueries(item);
+        notifyEventGrantedItemReceived(runtime, item, itemTable);
+        gameplayDebugTraceLog(
+            "item_received destination=held source=event item_id="
+            + std::to_string(item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(item.objectDescriptionId, &itemTable));
     }
 
     eventRuntimeState.grantedItems.clear();

@@ -47,7 +47,8 @@ public:
         const float *pViewMatrix,
         const float *pProjectionMatrix,
         OutdoorGameView::DecorationPickMode decorationPickMode,
-        FacePickMode facePickMode = FacePickMode::AnyVisible);
+        FacePickMode facePickMode = FacePickMode::AnyVisible,
+        bool ignoreActors = false);
     static uint16_t resolveDecorationBillboardSpriteId(
         const OutdoorGameView &view,
         const DecorationBillboard &billboard,
@@ -82,7 +83,8 @@ private:
         int viewWidth,
         int viewHeight,
         const float *pViewMatrix,
-        const float *pProjectionMatrix);
+        const float *pProjectionMatrix,
+        bool ignoreActors);
     static bool buildInspectRayForScreenPoint(
         float screenX,
         float screenY,

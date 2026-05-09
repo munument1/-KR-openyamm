@@ -26,7 +26,7 @@ constexpr float OeCharacterRangedAttackDistance = 5120.0f;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 constexpr int OeMinimumMeleeRecoveryTicks = 30;
 constexpr int OeMinimumRangedRecoveryTicks = 5;
-constexpr int OeMinimumBlasterRecoveryTicks = 0;
+constexpr int OeMinimumBlasterRecoveryTicks = 5;
 constexpr uint32_t WandAttackSkillLevel = 8;
 
 constexpr int ParameterBonusThresholds[29] = {
@@ -2489,6 +2489,11 @@ CharacterAttackResult GameMechanics::resolveCharacterAttackAgainstArmorClass(
     {
         result.hit = true;
         result.damageType = CombatDamageType::Irresistible;
+    }
+    else if (result.mode == CharacterAttackMode::Blaster)
+    {
+        result.damageType = CombatDamageType::Irresistible;
+        result.hit = characterRangedAttackHitsArmorClass(result.targetArmorClass, result.attackBonus, targetDistance, rng);
     }
     else if (result.mode != CharacterAttackMode::Melee)
     {

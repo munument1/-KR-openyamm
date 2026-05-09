@@ -1,0 +1,903 @@
+[GameplayTrace] trace_session_begin world_id="mm6" configured_world_id="mm6" startup_map="oute3.odm" trace_file="tests/playthrough_scenarios/mm6_probe_4.txt" unix_time=1778267065 map_load_timing=false route_trace=false gameplay_trace=true
+[GameplayTrace] menu_action action=new_game source=main_menu
+[GameplayTrace] new_game_screen_opened source="main_menu"
+[GameplayTrace] new_game_continent_selected continent_id=3 continent_key="enroth" continent_name="Enroth"
+[GameplayTrace] new_game_party_created continent_id=3 continent_key="enroth" continent_name="Enroth" member_count=1
+[GameplayTrace] new_game_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 might=100 intellect=100 personality=100 endurance=100 accuracy=100 speed=100 luck=100
+[GameplayTrace] new_game_party_skill member_index=0 name="AirMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Alchemy" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Armsmaster" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Axe" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Blaster" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="BodyMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Bodybuilding" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Bow" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="ChainArmor" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Dagger" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="DarkElfAbility" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="DarkMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="DisarmTraps" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Dodging" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="DragonAbility" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="EarthMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="FireMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="IdentifyItem" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="IdentifyMonster" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Learning" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="LeatherArmor" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="LightMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Mace" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Meditation" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Merchant" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="MindMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Perception" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="PlateArmor" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Regeneration" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="RepairItem" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Shield" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Spear" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="SpiritMagic" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Staff" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Stealing" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Sword" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="Unarmed" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="VampireAbility" level=200 mastery=4
+[GameplayTrace] new_game_party_skill member_index=0 name="WaterMagic" level=200 mastery=4
+[GameplayTrace] new_game_starting continent_id=3 continent_note="Enroth" map="oute3.odm" start_override=true member_count=1
+[GameplayTrace] qbit_set id=1104
+[GameplayTrace] qbit_set id=1105
+[GameplayTrace] qbit_set id=313
+[GameplayTrace] map_loaded map="oute3.odm" scene_kind=outdoor initialize_view=true party=(-9728.000000,-11319.000000,161.000000) yaw=8.936086 pitch=-0.150000
+[GameplayTrace] new_game_started continent_id=3 continent_note="Enroth" map="oute3.odm" party=(-9728.000000,-11319.000000,161.000000)
+[GameplayTrace] new_game_started_party gold=200 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] new_game_started_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=6691/6691 inventory_count=1 award_count=0
+[GameplayTrace] new_game_started_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] new_game_started_party_inventory member_index=0 grid=(0,0) item_id=2125 item_name="The Letter" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] new_game_started_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] new_game_started_qbit id=313
+[GameplayTrace] new_game_started_qbit id=1104
+[GameplayTrace] new_game_started_qbit id=1105
+[GameplayTrace] interact method=keyboard map="New Sorpigal" scene_kind=outdoor party=(-9095.62,-8695.68,161) yaw=-0.00870441 pitch=-0.132 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=80 face_index=51 event_primary=0 event_secondary=0 triggered_event=11 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=394.832 hit=(-8704,-8695.78,285.212)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=260 title="A Lonely Knight" house_title="A Lonely Knight" line_count=0 text_hash=1469598103934665603 action_count=4 actions_json="[{\"index\":0,\"kind\":\"house_proprietor\",\"id\":260,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Dirk, Innkeep\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":786,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Andover Potbello\"},{\"index\":2,\"kind\":\"house_resident\",\"id\":787,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Maria\"},{\"index\":3,\"kind\":\"house_resident\",\"id\":303,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Jeremy\"}]"
+[GameplayTrace] topic_clicked kind=house_resident action_id=786 secondary_id=0 selection_index=1 source_id=260 house_dialog=true enabled=true label="Andover Potbello"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=786 title="Andover Potbello" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1314,\"secondary_id\":1314,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1609,\"secondary_id\":1609,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1609 secondary_id=1609 selection_index=1 source_id=786 house_dialog=false enabled=true label="Quest"
+[GameplayTrace] qbit_set id=1150
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=786 title="Andover Potbello" house_title="" line_count=4 text_hash=4160350041075194906 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1314,\"secondary_id\":1314,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1610,\"secondary_id\":1610,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1314 secondary_id=1314 selection_index=0 source_id=786 house_dialog=false enabled=true label="The Letter"
+[GameplayTrace] qbit_cleared id=1105
+[GameplayTrace] qbit_set id=1106
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=786 title="Andover Potbello" house_title="" line_count=5 text_hash=12637457356833302060 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1315,\"secondary_id\":1315,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1610,\"secondary_id\":1610,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1315 secondary_id=1315 selection_index=0 source_id=786 house_dialog=false enabled=true label="The Letter"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=786 title="Andover Potbello" house_title="" line_count=1 text_hash=12113257285285382341 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1315,\"secondary_id\":1315,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1610,\"secondary_id\":1610,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1610 secondary_id=1610 selection_index=1 source_id=786 house_dialog=false enabled=true label="Quest"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=786 title="Andover Potbello" house_title="" line_count=4 text_hash=17442153424678921167 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1315,\"secondary_id\":1315,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1610,\"secondary_id\":1610,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"}]"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=260 title="A Lonely Knight" house_title="A Lonely Knight" line_count=0 text_hash=1469598103934665603 action_count=4 actions_json="[{\"index\":0,\"kind\":\"house_proprietor\",\"id\":260,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Dirk, Innkeep\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":786,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Andover Potbello\"},{\"index\":2,\"kind\":\"house_resident\",\"id\":787,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Maria\"},{\"index\":3,\"kind\":\"house_resident\",\"id\":303,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Jeremy\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=260 house_dialog=true action_count=4
+[GameplayTrace] interact method=keyboard map="New Sorpigal" scene_kind=outdoor party=(-10188,-9294.12,161) yaw=-2.6109 pitch=-0.2175 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=49 face_index=48 event_primary=0 event_secondary=0 triggered_event=15 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=366.014 hit=(-10496,-9476.44,259.267)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=470 title="Aaron, Stablemaster" house_title="New Sorpigal Coach Company" line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"2 days to Castle Ironfist for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=470 house_dialog=true enabled=true label="2 days to Castle Ironfist for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=470 action_id=22 route_index=1 confirmation_required=false destination_map="Outd3.odm" destination_name="Castle Ironfist" travel_days=2 use_start_position=false pos=(14317,2696,96) direction_degrees=180
+[GameplayTrace] map_loaded map="outd3.odm" scene_kind=outdoor initialize_view=true party=(16112.000000,11520.000000,2033.000000) yaw=8.936086 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="oute3.odm" map="Outd3.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=470 action_id=22 event_id=0 destination_name="Castle Ironfist" pos=(14317,2696,96) direction_degrees=180
+[GameplayTrace] interact method=keyboard map="Castle Ironfist" scene_kind=outdoor party=(17132.8,16769,2239.43) yaw=1.49011 pitch=-0.2175 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=57 face_index=42 event_primary=0 event_secondary=0 triggered_event=43 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=270.252 hit=(17154.3,17032,2356.31)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=222 title="Throne Room" house_title="Throne Room" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":789,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Wilbur Humphrey\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":798,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Nicolai Ironfist\"}]"
+[GameplayTrace] topic_clicked kind=house_resident action_id=789 secondary_id=0 selection_index=0 source_id=222 house_dialog=true enabled=true label="Wilbur Humphrey"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=789 title="Wilbur Humphrey" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1322,\"secondary_id\":1322,\"enabled\":true,\"text_only\":false,\"label\":\"The Letter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1326,\"secondary_id\":1326,\"enabled\":true,\"text_only\":false,\"label\":\"Crusaders\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1322 secondary_id=1322 selection_index=0 source_id=789 house_dialog=false enabled=true label="The Letter"
+[GameplayTrace] award_acquired id=100 member_index=0
+[GameplayTrace] qbit_cleared id=1106
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=789 title="Wilbur Humphrey" house_title="" line_count=7 text_hash=5841727226243182427 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1323,\"secondary_id\":1323,\"enabled\":true,\"text_only\":false,\"label\":\"Lord Kilburn\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1326,\"secondary_id\":1326,\"enabled\":true,\"text_only\":false,\"label\":\"Crusaders\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1323 secondary_id=1323 selection_index=0 source_id=789 house_dialog=false enabled=true label="Lord Kilburn"
+[GameplayTrace] qbit_set id=1110
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=789 title="Wilbur Humphrey" house_title="" line_count=5 text_hash=13341603577030300889 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1324,\"secondary_id\":1324,\"enabled\":true,\"text_only\":false,\"label\":\"Lord Kilburn\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1326,\"secondary_id\":1326,\"enabled\":true,\"text_only\":false,\"label\":\"Crusaders\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1326 secondary_id=1326 selection_index=1 source_id=789 house_dialog=false enabled=true label="Crusaders"
+[GameplayTrace] qbit_set id=1112
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=789 title="Wilbur Humphrey" house_title="" line_count=4 text_hash=1576918525263578729 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1324,\"secondary_id\":1324,\"enabled\":true,\"text_only\":false,\"label\":\"Lord Kilburn\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1327,\"secondary_id\":1327,\"enabled\":true,\"text_only\":false,\"label\":\"Crusaders\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1327 secondary_id=1327 selection_index=1 source_id=789 house_dialog=false enabled=true label="Crusaders"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=789 title="Wilbur Humphrey" house_title="" line_count=4 text_hash=10118238667046807596 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1324,\"secondary_id\":1324,\"enabled\":true,\"text_only\":false,\"label\":\"Lord Kilburn\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1327,\"secondary_id\":1327,\"enabled\":true,\"text_only\":false,\"label\":\"Crusaders\"}]"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=222 title="Throne Room" house_title="Throne Room" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":789,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Wilbur Humphrey\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":798,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Nicolai Ironfist\"}]"
+[GameplayTrace] topic_clicked kind=house_resident action_id=798 secondary_id=0 selection_index=1 source_id=222 house_dialog=true enabled=true label="Nicolai Ironfist"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=798 title="Nicolai Ironfist" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1331,\"secondary_id\":1331,\"enabled\":true,\"text_only\":false,\"label\":\"Boredom\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1338,\"secondary_id\":1338,\"enabled\":true,\"text_only\":false,\"label\":\"Uncle Archibald\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1338 secondary_id=1338 selection_index=1 source_id=798 house_dialog=false enabled=true label="Uncle Archibald"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=798 title="Nicolai Ironfist" house_title="" line_count=3 text_hash=14659533271921271608 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1331,\"secondary_id\":1331,\"enabled\":true,\"text_only\":false,\"label\":\"Boredom\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1338,\"secondary_id\":1338,\"enabled\":true,\"text_only\":false,\"label\":\"Uncle Archibald\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1331 secondary_id=1331 selection_index=0 source_id=798 house_dialog=false enabled=true label="Boredom"
+[GameplayTrace] hireling_hired npc_id=798 profession_id=0 weekly_cost=0
+[GameplayTrace] qbit_set id=1114
+[GameplayTrace] qbit_set id=1700
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=798 title="Nicolai Ironfist" house_title="" line_count=9 text_hash=11368523526221456935 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1332,\"secondary_id\":1332,\"enabled\":true,\"text_only\":false,\"label\":\"The Circus\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1338,\"secondary_id\":1338,\"enabled\":true,\"text_only\":false,\"label\":\"Uncle Archibald\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1332 secondary_id=1332 selection_index=0 source_id=798 house_dialog=false enabled=true label="The Circus"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=798 title="Nicolai Ironfist" house_title="" line_count=1 text_hash=12956207209018259673 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1332,\"secondary_id\":1332,\"enabled\":true,\"text_only\":false,\"label\":\"The Circus\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1338,\"secondary_id\":1338,\"enabled\":true,\"text_only\":false,\"label\":\"Uncle Archibald\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=798 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Castle Ironfist" scene_kind=outdoor party=(14236.8,3030.48,97) yaw=-1.13458 pitch=-0.1995 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=27 face_index=9 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=360.904 hit=(14388,2710.45,201.531)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=471 title="Sean, Stablemaster" house_title="Royal Lines " line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"2 days to New Sorpigal for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=471 house_dialog=true enabled=true label="2 days to New Sorpigal for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=471 action_id=22 route_index=1 confirmation_required=false destination_map="Oute3.odm" destination_name="New Sorpigal" travel_days=2 use_start_position=false pos=(-10464,-9386,161) direction_degrees=0
+[GameplayTrace] hireling_left npc_id=798 profession_id=0 weekly_cost=0
+[GameplayTrace] qbit_cleared id=1114
+[GameplayTrace] qbit_cleared id=1700
+[GameplayTrace] qbit_set id=1119
+[GameplayTrace] map_loaded map="oute3.odm" scene_kind=outdoor initialize_view=true party=(-9728.000000,-11319.000000,161.000000) yaw=8.936086 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outd3.odm" map="Oute3.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=471 action_id=22 event_id=0 destination_name="New Sorpigal" pos=(-10464,-9386,161) direction_degrees=0
+[GameplayTrace] qbit_set id=310
+[GameplayTrace] map_loaded source=debug_console map="outb2.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outb2.odm" target="Blackshire" map_id=141 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Blackshire" scene_kind=outdoor party=(-4493.24,988.263,161) yaw=-0.967499 pitch=-0.5055 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=45 face_index=8 event_primary=0 event_secondary=0 triggered_event=68 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=284.13 hit=(-4352,783.413,199.411)
+[GameplayTrace] map_var_changed map="outb2.odm" operation=set index=3 previous=0 current=1
+[GameplayTrace] qbit_set id=1328
+[GameplayTrace] qbit_set id=1206
+[GameplayTrace] chest_opened scene_kind=outdoor map="Blackshire" chest_id=1 item_count=4 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=262 item_name="Stone to Flesh" item_icon="item182" item_material=1 item_rarity=0 quest_like=false quest_like=false grid=(8,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=871 item_name="Light Dragon Leather" item_icon="7item069" item_material=3 item_rarity=0 quest_like=false quest_like=false grid=(3,4)
+[GameplayTrace] item_received destination=held source=chest item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true grid=(6,2)
+[GameplayTrace] held_item_changed active=false item_id=2119 source=held_controller
+[GameplayTrace] map_loaded source=debug_console map="outb1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outb1.odm" target="Kriegspire" map_id=140 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Kriegspire" scene_kind=outdoor party=(-17390.6,-789.105,218.315) yaw=1.602 pitch=-0.168 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=41 face_index=51 event_primary=0 event_secondary=0 triggered_event=94 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554960 name="" distance=283.377 hit=(-17406.3,-512,336.143)
+[GameplayTrace] map_loaded map="zdwj02.blv" scene_kind=indoor initialize_view=true party=(1920.000000,128.000000,0.000000) yaw=0.000000 pitch=0.150000
+[GameplayTrace] map_arrived previous_map="outb1.odm" map="zdwj02.blv" same_map=false use_start_position=false pos=(1893,122,1) direction_degrees=180
+[GameplayTrace] actor_quest_item_death scene_kind=indoor map="Devil Outpost" actor_index=0 monster_id=504 name="Devil Warrior" delivery=world_item pos=(1325.542969,115.182602,0.000000) item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true
+[GameplayTrace] world_item_spawned source=monster_death scene_kind=indoor map="Devil Outpost" world_item_index=0 item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true pos=(1325.542969,115.182602,16.000000) sector_id=2
+[GameplayTrace] item_inspect item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true source=world_item map="Devil Outpost" scene_kind=indoor party=(1513.111328,145.244385,0.000000) yaw=-2.412609 pitch=-0.641999 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] interact method=keyboard map="Devil Outpost" scene_kind=indoor party=(1513.11,145.244,0) yaw=-2.41261 pitch=-0.641999 can_activate=true has_hit=true kind=world_item world_item_index=0 item_id=337 sprite_id=17557 distance=236.147 hit=(1371.96,19.1775,18.4222)
+[GameplayTrace] item_received destination=inventory source=world_item item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true world_item_index=0 member_index=0
+[GameplayTrace] qbit_set id=312
+[GameplayTrace] map_loaded source=debug_console map="oute2.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="oute2.odm" target="Misty Islands" map_id=150 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Misty Islands" scene_kind=outdoor party=(8122.48,-16708.7,481) yaw=0.198 pitch=-0.159 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=13 face_index=41 event_primary=0 event_secondary=0 triggered_event=90 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=319.299 hit=(8432,-16647.5,606.686)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=0 title="Silver Helm Outpost" house_title="" line_count=1 text_hash=8257173071591342439 action_count=2 actions_json="[{\"index\":0,\"kind\":\"map_transition_confirm\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"OK\"},{\"index\":1,\"kind\":\"map_transition_cancel\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Close\"}]"
+[GameplayTrace] topic_clicked kind=map_transition_confirm action_id=0 secondary_id=0 selection_index=0 source_id=0 house_dialog=false enabled=true label="OK"
+[GameplayTrace] map_transition_confirmed source_kind="map_transition" source_id=0 action_id=0 destination_map="6d07.blv" destination_name="" use_start_position=false pos=(4427,3061,769) direction_degrees=180
+[GameplayTrace] save_game_written path="saves/autosave.oysav" map="oute2.odm" scene_kind=outdoor game_minutes=6320.715820
+[GameplayTrace] state_dump_save_begin path="saves/autosave.oysav" map="oute2.odm" scene_kind=outdoor game_minutes=6320.715820
+[GameplayTrace] state_dump_save_party gold=6184 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_save_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=6556/6691 inventory_count=2 award_count=1
+[GameplayTrace] state_dump_save_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,0) item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,4) item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_qbit id=310
+[GameplayTrace] state_dump_save_qbit id=312
+[GameplayTrace] state_dump_save_qbit id=313
+[GameplayTrace] state_dump_save_qbit id=1104
+[GameplayTrace] state_dump_save_qbit id=1110
+[GameplayTrace] state_dump_save_qbit id=1112
+[GameplayTrace] state_dump_save_qbit id=1119
+[GameplayTrace] state_dump_save_qbit id=1150
+[GameplayTrace] state_dump_save_qbit id=1206
+[GameplayTrace] state_dump_save_qbit id=1328
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_end path="saves/autosave.oysav"
+[GameplayTrace] map_loaded map="6d07.blv" scene_kind=indoor initialize_view=true party=(4480.000000,3072.000000,768.000000) yaw=-3.110096 pitch=-0.066000
+[GameplayTrace] map_arrived previous_map="oute2.odm" map="6d07.blv" same_map=false use_start_position=false pos=(4427,3061,769) direction_degrees=180
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(493.161,-494.415,0) yaw=-0.491108 pitch=-0.111 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=207 face_index=207 event_primary=0 event_secondary=0 triggered_event=10 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=313.428 hit=(768,-641.456,125.287)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=10 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=22 move_length=218 open_speed=300 close_speed=300
+[GameplayTrace] mechanism_completed kind=indoor_door id=10 state=closed elapsed_seconds=0.733333 door_slot=22 move_length=218 open_speed=300 close_speed=300
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=19 face_index=90 attributes=2214592896
+[GameplayTrace] mechanism_triggered kind=indoor_door id=6 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=0 move_length=218 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=8 move_length=222 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=close raw_action=1 previous_state=closed new_state=closed was_moving=false moving=false door_slot=20 move_length=24 open_speed=50 close_speed=50
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(1795.33,-145.706,0) yaw=0.0713952 pitch=-0.1335 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=263 face_index=263 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=223.016 hit=(2016,-129.93,130.303)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=8 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=10 move_length=222 open_speed=300 close_speed=300
+[GameplayTrace] mechanism_completed kind=indoor_door id=8 state=closed elapsed_seconds=0.741666 door_slot=10 move_length=222 open_speed=300 close_speed=300
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(2869.47,-835.421,0) yaw=-0.351605 pitch=-0.0885 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=355 face_index=355 event_primary=0 event_secondary=0 triggered_event=9 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=182.21 hit=(3040,-898.13,143.855)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=9 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=14 move_length=218 open_speed=300 close_speed=300
+[GameplayTrace] mechanism_completed kind=indoor_door id=9 state=closed elapsed_seconds=0.733333 door_slot=14 move_length=218 open_speed=300 close_speed=300
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(3445.31,-1131.84,0) yaw=-1.53961 pitch=-0.129 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1505 face_index=1505 event_primary=0 event_secondary=0 triggered_event=7 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=149.28 hit=(3450.13,-1280,140.791)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=8 move_length=222 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=20 move_length=24 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=16 state=open elapsed_seconds=0.483334 door_slot=20 move_length=24 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=7 state=closed elapsed_seconds=1.483335 door_slot=8 move_length=222 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(3443.58,-1001.03,0) yaw=1.65659 pitch=-0.561 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1314 face_index=1314 event_primary=0 event_secondary=0 triggered_event=18 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=200.152 hit=(3429.69,-832,53.3324)
+[GameplayTrace] chest_opened scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_count=11 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quest_like=true grid=(4,8)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true grid=(4,8)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=150 item_name="Shadow Sect Medallion" item_icon="item150" item_material=4 item_rarity=0 quest_like=false quest_like=false grid=(1,1)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=908 item_name="Huntsman's Cloak" item_icon="7item106" item_material=2 item_rarity=0 quest_like=false quest_like=false grid=(2,8)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=1692 item_name="Steel Helm" item_icon="6helm2" item_material=6 item_rarity=0 quest_like=false quest_like=false grid=(4,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=1707 item_name="Leather Cloak" item_icon="6cape1" item_material=2 item_rarity=0 quest_like=false quest_like=false grid=(0,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=3 item_id=1663 item_name="Staff" item_icon="staff1" item_material=3 item_rarity=0 quest_like=false quest_like=false grid=(2,0)
+[GameplayTrace] item_inspect item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true source=chest map="Silver Helm Outpost" scene_kind=indoor party=(3443.584473,-1001.025879,0.000000) yaw=1.656593 pitch=-0.561000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true grid=(4,8)
+[GameplayTrace] held_item_changed active=false item_id=2123 source=held_controller
+[GameplayTrace] interact method=keyboard map="Silver Helm Outpost" scene_kind=indoor party=(3579.2,1038.12,0) yaw=1.1931 pitch=-0.48 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1283 face_index=1283 event_primary=0 event_secondary=0 triggered_event=16 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=215.408 hit=(3649.33,1216,60.3759)
+[GameplayTrace] map_var_changed map="6d07.blv" operation=set index=4 previous=0 current=1
+[GameplayTrace] qbit_set id=1035
+[GameplayTrace] qbit_set id=1223
+[GameplayTrace] chest_opened scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_count=7 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(6,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true grid=(6,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_id=1732 item_name="Turquoise Amulet" item_icon="amulet1" item_material=4 item_rarity=0 quest_like=false quest_like=false grid=(8,6)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_id=178 item_name="Iolite" item_icon="item218" item_material=0 item_rarity=0 quest_like=false quest_like=false grid=(7,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Silver Helm Outpost" chest_id=1 item_id=227 item_name="Awaken" item_icon="item184" item_material=1 item_rarity=0 quest_like=false quest_like=false grid=(1,4)
+[GameplayTrace] item_inspect item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true source=chest map="Silver Helm Outpost" scene_kind=indoor party=(3579.198486,1038.116211,0.000000) yaw=1.193096 pitch=-0.480000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true grid=(6,4)
+[GameplayTrace] held_item_changed active=false item_id=2107 source=held_controller
+[GameplayTrace] qbit_set id=315
+[GameplayTrace] map_loaded source=debug_console map="outc1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outc1.odm" target="Frozen Highlands" map_id=143 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Frozen Highlands" scene_kind=outdoor party=(11582.5,-3212.95,97) yaw=2.78012 pitch=-0.1365 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1 face_index=59 event_primary=0 event_secondary=0 triggered_event=33 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=326.085 hit=(11280,-3098.78,228.828)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1345,\"secondary_id\":1345,\"enabled\":true,\"text_only\":false,\"label\":\"The Prince of Thieves\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1348,\"secondary_id\":1348,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1345 secondary_id=1345 selection_index=0 source_id=801 house_dialog=false enabled=true label="The Prince of Thieves"
+[GameplayTrace] qbit_set id=1122
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=10 text_hash=6595519314773633453 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1346,\"secondary_id\":1346,\"enabled\":true,\"text_only\":false,\"label\":\"The Prince of Thieves\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1348,\"secondary_id\":1348,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1346 secondary_id=1346 selection_index=0 source_id=801 house_dialog=false enabled=true label="The Prince of Thieves"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=4 text_hash=16112134698630376466 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1346,\"secondary_id\":1346,\"enabled\":true,\"text_only\":false,\"label\":\"The Prince of Thieves\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1348,\"secondary_id\":1348,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1348 secondary_id=1348 selection_index=1 source_id=801 house_dialog=false enabled=true label="Priests"
+[GameplayTrace] qbit_set id=1129
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=9 text_hash=14694279733877862309 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1346,\"secondary_id\":1346,\"enabled\":true,\"text_only\":false,\"label\":\"The Prince of Thieves\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1349,\"secondary_id\":1349,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=801 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Frozen Highlands" scene_kind=outdoor party=(13524.4,16345,161) yaw=0.00362246 pitch=-0.213 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=5 face_index=39 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=306.132 hit=(13824,16343.3,272.972)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1400,\"secondary_id\":1400,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1404,\"secondary_id\":1404,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1400 secondary_id=1400 selection_index=0 source_id=800 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] qbit_set id=1144
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=8 text_hash=54545773613559398 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1401,\"secondary_id\":1401,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1404,\"secondary_id\":1404,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1401 secondary_id=1401 selection_index=0 source_id=800 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=2 text_hash=5633930830856293608 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1401,\"secondary_id\":1401,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1404,\"secondary_id\":1404,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1404 secondary_id=1404 selection_index=1 source_id=800 house_dialog=false enabled=true label="Warrior Mages"
+[GameplayTrace] qbit_set id=1145
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=9 text_hash=5405755228892098961 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1401,\"secondary_id\":1401,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1405,\"secondary_id\":1405,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1405 secondary_id=1405 selection_index=1 source_id=800 house_dialog=false enabled=true label="Warrior Mages"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=1 text_hash=1202877172372866554 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1401,\"secondary_id\":1401,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1405,\"secondary_id\":1405,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=800 house_dialog=false action_count=2
+[GameplayTrace] map_loaded source=debug_console map="outb1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outb1.odm" target="Kriegspire" map_id=140 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Kriegspire" scene_kind=outdoor party=(3895.41,771.546,2881) yaw=1.7055 pitch=-0.285 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=40 face_index=6 event_primary=0 event_secondary=0 triggered_event=14 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=189.581 hit=(3870.68,952,3003.69)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=804 title="The Hermit on the Mountain" house_title="" line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1409,\"secondary_id\":1409,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1409 secondary_id=1409 selection_index=0 source_id=804 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] qbit_set id=1252
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=804 title="The Hermit on the Mountain" house_title="" line_count=3 text_hash=9217144971376579577 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1410,\"secondary_id\":1410,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1410 secondary_id=1410 selection_index=0 source_id=804 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=804 title="The Hermit on the Mountain" house_title="" line_count=2 text_hash=9304286881382955534 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1410,\"secondary_id\":1410,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=804 house_dialog=false action_count=1
+[GameplayTrace] map_loaded source=debug_console map="outc1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outc1.odm" target="Frozen Highlands" map_id=143 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Frozen Highlands" scene_kind=outdoor party=(13428.5,16328.7,161) yaw=0.116108 pitch=-0.132 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=5 face_index=39 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=401.739 hit=(13824,16376.7,283.707)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1402,\"secondary_id\":1402,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1405,\"secondary_id\":1405,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1402 secondary_id=1402 selection_index=0 source_id=800 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] qbit_cleared id=1144
+[GameplayTrace] qbit_set id=1199
+[GameplayTrace] award_acquired id=62 member_index=0
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=1 text_hash=4842385383180722304 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1403,\"secondary_id\":1403,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1405,\"secondary_id\":1405,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1403 secondary_id=1403 selection_index=0 source_id=800 house_dialog=false enabled=true label="Winter"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=800 title="Erik Von Stromgard" house_title="" line_count=2 text_hash=11419261352545120425 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1403,\"secondary_id\":1403,\"enabled\":true,\"text_only\":false,\"label\":\"Winter\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1405,\"secondary_id\":1405,\"enabled\":true,\"text_only\":false,\"label\":\"Warrior Mages\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=800 house_dialog=false action_count=2
+[GameplayTrace] qbit_set id=1202
+[GameplayTrace] qbit_set id=311
+[GameplayTrace] map_loaded source=debug_console map="outc2.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outc2.odm" target="Free Haven" map_id=144 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(4930.19,8983.21,257) yaw=0.819 pitch=-0.1905 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=101 face_index=5 event_primary=0 event_secondary=0 triggered_event=90 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=335.763 hit=(5155.67,9224,369.385)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1113 title="Stephen Iago" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":21,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":21,\"secondary_id\":709,\"enabled\":true,\"text_only\":false,\"label\":\"Merchant\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1113 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(4762.3,9135.73,257) yaw=2.2275 pitch=-0.159 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=117 face_index=23 event_primary=0 event_secondary=0 triggered_event=88 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=359.241 hit=(4544.63,9416,375.884)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=1513 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":1011,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Chitania Retiani\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":1025,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Sri Retiani\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=1513 house_dialog=true action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(5357.85,8787.81,257) yaw=-0.958497 pitch=-0.213 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=0 face_index=9 event_primary=0 event_secondary=0 triggered_event=100 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=323.807 hit=(5538.91,8528,364.446)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1114 title="Lawrence Aleman" house_title="" line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1426,\"secondary_id\":1426,\"enabled\":true,\"text_only\":false,\"label\":\"Gongs\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1114 house_dialog=false action_count=1
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(7296.65,9748.44,257) yaw=2.664 pitch=-0.195 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=84 face_index=10 event_primary=0 event_secondary=0 triggered_event=76 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=394.815 hit=(6952,9925.46,356.068)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=1453 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":867,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Livia Farrel\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":1062,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Lysander Farrel\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=1453 house_dialog=true action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(8966.2,9561.71,257) yaw=1.629 pitch=-0.204 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=28 face_index=2 event_primary=0 event_secondary=0 triggered_event=101 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=341.528 hit=(8947.61,9896,364.585)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=971 title="Iris Poppyfield" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_profession_description\",\"id\":36,\"secondary_id\":2356,\"enabled\":true,\"text_only\":false,\"label\":\"More Info\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":36,\"secondary_id\":724,\"enabled\":true,\"text_only\":false,\"label\":\"Bard\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=971 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(9547.29,9321.99,257) yaw=-1.21949 pitch=-0.186 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=114 face_index=59 event_primary=0 event_secondary=0 triggered_event=64 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=340.63 hit=(9663.81,9008,369.791)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=905 title="Ike Pargrew" house_title="" line_count=0 text_hash=1469598103934665603 action_count=3 actions_json="[{\"index\":0,\"kind\":\"guild_membership_offer\",\"id\":1703,\"secondary_id\":1703,\"enabled\":true,\"text_only\":false,\"label\":\"Earth Guild Membership\"},{\"index\":1,\"kind\":\"npc_hire_offer\",\"id\":17,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":2,\"kind\":\"npc_profession_news\",\"id\":17,\"secondary_id\":705,\"enabled\":true,\"text_only\":false,\"label\":\"Apprentice\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=905 house_dialog=false action_count=3
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(9873.39,9637.67,257) yaw=1.84051 pitch=-0.1725 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=121 face_index=28 event_primary=0 event_secondary=0 triggered_event=102 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=272.674 hit=(9799.03,9896,386.114)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=969 title="Heidi Strumper" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":75,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":75,\"secondary_id\":763,\"enabled\":true,\"text_only\":false,\"label\":\"Noble\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=969 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(10374.4,12026.6,161) yaw=1.81351 pitch=-0.1995 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=77 face_index=19 event_primary=0 event_secondary=0 triggered_event=106 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=345.816 hit=(10293.3,12356,268.747)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=938 title="Sandra Trudoor" house_title="" line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_profession_news\",\"id\":74,\"secondary_id\":762,\"enabled\":true,\"text_only\":false,\"label\":\"Follower of Baa\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=938 house_dialog=false action_count=1
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(9578.67,11994.9,161) yaw=1.95302 pitch=-0.1725 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=113 face_index=4 event_primary=0 event_secondary=0 triggered_event=105 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=259.712 hit=(9482.19,12232,292.12)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=892 title="Doreen Espana" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":34,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":34,\"secondary_id\":722,\"enabled\":true,\"text_only\":false,\"label\":\"Chef\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=892 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1620.52,12505,257) yaw=-3.05667 pitch=-0.1905 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=120 face_index=38 event_primary=0 event_secondary=0 triggered_event=81 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=364.143 hit=(1264,12475.3,364.059)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1110 title="Hans Schultz" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":18,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":18,\"secondary_id\":706,\"enabled\":true,\"text_only\":false,\"label\":\"Mystic\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1110 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(2159.2,12216.7,257) yaw=-0.446671 pitch=-0.168 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=15 face_index=18 event_primary=0 event_secondary=0 triggered_event=86 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=430.752 hit=(2544,12036.7,360.364)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1003 title="Fabian Sun" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":30,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":30,\"secondary_id\":718,\"enabled\":true,\"text_only\":false,\"label\":\"Quarter Master\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1003 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(2178.54,11526.3,257) yaw=-1.32867 pitch=-0.114 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=6 face_index=24 event_primary=0 event_secondary=0 triggered_event=87 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=287.244 hit=(2248,11249.3,400.279)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1111 title="Donald Dorfus" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":19,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":19,\"secondary_id\":707,\"enabled\":true,\"text_only\":false,\"label\":\"Spell Master\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1111 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1752.18,11275.4,257) yaw=-2.42667 pitch=-0.123 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=19 face_index=11 event_primary=0 event_secondary=0 triggered_event=82 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=320.956 hit=(1512,11065.9,393.656)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1059 title="Ral" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":63,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":63,\"secondary_id\":751,\"enabled\":true,\"text_only\":false,\"label\":\"Carpenter\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1059 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(-2117.53,12981,321) yaw=-2.70119 pitch=-0.2085 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=83 face_index=24 event_primary=0 event_secondary=0 triggered_event=98 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=335.681 hit=(-2414.38,12840,427.579)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=1536 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":1021,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Li Tizare\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":1044,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Isao Tizare\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=1536 house_dialog=true action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(-2137.66,14724.3,321) yaw=0.210298 pitch=-0.1995 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=74 face_index=38 event_primary=0 event_secondary=0 triggered_event=68 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=377.011 hit=(-1776,14800.9,422.016)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=956 title="Gabriel Cartman" house_title="" line_count=0 text_hash=1469598103934665603 action_count=3 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1618,\"secondary_id\":1618,\"enabled\":true,\"text_only\":false,\"label\":\"Quest\"},{\"index\":1,\"kind\":\"npc_hire_offer\",\"id\":3,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":2,\"kind\":\"npc_profession_news\",\"id\":3,\"secondary_id\":691,\"enabled\":true,\"text_only\":false,\"label\":\"Alchemist\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=956 house_dialog=false action_count=3
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(-3697.05,13615.6,321) yaw=1.81351 pitch=-0.222 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=116 face_index=0 event_primary=0 event_secondary=0 triggered_event=97 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=253.187 hit=(-3755.64,13856,442.284)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=1534 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":1005,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Thari Mirumoto\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":1008,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Hitomi Mirumoto\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=1534 house_dialog=true action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(-3922.55,13466.1,321) yaw=-1.59418 pitch=-0.1275 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=122 face_index=36 event_primary=0 event_secondary=0 triggered_event=73 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=377.125 hit=(-3932.53,13092,448.47)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=1426 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_resident\",\"id\":993,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Jack Van Imp\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":994,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Rexella Van Imp\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=1426 house_dialog=true action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1664.85,10866.2,257) yaw=2.25002 pitch=-0.195 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=19 face_index=11 event_primary=0 event_secondary=0 triggered_event=82 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=249.197 hit=(1512,11057.3,384.783)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1059 title="Ral" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":63,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":63,\"secondary_id\":751,\"enabled\":true,\"text_only\":false,\"label\":\"Carpenter\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1059 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1429.55,12031.1,257) yaw=1.95753 pitch=-0.132 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=120 face_index=38 event_primary=0 event_secondary=0 triggered_event=81 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=440.648 hit=(1264,12435.5,374.796)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1110 title="Hans Schultz" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":18,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":18,\"secondary_id\":706,\"enabled\":true,\"text_only\":false,\"label\":\"Mystic\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1110 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1982.97,14389.7,257) yaw=1.00802 pitch=-0.1725 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=38 face_index=2 event_primary=0 event_secondary=0 triggered_event=84 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=263.625 hit=(2120,14610.7,388.402)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1061 title="Beauregard Wolf" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_profession_description\",\"id\":50,\"secondary_id\":2370,\"enabled\":true,\"text_only\":false,\"label\":\"More Info\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":50,\"secondary_id\":738,\"enabled\":true,\"text_only\":false,\"label\":\"Duper\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1061 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(1608.97,15304.9,269.632) yaw=2.89351 pitch=-0.1365 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=109 face_index=13 event_primary=0 event_secondary=0 triggered_event=79 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=292.018 hit=(1328,15374.6,405.703)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1049 title="Rosemarie Reyjavik" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":21,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":21,\"secondary_id\":709,\"enabled\":true,\"text_only\":false,\"label\":\"Merchant\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1049 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(2108.94,16263.3,257) yaw=0.949508 pitch=-0.177 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=35 face_index=18 event_primary=0 event_secondary=0 triggered_event=83 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=482.366 hit=(2384,16650.8,349.198)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1060 title="Nikobi" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_hire_offer\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":1,\"kind\":\"npc_profession_news\",\"id\":22,\"secondary_id\":710,\"enabled\":true,\"text_only\":false,\"label\":\"Scout\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=1060 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(2368.35,15972,257) yaw=-1.21949 pitch=-0.195 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=11 face_index=31 event_primary=0 event_secondary=0 triggered_event=71 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=384.998 hit=(2495.7,15616,359.234)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=999 title="Woodrow Albright" house_title="" line_count=0 text_hash=1469598103934665603 action_count=4 actions_json="[{\"index\":0,\"kind\":\"mastery_teacher_offer\",\"id\":1535,\"secondary_id\":1535,\"enabled\":true,\"text_only\":false,\"label\":\"Expert Plate Armor Training\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1584,\"secondary_id\":1584,\"enabled\":true,\"text_only\":false,\"label\":\"Forrest Suthers\"},{\"index\":2,\"kind\":\"npc_hire_offer\",\"id\":13,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Join\"},{\"index\":3,\"kind\":\"npc_profession_news\",\"id\":13,\"secondary_id\":701,\"enabled\":true,\"text_only\":false,\"label\":\"Teacher\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=999 house_dialog=false action_count=4
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(5154.9,16959.4,257) yaw=-1.098 pitch=-0.2085 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=104 face_index=21 event_primary=0 event_secondary=0 triggered_event=96 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=348.112 hit=(5309.97,16656,360.94)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=1532 title="House" house_title="House" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":23,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Enter\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":877,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Takao\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=23 secondary_id=0 selection_index=0 source_id=1532 house_dialog=true enabled=true label="Enter"
+[GameplayTrace] save_game_written path="saves/autosave.oysav" map="outc2.odm" scene_kind=outdoor game_minutes=6358.198242
+[GameplayTrace] state_dump_save_begin path="saves/autosave.oysav" map="outc2.odm" scene_kind=outdoor game_minutes=6358.198242
+[GameplayTrace] state_dump_save_party gold=6184 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_save_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=6406/6691 inventory_count=4 award_count=2
+[GameplayTrace] state_dump_save_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,0) item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,4) item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,6) item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_qbit id=310
+[GameplayTrace] state_dump_save_qbit id=311
+[GameplayTrace] state_dump_save_qbit id=312
+[GameplayTrace] state_dump_save_qbit id=313
+[GameplayTrace] state_dump_save_qbit id=315
+[GameplayTrace] state_dump_save_qbit id=1035
+[GameplayTrace] state_dump_save_qbit id=1104
+[GameplayTrace] state_dump_save_qbit id=1110
+[GameplayTrace] state_dump_save_qbit id=1112
+[GameplayTrace] state_dump_save_qbit id=1119
+[GameplayTrace] state_dump_save_qbit id=1122
+[GameplayTrace] state_dump_save_qbit id=1129
+[GameplayTrace] state_dump_save_qbit id=1145
+[GameplayTrace] state_dump_save_qbit id=1150
+[GameplayTrace] state_dump_save_qbit id=1199
+[GameplayTrace] state_dump_save_qbit id=1202
+[GameplayTrace] state_dump_save_qbit id=1206
+[GameplayTrace] state_dump_save_qbit id=1223
+[GameplayTrace] state_dump_save_qbit id=1252
+[GameplayTrace] state_dump_save_qbit id=1328
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_end path="saves/autosave.oysav"
+[GameplayTrace] house_extra_exit source_id=1532 action_id=23 label="Enter" destination_map="sewer.blv" destination_name="Free Haven Sewer" destination_map_id=183 required_qbit=0 pos=(-6575,13740,177)
+[GameplayTrace] map_transition_requested source_kind="house_extra_exit" source_id=1532 action_id=23 event_id=0 confirmation_required=false destination_map="sewer.blv" destination_name="Free Haven Sewer" use_start_position=false pos=(-6575,13740,177) direction_degrees=none
+[GameplayTrace] map_loaded map="sewer.blv" scene_kind=indoor initialize_view=true party=(7520.000000,-4224.000000,256.000000) yaw=-2.682588 pitch=-0.088500
+[GameplayTrace] map_arrived previous_map="outc2.odm" map="sewer.blv" same_map=false use_start_position=false source_kind="house_extra_exit" source_id=1532 action_id=23 event_id=0 destination_name="Free Haven Sewer" pos=(-6575,13740,177) direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Free Haven Sewer" scene_kind=indoor party=(-31491.2,14031.4,0) yaw=-3.07411 pitch=-0.1515 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1524 face_index=1524 event_primary=0 event_secondary=0 triggered_event=7 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=191.516 hit=(-31680,14016.6,130.266)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=8 move_length=127 open_speed=250 close_speed=250
+[GameplayTrace] mechanism_completed kind=indoor_door id=7 state=closed elapsed_seconds=0.508334 door_slot=8 move_length=127 open_speed=250 close_speed=250
+[GameplayTrace] interact method=keyboard map="Free Haven Sewer" scene_kind=indoor party=(-32163.8,14052.8,0) yaw=2.04809 pitch=-0.5385 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1528 face_index=1528 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038464 name="" distance=183.596 hit=(-32236.9,14191.5,64)
+[GameplayTrace] qbit_set id=1701
+[GameplayTrace] qbit_set id=1194
+[GameplayTrace] hireling_hired npc_id=802 profession_id=0 weekly_cost=0
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=802 title="The Prince of Thieves" house_title="" line_count=0 text_hash=1469598103934665603 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1411,\"secondary_id\":1411,\"enabled\":true,\"text_only\":false,\"label\":\"My Capture\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1411 secondary_id=1411 selection_index=0 source_id=802 house_dialog=false enabled=true label="My Capture"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=802 title="The Prince of Thieves" house_title="" line_count=1 text_hash=1836596275030294307 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1411,\"secondary_id\":1411,\"enabled\":true,\"text_only\":false,\"label\":\"My Capture\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1411 secondary_id=1411 selection_index=0 source_id=802 house_dialog=false enabled=true label="My Capture"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=802 title="The Prince of Thieves" house_title="" line_count=1 text_hash=1836596275030294307 action_count=1 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1411,\"secondary_id\":1411,\"enabled\":true,\"text_only\":false,\"label\":\"My Capture\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=802 house_dialog=false action_count=1
+[GameplayTrace] map_loaded source=debug_console map="outc1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outc1.odm" target="Frozen Highlands" map_id=143 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Frozen Highlands" scene_kind=outdoor party=(11514.2,-2966.75,97) yaw=-2.91238 pitch=-0.1815 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1 face_index=59 event_primary=0 event_secondary=0 triggered_event=33 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=244.078 hit=(11280,-3020.47,229.141)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1346,\"secondary_id\":1346,\"enabled\":true,\"text_only\":false,\"label\":\"The Prince of Thieves\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1349,\"secondary_id\":1349,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1346 secondary_id=1346 selection_index=0 source_id=801 house_dialog=false enabled=true label="The Prince of Thieves"
+[GameplayTrace] qbit_cleared id=1122
+[GameplayTrace] award_acquired id=60 member_index=0
+[GameplayTrace] qbit_cleared id=1701
+[GameplayTrace] hireling_left npc_id=802 profession_id=0 weekly_cost=0
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=8 text_hash=2643303389606239767 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1347,\"secondary_id\":1347,\"enabled\":true,\"text_only\":false,\"label\":\"The High Council\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1349,\"secondary_id\":1349,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1347 secondary_id=1347 selection_index=0 source_id=801 house_dialog=false enabled=true label="The High Council"
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=801 title="Anthony Stone" house_title="" line_count=1 text_hash=11842963420051360305 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1347,\"secondary_id\":1347,\"enabled\":true,\"text_only\":false,\"label\":\"The High Council\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1349,\"secondary_id\":1349,\"enabled\":true,\"text_only\":false,\"label\":\"Priests\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=801 house_dialog=false action_count=2
+[GameplayTrace] qbit_set id=1203
+[GameplayTrace] qbit_set id=314
+[GameplayTrace] map_loaded source=debug_console map="outd1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outd1.odm" target="Silver Cove" map_id=146 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Silver Cove" scene_kind=outdoor party=(16149,-14546.4,737) yaw=0.980995 pitch=-0.15 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=18 face_index=28 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=589.017 hit=(16475.6,-14064,824.511)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1392,\"secondary_id\":1392,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1395,\"secondary_id\":1395,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1392 secondary_id=1392 selection_index=0 source_id=799 house_dialog=false enabled=true label="Money"
+[GameplayTrace] qbit_set id=1140
+[GameplayTrace] qbit_set id=1706
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=11 text_hash=7738303666548992957 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1393,\"secondary_id\":1393,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1395,\"secondary_id\":1395,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1393 secondary_id=1393 selection_index=0 source_id=799 house_dialog=false enabled=true label="Money"
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=8 text_hash=17592629189251903173 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1393,\"secondary_id\":1393,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1395,\"secondary_id\":1395,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1395 secondary_id=1395 selection_index=1 source_id=799 house_dialog=false enabled=true label="Great Druids"
+[GameplayTrace] qbit_set id=1142
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=6 text_hash=11906661949449012329 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1393,\"secondary_id\":1393,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1396,\"secondary_id\":1396,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=799 house_dialog=false action_count=2
+[GameplayTrace] interact method=keyboard map="Silver Cove" scene_kind=outdoor party=(7260.65,-6485.49,275.724) yaw=-1.56149 pitch=-0.4695 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=67 face_index=9 event_primary=0 event_secondary=0 triggered_event=10 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=191.202 hit=(7261.15,-6656,364.783)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=475 title="Todd, Stablemaster" house_title="Abdul's Discount Travel" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"4 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=475 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1521
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=475 title="Todd, Stablemaster" house_title="Abdul's Discount Travel" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"4 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=475 house_dialog=true enabled=true label="4 days to Free Haven for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=475 action_id=22 route_index=1 confirmation_required=false destination_map="Outc2.odm" destination_name="Free Haven" travel_days=4 use_start_position=false pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] map_loaded map="outc2.odm" scene_kind=outdoor initialize_view=true party=(2896.000000,6768.000000,257.000000) yaw=0.000000 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outd1.odm" map="Outc2.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=475 action_id=22 event_id=0 destination_name="Free Haven" pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(5010,13225,161) yaw=1.81439 pitch=-0.276 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=42 face_index=26 event_primary=0 event_secondary=0 triggered_event=16 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=67.098 hit=(4994.91,13288,318.768)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=473 title="Walter, Stablemaster" house_title="Free Haven Travel West" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"4 days to Castle Ironfist for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=1 source_id=473 house_dialog=true enabled=true label="4 days to Castle Ironfist for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=473 action_id=22 route_index=2 confirmation_required=false destination_map="Outd3.odm" destination_name="Castle Ironfist" travel_days=4 use_start_position=false pos=(14317,2696,96) direction_degrees=180
+[GameplayTrace] map_loaded map="outd3.odm" scene_kind=outdoor initialize_view=true party=(16112.000000,11520.000000,2033.000000) yaw=8.936086 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outc2.odm" map="Outd3.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=473 action_id=22 event_id=0 destination_name="Castle Ironfist" pos=(14317,2696,96) direction_degrees=180
+[GameplayTrace] interact method=keyboard map="Castle Ironfist" scene_kind=outdoor party=(14165.3,2709.9,97) yaw=0.126597 pitch=-0.213 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=27 face_index=9 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=229.438 hit=(14388,2738.04,224.559)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=471 title="Sean, Stablemaster" house_title="Royal Lines " line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"4 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=471 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1522
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=471 title="Sean, Stablemaster" house_title="Royal Lines " line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"4 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=471 house_dialog=true enabled=true label="4 days to Free Haven for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=471 action_id=22 route_index=2 confirmation_required=false destination_map="Outc2.odm" destination_name="Free Haven" travel_days=4 use_start_position=false pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] map_loaded map="outc2.odm" scene_kind=outdoor initialize_view=true party=(2896.000000,6768.000000,257.000000) yaw=0.000000 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outd3.odm" map="Outc2.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=471 action_id=22 event_id=0 destination_name="Free Haven" pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(4996.22,13142.1,161) yaw=1.44089 pitch=-0.1995 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=42 face_index=26 event_primary=0 event_secondary=0 triggered_event=16 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=149.801 hit=(5015.05,13288,307.509)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=473 title="Walter, Stablemaster" house_title="Free Haven Travel West" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"5 days to Mire of the Damned for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=473 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1519
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=473 title="Walter, Stablemaster" house_title="Free Haven Travel West" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"5 days to Mire of the Damned for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=473 house_dialog=true enabled=true label="5 days to Mire of the Damned for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=473 action_id=22 route_index=3 confirmation_required=false destination_map="Outc3.odm" destination_name="Mire of the Damned" travel_days=5 use_start_position=false pos=(-18439,8569,256) direction_degrees=0
+[GameplayTrace] map_loaded map="outc3.odm" scene_kind=outdoor initialize_view=true party=(-13376.000000,-14048.000000,97.000000) yaw=0.000000 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outc2.odm" map="Outc3.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=473 action_id=22 event_id=0 destination_name="Mire of the Damned" pos=(-18439,8569,256) direction_degrees=0
+[GameplayTrace] interact method=keyboard map="Mire of the Damned" scene_kind=outdoor party=(-18439,8569,257) yaw=-0.6615 pitch=-0.2175 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=25 face_index=48 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=199.422 hit=(-18286.4,8448,389.252)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=474 title="Scott, Stablemaster" house_title="Darkmoor Travel" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"5 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=474 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1520
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=474 title="Scott, Stablemaster" house_title="Darkmoor Travel" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"5 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=474 house_dialog=true enabled=true label="5 days to Free Haven for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=474 action_id=22 route_index=1 confirmation_required=false destination_map="Outc2.odm" destination_name="Free Haven" travel_days=5 use_start_position=false pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] map_loaded map="outc2.odm" scene_kind=outdoor initialize_view=true party=(2896.000000,6768.000000,257.000000) yaw=0.000000 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outc3.odm" map="Outc2.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=474 action_id=22 event_id=0 destination_name="Free Haven" pos=(5010,13225,161) direction_degrees=270
+[GameplayTrace] interact method=keyboard map="Free Haven" scene_kind=outdoor party=(-1033.39,3793.23,161) yaw=-2.45279 pitch=-0.168 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=100 face_index=6 event_primary=0 event_secondary=0 triggered_event=14 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=463.986 hit=(-1386.44,3502,259.495)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=472 title="Mark, Stablemaster" house_title="Free Haven Travel East" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"3 days to Frozen Highlands for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=472 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1518
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=472 title="Mark, Stablemaster" house_title="Free Haven Travel East" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"3 days to Frozen Highlands for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=22 secondary_id=0 selection_index=0 source_id=472 house_dialog=true enabled=true label="3 days to Frozen Highlands for 8 gold"
+[GameplayTrace] map_transition_requested source_kind="horse_route" source_id=472 action_id=22 route_index=3 confirmation_required=false destination_map="Outc1.odm" destination_name="Frozen Highlands" travel_days=3 use_start_position=false pos=(-4444,14865,97) direction_degrees=90
+[GameplayTrace] map_loaded map="outc1.odm" scene_kind=outdoor initialize_view=true party=(12512.000000,-3040.000000,97.000000) yaw=17.872171 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="outc2.odm" map="Outc1.odm" same_map=false use_start_position=false source_kind="horse_route" source_id=472 action_id=22 event_id=0 destination_name="Frozen Highlands" pos=(-4444,14865,97) direction_degrees=90
+[GameplayTrace] interact method=keyboard map="Frozen Highlands" scene_kind=outdoor party=(-4202.44,15041.9,97) yaw=-2.52421 pitch=-0.1725 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=18 face_index=9 event_primary=0 event_secondary=0 triggered_event=31 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=341.589 hit=(-4477.67,14848,214.146)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=476 title="Peter, Stablemaster" house_title="White Cap Transport Co." line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=476 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1517
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=476 title="Peter, Stablemaster" house_title="White Cap Transport Co." line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=476 house_dialog=true action_count=1
+[GameplayTrace] chest_opened scene_kind=outdoor map="Blackshire" chest_id=1 item_count=4 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=262 item_name="Stone to Flesh" item_icon="item182" item_material=1 item_rarity=0 quest_like=false quest_like=false grid=(8,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=871 item_name="Light Dragon Leather" item_icon="7item069" item_material=3 item_rarity=0 quest_like=false quest_like=false grid=(3,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quest_like=true grid=(3,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true grid=(3,0)
+[GameplayTrace] chest_opened scene_kind=outdoor map="Blackshire" chest_id=1 item_count=4 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=262 item_name="Stone to Flesh" item_icon="item182" item_material=1 item_rarity=0 quest_like=false quest_like=false grid=(8,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=871 item_name="Light Dragon Leather" item_icon="7item069" item_material=3 item_rarity=0 quest_like=false quest_like=false grid=(3,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quest_like=true grid=(3,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true grid=(3,0)
+[GameplayTrace] chest_opened scene_kind=outdoor map="Blackshire" chest_id=1 item_count=4 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=262 item_name="Stone to Flesh" item_icon="item182" item_material=1 item_rarity=0 quest_like=false quest_like=false grid=(8,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=871 item_name="Light Dragon Leather" item_icon="7item069" item_material=3 item_rarity=0 quest_like=false quest_like=false grid=(3,4)
+[GameplayTrace] chest_contains_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quest_like=true grid=(3,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=outdoor map="Blackshire" chest_id=1 item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true grid=(3,0)
+[GameplayTrace] map_loaded source=debug_console map="outb2.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outb2.odm" target="Blackshire" map_id=141 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Blackshire" scene_kind=outdoor party=(-14912.3,14675.7,97) yaw=-0.531001 pitch=-0.168 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=8 face_index=8 event_primary=0 event_secondary=0 triggered_event=10 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=442.921 hit=(-14536,14453.8,198.582)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=478 title="Anthony, Stablemaster" house_title="Blackshire Coach and Buggy" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"3 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=478 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1516
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=478 title="Anthony, Stablemaster" house_title="Blackshire Coach and Buggy" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"3 days to Free Haven for 8 gold\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=478 house_dialog=true action_count=1
+[GameplayTrace] map_loaded source=debug_console map="outb1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outb1.odm" target="Kriegspire" map_id=140 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] map_transition_requested source_kind="map_boundary" source_id=1 action_id=0 event_id=0 confirmation_required=true destination_map="outb2.odm" destination_name="outb2.odm" use_start_position=true pos=(0,0,0) direction_degrees=none
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=1 title="Blackshire" house_title="" line_count=1 text_hash=6983054381914395862 action_count=2 actions_json="[{\"index\":0,\"kind\":\"map_transition_confirm\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"OK\"},{\"index\":1,\"kind\":\"map_transition_cancel\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Close\"}]"
+[GameplayTrace] dialogue_canceled kind=map_transition source_id=1 active_source_id=1 house_dialog=false
+[GameplayTrace] map_transition_canceled source_kind=map_transition source_id=1 destination_map="outb2.odm" destination_name="outb2.odm" use_start_position=true pos=(0,0,0) direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Kriegspire" scene_kind=outdoor party=(5324.99,-18423.1,256.445) yaw=-0.448806 pitch=-0.1725 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=17 face_index=8 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=318.92 hit=(5608.09,-18560,378.065)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=477 title="Ken, Stablemaster" house_title="King's Highway" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=477 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1515
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=477 title="Ken, Stablemaster" house_title="King's Highway" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=477 house_dialog=true action_count=1
+[GameplayTrace] map_loaded source=debug_console map="oute3.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="oute3.odm" target="New Sorpigal" map_id=151 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="New Sorpigal" scene_kind=outdoor party=(-10119.8,-9234.25,161) yaw=-2.5458 pitch=-0.1635 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=49 face_index=48 event_primary=0 event_secondary=0 triggered_event=15 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33555456 name="" distance=458.848 hit=(-10496,-9486.51,262.632)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=470 title="Aaron, Stablemaster" house_title="New Sorpigal Coach Company" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":24,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Price Fixing\"},{\"index\":1,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=24 secondary_id=0 selection_index=0 source_id=470 house_dialog=true enabled=true label="Price Fixing"
+[GameplayTrace] qbit_set id=1523
+[GameplayTrace] qbit_set id=1141
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=true source_id=470 title="Aaron, Stablemaster" house_title="New Sorpigal Coach Company" line_count=2 text_hash=2047279752085638723 action_count=1 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":22,\"secondary_id\":0,\"enabled\":false,\"text_only\":false,\"label\":\"Sorry, come back another day\"}]"
+[GameplayTrace] dialogue_canceled kind=house_service active_source_id=470 house_dialog=true action_count=1
+[GameplayTrace] map_loaded source=debug_console map="outd1.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="outd1.odm" target="Silver Cove" map_id=146 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Silver Cove" scene_kind=outdoor party=(16194.7,-14384.8,737) yaw=1.053 pitch=-0.195 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=18 face_index=28 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=375.054 hit=(16375.2,-14064,840.144)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1393,\"secondary_id\":1393,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1396,\"secondary_id\":1396,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] topic_clicked kind=npc_topic action_id=1393 secondary_id=1393 selection_index=0 source_id=799 house_dialog=false enabled=true label="Money"
+[GameplayTrace] qbit_cleared id=1140
+[GameplayTrace] award_acquired id=61 member_index=0
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=799 title="Loretta Fleise" house_title="" line_count=4 text_hash=1758952083124570899 action_count=2 actions_json="[{\"index\":0,\"kind\":\"npc_topic\",\"id\":1394,\"secondary_id\":1394,\"enabled\":true,\"text_only\":false,\"label\":\"Money\"},{\"index\":1,\"kind\":\"npc_topic\",\"id\":1396,\"secondary_id\":1396,\"enabled\":true,\"text_only\":false,\"label\":\"Great Druids\"}]"
+[GameplayTrace] dialogue_canceled kind=npc_talk active_source_id=799 house_dialog=false action_count=2
+[GameplayTrace] map_loaded source=debug_console map="oute3.odm" scene_kind=outdoor initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="oute3.odm" target="New Sorpigal" map_id=151 scene_kind=outdoor source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="New Sorpigal" scene_kind=outdoor party=(15524.8,11137.5,118.325) yaw=-1.42859 pitch=-0.2355 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=75 face_index=17 event_primary=0 event_secondary=0 triggered_event=103 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=33554944 name="" distance=225.858 hit=(15556.3,10920,241.287)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=false source_id=0 title="Gharik's Forge" house_title="" line_count=1 text_hash=3500383639479374761 action_count=2 actions_json="[{\"index\":0,\"kind\":\"map_transition_confirm\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"OK\"},{\"index\":1,\"kind\":\"map_transition_cancel\",\"id\":0,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Close\"}]"
+[GameplayTrace] topic_clicked kind=map_transition_confirm action_id=0 secondary_id=0 selection_index=0 source_id=0 house_dialog=false enabled=true label="OK"
+[GameplayTrace] map_transition_confirmed source_kind="map_transition" source_id=0 action_id=0 destination_map="6d18.blv" destination_name="" use_start_position=false pos=(-2688,1216,1153) direction_degrees=270
+[GameplayTrace] save_game_written path="saves/autosave.oysav" map="oute3.odm" scene_kind=outdoor game_minutes=42390.027344
+[GameplayTrace] state_dump_save_begin path="saves/autosave.oysav" map="oute3.odm" scene_kind=outdoor game_minutes=42390.027344
+[GameplayTrace] state_dump_save_party gold=41136 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_save_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=6666/6691 inventory_count=4 award_count=4
+[GameplayTrace] state_dump_save_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=60
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=61
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,0) item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,4) item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,6) item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_qbit id=310
+[GameplayTrace] state_dump_save_qbit id=311
+[GameplayTrace] state_dump_save_qbit id=312
+[GameplayTrace] state_dump_save_qbit id=313
+[GameplayTrace] state_dump_save_qbit id=314
+[GameplayTrace] state_dump_save_qbit id=315
+[GameplayTrace] state_dump_save_qbit id=1035
+[GameplayTrace] state_dump_save_qbit id=1104
+[GameplayTrace] state_dump_save_qbit id=1110
+[GameplayTrace] state_dump_save_qbit id=1112
+[GameplayTrace] state_dump_save_qbit id=1119
+[GameplayTrace] state_dump_save_qbit id=1129
+[GameplayTrace] state_dump_save_qbit id=1141
+[GameplayTrace] state_dump_save_qbit id=1142
+[GameplayTrace] state_dump_save_qbit id=1145
+[GameplayTrace] state_dump_save_qbit id=1150
+[GameplayTrace] state_dump_save_qbit id=1194
+[GameplayTrace] state_dump_save_qbit id=1199
+[GameplayTrace] state_dump_save_qbit id=1202
+[GameplayTrace] state_dump_save_qbit id=1203
+[GameplayTrace] state_dump_save_qbit id=1206
+[GameplayTrace] state_dump_save_qbit id=1223
+[GameplayTrace] state_dump_save_qbit id=1252
+[GameplayTrace] state_dump_save_qbit id=1328
+[GameplayTrace] state_dump_save_qbit id=1515
+[GameplayTrace] state_dump_save_qbit id=1516
+[GameplayTrace] state_dump_save_qbit id=1517
+[GameplayTrace] state_dump_save_qbit id=1518
+[GameplayTrace] state_dump_save_qbit id=1519
+[GameplayTrace] state_dump_save_qbit id=1520
+[GameplayTrace] state_dump_save_qbit id=1521
+[GameplayTrace] state_dump_save_qbit id=1522
+[GameplayTrace] state_dump_save_qbit id=1523
+[GameplayTrace] state_dump_save_qbit id=1706
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_end path="saves/autosave.oysav"
+[GameplayTrace] map_loaded map="6d18.blv" scene_kind=indoor initialize_view=true party=(-2688.000000,1216.000000,1152.000000) yaw=-2.853605 pitch=-0.219000
+[GameplayTrace] map_arrived previous_map="oute3.odm" map="6d18.blv" same_map=false use_start_position=false pos=(-2688,1216,1153) direction_degrees=270
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(299.709,1673.11,0) yaw=0.161711 pitch=-0.1785 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=182 face_index=182 event_primary=0 event_secondary=0 triggered_event=2 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=218.382 hit=(512,1707.83,121.205)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=1 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=3 move_length=255 open_speed=200 close_speed=200
+[GameplayTrace] mechanism_triggered kind=indoor_door id=2 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=4 move_length=255 open_speed=200 close_speed=200
+[GameplayTrace] mechanism_completed kind=indoor_door id=1 state=closed elapsed_seconds=1.275000 door_slot=3 move_length=255 open_speed=200 close_speed=200
+[GameplayTrace] mechanism_completed kind=indoor_door id=2 state=closed elapsed_seconds=1.275000 door_slot=4 move_length=255 open_speed=200 close_speed=200
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1429.41,861.795,0) yaw=-0.577479 pitch=-0.0569996 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=221 face_index=221 event_primary=0 event_secondary=0 triggered_event=3 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=102.126 hit=(1514.98,806,154.159)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=3 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=17 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=4 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=42 move_length=959 open_speed=200 close_speed=200
+[GameplayTrace] mechanism_completed kind=indoor_door id=3 state=closed elapsed_seconds=0.325000 door_slot=17 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=4 state=closed elapsed_seconds=4.799997 door_slot=42 move_length=959 open_speed=200 close_speed=200
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(-1696.15,3877,0) yaw=1.56569 pitch=-0.1785 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=362 face_index=362 event_primary=0 event_secondary=0 triggered_event=4 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038464 name="" distance=202.405 hit=(-1695.2,4076.38,124)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=5 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=20 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=6 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=21 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=5 state=closed elapsed_seconds=0.325000 door_slot=20 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=6 state=closed elapsed_seconds=0.516667 door_slot=21 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(-1791,5257.19,0) yaw=0.34619 pitch=-0.156 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=282 face_index=282 event_primary=0 event_secondary=0 triggered_event=6 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=252.357 hit=(-1556,5340.97,120.734)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=9 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=47 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=10 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=16 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=9 state=closed elapsed_seconds=0.325000 door_slot=47 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=10 state=closed elapsed_seconds=0.516667 door_slot=16 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(-423.647,4991.29,0) yaw=0.715191 pitch=-0.21 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=426 face_index=426 event_primary=0 event_secondary=0 triggered_event=7 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=177.918 hit=(-292,5105.36,122.821)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=11 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=45 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=12 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=33 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=11 state=closed elapsed_seconds=0.325000 door_slot=45 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=12 state=closed elapsed_seconds=0.516667 door_slot=33 move_length=255 open_speed=500 close_speed=500
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=2233 attributes=2214592912
+[GameplayTrace] map_var_changed map="6d18.blv" operation=set index=2 previous=0 current=1
+[GameplayTrace] item_inspect item_id=1000 item_name="Gold" item_icon="7item188" item_material=0 item_rarity=0 quest_like=false source=world_item map="Gharik's Forge" scene_kind=indoor party=(3121.535156,6451.497070,-512.000000) yaw=-2.070330 pitch=-0.619001 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=13 loot_item_index=0
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=566 attributes=2214592912
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=2233 attributes=2214592912
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=53 face_index=651 attributes=2214592896
+[GameplayTrace] map_var_changed map="6d18.blv" operation=set index=2 previous=1 current=0
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=53 face_index=652 attributes=2214592896
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(2776.83,6812.63,-752) yaw=1.99317 pitch=-1.168 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=654 face_index=654 event_primary=0 event_secondary=0 triggered_event=31 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038464 name="" distance=156.288 hit=(2751.56,6868.43,-736)
+[GameplayTrace] map_arrived previous_map="6d18.blv" map="6d18.blv" same_map=true use_start_position=false pos=(1916,6618,1) direction_degrees=88
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(2000.84,6645.98,0) yaw=-1.52862 pitch=-0.169 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2119 face_index=2119 event_primary=0 event_secondary=0 triggered_event=36 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=229.227 hit=(2010,6420,121.453)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=44 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=51 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=44 state=closed elapsed_seconds=0.325000 door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=51 state=closed elapsed_seconds=0.483334 door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1963.64,6614.5,0) yaw=-1.3948 pitch=-0.259 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2118 face_index=2118 event_primary=0 event_secondary=0 triggered_event=36 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300608 name="" distance=204.352 hit=(1997.99,6419.67,108)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=44 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=51 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=44 state=open elapsed_seconds=0.325000 door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=51 state=open elapsed_seconds=0.483334 door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1935.11,6673.96,-512) yaw=-1.3273 pitch=-0.1375 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2163 face_index=2163 event_primary=0 event_secondary=0 triggered_event=40 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=263.961 hit=(1998.11,6420,-388.27)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=47 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=47 state=closed elapsed_seconds=0.325000 door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=49 state=closed elapsed_seconds=0.483334 door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1870.37,5171.02,-512) yaw=1.74622 pitch=-0.196 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2002 face_index=2002 event_primary=0 event_secondary=0 triggered_event=38 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=191.245 hit=(1838.04,5356,-389.256)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=45 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=45 state=closed elapsed_seconds=0.325000 door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=closed elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1870.37,5171.02,-512) yaw=1.72821 pitch=-0.2905 can_activate=false has_hit=true kind=event_target target_kind=1 target_index=2233 face_index=2233 event_primary=0 event_secondary=0 triggered_event=51 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2214592912 name="" distance=1451.09 hit=(1651.42,6544.06,-768)
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1870.37,5171.02,-512) yaw=1.72821 pitch=-0.286 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2002 face_index=2002 event_primary=0 event_secondary=0 triggered_event=38 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=195.046 hit=(1840.87,5356,-407.068)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=45 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=45 state=open elapsed_seconds=0.325000 door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=open elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1949.93,6581.64,-512) yaw=-1.28229 pitch=-0.313 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2163 face_index=2163 event_primary=0 event_secondary=0 triggered_event=40 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=177.186 hit=(1998.37,6420,-406.697)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=47 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=47 state=open elapsed_seconds=0.325000 door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=49 state=open elapsed_seconds=0.483334 door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1949.93,6581.64,-512) yaw=-1.25979 pitch=-0.2365 can_activate=false has_hit=true kind=event_target target_kind=1 target_index=574 face_index=574 event_primary=0 event_secondary=0 triggered_event=0 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2147484288 name="" distance=1578.62 hit=(2419.17,5120,-720.941)
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1949.93,6581.64,-512) yaw=-1.27329 pitch=-0.223 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2163 face_index=2163 event_primary=0 event_secondary=0 triggered_event=40 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=173.032 hit=(1999.24,6420,-390.091)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=47 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=47 state=closed elapsed_seconds=0.325000 door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=49 state=closed elapsed_seconds=0.483334 door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(3176,5155.13,0) yaw=1.84851 pitch=-0.1735 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=509 face_index=509 event_primary=0 event_secondary=0 triggered_event=33 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=211.797 hit=(3118.95,5356,123.413)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_triggered kind=indoor_door id=41 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=24 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=41 state=closed elapsed_seconds=0.325000 door_slot=24 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=closed elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(3176,5155.13,0) yaw=1.83052 pitch=-0.2545 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=509 face_index=509 event_primary=0 event_secondary=0 triggered_event=33 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=214.74 hit=(3122.11,5356,105.721)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_triggered kind=indoor_door id=41 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=24 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=41 state=open elapsed_seconds=0.325000 door_slot=24 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=open elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1955.69,5188.43,0) yaw=2.18153 pitch=-0.187 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2040 face_index=2040 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=208.268 hit=(1837.92,5356,121.15)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=42 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=28 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=50 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=34 move_length=239 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=42 state=closed elapsed_seconds=0.325000 door_slot=28 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=50 state=closed elapsed_seconds=0.483334 door_slot=34 move_length=239 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1953.32,6474.19,0) yaw=-0.896463 pitch=-0.466 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2118 face_index=2118 event_primary=0 event_secondary=0 triggered_event=36 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300608 name="" distance=79.8586 hit=(1998.24,6418.55,124)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=44 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=51 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=44 state=closed elapsed_seconds=0.325000 door_slot=18 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=51 state=closed elapsed_seconds=0.483334 door_slot=51 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1858.63,5160.62,-512) yaw=1.66283 pitch=-0.1825 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2002 face_index=2002 event_primary=0 event_secondary=0 triggered_event=38 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=199.3 hit=(1840.52,5356,-388.036)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=45 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=45 state=closed elapsed_seconds=0.325000 door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=closed elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=566 attributes=2214592912
+[GameplayTrace] map_var_changed map="6d18.blv" operation=set index=2 previous=0 current=1
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1897.55,6505.76,-325.793) yaw=-0.623167 pitch=-1.006 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2162 face_index=2162 event_primary=0 event_secondary=0 triggered_event=40 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300608 name="" distance=282.056 hit=(2020.16,6416.91,-404)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=47 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=47 state=open elapsed_seconds=0.325000 door_slot=14 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=49 state=open elapsed_seconds=0.483334 door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=2233 attributes=2214592912
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=53 face_index=653 attributes=2214592896
+[GameplayTrace] map_var_changed map="6d18.blv" operation=set index=2 previous=1 current=0
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=53 face_index=652 attributes=2214592896
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(3223.69,6531.11,-512) yaw=-1.05067 pitch=-0.317499 can_activate=false has_hit=true kind=event_target target_kind=1 target_index=2092 face_index=2092 event_primary=0 event_secondary=0 triggered_event=0 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2147484800 name="" distance=152.597 hit=(3296,6405.3,-399.842)
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(3223.69,6531.11,-512) yaw=-1.08217 pitch=-0.285999 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2081 face_index=2081 event_primary=0 event_secondary=0 triggered_event=39 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=130.923 hit=(3282.68,6420,-388.983)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=46 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=15 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=52 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=13 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=46 state=closed elapsed_seconds=0.325000 door_slot=15 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=52 state=closed elapsed_seconds=0.483334 door_slot=13 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=566 attributes=2214592912
+[GameplayTrace] map_var_changed map="6d18.blv" operation=set index=2 previous=0 current=1
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(3177.16,5267.47,-512) yaw=2.11853 pitch=-0.367001 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1966 face_index=1966 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=110.766 hit=(3123.35,5356,-391.752)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=13 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=29 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=14 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=19 move_length=1280 open_speed=200 close_speed=200
+[GameplayTrace] mechanism_triggered kind=indoor_door id=49 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=23 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=13 state=closed elapsed_seconds=0.325000 door_slot=29 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=14 state=closed elapsed_seconds=6.400029 door_slot=19 move_length=1280 open_speed=200 close_speed=200
+[GameplayTrace] interact method=keyboard map="Gharik's Forge" scene_kind=indoor party=(1867.88,5156.53,-512) yaw=1.70001 pitch=-0.268001 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2002 face_index=2002 event_primary=0 event_secondary=0 triggered_event=38 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=208.315 hit=(1842.33,5356,-407.101)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=45 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_triggered kind=indoor_door id=48 action=trigger raw_action=2 previous_state=closed new_state=opening was_moving=false moving=true door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] mechanism_completed kind=indoor_door id=45 state=open elapsed_seconds=0.325000 door_slot=25 move_length=16 open_speed=50 close_speed=50
+[GameplayTrace] mechanism_completed kind=indoor_door id=48 state=open elapsed_seconds=0.483334 door_slot=41 move_length=240 open_speed=500 close_speed=500
+[GameplayTrace] save_game_written path="saves/save1.oysav" map="6d18.blv" scene_kind=indoor game_minutes=42391.527344
+[GameplayTrace] state_dump_save_begin path="saves/save1.oysav" map="6d18.blv" scene_kind=indoor game_minutes=42391.527344
+[GameplayTrace] state_dump_save_party gold=41136 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_save_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=6481/6691 inventory_count=4 award_count=4
+[GameplayTrace] state_dump_save_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=60
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=61
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,0) item_id=2119 item_name="Lord Kilburn's Shield" item_icon="6lshield8" item_material=4 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,4) item_id=2126 item_name="Devil Plans" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,6) item_id=2107 item_name="Key to Gharik's Laboratory" item_icon="keys1" item_material=6 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_qbit id=310
+[GameplayTrace] state_dump_save_qbit id=311
+[GameplayTrace] state_dump_save_qbit id=312
+[GameplayTrace] state_dump_save_qbit id=313
+[GameplayTrace] state_dump_save_qbit id=314
+[GameplayTrace] state_dump_save_qbit id=315
+[GameplayTrace] state_dump_save_qbit id=1035
+[GameplayTrace] state_dump_save_qbit id=1104
+[GameplayTrace] state_dump_save_qbit id=1110
+[GameplayTrace] state_dump_save_qbit id=1112
+[GameplayTrace] state_dump_save_qbit id=1119
+[GameplayTrace] state_dump_save_qbit id=1129
+[GameplayTrace] state_dump_save_qbit id=1141
+[GameplayTrace] state_dump_save_qbit id=1142
+[GameplayTrace] state_dump_save_qbit id=1145
+[GameplayTrace] state_dump_save_qbit id=1150
+[GameplayTrace] state_dump_save_qbit id=1194
+[GameplayTrace] state_dump_save_qbit id=1199
+[GameplayTrace] state_dump_save_qbit id=1202
+[GameplayTrace] state_dump_save_qbit id=1203
+[GameplayTrace] state_dump_save_qbit id=1206
+[GameplayTrace] state_dump_save_qbit id=1223
+[GameplayTrace] state_dump_save_qbit id=1252
+[GameplayTrace] state_dump_save_qbit id=1328
+[GameplayTrace] state_dump_save_qbit id=1515
+[GameplayTrace] state_dump_save_qbit id=1516
+[GameplayTrace] state_dump_save_qbit id=1517
+[GameplayTrace] state_dump_save_qbit id=1518
+[GameplayTrace] state_dump_save_qbit id=1519
+[GameplayTrace] state_dump_save_qbit id=1520
+[GameplayTrace] state_dump_save_qbit id=1521
+[GameplayTrace] state_dump_save_qbit id=1522
+[GameplayTrace] state_dump_save_qbit id=1523
+[GameplayTrace] state_dump_save_qbit id=1706
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2553895124507025603 values="2:1"
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2553895124507025603 values="2:1"
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2553895124507025603 values="2:1"
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_end path="saves/save1.oysav"

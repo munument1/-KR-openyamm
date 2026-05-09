@@ -1,5 +1,6 @@
 #include "game/gameplay/HouseInteraction.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/BountyHuntRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/tables/ClassSkillTable.h"
@@ -27,6 +28,7 @@ constexpr uint32_t LorettaPriceQuestBit = 1140;
 constexpr uint32_t LorettaPriceCompleteBit = 1141;
 constexpr uint32_t LorettaFirstStableBit = 1515;
 constexpr uint32_t LorettaLastStableBit = 1523;
+constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
 constexpr uint32_t BountyHuntGroup = 39;
 constexpr int ShopTheftBanDays = 336;
 constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
@@ -103,6 +105,11 @@ std::string bountyHuntVarPrefix(const IGameplayWorldRuntime &worldRuntime)
 std::string shopBanUntilVar(uint32_t houseId)
 {
     return "MMerge.ShopBanUntil." + std::to_string(houseId);
+}
+
+bool isFreeHavenHighCouncil(const HouseEntry &houseEntry)
+{
+    return houseEntry.id == FreeHavenHighCouncilHouseId;
 }
 
 int32_t namedGlobalVarValue(const EventRuntimeState &state, const std::string &name)
@@ -261,6 +268,87 @@ int displayHourAmPm(int hour24)
 bool isHouseType(const HouseEntry &houseEntry, const char *pTypeName)
 {
     return houseEntry.type == pTypeName;
+}
+
+uint16_t guildMembershipPartyVariableId(uint32_t guildType)
+{
+    constexpr uint16_t GuildMembershipPartyVariableBase = 0x8000u;
+    return static_cast<uint16_t>(GuildMembershipPartyVariableBase | static_cast<uint16_t>(guildType));
+}
+
+uint32_t guildMembershipRuntimeVariableKey(uint32_t guildType)
+{
+    constexpr uint32_t GuildMembershipVariableBase = 0x80000000u;
+    return GuildMembershipVariableBase | guildType;
+}
+
+std::optional<uint32_t> skillGuildMembershipType(const HouseEntry &houseEntry)
+{
+    if (houseEntry.name == "Buccaneers' Lair")
+    {
+        return 16;
+    }
+
+    if (houseEntry.name == "Protection Services")
+    {
+        return 17;
+    }
+
+    if (houseEntry.name == "Smugglers' Guild")
+    {
+        return 18;
+    }
+
+    if (houseEntry.name == "Blades' End")
+    {
+        return 19;
+    }
+
+    if (houseEntry.name == "Duelists' Edge")
+    {
+        return 20;
+    }
+
+    if (houseEntry.name == "Berserkers' Fury")
+    {
+        return 21;
+    }
+
+    return std::nullopt;
+}
+
+bool isSkillGuildHouse(const HouseEntry &houseEntry)
+{
+    return skillGuildMembershipType(houseEntry).has_value();
+}
+
+bool hasSkillGuildMembership(
+    const HouseEntry &houseEntry,
+    const Party *pParty,
+    const IGameplayWorldRuntime *pWorldRuntime)
+{
+    const std::optional<uint32_t> guildType = skillGuildMembershipType(houseEntry);
+
+    if (!guildType.has_value())
+    {
+        return true;
+    }
+
+    if (pParty != nullptr && pParty->eventVariableValue(guildMembershipPartyVariableId(*guildType)) != 0)
+    {
+        return true;
+    }
+
+    const EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    if (pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    const auto membershipIt = pEventRuntimeState->variables.find(guildMembershipRuntimeVariableKey(*guildType));
+    return membershipIt != pEventRuntimeState->variables.end() && membershipIt->second != 0;
 }
 
 const Character *selectedMember(const Party *pParty)
@@ -638,7 +726,9 @@ HouseServiceType resolveHouseServiceType(const HouseEntry &houseEntry)
         || isHouseType(houseEntry, "Spirit Guild")
         || isHouseType(houseEntry, "Mind Guild")
         || isHouseType(houseEntry, "Body Guild")
-        || isHouseType(houseEntry, "Spell Shop"))
+        || isHouseType(houseEntry, "Spell Shop")
+        || isHouseType(houseEntry, "Thieves guild")
+        || isHouseType(houseEntry, "Merc Guild"))
     {
         return HouseServiceType::Guild;
     }
@@ -685,6 +775,14 @@ std::vector<std::string> buildHouseServiceInfoLines(
 {
     std::vector<std::string> lines;
     const HouseServiceType serviceType = resolveHouseServiceType(houseEntry);
+
+    if (isSkillGuildHouse(houseEntry)
+        && menuId == DialogueMenuId::None
+        && !hasSkillGuildMembership(houseEntry, pParty, nullptr))
+    {
+        lines.push_back("You must be a member of this guild to study here.");
+        return lines;
+    }
 
     if (serviceType == HouseServiceType::Bank && menuId == DialogueMenuId::None)
     {
@@ -1008,15 +1106,48 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (serviceType == HouseServiceType::Guild)
     {
-        options.push_back(makeOption(
-            HouseActionId::GuildBuySpellbooks,
-            "Buy Spellbooks",
-            isHouseOpenNow,
-            closedReason
-        ));
+        if (isSkillGuildHouse(houseEntry)
+            && !hasSkillGuildMembership(houseEntry, pParty, pWorldRuntime))
+        {
+            HouseActionOption learnSkills =
+                makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason);
+            learnSkills.enabled = false;
+            learnSkills.disabledReason = "You must be a member of this guild to study here.";
+            options.push_back(std::move(learnSkills));
+            return finalizeHouseActionOptions(
+                houseEntry,
+                serviceType,
+                menuId,
+                pParty,
+                pWorldRuntime,
+                currentGameMinutes,
+                std::move(options));
+        }
+
+        if (!isSkillGuildHouse(houseEntry))
+        {
+            options.push_back(makeOption(
+                HouseActionId::GuildBuySpellbooks,
+                "Buy Spellbooks",
+                isHouseOpenNow,
+                closedReason
+            ));
+        }
 
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
         return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
+    }
+
+    if (isFreeHavenHighCouncil(houseEntry))
+    {
+        return finalizeHouseActionOptions(
+            houseEntry,
+            serviceType,
+            menuId,
+            pParty,
+            pWorldRuntime,
+            currentGameMinutes,
+            std::move(options));
     }
 
     if (serviceType == HouseServiceType::TownHall)
@@ -1803,7 +1934,9 @@ HouseActionResult performHouseAction(
             party.restAndHealAll();
             const int travelDays =
                 adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
+            const float beforeGameMinutes = pWorldRuntime->gameMinutes();
             pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays * MinutesPerDay));
+            const float afterGameMinutes = pWorldRuntime->gameMinutes();
 
             EventRuntimeState::PendingMapMove pendingMapMove = {};
             pendingMapMove.mapName = route.mapFileName;
@@ -1812,6 +1945,49 @@ HouseActionResult performHouseAction(
             pendingMapMove.z = route.z;
             pendingMapMove.directionDegrees = route.directionDegrees;
             pendingMapMove.useMapStartPosition = route.useMapStartPosition;
+            pendingMapMove.traceSourceKind = isBoatHouse(houseEntry) ? "boat_route" : "horse_route";
+            pendingMapMove.traceSourceId = houseEntry.id;
+            pendingMapMove.traceActionId = static_cast<uint32_t>(action.id);
+            pendingMapMove.traceDestinationName = route.destinationName;
+            pEventRuntimeState->lastMapTransitionRequested = EventRuntimeState::MapTransitionTrace{
+                .sourceKind = pendingMapMove.traceSourceKind,
+                .sourceId = houseEntry.id,
+                .actionId = static_cast<uint32_t>(action.id),
+                .routeIndex = route.routeIndex,
+                .confirmationRequired = false,
+                .destinationMap = route.mapFileName,
+                .destinationName = route.destinationName,
+                .travelDays = static_cast<uint32_t>(travelDays),
+                .useStartPosition = route.useMapStartPosition,
+                .x = route.x,
+                .y = route.y,
+                .z = route.z,
+                .directionDegrees = route.directionDegrees,
+            };
+            gameplayDebugTraceLog(
+                "game_time_advanced source=\"" + pendingMapMove.traceSourceKind + "\""
+                + " source_id=" + std::to_string(houseEntry.id)
+                + " action_id=" + std::to_string(static_cast<uint32_t>(action.id))
+                + " minutes=" + std::to_string(static_cast<float>(travelDays * MinutesPerDay))
+                + " before_game_minutes=" + std::to_string(beforeGameMinutes)
+                + " after_game_minutes=" + std::to_string(afterGameMinutes)
+                + " game_minutes=" + std::to_string(afterGameMinutes));
+            gameplayDebugTraceLog(
+                "map_transition_requested source_kind=\"" + pendingMapMove.traceSourceKind + "\""
+                + " source_id=" + std::to_string(houseEntry.id)
+                + " action_id=" + std::to_string(static_cast<uint32_t>(action.id))
+                + " route_index=" + std::to_string(route.routeIndex)
+                + " confirmation_required=false"
+                + " destination_map=\"" + route.mapFileName + "\""
+                + " destination_name=\"" + route.destinationName + "\""
+                + " travel_days=" + std::to_string(travelDays)
+                + " before_game_minutes=" + std::to_string(beforeGameMinutes)
+                + " game_minutes=" + std::to_string(afterGameMinutes)
+                + " use_start_position=" + (route.useMapStartPosition ? "true" : "false")
+                + " pos=(" + std::to_string(route.x)
+                + "," + std::to_string(route.y)
+                + "," + std::to_string(route.z) + ")"
+                + " direction_degrees=" + std::to_string(route.directionDegrees));
             pEventRuntimeState->pendingMapMove = std::move(pendingMapMove);
 
             result.messages.push_back(

@@ -1,0 +1,3502 @@
+id: mm6_probe_4_hive
+title: "MM6 Probe 4 Hive"
+world: mm6
+mode: faithful
+tags:
+  - mm6
+  - draft
+  - playthrough_trace
+source:
+  path: tests/playthrough_scenarios/mm6/08_the_hive_finale.txt
+  note: "Generated draft. Sanitize aliases, poses, shortcuts, and checkpoints before using as a runnable scenario."
+steps:
+  - source_line: 1
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 2
+    note: "trace_session_begin configured_world_id=mm6 gameplay_trace=true map_load_timing=false route_trace=false startup_map=oute3.odm trace_file=tests/playthrough_scenarios/mm6/08_the_hive_finale.txt unix_time=1778365463 world_id=mm6"
+  - source_line: 3
+    note: "menu_action action=load_game source=main_menu"
+  - source_line: 4
+    note: "load_game_screen_opened return_to_gameplay_menu=false source=main_menu"
+  - source_line: 5
+    load_game:
+      name: save2
+      path: saves/save2.oysav
+  - source_line: 6
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_file
+      path: saves/save2.oysav
+      first_source_line: 6
+      last_source_line: 155
+      record_count: 148
+      counts:
+        map_vars: 46
+        party: 1
+        party_award: 11
+        party_equipped: 11
+        party_inventory: 25
+        party_member: 1
+        party_skills: 1
+        qbit: 52
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 156
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 157
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+      game_minutes: 122790.90625
+  - source_line: 158
+    trace_observation:
+      event: load_game_applied
+      fields:
+        path: saves/save2.oysav
+        map: oracle.blv
+        scene_kind: indoor
+        game_minutes: 122790.90625
+      game_minutes: 122790.90625
+  - source_line: 159
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_applied
+      path: saves/save2.oysav
+      first_source_line: 159
+      last_source_line: 308
+      record_count: 148
+      counts:
+        map_vars: 46
+        party: 1
+        party_award: 11
+        party_equipped: 11
+        party_inventory: 25
+        party_member: 1
+        party_skills: 1
+        qbit: 52
+      encoding: base64+zlib+json
+      data: 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
+  - source_line: 309
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 311
+    load_map:
+      target: "The Hive"
+      map: hive.blv
+      map_id: 187
+      scene_kind: indoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+      game_minutes: 122791.46875
+  - source_line: 312
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 3002
+      face_index: 3002
+      triggered_event: 1
+      trigger: 0
+      name: ""
+      distance: 364.853
+      hit: "(459.773,4064,99.8507)"
+      pose:
+        x: 384
+        y: 3712
+        z: 0
+        map: hive.blv
+        yaw: 1.359
+        pitch: -0.165
+  - source_line: 313
+    assert_mechanism:
+      kind: indoor_door
+      id: 1
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 16
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 314
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 17
+        face_index: 0
+  - source_line: 315
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 1
+          state: closed
+          door_slot: 16
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 316
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2086
+      face_index: 2086
+      triggered_event: 39
+      trigger: 0
+      name: ""
+      distance: 353.296
+      hit: "(446.099,5504,120.932)"
+      pose:
+        x: 445.892
+        y: 5152.67
+        z: 0
+        map: hive.blv
+        yaw: 1.5705
+        pitch: -0.111
+  - source_line: 317
+    assert_mechanism:
+      kind: indoor_door
+      id: 45
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 6
+      move_length: 250
+      open_speed: 60
+      close_speed: 60
+  - source_line: 318
+    assert_mechanism:
+      kind: indoor_door
+      id: 46
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 23
+      move_length: 250
+      open_speed: 60
+      close_speed: 60
+  - source_line: 319
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 19
+        face_index: 3142
+  - source_line: 320
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 2
+        previous: 0
+        current: 1
+  - source_line: 321
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 13
+  - source_line: 322
+    wait_until:
+      timeout_runtime_seconds: 4.675
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 45
+          state: closed
+          door_slot: 6
+          move_length: 250
+          open_speed: 60
+          close_speed: 60
+  - source_line: 323
+    wait_until:
+      timeout_runtime_seconds: 4.675
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 46
+          state: closed
+          door_slot: 23
+          move_length: 250
+          open_speed: 60
+          close_speed: 60
+  - source_line: 324
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1547
+  - source_line: 325
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1876
+  - source_line: 326
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1035
+  - source_line: 327
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 998
+  - source_line: 328
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 999
+  - source_line: 329
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 999
+        force_replay: true
+  - source_line: 330
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3111
+  - source_line: 331
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 332
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3296
+  - source_line: 333
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 336
+    movement_segment:
+      input: forward
+      duration_ms: 1896
+      delta_game_minutes: 0.0
+      start:
+        x: 7781.417969
+        y: 6407.773926
+        z: -1335.0
+        map: hive.blv
+        yaw: 1.588539
+        pitch: -0.165
+      expect_stop:
+        x: 7767.0
+        y: 6646.0
+        z: -1335.0
+        map: hive.blv
+        yaw: 1.588539
+        pitch: -0.165
+      tolerance_xy: 16
+      tolerance_z: 16
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "The Hive"
+        scene_kind: indoor
+        party: "(7781.417969,6407.773926,-1335.000000)"
+        yaw: 1.588539
+        pitch: -0.165
+        game_minutes: 122792.765625
+        tick_ms: 126254
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 51
+        indoor_eye_sector: 51
+        indoor_support_face: 1861
+      raw_stop:
+        map: "The Hive"
+        scene_kind: indoor
+        party: "(7767.000000,6646.000000,-1335.000000)"
+        yaw: 1.588539
+        pitch: -0.165
+        game_minutes: 122792.765625
+        tick_ms: 128150
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 51
+        indoor_eye_sector: 51
+        indoor_support_face: 3297
+      game_minutes: 122792.765625
+  - source_line: 337
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 1860
+      face_index: 1860
+      triggered_event: 7
+      trigger: 0
+      name: ""
+      distance: 149.846
+      hit: "(7765.57,6683,-1199.57)"
+      pose:
+        x: 7768.97
+        y: 6535.02
+        z: -1335
+        map: hive.blv
+        yaw: 1.58854
+        pitch: -0.165
+  - source_line: 338
+    assert_mechanism:
+      kind: indoor_door
+      id: 7
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 27
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 339
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3296
+        force_replay: true
+  - source_line: 340
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 7
+          state: closed
+          door_slot: 27
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 341
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2249
+      face_index: 2249
+      triggered_event: 36
+      trigger: 0
+      name: ""
+      distance: 191.762
+      hit: "(8312.08,7423,-1191.07)"
+      pose:
+        x: 8233.08
+        y: 7248.79
+        z: -1335
+        map: hive.blv
+        yaw: 1.13854
+        pitch: -0.0840001
+  - source_line: 342
+    assert_mechanism:
+      kind: indoor_door
+      id: 41
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 26
+      move_length: 8
+      open_speed: 90
+      close_speed: 90
+  - source_line: 343
+    assert_mechanism:
+      kind: indoor_door
+      id: 43
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 0
+      move_length: 480
+      open_speed: 50
+      close_speed: 50
+  - source_line: 344
+    wait_until:
+      timeout_runtime_seconds: 0.592
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 41
+          state: closed
+          door_slot: 26
+          move_length: 8
+          open_speed: 90
+          close_speed: 90
+  - source_line: 345
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2958
+      face_index: 2958
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 225.253
+      hit: "(8520.88,7561,-1250.68)"
+      pose:
+        x: 8445.12
+        y: 7362.6
+        z: -1335
+        map: hive.blv
+        yaw: 1.20604
+        pitch: -0.3405
+  - source_line: 346
+    assert:
+      named_global_var_changed:
+        map: hive.blv
+        operation: set
+        name: MMerge.CrossContinents.ScrollGenerated
+        previous: 0
+        current: 1
+  - source_line: 347
+    assert:
+      named_global_var_changed:
+        map: hive.blv
+        operation: set
+        name: MMerge.CrossContinents.ScrollItemId
+        previous: 0
+        current: 772
+  - source_line: 348
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 3
+  - source_line: 351
+    assert:
+      item_visible:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 3
+        item_id: 772
+        item_name: "Letter for YOU."
+        quest_like: true
+        grid: "(0,0)"
+        source: chest
+  - source_line: 352
+    assert:
+      chest_contains_quest_item:
+        scene_kind: indoor
+        map: hive.blv
+        chest_id: 3
+        item_id: 772
+        item_name: "Letter for YOU."
+        quest_like: true
+        grid: "(0,0)"
+  - source_line: 353
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3296
+        force_replay: true
+  - source_line: 354
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3111
+  - source_line: 355
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 356
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 999
+  - source_line: 357
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 358
+    wait_until:
+      timeout_runtime_seconds: 10.1
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 43
+          state: closed
+          door_slot: 0
+          move_length: 480
+          open_speed: 50
+          close_speed: 50
+  - source_line: 359
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3109
+  - source_line: 360
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 361
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1559
+  - source_line: 362
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 363
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3066
+  - source_line: 364
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 365
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3072
+  - source_line: 366
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 367
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1560
+  - source_line: 368
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3071
+  - source_line: 369
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2008
+  - source_line: 370
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2007
+  - source_line: 371
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2006
+  - source_line: 372
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2005
+  - source_line: 373
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2004
+  - source_line: 374
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 1991
+  - source_line: 375
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 376
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1982
+  - source_line: 377
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 378
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1958
+  - source_line: 379
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 21
+        previous: 0
+        current: 1
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 380
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 22
+        previous: 0
+        current: 1
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 381
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 21
+        previous: 1
+        current: 0
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 382
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 22
+        previous: 1
+        current: 0
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 383
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2927
+      face_index: 2927
+      triggered_event: 41
+      trigger: 0
+      name: ""
+      distance: 292.597
+      hit: "(4620.11,10176,-1492.97)"
+      pose:
+        x: 4657.07
+        y: 10439.1
+        z: -1530
+        map: hive.blv
+        yaw: -1.71113
+        pitch: -0.435
+  - source_line: 384
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 1
+  - source_line: 388
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 1
+  - source_line: 392
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 1
+  - source_line: 396
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1958
+        force_replay: true
+  - source_line: 397
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1982
+  - source_line: 398
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 1991
+  - source_line: 399
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 400
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2004
+  - source_line: 401
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 402
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2005
+  - source_line: 403
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2006
+  - source_line: 404
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2005
+  - source_line: 405
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2006
+  - source_line: 406
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2007
+  - source_line: 407
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2008
+  - source_line: 408
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2007
+  - source_line: 409
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2006
+  - source_line: 410
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2005
+  - source_line: 411
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3847
+  - source_line: 412
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2894
+  - source_line: 413
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2888
+  - source_line: 414
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3108
+  - source_line: 415
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 416
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2937
+      face_index: 2937
+      triggered_event: 42
+      trigger: 0
+      name: ""
+      distance: 223.968
+      hit: "(5517,14841.2,-1017.6)"
+      pose:
+        x: 5318.99
+        y: 14835.9
+        z: -1072.64
+        map: hive.blv
+        yaw: 0.0291822
+        pitch: -0.4845
+  - source_line: 417
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 12
+        previous: 0
+        current: 1
+  - source_line: 418
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 2
+  - source_line: 419
+    assert:
+      item_visible:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 2
+        item_id: 2190
+        item_name: "Hive Sanctum Key"
+        quest_like: true
+        grid: "(8,7)"
+        source: chest
+  - source_line: 420
+    assert:
+      chest_contains_quest_item:
+        scene_kind: indoor
+        map: hive.blv
+        chest_id: 2
+        item_id: 2190
+        item_name: "Hive Sanctum Key"
+        quest_like: true
+        grid: "(8,7)"
+  - source_line: 424
+    assert:
+      item_visible:
+        item_id: 2190
+        item_name: "Hive Sanctum Key"
+        quest_like: true
+        source: chest
+        map: hive.blv
+        scene_kind: indoor
+        party: "(5318.992188,14835.871094,-1082.000000)"
+        yaw: 0.029182
+        pitch: -0.4845
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+  - source_line: 425
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2190
+        item_name: "Hive Sanctum Key"
+        quest_like: true
+        grid: "(8,8)"
+  - source_line: 426
+    assert:
+      held_item:
+        active: false
+        item_id: 2190
+        source: held_controller
+  - source_line: 427
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3108
+        force_replay: true
+  - source_line: 428
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3108
+        force_replay: true
+  - source_line: 429
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2888
+  - source_line: 430
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 431
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2894
+  - source_line: 432
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 1646
+      face_index: 1646
+      triggered_event: 12
+      trigger: 0
+      name: ""
+      distance: 447.331
+      hit: "(608,13454.2,-705.74)"
+      pose:
+        x: 1044.5
+        y: 13427.6
+        z: -770.614
+        map: hive.blv
+        yaw: 3.07238
+        pitch: -0.2145
+  - source_line: 433
+    assert_mechanism:
+      kind: indoor_door
+      id: 12
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 18
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 434
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 12
+          state: closed
+          door_slot: 18
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 435
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1576
+  - source_line: 436
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1561
+  - source_line: 437
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3061
+  - source_line: 438
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 439
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3078
+  - source_line: 440
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 441
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3080
+  - source_line: 442
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1548
+  - source_line: 443
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 120
+  - source_line: 444
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3086
+  - source_line: 445
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 494
+  - source_line: 446
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 256
+  - source_line: 447
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 2313
+  - source_line: 448
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3087
+  - source_line: 449
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 450
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1767
+  - source_line: 451
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 452
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 1766
+      face_index: 1766
+      triggered_event: 2
+      trigger: 0
+      name: ""
+      distance: 198.253
+      hit: "(-1505.73,3340,-1923.59)"
+      pose:
+        x: -1486.17
+        y: 3532.15
+        z: -2038
+        map: hive.blv
+        yaw: -1.6718
+        pitch: -0.2325
+  - source_line: 453
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 21
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 454
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 21
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 455
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2242
+      face_index: 2242
+      triggered_event: 31
+      trigger: 0
+      name: ""
+      distance: 240.029
+      hit: "(-1549.76,2198,-1958.16)"
+      pose:
+        x: -1539.1
+        y: 2424.21
+        z: -2038
+        map: hive.blv
+        yaw: -1.6178
+        pitch: -0.3405
+  - source_line: 456
+    assert_mechanism:
+      kind: indoor_door
+      id: 31
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 31
+      move_length: 8
+      open_speed: 90
+      close_speed: 90
+  - source_line: 457
+    assert_mechanism:
+      kind: indoor_door
+      id: 32
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 24
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 458
+    wait_until:
+      timeout_runtime_seconds: 0.592
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 31
+          state: closed
+          door_slot: 31
+          move_length: 8
+          open_speed: 90
+          close_speed: 90
+  - source_line: 459
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1767
+        force_replay: true
+  - source_line: 460
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3087
+  - source_line: 461
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 462
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 255
+  - source_line: 463
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 464
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 32
+          state: closed
+          door_slot: 24
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 465
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2959
+      face_index: 2959
+      triggered_event: 44
+      trigger: 0
+      name: ""
+      distance: 150.443
+      hit: "(-2855.95,4134,-1721.55)"
+      pose:
+        x: -2855.45
+        y: 3999.38
+        z: -1813.93
+        map: hive.blv
+        yaw: 1.57389
+        pitch: -0.4665
+  - source_line: 466
+    assert:
+      chest_opened:
+        scene_kind: indoor
+        map: "The Hive"
+        chest_id: 4
+  - source_line: 469
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1888
+  - source_line: 470
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1887
+  - source_line: 471
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3088
+  - source_line: 472
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 473
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1801
+  - source_line: 474
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 475
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 1800
+      face_index: 1800
+      triggered_event: 3
+      trigger: 0
+      name: ""
+      distance: 355.533
+      hit: "(-5842.04,3608,-1603.4)"
+      pose:
+        x: -5844.07
+        y: 3959.85
+        z: -1711
+        map: hive.blv
+        yaw: -1.56379
+        pitch: -0.147
+  - source_line: 476
+    assert_mechanism:
+      kind: indoor_door
+      id: 3
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 28
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 477
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 3
+          state: closed
+          door_slot: 28
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 478
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 22
+        face_index: 1790
+  - source_line: 479
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 3136
+      face_index: 3136
+      triggered_event: 16
+      trigger: 0
+      name: ""
+      distance: 300.542
+      hit: "(-5510.59,2515,-1550.61)"
+      pose:
+        x: -5519.19
+        y: 2815.62
+        z: -1711
+        map: hive.blv
+        yaw: -1.54129
+        pitch: 0.00149976
+  - source_line: 480
+    assert_mechanism:
+      kind: indoor_door
+      id: 16
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 29
+      move_length: 10
+      open_speed: 70
+      close_speed: 70
+  - source_line: 481
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 2
+        previous: 1
+        current: 0
+  - source_line: 482
+    assert:
+      map_arrived:
+        previous_map: hive.blv
+        map: hive.blv
+        same_map: true
+        use_start_position: false
+        pos: "(468,3690,1)"
+        direction_degrees: 7
+      game_minutes: 122793.429688
+  - source_line: 483
+    wait_until:
+      timeout_runtime_seconds: 0.65
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 16
+          state: closed
+          door_slot: 29
+          move_length: 10
+          open_speed: 70
+          close_speed: 70
+  - source_line: 484
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 17
+        face_index: 0
+  - source_line: 485
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 19
+        face_index: 3142
+  - source_line: 486
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 2
+        previous: 0
+        current: 1
+  - source_line: 487
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 13
+  - source_line: 488
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3013
+  - source_line: 489
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 490
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 3347
+      face_index: 3347
+      triggered_event: 14
+      trigger: 0
+      name: ""
+      distance: 492.259
+      hit: "(1424.01,15588,-1455.26)"
+      pose:
+        x: 1359.31
+        y: 15106.1
+        z: -1537.15
+        map: hive.blv
+        yaw: 1.43617
+        pitch: -0.160499
+  - source_line: 491
+    assert_mechanism:
+      kind: indoor_door
+      id: 14
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 17
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 492
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1527
+  - source_line: 493
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 494
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 14
+          state: closed
+          door_slot: 17
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 495
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3121
+  - source_line: 496
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 497
+    trace_observation:
+      event: interact
+      fields:
+        method: keyboard
+        map: "The Hive"
+        scene_kind: indoor
+        party: "(-1575.45,16460.9,-1536)"
+        yaw: -2.89401
+        pitch: -0.263999
+        can_activate: false
+        has_hit: true
+        kind: event_target
+        target_kind: 1
+        target_index: 1524
+        face_index: 1524
+        event_primary: 0
+        event_secondary: 0
+        triggered_event: 0
+        trigger: 0
+        var_primary: 0
+        var_secondary: 0
+        special_trigger: 0
+        attributes: 2147483904
+        name: ""
+        distance: 614.762
+        hit: "(-2150.03,16311.1,-1536)"
+      note: "not converted to a replay action because the recorded interaction could not activate"
+  - source_line: 498
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 1529
+      face_index: 1529
+      triggered_event: 9
+      trigger: 0
+      name: ""
+      distance: 312.928
+      hit: "(-2037.2,16296,-1448.81)"
+      pose:
+        x: -1751.49
+        y: 16401.4
+        z: -1536
+        map: hive.blv
+        yaw: -2.78152
+        pitch: -0.232499
+  - source_line: 499
+    assert_mechanism:
+      kind: indoor_door
+      id: 9
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 13
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 500
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 9
+          state: closed
+          door_slot: 13
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 501
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2027
+      face_index: 2027
+      triggered_event: 33
+      trigger: 0
+      name: ""
+      distance: 298.584
+      hit: "(-3850,18287.3,-1421.46)"
+      pose:
+        x: -4098.25
+        y: 18447.2
+        z: -1536
+        map: hive.blv
+        yaw: -0.575319
+        pitch: -0.151499
+  - source_line: 502
+    assert_mechanism:
+      kind: indoor_door
+      id: 35
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 8
+      move_length: 8
+      open_speed: 90
+      close_speed: 90
+  - source_line: 503
+    assert_mechanism:
+      kind: indoor_door
+      id: 36
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 15
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 504
+    wait_until:
+      timeout_runtime_seconds: 0.592
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 35
+          state: closed
+          door_slot: 8
+          move_length: 8
+          open_speed: 90
+          close_speed: 90
+  - source_line: 505
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 36
+          state: closed
+          door_slot: 15
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 506
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3121
+        force_replay: true
+  - source_line: 507
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 1527
+  - source_line: 508
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 509
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3124
+  - source_line: 510
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 511
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2040
+      face_index: 2040
+      triggered_event: 6
+      trigger: 0
+      name: ""
+      distance: 311.852
+      hit: "(3968,17478.9,-1420.42)"
+      pose:
+        x: 3659.35
+        y: 17490.7
+        z: -1536
+        map: hive.blv
+        yaw: -0.0443151
+        pitch: -0.142499
+  - source_line: 512
+    assert_mechanism:
+      kind: indoor_door
+      id: 6
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 20
+      move_length: 250
+      open_speed: 85
+      close_speed: 85
+  - source_line: 513
+    wait_until:
+      timeout_runtime_seconds: 3.442
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 6
+          state: closed
+          door_slot: 20
+          move_length: 250
+          open_speed: 85
+          close_speed: 85
+  - source_line: 514
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2063
+      face_index: 2063
+      triggered_event: 34
+      trigger: 0
+      name: ""
+      distance: 123.429
+      hit: "(4554,17866,-1405.18)"
+      pose:
+        x: 4673.23
+        y: 17851.3
+        z: -1536
+        map: hive.blv
+        yaw: 3.02467
+        pitch: -0.236999
+  - source_line: 515
+    assert_mechanism:
+      kind: indoor_door
+      id: 37
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 30
+      move_length: 8
+      open_speed: 90
+      close_speed: 90
+  - source_line: 516
+    assert_mechanism:
+      kind: indoor_door
+      id: 38
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 19
+      move_length: 275
+      open_speed: 100
+      close_speed: 100
+  - source_line: 517
+    wait_until:
+      timeout_runtime_seconds: 0.592
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 37
+          state: closed
+          door_slot: 30
+          move_length: 8
+          open_speed: 90
+          close_speed: 90
+  - source_line: 518
+    wait_until:
+      timeout_runtime_seconds: 3.258
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 38
+          state: closed
+          door_slot: 19
+          move_length: 275
+          open_speed: 100
+          close_speed: 100
+  - source_line: 519
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: true
+        item_id: 1667
+        quantity: 1
+        grid: "(11,1)"
+        source: party_overlay
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 520
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: true
+        item_id: 527
+        quantity: 1
+        grid: "(0,0)"
+        source: party_overlay
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 521
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: false
+        item_id: 527
+        source: held_controller
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 522
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 2215
+      face_index: 2215
+      triggered_event: 28
+      trigger: 0
+      name: ""
+      distance: 101.112
+      hit: "(4576,17834.6,-1927.59)"
+      pose:
+        x: 4675.26
+        y: 17853.4
+        z: -2080
+        map: hive.blv
+        yaw: -2.95253
+        pitch: -0.0749995
+  - source_line: 523
+    assert_mechanism:
+      kind: indoor_door
+      id: 28
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 12
+      move_length: 250
+      open_speed: 150
+      close_speed: 500
+  - source_line: 524
+    wait_until:
+      timeout_runtime_seconds: 1.0
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 28
+          state: closed
+          door_slot: 12
+          move_length: 250
+          open_speed: 150
+          close_speed: 500
+  - source_line: 525
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 58
+        face_index: 3660
+  - source_line: 526
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 1
+        current: 0
+  - source_line: 527
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 56
+        face_index: 3658
+  - source_line: 528
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 529
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 62
+        face_index: 3543
+  - source_line: 530
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 532
+    load_map:
+      target: "Castle Ironfist"
+      map: outd3.odm
+      map_id: 148
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+      game_minutes: 122793.585938
+  - source_line: 533
+    trace_observation:
+      event: interact
+      fields:
+        method: keyboard
+        map: "Castle Ironfist"
+        scene_kind: outdoor
+        party: "(17136.9,16652.8,2209)"
+        yaw: 1.4739
+        pitch: -0.0735
+        can_activate: false
+        has_hit: true
+        kind: actor
+        actor_index: 7
+        name: "Elyssa the Smith"
+        npc_id: 0
+        group: 85
+        friendly: true
+        distance: 2306.24
+        hit: "(17373.4,18941,2218.07)"
+      note: "not converted to a replay action because the recorded interaction could not activate"
+  - source_line: 534
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 277.348
+      hit: "(17156.8,17032,2349.52)"
+      pose:
+        x: 17145.9
+        y: 16762.8
+        z: 2240
+        map: outd3.odm
+        yaw: 1.5369
+        pitch: -0.24
+  - source_line: 536
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 798
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Nicolai Ironfist"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 222
+          title: "Throne Room"
+          house_title: "Throne Room"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 789
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Wilbur Humphrey"
+            - index: 1
+              kind: house_resident
+              id: 798
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Nicolai Ironfist"
+  - source_line: 538
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1337
+      secondary_id: 1337
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Circus"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1339
+              secondary_id: 1339
+              enabled: true
+              text_only: false
+              label: "The Third Eye"
+  - source_line: 540
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1339
+      secondary_id: 1339
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "The Third Eye"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 1
+          text_hash: 9346854665028896110
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1339
+              secondary_id: 1339
+              enabled: true
+              text_only: false
+              label: "The Third Eye"
+  - source_line: 541
+    assert:
+      qbit_set:
+        - 1120
+  - source_line: 543
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1340
+      secondary_id: 1340
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Uncle Archibald"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 6
+          text_hash: 8129071670850429679
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1340
+              secondary_id: 1340
+              enabled: true
+              text_only: false
+              label: "Uncle Archibald"
+  - source_line: 546
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 2
+          text_hash: 3156536723915118818
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1340
+              secondary_id: 1340
+              enabled: true
+              text_only: false
+              label: "Uncle Archibald"
+  - source_line: 546
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 222
+          house_dialog: true
+          action_count: 2
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 222
+          title: "Throne Room"
+          house_title: "Throne Room"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 789
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Wilbur Humphrey"
+            - index: 1
+              kind: house_resident
+              id: 798
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Nicolai Ironfist"
+  - source_line: 546
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 547
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 62
+      face_index: 22
+      triggered_event: 231
+      trigger: 0
+      name: ""
+      distance: 161.235
+      hit: "(14692.1,18587.4,2192)"
+      pose:
+        x: 14839.8
+        y: 18587.9
+        z: 2081
+        map: outd3.odm
+        yaw: -3.13979
+        pitch: -0.411
+  - source_line: 548
+    assert:
+      qbit_set:
+        - 1329
+  - source_line: 549
+    assert:
+      qbit_set:
+        - 1220
+  - source_line: 550
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: true
+        item_id: 2066
+        quantity: 1
+        grid: "(0,0)"
+        source: held_controller
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 551
+    assert:
+      item_received:
+        destination: held
+        source: event
+        item_id: 2066
+        item_name: "The Third Eye"
+        quest_like: true
+  - source_line: 552
+    assert:
+      held_item:
+        active: false
+        item_id: 2066
+        source: held_controller
+  - source_line: 553
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 329.746
+      hit: "(17169.4,17032,2331.11)"
+      pose:
+        x: 17159.3
+        y: 16706.6
+        z: 2209
+        map: outd3.odm
+        yaw: 1.5414
+        pitch: -0.163499
+  - source_line: 555
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 798
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Nicolai Ironfist"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 222
+          title: "Throne Room"
+          house_title: "Throne Room"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 789
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Wilbur Humphrey"
+            - index: 1
+              kind: house_resident
+              id: 798
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Nicolai Ironfist"
+  - source_line: 557
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1340
+      secondary_id: 1340
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Uncle Archibald"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1340
+              secondary_id: 1340
+              enabled: true
+              text_only: false
+              label: "Uncle Archibald"
+  - source_line: 558
+    assert:
+      qbit_clear:
+        - 1220
+  - source_line: 559
+    assert:
+      qbit_clear:
+        - 1120
+  - source_line: 560
+    assert:
+      qbit_set:
+        - 1221
+  - source_line: 561
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: true
+        item_id: 2081
+        quantity: 1
+        grid: "(0,0)"
+        source: held_controller
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 562
+    assert:
+      item_received:
+        destination: held
+        source: event
+        item_id: 2081
+        item_name: "Tanir's Bell"
+        quest_like: true
+  - source_line: 563
+    assert:
+      held_item:
+        active: false
+        item_id: 2081
+        source: held_controller
+  - source_line: 566
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 798
+          title: "Nicolai Ironfist"
+          house_title: ""
+          line_count: 3
+          text_hash: 1679789258649972966
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1337
+              secondary_id: 1337
+              enabled: true
+              text_only: false
+              label: "The Circus"
+            - index: 1
+              kind: npc_topic
+              id: 1341
+              secondary_id: 1341
+              enabled: true
+              text_only: false
+              label: "Uncle Archibald"
+  - source_line: 566
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 222
+          house_dialog: true
+          action_count: 2
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 222
+          title: "Throne Room"
+          house_title: "Throne Room"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 789
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Wilbur Humphrey"
+            - index: 1
+              kind: house_resident
+              id: 798
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Nicolai Ironfist"
+  - source_line: 566
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 567
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 58
+      face_index: 25
+      triggered_event: 42
+      trigger: 0
+      name: ""
+      distance: 138.569
+      hit: "(17223,16776,2936.02)"
+      pose:
+        x: 17262.8
+        y: 16645.3
+        z: 2784.4
+        map: outd3.odm
+        yaw: 1.87441
+        pitch: -0.181499
+  - source_line: 569
+    select_topic:
+      kind: npc_topic
+      source_id: 797
+      action_id: 1343
+      secondary_id: 1343
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Release Archibald"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 797
+          title: "Archibald Ironfist"
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1343
+              secondary_id: 1343
+              enabled: true
+              text_only: false
+              label: "Release Archibald"
+  - source_line: 570
+    assert:
+      qbit_clear:
+        - 1221
+  - source_line: 571
+    assert:
+      qbit_set:
+        - 1201
+  - source_line: 572
+    assert:
+      qbit_clear:
+        - 1259
+  - source_line: 573
+    assert:
+      qbit_set:
+        - 1222
+  - source_line: 574
+    trace_observation:
+      event: held_item_changed
+      fields:
+        active: true
+        item_id: 2164
+        quantity: 1
+        grid: "(0,0)"
+        source: held_controller
+      note: "held-item UI state is transient; quest/item acquisition is asserted through item_received"
+  - source_line: 575
+    assert:
+      item_received:
+        destination: held
+        source: event
+        item_id: 2164
+        item_name: "Ritual of the Void"
+        quest_like: true
+  - source_line: 576
+    assert:
+      held_item:
+        active: false
+        item_id: 2164
+        source: held_controller
+  - source_line: 578
+    select_topic:
+      kind: npc_topic
+      source_id: 797
+      action_id: 1343
+      secondary_id: 1343
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Release Archibald"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 797
+          title: "Archibald Ironfist"
+          house_title: ""
+          line_count: 6
+          text_hash: 2984760103516540303
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1343
+              secondary_id: 1343
+              enabled: true
+              text_only: false
+              label: "Release Archibald"
+  - source_line: 580
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: npc_talk
+          active_source_id: 797
+          house_dialog: false
+          action_count: 1
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 797
+          title: "Archibald Ironfist"
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1343
+              secondary_id: 1343
+              enabled: true
+              text_only: false
+              label: "Release Archibald"
+  - source_line: 580
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 797
+        house_dialog: false
+        action_count: 1
+  - source_line: 581
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 582
+    load_map:
+      map: hive.blv
+      scene_kind: indoor
+      target: hive.blv
+      method: observed_map_load
+      reason: "recorded map_loaded changed maps without an explicit converted transition; using a load shortcut for an untraced teleport/session continuation"
+      game_minutes: 122793.796875
+  - source_line: 583
+    assert:
+      map_arrived:
+        previous_map: outd3.odm
+        map: hive.blv
+        same_map: false
+        use_start_position: false
+        pos: "(4610,19911,-2256)"
+        direction_degrees: 90
+      game_minutes: 122793.796875
+  - source_line: 584
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 62
+        face_index: 3543
+        force_replay: true
+  - source_line: 585
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 21
+        previous: 0
+        current: 1
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 586
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 22
+        previous: 0
+        current: 1
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 587
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 21
+        previous: 1
+        current: 0
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 588
+    trace_observation:
+      event: map_var_changed
+      fields:
+        map: hive.blv
+        operation: set
+        index: 22
+        previous: 1
+        current: 0
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 589
+    combat_loot:
+      scene_kind: indoor
+      map: hive.blv
+      actor_index: 0
+      monster_id: 647
+      name: "Hive Reactor"
+  - source_line: 590
+    trace_observation:
+      event: mechanism_triggered
+      fields:
+        kind: indoor_door
+        id: 28
+        action: open
+        raw_action: 0
+        previous_state: closed
+        new_state: opening
+        was_moving: false
+        moving: true
+        door_slot: 12
+        move_length: 250
+        open_speed: 150
+        close_speed: 500
+      note: "post-reactor mechanism already reaches final state during scenario combat advance"
+  - source_line: 591
+    trace_observation:
+      event: mechanism_triggered
+      fields:
+        kind: indoor_door
+        id: 30
+        action: close
+        raw_action: 1
+        previous_state: open
+        new_state: closing
+        was_moving: false
+        moving: true
+        door_slot: 11
+        move_length: 1273
+        open_speed: 500
+        close_speed: 500
+      note: "post-reactor mechanism already reaches final state during scenario combat advance"
+  - source_line: 592
+    trace_observation:
+      event: mechanism_triggered
+      fields:
+        kind: indoor_door
+        id: 51
+        action: open
+        raw_action: 0
+        previous_state: closed
+        new_state: opening
+        was_moving: false
+        moving: true
+        door_slot: 7
+        move_length: 639
+        open_speed: 500
+        close_speed: 500
+      note: "post-reactor mechanism already reaches final state during scenario combat advance"
+  - source_line: 593
+    trace_observation:
+      event: mechanism_triggered
+      fields:
+        kind: indoor_door
+        id: 52
+        action: open
+        raw_action: 0
+        previous_state: closed
+        new_state: opening
+        was_moving: false
+        moving: true
+        door_slot: 1
+        move_length: 639
+        open_speed: 500
+        close_speed: 500
+      note: "post-reactor mechanism already reaches final state during scenario combat advance"
+  - source_line: 594
+    trace_observation:
+      event: mechanism_triggered
+      fields:
+        kind: indoor_door
+        id: 53
+        action: close
+        raw_action: 1
+        previous_state: open
+        new_state: closing
+        was_moving: false
+        moving: true
+        door_slot: 2
+        move_length: 1279
+        open_speed: 500
+        close_speed: 500
+      note: "post-reactor mechanism already reaches final state during scenario combat advance"
+  - source_line: 595
+    assert:
+      map_arrived:
+        previous_map: hive.blv
+        map: hive.blv
+        same_map: true
+        use_start_position: false
+        pos: "(3410,25895,-2256)"
+        direction_degrees: 90
+      game_minutes: 122794.796875
+  - source_line: 596
+    wait_until:
+      timeout_runtime_seconds: 1.783
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 52
+          state: open
+          door_slot: 1
+          move_length: 639
+          open_speed: 500
+          close_speed: 500
+  - source_line: 597
+    wait_until:
+      timeout_runtime_seconds: 1.783
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 51
+          state: open
+          door_slot: 7
+          move_length: 639
+          open_speed: 500
+          close_speed: 500
+  - source_line: 598
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 28
+          state: open
+          door_slot: 12
+          move_length: 250
+          open_speed: 150
+          close_speed: 500
+  - source_line: 599
+    wait_until:
+      timeout_runtime_seconds: 3.05
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 30
+          state: closed
+          door_slot: 11
+          move_length: 1273
+          open_speed: 500
+          close_speed: 500
+  - source_line: 600
+    wait_until:
+      timeout_runtime_seconds: 3.058
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 53
+          state: closed
+          door_slot: 2
+          move_length: 1279
+          open_speed: 500
+          close_speed: 500
+  - source_line: 601
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 29
+        face_index: 3372
+  - source_line: 602
+    assert:
+      map_var_changed:
+        map: hive.blv
+        operation: set
+        index: 2
+        previous: 1
+        current: 0
+  - source_line: 603
+    combat_loot:
+      scene_kind: indoor
+      map: hive.blv
+      actor_index: 1
+      monster_id: 646
+      name: "Hive Queen"
+  - source_line: 604
+    assert:
+      qbit_set:
+        - 1226
+  - source_line: 605
+    interact_target:
+      method: keyboard
+      map: hive.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 3378
+      face_index: 3378
+      triggered_event: 60
+      trigger: 0
+      name: ""
+      distance: 189.58
+      hit: "(5056,27305.3,-2124.77)"
+      pose:
+        x: 4868.51
+        y: 27311.2
+        z: -2256
+        map: hive.blv
+        yaw: -0.0402073
+        pitch: -0.1515
+  - source_line: 606
+    assert:
+      qbit_set:
+        - 784
+  - source_line: 607
+    assert:
+      named_global_var_changed:
+        map: hive.blv
+        operation: set
+        name: MMerge.CrossContinents.Finished.3
+        previous: 0
+        current: 1
+  - source_line: 608
+    assert:
+      qbit_clear:
+        - 1222
+  - source_line: 609
+    assert:
+      award_acquired:
+        - id: 78
+          member_index: 0
+  - source_line: 610
+    trace_observation:
+      event: named_global_var_changed
+      fields:
+        map: ""
+        operation: set
+        name: MMerge.CrossContinents.MeetTime
+        previous: 0
+        current: 322560
+      note: "timer/bootstrap-driven variable; not converted to a hard replay assertion"
+  - source_line: 611
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.Reward.3
+        previous: 0
+        current: 1
+  - source_line: 612
+    load_map:
+      map: oute3.odm
+      scene_kind: outdoor
+      target: oute3.odm
+      method: observed_map_load
+      reason: "recorded map_loaded changed maps without an explicit converted transition; using a load shortcut for an untraced teleport/session continuation"
+      game_minutes: 122794.867188
+  - source_line: 613
+    assert:
+      map_arrived:
+        previous_map: hive.blv
+        map: oute3.odm
+        same_map: false
+        use_start_position: true
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+      game_minutes: 122794.867188
+  - source_line: 614
+    speak_npc:
+      map: oute3.odm
+      source_id: 803
+      title: Verdant
+      reason: "replay recorded automatic Verdant dialog opened by evt.SpeakNPC after map arrival"
+  - source_line: 615
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1778
+      secondary_id: 1778
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Important Matter"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1778
+              secondary_id: 1778
+              enabled: true
+              text_only: false
+              label: "The Important Matter"
+  - source_line: 616
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.MetVerdant
+        previous: 0
+        current: 1
+  - source_line: 617
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.IntroStep
+        previous: 0
+        current: 1
+  - source_line: 619
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1778
+      secondary_id: 1778
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Important Matter"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 179779451304874518
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1778
+              secondary_id: 1778
+              enabled: true
+              text_only: false
+              label: "The Important Matter"
+  - source_line: 620
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.IntroStep
+        previous: 1
+        current: 2
+  - source_line: 622
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1778
+      secondary_id: 1778
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Important Matter"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 4476082394023557755
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1778
+              secondary_id: 1778
+              enabled: true
+              text_only: false
+              label: "The Important Matter"
+  - source_line: 623
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.IntroStep
+        previous: 2
+        current: 3
+  - source_line: 625
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1778
+      secondary_id: 1778
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Important Matter"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 5299867509789570617
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1778
+              secondary_id: 1778
+              enabled: true
+              text_only: false
+              label: "The Important Matter"
+  - source_line: 626
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.GotMainQuest
+        previous: 0
+        current: 1
+  - source_line: 627
+    assert:
+      named_global_var_changed:
+        map: oute3.odm
+        operation: set
+        name: MMerge.CrossContinents.StartedContinent
+        previous: 0
+        current: 3
+  - source_line: 629
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1784
+      secondary_id: 1784
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Enroth
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 16929019184549478155
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1784
+              secondary_id: 1784
+              enabled: true
+              text_only: false
+              label: Enroth
+            - index: 1
+              kind: npc_topic
+              id: 1781
+              secondary_id: 1781
+              enabled: true
+              text_only: false
+              label: "Time Travel Guide"
+  - source_line: 633
+    select_topic:
+      kind: npc_topic
+      source_id: 803
+      action_id: 1781
+      secondary_id: 1781
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Time Travel Guide"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 11946108190823712309
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1784
+              secondary_id: 1784
+              enabled: true
+              text_only: false
+              label: Enroth
+            - index: 1
+              kind: npc_topic
+              id: 1781
+              secondary_id: 1781
+              enabled: true
+              text_only: false
+              label: "Time Travel Guide"
+  - source_line: 637
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: npc_talk
+          active_source_id: 803
+          house_dialog: false
+          action_count: 2
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 803
+          title: Verdant
+          house_title: ""
+          line_count: 1
+          text_hash: 15491241777478057664
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1784
+              secondary_id: 1784
+              enabled: true
+              text_only: false
+              label: Enroth
+            - index: 1
+              kind: npc_topic
+              id: 1781
+              secondary_id: 1781
+              enabled: true
+              text_only: false
+              label: "Time Travel Guide"
+  - source_line: 637
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 803
+        house_dialog: false
+        action_count: 2
+  - source_line: 638
+    save_game: save4
+  - source_line: 639
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/save4.oysav
+      first_source_line: 639
+      last_source_line: 809
+      record_count: 169
+      counts:
+        map_vars: 48
+        named_global_var: 9
+        named_map_var: 6
+        party: 1
+        party_award: 12
+        party_equipped: 11
+        party_inventory: 25
+        party_member: 1
+        party_skills: 1
+        qbit: 55
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 810
+    trace_observation:
+      event: actor_inspect
+      fields:
+        world: outdoor
+        map: oute3.odm
+        actor_index: 39
+        name: Guard
+        monster_id: 553
+        current_hp: 45
+        max_hp: 45
+        group: 55
+        dead: false
+        party: "(-9690.993164,-9868.089844,161.000000)"
+        yaw: 1.550403
+        pitch: -0.105
+        actor_pos: "(-9707.980469,-9131.494141,160.000000)"
+      note: "RMB actor inspect is diagnostic metadata; quest-critical actors are asserted through combat/loot traces"

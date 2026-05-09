@@ -167,6 +167,7 @@ void GameplayInputController::handleStandardUiHotkeys(
         {
             context.handleDialogueCloseRequest();
             context.interactionState().menuToggleLatch = true;
+            context.interactionState().closeOverlayLatch = true;
             return;
         }
     }

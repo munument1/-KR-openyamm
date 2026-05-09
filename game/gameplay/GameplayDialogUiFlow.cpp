@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayDialogUiFlow.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayInputFrame.h"
 
 #include <SDL3/SDL.h>
@@ -52,6 +53,19 @@ void presentPendingEventDialog(
             previousMessageCount,
             allowNpcFallbackContent,
             showBankInputCursor);
+
+    if (pEventRuntimeState->pendingInputPrompt)
+    {
+        gameplayDebugTraceLog(
+            "input_prompt_dialog_presented"
+            " opened=" + std::string(result.dialogOpened ? "true" : "false")
+            + " previous_message_count=" + std::to_string(previousMessageCount)
+            + " total_message_count=" + std::to_string(pEventRuntimeState->messages.size())
+            + " active_dialog=" + (state.uiController.eventDialog().content.isActive ? std::string("true") : std::string("false"))
+            + " dialog_line_count=" + std::to_string(state.uiController.eventDialog().content.lines.size())
+            + " dialog_action_count=" + std::to_string(state.uiController.eventDialog().content.actions.size())
+            + " prompt_event_id=" + std::to_string(pEventRuntimeState->pendingInputPrompt->eventId));
+    }
 
     if (!result.dialogOpened)
     {

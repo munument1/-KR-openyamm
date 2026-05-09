@@ -73,6 +73,8 @@ enum class EventRuntimeHookKind : uint8_t
     MapTransition,
     MonsterKilled,
     MonsterDamage,
+    ChestOpen,
+    InventoryOpen,
 };
 
 struct RuntimeMechanismState
@@ -107,6 +109,11 @@ struct EventRuntimeState
         std::optional<int32_t> directionDegrees;
         bool useMapStartPosition = false;
         bool useFullscreenLoading = false;
+        std::string traceSourceKind;
+        uint32_t traceSourceId = 0;
+        uint32_t traceActionId = 0;
+        uint32_t traceEventId = 0;
+        std::string traceDestinationName;
     };
 
     struct MapNoteSourcePoint
@@ -285,6 +292,61 @@ struct EventRuntimeState
         uint8_t gridY = 0;
     };
 
+    struct PressurePlateTrigger
+    {
+        std::string world;
+        uint32_t eventId = 0;
+        size_t bmodelIndex = std::numeric_limits<size_t>::max();
+        size_t faceIndex = std::numeric_limits<size_t>::max();
+        uint32_t attributes = 0;
+    };
+
+    struct DialogueCanceled
+    {
+        std::string kind;
+        uint32_t sourceId = 0;
+        uint32_t activeSourceId = 0;
+        bool houseDialog = false;
+        size_t actionCount = 0;
+    };
+
+    struct MapTransitionTrace
+    {
+        std::string sourceKind;
+        uint32_t sourceId = 0;
+        uint32_t actionId = 0;
+        uint32_t eventId = 0;
+        std::optional<uint32_t> routeIndex;
+        bool confirmationRequired = false;
+        std::string destinationMap;
+        std::string destinationName;
+        uint32_t travelDays = 0;
+        bool useStartPosition = false;
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t z = 0;
+        std::optional<int32_t> directionDegrees;
+    };
+
+    struct ChestOpenedTrace
+    {
+        std::string sceneKind;
+        std::string map;
+        uint32_t chestId = 0;
+        size_t itemCount = 0;
+        size_t hiddenItemCount = 0;
+    };
+
+    struct ActorDialogStartedTrace
+    {
+        std::string kind;
+        std::string map;
+        uint32_t npcId = 0;
+        uint32_t sourceId = 0;
+        uint32_t hostHouseId = 0;
+        std::optional<uint32_t> actorIndex;
+    };
+
     struct ActiveHookContext
     {
         EventRuntimeHookKind kind = EventRuntimeHookKind::NpcEnter;
@@ -299,7 +361,11 @@ struct EventRuntimeState
         uint32_t houseActionId = 0;
         uint32_t gameplayActionId = 0;
         uint32_t boundaryEdge = 0;
+        uint32_t chestId = 0;
         uint32_t heldItemId = 0;
+        uint32_t inventorySource = 0;
+        uint32_t inventorySourceIndex = 0;
+        uint32_t inventoryPage = 0;
         std::string destinationMapName;
         int32_t baseRestFoodCost = 0;
         std::optional<int32_t> restFoodCostOverride;
@@ -309,6 +375,7 @@ struct EventRuntimeState
         std::vector<uint32_t> houseTopicActionIds;
     };
 
+    std::string mapFileName;
     std::unordered_map<uint32_t, int32_t> variables;
     std::unordered_map<std::string, int32_t> namedMapVars;
     std::unordered_map<std::string, int32_t> namedGlobalVars;
@@ -350,6 +417,13 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, uint32_t> actorGroupAllyOverrides;
     std::unordered_map<uint32_t, uint32_t> chestSetMasks;
     std::unordered_map<uint32_t, uint32_t> chestClearMasks;
+    std::optional<PressurePlateTrigger> lastPressurePlateTrigger;
+    std::optional<DialogueCanceled> lastDialogueCanceled;
+    std::optional<MapTransitionTrace> lastMapTransitionRequested;
+    std::optional<MapTransitionTrace> lastMapTransitionConfirmed;
+    std::optional<MapTransitionTrace> lastMapTransitionCanceled;
+    std::optional<ChestOpenedTrace> lastChestOpened;
+    std::optional<ActorDialogStartedTrace> lastActorDialogStarted;
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> npcTopicOverrides;
     std::unordered_map<uint32_t, uint32_t> npcGroupNews;
     std::unordered_map<uint32_t, uint32_t> npcGreetingOverrides;
@@ -474,7 +548,8 @@ public:
         EventRuntimeState &runtimeState,
         Party *pParty = nullptr,
         ISceneEventContext *pSceneEventContext = nullptr,
-        std::optional<uint8_t> continueStep = std::nullopt
+        std::optional<uint8_t> continueStep = std::nullopt,
+        bool allowGlobalFallback = true
     ) const;
     bool executeNpcTopicEventById(
         const std::optional<ScriptedEventProgram> &localProgram,

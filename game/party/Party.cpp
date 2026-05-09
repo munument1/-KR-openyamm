@@ -1,6 +1,7 @@
 #include "game/party/Party.h"
 
 #include "game/events/EventRuntime.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
@@ -2464,7 +2465,16 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
     {
         if (grantItemsToInventory)
         {
-            tryGrantInventoryItem(item);
+            size_t recipientMemberIndex = 0;
+            if (tryGrantInventoryItem(item, &recipientMemberIndex))
+            {
+                queueSound(SoundId::Gold);
+                gameplayDebugTraceLog(
+                    "item_received destination=inventory source=event item_id="
+                    + std::to_string(item.objectDescriptionId)
+                    + gameplayDebugTraceItemSummary(item.objectDescriptionId, m_pItemTable)
+                    + " member_index=" + std::to_string(recipientMemberIndex));
+            }
         }
         else if (item.objectDescriptionId != 0)
         {
@@ -2478,7 +2488,14 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
     {
         if (grantItemsToInventory)
         {
-            grantItem(itemId);
+            if (tryGrantItem(itemId))
+            {
+                queueSound(SoundId::Gold);
+                gameplayDebugTraceLog(
+                    "item_received destination=inventory source=event item_id="
+                    + std::to_string(itemId)
+                    + gameplayDebugTraceItemSummary(itemId, m_pItemTable));
+            }
         }
         else if (itemId != 0)
         {
@@ -3568,11 +3585,19 @@ void Party::setQuestBit(uint32_t questBitId, bool value)
 
     if (value)
     {
-        m_questBits.insert(questBitId);
+        const bool inserted = m_questBits.insert(questBitId).second;
+        if (inserted)
+        {
+            gameplayDebugTraceLog("qbit_set id=" + std::to_string(questBitId));
+        }
     }
     else
     {
-        m_questBits.erase(questBitId);
+        const size_t erased = m_questBits.erase(questBitId);
+        if (erased != 0)
+        {
+            gameplayDebugTraceLog("qbit_cleared id=" + std::to_string(questBitId));
+        }
     }
 }
 
@@ -3728,6 +3753,10 @@ void Party::addHiredNpcFollower(const HiredNpcFollower &follower)
     if (followerIt == m_hiredNpcFollowers.end())
     {
         m_hiredNpcFollowers.push_back(follower);
+        gameplayDebugTraceLog(
+            "hireling_hired npc_id=" + std::to_string(follower.npcId)
+            + " profession_id=" + std::to_string(follower.professionId)
+            + " weekly_cost=" + std::to_string(follower.weeklyCost));
     }
     else
     {
@@ -3749,6 +3778,14 @@ void Party::removeHiredNpcFollower(uint32_t npcId)
 
     if (followerIt != m_hiredNpcFollowers.end())
     {
+        for (auto iterator = followerIt; iterator != m_hiredNpcFollowers.end(); ++iterator)
+        {
+            gameplayDebugTraceLog(
+                "hireling_left npc_id=" + std::to_string(iterator->npcId)
+                + " profession_id=" + std::to_string(iterator->professionId)
+                + " weekly_cost=" + std::to_string(iterator->weeklyCost));
+        }
+
         m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
     }
 }
@@ -3784,9 +3821,15 @@ void Party::addAward(uint32_t awardId)
         return;
     }
 
+    bool acquired = false;
     for (Character &member : m_members)
     {
-        member.awards.insert(awardId);
+        acquired = member.awards.insert(awardId).second || acquired;
+    }
+
+    if (acquired)
+    {
+        gameplayDebugTraceLog("award_acquired id=" + std::to_string(awardId) + " scope=party");
     }
 }
 
@@ -3799,7 +3842,13 @@ void Party::addAward(size_t memberIndex, uint32_t awardId)
         return;
     }
 
-    pMember->awards.insert(awardId);
+    const bool acquired = pMember->awards.insert(awardId).second;
+    if (acquired)
+    {
+        gameplayDebugTraceLog(
+            "award_acquired id=" + std::to_string(awardId)
+            + " member_index=" + std::to_string(memberIndex));
+    }
 }
 
 void Party::removeAward(uint32_t awardId)
@@ -3809,9 +3858,15 @@ void Party::removeAward(uint32_t awardId)
         return;
     }
 
+    bool cleared = false;
     for (Character &member : m_members)
     {
-        member.awards.erase(awardId);
+        cleared = member.awards.erase(awardId) != 0 || cleared;
+    }
+
+    if (cleared)
+    {
+        gameplayDebugTraceLog("award_cleared id=" + std::to_string(awardId) + " scope=party");
     }
 }
 
@@ -3824,7 +3879,13 @@ void Party::removeAward(size_t memberIndex, uint32_t awardId)
         return;
     }
 
-    pMember->awards.erase(awardId);
+    const bool cleared = pMember->awards.erase(awardId) != 0;
+    if (cleared)
+    {
+        gameplayDebugTraceLog(
+            "award_cleared id=" + std::to_string(awardId)
+            + " member_index=" + std::to_string(memberIndex));
+    }
 }
 
 int Party::inventoryItemCount(uint32_t objectDescriptionId, std::optional<size_t> memberIndex) const

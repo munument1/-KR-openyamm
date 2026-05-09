@@ -63,6 +63,7 @@ struct HouseEntry
         std::string destinationMapFileName;
         std::string destinationName;
         std::string label;
+        bool useMapStartPosition = true;
         int x = 0;
         int y = 0;
         int z = 0;

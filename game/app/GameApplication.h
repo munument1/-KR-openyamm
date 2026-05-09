@@ -36,6 +36,7 @@
 namespace OpenYAMM::Game
 {
 class HeadlessGameplayDiagnostics;
+struct ScenarioGameApplicationAccess;
 struct GameApplicationTestAccess;
 struct WinGameCertificate;
 
@@ -67,7 +68,53 @@ private:
         std::optional<DebugMapJumpStart> start;
     };
 
+    struct GameplayTraceMovementSnapshot
+    {
+        std::string mapName;
+        bool indoor = false;
+        float partyX = 0.0f;
+        float partyY = 0.0f;
+        float partyZ = 0.0f;
+        float yawRadians = 0.0f;
+        float pitchRadians = 0.0f;
+        float gameMinutes = 0.0f;
+        uint64_t tickMilliseconds = 0;
+        bool forwardHeld = false;
+        bool runWalkModifierHeld = false;
+        bool turboHeld = false;
+        bool shiftHeld = false;
+        bool ctrlHeld = false;
+        bool altHeld = false;
+        bool heldItemActive = false;
+        uint32_t heldItemId = 0;
+        bool outdoorRunning = false;
+        bool outdoorFlying = false;
+        bool outdoorWaterWalk = false;
+        bool outdoorFeatherFall = false;
+        bool outdoorAirborne = false;
+        uint32_t outdoorSupportKind = 0;
+        size_t outdoorSupportBModelIndex = 0;
+        size_t outdoorSupportFaceIndex = 0;
+        bool indoorGrounded = false;
+        int16_t indoorSectorId = -1;
+        int16_t indoorEyeSectorId = -1;
+        size_t indoorSupportFaceIndex = static_cast<size_t>(-1);
+    };
+
+    struct GameplayTraceMovementCapture
+    {
+        bool armed = false;
+        bool hasStart = false;
+        bool hasStop = false;
+        bool committed = false;
+        bool previousForwardHeld = false;
+        uint32_t sequence = 0;
+        GameplayTraceMovementSnapshot start;
+        GameplayTraceMovementSnapshot stop;
+    };
+
     friend class HeadlessGameplayDiagnostics;
+    friend struct ScenarioGameApplicationAccess;
     friend struct GameApplicationTestAccess;
 
     bool loadGameData(Engine::AssetFileSystem &assetFileSystem);
@@ -116,6 +163,7 @@ private:
     void captureCurrentSceneState();
     void restoreSavedOutdoorWorldStateForSelectedMap();
     void updateQuickSaveInput();
+    void updateGameplayTraceSnapshotHotkeys();
     bool processPendingQuickSaveInput();
     bool quickSave();
     bool quickLoad();
@@ -125,8 +173,8 @@ private:
         const std::vector<uint8_t> &previewBmp = {});
     bool quickLoadFromPath(const std::filesystem::path &path, bool initializeView);
     void openMainMenuScreen();
-    void openLoadGameScreen(bool returnToGameplayMenu = false);
-    void openNewGameScreen();
+    void openLoadGameScreen(bool returnToGameplayMenu = false, const std::string &source = "main_menu");
+    void openNewGameScreen(const std::string &source = "main_menu");
     bool processPendingArcomageGame();
     void handleCompletedArcomageScreen();
     bool initializeStartupSession(bool initializeView);
@@ -144,6 +192,7 @@ private:
     void pumpLoadingOverlayAnimation();
     void completeLoadingOverlay();
     void cancelLoadingOverlay();
+    void closeTransientGameplayUiForMapMove();
     std::filesystem::path settingsFilePath() const;
     void loadOrCreateSettings();
     void applyCurrentSettingsToActiveRuntime();
@@ -182,6 +231,12 @@ private:
     bool m_quickSaveLatch = false;
     bool m_quickLoadLatch = false;
     bool m_advanceTimeLatch = false;
+    bool m_traceSnapshotStartLatch = false;
+    bool m_traceSnapshotEndLatch = false;
+    bool m_traceMarkerLatch = false;
+    uint32_t m_traceMarkerSequence = 0;
+    bool m_traceSessionHeaderLogged = false;
+    GameplayTraceMovementCapture m_traceMovementCapture = {};
     bool m_pendingQuickSave = false;
     bool m_pendingQuickLoad = false;
     bool m_pendingAdvanceTime = false;

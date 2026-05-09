@@ -1,6 +1,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 
 #include "game/app/GameSession.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayItemService.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/GameplaySpeechRules.h"
@@ -20,6 +21,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <optional>
@@ -34,6 +36,75 @@ constexpr int GameplayMinimapDefaultZoomStep = 1;
 constexpr int GameplayMinimapMaxZoomStep = 2;
 constexpr int DefaultJournalMapZoomStep = 0;
 constexpr float OeRestHostileAlertDistance = 5120.0f;
+constexpr float DimensionDoorTileSize = 512.0f;
+
+struct DimensionDoorRadiusTrigger
+{
+    const char *pMapName = nullptr;
+    float x = 0.0f;
+    float y = 0.0f;
+    float radius = 0.0f;
+};
+
+struct DimensionDoorTileTrigger
+{
+    const char *pMapName = nullptr;
+    int tileX = 0;
+    int tileY = 0;
+};
+
+constexpr std::array<DimensionDoorRadiusTrigger, 2> DimensionDoorRadiusTriggers = {{
+    {"out09.odm", -5121.0f, 98.0f, 1500.0f},
+    {"outb3.odm", -8384.0f, -13040.0f, 1500.0f},
+}};
+
+constexpr std::array<DimensionDoorTileTrigger, 4> DimensionDoorTileTriggers = {{
+    {"out01.odm", 63, 59},
+    {"out07.odm", 43, 98},
+    {"outb3.odm", 89, 47},
+    {"7out04.odm", 84, 94},
+}};
+
+const char *restModeTraceName(GameplayUiController::RestMode mode)
+{
+    switch (mode)
+    {
+        case GameplayUiController::RestMode::None:
+            return "none";
+        case GameplayUiController::RestMode::Wait:
+            return "wait";
+        case GameplayUiController::RestMode::Heal:
+            return "heal";
+    }
+
+    return "unknown";
+}
+
+std::string normalizedMapFileName(std::string mapName)
+{
+    std::replace(mapName.begin(), mapName.end(), '\\', '/');
+
+    const size_t slashIndex = mapName.find_last_of('/');
+
+    if (slashIndex != std::string::npos)
+    {
+        mapName = mapName.substr(slashIndex + 1);
+    }
+
+    return toLowerCopy(mapName);
+}
+
+bool mapNameMatches(const std::string &currentMapName, const char *pExpectedMapName)
+{
+    return normalizedMapFileName(currentMapName) == normalizedMapFileName(pExpectedMapName != nullptr ? pExpectedMapName : "");
+}
+
+bool partyIsOnDimensionDoorTile(float partyX, float partyY, const DimensionDoorTileTrigger &trigger)
+{
+    const int tileX = static_cast<int>(std::floor(partyX / DimensionDoorTileSize + 64.0f));
+    const int tileY = static_cast<int>(std::floor(64.0f - partyY / DimensionDoorTileSize));
+    return tileX == trigger.tileX && tileY == trigger.tileY;
+}
 
 bool isBodyEquipmentVisualSlot(EquipmentSlot slot)
 {
@@ -1019,6 +1090,12 @@ void GameplayScreenRuntime::beginRestAction(
     restScreen.totalMinutes = std::max(0.0f, minutes);
     restScreen.remainingMinutes = restScreen.totalMinutes;
 
+    gameplayDebugTraceLog(
+        "rest_action_started mode=\"" + std::string(restModeTraceName(mode)) + "\""
+        + " minutes=" + std::to_string(restScreen.totalMinutes)
+        + " consume_food=" + (consumeFood ? "true" : "false")
+        + " game_minutes=" + std::to_string(worldRuntime()->gameMinutes()));
+
     if (restScreen.remainingMinutes <= 0.0f)
     {
         restScreen.mode = GameplayUiController::RestMode::None;
@@ -1127,6 +1204,16 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
         return;
     }
 
+    EventDialogContent &dialog = activeEventDialog();
+
+    if (dialog.isActive && !dialog.videoName.empty())
+    {
+        stopHouseVideoPlayback();
+        dialog.videoName.clear();
+        dialog.videoDirectory.clear();
+        return;
+    }
+
     EventRuntimeState *pEventRuntimeState = worldRuntime() != nullptr ? worldRuntime()->eventRuntimeState() : nullptr;
 
     if (pEventRuntimeState == nullptr)
@@ -1209,10 +1296,30 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
 
     const GameplayUiController::RestMode completedMode = restScreen.mode;
     const float remainingMinutes = std::max(0.0f, restScreen.remainingMinutes);
+    const float beforeGameMinutes = worldRuntime() != nullptr ? worldRuntime()->gameMinutes() : 0.0f;
 
     if (remainingMinutes > 0.0f && worldRuntime() != nullptr)
     {
-        worldRuntime()->advanceGameMinutes(remainingMinutes);
+        IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+        pWorldRuntime->advanceGameMinutes(remainingMinutes);
+        EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+        Party *pParty = party();
+        if (pEventRuntimeState != nullptr && pParty != nullptr)
+        {
+            itemService().updateConnectorStoneRecharge(*pParty, *pEventRuntimeState, pWorldRuntime->gameMinutes());
+        }
+    }
+    const float afterGameMinutes = worldRuntime() != nullptr ? worldRuntime()->gameMinutes() : beforeGameMinutes;
+
+    if (remainingMinutes > 0.0f)
+    {
+        gameplayDebugTraceLog(
+            "game_time_advanced source=rest"
+            " mode=\"" + std::string(restModeTraceName(completedMode)) + "\""
+            + " minutes=" + std::to_string(remainingMinutes)
+            + " before_game_minutes=" + std::to_string(beforeGameMinutes)
+            + " after_game_minutes=" + std::to_string(afterGameMinutes)
+            + " game_minutes=" + std::to_string(afterGameMinutes));
     }
 
     restScreen.mode = GameplayUiController::RestMode::None;
@@ -3245,6 +3352,63 @@ bool GameplayScreenRuntime::ensureDimensionDoorDestinationsLoaded()
     }
 
     return uiRuntime().ensureDimensionDoorDestinationsLoaded(dayIndex, crossContinentsUnlocked);
+}
+
+bool GameplayScreenRuntime::shouldTownPortalCastOpenDimensionDoor() const
+{
+    const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+
+    if (pWorldRuntime == nullptr)
+    {
+        return false;
+    }
+
+    const std::string &mapName = pWorldRuntime->mapName();
+    const float x = pWorldRuntime->partyX();
+    const float y = pWorldRuntime->partyY();
+
+    for (const DimensionDoorRadiusTrigger &trigger : DimensionDoorRadiusTriggers)
+    {
+        if (!mapNameMatches(mapName, trigger.pMapName))
+        {
+            continue;
+        }
+
+        const float dx = x - trigger.x;
+        const float dy = y - trigger.y;
+
+        if (dx * dx + dy * dy <= trigger.radius * trigger.radius)
+        {
+            return true;
+        }
+    }
+
+    for (const DimensionDoorTileTrigger &trigger : DimensionDoorTileTriggers)
+    {
+        if (mapNameMatches(mapName, trigger.pMapName) && partyIsOnDimensionDoorTile(x, y, trigger))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool GameplayScreenRuntime::openDimensionDoorOverlay(size_t casterMemberIndex, uint32_t spellId)
+{
+    if (!ensureDimensionDoorDestinationsLoaded())
+    {
+        setStatusBarEvent("Dimension Door destinations unavailable");
+        return false;
+    }
+
+    openUtilitySpellOverlay(
+        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
+        spellId,
+        casterMemberIndex);
+    resetUtilitySpellOverlayInteractionState();
+    setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    return true;
 }
 
 const std::string &GameplayScreenRuntime::townPortalBackgroundTextureName() const

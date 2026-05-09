@@ -90,6 +90,7 @@ struct MapDeltaSpriteObject
     int initialX = 0;
     int initialY = 0;
     int initialZ = 0;
+    float lifetimeTickAccumulator = 0.0f;
     std::vector<uint8_t> rawContainingItem;
 };
 

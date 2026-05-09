@@ -46,6 +46,7 @@ add_executable(openyamm_unit_tests
     ../game/content/ContentManifest.cpp
     ../game/data/ActorNameResolver.cpp
     ../game/data/GameDataLoader.cpp
+    ../game/debug/GameplayDebugTrace.cpp
     ../engine/scripting/LuaStateOwner.cpp
     ../game/events/EventRuntime.cpp
     ../game/events/EventDialogContent.cpp

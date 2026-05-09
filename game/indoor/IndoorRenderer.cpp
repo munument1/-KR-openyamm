@@ -491,6 +491,11 @@ std::vector<RuntimeSpriteObjectBillboard> buildRuntimeSpriteObjectBillboards(
         const ItemDefinition *pContainedItemDefinition =
             containedItemId != 0 && pItemTable != nullptr ? pItemTable->get(containedItemId) : nullptr;
 
+        if ((spriteObject.attributes & SpriteAttrRemoved) != 0)
+        {
+            continue;
+        }
+
         if (pContainedItemDefinition != nullptr && pContainedItemDefinition->spriteIndex != 0)
         {
             const std::optional<uint16_t> containedObjectDescriptionId =
@@ -1378,6 +1383,7 @@ std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 }
 
 std::string resolveFaceTextureName(
+    size_t faceIndex,
     const IndoorFace &face,
     const std::optional<EventRuntimeState> &eventRuntimeState
 )
@@ -1387,7 +1393,11 @@ std::string resolveFaceTextureName(
         return face.textureName;
     }
 
-    const uint32_t cogCandidates[2] = {face.cogNumber, face.textureFrameTableCog};
+    const uint32_t faceIndexCandidate =
+        faceIndex <= static_cast<size_t>(std::numeric_limits<uint32_t>::max())
+            ? static_cast<uint32_t>(faceIndex)
+            : 0;
+    const uint32_t cogCandidates[3] = {faceIndexCandidate, face.cogNumber, face.textureFrameTableCog};
 
     for (uint32_t cogCandidate : cogCandidates)
     {
@@ -1654,8 +1664,17 @@ bool IndoorRenderer::initialize(
     m_houseTable = houseTable;
     rebuildMechanismBindings();
 
+    if (m_pSceneRuntime != nullptr)
+    {
+        const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
+        m_cameraPositionX = moveState.x;
+        m_cameraPositionY = moveState.y;
+        m_cameraPositionZ = moveState.eyeZ();
+    }
+
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
     {
+        m_isRenderable = true;
         return true;
     }
 
@@ -1899,14 +1918,6 @@ bool IndoorRenderer::initialize(
         m_cameraPositionX = static_cast<float>((minX + maxX) / 2);
         m_cameraPositionY = static_cast<float>(minY - 256);
         m_cameraPositionZ = static_cast<float>((minZ + maxZ) / 2);
-    }
-
-    if (m_pSceneRuntime != nullptr)
-    {
-        const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
-        m_cameraPositionX = moveState.x;
-        m_cameraPositionY = moveState.y;
-        m_cameraPositionZ = moveState.eyeZ();
     }
 
     m_isRenderable = true;
@@ -3584,7 +3595,10 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
 
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
 
-    if (mapDeltaData && m_monsterTable && m_indoorActorPreviewBillboardSet)
+    if (mapDeltaData
+        && m_monsterTable
+        && m_indoorActorPreviewBillboardSet
+        && !rayRequest.ignoreActors)
     {
         const std::vector<RuntimeActorBillboard> runtimeActors =
             buildRuntimeActorBillboards(
@@ -3781,7 +3795,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             continue;
         }
 
-        const GameplayWorldPickRequest candidateRequest =
+        GameplayWorldPickRequest candidateRequest =
             buildGameplayWorldPickRequest(
                 GameplayWorldPickRequestInput{
                     .screenX = candidate.screenX,
@@ -3790,6 +3804,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
                     .screenHeight = rayRequest.viewHeight,
                     .includeRay = true,
                 });
+        candidateRequest.ignoreActors = rayRequest.ignoreActors;
         const GameplayWorldHit candidateHit = pickGameplayWorldHit(candidateRequest);
 
         if (isSelectableHit(candidateHit))
@@ -5207,7 +5222,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
             m_pSceneRuntime != nullptr ? &m_pSceneRuntime->worldRuntime() : nullptr)
         : std::vector<RuntimeActorBillboard>{};
     std::vector<BillboardDrawItem> drawItems;
-    const bool useRuntimeBillboards = !runtimeBillboards.empty();
+    const bool useRuntimeBillboards = mapDeltaData.has_value() && m_pSceneRuntime != nullptr;
     drawItems.reserve(
         useRuntimeBillboards
         ? runtimeBillboards.size()
@@ -5716,7 +5731,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         ? buildRuntimeSpriteObjectBillboards(*m_objectTable, m_pItemTable, *mapDeltaData)
         : std::vector<RuntimeSpriteObjectBillboard>{};
     std::vector<BillboardDrawItem> drawItems;
-    const bool useRuntimeBillboards = !runtimeBillboards.empty();
+    const bool useRuntimeBillboards = mapDeltaData.has_value() && m_pSceneRuntime != nullptr;
     const size_t staticBillboardCount =
         m_indoorSpriteObjectBillboardSet ? m_indoorSpriteObjectBillboardSet->billboards.size() : 0;
     const std::optional<size_t> hoveredWorldItemIndex =
@@ -6662,7 +6677,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
     for (size_t faceIndex = 0; faceIndex < m_indoorMapData->faces.size(); ++faceIndex)
     {
         const IndoorFace &face = m_indoorMapData->faces[faceIndex];
-        const std::string textureName = resolveFaceTextureName(face, eventRuntimeState);
+        const std::string textureName = resolveFaceTextureName(faceIndex, face, eventRuntimeState);
 
         if (face.isPortal || textureName.empty() || face.vertexIndices.size() < 3)
         {
@@ -7287,7 +7302,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
         indoorMapDeltaData && faceIndex < indoorMapDeltaData->faceAttributes.size()
             ? indoorMapDeltaData->faceAttributes[faceIndex]
             : face.attributes;
-    const std::string effectiveTextureName = resolveFaceTextureName(face, eventRuntimeState);
+    const std::string effectiveTextureName = resolveFaceTextureName(faceIndex, face, eventRuntimeState);
 
     if (face.isPortal || effectiveTextureName.empty() || face.vertexIndices.size() < 3)
     {
@@ -7782,7 +7797,10 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
         }
     }
 
-    if (mapDeltaData && m_monsterTable && m_indoorActorPreviewBillboardSet)
+    if (mapDeltaData
+        && m_monsterTable
+        && m_indoorActorPreviewBillboardSet
+        && (pPickRequest == nullptr || !pPickRequest->ignoreActors))
     {
         const float cosPitch = std::cos(m_cameraPitchRadians);
         const float sinPitch = std::sin(m_cameraPitchRadians);
@@ -7933,7 +7951,19 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
 
         for (const RuntimeActorBillboard &actor : runtimeActors)
         {
-            if (!isSectorVisible(actor.sectorId, visibleSectorMask))
+            const float actorHalfExtent = static_cast<float>(std::max<uint16_t>(actor.radius, 32));
+            const float actorHeight = static_cast<float>(std::max<uint16_t>(actor.height, 96));
+            const bx::Vec3 actorCenter = {
+                static_cast<float>(actor.x),
+                static_cast<float>(actor.y),
+                static_cast<float>(actor.z) + actorHeight * 0.5f
+            };
+            const float actorProjection = vecDot(vecSubtract(actorCenter, rayOrigin), rayDirection);
+            const float actorBoundsRadius =
+                std::sqrt(actorHalfExtent * actorHalfExtent * 2.0f + actorHeight * actorHeight * 0.25f);
+
+            if (actorProjection + actorBoundsRadius <= InspectRayEpsilon
+                || actorProjection - actorBoundsRadius >= bestDistance)
             {
                 continue;
             }
@@ -8808,7 +8838,15 @@ void IndoorRenderer::updateCameraFromInput(
             desiredVelocityY += right.y * strafeMoveSpeed;
         }
 
-        partyRuntime.setActorColliders(worldRuntime.actorMovementCollidersForPartyMovement());
+        if (worldRuntime.scenarioPartyActorCollisionEnabled())
+        {
+            partyRuntime.setActorColliders(worldRuntime.actorMovementCollidersForPartyMovement());
+        }
+        else
+        {
+            const std::vector<IndoorActorCollision> noActorColliders;
+            partyRuntime.setActorColliders(noActorColliders);
+        }
         partyRuntime.setDecorationColliders(worldRuntime.decorationMovementColliders());
         partyRuntime.setSpriteObjectColliders(worldRuntime.spriteObjectMovementColliders());
         partyRuntime.update(desiredVelocityX, desiredVelocityY, jumpRequested, running, deltaSeconds);

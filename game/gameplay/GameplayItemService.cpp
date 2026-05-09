@@ -171,20 +171,58 @@ bool isNwcDungeonMapName(const std::string &mapFileName)
 
 bool openDimensionDoorOverlay(GameplayScreenRuntime &runtime)
 {
-    if (!runtime.ensureDimensionDoorDestinationsLoaded())
+    const Party *pParty = runtime.partyReadOnly();
+    const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
+    return runtime.openDimensionDoorOverlay(casterMemberIndex, spellIdValue(SpellId::TownPortal));
+}
+
+bool connectorStoneRechargeReady(const EventRuntimeState &eventRuntimeState, int32_t currentMinutes)
+{
+    const auto rechargeIterator = eventRuntimeState.namedGlobalVars.find(ConnectorStoneRechargeGlobalVar);
+    const int32_t rechargeMinutes = rechargeIterator != eventRuntimeState.namedGlobalVars.end()
+        ? rechargeIterator->second
+        : 0;
+
+    return currentMinutes >= rechargeMinutes;
+}
+
+size_t rechargeConnectorStonesInInventory(Party &party)
+{
+    size_t rechargedCount = 0;
+
+    for (size_t memberIndex = 0; memberIndex < party.memberCount(); ++memberIndex)
     {
-        runtime.setStatusBarEvent("Dimension Door destinations unavailable");
+        Character *pMember = party.member(memberIndex);
+
+        if (pMember == nullptr)
+        {
+            continue;
+        }
+
+        for (InventoryItem &item : pMember->inventory)
+        {
+            if (item.objectDescriptionId == DischargedConnectorStoneItemId)
+            {
+                item.objectDescriptionId = ChargedConnectorStoneItemId;
+                ++rechargedCount;
+            }
+        }
+    }
+
+    return rechargedCount;
+}
+
+bool rechargeHeldConnectorStone(
+    GameplayUiController::HeldInventoryItemState &heldItem,
+    Party &party)
+{
+    if (!heldItem.active || heldItem.item.objectDescriptionId != DischargedConnectorStoneItemId)
+    {
         return false;
     }
 
-    const Party *pParty = runtime.partyReadOnly();
-    const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
-    runtime.openUtilitySpellOverlay(
-        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
-        spellIdValue(SpellId::TownPortal),
-        casterMemberIndex);
-    runtime.resetUtilitySpellOverlayInteractionState();
-    runtime.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    heldItem.item.objectDescriptionId = ChargedConnectorStoneItemId;
+    party.setHeldItemForQueries(heldItem.item);
     return true;
 }
 
@@ -235,7 +273,7 @@ void closeCharacterInventoryAfterPotionExplosion(GameplayScreenRuntime &runtime)
 
 bool tryUseConnectorStone(GameplayScreenRuntime &runtime, GameplayUiController::HeldInventoryItemState &heldItem)
 {
-    const uint32_t itemId = heldItem.item.objectDescriptionId;
+    uint32_t itemId = heldItem.item.objectDescriptionId;
 
     if (itemId != ChargedConnectorStoneItemId && itemId != DischargedConnectorStoneItemId)
     {
@@ -252,12 +290,14 @@ bool tryUseConnectorStone(GameplayScreenRuntime &runtime, GameplayUiController::
     }
 
     const int32_t currentMinutes = static_cast<int32_t>(std::lround(pWorldRuntime->gameMinutes()));
-    const auto rechargeIterator = pEventRuntimeState->namedGlobalVars.find(ConnectorStoneRechargeGlobalVar);
-    const int32_t rechargeMinutes = rechargeIterator != pEventRuntimeState->namedGlobalVars.end()
-        ? rechargeIterator->second
-        : 0;
+    if (connectorStoneRechargeReady(*pEventRuntimeState, currentMinutes))
+    {
+        rechargeConnectorStonesInInventory(*pParty);
+        rechargeHeldConnectorStone(heldItem, *pParty);
+        itemId = heldItem.item.objectDescriptionId;
+    }
 
-    if (itemId == DischargedConnectorStoneItemId && rechargeMinutes > currentMinutes)
+    if (itemId == DischargedConnectorStoneItemId)
     {
         runtime.setStatusBarEvent("The connector stone is recharging.");
         return true;
@@ -365,6 +405,19 @@ GameplayItemService::GameplayItemService(GameSession &session)
 {
 }
 
+void GameplayItemService::updateConnectorStoneRecharge(
+    Party &party,
+    EventRuntimeState &eventRuntimeState,
+    float gameMinutes)
+{
+    const int32_t currentMinutes = static_cast<int32_t>(std::lround(gameMinutes));
+
+    if (connectorStoneRechargeReady(eventRuntimeState, currentMinutes))
+    {
+        rechargeConnectorStonesInInventory(party);
+    }
+}
+
 bool GameplayItemService::tryUseHeldItemOnPartyMember(
     GameplayScreenRuntime &runtime,
     size_t memberIndex,
@@ -465,6 +518,20 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
             heldItem = {};
             pParty->clearHeldItemForQueries();
         }
+    }
+    else if (useResult.action == InventoryItemUseAction::UseDimensionDoorScroll)
+    {
+        if (useResult.consumed && openDimensionDoorOverlay(runtime))
+        {
+            heldItem = {};
+            pParty->clearHeldItemForQueries();
+        }
+
+        GameplayUiController::CharacterScreenState &characterScreen =
+            m_session.gameplayScreenState().characterScreen();
+        characterScreen.open = false;
+        characterScreen.dollJewelryOverlayOpen = false;
+        return true;
     }
     else if (useResult.action == InventoryItemUseAction::ReadMessageScroll)
     {

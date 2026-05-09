@@ -70,20 +70,9 @@ const char *activeGameplayButtonLayoutId(
 
 void openDimensionDoorOverlay(GameplayScreenRuntime &context)
 {
-    if (!context.ensureDimensionDoorDestinationsLoaded())
-    {
-        context.setStatusBarEvent("Dimension Door destinations unavailable");
-        return;
-    }
-
     const Party *pParty = context.partyReadOnly();
     const size_t casterMemberIndex = pParty != nullptr ? pParty->activeMemberIndex() : 0;
-    context.openUtilitySpellOverlay(
-        GameplayUiController::UtilitySpellOverlayMode::DimensionDoor,
-        spellIdValue(SpellId::TownPortal),
-        casterMemberIndex);
-    context.resetUtilitySpellOverlayInteractionState();
-    context.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    context.openDimensionDoorOverlay(casterMemberIndex, spellIdValue(SpellId::TownPortal));
 }
 
 size_t hiredFollowerCount(const GameplayScreenRuntime &context)

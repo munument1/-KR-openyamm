@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayOverlayInputController.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplaySaveLoadUiSupport.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -33,6 +34,17 @@ int effectiveReputationForView(const GameplayScreenRuntime &view)
     return pWorldRuntime != nullptr
         ? effectivePartyReputation(pWorldRuntime->currentLocationReputation(), pWorldRuntime->eventRuntimeState())
         : 0;
+}
+
+bool hasPendingInputPrompt(const GameplayScreenRuntime &view)
+{
+    const IGameplayWorldRuntime *pWorldRuntime = view.worldRuntime();
+    const EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    return view.activeEventDialog().isActive
+        && pRuntimeState != nullptr
+        && pRuntimeState->pendingInputPrompt
+        && pRuntimeState->pendingInputPrompt->kind == EventRuntimeState::PendingInputPrompt::Kind::InputString;
 }
 
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
@@ -2808,6 +2820,15 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
         view.interactionState().eventDialogSelectDownLatch = false;
     }
 
+    if (hasPendingInputPrompt(view))
+    {
+        view.interactionState().eventDialogAcceptLatch = true;
+        view.interactionState().dialogueClickLatch = false;
+        view.interactionState().dialoguePressedTarget = {};
+        view.interactionState().closeOverlayLatch = false;
+        return;
+    }
+
     const bool acceptPressed = pKeyboardState[SDL_SCANCODE_RETURN] || pKeyboardState[SDL_SCANCODE_SPACE];
 
     if (acceptPressed && !isResidentSelectionMode)
@@ -3878,6 +3899,13 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         view.heldInventoryItem().grabOffsetX = 0.0f;
                         view.heldInventoryItem().grabOffsetY = 0.0f;
                         view.party()->setHeldItemForQueries(view.heldInventoryItem().item);
+                        gameplayDebugTraceLog(
+                            "item_received destination=held source=chest item_id="
+                            + std::to_string(view.heldInventoryItem().item.objectDescriptionId)
+                            + gameplayDebugTraceItemSummary(
+                                view.heldInventoryItem().item.objectDescriptionId,
+                                view.itemTable())
+                            + " grid=(" + std::to_string(gridX) + "," + std::to_string(gridY) + ")");
 
                         const ItemDefinition *pItemDefinition =
                             view.itemTable() != nullptr ? view.itemTable()->get(takenItem.itemId) : nullptr;
@@ -3985,10 +4013,11 @@ void GameplayOverlayInputController::handleLootOverlayInput(
             {
                 const GameplayChestItemState item = (*pItems)[view.interactionState().chestSelectionIndex];
                 bool canLoot = true;
+                size_t recipientMemberIndex = 0;
 
                 if (!item.isGold)
                 {
-                    canLoot = view.party()->tryGrantInventoryItem(item.item);
+                    canLoot = view.party()->tryGrantInventoryItem(item.item, &recipientMemberIndex);
                 }
 
                 if (canLoot)
@@ -4012,6 +4041,19 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                             {
                                 view.audioSystem()->playCommonSound(SoundId::Gold, GameAudioSystem::PlaybackGroup::Ui);
                             }
+                        }
+                        else
+                        {
+                            gameplayDebugTraceLog(
+                                "item_received destination=inventory source="
+                                + std::string(pCurrentChestView != nullptr ? "chest" : "corpse")
+                                + " item_id=" + std::to_string(removedItem.item.objectDescriptionId)
+                                + gameplayDebugTraceItemSummary(
+                                    removedItem.item.objectDescriptionId,
+                                    view.itemTable())
+                                + " loot_item_index="
+                                + std::to_string(view.interactionState().chestSelectionIndex)
+                                + " member_index=" + std::to_string(recipientMemberIndex));
                         }
 
                         const GameplayChestViewState *pUpdatedChestView =

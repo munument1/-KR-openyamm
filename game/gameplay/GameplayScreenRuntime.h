@@ -376,6 +376,8 @@ public:
     void collectGameplayMinimapMarkers(std::vector<GameplayMinimapMarkerState> &markers) const;
     bool ensureTownPortalDestinationsLoaded();
     bool ensureDimensionDoorDestinationsLoaded();
+    bool shouldTownPortalCastOpenDimensionDoor() const;
+    bool openDimensionDoorOverlay(size_t casterMemberIndex, uint32_t spellId);
     const std::string &townPortalBackgroundTextureName() const;
     const std::vector<GameplayTownPortalDestination> &townPortalDestinations() const;
     std::string resolveMapLocationName(const std::string &mapFileName) const;

@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayScreenController.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/GameplayInputController.h"
 #include "game/gameplay/GameplayItemService.h"
@@ -13,6 +14,8 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <optional>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -27,8 +30,30 @@ bool isHouseOccupantSelectionMode(const EventDialogContent &dialog)
             [](const EventDialogAction &action)
             {
                 return action.kind == EventDialogActionKind::HouseProprietor
+                    || action.kind == EventDialogActionKind::HouseExtraExit
                     || action.kind == EventDialogActionKind::HouseResident;
             });
+}
+
+const char *itemInspectSourceTypeName(GameplayUiController::ItemInspectSourceType sourceType)
+{
+    switch (sourceType)
+    {
+        case GameplayUiController::ItemInspectSourceType::None:
+            return "none";
+        case GameplayUiController::ItemInspectSourceType::Inventory:
+            return "inventory";
+        case GameplayUiController::ItemInspectSourceType::Equipment:
+            return "equipment";
+        case GameplayUiController::ItemInspectSourceType::WorldItem:
+            return "world_item";
+        case GameplayUiController::ItemInspectSourceType::Chest:
+            return "chest";
+        case GameplayUiController::ItemInspectSourceType::Corpse:
+            return "corpse";
+    }
+
+    return "unknown";
 }
 } // namespace
 
@@ -65,6 +90,36 @@ void GameplayScreenController::updateSharedFrameState(
     }
 
     updateRestOverlayProgress(context, deltaSeconds);
+
+    const GameplayUiController::CharacterScreenState &characterScreen = context.characterScreenReadOnly();
+    const bool characterInventoryVisible =
+        characterScreen.open && characterScreen.page == GameplayUiController::CharacterPage::Inventory;
+    if (!characterInventoryVisible)
+    {
+        context.interactionState().inventoryOpenHookExecuted = false;
+    }
+    else if (!context.interactionState().inventoryOpenHookExecuted)
+    {
+        IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+        EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+        if (pWorldRuntime != nullptr && pEventRuntimeState != nullptr)
+        {
+            const std::optional<EventRuntimeState::ActiveHookContext> previousHookContext =
+                pEventRuntimeState->activeHookContext;
+            EventRuntimeState::ActiveHookContext hookContext = {};
+            hookContext.kind = EventRuntimeHookKind::InventoryOpen;
+            hookContext.inventorySource = static_cast<uint32_t>(characterScreen.source);
+            hookContext.inventorySourceIndex = static_cast<uint32_t>(characterScreen.sourceIndex);
+            hookContext.inventoryPage = static_cast<uint32_t>(characterScreen.page);
+            pEventRuntimeState->activeHookContext = std::move(hookContext);
+            pWorldRuntime->executeEventHooks(EventRuntimeHookKind::InventoryOpen);
+            pEventRuntimeState->activeHookContext = previousHookContext;
+        }
+
+        context.interactionState().inventoryOpenHookExecuted = true;
+    }
+
     GameplayHudOverlaySupport::updateCharacterInspectOverlay(context, width, height);
     GameplayHudOverlaySupport::updateCharacterDetailOverlay(context, width, height);
     GameplayHudOverlaySupport::updateSpellInspectOverlay(context, width, height);
@@ -268,6 +323,33 @@ void GameplayScreenController::applySharedItemInspectSkillInteraction(
     context.interactionState().itemInspectInteractionLatch = true;
     context.interactionState().itemInspectInteractionKey = interactionKey;
 
+    std::string worldContext;
+    const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+
+    if (pWorldRuntime != nullptr)
+    {
+        const std::string sceneKind = pWorldRuntime->isIndoorMap() ? "indoor" : "outdoor";
+        worldContext =
+            " map=\"" + pWorldRuntime->mapName() + "\""
+            + " scene_kind=" + sceneKind
+            + " party=(" + std::to_string(pWorldRuntime->partyX())
+            + "," + std::to_string(pWorldRuntime->partyY())
+            + "," + std::to_string(pWorldRuntime->partyFootZ()) + ")"
+            + " yaw=" + std::to_string(pWorldRuntime->gameplayCameraYawRadians())
+            + " pitch=" + std::to_string(pWorldRuntime->gameplayCameraPitchRadians());
+    }
+
+    gameplayDebugTraceLog(
+        "item_inspect item_id=" + std::to_string(overlay.objectDescriptionId)
+        + gameplayDebugTraceItemSummary(overlay.objectDescriptionId, pItemTable)
+        + " source=" + itemInspectSourceTypeName(overlay.sourceType)
+        + worldContext
+        + " member_index=" + std::to_string(overlay.sourceMemberIndex)
+        + " grid=(" + std::to_string(overlay.sourceGridX) + "," + std::to_string(overlay.sourceGridY) + ")"
+        + " equipment_slot=" + std::to_string(static_cast<uint32_t>(overlay.sourceEquipmentSlot))
+        + " world_item_index=" + std::to_string(overlay.sourceWorldItemIndex)
+        + " loot_item_index=" + std::to_string(overlay.sourceLootItemIndex));
+
     const Character *pActiveMember = pParty->activeMember();
     const ItemDefinition *pItemDefinition = pItemTable->get(overlay.objectDescriptionId);
 
@@ -452,7 +534,14 @@ void GameplayScreenController::updateRestOverlayProgress(
 
     if (advancedMinutes > 0.0f)
     {
-        context.worldRuntime()->advanceGameMinutes(advancedMinutes);
+        IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+        pWorldRuntime->advanceGameMinutes(advancedMinutes);
+        EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+        Party *pParty = context.party();
+        if (pEventRuntimeState != nullptr && pParty != nullptr)
+        {
+            context.itemService().updateConnectorStoneRecharge(*pParty, *pEventRuntimeState, pWorldRuntime->gameMinutes());
+        }
         restScreen.remainingMinutes = std::max(0.0f, restScreen.remainingMinutes - advancedMinutes);
     }
 

@@ -234,6 +234,8 @@ public:
     float partyX() const override;
     float partyY() const override;
     float partyFootZ() const override;
+    float gameplayCameraYawRadians() const override;
+    float gameplayCameraPitchRadians() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     void setAlwaysRunEnabled(bool enabled) override;
@@ -241,6 +243,8 @@ public:
         const GameplayInputFrame &input,
         float deltaSeconds,
         bool allowWorldInput) override;
+    void setScenarioPartyActorCollisionEnabled(bool enabled) override;
+    bool scenarioPartyActorCollisionEnabled() const;
     void updateActorAi(float deltaSeconds) override;
     void updateWorld(float deltaSeconds) override;
     void renderWorld(
@@ -610,6 +614,7 @@ private:
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     float m_worldItemUpdateAccumulatorSeconds = 0.0f;
+    bool m_scenarioPartyActorCollisionEnabled = true;
     bool m_indoorJournalRevealStateValid = false;
     int16_t m_lastIndoorJournalRevealSectorId = -1;
     int16_t m_lastIndoorJournalRevealEyeSectorId = -1;

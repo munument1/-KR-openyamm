@@ -22,11 +22,6 @@ struct ProjectedFacePoint
     float y = 0.0f;
 };
 
-float fixedDoorDirectionComponentToFloat(int value)
-{
-    return static_cast<float>(value) / 65536.0f;
-}
-
 float calculateMechanismDistance(
     const MapDeltaDoor &door,
     const RuntimeMechanismState &runtimeMechanism
@@ -530,6 +525,7 @@ IndoorFloorSample evaluateIndoorFloorFace(
         geometryStorage);
 
     if (pGeometry == nullptr
+        || pGeometry->isPortal
         || !pGeometry->isWalkable
         || pGeometry->kind != IndoorFaceKind::Floor
         || x < pGeometry->minX - FloorSlack
@@ -619,6 +615,16 @@ const IndoorFaceGeometryData *IndoorFaceGeometryCache::geometryForFace(
     return m_entryStates[faceIndex] == 2 ? &m_entries[faceIndex] : nullptr;
 }
 
+float fixedIndoorDoorDirectionComponentToFloat(int value)
+{
+    return static_cast<float>(value) / 65536.0f;
+}
+
+bool indoorDoorCarriesPartySupport(const MapDeltaDoor &door)
+{
+    return door.directionZ != 0;
+}
+
 std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
     const IndoorMapData &indoorMapData,
     const MapDeltaData *pIndoorMapDeltaData,
@@ -665,9 +671,9 @@ std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
             continue;
         }
 
-        const float directionX = fixedDoorDirectionComponentToFloat(door.directionX);
-        const float directionY = fixedDoorDirectionComponentToFloat(door.directionY);
-        const float directionZ = fixedDoorDirectionComponentToFloat(door.directionZ);
+        const float directionX = fixedIndoorDoorDirectionComponentToFloat(door.directionX);
+        const float directionY = fixedIndoorDoorDirectionComponentToFloat(door.directionY);
+        const float directionZ = fixedIndoorDoorDirectionComponentToFloat(door.directionZ);
 
         for (size_t vertexOffsetIndex = 0; vertexOffsetIndex < movableVertexCount; ++vertexOffsetIndex)
         {

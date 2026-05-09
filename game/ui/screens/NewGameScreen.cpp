@@ -2,6 +2,7 @@
 
 #include "game/audio/GameAudioSystem.h"
 #include "game/audio/SoundIds.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/party/SkillData.h"
 #include "game/party/SpeechIds.h"
@@ -2146,7 +2147,54 @@ void NewGameScreen::confirmCreation()
 
     if (m_continueAction)
     {
-        m_continueAction(buildPartyCharacters(), m_selectedContinent.id);
+        const std::vector<Character> characters = buildPartyCharacters();
+        gameplayDebugTraceLog(
+            "new_game_party_created continent_id=" + std::to_string(m_selectedContinent.id)
+            + " continent_key=\"" + m_selectedContinent.key + "\""
+            + " continent_name=\"" + m_selectedContinent.name + "\""
+            + " member_count=" + std::to_string(characters.size()));
+
+        for (size_t memberIndex = 0; memberIndex < characters.size(); ++memberIndex)
+        {
+            const Character &member = characters[memberIndex];
+            gameplayDebugTraceLog(
+                "new_game_party_member member_index=" + std::to_string(memberIndex)
+                + " name=\"" + member.name + "\""
+                + " class=\"" + member.className + "\""
+                + " role=\"" + member.role + "\""
+                + " race_id=" + std::to_string(member.raceId)
+                + " sex_id=" + std::to_string(member.sexId)
+                + " portrait_id=" + std::to_string(member.portraitPictureId)
+                + " voice_id=" + std::to_string(member.voiceId)
+                + " might=" + std::to_string(member.might)
+                + " intellect=" + std::to_string(member.intellect)
+                + " personality=" + std::to_string(member.personality)
+                + " endurance=" + std::to_string(member.endurance)
+                + " accuracy=" + std::to_string(member.accuracy)
+                + " speed=" + std::to_string(member.speed)
+                + " luck=" + std::to_string(member.luck));
+
+            std::vector<std::pair<std::string, CharacterSkill>> skills(member.skills.begin(), member.skills.end());
+            std::sort(
+                skills.begin(),
+                skills.end(),
+                [](const std::pair<std::string, CharacterSkill> &left,
+                    const std::pair<std::string, CharacterSkill> &right)
+                {
+                    return left.first < right.first;
+                });
+
+            for (const auto &[skillName, skill] : skills)
+            {
+                gameplayDebugTraceLog(
+                    "new_game_party_skill member_index=" + std::to_string(memberIndex)
+                    + " name=\"" + skillName + "\""
+                    + " level=" + std::to_string(skill.level)
+                    + " mastery=" + std::to_string(static_cast<uint32_t>(skill.mastery)));
+            }
+        }
+
+        m_continueAction(characters, m_selectedContinent.id);
     }
 }
 
@@ -2180,6 +2228,10 @@ void NewGameScreen::selectContinent(const std::string &continentKey)
         .key = pContinent->key,
         .name = pContinent->name,
     };
+    gameplayDebugTraceLog(
+        "new_game_continent_selected continent_id=" + std::to_string(m_selectedContinent.id)
+        + " continent_key=\"" + m_selectedContinent.key + "\""
+        + " continent_name=\"" + m_selectedContinent.name + "\"");
     m_stage = FlowStage::CharacterCreation;
     m_characterCreationInitialized = false;
     initializeCharacterCreationForSelectedContinent();

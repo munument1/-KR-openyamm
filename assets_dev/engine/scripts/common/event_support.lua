@@ -494,6 +494,7 @@ local function ensureMetaScope(scopeName)
     meta.mapTransitionHooks = meta.mapTransitionHooks or {}
     meta.monsterKilledHooks = meta.monsterKilledHooks or {}
     meta.monsterDamageHooks = meta.monsterDamageHooks or {}
+    meta.chestOpenHooks = meta.chestOpenHooks or {}
     meta.title = meta.title or {}
     meta.hint = meta.hint or {}
     meta.openedChestIds = meta.openedChestIds or {}
@@ -871,10 +872,11 @@ function support.appendScopeEvent(scopeName, tableName, eventId, handler)
     evt[tableName][eventId] = function(...)
         if previous ~= nil then
             previous(...)
+        else
+            evt._BeginEvent(eventId)
         end
 
         if handler ~= nil then
-            evt._BeginEvent(eventId)
             handler(...)
         end
     end
@@ -1047,6 +1049,31 @@ function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title,
     })
 end
 
+function support.appendGlobalOnLoadEvent(eventId)
+    local meta = ensureMetaScope("global")
+    table.insert(meta.onLoad, eventId)
+end
+
+function support.registerGlobalOnLoadEvent(eventId, title, handler, hint)
+    support.registerGlobalEvent(eventId, title, handler, hint)
+    support.appendGlobalOnLoadEvent(eventId)
+end
+
+function support.registerGlobalTimerEvent(eventId, intervalSeconds, handler, title, hint, initialDelaySeconds)
+    support.removeGlobalEvent(eventId)
+    support.registerGlobalEvent(eventId, title, handler, hint)
+
+    local meta = ensureMetaScope("global")
+    local intervalGameMinutes = (intervalSeconds or 0) / 60
+    local remainingGameMinutes = (initialDelaySeconds or intervalSeconds or 0) / 60
+    table.insert(meta.timers, {
+        eventId = eventId,
+        repeating = true,
+        intervalGameMinutes = intervalGameMinutes,
+        remainingGameMinutes = remainingGameMinutes,
+    })
+end
+
 local function appendHookEvent(scopeName, hookName, eventId)
     local meta = ensureMetaScope(scopeName)
     meta[hookName] = meta[hookName] or {}
@@ -1147,6 +1174,22 @@ function support.registerGlobalMonsterDamageHook(eventId, title, handler)
     registerGlobalHook("monsterDamageHooks", eventId, title, handler)
 end
 
+function support.registerChestOpenHook(eventId, title, handler)
+    registerMapHook("chestOpenHooks", eventId, title, handler)
+end
+
+function support.registerGlobalChestOpenHook(eventId, title, handler)
+    registerGlobalHook("chestOpenHooks", eventId, title, handler)
+end
+
+function support.registerInventoryOpenHook(eventId, title, handler)
+    registerMapHook("inventoryOpenHooks", eventId, title, handler)
+end
+
+function support.registerGlobalInventoryOpenHook(eventId, title, handler)
+    registerGlobalHook("inventoryOpenHooks", eventId, title, handler)
+end
+
 function support.isFlying()
     return evt.Cmp(support.varTag.IsFlying, 1)
 end
@@ -1229,6 +1272,14 @@ end
 
 function support.playerHasItem(playerIndex, itemId)
     return support.playerItemCount(playerIndex, itemId) > 0
+end
+
+function support.givePlayerItem(playerIndex, itemId, quantity)
+    return evt.GivePartyMemberItem(playerIndex, itemId or 0, quantity or 1)
+end
+
+function support.replacePartyInventoryItems(fromItemId, toItemId)
+    return evt.ReplacePartyInventoryItems(fromItemId or 0, toItemId or 0)
 end
 
 function support.playerKnowsSpell(playerIndex, spellId)
@@ -1383,9 +1434,33 @@ end
 
 function support.setGlobalMetadata(metadata)
     local meta = ensureMetaScope("global")
+    local existingOnLoad = meta.onLoad or {}
+    local existingOnLeave = meta.onLeave or {}
+    local existingTimers = meta.timers or {}
 
     for key, value in pairs(metadata) do
         meta[key] = value
+    end
+
+    if #existingOnLoad > 0 then
+        meta.onLoad = meta.onLoad or {}
+        for _, eventId in ipairs(existingOnLoad) do
+            table.insert(meta.onLoad, eventId)
+        end
+    end
+
+    if #existingOnLeave > 0 then
+        meta.onLeave = meta.onLeave or {}
+        for _, eventId in ipairs(existingOnLeave) do
+            table.insert(meta.onLeave, eventId)
+        end
+    end
+
+    if #existingTimers > 0 then
+        meta.timers = meta.timers or {}
+        for _, timer in ipairs(existingTimers) do
+            table.insert(meta.timers, timer)
+        end
     end
 end
 
@@ -1441,6 +1516,7 @@ HasEverOwnedItem = support.hasEverOwnedItem
 HasItemAnywhere = support.hasItemAnywhere
 RemoveItem = support.removeItem
 GiveItem = support.giveItem
+ReplacePartyInventoryItems = support.replacePartyInventoryItems
 HasPlayer = support.hasPlayer
 IsPlayerBitSet = support.isPlayerBitSet
 SetPlayerBit = support.setPlayerBit
@@ -1481,6 +1557,8 @@ AppendMapOnLeaveEvent = support.appendMapOnLeaveEvent
 RegisterMapOnLoadEvent = support.registerMapOnLoadEvent
 RegisterMapOnLeaveEvent = support.registerMapOnLeaveEvent
 RegisterMapTimerEvent = support.registerMapTimerEvent
+RegisterGlobalOnLoadEvent = support.registerGlobalOnLoadEvent
+RegisterGlobalTimerEvent = support.registerGlobalTimerEvent
 RegisterNpcEnterHook = support.registerNpcEnterHook
 RegisterGlobalNpcEnterHook = support.registerGlobalNpcEnterHook
 RegisterNpcExitHook = support.registerNpcExitHook
@@ -1501,6 +1579,10 @@ RegisterMonsterKilledHook = support.registerMonsterKilledHook
 RegisterGlobalMonsterKilledHook = support.registerGlobalMonsterKilledHook
 RegisterMonsterDamageHook = support.registerMonsterDamageHook
 RegisterGlobalMonsterDamageHook = support.registerGlobalMonsterDamageHook
+RegisterChestOpenHook = support.registerChestOpenHook
+RegisterGlobalChestOpenHook = support.registerGlobalChestOpenHook
+RegisterInventoryOpenHook = support.registerInventoryOpenHook
+RegisterGlobalInventoryOpenHook = support.registerGlobalInventoryOpenHook
 IsFlying = support.isFlying
 IsInvisible = support.isInvisible
 HasFollowerProfession = support.hasFollowerProfession
@@ -1522,6 +1604,7 @@ GetPlayerClassName = support.getPlayerClassName
 SetPlayerClass = support.setPlayerClass
 PlayerItemCount = support.playerItemCount
 PlayerHasItem = support.playerHasItem
+GivePlayerItem = support.givePlayerItem
 PlayerKnowsSpell = support.playerKnowsSpell
 RemovePlayerItem = support.removePlayerItem
 ApplyLichTransformation = support.applyLichTransformation
@@ -1608,6 +1691,7 @@ registerHouseTopicClickHook = support.registerHouseTopicClickHook
 registerRestFoodCostHook = support.registerRestFoodCostHook
 registerGameplayActionHook = support.registerGameplayActionHook
 registerMapRefillHook = support.registerMapRefillHook
+registerInventoryOpenHook = support.registerInventoryOpenHook
 isFlying = support.isFlying
 isInvisible = support.isInvisible
 hasFollowerNpc = support.hasFollowerNpc

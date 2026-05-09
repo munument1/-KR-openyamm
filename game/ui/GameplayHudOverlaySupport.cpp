@@ -3,6 +3,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/party/SkillData.h"
+#include "game/tables/ItemTable.h"
 #include "game/ui/GameplayHudCommon.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/SpellbookUiLayout.h"
@@ -60,6 +61,12 @@ int recoveryTicksFromSeconds(float recoverySeconds)
         int(std::lround(std::max(0.0f, recoverySeconds) / OeRealtimeRecoveryScale * 128.0f)));
 }
 
+bool mainHandAttackUsesBlasterRecovery(const Character &character, const ItemTable &itemTable)
+{
+    const ItemDefinition *pMainHandItem = itemTable.get(character.equipment.mainHand);
+    return pMainHandItem != nullptr && canonicalSkillName(pMainHandItem->skillGroup) == "Blaster";
+}
+
 std::string attackRecoveryInspectSupplement(
     const Character &character,
     const GameplayScreenRuntime &context,
@@ -82,7 +89,11 @@ std::string attackRecoveryInspectSupplement(
 
     if (statName == "Attack")
     {
-        return "Recovery time: " + std::to_string(recoveryTicksFromSeconds(profile.meleeRecoverySeconds));
+        const float recoverySeconds =
+            mainHandAttackUsesBlasterRecovery(character, *context.itemTable())
+                ? profile.rangedRecoverySeconds
+                : profile.meleeRecoverySeconds;
+        return "Recovery time: " + std::to_string(recoveryTicksFromSeconds(recoverySeconds));
     }
 
     if (!profile.canShoot)

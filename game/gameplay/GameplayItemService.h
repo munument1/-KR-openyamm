@@ -6,8 +6,10 @@
 
 namespace OpenYAMM::Game
 {
+struct EventRuntimeState;
 class GameSession;
 class GameplayScreenRuntime;
+class Party;
 
 class GameplayItemService
 {
@@ -24,6 +26,11 @@ public:
         size_t memberIndex,
         uint8_t targetGridX,
         uint8_t targetGridY);
+
+    void updateConnectorStoneRecharge(
+        Party &party,
+        EventRuntimeState &eventRuntimeState,
+        float gameMinutes);
 
     void updateReadableScrollOverlayForHeldItem(
         size_t memberIndex,

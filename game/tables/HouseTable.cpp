@@ -470,6 +470,16 @@ std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &hous
         return {"BodyMagic", "Meditation"};
     }
 
+    if (houseType == "Thieves guild")
+    {
+        return {"Stealing", "DisarmTraps", "Perception"};
+    }
+
+    if (houseType == "Merc Guild")
+    {
+        return {"Unarmed", "Dodging", "Armsmaster", "DisarmTraps"};
+    }
+
     if (houseType == "Light Guild")
     {
         return {"LightMagic"};
@@ -850,6 +860,7 @@ bool HouseTable::applyHouseExits(const MergedHouseExitTable &houseExits, const M
             extraExit.x = pEntranceEntry->positions[entranceIndex].x;
             extraExit.y = pEntranceEntry->positions[entranceIndex].y;
             extraExit.z = pEntranceEntry->positions[entranceIndex].z;
+            extraExit.useMapStartPosition = false;
         }
 
         entry.extraExit = std::move(extraExit);

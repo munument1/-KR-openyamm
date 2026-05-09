@@ -2,6 +2,7 @@
 
 #include "game/StringUtils.h"
 #include "game/audio/SoundIds.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -22,6 +23,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -46,6 +48,206 @@ constexpr uint32_t NpcBribeTopicId = 1768;
 constexpr int MaxFoodForCookFollower = 14;
 constexpr int CookFollowerFoodAmount = 1;
 constexpr int ChefFollowerFoodAmount = 2;
+
+const char *eventDialogActionKindName(EventDialogActionKind kind)
+{
+    switch (kind)
+    {
+        case EventDialogActionKind::None:
+            return "none";
+        case EventDialogActionKind::HouseService:
+            return "house_service";
+        case EventDialogActionKind::HouseProprietor:
+            return "house_proprietor";
+        case EventDialogActionKind::HouseExtraExit:
+            return "house_extra_exit";
+        case EventDialogActionKind::HouseResident:
+            return "house_resident";
+        case EventDialogActionKind::NpcTopic:
+            return "npc_topic";
+        case EventDialogActionKind::NpcProfessionNews:
+            return "npc_profession_news";
+        case EventDialogActionKind::NpcProfessionAction:
+            return "npc_profession_action";
+        case EventDialogActionKind::NpcProfessionDescription:
+            return "npc_profession_description";
+        case EventDialogActionKind::NpcHireOffer:
+            return "npc_hire_offer";
+        case EventDialogActionKind::NpcHireAccept:
+            return "npc_hire_accept";
+        case EventDialogActionKind::NpcHireDecline:
+            return "npc_hire_decline";
+        case EventDialogActionKind::NpcDismiss:
+            return "npc_dismiss";
+        case EventDialogActionKind::NpcBtb:
+            return "npc_btb";
+        case EventDialogActionKind::MapTransitionConfirm:
+            return "map_transition_confirm";
+        case EventDialogActionKind::MapTransitionCancel:
+            return "map_transition_cancel";
+        case EventDialogActionKind::RosterJoinOffer:
+            return "roster_join_offer";
+        case EventDialogActionKind::RosterJoinAccept:
+            return "roster_join_accept";
+        case EventDialogActionKind::RosterJoinDecline:
+            return "roster_join_decline";
+        case EventDialogActionKind::MasteryTeacherOffer:
+            return "mastery_teacher_offer";
+        case EventDialogActionKind::MasteryTeacherLearn:
+            return "mastery_teacher_learn";
+        case EventDialogActionKind::GuildMembershipOffer:
+            return "guild_membership_offer";
+        case EventDialogActionKind::GuildMembershipJoin:
+            return "guild_membership_join";
+        case EventDialogActionKind::GeneratedMercenaryJoinOffer:
+            return "generated_mercenary_join_offer";
+    }
+
+    return "unknown";
+}
+
+uint64_t fnv1aUpdate(uint64_t hash, const std::string &text)
+{
+    for (char character : text)
+    {
+        hash ^= static_cast<unsigned char>(character);
+        hash *= 1099511628211ull;
+    }
+
+    return hash;
+}
+
+uint64_t dialogLinesHash(const EventDialogContent &dialog)
+{
+    uint64_t hash = 1469598103934665603ull;
+
+    for (const std::string &line : dialog.lines)
+    {
+        hash = fnv1aUpdate(hash, line);
+        hash = fnv1aUpdate(hash, "\n");
+    }
+
+    return hash;
+}
+
+std::string jsonEscaped(const std::string &value)
+{
+    std::string escaped;
+    escaped.reserve(value.size() + 8);
+
+    for (char character : value)
+    {
+        switch (character)
+        {
+            case '\\':
+                escaped += "\\\\";
+                break;
+            case '"':
+                escaped += "\\\"";
+                break;
+            case '\n':
+                escaped += "\\n";
+                break;
+            case '\r':
+                escaped += "\\r";
+                break;
+            case '\t':
+                escaped += "\\t";
+                break;
+            default:
+                escaped.push_back(character);
+                break;
+        }
+    }
+
+    return escaped;
+}
+
+std::string traceQuoted(const std::string &value)
+{
+    std::string quoted = "\"";
+
+    for (char character : value)
+    {
+        if (character == '\\' || character == '"')
+        {
+            quoted.push_back('\\');
+        }
+
+        quoted.push_back(character);
+    }
+
+    quoted.push_back('"');
+    return quoted;
+}
+
+std::string dialogActionsJson(const EventDialogContent &dialog)
+{
+    std::ostringstream stream;
+    stream << '[';
+
+    for (size_t index = 0; index < dialog.actions.size(); ++index)
+    {
+        const EventDialogAction &action = dialog.actions[index];
+
+        if (index != 0)
+        {
+            stream << ',';
+        }
+
+        stream << "{\"index\":" << index
+               << ",\"kind\":\"" << eventDialogActionKindName(action.kind) << '"'
+               << ",\"id\":" << action.id
+               << ",\"secondary_id\":" << action.secondaryId
+               << ",\"enabled\":" << (action.enabled ? "true" : "false")
+               << ",\"text_only\":" << (action.textOnly ? "true" : "false")
+               << ",\"label\":\"" << jsonEscaped(action.label) << "\"}";
+    }
+
+    stream << ']';
+    return stream.str();
+}
+
+void traceDialogState(const EventDialogContent &dialog, const std::string &reason)
+{
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
+    gameplayDebugTraceLog(
+        "dialog_state reason=" + reason
+        + " active=" + (dialog.isActive ? "true" : "false")
+        + " house_dialog=" + (dialog.isHouseDialog ? "true" : "false")
+        + " source_id=" + std::to_string(dialog.sourceId)
+        + " title=" + traceQuoted(dialog.title)
+        + " house_title=" + traceQuoted(dialog.houseTitle)
+        + " line_count=" + std::to_string(dialog.lines.size())
+        + " text_hash=" + std::to_string(dialogLinesHash(dialog))
+        + " action_count=" + std::to_string(dialog.actions.size())
+        + " actions_json=" + traceQuoted(dialogActionsJson(dialog)));
+}
+
+const char *dialogueContextKindName(DialogueContextKind kind)
+{
+    switch (kind)
+    {
+        case DialogueContextKind::None:
+            return "none";
+        case DialogueContextKind::MapEvent:
+            return "map_event";
+        case DialogueContextKind::HouseService:
+            return "house_service";
+        case DialogueContextKind::NpcTalk:
+            return "npc_talk";
+        case DialogueContextKind::NpcNews:
+            return "npc_news";
+        case DialogueContextKind::MapTransition:
+            return "map_transition";
+    }
+
+    return "unknown";
+}
 
 enum class NpcProfessionId : uint32_t
 {
@@ -139,6 +341,92 @@ bool isCurrentMapDungeon(const GameplayDialogController::Context &context)
     return context.pWorldRuntime != nullptr && context.pWorldRuntime->isIndoorMap();
 }
 
+std::string pendingMapMoveTraceFields(const EventRuntimeState::PendingMapMove &move)
+{
+    return " destination_map=\"" + move.mapName.value_or(std::string()) + "\""
+        + " destination_name=\"" + move.traceDestinationName + "\""
+        + " use_start_position=" + (move.useMapStartPosition ? "true" : "false")
+        + " pos=(" + std::to_string(move.x)
+        + "," + std::to_string(move.y)
+        + "," + std::to_string(move.z) + ")"
+        + " direction_degrees="
+        + (move.directionDegrees.has_value() ? std::to_string(*move.directionDegrees) : std::string("none"));
+}
+
+void assignMapMoveTraceSource(
+    EventRuntimeState::PendingMapMove &move,
+    const std::string &sourceKind,
+    uint32_t sourceId,
+    uint32_t actionId,
+    uint32_t eventId,
+    const std::string &destinationName)
+{
+    move.traceSourceKind = sourceKind;
+    move.traceSourceId = sourceId;
+    move.traceActionId = actionId;
+    move.traceEventId = eventId;
+    move.traceDestinationName = destinationName;
+}
+
+EventRuntimeState::MapTransitionTrace mapTransitionTrace(
+    const std::string &sourceKind,
+    uint32_t sourceId,
+    uint32_t actionId,
+    uint32_t eventId,
+    const EventRuntimeState::PendingMapMove &move,
+    bool confirmationRequired)
+{
+    EventRuntimeState::MapTransitionTrace trace = {};
+    trace.sourceKind = sourceKind;
+    trace.sourceId = sourceId;
+    trace.actionId = actionId;
+    trace.eventId = eventId;
+    trace.confirmationRequired = confirmationRequired;
+    trace.destinationMap = move.mapName.value_or(std::string());
+    trace.destinationName = move.traceDestinationName;
+    trace.useStartPosition = move.useMapStartPosition;
+    trace.x = move.x;
+    trace.y = move.y;
+    trace.z = move.z;
+    trace.directionDegrees = move.directionDegrees;
+    return trace;
+}
+
+void logMapTransitionRequested(
+    EventRuntimeState &eventRuntimeState,
+    const std::string &sourceKind,
+    uint32_t sourceId,
+    uint32_t actionId,
+    uint32_t eventId,
+    const EventRuntimeState::PendingMapMove &move,
+    bool confirmationRequired)
+{
+    eventRuntimeState.lastMapTransitionRequested =
+        mapTransitionTrace(sourceKind, sourceId, actionId, eventId, move, confirmationRequired);
+    gameplayDebugTraceLog(
+        "map_transition_requested source_kind=\"" + sourceKind + "\""
+        + " source_id=" + std::to_string(sourceId)
+        + " action_id=" + std::to_string(actionId)
+        + " event_id=" + std::to_string(eventId)
+        + " confirmation_required=" + (confirmationRequired ? "true" : "false")
+        + pendingMapMoveTraceFields(move));
+}
+
+void logMapTransitionConfirmed(
+    EventRuntimeState &eventRuntimeState,
+    const EventRuntimeState::PendingDialogueContext &context,
+    const EventRuntimeState::PendingMapMove &move,
+    uint32_t actionId)
+{
+    eventRuntimeState.lastMapTransitionConfirmed =
+        mapTransitionTrace(dialogueContextKindName(context.kind), context.sourceId, actionId, 0, move, false);
+    gameplayDebugTraceLog(
+        "map_transition_confirmed source_kind=\"" + std::string(dialogueContextKindName(context.kind)) + "\""
+        + " source_id=" + std::to_string(context.sourceId)
+        + " action_id=" + std::to_string(actionId)
+        + pendingMapMoveTraceFields(move));
+}
+
 bool partyHasIndoorExitAlert(const GameplayDialogController::Context &context)
 {
     if (context.pWorldRuntime == nullptr)
@@ -228,6 +516,7 @@ uint32_t currentDialogueHostHouseId(const EventRuntimeState &eventRuntimeState)
 bool isHouseOccupantSelectionAction(const EventDialogAction &action)
 {
     return action.kind == EventDialogActionKind::HouseProprietor
+        || action.kind == EventDialogActionKind::HouseExtraExit
         || action.kind == EventDialogActionKind::HouseResident;
 }
 
@@ -848,7 +1137,15 @@ void applyMapTransitionTravelSideEffects(
 
     if (context.pWorldRuntime != nullptr && transition.travelDays > 0)
     {
+        const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
         context.pWorldRuntime->advanceGameMinutes(static_cast<float>(transition.travelDays) * MinutesPerDay);
+        const float afterGameMinutes = context.pWorldRuntime->gameMinutes();
+        gameplayDebugTraceLog(
+            "game_time_advanced source=map_transition"
+            " minutes=" + std::to_string(static_cast<float>(transition.travelDays) * MinutesPerDay)
+            + " before_game_minutes=" + std::to_string(beforeGameMinutes)
+            + " after_game_minutes=" + std::to_string(afterGameMinutes)
+            + " game_minutes=" + std::to_string(afterGameMinutes));
     }
 
     if (context.pParty != nullptr)
@@ -926,6 +1223,35 @@ void playCommonUiSound(GameplayDialogController::Context &context, SoundId sound
 
 void cancelMapTransition(GameplayDialogController::Context &context)
 {
+    const uint32_t sourceId =
+        context.eventRuntimeState.pendingDialogueContext.has_value()
+            ? context.eventRuntimeState.pendingDialogueContext->sourceId
+            : 0;
+    const std::optional<EventRuntimeState::PendingMapMove> transitionMapMove =
+        context.eventRuntimeState.pendingDialogueContext
+            ? context.eventRuntimeState.pendingDialogueContext->transitionMapMove
+            : std::nullopt;
+    context.eventRuntimeState.lastDialogueCanceled = EventRuntimeState::DialogueCanceled{
+        .kind = "map_transition",
+        .sourceId = sourceId,
+        .activeSourceId = context.activeEventDialog.sourceId,
+        .houseDialog = context.activeEventDialog.isHouseDialog,
+        .actionCount = context.activeEventDialog.actions.size(),
+    };
+    gameplayDebugTraceLog(
+        "dialogue_canceled kind=map_transition source_id=" + std::to_string(sourceId)
+        + " active_source_id=" + std::to_string(context.activeEventDialog.sourceId)
+        + " house_dialog=" + (context.activeEventDialog.isHouseDialog ? "true" : "false"));
+    if (transitionMapMove.has_value())
+    {
+        context.eventRuntimeState.lastMapTransitionCanceled =
+            mapTransitionTrace("map_transition", sourceId, 0, 0, *transitionMapMove, false);
+    }
+    gameplayDebugTraceLog(
+        "map_transition_canceled source_kind=map_transition"
+        + std::string(" source_id=") + std::to_string(sourceId)
+        + (transitionMapMove ? pendingMapMoveTraceFields(*transitionMapMove) : std::string()));
+
     if (context.pWorldRuntime != nullptr)
     {
         context.pWorldRuntime->cancelPendingMapTransition();
@@ -1392,6 +1718,16 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
     }
 
     const EventDialogAction &action = context.activeEventDialog.actions[context.selectionIndex];
+    traceDialogState(context.activeEventDialog, "before_topic_clicked");
+    gameplayDebugTraceLog(
+        "topic_clicked kind=" + std::string(eventDialogActionKindName(action.kind))
+        + " action_id=" + std::to_string(action.id)
+        + " secondary_id=" + std::to_string(action.secondaryId)
+        + " selection_index=" + std::to_string(context.selectionIndex)
+        + " source_id=" + std::to_string(context.activeEventDialog.sourceId)
+        + " house_dialog=" + (context.activeEventDialog.isHouseDialog ? "true" : "false")
+        + " enabled=" + (action.enabled ? "true" : "false")
+        + " label=\"" + action.label + "\"");
 
     context.uiController.closeHouseShopOverlay();
 
@@ -1437,6 +1773,12 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
         if (context.eventRuntimeState.pendingDialogueContext->transitionMapMove.has_value())
         {
+            logMapTransitionConfirmed(
+                context.eventRuntimeState,
+                *context.eventRuntimeState.pendingDialogueContext,
+                *context.eventRuntimeState.pendingDialogueContext->transitionMapMove,
+                action.id);
+
             if (context.pScreenRuntime != nullptr)
             {
                 context.pScreenRuntime->stopAllAudioPlayback();
@@ -1475,6 +1817,13 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         pendingMapMove.mapName = (*pTransition)->destinationMapFileName;
         pendingMapMove.directionDegrees = (*pTransition)->directionDegrees;
         pendingMapMove.useMapStartPosition = (*pTransition)->useMapStartPosition;
+        assignMapMoveTraceSource(
+            pendingMapMove,
+            dialogueContextKindName(context.eventRuntimeState.pendingDialogueContext->kind),
+            context.eventRuntimeState.pendingDialogueContext->sourceId,
+            action.id,
+            0,
+            (*pTransition)->destinationMapFileName);
 
         if (context.eventRuntimeState.pendingDialogueContext->kind == DialogueContextKind::MapTransition)
         {
@@ -1492,6 +1841,11 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             pendingMapMove.z = *(*pTransition)->arrivalZ;
         }
 
+        logMapTransitionConfirmed(
+            context.eventRuntimeState,
+            *context.eventRuntimeState.pendingDialogueContext,
+            pendingMapMove,
+            action.id);
         context.eventRuntimeState.pendingMapMove = std::move(pendingMapMove);
         result.shouldCloseActiveDialog = false;
         return result;
@@ -1551,12 +1905,40 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.pWorldRuntime->requestTravelAutosave();
             }
 
+            gameplayDebugTraceLog(
+                "house_extra_exit source_id=" + std::to_string(pHouseEntry->id)
+                + " action_id=" + std::to_string(action.id)
+                + " label=\"" + action.label + "\""
+                + " destination_map=\"" + extraExit.destinationMapFileName + "\""
+                + " destination_name=\"" + extraExit.destinationName + "\""
+                + " destination_map_id=" + std::to_string(extraExit.destinationMapId)
+                + " required_qbit=" + std::to_string(extraExit.requiredQuestBit)
+                + " use_start_position=" + (extraExit.useMapStartPosition ? "true" : "false")
+                + " pos=(" + std::to_string(extraExit.x)
+                + "," + std::to_string(extraExit.y)
+                + "," + std::to_string(extraExit.z) + ")");
+
             EventRuntimeState::PendingMapMove pendingMapMove = {};
             pendingMapMove.mapName = extraExit.destinationMapFileName;
             pendingMapMove.x = extraExit.x;
             pendingMapMove.y = extraExit.y;
             pendingMapMove.z = extraExit.z;
-            pendingMapMove.useMapStartPosition = false;
+            pendingMapMove.useMapStartPosition = extraExit.useMapStartPosition;
+            assignMapMoveTraceSource(
+                pendingMapMove,
+                "house_extra_exit",
+                pHouseEntry->id,
+                action.id,
+                0,
+                extraExit.destinationName);
+            logMapTransitionRequested(
+                context.eventRuntimeState,
+                "house_extra_exit",
+                pHouseEntry->id,
+                action.id,
+                0,
+                pendingMapMove,
+                false);
             context.eventRuntimeState.pendingMapMove = std::move(pendingMapMove);
             result.shouldCloseActiveDialog = true;
             return result;
@@ -1791,6 +2173,31 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         const HouseEntry *pHouseEntry = context.pHouseTable->get(context.activeEventDialog.sourceId);
 
         if (pHouseEntry == nullptr)
+        {
+            return result;
+        }
+
+        context.eventRuntimeState.dialogueState.hostHouseId = pHouseEntry->id;
+        context.eventRuntimeState.dialogueState.menuStack.push_back(DialogueMenuId::HouseServiceRoot);
+        setPendingDialogueContext(
+            context.eventRuntimeState,
+            DialogueContextKind::HouseService,
+            pHouseEntry->id,
+            pHouseEntry->id);
+        result.shouldOpenPendingEventDialog = true;
+        return result;
+    }
+
+    if (action.kind == EventDialogActionKind::HouseExtraExit)
+    {
+        if (context.pHouseTable == nullptr)
+        {
+            return result;
+        }
+
+        const HouseEntry *pHouseEntry = context.pHouseTable->get(action.id);
+
+        if (pHouseEntry == nullptr || !pHouseEntry->extraExit.has_value())
         {
             return result;
         }
@@ -2867,6 +3274,29 @@ GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
         npcId,
         hostHouseId,
         sourceActorIndex);
+    context.eventRuntimeState.lastActorDialogStarted = EventRuntimeState::ActorDialogStartedTrace{
+        .kind = "npc_talk",
+        .map = context.pWorldRuntime != nullptr ? context.pWorldRuntime->mapName() : std::string(),
+        .npcId = npcId,
+        .sourceId = npcId,
+        .hostHouseId = hostHouseId,
+        .actorIndex = sourceActorIndex,
+    };
+    gameplayDebugTraceLog(
+        "actor_dialog_started kind=npc_talk"
+        + std::string(" map=\"") + (context.pWorldRuntime != nullptr ? context.pWorldRuntime->mapName() : "")
+        + "\" npc_id=" + std::to_string(npcId)
+        + " source_id=" + std::to_string(npcId)
+        + " host_house_id=" + std::to_string(hostHouseId)
+        + " actor_index="
+        + (sourceActorIndex.has_value() ? std::to_string(*sourceActorIndex) : std::string("none"))
+        + (context.pWorldRuntime != nullptr
+            ? " party=(" + std::to_string(context.pWorldRuntime->partyX())
+                + "," + std::to_string(context.pWorldRuntime->partyY())
+                + "," + std::to_string(context.pWorldRuntime->partyFootZ()) + ")"
+                + " yaw=" + std::to_string(context.pWorldRuntime->gameplayCameraYawRadians())
+                + " pitch=" + std::to_string(context.pWorldRuntime->gameplayCameraPitchRadians())
+            : ""));
     result.shouldOpenPendingEventDialog = true;
     return result;
 }
@@ -2904,6 +3334,7 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
 {
     CloseDialogRequestResult result = {};
     result.previousMessageCount = context.eventRuntimeState.messages.size();
+    traceDialogState(context.activeEventDialog, "before_dialog_close");
 
     if (context.eventRuntimeState.pendingDialogueContext.has_value()
         && context.eventRuntimeState.pendingDialogueContext->kind == DialogueContextKind::MapTransition)
@@ -3028,6 +3459,22 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
             context.activeEventDialog.sourceId,
             context.activeEventDialog.sourceActorIndex);
     }
+
+    const DialogueContextKind pendingKind =
+        context.eventRuntimeState.pendingDialogueContext.has_value()
+            ? context.eventRuntimeState.pendingDialogueContext->kind
+            : DialogueContextKind::None;
+    context.eventRuntimeState.lastDialogueCanceled = EventRuntimeState::DialogueCanceled{
+        .kind = dialogueContextKindName(pendingKind),
+        .activeSourceId = context.activeEventDialog.sourceId,
+        .houseDialog = context.activeEventDialog.isHouseDialog,
+        .actionCount = context.activeEventDialog.actions.size(),
+    };
+    gameplayDebugTraceLog(
+        "dialogue_canceled kind=" + std::string(dialogueContextKindName(pendingKind))
+        + " active_source_id=" + std::to_string(context.activeEventDialog.sourceId)
+        + " house_dialog=" + (context.activeEventDialog.isHouseDialog ? "true" : "false")
+        + " action_count=" + std::to_string(context.activeEventDialog.actions.size()));
 
     result.shouldCloseActiveDialog = true;
     return result;

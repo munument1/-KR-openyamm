@@ -1,0 +1,2011 @@
+id: mm6_3.probe
+title: "MM6 probe"
+world: mm6
+mode: faithful
+tags:
+  - mm6
+  - draft
+  - playthrough_trace
+source:
+  path: tests/playthrough_scenarios/mm6_probe_3.txt
+  note: "Generated draft. Sanitize aliases, poses, shortcuts, and checkpoints before using as a runnable scenario."
+steps:
+  - source_line: 1
+    note: "trace_session_begin configured_world_id=mm6 gameplay_trace=true map_load_timing=false route_trace=false startup_map=oute3.odm trace_file=tests/playthrough_scenarios/mm6_probe_3.txt unix_time=1778255769 world_id=mm6"
+  - source_line: 2
+    note: "menu_action action=new_game source=main_menu"
+  - source_line: 5
+    new_game_flow:
+      continent_id: 3
+      continent_key: enroth
+      continent_name: Enroth
+      member_count: 1
+      source: main_menu
+  - source_line: 6
+    assert:
+      new_game_party_member:
+        member_index: 0
+        name: God
+        class: Lich
+        role: Lich
+        race_id: 6
+        sex_id: 0
+        portrait_id: 26
+        voice_id: 26
+        might: 100
+        intellect: 100
+        personality: 100
+        endurance: 100
+        accuracy: 100
+        speed: 100
+        luck: 100
+  - source_line: 7
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: AirMagic
+        level: 200
+        mastery: 4
+  - source_line: 8
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Alchemy
+        level: 200
+        mastery: 4
+  - source_line: 9
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Armsmaster
+        level: 200
+        mastery: 4
+  - source_line: 10
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Axe
+        level: 200
+        mastery: 4
+  - source_line: 11
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Blaster
+        level: 200
+        mastery: 4
+  - source_line: 12
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: BodyMagic
+        level: 200
+        mastery: 4
+  - source_line: 13
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Bodybuilding
+        level: 200
+        mastery: 4
+  - source_line: 14
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Bow
+        level: 200
+        mastery: 4
+  - source_line: 15
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: ChainArmor
+        level: 200
+        mastery: 4
+  - source_line: 16
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Dagger
+        level: 200
+        mastery: 4
+  - source_line: 17
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: DarkElfAbility
+        level: 200
+        mastery: 4
+  - source_line: 18
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: DarkMagic
+        level: 200
+        mastery: 4
+  - source_line: 19
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: DisarmTraps
+        level: 200
+        mastery: 4
+  - source_line: 20
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Dodging
+        level: 200
+        mastery: 4
+  - source_line: 21
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: DragonAbility
+        level: 200
+        mastery: 4
+  - source_line: 22
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: EarthMagic
+        level: 200
+        mastery: 4
+  - source_line: 23
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: FireMagic
+        level: 200
+        mastery: 4
+  - source_line: 24
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: IdentifyItem
+        level: 200
+        mastery: 4
+  - source_line: 25
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: IdentifyMonster
+        level: 200
+        mastery: 4
+  - source_line: 26
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Learning
+        level: 200
+        mastery: 4
+  - source_line: 27
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: LeatherArmor
+        level: 200
+        mastery: 4
+  - source_line: 28
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: LightMagic
+        level: 200
+        mastery: 4
+  - source_line: 29
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Mace
+        level: 200
+        mastery: 4
+  - source_line: 30
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Meditation
+        level: 200
+        mastery: 4
+  - source_line: 31
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Merchant
+        level: 200
+        mastery: 4
+  - source_line: 32
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: MindMagic
+        level: 200
+        mastery: 4
+  - source_line: 33
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Perception
+        level: 200
+        mastery: 4
+  - source_line: 34
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: PlateArmor
+        level: 200
+        mastery: 4
+  - source_line: 35
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Regeneration
+        level: 200
+        mastery: 4
+  - source_line: 36
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: RepairItem
+        level: 200
+        mastery: 4
+  - source_line: 37
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Shield
+        level: 200
+        mastery: 4
+  - source_line: 38
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Spear
+        level: 200
+        mastery: 4
+  - source_line: 39
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: SpiritMagic
+        level: 200
+        mastery: 4
+  - source_line: 40
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Staff
+        level: 200
+        mastery: 4
+  - source_line: 41
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Stealing
+        level: 200
+        mastery: 4
+  - source_line: 42
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Sword
+        level: 200
+        mastery: 4
+  - source_line: 43
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: Unarmed
+        level: 200
+        mastery: 4
+  - source_line: 44
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: VampireAbility
+        level: 200
+        mastery: 4
+  - source_line: 45
+    assert:
+      new_game_party_skill:
+        member_index: 0
+        name: WaterMagic
+        level: 200
+        mastery: 4
+  - source_line: 46
+    assert:
+      new_game_starting:
+        continent_id: 3
+        continent_note: Enroth
+        map: oute3.odm
+        start_override: true
+        member_count: 1
+  - source_line: 47
+    assert:
+      qbit_set:
+        - 1104
+  - source_line: 48
+    assert:
+      qbit_set:
+        - 1105
+  - source_line: 49
+    assert:
+      qbit_set:
+        - 313
+  - source_line: 50
+    assert:
+      map_loaded: oute3.odm
+      scene_kind: outdoor
+  - source_line: 51
+    assert:
+      new_game_started:
+        continent_id: 3
+        continent_note: Enroth
+        map: oute3.odm
+        party: "(-9728.000000,-11319.000000,161.000000)"
+  - source_line: 52
+    trace_observation:
+      event: new_game_started_party
+      fields:
+        gold: 200
+        bank_gold: 0
+        food: 5
+        active_member_index: 0
+        member_count: 1
+        hireling_count: 0
+  - source_line: 53
+    trace_observation:
+      event: new_game_started_party_member
+      fields:
+        member_index: 0
+        name: God
+        class: Lich
+        role: Lich
+        race_id: 6
+        sex_id: 0
+        portrait_id: 26
+        voice_id: 26
+        level: 100
+        hp: 3350/3353
+        sp: 6691/6691
+        inventory_count: 1
+        award_count: 0
+  - source_line: 54
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: AirMagic
+        level: 200
+        mastery: 4
+  - source_line: 55
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Alchemy
+        level: 200
+        mastery: 4
+  - source_line: 56
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Armsmaster
+        level: 200
+        mastery: 4
+  - source_line: 57
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Axe
+        level: 200
+        mastery: 4
+  - source_line: 58
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Blaster
+        level: 200
+        mastery: 4
+  - source_line: 59
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: BodyMagic
+        level: 200
+        mastery: 4
+  - source_line: 60
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Bodybuilding
+        level: 200
+        mastery: 4
+  - source_line: 61
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Bow
+        level: 200
+        mastery: 4
+  - source_line: 62
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: ChainArmor
+        level: 200
+        mastery: 4
+  - source_line: 63
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Dagger
+        level: 200
+        mastery: 4
+  - source_line: 64
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: DarkElfAbility
+        level: 200
+        mastery: 4
+  - source_line: 65
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: DarkMagic
+        level: 200
+        mastery: 4
+  - source_line: 66
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: DisarmTraps
+        level: 200
+        mastery: 4
+  - source_line: 67
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Dodging
+        level: 200
+        mastery: 4
+  - source_line: 68
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: DragonAbility
+        level: 200
+        mastery: 4
+  - source_line: 69
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: EarthMagic
+        level: 200
+        mastery: 4
+  - source_line: 70
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: FireMagic
+        level: 200
+        mastery: 4
+  - source_line: 71
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: IdentifyItem
+        level: 200
+        mastery: 4
+  - source_line: 72
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: IdentifyMonster
+        level: 200
+        mastery: 4
+  - source_line: 73
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Learning
+        level: 200
+        mastery: 4
+  - source_line: 74
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: LeatherArmor
+        level: 200
+        mastery: 4
+  - source_line: 75
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: LightMagic
+        level: 200
+        mastery: 4
+  - source_line: 76
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Mace
+        level: 200
+        mastery: 4
+  - source_line: 77
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Meditation
+        level: 200
+        mastery: 4
+  - source_line: 78
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Merchant
+        level: 200
+        mastery: 4
+  - source_line: 79
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: MindMagic
+        level: 200
+        mastery: 4
+  - source_line: 80
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Perception
+        level: 200
+        mastery: 4
+  - source_line: 81
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: PlateArmor
+        level: 200
+        mastery: 4
+  - source_line: 82
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Regeneration
+        level: 200
+        mastery: 4
+  - source_line: 83
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: RepairItem
+        level: 200
+        mastery: 4
+  - source_line: 84
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Shield
+        level: 200
+        mastery: 4
+  - source_line: 85
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Spear
+        level: 200
+        mastery: 4
+  - source_line: 86
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: SpiritMagic
+        level: 200
+        mastery: 4
+  - source_line: 87
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Staff
+        level: 200
+        mastery: 4
+  - source_line: 88
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Stealing
+        level: 200
+        mastery: 4
+  - source_line: 89
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Sword
+        level: 200
+        mastery: 4
+  - source_line: 90
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: Unarmed
+        level: 200
+        mastery: 4
+  - source_line: 91
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: VampireAbility
+        level: 200
+        mastery: 4
+  - source_line: 92
+    trace_observation:
+      event: new_game_started_party_skill
+      fields:
+        member_index: 0
+        name: WaterMagic
+        level: 200
+        mastery: 4
+  - source_line: 93
+    trace_observation:
+      event: new_game_started_party_inventory
+      fields:
+        member_index: 0
+        grid: "(0,0)"
+        item_id: 2125
+        item_name: "The Letter"
+        item_icon: scroll5
+        item_material: 2
+        item_rarity: 0
+        quest_like: true
+        quantity: 1
+        identified: true
+        broken: false
+        stolen: false
+        standard_enchant_id: 0
+        special_enchant_id: 0
+        artifact_id: 0
+        charges: 0/0
+  - source_line: 94
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: OffHand
+        item_id: 534
+        item_name: "Herondale's Lost Shield"
+        item_icon: item255
+        item_material: 0
+        item_rarity: 2
+        quest_like: false
+  - source_line: 95
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: MainHand
+        item_id: 527
+        item_name: Spiritslayer
+        item_icon: item242
+        item_material: 0
+        item_rarity: 2
+        quest_like: false
+  - source_line: 96
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Bow
+        item_id: 531
+        item_name: "Tournament Bow"
+        item_icon: item336
+        item_material: 0
+        item_rarity: 2
+        quest_like: false
+  - source_line: 97
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Armor
+        item_id: 515
+        item_name: "Supreme Plate"
+        item_icon: item253
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 98
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Helm
+        item_id: 520
+        item_name: "Drogg's Helm"
+        item_icon: item256
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 99
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Belt
+        item_id: 537
+        item_name: "Berserker Belt"
+        item_icon: item339
+        item_material: 0
+        item_rarity: 2
+        quest_like: false
+  - source_line: 100
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Cloak
+        item_id: 522
+        item_name: "Archangel Wings"
+        item_icon: item260
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 101
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Gauntlets
+        item_id: 517
+        item_name: Fleetfingers
+        item_icon: item261
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 102
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Boots
+        item_id: 518
+        item_name: "Herald's Boots"
+        item_icon: item262
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 103
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Ring1
+        item_id: 519
+        item_name: "Ring of Planes"
+        item_icon: item332
+        item_material: 0
+        item_rarity: 1
+        quest_like: false
+  - source_line: 104
+    trace_observation:
+      event: new_game_started_party_equipped
+      fields:
+        member_index: 0
+        slot: Ring2
+        item_id: 535
+        item_name: "Ring of Fusion"
+        item_icon: item338
+        item_material: 0
+        item_rarity: 2
+        quest_like: false
+  - source_line: 105
+    trace_observation:
+      event: new_game_started_qbit
+      fields:
+        id: 313
+  - source_line: 106
+    trace_observation:
+      event: new_game_started_qbit
+      fields:
+        id: 1104
+  - source_line: 107
+    trace_observation:
+      event: new_game_started_qbit
+      fields:
+        id: 1105
+  - source_line: 108
+    interact_target:
+      method: keyboard
+      map: oute3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 80
+      face_index: 51
+      triggered_event: 11
+      trigger: 0
+      name: ""
+      distance: 287.229
+      hit: "(-8704,-8697.37,328.712)"
+      pose:
+        x: -8988.58
+        y: -8697.33
+        z: 193.083
+        map: oute3.odm
+        yaw: 0.000296328
+        pitch: -0.141
+  - source_line: 109
+    select_topic:
+      kind: house_resident
+      source_id: 260
+      action_id: 786
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Andover Potbello"
+  - source_line: 110
+    select_topic:
+      kind: npc_topic
+      source_id: 786
+      action_id: 1314
+      secondary_id: 1314
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Letter"
+  - source_line: 111
+    assert:
+      qbit_clear:
+        - 1105
+  - source_line: 112
+    assert:
+      qbit_set:
+        - 1106
+  - source_line: 113
+    select_topic:
+      kind: npc_topic
+      source_id: 786
+      action_id: 1315
+      secondary_id: 1315
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Letter"
+  - source_line: 114
+    select_topic:
+      kind: npc_topic
+      source_id: 786
+      action_id: 1609
+      secondary_id: 1609
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Quest
+  - source_line: 115
+    assert:
+      qbit_set:
+        - 1150
+  - source_line: 116
+    select_topic:
+      kind: npc_topic
+      source_id: 786
+      action_id: 1610
+      secondary_id: 1610
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Quest
+  - source_line: 117
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+  - source_line: 117
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 260
+          house_dialog: true
+          action_count: 4
+  - source_line: 117
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 260
+        house_dialog: true
+        action_count: 4
+  - source_line: 118
+    interact_target:
+      method: keyboard
+      map: oute3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 49
+      face_index: 48
+      triggered_event: 15
+      trigger: 0
+      name: ""
+      distance: 345.204
+      hit: "(-10496,-9465.5,257.56)"
+      pose:
+        x: -10182
+        y: -9345.54
+        z: 161
+        map: oute3.odm
+        yaw: -2.77739
+        pitch: -0.231
+  - source_line: 119
+    select_topic:
+      kind: house_service
+      source_id: 470
+      action_id: 22
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "2 days to Castle Ironfist for 8 gold"
+  - source_line: 120
+    assert:
+      map_transition_requested:
+        source_kind: horse_route
+        source_id: 470
+        action_id: 22
+        route_index: 1
+        confirmation_required: false
+        destination_map: Outd3.odm
+        destination_name: "Castle Ironfist"
+        travel_days: 2
+        use_start_position: false
+        pos: "(14317,2696,96)"
+        direction_degrees: 180
+  - source_line: 121
+    assert:
+      map_loaded: outd3.odm
+      scene_kind: outdoor
+  - source_line: 122
+    assert:
+      map_arrived:
+        previous_map: oute3.odm
+        map: Outd3.odm
+        same_map: false
+        source_kind: horse_route
+        source_id: 470
+        action_id: 22
+        event_id: 0
+        destination_name: "Castle Ironfist"
+        use_start_position: false
+        pos: "(14317,2696,96)"
+        direction_degrees: 180
+  - source_line: 123
+    interact_target:
+      method: keyboard
+      map: Outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 320.579
+      hit: "(17163,17032,2343.82)"
+      pose:
+        x: 17212.1
+        y: 16717.7
+        z: 2209
+        map: Outd3.odm
+        yaw: 1.73761
+        pitch: -0.1275
+  - source_line: 124
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 125
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1322
+      secondary_id: 1322
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Letter"
+  - source_line: 126
+    assert:
+      award_acquired:
+        - id: 100
+          member_index: 0
+  - source_line: 127
+    assert:
+      qbit_clear:
+        - 1106
+  - source_line: 128
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1323
+      secondary_id: 1323
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 129
+    assert:
+      qbit_set:
+        - 1110
+  - source_line: 130
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1324
+      secondary_id: 1324
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 131
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1326
+      secondary_id: 1326
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Crusaders
+  - source_line: 132
+    assert:
+      qbit_set:
+        - 1112
+  - source_line: 133
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1327
+      secondary_id: 1327
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Crusaders
+  - source_line: 134
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+  - source_line: 134
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 222
+          house_dialog: true
+          action_count: 2
+  - source_line: 134
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 137
+    load_map:
+      target: Blackshire
+      map: outb2.odm
+      map_id: 141
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+  - source_line: 135
+    assert:
+      qbit_set:
+        - 310
+  - source_line: 138
+    interact_target:
+      method: keyboard
+      map: outb2.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 45
+      face_index: 7
+      triggered_event: 68
+      trigger: 0
+      name: ""
+      distance: 164.268
+      hit: "(-4325.62,769.067,224)"
+      pose:
+        x: -4440.19
+        y: 803.071
+        z: 161
+        map: outb2.odm
+        yaw: -0.288006
+        pitch: -0.757499
+  - source_line: 139
+    assert:
+      map_var_changed:
+        map: outb2.odm
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 140
+    assert:
+      qbit_set:
+        - 1328
+  - source_line: 141
+    assert:
+      qbit_set:
+        - 1206
+  - source_line: 142
+    assert:
+      chest_opened:
+        scene_kind: outdoor
+        map: Blackshire
+        chest_id: 1
+  - source_line: 143
+    assert:
+      item_visible:
+        scene_kind: outdoor
+        map: Blackshire
+        chest_id: 1
+        item_id: 2119
+        item_name: "Lord Kilburn's Shield"
+        quest_like: true
+        grid: "(4,3)"
+        source: chest
+  - source_line: 144
+    assert:
+      chest_contains_quest_item:
+        scene_kind: outdoor
+        map: outb2.odm
+        chest_id: 1
+        item_id: 2119
+        item_name: "Lord Kilburn's Shield"
+        quest_like: true
+        grid: "(4,3)"
+  - source_line: 147
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2119
+        item_name: "Lord Kilburn's Shield"
+        quest_like: true
+        grid: "(4,5)"
+  - source_line: 148
+    assert:
+      held_item:
+        active: false
+        item_id: 2119
+        source: held_controller
+  - source_line: 150
+    load_map:
+      target: "Castle Ironfist"
+      map: outd3.odm
+      map_id: 148
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+  - source_line: 151
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 288.059
+      hit: "(17136,17032,2361.1)"
+      pose:
+        x: 17098.9
+        y: 16750.8
+        z: 2236.63
+        map: outd3.odm
+        yaw: 1.4424
+        pitch: -0.1815
+  - source_line: 152
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 153
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1324
+      secondary_id: 1324
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 154
+    assert:
+      qbit_clear:
+        - 1206
+  - source_line: 155
+    assert:
+      award_acquired:
+        - id: 57
+          member_index: 0
+  - source_line: 156
+    assert:
+      qbit_clear:
+        - 1110
+  - source_line: 157
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1325
+      secondary_id: 1325
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The High Council"
+  - source_line: 158
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+  - source_line: 158
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 222
+          house_dialog: true
+          action_count: 2
+  - source_line: 158
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 162
+    load_map:
+      target: "Free Haven"
+      map: outc2.odm
+      map_id: 144
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+  - source_line: 159
+    assert:
+      qbit_set:
+        - 1202
+  - source_line: 160
+    assert:
+      qbit_set:
+        - 311
+  - source_line: 163
+    interact_target:
+      method: keyboard
+      map: outc2.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 139.891
+      hit: "(12488,5393.51,470.971)"
+      pose:
+        x: 12350.6
+        y: 5385.42
+        z: 321
+        map: outc2.odm
+        yaw: 0.063
+        pitch: -0.186
+  - source_line: 164
+    select_topic:
+      kind: house_resident
+      source_id: 209
+      action_id: 1089
+      secondary_id: 0
+      selection_index: 5
+      house_dialog: true
+      enabled: true
+      label: "Slicker Silvertongue"
+  - source_line: 165
+    select_topic:
+      kind: npc_topic
+      source_id: 1089
+      action_id: 1693
+      secondary_id: 1693
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Admission to the Oracle"
+  - source_line: 166
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+  - source_line: 166
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 209
+          house_dialog: true
+          action_count: 6
+  - source_line: 166
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 209
+        house_dialog: true
+        action_count: 6
+  - source_line: 168
+    load_map:
+      target: "Castle Ironfist"
+      map: outd3.odm
+      map_id: 148
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+  - source_line: 169
+    interact_target:
+      method: keyboard
+      map: outd3.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 205.752
+      hit: "(17156.4,17032,2355.33)"
+      pose:
+        x: 17120.5
+        y: 16838.8
+        z: 2241
+        map: outd3.odm
+        yaw: 1.3884
+        pitch: -0.303
+  - source_line: 170
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 171
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1414
+      secondary_id: 1414
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Silvertongue's Refusal"
+  - source_line: 172
+    assert:
+      qbit_set:
+        - 1224
+  - source_line: 173
+    assert:
+      held_item:
+        active: true
+        item_id: 2105
+        quantity: 1
+        grid: "(0,0)"
+        source: held_controller
+  - source_line: 174
+    assert:
+      item_received:
+        destination: held
+        source: event
+        item_id: 2105
+        item_name: "Cloak of Baa"
+        quest_like: true
+  - source_line: 175
+    assert:
+      held_item:
+        active: false
+        item_id: 2105
+        source: held_controller
+  - source_line: 176
+    press_action:
+      action: cancel_dialog
+      note: "return from recorded NPC dialog to parent house dialog"
+  - source_line: 176
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: house_service
+          active_source_id: 222
+          house_dialog: true
+          action_count: 2
+  - source_line: 176
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 178
+    load_map:
+      target: Kriegspire
+      map: outb1.odm
+      map_id: 140
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+  - source_line: 179
+    interact_target:
+      method: keyboard
+      map: outb1.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 29
+      face_index: 0
+      triggered_event: 90
+      trigger: 0
+      name: ""
+      distance: 363.82
+      hit: "(17216,-6637.82,287.629)"
+      pose:
+        x: 16855.6
+        y: -6625.55
+        z: 161
+        map: outb1.odm
+        yaw: -0.0314999
+        pitch: -0.1365
+  - source_line: 180
+    select_topic:
+      kind: map_transition_confirm
+      source_id: 0
+      action_id: 0
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: OK
+  - source_line: 181
+    assert:
+      map_transition_confirmed:
+        source_kind: map_transition
+        source_id: 0
+        action_id: 0
+        destination_map: 6t7.blv
+        destination_name: ""
+        use_start_position: false
+        pos: "(2094,-19,177)"
+        direction_degrees: 59
+  - source_line: 182
+    save_game: autosave
+  - source_line: 183
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/autosave.oysav
+      first_source_line: 183
+      last_source_line: 1073
+      record_count: 889
+      counts:
+        map_var: 825
+        party: 1
+        party_award: 2
+        party_equipped: 11
+        party_inventory: 1
+        party_member: 1
+        party_skill: 39
+        qbit: 9
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 1074
+    assert:
+      map_loaded: 6t7.blv
+      scene_kind: indoor
+  - source_line: 1075
+    assert:
+      map_arrived:
+        previous_map: outb1.odm
+        map: 6t7.blv
+        same_map: false
+        use_start_position: false
+        pos: "(2094,-19,177)"
+        direction_degrees: 59
+  - source_line: 1076
+    trace_observation:
+      event: pressure_plate_triggered
+      fields:
+        world: indoor
+        event_id: 50
+        face_index: 938
+        attributes: 2214592896
+  - source_line: 1077
+    assert:
+      held_item:
+        active: true
+        item_id: 2105
+        quantity: 1
+        grid: "(0,0)"
+        source: party_overlay
+  - source_line: 1078
+    assert:
+      held_item:
+        active: false
+        item_id: 2105
+        source: party_overlay
+  - source_line: 1081
+    movement_segment:
+      input: forward
+      duration_ms: 3457
+      delta_game_minutes: 1.585693
+      start:
+        x: -373.658905
+        y: -3.371231
+        z: 0.0
+        map: 6t7.blv
+        yaw: 3.135745
+        pitch: -0.0975
+      expect_stop:
+        x: -986.0
+        y: 9.10845
+        z: 0.0
+        map: 6t7.blv
+        yaw: 3.135745
+        pitch: -0.0975
+      tolerance_xy: 96
+      tolerance_z: 96
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Superior Temple of Baa"
+        scene_kind: indoor
+        party: "(-373.658905,-3.371231,0.000000)"
+        yaw: 3.135745
+        pitch: -0.0975
+        game_minutes: 3458.390137
+        tick_ms: 147835
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 56
+        indoor_eye_sector: 56
+        indoor_support_face: 937
+      raw_stop:
+        map: "Superior Temple of Baa"
+        scene_kind: indoor
+        party: "(-986.000000,9.108450,0.000000)"
+        yaw: 3.135745
+        pitch: -0.0975
+        game_minutes: 3459.97583
+        tick_ms: 151292
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 56
+        indoor_eye_sector: 56
+        indoor_support_face: 937
+  - source_line: 1082
+    interact_target:
+      method: keyboard
+      map: 6t7.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 911
+      face_index: 911
+      triggered_event: 2
+      trigger: 0
+      name: ""
+      distance: 176.496
+      hit: "(-1024,-14.6711,142.833)"
+      pose:
+        x: -848.143
+        y: -15.6981
+        z: 0
+        map: 6t7.blv
+        yaw: 3.13574
+        pitch: -0.0975
+  - source_line: 1083
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 250
+      open_speed: 150
+      close_speed: 150
+  - source_line: 1084
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 1
+          move_length: 250
+          open_speed: 150
+          close_speed: 150
+  - source_line: 1087
+    movement_segment:
+      input: forward
+      duration_ms: 1520
+      delta_game_minutes: 0.702881
+      start:
+        x: -590.148193
+        y: -17.206915
+        z: 0.0
+        map: 6t7.blv
+        yaw: 3.140244
+        pitch: -0.0975
+      expect_stop:
+        x: -1760.148193
+        y: -15.629547
+        z: 0.0
+        map: 6t7.blv
+        yaw: 3.140244
+        pitch: -0.0975
+      tolerance_xy: 96
+      tolerance_z: 96
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Superior Temple of Baa"
+        scene_kind: indoor
+        party: "(-590.148193,-17.206915,0.000000)"
+        yaw: 3.140244
+        pitch: -0.0975
+        game_minutes: 3465.047363
+        tick_ms: 162411
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 56
+        indoor_eye_sector: 56
+        indoor_support_face: 937
+      raw_stop:
+        map: "Superior Temple of Baa"
+        scene_kind: indoor
+        party: "(-1760.148193,-15.629547,0.000000)"
+        yaw: 3.140244
+        pitch: -0.0975
+        game_minutes: 3465.750244
+        tick_ms: 163931
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 26
+        indoor_eye_sector: 26
+        indoor_support_face: 254
+  - source_line: 1088
+    interact_target:
+      method: keyboard
+      map: 6t7.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 867
+      face_index: 867
+      triggered_event: 17
+      trigger: 0
+      name: ""
+      distance: 275.329
+      hit: "(-8160,-2438.81,126.994)"
+      pose:
+        x: -7886.51
+        y: -2444.23
+        z: 0
+        map: 6t7.blv
+        yaw: 3.12227
+        pitch: -0.12
+  - source_line: 1089
+    assert_mechanism:
+      kind: indoor_door
+      id: 17
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 2
+      move_length: 250
+      open_speed: 150
+      close_speed: 150
+  - source_line: 1090
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 17
+          state: closed
+          door_slot: 2
+          move_length: 250
+          open_speed: 150
+          close_speed: 150
+  - source_line: 1101
+    combat_loot:
+      scene_kind: indoor
+      map: 6t7.blv
+      actor_index: 0
+      monster_id: 492
+      name: "Priest of Baa"
+      delivery: corpse
+      pos: "(-9666.721680,-2752.652344,0.000000)"
+      item_id: 2187
+      item_name: "High Cleric's Key"
+      quest_like: true
+  - source_line: 1102
+    interact_actor:
+      method: keyboard
+      map: 6t7.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: actor
+      actor_index: 0
+      name: "Priest of Baa"
+      npc_id: 0
+      group: 0
+      friendly: false
+      distance: 194.974
+      hit: "(-9702,-2773,84)"
+      pose:
+        x: -9546.85
+        y: -2682.63
+        z: 0
+        map: 6t7.blv
+        yaw: -2.68842
+        pitch: -0.507
+  - source_line: 1103
+    assert:
+      corpse_contains_quest_item:
+        scene_kind: indoor
+        map: 6t7.blv
+        actor_index: 0
+        monster_id: 492
+        name: "Priest of Baa"
+        corpse_index: 0
+        item_id: 2187
+        item_name: "High Cleric's Key"
+        quest_like: true
+  - source_line: 1105
+    assert:
+      item_received:
+        destination: inventory
+        source: corpse
+        item_id: 2187
+        item_name: "High Cleric's Key"
+        quest_like: true
+        corpse_index: 0
+        loot_item_index: 0
+        member_index: 0
+  - source_line: 1106
+    save_game: save10
+  - source_line: 1107
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/save10.oysav
+      first_source_line: 1107
+      last_source_line: 2223
+      record_count: 1115
+      counts:
+        map_var: 1050
+        party: 1
+        party_award: 2
+        party_equipped: 11
+        party_inventory: 2
+        party_member: 1
+        party_skill: 39
+        qbit: 9
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 2224
+    note: "menu_action action=load_game source=gameplay_menu"
+  - source_line: 2225
+    note: "load_game_screen_opened return_to_gameplay_menu=true source=gameplay_menu"
+  - source_line: 2226
+    note: "load_game_started path=saves/save10.oysav"
+  - source_line: 2227
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_file
+      path: saves/save10.oysav
+      first_source_line: 2227
+      last_source_line: 3343
+      record_count: 1115
+      counts:
+        map_var: 1050
+        party: 1
+        party_award: 2
+        party_equipped: 11
+        party_inventory: 2
+        party_member: 1
+        party_skill: 39
+        qbit: 9
+      encoding: base64+zlib+json
+      data: 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
+  - source_line: 3344
+    assert:
+      map_loaded: 6t7.blv
+      scene_kind: indoor
+  - source_line: 3345
+    load_game: save10
+  - source_line: 3346
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_applied
+      path: saves/save10.oysav
+      first_source_line: 3346
+      last_source_line: 4462
+      record_count: 1115
+      counts:
+        map_var: 1050
+        party: 1
+        party_award: 2
+        party_equipped: 11
+        party_inventory: 2
+        party_member: 1
+        party_skill: 39
+        qbit: 9
+      encoding: base64+zlib+json
+      data: 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BZuLNhRsLtpQsLloA8GtuWhDweaiDQWbizYUbC7aULC5aEPB5qINBZuLNhRsLtpQsLloQ8Hmog0EB3PRhoLNRRsKNhdtKNhctKFgc9GGgs1FGwo2F20o2Fy0oWBz0YaCzUUbCI7mog0Fm4s2FGwu2lCwuWhDweaiDQWbizYULBRtyrF78Xr7/rE1/a+dEiI2JCV0a0hKSNWAVBLqNCQlBGlISmjQkJSQnSEpoTRDUkJchqSkngxpSQkZ0pKqMaQlhWJAK0ttGNKScjCkJRVgSEuKvpCW1HkhLSntQlpSzYW0pIALaUnNFtKSMi2gVaQyC2lJMRbSkvorpCUlV0hLqqyQlhRWIS2ppUJaUj6FtKRiCmlJkRTQ6qQuCmlJKRTSkuonpCUFT0hLapyQlpQ1IS2pZEJaUryEtKReCWlJiRLQ6qUqCWlJIRLSktojpCXlRkhLKoyQlhQVIS2pI0JaUjqEtKRaCGlJgRDQGqQmCGlJGRDSksofpCXFPkhL6nuQlpT0IC2p4kFaUriDtKRWB2lJeQ7Oio1U5CAtKcJBWlJ3g7Sk1AZpSXUN0pKCGqQlNTRIS8pmkJZUyiAtKY4BWq3UwyCtttbJfGxDrZP52MZaJ/OxTbVO5mOba53Mx7bUOpmPbVfrZD62fa2T+dgOtU7mY2hqnczH0FY7mY8hVDuZjyFWO5mPIVU7mY8hVzuZj6FUO5mPoat2Mh9DX+1kPoah2sl8jE21k/kY22on8zGGaifzMcZqJ/Mxpmon8zHmaifzMZZqJ/MxdtVO5mPsq53MxzhUO5mPqal2Mh9TW+1kPqZQ7WQ+pljtZD6mVO1kPqZc7WQ+plLtZD6mrtrJfEx9tZP5mIZqJ/MxN9VO5mNuq53MxxyqnczHHKudzMecqp3Mx5yrnczHXKqdzMfcVTuZj7mvdjIf81DtZD6WptrJfCxttZP5WEK1k/lYYrWT+VhStZP5WHK1k/lYSrWT+Vi6aifzsfTVTuZjGaqdzMeuqXYyH7u22sl87EK1k/nYxWon87FL9U7mu1zvZL4r9U7mu67eyXzX1zuZ74Z6J/N9U+9kvm/rncz3od7JfB/rncz3qd7JfJ/rncz31e6Zj321e+ZjX+2e+dhXu2c+DtXumY9DtXvm41Dtnvk4VLtnPg7V7pmPQ7V75uNQ7575ONS7Zz4O9e6Zj0O9e+ZTU++e+dTUu2c+NfXumU9NvXvmU1PvnvnU1LtnPjX17plPTb175lNT75751NS7Zz619e6ZT229e+ZTW++e+dTWu2c+tfXumU9tvXvmU1vvnvnU1rtnPrX17plPbb175lOod898CvXumU+h3j3zKdS7Zz6FevfMp1DvnvkU6t0zn0K9e+ZTqHfPfAr17plPsd498ynWu2c+xXr3zKdY7575FOvdM59ivXvmU6x3z3yK9e6ZT7HePfMp1rtnPqV698ynVO+e+ZTq3TOfUr175lOqd898SvXumU+p3j3zKdW7Zz6levfMp1TvnvmU690zn3K9e+ZTrnfPfMr17plPud498ynXu2c+5Xr3zKdc7575lOvdM59yvXvmU6l3z3wq7c//+3905LMS

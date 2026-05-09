@@ -33,10 +33,6 @@ RegisterGlobalHouseTopicClickHook(65071, "MMMerge Antagarich Arcomage deck requi
     MM7.BlockArcomageWithoutDeck(context)
 end)
 
-RegisterGlobalNpcEnterHook(65072, "MMMerge CrossContinents Verdant state", function(context)
-    MM7.HandleVerdantEnter(context)
-end)
-
 RegisterGlobalNpcEnterHook(65073, "MMMerge Dragon Hatchling topics", function(context)
     MM7.UpdateDragonHatchlingNpc(context)
 end)
@@ -230,39 +226,39 @@ ReplaceGlobalEvent(950, "MMMerge Blaster skill", function()
 end)
 
 ReplaceGlobalEvent(1778, "MMMerge Verdant important matter", function()
-    MM7.HandleVerdantIntro()
+    CrossContinents.HandleVerdantIntro()
 end)
 
 ReplaceGlobalEvent(1781, "MMMerge Verdant dimension doors", function()
-    MM7.ExplainDimensionDoors()
+    CrossContinents.ExplainDimensionDoors()
 end)
 
 ReplaceGlobalEvent(1782, "MMMerge Verdant Jadame", function()
-    MM7.ExplainCurrentCrossContinent(3)
+    CrossContinents.ExplainCurrentContinent(1)
 end)
 
 ReplaceGlobalEvent(1783, "MMMerge Verdant Antagarich", function()
-    MM7.ExplainCurrentCrossContinent(2)
+    CrossContinents.ExplainCurrentContinent(2)
 end)
 
 ReplaceGlobalEvent(1784, "MMMerge Verdant Enroth", function()
-    MM7.ExplainCurrentCrossContinent(1)
+    CrossContinents.ExplainCurrentContinent(3)
 end)
 
 ReplaceGlobalEvent(1785, "MMMerge Verdant Runaway Chaos", function()
-    MM7.ExplainRunawayChaos()
+    CrossContinents.ExplainRunawayChaos()
 end)
 
 ReplaceGlobalEvent(1786, "MMMerge Verdant Controlled Breach", function()
-    MM7.ExplainControlledBreach()
+    CrossContinents.ExplainControlledBreach()
 end)
 
 ReplaceGlobalEvent(1787, "MMMerge Verdant next step", function()
-    MM7.ExplainCrossContinentsNextStep()
+    CrossContinents.ExplainNextStep()
 end)
 
 ReplaceGlobalEvent(1788, "MMMerge Verdant connector stone", function()
-    MM7.ExplainConnectorStone()
+    CrossContinents.HandleConnectorStone()
 end)
 
 ReplaceGlobalEvent(513, "MMMerge Malwick conditional ambush", function()

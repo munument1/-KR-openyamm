@@ -21,6 +21,25 @@ constexpr uint32_t NpcBegTopicId = 1766;
 constexpr uint32_t NpcThreatTopicId = 1767;
 constexpr uint32_t NpcBribeTopicId = 1768;
 
+bool houseExtraExitIsAvailable(const HouseEntry &houseEntry, const Party *pParty)
+{
+    return houseEntry.extraExit.has_value()
+        && (houseEntry.extraExit->requiredQuestBit == 0
+            || (pParty != nullptr && pParty->hasQuestBit(houseEntry.extraExit->requiredQuestBit)));
+}
+
+bool shouldUseResidentOnlyHouseLobby(
+    const HouseEntry &houseEntry,
+    HouseServiceType serviceType,
+    const std::vector<uint32_t> &residentNpcIds)
+{
+    return serviceType != HouseServiceType::None
+        && !residentNpcIds.empty()
+        && houseEntry.extraExit.has_value()
+        && houseEntry.proprietorName.empty()
+        && houseEntry.proprietorTitle.empty();
+}
+
 const char *transitionImageName(uint32_t imageId)
 {
     static constexpr std::array<const char *, 11> ImageNames = {{
@@ -680,6 +699,22 @@ void appendHouseResidentActions(
         dialog.actions.push_back(std::move(action));
     }
 }
+
+void appendHouseExtraExitAction(EventDialogContent &dialog, const HouseEntry &houseEntry)
+{
+    if (!houseEntry.extraExit.has_value())
+    {
+        return;
+    }
+
+    EventDialogAction action = {};
+    action.kind = EventDialogActionKind::HouseExtraExit;
+    action.id = houseEntry.id;
+    action.participantPictureId = houseEntry.extraExit->pictureId;
+    action.participantVisual = EventDialogParticipantVisual::Portrait;
+    action.label = houseEntry.extraExit->label;
+    dialog.actions.push_back(std::move(action));
+}
 }
 
 std::vector<uint32_t> collectSelectableResidentNpcIds(
@@ -827,11 +862,12 @@ EventDialogContent buildEventDialogContent(
 
     if (context.kind == DialogueContextKind::MapEvent)
     {
-        dialog.title = context.titleOverride.value_or(
-            pCurrentMap != nullptr && !pCurrentMap->name.empty()
-                ? pCurrentMap->name
-                : "Event");
         dialog.participantPictureId = context.participantPictureId;
+
+        if (context.titleOverride.has_value())
+        {
+            dialog.title = *context.titleOverride;
+        }
     }
     else if (context.kind == DialogueContextKind::MapTransition)
     {
@@ -974,10 +1010,29 @@ EventDialogContent buildEventDialogContent(
             const std::vector<uint32_t> residentNpcIds = pNpcDialogTable != nullptr
                 ? collectSelectableResidentNpcIds(*pHouseEntry, *pNpcDialogTable, npcRuntimeState)
                 : std::vector<uint32_t>{};
+            const bool useResidentOnlyLobby =
+                shouldUseResidentOnlyHouseLobby(*pHouseEntry, serviceType, residentNpcIds);
             const bool showOccupantSelection =
                 serviceType != HouseServiceType::None
                 && !residentNpcIds.empty()
-                && menuId == DialogueMenuId::None;
+                && menuId == DialogueMenuId::None
+                && !useResidentOnlyLobby;
+
+            if (useResidentOnlyLobby && menuId == DialogueMenuId::None)
+            {
+                if (pNpcDialogTable != nullptr)
+                {
+                    appendHouseResidentActions(dialog, *pNpcDialogTable, eventRuntimeState, residentNpcIds);
+                }
+
+                if (houseExtraExitIsAvailable(*pHouseEntry, pParty)
+                    && residentNpcIds.size() < pHouseEntry->residentNpcIds.size())
+                {
+                    appendHouseExtraExitAction(dialog, *pHouseEntry);
+                }
+
+                return dialog;
+            }
 
             if (showOccupantSelection)
             {

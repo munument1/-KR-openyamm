@@ -132,6 +132,12 @@ function MM7.EnterCastleGloamingThroneRoom()
 end
 
 function MM7.OpenDimensionDoor()
+    if CrossContinents ~= nil
+        and CrossContinents.TryDimensionDoorContact ~= nil
+        and CrossContinents.TryDimensionDoorContact() then
+        return
+    end
+
     evt.OpenDimensionDoor()
 end
 
@@ -209,14 +215,14 @@ MM7.CrossContinents = {
     SharedLifeRingItemId = 543,
     FinalQuestQBit = 1713,
     CompleteQBits = {
-        [1] = 228, -- Enroth
+        [1] = 228, -- Jadame
         [2] = 783, -- Antagarich
-        [3] = 784, -- Jadame
+        [3] = 784, -- Enroth
     },
     ContinentTopicIds = {
-        [1] = 1784, -- Enroth
+        [1] = 1782, -- Jadame
         [2] = 1783, -- Antagarich
-        [3] = 1782, -- Jadame
+        [3] = 1784, -- Enroth
     },
     MeetSpotHouseIds = {
         [1] = 185,
@@ -224,25 +230,42 @@ MM7.CrossContinents = {
         [3] = 1195,
     },
     ContinentMessageText = {
-        [1] = "Enroth is the simple path: train hard, help where you can, and try not to mistake every future devil for an apprentice wizard.",
+        [1] = "Jadame starts on Dagger Wound. Help the caravan, reach Ravenshore, and hold the alliance together.",
         [2] = "Antagarich begins with the Emerald Island scavenger hunt and leads to Harmondale. Become lords, then keep your land alive.",
-        [3] = "Jadame starts on Dagger Wound. Help the caravan, reach Ravenshore, and hold the alliance together.",
+        [3] = "Enroth is the simple path: train hard, help where you can, and try not to mistake every future devil for an apprentice wizard.",
     },
 }
 
 function MM7.CrossVar(name)
+    if CrossContinents ~= nil and CrossContinents.Var ~= nil then
+        return CrossContinents.Var(name)
+    end
+
     return "MMerge.CrossContinents." .. name
 end
 
 function MM7.GetCrossVar(name, defaultValue)
+    if CrossContinents ~= nil and CrossContinents.GetVar ~= nil then
+        return CrossContinents.GetVar(name, defaultValue)
+    end
+
     return evt.GetGlobalVar(MM7.CrossVar(name), defaultValue or 0)
 end
 
 function MM7.SetCrossVar(name, value)
+    if CrossContinents ~= nil and CrossContinents.SetVar ~= nil then
+        CrossContinents.SetVar(name, value)
+        return
+    end
+
     evt.SetGlobalVar(MM7.CrossVar(name), value or 0)
 end
 
 function MM7.CurrentMergedContinent()
+    if CrossContinents ~= nil and CrossContinents.CurrentContinent ~= nil then
+        return CrossContinents.CurrentContinent()
+    end
+
     local continent = CurrentContinent()
     if continent >= 1 and continent <= 3 then
         return continent
@@ -257,6 +280,10 @@ function MM7.CurrentMergedContinent()
 end
 
 function MM7.IsCrossContinentFinished(continent)
+    if CrossContinents ~= nil and CrossContinents.IsContinentFinished ~= nil then
+        return CrossContinents.IsContinentFinished(continent)
+    end
+
     local qbitId = MM7.CrossContinents.CompleteQBits[continent]
     if qbitId == nil then
         return false
@@ -266,6 +293,11 @@ function MM7.IsCrossContinentFinished(continent)
 end
 
 function MM7.MarkCrossContinentFinished(continent)
+    if CrossContinents ~= nil and CrossContinents.MarkContinentFinished ~= nil then
+        CrossContinents.MarkContinentFinished(continent)
+        return
+    end
+
     MM7.SetCrossVar("Finished." .. tostring(continent), 1)
 end
 
@@ -276,6 +308,10 @@ function MM7.MarkCrossContinentAntagarichIfComplete()
 end
 
 function MM7.CrossRewardCount()
+    if CrossContinents ~= nil and CrossContinents.RewardCount ~= nil then
+        return CrossContinents.RewardCount()
+    end
+
     local count = 0
     for continent = 1, 3 do
         if MM7.GetCrossVar("Reward." .. tostring(continent), 0) ~= 0 then
@@ -286,6 +322,11 @@ function MM7.CrossRewardCount()
 end
 
 function MM7.PlaceVerdantForCurrentContinent()
+    if CrossContinents ~= nil and CrossContinents.PlaceVerdantForCurrentContinent ~= nil then
+        CrossContinents.PlaceVerdantForCurrentContinent()
+        return
+    end
+
     if MM7.GetCrossVar("MetVerdant", 0) == 0 and MM7.GetCrossVar("GotMainQuest", 0) == 0 then
         return
     end
@@ -297,6 +338,11 @@ function MM7.PlaceVerdantForCurrentContinent()
 end
 
 function MM7.UpdateVerdantTopics()
+    if CrossContinents ~= nil and CrossContinents.UpdateVerdantTopics ~= nil then
+        CrossContinents.UpdateVerdantTopics()
+        return
+    end
+
     local npcId = MM7.CrossContinents.VerdantNpcId
     evt.SetNPCTopic(npcId, 0, 0)
     evt.SetNPCTopic(npcId, 1, 0)
@@ -328,6 +374,11 @@ function MM7.UpdateVerdantTopics()
 end
 
 function MM7.UpdateCrossContinentsState()
+    if CrossContinents ~= nil and CrossContinents.UpdateState ~= nil then
+        CrossContinents.UpdateState()
+        return
+    end
+
     MM7.PlaceVerdantForCurrentContinent()
 
     for continent = 1, 3 do
@@ -366,6 +417,11 @@ function MM7.UpdateCrossContinentsState()
 end
 
 function MM7.HandleVerdantIntro()
+    if CrossContinents ~= nil and CrossContinents.HandleVerdantIntro ~= nil then
+        CrossContinents.HandleVerdantIntro()
+        return
+    end
+
     local step = MM7.GetCrossVar("IntroStep", 0)
     MM7.SetCrossVar("MetVerdant", 1)
 
@@ -389,16 +445,31 @@ function MM7.HandleVerdantIntro()
 end
 
 function MM7.ExplainCurrentCrossContinent(continent)
+    if CrossContinents ~= nil and CrossContinents.ExplainCurrentContinent ~= nil then
+        CrossContinents.ExplainCurrentContinent(continent)
+        return
+    end
+
     evt.SimpleMessage(MM7.CrossContinents.ContinentMessageText[continent] or "Use dimension doors to continue the displaced heroes' stories.")
     MM7.UpdateVerdantTopics()
 end
 
 function MM7.ExplainDimensionDoors()
+    if CrossContinents ~= nil and CrossContinents.ExplainDimensionDoors ~= nil then
+        CrossContinents.ExplainDimensionDoors()
+        return
+    end
+
     evt.SimpleMessage("Dimension doors in magically active places let you step onto the other heroes' paths.")
     MM7.UpdateVerdantTopics()
 end
 
 function MM7.ExplainRunawayChaos()
+    if CrossContinents ~= nil and CrossContinents.ExplainRunawayChaos ~= nil then
+        CrossContinents.ExplainRunawayChaos()
+        return
+    end
+
     SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
     MM7.SetCrossVar("FinalQuestStarted", 1)
     evt.SimpleMessage("Verdant says the timeline damage has a source: a Runaway Chaos that must be contained.")
@@ -406,6 +477,11 @@ function MM7.ExplainRunawayChaos()
 end
 
 function MM7.ExplainControlledBreach()
+    if CrossContinents ~= nil and CrossContinents.ExplainControlledBreach ~= nil then
+        CrossContinents.ExplainControlledBreach()
+        return
+    end
+
     SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
     MM7.SetCrossVar("FinalQuestStarted", 1)
     evt.SimpleMessage("The Controlled Breach is Verdant's safe arena for reaching and containing the Runaway Chaos.")
@@ -413,6 +489,11 @@ function MM7.ExplainControlledBreach()
 end
 
 function MM7.ExplainCrossContinentsNextStep()
+    if CrossContinents ~= nil and CrossContinents.ExplainNextStep ~= nil then
+        CrossContinents.ExplainNextStep()
+        return
+    end
+
     MM7.SetCrossVar("FinalQuestStarted", 1)
     SetQBit(QBit(MM7.CrossContinents.FinalQuestQBit))
     evt.SimpleMessage("Verdant has another anomaly to investigate and asks you to keep helping her.")
@@ -420,6 +501,11 @@ function MM7.ExplainCrossContinentsNextStep()
 end
 
 function MM7.ExplainConnectorStone()
+    if CrossContinents ~= nil and CrossContinents.HandleConnectorStone ~= nil then
+        CrossContinents.HandleConnectorStone()
+        return
+    end
+
     if MM7.GetCrossVar("GotConnectorStone", 0) == 0 then
         MM7.SetCrossVar("GotConnectorStone", 1)
         AddValue(InventoryItem(MM7.CrossContinents.ChargedConnectorStoneItemId), MM7.CrossContinents.ChargedConnectorStoneItemId)
@@ -434,6 +520,11 @@ function MM7.ExplainConnectorStone()
 end
 
 function MM7.HandleVerdantEnter(context)
+    if CrossContinents ~= nil and CrossContinents.HandleVerdantEnter ~= nil then
+        CrossContinents.HandleVerdantEnter(context)
+        return
+    end
+
     if context == nil or context.npcId ~= MM7.CrossContinents.VerdantNpcId then
         return
     end

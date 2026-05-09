@@ -196,6 +196,7 @@ CharacterAttackResult buildRangedReleaseAttack(
     else if (mode == CharacterAttackMode::Blaster)
     {
         attack.attackSoundHook = "blaster_shot";
+        attack.damageType = CombatDamageType::Irresistible;
     }
     else if (mode == CharacterAttackMode::DragonBreath)
     {

@@ -29,6 +29,7 @@ enum class EventDialogActionKind
     None,
     HouseService,
     HouseProprietor,
+    HouseExtraExit,
     HouseResident,
     NpcTopic,
     NpcProfessionNews,

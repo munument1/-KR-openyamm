@@ -2,6 +2,7 @@
 
 #include "engine/BgfxContext.h"
 #include "game/app/GameSession.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayDialogContextBuilder.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
@@ -1869,6 +1870,36 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
     if (!pWorldRuntime->actorInspectState(pick->runtimeActorIndex, 0, inspectState))
     {
         return;
+    }
+
+    if (input.rightMouseButton.pressed)
+    {
+        const IndoorMoveState *pMoveState =
+            m_pIndoorSceneRuntime != nullptr ? &m_pIndoorSceneRuntime->partyRuntime().movementState() : nullptr;
+        GameplayRuntimeActorState runtimeActorState = {};
+        const bool hasRuntimeActorState =
+            pWorldRuntime->actorRuntimeState(pick->runtimeActorIndex, runtimeActorState);
+        gameplayDebugTraceLog(
+            "actor_inspect world=indoor map=\""
+            + (m_pIndoorSceneRuntime != nullptr ? m_pIndoorSceneRuntime->worldRuntime().mapName() : std::string())
+            + "\" actor_index=" + std::to_string(pick->runtimeActorIndex)
+            + " name=\"" + inspectState.displayName + "\""
+            + " monster_id=" + std::to_string(inspectState.monsterId)
+            + " current_hp=" + std::to_string(inspectState.currentHp)
+            + " max_hp=" + std::to_string(inspectState.maxHp)
+            + " dead=" + (inspectState.isDead ? "true" : "false")
+            + (pMoveState != nullptr
+                ? " party=(" + std::to_string(pMoveState->x)
+                    + "," + std::to_string(pMoveState->y)
+                    + "," + std::to_string(pMoveState->footZ) + ")"
+                : "")
+            + " yaw=" + std::to_string(m_pIndoorRenderer != nullptr ? m_pIndoorRenderer->cameraYawRadians() : 0.0f)
+            + " pitch=" + std::to_string(m_pIndoorRenderer != nullptr ? m_pIndoorRenderer->cameraPitchRadians() : 0.0f)
+            + (hasRuntimeActorState
+                ? " actor_pos=(" + std::to_string(runtimeActorState.preciseX)
+                    + "," + std::to_string(runtimeActorState.preciseY)
+                    + "," + std::to_string(runtimeActorState.preciseZ) + ")"
+                : ""));
     }
 
     if (input.rightMouseButton.pressed && !inspectState.isDead)

@@ -19,6 +19,12 @@ function MM8.SetMapFlag(name, enabled)
 end
 
 function MM8.OpenDimensionDoor()
+    if CrossContinents ~= nil
+        and CrossContinents.TryDimensionDoorContact ~= nil
+        and CrossContinents.TryDimensionDoorContact() then
+        return
+    end
+
     evt.OpenDimensionDoor()
 end
 

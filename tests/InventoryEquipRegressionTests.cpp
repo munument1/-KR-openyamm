@@ -114,6 +114,59 @@ TEST_CASE("inventory item use spell scroll prepares a master cast")
     CHECK(result.consumed);
 }
 
+TEST_CASE("inventory item use Dimension Door scroll is usable despite gem equip stat")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+
+    OpenYAMM::Game::InventoryItem scroll = {};
+    scroll.objectDescriptionId = 190;
+
+    CHECK(
+        OpenYAMM::Game::InventoryItemUseRuntime::classifyItemUse(scroll, gameData.itemTable)
+        == OpenYAMM::Game::InventoryItemUseAction::UseDimensionDoorScroll);
+
+    const OpenYAMM::Game::InventoryItemUseResult result = OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+        party,
+        0,
+        scroll,
+        gameData.itemTable,
+        &gameData.readableScrollTable);
+
+    REQUIRE(result.handled);
+    CHECK(result.action == OpenYAMM::Game::InventoryItemUseAction::UseDimensionDoorScroll);
+    CHECK_EQ(result.spellId, OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TownPortal));
+    CHECK(result.consumed);
+}
+
+TEST_CASE("inventory item use connector stones route through item service")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+
+    for (uint32_t itemId : {624u, 625u})
+    {
+        OpenYAMM::Game::InventoryItem stone = {};
+        stone.objectDescriptionId = itemId;
+
+        CHECK(
+            OpenYAMM::Game::InventoryItemUseRuntime::classifyItemUse(stone, gameData.itemTable)
+            == OpenYAMM::Game::InventoryItemUseAction::UseConnectorStone);
+
+        const OpenYAMM::Game::InventoryItemUseResult result =
+            OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+                party,
+                0,
+                stone,
+                gameData.itemTable,
+                &gameData.readableScrollTable);
+
+        REQUIRE(result.handled);
+        CHECK(result.action == OpenYAMM::Game::InventoryItemUseAction::UseConnectorStone);
+        CHECK_FALSE(result.consumed);
+    }
+}
+
 TEST_CASE("inventory item use spellbook consumes on success with matching school and mastery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

@@ -365,6 +365,12 @@ function MM6.RepairStoneTemple()
 end
 
 function MM6.OpenDimensionDoor()
+    if CrossContinents ~= nil
+        and CrossContinents.TryDimensionDoorContact ~= nil
+        and CrossContinents.TryDimensionDoorContact() then
+        return
+    end
+
     evt.OpenDimensionDoor()
 end
 

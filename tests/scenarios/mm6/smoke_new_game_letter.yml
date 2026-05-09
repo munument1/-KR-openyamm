@@ -1,0 +1,17 @@
+id: mm6.smoke.new_game_letter
+title: MM6 smoke - new game start has letter
+world: mm6
+mode: hybrid
+tags:
+  - mm6
+  - smoke
+  - p0
+steps:
+  - new_game_flow:
+      continent: enroth
+      party: mm6_story_any
+      start_map: oute3.odm
+  - assert:
+      map: oute3.odm
+      inventory_any_member:
+        - item_id: 2125

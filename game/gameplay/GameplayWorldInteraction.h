@@ -30,6 +30,7 @@ struct GameplayWorldPickRequest
     bx::Vec3 rayDirection = {0.0f, 0.0f, 0.0f};
     bx::Vec3 eye = {0.0f, 0.0f, 0.0f};
     bool hasRay = false;
+    bool ignoreActors = false;
 };
 
 struct GameplayWorldPickRequestInput

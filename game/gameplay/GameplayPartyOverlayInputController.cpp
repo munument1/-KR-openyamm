@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayPartyOverlayInputController.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
@@ -2440,6 +2441,11 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             const auto setHeldItem =
                 [&context, pParty](const InventoryItem &item)
                 {
+                    gameplayDebugTraceLog(
+                        "held_item_changed active=true item_id=" + std::to_string(item.objectDescriptionId)
+                        + " quantity=" + std::to_string(item.quantity)
+                        + " grid=(" + std::to_string(item.gridX) + "," + std::to_string(item.gridY) + ")"
+                        + " source=party_overlay");
                     context.heldInventoryItem() = {};
                     context.heldInventoryItem().active = true;
                     context.heldInventoryItem().item = item;
@@ -2456,6 +2462,14 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             const auto clearHeldItem =
                 [&context, pParty]()
                 {
+                    if (context.heldInventoryItem().active)
+                    {
+                        gameplayDebugTraceLog(
+                            "held_item_changed active=false item_id="
+                            + std::to_string(context.heldInventoryItem().item.objectDescriptionId)
+                            + " source=party_overlay");
+                    }
+
                     context.heldInventoryItem() = {};
 
                     if (pParty != nullptr)

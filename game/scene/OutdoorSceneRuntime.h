@@ -53,7 +53,8 @@ public:
         const std::optional<ScriptedEventProgram> &localEventProgram,
         uint16_t eventId,
         const std::optional<EventRuntimeState::ActiveDecorationContext> &activeDecorationContext,
-        size_t &previousMessageCount
+        size_t &previousMessageCount,
+        bool allowGlobalFallback = false
     );
     bool executeNpcTopicEventById(
         uint16_t eventId,

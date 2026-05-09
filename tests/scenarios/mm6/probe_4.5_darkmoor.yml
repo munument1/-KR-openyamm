@@ -1,0 +1,1764 @@
+id: mm6.probe.4.darkmoor
+title: "MM6 probe 4 Darkmoor"
+world: mm6
+mode: faithful
+tags:
+  - mm6
+  - draft
+  - playthrough_trace
+source:
+  path: tests/playthrough_scenarios/mm6/05_castle_darkmoor_memory_crystal_delta.txt
+  note: "Generated draft. Sanitize aliases, poses, shortcuts, and checkpoints before using as a runnable scenario."
+steps:
+  - source_line: 1
+    note: "trace_session_begin configured_world_id=mm6 gameplay_trace=true map_load_timing=false route_trace=false startup_map=oute3.odm trace_file=tests/playthrough_scenarios/mm6/05_castle_darkmoor_memory_crystal_delta.txt unix_time=1778344332 world_id=mm6"
+  - source_line: 2
+    note: "menu_action action=load_game source=main_menu"
+  - source_line: 3
+    note: "load_game_screen_opened return_to_gameplay_menu=false source=main_menu"
+  - source_line: 4
+    load_game:
+      name: save8
+      path: saves/save8.oysav
+  - source_line: 5
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_file
+      path: saves/save8.oysav
+      first_source_line: 5
+      last_source_line: 121
+      record_count: 115
+      counts:
+        map_vars: 38
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 5
+        party_member: 1
+        party_skills: 1
+        qbit: 50
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 122
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+      game_minutes: 122775.898438
+  - source_line: 123
+    trace_observation:
+      event: load_game_applied
+      fields:
+        path: saves/save8.oysav
+        map: oracle.blv
+        scene_kind: indoor
+        game_minutes: 122775.898438
+      game_minutes: 122775.898438
+  - source_line: 124
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_applied
+      path: saves/save8.oysav
+      first_source_line: 124
+      last_source_line: 240
+      record_count: 115
+      counts:
+        map_vars: 38
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 5
+        party_member: 1
+        party_skills: 1
+        qbit: 50
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 242
+    load_map:
+      target: "Castle Darkmoor"
+      map: cd2.blv
+      map_id: 181
+      scene_kind: indoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+      game_minutes: 122776.414062
+  - source_line: 245
+    movement_segment:
+      input: forward
+      duration_ms: 2727
+      delta_game_minutes: 0.0
+      start:
+        x: 14597.751953
+        y: 9935.12207
+        z: -180.0
+        map: cd2.blv
+        yaw: 1.597514
+        pitch: -0.111
+      expect_stop:
+        x: 14554.077148
+        y: 10242.0
+        z: -180.0
+        map: cd2.blv
+        yaw: 1.597514
+        pitch: -0.111
+      tolerance_xy: 16
+      tolerance_z: 16
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(14597.751953,9935.122070,-180.000000)"
+        yaw: 1.597514
+        pitch: -0.111
+        game_minutes: 122777.34375
+        tick_ms: 43021
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 58
+        indoor_eye_sector: 58
+        indoor_support_face: 807
+      raw_stop:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(14554.077148,10242.000000,-180.000000)"
+        yaw: 1.597514
+        pitch: -0.111
+        game_minutes: 122777.34375
+        tick_ms: 45748
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 58
+        indoor_eye_sector: 58
+        indoor_support_face: 807
+      game_minutes: 122777.34375
+  - source_line: 246
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 3
+        face_index: 4409
+  - source_line: 247
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 25
+        face_index: 4423
+  - source_line: 248
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 24
+        face_index: 4422
+  - source_line: 249
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 24
+        face_index: 4426
+  - source_line: 250
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 23
+        face_index: 4466
+  - source_line: 251
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 22
+        face_index: 4421
+  - source_line: 252
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 21
+        face_index: 4420
+  - source_line: 253
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 19
+        face_index: 4405
+  - source_line: 254
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4521
+      face_index: 4521
+      triggered_event: 53
+      trigger: 0
+      name: ""
+      distance: 179.803
+      hit: "(9664,4583.54,165.127)"
+      pose:
+        x: 9837.58
+        y: 4630.91
+        z: 0
+        map: cd2.blv
+        yaw: -2.87547
+        pitch: 0.0285
+  - source_line: 255
+    assert_mechanism:
+      kind: indoor_door
+      id: 13
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 6
+      move_length: 30
+      open_speed: 25
+      close_speed: 25
+  - source_line: 257
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: map_event
+          active_source_id: 0
+          house_dialog: false
+          action_count: 0
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 0
+          title: ""
+          house_title: ""
+          line_count: 1
+          text_hash: 1330410308944839503
+          action_count: 0
+          actions: []
+  - source_line: 257
+    assert:
+      dialogue_canceled:
+        kind: map_event
+        active_source_id: 0
+        house_dialog: false
+        action_count: 0
+  - source_line: 258
+    wait_until:
+      timeout_runtime_seconds: 1.708
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 13
+          state: closed
+          door_slot: 6
+          move_length: 30
+          open_speed: 25
+          close_speed: 25
+  - source_line: 259
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4519
+      face_index: 4519
+      triggered_event: 54
+      trigger: 0
+      name: ""
+      distance: 166.112
+      hit: "(9654.21,4660,152.815)"
+      pose:
+        x: 9784.59
+        y: 4763
+        z: 0
+        map: cd2.blv
+        yaw: -2.47498
+        pitch: -0.0434999
+  - source_line: 260
+    assert:
+      map_var_changed:
+        map: cd2.blv
+        operation: set
+        index: 2
+        previous: 0
+        current: 1
+  - source_line: 261
+    assert_mechanism:
+      kind: indoor_door
+      id: 14
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 9
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 262
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 14
+          state: closed
+          door_slot: 9
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 263
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 19
+        face_index: 4405
+        force_replay: true
+  - source_line: 264
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 22
+        face_index: 4421
+  - source_line: 265
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 23
+        face_index: 4466
+  - source_line: 266
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 24
+        face_index: 4426
+  - source_line: 267
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 24
+        face_index: 4422
+  - source_line: 268
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 25
+        face_index: 4423
+  - source_line: 269
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4219
+      face_index: 4219
+      triggered_event: 32
+      trigger: 0
+      name: ""
+      distance: 149.506
+      hit: "(13631,6714.96,128)"
+      pose:
+        x: 13653.1
+        y: 6710.4
+        z: -180
+        map: cd2.blv
+        yaw: 2.93402
+        pitch: 1.4145
+  - source_line: 270
+    assert_mechanism:
+      kind: indoor_door
+      id: 10
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 3
+      move_length: 180
+      open_speed: 150
+      close_speed: 150
+  - source_line: 271
+    wait_until:
+      timeout_runtime_seconds: 1.708
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 10
+          state: closed
+          door_slot: 3
+          move_length: 180
+          open_speed: 150
+          close_speed: 150
+  - source_line: 274
+    movement_segment:
+      input: forward
+      duration_ms: 3142
+      delta_game_minutes: 0.0
+      start:
+        x: 14517.625977
+        y: 9829.105469
+        z: -180.0
+        map: cd2.blv
+        yaw: 1.615525
+        pitch: -0.0885
+      expect_stop:
+        x: 14409.711914
+        y: 12237.750977
+        z: -180.0
+        map: cd2.blv
+        yaw: 1.615525
+        pitch: -0.0885
+      tolerance_xy: 16
+      tolerance_z: 16
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(14517.625977,9829.105469,-180.000000)"
+        yaw: 1.615525
+        pitch: -0.0885
+        game_minutes: 122778.085938
+        tick_ms: 119526
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 58
+        indoor_eye_sector: 58
+        indoor_support_face: 807
+      raw_stop:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(14409.711914,12237.750977,-180.000000)"
+        yaw: 1.615525
+        pitch: -0.0885
+        game_minutes: 122778.085938
+        tick_ms: 122668
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 66
+        indoor_eye_sector: 66
+        indoor_support_face: 892
+      game_minutes: 122778.085938
+  - source_line: 275
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 46
+        face_index: 3560
+  - source_line: 276
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 27
+        face_index: 3562
+  - source_line: 277
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 27
+        face_index: 3562
+        force_replay: true
+  - source_line: 278
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 46
+        face_index: 3560
+  - source_line: 279
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 51
+        face_index: 4431
+  - source_line: 282
+    movement_segment:
+      input: forward
+      duration_ms: 2024
+      delta_game_minutes: 0.0
+      start:
+        x: -7727.130859
+        y: 15341.827148
+        z: -30.0
+        map: cd2.blv
+        yaw: -2.945362
+        pitch: -0.0885
+      expect_stop:
+        x: -8169.0
+        y: 15061.986328
+        z: -30.0
+        map: cd2.blv
+        yaw: -2.945362
+        pitch: -0.0885
+      tolerance_xy: 16
+      tolerance_z: 16
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(-7727.130859,15341.827148,-30.000000)"
+        yaw: -2.945362
+        pitch: -0.0885
+        game_minutes: 122778.25
+        tick_ms: 180772
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 144
+        indoor_eye_sector: 144
+        indoor_support_face: 2949
+      raw_stop:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(-8169.000000,15061.986328,-30.000000)"
+        yaw: -2.945362
+        pitch: -0.0885
+        game_minutes: 122778.25
+        tick_ms: 182796
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 144
+        indoor_eye_sector: 144
+        indoor_support_face: 2949
+      game_minutes: 122778.25
+  - source_line: 283
+    trace_observation:
+      event: item_inspect
+      fields:
+        item_id: 220
+        item_name: "Potion Bottle"
+        item_icon: item198
+        item_material: 1
+        item_rarity: 0
+        quest_like: false
+        source: world_item
+        map: cd2.blv
+        scene_kind: indoor
+        party: "(-6972.787109,17561.013672,-30.000000)"
+        yaw: 1.651536
+        pitch: -0.1605
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 53
+        loot_item_index: 0
+      note: "not converted to an assertion because the inspected item is not quest-like"
+  - source_line: 284
+    trace_observation:
+      event: item_inspect
+      fields:
+        item_id: 220
+        item_name: "Potion Bottle"
+        item_icon: item198
+        item_material: 1
+        item_rarity: 0
+        quest_like: false
+        source: world_item
+        map: cd2.blv
+        scene_kind: indoor
+        party: "(-6972.787109,17561.013672,-30.000000)"
+        yaw: 1.651536
+        pitch: -0.1605
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 52
+        loot_item_index: 0
+      note: "not converted to an assertion because the inspected item is not quest-like"
+  - source_line: 285
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4556
+      face_index: 4556
+      triggered_event: 55
+      trigger: 0
+      name: ""
+      distance: 144.79
+      hit: "(-4187.48,15552,948.861)"
+      pose:
+        x: -4181.24
+        y: 15408
+        z: 773
+        map: cd2.blv
+        yaw: 1.61435
+        pitch: 0.1095
+  - source_line: 286
+    assert_mechanism:
+      kind: indoor_door
+      id: 11
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 7
+      move_length: 32
+      open_speed: 25
+      close_speed: 25
+  - source_line: 288
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: map_event
+          active_source_id: 0
+          house_dialog: false
+          action_count: 0
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 0
+          title: ""
+          house_title: ""
+          line_count: 1
+          text_hash: 1330410308944839503
+          action_count: 0
+          actions: []
+  - source_line: 288
+    assert:
+      dialogue_canceled:
+        kind: map_event
+        active_source_id: 0
+        house_dialog: false
+        action_count: 0
+  - source_line: 289
+    wait_until:
+      timeout_runtime_seconds: 1.783
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 11
+          state: closed
+          door_slot: 7
+          move_length: 32
+          open_speed: 25
+          close_speed: 25
+  - source_line: 290
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4549
+      face_index: 4549
+      triggered_event: 56
+      trigger: 0
+      name: ""
+      distance: 155.4
+      hit: "(-4110.26,15558,926.821)"
+      pose:
+        x: -4071.21
+        y: 15407.5
+        z: 773
+        map: cd2.blv
+        yaw: 1.82585
+        pitch: -0.039
+  - source_line: 291
+    assert_mechanism:
+      kind: indoor_door
+      id: 12
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 2
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 292
+    assert:
+      map_var_changed:
+        map: cd2.blv
+        operation: set
+        index: 3
+        previous: 0
+        current: 1
+  - source_line: 293
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 12
+          state: closed
+          door_slot: 2
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 294
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 27
+        face_index: 3562
+  - source_line: 295
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4265
+      face_index: 4265
+      triggered_event: 37
+      trigger: 0
+      name: ""
+      distance: 115.387
+      hit: "(428.489,14136.7,274)"
+      pose:
+        x: 447.413
+        y: 14134.2
+        z: 0
+        map: cd2.blv
+        yaw: 3.01051
+        pitch: 1.4055
+  - source_line: 296
+    assert:
+      map_var_changed:
+        map: cd2.blv
+        operation: add
+        index: 3
+        previous: 1
+        current: 2
+  - source_line: 297
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 27
+        face_index: 3559
+  - source_line: 298
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 46
+        face_index: 3566
+  - source_line: 299
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 51
+        face_index: 4431
+  - source_line: 300
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 49
+        face_index: 4433
+  - source_line: 303
+    movement_segment:
+      input: forward
+      duration_ms: 2990
+      delta_game_minutes: 0.0
+      start:
+        x: -8024.982422
+        y: 15353.835938
+        z: -30.0
+        map: cd2.blv
+        yaw: -2.692178
+        pitch: -0.142499
+      expect_stop:
+        x: -10092.125977
+        y: 14356.870117
+        z: -240.0
+        map: cd2.blv
+        yaw: -2.692178
+        pitch: -0.142499
+      tolerance_xy: 16
+      tolerance_z: 16
+      actor_collision: false
+      actor_ai: false
+      raw_start:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(-8024.982422,15353.835938,-30.000000)"
+        yaw: -2.692178
+        pitch: -0.142499
+        game_minutes: 122778.9375
+        tick_ms: 337542
+        forward_held: true
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 144
+        indoor_eye_sector: 144
+        indoor_support_face: 2949
+      raw_stop:
+        map: "Castle Darkmoor"
+        scene_kind: indoor
+        party: "(-10092.125977,14356.870117,-240.000000)"
+        yaw: -2.692178
+        pitch: -0.142499
+        game_minutes: 122778.9375
+        tick_ms: 340532
+        forward_held: false
+        run_walk_modifier: false
+        turbo: false
+        shift: false
+        ctrl: false
+        alt: false
+        held_item_active: false
+        held_item_id: 0
+        outdoor_running: false
+        outdoor_flying: false
+        outdoor_water_walk: false
+        outdoor_feather_fall: false
+        outdoor_airborne: false
+        outdoor_support_kind: 0
+        outdoor_support_bmodel: 0
+        outdoor_support_face: 0
+        indoor_grounded: true
+        indoor_sector: 94
+        indoor_eye_sector: 94
+        indoor_support_face: 1764
+      game_minutes: 122778.9375
+  - source_line: 304
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 2
+      target_index: 329
+      face_index: 18446744073709551615
+      triggered_event: 0
+      trigger: 0
+      name: mcryst01
+      distance: 174.233
+      hit: "(-14568,15936.2,-79.7371)"
+      pose:
+        x: -14393.8
+        y: 15926.5
+        z: -240
+        map: cd2.blv
+        yaw: 3.09602
+        pitch: 0.00150107
+  - source_line: 305
+    assert:
+      qbit_set:
+        - 1217
+  - source_line: 306
+    assert:
+      item_received:
+        destination: inventory
+        source: event
+        item_id: 2172
+        item_name: "Memory Crystal Delta"
+        quest_like: true
+  - source_line: 307
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4400
+      face_index: 4400
+      triggered_event: 45
+      trigger: 0
+      name: ""
+      distance: 208.907
+      hit: "(-12385.4,16128,-31.7549)"
+      pose:
+        x: -12423.9
+        y: 15928.2
+        z: -240
+        map: cd2.blv
+        yaw: 1.37583
+        pitch: 0.231001
+  - source_line: 308
+    assert:
+      map_var_changed:
+        map: cd2.blv
+        operation: set
+        index: 4
+        previous: 0
+        current: 1
+  - source_line: 310
+    trace_observation:
+      event: dialogue_canceled
+      fields:
+        kind: map_event
+        active_source_id: 0
+        house_dialog: false
+        action_count: 0
+      note: "ignored stale memory-crystal pickup dialog recorded before the event was corrected"
+  - source_line: 311
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4298
+      face_index: 4298
+      triggered_event: 42
+      trigger: 0
+      name: ""
+      distance: 103.878
+      hit: "(-12798.1,15923.7,18)"
+      pose:
+        x: -12765.1
+        y: 15912.1
+        z: -240
+        map: cd2.blv
+        yaw: 2.78882
+        pitch: 1.221
+  - source_line: 312
+    assert:
+      map_arrived:
+        previous_map: cd2.blv
+        map: cd2.blv
+        same_map: true
+        use_start_position: false
+        pos: "(22080,-2192,1)"
+        direction_degrees: 0
+      game_minutes: 122778.945312
+  - source_line: 313
+    interact_target:
+      method: keyboard
+      map: cd2.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 4560
+      face_index: 4560
+      triggered_event: 34
+      trigger: 0
+      name: ""
+      distance: 161.91
+      hit: "(21681.9,-2944.28,112.139)"
+      pose:
+        x: 21697.9
+        y: -2790.22
+        z: 0
+        map: cd2.blv
+        yaw: -1.6875
+        pitch: -0.3
+  - source_line: 314
+    assert:
+      qbit_set:
+        - 1033
+  - source_line: 315
+    load_map:
+      map: outc2.odm
+      scene_kind: outdoor
+      target: outc2.odm
+      method: observed_map_load
+      reason: "recorded map_loaded changed maps without an explicit converted transition; using a load shortcut for an untraced teleport/session continuation"
+      game_minutes: 122778.945312
+  - source_line: 316
+    assert:
+      map_arrived:
+        previous_map: cd2.blv
+        map: outc2.odm
+        same_map: false
+        use_start_position: false
+        pos: "(6991,13438,97)"
+        direction_degrees: 0
+      game_minutes: 122778.945312
+  - source_line: 317
+    interact_target:
+      method: keyboard
+      map: outc2.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 260.764
+      hit: "(12488,5388.19,466.302)"
+      pose:
+        x: 12228.8
+        y: 5389.23
+        z: 321
+        map: outc2.odm
+        yaw: 5.3402e-06
+        pitch: -0.1185
+  - source_line: 319
+    select_topic:
+      kind: house_extra_exit
+      source_id: 209
+      action_id: 209
+      secondary_id: 0
+      selection_index: 5
+      house_dialog: true
+      enabled: true
+      label: Enter
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 209
+          title: "High Council"
+          house_title: "High Council"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 6
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 1084
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Preston Steel"
+            - index: 1
+              kind: house_resident
+              id: 1085
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Tori Goldman"
+            - index: 2
+              kind: house_resident
+              id: 1086
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Isaac Rockwell"
+            - index: 3
+              kind: house_resident
+              id: 1087
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Olaf Heimdall"
+            - index: 4
+              kind: house_resident
+              id: 1088
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Euclid Kepler"
+            - index: 5
+              kind: house_extra_exit
+              id: 209
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: Enter
+  - source_line: 321
+    select_topic:
+      kind: house_service
+      source_id: 209
+      action_id: 23
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: Enter
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 209
+          title: "High Council"
+          house_title: "High Council"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: house_service
+              id: 23
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: Enter
+  - source_line: 322
+    save_game: autosave
+  - source_line: 323
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/autosave.oysav
+      first_source_line: 323
+      last_source_line: 444
+      record_count: 120
+      counts:
+        map_vars: 40
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 6
+        party_member: 1
+        party_skills: 1
+        qbit: 52
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 445
+    enter_door_at:
+      source_id: 209
+      action_id: 23
+      label: Enter
+      destination_map: oracle.blv
+      destination_name: "Oracle of Enroth"
+      destination_map_id: 185
+      required_qbit: 1191
+      pos: "(0,0,0)"
+      method: house_service
+      map: oracle.blv
+      target: "Oracle of Enroth"
+  - source_line: 446
+    assert:
+      map_transition_requested:
+        source_kind: house_extra_exit
+        source_id: 209
+        action_id: 23
+        event_id: 0
+        confirmation_required: false
+        destination_map: oracle.blv
+        destination_name: "Oracle of Enroth"
+        use_start_position: false
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+  - source_line: 447
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+      game_minutes: 122779.304688
+  - source_line: 448
+    assert:
+      map_arrived:
+        previous_map: outc2.odm
+        map: oracle.blv
+        same_map: false
+        source_kind: house_extra_exit
+        source_id: 209
+        action_id: 23
+        event_id: 0
+        destination_name: "Oracle of Enroth"
+        use_start_position: false
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+      game_minutes: 122779.304688
+  - source_line: 449
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 2
+        face_index: 392
+  - source_line: 450
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 7
+        previous: 1
+        current: 0
+  - source_line: 451
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 384
+      open_speed: 150
+      close_speed: 150
+  - source_line: 452
+    interact_target:
+      method: keyboard
+      map: oracle.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 399
+      face_index: 399
+      triggered_event: 3
+      trigger: 0
+      name: ""
+      distance: 260.97
+      hit: "(-1438.62,2336,-414.419)"
+      pose:
+        x: -1440.98
+        y: 2082.41
+        z: -512
+        map: oracle.blv
+        yaw: 1.56151
+        pitch: -0.2415
+  - source_line: 454
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1386
+      secondary_id: 1386
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Crystal Locations"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 793
+          title: Oracle
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1386
+              secondary_id: 1386
+              enabled: true
+              text_only: false
+              label: "Crystal Locations"
+            - index: 1
+              kind: npc_topic
+              id: 1387
+              secondary_id: 1387
+              enabled: true
+              text_only: false
+              label: "Memory Crystal"
+  - source_line: 456
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: npc_talk
+          active_source_id: 793
+          house_dialog: false
+          action_count: 2
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 793
+          title: Oracle
+          house_title: ""
+          line_count: 1
+          text_hash: 12943252006385439181
+          action_count: 2
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1386
+              secondary_id: 1386
+              enabled: true
+              text_only: false
+              label: "Crystal Locations"
+            - index: 1
+              kind: npc_topic
+              id: 1387
+              secondary_id: 1387
+              enabled: true
+              text_only: false
+              label: "Memory Crystal"
+  - source_line: 456
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 793
+        house_dialog: false
+        action_count: 2
+  - source_line: 457
+    wait_until:
+      timeout_runtime_seconds: 3.067
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: open
+          door_slot: 1
+          move_length: 384
+          open_speed: 150
+          close_speed: 150
+  - source_line: 458
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 2
+        face_index: 392
+        force_replay: true
+  - source_line: 459
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 384
+      open_speed: 150
+      close_speed: 150
+  - source_line: 460
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 7
+        previous: 0
+        current: 1
+  - source_line: 461
+    wait_until:
+      timeout_runtime_seconds: 3.067
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 1
+          move_length: 384
+          open_speed: 150
+          close_speed: 150
+  - source_line: 462
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 93
+  - source_line: 463
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 280
+  - source_line: 464
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 13
+        face_index: 449
+  - source_line: 465
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 6
+        previous: 1
+        current: 0
+  - source_line: 466
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 11
+        face_index: 106
+  - source_line: 467
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 4
+        previous: 0
+        current: 1
+  - source_line: 468
+    interact_target:
+      method: keyboard
+      map: oracle.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 2
+      target_index: 3
+      face_index: 18446744073709551615
+      triggered_event: 15
+      trigger: 0
+      name: crysdisc
+      distance: 173.844
+      hit: "(-6412.92,2088,612.426)"
+      pose:
+        x: -6448.9
+        y: 1928.47
+        z: 512
+        map: oracle.blv
+        yaw: 1.35003
+        pitch: -0.3495
+  - source_line: 469
+    assert:
+      qbit_set:
+        - 1126
+  - source_line: 470
+    assert:
+      qbit_clear:
+        - 1217
+  - source_line: 471
+    assert:
+      qbit_set:
+        - 1305
+  - source_line: 472
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 280
+  - source_line: 473
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 6
+        face_index: 448
+  - source_line: 474
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 2
+        previous: 0
+        current: 1
+  - source_line: 475
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 280
+  - source_line: 476
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 2
+        previous: 1
+        current: 0
+  - source_line: 477
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 2
+        face_index: 392
+  - source_line: 478
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 7
+        previous: 1
+        current: 0
+  - source_line: 479
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 384
+      open_speed: 150
+      close_speed: 150
+  - source_line: 480
+    interact_target:
+      method: keyboard
+      map: oracle.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 399
+      face_index: 399
+      triggered_event: 3
+      trigger: 0
+      name: ""
+      distance: 312.3
+      hit: "(-1371.63,2336,-415.764)"
+      pose:
+        x: -1390.78
+        y: 2030.67
+        z: -512
+        map: oracle.blv
+        yaw: 1.50755
+        pitch: -0.2055
+  - source_line: 482
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1389
+      secondary_id: 1389
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Control Center"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 793
+          title: Oracle
+          house_title: ""
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1389
+              secondary_id: 1389
+              enabled: true
+              text_only: false
+              label: "Control Center"
+  - source_line: 483
+    assert:
+      award_acquired:
+        - id: 75
+          member_index: 0
+  - source_line: 484
+    assert:
+      qbit_set:
+        - 1190
+  - source_line: 485
+    assert:
+      qbit_clear:
+        - 1186
+  - source_line: 486
+    assert:
+      qbit_clear:
+        - 1187
+  - source_line: 487
+    assert:
+      qbit_clear:
+        - 1188
+  - source_line: 488
+    assert:
+      qbit_clear:
+        - 1189
+  - source_line: 490
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1389
+      secondary_id: 1389
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Control Center"
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 793
+          title: Oracle
+          house_title: ""
+          line_count: 10
+          text_hash: 6803039496263433360
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1389
+              secondary_id: 1389
+              enabled: true
+              text_only: false
+              label: "Control Center"
+  - source_line: 492
+    press_action:
+      action: cancel_dialog
+      expect:
+        dialogue_canceled:
+          kind: npc_talk
+          active_source_id: 793
+          house_dialog: false
+          action_count: 1
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: false
+          source_id: 793
+          title: Oracle
+          house_title: ""
+          line_count: 10
+          text_hash: 6803039496263433360
+          action_count: 1
+          actions:
+            - index: 0
+              kind: npc_topic
+              id: 1389
+              secondary_id: 1389
+              enabled: true
+              text_only: false
+              label: "Control Center"
+  - source_line: 492
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 793
+        house_dialog: false
+        action_count: 1
+  - source_line: 493
+    wait_until:
+      timeout_runtime_seconds: 3.067
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: open
+          door_slot: 1
+          move_length: 384
+          open_speed: 150
+          close_speed: 150
+  - source_line: 494
+    save_game: save9
+  - source_line: 495
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/save9.oysav
+      first_source_line: 495
+      last_source_line: 614
+      record_count: 118
+      counts:
+        map_vars: 40
+        party: 1
+        party_award: 9
+        party_equipped: 11
+        party_inventory: 5
+        party_member: 1
+        party_skills: 1
+        qbit: 50
+      encoding: base64+zlib+json
+      data: "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"

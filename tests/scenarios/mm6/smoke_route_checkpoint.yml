@@ -1,0 +1,33 @@
+id: mm6.smoke.route_checkpoint
+title: MM6 smoke - route shortcut checkpoint restore
+world: mm6
+mode: hybrid
+tags:
+  - mm6
+  - smoke
+  - p0
+steps:
+  - new_game_flow:
+      continent: enroth
+      party: mm6_story_any
+      start_map: oute3.odm
+  - travel:
+      target: Bootleg Bay
+      map: outc1.odm
+      method: route_shortcut
+      shortcut: true
+      reason: smoke test route shortcut
+  - assert:
+      map: outc1.odm
+  - save_checkpoint: bootleg_bay
+  - travel:
+      target: Free Haven
+      map: outc2.odm
+      method: route_shortcut
+      shortcut: true
+      reason: smoke test checkpoint restore
+  - assert:
+      map: outc2.odm
+  - load_checkpoint: bootleg_bay
+  - assert:
+      map: outc1.odm

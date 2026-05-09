@@ -2,6 +2,7 @@
 #include "game/events/EventRuntime.h"
 #include "engine/scripting/LuaStateOwner.h"
 #include "game/audio/SoundIds.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -49,7 +50,8 @@ bool evaluateCompareValue(
     uint32_t rawVariableId,
     int32_t compareValue,
     const Party *pParty,
-    const std::vector<size_t> &targetMemberIndices);
+    const std::vector<size_t> &targetMemberIndices,
+    bool usePartyWideInventory);
 const Party *readableParty(lua_State *pLuaState);
 const MapDeltaDoor *findMechanismDoorById(const MapDeltaData *pMapDeltaData, uint32_t mechanismId);
 void initializeRuntimeMechanismStateFromDoor(
@@ -107,6 +109,80 @@ void synchronizeLegacyHistoryMirror(EventRuntimeState &runtimeState)
     runtimeState.historyEventTimes = found != runtimeState.historyEventTimesByContinent.end()
         ? found->second
         : std::unordered_map<uint32_t, int32_t>{};
+}
+
+std::string traceQuoted(const std::string &value)
+{
+    std::string quoted = "\"";
+
+    for (char character : value)
+    {
+        if (character == '\\' || character == '"')
+        {
+            quoted.push_back('\\');
+        }
+
+        quoted.push_back(character);
+    }
+
+    quoted.push_back('"');
+    return quoted;
+}
+
+void traceRuntimeValueChange(
+    const EventRuntimeState &runtimeState,
+    const std::string &eventName,
+    const std::string &identity,
+    int32_t previousValue,
+    int32_t currentValue,
+    const char *pOperation)
+{
+    if (previousValue == currentValue)
+    {
+        return;
+    }
+
+    gameplayDebugTraceLog(
+        eventName
+        + " map=\"" + runtimeState.mapFileName + "\""
+        + " operation=" + pOperation
+        + " " + identity
+        + " previous=" + std::to_string(previousValue)
+        + " current=" + std::to_string(currentValue));
+}
+
+void traceIndexedRuntimeValueChange(
+    const EventRuntimeState &runtimeState,
+    const std::string &eventName,
+    size_t index,
+    int32_t previousValue,
+    int32_t currentValue,
+    const char *pOperation)
+{
+    traceRuntimeValueChange(
+        runtimeState,
+        eventName,
+        "index=" + std::to_string(index),
+        previousValue,
+        currentValue,
+        pOperation);
+}
+
+void traceNamedRuntimeValueChange(
+    const EventRuntimeState &runtimeState,
+    const std::string &eventName,
+    const std::string &name,
+    int32_t previousValue,
+    int32_t currentValue,
+    const char *pOperation)
+{
+    traceRuntimeValueChange(
+        runtimeState,
+        eventName,
+        "name=\"" + name + "\"",
+        previousValue,
+        currentValue,
+        pOperation);
 }
 
 void seedForwardHistoryEntries(EventRuntimeState &runtimeState)
@@ -3002,7 +3078,16 @@ void EventRuntime::setVariableValue(
     {
         if (variable.index < runtimeState.mapVars.size())
         {
-            runtimeState.mapVars[variable.index] = static_cast<uint8_t>(std::clamp(value, 0, 255));
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.mapVars[variable.index]);
+            const int32_t updatedValue = std::clamp(value, 0, 255);
+            runtimeState.mapVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "map_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "set");
         }
         return;
     }
@@ -3011,7 +3096,16 @@ void EventRuntime::setVariableValue(
     {
         if (variable.index < runtimeState.decorVars.size())
         {
-            runtimeState.decorVars[variable.index] = static_cast<uint8_t>(std::clamp(value, 0, 255));
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.decorVars[variable.index]);
+            const int32_t updatedValue = std::clamp(value, 0, 255);
+            runtimeState.decorVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "decor_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "set");
         }
         return;
     }
@@ -3492,8 +3586,16 @@ void EventRuntime::addVariableValue(
     {
         if (variable.index < runtimeState.mapVars.size())
         {
-            const int updatedValue = std::clamp(static_cast<int>(runtimeState.mapVars[variable.index]) + value, 0, 255);
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.mapVars[variable.index]);
+            const int updatedValue = std::clamp(static_cast<int>(currentValue) + value, 0, 255);
             runtimeState.mapVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "map_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "add");
         }
         return;
     }
@@ -3502,8 +3604,16 @@ void EventRuntime::addVariableValue(
     {
         if (variable.index < runtimeState.decorVars.size())
         {
-            const int updatedValue = std::clamp(static_cast<int>(runtimeState.decorVars[variable.index]) + value, 0, 255);
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.decorVars[variable.index]);
+            const int updatedValue = std::clamp(static_cast<int>(currentValue) + value, 0, 255);
             runtimeState.decorVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "decor_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "add");
         }
         return;
     }
@@ -3923,8 +4033,16 @@ void EventRuntime::subtractVariableValue(
     {
         if (variable.index < runtimeState.mapVars.size())
         {
-            const int updatedValue = std::clamp(static_cast<int>(runtimeState.mapVars[variable.index]) - value, 0, 255);
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.mapVars[variable.index]);
+            const int updatedValue = std::clamp(static_cast<int>(currentValue) - value, 0, 255);
             runtimeState.mapVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "map_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "subtract");
         }
         return;
     }
@@ -3933,8 +4051,16 @@ void EventRuntime::subtractVariableValue(
     {
         if (variable.index < runtimeState.decorVars.size())
         {
-            const int updatedValue = std::clamp(static_cast<int>(runtimeState.decorVars[variable.index]) - value, 0, 255);
+            const int32_t currentValue = static_cast<int32_t>(runtimeState.decorVars[variable.index]);
+            const int updatedValue = std::clamp(static_cast<int>(currentValue) - value, 0, 255);
             runtimeState.decorVars[variable.index] = static_cast<uint8_t>(updatedValue);
+            traceIndexedRuntimeValueChange(
+                runtimeState,
+                "decor_var_changed",
+                variable.index,
+                currentValue,
+                updatedValue,
+                "subtract");
         }
         return;
     }
@@ -4103,6 +4229,8 @@ struct LuaScopeProgram
     std::vector<uint16_t> mapTransitionHookEventIds;
     std::vector<uint16_t> monsterKilledHookEventIds;
     std::vector<uint16_t> monsterDamageHookEventIds;
+    std::vector<uint16_t> chestOpenHookEventIds;
+    std::vector<uint16_t> inventoryOpenHookEventIds;
 };
 
 struct LuaExecutionContext
@@ -4120,7 +4248,9 @@ struct LuaExecutionContext
     uint16_t currentEventId = 0;
     bool readonly = false;
     bool preservePendingOutputsOnBegin = false;
+    bool preserveRuntimeOutputsOnBegin = false;
     bool allowStandaloneMapEventDialogueContext = true;
+    bool executingGlobalHandler = false;
 };
 
 }
@@ -4248,6 +4378,7 @@ bool moveToMapLeavesIndoorDungeon(
 {
     return sceneEventContextIsIndoorMap(pExecutionContext)
         && move.mapName.has_value()
+        && !move.useMapStartPosition
         && eventStringEndsWithIgnoreCase(*move.mapName, ".odm");
 }
 
@@ -4316,10 +4447,13 @@ int luaBeginEvent(lua_State *pLuaState)
         pExecutionContext->currentEventId = static_cast<uint16_t>(luaL_checkinteger(pLuaState, 1));
         pExecutionContext->selector = {};
         pExecutionContext->pendingMessageText.reset();
-        prepareRuntimeStateForEventExecution(
-            *pRuntimeState,
-            pExecutionContext->pSceneEventContext,
-            !pExecutionContext->preservePendingOutputsOnBegin);
+        if (!pExecutionContext->preserveRuntimeOutputsOnBegin)
+        {
+            prepareRuntimeStateForEventExecution(
+                *pRuntimeState,
+                pExecutionContext->pSceneEventContext,
+                !pExecutionContext->preservePendingOutputsOnBegin);
+        }
     }
 
     return 0;
@@ -4354,6 +4488,7 @@ int luaForPlayer(lua_State *pLuaState)
 
 int luaCompare(lua_State *pLuaState)
 {
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
     const uint32_t rawVariableId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
     const int32_t compareValue = static_cast<int32_t>(luaL_checkinteger(pLuaState, 2));
     lua_pushboolean(
@@ -4363,7 +4498,8 @@ int luaCompare(lua_State *pLuaState)
             rawVariableId,
             compareValue,
             readableParty(pLuaState),
-            selectedTargetMemberIndices(pLuaState)));
+            selectedTargetMemberIndices(pLuaState),
+            pExecutionContext == nullptr || pExecutionContext->selector.kind == PartySelectorKind::None));
     return 1;
 }
 
@@ -4699,7 +4835,17 @@ int luaSetMapVar(lua_State *pLuaState)
 
     if (pRuntimeState != nullptr)
     {
+        const auto previousIterator = pRuntimeState->namedMapVars.find(name);
+        const int32_t previousValue =
+            previousIterator != pRuntimeState->namedMapVars.end() ? previousIterator->second : 0;
         pRuntimeState->namedMapVars[name] = value;
+        traceNamedRuntimeValueChange(
+            *pRuntimeState,
+            "named_map_var_changed",
+            name,
+            previousValue,
+            value,
+            "set");
     }
 
     return 0;
@@ -4736,7 +4882,17 @@ int luaSetGlobalVar(lua_State *pLuaState)
 
     if (pRuntimeState != nullptr)
     {
+        const auto previousIterator = pRuntimeState->namedGlobalVars.find(name);
+        const int32_t previousValue =
+            previousIterator != pRuntimeState->namedGlobalVars.end() ? previousIterator->second : 0;
         pRuntimeState->namedGlobalVars[name] = value;
+        traceNamedRuntimeValueChange(
+            *pRuntimeState,
+            "named_global_var_changed",
+            name,
+            previousValue,
+            value,
+            "set");
     }
 
     return 0;
@@ -4929,6 +5085,70 @@ int luaPartyMemberItemCount(lua_State *pLuaState)
     return 1;
 }
 
+int luaGivePartyMemberItem(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    Party *pParty = writableParty(pLuaState);
+    const size_t memberIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const uint32_t itemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
+    const uint32_t quantity = lua_isnoneornil(pLuaState, 3)
+        ? 1u
+        : static_cast<uint32_t>(std::max<lua_Integer>(1, luaL_checkinteger(pLuaState, 3)));
+
+    if (pRuntimeState == nullptr || pParty == nullptr || itemId == 0)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    std::optional<InventoryItem> item = createGrantedEventItem(*pRuntimeState, pParty, 0, 1, 0, itemId);
+
+    if (!item)
+    {
+        lua_pushboolean(pLuaState, 0);
+        return 1;
+    }
+
+    item->quantity = quantity;
+    size_t recipientMemberIndex = 0;
+    const bool granted = pParty->tryGrantInventoryItemStartingAt(memberIndex, *item, &recipientMemberIndex);
+    lua_pushboolean(pLuaState, granted);
+    return 1;
+}
+
+int luaReplacePartyInventoryItems(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const uint32_t fromItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const uint32_t toItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
+    int32_t replacedCount = 0;
+
+    if (pParty != nullptr && fromItemId != 0 && toItemId != 0)
+    {
+        for (size_t memberIndex = 0; memberIndex < pParty->memberCount(); ++memberIndex)
+        {
+            Character *pMember = pParty->member(memberIndex);
+
+            if (pMember == nullptr)
+            {
+                continue;
+            }
+
+            for (InventoryItem &item : pMember->inventory)
+            {
+                if (item.objectDescriptionId == fromItemId)
+                {
+                    item.objectDescriptionId = toItemId;
+                    ++replacedCount;
+                }
+            }
+        }
+    }
+
+    lua_pushinteger(pLuaState, replacedCount);
+    return 1;
+}
+
 int luaPartyMemberKnowsSpell(lua_State *pLuaState)
 {
     const Party *pParty = readableParty(pLuaState);
@@ -5066,8 +5286,16 @@ int luaGetHookContext(lua_State *pLuaState)
     lua_setfield(pLuaState, -2, "actionId");
     lua_pushinteger(pLuaState, pContext->boundaryEdge);
     lua_setfield(pLuaState, -2, "boundaryEdge");
+    lua_pushinteger(pLuaState, pContext->chestId);
+    lua_setfield(pLuaState, -2, "chestId");
     lua_pushinteger(pLuaState, pContext->heldItemId);
     lua_setfield(pLuaState, -2, "heldItemId");
+    lua_pushinteger(pLuaState, pContext->inventorySource);
+    lua_setfield(pLuaState, -2, "inventorySource");
+    lua_pushinteger(pLuaState, pContext->inventorySourceIndex);
+    lua_setfield(pLuaState, -2, "inventorySourceIndex");
+    lua_pushinteger(pLuaState, pContext->inventoryPage);
+    lua_setfield(pLuaState, -2, "inventoryPage");
     lua_pushstring(pLuaState, pContext->destinationMapName.c_str());
     lua_setfield(pLuaState, -2, "destinationMapName");
     lua_pushinteger(pLuaState, pContext->baseRestFoodCost);
@@ -5424,9 +5652,12 @@ int luaMoveToMap(lua_State *pLuaState)
     move.y = static_cast<int32_t>(luaL_checkinteger(pLuaState, 2));
     move.z = static_cast<int32_t>(luaL_checkinteger(pLuaState, 3));
 
+    std::optional<int32_t> yawUnits;
+
     if (argumentCount >= 4 && lua_type(pLuaState, 4) != LUA_TNIL)
     {
-        move.directionDegrees = moveToMapYawUnitsToDegrees(static_cast<int32_t>(luaL_checkinteger(pLuaState, 4)));
+        yawUnits = static_cast<int32_t>(luaL_checkinteger(pLuaState, 4));
+        move.directionDegrees = moveToMapYawUnitsToDegrees(*yawUnits);
     }
 
     int mapNameArgumentIndex = 0;
@@ -5447,6 +5678,16 @@ int luaMoveToMap(lua_State *pLuaState)
         if (!mapName.empty() && !isCurrentMapMoveSentinel(mapName))
         {
             move.mapName = mapName;
+        }
+    }
+
+    if (move.mapName.has_value() && move.x == 0 && move.y == 0 && move.z == 0)
+    {
+        move.useMapStartPosition = true;
+
+        if (yawUnits.has_value() && *yawUnits == 0)
+        {
+            move.directionDegrees.reset();
         }
     }
 
@@ -6224,6 +6465,65 @@ void appendLuaStringTable(lua_State *pLuaState, int tableIndex, std::vector<std:
     }
 }
 
+bool appendPendingMessageText(lua_State *pLuaState, EventRuntimeState &runtimeState)
+{
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pExecutionContext == nullptr || !pExecutionContext->pendingMessageText)
+    {
+        return false;
+    }
+
+    runtimeState.messages.push_back(*pExecutionContext->pendingMessageText);
+    pExecutionContext->pendingMessageText.reset();
+    return true;
+}
+
+void tracePendingInputPromptCreated(
+    const EventRuntimeState &runtimeState,
+    const EventRuntimeState::PendingInputPrompt &prompt,
+    const char *pSource)
+{
+    const char *pContextKind = "none";
+
+    if (runtimeState.pendingDialogueContext)
+    {
+        switch (runtimeState.pendingDialogueContext->kind)
+        {
+            case DialogueContextKind::None:
+                pContextKind = "none";
+                break;
+            case DialogueContextKind::MapEvent:
+                pContextKind = "map_event";
+                break;
+            case DialogueContextKind::MapTransition:
+                pContextKind = "map_transition";
+                break;
+            case DialogueContextKind::HouseService:
+                pContextKind = "house_service";
+                break;
+            case DialogueContextKind::NpcTalk:
+                pContextKind = "npc_talk";
+                break;
+            case DialogueContextKind::NpcNews:
+                pContextKind = "npc_news";
+                break;
+        }
+    }
+
+    gameplayDebugTraceLog(
+        std::string("input_prompt_created source=") + pSource
+        + " map=" + traceQuoted(runtimeState.mapFileName)
+        + " context=" + pContextKind
+        + " event_id=" + std::to_string(prompt.eventId)
+        + " continue_step=" + std::to_string(prompt.continueStep)
+        + " correct_step=" + std::to_string(prompt.correctStep)
+        + " text_id=" + std::to_string(prompt.textId)
+        + " prompt=" + traceQuoted(prompt.text.value_or(std::string()))
+        + " answer_count=" + std::to_string(prompt.answers.size())
+        + " message_count=" + std::to_string(runtimeState.messages.size()));
+}
+
 int luaAskQuestion(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -6285,11 +6585,15 @@ int luaAskQuestion(lua_State *pLuaState)
         }
     }
 
-    if (prompt.text && !prompt.text->empty())
+    if (!appendPendingMessageText(pLuaState, *pRuntimeState)
+        && pRuntimeState->messages.empty()
+        && prompt.text
+        && !prompt.text->empty())
     {
         pRuntimeState->messages.push_back(*prompt.text);
     }
 
+    tracePendingInputPromptCreated(*pRuntimeState, prompt, "AskQuestion");
     pRuntimeState->pendingInputPrompt = std::move(prompt);
     return 0;
 }
@@ -6356,11 +6660,15 @@ int luaAskQuestionWithAnswerSteps(lua_State *pLuaState)
         lua_pop(pLuaState, 1);
     }
 
-    if (prompt.text && !prompt.text->empty())
+    if (!appendPendingMessageText(pLuaState, *pRuntimeState)
+        && pRuntimeState->messages.empty()
+        && prompt.text
+        && !prompt.text->empty())
     {
         pRuntimeState->messages.push_back(*prompt.text);
     }
 
+    tracePendingInputPromptCreated(*pRuntimeState, prompt, "AskQuestionWithAnswerSteps");
     pRuntimeState->pendingInputPrompt = std::move(prompt);
     return 0;
 }
@@ -6374,6 +6682,7 @@ int luaPressAnyKey(lua_State *pLuaState)
     prompt.kind = EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey;
     prompt.eventId = static_cast<uint16_t>(luaL_checkinteger(pLuaState, 1));
     prompt.continueStep = static_cast<uint8_t>(luaL_checkinteger(pLuaState, 2));
+    appendPendingMessageText(pLuaState, *pRuntimeState);
     pRuntimeState->pendingInputPrompt = std::move(prompt);
     return 0;
 }
@@ -6672,7 +6981,21 @@ int luaSetDoorState(lua_State *pLuaState)
         action = MechanismAction::Trigger;
     }
 
+    const uint16_t previousState = runtimeMechanism.state;
+    const bool wasMoving = runtimeMechanism.isMoving;
     EventRuntime::applyMechanismAction(runtimeMechanism, pDoor, action);
+    gameplayDebugTraceLog(
+        "mechanism_triggered kind=indoor_door id=" + std::to_string(mechanismId)
+        + " action=" + gameplayDebugTraceMechanismActionName(actionValue)
+        + " raw_action=" + std::to_string(actionValue)
+        + " previous_state=" + gameplayDebugTraceMechanismStateName(previousState)
+        + " new_state=" + gameplayDebugTraceMechanismStateName(runtimeMechanism.state)
+        + " was_moving=" + (wasMoving ? "true" : "false")
+        + " moving=" + (runtimeMechanism.isMoving ? "true" : "false")
+        + " door_slot=" + std::to_string(pDoor != nullptr ? pDoor->slotIndex : 0)
+        + " move_length=" + std::to_string(pDoor != nullptr ? pDoor->moveLength : 0)
+        + " open_speed=" + std::to_string(pDoor != nullptr ? pDoor->openSpeed : 0)
+        + " close_speed=" + std::to_string(pDoor != nullptr ? pDoor->closeSpeed : 0));
     pRuntimeState->lastAffectedMechanismIds.push_back(mechanismId);
     return 0;
 }
@@ -6725,6 +7048,8 @@ int luaSetOutdoorModelMechanismState(lua_State *pLuaState)
     }
 
     RuntimeMechanismState &runtimeMechanism = pRuntimeState->mechanisms[mechanismId];
+    const EventRuntimeState::OutdoorModelMechanismDefinition &definition =
+        pRuntimeState->outdoorModelMechanisms.at(mechanismId);
     MechanismAction action = MechanismAction::Open;
 
     if (actionValue == static_cast<uint32_t>(EvtMechanismAction::Close))
@@ -6736,7 +7061,23 @@ int luaSetOutdoorModelMechanismState(lua_State *pLuaState)
         action = MechanismAction::Trigger;
     }
 
+    const uint16_t previousState = runtimeMechanism.state;
+    const bool wasMoving = runtimeMechanism.isMoving;
     EventRuntime::applyMechanismAction(runtimeMechanism, nullptr, action);
+    gameplayDebugTraceLog(
+        "mechanism_triggered kind=outdoor_model id=" + std::to_string(mechanismId)
+        + " action=" + gameplayDebugTraceMechanismActionName(actionValue)
+        + " raw_action=" + std::to_string(actionValue)
+        + " previous_state=" + gameplayDebugTraceMechanismStateName(previousState)
+        + " new_state=" + gameplayDebugTraceMechanismStateName(runtimeMechanism.state)
+        + " was_moving=" + (wasMoving ? "true" : "false")
+        + " moving=" + (runtimeMechanism.isMoving ? "true" : "false")
+        + " model=\"" + definition.modelName + "\""
+        + " bmodel_index=" + std::to_string(definition.bmodelIndex)
+        + " move_time_ms=" + std::to_string(definition.moveTimeMs)
+        + " delta=(" + std::to_string(definition.dx) + "," + std::to_string(definition.dy)
+        + "," + std::to_string(definition.dz) + ")"
+        + " move_party=" + (definition.moveParty ? "true" : "false"));
     pRuntimeState->lastAffectedMechanismIds.push_back(mechanismId);
     markOutdoorSurfaceStateChanged(*pRuntimeState);
     return 0;
@@ -6746,7 +7087,13 @@ int luaStopDoor(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     const uint32_t mechanismId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
-    pRuntimeState->mechanisms[mechanismId].isMoving = false;
+    RuntimeMechanismState &runtimeMechanism = pRuntimeState->mechanisms[mechanismId];
+    const bool wasMoving = runtimeMechanism.isMoving;
+    runtimeMechanism.isMoving = false;
+    gameplayDebugTraceLog(
+        "mechanism_stopped id=" + std::to_string(mechanismId)
+        + " state=" + gameplayDebugTraceMechanismStateName(runtimeMechanism.state)
+        + " was_moving=" + (wasMoving ? "true" : "false"));
     pRuntimeState->lastAffectedMechanismIds.push_back(mechanismId);
     return 0;
 }
@@ -6942,6 +7289,27 @@ int luaSetMessage(lua_State *pLuaState)
     if (pExecutionContext != nullptr)
     {
         pExecutionContext->pendingMessageText = luaL_checkstring(pLuaState, 1);
+
+        EventRuntimeState *pRuntimeState = pExecutionContext->pRuntimeState;
+        const bool isNpcTopicExecution = !pExecutionContext->allowStandaloneMapEventDialogueContext;
+        const bool shouldDisplayGlobalMessage =
+            pRuntimeState != nullptr
+            &&
+            pExecutionContext->executingGlobalHandler
+            && (!pRuntimeState->pendingDialogueContext
+                || pRuntimeState->pendingDialogueContext->kind != DialogueContextKind::MapEvent);
+        const bool hasNonMapDialogueContext =
+            pRuntimeState != nullptr
+            && pRuntimeState->pendingDialogueContext
+            && pRuntimeState->pendingDialogueContext->kind != DialogueContextKind::None
+            && pRuntimeState->pendingDialogueContext->kind != DialogueContextKind::MapEvent
+            && pRuntimeState->pendingDialogueContext->kind != DialogueContextKind::MapTransition;
+
+        if (pRuntimeState != nullptr && (isNpcTopicExecution || shouldDisplayGlobalMessage || hasNonMapDialogueContext))
+        {
+            pRuntimeState->messages.push_back(*pExecutionContext->pendingMessageText);
+            pExecutionContext->pendingMessageText.reset();
+        }
     }
 
     return 0;
@@ -6958,12 +7326,7 @@ int luaSimpleMessage(lua_State *pLuaState)
         return 0;
     }
 
-    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
-
-    if (pExecutionContext != nullptr && pExecutionContext->pendingMessageText)
-    {
-        pRuntimeState->messages.push_back(*pExecutionContext->pendingMessageText);
-    }
+    appendPendingMessageText(pLuaState, *pRuntimeState);
 
     return 0;
 }
@@ -7061,6 +7424,8 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetPartyMemberPortraitId", luaSetPartyMemberPortraitId);
     registerLuaFunction(pLuaState, "PartyMemberHasItem", luaPartyMemberHasItem);
     registerLuaFunction(pLuaState, "PartyMemberItemCount", luaPartyMemberItemCount);
+    registerLuaFunction(pLuaState, "GivePartyMemberItem", luaGivePartyMemberItem);
+    registerLuaFunction(pLuaState, "ReplacePartyInventoryItems", luaReplacePartyInventoryItems);
     registerLuaFunction(pLuaState, "PartyMemberKnowsSpell", luaPartyMemberKnowsSpell);
     registerLuaFunction(pLuaState, "RemovePartyMemberItem", luaRemovePartyMemberItem);
     registerLuaFunction(pLuaState, "ApplyLichTransformation", luaApplyLichTransformation);
@@ -7232,6 +7597,8 @@ void releaseScopeProgram(Engine::LuaStateOwner &lua, LuaScopeProgram &scopeProgr
     scopeProgram.mapTransitionHookEventIds.clear();
     scopeProgram.monsterKilledHookEventIds.clear();
     scopeProgram.monsterDamageHookEventIds.clear();
+    scopeProgram.chestOpenHookEventIds.clear();
+    scopeProgram.inventoryOpenHookEventIds.clear();
 }
 
 void freezeHandlerTable(
@@ -7342,6 +7709,8 @@ LuaScopeProgram buildScopeProgram(
     scopeProgram.mapTransitionHookEventIds = readMetaEventIdArray(session.lua, scopeName, "mapTransitionHooks");
     scopeProgram.monsterKilledHookEventIds = readMetaEventIdArray(session.lua, scopeName, "monsterKilledHooks");
     scopeProgram.monsterDamageHookEventIds = readMetaEventIdArray(session.lua, scopeName, "monsterDamageHooks");
+    scopeProgram.chestOpenHookEventIds = readMetaEventIdArray(session.lua, scopeName, "chestOpenHooks");
+    scopeProgram.inventoryOpenHookEventIds = readMetaEventIdArray(session.lua, scopeName, "inventoryOpenHooks");
 
     return scopeProgram;
 }
@@ -7779,6 +8148,43 @@ bool EventRuntime::validateProgramBindings(
         && report.missingCanShowTopicEventIds.empty();
 }
 
+void executeOpenedChestHooks(
+    const EventRuntime &eventRuntime,
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram,
+    size_t openedChestBeginIndex,
+    EventRuntimeState &runtimeState,
+    Party *pParty,
+    ISceneEventContext *pSceneEventContext)
+{
+    const size_t openedChestEndIndex = runtimeState.openedChestIds.size();
+
+    if (openedChestBeginIndex >= openedChestEndIndex)
+    {
+        return;
+    }
+
+    const std::optional<EventRuntimeState::ActiveHookContext> previousHookContext = runtimeState.activeHookContext;
+
+    for (size_t openedChestIndex = openedChestBeginIndex; openedChestIndex < openedChestEndIndex; ++openedChestIndex)
+    {
+        EventRuntimeState::ActiveHookContext hookContext = {};
+        hookContext.kind = EventRuntimeHookKind::ChestOpen;
+        hookContext.chestId = runtimeState.openedChestIds[openedChestIndex];
+        hookContext.heldItemId = pParty != nullptr ? pParty->heldItemIdForQueries() : 0;
+        runtimeState.activeHookContext = std::move(hookContext);
+        eventRuntime.executeHooks(
+            localProgram,
+            globalProgram,
+            EventRuntimeHookKind::ChestOpen,
+            runtimeState,
+            pParty,
+            pSceneEventContext);
+    }
+
+    runtimeState.activeHookContext = previousHookContext;
+}
+
 bool EventRuntime::executeEventById(
     const std::optional<ScriptedEventProgram> &localProgram,
     const std::optional<ScriptedEventProgram> &globalProgram,
@@ -7786,7 +8192,8 @@ bool EventRuntime::executeEventById(
     EventRuntimeState &runtimeState,
     Party *pParty,
     ISceneEventContext *pSceneEventContext,
-    std::optional<uint8_t> continueStep
+    std::optional<uint8_t> continueStep,
+    bool allowGlobalFallback
 ) const
 {
     if (eventId == 0)
@@ -7810,7 +8217,22 @@ bool EventRuntime::executeEventById(
 
     if (localIterator != m_luaSessionCache->localScope.handlers.end())
     {
-        return invokeLuaHandler(*this, localIterator->second, executionContext, continueStep);
+        const size_t openedChestBeginIndex = runtimeState.openedChestIds.size();
+        const bool invoked = invokeLuaHandler(*this, localIterator->second, executionContext, continueStep);
+
+        if (invoked)
+        {
+            executeOpenedChestHooks(
+                *this,
+                localProgram,
+                globalProgram,
+                openedChestBeginIndex,
+                runtimeState,
+                pParty,
+                pSceneEventContext);
+        }
+
+        return invoked;
     }
 
     if (localProgram && localProgram->isHintOnlyEvent(eventId))
@@ -7818,11 +8240,32 @@ bool EventRuntime::executeEventById(
         return true;
     }
 
+    if (!allowGlobalFallback)
+    {
+        return false;
+    }
+
     const auto globalIterator = m_luaSessionCache->globalScope.handlers.find(eventId);
 
     if (globalIterator != m_luaSessionCache->globalScope.handlers.end())
     {
-        return invokeLuaHandler(*this, globalIterator->second, executionContext, continueStep);
+        executionContext.executingGlobalHandler = true;
+        const size_t openedChestBeginIndex = runtimeState.openedChestIds.size();
+        const bool invoked = invokeLuaHandler(*this, globalIterator->second, executionContext, continueStep);
+
+        if (invoked)
+        {
+            executeOpenedChestHooks(
+                *this,
+                localProgram,
+                globalProgram,
+                openedChestBeginIndex,
+                runtimeState,
+                pParty,
+                pSceneEventContext);
+        }
+
+        return invoked;
     }
 
     if (globalProgram && globalProgram->isHintOnlyEvent(eventId))
@@ -7861,10 +8304,30 @@ bool EventRuntime::executeNpcTopicEventById(
     executionContext.currentEventId = eventId;
     executionContext.allowStandaloneMapEventDialogueContext = false;
 
+    const bool continueExistingMapEventDialogue =
+        runtimeState.pendingDialogueContext
+        && runtimeState.pendingDialogueContext->kind == DialogueContextKind::MapEvent;
+
+    if (continueExistingMapEventDialogue)
+    {
+        const auto localIterator = m_luaSessionCache->localScope.handlers.find(eventId);
+
+        if (localIterator != m_luaSessionCache->localScope.handlers.end())
+        {
+            return invokeLuaHandler(*this, localIterator->second, executionContext, continueStep);
+        }
+
+        if (localProgram && localProgram->isHintOnlyEvent(eventId))
+        {
+            return true;
+        }
+    }
+
     const auto globalIterator = m_luaSessionCache->globalScope.handlers.find(eventId);
 
     if (globalIterator != m_luaSessionCache->globalScope.handlers.end())
     {
+        executionContext.executingGlobalHandler = true;
         return invokeLuaHandler(*this, globalIterator->second, executionContext, continueStep);
     }
 
@@ -7956,6 +8419,10 @@ const std::vector<uint16_t> &hookEventIdsForKind(
             return scopeProgram.monsterKilledHookEventIds;
         case EventRuntimeHookKind::MonsterDamage:
             return scopeProgram.monsterDamageHookEventIds;
+        case EventRuntimeHookKind::ChestOpen:
+            return scopeProgram.chestOpenHookEventIds;
+        case EventRuntimeHookKind::InventoryOpen:
+            return scopeProgram.inventoryOpenHookEventIds;
     }
 
     return scopeProgram.npcEnterHookEventIds;
@@ -8013,6 +8480,7 @@ bool EventRuntime::executeHooks(
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
     executionContext.preservePendingOutputsOnBegin = true;
+    executionContext.preserveRuntimeOutputsOnBegin = true;
 
     const bool globalExecuted = executeHookScope(*this, m_luaSessionCache->globalScope, kind, executionContext);
     const bool localExecuted = executeHookScope(*this, m_luaSessionCache->localScope, kind, executionContext);
@@ -8073,9 +8541,22 @@ void EventRuntime::advanceMechanisms(
         runtimeMechanism.timeSinceTriggeredMs += deltaMilliseconds;
         runtimeMechanism.currentDistance =
             calculateMechanismDistance(door, runtimeMechanism);
+        const auto logMechanismCompleted =
+            [&door](const RuntimeMechanismState &mechanism, float elapsedMs)
+            {
+                gameplayDebugTraceLog(
+                    "mechanism_completed kind=indoor_door id=" + std::to_string(door.doorId)
+                    + " state=" + gameplayDebugTraceMechanismStateName(mechanism.state)
+                    + " elapsed_seconds=" + std::to_string(elapsedMs / 1000.0f)
+                    + " door_slot=" + std::to_string(door.slotIndex)
+                    + " move_length=" + std::to_string(door.moveLength)
+                    + " open_speed=" + std::to_string(door.openSpeed)
+                    + " close_speed=" + std::to_string(door.closeSpeed));
+            };
 
         if (door.moveLength <= 0)
         {
+            const float elapsedMs = runtimeMechanism.timeSinceTriggeredMs;
             runtimeMechanism.state =
                 runtimeMechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing)
                     ? static_cast<uint16_t>(EvtMechanismState::Closed)
@@ -8083,6 +8564,7 @@ void EventRuntime::advanceMechanisms(
             runtimeMechanism.timeSinceTriggeredMs = 0.0f;
             runtimeMechanism.currentDistance = 0.0f;
             runtimeMechanism.isMoving = false;
+            logMechanismCompleted(runtimeMechanism, elapsedMs);
             continue;
         }
 
@@ -8090,10 +8572,12 @@ void EventRuntime::advanceMechanisms(
         {
             if (door.closeSpeed <= 0)
             {
+                const float elapsedMs = runtimeMechanism.timeSinceTriggeredMs;
                 runtimeMechanism.state = static_cast<uint16_t>(EvtMechanismState::Closed);
                 runtimeMechanism.timeSinceTriggeredMs = 0.0f;
                 runtimeMechanism.currentDistance = static_cast<float>(door.moveLength);
                 runtimeMechanism.isMoving = false;
+                logMechanismCompleted(runtimeMechanism, elapsedMs);
                 continue;
             }
 
@@ -8101,20 +8585,24 @@ void EventRuntime::advanceMechanisms(
 
             if (closedDistance >= float(door.moveLength))
             {
+                const float elapsedMs = runtimeMechanism.timeSinceTriggeredMs;
                 runtimeMechanism.state = static_cast<uint16_t>(EvtMechanismState::Closed);
                 runtimeMechanism.timeSinceTriggeredMs = 0.0f;
                 runtimeMechanism.currentDistance = static_cast<float>(door.moveLength);
                 runtimeMechanism.isMoving = false;
+                logMechanismCompleted(runtimeMechanism, elapsedMs);
             }
         }
         else if (runtimeMechanism.state == static_cast<uint16_t>(EvtMechanismState::Opening))
         {
             if (door.openSpeed <= 0)
             {
+                const float elapsedMs = runtimeMechanism.timeSinceTriggeredMs;
                 runtimeMechanism.state = static_cast<uint16_t>(EvtMechanismState::Open);
                 runtimeMechanism.timeSinceTriggeredMs = 0.0f;
                 runtimeMechanism.currentDistance = 0.0f;
                 runtimeMechanism.isMoving = false;
+                logMechanismCompleted(runtimeMechanism, elapsedMs);
                 continue;
             }
 
@@ -8122,10 +8610,12 @@ void EventRuntime::advanceMechanisms(
 
             if (openedDistance >= float(door.moveLength))
             {
+                const float elapsedMs = runtimeMechanism.timeSinceTriggeredMs;
                 runtimeMechanism.state = static_cast<uint16_t>(EvtMechanismState::Open);
                 runtimeMechanism.timeSinceTriggeredMs = 0.0f;
                 runtimeMechanism.currentDistance = 0.0f;
                 runtimeMechanism.isMoving = false;
+                logMechanismCompleted(runtimeMechanism, elapsedMs);
             }
         }
         else
@@ -8267,12 +8757,16 @@ bool evaluateCompareValue(
     uint32_t rawVariableId,
     int32_t compareValue,
     const Party *pParty,
-    const std::vector<size_t> &targetMemberIndices
+    const std::vector<size_t> &targetMemberIndices,
+    bool usePartyWideInventory
 )
 {
     const EventRuntime::VariableRef variable = EventRuntime::decodeVariable(rawVariableId);
     const EvtVariable variableId = static_cast<EvtVariable>(variable.tag);
-    const std::optional<size_t> memberIndex = singleTargetMemberIndex(targetMemberIndices);
+    const std::optional<size_t> memberIndex =
+        usePartyWideInventory && variable.kind == EventRuntime::VariableKind::Inventory
+            ? std::nullopt
+            : singleTargetMemberIndex(targetMemberIndices);
     const int32_t currentValue = EventRuntime::getVariableValue(runtimeState, variable, pParty, memberIndex);
 
     if (variable.kind == EventRuntime::VariableKind::ClassId)

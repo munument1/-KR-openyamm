@@ -1,0 +1,655 @@
+id: mm6_4.2.probe
+title: "MM6 probe"
+world: mm6
+mode: faithful
+tags:
+  - mm6
+  - draft
+  - playthrough_trace
+source:
+  path: tests/playthrough_scenarios/mm6/02_memory_crystal_beta.txt
+  note: "Generated draft. Sanitize aliases, poses, shortcuts, and checkpoints before using as a runnable scenario."
+steps:
+  - source_line: 1
+    note: "trace_session_begin configured_world_id=mm6 gameplay_trace=true map_load_timing=false route_trace=false startup_map=oute3.odm trace_file=tests/playthrough_scenarios/mm6/02_memory_crystal_beta.txt unix_time=1778321449 world_id=mm6"
+  - source_line: 2
+    note: "menu_action action=load_game source=main_menu"
+  - source_line: 3
+    note: "load_game_screen_opened return_to_gameplay_menu=false source=main_menu"
+  - source_line: 4
+    load_game:
+      name: save4
+      path: saves/save4.oysav
+  - source_line: 5
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_file
+      path: saves/save4.oysav
+      first_source_line: 5
+      last_source_line: 105
+      record_count: 99
+      counts:
+        map_vars: 32
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 4
+        party_member: 1
+        party_skills: 1
+        qbit: 41
+      encoding: base64+zlib+json
+      data: eNrVWltv2zYU/iuBXrYBRsqLKFF5a3od0GBF260Pw2AwFm1zkUWXkpO6Rf/7DmUrlmSmVCNrQF8CkfY5+r7v3Cgrf38N5kpmaRFcfA3ErFS3crqSq2tppipP5efgAk2Ca5HfTBc6S6vVXGu4YJNgtxNyxvkkWCojM5UvpjO9ycvqi3s/+w38bRLcgM/gIlgLU26DSVDojZnJKZjJ4CL6NmlhuRMmrW3B/ywTBXwQvFGzJZgu13BNKUNP4A+FDZXfyrzUZlvbhJMgk7cygzujA5gDqVys4K7BKyAzCdbalEaocqoAH4kmgREAzC7stc7k4c6F/Fx9AC4KCyIiCX0SRQmGz2612puRqEN3r2qXddxmvcdOEwfg4kZlmZXgqTJXYqFmFwQhoPk0my3laluvzKpYiaKUpt74LPdXl1lz/1Kn26Ybu77eqCyFIN5v3e2vni2FysG1rq2fi8VCHhbm5kU2f3qtMlVuG5tN/89VIczqgxHrot7R6eJws+dGLHTe9vEClFs2nbyELGuuf08h6Gq+/b2Uq87Wlc4bbN9IYfLDzWBZLqVpMnqjFsuy6fsKUqC+lKkqRal0fr9hZkuRl/USotQ0fQsfy3Xj+28zUcrm3d7Jhcylafp8J9dCmQaT90ubF/ViDQzur5VRLazvSzGf319LkR2ovr/TpnbyZw4hkPXqL7ECR7It+UcA2kyvoJvH+zTs5DF3Va8tBBYfpXLXY/XlrsPkQYf8cQ4xetBj8kiP+CGPEXqkR/KgR/xIj/RBj+SRHsMHPdJHemQPeXR17n4uu9PEQEuA8VZ37mujb2QeXMxFVkgYLkthFtL2VvQEga+Fsd8LfkUT9pudLbuWoiRslmYDBgqqdKpmGlwExQwGRMaCetd2f0zofrmy9aQEjCGy39kPnhe5XClZnL1RRVnbGgF1vW0Oz0P7/7SBflN9iu1CFiVwvZE1omItZ3CbqcyrxnQ/okqRp1bOo30YarUAXUnvZ+mRrPGJZEV+WaP8bibWsi0rYj5Zn2Va3Jzp+dmlED+NrPxEspKurHuLpq72Gjp7U1dq+5VH1o2RZ2+FEdm2UMUgYfeY/h9lkxMpS/0JuwBdW9mK7OzryMrasl5pe0rRufxpFCWdMXqUWqzVCRkNjzRAbQ1eS6MBYCZ/gWaoi/Jsd+7pKkKcihyLkGk4QAd/zOevgfbR6UV+2qj1Wh4NDII9tMJWbBmJfbR2h7QiE9vq1D+AyxWcvX+MDPk+GUqjdoywj8wHcG8v8/IMHgqG0bEOejOhvmyjLSaYecOyWRu5gl5mT+RdIviHiFTn+f5UQh+VdlAI8lF5bvRiAUXzWmarYUwqD72JMF92Je3s8pbKpTSFNDfSnF3KrByYXdZDbyqRJyYRaseE+Kg8rZ4LFzI7+wiPYMWwsFRnmf5kYh8Z3K4Vb1xeZlKWc+AB8RnG5JXY5GUmy6I/G+5j027ImPeYMyJLoV4utS4H8tm56M0l8VVMh0vi4/IOgmIPudDFcjmQi/WFe3OhyMeFt6uf9eXyclMocDOo+q0v0p9Ld+jbszBuPGF+ulblkRFxGWGPEXUZEY9R6DKiHiPmMgo9RpHLiHmM4mMjjGyuf9eKu6yoT4rEaeVBGCKHFUYeMULssvIFKyQuK58aIXVZeXmFTivusWIuq9CTuWHktPKpETutfLxcuYGZpyBDV25gHn3fijlzg8ceK2ducI/yzJkb3JMbzJkbiSdezJkbiSdezJkbiadSmDM3Eh8vV24Q5EPInVaebshcuUGY516RKzco8UQ5cuVGiDzZG7lyg/l6b0SdVp6cj0KnlSfnI+a08qkROa08uRG5coMRn4bcaeWplChxWnlyI0ZOK08exq7ciJEnXjFxvh2M4Ui1O5WvjbIbIFCcRBjB8A05TmLGQzg1Cft2Uhsxy+T5dXYLznOdf5FGN17RFjOZy+kegt6Uqdb2x4pbkW2qn8EaRynwN70V5ujNT0yHg9yU1/hcp6vRMIb9MGIaQl+mHME0hZGPOLdfOYAkbpDYD5Je4D442Sm0nI2rZXQSjGRUjPFJMNJRMfJTYEzHjXVyEoyj6sjRKTDKUfOR45NgHFfH4cPmTpssPV+tonNYn1ddfTS0dHhHP4ZLRuztPDy9vrPx9GUjoCWjoY1GQEtHQxufHm06XibwEdCOp21yerRytLxN0AhoR9M26TvFGAkZj0gcMhRSFpKo1+MI6YCEvx2MMXRj3qvZJj2HGWaM84TCkxghUYx5XP3nZQU1SlHsBoq9QMN+IHvOMMJobCVlCUcURxGL8QEk5o8FyXA/lH2fnQgliIKckKmMJoyxEN3DLOPHxhwToEJ6QmU/T4IOn1iFvJOm35P9MdI+EOPBNdRuTraiRqwmPriaunAxH7OukuF11QFcxmNXGEZocInVoPluYlUFN26xYYRPNmd3qKvaG6nuMCInRvslvfsXkdHgDv8BcAdwxF5mX/r98x/6qYZO
+  - source_line: 106
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+      game_minutes: 122767.992188
+  - source_line: 107
+    trace_observation:
+      event: load_game_applied
+      fields:
+        path: saves/save4.oysav
+        map: oracle.blv
+        scene_kind: indoor
+        game_minutes: 122767.992188
+      game_minutes: 122767.992188
+  - source_line: 108
+    trace_observation:
+      event: state_dump_bundle
+      phase: load_applied
+      path: saves/save4.oysav
+      first_source_line: 108
+      last_source_line: 208
+      record_count: 99
+      counts:
+        map_vars: 32
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 4
+        party_member: 1
+        party_skills: 1
+        qbit: 41
+      encoding: base64+zlib+json
+      data: eNrVWltv2zYU/iuBXrYBRsqLKFF5a9Z2HdBgRbvLwzAYjEXbXGjRpeSk3tD/vkPFjiWZKZXIGtCXQKR8jr7vOzfKzp//RnMldV5GF/9GYlapWzldydW1tFNV5PJzdIEm0bUobqYLo/N6NTcGLtgkut+JOeN8Ei2VlVoVi+nMbIqq/uDOz24Df5lEN+AzuojWwlbbaBKVZmNncgpmEu6j7MukheZO2HxvDU+YaVHCjeidmi3BeLmGa0oZegF/KGyo4lYWlbHbvU08ibS8ldr5PsA50CrECp4b/QR0JtHa2MoKVU0VICTJJLICoLmFuzZaHp5cys/1DXBROhAJyeiLJMkw3Ls1amdGkg7hna5HvDFq896hp5kHcnmjtHYivFT2SizU7IIgBERf6tlSrrb7lV2VK1FW0u43Psvd1aVu7l+afNt049bXG6VzCOTD1t3u6selUAW4NnvrV2KxkIeFvXmt5y+vlVbVtrHZ9P9KlcKufrViXe53TL44POyVFQtTtH28Bu2WTSdvINOa659zCLuab3+u5KqzdWWKBtt3Utji8DBYVktpm4zeqcWyavq+giTYX8pcVaJSpnjYsLOlKKr9EqLUNH0Pt+W68fn3WlSy+bQPciELaZs+P8i1ULbB5OPS5cV+sQYGD9fKqhbWj5WYzx+updAHqh/vjN07+a2AEMj96nexAkeyLfkfALSZXlE3k3dpeJTJ2FfBrhhYepTMXZ/1h49dkkdd8ue6pI+6zJ7rMn7MZYKe65I96hI/12XyqEvyXJfpoy7pc13yx1z6unhPn93RYqE7wLTbt/Fra25kEV3MhS4lTJqlsAvp2ix6gcDZwrrPRd+jCfvBDZr77qIkbFZ2AwYKCnaqZgZcROUMpoVm0X7XjQJM6G65cqWlBMwkstvZTaHXhVwpWZ69U2W1t7UCSnzbnKWHSfBpA62nvovdQpYVkL2Re0TlWs7gMVNZ1D3qYV5Vosidnkf7MOH2AnQ1fRisR7oSdCJdUVjXpLibibVs64pYSNcftRE3Z2Z+dinEt6MrPpGupKvrzqIprLuGNt8Ulrq2FdB1Y+XZe2GF3paqHKTsDtP/JC05kbQ0nLILELaVr8jNwY6urK3rlXFnFlPIb0jSzkA9Si7W6oaMxkcioLYIb6U1gFDL76AhmrI6uz8GdSUhXkmOVdAGztPRL/P5W+B9dJiRnzZqvZbHU4PEAV5xK7qMpCFe94e2Uott/R4wgMwVnMWfyIZ9nQ2lSTtKOMTmV/DvLovqDN4ShvFxDvpTSUIJR1tUMAsGZrO2cgUNzZ3Ru0zwk5jUJ/wncElDXNphISjE5ZU1iwUUzlupV8Oo1B76M+GhBMvaCRYsl0tpS2lvpD27lLoamGDOQ38uWSAqCWpHhYS4vKxfFhdSn/0B72XlsMDUh5r+bCgKscHteglG5o2WspoDEYjQMCo/iU1RaVmVT6CDQ3TafRnzHvNG6Bxq5tKYaiChexf9yZBQ1XTIZCEyHyAs7sALvayQA8k4X/gJZGiIDG+3ANaXzJtNqcDNoBbgfJEnkOmOf3cwxo03zk/Xqjq2Yj4rHLJKfFYkZJX6rGjIivus4pBV5rNiAasYHVth5Lrr182wz4yG9IiJ1ywIknrMMAopEsc+s2DQYuYzC0uS+MzC3FKvGQ+ZcZ9ZHErjOPOahSRhyGsW4sZ8WVI7+7qZL0swT0Jm3izhacjMmyU8FADmzRIeyhLmzZIsFDfmzZIsGDdvlmShwmHeLMlC3BJflhAUAplgr1moSya+LCEs+DRfllASCnfiy5IYhVI58WUJC3blJPGahSogSb1moQpIuNcsKEnmNQtlSerLEkZCSqbYaxYqnJR4zUJZklKvWSgnU1+WpCgUt5R5f2BM4fB1f4RfW+U2QKU0SzCC+RxznKWMx3C+Eu4nTmPFTMvza30L3gtT/COtafzSW85kIac7DGZT5ca47zduhd7U3501Dl3gb3or7PGPR2kyHOWmusbnJl+NBzLtBxIOj9CtKUcwa+FMgDh3HzmgJH6UOIySXuBeQPkp1JyNrGZ2EpBkVJAcnQQkHRckPgXIfNxwc3ISkCMrSU8BUo6ck/FJQI6s5PCxc2eszs9Xq+Qc1ud1ex8PbjK8tR/jJWM2eZ6eXuHZiArzEeCS8eBmI8Clo8HN0Onh5uMlQ4ZHgDuiuuT0cOV4uZvREeCOqG7fecZIzHhC0pihmLKYJL3eUEgHJfztgEyhK/N+TTfrOdYwY5xnFF7PCElS6NX1P3TWWJMcpX6kOIg07omy5zQjjKZOVJZxRHGSsBQfUGL+XJQM94TZ932KUIIoCArZymjGGIvRA84qfW7YMQEupC9W/g0l6fDZVco7afu98R9D7YGRIDS4kNo9ypXVeCVFEB5cUl28mI9YXPVXo0OLq4O4Sscus/qb2W+kzAiKTzZmeS1wXXSjFRw7Mdp/8ru/ERkN7vAvBO8BjtrE0i9//QdOJ5WB
+  - source_line: 210
+    load_map:
+      target: "Castle Alamos"
+      map: cd1.blv
+      map_id: 180
+      scene_kind: indoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+      game_minutes: 122768.515625
+  - source_line: 211
+    trace_observation:
+      event: item_inspect
+      fields:
+        item_id: 1644
+        item_name: "Crude Longbow"
+        item_icon: bow1
+        item_material: 3
+        item_rarity: 0
+        quest_like: false
+        source: world_item
+        map: "Castle Alamos"
+        scene_kind: indoor
+        party: "(-3033.354248,-1164.938721,92.000000)"
+        yaw: -0.40738
+        pitch: -0.309
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+      note: "not converted to an assertion because the inspected item is not quest-like"
+  - source_line: 212
+    assert:
+      item_visible:
+        item_id: 2155
+        item_name: "Letter to Gharik"
+        quest_like: true
+        source: world_item
+        map: "Castle Alamos"
+        scene_kind: indoor
+        party: "(-2502.042236,-1020.897705,412.000000)"
+        yaw: -2.766583
+        pitch: -0.1605
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 1
+        loot_item_index: 0
+  - source_line: 213
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 35
+        face_index: 636
+  - source_line: 214
+    assert_mechanism:
+      kind: indoor_door
+      id: 35
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 12
+      move_length: 304
+      open_speed: 250
+      close_speed: 250
+  - source_line: 215
+    wait_until:
+      timeout_runtime_seconds: 1.717
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 35
+          state: closed
+          door_slot: 12
+          move_length: 304
+          open_speed: 250
+          close_speed: 250
+  - source_line: 216
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 69
+        face_index: 3273
+  - source_line: 217
+    assert:
+      map: cd1.blv
+      input_prompt:
+        event_id: 69
+        continue_step: 4
+        correct_step: 23
+        text_id: 14
+        prompt: "What's the password?"
+        answer_count: 2
+      game_minutes: 122769.367188
+  - source_line: 218
+    answer_input:
+      text: ASDF
+      expect_before:
+        input_prompt:
+          event_id: 69
+          continue_step: 4
+          correct_step: 23
+          text_id: 14
+          prompt: "What's the password?"
+          answer_count: 2
+      expect:
+        matched: false
+        selected_continue_step: 4
+      game_minutes: 122769.367188
+  - source_line: 219
+    assert:
+      map_arrived:
+        previous_map: cd1.blv
+        map: cd1.blv
+        same_map: true
+        use_start_position: false
+        pos: "(-3136,2240,224)"
+        direction_degrees: 180
+      game_minutes: 122769.367188
+  - source_line: 220
+    interact_target:
+      method: keyboard
+      map: cd1.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 5279
+      face_index: 5279
+      triggered_event: 35
+      trigger: 0
+      name: ""
+      distance: 141.431
+      hit: "(-6252,2799.73,230.051)"
+      pose:
+        x: -6391.75
+        y: 2792.79
+        z: 92
+        map: cd1.blv
+        yaw: 0.0500936
+        pitch: -0.156
+  - source_line: 221
+    assert_mechanism:
+      kind: indoor_door
+      id: 35
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 12
+      move_length: 304
+      open_speed: 250
+      close_speed: 250
+  - source_line: 222
+    wait_until:
+      timeout_runtime_seconds: 1.717
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 35
+          state: open
+          door_slot: 12
+          move_length: 304
+          open_speed: 250
+          close_speed: 250
+  - source_line: 223
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 35
+        face_index: 636
+  - source_line: 224
+    assert_mechanism:
+      kind: indoor_door
+      id: 35
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 12
+      move_length: 304
+      open_speed: 250
+      close_speed: 250
+  - source_line: 225
+    wait_until:
+      timeout_runtime_seconds: 1.717
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 35
+          state: closed
+          door_slot: 12
+          move_length: 304
+          open_speed: 250
+          close_speed: 250
+  - source_line: 226
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 69
+        face_index: 3273
+  - source_line: 227
+    assert:
+      map: cd1.blv
+      input_prompt:
+        event_id: 69
+        continue_step: 4
+        correct_step: 23
+        text_id: 14
+        prompt: "What's the password?"
+        answer_count: 2
+      game_minutes: 122769.429688
+  - source_line: 229
+    answer_input:
+      text: JBARD
+      expect_before:
+        input_prompt:
+          event_id: 69
+          continue_step: 4
+          correct_step: 23
+          text_id: 14
+          prompt: "What's the password?"
+          answer_count: 2
+      expect:
+        matched: true
+        selected_continue_step: 23
+      game_minutes: 122769.429688
+  - source_line: 228
+    assert:
+      map_var_changed:
+        map: cd1.blv
+        operation: set
+        index: 6
+        previous: 0
+        current: 1
+      game_minutes: 122769.429688
+  - source_line: 230
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 12
+        face_index: 3304
+  - source_line: 231
+    assert_mechanism:
+      kind: indoor_door
+      id: 12
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 11
+      move_length: 250
+      open_speed: 50
+      close_speed: 50
+  - source_line: 232
+    interact_target:
+      method: keyboard
+      map: cd1.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 2
+      target_index: 394
+      face_index: 18446744073709551615
+      triggered_event: 0
+      trigger: 0
+      name: mcryst01
+      distance: 118.688
+      hit: "(-8477.88,4040,452.793)"
+      pose:
+        x: -8458.13
+        y: 3925.08
+        z: 316
+        map: cd1.blv
+        yaw: 1.7433
+        pitch: -0.196501
+  - source_line: 233
+    assert:
+      qbit_set:
+        - 1078
+  - source_line: 234
+    assert:
+      qbit_set:
+        - 1216
+  - source_line: 235
+    assert:
+      item_received:
+        destination: inventory
+        source: event
+        item_id: 2171
+        item_name: "Memory Crystal Beta"
+        quest_like: true
+  - source_line: 236
+    wait_until:
+      timeout_runtime_seconds: 5.5
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 12
+          state: closed
+          door_slot: 11
+          move_length: 250
+          open_speed: 50
+          close_speed: 50
+  - source_line: 238
+    load_map:
+      target: "Free Haven"
+      map: outc2.odm
+      map_id: 144
+      scene_kind: outdoor
+      start_override: false
+      pos: "none"
+      direction_degrees: "none"
+      method: debug_console_map_load_travel
+      reason: "recorded route used debug console map load/travel shortcut"
+      game_minutes: 122769.453125
+  - source_line: 239
+    interact_target:
+      method: keyboard
+      map: outc2.odm
+      scene_kind: outdoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 454.897
+      hit: "(12488,5375.48,407.063)"
+      pose:
+        x: 12045.6
+        y: 5433.08
+        z: 321
+        map: outc2.odm
+        yaw: -0.1305
+        pitch: -0.1995
+  - source_line: 241
+    select_topic:
+      kind: house_extra_exit
+      source_id: 209
+      action_id: 209
+      secondary_id: 0
+      selection_index: 5
+      house_dialog: true
+      enabled: true
+      label: Enter
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 209
+          title: "High Council"
+          house_title: "High Council"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 6
+          actions:
+            - index: 0
+              kind: house_resident
+              id: 1084
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Preston Steel"
+            - index: 1
+              kind: house_resident
+              id: 1085
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Tori Goldman"
+            - index: 2
+              kind: house_resident
+              id: 1086
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Isaac Rockwell"
+            - index: 3
+              kind: house_resident
+              id: 1087
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Olaf Heimdall"
+            - index: 4
+              kind: house_resident
+              id: 1088
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: "Euclid Kepler"
+            - index: 5
+              kind: house_extra_exit
+              id: 209
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: Enter
+  - source_line: 243
+    select_topic:
+      kind: house_service
+      source_id: 209
+      action_id: 23
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: Enter
+      expect_before:
+        dialog:
+          active: true
+          house_dialog: true
+          source_id: 209
+          title: "High Council"
+          house_title: "High Council"
+          line_count: 0
+          text_hash: 1469598103934665603
+          action_count: 1
+          actions:
+            - index: 0
+              kind: house_service
+              id: 23
+              secondary_id: 0
+              enabled: true
+              text_only: false
+              label: Enter
+  - source_line: 244
+    save_game: autosave
+  - source_line: 245
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/autosave.oysav
+      first_source_line: 245
+      last_source_line: 350
+      record_count: 104
+      counts:
+        map_vars: 34
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 5
+        party_member: 1
+        party_skills: 1
+        qbit: 43
+      encoding: base64+zlib+json
+      data: "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"
+  - source_line: 351
+    enter_door_at:
+      source_id: 209
+      action_id: 23
+      label: Enter
+      destination_map: oracle.blv
+      destination_name: "Oracle of Enroth"
+      destination_map_id: 185
+      required_qbit: 1191
+      pos: "(0,0,0)"
+      method: house_service
+      map: oracle.blv
+      target: "Oracle of Enroth"
+  - source_line: 352
+    assert:
+      map_transition_requested:
+        source_kind: house_extra_exit
+        source_id: 209
+        action_id: 23
+        event_id: 0
+        confirmation_required: false
+        destination_map: oracle.blv
+        destination_name: "Oracle of Enroth"
+        use_start_position: false
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+  - source_line: 353
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+      game_minutes: 122769.554688
+  - source_line: 354
+    assert:
+      map_arrived:
+        previous_map: outc2.odm
+        map: oracle.blv
+        same_map: false
+        source_kind: house_extra_exit
+        source_id: 209
+        action_id: 23
+        event_id: 0
+        destination_name: "Oracle of Enroth"
+        use_start_position: false
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+      game_minutes: 122769.554688
+  - source_line: 355
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 13
+        face_index: 449
+  - source_line: 356
+    assert:
+      map_var_changed:
+        map: oracle.blv
+        operation: set
+        index: 6
+        previous: 0
+        current: 1
+  - source_line: 357
+    interact_target:
+      method: keyboard
+      map: oracle.blv
+      scene_kind: indoor
+      has_hit: true
+      can_activate: true
+      kind: event_target
+      target_kind: 2
+      target_index: 2
+      face_index: 18446744073709551615
+      triggered_event: 16
+      trigger: 0
+      name: crysdisc
+      distance: 183.01
+      hit: "(-62.005,6952,90.8301)"
+      pose:
+        x: -60.9844
+        y: 6782.35
+        z: 0
+        map: oracle.blv
+        yaw: 1.57679
+        pitch: -0.385501
+  - source_line: 358
+    assert:
+      qbit_set:
+        - 1125
+  - source_line: 359
+    assert:
+      qbit_clear:
+        - 1216
+  - source_line: 360
+    assert:
+      qbit_set:
+        - 1306
+  - source_line: 361
+    save_game: save5
+  - source_line: 362
+    trace_observation:
+      event: state_dump_bundle
+      phase: save
+      path: saves/save5.oysav
+      first_source_line: 362
+      last_source_line: 467
+      record_count: 104
+      counts:
+        map_vars: 34
+        party: 1
+        party_award: 8
+        party_equipped: 11
+        party_inventory: 4
+        party_member: 1
+        party_skills: 1
+        qbit: 44
+      encoding: base64+zlib+json
+      data: "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"

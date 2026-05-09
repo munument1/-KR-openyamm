@@ -1,0 +1,4527 @@
+id: mm6.main_story.draft
+title: "MM6 main story draft from sanitized trace"
+world: mm6
+mode: hybrid
+tags:
+  - mm6
+  - draft
+  - playthrough_trace
+source:
+  path: tests/playthrough_scenarios/mm6_sanitized.txt
+  note: "Generated draft. Sanitize aliases, poses, shortcuts, and checkpoints before using as a runnable scenario."
+steps:
+  - source_line: 1
+    new_game_flow:
+      continent: enroth
+      party: mm6_story_any
+      source_note: "new game"
+  - source_line: 2
+    assert:
+      starting_items: true
+      source_note: "ensure starting items"
+  - source_line: 3
+    assert:
+      inventory:
+        - item_id: 2125
+          owner: any_member
+          note: "ensure letter in 1st character inventory item id 2125"
+  - source_line: 4
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 80
+      face_index: 51
+      triggered_event: 11
+      trigger: 0
+      name: ""
+      distance: 174.197
+      hit: "(-8704,-8697.07,321.735)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 5
+    select_topic:
+      kind: house_resident
+      source_id: 260
+      action_id: 786
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Andover Potbello"
+  - source_line: 7
+    assert:
+      qbit_clear:
+        - 1105
+  - source_line: 8
+    assert:
+      qbit_set:
+        - 1106
+  - source_line: 9
+    press_action:
+      action: escape
+      source_note: "close dialog"
+  - source_line: 10
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 49
+      face_index: 48
+      triggered_event: 15
+      trigger: 0
+      name: ""
+      distance: 283.465
+      hit: "(-10496,-9462.54,293.188)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 11
+    select_topic:
+      kind: house_service
+      source_id: 470
+      action_id: 22
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "2 days to Castle Ironfist for 8 gold"
+  - source_line: 12
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 327.187
+      hit: "(17124.2,17032,2352.8)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 13
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 14
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1322
+      secondary_id: 1322
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Letter"
+  - source_line: 15
+    assert:
+      award_acquired:
+        - id: 100
+          member_index: 0
+  - source_line: 16
+    assert:
+      qbit_clear:
+        - 1106
+  - source_line: 17
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1323
+      secondary_id: 1323
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 18
+    assert:
+      qbit_set:
+        - 1110
+  - source_line: 19
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1324
+      secondary_id: 1324
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 20
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1326
+      secondary_id: 1326
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Crusaders
+  - source_line: 21
+    assert:
+      qbit_set:
+        - 1112
+  - source_line: 22
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1327
+      secondary_id: 1327
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Crusaders
+  - source_line: 23
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 798
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Nicolai Ironfist"
+  - source_line: 24
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1338
+      secondary_id: 1338
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Uncle Archibald"
+  - source_line: 25
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1331
+      secondary_id: 1331
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Boredom
+  - source_line: 26
+    assert:
+      follower_hired:
+        - npc_id: 798
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 27
+    assert:
+      qbit_set:
+        - 1114
+  - source_line: 28
+    assert:
+      qbit_set:
+        - 1700
+  - source_line: 29
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1332
+      secondary_id: 1332
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Circus"
+  - source_line: 30
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 31
+    travel:
+      target: "Bootleg Bay"
+      map: outc1.odm
+      method: odm_edge
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 32
+    select_topic:
+      kind: map_transition_confirm
+      source_id: 0
+      action_id: 0
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: OK
+  - source_line: 33
+    assert:
+      follower_left:
+        - npc_id: 798
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 34
+    assert:
+      qbit_clear:
+        - 1114
+  - source_line: 35
+    assert:
+      qbit_clear:
+        - 1700
+  - source_line: 36
+    assert:
+      qbit_set:
+        - 1119
+  - source_line: 37
+    travel:
+      target: "Free Haven"
+      map: outc2.odm
+      method: map_transition
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 38
+    select_topic:
+      kind: map_transition_confirm
+      source_id: 3
+      action_id: 0
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: OK
+  - source_line: 39
+    assert:
+      qbit_set:
+        - 1202
+  - source_line: 40
+    assert:
+      qbit_set:
+        - 311
+  - source_line: 41
+    travel:
+      target: "Frozen Highlands"
+      map: outd2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 42
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1345
+      secondary_id: 1345
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Prince of Thieves"
+  - source_line: 43
+    assert:
+      qbit_set:
+        - 1122
+  - source_line: 44
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1346
+      secondary_id: 1346
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Prince of Thieves"
+  - source_line: 45
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1348
+      secondary_id: 1348
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Priests
+  - source_line: 46
+    assert:
+      qbit_set:
+        - 1129
+  - source_line: 47
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1349
+      secondary_id: 1349
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Priests
+  - source_line: 48
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 49
+    travel:
+      target: "Free Haven"
+      map: outc2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 50
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 21
+      face_index: 32
+      triggered_event: 89
+      trigger: 0
+      name: ""
+      distance: 265.448
+      hit: "(3856,7532.39,378.04)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 51
+    enter_door_at:
+      target: "Free Haven Sewer"
+      method: house_service
+      note: "(enter sewer)"
+  - source_line: 52
+    select_topic:
+      kind: house_service
+      source_id: 1516
+      action_id: 23
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: Enter
+  - source_line: 53
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1524
+      face_index: 1524
+      triggered_event: 7
+      trigger: 0
+      name: ""
+      distance: 163.118
+      hit: "(-31680,14018.6,140.308)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 54
+    assert_mechanism:
+      kind: indoor_door
+      id: 7
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 8
+      move_length: 127
+      open_speed: 250
+      close_speed: 250
+  - source_line: 55
+    wait_until:
+      timeout_runtime_seconds: 1.008
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 7
+          state: closed
+          door_slot: 8
+          move_length: 127
+          open_speed: 250
+          close_speed: 250
+  - source_line: 56
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1528
+      face_index: 1528
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 172.275
+      hit: "(-32222.4,14203.3,64)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 57
+    assert:
+      qbit_set:
+        - 1701
+  - source_line: 58
+    assert:
+      qbit_set:
+        - 1194
+  - source_line: 59
+    assert:
+      follower_hired:
+        - npc_id: 802
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 60
+    select_topic:
+      kind: npc_topic
+      source_id: 802
+      action_id: 1411
+      secondary_id: 1411
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "My Capture"
+  - source_line: 62
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 63
+    travel:
+      target: "Frozen Highlands"
+      map: outd2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 64
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1
+      face_index: 59
+      triggered_event: 33
+      trigger: 0
+      name: ""
+      distance: 197.369
+      hit: "(11280,-3133.21,237.775)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 65
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1346
+      secondary_id: 1346
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Prince of Thieves"
+  - source_line: 66
+    assert:
+      qbit_clear:
+        - 1122
+  - source_line: 67
+    assert:
+      award_acquired:
+        - id: 60
+          member_index: 0
+  - source_line: 68
+    assert:
+      qbit_clear:
+        - 1701
+  - source_line: 69
+    assert:
+      follower_left:
+        - npc_id: 802
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 70
+    select_topic:
+      kind: npc_topic
+      source_id: 801
+      action_id: 1347
+      secondary_id: 1347
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The High Council"
+  - source_line: 71
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 72
+    travel:
+      target: "Free Haven"
+      map: outc2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 73
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 296.715
+      hit: "(12488,5367.33,457.975)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 74
+    select_topic:
+      kind: house_resident
+      source_id: 209
+      action_id: 1086
+      secondary_id: 0
+      selection_index: 3
+      house_dialog: true
+      enabled: true
+      label: "Isaac Rockwell"
+  - source_line: 75
+    select_topic:
+      kind: npc_topic
+      source_id: 1086
+      action_id: 1690
+      secondary_id: 1690
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Admission to the Oracle"
+  - source_line: 76
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 77
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 5
+      face_index: 39
+      triggered_event: 34
+      trigger: 0
+      name: ""
+      distance: 303.882
+      hit: "(13824,16422.3,289.441)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 78
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1400
+      secondary_id: 1400
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 79
+    assert:
+      qbit_set:
+        - 1144
+  - source_line: 80
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1401
+      secondary_id: 1401
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 81
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1404
+      secondary_id: 1404
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Warrior Mages"
+  - source_line: 82
+    assert:
+      qbit_set:
+        - 1145
+  - source_line: 83
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1405
+      secondary_id: 1405
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Warrior Mages"
+  - source_line: 84
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 85
+    travel:
+      target: Kriegspire
+      map: outb1.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 86
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 40
+      face_index: 6
+      triggered_event: 14
+      trigger: 0
+      name: ""
+      distance: 187.247
+      hit: "(3891.1,952,3003.65)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 87
+    select_topic:
+      kind: npc_topic
+      source_id: 804
+      action_id: 1409
+      secondary_id: 1409
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 88
+    assert:
+      qbit_set:
+        - 1252
+  - source_line: 89
+    select_topic:
+      kind: npc_topic
+      source_id: 804
+      action_id: 1410
+      secondary_id: 1410
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 90
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 91
+    save_checkpoint: manual_save_1
+  - source_line: 92
+    load_checkpoint: manual_save_1
+  - source_line: 93
+    travel:
+      target: "White Cap"
+      map: outa1.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 94
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 5
+      face_index: 39
+      triggered_event: 34
+      trigger: 0
+      name: ""
+      distance: 321.571
+      hit: "(13824,16366.1,297.891)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 95
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1402
+      secondary_id: 1402
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 96
+    assert:
+      qbit_clear:
+        - 1144
+  - source_line: 97
+    assert:
+      qbit_set:
+        - 1199
+  - source_line: 98
+    assert:
+      award_acquired:
+        - id: 62
+          member_index: 0
+  - source_line: 99
+    select_topic:
+      kind: npc_topic
+      source_id: 800
+      action_id: 1403
+      secondary_id: 1403
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Winter
+  - source_line: 100
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 101
+    travel:
+      target: "Silver Cove"
+      map: outd1.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 102
+    assert:
+      qbit_set:
+        - 1203
+  - source_line: 103
+    assert:
+      qbit_set:
+        - 314
+  - source_line: 104
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1392
+      secondary_id: 1392
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Money
+  - source_line: 105
+    assert:
+      qbit_set:
+        - 1140
+  - source_line: 106
+    assert:
+      qbit_set:
+        - 1706
+  - source_line: 107
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1393
+      secondary_id: 1393
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Money
+  - source_line: 108
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1395
+      secondary_id: 1395
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Great Druids"
+  - source_line: 109
+    assert:
+      qbit_set:
+        - 1142
+  - source_line: 110
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1396
+      secondary_id: 1396
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Great Druids"
+  - source_line: 111
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 112
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 67
+      face_index: 9
+      triggered_event: 10
+      trigger: 0
+      name: ""
+      distance: 228.163
+      hit: "(7317.59,-6656,366.931)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 113
+    select_topic:
+      kind: house_service
+      source_id: 475
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 114
+    assert:
+      qbit_set:
+        - 1521
+  - source_line: 115
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 116
+    travel:
+      target: "New Sorpigal"
+      map: oute3.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 117
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 49
+      face_index: 48
+      triggered_event: 15
+      trigger: 0
+      name: ""
+      distance: 388.479
+      hit: "(-10496,-9362.5,245.591)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 118
+    select_topic:
+      kind: house_service
+      source_id: 470
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 119
+    assert:
+      qbit_set:
+        - 1523
+  - source_line: 120
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 121
+    travel:
+      target: "Castle Ironfist"
+      map: outd3.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 122
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 297.685
+      hit: "(17158.8,17032,2344.86)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 123
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 124
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 27
+      face_index: 9
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 391.187
+      hit: "(14388,2709.34,198.864)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 125
+    select_topic:
+      kind: house_service
+      source_id: 471
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 126
+    assert:
+      qbit_set:
+        - 1522
+  - source_line: 127
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 128
+    travel:
+      target: "Free Haven"
+      map: outc2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 129
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 42
+      face_index: 26
+      triggered_event: 16
+      trigger: 0
+      name: ""
+      distance: 192.283
+      hit: "(5031.03,13288,288.506)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 130
+    select_topic:
+      kind: house_service
+      source_id: 473
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 131
+    assert:
+      qbit_set:
+        - 1519
+  - source_line: 132
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 133
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 100
+      face_index: 6
+      triggered_event: 14
+      trigger: 0
+      name: ""
+      distance: 371.461
+      hit: "(-1412.1,3502,263.109)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 134
+    select_topic:
+      kind: house_service
+      source_id: 472
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 135
+    assert:
+      qbit_set:
+        - 1518
+  - source_line: 136
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 137
+    travel:
+      target: Kriegspire
+      map: outb1.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 138
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 17
+      face_index: 8
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 282.297
+      hit: "(5649.07,-18560,393.458)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 139
+    select_topic:
+      kind: house_service
+      source_id: 477
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 140
+    assert:
+      qbit_set:
+        - 1515
+  - source_line: 141
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 142
+    travel:
+      target: "White Cap"
+      map: outa1.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 143
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 18
+      face_index: 9
+      triggered_event: 31
+      trigger: 0
+      name: ""
+      distance: 265.587
+      hit: "(-4533.08,14848,230.828)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 144
+    select_topic:
+      kind: house_service
+      source_id: 476
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 145
+    assert:
+      qbit_set:
+        - 1517
+  - source_line: 146
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 147
+    travel:
+      target: "Mire of the Damned"
+      map: outa2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 148
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 45
+      face_index: 0
+      triggered_event: 15
+      trigger: 0
+      name: ""
+      distance: 336.819
+      hit: "(18606.6,19066.3,395.159)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 149
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 25
+      face_index: 48
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 239.276
+      hit: "(-18215.9,8448,379.296)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 150
+    select_topic:
+      kind: house_service
+      source_id: 474
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 151
+    assert:
+      qbit_set:
+        - 1520
+  - source_line: 152
+    travel:
+      target: Blackshire
+      map: outb2.odm
+      method: route_shortcut
+      reason: "manual route note predates enhanced map/pose trace"
+      shortcut: true
+  - source_line: 153
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 8
+      face_index: 8
+      triggered_event: 10
+      trigger: 0
+      name: ""
+      distance: 395.828
+      hit: "(-14536,14538.6,249.312)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 154
+    select_topic:
+      kind: house_service
+      source_id: 478
+      action_id: 24
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Price Fixing"
+  - source_line: 155
+    assert:
+      qbit_set:
+        - 1516
+  - source_line: 156
+    assert:
+      qbit_set:
+        - 1141
+  - source_line: 157
+    press_action:
+      action: escape
+      source_note: "close dialogue"
+  - source_line: 158
+    save_checkpoint: manual_save_2
+  - source_line: 159
+    load_checkpoint: manual_save_2
+  - source_line: 160
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 45
+      face_index: 4
+      triggered_event: 68
+      trigger: 0
+      name: ""
+      distance: 312.286
+      hit: "(-4288,790.765,192.035)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 161
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2119
+        grid: "(2,4)"
+  - source_line: 162
+    assert:
+      map_arrived:
+        previous_map: outb2.odm
+        map: outd1.odm
+        same_map: false
+        use_start_position: false
+        pos: "(13146,-9194,1)"
+        direction_degrees: 0
+  - source_line: 163
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 18
+      face_index: 28
+      triggered_event: 34
+      trigger: 0
+      name: ""
+      distance: 366.519
+      hit: "(16375.7,-14064,826.23)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 164
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1393
+      secondary_id: 1393
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Money
+  - source_line: 165
+    assert:
+      qbit_clear:
+        - 1140
+  - source_line: 166
+    assert:
+      award_acquired:
+        - id: 61
+          member_index: 0
+  - source_line: 167
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1394
+      secondary_id: 1394
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: Money
+  - source_line: 168
+    select_topic:
+      kind: npc_topic
+      source_id: 799
+      action_id: 1396
+      secondary_id: 1396
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Great Druids"
+  - source_line: 169
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 799
+        house_dialog: false
+        action_count: 2
+  - source_line: 170
+    load_map:
+      target: "Silver Helm Outpost"
+      map: 6d07.blv
+      scene_kind: indoor
+      reason: "manual route shortcut to recorded dungeon segment"
+  - source_line: 171
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 207
+      face_index: 207
+      triggered_event: 10
+      trigger: 0
+      name: ""
+      distance: 338.202
+      hit: "(768,-653.703,122.517)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 172
+    assert_mechanism:
+      kind: indoor_door
+      id: 10
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 22
+      move_length: 218
+      open_speed: 300
+      close_speed: 300
+  - source_line: 173
+    wait_until:
+      timeout_runtime_seconds: 1.233
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 10
+          state: closed
+          door_slot: 22
+          move_length: 218
+          open_speed: 300
+          close_speed: 300
+  - source_line: 174
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 19
+        face_index: 90
+        attributes: 2214592896
+  - source_line: 175
+    assert_mechanism:
+      kind: indoor_door
+      id: 6
+      action: open
+      raw_action: 0
+      previous_state: open
+      new_state: open
+      was_moving: false
+      moving: false
+      door_slot: 0
+      move_length: 218
+      open_speed: 150
+      close_speed: 150
+  - source_line: 176
+    assert_mechanism:
+      kind: indoor_door
+      id: 7
+      action: open
+      raw_action: 0
+      previous_state: open
+      new_state: open
+      was_moving: false
+      moving: false
+      door_slot: 8
+      move_length: 222
+      open_speed: 150
+      close_speed: 150
+  - source_line: 177
+    assert_mechanism:
+      kind: indoor_door
+      id: 16
+      action: close
+      raw_action: 1
+      previous_state: closed
+      new_state: closed
+      was_moving: false
+      moving: false
+      door_slot: 20
+      move_length: 24
+      open_speed: 50
+      close_speed: 50
+  - source_line: 178
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 263
+      face_index: 263
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 134.445
+      hit: "(2016,-103.016,146.32)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 179
+    assert_mechanism:
+      kind: indoor_door
+      id: 8
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 10
+      move_length: 222
+      open_speed: 300
+      close_speed: 300
+  - source_line: 180
+    wait_until:
+      timeout_runtime_seconds: 1.242
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 8
+          state: closed
+          door_slot: 10
+          move_length: 222
+          open_speed: 300
+          close_speed: 300
+  - source_line: 181
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 355
+      face_index: 355
+      triggered_event: 9
+      trigger: 0
+      name: ""
+      distance: 153.543
+      hit: "(3040,-888.802,142.26)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 182
+    assert_mechanism:
+      kind: indoor_door
+      id: 9
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 14
+      move_length: 218
+      open_speed: 300
+      close_speed: 300
+  - source_line: 183
+    wait_until:
+      timeout_runtime_seconds: 1.233
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 9
+          state: closed
+          door_slot: 14
+          move_length: 218
+          open_speed: 300
+          close_speed: 300
+  - source_line: 184
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1316
+      face_index: 1316
+      triggered_event: 18
+      trigger: 0
+      name: ""
+      distance: 168.722
+      hit: "(3392,-795.718,57.6099)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 185
+    assert:
+      item_visible:
+        item_id: 2123
+        source: chest
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+  - source_line: 186
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2123
+        grid: "(1,3)"
+  - source_line: 187
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1505
+      face_index: 1505
+      triggered_event: 7
+      trigger: 0
+      name: ""
+      distance: 167.133
+      hit: "(3434.07,-1280,144.446)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 188
+    assert_mechanism:
+      kind: indoor_door
+      id: 7
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 8
+      move_length: 222
+      open_speed: 150
+      close_speed: 150
+  - source_line: 189
+    assert_mechanism:
+      kind: indoor_door
+      id: 16
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 20
+      move_length: 24
+      open_speed: 50
+      close_speed: 50
+  - source_line: 190
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 16
+          state: open
+          door_slot: 20
+          move_length: 24
+          open_speed: 50
+          close_speed: 50
+  - source_line: 191
+    wait_until:
+      timeout_runtime_seconds: 1.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 7
+          state: closed
+          door_slot: 8
+          move_length: 222
+          open_speed: 150
+          close_speed: 150
+  - source_line: 192
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1283
+      face_index: 1283
+      triggered_event: 16
+      trigger: 0
+      name: ""
+      distance: 240.124
+      hit: "(3638.31,1216,59.6545)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 193
+    assert:
+      qbit_set:
+        - 1035
+  - source_line: 194
+    assert:
+      qbit_set:
+        - 1223
+  - source_line: 195
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2107
+        grid: "(2,6)"
+  - source_line: 196
+    load_map:
+      map: 6d18.blv
+      scene_kind: indoor
+      reason: "recorded route used debug console shortcut"
+  - source_line: 197
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 195
+      face_index: 195
+      triggered_event: 2
+      trigger: 0
+      name: ""
+      distance: 226.536
+      hit: "(512,1604.05,136.15)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 198
+    assert_mechanism:
+      kind: indoor_door
+      id: 1
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 3
+      move_length: 255
+      open_speed: 200
+      close_speed: 200
+  - source_line: 199
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 4
+      move_length: 255
+      open_speed: 200
+      close_speed: 200
+  - source_line: 200
+    wait_until:
+      timeout_runtime_seconds: 1.775
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 1
+          state: closed
+          door_slot: 3
+          move_length: 255
+          open_speed: 200
+          close_speed: 200
+  - source_line: 201
+    wait_until:
+      timeout_runtime_seconds: 1.775
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 4
+          move_length: 255
+          open_speed: 200
+          close_speed: 200
+  - source_line: 202
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 221
+      face_index: 221
+      triggered_event: 3
+      trigger: 0
+      name: ""
+      distance: 156.068
+      hit: "(1509.46,806,154.773)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 203
+    assert_mechanism:
+      kind: indoor_door
+      id: 3
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 17
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 204
+    assert_mechanism:
+      kind: indoor_door
+      id: 4
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 42
+      move_length: 959
+      open_speed: 200
+      close_speed: 200
+  - source_line: 205
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 3
+          state: closed
+          door_slot: 17
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 206
+    wait_until:
+      timeout_runtime_seconds: 5.3
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 4
+          state: closed
+          door_slot: 42
+          move_length: 959
+          open_speed: 200
+          close_speed: 200
+  - source_line: 207
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 377
+      face_index: 377
+      triggered_event: 4
+      trigger: 0
+      name: ""
+      distance: 157.819
+      hit: "(-1692,4082.81,123.077)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 208
+    assert_mechanism:
+      kind: indoor_door
+      id: 5
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 20
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 209
+    assert_mechanism:
+      kind: indoor_door
+      id: 6
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 21
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 210
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 5
+          state: closed
+          door_slot: 20
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 211
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 6
+          state: closed
+          door_slot: 21
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 212
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 284
+      face_index: 284
+      triggered_event: 6
+      trigger: 0
+      name: ""
+      distance: 214.685
+      hit: "(-1553.29,5340.08,124)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 213
+    assert_mechanism:
+      kind: indoor_door
+      id: 9
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 47
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 214
+    assert_mechanism:
+      kind: indoor_door
+      id: 10
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 16
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 215
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 9
+          state: closed
+          door_slot: 47
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 216
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 10
+          state: closed
+          door_slot: 16
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 217
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 426
+      face_index: 426
+      triggered_event: 7
+      trigger: 0
+      name: ""
+      distance: 211.405
+      hit: "(-292,5106.64,122.752)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 218
+    assert_mechanism:
+      kind: indoor_door
+      id: 11
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 45
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 219
+    assert_mechanism:
+      kind: indoor_door
+      id: 12
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 33
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 220
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 11
+          state: closed
+          door_slot: 45
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 221
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 12
+          state: closed
+          door_slot: 33
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 222
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2119
+      face_index: 2119
+      triggered_event: 36
+      trigger: 0
+      name: ""
+      distance: 181.852
+      hit: "(1994.79,6420,122.295)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 223
+    assert_mechanism:
+      kind: indoor_door
+      id: 44
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 18
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 224
+    assert_mechanism:
+      kind: indoor_door
+      id: 51
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 51
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 225
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 44
+          state: closed
+          door_slot: 18
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 226
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 51
+          state: closed
+          door_slot: 51
+          move_length: 240
+          open_speed: 500
+          close_speed: 500
+  - source_line: 227
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2081
+      face_index: 2081
+      triggered_event: 39
+      trigger: 0
+      name: ""
+      distance: 156.47
+      hit: "(3284.23,6420,-389.388)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 228
+    assert_mechanism:
+      kind: indoor_door
+      id: 46
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 15
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 229
+    assert_mechanism:
+      kind: indoor_door
+      id: 52
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 13
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 230
+    assert_mechanism:
+      kind: indoor_door
+      id: 49
+      action: open
+      raw_action: 0
+      previous_state: open
+      new_state: open
+      was_moving: false
+      moving: false
+      door_slot: 23
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 231
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 46
+          state: closed
+          door_slot: 15
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 232
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 52
+          state: closed
+          door_slot: 13
+          move_length: 240
+          open_speed: 500
+          close_speed: 500
+  - source_line: 233
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1966
+      face_index: 1966
+      triggered_event: 8
+      trigger: 0
+      name: ""
+      distance: 158.65
+      hit: "(3123.49,5356,-389.167)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 234
+    assert_mechanism:
+      kind: indoor_door
+      id: 13
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 29
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 235
+    assert_mechanism:
+      kind: indoor_door
+      id: 14
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 19
+      move_length: 1280
+      open_speed: 200
+      close_speed: 200
+  - source_line: 236
+    assert_mechanism:
+      kind: indoor_door
+      id: 49
+      action: open
+      raw_action: 0
+      previous_state: open
+      new_state: open
+      was_moving: false
+      moving: false
+      door_slot: 23
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 237
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 13
+          state: closed
+          door_slot: 29
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 238
+    wait_until:
+      timeout_runtime_seconds: 6.9
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 14
+          state: closed
+          door_slot: 19
+          move_length: 1280
+          open_speed: 200
+          close_speed: 200
+  - source_line: 239
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2119
+      face_index: 2119
+      triggered_event: 36
+      trigger: 0
+      name: ""
+      distance: 139.925
+      hit: "(2000.81,6420,106.765)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 240
+    assert_mechanism:
+      kind: indoor_door
+      id: 44
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 18
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 241
+    assert_mechanism:
+      kind: indoor_door
+      id: 51
+      action: trigger
+      raw_action: 2
+      previous_state: closed
+      new_state: opening
+      was_moving: false
+      moving: true
+      door_slot: 51
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 242
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 44
+          state: open
+          door_slot: 18
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 243
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 51
+          state: open
+          door_slot: 51
+          move_length: 240
+          open_speed: 500
+          close_speed: 500
+  - source_line: 244
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2119
+      face_index: 2119
+      triggered_event: 36
+      trigger: 0
+      name: ""
+      distance: 167.022
+      hit: "(2005.57,6420,123.19)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 245
+    assert_mechanism:
+      kind: indoor_door
+      id: 44
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 18
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 246
+    assert_mechanism:
+      kind: indoor_door
+      id: 51
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 51
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 247
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 44
+          state: closed
+          door_slot: 18
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 248
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 51
+          state: closed
+          door_slot: 51
+          move_length: 240
+          open_speed: 500
+          close_speed: 500
+  - source_line: 249
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2163
+      face_index: 2163
+      triggered_event: 40
+      trigger: 0
+      name: ""
+      distance: 252.062
+      hit: "(1995.53,6420,-390.754)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 250
+    assert_mechanism:
+      kind: indoor_door
+      id: 47
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 14
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 251
+    assert_mechanism:
+      kind: indoor_door
+      id: 49
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 23
+      move_length: 240
+      open_speed: 500
+      close_speed: 500
+  - source_line: 252
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 47
+          state: closed
+          door_slot: 14
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 253
+    wait_until:
+      timeout_runtime_seconds: 0.983
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 49
+          state: closed
+          door_slot: 23
+          move_length: 240
+          open_speed: 500
+          close_speed: 500
+  - source_line: 254
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 782
+      face_index: 782
+      triggered_event: 10
+      trigger: 0
+      name: ""
+      distance: 162.258
+      hit: "(4896.86,5684,120.486)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 255
+    assert_mechanism:
+      kind: indoor_door
+      id: 17
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 9
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 256
+    assert_mechanism:
+      kind: indoor_door
+      id: 18
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 40
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 257
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 17
+          state: closed
+          door_slot: 9
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 258
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 18
+          state: closed
+          door_slot: 40
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 259
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 750
+      face_index: 750
+      triggered_event: 11
+      trigger: 0
+      name: ""
+      distance: 144.134
+      hit: "(4372,4831.96,121.835)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 260
+    assert_mechanism:
+      kind: indoor_door
+      id: 19
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 36
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 261
+    assert_mechanism:
+      kind: indoor_door
+      id: 20
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 30
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 262
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 19
+          state: closed
+          door_slot: 36
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 263
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 20
+          state: closed
+          door_slot: 30
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 264
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 832
+      face_index: 832
+      triggered_event: 12
+      trigger: 0
+      name: ""
+      distance: 80.8233
+      hit: "(4090.09,3362.44,124)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 265
+    assert_mechanism:
+      kind: indoor_door
+      id: 21
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 2
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 266
+    assert_mechanism:
+      kind: indoor_door
+      id: 22
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 35
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 267
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 21
+          state: closed
+          door_slot: 2
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 268
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 22
+          state: closed
+          door_slot: 35
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 269
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 934
+      face_index: 934
+      triggered_event: 14
+      trigger: 0
+      name: ""
+      distance: 190.378
+      hit: "(4642.9,2612,123.912)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 270
+    assert_mechanism:
+      kind: indoor_door
+      id: 25
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 6
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 271
+    assert_mechanism:
+      kind: indoor_door
+      id: 26
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 48
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 272
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 25
+          state: closed
+          door_slot: 6
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 273
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 26
+          state: closed
+          door_slot: 48
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 274
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 981
+      face_index: 981
+      triggered_event: 15
+      trigger: 0
+      name: ""
+      distance: 103.739
+      hit: "(4828,2542.37,122.009)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 275
+    assert_mechanism:
+      kind: indoor_door
+      id: 27
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 8
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 276
+    assert_mechanism:
+      kind: indoor_door
+      id: 28
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 39
+      move_length: 2032
+      open_speed: 200
+      close_speed: 200
+  - source_line: 277
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 27
+          state: closed
+          door_slot: 8
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 278
+    wait_until:
+      timeout_runtime_seconds: 10.667
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 28
+          state: closed
+          door_slot: 39
+          move_length: 2032
+          open_speed: 200
+          close_speed: 200
+  - source_line: 279
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1024
+      face_index: 1024
+      triggered_event: 16
+      trigger: 0
+      name: ""
+      distance: 159.68
+      hit: "(4640.63,2100,-1924.66)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 280
+    assert_mechanism:
+      kind: indoor_door
+      id: 29
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 27
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 281
+    assert_mechanism:
+      kind: indoor_door
+      id: 30
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 7
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 282
+    assert:
+      qbit_set:
+        - 1400
+  - source_line: 283
+    assert:
+      qbit_clear:
+        - 1223
+  - source_line: 284
+    assert_mechanism:
+      kind: indoor_door
+      id: 29
+      action: close
+      raw_action: 1
+      previous_state: closing
+      new_state: closing
+      was_moving: true
+      moving: true
+      door_slot: 27
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 285
+    assert_mechanism:
+      kind: indoor_door
+      id: 30
+      action: close
+      raw_action: 1
+      previous_state: closing
+      new_state: closing
+      was_moving: true
+      moving: true
+      door_slot: 7
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 286
+    assert_mechanism:
+      kind: indoor_door
+      id: 29
+      action: close
+      raw_action: 1
+      previous_state: closing
+      new_state: closing
+      was_moving: true
+      moving: true
+      door_slot: 27
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 287
+    assert_mechanism:
+      kind: indoor_door
+      id: 30
+      action: close
+      raw_action: 1
+      previous_state: closing
+      new_state: closing
+      was_moving: true
+      moving: true
+      door_slot: 7
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 288
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 29
+          state: closed
+          door_slot: 27
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 289
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 30
+          state: closed
+          door_slot: 7
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 290
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1059
+      face_index: 1059
+      triggered_event: 17
+      trigger: 0
+      name: ""
+      distance: 195.432
+      hit: "(5920.02,1076,-1926.13)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 291
+    assert_mechanism:
+      kind: indoor_door
+      id: 31
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 32
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 292
+    assert_mechanism:
+      kind: indoor_door
+      id: 32
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 38
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 293
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 31
+          state: closed
+          door_slot: 32
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 294
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 32
+          state: closed
+          door_slot: 38
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 295
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 53
+        face_index: 1133
+        attributes: 2214592896
+  - source_line: 296
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 53
+        face_index: 1174
+        attributes: 2214592896
+  - source_line: 297
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1163
+      face_index: 1163
+      triggered_event: 18
+      trigger: 0
+      name: ""
+      distance: 233.04
+      hit: "(3346.17,-28,-1925.2)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 298
+    assert_mechanism:
+      kind: indoor_door
+      id: 33
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 37
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 299
+    assert_mechanism:
+      kind: indoor_door
+      id: 34
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 26
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 300
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 33
+          state: closed
+          door_slot: 37
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 301
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 34
+          state: closed
+          door_slot: 26
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 302
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1310
+      face_index: 1310
+      triggered_event: 19
+      trigger: 0
+      name: ""
+      distance: 198.035
+      hit: "(2228,-32.8009,-1925.83)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 303
+    assert_mechanism:
+      kind: indoor_door
+      id: 35
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 304
+    assert_mechanism:
+      kind: indoor_door
+      id: 36
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 22
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 305
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 35
+          state: closed
+          door_slot: 1
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 306
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 36
+          state: closed
+          door_slot: 22
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 307
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1410
+      face_index: 1410
+      triggered_event: 20
+      trigger: 0
+      name: ""
+      distance: 114.208
+      hit: "(2145.16,623.077,-772)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 308
+    assert_mechanism:
+      kind: indoor_door
+      id: 37
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 50
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 309
+    assert_mechanism:
+      kind: indoor_door
+      id: 38
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 43
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 310
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 37
+          state: closed
+          door_slot: 50
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 311
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 38
+          state: closed
+          door_slot: 43
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 312
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1520
+      face_index: 1520
+      triggered_event: 21
+      trigger: 0
+      name: ""
+      distance: 159.104
+      hit: "(5068,2850.4,-773.953)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 313
+    assert_mechanism:
+      kind: indoor_door
+      id: 39
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 49
+      move_length: 16
+      open_speed: 50
+      close_speed: 50
+  - source_line: 314
+    assert_mechanism:
+      kind: indoor_door
+      id: 40
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 46
+      move_length: 255
+      open_speed: 500
+      close_speed: 500
+  - source_line: 315
+    wait_until:
+      timeout_runtime_seconds: 0.825
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 39
+          state: closed
+          door_slot: 49
+          move_length: 16
+          open_speed: 50
+          close_speed: 50
+  - source_line: 316
+    wait_until:
+      timeout_runtime_seconds: 1.017
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 40
+          state: closed
+          door_slot: 46
+          move_length: 255
+          open_speed: 500
+          close_speed: 500
+  - source_line: 317
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 1946
+      face_index: 1946
+      triggered_event: 48
+      trigger: 0
+      name: ""
+      distance: 321.21
+      hit: "(6592,2855.09,-853.938)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 318
+    assert:
+      qbit_set:
+        - 1029
+  - source_line: 319
+    assert:
+      qbit_set:
+        - 1207
+  - source_line: 320
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2053
+        grid: "(5,4)"
+  - source_line: 321
+    assert:
+      qbit_set:
+        - 312
+  - source_line: 322
+    load_map:
+      map: oute2.odm
+      scene_kind: outdoor
+      reason: "recorded route used debug console shortcut"
+  - source_line: 323
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 14
+      face_index: 0
+      triggered_event: 30
+      trigger: 0
+      name: ""
+      distance: 326.659
+      hit: "(-5361.76,-5920,752.274)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 324
+    select_topic:
+      kind: npc_topic
+      source_id: 790
+      action_id: 1368
+      secondary_id: 1368
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Wizards
+  - source_line: 325
+    assert:
+      qbit_set:
+        - 1135
+  - source_line: 326
+    select_topic:
+      kind: npc_topic
+      source_id: 790
+      action_id: 1364
+      secondary_id: 1364
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 327
+    assert:
+      qbit_set:
+        - 1134
+  - source_line: 328
+    select_topic:
+      kind: npc_topic
+      source_id: 790
+      action_id: 1365
+      secondary_id: 1365
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 329
+    assert:
+      award_acquired:
+        - id: 58
+          member_index: 0
+  - source_line: 330
+    assert:
+      qbit_clear:
+        - 1207
+  - source_line: 331
+    assert:
+      qbit_clear:
+        - 1134
+  - source_line: 332
+    select_topic:
+      kind: npc_topic
+      source_id: 790
+      action_id: 1367
+      secondary_id: 1367
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 333
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 790
+        house_dialog: false
+        action_count: 2
+  - source_line: 334
+    assert:
+      map_loaded: zdwj02.blv
+      scene_kind: indoor
+  - source_line: 335
+    assert:
+      inventory:
+        - item_id: 2126
+          owner: any_member
+          source: corpse_or_ground_loot
+          note: "message scroll from Flambeaux route"
+  - source_line: 336
+    assert:
+      map_loaded: outc2.odm
+      scene_kind: outdoor
+  - source_line: 337
+    assert:
+      map_arrived:
+        previous_map: zdwj02.blv
+        map: outc2.odm
+        same_map: false
+        use_start_position: false
+        pos: "(6991,13438,97)"
+        direction_degrees: 0
+  - source_line: 338
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 93
+      face_index: 55
+      triggered_event: 211
+      trigger: 0
+      name: ""
+      distance: 206.101
+      hit: "(16512,-12275.8,839.332)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 339
+    select_topic:
+      kind: npc_topic
+      source_id: 791
+      action_id: 1378
+      secondary_id: 1378
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Cavaliers
+  - source_line: 340
+    assert:
+      qbit_set:
+        - 1138
+  - source_line: 341
+    select_topic:
+      kind: npc_topic
+      source_id: 791
+      action_id: 1381
+      secondary_id: 1381
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: Cavaliers
+  - source_line: 342
+    select_topic:
+      kind: npc_topic
+      source_id: 791
+      action_id: 1374
+      secondary_id: 1374
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 343
+    assert:
+      qbit_set:
+        - 1137
+  - source_line: 344
+    select_topic:
+      kind: npc_topic
+      source_id: 791
+      action_id: 1375
+      secondary_id: 1375
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 345
+    assert:
+      award_acquired:
+        - id: 59
+          member_index: 0
+  - source_line: 346
+    assert:
+      qbit_clear:
+        - 1137
+  - source_line: 347
+    select_topic:
+      kind: npc_topic
+      source_id: 791
+      action_id: 1377
+      secondary_id: 1377
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Council Quest"
+  - source_line: 348
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 791
+        house_dialog: false
+        action_count: 2
+  - source_line: 349
+    advance_game_time:
+      until: April
+      reason: "Nicolai circus availability gate"
+  - source_line: 350
+    load_map:
+      map: outb2.odm
+      scene_kind: outdoor
+      reason: "recorded route used debug console shortcut"
+  - source_line: 351
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 46
+      face_index: 23
+      triggered_event: 30
+      trigger: 0
+      name: ""
+      distance: 156.76
+      hit: "(4773.65,19968.8,678.598)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 352
+    select_topic:
+      kind: house_resident
+      source_id: 1595
+      action_id: 798
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Nicolai Ironfist"
+  - source_line: 353
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1334
+      secondary_id: 1334
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Excuse me, your Highness"
+  - source_line: 354
+    assert:
+      follower_hired:
+        - npc_id: 798
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 355
+    assert:
+      qbit_set:
+        - 1700
+  - source_line: 356
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1338
+      secondary_id: 1338
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Uncle Archibald"
+  - source_line: 357
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 798
+        house_dialog: false
+        action_count: 2
+  - source_line: 358
+    load_map:
+      map: outd3.odm
+      scene_kind: outdoor
+      reason: "recorded route used debug console shortcut"
+  - source_line: 359
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 271.986
+      hit: "(17178.6,17032,2379.94)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 360
+    assert:
+      qbit_clear:
+        - 1700
+  - source_line: 361
+    assert:
+      qbit_clear:
+        - 1119
+  - source_line: 362
+    assert:
+      follower_left:
+        - npc_id: 798
+          profession_id: 0
+          weekly_cost: 0
+  - source_line: 363
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 798
+      secondary_id: 0
+      selection_index: 1
+      house_dialog: true
+      enabled: true
+      label: "Nicolai Ironfist"
+  - source_line: 364
+    select_topic:
+      kind: npc_topic
+      source_id: 798
+      action_id: 1337
+      secondary_id: 1337
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The Circus"
+  - source_line: 365
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 366
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1324
+      secondary_id: 1324
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Lord Kilburn"
+  - source_line: 367
+    assert:
+      qbit_clear:
+        - 1206
+  - source_line: 368
+    assert:
+      award_acquired:
+        - id: 57
+          member_index: 0
+  - source_line: 369
+    assert:
+      qbit_clear:
+        - 1110
+  - source_line: 370
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1325
+      secondary_id: 1325
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "The High Council"
+  - source_line: 371
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 372
+    assert:
+      map_loaded: outc2.odm
+      scene_kind: outdoor
+  - source_line: 373
+    assert:
+      map_arrived:
+        previous_map: outd3.odm
+        map: outc2.odm
+        same_map: false
+        use_start_position: false
+        pos: "(6991,13438,97)"
+        direction_degrees: 0
+  - source_line: 374
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 328.615
+      hit: "(12488,5378.18,451.99)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 375
+    select_topic:
+      kind: house_resident
+      source_id: 209
+      action_id: 1089
+      secondary_id: 0
+      selection_index: 6
+      house_dialog: true
+      enabled: true
+      label: "Slicker Silvertongue"
+  - source_line: 376
+    select_topic:
+      kind: npc_topic
+      source_id: 1089
+      action_id: 1693
+      secondary_id: 1693
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Admission to the Oracle"
+  - source_line: 377
+    select_topic:
+      kind: house_resident
+      source_id: 209
+      action_id: 1089
+      secondary_id: 0
+      selection_index: 6
+      house_dialog: true
+      enabled: true
+      label: "Slicker Silvertongue"
+  - source_line: 378
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 209
+        house_dialog: true
+        action_count: 7
+  - source_line: 379
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 29
+      face_index: 47
+      triggered_event: 10
+      trigger: 0
+      name: ""
+      distance: 310.494
+      hit: "(17160.7,12574,2198.01)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 380
+    select_topic:
+      kind: house_service
+      source_id: 1589
+      action_id: 5
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+  - source_line: 390
+    setup_shortcut:
+      kind: train_levels
+      member_index: 0
+      levels: 10
+      expected_level: 11
+      reason: "route speed; training mechanics should be covered separately"
+  - source_line: 391
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 1589
+        house_dialog: true
+        action_count: 2
+  - source_line: 392
+    assert:
+      map_loaded: oute3.odm
+      scene_kind: outdoor
+  - source_line: 393
+    assert:
+      map_arrived:
+        previous_map: outd3.odm
+        map: oute3.odm
+        same_map: false
+        use_start_position: false
+        pos: "(-9705,-6858,161)"
+        direction_degrees: 270
+  - source_line: 394
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 33
+      face_index: 6
+      triggered_event: 65
+      trigger: 0
+      name: ""
+      distance: 265.291
+      hit: "(-7033.67,-5648,274.061)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 395
+    select_topic:
+      kind: guild_membership_offer
+      source_id: 992
+      action_id: 1694
+      secondary_id: 1694
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Elemental Guild Membership"
+  - source_line: 396
+    select_topic:
+      kind: guild_membership_join
+      source_id: 992
+      action_id: 1694
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Join the Elemental Guild for 100 gold"
+  - source_line: 397
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 992
+        house_dialog: false
+        action_count: 2
+  - source_line: 398
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 32
+      face_index: 6
+      triggered_event: 66
+      trigger: 0
+      name: ""
+      distance: 264.841
+      hit: "(-6125.49,-5648,277.005)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 399
+    select_topic:
+      kind: guild_membership_offer
+      source_id: 939
+      action_id: 1695
+      secondary_id: 1695
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Guild of the Self Membership"
+  - source_line: 400
+    select_topic:
+      kind: guild_membership_join
+      source_id: 939
+      action_id: 1695
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Join the Self Guild for 100 gold"
+  - source_line: 401
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 939
+        house_dialog: false
+        action_count: 2
+  - source_line: 402
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 45
+      face_index: 47
+      triggered_event: 58
+      trigger: 0
+      name: ""
+      distance: 427.926
+      hit: "(-5441,-6228.04,282.713)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 403
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 857
+        house_dialog: false
+        action_count: 4
+  - source_line: 404
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 44
+      face_index: 47
+      triggered_event: 59
+      trigger: 0
+      name: ""
+      distance: 247.449
+      hit: "(-5441,-7477.14,307.746)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 405
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 847
+        house_dialog: false
+        action_count: 4
+  - source_line: 406
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 30
+      face_index: 6
+      triggered_event: 68
+      trigger: 0
+      name: ""
+      distance: 269.179
+      hit: "(-5990.71,-8168,292.131)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 407
+    select_topic:
+      kind: guild_membership_offer
+      source_id: 818
+      action_id: 1699
+      secondary_id: 1699
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Blade's End Membership"
+  - source_line: 408
+    select_topic:
+      kind: guild_membership_join
+      source_id: 818
+      action_id: 1699
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Join Blades' End for 25 gold"
+  - source_line: 409
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 818
+        house_dialog: false
+        action_count: 3
+  - source_line: 410
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 31
+      face_index: 6
+      triggered_event: 67
+      trigger: 0
+      name: ""
+      distance: 258.97
+      hit: "(-6671.01,-8168,260.914)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 411
+    select_topic:
+      kind: guild_membership_offer
+      source_id: 1073
+      action_id: 1696
+      secondary_id: 1696
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Buccaneer's Lair Membership"
+  - source_line: 412
+    select_topic:
+      kind: guild_membership_join
+      source_id: 1073
+      action_id: 1696
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Join Buccaneers' Lair for 25 gold"
+  - source_line: 413
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 1073
+        house_dialog: false
+        action_count: 4
+  - source_line: 414
+    setup_shortcut:
+      kind: set_skill
+      member_index: 0
+      skill: perception
+      level: 4
+      mastery: expert
+      reason: "route speed; guild/trainer flow should be covered separately"
+  - source_line: 415
+    load_map:
+      target: "Superior Temple of Baa"
+      map: 6t7.blv
+      scene_kind: indoor
+      reason: "manual route shortcut to recorded dungeon segment"
+  - source_line: 416
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 50
+        face_index: 938
+        attributes: 2214592896
+  - source_line: 417
+    assert:
+      qbit_set:
+        - 73
+  - source_line: 418
+    assert:
+      qbit_set:
+        - 217
+  - source_line: 419
+    assert:
+      dialogue_canceled:
+        kind: map_event
+        active_source_id: 0
+        house_dialog: false
+        action_count: 0
+  - source_line: 420
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 911
+      face_index: 911
+      triggered_event: 2
+      trigger: 0
+      name: ""
+      distance: 275.854
+      hit: "(-1024,20.1187,116.149)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 421
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 250
+      open_speed: 150
+      close_speed: 150
+  - source_line: 422
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 1
+          move_length: 250
+          open_speed: 150
+          close_speed: 150
+  - source_line: 423
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 867
+      face_index: 867
+      triggered_event: 17
+      trigger: 0
+      name: ""
+      distance: 264.407
+      hit: "(-8160,-2473.27,110.701)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 424
+    assert_mechanism:
+      kind: indoor_door
+      id: 17
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 2
+      move_length: 250
+      open_speed: 150
+      close_speed: 150
+  - source_line: 425
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 17
+          state: closed
+          door_slot: 2
+          move_length: 250
+          open_speed: 150
+          close_speed: 150
+  - source_line: 426
+    combat_loot:
+      target: "Priest of Baa"
+      expected_item_id: 2187
+      note: "--- likely kill the kuy and loot him?"
+      method: manual_kill_then_loot
+      reason: "script should turn this actor into a lootable monster that drops the key"
+  - source_line: 427
+    interact_actor:
+      method: keyboard
+      kind: actor
+      actor_index: 0
+      name: "Priest of Baa"
+      npc_id: 0
+      group: 0
+      friendly: false
+      distance: 290.976
+      hit: "(-9790,-3305,84)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 428
+    assert:
+      item_visible:
+        item_id: 2187
+        source: inventory
+        member_index: 0
+        grid: "(1,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+  - source_line: 429
+    assert_mechanism:
+      kind: indoor_door
+      id: 20
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 9
+      move_length: 254
+      open_speed: 150
+      close_speed: 150
+  - source_line: 430
+    wait_until:
+      timeout_runtime_seconds: 2.2
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 20
+          state: closed
+          door_slot: 9
+          move_length: 254
+          open_speed: 150
+          close_speed: 150
+  - source_line: 431
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2323
+      face_index: 2323
+      triggered_event: 21
+      trigger: 0
+      name: ""
+      distance: 88.7032
+      hit: "(-256,-3145.27,147.855)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 432
+    assert_mechanism:
+      kind: indoor_door
+      id: 21
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 6
+      move_length: 254
+      open_speed: 150
+      close_speed: 150
+  - source_line: 433
+    wait_until:
+      timeout_runtime_seconds: 2.2
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 21
+          state: closed
+          door_slot: 6
+          move_length: 254
+          open_speed: 150
+          close_speed: 150
+  - source_line: 434
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2251
+      face_index: 2251
+      triggered_event: 40
+      trigger: 0
+      name: ""
+      distance: 214.819
+      hit: "(-1414.37,-3568,133.568)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 435
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 33
+        face_index: 1005
+        attributes: 2214592896
+  - source_line: 436
+    assert:
+      dialogue_canceled:
+        kind: map_event
+        active_source_id: 0
+        house_dialog: false
+        action_count: 0
+  - source_line: 437
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 945
+      face_index: 945
+      triggered_event: 11
+      trigger: 0
+      name: ""
+      distance: 170.798
+      hit: "(-480,-6037.75,157.352)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 438
+    assert_mechanism:
+      kind: indoor_door
+      id: 11
+      action: close
+      raw_action: 1
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 5
+      move_length: 250
+      open_speed: 150
+      close_speed: 150
+  - source_line: 439
+    wait_until:
+      timeout_runtime_seconds: 2.167
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 11
+          state: closed
+          door_slot: 5
+          move_length: 250
+          open_speed: 150
+          close_speed: 150
+  - source_line: 440
+    combat_loot:
+      target: "Priest of Baa"
+      expected_item_id: 2112
+      note: "--- maybe this guy had the key???"
+      method: manual_kill_then_loot
+      reason: "script should turn this actor into a lootable monster that drops the key"
+  - source_line: 441
+    interact_actor:
+      method: keyboard
+      kind: actor
+      actor_index: 1
+      name: "Priest of Baa"
+      npc_id: 0
+      group: 0
+      friendly: false
+      distance: 242.879
+      hit: "(2517,-7811,84)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 442
+    assert:
+      item_visible:
+        item_id: 2112
+        source: inventory
+        member_index: 0
+        grid: "(1,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+  - source_line: 443
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 2251
+      face_index: 2251
+      triggered_event: 40
+      trigger: 0
+      name: ""
+      distance: 272.38
+      hit: "(-1467.53,-3568,132.493)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 444
+    assert:
+      qbit_set:
+        - 1032
+  - source_line: 445
+    assert:
+      qbit_set:
+        - 1214
+  - source_line: 446
+    assert:
+      item_visible:
+        item_id: 2122
+        source: chest
+        member_index: 0
+        grid: "(0,0)"
+        equipment_slot: 1
+        world_item_index: 0
+        loot_item_index: 0
+  - source_line: 447
+    assert:
+      item_received:
+        destination: held
+        source: chest
+        item_id: 2122
+        grid: "(2,2)"
+  - source_line: 448
+    load_map:
+      map: outd3.odm
+      scene_kind: outdoor
+      reason: "recorded route used debug console shortcut"
+  - source_line: 449
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 57
+      face_index: 42
+      triggered_event: 43
+      trigger: 0
+      name: ""
+      distance: 230.652
+      hit: "(17139.3,17032,2376)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 450
+    select_topic:
+      kind: house_resident
+      source_id: 222
+      action_id: 789
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "Wilbur Humphrey"
+  - source_line: 451
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1415
+      secondary_id: 1415
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Silvertongue's Cure"
+  - source_line: 452
+    assert:
+      qbit_clear:
+        - 1224
+  - source_line: 453
+    assert:
+      qbit_set:
+        - 1225
+  - source_line: 454
+    select_topic:
+      kind: npc_topic
+      source_id: 789
+      action_id: 1415
+      secondary_id: 1415
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Silvertongue's Cure"
+  - source_line: 459
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 222
+        house_dialog: true
+        action_count: 2
+  - source_line: 460
+    assert:
+      map_loaded: outc2.odm
+      scene_kind: outdoor
+  - source_line: 461
+    assert:
+      map_arrived:
+        previous_map: outd3.odm
+        map: outc2.odm
+        same_map: false
+        use_start_position: false
+        pos: "(6991,13438,97)"
+        direction_degrees: 0
+  - source_line: 462
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 154.757
+      hit: "(12488,5380.36,474.484)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 463
+    assert:
+      qbit_set:
+        - 1192
+  - source_line: 464
+    assert:
+      qbit_clear:
+        - 1214
+  - source_line: 465
+    assert:
+      qbit_clear:
+        - 1225
+  - source_line: 466
+    assert:
+      award_acquired:
+        - id: 63
+          member_index: 0
+  - source_line: 467
+    assert:
+      qbit_set:
+        - 1191
+  - source_line: 468
+    assert:
+      dialogue_canceled:
+        kind: house_service
+        active_source_id: 209
+        house_dialog: true
+        action_count: 6
+  - source_line: 469
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 68
+      face_index: 7
+      triggered_event: 49
+      trigger: 0
+      name: ""
+      distance: 194.86
+      hit: "(12488,5366.82,450.081)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 470
+    select_topic:
+      kind: house_resident
+      source_id: 209
+      action_id: 1088
+      secondary_id: 0
+      selection_index: 5
+      house_dialog: true
+      enabled: true
+      label: "Euclid Kepler"
+  - source_line: 471
+    select_topic:
+      kind: npc_topic
+      source_id: 1088
+      action_id: 1692
+      secondary_id: 1692
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Admission to the Oracle"
+  - source_line: 472
+    select_topic:
+      kind: house_proprietor
+      source_id: 209
+      action_id: 209
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: "High Council"
+  - source_line: 473
+    select_topic:
+      kind: house_service
+      source_id: 209
+      action_id: 23
+      secondary_id: 0
+      selection_index: 0
+      house_dialog: true
+      enabled: true
+      label: Enter
+  - source_line: 474
+    assert:
+      map_loaded: oracle.blv
+      scene_kind: indoor
+  - source_line: 475
+    assert:
+      map_arrived:
+        previous_map: outc2.odm
+        map: oracle.blv
+        same_map: false
+        use_start_position: false
+        pos: "(0,0,0)"
+        direction_degrees: "none"
+  - source_line: 476
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 461
+      face_index: 461
+      triggered_event: 14
+      trigger: 0
+      name: ""
+      distance: 183.38
+      hit: "(7242.15,-6131.19,113.805)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 477
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 8
+        face_index: 317
+        attributes: 2214592896
+  - source_line: 478
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 93
+        attributes: 2214592896
+  - source_line: 479
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 280
+        attributes: 2214592912
+  - source_line: 480
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 6
+        face_index: 448
+        attributes: 2214592896
+  - source_line: 481
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 436
+      face_index: 436
+      triggered_event: 1
+      trigger: 0
+      name: ""
+      distance: 125.384
+      hit: "(-149.637,-552.382,146.357)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 482
+    assert_mechanism:
+      kind: indoor_door
+      id: 1
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 0
+      move_length: 450
+      open_speed: 300
+      close_speed: 300
+  - source_line: 483
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 7
+        face_index: 280
+        attributes: 2214592912
+  - source_line: 484
+    wait_until:
+      timeout_runtime_seconds: 2.0
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 1
+          state: closed
+          door_slot: 0
+          move_length: 450
+          open_speed: 300
+          close_speed: 300
+  - source_line: 485
+    assert:
+      pressure_plate_triggered:
+        world: indoor
+        event_id: 2
+        face_index: 392
+        attributes: 2214592896
+  - source_line: 486
+    assert_mechanism:
+      kind: indoor_door
+      id: 2
+      action: trigger
+      raw_action: 2
+      previous_state: open
+      new_state: closing
+      was_moving: false
+      moving: true
+      door_slot: 1
+      move_length: 384
+      open_speed: 150
+      close_speed: 150
+  - source_line: 487
+    interact_target:
+      method: keyboard
+      kind: event_target
+      target_kind: 1
+      target_index: 399
+      face_index: 399
+      triggered_event: 3
+      trigger: 0
+      name: ""
+      distance: 255.768
+      hit: "(-1401.94,2336,-379.147)"
+    todo: "add set_pose/face or replace target ids with stable aliases before this becomes final"
+  - source_line: 488
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1386
+      secondary_id: 1386
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Crystal Locations"
+  - source_line: 489
+    assert:
+      qbit_set:
+        - 1186
+  - source_line: 490
+    assert:
+      qbit_set:
+        - 1187
+  - source_line: 491
+    assert:
+      qbit_set:
+        - 1188
+  - source_line: 492
+    assert:
+      qbit_set:
+        - 1189
+  - source_line: 493
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1387
+      secondary_id: 1387
+      selection_index: 1
+      house_dialog: false
+      enabled: true
+      label: "Memory Crystal"
+  - source_line: 494
+    select_topic:
+      kind: npc_topic
+      source_id: 793
+      action_id: 1386
+      secondary_id: 1386
+      selection_index: 0
+      house_dialog: false
+      enabled: true
+      label: "Crystal Locations"
+  - source_line: 496
+    assert:
+      dialogue_canceled:
+        kind: npc_talk
+        active_source_id: 793
+        house_dialog: false
+        action_count: 2
+  - source_line: 497
+    wait_until:
+      timeout_runtime_seconds: 3.067
+      assert:
+        mechanism:
+          kind: indoor_door
+          id: 2
+          state: closed
+          door_slot: 1
+          move_length: 384
+          open_speed: 150
+          close_speed: 150

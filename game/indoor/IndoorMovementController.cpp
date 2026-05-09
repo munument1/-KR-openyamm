@@ -512,6 +512,11 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
 
         for (const MapDeltaDoor &door : pMapDeltaData->doors)
         {
+            if (!indoorDoorCarriesPartySupport(door))
+            {
+                continue;
+            }
+
             for (uint16_t faceId : door.faceIds)
             {
                 if (faceId >= seenMechanismSupportFaces.size() || seenMechanismSupportFaces[faceId] != 0)

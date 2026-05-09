@@ -8,12 +8,14 @@
 #include "game/gameplay/GameplaySpellService.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/tables/ItemTable.h"
 
 #include <SDL3/SDL_timer.h>
 
 #include <algorithm>
 #include <chrono>
+#include <sstream>
 
 namespace OpenYAMM::Game
 {
@@ -126,6 +128,7 @@ bool canStoreWorldItemInInventory(
     size_t &recipientMemberIndex)
 {
     const Party::Snapshot snapshot = party.snapshot();
+    const ScopedGameplayDebugTraceSuppression traceSuppression;
     const bool canStore = party.tryGrantInventoryItem(item, &recipientMemberIndex);
     party.restoreSnapshot(snapshot);
     return canStore;
@@ -141,6 +144,24 @@ void recordWorldItemActivationResult(
     {
         pEventRuntimeState->lastActivationResult = result;
     }
+}
+
+std::string gameplayTraceWorldContext(const IGameplayWorldRuntime *pWorldRuntime)
+{
+    if (pWorldRuntime == nullptr)
+    {
+        return {};
+    }
+
+    std::ostringstream out;
+    out << " map=\"" << pWorldRuntime->mapName() << "\""
+        << " scene_kind=" << (pWorldRuntime->isIndoorMap() ? "indoor" : "outdoor")
+        << " party=(" << pWorldRuntime->partyX()
+        << "," << pWorldRuntime->partyY()
+        << "," << pWorldRuntime->partyFootZ() << ")"
+        << " yaw=" << pWorldRuntime->gameplayCameraYawRadians()
+        << " pitch=" << pWorldRuntime->gameplayCameraPitchRadians();
+    return out.str();
 }
 
 bool tryActivateWorldItem(
@@ -218,6 +239,12 @@ bool tryActivateWorldItem(
             return false;
         }
 
+        gameplayDebugTraceLog(
+            "item_received destination=inventory source=world_item item_id="
+            + std::to_string(removedItemState.item.objectDescriptionId)
+            + gameplayDebugTraceItemSummary(removedItemState.item.objectDescriptionId, runtime.itemTable())
+            + " world_item_index=" + std::to_string(worldItemIndex)
+            + " member_index=" + std::to_string(recipientMemberIndex));
         pParty->requestSound(SoundId::Gold);
         runtime.playSpeechReaction(recipientMemberIndex, SpeechId::FoundItem, true);
         runtime.setStatusBarEvent(formatFoundItemStatusText(itemName));
@@ -227,6 +254,11 @@ bool tryActivateWorldItem(
 
     GameplayHeldItemController::setHeldInventoryItem(heldItem, removedItemState.item);
     pParty->setHeldItemForQueries(removedItemState.item);
+    gameplayDebugTraceLog(
+        "item_received destination=held source=world_item item_id="
+        + std::to_string(removedItemState.item.objectDescriptionId)
+        + gameplayDebugTraceItemSummary(removedItemState.item.objectDescriptionId, runtime.itemTable())
+        + " world_item_index=" + std::to_string(worldItemIndex));
     pParty->requestSound(SoundId::Gold);
     runtime.playSpeechReaction(pParty->activeMemberIndex(), SpeechId::FoundItem, true);
     runtime.setStatusBarEvent(formatFoundItemStatusText(itemName));
@@ -242,8 +274,21 @@ bool tryActivateWorldHit(
 {
     if (pWorldRuntime == nullptr || !pWorldRuntime->canActivateWorldHit(hit, interactionMethod))
     {
+        gameplayDebugTraceLog(
+            "interact method="
+            + std::string(interactionMethod == GameplayInteractionMethod::Keyboard ? "keyboard" : "mouse")
+            + gameplayTraceWorldContext(pWorldRuntime)
+            + " can_activate=false "
+            + gameplayDebugTraceWorldHitSummary(hit));
         return false;
     }
+
+    gameplayDebugTraceLog(
+        "interact method="
+        + std::string(interactionMethod == GameplayInteractionMethod::Keyboard ? "keyboard" : "mouse")
+        + gameplayTraceWorldContext(pWorldRuntime)
+        + " can_activate=true "
+        + gameplayDebugTraceWorldHitSummary(hit));
 
     if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
     {

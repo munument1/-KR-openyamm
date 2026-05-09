@@ -564,7 +564,6 @@ bool canSweepAgainstIndoorFace(
 {
     if (!geometry.hasPlane
         || geometry.vertices.size() < 3
-        || hasFaceAttribute(geometry.attributes, FaceAttribute::Invisible)
         || hasFaceAttribute(geometry.attributes, FaceAttribute::Untouchable)
         || (geometry.isPortal && !options.includePortalFaces))
     {

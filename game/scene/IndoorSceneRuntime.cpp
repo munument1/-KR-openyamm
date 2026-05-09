@@ -1,6 +1,7 @@
 #include "game/scene/IndoorSceneRuntime.h"
 
 #include "game/gameplay/GameplayActorService.h"
+#include "game/indoor/IndoorGeometryUtils.h"
 #include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/maps/MapAssetLoader.h"
 
@@ -257,11 +258,6 @@ EventRuntimeState::PendingSound buildStopMechanismSound(uint32_t doorId)
     return sound;
 }
 
-float fixedMechanismDirectionComponentToFloat(int value)
-{
-    return static_cast<float>(value) / 65536.0f;
-}
-
 bool mechanismDoorContainsFace(const MapDeltaDoor &door, size_t faceIndex)
 {
     for (uint16_t doorFaceId : door.faceIds)
@@ -299,6 +295,11 @@ void applyMovingMechanismSupportMovement(
 
     for (const MapDeltaDoor &door : mapDeltaData.doors)
     {
+        if (!indoorDoorCarriesPartySupport(door))
+        {
+            continue;
+        }
+
         if (!mechanismDoorContainsFace(door, moveState.supportFaceIndex))
         {
             continue;
@@ -326,9 +327,9 @@ void applyMovingMechanismSupportMovement(
         }
 
         partyRuntime.translatePartyPosition(
-            fixedMechanismDirectionComponentToFloat(door.directionX) * distanceDelta,
-            fixedMechanismDirectionComponentToFloat(door.directionY) * distanceDelta,
-            fixedMechanismDirectionComponentToFloat(door.directionZ) * distanceDelta);
+            fixedIndoorDoorDirectionComponentToFloat(door.directionX) * distanceDelta,
+            fixedIndoorDoorDirectionComponentToFloat(door.directionY) * distanceDelta,
+            fixedIndoorDoorDirectionComponentToFloat(door.directionZ) * distanceDelta);
     }
 }
 
@@ -411,6 +412,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
 {
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->mapFileName = mapFileName;
         setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
     }
 
@@ -487,6 +489,7 @@ IndoorSceneRuntime::IndoorSceneRuntime(
 {
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->mapFileName = mapFileName;
         setActiveHistoryContinent(*m_eventRuntimeState, map.mergedContinentId);
     }
 
@@ -658,6 +661,7 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_eventRuntimeState = snapshot.eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->mapFileName = m_mapFileName;
         setActiveHistoryContinent(*m_eventRuntimeState, m_map.mergedContinentId);
         clearTransientEventRuntimeState(*m_eventRuntimeState);
     }
@@ -919,7 +923,9 @@ bool IndoorSceneRuntime::activateEvent(
         eventId,
         *m_eventRuntimeState,
         &m_partyRuntime.party(),
-        &m_worldRuntime
+        &m_worldRuntime,
+        std::nullopt,
+        false
     );
     m_eventRuntimeState->activeDecorationContext.reset();
 

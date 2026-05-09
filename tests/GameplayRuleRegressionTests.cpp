@@ -1006,7 +1006,7 @@ TEST_CASE("empty wand falls back to bow attack profile")
     CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Bow);
 }
 
-TEST_CASE("main-hand blaster shoots before bow and can reach zero recovery")
+TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recovery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Game::Character member = makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
@@ -1037,11 +1037,27 @@ TEST_CASE("main-hand blaster shoots before bow and can reach zero recovery")
     REQUIRE(profile.rangedAttackBonus.has_value());
     CHECK_EQ(profile.rangedSkillLevel, 10u);
     CHECK_EQ(profile.rangedSkillMastery, static_cast<uint32_t>(OpenYAMM::Game::SkillMastery::Grandmaster));
-    CHECK(profile.rangedRecoverySeconds == doctest::Approx(0.0f));
+    CHECK(profile.rangedRecoverySeconds == doctest::Approx(0.0833333f));
     CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Blaster);
+    CHECK(attack.damageType == OpenYAMM::Game::CombatDamageType::Irresistible);
     CHECK(attack.resolvesOnImpact);
-    CHECK(attack.recoverySeconds == doctest::Approx(0.0f));
+    CHECK(attack.recoverySeconds == doctest::Approx(0.0833333f));
     CHECK(attack.attackSoundHook == "blaster_shot");
+}
+
+TEST_CASE("blaster damage bypasses monster resistance")
+{
+    const int damage = 137;
+    std::mt19937 rng(11);
+
+    CHECK_EQ(
+        OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
+            damage,
+            OpenYAMM::Game::CombatDamageType::Irresistible,
+            200,
+            200,
+            rng),
+        damage);
 }
 
 TEST_CASE("dragon character normal attack uses dragon ability firebolt profile")
@@ -1768,6 +1784,44 @@ TEST_CASE("haste reduces player attack recovery")
     CHECK(hastedProfile.meleeRecoverySeconds < baseProfile.meleeRecoverySeconds);
 }
 
+TEST_CASE("haste reduces blaster attack recovery down to MMerge minimum")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = {};
+    party.setItemTable(&gameData.itemTable);
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->equipment.mainHand = findFirstItemIdBySkillGroup(gameData.itemTable, "Blaster");
+    REQUIRE(pMember->equipment.mainHand != 0);
+    pMember->skills["Blaster"] = {"Blaster", 1, OpenYAMM::Game::SkillMastery::Normal};
+
+    const OpenYAMM::Game::CharacterAttackProfile baseProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            *pMember,
+            &gameData.itemTable,
+            &gameData.spellTable);
+
+    party.applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::Haste,
+        60.0f,
+        0,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Haste),
+        1,
+        OpenYAMM::Game::SkillMastery::Expert,
+        0);
+
+    const OpenYAMM::Game::CharacterAttackProfile hastedProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            *pMember,
+            &gameData.itemTable,
+            &gameData.spellTable);
+
+    CHECK(baseProfile.rangedRecoverySeconds > hastedProfile.rangedRecoverySeconds);
+    CHECK(hastedProfile.rangedRecoverySeconds == doctest::Approx(0.0833333f));
+}
+
 TEST_CASE("event experience variable awards direct member experience without learning bonus")
 {
     OpenYAMM::Game::Party party = {};
@@ -1968,6 +2022,105 @@ TEST_CASE("lua event runtime stores question answer metadata and resumes continu
     CHECK_EQ(runtimeState.messages.back(), "ok");
 }
 
+TEST_CASE("lua SetMessage is pending text until a display opcode consumes it")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> setOnlyProgram = loadSyntheticScriptedProgram(
+        "evt.map[10] = function()\n"
+        "    evt._BeginEvent(10)\n"
+        "    evt.SetMessage(\"Exit\")\n"
+        "end\n",
+        "@SyntheticSetMessageOnly.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(setOnlyProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(setOnlyProgram, std::nullopt, 10, runtimeState, nullptr, nullptr));
+    CHECK_FALSE(runtimeState.pendingDialogueContext.has_value());
+    CHECK(runtimeState.messages.empty());
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> pressAnyKeyProgram = loadSyntheticScriptedProgram(
+        "evt.map[11] = function()\n"
+        "    evt._BeginEvent(11)\n"
+        "    evt.SetMessage(\"Read this\")\n"
+        "    evt._PressAnyKey(11, 3)\n"
+        "end\n",
+        "@SyntheticSetMessagePressAnyKey.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(pressAnyKeyProgram.has_value());
+
+    runtimeState = {};
+    REQUIRE(eventRuntime.executeEventById(pressAnyKeyProgram, std::nullopt, 11, runtimeState, nullptr, nullptr));
+    REQUIRE(runtimeState.pendingDialogueContext.has_value());
+    CHECK_EQ(runtimeState.pendingDialogueContext->kind, OpenYAMM::Game::DialogueContextKind::MapEvent);
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    REQUIRE_FALSE(runtimeState.messages.empty());
+    CHECK_EQ(runtimeState.messages.back(), "Read this");
+
+    const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+        runtimeState,
+        0,
+        true,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0.0f);
+    CHECK(dialog.isActive);
+    CHECK(dialog.title.empty());
+    REQUIRE_FALSE(dialog.lines.empty());
+    CHECK_EQ(dialog.lines.back(), "Read this");
+}
+
+TEST_CASE("lua AskQuestion uses existing map message as dialog body")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[69] = function()\n"
+        "    evt._BeginEvent(69)\n"
+        "    evt.SimpleMessage(\"Restricted area - Keep out.\")\n"
+        "    evt.AskQuestion(69, 17, 14, 20, 15, 16, \"What's the password?\", {\"JBARD\", \"jbard\"})\n"
+        "    return nil\n"
+        "end\n",
+        "@SyntheticQuestionWithMessage.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 69, runtimeState, nullptr, nullptr));
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    REQUIRE(runtimeState.pendingInputPrompt->text.has_value());
+    CHECK_EQ(*runtimeState.pendingInputPrompt->text, "What's the password?");
+    REQUIRE_EQ(runtimeState.messages.size(), 1u);
+    CHECK_EQ(runtimeState.messages.back(), "Restricted area - Keep out.");
+
+    const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+        runtimeState,
+        0,
+        true,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0.0f);
+    CHECK(dialog.isActive);
+    CHECK(dialog.title.empty());
+    REQUIRE_EQ(dialog.lines.size(), 1u);
+    CHECK_EQ(dialog.lines[0], "Restricted area - Keep out.");
+}
+
 TEST_CASE("lua on-load runtime preserves preseeded named globals")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -2034,6 +2187,21 @@ TEST_CASE("lua map event continuations prefer local handlers over colliding glob
         nullptr,
         nullptr));
     CHECK_EQ(npcTopicRuntimeState.messages.back(), "global");
+
+    OpenYAMM::Game::EventRuntimeState mapDialogTopicRuntimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext mapDialogContext = {};
+    mapDialogContext.kind = OpenYAMM::Game::DialogueContextKind::MapEvent;
+    mapDialogTopicRuntimeState.pendingDialogueContext = mapDialogContext;
+
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        localProgram,
+        globalProgram,
+        69,
+        mapDialogTopicRuntimeState,
+        nullptr,
+        nullptr));
+    REQUIRE(mapDialogTopicRuntimeState.pendingInputPrompt.has_value());
+    CHECK_EQ(mapDialogTopicRuntimeState.messages.back(), "password");
 }
 
 TEST_CASE("lua event runtime Set applies condition variables")
@@ -3075,6 +3243,31 @@ TEST_CASE("lua map hint-only events shadow colliding global handlers")
 
     CHECK(eventRuntime.executeEventById(localProgram, globalProgram, 176, runtimeState, nullptr, nullptr));
     CHECK(runtimeState.messages.empty());
+
+    OpenYAMM::Game::EventRuntimeState localOnlyState = {};
+    CHECK_FALSE(eventRuntime.executeEventById(
+        std::nullopt,
+        globalProgram,
+        176,
+        localOnlyState,
+        nullptr,
+        nullptr,
+        std::nullopt,
+        false));
+    CHECK(localOnlyState.messages.empty());
+
+    OpenYAMM::Game::EventRuntimeState explicitFallbackState = {};
+    CHECK(eventRuntime.executeEventById(
+        std::nullopt,
+        globalProgram,
+        176,
+        explicitFallbackState,
+        nullptr,
+        nullptr,
+        std::nullopt,
+        true));
+    REQUIRE_EQ(explicitFallbackState.messages.size(), 1u);
+    CHECK_EQ(explicitFallbackState.messages.front(), "global");
 }
 
 TEST_CASE("event runtime caches facet invisible override state")
@@ -3186,6 +3379,72 @@ TEST_CASE("indoor support sampling includes mechanism floor faces omitted from s
     CHECK(state.grounded);
     CHECK_EQ(state.supportFaceIndex, 1u);
     CHECK_EQ(state.footZ, doctest::Approx(0.0f));
+}
+
+TEST_CASE("indoor support sampling does not treat side-opening doors as carry platforms")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {0, 0, 0},
+        {512, 0, 0},
+        {512, 1024, 0},
+        {0, 1024, 0},
+        {512, 0, 0},
+        {1024, 0, 0},
+        {1024, 1024, 0},
+        {512, 1024, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace staticFloor = {};
+    staticFloor.vertexIndices = {0, 1, 2, 3};
+    staticFloor.facetType = 3;
+    staticFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace sideDoorFloor = {};
+    sideDoorFloor.vertexIndices = {4, 5, 6, 7};
+    sideDoorFloor.facetType = 3;
+    sideDoorFloor.roomNumber = 1;
+
+    mapData.faces = {staticFloor, sideDoorFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = 0;
+    sector.maxX = 1024;
+    sector.minY = 0;
+    sector.maxY = 1024;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    OpenYAMM::Game::MapDeltaDoor sideDoor = {};
+    sideDoor.doorId = 72;
+    sideDoor.directionX = 65536;
+    sideDoor.moveLength = 640;
+    sideDoor.openSpeed = 150;
+    sideDoor.closeSpeed = 150;
+    sideDoor.state = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Open);
+    sideDoor.vertexIds = {4, 5, 6, 7};
+    sideDoor.faceIds = {1};
+    sideDoor.xOffsets = {512, 1024, 1024, 512};
+    sideDoor.yOffsets = {0, 0, 1024, 1024};
+    sideDoor.zOffsets = {0, 0, 0, 0};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    mapDeltaData->doors.push_back(sideDoor);
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState state =
+        controller.initializeStateFromEyePosition(768.0f, 512.0f, 160.0f, body);
+
+    CHECK_NE(state.supportFaceIndex, 1u);
 }
 
 TEST_CASE("resolve character attack sound id uses shared weapon family mapping")

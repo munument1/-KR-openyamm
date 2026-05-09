@@ -13,6 +13,7 @@ add_executable(openyamm
     arcomage/ArcomageRules.cpp
     data/ActorNameResolver.cpp
     debug/DebugConsole.cpp
+    debug/GameplayDebugTrace.cpp
     debug/GameImGuiBgfxRenderer.cpp
     data/GameDataRepository.cpp
     app/GameSession.cpp
@@ -139,6 +140,10 @@ add_executable(openyamm
     tables/RaceStartingStatsTable.cpp
     tables/RosterTable.cpp
     maps/SaveGame.cpp
+    scenario/ScenarioHeadlessCommand.cpp
+    scenario/ScenarioRuntimeDriver.cpp
+    scenario/ScenarioRunner.cpp
+    scenario/ScenarioYamlLoader.cpp
     audio/SoundCatalog.cpp
     SpawnPreview.cpp
     party/SkillData.cpp

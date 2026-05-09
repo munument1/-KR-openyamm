@@ -1,0 +1,32 @@
+id: mm6.smoke.faithful_potbello
+title: MM6 smoke - faithful keyboard interaction opens Potbello house dialog
+world: mm6
+mode: faithful
+tags:
+  - mm6
+  - smoke
+  - faithful
+steps:
+  - new_game_flow:
+      continent: enroth
+      party: mm6_story_any
+      start_map: oute3.odm
+  - set_pose:
+      map: oute3.odm
+      x: -8878
+      y: -8697
+      z: 220
+      yaw: 0
+      pitch: -0.32
+  - press_interact:
+      expect:
+        kind: event_target
+  - select_topic:
+      kind: house_resident
+      action_id: 786
+  - select_topic:
+      kind: npc_topic
+      action_id: 1314
+  - assert:
+      qbit_set:
+        - 1106

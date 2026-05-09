@@ -41,8 +41,11 @@ constexpr uint32_t SmokeBoatHouseId = 481;
 constexpr uint32_t WindBoatHouseId = 483;
 constexpr uint32_t NewSorpigalStableHouseId = 470;
 constexpr uint32_t NewSorpigalBoatHouseId = 496;
+constexpr uint32_t BuccaneersLairHouseId = 191;
+constexpr uint32_t BerserkersFuryHouseId = 199;
 constexpr uint32_t BrekishHallHouseId = 212;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
+constexpr uint32_t OracleHouseId = 451;
 constexpr uint32_t ElgarFellmoonHouseId = 354;
 constexpr uint32_t SandroThantThroneRoomHouseId = 213;
 constexpr uint32_t FredrickHouseId = 866;
@@ -1048,6 +1051,30 @@ TEST_CASE("merged house exits add direct destination actions with entrance coord
     CHECK_FALSE(harness.eventRuntimeState().pendingMapMove->useMapStartPosition);
 }
 
+TEST_CASE("merged house exits without explicit entrance coordinates use destination map start")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.party().setQuestBit(1193, true);
+
+    const OpenYAMM::Game::HouseEntry *pHouse = gameData.houseTable.get(OracleHouseId);
+    REQUIRE(pHouse != nullptr);
+    REQUIRE(pHouse->extraExit.has_value());
+    CHECK_EQ(pHouse->extraExit->destinationMapFileName, "sci-fi.blv");
+    CHECK(pHouse->extraExit->useMapStartPosition);
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openHouseDialog(OracleHouseId);
+    const std::optional<size_t> enterIndex = findActionIndexByLabel(dialog, "Enter");
+    REQUIRE(enterIndex.has_value());
+
+    const OpenYAMM::Game::GameplayDialogController::Result result =
+        harness.executeActiveDialogAction(*enterIndex);
+    CHECK(result.shouldCloseActiveDialog);
+    REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("sci-fi.blv"));
+    CHECK(harness.eventRuntimeState().pendingMapMove->useMapStartPosition);
+}
+
 TEST_CASE("merged NPC profession suite supplies follower, profession, and news actions")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -1367,6 +1394,98 @@ TEST_CASE("free haven high council residents")
     CHECK_EQ(dialog.actions[*euclidIndex].id, EuclidKeplerNpcId);
     REQUIRE(slickerIndex.has_value());
     CHECK_EQ(dialog.actions[*slickerIndex].id, SlickerSilvertongueNpcId);
+}
+
+TEST_CASE("free haven high council is not a generic town hall service")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pHouse = gameData.houseTable.get(FreeHavenHighCouncilHouseId);
+    REQUIRE(pHouse != nullptr);
+    REQUIRE(pHouse->extraExit.has_value());
+    CHECK_EQ(pHouse->extraExit->destinationMapFileName, "oracle.blv");
+    CHECK(pHouse->extraExit->useMapStartPosition);
+
+    const std::vector<OpenYAMM::Game::HouseActionOption> lockedActions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pHouse,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            harness.worldRuntime().gameMinutes(),
+            OpenYAMM::Game::DialogueMenuId::None);
+
+    CHECK_FALSE(findHouseActionById(lockedActions, OpenYAMM::Game::HouseActionId::TownHallCurrentFine).has_value());
+    CHECK_FALSE(findHouseActionById(lockedActions, OpenYAMM::Game::HouseActionId::TownHallPayFine).has_value());
+    CHECK_FALSE(findHouseActionById(lockedActions, OpenYAMM::Game::HouseActionId::TownHallBountyHunt).has_value());
+    CHECK_FALSE(findHouseActionById(lockedActions, OpenYAMM::Game::HouseActionId::ExtraExit).has_value());
+
+    harness.party().setQuestBit(1191, true);
+    const std::vector<OpenYAMM::Game::HouseActionOption> unlockedActions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pHouse,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            harness.worldRuntime().gameMinutes(),
+            OpenYAMM::Game::DialogueMenuId::None);
+
+    CHECK_FALSE(findHouseActionById(unlockedActions, OpenYAMM::Game::HouseActionId::TownHallCurrentFine).has_value());
+    CHECK_FALSE(findHouseActionById(unlockedActions, OpenYAMM::Game::HouseActionId::TownHallPayFine).has_value());
+    CHECK_FALSE(findHouseActionById(unlockedActions, OpenYAMM::Game::HouseActionId::TownHallBountyHunt).has_value());
+    CHECK(findHouseActionById(unlockedActions, OpenYAMM::Game::HouseActionId::ExtraExit).has_value());
+
+    const OpenYAMM::Game::EventDialogContent &unexposedDialog =
+        harness.openHouseDialog(FreeHavenHighCouncilHouseId);
+    REQUIRE_EQ(unexposedDialog.actions.size(), 6u);
+    CHECK_FALSE(dialogHasActionLabel(unexposedDialog, "Enter"));
+    CHECK_FALSE(dialogHasActionLabel(unexposedDialog, "Current Fine: 0 gold"));
+    CHECK_FALSE(dialogHasActionLabel(unexposedDialog, "Pay Fine"));
+    CHECK_FALSE(dialogHasActionLabel(unexposedDialog, "Bounty Hunt"));
+    for (const OpenYAMM::Game::EventDialogAction &action : unexposedDialog.actions)
+    {
+        CHECK_EQ(action.kind, OpenYAMM::Game::EventDialogActionKind::HouseResident);
+    }
+
+    OpenYAMM::Tests::HouseDialogueTestHarness exposedHarness(gameData);
+    exposedHarness.party().setQuestBit(1191, true);
+    exposedHarness.eventRuntimeState().npcHouseOverrides[SlickerSilvertongueNpcId] = 0;
+    const OpenYAMM::Game::EventDialogContent &exposedDialog =
+        exposedHarness.openHouseDialog(FreeHavenHighCouncilHouseId);
+    REQUIRE_EQ(exposedDialog.actions.size(), 6u);
+    CHECK_FALSE(dialogHasActionLabel(exposedDialog, "Current Fine: 0 gold"));
+    CHECK_FALSE(dialogHasActionLabel(exposedDialog, "Pay Fine"));
+    CHECK_FALSE(dialogHasActionLabel(exposedDialog, "Bounty Hunt"));
+
+    std::optional<size_t> oracleDoorIndex;
+    size_t residentCount = 0;
+    for (size_t actionIndex = 0; actionIndex < exposedDialog.actions.size(); ++actionIndex)
+    {
+        const OpenYAMM::Game::EventDialogAction &action = exposedDialog.actions[actionIndex];
+        if (action.kind == OpenYAMM::Game::EventDialogActionKind::HouseResident)
+        {
+            ++residentCount;
+        }
+        else if (action.kind == OpenYAMM::Game::EventDialogActionKind::HouseExtraExit)
+        {
+            oracleDoorIndex = actionIndex;
+        }
+    }
+
+    CHECK_EQ(residentCount, 5u);
+    REQUIRE(oracleDoorIndex.has_value());
+    const OpenYAMM::Game::EventDialogContent &oracleDoorDialog =
+        exposedHarness.executeAndPresent(*oracleDoorIndex);
+    const std::optional<size_t> enterIndex = findActionIndexByLabel(oracleDoorDialog, "Enter");
+    REQUIRE(enterIndex.has_value());
+    CHECK_FALSE(dialogHasActionLabel(oracleDoorDialog, "Current Fine: 0 gold"));
+    CHECK_FALSE(dialogHasActionLabel(oracleDoorDialog, "Pay Fine"));
+    CHECK_FALSE(dialogHasActionLabel(oracleDoorDialog, "Bounty Hunt"));
+
+    exposedHarness.executeAndPresent(*enterIndex);
+    REQUIRE(exposedHarness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(exposedHarness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("oracle.blv"));
+    CHECK(exposedHarness.eventRuntimeState().pendingMapMove->useMapStartPosition);
 }
 
 TEST_CASE("sandro thant throne room residents")
@@ -1918,6 +2037,72 @@ TEST_CASE("dwi guild skill learning")
     const OpenYAMM::Game::Character *pSorcerer = harness.party().member(3);
     REQUIRE(pSorcerer != nullptr);
     CHECK(pSorcerer->hasSkill("AirMagic"));
+}
+
+TEST_CASE("mm6 skill guilds require membership and expose learning only")
+{
+    constexpr uint16_t BuccaneersLairMembershipVariable = 0x8010u;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::HouseEntry *pBuccaneersLair =
+        gameData.houseTable.get(BuccaneersLairHouseId);
+    REQUIRE(pBuccaneersLair != nullptr);
+    CHECK_EQ(OpenYAMM::Game::resolveHouseServiceType(*pBuccaneersLair), OpenYAMM::Game::HouseServiceType::Guild);
+    CHECK(std::find(
+        pBuccaneersLair->offeredSkills.begin(),
+        pBuccaneersLair->offeredSkills.end(),
+        "Stealing") != pBuccaneersLair->offeredSkills.end());
+
+    const std::vector<OpenYAMM::Game::HouseActionOption> nonMemberActions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pBuccaneersLair,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            18.0f * 60.0f,
+            OpenYAMM::Game::DialogueMenuId::None);
+    const std::optional<OpenYAMM::Game::HouseActionOption> blockedLearn =
+        findHouseActionById(nonMemberActions, OpenYAMM::Game::HouseActionId::OpenLearnSkillsMenu);
+    const std::vector<std::string> nonMemberLines =
+        OpenYAMM::Game::buildHouseServiceInfoLines(
+            *pBuccaneersLair,
+            &harness.party(),
+            &gameData.classSkillTable,
+            OpenYAMM::Game::DialogueMenuId::None);
+
+    REQUIRE(blockedLearn.has_value());
+    CHECK_FALSE(blockedLearn->enabled);
+    CHECK(std::find(
+        nonMemberLines.begin(),
+        nonMemberLines.end(),
+        "You must be a member of this guild to study here.") != nonMemberLines.end());
+    CHECK_FALSE(findHouseActionById(nonMemberActions, OpenYAMM::Game::HouseActionId::GuildBuySpellbooks).has_value());
+
+    harness.party().setEventVariableValue(BuccaneersLairMembershipVariable, 1);
+    const std::vector<OpenYAMM::Game::HouseActionOption> memberActions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pBuccaneersLair,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            18.0f * 60.0f,
+            OpenYAMM::Game::DialogueMenuId::None);
+    const std::optional<OpenYAMM::Game::HouseActionOption> learn =
+        findHouseActionById(memberActions, OpenYAMM::Game::HouseActionId::OpenLearnSkillsMenu);
+
+    REQUIRE(learn.has_value());
+    CHECK(learn->enabled);
+    CHECK_FALSE(findHouseActionById(memberActions, OpenYAMM::Game::HouseActionId::GuildBuySpellbooks).has_value());
+
+    const OpenYAMM::Game::HouseEntry *pBerserkersFury =
+        gameData.houseTable.get(BerserkersFuryHouseId);
+    REQUIRE(pBerserkersFury != nullptr);
+    CHECK(std::find(
+        pBerserkersFury->offeredSkills.begin(),
+        pBerserkersFury->offeredSkills.end(),
+        "Armsmaster") != pBerserkersFury->offeredSkills.end());
 }
 
 TEST_CASE("dwi training service uses active member")

@@ -1,6 +1,7 @@
 #include "game/app/GameApplication.h"
 
 #include "game/StringUtils.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/ReputationRuntime.h"
@@ -36,19 +37,31 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <random>
 #include <set>
 #include <sstream>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
+struct PendingMapLeaveOutputs
+{
+    std::optional<EventRuntimeState::PendingMovie> pendingMovie;
+    std::optional<EventRuntimeState::PendingWinGame> pendingWinGame;
+    bool pendingReturnToMainMenu = false;
+    std::vector<EventRuntimeState::PendingSound> pendingSounds;
+};
+
 double millisecondsFromNanoseconds(uint64_t nanoseconds)
 {
     return static_cast<double>(nanoseconds) / 1000000.0;
@@ -58,6 +71,540 @@ bool mapLoadTimingEnabled()
 {
     const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
     return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
+}
+
+std::string traceEnvironmentValue(const char *pName)
+{
+    const char *pValue = std::getenv(pName);
+    return pValue != nullptr ? std::string(pValue) : std::string();
+}
+
+void logMapArrived(
+    const std::string &previousMapFileName,
+    const std::string &targetMapFileName,
+    const EventRuntimeState::PendingMapMove &pendingMapMove,
+    bool sameMap,
+    float gameMinutes)
+{
+    gameplayDebugTraceLog(
+        "map_arrived previous_map=\"" + previousMapFileName + "\""
+        + " map=\"" + targetMapFileName + "\""
+        + " game_minutes=" + std::to_string(gameMinutes)
+        + " same_map=" + (sameMap ? "true" : "false")
+        + " use_start_position=" + (pendingMapMove.useMapStartPosition ? "true" : "false")
+        + (!pendingMapMove.traceSourceKind.empty()
+            ? " source_kind=\"" + pendingMapMove.traceSourceKind + "\""
+                + " source_id=" + std::to_string(pendingMapMove.traceSourceId)
+                + " action_id=" + std::to_string(pendingMapMove.traceActionId)
+                + " event_id=" + std::to_string(pendingMapMove.traceEventId)
+                + " destination_name=\"" + pendingMapMove.traceDestinationName + "\""
+            : "")
+        + " pos=(" + std::to_string(pendingMapMove.x)
+        + "," + std::to_string(pendingMapMove.y)
+        + "," + std::to_string(pendingMapMove.z) + ")"
+        + " direction_degrees="
+        + (pendingMapMove.directionDegrees.has_value()
+            ? std::to_string(*pendingMapMove.directionDegrees)
+            : std::string("none")));
+}
+
+PendingMapLeaveOutputs consumePendingMapLeaveOutputs(EventRuntimeState &runtimeState)
+{
+    PendingMapLeaveOutputs outputs = {};
+    outputs.pendingMovie = std::move(runtimeState.pendingMovie);
+    runtimeState.pendingMovie.reset();
+    outputs.pendingWinGame = std::move(runtimeState.pendingWinGame);
+    runtimeState.pendingWinGame.reset();
+    outputs.pendingReturnToMainMenu = runtimeState.pendingReturnToMainMenu;
+    runtimeState.pendingReturnToMainMenu = false;
+    outputs.pendingSounds = std::move(runtimeState.pendingSounds);
+    runtimeState.pendingSounds.clear();
+    return outputs;
+}
+
+void appendPendingMapLeaveOutputs(EventRuntimeState &runtimeState, PendingMapLeaveOutputs &&outputs)
+{
+    if (outputs.pendingMovie.has_value())
+    {
+        runtimeState.pendingMovie = std::move(outputs.pendingMovie);
+    }
+
+    if (outputs.pendingWinGame.has_value())
+    {
+        runtimeState.pendingWinGame = std::move(outputs.pendingWinGame);
+    }
+
+    runtimeState.pendingReturnToMainMenu = runtimeState.pendingReturnToMainMenu || outputs.pendingReturnToMainMenu;
+    runtimeState.pendingSounds.insert(
+        runtimeState.pendingSounds.end(),
+        std::make_move_iterator(outputs.pendingSounds.begin()),
+        std::make_move_iterator(outputs.pendingSounds.end()));
+}
+
+const char *sceneKindName(SceneKind kind)
+{
+    switch (kind)
+    {
+        case SceneKind::Outdoor:
+            return "outdoor";
+        case SceneKind::Indoor:
+            return "indoor";
+    }
+
+    return "unknown";
+}
+
+std::vector<uint32_t> sortedIds(const std::unordered_set<uint32_t> &ids)
+{
+    std::vector<uint32_t> sorted(ids.begin(), ids.end());
+    std::sort(sorted.begin(), sorted.end());
+    return sorted;
+}
+
+template<typename Key, typename Value>
+std::vector<std::pair<Key, Value>> sortedMap(const std::unordered_map<Key, Value> &values)
+{
+    std::vector<std::pair<Key, Value>> sorted(values.begin(), values.end());
+    std::sort(
+        sorted.begin(),
+        sorted.end(),
+        [](const std::pair<Key, Value> &left, const std::pair<Key, Value> &right)
+        {
+            return left.first < right.first;
+        });
+    return sorted;
+}
+
+std::vector<std::pair<std::string, int32_t>> sortedStringIntMap(const std::unordered_map<std::string, int32_t> &values)
+{
+    std::vector<std::pair<std::string, int32_t>> sorted(values.begin(), values.end());
+    std::sort(
+        sorted.begin(),
+        sorted.end(),
+        [](const std::pair<std::string, int32_t> &left, const std::pair<std::string, int32_t> &right)
+        {
+            return left.first < right.first;
+        });
+    return sorted;
+}
+
+const char *traceEquipmentSlotName(EquipmentSlot slot)
+{
+    switch (slot)
+    {
+        case EquipmentSlot::OffHand:
+            return "OffHand";
+        case EquipmentSlot::MainHand:
+            return "MainHand";
+        case EquipmentSlot::Bow:
+            return "Bow";
+        case EquipmentSlot::Armor:
+            return "Armor";
+        case EquipmentSlot::Helm:
+            return "Helm";
+        case EquipmentSlot::Belt:
+            return "Belt";
+        case EquipmentSlot::Cloak:
+            return "Cloak";
+        case EquipmentSlot::Gauntlets:
+            return "Gauntlets";
+        case EquipmentSlot::Boots:
+            return "Boots";
+        case EquipmentSlot::Amulet:
+            return "Amulet";
+        case EquipmentSlot::Ring1:
+            return "Ring1";
+        case EquipmentSlot::Ring2:
+            return "Ring2";
+        case EquipmentSlot::Ring3:
+            return "Ring3";
+        case EquipmentSlot::Ring4:
+            return "Ring4";
+        case EquipmentSlot::Ring5:
+            return "Ring5";
+        case EquipmentSlot::Ring6:
+            return "Ring6";
+    }
+
+    return "Unknown";
+}
+
+std::array<EquipmentSlot, 16> traceEquipmentSlots()
+{
+    return {
+        EquipmentSlot::OffHand,
+        EquipmentSlot::MainHand,
+        EquipmentSlot::Bow,
+        EquipmentSlot::Armor,
+        EquipmentSlot::Helm,
+        EquipmentSlot::Belt,
+        EquipmentSlot::Cloak,
+        EquipmentSlot::Gauntlets,
+        EquipmentSlot::Boots,
+        EquipmentSlot::Amulet,
+        EquipmentSlot::Ring1,
+        EquipmentSlot::Ring2,
+        EquipmentSlot::Ring3,
+        EquipmentSlot::Ring4,
+        EquipmentSlot::Ring5,
+        EquipmentSlot::Ring6,
+    };
+}
+
+uint32_t equipmentItemId(const CharacterEquipment &equipment, EquipmentSlot slot)
+{
+    switch (slot)
+    {
+        case EquipmentSlot::OffHand:
+            return equipment.offHand;
+        case EquipmentSlot::MainHand:
+            return equipment.mainHand;
+        case EquipmentSlot::Bow:
+            return equipment.bow;
+        case EquipmentSlot::Armor:
+            return equipment.armor;
+        case EquipmentSlot::Helm:
+            return equipment.helm;
+        case EquipmentSlot::Belt:
+            return equipment.belt;
+        case EquipmentSlot::Cloak:
+            return equipment.cloak;
+        case EquipmentSlot::Gauntlets:
+            return equipment.gauntlets;
+        case EquipmentSlot::Boots:
+            return equipment.boots;
+        case EquipmentSlot::Amulet:
+            return equipment.amulet;
+        case EquipmentSlot::Ring1:
+            return equipment.ring1;
+        case EquipmentSlot::Ring2:
+            return equipment.ring2;
+        case EquipmentSlot::Ring3:
+            return equipment.ring3;
+        case EquipmentSlot::Ring4:
+            return equipment.ring4;
+        case EquipmentSlot::Ring5:
+            return equipment.ring5;
+        case EquipmentSlot::Ring6:
+            return equipment.ring6;
+    }
+
+    return 0;
+}
+
+std::string traceItemInstanceSummary(const InventoryItem &item, const ItemTable *pItemTable)
+{
+    return "item_id=" + std::to_string(item.objectDescriptionId)
+        + gameplayDebugTraceItemSummary(item.objectDescriptionId, pItemTable)
+        + " quantity=" + std::to_string(item.quantity)
+        + " identified=" + (item.identified ? "true" : "false")
+        + " broken=" + (item.broken ? "true" : "false")
+        + " stolen=" + (item.stolen ? "true" : "false")
+        + " standard_enchant_id=" + std::to_string(item.standardEnchantId)
+        + " special_enchant_id=" + std::to_string(item.specialEnchantId)
+        + " artifact_id=" + std::to_string(item.artifactId)
+        + " charges=" + std::to_string(item.currentCharges)
+        + "/" + std::to_string(item.maxCharges);
+}
+
+uint64_t traceFingerprintUpdate(uint64_t hash, uint64_t value)
+{
+    constexpr uint64_t FnvaPrime = 1099511628211ull;
+    hash ^= value;
+    hash *= FnvaPrime;
+    return hash;
+}
+
+std::string traceCompactSkillSnapshot(const std::vector<std::pair<std::string, CharacterSkill>> &skills)
+{
+    std::ostringstream out;
+
+    for (size_t index = 0; index < skills.size(); ++index)
+    {
+        if (index > 0)
+        {
+            out << ',';
+        }
+
+        out << skills[index].first << ':'
+            << skills[index].second.level << ':'
+            << static_cast<uint32_t>(skills[index].second.mastery);
+    }
+
+    return out.str();
+}
+
+std::string traceCompactMapVarSnapshot(const std::array<uint8_t, 75> &mapVars, size_t &nonZeroCount)
+{
+    std::ostringstream out;
+    bool first = true;
+    nonZeroCount = 0;
+
+    for (size_t index = 0; index < mapVars.size(); ++index)
+    {
+        if (mapVars[index] == 0)
+        {
+            continue;
+        }
+
+        if (!first)
+        {
+            out << ',';
+        }
+
+        out << index << ':' << static_cast<uint32_t>(mapVars[index]);
+        first = false;
+        ++nonZeroCount;
+    }
+
+    return out.str();
+}
+
+uint64_t traceMapVarFingerprint(const std::array<uint8_t, 75> &mapVars)
+{
+    uint64_t hash = 1469598103934665603ull;
+
+    for (size_t index = 0; index < mapVars.size(); ++index)
+    {
+        hash = traceFingerprintUpdate(hash, index);
+        hash = traceFingerprintUpdate(hash, mapVars[index]);
+    }
+
+    return hash;
+}
+
+void tracePartySnapshot(
+    const std::string &eventPrefix,
+    const Party::Snapshot &snapshot,
+    const ItemTable *pItemTable)
+{
+    gameplayDebugTraceLog(
+        eventPrefix
+        + "_party gold=" + std::to_string(snapshot.gold)
+        + " bank_gold=" + std::to_string(snapshot.bankGold)
+        + " food=" + std::to_string(snapshot.food)
+        + " active_member_index=" + std::to_string(snapshot.activeMemberIndex)
+        + " member_count=" + std::to_string(snapshot.members.size())
+        + " hireling_count=" + std::to_string(snapshot.hiredNpcFollowers.size()));
+
+    for (size_t memberIndex = 0; memberIndex < snapshot.members.size(); ++memberIndex)
+    {
+        const Character &member = snapshot.members[memberIndex];
+        gameplayDebugTraceLog(
+            eventPrefix
+            + "_party_member member_index=" + std::to_string(memberIndex)
+            + " name=\"" + member.name + "\""
+            + " class=\"" + member.className + "\""
+            + " role=\"" + member.role + "\""
+            + " race_id=" + std::to_string(member.raceId)
+            + " sex_id=" + std::to_string(member.sexId)
+            + " portrait_id=" + std::to_string(member.portraitPictureId)
+            + " voice_id=" + std::to_string(member.voiceId)
+            + " level=" + std::to_string(member.level)
+            + " hp=" + std::to_string(member.health)
+            + "/" + std::to_string(member.maxHealth)
+            + " sp=" + std::to_string(member.spellPoints)
+            + "/" + std::to_string(member.maxSpellPoints)
+            + " inventory_count=" + std::to_string(member.inventory.size())
+            + " award_count=" + std::to_string(member.awards.size()));
+
+        std::vector<std::pair<std::string, CharacterSkill>> skills(member.skills.begin(), member.skills.end());
+        std::sort(
+            skills.begin(),
+            skills.end(),
+            [](const std::pair<std::string, CharacterSkill> &left,
+                const std::pair<std::string, CharacterSkill> &right)
+            {
+                return left.first < right.first;
+            });
+
+        if (!skills.empty())
+        {
+            gameplayDebugTraceLog(
+                eventPrefix
+                + "_party_skills member_index=" + std::to_string(memberIndex)
+                + " count=" + std::to_string(skills.size())
+                + " skills=\"" + traceCompactSkillSnapshot(skills) + "\"");
+        }
+
+        for (uint32_t awardId : sortedIds(member.awards))
+        {
+            gameplayDebugTraceLog(
+                eventPrefix
+                + "_party_award member_index=" + std::to_string(memberIndex)
+                + " award_id=" + std::to_string(awardId));
+        }
+
+        for (const InventoryItem &item : member.inventory)
+        {
+            gameplayDebugTraceLog(
+                eventPrefix
+                + "_party_inventory member_index=" + std::to_string(memberIndex)
+                + " grid=(" + std::to_string(item.gridX)
+                + "," + std::to_string(item.gridY) + ") "
+                + traceItemInstanceSummary(item, pItemTable));
+        }
+
+        for (EquipmentSlot slot : traceEquipmentSlots())
+        {
+            const uint32_t itemId = equipmentItemId(member.equipment, slot);
+            if (itemId == 0)
+            {
+                continue;
+            }
+
+            gameplayDebugTraceLog(
+                eventPrefix
+                + "_party_equipped member_index=" + std::to_string(memberIndex)
+                + " slot=" + traceEquipmentSlotName(slot)
+                + " item_id=" + std::to_string(itemId)
+                + gameplayDebugTraceItemSummary(itemId, pItemTable));
+        }
+    }
+
+    for (uint32_t qbitId : sortedIds(snapshot.questBits))
+    {
+        gameplayDebugTraceLog(eventPrefix + "_qbit id=" + std::to_string(qbitId));
+    }
+
+    for (const auto &[variableId, value] : sortedMap(snapshot.eventVariables))
+    {
+        gameplayDebugTraceLog(
+            eventPrefix
+            + "_party_event_var id=" + std::to_string(variableId)
+            + " value=" + std::to_string(value));
+    }
+
+    std::vector<HiredNpcFollower> hirelings = snapshot.hiredNpcFollowers;
+    std::sort(
+        hirelings.begin(),
+        hirelings.end(),
+        [](const HiredNpcFollower &left, const HiredNpcFollower &right)
+        {
+            return left.npcId < right.npcId;
+        });
+
+    for (const HiredNpcFollower &hireling : hirelings)
+    {
+        gameplayDebugTraceLog(
+            eventPrefix
+            + "_hireling npc_id=" + std::to_string(hireling.npcId)
+            + " profession_id=" + std::to_string(hireling.professionId)
+            + " weekly_cost=" + std::to_string(hireling.weeklyCost));
+    }
+}
+
+void traceEventRuntimeStateMapVars(
+    const std::string &eventPrefix,
+    const std::string &fallbackMapName,
+    const char *pSceneKind,
+    const EventRuntimeState &runtimeState)
+{
+    const std::string mapName = runtimeState.mapFileName.empty() ? fallbackMapName : runtimeState.mapFileName;
+
+    size_t nonZeroCount = 0;
+    const std::string nonZeroValues = traceCompactMapVarSnapshot(runtimeState.mapVars, nonZeroCount);
+    gameplayDebugTraceLog(
+        eventPrefix
+        + "_map_vars map=\"" + mapName + "\""
+        + " scene_kind=" + pSceneKind
+        + " count=" + std::to_string(runtimeState.mapVars.size())
+        + " nonzero_count=" + std::to_string(nonZeroCount)
+        + " fingerprint=" + std::to_string(traceMapVarFingerprint(runtimeState.mapVars))
+        + " values=\"" + nonZeroValues + "\"");
+
+    for (const auto &[name, value] : sortedStringIntMap(runtimeState.namedMapVars))
+    {
+        gameplayDebugTraceLog(
+            eventPrefix
+            + "_named_map_var map=\"" + mapName + "\""
+            + " scene_kind=" + pSceneKind
+            + " name=\"" + name + "\""
+            + " value=" + std::to_string(value));
+    }
+}
+
+void traceSaveDataStateDump(
+    const std::string &phase,
+    const std::filesystem::path &path,
+    const GameSaveData &saveData,
+    const ItemTable *pItemTable)
+{
+    const std::string eventPrefix = "state_dump_" + phase;
+    gameplayDebugTraceLog(
+        eventPrefix
+        + "_begin path=\"" + path.string() + "\""
+        + " map=\"" + saveData.mapFileName + "\""
+        + " scene_kind=" + sceneKindName(saveData.currentSceneKind)
+        + " game_minutes=" + std::to_string(saveData.savedGameMinutes));
+
+    tracePartySnapshot(eventPrefix, saveData.party, pItemTable);
+
+    for (const auto &[name, value] : sortedStringIntMap(saveData.namedGlobalVars))
+    {
+        gameplayDebugTraceLog(
+            eventPrefix
+            + "_named_global_var name=\"" + name + "\""
+            + " value=" + std::to_string(value));
+    }
+
+    if (saveData.hasOutdoorRuntimeState && saveData.outdoorWorld.eventRuntimeState)
+    {
+        traceEventRuntimeStateMapVars(
+            eventPrefix,
+            saveData.mapFileName,
+            "outdoor",
+            *saveData.outdoorWorld.eventRuntimeState);
+    }
+
+    std::vector<std::pair<std::string, OutdoorWorldRuntime::Snapshot>> outdoorStates(
+        saveData.outdoorWorldStates.begin(),
+        saveData.outdoorWorldStates.end());
+    std::sort(
+        outdoorStates.begin(),
+        outdoorStates.end(),
+        [](const auto &left, const auto &right)
+        {
+            return left.first < right.first;
+        });
+
+    for (const auto &[mapName, worldState] : outdoorStates)
+    {
+        if (worldState.eventRuntimeState)
+        {
+            traceEventRuntimeStateMapVars(eventPrefix, mapName, "outdoor", *worldState.eventRuntimeState);
+        }
+    }
+
+    if (saveData.hasIndoorSceneState && saveData.indoorScene.eventRuntimeState)
+    {
+        traceEventRuntimeStateMapVars(
+            eventPrefix,
+            saveData.mapFileName,
+            "indoor",
+            *saveData.indoorScene.eventRuntimeState);
+    }
+
+    std::vector<std::pair<std::string, IndoorSceneRuntime::Snapshot>> indoorStates(
+        saveData.indoorSceneStates.begin(),
+        saveData.indoorSceneStates.end());
+    std::sort(
+        indoorStates.begin(),
+        indoorStates.end(),
+        [](const auto &left, const auto &right)
+        {
+            return left.first < right.first;
+        });
+
+    for (const auto &[mapName, sceneState] : indoorStates)
+    {
+        if (sceneState.eventRuntimeState)
+        {
+            traceEventRuntimeStateMapVars(eventPrefix, mapName, "indoor", *sceneState.eventRuntimeState);
+        }
+    }
+
+    gameplayDebugTraceLog(eventPrefix + "_end path=\"" + path.string() + "\"");
 }
 
 TextureFilterMode textureFilterModeFromSetting(const std::string &value, TextureFilterMode fallback)
@@ -673,6 +1220,39 @@ std::vector<DebugAwardEntry> loadDebugAwardEntries(const Engine::AssetFileSystem
 std::string normalizePromptAnswer(const std::string &value)
 {
     return toLowerCopy(trimCopy(value));
+}
+
+std::string traceInputPromptQuoted(const std::string &value)
+{
+    std::string quoted = "\"";
+
+    for (char character : value)
+    {
+        if (character == '\\' || character == '"')
+        {
+            quoted.push_back('\\');
+        }
+
+        quoted.push_back(character);
+    }
+
+    quoted.push_back('"');
+    return quoted;
+}
+
+std::string traceInputPromptFields(
+    const EventRuntimeState::PendingInputPrompt &prompt,
+    const std::string &mapName,
+    float gameMinutes)
+{
+    return " map=" + traceInputPromptQuoted(mapName)
+        + " game_minutes=" + std::to_string(gameMinutes)
+        + " event_id=" + std::to_string(prompt.eventId)
+        + " continue_step=" + std::to_string(prompt.continueStep)
+        + " correct_step=" + std::to_string(prompt.correctStep)
+        + " text_id=" + std::to_string(prompt.textId)
+        + " prompt=" + traceInputPromptQuoted(prompt.text.value_or(std::string()))
+        + " answer_count=" + std::to_string(prompt.answers.size());
 }
 
 std::string trimEventMovieName(const std::string &movieName)
@@ -2648,6 +3228,8 @@ bool GameApplication::processPendingDebugMapJump()
     }
     timingLogger.stage("runtime and view initialized");
 
+    std::optional<int32_t> debugStartDirectionDegrees;
+
     if (pendingJump.start.has_value())
     {
         const DebugMapJumpStart &start = *pendingJump.start;
@@ -2672,6 +3254,7 @@ bool GameApplication::processPendingDebugMapJump()
 
         const int32_t normalizedYawUnits = ((start.directionYawUnits % 2048) + 2048) % 2048;
         const int32_t directionDegrees = normalizedYawUnits * 360 / 2048;
+        debugStartDirectionDegrees = directionDegrees;
         const float yawRadians = mapMoveHeadingDegreesToYawRadians(directionDegrees);
 
         if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Outdoor)
@@ -2684,6 +3267,32 @@ bool GameApplication::processPendingDebugMapJump()
         }
     }
     timingLogger.stage("debug start applied");
+    const std::string sceneKind =
+        m_pMapSceneRuntime != nullptr ? sceneKindName(m_pMapSceneRuntime->kind()) : "none";
+    gameplayDebugTraceLog(
+        "map_loaded source=debug_console map=\"" + selectedMap->map.fileName + "\""
+        + " scene_kind=" + sceneKind
+        + " game_minutes=" + std::to_string(m_gameSession.gameMinutes())
+        + " initialize_view=true"
+        + " start_override=" + (pendingJump.start.has_value() ? "true" : "false"));
+    gameplayDebugTraceLog(
+        "console_debug_map_load_travel map=\"" + selectedMap->map.fileName + "\""
+        + " target=\"" + selectedMap->map.name + "\""
+        + " map_id=" + std::to_string(selectedMap->map.id)
+        + " scene_kind=" + sceneKind
+        + " game_minutes=" + std::to_string(m_gameSession.gameMinutes())
+        + " source=debug_console"
+        + " start_override=" + (pendingJump.start.has_value() ? "true" : "false")
+        + " pos="
+        + (pendingJump.start.has_value()
+            ? "(" + std::to_string(pendingJump.start->x)
+                + "," + std::to_string(pendingJump.start->y)
+                + "," + std::to_string(pendingJump.start->z) + ")"
+            : std::string("none"))
+        + " direction_degrees="
+        + (debugStartDirectionDegrees.has_value()
+            ? std::to_string(*debugStartDirectionDegrees)
+            : std::string("none")));
 
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
@@ -2783,6 +3392,9 @@ bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
         {
             const size_t remaining = MaxPendingInputLength - m_pendingInputText.size();
             m_pendingInputText.append(event.text.text, std::min(remaining, std::strlen(event.text.text)));
+            gameplayDebugTraceLog(
+                "input_prompt_text_input text=" + traceInputPromptQuoted(event.text.text)
+                + " current=" + traceInputPromptQuoted(m_pendingInputText));
         }
 
         return true;
@@ -2797,6 +3409,10 @@ bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
     {
         return true;
     }
+
+    gameplayDebugTraceLog(
+        "input_prompt_key_down key=" + std::to_string(static_cast<int>(event.key.key))
+        + " scancode=" + std::to_string(static_cast<int>(event.key.scancode)));
 
     switch (event.key.key)
     {
@@ -2845,13 +3461,41 @@ void GameApplication::clearPendingInputPromptUi(bool clearStatusBar)
 
 void GameApplication::updatePendingInputPrompt()
 {
-    if (!pendingInputPromptActive())
     {
         IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
         EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
 
-        if (pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt
+        if (pRuntimeState != nullptr
+            && pRuntimeState->pendingInputPrompt
+            && pRuntimeState->pendingDialogueContext
             && !m_gameSession.gameplayScreenRuntime().activeEventDialog().isActive)
+        {
+            m_gameSession.gameplayScreenRuntime().ensurePendingEventDialogPresented(true);
+        }
+    }
+
+    if (!pendingInputPromptActive())
+    {
+        IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+        EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+        const EventDialogContent &activeDialog = m_gameSession.gameplayScreenRuntime().activeEventDialog();
+
+        if (pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt)
+        {
+            gameplayDebugTraceLog(
+                "input_prompt_not_active"
+                + traceInputPromptFields(
+                    *pRuntimeState->pendingInputPrompt,
+                    pWorldRuntime != nullptr ? pWorldRuntime->mapName() : std::string(),
+                    pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f)
+                + " active_screen=" + (m_screenManager.activeScreen() != nullptr ? std::string("true") : std::string("false"))
+                + " active_dialog=" + (activeDialog.isActive ? std::string("true") : std::string("false"))
+                + " will_reset=" + (!activeDialog.isActive ? std::string("true") : std::string("false")));
+        }
+
+        if (pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt
+            && !activeDialog.isActive
+            && !pRuntimeState->pendingDialogueContext)
         {
             pRuntimeState->pendingInputPrompt.reset();
         }
@@ -2870,9 +3514,39 @@ void GameApplication::updatePendingInputPrompt()
         }
 
         m_pendingInputTextActive = true;
+
+        IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+        EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+        if (pWorldRuntime != nullptr && pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt)
+        {
+            gameplayDebugTraceLog(
+                "input_prompt_opened"
+                + traceInputPromptFields(
+                    *pRuntimeState->pendingInputPrompt,
+                    pWorldRuntime->mapName(),
+                    pWorldRuntime->gameMinutes()));
+        }
     }
 
-    const std::string statusText = m_pendingInputText + "_";
+    const IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+    const EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    std::string promptText;
+
+    if (pRuntimeState != nullptr
+        && pRuntimeState->pendingInputPrompt
+        && pRuntimeState->pendingInputPrompt->text
+        && !pRuntimeState->pendingInputPrompt->text->empty())
+    {
+        promptText = *pRuntimeState->pendingInputPrompt->text;
+
+        if (!promptText.empty() && !std::isspace(static_cast<unsigned char>(promptText.back())))
+        {
+            promptText.push_back(' ');
+        }
+    }
+
+    const std::string statusText = promptText + m_pendingInputText + "_";
 
     if (statusText != m_pendingInputStatusText)
     {
@@ -2895,11 +3569,16 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
     const EventRuntimeState::PendingInputPrompt prompt = *pRuntimeState->pendingInputPrompt;
     pRuntimeState->pendingInputPrompt.reset();
     const std::string submittedInput = m_pendingInputText;
+    const std::string promptMapName = pWorldRuntime->mapName();
+    const float promptGameMinutes = pWorldRuntime->gameMinutes();
 
     clearPendingInputPromptUi(true);
 
     if (!accepted)
     {
+        gameplayDebugTraceLog(
+            "input_prompt_canceled"
+            + traceInputPromptFields(prompt, promptMapName, promptGameMinutes));
         m_skipGameplayUpdateUntilPromptSubmitKeysReleased = true;
         return;
     }
@@ -2944,6 +3623,16 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
     const bool executed = promptStartedFromMapEvent
         ? pWorldRuntime->executeMapEvent(prompt.eventId, previousMessageCount, continueStep)
         : pWorldRuntime->executeNpcTopicEvent(prompt.eventId, previousMessageCount, continueStep);
+
+    gameplayDebugTraceLog(
+        "input_prompt_answered"
+        + traceInputPromptFields(prompt, promptMapName, promptGameMinutes)
+        + " answer=" + traceInputPromptQuoted(submittedInput)
+        + " matched=" + (matchedAnswer ? "true" : "false")
+        + " matched_index=" + (matchedAnswer ? std::to_string(matchedAnswerIndex) : std::string("none"))
+        + " selected_continue_step=" + std::to_string(continueStep)
+        + " executed=" + (executed ? "true" : "false")
+        + " source_kind=" + (promptStartedFromMapEvent ? std::string("map_event") : std::string("npc_topic")));
 
     if (executed && promptStartedFromMapEvent)
     {
@@ -3181,6 +3870,22 @@ bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
     if (!m_gameDataLoader.loadForGameplay(assetFileSystem))
     {
         return false;
+    }
+
+    if (gameplayDebugTraceEnabled() && !m_traceSessionHeaderLogged)
+    {
+        m_traceSessionHeaderLogged = true;
+        gameplayDebugTraceLog(
+            "trace_session_begin"
+            " world_id=\"" + m_activeWorldManifest.id + "\""
+            + " configured_world_id=\"" + m_config.activeWorldId + "\""
+            + " startup_map=\"" + resolveStartupMapFile() + "\""
+            + " trace_file=\"" + traceEnvironmentValue("OPENYAMM_GAMEPLAY_TRACE_FILE") + "\""
+            + " unix_time=" + std::to_string(static_cast<int64_t>(std::time(nullptr)))
+            + " map_load_timing=" + (mapLoadTimingEnabled() ? "true" : "false")
+            + " route_trace=" + (traceEnvironmentValue("OPENYAMM_ROUTE_TRACE").empty() ? "false" : "true")
+            + " gameplay_trace="
+            + (traceEnvironmentValue("OPENYAMM_GAMEPLAY_TRACE").empty() ? "false" : "true"));
     }
 
     m_gameDataRepository.bind(m_gameDataLoader);
@@ -3816,6 +4521,26 @@ bool GameApplication::loadCurrentSessionMap(
     }
 
     timingLogger.stage(initializeView ? "runtime and view initialized" : "runtime initialized");
+    const std::string sceneKind =
+        m_pMapSceneRuntime != nullptr ? sceneKindName(m_pMapSceneRuntime->kind()) : "none";
+    std::string poseDetails;
+    float traceGameMinutes = m_gameSession.gameMinutes();
+    if (IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime())
+    {
+        traceGameMinutes = pWorldRuntime->gameMinutes();
+        poseDetails =
+            " party=(" + std::to_string(pWorldRuntime->partyX())
+            + "," + std::to_string(pWorldRuntime->partyY())
+            + "," + std::to_string(pWorldRuntime->partyFootZ()) + ")"
+            + " yaw=" + std::to_string(pWorldRuntime->gameplayCameraYawRadians())
+            + " pitch=" + std::to_string(pWorldRuntime->gameplayCameraPitchRadians());
+    }
+    gameplayDebugTraceLog(
+        "map_loaded map=\"" + m_gameSession.currentMapFileName() + "\""
+        + " scene_kind=" + sceneKind
+        + " game_minutes=" + std::to_string(traceGameMinutes)
+        + " initialize_view=" + (initializeView ? "true" : "false")
+        + poseDetails);
 
     if (progressCallback)
     {
@@ -4045,6 +4770,257 @@ void GameApplication::updateQuickSaveInput()
 
 }
 
+void GameApplication::updateGameplayTraceSnapshotHotkeys()
+{
+    if (!gameplayDebugTraceEnabled())
+    {
+        return;
+    }
+
+    const GameplayInputFrame &inputFrame = m_gameInputSystem.frame();
+    const bool startPressed = inputFrame.isScancodeHeld(SDL_SCANCODE_F3);
+    const bool endPressed = inputFrame.isScancodeHeld(SDL_SCANCODE_F4);
+    const bool markerPressed = inputFrame.isScancodeHeld(SDL_SCANCODE_F5);
+    const bool forwardHeld =
+        inputFrame.action(KeyboardAction::Forward).held
+        || inputFrame.isScancodeHeld(SDL_SCANCODE_W);
+    const bool shiftHeld = inputFrame.isScancodeHeld(SDL_SCANCODE_LSHIFT)
+        || inputFrame.isScancodeHeld(SDL_SCANCODE_RSHIFT);
+    const bool ctrlHeld = inputFrame.isScancodeHeld(SDL_SCANCODE_LCTRL)
+        || inputFrame.isScancodeHeld(SDL_SCANCODE_RCTRL);
+    const bool altHeld = inputFrame.isScancodeHeld(SDL_SCANCODE_LALT)
+        || inputFrame.isScancodeHeld(SDL_SCANCODE_RALT);
+
+    const auto captureSnapshot =
+        [this, &inputFrame, forwardHeld, shiftHeld, ctrlHeld, altHeld]() -> std::optional<GameplayTraceMovementSnapshot>
+        {
+            IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+
+            if (pWorldRuntime == nullptr)
+            {
+                return std::nullopt;
+            }
+
+            GameplayTraceMovementSnapshot snapshot = {};
+            snapshot.mapName = pWorldRuntime->mapName();
+            snapshot.indoor = pWorldRuntime->isIndoorMap();
+            snapshot.partyX = pWorldRuntime->partyX();
+            snapshot.partyY = pWorldRuntime->partyY();
+            snapshot.partyZ = pWorldRuntime->partyFootZ();
+            snapshot.yawRadians = pWorldRuntime->gameplayCameraYawRadians();
+            snapshot.pitchRadians = pWorldRuntime->gameplayCameraPitchRadians();
+            snapshot.gameMinutes = pWorldRuntime->gameMinutes();
+            snapshot.tickMilliseconds = SDL_GetTicks();
+            snapshot.forwardHeld = forwardHeld;
+            snapshot.runWalkModifierHeld = shiftHeld;
+            snapshot.turboHeld = ctrlHeld;
+            snapshot.shiftHeld = shiftHeld;
+            snapshot.ctrlHeld = ctrlHeld;
+            snapshot.altHeld = altHeld;
+
+            const GameplayUiController::HeldInventoryItemState &heldItem =
+                m_gameSession.gameplayScreenRuntime().heldInventoryItem();
+            snapshot.heldItemActive = heldItem.active;
+            snapshot.heldItemId = heldItem.active ? heldItem.item.objectDescriptionId : 0;
+
+            if (m_pMapSceneRuntime != nullptr
+                && m_pMapSceneRuntime->kind() == SceneKind::Outdoor
+                && m_pOutdoorPartyRuntime != nullptr)
+            {
+                const OutdoorMoveState &moveState = m_pOutdoorPartyRuntime->movementState();
+                const OutdoorPartyMovementState &partyMovementState = m_pOutdoorPartyRuntime->partyMovementState();
+                snapshot.outdoorRunning = partyMovementState.running;
+                snapshot.outdoorFlying = partyMovementState.flying;
+                snapshot.outdoorWaterWalk = partyMovementState.waterWalk;
+                snapshot.outdoorFeatherFall = partyMovementState.featherFall;
+                snapshot.outdoorAirborne = moveState.airborne;
+                snapshot.outdoorSupportKind = static_cast<uint32_t>(moveState.supportKind);
+                snapshot.outdoorSupportBModelIndex = moveState.supportBModelIndex;
+                snapshot.outdoorSupportFaceIndex = moveState.supportFaceIndex;
+            }
+            else if (m_pMapSceneRuntime != nullptr
+                && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+            {
+                const IndoorSceneRuntime *pIndoorRuntime =
+                    static_cast<const IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+                const IndoorMoveState &moveState = pIndoorRuntime->partyRuntime().movementState();
+                snapshot.indoorGrounded = moveState.grounded;
+                snapshot.indoorSectorId = moveState.sectorId;
+                snapshot.indoorEyeSectorId = moveState.eyeSectorId;
+                snapshot.indoorSupportFaceIndex = moveState.supportFaceIndex;
+            }
+
+            return snapshot;
+        };
+
+    const auto snapshotDetails =
+        [](const GameplayTraceMovementSnapshot &snapshot)
+        {
+            return " map=\"" + snapshot.mapName + "\""
+                + " scene_kind=" + (snapshot.indoor ? std::string("indoor") : std::string("outdoor"))
+                + " party=(" + std::to_string(snapshot.partyX)
+                + "," + std::to_string(snapshot.partyY)
+                + "," + std::to_string(snapshot.partyZ) + ")"
+                + " yaw=" + std::to_string(snapshot.yawRadians)
+                + " pitch=" + std::to_string(snapshot.pitchRadians)
+                + " game_minutes=" + std::to_string(snapshot.gameMinutes)
+                + " tick_ms=" + std::to_string(snapshot.tickMilliseconds)
+                + " forward_held=" + (snapshot.forwardHeld ? "true" : "false")
+                + " run_walk_modifier=" + (snapshot.runWalkModifierHeld ? "true" : "false")
+                + " turbo=" + (snapshot.turboHeld ? "true" : "false")
+                + " shift=" + (snapshot.shiftHeld ? "true" : "false")
+                + " ctrl=" + (snapshot.ctrlHeld ? "true" : "false")
+                + " alt=" + (snapshot.altHeld ? "true" : "false")
+                + " held_item_active=" + (snapshot.heldItemActive ? "true" : "false")
+                + " held_item_id=" + std::to_string(snapshot.heldItemId)
+                + " outdoor_running=" + (snapshot.outdoorRunning ? "true" : "false")
+                + " outdoor_flying=" + (snapshot.outdoorFlying ? "true" : "false")
+                + " outdoor_water_walk=" + (snapshot.outdoorWaterWalk ? "true" : "false")
+                + " outdoor_feather_fall=" + (snapshot.outdoorFeatherFall ? "true" : "false")
+                + " outdoor_airborne=" + (snapshot.outdoorAirborne ? "true" : "false")
+                + " outdoor_support_kind=" + std::to_string(snapshot.outdoorSupportKind)
+                + " outdoor_support_bmodel=" + std::to_string(snapshot.outdoorSupportBModelIndex)
+                + " outdoor_support_face=" + std::to_string(snapshot.outdoorSupportFaceIndex)
+                + " indoor_grounded=" + (snapshot.indoorGrounded ? "true" : "false")
+                + " indoor_sector=" + std::to_string(snapshot.indoorSectorId)
+                + " indoor_eye_sector=" + std::to_string(snapshot.indoorEyeSectorId)
+                + " indoor_support_face=" + std::to_string(snapshot.indoorSupportFaceIndex);
+        };
+
+    if (markerPressed)
+    {
+        if (!m_traceMarkerLatch)
+        {
+            ++m_traceMarkerSequence;
+            const std::optional<GameplayTraceMovementSnapshot> snapshot = captureSnapshot();
+            gameplayDebugTraceLog(
+                "trace_marker index=" + std::to_string(m_traceMarkerSequence)
+                + (snapshot.has_value() ? snapshotDetails(*snapshot) : std::string()));
+            m_traceMarkerLatch = true;
+        }
+    }
+    else
+    {
+        m_traceMarkerLatch = false;
+    }
+
+    if (startPressed)
+    {
+        if (!m_traceSnapshotStartLatch)
+        {
+            ++m_traceMovementCapture.sequence;
+            m_traceMovementCapture.armed = true;
+            m_traceMovementCapture.hasStart = false;
+            m_traceMovementCapture.hasStop = false;
+            m_traceMovementCapture.committed = false;
+            m_traceMovementCapture.previousForwardHeld = forwardHeld;
+            m_traceMovementCapture.start = {};
+            m_traceMovementCapture.stop = {};
+            m_traceSnapshotStartLatch = true;
+        }
+    }
+    else
+    {
+        m_traceSnapshotStartLatch = false;
+    }
+
+    if (m_traceMovementCapture.armed
+        && !m_traceMovementCapture.hasStart
+        && forwardHeld
+        && !m_traceMovementCapture.previousForwardHeld)
+    {
+        const std::optional<GameplayTraceMovementSnapshot> snapshot = captureSnapshot();
+
+        if (snapshot.has_value())
+        {
+            m_traceMovementCapture.start = *snapshot;
+            m_traceMovementCapture.hasStart = true;
+        }
+    }
+
+    if (m_traceMovementCapture.armed
+        && m_traceMovementCapture.hasStart
+        && !m_traceMovementCapture.hasStop
+        && !forwardHeld
+        && m_traceMovementCapture.previousForwardHeld)
+    {
+        const std::optional<GameplayTraceMovementSnapshot> snapshot = captureSnapshot();
+
+        if (snapshot.has_value())
+        {
+            m_traceMovementCapture.stop = *snapshot;
+            m_traceMovementCapture.hasStop = true;
+        }
+    }
+
+    if (endPressed)
+    {
+        if (!m_traceSnapshotEndLatch)
+        {
+            if (m_traceMovementCapture.armed
+                && m_traceMovementCapture.hasStart
+                && m_traceMovementCapture.hasStop
+                && !m_traceMovementCapture.committed)
+            {
+                const uint64_t durationMilliseconds =
+                    m_traceMovementCapture.stop.tickMilliseconds >= m_traceMovementCapture.start.tickMilliseconds
+                        ? m_traceMovementCapture.stop.tickMilliseconds - m_traceMovementCapture.start.tickMilliseconds
+                        : 0;
+                const float deltaGameMinutes =
+                    m_traceMovementCapture.stop.gameMinutes - m_traceMovementCapture.start.gameMinutes;
+
+                gameplayDebugTraceLog(
+                    "movement_segment sequence=" + std::to_string(m_traceMovementCapture.sequence)
+                    + " input=forward"
+                    + " duration_ms=" + std::to_string(durationMilliseconds)
+                    + " delta_game_minutes=" + std::to_string(deltaGameMinutes)
+                    + " accepted=true");
+                gameplayDebugTraceLog(
+                    "movement_segment_snapshot sequence=" + std::to_string(m_traceMovementCapture.sequence)
+                    + " label=start"
+                    + snapshotDetails(m_traceMovementCapture.start));
+                gameplayDebugTraceLog(
+                    "movement_segment_snapshot sequence=" + std::to_string(m_traceMovementCapture.sequence)
+                    + " label=stop"
+                    + snapshotDetails(m_traceMovementCapture.stop));
+                m_traceMovementCapture.committed = true;
+            }
+            else
+            {
+                std::string reason = "not_armed";
+
+                if (m_traceMovementCapture.committed)
+                {
+                    reason = "already_committed";
+                }
+                else if (m_traceMovementCapture.armed && !m_traceMovementCapture.hasStart)
+                {
+                    reason = "missing_start";
+                }
+                else if (m_traceMovementCapture.armed && !m_traceMovementCapture.hasStop)
+                {
+                    reason = "missing_stop";
+                }
+
+                gameplayDebugTraceLog(
+                    "movement_segment_status sequence=" + std::to_string(m_traceMovementCapture.sequence)
+                    + " accepted=false"
+                    + " reason=" + reason
+                    + " armed=" + (m_traceMovementCapture.armed ? "true" : "false")
+                    + " has_start=" + (m_traceMovementCapture.hasStart ? "true" : "false")
+                    + " has_stop=" + (m_traceMovementCapture.hasStop ? "true" : "false"));
+            }
+            m_traceSnapshotEndLatch = true;
+        }
+    }
+    else
+    {
+        m_traceSnapshotEndLatch = false;
+    }
+
+    m_traceMovementCapture.previousForwardHeld = forwardHeld;
+}
+
 bool GameApplication::processPendingQuickSaveInput()
 {
     if (m_pendingAdvanceTime)
@@ -4101,12 +5077,14 @@ bool GameApplication::quickSaveToPath(
 
     if (!selectedMap || m_pMapSceneRuntime == nullptr)
     {
+        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=unavailable");
         reportQuickSaveStatus("Quick save unavailable");
         return false;
     }
 
     if (!selectedMap->map.runtimeRestrictions.allowSaveGame)
     {
+        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=restricted_map");
         reportQuickSaveStatus("Quick save unavailable here");
         return false;
     }
@@ -4116,6 +5094,7 @@ bool GameApplication::quickSaveToPath(
 
     if (!saveData)
     {
+        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=no_save_data");
         reportQuickSaveStatus("Quick save unavailable");
         return false;
     }
@@ -4127,11 +5106,21 @@ bool GameApplication::quickSaveToPath(
 
     if (!saveGameDataToPath(path, *saveData, error))
     {
+        gameplayDebugTraceLog(
+            "save_game_failed path=\"" + path.string() + "\""
+            + " map=\"" + saveData->mapFileName + "\""
+            + " reason=\"" + error + "\"");
         reportQuickSaveStatus("Quick save failed: " + error);
         return false;
     }
 
     m_gameSession.setCurrentSavePath(path);
+    gameplayDebugTraceLog(
+        "save_game_written path=\"" + path.string() + "\""
+        + " map=\"" + saveData->mapFileName + "\""
+        + " scene_kind=" + sceneKindName(saveData->currentSceneKind)
+        + " game_minutes=" + std::to_string(saveData->savedGameMinutes));
+    traceSaveDataStateDump("save", path, *saveData, &m_gameDataLoader.getItemTable());
     reportQuickSaveStatus("Quick save written");
     return true;
 }
@@ -4145,10 +5134,14 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
 {
     if (m_pAssetFileSystem == nullptr)
     {
+        gameplayDebugTraceLog("load_game_failed path=\"" + path.string() + "\" reason=unavailable");
         reportQuickSaveStatus("Quick load unavailable");
         return false;
     }
 
+    gameplayDebugTraceLog(
+        "load_game_started path=\"" + path.string() + "\""
+        + " initialize_view=" + (initializeView ? "true" : "false"));
     beginLoadingOverlay();
 
     std::string error;
@@ -4157,10 +5150,14 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
     if (!saveData)
     {
         cancelLoadingOverlay();
+        gameplayDebugTraceLog(
+            "load_game_failed path=\"" + path.string() + "\""
+            + " reason=\"" + error + "\"");
         reportQuickSaveStatus("Quick load failed: " + error);
         return false;
     }
 
+    traceSaveDataStateDump("load_file", path, *saveData, &m_gameDataLoader.getItemTable());
     renderLoadingOverlayProgress(20);
 
     m_gameSession.restoreFromSaveData(*saveData);
@@ -4176,6 +5173,10 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
             }))
     {
         cancelLoadingOverlay();
+        gameplayDebugTraceLog(
+            "load_game_failed path=\"" + path.string() + "\""
+            + " map=\"" + saveData->mapFileName + "\""
+            + " reason=runtime_init_failed");
         reportQuickSaveStatus("Quick load failed: runtime init failed");
         return false;
     }
@@ -4185,12 +5186,25 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
     if (!applyCurrentSessionToRuntime(initializeView))
     {
         cancelLoadingOverlay();
+        gameplayDebugTraceLog(
+            "load_game_failed path=\"" + path.string() + "\""
+            + " map=\"" + saveData->mapFileName + "\""
+            + " reason=runtime_apply_failed");
         reportQuickSaveStatus("Quick load failed: runtime apply failed");
         return false;
     }
 
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
+    gameplayDebugTraceLog(
+        "load_game_applied path=\"" + path.string() + "\""
+        + " map=\"" + m_gameSession.currentMapFileName() + "\""
+        + " scene_kind=" + sceneKindName(m_gameSession.currentSceneKind())
+        + " game_minutes=" + std::to_string(m_gameSession.gameMinutes()));
+    if (const std::optional<GameSaveData> appliedSaveData = m_gameSession.buildSaveData())
+    {
+        traceSaveDataStateDump("load_applied", path, *appliedSaveData, &m_gameDataLoader.getItemTable());
+    }
     reportQuickSaveStatus("Quick load applied");
     return true;
 }
@@ -4209,11 +5223,13 @@ void GameApplication::openMainMenuScreen()
         &m_gameAudioSystem,
         [this]()
         {
-            openNewGameScreen();
+            gameplayDebugTraceLog("menu_action action=new_game source=main_menu");
+            openNewGameScreen("main_menu");
         },
         [this]()
         {
-            openLoadGameScreen();
+            gameplayDebugTraceLog("menu_action action=load_game source=main_menu");
+            openLoadGameScreen(false, "main_menu");
         },
         [this]()
         {
@@ -4221,12 +5237,16 @@ void GameApplication::openMainMenuScreen()
         }));
 }
 
-void GameApplication::openLoadGameScreen(bool returnToGameplayMenu)
+void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::string &source)
 {
     if (m_pAssetFileSystem == nullptr)
     {
         return;
     }
+
+    gameplayDebugTraceLog(
+        "load_game_screen_opened source=\"" + source + "\""
+        + " return_to_gameplay_menu=" + (returnToGameplayMenu ? "true" : "false"));
 
     m_screenManager.setActiveScreen(std::make_unique<LoadGameScreen>(
         *m_pAssetFileSystem,
@@ -4265,12 +5285,14 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu)
         }));
 }
 
-void GameApplication::openNewGameScreen()
+void GameApplication::openNewGameScreen(const std::string &source)
 {
     if (m_pAssetFileSystem == nullptr)
     {
         return;
     }
+
+    gameplayDebugTraceLog("new_game_screen_opened source=\"" + source + "\"");
 
     m_gameAudioSystem.stopBackgroundMusicImmediate();
 
@@ -4538,6 +5560,14 @@ bool GameApplication::startNewSessionFromCharacterCreation(
         continentId != 0 ? resolveContinentStartDestination(continentId) : std::nullopt;
     const MapStartDestination startupDestination =
         continentStartDestination.value_or(resolveStartupDestination());
+    const MergedContinentSettingEntry *pContinentSetting =
+        continentId != 0 ? m_gameDataLoader.getMergedContinentSettingTable().findById(continentId) : nullptr;
+    gameplayDebugTraceLog(
+        "new_game_starting continent_id=" + std::to_string(continentId)
+        + " continent_note=\"" + (pContinentSetting != nullptr ? pContinentSetting->note : std::string()) + "\""
+        + " map=\"" + startupDestination.mapFileName + "\""
+        + " start_override=" + (startupDestination.start.has_value() ? "true" : "false")
+        + " member_count=" + std::to_string(characters.size()));
     m_gameSession.setCurrentMapFileName(startupDestination.mapFileName);
     PartySeed seed = {};
     seed.gold = 200;
@@ -4583,6 +5613,21 @@ bool GameApplication::startNewSessionFromCharacterCreation(
     applyCurrentSettingsToActiveRuntime();
     applyMapStartDestination(startupDestination);
     synchronizeSessionFromRuntime();
+    gameplayDebugTraceLog(
+        "new_game_started continent_id=" + std::to_string(continentId)
+        + " continent_note=\"" + (pContinentSetting != nullptr ? pContinentSetting->note : std::string()) + "\""
+        + " map=\"" + m_gameSession.currentMapFileName() + "\""
+        + " party=("
+        + (m_gameSession.activeWorldRuntime() != nullptr
+            ? std::to_string(m_gameSession.activeWorldRuntime()->partyX())
+                + "," + std::to_string(m_gameSession.activeWorldRuntime()->partyY())
+                + "," + std::to_string(m_gameSession.activeWorldRuntime()->partyFootZ())
+            : std::string("0,0,0"))
+        + ")");
+    tracePartySnapshot(
+        "new_game_started",
+        sessionParty.snapshot(),
+        &m_gameDataLoader.getItemTable());
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
     return true;
@@ -4663,6 +5708,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     }
 
     updateQuickSaveInput();
+    updateGameplayTraceSnapshotHotkeys();
 
     if (processPendingPartyDefeat())
     {
@@ -4775,14 +5821,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (m_gameSession.consumePendingOpenNewGameScreenRequest())
         {
-            openNewGameScreen();
+            gameplayDebugTraceLog("menu_action action=new_game source=gameplay_menu");
+            openNewGameScreen("gameplay_menu");
             renderDebugConsoleFrame(width, height);
             return;
         }
 
         if (m_gameSession.consumePendingOpenLoadGameScreenRequest())
         {
-            openLoadGameScreen(true);
+            gameplayDebugTraceLog("menu_action action=load_game source=gameplay_menu");
+            openLoadGameScreen(true, "gameplay_menu");
             renderDebugConsoleFrame(width, height);
             return;
         }
@@ -4852,6 +5900,7 @@ bool GameApplication::processPendingMapMove()
     }
 
     synchronizeSessionFromRuntime();
+    closeTransientGameplayUiForMapMove();
 
     const bool isSameMapTeleport =
         !pendingMapMove->mapName
@@ -4881,6 +5930,7 @@ bool GameApplication::processPendingMapMove()
     };
     if (isSameMapTeleport)
     {
+        const std::string previousMapFileName = m_gameSession.currentMapFileName();
         if (m_pMapSceneRuntime != nullptr
             && m_pMapSceneRuntime->kind() == SceneKind::Outdoor
             && m_pOutdoorPartyRuntime != nullptr)
@@ -4904,10 +5954,21 @@ bool GameApplication::processPendingMapMove()
 
         m_gameAudioSystem.playCommonSound(SoundId::Teleport, GameAudioSystem::PlaybackGroup::Ui);
         synchronizeSessionFromRuntime();
+        logMapArrived(
+            previousMapFileName,
+            m_gameSession.currentMapFileName(),
+            *pendingMapMove,
+            true,
+            m_gameSession.gameMinutes());
         return true;
     }
 
+    EventRuntimeState *pLeavingRuntimeState =
+        m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
     executeCurrentMapOnLeaveEvents();
+    PendingMapLeaveOutputs onLeaveOutputs = pLeavingRuntimeState != nullptr
+        ? consumePendingMapLeaveOutputs(*pLeavingRuntimeState)
+        : PendingMapLeaveOutputs{};
 
     const std::string targetMapName = *pendingMapMove->mapName;
     const std::string previousMapFileName = m_gameSession.currentMapFileName();
@@ -4928,9 +5989,24 @@ bool GameApplication::processPendingMapMove()
                 renderLoadingOverlayProgress(remapLoadingProgress(localProgress, 20, 85));
             }))
     {
+        if (pLeavingRuntimeState != nullptr
+            && m_pMapSceneRuntime != nullptr
+            && m_pMapSceneRuntime->eventRuntimeState() == pLeavingRuntimeState)
+        {
+            appendPendingMapLeaveOutputs(*pLeavingRuntimeState, std::move(onLeaveOutputs));
+        }
+
         cancelLoadingOverlay();
         m_gameSession.setCurrentMapFileName(previousMapFileName);
         return false;
+    }
+
+    EventRuntimeState *pArrivingRuntimeState =
+        m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
+
+    if (pArrivingRuntimeState != nullptr)
+    {
+        appendPendingMapLeaveOutputs(*pArrivingRuntimeState, std::move(onLeaveOutputs));
     }
 
     if (m_pMapSceneRuntime != nullptr
@@ -4956,6 +6032,12 @@ bool GameApplication::processPendingMapMove()
     }
 
     applyMapMoveDirection();
+    float arrivedGameMinutes = m_gameSession.gameMinutes();
+    if (IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime())
+    {
+        arrivedGameMinutes = pWorldRuntime->gameMinutes();
+    }
+    logMapArrived(previousMapFileName, targetMapName, *pendingMapMove, false, arrivedGameMinutes);
 
     if (isDungeonMapFileName(targetMapName) && !sameMapFileName(previousMapFileName, targetMapName))
     {
@@ -4976,6 +6058,33 @@ bool GameApplication::processPendingMapMove()
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
     return true;
+}
+
+void GameApplication::closeTransientGameplayUiForMapMove()
+{
+    IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
+
+    if (pWorldRuntime != nullptr)
+    {
+        if (pWorldRuntime->activeChestView() != nullptr)
+        {
+            pWorldRuntime->commitActiveChestView();
+            pWorldRuntime->closeActiveChestView();
+        }
+
+        if (pWorldRuntime->activeCorpseView() != nullptr)
+        {
+            pWorldRuntime->commitActiveCorpseView();
+            pWorldRuntime->closeActiveCorpseView();
+        }
+    }
+
+    GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    screenRuntime.stopHouseVideoPlayback();
+    screenRuntime.closeHouseShopOverlay();
+    screenRuntime.closeInventoryNestedOverlay();
+    screenRuntime.closeActiveEventDialog();
+    screenRuntime.resetLootOverlayInteractionState();
 }
 
 bool GameApplication::processPendingArcomageGame()

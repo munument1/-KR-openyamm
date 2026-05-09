@@ -1,6 +1,7 @@
 #include "doctest/doctest.h"
 
 #include "game/gameplay/GameMechanics.h"
+#include "game/events/EventRuntime.h"
 #include "game/gameplay/JournalQuestRuntime.h"
 #include "game/maps/SaveGame.h"
 #include "game/party/Party.h"
@@ -104,6 +105,20 @@ bool hasPendingSpeech(
 
     return false;
 }
+
+bool hasPendingSound(const OpenYAMM::Game::Party &party, OpenYAMM::Game::SoundId soundId)
+{
+    for (const OpenYAMM::Game::Party::PendingAudioRequest &request : party.pendingAudioRequests())
+    {
+        if (request.kind == OpenYAMM::Game::Party::PendingAudioRequest::Kind::Sound
+            && request.soundId == soundId)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 }
 
 TEST_CASE("default party seed only creates the first test member")
@@ -117,6 +132,17 @@ TEST_CASE("default party seed only creates the first test member")
     CHECK_EQ(members[0].name, "Ariel");
     CHECK_EQ(members[0].portraitPictureId, 2u);
     CHECK_EQ(members[0].characterDataId, 3u);
+}
+
+TEST_CASE("event granted inventory items queue loot sound")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.grantedItems.push_back(makeInventoryItem(42, 1, 1));
+
+    party.applyEventRuntimeState(runtimeState, true);
+
+    CHECK(hasPendingSound(party, OpenYAMM::Game::SoundId::Gold));
 }
 
 TEST_CASE("current quest journal entries come from party qbits and non-empty quest text")

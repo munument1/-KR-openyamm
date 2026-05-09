@@ -759,6 +759,8 @@ public:
     float partyX() const override;
     float partyY() const override;
     float partyFootZ() const override;
+    float gameplayCameraYawRadians() const override;
+    float gameplayCameraPitchRadians() const override;
     bool partyIsAirborneForRest() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
@@ -1088,7 +1090,7 @@ private:
         std::string &objectName,
         std::string &objectSpriteName) const;
     void materializeMapDeltaWorldItems();
-    void spawnMonsterDeathDropsForActor(const MapActorState &actor);
+    void spawnMonsterDeathDropsForActor(size_t actorIndex, const MapActorState &actor);
     bool spawnMonsterDeathDropWorldItem(
         const InventoryItem &item,
         float x,

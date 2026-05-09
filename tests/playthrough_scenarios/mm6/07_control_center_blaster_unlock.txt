@@ -1,0 +1,711 @@
+[GameplayTrace] trace_session_begin world_id="mm6" configured_world_id="mm6" startup_map="oute3.odm" trace_file="tests/playthrough_scenarios/mm6/07_control_center_blaster_unlock.txt" unix_time=1778347656 map_load_timing=false route_trace=false gameplay_trace=true
+[GameplayTrace] menu_action action=load_game source=main_menu
+[GameplayTrace] load_game_screen_opened source="main_menu" return_to_gameplay_menu=false
+[GameplayTrace] load_game_started path="saves/save1.oysav" initialize_view=true
+[GameplayTrace] state_dump_load_file_begin path="saves/save1.oysav" map="oracle.blv" scene_kind=indoor game_minutes=122786.328125
+[GameplayTrace] state_dump_load_file_party gold=22587 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_load_file_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=3340/6691 inventory_count=17 award_count=10
+[GameplayTrace] state_dump_load_file_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=57
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=58
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=59
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=60
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=61
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=63
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=75
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=76
+[GameplayTrace] state_dump_load_file_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(0,0) item_id=2105 item_name="Cloak of Baa" item_icon="6nwcape" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(0,2) item_id=360 item_name="Cure Paralysis" item_icon="item200" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(0,3) item_id=2057 item_name="Moonstone" item_icon="gem2" item_material=5 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(2,0) item_id=39 item_name="Elite Minotaur Axe" item_icon="item039" item_material=6 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(0,6) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(4,0) item_id=1939 item_name="Ice Blast" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(4,2) item_id=1938 item_name="Town Portal" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(4,4) item_id=1914 item_name="Incinerate" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(4,6) item_id=1913 item_name="Inferno" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(6,0) item_id=1912 item_name="Meteor Shower" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(6,2) item_id=1940 item_name="Lloyd's Beacon" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(6,4) item_id=1953 item_name="Mass Distortion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(6,6) item_id=1927 item_name="Starburst" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(8,0) item_id=1926 item_name="Fly" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(8,2) item_id=1925 item_name="Implosion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_inventory member_index=0 grid=(8,4) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_file_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_file_qbit id=310
+[GameplayTrace] state_dump_load_file_qbit id=311
+[GameplayTrace] state_dump_load_file_qbit id=312
+[GameplayTrace] state_dump_load_file_qbit id=313
+[GameplayTrace] state_dump_load_file_qbit id=314
+[GameplayTrace] state_dump_load_file_qbit id=315
+[GameplayTrace] state_dump_load_file_qbit id=1029
+[GameplayTrace] state_dump_load_file_qbit id=1032
+[GameplayTrace] state_dump_load_file_qbit id=1033
+[GameplayTrace] state_dump_load_file_qbit id=1035
+[GameplayTrace] state_dump_load_file_qbit id=1066
+[GameplayTrace] state_dump_load_file_qbit id=1077
+[GameplayTrace] state_dump_load_file_qbit id=1078
+[GameplayTrace] state_dump_load_file_qbit id=1104
+[GameplayTrace] state_dump_load_file_qbit id=1112
+[GameplayTrace] state_dump_load_file_qbit id=1124
+[GameplayTrace] state_dump_load_file_qbit id=1125
+[GameplayTrace] state_dump_load_file_qbit id=1126
+[GameplayTrace] state_dump_load_file_qbit id=1127
+[GameplayTrace] state_dump_load_file_qbit id=1128
+[GameplayTrace] state_dump_load_file_qbit id=1129
+[GameplayTrace] state_dump_load_file_qbit id=1135
+[GameplayTrace] state_dump_load_file_qbit id=1138
+[GameplayTrace] state_dump_load_file_qbit id=1141
+[GameplayTrace] state_dump_load_file_qbit id=1142
+[GameplayTrace] state_dump_load_file_qbit id=1145
+[GameplayTrace] state_dump_load_file_qbit id=1150
+[GameplayTrace] state_dump_load_file_qbit id=1191
+[GameplayTrace] state_dump_load_file_qbit id=1192
+[GameplayTrace] state_dump_load_file_qbit id=1193
+[GameplayTrace] state_dump_load_file_qbit id=1194
+[GameplayTrace] state_dump_load_file_qbit id=1199
+[GameplayTrace] state_dump_load_file_qbit id=1202
+[GameplayTrace] state_dump_load_file_qbit id=1203
+[GameplayTrace] state_dump_load_file_qbit id=1252
+[GameplayTrace] state_dump_load_file_qbit id=1259
+[GameplayTrace] state_dump_load_file_qbit id=1304
+[GameplayTrace] state_dump_load_file_qbit id=1305
+[GameplayTrace] state_dump_load_file_qbit id=1306
+[GameplayTrace] state_dump_load_file_qbit id=1307
+[GameplayTrace] state_dump_load_file_qbit id=1328
+[GameplayTrace] state_dump_load_file_qbit id=1400
+[GameplayTrace] state_dump_load_file_qbit id=1515
+[GameplayTrace] state_dump_load_file_qbit id=1516
+[GameplayTrace] state_dump_load_file_qbit id=1517
+[GameplayTrace] state_dump_load_file_qbit id=1518
+[GameplayTrace] state_dump_load_file_qbit id=1519
+[GameplayTrace] state_dump_load_file_qbit id=1520
+[GameplayTrace] state_dump_load_file_qbit id=1521
+[GameplayTrace] state_dump_load_file_qbit id=1522
+[GameplayTrace] state_dump_load_file_qbit id=1523
+[GameplayTrace] state_dump_load_file_qbit id=1706
+[GameplayTrace] state_dump_load_file_map_vars map="oracle.blv" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_file_map_vars map="outb3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outb1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outb2" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outb3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outc1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outc2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outc3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outd1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.outd3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.oute2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.oute3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_file_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_load_file_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_load_file_map_vars map="6t6.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_file_map_vars map="6t7.blv" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_load_file_map_vars map="cd1.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_load_file_map_vars map="cd2.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_load_file_map_vars map="cd3.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_load_file_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_file_map_vars map="pyramid.blv" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_load_file_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.6d07" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.6d18" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.6t6" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm6.map.6t7" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.cd1" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.cd2" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.cd3" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.oracle" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.pyramid" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.sewer" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="world.mm8.map.zdwj02" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_file_end path="saves/save1.oysav"
+[GameplayTrace] map_loaded map="oracle.blv" scene_kind=indoor game_minutes=122786.328125 initialize_view=true party=(-1422.630737,2045.057251,-512.000000) yaw=0.000000 pitch=0.150000
+[GameplayTrace] load_game_applied path="saves/save1.oysav" map="oracle.blv" scene_kind=indoor game_minutes=122786.328125
+[GameplayTrace] state_dump_load_applied_begin path="saves/save1.oysav" map="oracle.blv" scene_kind=indoor game_minutes=122786.328125
+[GameplayTrace] state_dump_load_applied_party gold=22587 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_load_applied_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=3340/6691 inventory_count=17 award_count=10
+[GameplayTrace] state_dump_load_applied_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=57
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=58
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=59
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=60
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=61
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=63
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=75
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=76
+[GameplayTrace] state_dump_load_applied_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(0,0) item_id=2105 item_name="Cloak of Baa" item_icon="6nwcape" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(0,2) item_id=360 item_name="Cure Paralysis" item_icon="item200" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(0,3) item_id=2057 item_name="Moonstone" item_icon="gem2" item_material=5 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(2,0) item_id=39 item_name="Elite Minotaur Axe" item_icon="item039" item_material=6 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(0,6) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(4,0) item_id=1939 item_name="Ice Blast" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(4,2) item_id=1938 item_name="Town Portal" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(4,4) item_id=1914 item_name="Incinerate" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(4,6) item_id=1913 item_name="Inferno" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(6,0) item_id=1912 item_name="Meteor Shower" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(6,2) item_id=1940 item_name="Lloyd's Beacon" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(6,4) item_id=1953 item_name="Mass Distortion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(6,6) item_id=1927 item_name="Starburst" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(8,0) item_id=1926 item_name="Fly" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(8,2) item_id=1925 item_name="Implosion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_inventory member_index=0 grid=(8,4) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_load_applied_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_load_applied_qbit id=310
+[GameplayTrace] state_dump_load_applied_qbit id=311
+[GameplayTrace] state_dump_load_applied_qbit id=312
+[GameplayTrace] state_dump_load_applied_qbit id=313
+[GameplayTrace] state_dump_load_applied_qbit id=314
+[GameplayTrace] state_dump_load_applied_qbit id=315
+[GameplayTrace] state_dump_load_applied_qbit id=1029
+[GameplayTrace] state_dump_load_applied_qbit id=1032
+[GameplayTrace] state_dump_load_applied_qbit id=1033
+[GameplayTrace] state_dump_load_applied_qbit id=1035
+[GameplayTrace] state_dump_load_applied_qbit id=1066
+[GameplayTrace] state_dump_load_applied_qbit id=1077
+[GameplayTrace] state_dump_load_applied_qbit id=1078
+[GameplayTrace] state_dump_load_applied_qbit id=1104
+[GameplayTrace] state_dump_load_applied_qbit id=1112
+[GameplayTrace] state_dump_load_applied_qbit id=1124
+[GameplayTrace] state_dump_load_applied_qbit id=1125
+[GameplayTrace] state_dump_load_applied_qbit id=1126
+[GameplayTrace] state_dump_load_applied_qbit id=1127
+[GameplayTrace] state_dump_load_applied_qbit id=1128
+[GameplayTrace] state_dump_load_applied_qbit id=1129
+[GameplayTrace] state_dump_load_applied_qbit id=1135
+[GameplayTrace] state_dump_load_applied_qbit id=1138
+[GameplayTrace] state_dump_load_applied_qbit id=1141
+[GameplayTrace] state_dump_load_applied_qbit id=1142
+[GameplayTrace] state_dump_load_applied_qbit id=1145
+[GameplayTrace] state_dump_load_applied_qbit id=1150
+[GameplayTrace] state_dump_load_applied_qbit id=1191
+[GameplayTrace] state_dump_load_applied_qbit id=1192
+[GameplayTrace] state_dump_load_applied_qbit id=1193
+[GameplayTrace] state_dump_load_applied_qbit id=1194
+[GameplayTrace] state_dump_load_applied_qbit id=1199
+[GameplayTrace] state_dump_load_applied_qbit id=1202
+[GameplayTrace] state_dump_load_applied_qbit id=1203
+[GameplayTrace] state_dump_load_applied_qbit id=1252
+[GameplayTrace] state_dump_load_applied_qbit id=1259
+[GameplayTrace] state_dump_load_applied_qbit id=1304
+[GameplayTrace] state_dump_load_applied_qbit id=1305
+[GameplayTrace] state_dump_load_applied_qbit id=1306
+[GameplayTrace] state_dump_load_applied_qbit id=1307
+[GameplayTrace] state_dump_load_applied_qbit id=1328
+[GameplayTrace] state_dump_load_applied_qbit id=1400
+[GameplayTrace] state_dump_load_applied_qbit id=1515
+[GameplayTrace] state_dump_load_applied_qbit id=1516
+[GameplayTrace] state_dump_load_applied_qbit id=1517
+[GameplayTrace] state_dump_load_applied_qbit id=1518
+[GameplayTrace] state_dump_load_applied_qbit id=1519
+[GameplayTrace] state_dump_load_applied_qbit id=1520
+[GameplayTrace] state_dump_load_applied_qbit id=1521
+[GameplayTrace] state_dump_load_applied_qbit id=1522
+[GameplayTrace] state_dump_load_applied_qbit id=1523
+[GameplayTrace] state_dump_load_applied_qbit id=1706
+[GameplayTrace] state_dump_load_applied_map_vars map="oracle.blv" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="outb3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outb1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outb2" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outb3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outc1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outc2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outc3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outd1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.outd3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.oute2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.oute3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="6t6.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="6t7.blv" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="cd1.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="cd2.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="cd3.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="pyramid.blv" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.6d07" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.6d18" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.6t6" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm6.map.6t7" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.cd1" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.cd2" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.cd3" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.pyramid" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.sewer" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="world.mm8.map.zdwj02" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_load_applied_end path="saves/save1.oysav"
+[GameplayTrace] interact method=keyboard map="Oracle of Enroth" scene_kind=indoor party=(-1422.63,2045.06,-512) yaw=1.071 pitch=-0.0345 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=399 face_index=399 event_primary=0 event_secondary=0 triggered_event=3 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300880 name="" distance=331.562 hit=(-1263.6,2336,-363.374)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=451 title="The Oracle" house_title="The Oracle" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":23,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Enter\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":793,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Oracle\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=23 secondary_id=0 selection_index=0 source_id=451 house_dialog=true enabled=true label="Enter"
+[GameplayTrace] house_extra_exit source_id=451 action_id=23 label="Enter" destination_map="sci-fi.blv" destination_name="Control Center" destination_map_id=186 required_qbit=1193 pos=(0,0,0)
+[GameplayTrace] map_transition_requested source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 confirmation_required=false destination_map="sci-fi.blv" destination_name="Control Center" use_start_position=false pos=(0,0,0) direction_degrees=none
+[GameplayTrace] map_loaded map="sci-fi.blv" scene_kind=indoor game_minutes=122786.945312 initialize_view=true party=(-9280.000000,4160.000000,196.000000) yaw=1.071000 pitch=-0.034500
+[GameplayTrace] map_arrived previous_map="oracle.blv" map="sci-fi.blv" game_minutes=122786.945312 same_map=false use_start_position=false source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 destination_name="Control Center" pos=(0,0,0) direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(2935.74,-192.365,0) yaw=-0.481493 pitch=-0.138 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1127 face_index=1127 event_primary=0 event_secondary=0 triggered_event=2 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=300.829 hit=(3200,-330.47,118.617)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=2 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=3 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=15 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=3 state=closed elapsed_seconds=1.633335 door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=2 state=closed elapsed_seconds=1.633335 door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] actor_inspect world=indoor map="Control Center" actor_index=40 name="Terminator Unit" monster_id=624 current_hp=1080 max_hp=1080 dead=false party=(5249.561035,-257.191528,-301.274536) yaw=0.207008 pitch=-0.124500 actor_pos=(5628.376953,-458.664612,-289.919525)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(6895.25,386.892,-393) yaw=0.252008 pitch=-0.192 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1150 face_index=1150 event_primary=0 event_secondary=0 triggered_event=4 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=248.923 hit=(7132.09,448,-280.292)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=4 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=21 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=4 state=closed elapsed_seconds=1.666669 door_slot=21 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(7176.69,1771.32,-393) yaw=-3.13318 pitch=-0.1335 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1143 face_index=1143 event_primary=0 event_secondary=0 triggered_event=5 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=137.724 hit=(7040,1770.2,-251.392)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=5 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=17 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=5 state=closed elapsed_seconds=1.666669 door_slot=17 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(6080.53,1123.59,-393) yaw=-2.58869 pitch=-0.363 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2671 face_index=2671 event_primary=0 event_secondary=0 triggered_event=35 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=322.115 hit=(5824,965.288,-347.114)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=6 item_count=12 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(7,7)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(7,7)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(3,6)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(3,6)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(5,2)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(5,2)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(5,7)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(5,7)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(3,1)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(3,1)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(4,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(4,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(2,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(2,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(0,3)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(0,3)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(1,7)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(1,7)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(1,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(1,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(7,3)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=6 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(7,3)
+[GameplayTrace] item_inspect item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true source=chest map="Control Center" scene_kind=indoor party=(6080.525391,1123.592896,-393.000000) yaw=-2.588686 pitch=-0.363000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=7
+[GameplayTrace] item_received destination=held source=chest item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(3,5)
+[GameplayTrace] held_item_changed active=false item_id=2172 source=held_controller
+[GameplayTrace] item_inspect item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true source=chest map="Control Center" scene_kind=indoor party=(6080.525391,1123.592896,-393.000000) yaw=-2.588686 pitch=-0.363000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=8
+[GameplayTrace] item_received destination=held source=chest item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(2,7)
+[GameplayTrace] held_item_changed active=false item_id=2173 source=held_controller
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(5838.71,-1979.09,-393) yaw=-0.388198 pitch=-0.192 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1666 face_index=1666 event_primary=0 event_secondary=0 triggered_event=13 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=125.519 hit=(5953,-2025.65,-256.987)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=13 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=12 move_length=255 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=13 state=closed elapsed_seconds=1.700002 door_slot=12 move_length=255 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(8522.32,-2484.31,-985) yaw=-1.5582 pitch=-0.1335 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1155 face_index=1155 event_primary=0 event_secondary=0 triggered_event=14 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=302.201 hit=(8526.22,-2784,-865.178)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=14 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=8 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=14 state=closed elapsed_seconds=1.666669 door_slot=8 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(8786.11,-3285.14,-985) yaw=-0.7167 pitch=-0.345 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2970 face_index=2970 event_primary=0 event_secondary=0 triggered_event=34 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=334.337 hit=(9024,-3491.44,-937.987)
+[GameplayTrace] award_acquired id=103 member_index=0
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=5 item_count=12 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(1,5)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(1,5)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(5,5)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(5,5)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(4,6)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(4,6)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(5,7)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(5,7)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(2,6)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(2,6)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(1,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(1,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(0,8)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(0,8)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(6,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(6,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(4,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(4,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(3,4)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(3,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(5,6)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=5 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(5,6)
+[GameplayTrace] item_inspect item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true source=chest map="Control Center" scene_kind=indoor party=(8786.111328,-3285.143799,-985.000000) yaw=-0.716700 pitch=-0.345000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true grid=(5,0)
+[GameplayTrace] held_item_changed active=false item_id=2166 source=held_controller
+[GameplayTrace] item_inspect item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true source=chest map="Control Center" scene_kind=indoor party=(8786.111328,-3285.143799,-985.000000) yaw=-0.716700 pitch=-0.345000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=6
+[GameplayTrace] item_received destination=held source=chest item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(0,8)
+[GameplayTrace] held_item_changed active=false item_id=2076 source=held_controller
+[GameplayTrace] item_inspect item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true source=inventory map="Control Center" scene_kind=indoor party=(8786.111328,-3285.143799,-985.000000) yaw=2.113795 pitch=-0.156000 member_index=0 grid=(0,5) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_inspect item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true source=inventory map="Control Center" scene_kind=indoor party=(8786.111328,-3285.143799,-985.000000) yaw=2.113795 pitch=-0.156000 member_index=0 grid=(0,1) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] held_item_changed active=true item_id=2166 quantity=1 grid=(0,1) source=party_overlay
+[GameplayTrace] held_item_changed active=false item_id=2166 source=party_overlay
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-2214.48,-707.291,0) yaw=2.08682 pitch=-0.165 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1684 face_index=1684 event_primary=0 event_secondary=0 triggered_event=15 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=364.635 hit=(-2392,-394.232,100.134)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=15 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=2 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=3 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=16 state=closed elapsed_seconds=0.841666 door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=15 state=closed elapsed_seconds=0.841666 door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=3 state=open elapsed_seconds=1.633335 door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=2 state=open elapsed_seconds=1.633335 door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-7228.75,-3045.17,393) yaw=-1.97338 pitch=-0.2415 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1541 face_index=1541 event_primary=0 event_secondary=0 triggered_event=6 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=188.911 hit=(-7300.99,-3214,507.806)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=6 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=4 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=6 state=closed elapsed_seconds=1.666669 door_slot=4 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-6667.69,-3533.21,393) yaw=-0.906872 pitch=-0.165 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1365 face_index=1365 event_primary=0 event_secondary=0 triggered_event=7 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=167.523 hit=(-6566.39,-3664,525.387)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=20 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=8 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=0 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=9 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=19 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=7 state=closed elapsed_seconds=1.666669 door_slot=20 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] actor_inspect world=indoor map="Control Center" actor_index=87 name="Enforcer Unit" monster_id=623 current_hp=45 max_hp=700 dead=false party=(-6553.144043,-3583.726318,393.000000) yaw=-1.748376 pitch=-0.178500 actor_pos=(-6605.391113,-3830.788330,411.427185)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-6724.48,-4497.81,393) yaw=-2.10388 pitch=-0.336 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2700 face_index=2700 event_primary=0 event_secondary=0 triggered_event=33 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=313.053 hit=(-6875.24,-4752,449.146)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=4 item_count=1 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=4 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(7,3)
+[GameplayTrace] item_inspect item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false source=chest map="Control Center" scene_kind=indoor party=(-6724.479980,-4497.806641,393.000000) yaw=-2.103875 pitch=-0.336000 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false grid=(7,5)
+[GameplayTrace] held_item_changed active=false item_id=1666 source=held_controller
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-5701.09,-3475.31,393) yaw=-1.27019 pitch=-0.309 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1388 face_index=1388 event_primary=0 event_secondary=0 triggered_event=8 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300736 name="" distance=206.902 hit=(-5643.46,-3664,490.018)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=8 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=0 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=20 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=9 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=19 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=8 state=closed elapsed_seconds=1.666669 door_slot=0 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=7 state=open elapsed_seconds=1.666669 door_slot=20 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-4729.75,-3529.76,393) yaw=-0.91468 pitch=-0.138 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1416 face_index=1416 event_primary=0 event_secondary=0 triggered_event=9 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300864 name="" distance=170.663 hit=(-4626.68,-3664,529.515)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=9 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=19 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=8 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=0 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=7 action=open raw_action=0 previous_state=open new_state=open was_moving=false moving=false door_slot=20 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=8 state=open elapsed_seconds=1.666669 door_slot=0 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=9 state=closed elapsed_seconds=1.666669 door_slot=19 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-3642.37,-4821.88,393) yaw=-0.73918 pitch=-0.228 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1235 face_index=1235 event_primary=0 event_secondary=0 triggered_event=12 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=281.2 hit=(-3440,-5006.74,489.289)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=12 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=10 move_length=252 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=12 state=closed elapsed_seconds=1.683336 door_slot=10 move_length=252 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-900.551,-5094.83,393) yaw=-1.34218 pitch=-0.4935 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2843 face_index=2843 event_primary=0 event_secondary=0 triggered_event=66 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=243.635 hit=(-851.792,-5304,437.565)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=10 item_count=2 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=10 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(7,3)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=10 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(1,1)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-744.855,-5128.38,393) yaw=-1.44568 pitch=-0.5565 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2830 face_index=2830 event_primary=0 event_secondary=0 triggered_event=67 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=207.848 hit=(-722.919,-5304,443.629)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=11 item_count=0 hidden_item_count=0
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-532.963,-5168.08,393) yaw=-1.21618 pitch=-0.6015 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2821 face_index=2821 event_primary=0 event_secondary=0 triggered_event=68 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=175.952 hit=(-482.574,-5304,452.915)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=12 item_count=1 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=12 item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(6,1)
+[GameplayTrace] item_inspect item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false source=chest map="Control Center" scene_kind=indoor party=(-532.962891,-5168.083496,393.000000) yaw=-1.216182 pitch=-0.601500 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false grid=(6,5)
+[GameplayTrace] held_item_changed active=false item_id=1667 source=held_controller
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-394.269,-5188.16,393) yaw=-0.946181 pitch=-0.5925 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2811 face_index=2811 event_primary=0 event_secondary=0 triggered_event=69 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038464 name="" distance=172.103 hit=(-310.975,-5304.5,457)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=13 item_count=6 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(2,5)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quest_like=true grid=(1,8)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true grid=(1,8)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2170 item_name="Memory Crystal Alpha" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(5,0)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(5,3)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2171 item_name="Memory Crystal Beta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(5,3)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(0,5)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(0,5)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quest_like=true grid=(3,7)
+[GameplayTrace] chest_contains_quest_item scene_kind=indoor map="Control Center" chest_id=13 item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true grid=(3,7)
+[GameplayTrace] item_inspect item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false source=chest map="Control Center" scene_kind=indoor party=(-394.268555,-5188.158691,393.000000) yaw=-0.946181 pitch=-0.592500 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false grid=(2,7)
+[GameplayTrace] held_item_changed active=false item_id=1666 source=held_controller
+[GameplayTrace] map_loaded map="outb2.odm" scene_kind=outdoor game_minutes=122787.867188 initialize_view=true party=(-22048.000000,18224.000000,1121.000000) yaw=0.000000 pitch=-0.150000
+[GameplayTrace] map_arrived previous_map="sci-fi.blv" map="outb2.odm" game_minutes=122787.867188 same_map=false use_start_position=false pos=(-15079,12878,161) direction_degrees=270
+[GameplayTrace] map_loaded source=debug_console map="sci-fi.blv" scene_kind=indoor game_minutes=122788.242188 initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="sci-fi.blv" target="Control Center" map_id=186 scene_kind=indoor game_minutes=122788.242188 source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] map_loaded source=debug_console map="oracle.blv" scene_kind=indoor game_minutes=122788.828125 initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="oracle.blv" target="Oracle of Enroth" map_id=185 scene_kind=indoor game_minutes=122788.828125 source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Oracle of Enroth" scene_kind=indoor party=(-1422.63,2045.06,-512) yaw=1.7121 pitch=-0.0604983 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=399 face_index=399 event_primary=0 event_secondary=0 triggered_event=3 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300880 name="" distance=294.172 hit=(-1463.78,2336,-369.711)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=451 title="The Oracle" house_title="The Oracle" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":23,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Enter\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":793,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Oracle\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=23 secondary_id=0 selection_index=0 source_id=451 house_dialog=true enabled=true label="Enter"
+[GameplayTrace] house_extra_exit source_id=451 action_id=23 label="Enter" destination_map="sci-fi.blv" destination_name="Control Center" destination_map_id=186 required_qbit=1193 pos=(0,0,0)
+[GameplayTrace] map_transition_requested source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 confirmation_required=false destination_map="sci-fi.blv" destination_name="Control Center" use_start_position=false pos=(0,0,0) direction_degrees=none
+[GameplayTrace] map_loaded map="sci-fi.blv" scene_kind=indoor game_minutes=122789.179688 initialize_view=true party=(-4326.478027,766.179993,-113859.750000) yaw=1.712099 pitch=-0.060498
+[GameplayTrace] map_arrived previous_map="oracle.blv" map="sci-fi.blv" game_minutes=122789.179688 same_map=false use_start_position=false source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 destination_name="Control Center" pos=(0,0,0) direction_degrees=none
+[GameplayTrace] map_loaded source=debug_console map="oracle.blv" scene_kind=indoor game_minutes=122789.546875 initialize_view=true start_override=false
+[GameplayTrace] console_debug_map_load_travel map="oracle.blv" target="Oracle of Enroth" map_id=185 scene_kind=indoor game_minutes=122789.546875 source=debug_console start_override=false pos=none direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Oracle of Enroth" scene_kind=indoor party=(-1439.46,2108.87,-512) yaw=1.77508 pitch=-0.127997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=399 face_index=399 event_primary=0 event_secondary=0 triggered_event=3 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181300880 name="" distance=233.639 hit=(-1486.38,2336,-381.853)
+[GameplayTrace] dialog_state reason=before_topic_clicked active=true house_dialog=true source_id=451 title="The Oracle" house_title="The Oracle" line_count=0 text_hash=1469598103934665603 action_count=2 actions_json="[{\"index\":0,\"kind\":\"house_service\",\"id\":23,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Enter\"},{\"index\":1,\"kind\":\"house_resident\",\"id\":793,\"secondary_id\":0,\"enabled\":true,\"text_only\":false,\"label\":\"Oracle\"}]"
+[GameplayTrace] topic_clicked kind=house_service action_id=23 secondary_id=0 selection_index=0 source_id=451 house_dialog=true enabled=true label="Enter"
+[GameplayTrace] house_extra_exit source_id=451 action_id=23 label="Enter" destination_map="sci-fi.blv" destination_name="Control Center" destination_map_id=186 required_qbit=1193 pos=(0,0,0)
+[GameplayTrace] map_transition_requested source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 confirmation_required=false destination_map="sci-fi.blv" destination_name="Control Center" use_start_position=false pos=(0,0,0) direction_degrees=none
+[GameplayTrace] map_loaded map="sci-fi.blv" scene_kind=indoor game_minutes=122789.875000 initialize_view=true party=(-125.023598,-147.087296,-8060.299805) yaw=1.775081 pitch=-0.127997
+[GameplayTrace] map_arrived previous_map="oracle.blv" map="sci-fi.blv" game_minutes=122789.875000 same_map=false use_start_position=false source_kind="house_extra_exit" source_id=451 action_id=23 event_id=0 destination_name="Control Center" pos=(0,0,0) direction_degrees=none
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(2799.35,-286.639,0) yaw=-0.200416 pitch=-0.100997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1127 face_index=1127 event_primary=0 event_secondary=0 triggered_event=2 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=410.759 hit=(3200,-368.113,118.427)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=2 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=3 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=15 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=16 state=open elapsed_seconds=0.841666 door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=15 state=open elapsed_seconds=0.841666 door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=3 state=closed elapsed_seconds=1.633335 door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=2 state=closed elapsed_seconds=1.633335 door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-1801.31,-590.278,0) yaw=2.74708 pitch=-0.136997 can_activate=false has_hit=true kind=event_target target_kind=1 target_index=1682 face_index=1682 event_primary=0 event_secondary=0 triggered_event=15 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=645.74 hit=(-2392,-344.271,71.6755)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-2077.74,-490.614,0) yaw=2.87758 pitch=-0.163997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1684 face_index=1684 event_primary=0 event_secondary=0 triggered_event=15 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=329.745 hit=(-2392,-405.698,106.185)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=15 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=16 action=trigger raw_action=2 previous_state=open new_state=closing was_moving=false moving=true door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=2 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=3 action=open raw_action=0 previous_state=closed new_state=opening was_moving=false moving=true door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=16 state=closed elapsed_seconds=0.841666 door_slot=5 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=15 state=closed elapsed_seconds=0.841666 door_slot=24 move_length=125 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=3 state=open elapsed_seconds=1.633335 door_slot=7 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=2 state=open elapsed_seconds=1.633335 door_slot=15 move_length=245 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-9211.01,-1148.72,196) yaw=-1.48411 pitch=-0.0154973 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2915 face_index=2915 event_primary=0 event_secondary=0 triggered_event=55 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=195.775 hit=(-9194.76,-1344,352.952)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=0 title="" house_title="" line_count=1 text_hash=310301624156448979 action_count=0 actions_json="[]"
+[GameplayTrace] dialogue_canceled kind=map_event active_source_id=0 house_dialog=false action_count=0
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-9163.81,3668.37,196) yaw=0.16858 pitch=-0.0424973 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2884 face_index=2884 event_primary=0 event_secondary=0 triggered_event=53 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=141.728 hit=(-9024,3692.06,349.976)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=0 title="" house_title="" line_count=1 text_hash=14178683795544123620 action_count=0 actions_json="[]"
+[GameplayTrace] dialogue_canceled kind=map_event active_source_id=0 house_dialog=false action_count=0
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-10972.5,2868.96,196) yaw=2.9901 pitch=-0.303497 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2791 face_index=2791 event_primary=0 event_secondary=0 triggered_event=30 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=359.305 hit=(-11312,2921.12,249.944)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=1 item_count=1 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=1 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(1,3)
+[GameplayTrace] item_inspect item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false source=chest map="Control Center" scene_kind=indoor party=(-10972.478516,2868.962402,196.000000) yaw=2.990097 pitch=-0.303497 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=0
+[GameplayTrace] item_received destination=held source=chest item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false grid=(1,5)
+[GameplayTrace] held_item_changed active=false item_id=1666 source=held_controller
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-11195.2,1340.45,196) yaw=-2.46509 pitch=-0.591497 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2784 face_index=2784 event_primary=0 event_secondary=0 triggered_event=29 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=179.614 hit=(-11312,1247.29,255.919)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=0 item_count=0 hidden_item_count=0
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-11427.8,3578.72,228) yaw=3.0879 pitch=-0.190997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1069 face_index=1069 event_primary=0 event_secondary=0 triggered_event=28 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=273.342 hit=(-11696,3592.84,336.332)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=28 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=3 move_length=198 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=27 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=25 move_length=198 open_speed=150 close_speed=150
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=45 face_index=2625 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=38 face_index=2630 attributes=2214592896
+[GameplayTrace] mechanism_completed kind=indoor_door id=28 state=closed elapsed_seconds=1.325001 door_slot=3 move_length=198 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=27 state=closed elapsed_seconds=1.325001 door_slot=25 move_length=198 open_speed=150 close_speed=150
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=46 face_index=2613 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=39 face_index=2600 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=47 face_index=2589 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=40 face_index=2578 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=48 face_index=1641 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=41 face_index=1646 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=41 face_index=1646 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=49 face_index=1632 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=42 face_index=1604 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=50 face_index=1601 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=43 face_index=1583 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=1578 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=44 face_index=1424 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1486 attributes=2214592896
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-7658,-2968.74,393) yaw=-0.000300741 pitch=-0.208997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1509 face_index=1509 event_primary=0 event_secondary=0 triggered_event=11 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=38.6377 hit=(-7620,-2968.73,544.951)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=10 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=18 move_length=110 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_triggered kind=indoor_door id=11 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=2 move_length=110 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=11 state=closed elapsed_seconds=0.741666 door_slot=2 move_length=110 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=10 state=closed elapsed_seconds=0.741666 door_slot=18 move_length=110 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-9405.19,-2788.46,237.492) yaw=-3.11429 pitch=-0.0289973 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=1251 face_index=1251 event_primary=0 event_secondary=0 triggered_event=25 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181301376 name="" distance=274.831 hit=(-9680,-2795.87,389.541)
+[GameplayTrace] mechanism_triggered kind=indoor_door id=25 action=close raw_action=1 previous_state=open new_state=closing was_moving=false moving=true door_slot=16 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] mechanism_completed kind=indoor_door id=25 state=closed elapsed_seconds=1.666669 door_slot=16 move_length=250 open_speed=150 close_speed=150
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-10270.7,-2482.32,288) yaw=2.4129 pitch=-0.280997 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2686 face_index=2686 event_primary=0 event_secondary=0 triggered_event=31 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181039232 name="" distance=287.857 hit=(-10479,-2299.59,369.302)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=2 item_count=3 hidden_item_count=0
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=2 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(3,4)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=2 item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(6,3)
+[GameplayTrace] chest_contains_item scene_kind=indoor map="Control Center" chest_id=2 item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false quest_like=false grid=(4,0)
+[GameplayTrace] item_inspect item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false source=chest map="Control Center" scene_kind=indoor party=(-10270.684570,-2482.316650,288.000000) yaw=2.412899 pitch=-0.280997 member_index=0 grid=(0,0) equipment_slot=1 world_item_index=0 loot_item_index=2
+[GameplayTrace] item_received destination=held source=chest item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false grid=(4,4)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-10291.2,-2400.97,288) yaw=1.7424 pitch=0.0610027 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2890 face_index=2890 event_primary=0 event_secondary=0 triggered_event=56 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=163.413 hit=(-10318.7,-2240,458.012)
+[GameplayTrace] dialog_state reason=before_dialog_close active=true house_dialog=false source_id=0 title="" house_title="" line_count=1 text_hash=15250627552232052869 action_count=0 actions_json="[]"
+[GameplayTrace] dialogue_canceled kind=map_event active_source_id=0 house_dialog=false action_count=0
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-9516.39,-3444.17,196) yaw=-1.73609 pitch=-0.375497 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2693 face_index=2693 event_primary=0 event_secondary=0 triggered_event=32 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=309.002 hit=(-9562.36,-3728,242.285)
+[GameplayTrace] chest_opened scene_kind=indoor map="Control Center" chest_id=3 item_count=0 hidden_item_count=0
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1486 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1521 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=44 face_index=1424 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=1578 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=44 face_index=1424 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1521 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=44 face_index=1424 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=51 face_index=1578 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=44 face_index=1424 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1521 attributes=2214592896
+[GameplayTrace] pressure_plate_triggered world=indoor event_id=52 face_index=1486 attributes=2214592896
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-7576.51,4832.63,-196) yaw=-1.26691 pitch=-0.00199728 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2888 face_index=2888 event_primary=0 event_secondary=0 triggered_event=61 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=302.136 hit=(-7486.53,4544,-36.6106)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-7548.48,4753.46,-196) yaw=-1.25791 pitch=-0.0289973 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2888 face_index=2888 event_primary=0 event_secondary=0 triggered_event=61 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=220.221 hit=(-7480.12,4544,-42.3611)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-7529.81,4696.44,-196) yaw=-1.26241 pitch=-0.0469973 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2888 face_index=2888 event_primary=0 event_secondary=0 triggered_event=61 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=159.805 hit=(-7481.77,4544,-43.5149)
+[GameplayTrace] interact method=keyboard map="Control Center" scene_kind=indoor party=(-9199.9,4072.45,196) yaw=1.5738 pitch=-0.213497 can_activate=true has_hit=true kind=event_target target_kind=1 target_index=2521 face_index=2521 event_primary=0 event_secondary=0 triggered_event=70 trigger=0 var_primary=0 var_secondary=0 special_trigger=0 attributes=2181038720 name="" distance=220.288 hit=(-9201.58,4288,309.647)
+[GameplayTrace] map_loaded map="oracle.blv" scene_kind=indoor game_minutes=122790.562500 initialize_view=true party=(-1439.461670,2108.870605,-512.000000) yaw=1.573799 pitch=-0.213497
+[GameplayTrace] map_arrived previous_map="sci-fi.blv" map="oracle.blv" game_minutes=122790.562500 same_map=false use_start_position=false pos=(-1433,2204,-495) direction_degrees=270
+[GameplayTrace] save_game_written path="saves/save2.oysav" map="oracle.blv" scene_kind=indoor game_minutes=122790.906250
+[GameplayTrace] state_dump_save_begin path="saves/save2.oysav" map="oracle.blv" scene_kind=indoor game_minutes=122790.906250
+[GameplayTrace] state_dump_save_party gold=22587 bank_gold=0 food=5 active_member_index=0 member_count=1 hireling_count=0
+[GameplayTrace] state_dump_save_party_member member_index=0 name="God" class="Lich" role="Lich" race_id=6 sex_id=0 portrait_id=26 voice_id=26 level=100 hp=3350/3353 sp=3320/6691 inventory_count=25 award_count=11
+[GameplayTrace] state_dump_save_party_skills member_index=0 count=39 skills="AirMagic:200:4,Alchemy:200:4,Armsmaster:200:4,Axe:200:4,Blaster:200:4,BodyMagic:200:4,Bodybuilding:200:4,Bow:200:4,ChainArmor:200:4,Dagger:200:4,DarkElfAbility:200:4,DarkMagic:200:4,DisarmTraps:200:4,Dodging:200:4,DragonAbility:200:4,EarthMagic:200:4,FireMagic:200:4,IdentifyItem:200:4,IdentifyMonster:200:4,Learning:200:4,LeatherArmor:200:4,LightMagic:200:4,Mace:200:4,Meditation:200:4,Merchant:200:4,MindMagic:200:4,Perception:200:4,PlateArmor:200:4,Regeneration:200:4,RepairItem:200:4,Shield:200:4,Spear:200:4,SpiritMagic:200:4,Staff:200:4,Stealing:200:4,Sword:200:4,Unarmed:200:4,VampireAbility:200:4,WaterMagic:200:4"
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=57
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=58
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=59
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=60
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=61
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=62
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=63
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=75
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=76
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=100
+[GameplayTrace] state_dump_save_party_award member_index=0 award_id=103
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,5) item_id=2123 item_name="Enemies List" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,0) item_id=2105 item_name="Cloak of Baa" item_icon="6nwcape" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,2) item_id=360 item_name="Cure Paralysis" item_icon="item200" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,3) item_id=2057 item_name="Moonstone" item_icon="gem2" item_material=5 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(2,0) item_id=39 item_name="Elite Minotaur Axe" item_icon="item039" item_material=6 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,6) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(4,0) item_id=1939 item_name="Ice Blast" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(4,2) item_id=1938 item_name="Town Portal" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(4,4) item_id=1914 item_name="Incinerate" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(4,6) item_id=1913 item_name="Inferno" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(6,0) item_id=1912 item_name="Meteor Shower" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(6,2) item_id=1940 item_name="Lloyd's Beacon" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(6,4) item_id=1953 item_name="Mass Distortion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(6,6) item_id=1927 item_name="Starburst" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(8,0) item_id=1926 item_name="Fly" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(8,2) item_id=1925 item_name="Implosion" item_icon="book5" item_material=3 item_rarity=0 quest_like=false quantity=1 identified=false broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(8,4) item_id=2086 item_name="Crystal Skull" item_icon="crysskull" item_material=2 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(8,6) item_id=2172 item_name="Memory Crystal Delta" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(9,4) item_id=2173 item_name="Memory Crystal Epsilon" item_icon="memcryst" item_material=1 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(0,4) item_id=2076 item_name="Control Cube" item_icon="cube" item_material=6 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(12,0) item_id=2166 item_name="Proclamation" item_icon="scroll5" item_material=2 item_rarity=0 quest_like=true quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(1,6) item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(11,1) item_id=1667 item_name="Blaster Rifle" item_icon="raygun2" item_material=10 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(10,0) item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_inventory member_index=0 grid=(10,6) item_id=1666 item_name="Blaster" item_icon="raygun1" item_material=10 item_rarity=0 quest_like=false quantity=1 identified=true broken=false stolen=false standard_enchant_id=0 special_enchant_id=0 artifact_id=0 charges=0/0
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=OffHand item_id=534 item_name="Herondale's Lost Shield" item_icon="item255" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=MainHand item_id=527 item_name="Spiritslayer" item_icon="item242" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Bow item_id=531 item_name="Tournament Bow" item_icon="item336" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Armor item_id=515 item_name="Supreme Plate" item_icon="item253" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Helm item_id=520 item_name="Drogg's Helm" item_icon="item256" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Belt item_id=537 item_name="Berserker Belt" item_icon="item339" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Cloak item_id=522 item_name="Archangel Wings" item_icon="item260" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Gauntlets item_id=517 item_name="Fleetfingers" item_icon="item261" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Boots item_id=518 item_name="Herald's Boots" item_icon="item262" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring1 item_id=519 item_name="Ring of Planes" item_icon="item332" item_material=0 item_rarity=1 quest_like=false
+[GameplayTrace] state_dump_save_party_equipped member_index=0 slot=Ring2 item_id=535 item_name="Ring of Fusion" item_icon="item338" item_material=0 item_rarity=2 quest_like=false
+[GameplayTrace] state_dump_save_qbit id=310
+[GameplayTrace] state_dump_save_qbit id=311
+[GameplayTrace] state_dump_save_qbit id=312
+[GameplayTrace] state_dump_save_qbit id=313
+[GameplayTrace] state_dump_save_qbit id=314
+[GameplayTrace] state_dump_save_qbit id=315
+[GameplayTrace] state_dump_save_qbit id=1029
+[GameplayTrace] state_dump_save_qbit id=1032
+[GameplayTrace] state_dump_save_qbit id=1033
+[GameplayTrace] state_dump_save_qbit id=1035
+[GameplayTrace] state_dump_save_qbit id=1066
+[GameplayTrace] state_dump_save_qbit id=1077
+[GameplayTrace] state_dump_save_qbit id=1078
+[GameplayTrace] state_dump_save_qbit id=1104
+[GameplayTrace] state_dump_save_qbit id=1112
+[GameplayTrace] state_dump_save_qbit id=1124
+[GameplayTrace] state_dump_save_qbit id=1125
+[GameplayTrace] state_dump_save_qbit id=1126
+[GameplayTrace] state_dump_save_qbit id=1127
+[GameplayTrace] state_dump_save_qbit id=1128
+[GameplayTrace] state_dump_save_qbit id=1129
+[GameplayTrace] state_dump_save_qbit id=1135
+[GameplayTrace] state_dump_save_qbit id=1138
+[GameplayTrace] state_dump_save_qbit id=1141
+[GameplayTrace] state_dump_save_qbit id=1142
+[GameplayTrace] state_dump_save_qbit id=1145
+[GameplayTrace] state_dump_save_qbit id=1150
+[GameplayTrace] state_dump_save_qbit id=1191
+[GameplayTrace] state_dump_save_qbit id=1192
+[GameplayTrace] state_dump_save_qbit id=1193
+[GameplayTrace] state_dump_save_qbit id=1194
+[GameplayTrace] state_dump_save_qbit id=1199
+[GameplayTrace] state_dump_save_qbit id=1202
+[GameplayTrace] state_dump_save_qbit id=1203
+[GameplayTrace] state_dump_save_qbit id=1252
+[GameplayTrace] state_dump_save_qbit id=1259
+[GameplayTrace] state_dump_save_qbit id=1304
+[GameplayTrace] state_dump_save_qbit id=1305
+[GameplayTrace] state_dump_save_qbit id=1306
+[GameplayTrace] state_dump_save_qbit id=1307
+[GameplayTrace] state_dump_save_qbit id=1328
+[GameplayTrace] state_dump_save_qbit id=1400
+[GameplayTrace] state_dump_save_qbit id=1515
+[GameplayTrace] state_dump_save_qbit id=1516
+[GameplayTrace] state_dump_save_qbit id=1517
+[GameplayTrace] state_dump_save_qbit id=1518
+[GameplayTrace] state_dump_save_qbit id=1519
+[GameplayTrace] state_dump_save_qbit id=1520
+[GameplayTrace] state_dump_save_qbit id=1521
+[GameplayTrace] state_dump_save_qbit id=1522
+[GameplayTrace] state_dump_save_qbit id=1523
+[GameplayTrace] state_dump_save_qbit id=1706
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outb1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="outb3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outc3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd1.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outd3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute2.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oute3.odm" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outb1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="outb2.odm" scene_kind=outdoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outb3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outc1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outc2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outc3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outd1" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.outd3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.oute2" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.oute3" scene_kind=outdoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_save_map_vars map="6d07.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="6d18.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_save_map_vars map="6t6.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="6t7.blv" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_save_map_vars map="cd1.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_save_map_vars map="cd2.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_save_map_vars map="cd3.blv" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_save_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_save_map_vars map="pyramid.blv" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_save_map_vars map="sci-fi.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="sewer.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.6d07" scene_kind=indoor count=75 nonzero_count=1 fingerprint=1558893706226718739 values="4:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.6d18" scene_kind=indoor count=75 nonzero_count=1 fingerprint=2537524559803166571 values="51:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.6t6" scene_kind=indoor count=75 nonzero_count=1 fingerprint=13411838011311108875 values="3:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm6.map.6t7" scene_kind=indoor count=75 nonzero_count=2 fingerprint=12320358879653955540 values="12:1,21:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.cd1" scene_kind=indoor count=75 nonzero_count=1 fingerprint=16114531117282224739 values="6:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.cd2" scene_kind=indoor count=75 nonzero_count=3 fingerprint=8103309647830262514 values="2:1,3:2,4:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.cd3" scene_kind=indoor count=75 nonzero_count=1 fingerprint=7014943382069351199 values="9:1"
+[GameplayTrace] state_dump_save_map_vars map="oracle.blv" scene_kind=indoor count=75 nonzero_count=3 fingerprint=10562531601662991851 values="4:1,7:1,8:1"
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.pyramid" scene_kind=indoor count=75 nonzero_count=23 fingerprint=1906530917250159891 values="2:1,4:1,10:1,11:1,12:1,13:1,14:1,15:1,25:1,26:1,27:1,30:1,31:1,32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,42:1,51:1"
+[GameplayTrace] state_dump_save_map_vars map="sci-fi.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.sewer" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="world.mm8.map.zdwj02" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_map_vars map="zdwj02.blv" scene_kind=indoor count=75 nonzero_count=0 fingerprint=5207961002948197584 values=""
+[GameplayTrace] state_dump_save_end path="saves/save2.oysav"

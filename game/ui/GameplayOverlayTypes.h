@@ -606,6 +606,7 @@ struct GameplayOverlayInteractionState
     bool activateInspectLatch = false;
     bool itemInspectInteractionLatch = false;
     uint64_t itemInspectInteractionKey = 0;
+    bool inventoryOpenHookExecuted = false;
     size_t chestSelectionIndex = 0;
     bool partyPortraitClickLatch = false;
     std::optional<size_t> partyPortraitPressedIndex = std::nullopt;

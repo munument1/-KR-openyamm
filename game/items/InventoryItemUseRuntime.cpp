@@ -2,6 +2,7 @@
 
 #include "game/tables/ItemTable.h"
 #include "game/tables/MergedBaseTables.h"
+#include "game/party/SpellIds.h"
 #include "game/party/SpellSchool.h"
 
 #include <algorithm>
@@ -17,6 +18,9 @@ constexpr int MinutesPerDay = 24 * 60;
 constexpr int DaysPerMonth = 28;
 constexpr uint32_t GreenAppleItemId = 655;
 constexpr uint32_t HorseshoeItemId = 656;
+constexpr uint32_t DimensionDoorScrollItemId = 190;
+constexpr uint32_t ChargedConnectorStoneItemId = 624;
+constexpr uint32_t DischargedConnectorStoneItemId = 625;
 constexpr uint32_t ExtraPotionPlayerBitBase = 200000;
 
 std::string lowerAscii(std::string value)
@@ -681,6 +685,17 @@ InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(
         return InventoryItemUseAction::None;
     }
 
+    if (item.objectDescriptionId == DimensionDoorScrollItemId)
+    {
+        return InventoryItemUseAction::UseDimensionDoorScroll;
+    }
+
+    if (item.objectDescriptionId == ChargedConnectorStoneItemId
+        || item.objectDescriptionId == DischargedConnectorStoneItemId)
+    {
+        return InventoryItemUseAction::UseConnectorStone;
+    }
+
     if (pItemDefinition->equipStat == "Sscroll")
     {
         return InventoryItemUseAction::CastScroll;
@@ -806,6 +821,31 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
             result.handled = true;
             result.consumed = true;
             result.spellId = *spellId;
+            result.spellSkillLevelOverride = 5;
+            result.spellSkillMasteryOverride = SkillMastery::Master;
+            return result;
+        }
+
+        case InventoryItemUseAction::UseDimensionDoorScroll:
+        {
+            if (!canUseSpellItem(*pTargetMember))
+            {
+                return makeFailure(result.action, inactiveCharacterStatusText(*pTargetMember));
+            }
+
+            if (context.underwater)
+            {
+                return makeFailure(result.action, "You can not do that while you are underwater!");
+            }
+
+            if (pTargetMember->recoverySecondsRemaining > 0.0f)
+            {
+                return makeFailure(result.action, "That player is not active");
+            }
+
+            result.handled = true;
+            result.consumed = true;
+            result.spellId = spellIdValue(SpellId::TownPortal);
             result.spellSkillLevelOverride = 5;
             result.spellSkillMasteryOverride = SkillMastery::Master;
             return result;
@@ -1142,6 +1182,12 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
         case InventoryItemUseAction::UseReagent:
         {
             return makeFailure(result.action, itemCannotBeUsedStatusText(*pItemDefinition));
+        }
+
+        case InventoryItemUseAction::UseConnectorStone:
+        {
+            result.handled = true;
+            return result;
         }
 
         case InventoryItemUseAction::Equip:

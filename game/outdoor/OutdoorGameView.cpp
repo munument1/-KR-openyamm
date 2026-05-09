@@ -2,6 +2,7 @@
 
 #include "game/app/GameSession.h"
 #include "engine/BgfxContext.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/FaceEnums.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/fx/ParticleRenderer.h"
@@ -4712,7 +4713,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         return;
     }
 
-    if (input.rightMouseButton.pressed && !pActorState->isDead)
+    if (input.rightMouseButton.pressed)
     {
         GameplayActorInspectState inspectState = {};
         Party *pParty = m_gameSession.gameplayScreenRuntime().party();
@@ -4720,19 +4721,44 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
 
         if (m_pOutdoorWorldRuntime->actorInspectState(*runtimeActorIndex, 0, inspectState))
         {
-            const MonsterTable::MonsterStatsEntry *pStats =
-                m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
+            const OutdoorMoveState *pMoveState =
+                m_pOutdoorPartyRuntime != nullptr ? &m_pOutdoorPartyRuntime->movementState() : nullptr;
+            gameplayDebugTraceLog(
+                "actor_inspect world=outdoor map=\"" + m_pOutdoorWorldRuntime->mapName() + "\""
+                + " actor_index=" + std::to_string(*runtimeActorIndex)
+                + " name=\"" + inspectState.displayName + "\""
+                + " monster_id=" + std::to_string(inspectState.monsterId)
+                + " current_hp=" + std::to_string(inspectState.currentHp)
+                + " max_hp=" + std::to_string(inspectState.maxHp)
+                + " group=" + std::to_string(pActorState->group)
+                + " dead=" + (inspectState.isDead ? "true" : "false")
+                + (pMoveState != nullptr
+                    ? " party=(" + std::to_string(pMoveState->x)
+                        + "," + std::to_string(pMoveState->y)
+                        + "," + std::to_string(pMoveState->footZ) + ")"
+                    : "")
+                + " yaw=" + std::to_string(m_cameraYawRadians)
+                + " pitch=" + std::to_string(m_cameraPitchRadians)
+                + " actor_pos=(" + std::to_string(pActorState->preciseX)
+                + "," + std::to_string(pActorState->preciseY)
+                + "," + std::to_string(pActorState->preciseZ) + ")");
 
-            if (pParty != nullptr && pMember != nullptr && pStats != nullptr)
+            if (!pActorState->isDead)
             {
-                const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pMember, pStats->level);
+                const MonsterTable::MonsterStatsEntry *pStats =
+                    m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
 
-                if (speechId != SpeechId::None)
+                if (pParty != nullptr && pMember != nullptr && pStats != nullptr)
                 {
-                    m_gameSession.gameplayScreenRuntime().playSpeechReaction(
-                        pParty->activeMemberIndex(),
-                        speechId,
-                        true);
+                    const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pMember, pStats->level);
+
+                    if (speechId != SpeechId::None)
+                    {
+                        m_gameSession.gameplayScreenRuntime().playSpeechReaction(
+                            pParty->activeMemberIndex(),
+                            speechId,
+                            true);
+                    }
                 }
             }
         }

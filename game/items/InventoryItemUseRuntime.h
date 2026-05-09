@@ -30,6 +30,8 @@ enum class InventoryItemUseAction : uint8_t
     PlayInstrument,
     UseTempleInABottle,
     UseReagent,
+    UseDimensionDoorScroll,
+    UseConnectorStone,
 };
 
 struct InventoryItemUseContext

@@ -411,6 +411,14 @@ public:
     virtual float partyX() const = 0;
     virtual float partyY() const = 0;
     virtual float partyFootZ() const = 0;
+    virtual float gameplayCameraYawRadians() const
+    {
+        return 0.0f;
+    }
+    virtual float gameplayCameraPitchRadians() const
+    {
+        return 0.0f;
+    }
     virtual bool partyIsAirborneForRest() const
     {
         return false;
@@ -422,6 +430,10 @@ public:
         const GameplayInputFrame &input,
         float deltaSeconds,
         bool allowWorldInput) = 0;
+    virtual void setScenarioPartyActorCollisionEnabled(bool enabled)
+    {
+        (void)enabled;
+    }
     virtual void updateActorAi(float deltaSeconds) = 0;
     virtual void updateWorld(float deltaSeconds) = 0;
     virtual void renderWorld(

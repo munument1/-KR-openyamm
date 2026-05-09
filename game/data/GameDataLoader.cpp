@@ -109,6 +109,48 @@ std::optional<std::string> readFirstExistingText(
     return std::nullopt;
 }
 
+std::optional<std::string> readExistingTexts(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::vector<std::string> &candidates,
+    std::string &resolvedPath
+)
+{
+    std::string combinedText;
+    std::string combinedPath;
+
+    for (const std::string &candidate : candidates)
+    {
+        const std::optional<std::string> text = assetFileSystem.readTextFile(candidate);
+
+        if (!text)
+        {
+            continue;
+        }
+
+        if (!combinedText.empty())
+        {
+            combinedText += "\n\n";
+        }
+
+        combinedText += *text;
+
+        if (!combinedPath.empty())
+        {
+            combinedPath += "; ";
+        }
+
+        combinedPath += candidate;
+    }
+
+    if (combinedText.empty())
+    {
+        return std::nullopt;
+    }
+
+    resolvedPath = combinedPath;
+    return combinedText;
+}
+
 bool readPhysicalTextFile(const std::filesystem::path &path, std::string &text)
 {
     std::ifstream stream(path, std::ios::binary);
@@ -312,6 +354,7 @@ std::vector<std::string> buildLuaWorldCommonPathCandidates(const std::string &wo
 {
     std::vector<std::string> candidates = {
         "events/common/world_common.lua",
+        "events/common/cross_continents_common.lua",
         "events/common/common.lua",
     };
 
@@ -3246,7 +3289,7 @@ bool GameDataLoader::loadSelectedMap(
         buildLuaSupportPathCandidates(),
         resolvedSupportLuaPath);
     std::string resolvedWorldCommonLuaPath;
-    const std::optional<std::string> worldCommonLuaSource = readFirstExistingText(
+    const std::optional<std::string> worldCommonLuaSource = readExistingTexts(
         assetFileSystem,
         buildLuaWorldCommonPathCandidates(selectedMap->worldId),
         resolvedWorldCommonLuaPath);
@@ -3377,6 +3420,7 @@ bool GameDataLoader::loadSelectedMap(
             mapDeltaData,
             runtimeState
         );
+        runtimeState.mapFileName = m_selectedMap->map.fileName;
         m_selectedMap->eventRuntimeState = std::move(runtimeState);
     }
     timingLogger.stage("event runtime state built");

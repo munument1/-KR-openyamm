@@ -10,9 +10,11 @@
 #include <vector>
 
 using OpenYAMM::Game::FaceAttribute;
+using OpenYAMM::Game::IndoorFace;
 using OpenYAMM::Game::IndoorFaceGeometryData;
 using OpenYAMM::Game::IndoorFaceGeometryCache;
 using OpenYAMM::Game::IndoorFaceKind;
+using OpenYAMM::Game::IndoorFloorSample;
 using OpenYAMM::Game::IndoorFaceSweepOptions;
 using OpenYAMM::Game::IndoorMapData;
 using OpenYAMM::Game::IndoorProjectionAxis;
@@ -28,6 +30,7 @@ using OpenYAMM::Game::faceAttributeBit;
 using OpenYAMM::Game::indoorSweptBodyBoundsTouchFace;
 using OpenYAMM::Game::indoorSweptBodyTouchesPortalFace;
 using OpenYAMM::Game::projectIndoorVelocityAlongPlane;
+using OpenYAMM::Game::sampleIndoorFloor;
 using OpenYAMM::Game::selectNearestIndoorFaceHit;
 using OpenYAMM::Game::sweepIndoorBodyAgainstCylinder;
 using OpenYAMM::Game::sweepIndoorBodyAgainstFace;
@@ -280,6 +283,18 @@ TEST_CASE("swept indoor face collision ignores untouchable and masked faces")
     CHECK_FALSE(sweepIndoorSphereAgainstFace(sphere, {1.0f, 0.0f, 0.0f}, 150.0f, wall, options).has_value());
 }
 
+TEST_CASE("swept indoor face collision keeps invisible walls solid until untouchable")
+{
+    IndoorFaceGeometryData wall = makeVerticalWall(100.0f);
+    wall.attributes = faceAttributeBit(FaceAttribute::Invisible);
+    const IndoorSweptSphere sphere = makeSphere(0.0f, 0.0f, 80.0f, 20.0f);
+
+    CHECK(sweepIndoorSphereAgainstFace(sphere, {1.0f, 0.0f, 0.0f}, 150.0f, wall).has_value());
+
+    wall.attributes |= faceAttributeBit(FaceAttribute::Untouchable);
+    CHECK_FALSE(sweepIndoorSphereAgainstFace(sphere, {1.0f, 0.0f, 0.0f}, 150.0f, wall).has_value());
+}
+
 TEST_CASE("indoor face geometry cache uses runtime untouchable overrides")
 {
     IndoorMapData mapData = {};
@@ -316,6 +331,50 @@ TEST_CASE("indoor face geometry cache uses runtime untouchable overrides")
     REQUIRE(pGeometry != nullptr);
     CHECK((pGeometry->attributes & faceAttributeBit(FaceAttribute::Untouchable)) == 0);
     CHECK(sweepIndoorSphereAgainstFace(sphere, {1.0f, 0.0f, 0.0f}, 150.0f, *pGeometry).has_value());
+}
+
+TEST_CASE("indoor floor sampling ignores horizontal portal faces")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {128, -128, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -128, -96},
+        {128, -128, -96},
+        {128, 128, -96},
+        {-128, 128, -96}
+    };
+
+    IndoorFace portalFloor = {};
+    portalFloor.attributes = faceAttributeBit(FaceAttribute::IsPortal);
+    portalFloor.vertexIndices = {0, 1, 2, 3};
+    portalFloor.facetType = 3;
+    portalFloor.roomNumber = 0;
+    portalFloor.roomBehindNumber = 1;
+    portalFloor.isPortal = true;
+
+    IndoorFace solidFloor = {};
+    solidFloor.vertexIndices = {4, 5, 6, 7};
+    solidFloor.facetType = 3;
+    solidFloor.roomNumber = 0;
+
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.flags = 0x8;
+    sector.floorFaceIds = {1};
+    sector.portalFaceIds = {0};
+
+    mapData.faces = {portalFloor, solidFloor};
+    mapData.sectors = {sector};
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    const IndoorFloorSample sample =
+        sampleIndoorFloor(mapData, mapData.vertices, 0.0f, 0.0f, 8.0f, 16.0f, 160.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasFloor);
+    CHECK_EQ(sample.faceIndex, 1u);
+    CHECK_EQ(sample.height, doctest::Approx(-96.0f));
 }
 
 TEST_CASE("wall velocity projection removes movement into plane")
