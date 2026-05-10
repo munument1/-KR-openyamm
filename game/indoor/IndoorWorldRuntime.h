@@ -480,6 +480,7 @@ private:
     void materializeInitialMonsterSpawns();
     void syncMapActorAiStates();
     RuntimeGeometryCache &runtimeGeometryCache() const;
+    IndoorMovementController &actorMovementController();
     void ensureIndoorSectorActivationMask();
     void activateIndoorSector(int16_t sectorId);
     void refreshActivatedIndoorSectors(bool includeVisiblePortalSectors, float deltaSeconds = 0.0f);
@@ -633,6 +634,7 @@ private:
     size_t m_lastIndoorJournalRevealFaceCount = 0;
     size_t m_lastIndoorJournalRevealOutlineCount = 0;
     mutable RuntimeGeometryCache m_runtimeGeometryCache;
+    std::optional<IndoorMovementController> m_actorMovementController;
     bool m_cachedGameplayMinimapLinesValid = false;
     uint64_t m_cachedGameplayMinimapLineSignature = 0;
     std::vector<GameplayMinimapLineState> m_cachedGameplayMinimapLines;

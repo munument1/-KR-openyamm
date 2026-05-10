@@ -3123,6 +3123,7 @@ void IndoorWorldRuntime::initialize(
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
+    m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
     // On-load event group flags target generated spawn actors too.
@@ -3190,6 +3191,7 @@ void IndoorWorldRuntime::initialize(
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
+    m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
     // On-load event group flags target generated spawn actors too.
@@ -3335,6 +3337,7 @@ void IndoorWorldRuntime::invalidateRuntimeGeometryCache()
     m_runtimeGeometryCache.valid = false;
     m_runtimeGeometryCache.vertices.clear();
     m_runtimeGeometryCache.geometryCache = IndoorFaceGeometryCache();
+    m_actorMovementController.reset();
 }
 
 void IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache()
@@ -3383,6 +3386,16 @@ IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCac
 
     m_runtimeGeometryCache.valid = true;
     return m_runtimeGeometryCache;
+}
+
+IndoorMovementController &IndoorWorldRuntime::actorMovementController()
+{
+    if (!m_actorMovementController)
+    {
+        m_actorMovementController.emplace(*m_pIndoorMapData, m_pMapDeltaData, m_pEventRuntimeState);
+    }
+
+    return *m_actorMovementController;
 }
 
 bool IndoorWorldRuntime::hasIndoorCombatLineOfSight(
@@ -3854,7 +3867,7 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         return spellEffectsAppliedMask;
     }
 
-    IndoorMovementController movementController(*m_pIndoorMapData, m_pMapDeltaData, m_pEventRuntimeState);
+    IndoorMovementController &movementController = actorMovementController();
     std::vector<IndoorActorCollision> actorColliders = actorMovementCollidersForActorMovement(
         result.activeActorIndices);
     const std::vector<IndoorCylinderCollision> decorationColliders = decorationMovementColliders();
