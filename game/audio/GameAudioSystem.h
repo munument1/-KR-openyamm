@@ -113,6 +113,7 @@ private:
     void updatePendingBackgroundMusicDecode();
     bool ensureBackgroundMusicTrackLoaded(int redbookTrack);
     bool startBackgroundMusicTrack(int redbookTrack);
+    void clearPendingBackgroundMusicTrack(int redbookTrack);
     float targetMusicVolume() const;
     float playbackGroupVolume(PlaybackGroup group) const;
     uint64_t playResolvedSound(

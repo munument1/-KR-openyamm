@@ -1460,6 +1460,7 @@ bool GameAudioSystem::queueBackgroundMusicTrackDecode(int redbookTrack)
     if (!musicBytes || musicBytes->empty())
     {
         std::cerr << "GameAudioSystem: missing music track " << virtualPath << '\n';
+        clearPendingBackgroundMusicTrack(redbookTrack);
         return false;
     }
 
@@ -1503,12 +1504,7 @@ void GameAudioSystem::updatePendingBackgroundMusicDecode()
     if (decodedSamples.empty())
     {
         std::cerr << "GameAudioSystem: failed to decode music track Music/" << redbookTrack << ".mp3\n";
-
-        if (m_pendingMusicTrack == redbookTrack)
-        {
-            m_pendingMusicTrack = 0;
-            m_pendingMusicDecodeDelaySeconds = 0.0f;
-        }
+        clearPendingBackgroundMusicTrack(redbookTrack);
 
         return;
     }
@@ -1516,12 +1512,7 @@ void GameAudioSystem::updatePendingBackgroundMusicDecode()
     if (!m_audioSystem.registerClip(clipKey, std::move(decodedSamples)))
     {
         std::cerr << "GameAudioSystem: failed to register decoded music clip " << clipKey << '\n';
-
-        if (m_pendingMusicTrack == redbookTrack)
-        {
-            m_pendingMusicTrack = 0;
-            m_pendingMusicDecodeDelaySeconds = 0.0f;
-        }
+        clearPendingBackgroundMusicTrack(redbookTrack);
 
         return;
     }
@@ -1556,6 +1547,7 @@ bool GameAudioSystem::ensureBackgroundMusicTrackLoaded(int redbookTrack)
     if (!musicBytes || musicBytes->empty())
     {
         std::cerr << "GameAudioSystem: missing music track " << virtualPath << '\n';
+        clearPendingBackgroundMusicTrack(redbookTrack);
         return false;
     }
 
@@ -1564,6 +1556,7 @@ bool GameAudioSystem::ensureBackgroundMusicTrackLoaded(int redbookTrack)
     if (!decodeAudioSamplesFromBytes(*musicBytes, decodedSamples))
     {
         std::cerr << "GameAudioSystem: failed to decode music track " << virtualPath << '\n';
+        clearPendingBackgroundMusicTrack(redbookTrack);
         return false;
     }
 
@@ -1572,6 +1565,7 @@ bool GameAudioSystem::ensureBackgroundMusicTrackLoaded(int redbookTrack)
     if (!m_audioSystem.registerClip(clipKey, std::move(decodedSamples)))
     {
         std::cerr << "GameAudioSystem: failed to register decoded music clip " << clipKey << '\n';
+        clearPendingBackgroundMusicTrack(redbookTrack);
         return false;
     }
 
@@ -1618,5 +1612,16 @@ bool GameAudioSystem::startBackgroundMusicTrack(int redbookTrack)
     m_backgroundMusicPaused = false;
     m_audioSystem.setClipVolume(m_activeMusicInstanceId, m_activeMusicVolume);
     return true;
+}
+
+void GameAudioSystem::clearPendingBackgroundMusicTrack(int redbookTrack)
+{
+    if (m_pendingMusicTrack != redbookTrack)
+    {
+        return;
+    }
+
+    m_pendingMusicTrack = 0;
+    m_pendingMusicDecodeDelaySeconds = 0.0f;
 }
 }

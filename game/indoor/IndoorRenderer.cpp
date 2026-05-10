@@ -2143,6 +2143,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     input.pMapData = &m_indoorMapData.value();
     input.pPortalGraph = m_indoorPortalGraph ? &m_indoorPortalGraph.value() : nullptr;
     input.pVertices = &m_renderVertices;
+    input.pPortalVertices = &m_indoorMapData->vertices;
     input.pMapDeltaData = mapDeltaData ? &mapDeltaData.value() : nullptr;
     input.pEventRuntimeState = &eventRuntimeState;
     input.cameraPosition = cameraPosition;

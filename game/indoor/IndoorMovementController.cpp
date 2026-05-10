@@ -192,11 +192,9 @@ float resolveDoorDistance(
     return runtimeMechanism.currentDistance;
 }
 
-bool shouldTolerateExistingActorOverlap(
+bool shouldIgnoreExistingActorOverlap(
     float currentX,
     float currentY,
-    float candidateX,
-    float candidateY,
     const IndoorBodyDimensions &body,
     const IndoorActorCollision &collider,
     bool actorVsActor)
@@ -223,11 +221,7 @@ bool shouldTolerateExistingActorOverlap(
         return false;
     }
 
-    const float candidateDeltaX = candidateX - collider.x;
-    const float candidateDeltaY = candidateY - collider.y;
-    const float candidateDistanceSquared = candidateDeltaX * candidateDeltaX + candidateDeltaY * candidateDeltaY;
-    constexpr float SeparationProgressSlack = 1.0f;
-    return candidateDistanceSquared > currentDistanceSquared + SeparationProgressSlack;
+    return true;
 }
 
 std::vector<uint32_t> buildDoorStateSignature(
@@ -1456,14 +1450,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
             const bool actorVsActor =
                 sweptRequest.ignoredActorIndex.has_value() && collider.reportActorContact;
-            const float candidateX = moveState.x + direction.x * distance;
-            const float candidateY = moveState.y + direction.y * distance;
-
-            if (shouldTolerateExistingActorOverlap(
+            if (shouldIgnoreExistingActorOverlap(
                     moveState.x,
                     moveState.y,
-                    candidateX,
-                    candidateY,
                     body,
                     collider,
                     actorVsActor))
@@ -2406,11 +2395,9 @@ bool IndoorMovementController::collidesWithActors(
 
         const bool actorVsActor = ignoredActorIndex.has_value() && collider.reportActorContact;
 
-        if (shouldTolerateExistingActorOverlap(
+        if (shouldIgnoreExistingActorOverlap(
                 currentX,
                 currentY,
-                candidateX,
-                candidateY,
                 body,
                 collider,
                 actorVsActor))

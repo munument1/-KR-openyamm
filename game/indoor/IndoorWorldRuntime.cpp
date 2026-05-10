@@ -85,7 +85,6 @@ constexpr size_t IndoorActorPathWorkerCount = 2;
 constexpr double IndoorActorPathPlanIntervalSeconds = 0.1;
 constexpr float IndoorGroundPathStepLength = 40.0f;
 constexpr float IndoorGroundPathPlanningRange = 12000.0f;
-constexpr float IndoorFlyingPathPlanningRange = 6000.0f;
 constexpr double IndoorPathFailedRetrySeconds = 3.0;
 constexpr double IndoorPathDirectCheckIntervalSeconds = 0.25;
 constexpr double IndoorPathMinReplanIntervalSeconds = 1.0;
@@ -4235,6 +4234,7 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         const bool deferPathOwnedMovementIntent =
             IndoorActorPathfindingEnabled
             && indoorActorPathfindingEnabled()
+            && !aiState.canFly
             && update.movementIntent.action == ActorAiMovementAction::Pursue
             && update.movementIntent.meleePursuitActive
             && update.movementIntent.applyMovement
@@ -6185,7 +6185,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         || aiState.crowdRetreatRemainingSeconds > 0.0f
         || aiState.crowdStandRemainingSeconds > 0.0f;
     const bool actorPathCanUseIntent =
-        movementIntent.action == ActorAiMovementAction::Pursue
+        !actorCanFly
+        && movementIntent.action == ActorAiMovementAction::Pursue
         && movementIntent.meleePursuitActive
         && movementIntent.applyMovement
         && !movementIntent.inMeleeRange
@@ -6222,9 +6223,9 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             m_actorPathRuntime.setWorkerCount(IndoorActorPathWorkerCount);
 
             PathObject pathObject = {};
-            pathObject.canFly = actorCanFly;
+            pathObject.canFly = false;
             pathObject.radius = collisionRadius;
-            pathObject.stepLength = actorCanFly ? collisionRadius : IndoorGroundPathStepLength;
+            pathObject.stepLength = IndoorGroundPathStepLength;
             pathObject.stepHeight = 40.0f;
 
             ActorPathResolveRequest pathRequest = {};
@@ -6238,8 +6239,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             pathRequest.object = pathObject;
             pathRequest.nodeLimit = IndoorActorPathNodeLimit;
             pathRequest.mapRevision = pPathMap->revision();
-            pathRequest.planningRange =
-                actorCanFly ? IndoorFlyingPathPlanningRange : IndoorGroundPathPlanningRange;
+            pathRequest.planningRange = IndoorGroundPathPlanningRange;
             pathRequest.waypointReachDistance = collisionRadius;
             pathRequest.nowSeconds = m_actorPathRuntimeSeconds;
             pathRequest.failedRetrySeconds = IndoorPathFailedRetrySeconds;
@@ -6344,13 +6344,6 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
                     aiState.moveDirectionX = movementIntent.moveDirectionX;
                     aiState.moveDirectionY = movementIntent.moveDirectionY;
                     aiState.yawRadians = movementIntent.yawRadians;
-
-                    if (actorCanFly)
-                    {
-                        const float waypointDeltaZ = pathResult.waypoint.z - oldZ;
-                        movementIntent.desiredMoveZ =
-                            std::clamp(waypointDeltaZ / std::max(waypointHorizontalDistance, 1.0f), -1.0f, 1.0f);
-                    }
                 }
             }
             else if (pathResult.failed || pathResult.cooldown || pathResult.deferred || pathResult.discarded)
@@ -6407,7 +6400,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         && (moveState.sectorId == partyPathSectorId || moveState.eyeSectorId == partyPathSectorId);
     const float pathTargetDistance =
         horizontalDistance(oldX, oldY, movementIntent.targetPosition.x, movementIntent.targetPosition.y);
-    const bool ignoreActorCollisionForPath =
+    const bool ignoreActorCollisionForMovement =
         pathResult.pathActive
         && actorPathCanUseIntent
         && !actorInPartySector
@@ -6425,7 +6418,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             true,
             &moveDebugInfo,
             actorCanFly,
-            ignoreActorCollisionForPath);
+            ignoreActorCollisionForMovement);
 
     if (moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
         && moveDebugInfo.hitFaceIndex != static_cast<size_t>(-1))

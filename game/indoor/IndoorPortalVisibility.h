@@ -57,6 +57,7 @@ struct IndoorPortalVisibilityInput
     const IndoorMapData *pMapData = nullptr;
     const IndoorPortalGraph *pPortalGraph = nullptr;
     const std::vector<IndoorVertex> *pVertices = nullptr;
+    const std::vector<IndoorVertex> *pPortalVertices = nullptr;
     const MapDeltaData *pMapDeltaData = nullptr;
     const std::optional<EventRuntimeState> *pEventRuntimeState = nullptr;
     bx::Vec3 cameraPosition = {0.0f, 0.0f, 0.0f};

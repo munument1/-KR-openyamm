@@ -1901,7 +1901,7 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
 {
     ActorMovementBlockOutcome result = {};
 
-    if (actor.movement.contactedActorCount > 1)
+    if (!actor.stats.canFly && actor.movement.contactedActorCount > 1)
     {
         result.zeroVelocity = true;
         result.resetMoveDirection = true;
@@ -1912,6 +1912,7 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
     }
 
     if (actor.movement.contactedActorCount == 1
+        && !actor.stats.canFly
         && actor.movement.hasContactedActor)
     {
         const bool selfFriendly = actor.identity.hostilityType == 0;
@@ -2656,7 +2657,6 @@ bool shouldApplyCrowdSteering(const CrowdSteeringEligibility &eligibility)
     return hasTrigger
         && eligibility.meleePursuitActive
         && eligibility.pursuing
-        && !eligibility.actorCanFly
         && !eligibility.inMeleeRange
         && eligibility.targetEdgeDistance <= CrowdReangleEngageRange;
 }
