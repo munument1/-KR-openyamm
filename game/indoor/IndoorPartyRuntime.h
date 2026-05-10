@@ -34,6 +34,8 @@ public:
     void setActorColliders(const std::vector<IndoorActorCollision> &actorColliders);
     void setDecorationColliders(const std::vector<IndoorCylinderCollision> &decorationColliders);
     void setSpriteObjectColliders(const std::vector<IndoorCylinderCollision> &spriteObjectColliders);
+    void applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds);
+    void invalidateRuntimeGeometryCache();
 
     const IndoorMoveState &movementState() const;
     const Party &party() const;

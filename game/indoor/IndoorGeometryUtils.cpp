@@ -653,6 +653,45 @@ bool indoorDoorCarriesPartySupport(const MapDeltaDoor &door)
     return door.directionZ != 0;
 }
 
+void applyIndoorMechanismDoorToVertices(
+    const MapDeltaDoor &door,
+    float distance,
+    std::vector<IndoorVertex> &vertices
+)
+{
+    const size_t movableVertexCount = std::min(
+        door.vertexIds.size(),
+        std::min(door.xOffsets.size(), std::min(door.yOffsets.size(), door.zOffsets.size()))
+    );
+
+    if (movableVertexCount == 0)
+    {
+        return;
+    }
+
+    const float directionX = fixedIndoorDoorDirectionComponentToFloat(door.directionX);
+    const float directionY = fixedIndoorDoorDirectionComponentToFloat(door.directionY);
+    const float directionZ = fixedIndoorDoorDirectionComponentToFloat(door.directionZ);
+
+    for (size_t vertexOffsetIndex = 0; vertexOffsetIndex < movableVertexCount; ++vertexOffsetIndex)
+    {
+        const uint16_t vertexId = door.vertexIds[vertexOffsetIndex];
+
+        if (vertexId >= vertices.size())
+        {
+            continue;
+        }
+
+        IndoorVertex &vertex = vertices[vertexId];
+        vertex.x = static_cast<int>(std::lround(
+            static_cast<float>(door.xOffsets[vertexOffsetIndex]) + directionX * distance));
+        vertex.y = static_cast<int>(std::lround(
+            static_cast<float>(door.yOffsets[vertexOffsetIndex]) + directionY * distance));
+        vertex.z = static_cast<int>(std::lround(
+            static_cast<float>(door.zOffsets[vertexOffsetIndex]) + directionZ * distance));
+    }
+}
+
 std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
     const IndoorMapData &indoorMapData,
     const MapDeltaData *pIndoorMapDeltaData,
@@ -689,37 +728,7 @@ std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
             }
         }
 
-        const size_t movableVertexCount = std::min(
-            door.vertexIds.size(),
-            std::min(door.xOffsets.size(), std::min(door.yOffsets.size(), door.zOffsets.size()))
-        );
-
-        if (movableVertexCount == 0)
-        {
-            continue;
-        }
-
-        const float directionX = fixedIndoorDoorDirectionComponentToFloat(door.directionX);
-        const float directionY = fixedIndoorDoorDirectionComponentToFloat(door.directionY);
-        const float directionZ = fixedIndoorDoorDirectionComponentToFloat(door.directionZ);
-
-        for (size_t vertexOffsetIndex = 0; vertexOffsetIndex < movableVertexCount; ++vertexOffsetIndex)
-        {
-            const uint16_t vertexId = door.vertexIds[vertexOffsetIndex];
-
-            if (vertexId >= vertices.size())
-            {
-                continue;
-            }
-
-            IndoorVertex &vertex = vertices[vertexId];
-            vertex.x = static_cast<int>(std::lround(
-                static_cast<float>(door.xOffsets[vertexOffsetIndex]) + directionX * distance));
-            vertex.y = static_cast<int>(std::lround(
-                static_cast<float>(door.yOffsets[vertexOffsetIndex]) + directionY * distance));
-            vertex.z = static_cast<int>(std::lround(
-                static_cast<float>(door.zOffsets[vertexOffsetIndex]) + directionZ * distance));
-        }
+        applyIndoorMechanismDoorToVertices(door, distance, vertices);
     }
 
     return vertices;

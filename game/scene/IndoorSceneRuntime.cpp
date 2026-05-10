@@ -704,12 +704,18 @@ bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
     constexpr float MechanismStepMilliseconds = 1000.0f / 120.0f;
     constexpr int MaximumMechanismStepsPerFrame = 8;
     m_mechanismAccumulatorMilliseconds += deltaMilliseconds;
+    std::optional<std::unordered_map<uint32_t, RuntimeMechanismState>> previousMechanismsForGeometry;
 
     while (
         m_mechanismAccumulatorMilliseconds >= MechanismStepMilliseconds
         && mechanismSteps < MaximumMechanismStepsPerFrame
     )
     {
+        if (!previousMechanismsForGeometry.has_value())
+        {
+            previousMechanismsForGeometry = m_eventRuntimeState->mechanisms;
+        }
+
         const std::unordered_map<uint32_t, RuntimeMechanismState> previousMechanisms =
             m_eventRuntimeState->mechanisms;
         m_eventRuntime.advanceMechanisms(m_mapDeltaData, MechanismStepMilliseconds, *m_eventRuntimeState);
@@ -725,7 +731,9 @@ bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
 
     if (mechanismSteps > 0)
     {
-        m_worldRuntime.refreshMechanismRuntimeGeometryCache();
+        const std::vector<uint32_t> changedDoorIds =
+            m_worldRuntime.refreshMechanismRuntimeGeometryCache(*previousMechanismsForGeometry);
+        m_partyRuntime.applyMechanismGeometryUpdate(changedDoorIds);
     }
 
     if (

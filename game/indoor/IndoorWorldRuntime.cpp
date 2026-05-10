@@ -21,6 +21,7 @@
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/gameplay/StealingRuntime.h"
 #include "game/gameplay/TreasureRuntime.h"
+#include "game/indoor/IndoorActorActivation.h"
 #include "game/indoor/IndoorRenderer.h"
 #include "game/indoor/IndoorGameView.h"
 #include "game/indoor/IndoorGeometryUtils.h"
@@ -1500,17 +1501,7 @@ std::string encounterPictureBase(const MapEncounterInfo &encounter)
 
 uint32_t defaultActorAttributes(bool hostileToParty)
 {
-    uint32_t attributes = static_cast<uint32_t>(EvtActorAttribute::Active)
-        | static_cast<uint32_t>(EvtActorAttribute::FullAi);
-
-    if (hostileToParty)
-    {
-        attributes |= static_cast<uint32_t>(EvtActorAttribute::Hostile)
-            | static_cast<uint32_t>(EvtActorAttribute::Aggressor)
-            | static_cast<uint32_t>(EvtActorAttribute::Nearby);
-    }
-
-    return attributes;
+    return indoorGeneratedActorAttributes(hostileToParty);
 }
 
 bool chestViewContainsItem(const GameplayChestViewState &view, uint32_t itemId)
@@ -1654,11 +1645,7 @@ float indoorProjectileActorHitRadius(
 
 bool defaultActorHasDetectedParty(const MapDeltaActor &actor, bool hostileToParty)
 {
-    constexpr uint32_t AggressiveBits =
-        static_cast<uint32_t>(EvtActorAttribute::Nearby)
-        | static_cast<uint32_t>(EvtActorAttribute::Aggressor);
-
-    return hostileToParty && (actor.attributes & AggressiveBits) != 0;
+    return indoorActorHasPreviouslyDetectedParty(actor.attributes, hostileToParty);
 }
 
 SkillMastery normalizeRuntimeSkillMastery(uint32_t rawSkillMastery)
@@ -3457,39 +3444,117 @@ void IndoorWorldRuntime::invalidateRuntimeGeometryCache()
     m_actorPathRuntime.clear();
 }
 
-void IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache()
+std::vector<uint32_t> IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache(
+    const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms)
 {
-    if (!m_runtimeGeometryCache.valid || m_pIndoorMapData == nullptr)
+    if (m_pIndoorMapData == nullptr)
     {
-        return;
+        return {};
     }
-
-    m_runtimeGeometryCache.vertices =
-        buildIndoorMechanismAdjustedVertices(*m_pIndoorMapData, mapDeltaData(), eventRuntimeState());
 
     const MapDeltaData *pMapDeltaData = mapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = eventRuntimeState();
 
-    if (pMapDeltaData == nullptr)
+    if (pMapDeltaData == nullptr || pEventRuntimeState == nullptr)
     {
-        return;
+        return {};
     }
+
+    std::vector<uint32_t> changedDoorIds;
+    bool pathMapNeedsRefresh = false;
 
     for (const MapDeltaDoor &door : pMapDeltaData->doors)
     {
-        for (uint16_t faceId : door.faceIds)
+        RuntimeMechanismState baseMechanism = {};
+        baseMechanism.state = door.state;
+        baseMechanism.timeSinceTriggeredMs = static_cast<float>(door.timeSinceTriggered);
+        baseMechanism.currentDistance = EventRuntime::calculateMechanismDistance(door, baseMechanism);
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator previousIterator =
+            previousMechanisms.find(door.doorId);
+        const RuntimeMechanismState &previousMechanism =
+            previousIterator != previousMechanisms.end() ? previousIterator->second : baseMechanism;
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator currentIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+        const RuntimeMechanismState &currentMechanism =
+            currentIterator != pEventRuntimeState->mechanisms.end() ? currentIterator->second : baseMechanism;
+
+        if (std::abs(currentMechanism.currentDistance - previousMechanism.currentDistance) <= 0.0001f)
         {
-            m_runtimeGeometryCache.geometryCache.invalidateFace(faceId);
+            continue;
+        }
+
+        changedDoorIds.push_back(door.doorId);
+
+        if (!currentMechanism.isMoving)
+        {
+            pathMapNeedsRefresh = true;
         }
     }
 
-    m_runtimeGeometryCache.pathMapValid = false;
-    m_runtimeGeometryCache.pathMapSnapshot.reset();
-
-    if (logIndoorPathfindingEnabled())
+    if (changedDoorIds.empty())
     {
-        std::cout << "[IndoorPathfinding] path_map_dirty reason=mechanism_refresh"
+        return changedDoorIds;
+    }
+
+    if (m_runtimeGeometryCache.valid)
+    {
+        for (uint32_t changedDoorId : changedDoorIds)
+        {
+            const std::vector<MapDeltaDoor>::const_iterator doorIterator =
+                std::find_if(
+                    pMapDeltaData->doors.begin(),
+                    pMapDeltaData->doors.end(),
+                    [changedDoorId](const MapDeltaDoor &door)
+                    {
+                        return door.doorId == changedDoorId;
+                    });
+
+            if (doorIterator == pMapDeltaData->doors.end())
+            {
+                continue;
+            }
+
+            const MapDeltaDoor &door = *doorIterator;
+            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+                pEventRuntimeState->mechanisms.find(door.doorId);
+            RuntimeMechanismState baseMechanism = {};
+            baseMechanism.state = door.state;
+            baseMechanism.timeSinceTriggeredMs = static_cast<float>(door.timeSinceTriggered);
+            baseMechanism.currentDistance = EventRuntime::calculateMechanismDistance(door, baseMechanism);
+            const float distance =
+                mechanismIterator != pEventRuntimeState->mechanisms.end()
+                    ? mechanismIterator->second.currentDistance
+                    : baseMechanism.currentDistance;
+
+            applyIndoorMechanismDoorToVertices(door, distance, m_runtimeGeometryCache.vertices);
+
+            for (uint16_t faceId : door.faceIds)
+            {
+                m_runtimeGeometryCache.geometryCache.invalidateFace(faceId);
+            }
+        }
+    }
+
+    if (pathMapNeedsRefresh)
+    {
+        m_runtimeGeometryCache.pathMapValid = false;
+        m_runtimeGeometryCache.pathMapSnapshot.reset();
+    }
+
+    if (m_actorMovementController)
+    {
+        m_actorMovementController->applyMechanismGeometryUpdate(changedDoorIds);
+    }
+
+    if (pathMapNeedsRefresh && logIndoorPathfindingEnabled())
+    {
+        std::cout << "[IndoorPathfinding] path_map_dirty reason=mechanism_settled"
             << " clear_actor_paths=0\n";
     }
+
+    return changedDoorIds;
 }
 
 IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCache() const
@@ -3956,10 +4021,10 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
     int16_t partySectorId,
     const std::vector<IndoorVertex> &vertices,
     IndoorFaceGeometryCache &geometryCache,
-    IndoorActorAiPerformanceDiagnostics *pDiagnostics) const
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics)
 {
     const uint64_t selectBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
-    const MapDeltaData *pMapDeltaData = mapDeltaData();
+    MapDeltaData *pMapDeltaData = mapDeltaData();
     std::vector<bool> activeActorMask(pMapDeltaData != nullptr ? pMapDeltaData->actors.size() : 0, false);
 
     if (pMapDeltaData == nullptr || pMapDeltaData->actors.empty())
@@ -3977,19 +4042,43 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
         pDiagnostics->actorCount += pMapDeltaData->actors.size();
     }
 
-    std::vector<std::pair<size_t, float>> activeActorDistances;
+    struct ActorSelectionCandidate
+    {
+        size_t actorIndex = 0;
+        float distanceToParty = 0.0f;
+    };
+
+    constexpr uint32_t RuntimeSelectionBits =
+        static_cast<uint32_t>(EvtActorAttribute::Active)
+        | static_cast<uint32_t>(EvtActorAttribute::Nearby);
+    constexpr size_t OeIndoorDetectedActorPassLimit = 30;
+
+    std::vector<ActorSelectionCandidate> activeActorDistances;
     activeActorDistances.reserve(pMapDeltaData->actors.size());
+    std::vector<size_t> pickedActorIndices;
+    pickedActorIndices.reserve(std::min(pMapDeltaData->actors.size(), MaxActiveActorUpdates));
+
+    const auto pickActor = [&pickedActorIndices](size_t actorIndex)
+    {
+        if (std::find(pickedActorIndices.begin(), pickedActorIndices.end(), actorIndex) == pickedActorIndices.end())
+        {
+            pickedActorIndices.push_back(actorIndex);
+        }
+    };
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
-        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
-        const MapActorAiState *pAiState =
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        MapActorAiState *pAiState =
             actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        actor.attributes &= ~static_cast<uint32_t>(EvtActorAttribute::FullAi);
 
         if (pAiState == nullptr
             || actor.hp <= 0
             || (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
         {
+            actor.attributes &= ~static_cast<uint32_t>(EvtActorAttribute::Active);
             continue;
         }
 
@@ -3997,20 +4086,59 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
         const GameplayWorldPoint actorTargetPoint = {pAiState->preciseX, pAiState->preciseY, actorTargetZ};
         const GameplayWorldPoint partyTargetPoint =
             {partyFacts.position.x, partyFacts.position.y, partyFacts.position.z + PartyTargetHeightOffset};
-        const int16_t actorSectorId =
-            pAiState->sectorId >= 0 ? pAiState->sectorId : actor.sectorId;
         const float deltaX = partyTargetPoint.x - actorTargetPoint.x;
         const float deltaY = partyTargetPoint.y - actorTargetPoint.y;
         const float deltaZ = partyTargetPoint.z - actorTargetPoint.z;
         const float distanceToParty =
             std::max(0.0f, length3d(deltaX, deltaY, deltaZ) - static_cast<float>(actor.radius));
-        const bool sameSectorAsParty = actorSectorId >= 0 && actorSectorId == partySectorId;
+
+        if (distanceToParty > ActiveActorUpdateRange)
+        {
+            actor.attributes &= ~static_cast<uint32_t>(EvtActorAttribute::Active);
+            continue;
+        }
+
+        if (pAiState->hostileToParty)
+        {
+            actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Hostile);
+        }
+        else
+        {
+            actor.attributes &= ~static_cast<uint32_t>(EvtActorAttribute::Hostile);
+        }
+
+        activeActorDistances.push_back({actorIndex, distanceToParty});
+    }
+
+    std::stable_sort(
+        activeActorDistances.begin(),
+        activeActorDistances.end(),
+        [](const ActorSelectionCandidate &left, const ActorSelectionCandidate &right)
+        {
+            return left.distanceToParty < right.distanceToParty;
+        });
+
+    for (const ActorSelectionCandidate &candidate : activeActorDistances)
+    {
+        if (pickedActorIndices.size() >= OeIndoorDetectedActorPassLimit)
+        {
+            break;
+        }
+
+        MapDeltaActor &actor = pMapDeltaData->actors[candidate.actorIndex];
+        MapActorAiState &aiState = m_mapActorAiStates[candidate.actorIndex];
         const bool previouslyDetectedParty =
-            pAiState->hasDetectedParty || defaultActorHasDetectedParty(actor, pAiState->hostileToParty);
-        bool canDetectParty = sameSectorAsParty || previouslyDetectedParty;
+            aiState.hasDetectedParty || defaultActorHasDetectedParty(actor, aiState.hostileToParty);
+        bool canDetectParty = previouslyDetectedParty;
 
         if (!canDetectParty && m_pIndoorMapData != nullptr && !vertices.empty())
         {
+            const float actorTargetZ = aiState.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
+            const GameplayWorldPoint actorTargetPoint = {aiState.preciseX, aiState.preciseY, actorTargetZ};
+            const GameplayWorldPoint partyTargetPoint =
+                {partyFacts.position.x, partyFacts.position.y, partyFacts.position.z + PartyTargetHeightOffset};
+            const int16_t actorSectorId =
+                aiState.sectorId >= 0 ? aiState.sectorId : actor.sectorId;
             const uint64_t losBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
             canDetectParty =
                 indoorDetectBetweenObjects(
@@ -4029,28 +4157,56 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
             }
         }
 
-        if (sameSectorAsParty || (distanceToParty <= ActiveActorUpdateRange && canDetectParty))
+        if (canDetectParty)
         {
-            activeActorDistances.push_back({actorIndex, distanceToParty});
+            actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Nearby);
+            aiState.hasDetectedParty = true;
+            aiState.spellEffects.hasDetectedParty = true;
+            pickActor(candidate.actorIndex);
         }
     }
 
-    std::stable_sort(
-        activeActorDistances.begin(),
-        activeActorDistances.end(),
-        [](const std::pair<size_t, float> &left, const std::pair<size_t, float> &right)
-        {
-            return left.second < right.second;
-        });
-
-    for (size_t index = 0; index < activeActorDistances.size() && index < MaxActiveActorUpdates; ++index)
+    for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
-        activeActorMask[activeActorDistances[index].first] = true;
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        if (pAiState == nullptr
+            || actor.hp <= 0
+            || (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+        {
+            continue;
+        }
+
+        const int16_t actorSectorId = pAiState->sectorId >= 0 ? pAiState->sectorId : actor.sectorId;
+        if (actorSectorId >= 0 && actorSectorId == partySectorId)
+        {
+            actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Active);
+            pickActor(actorIndex);
+        }
+    }
+
+    for (const ActorSelectionCandidate &candidate : activeActorDistances)
+    {
+        MapDeltaActor &actor = pMapDeltaData->actors[candidate.actorIndex];
+        if ((actor.attributes & RuntimeSelectionBits) != 0)
+        {
+            actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Active);
+            pickActor(candidate.actorIndex);
+        }
+    }
+
+    for (size_t index = 0; index < pickedActorIndices.size() && index < MaxActiveActorUpdates; ++index)
+    {
+        const size_t actorIndex = pickedActorIndices[index];
+        pMapDeltaData->actors[actorIndex].attributes |= static_cast<uint32_t>(EvtActorAttribute::FullAi);
+        activeActorMask[actorIndex] = true;
     }
 
     if (pDiagnostics != nullptr)
     {
-        pDiagnostics->selectedActorCount += std::min(activeActorDistances.size(), MaxActiveActorUpdates);
+        pDiagnostics->selectedActorCount += std::min(pickedActorIndices.size(), MaxActiveActorUpdates);
         pDiagnostics->selectActiveNanoseconds += SDL_GetTicksNS() - selectBeginTickCount;
     }
 
@@ -4059,7 +4215,7 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
 
 ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
     float deltaSeconds,
-    IndoorActorAiPerformanceDiagnostics *pDiagnostics) const
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics)
 {
     ActorAiFrameFacts facts = {};
     facts.deltaSeconds = deltaSeconds;
@@ -4109,7 +4265,6 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
-        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
         const MapActorAiState *pAiState =
             actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
 
@@ -4119,15 +4274,15 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
             ++pDiagnostics->actorFactCandidates;
         }
 
+        if (pAiState == nullptr)
+        {
+            continue;
+        }
+
         const bool active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
         const uint64_t actorFactBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         const std::optional<ActorAiFacts> actorFacts =
-            collectIndoorActorAiFacts(
-                actorIndex,
-                active,
-                facts.party,
-                *pVertices,
-                *pGeometryCache);
+            collectIndoorActorAiFacts(actorIndex, active, facts.party, *pVertices, *pGeometryCache);
 
         if (pDiagnostics != nullptr)
         {
@@ -8172,9 +8327,6 @@ bool IndoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAct
     const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
     const bool isInvisible =
         (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0;
-    const bool isAggressive =
-        (actor.attributes & (static_cast<uint32_t>(EvtActorAttribute::Nearby)
-            | static_cast<uint32_t>(EvtActorAttribute::Aggressor))) != 0;
     const int16_t resolvedMonsterId = resolveIndoorActorStatsId(actor);
     GameplayActorService actorService = {};
     const int16_t relationMonsterId = actorService.relationMonsterId(resolvedMonsterId, actor.ally);
@@ -8183,7 +8335,7 @@ bool IndoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAct
         || (m_pMonsterTable != nullptr
             && relationMonsterId > 0
             && m_pMonsterTable->isHostileToParty(relationMonsterId));
-    const bool defaultDetectedParty = hostileToParty && isAggressive;
+    const bool defaultDetectedParty = defaultActorHasDetectedParty(actor, hostileToParty);
     const MapActorAiState *pAiState =
         actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
     const GameplayActorSpellEffectState *pEffectState =
@@ -13025,10 +13177,9 @@ void IndoorWorldRuntime::materializeInitialMonsterSpawns()
                     static_cast<uint32_t>(spawnIndex),
                     spawnOrdinal,
                     m_sessionChestSeed);
-            const bool hostileToParty = m_pMonsterTable->isHostileToParty(static_cast<int16_t>(pStats->id));
             MapDeltaActor actor = {};
             actor.name = pStats->name;
-            actor.attributes = defaultActorAttributes(hostileToParty) | spawn.attributes;
+            actor.attributes = spawn.attributes;
             actor.hp = static_cast<int16_t>(std::clamp(pStats->hitPoints, 0, 32767));
             actor.hostilityType = static_cast<uint8_t>(std::clamp(pStats->hostility, 0, 255));
             actor.monsterInfoId = static_cast<int16_t>(pStats->id);

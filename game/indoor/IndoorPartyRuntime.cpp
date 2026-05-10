@@ -151,6 +151,16 @@ void IndoorPartyRuntime::setSpriteObjectColliders(const std::vector<IndoorCylind
     m_movementController.setSpriteObjectColliders(spriteObjectColliders);
 }
 
+void IndoorPartyRuntime::applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds)
+{
+    m_movementController.applyMechanismGeometryUpdate(changedDoorIds);
+}
+
+void IndoorPartyRuntime::invalidateRuntimeGeometryCache()
+{
+    m_movementController.invalidateRuntimeGeometryCache();
+}
+
 const IndoorMoveState &IndoorPartyRuntime::movementState() const
 {
     return m_movementState;

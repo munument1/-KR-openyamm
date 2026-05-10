@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -224,30 +223,6 @@ bool shouldIgnoreExistingActorOverlap(
     return true;
 }
 
-std::vector<uint32_t> buildDoorStateSignature(
-    const std::optional<MapDeltaData> *pMapDeltaData,
-    const std::optional<EventRuntimeState> *pEventRuntimeState)
-{
-    std::vector<uint32_t> signature;
-
-    if (pMapDeltaData == nullptr || !pMapDeltaData->has_value())
-    {
-        return signature;
-    }
-
-    const std::vector<MapDeltaDoor> &doors = (*pMapDeltaData)->doors;
-    signature.reserve(doors.size() * 2);
-
-    for (const MapDeltaDoor &door : doors)
-    {
-        const float distance = resolveDoorDistance(door, pEventRuntimeState);
-        signature.push_back(door.doorId);
-        signature.push_back(std::bit_cast<uint32_t>(distance));
-    }
-
-    return signature;
-}
-
 IndoorSweptBody buildPrimitiveSweptBody(
     float x,
     float y,
@@ -373,6 +348,45 @@ void IndoorMovementController::invalidateRuntimeGeometryCache()
     m_runtimeGeometryCache = {};
 }
 
+void IndoorMovementController::applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds)
+{
+    if (!m_runtimeGeometryCache.valid
+        || m_pMapDeltaData == nullptr
+        || !m_pMapDeltaData->has_value()
+        || changedDoorIds.empty())
+    {
+        return;
+    }
+
+    const std::vector<MapDeltaDoor> &doors = (*m_pMapDeltaData)->doors;
+
+    for (uint32_t changedDoorId : changedDoorIds)
+    {
+        const std::vector<MapDeltaDoor>::const_iterator doorIterator =
+            std::find_if(
+                doors.begin(),
+                doors.end(),
+                [changedDoorId](const MapDeltaDoor &door)
+                {
+                    return door.doorId == changedDoorId;
+                });
+
+        if (doorIterator == doors.end())
+        {
+            continue;
+        }
+
+        const MapDeltaDoor &door = *doorIterator;
+        const float distance = resolveDoorDistance(door, m_pEventRuntimeState);
+        applyIndoorMechanismDoorToVertices(door, distance, m_runtimeGeometryCache.vertices);
+
+        for (uint16_t faceId : door.faceIds)
+        {
+            m_runtimeGeometryCache.geometryCache.invalidateFace(faceId);
+        }
+    }
+}
+
 void IndoorMovementController::refreshRuntimeGeometryCache() const
 {
     if (m_pIndoorMapData == nullptr)
@@ -380,14 +394,11 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
         return;
     }
 
-    const std::vector<uint32_t> doorStateSignature = buildDoorStateSignature(m_pMapDeltaData, m_pEventRuntimeState);
     const MapDeltaData *pMapDeltaData =
         m_pMapDeltaData != nullptr && m_pMapDeltaData->has_value() ? &m_pMapDeltaData->value() : nullptr;
     const uint64_t surfaceRevision = pMapDeltaData != nullptr ? pMapDeltaData->surfaceRevision : 0;
 
-    if (m_runtimeGeometryCache.valid
-        && m_runtimeGeometryCache.doorStateSignature == doorStateSignature
-        && m_runtimeGeometryCache.surfaceRevision == surfaceRevision)
+    if (m_runtimeGeometryCache.valid && m_runtimeGeometryCache.surfaceRevision == surfaceRevision)
     {
         return;
     }
@@ -397,11 +408,9 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
 
     const bool wasValid = m_runtimeGeometryCache.valid;
     const uint64_t previousSurfaceRevision = m_runtimeGeometryCache.surfaceRevision;
-    const std::vector<uint32_t> previousDoorStateSignature = m_runtimeGeometryCache.doorStateSignature;
     const bool supportFaceIdsNeedRefresh =
         !wasValid
-        || previousSurfaceRevision != surfaceRevision
-        || previousDoorStateSignature.size() != doorStateSignature.size();
+        || previousSurfaceRevision != surfaceRevision;
     m_runtimeGeometryCache.vertices = buildIndoorMechanismAdjustedVertices(
         *m_pIndoorMapData,
         pMapDeltaData,
@@ -422,34 +431,7 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
         m_runtimeGeometryCache.collisionFaceMask = buildCollisionFaceMask();
         m_runtimeGeometryCache.geometryCache.reset(m_pIndoorMapData->faces.size());
     }
-    else if (pMapDeltaData != nullptr)
-    {
-        const bool canCompareDoorSignatures =
-            previousDoorStateSignature.size() == doorStateSignature.size()
-            && previousDoorStateSignature.size() == pMapDeltaData->doors.size() * 2;
 
-        for (size_t doorIndex = 0; doorIndex < pMapDeltaData->doors.size(); ++doorIndex)
-        {
-            const MapDeltaDoor &door = pMapDeltaData->doors[doorIndex];
-            const size_t signatureIndex = doorIndex * 2;
-            const bool doorGeometryChanged =
-                !canCompareDoorSignatures
-                || previousDoorStateSignature[signatureIndex] != doorStateSignature[signatureIndex]
-                || previousDoorStateSignature[signatureIndex + 1] != doorStateSignature[signatureIndex + 1];
-
-            if (!doorGeometryChanged)
-            {
-                continue;
-            }
-
-            for (uint16_t faceId : door.faceIds)
-            {
-                m_runtimeGeometryCache.geometryCache.invalidateFace(faceId);
-            }
-        }
-    }
-
-    m_runtimeGeometryCache.doorStateSignature = doorStateSignature;
     m_runtimeGeometryCache.surfaceRevision = surfaceRevision;
     m_runtimeGeometryCache.geometryCache.setAttributeOverrides(pMapDeltaData);
 

@@ -119,6 +119,7 @@ public:
     void setDecorationColliders(const std::vector<IndoorCylinderCollision> &decorationColliders);
     void setSpriteObjectColliders(const std::vector<IndoorCylinderCollision> &spriteObjectColliders);
     void invalidateRuntimeGeometryCache();
+    void applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds);
 
 private:
     IndoorFloorSample sampleSupportedFloor(
@@ -161,7 +162,6 @@ private:
     struct RuntimeGeometryCache
     {
         bool valid = false;
-        std::vector<uint32_t> doorStateSignature;
         std::vector<IndoorVertex> vertices;
         std::vector<uint8_t> nonBlockingMechanismFaceMask;
         std::vector<uint8_t> mechanismBlockingFaceMask;

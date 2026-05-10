@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -449,7 +450,8 @@ public:
 
     void applyEventRuntimeState(bool syncPersistentHostilityMasks = false) override;
     void invalidateRuntimeGeometryCache();
-    void refreshMechanismRuntimeGeometryCache();
+    std::vector<uint32_t> refreshMechanismRuntimeGeometryCache(
+        const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms);
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
 
@@ -549,10 +551,10 @@ private:
         int16_t partySectorId,
         const std::vector<IndoorVertex> &vertices,
         IndoorFaceGeometryCache &geometryCache,
-        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr) const;
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
     ActorAiFrameFacts collectIndoorActorAiFrameFacts(
         float deltaSeconds,
-        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr) const;
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
     std::vector<bool> applyIndoorActorAiFrameResult(
         const ActorAiFrameResult &result,
         const GameplayActorAiSystem &actorAiSystem,
