@@ -9,6 +9,8 @@
 #include "game/ui/GameplayOverlayTypes.h"
 #include "game/indoor/IndoorMovementController.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/pathfinding/ActorPathRuntime.h"
+#include "game/pathfinding/PathMap.h"
 #include "game/tables/ChestTable.h"
 #include "game/tables/ItemTable.h"
 #include "game/tables/MapStats.h"
@@ -468,6 +470,8 @@ private:
         bool valid = false;
         std::vector<IndoorVertex> vertices;
         IndoorFaceGeometryCache geometryCache;
+        bool pathMapValid = false;
+        PathMap pathMap;
     };
 
     const MapEncounterInfo *encounterInfo(uint32_t typeIndexInMapStats) const;
@@ -480,6 +484,9 @@ private:
     void materializeInitialMonsterSpawns();
     void syncMapActorAiStates();
     RuntimeGeometryCache &runtimeGeometryCache() const;
+    const PathMap *indoorPathMap() const;
+    bool indoorActorPathfindingEnabled() const;
+    bool logIndoorPathfindingEnabled() const;
     IndoorMovementController &actorMovementController();
     void ensureIndoorSectorActivationMask();
     void activateIndoorSector(int16_t sectorId);
@@ -635,6 +642,10 @@ private:
     size_t m_lastIndoorJournalRevealOutlineCount = 0;
     mutable RuntimeGeometryCache m_runtimeGeometryCache;
     std::optional<IndoorMovementController> m_actorMovementController;
+    ActorPathRuntime m_actorPathRuntime;
+    double m_actorPathRuntimeSeconds = 0.0;
+    size_t m_actorPathPlansThisStep = 0;
+    double m_nextActorPathPlanSeconds = 0.0;
     bool m_cachedGameplayMinimapLinesValid = false;
     uint64_t m_cachedGameplayMinimapLineSignature = 0;
     std::vector<GameplayMinimapLineState> m_cachedGameplayMinimapLines;

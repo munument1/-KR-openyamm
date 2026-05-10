@@ -2175,6 +2175,54 @@ std::vector<uint8_t> IndoorRenderer::buildRenderVisibleSectorMask(const bx::Vec3
     return buildVisibleSectorMask(cameraPosition, false);
 }
 
+std::vector<int16_t> IndoorRenderer::visibleIndoorPortalSectorIds(int16_t sectorId, int16_t eyeSectorId) const
+{
+    std::vector<int16_t> sectorIds;
+
+    if (!m_indoorMapData)
+    {
+        return sectorIds;
+    }
+
+    const auto appendSectorId = [&](int16_t candidateSectorId)
+    {
+        if (candidateSectorId < 0 || static_cast<size_t>(candidateSectorId) >= m_indoorMapData->sectors.size())
+        {
+            return;
+        }
+
+        if (std::find(sectorIds.begin(), sectorIds.end(), candidateSectorId) != sectorIds.end())
+        {
+            return;
+        }
+
+        sectorIds.push_back(candidateSectorId);
+    };
+
+    appendSectorId(sectorId);
+    appendSectorId(eyeSectorId);
+
+    if (m_renderVertices.empty())
+    {
+        return sectorIds;
+    }
+
+    const bx::Vec3 eye = {m_cameraPositionX, m_cameraPositionY, m_cameraPositionZ};
+    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(eye, false);
+
+    for (size_t candidateSectorId = 0; candidateSectorId < visibleSectorMask.size(); ++candidateSectorId)
+    {
+        if (visibleSectorMask[candidateSectorId] == 0 || candidateSectorId > std::numeric_limits<int16_t>::max())
+        {
+            continue;
+        }
+
+        appendSectorId(static_cast<int16_t>(candidateSectorId));
+    }
+
+    return sectorIds;
+}
+
 void IndoorRenderer::logIndoorVisibilityDiagnostics(
     const std::vector<uint8_t> &baseVisibleSectorMask,
     const std::vector<uint8_t> &renderVisibleSectorMask,

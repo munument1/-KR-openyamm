@@ -712,7 +712,9 @@ void appendHouseExtraExitAction(EventDialogContent &dialog, const HouseEntry &ho
     action.id = houseEntry.id;
     action.participantPictureId = houseEntry.extraExit->pictureId;
     action.participantVisual = EventDialogParticipantVisual::Portrait;
-    action.label = houseEntry.extraExit->label;
+    action.label = !houseEntry.extraExit->destinationName.empty()
+        ? houseEntry.extraExit->destinationName
+        : houseEntry.extraExit->label;
     dialog.actions.push_back(std::move(action));
 }
 }
@@ -1012,11 +1014,28 @@ EventDialogContent buildEventDialogContent(
                 : std::vector<uint32_t>{};
             const bool useResidentOnlyLobby =
                 shouldUseResidentOnlyHouseLobby(*pHouseEntry, serviceType, residentNpcIds);
+            const bool useResidentExtraExitLobby =
+                serviceType == HouseServiceType::None
+                && pHouseEntry->type == "House"
+                && !residentNpcIds.empty()
+                && menuId == DialogueMenuId::None
+                && houseExtraExitIsAvailable(*pHouseEntry, pParty);
             const bool showOccupantSelection =
                 serviceType != HouseServiceType::None
                 && !residentNpcIds.empty()
                 && menuId == DialogueMenuId::None
                 && !useResidentOnlyLobby;
+
+            if (useResidentExtraExitLobby)
+            {
+                if (pNpcDialogTable != nullptr)
+                {
+                    appendHouseResidentActions(dialog, *pNpcDialogTable, eventRuntimeState, residentNpcIds);
+                }
+
+                appendHouseExtraExitAction(dialog, *pHouseEntry);
+                return dialog;
+            }
 
             if (useResidentOnlyLobby && menuId == DialogueMenuId::None)
             {
@@ -1082,7 +1101,9 @@ EventDialogContent buildEventDialogContent(
                 dialog.actions.push_back(std::move(action));
             }
 
-            if (serviceType == HouseServiceType::None && pNpcDialogTable != nullptr)
+            if (serviceType == HouseServiceType::None
+                && menuId == DialogueMenuId::None
+                && pNpcDialogTable != nullptr)
             {
                 appendHouseResidentActions(dialog, *pNpcDialogTable, eventRuntimeState, residentNpcIds);
                 hasResidentActions = !residentNpcIds.empty();

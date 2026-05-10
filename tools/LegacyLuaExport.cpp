@@ -2352,7 +2352,6 @@ bool isIgnoredNormalOperation(LegacyLuaOperation operation)
         case LegacyLuaOperation::SetCanShowTopic:
         case LegacyLuaOperation::EndCanShowTopic:
         case LegacyLuaOperation::LocationName:
-        case LegacyLuaOperation::AcknowledgeMessage:
         case LegacyLuaOperation::Unknown:
         case LegacyLuaOperation::IsActorKilledCanShowTopic:
             return true;
@@ -2387,6 +2386,7 @@ bool isReadableControlFlowOperation(LegacyLuaOperation operation)
         || operation == LegacyLuaOperation::RandomJump
         || operation == LegacyLuaOperation::InputString
         || operation == LegacyLuaOperation::PressAnyKey
+        || operation == LegacyLuaOperation::AcknowledgeMessage
         || isReadableCompareOperation(operation);
 }
 
@@ -3362,7 +3362,7 @@ bool emitReadableActionInstruction(
 
                 emitIndentedLineWithComment(
                     stream,
-                    "evt.SimpleMessage(" + luaQuoted(*instruction.text) + ")",
+                    "evt.SetMessage(" + luaQuoted(*instruction.text) + ")",
                     std::nullopt,
                     indentLevel);
                 return true;
@@ -5649,7 +5649,8 @@ std::vector<PromptContinuation> collectPromptContinuations(const LegacyLuaEvent 
     for (const LegacyLuaInstruction &instruction : event.instructions)
     {
         if (instruction.operation != LegacyLuaOperation::InputString
-            && instruction.operation != LegacyLuaOperation::PressAnyKey)
+            && instruction.operation != LegacyLuaOperation::PressAnyKey
+            && instruction.operation != LegacyLuaOperation::AcknowledgeMessage)
         {
             continue;
         }
@@ -5798,7 +5799,8 @@ bool emitReadableBlock(
             continue;
         }
 
-        if (instruction.operation == LegacyLuaOperation::PressAnyKey)
+        if (instruction.operation == LegacyLuaOperation::PressAnyKey
+            || instruction.operation == LegacyLuaOperation::AcknowledgeMessage)
         {
             emitIndentedLineWithComment(
                 stream,
@@ -7658,7 +7660,11 @@ void emitNormalInstruction(
         case LegacyLuaOperation::ShowMessage:
             if (instruction.text && !instruction.text->empty())
             {
-                emitIndentedLineWithComment(stream, "evt.SimpleMessage(" + luaQuoted(*instruction.text) + ")", std::nullopt, 2);
+                emitIndentedLineWithComment(
+                    stream,
+                    "evt.SetMessage(" + luaQuoted(*instruction.text) + ")",
+                    std::nullopt,
+                    2);
             }
             else if (!instruction.arguments.empty())
             {
@@ -8229,6 +8235,7 @@ void emitNormalInstruction(
         }
 
         case LegacyLuaOperation::PressAnyKey:
+        case LegacyLuaOperation::AcknowledgeMessage:
             emitIndentedLineWithComment(
                 stream,
                 "evt._PressAnyKey(" + std::to_string(event.eventId) + ", "
@@ -8288,7 +8295,6 @@ void emitNormalInstruction(
         case LegacyLuaOperation::SetCanShowTopic:
         case LegacyLuaOperation::EndCanShowTopic:
         case LegacyLuaOperation::LocationName:
-        case LegacyLuaOperation::AcknowledgeMessage:
         case LegacyLuaOperation::Unknown:
         case LegacyLuaOperation::IsActorKilledCanShowTopic:
         case LegacyLuaOperation::TriggerMouseOver:
@@ -10052,6 +10058,7 @@ bool tryEmitCompactCfgNormalEventFunction(
                 break;
 
             case LegacyLuaOperation::PressAnyKey:
+            case LegacyLuaOperation::AcknowledgeMessage:
                 emitIndentedLineWithComment(
                     stream,
                     "evt._PressAnyKey(" + std::to_string(event.eventId) + ", "

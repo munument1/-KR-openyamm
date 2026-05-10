@@ -1,5 +1,6 @@
 add_executable(openyamm_unit_tests
     AssetFileSystemTests.cpp
+    ActorPathRuntimeTests.cpp
     AudioRegressionTests.cpp
     ArcomageRegressionTests.cpp
     ChestRegressionTests.cpp
@@ -15,6 +16,7 @@ add_executable(openyamm_unit_tests
     ImageAssetLoaderTests.cpp
     IndoorCollisionPrimitivesTests.cpp
     IndoorLightingRuntimeTests.cpp
+    IndoorPathfindingBuilderTests.cpp
     IndoorPortalGraphTests.cpp
     IndoorPortalVisibilityTests.cpp
     InventoryEquipRegressionTests.cpp
@@ -25,6 +27,8 @@ add_executable(openyamm_unit_tests
     MonsterTableRegressionTests.cpp
     MergedBaseTablesTests.cpp
     PartyRegressionTests.cpp
+    PathMapTests.cpp
+    PathPlannerTests.cpp
     RegressionMapLoader.cpp
     SpellRegressionTests.cpp
     RegressionGameData.cpp
@@ -88,6 +92,7 @@ add_executable(openyamm_unit_tests
     ../game/indoor/IndoorLightingRuntime.cpp
     ../game/indoor/IndoorMapData.cpp
     ../game/indoor/IndoorMovementController.cpp
+    ../game/indoor/IndoorPathfindingBuilder.cpp
     ../game/indoor/IndoorPortalGraph.cpp
     ../game/indoor/IndoorPortalVisibility.cpp
     ../game/fx/ParticleRecipes.cpp
@@ -145,6 +150,9 @@ add_executable(openyamm_unit_tests
     ../game/outdoor/OutdoorMovementController.cpp
     ../game/outdoor/OutdoorMovementDriver.cpp
     ../game/outdoor/OutdoorPartyRuntime.cpp
+    ../game/pathfinding/ActorPathRuntime.cpp
+    ../game/pathfinding/PathMap.cpp
+    ../game/pathfinding/PathPlanner.cpp
 )
 
 target_include_directories(openyamm_unit_tests

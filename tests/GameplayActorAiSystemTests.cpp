@@ -1043,9 +1043,103 @@ TEST_CASE("shared actor AI orbits during ranged recovery instead of closing to m
     CHECK(*update.state.motionState == ActorAiMotionState::Pursuing);
     CHECK(update.movementIntent.applyMovement);
     CHECK(update.movementIntent.action == ActorAiMovementAction::Pursue);
+    CHECK_FALSE(update.movementIntent.meleePursuitActive);
     CHECK(std::abs(update.movementIntent.desiredMoveY) > 0.9f);
     CHECK(update.movementIntent.desiredMoveX < 0.0f);
     CHECK(std::abs(update.movementIntent.desiredMoveX) < 0.25f);
+}
+
+TEST_CASE("shared actor AI may change ranged orbit side on a fresh pursuit decision")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(16, 113);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.aiType = GameplayActorAiType::Normal;
+    actor.stats.moveSpeed = 160;
+    actor.stats.attackConstraints.attack1IsRanged = true;
+    actor.runtime.attackCooldownSeconds = 0.5f;
+    actor.runtime.recoverySeconds = 0.5f;
+    actor.movement.movementAllowed = true;
+    actor.movement.effectiveMoveSpeed = 160.0f;
+    actor.movement.position = {1000.0f, 0.0f, 0.0f};
+    actor.movement.distanceToParty = 1000.0f;
+    actor.movement.edgeDistanceToParty = 936.0f;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {0.0f, 0.0f, 64.0f};
+    actor.target.currentDistance = 1000.0f;
+    actor.target.currentEdgeDistance = 936.0f;
+    actor.target.currentCanSense = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult firstResult = system.updateActors(frame);
+    REQUIRE_EQ(firstResult.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &firstUpdate = firstResult.actorUpdates.front();
+    REQUIRE(firstUpdate.state.pursueDecisionCount.has_value());
+    CHECK(firstUpdate.movementIntent.action == ActorAiMovementAction::Pursue);
+    CHECK(std::abs(firstUpdate.movementIntent.desiredMoveY) > 0.9f);
+
+    frame.activeActors.clear();
+    actor.runtime.motionState = ActorAiMotionState::Pursuing;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.runtime.actionSeconds = 0.0f;
+    actor.runtime.pursueDecisionCount = *firstUpdate.state.pursueDecisionCount;
+    actor.movement.moveDirectionX = firstUpdate.movementIntent.moveDirectionX;
+    actor.movement.moveDirectionY = firstUpdate.movementIntent.moveDirectionY;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult secondResult = system.updateActors(frame);
+    REQUIRE_EQ(secondResult.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &secondUpdate = secondResult.actorUpdates.front();
+    CHECK(secondUpdate.movementIntent.action == ActorAiMovementAction::Pursue);
+    CHECK(secondUpdate.movementIntent.desiredMoveY * firstUpdate.movementIntent.desiredMoveY < 0.0f);
+    CHECK(secondUpdate.movementIntent.moveDirectionY * firstUpdate.movementIntent.moveDirectionY < 0.0f);
+}
+
+TEST_CASE("shared actor AI preserves move direction while continuing pursuit")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(17, 114);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.aiType = GameplayActorAiType::Normal;
+    actor.stats.moveSpeed = 160;
+    actor.stats.attack1Damage.diceRolls = 1;
+    actor.stats.attack1Damage.diceSides = 4;
+    actor.runtime.motionState = ActorAiMotionState::Pursuing;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.runtime.actionSeconds = 0.5f;
+    actor.movement.movementAllowed = true;
+    actor.movement.effectiveMoveSpeed = 160.0f;
+    actor.movement.moveDirectionX = 0.6f;
+    actor.movement.moveDirectionY = -0.8f;
+    actor.movement.position = {1000.0f, 0.0f, 0.0f};
+    actor.movement.distanceToParty = 1000.0f;
+    actor.movement.edgeDistanceToParty = 936.0f;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {0.0f, 0.0f, 64.0f};
+    actor.target.currentDistance = 1000.0f;
+    actor.target.currentEdgeDistance = 936.0f;
+    actor.target.currentCanSense = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    CHECK(update.movementIntent.action == ActorAiMovementAction::Pursue);
+    CHECK(update.movementIntent.moveDirectionX == doctest::Approx(0.6f));
+    CHECK(update.movementIntent.moveDirectionY == doctest::Approx(-0.8f));
+    CHECK(update.movementIntent.desiredMoveX == doctest::Approx(0.6f));
+    CHECK(update.movementIntent.desiredMoveY == doctest::Approx(-0.8f));
 }
 
 TEST_CASE("shared actor AI stands briefly when actor movement is crowded after collision")

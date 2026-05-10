@@ -76,6 +76,9 @@ add_executable(openyamm
     gameplay/SavePreviewImage.cpp
     gameplay/StoryTextFormatter.cpp
     gameplay/TreasureRuntime.cpp
+    pathfinding/ActorPathRuntime.cpp
+    pathfinding/PathMap.cpp
+    pathfinding/PathPlanner.cpp
     audio/HouseVideoPlayer.cpp
     content/ContentManifest.cpp
     items/InventoryItemUseRuntime.cpp
@@ -100,6 +103,7 @@ add_executable(openyamm
     indoor/IndoorLightingRuntime.cpp
     indoor/IndoorMapData.cpp
     indoor/IndoorMovementController.cpp
+    indoor/IndoorPathfindingBuilder.cpp
     indoor/IndoorPartyRuntime.cpp
     indoor/IndoorPortalGraph.cpp
     indoor/IndoorPortalVisibility.cpp

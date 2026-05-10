@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -897,6 +898,74 @@ std::optional<float> parseFloatArgument(const std::string &value)
 std::string boolString(bool value)
 {
     return value ? "true" : "false";
+}
+
+struct DebugCivilTime
+{
+    int year = 1168;
+    int month = 1;
+    int day = 1;
+    int dayOfWeek = 1;
+    int hour24 = 0;
+    int minute = 0;
+};
+
+DebugCivilTime debugCivilTimeFromGameMinutes(float gameMinutes)
+{
+    constexpr int MinutesPerDay = 24 * 60;
+    constexpr int DaysPerMonth = 28;
+    constexpr int MonthsPerYear = 12;
+
+    const int totalMinutes = std::max(0, static_cast<int>(std::floor(gameMinutes)));
+    const int totalDays = totalMinutes / MinutesPerDay;
+    DebugCivilTime time = {};
+    time.year = 1168 + totalDays / (DaysPerMonth * MonthsPerYear);
+    time.month = 1 + (totalDays / DaysPerMonth) % MonthsPerYear;
+    time.day = 1 + totalDays % DaysPerMonth;
+    time.dayOfWeek = 1 + totalDays % 7;
+    time.hour24 = (totalMinutes / 60) % 24;
+    time.minute = totalMinutes % 60;
+    return time;
+}
+
+std::string debugWeekdayName(int dayOfWeek)
+{
+    static constexpr std::array<const char *, 7> Names = {
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+    };
+
+    return Names[std::clamp(dayOfWeek, 1, 7) - 1];
+}
+
+std::string debugMonthName(int month)
+{
+    static constexpr std::array<const char *, 12> Names = {
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    };
+
+    return Names[std::clamp(month, 1, 12) - 1];
+}
+
+std::string formatDebugGameDate(float gameMinutes)
+{
+    const DebugCivilTime time = debugCivilTimeFromGameMinutes(gameMinutes);
+    const int hour12 = time.hour24 % 12 == 0 ? 12 : time.hour24 % 12;
+    const char *pMeridiem = time.hour24 >= 12 ? "PM" : "AM";
+
+    std::ostringstream out;
+    out << debugWeekdayName(time.dayOfWeek)
+        << ", " << time.day << " " << debugMonthName(time.month) << " " << time.year
+        << " " << hour12 << ":";
+
+    if (time.minute < 10)
+    {
+        out << '0';
+    }
+
+    out << time.minute << " " << pMeridiem
+        << " (game_minutes=" << static_cast<int>(std::floor(std::max(0.0f, gameMinutes))) << ")";
+    return out.str();
 }
 
 std::string debugEngineEnglishDataTablePath(std::string_view fileName)
@@ -1979,12 +2048,71 @@ void GameApplication::registerDebugConsoleCommands()
         {
             std::ostringstream out;
             out << "Commands: help, cls, map, setup breach, event <id>, "
+                << "time [advance [days]], "
                 << "qbit get|set|clear <id>, qbit dump [active|all|filter], "
                 << "global get|set|clear <name> [value], global dump [filter], "
                 << "award get|set|clear <id>, award dump [active|all|filter], gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
             return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "time",
+        .description = "Show or advance the current game date.",
+        .usage = "time [advance [days]]",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &context)
+        {
+            constexpr float MinutesPerDay = 24.0f * 60.0f;
+
+            if (context.args.empty() || toLowerCopy(context.args[0]) == "get")
+            {
+                return commandResult(true, "Current date: " + formatDebugGameDate(m_gameSession.gameMinutes()));
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+
+            if (action != "advance" && action != "add" && action != "day")
+            {
+                return commandResult(false, "Usage: time [advance [days]]");
+            }
+
+            std::optional<int32_t> days = 1;
+
+            if (action != "day" && context.args.size() >= 2)
+            {
+                days = parseInt32Argument(context.args[1]);
+            }
+
+            if (!days || *days <= 0)
+            {
+                return commandResult(false, "Invalid day count.");
+            }
+
+            const float minutes = static_cast<float>(*days) * MinutesPerDay;
+
+            if (m_pMapSceneRuntime != nullptr)
+            {
+                if (!m_gameplayController.advanceGameMinutes(minutes))
+                {
+                    return commandResult(false, "Time advance unavailable.");
+                }
+
+                synchronizeSessionFromRuntime();
+            }
+            else
+            {
+                m_gameSession.setGameMinutes(m_gameSession.gameMinutes() + minutes);
+
+                std::optional<Party> &partyState = m_gameSession.partyState();
+
+                if (partyState)
+                {
+                    partyState->advanceTimedStates(minutes * 60.0f);
+                }
+            }
+
+            return commandResult(true, "Current date: " + formatDebugGameDate(m_gameSession.gameMinutes()));
         }});
 
     m_debugConsole.registerCommand({
@@ -3760,6 +3888,7 @@ void GameApplication::loadOrCreateSettings()
     m_config.windowWidth = m_settings.resolutionWidth;
     m_config.windowHeight = m_settings.resolutionHeight;
     m_config.windowMode = engineWindowModeForSettings(m_settings.windowMode);
+    m_config.fpsTrace = m_settings.fpsTrace;
     m_engineApplication.setConfiguration(m_config);
 }
 

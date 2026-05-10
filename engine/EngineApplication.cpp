@@ -296,6 +296,7 @@ int EngineApplication::run() const
 
     bool isRunning = true;
     uint64_t lastFrameTickCount = SDL_GetTicksNS();
+    const bool logFps = m_config.fpsTrace;
     float fpsSampleSeconds = 0.0f;
     uint32_t fpsSampleFrameCount = 0;
 
@@ -362,17 +363,20 @@ int EngineApplication::run() const
 
         bgfx::frame();
 
-        fpsSampleSeconds += deltaSeconds;
-        ++fpsSampleFrameCount;
-
-        if (fpsSampleSeconds >= 1.0f)
+        if (logFps)
         {
-            const float averageFps = fpsSampleSeconds > 0.0f
-                ? static_cast<float>(fpsSampleFrameCount) / fpsSampleSeconds
-                : 0.0f;
-            std::cout << "Average FPS (last second): " << averageFps << '\n';
-            fpsSampleSeconds = 0.0f;
-            fpsSampleFrameCount = 0;
+            fpsSampleSeconds += deltaSeconds;
+            ++fpsSampleFrameCount;
+
+            if (fpsSampleSeconds >= 1.0f)
+            {
+                const float averageFps = fpsSampleSeconds > 0.0f
+                    ? static_cast<float>(fpsSampleFrameCount) / fpsSampleSeconds
+                    : 0.0f;
+                std::cout << "Average FPS (last second): " << averageFps << '\n';
+                fpsSampleSeconds = 0.0f;
+                fpsSampleFrameCount = 0;
+            }
         }
     }
 

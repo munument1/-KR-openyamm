@@ -26,6 +26,7 @@
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorMovementController.h"
 #include "game/indoor/IndoorPartyRuntime.h"
+#include "game/indoor/IndoorPathfindingBuilder.h"
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
 #include "game/maps/MapAssetLoader.h"
@@ -47,6 +48,7 @@
 #include <iostream>
 #include <limits>
 #include <random>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -76,6 +78,101 @@ constexpr float ActorInertiaReferenceFrameRate = 60.0f;
 constexpr float ActorStopVelocitySquared = 400.0f;
 constexpr float ActorKnockbackVelocityStep = 50.0f;
 constexpr int ActorMaxKnockbackSteps = 10;
+constexpr bool IndoorActorPathfindingEnabled = true;
+constexpr size_t IndoorActorPathNodeLimit = 8000;
+constexpr size_t IndoorActorPathPlanBudgetPerStep = 2;
+constexpr size_t IndoorActorPathWorkerCount = 2;
+constexpr double IndoorActorPathPlanIntervalSeconds = 0.1;
+constexpr float IndoorGroundPathStepLength = 40.0f;
+constexpr float IndoorGroundPathPlanningRange = 12000.0f;
+constexpr float IndoorFlyingPathPlanningRange = 6000.0f;
+constexpr double IndoorPathFailedRetrySeconds = 3.0;
+constexpr double IndoorPathDirectCheckIntervalSeconds = 0.25;
+constexpr double IndoorPathMinReplanIntervalSeconds = 1.0;
+constexpr double IndoorPathShortcutCheckIntervalSeconds = 0.5;
+constexpr float IndoorPathSpatialGridCellSize = 256.0f;
+constexpr float IndoorPathIgnoreActorCollisionMinTargetDistance = 768.0f;
+constexpr float IndoorPathFacingDeadZoneRadians = Pi / 48.0f;
+constexpr float IndoorPathFacingMaxStepRadians = Pi / 32.0f;
+
+float normalizeIndoorAngleRadians(float angle)
+{
+    while (angle <= -Pi)
+    {
+        angle += Pi * 2.0f;
+    }
+
+    while (angle > Pi)
+    {
+        angle -= Pi * 2.0f;
+    }
+
+    return angle;
+}
+
+float advanceIndoorYawRadians(float currentYawRadians, float targetYawRadians)
+{
+    const float delta = normalizeIndoorAngleRadians(targetYawRadians - currentYawRadians);
+
+    if (std::abs(delta) <= IndoorPathFacingDeadZoneRadians)
+    {
+        return currentYawRadians;
+    }
+
+    const float yawStep =
+        std::clamp(delta, -IndoorPathFacingMaxStepRadians, IndoorPathFacingMaxStepRadians);
+    return normalizeIndoorAngleRadians(currentYawRadians + yawStep);
+}
+
+const char *pathPlanStatusName(PathPlanStatus status)
+{
+    switch (status)
+    {
+        case PathPlanStatus::NotRequested:
+            return "not_requested";
+        case PathPlanStatus::Success:
+            return "success";
+        case PathPlanStatus::Partial:
+            return "partial";
+        case PathPlanStatus::NoRoute:
+            return "no_route";
+        case PathPlanStatus::NodeLimitExceeded:
+            return "node_limit";
+        case PathPlanStatus::StaleRevision:
+            return "stale_revision";
+    }
+
+    return "unknown";
+}
+
+const char *pathDiscardReasonName(ActorPathDiscardReason reason)
+{
+    switch (reason)
+    {
+        case ActorPathDiscardReason::None:
+            return "none";
+        case ActorPathDiscardReason::StaleGeneration:
+            return "stale_generation";
+        case ActorPathDiscardReason::StaleTarget:
+            return "stale_target";
+        case ActorPathDiscardReason::StaleSource:
+            return "stale_source";
+    }
+
+    return "unknown";
+}
+
+float horizontalDistance(float fromX, float fromY, float toX, float toY)
+{
+    const float deltaX = toX - fromX;
+    const float deltaY = toY - fromY;
+    return std::sqrt(deltaX * deltaX + deltaY * deltaY);
+}
+
+int logIndexOrMinusOne(size_t index)
+{
+    return index == static_cast<size_t>(-1) ? -1 : static_cast<int>(index);
+}
 
 uint32_t nextInspectPreviewRandom(IndoorWorldRuntime::ActorInspectPreviewAnimationState &state)
 {
@@ -459,7 +556,7 @@ constexpr size_t MaxActiveActorUpdates = 48;
 constexpr float HostilityLongRange = 10240.0f;
 constexpr float ActorMeleeRange = 307.2f;
 constexpr float IndoorActorContactProbeRadius = 40.0f;
-constexpr float IndoorActorVsActorMovementRadius = 10.0f;
+constexpr float IndoorActorVsActorMovementRadius = 24.0f;
 constexpr float PartyCollisionRadius = 37.0f;
 constexpr float PartyCollisionHeight = 192.0f;
 constexpr uint16_t LevelDecorationVisibleOnMap = 0x0008;
@@ -3334,10 +3431,19 @@ bool IndoorWorldRuntime::executeFaceTriggeredEvent(
 
 void IndoorWorldRuntime::invalidateRuntimeGeometryCache()
 {
+    if (logIndoorPathfindingEnabled())
+    {
+        std::cout << "[IndoorPathfinding] path_map_dirty reason=runtime_geometry_invalidate"
+            << " clear_actor_paths=1\n";
+    }
+
     m_runtimeGeometryCache.valid = false;
     m_runtimeGeometryCache.vertices.clear();
     m_runtimeGeometryCache.geometryCache = IndoorFaceGeometryCache();
+    m_runtimeGeometryCache.pathMapValid = false;
+    m_runtimeGeometryCache.pathMap.clear();
     m_actorMovementController.reset();
+    m_actorPathRuntime.clear();
 }
 
 void IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache()
@@ -3364,6 +3470,14 @@ void IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache()
             m_runtimeGeometryCache.geometryCache.invalidateFace(faceId);
         }
     }
+
+    m_runtimeGeometryCache.pathMapValid = false;
+
+    if (logIndoorPathfindingEnabled())
+    {
+        std::cout << "[IndoorPathfinding] path_map_dirty reason=mechanism_refresh"
+            << " clear_actor_paths=0\n";
+    }
 }
 
 IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCache() const
@@ -3375,6 +3489,8 @@ IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCac
 
     m_runtimeGeometryCache.vertices.clear();
     m_runtimeGeometryCache.geometryCache = IndoorFaceGeometryCache();
+    m_runtimeGeometryCache.pathMapValid = false;
+    m_runtimeGeometryCache.pathMap.clear();
 
     if (m_pIndoorMapData != nullptr)
     {
@@ -3386,6 +3502,51 @@ IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCac
 
     m_runtimeGeometryCache.valid = true;
     return m_runtimeGeometryCache;
+}
+
+const PathMap *IndoorWorldRuntime::indoorPathMap() const
+{
+    if (m_pIndoorMapData == nullptr)
+    {
+        return nullptr;
+    }
+
+    RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+
+    if (!runtimeGeometry.pathMapValid)
+    {
+        IndoorPathMapBuildResult buildResult =
+            IndoorPathfindingBuilder::buildPathMap(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                mapDeltaData(),
+                &runtimeGeometry.geometryCache);
+        runtimeGeometry.pathMap = std::move(buildResult.pathMap);
+        runtimeGeometry.pathMap.buildSpatialGrid(IndoorPathSpatialGridCellSize);
+        runtimeGeometry.pathMapValid = true;
+
+        if (logIndoorPathfindingEnabled())
+        {
+            std::cout << "[IndoorPathfinding] map_build map=\"" << m_mapName
+                << "\" source_faces=" << buildResult.sourceFaceCount
+                << " path_facets=" << buildResult.pathFacetCount
+                << " skipped_faces=" << buildResult.skippedFaceCount
+                << " revision=" << runtimeGeometry.pathMap.revision()
+                << '\n';
+        }
+    }
+
+    return &runtimeGeometry.pathMap;
+}
+
+bool IndoorWorldRuntime::indoorActorPathfindingEnabled() const
+{
+    return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().indoorPathfinding;
+}
+
+bool IndoorWorldRuntime::logIndoorPathfindingEnabled() const
+{
+    return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().logIndoorPathfinding;
 }
 
 IndoorMovementController &IndoorWorldRuntime::actorMovementController()
@@ -3634,7 +3795,7 @@ void IndoorWorldRuntime::refreshActivatedIndoorSectors(bool includeVisiblePortal
             m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
 
             const std::vector<int16_t> visibleSectorIds =
-                m_pRenderer->visibleIndoorMapRevealSectorIds(moveState.sectorId, moveState.eyeSectorId);
+                m_pRenderer->visibleIndoorPortalSectorIds(moveState.sectorId, moveState.eyeSectorId);
 
             for (int16_t sectorId : visibleSectorIds)
             {
@@ -3867,6 +4028,8 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         return spellEffectsAppliedMask;
     }
 
+    m_actorPathRuntimeSeconds += ActorUpdateStepSeconds;
+    m_actorPathPlansThisStep = 0;
     IndoorMovementController &movementController = actorMovementController();
     std::vector<IndoorActorCollision> actorColliders = actorMovementCollidersForActorMovement(
         result.activeActorIndices);
@@ -4065,13 +4228,27 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
             aiState.queuedAttackAbility = *update.state.queuedAttackAbility;
         }
 
-        if (update.movementIntent.action != ActorAiMovementAction::None)
+        const bool crowdOverrideActiveBeforeMovement =
+            aiState.crowdSideLockRemainingSeconds > 0.0f
+            || aiState.crowdRetreatRemainingSeconds > 0.0f
+            || aiState.crowdStandRemainingSeconds > 0.0f;
+        const bool deferPathOwnedMovementIntent =
+            IndoorActorPathfindingEnabled
+            && indoorActorPathfindingEnabled()
+            && update.movementIntent.action == ActorAiMovementAction::Pursue
+            && update.movementIntent.meleePursuitActive
+            && update.movementIntent.applyMovement
+            && !update.movementIntent.inMeleeRange
+            && !crowdOverrideActiveBeforeMovement;
+
+        if (update.movementIntent.action != ActorAiMovementAction::None
+            && !deferPathOwnedMovementIntent)
         {
             aiState.moveDirectionX = update.movementIntent.moveDirectionX;
             aiState.moveDirectionY = update.movementIntent.moveDirectionY;
         }
 
-        if (update.movementIntent.updateYaw)
+        if (update.movementIntent.updateYaw && !deferPathOwnedMovementIntent)
         {
             aiState.yawRadians = update.movementIntent.yawRadians;
         }
@@ -5997,15 +6174,244 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     const float movementIntentSpeed =
         update.movementIntent.moveSpeed > 0.0f ? update.movementIntent.moveSpeed : effectiveMoveSpeed;
     const bool actorCanFly = pStats->canFly;
-    if (actorCanFly)
+    ActorMovementIntent movementIntent = update.movementIntent;
+    const bool actorPathfindingEnabled = IndoorActorPathfindingEnabled && indoorActorPathfindingEnabled();
+    bool actorPathPlanPending =
+        actorPathfindingEnabled && m_actorPathRuntime.actorHasPendingPlan(actorIndex);
+    bool actorPathActiveBeforeResolve =
+        actorPathfindingEnabled && m_actorPathRuntime.actorHasActivePath(actorIndex);
+    const bool crowdOverrideActive =
+        aiState.crowdSideLockRemainingSeconds > 0.0f
+        || aiState.crowdRetreatRemainingSeconds > 0.0f
+        || aiState.crowdStandRemainingSeconds > 0.0f;
+    const bool actorPathCanUseIntent =
+        movementIntent.action == ActorAiMovementAction::Pursue
+        && movementIntent.meleePursuitActive
+        && movementIntent.applyMovement
+        && !movementIntent.inMeleeRange
+        && !crowdOverrideActive;
+    ActorPathResolveResult pathResult = {};
+
+    if (!actorPathfindingEnabled)
     {
-        moveState.verticalVelocity = update.movementIntent.desiredMoveZ * movementIntentSpeed;
+        m_actorPathRuntime.setWorkerCount(0);
     }
 
-    const float desiredVelocityX = update.movementIntent.desiredMoveX * movementIntentSpeed;
-    const float desiredVelocityY = update.movementIntent.desiredMoveY * movementIntentSpeed;
+    if (actorPathfindingEnabled && !actorPathCanUseIntent && (actorPathPlanPending || actorPathActiveBeforeResolve))
+    {
+        m_actorPathRuntime.resetActor(actorIndex);
+        actorPathPlanPending = false;
+        actorPathActiveBeforeResolve = false;
+    }
+
+    if (actorPathPlanPending)
+    {
+        movementIntent.desiredMoveX = 0.0f;
+        movementIntent.desiredMoveY = 0.0f;
+        movementIntent.desiredMoveZ = 0.0f;
+        movementIntent.moveDirectionX = 0.0f;
+        movementIntent.moveDirectionY = 0.0f;
+    }
+
+    if (actorPathfindingEnabled && actorPathCanUseIntent)
+    {
+        const PathMap *pPathMap = indoorPathMap();
+
+        if (pPathMap != nullptr)
+        {
+            m_actorPathRuntime.setWorkerCount(IndoorActorPathWorkerCount);
+
+            PathObject pathObject = {};
+            pathObject.canFly = actorCanFly;
+            pathObject.radius = collisionRadius;
+            pathObject.stepLength = actorCanFly ? collisionRadius : IndoorGroundPathStepLength;
+            pathObject.stepHeight = 40.0f;
+
+            ActorPathResolveRequest pathRequest = {};
+            pathRequest.actorIndex = actorIndex;
+            pathRequest.source = {oldX, oldY, oldZ};
+            pathRequest.target = {
+                movementIntent.targetPosition.x,
+                movementIntent.targetPosition.y,
+                movementIntent.targetPosition.z
+            };
+            pathRequest.object = pathObject;
+            pathRequest.nodeLimit = IndoorActorPathNodeLimit;
+            pathRequest.mapRevision = pPathMap->revision();
+            pathRequest.planningRange =
+                actorCanFly ? IndoorFlyingPathPlanningRange : IndoorGroundPathPlanningRange;
+            pathRequest.waypointReachDistance = collisionRadius;
+            pathRequest.nowSeconds = m_actorPathRuntimeSeconds;
+            pathRequest.failedRetrySeconds = IndoorPathFailedRetrySeconds;
+            pathRequest.directCheckIntervalSeconds = IndoorPathDirectCheckIntervalSeconds;
+            pathRequest.minReplanIntervalSeconds = IndoorPathMinReplanIntervalSeconds;
+            pathRequest.shortcutCheckIntervalSeconds = IndoorPathShortcutCheckIntervalSeconds;
+            pathRequest.allowPlan =
+                movementIntent.action == ActorAiMovementAction::Pursue
+                &&
+                m_actorPathPlansThisStep < IndoorActorPathPlanBudgetPerStep
+                && m_actorPathRuntimeSeconds >= m_nextActorPathPlanSeconds;
+
+            pathResult = m_actorPathRuntime.resolveWaypoint(*pPathMap, pathRequest);
+            if (pathResult.planned || pathResult.queued)
+            {
+                ++m_actorPathPlansThisStep;
+                m_nextActorPathPlanSeconds =
+                    m_actorPathRuntimeSeconds + IndoorActorPathPlanIntervalSeconds;
+            }
+            const bool logPathfinding = logIndoorPathfindingEnabled();
+
+            if (logPathfinding && (pathResult.planned || pathResult.discarded))
+            {
+                const PathPlanDebugInfo &debug = pathResult.planDebug;
+                const auto logFacetIndex = [](size_t facetIndex) -> int
+                {
+                    return facetIndex == static_cast<size_t>(-1) ? -1 : static_cast<int>(facetIndex);
+                };
+
+                std::cout << "[IndoorPathfinding] plan actor=" << actorIndex
+                    << " actor_id=" << aiState.actorId
+                    << " status=" << pathPlanStatusName(pathResult.planStatus)
+                    << " discarded=" << (pathResult.discarded ? 1 : 0)
+                    << " discard_reason=" << pathDiscardReasonName(pathResult.discardReason)
+                    << " nodes=" << pathResult.analyzedNodeCount
+                    << " waypoints=" << pathResult.waypointCount
+                    << " waypoint_index=" << pathResult.waypointIndex
+                    << " source=(" << oldX << ',' << oldY << ',' << oldZ << ')'
+                    << " target=(" << pathRequest.target.x << ',' << pathRequest.target.y
+                    << ',' << pathRequest.target.z << ')'
+                    << " revision=" << pathRequest.mapRevision
+                    << " active=" << (pathResult.pathActive ? 1 : 0)
+                    << " plan_source=(" << debug.requestSource.x << ','
+                    << debug.requestSource.y << ',' << debug.requestSource.z << ')'
+                    << " plan_target=(" << debug.requestTarget.x << ','
+                    << debug.requestTarget.y << ',' << debug.requestTarget.z << ')'
+                    << " snapped_source=(" << debug.snappedSource.x << ','
+                    << debug.snappedSource.y << ',' << debug.snappedSource.z << ')'
+                    << " snapped_target=(" << debug.snappedTarget.x << ','
+                    << debug.snappedTarget.y << ',' << debug.snappedTarget.z << ')'
+                    << " source_valid=" << (debug.sourceValid ? 1 : 0)
+                    << " target_valid=" << (debug.targetValid ? 1 : 0)
+                    << " direct=" << (debug.directReachable ? 1 : 0)
+                    << " source_facet=" << logFacetIndex(debug.sourceFloorFacet)
+                    << " target_facet=" << logFacetIndex(debug.targetFloorFacet)
+                    << " best=(" << debug.bestPoint.x << ',' << debug.bestPoint.y
+                    << ',' << debug.bestPoint.z << ')'
+                    << " best_facet=" << logFacetIndex(debug.bestFloorFacet)
+                    << " best_dist2d=" << debug.bestDistance2d
+                    << " best_dist3d=" << debug.bestDistance3d
+                    << " candidates=" << debug.generatedCandidates
+                    << " accepted=" << debug.acceptedCandidates
+                    << " reject_no_floor=" << debug.rejectedNoFloor
+                    << " reject_step=" << debug.rejectedStepHeight
+                    << " reject_walk=" << debug.rejectedWalkSegment
+                    << " reject_fly=" << debug.rejectedFlyingInvalid
+                    << " reject_dup=" << debug.rejectedDuplicate
+                    << " reopened=" << debug.reopenedCandidates
+                    << " skipped_closed=" << debug.skippedClosedNodes
+                    << " max_step_dz=" << debug.maxRejectedStepDeltaZ
+                    << " max_step_from=(" << debug.maxStepRejectFrom.x << ','
+                    << debug.maxStepRejectFrom.y << ',' << debug.maxStepRejectFrom.z << ')'
+                    << " max_step_to=(" << debug.maxStepRejectTo.x << ','
+                    << debug.maxStepRejectTo.y << ',' << debug.maxStepRejectTo.z << ')';
+
+                if (pathResult.pathActive)
+                {
+                    std::cout << " waypoint=(" << pathResult.waypoint.x << ','
+                        << pathResult.waypoint.y << ',' << pathResult.waypoint.z << ')';
+                }
+
+                std::cout << '\n';
+            }
+
+            if (pathResult.pathActive)
+            {
+                const float waypointDeltaX = pathResult.waypoint.x - oldX;
+                const float waypointDeltaY = pathResult.waypoint.y - oldY;
+                const float waypointHorizontalDistance =
+                    std::sqrt(waypointDeltaX * waypointDeltaX + waypointDeltaY * waypointDeltaY);
+
+                if (waypointHorizontalDistance > 0.001f)
+                {
+                    movementIntent.desiredMoveX = waypointDeltaX / waypointHorizontalDistance;
+                    movementIntent.desiredMoveY = waypointDeltaY / waypointHorizontalDistance;
+                    movementIntent.moveDirectionX = movementIntent.desiredMoveX;
+                    movementIntent.moveDirectionY = movementIntent.desiredMoveY;
+                    const float targetYawRadians =
+                        std::atan2(movementIntent.desiredMoveY, movementIntent.desiredMoveX);
+                    movementIntent.yawRadians = advanceIndoorYawRadians(aiState.yawRadians, targetYawRadians);
+                    movementIntent.updateYaw = true;
+                    aiState.moveDirectionX = movementIntent.moveDirectionX;
+                    aiState.moveDirectionY = movementIntent.moveDirectionY;
+                    aiState.yawRadians = movementIntent.yawRadians;
+
+                    if (actorCanFly)
+                    {
+                        const float waypointDeltaZ = pathResult.waypoint.z - oldZ;
+                        movementIntent.desiredMoveZ =
+                            std::clamp(waypointDeltaZ / std::max(waypointHorizontalDistance, 1.0f), -1.0f, 1.0f);
+                    }
+                }
+            }
+            else if (pathResult.failed || pathResult.cooldown || pathResult.deferred || pathResult.discarded)
+            {
+                movementIntent.desiredMoveX = 0.0f;
+                movementIntent.desiredMoveY = 0.0f;
+                movementIntent.desiredMoveZ = 0.0f;
+                movementIntent.moveDirectionX = 0.0f;
+                movementIntent.moveDirectionY = 0.0f;
+            }
+        }
+    }
+
+    const bool pathConsumedMovementIntent =
+        actorPathPlanPending
+        || pathResult.pathActive
+        || pathResult.failed
+        || pathResult.cooldown
+        || pathResult.deferred
+        || pathResult.discarded;
+
+    if (actorPathCanUseIntent && !pathConsumedMovementIntent)
+    {
+        aiState.moveDirectionX = update.movementIntent.moveDirectionX;
+        aiState.moveDirectionY = update.movementIntent.moveDirectionY;
+
+        if (update.movementIntent.updateYaw)
+        {
+            aiState.yawRadians = update.movementIntent.yawRadians;
+            movementIntent.yawRadians = update.movementIntent.yawRadians;
+            movementIntent.updateYaw = true;
+        }
+    }
+
+    if (actorCanFly)
+    {
+        moveState.verticalVelocity = movementIntent.desiredMoveZ * movementIntentSpeed;
+    }
+
+    const float desiredVelocityX = movementIntent.desiredMoveX * movementIntentSpeed;
+    const float desiredVelocityY = movementIntent.desiredMoveY * movementIntentSpeed;
     std::vector<size_t> contactedActorIndices;
     IndoorMoveDebugInfo moveDebugInfo = {};
+    int16_t partyPathSectorId = -1;
+
+    if (m_pPartyRuntime != nullptr)
+    {
+        const IndoorMoveState &partyMoveState = m_pPartyRuntime->movementState();
+        partyPathSectorId = partyMoveState.eyeSectorId >= 0 ? partyMoveState.eyeSectorId : partyMoveState.sectorId;
+    }
+
+    const bool actorInPartySector =
+        partyPathSectorId >= 0
+        && (moveState.sectorId == partyPathSectorId || moveState.eyeSectorId == partyPathSectorId);
+    const float pathTargetDistance =
+        horizontalDistance(oldX, oldY, movementIntent.targetPosition.x, movementIntent.targetPosition.y);
+    const bool ignoreActorCollisionForPath =
+        pathResult.pathActive
+        && actorPathCanUseIntent
+        && !actorInPartySector
+        && pathTargetDistance >= IndoorPathIgnoreActorCollisionMinTargetDistance;
     const IndoorMoveState resolvedMoveState =
         movementController.resolveMove(
             moveState,
@@ -6018,7 +6424,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             actorIndex,
             true,
             &moveDebugInfo,
-            actorCanFly);
+            actorCanFly,
+            ignoreActorCollisionForPath);
 
     if (moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
         && moveDebugInfo.hitFaceIndex != static_cast<size_t>(-1))
@@ -6035,8 +6442,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     const float deltaX = finalMoveState.x - oldX;
     const float deltaY = finalMoveState.y - oldY;
     const bool wantedHorizontalMove =
-        std::abs(update.movementIntent.desiredMoveX) > 0.001f
-        || std::abs(update.movementIntent.desiredMoveY) > 0.001f;
+        std::abs(movementIntent.desiredMoveX) > 0.001f
+        || std::abs(movementIntent.desiredMoveY) > 0.001f;
     const bool movedHorizontally = std::abs(deltaX) > 0.001f || std::abs(deltaY) > 0.001f;
 
     aiState.preciseX = finalMoveState.x;
@@ -6102,15 +6509,15 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         }
     }
 
-    movementFacts.movement.meleePursuitActive = update.movementIntent.meleePursuitActive;
-    movementFacts.movement.inMeleeRange = update.movementIntent.inMeleeRange;
+    movementFacts.movement.meleePursuitActive = movementIntent.meleePursuitActive;
+    movementFacts.movement.inMeleeRange = movementIntent.inMeleeRange;
     movementFacts.movement.movementBlocked = wantedHorizontalMove && !movedHorizontally;
     movementFacts.movement.allowCrowdSteering = m_pGameplayActorService != nullptr;
     movementFacts.movement.crowdSteeringTriggersOnMovementBlocked = true;
     movementFacts.movement.crowdSidestepAngleRadians = Pi / 4.0f;
     movementFacts.movement.crowdRetreatAngleRadians = Pi * 0.53f;
-    movementFacts.target.currentPosition = update.movementIntent.targetPosition;
-    movementFacts.target.currentEdgeDistance = update.movementIntent.targetEdgeDistance;
+    movementFacts.target.currentPosition = movementIntent.targetPosition;
+    movementFacts.target.currentEdgeDistance = movementIntent.targetEdgeDistance;
 
     const ActorAiUpdate movementUpdate = actorAiSystem.updateActorAfterWorldMovement(movementFacts);
 

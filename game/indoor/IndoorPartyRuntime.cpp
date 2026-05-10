@@ -126,6 +126,7 @@ void IndoorPartyRuntime::update(
             true,
             nullptr,
             false,
+            false,
             jumpVelocityThisStep,
             jumpLiftThisStep);
         m_pendingJumpRequested = false;

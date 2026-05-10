@@ -793,6 +793,13 @@ void DebugConsole::renderQuickActions()
 
     ImGui::SameLine();
 
+    if (ImGui::SmallButton("Next Day"))
+    {
+        executeLine("time advance 1");
+    }
+
+    ImGui::SameLine();
+
     if (ImGui::SmallButton("Set up Breach"))
     {
         executeLine("setup breach");
@@ -1223,6 +1230,7 @@ void DebugConsole::renderHelpText() const
     ImGui::TextDisabled("Common commands");
     ImGui::BulletText("help");
     ImGui::BulletText("map");
+    ImGui::BulletText("time [advance [days]]");
     ImGui::BulletText("event <id>");
     ImGui::BulletText("qbit get|set|clear <id>");
     ImGui::BulletText("qbit dump [active|all|filter]");

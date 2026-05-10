@@ -1,10 +1,15 @@
 #include "doctest/doctest.h"
 
 #include "game/FaceEnums.h"
+#include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/maps/MapDeltaData.h"
+
+#include <filesystem>
+#include <fstream>
+#include <optional>
 
 using namespace OpenYAMM::Game;
 
@@ -149,6 +154,45 @@ const IndoorPortalVisibilityTrace *findPortalTraceWithReason(
     }
 
     return nullptr;
+}
+
+const IndoorPortalVisibilityTrace *findPortalTraceForFace(
+    const IndoorPortalVisibilityResult &result,
+    uint16_t faceId,
+    const std::string &reason)
+{
+    for (const IndoorPortalVisibilityTrace &trace : result.portalTraces)
+    {
+        if (trace.faceId == faceId && trace.reason == reason)
+        {
+            return &trace;
+        }
+    }
+
+    return nullptr;
+}
+
+std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
+{
+    std::ifstream input(path, std::ios::binary);
+
+    if (!input)
+    {
+        return {};
+    }
+
+    input.seekg(0, std::ios::end);
+    const std::streamoff size = input.tellg();
+
+    if (size <= 0)
+    {
+        return {};
+    }
+
+    std::vector<uint8_t> bytes(static_cast<size_t>(size));
+    input.seekg(0, std::ios::beg);
+    input.read(reinterpret_cast<char *>(bytes.data()), size);
+    return input ? bytes : std::vector<uint8_t>{};
 }
 }
 
@@ -559,7 +603,7 @@ TEST_CASE("indoor portal visibility does not reapply crossed entry door geometry
 
     const uint16_t entryPortalFaceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
     addPortalFace(mapData, 1, 2, 200, -35, 35, -35, 35);
-    const uint16_t entryDoorSolidFaceId = addSolidDoorFace(mapData, 150, -40, 40, -40, 40);
+    const uint16_t entryDoorSolidFaceId = addSolidDoorFace(mapData, 170, -40, 40, -40, 40);
 
     MapDeltaData mapDeltaData = {};
     mapDeltaData.doors.push_back(makeDoorBlockingFace(
@@ -638,4 +682,78 @@ TEST_CASE("indoor portal visibility allows traversal through moving mechanism do
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
     CHECK_EQ(result.visibleSectorMask[1], 1);
+}
+
+TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is open")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm8" / "maps" / "d18.blv");
+    const std::vector<uint8_t> deltaBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm8" / "_legacy" / "map_delta" / "d18.dlv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(deltaBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    const MapDeltaDataLoader mapDeltaDataLoader = {};
+    std::optional<MapDeltaData> mapDeltaData = mapDeltaDataLoader.loadIndoorFromBytes(deltaBytes, *mapData);
+    REQUIRE(mapDeltaData);
+
+    constexpr uint16_t Room3SectorId = 3;
+    constexpr uint16_t NagaRoomSectorId = 4;
+    constexpr uint16_t NagaPortalFaceId = 318;
+    constexpr uint32_t SlidingDoorId = 5;
+
+    REQUIRE_LT(NagaPortalFaceId, mapData->faces.size());
+    CHECK_EQ(mapData->faces[NagaPortalFaceId].roomNumber, NagaRoomSectorId);
+    CHECK_EQ(mapData->faces[NagaPortalFaceId].roomBehindNumber, Room3SectorId);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &*mapDeltaData);
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &mapData->vertices;
+    input.pMapDeltaData = &*mapDeltaData;
+    input.cameraPosition = {416.0f, 0.0f, 0.0f};
+    input.cameraForward = {0.0f, -1.0f, 0.0f};
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = Room3SectorId;
+
+    const IndoorPortalVisibilityResult closedResult = buildIndoorPortalVisibility(input);
+    REQUIRE_GT(closedResult.visibleSectorMask.size(), NagaRoomSectorId);
+    CHECK_EQ(closedResult.visibleSectorMask[NagaRoomSectorId], 0);
+    const IndoorPortalVisibilityTrace *pClosedTrace =
+        findPortalTraceForFace(closedResult, NagaPortalFaceId, "blocked_by_closed_door");
+    REQUIRE(pClosedTrace != nullptr);
+    REQUIRE_FALSE(pClosedTrace->blockerDoors.empty());
+    CHECK_EQ(pClosedTrace->blockerDoors[0].doorId, SlidingDoorId);
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState openDoorState = {};
+    openDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    eventRuntimeState->mechanisms[SlidingDoorId] = openDoorState;
+    input.pEventRuntimeState = &eventRuntimeState;
+
+    const IndoorPortalVisibilityResult openResult = buildIndoorPortalVisibility(input);
+    REQUIRE_GT(openResult.visibleSectorMask.size(), NagaRoomSectorId);
+    CHECK_EQ(openResult.visibleSectorMask[NagaRoomSectorId], 1);
+    const IndoorPortalVisibilityTrace *pOpenTrace =
+        findPortalTraceForFace(openResult, NagaPortalFaceId, "accepted");
+    REQUIRE(pOpenTrace != nullptr);
+    CHECK_EQ(pOpenTrace->targetSectorId, NagaRoomSectorId);
+
+    input.cameraPosition = {560.0f, 0.0f, 0.0f};
+    const IndoorPortalVisibilityResult openFromRightEdgeResult = buildIndoorPortalVisibility(input);
+    REQUIRE_GT(openFromRightEdgeResult.visibleSectorMask.size(), NagaRoomSectorId);
+    CHECK_EQ(openFromRightEdgeResult.visibleSectorMask[NagaRoomSectorId], 1);
+    const IndoorPortalVisibilityTrace *pOpenFromRightEdgeTrace =
+        findPortalTraceForFace(openFromRightEdgeResult, NagaPortalFaceId, "accepted");
+    REQUIRE(pOpenFromRightEdgeTrace != nullptr);
+    CHECK_EQ(pOpenFromRightEdgeTrace->targetSectorId, NagaRoomSectorId);
 }

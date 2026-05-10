@@ -1,0 +1,152 @@
+#include "doctest/doctest.h"
+
+#include "game/pathfinding/PathMap.h"
+
+#include <cmath>
+#include <vector>
+
+using OpenYAMM::Game::PathFacet;
+using OpenYAMM::Game::PathFacetKind;
+using OpenYAMM::Game::PathFloorSample;
+using OpenYAMM::Game::PathMap;
+using OpenYAMM::Game::PathObject;
+using OpenYAMM::Game::PathPoint;
+using OpenYAMM::Game::PathTraceResult;
+
+namespace
+{
+constexpr float TestEpsilon = 0.001f;
+
+PathFacet makeFloor(float minX, float maxX, float minY, float maxY, float z)
+{
+    PathFacet facet = {};
+    facet.kind = PathFacetKind::Floor;
+    facet.blocking = false;
+    facet.walkableFloor = true;
+    facet.vertices = {
+        {minX, minY, z},
+        {maxX, minY, z},
+        {maxX, maxY, z},
+        {minX, maxY, z}
+    };
+    return facet;
+}
+
+PathFacet makeWall(float x, float minY, float maxY, float minZ, float maxZ)
+{
+    PathFacet facet = {};
+    facet.kind = PathFacetKind::Wall;
+    facet.blocking = true;
+    facet.vertices = {
+        {x, minY, minZ},
+        {x, maxY, minZ},
+        {x, maxY, maxZ},
+        {x, minY, maxZ}
+    };
+    return facet;
+}
+}
+
+TEST_CASE("path map line trace blocks through a wall and allows a route around it")
+{
+    PathMap map;
+    map.setFacets({
+        makeWall(50.0f, -10.0f, 10.0f, 0.0f, 100.0f)
+    });
+
+    const PathTraceResult blocked = map.traceLine({0.0f, 0.0f, 50.0f}, {100.0f, 0.0f, 50.0f});
+    CHECK(blocked.blocked);
+    CHECK_EQ(blocked.facetIndex, 0u);
+    CHECK(std::fabs(blocked.point.x - 50.0f) < TestEpsilon);
+
+    const PathTraceResult clear = map.traceLine({0.0f, 30.0f, 50.0f}, {100.0f, 30.0f, 50.0f});
+    CHECK_FALSE(clear.blocked);
+}
+
+TEST_CASE("path map floor selection prefers the nearest floor below and marks floors above as void")
+{
+    PathMap map;
+    map.setFacets({
+        makeFloor(-100.0f, 100.0f, -100.0f, 100.0f, 0.0f),
+        makeFloor(-100.0f, 100.0f, -100.0f, 100.0f, 50.0f)
+    });
+
+    const PathFloorSample below = map.floorAt({0.0f, 0.0f, 30.0f});
+    REQUIRE(below.hasFloor);
+    CHECK_FALSE(below.inVoid);
+    CHECK(std::fabs(below.z - 0.0f) < TestEpsilon);
+
+    const PathFloorSample above = map.floorAt({0.0f, 0.0f, -10.0f});
+    REQUIRE(above.hasFloor);
+    CHECK(above.inVoid);
+    CHECK(std::fabs(above.z - 0.0f) < TestEpsilon);
+}
+
+TEST_CASE("path map walking rejects segments through void")
+{
+    PathMap map;
+    map.setFacets({
+        makeFloor(0.0f, 100.0f, 0.0f, 100.0f, 0.0f)
+    });
+
+    PathObject object = {};
+    object.radius = 8.0f;
+    object.stepLength = 24.0f;
+    object.stepHeight = 40.0f;
+
+    CHECK(map.traceWalkSegment({10.0f, 50.0f, 0.0f}, {90.0f, 50.0f, 0.0f}, object));
+    CHECK_FALSE(map.traceWalkSegment({10.0f, 50.0f, 0.0f}, {150.0f, 50.0f, 0.0f}, object));
+}
+
+TEST_CASE("path map walking rejects floor height deltas above the actor step height")
+{
+    PathMap map;
+    map.setFacets({
+        makeFloor(0.0f, 50.0f, 0.0f, 100.0f, 0.0f),
+        makeFloor(50.0f, 100.0f, 0.0f, 100.0f, 80.0f)
+    });
+
+    PathObject object = {};
+    object.radius = 8.0f;
+    object.stepLength = 24.0f;
+    object.stepHeight = 40.0f;
+
+    CHECK_FALSE(map.traceWalkSegment({25.0f, 50.0f, 0.0f}, {75.0f, 50.0f, 0.0f}, object));
+
+    object.stepHeight = 90.0f;
+    CHECK(map.traceWalkSegment({25.0f, 50.0f, 0.0f}, {75.0f, 50.0f, 80.0f}, object));
+}
+
+TEST_CASE("path map body-radius side trace rejects narrow wall clearance")
+{
+    PathMap map;
+    map.setFacets({
+        makeWall(50.0f, 10.0f, 20.0f, 0.0f, 100.0f)
+    });
+
+    const PathTraceResult center = map.traceLine({0.0f, 0.0f, 50.0f}, {100.0f, 0.0f, 50.0f});
+    CHECK_FALSE(center.blocked);
+
+    const PathTraceResult body = map.traceLine({0.0f, 0.0f, 50.0f}, {100.0f, 0.0f, 50.0f}, 15.0f, true);
+    CHECK(body.blocked);
+    CHECK_EQ(body.facetIndex, 0u);
+}
+
+TEST_CASE("path map spatial grid preserves floor and trace queries")
+{
+    PathMap map;
+    map.setFacets({
+        makeFloor(-100.0f, 100.0f, -100.0f, 100.0f, 0.0f),
+        makeWall(50.0f, -10.0f, 10.0f, 0.0f, 100.0f)
+    });
+    map.buildSpatialGrid(64.0f);
+
+    const PathFloorSample floor = map.floorAt({0.0f, 0.0f, 30.0f});
+    REQUIRE(floor.hasFloor);
+    CHECK_FALSE(floor.inVoid);
+    CHECK(std::fabs(floor.z - 0.0f) < TestEpsilon);
+
+    const PathTraceResult blocked = map.traceLine({0.0f, 0.0f, 50.0f}, {100.0f, 0.0f, 50.0f});
+    CHECK(blocked.blocked);
+    CHECK_EQ(blocked.facetIndex, 1u);
+}

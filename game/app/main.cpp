@@ -155,6 +155,8 @@ void applySettingsConfigOverridesIfConfigured(
     {
         config.assetScaleProfile = settings->assetScaleProfile;
     }
+
+    config.fpsTrace = settings->fpsTrace;
 }
 
 int runApplication(int argc, char **argv)

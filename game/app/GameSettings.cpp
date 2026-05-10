@@ -678,6 +678,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "features", "indoor_pathfinding"))
+    {
+        bool parsed = settings.indoorPathfinding;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.indoorPathfinding = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_visibility"))
     {
         bool parsed = settings.logIndoorVisibility;
@@ -685,6 +695,26 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         if (parseBoolValue(*value, parsed))
         {
             settings.logIndoorVisibility = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_pathfinding"))
+    {
+        bool parsed = settings.logIndoorPathfinding;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.logIndoorPathfinding = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "fps_trace"))
+    {
+        bool parsed = settings.fpsTrace;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.fpsTrace = parsed;
         }
     }
 
@@ -874,9 +904,12 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "[startup]\n"
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
         << "[features]\n"
-        << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << "\n\n"
+        << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << '\n'
+        << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << "\n\n"
         << "[logging]\n"
-        << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << "\n\n"
+        << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << '\n'
+        << "indoor_pathfinding=" << (settings.logIndoorPathfinding ? "true" : "false") << '\n'
+        << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << "\n\n"
         << "[keyboard]\n";
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())

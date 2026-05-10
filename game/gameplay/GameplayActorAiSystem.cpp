@@ -1911,7 +1911,8 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
         return result;
     }
 
-    if (actor.movement.contactedActorCount == 1 && actor.movement.hasContactedActor)
+    if (actor.movement.contactedActorCount == 1
+        && actor.movement.hasContactedActor)
     {
         const bool selfFriendly = actor.identity.hostilityType == 0;
         const bool otherFriendly = actor.movement.contactedActorHostilityType == 0;
@@ -3390,6 +3391,8 @@ bool AI_AttackOrPursue(ActorAiCommandContext &ai)
     {
         ai.setMotionState(ActorAiMotionState::Pursuing);
         ai.setAnimationState(ActorAiAnimationState::Walking);
+        ai.setMovementAction(ActorAiMovementAction::Pursue);
+        ai.setMoveDirection(actor.movement.moveDirectionX, actor.movement.moveDirectionY);
         ai.setDesiredMovement(actor.movement.moveDirectionX, actor.movement.moveDirectionY);
         applyActiveMovementCommit(actor, engagePlan.preserveCrowdSteering, ai.update());
         return true;

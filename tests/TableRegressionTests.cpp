@@ -196,6 +196,8 @@ TEST_CASE("settings debug startup options round trip")
     settings.viewDistance = "unlimited";
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
+    settings.logIndoorVisibility = true;
+    settings.fpsTrace = true;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -211,6 +213,8 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
+    CHECK(loadedSettings->logIndoorVisibility);
+    CHECK(loadedSettings->fpsTrace);
 
     std::filesystem::remove(path);
 }
@@ -235,6 +239,8 @@ TEST_CASE("settings monster bolster feature defaults off")
 
     REQUIRE(loadedSettings.has_value());
     CHECK_FALSE(loadedSettings->bolsterMonsters);
+    CHECK_FALSE(loadedSettings->logIndoorVisibility);
+    CHECK_FALSE(loadedSettings->fpsTrace);
 
     std::filesystem::remove(path);
 }

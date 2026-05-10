@@ -110,6 +110,7 @@ public:
         bool blockActorSlide = false,
         IndoorMoveDebugInfo *pDebugInfo = nullptr,
         bool flyingActive = false,
+        bool ignoreActorCollisions = false,
         float jumpVelocity = 420.0f,
         float jumpLift = 1.0f
     ) const;
@@ -324,6 +325,7 @@ private:
         const IndoorBodyDimensions &body,
         std::vector<size_t> *pContactedActorIndices,
         std::optional<size_t> ignoredActorIndex,
+        bool ignoreActorCollisions,
         bool *pHitActor
     ) const;
     std::vector<IndoorActorCollision> m_actorColliders;

@@ -1035,9 +1035,19 @@ TEST_CASE("merged house exits add direct destination actions with entrance coord
 
     const OpenYAMM::Game::EventDialogContent &dialog =
         harness.openHouseDialog(FreeHavenSewerEntranceHouseId);
-    CHECK_EQ(dialog.participantPictureId, 1567u);
+    const std::optional<size_t> residentIndex = findActionIndexByLabel(dialog, "Takao");
+    const std::optional<size_t> sewerIndex = findActionIndexByLabel(dialog, "Free Haven Sewer");
 
-    const std::optional<size_t> enterIndex = findActionIndexByLabel(dialog, "Enter");
+    REQUIRE(residentIndex.has_value());
+    CHECK_EQ(dialog.actions[*residentIndex].kind, OpenYAMM::Game::EventDialogActionKind::HouseResident);
+    REQUIRE(sewerIndex.has_value());
+    CHECK_EQ(dialog.actions[*sewerIndex].kind, OpenYAMM::Game::EventDialogActionKind::HouseExtraExit);
+    CHECK_EQ(dialog.actions[*sewerIndex].participantPictureId, 1567u);
+
+    const OpenYAMM::Game::EventDialogContent &sewerDialog = harness.executeAndPresent(*sewerIndex);
+    CHECK_EQ(sewerDialog.participantPictureId, 1567u);
+
+    const std::optional<size_t> enterIndex = findActionIndexByLabel(sewerDialog, "Enter");
     REQUIRE(enterIndex.has_value());
 
     const OpenYAMM::Game::GameplayDialogController::Result result =

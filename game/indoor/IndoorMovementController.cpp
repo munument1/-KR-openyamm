@@ -223,7 +223,11 @@ bool shouldTolerateExistingActorOverlap(
         return false;
     }
 
-    return true;
+    const float candidateDeltaX = candidateX - collider.x;
+    const float candidateDeltaY = candidateY - collider.y;
+    const float candidateDistanceSquared = candidateDeltaX * candidateDeltaX + candidateDeltaY * candidateDeltaY;
+    constexpr float SeparationProgressSlack = 1.0f;
+    return candidateDistanceSquared > currentDistanceSquared + SeparationProgressSlack;
 }
 
 std::vector<uint32_t> buildDoorStateSignature(
@@ -1076,6 +1080,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
     bool blockActorSlide,
     IndoorMoveDebugInfo *pDebugInfo,
     bool flyingActive,
+    bool ignoreActorCollisions,
     float jumpVelocity,
     float jumpLift
 ) const
@@ -1360,6 +1365,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
                 body,
                 pContactedActorIndices,
                 sweptRequest.ignoredActorIndex,
+                ignoreActorCollisions,
                 pHitActor))
         {
             return false;
@@ -1419,6 +1425,11 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
             if (sweptRequest.ignoredActorIndex.has_value()
                 && collider.actorIndex == *sweptRequest.ignoredActorIndex)
+            {
+                continue;
+            }
+
+            if (ignoreActorCollisions && collider.reportActorContact)
             {
                 continue;
             }
@@ -1790,6 +1801,44 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
             fullMoveBlockedByActor = hitActor;
             fullMoveWallCollision = wallCollision;
+
+            if (fullMoveWallCollision.hit && !fullMoveBlockedByActor)
+            {
+                const bx::Vec3 slideStep =
+                    projectIndoorVelocityAlongPlane(remainingStep, fullMoveWallCollision.normal, SlideFactor);
+
+                if (movementDistance(slideStep.x, slideStep.y, slideStep.z) > 0.0001f)
+                {
+                    IndoorMoveState slideState = {};
+
+                    if (tryResolvePosition(
+                            iterativeState.x,
+                            iterativeState.y,
+                            iterativeState.x + slideStep.x,
+                            iterativeState.y + slideStep.y,
+                            iterativeState.footZ + slideStep.z,
+                            iterativeVerticalVelocity,
+                            slideState,
+                            true,
+                            nullptr,
+                            nullptr))
+                    {
+                        if (pDebugInfo != nullptr)
+                        {
+                            pDebugInfo->fullMoveSucceeded = false;
+                            pDebugInfo->collisionResponseTried = true;
+                            pDebugInfo->collisionResponseSucceeded = true;
+                            pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::Wall;
+                            pDebugInfo->hitFaceIndex = fullMoveWallCollision.faceIndex;
+                            pDebugInfo->hitNormal = fullMoveWallCollision.normal;
+                            pDebugInfo->responseStep = slideStep;
+                        }
+
+                        return slideState;
+                    }
+                }
+            }
+
             sweptFailed = true;
             break;
         }
@@ -2305,6 +2354,7 @@ bool IndoorMovementController::collidesWithActors(
     const IndoorBodyDimensions &body,
     std::vector<size_t> *pContactedActorIndices,
     std::optional<size_t> ignoredActorIndex,
+    bool ignoreActorCollisions,
     bool *pHitActor
 ) const
 {
@@ -2319,6 +2369,11 @@ bool IndoorMovementController::collidesWithActors(
     for (const IndoorActorCollision &collider : m_actorColliders)
     {
         if (ignoredActorIndex.has_value() && collider.actorIndex == *ignoredActorIndex)
+        {
+            continue;
+        }
+
+        if (ignoreActorCollisions && collider.reportActorContact)
         {
             continue;
         }
