@@ -25,7 +25,6 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -313,11 +312,12 @@ float resolveMechanismDistance(
     const std::optional<EventRuntimeState> &eventRuntimeState
 );
 
-std::vector<uint32_t> buildDoorStateSignature(
+std::vector<uint32_t> buildDoorVisibilitySignature(
     const std::optional<MapDeltaData> &mapDeltaData,
     const std::optional<EventRuntimeState> &eventRuntimeState
 )
 {
+    constexpr float MovingDoorVisibilityDistanceStep = 8.0f;
     std::vector<uint32_t> signature;
 
     if (!mapDeltaData)
@@ -325,12 +325,45 @@ std::vector<uint32_t> buildDoorStateSignature(
         return signature;
     }
 
-    signature.reserve(mapDeltaData->doors.size() * 2);
+    signature.reserve(mapDeltaData->doors.size() * 3);
 
     for (const MapDeltaDoor &door : mapDeltaData->doors)
     {
+        uint16_t state = door.state;
+        float currentDistance = 0.0f;
+        bool moving = false;
+
+        if (eventRuntimeState)
+        {
+            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+                eventRuntimeState->mechanisms.find(door.doorId);
+
+            if (mechanismIterator != eventRuntimeState->mechanisms.end())
+            {
+                state = mechanismIterator->second.state;
+                currentDistance = mechanismIterator->second.currentDistance;
+                moving = mechanismIterator->second.isMoving;
+            }
+        }
+
+        if (!moving)
+        {
+            moving =
+                state == static_cast<uint16_t>(EvtMechanismState::Opening)
+                || state == static_cast<uint16_t>(EvtMechanismState::Closing);
+        }
+
+        if (moving && currentDistance == 0.0f)
+        {
+            currentDistance = resolveMechanismDistance(door, eventRuntimeState);
+        }
+
+        const int movingDistanceBucket =
+            moving ? static_cast<int>(std::lround(currentDistance / MovingDoorVisibilityDistanceStep)) : 0;
+
         signature.push_back(door.doorId);
-        signature.push_back(std::bit_cast<uint32_t>(resolveMechanismDistance(door, eventRuntimeState)));
+        signature.push_back(state);
+        signature.push_back(static_cast<uint32_t>(movingDistanceBucket));
     }
 
     return signature;
@@ -2081,7 +2114,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
 
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-    const std::vector<uint32_t> doorStateSignature = buildDoorStateSignature(mapDeltaData, eventRuntimeState);
+    const std::vector<uint32_t> doorStateSignature = buildDoorVisibilitySignature(mapDeltaData, eventRuntimeState);
     PortalVisibilityCache &cache = portalVisibilityCache(ignoreMechanismBlockers);
     const float aspectRatio =
         m_lastRenderHeight > 0
@@ -2747,9 +2780,13 @@ void IndoorRenderer::render(
     const std::vector<uint8_t> renderVisibleSectorMask = buildRenderVisibleSectorMask(eye);
     const std::vector<std::vector<IndoorVisibilityFrustum>> &renderVisibleSectorFrustums =
         portalVisibilityCache(false).visibleSectorFrustums;
-    logIndoorVisibilityDiagnostics(baseVisibleSectorMask, renderVisibleSectorMask, SDL_GetTicks());
     const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
-    const bool indoorMechanismsMoving = hasMovingMechanism(runtimeEventRuntimeState());
+
+    if (settings.logIndoorVisibility)
+    {
+        logIndoorVisibilityDiagnostics(baseVisibleSectorMask, renderVisibleSectorMask, SDL_GetTicks());
+    }
+
     IndoorLightingFrameInput lightingInput = {};
     lightingInput.pMapData = m_indoorMapData ? &m_indoorMapData.value() : nullptr;
     lightingInput.pEventRuntimeState = runtimeEventRuntimeState();
@@ -2885,7 +2922,7 @@ void IndoorRenderer::render(
 
         for (const TexturedBatch &batch : m_texturedBatches)
         {
-            if (!indoorMechanismsMoving && !isTexturedBatchVisible(batch, renderVisibleSectorMask))
+            if (!isTexturedBatchVisible(batch, renderVisibleSectorMask))
             {
                 continue;
             }
@@ -7386,6 +7423,7 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
 {
     const std::vector<size_t> faceIndices = collectMovingMechanismFaceIndices();
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
+    std::vector<uint8_t> dirtyBatchBounds(m_texturedBatches.size(), 0);
 
     for (size_t faceIndex : faceIndices)
     {
@@ -7450,7 +7488,7 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
         }
 
         std::copy(faceVertices.begin(), faceVertices.end(), batch.vertices.begin() + vertexOffset);
-        rebuildTexturedBatchBounds(batch);
+        dirtyBatchBounds[static_cast<size_t>(batchIndex)] = 1;
 
         const uint64_t uploadBeginTickCount = SDL_GetTicksNS();
         bgfx::update(
@@ -7459,6 +7497,14 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
             bgfx::copy(faceVertices.data(), static_cast<uint32_t>(faceVertices.size() * sizeof(TexturedVertex)))
         );
         uploadNanoseconds += SDL_GetTicksNS() - uploadBeginTickCount;
+    }
+
+    for (size_t batchIndex = 0; batchIndex < dirtyBatchBounds.size(); ++batchIndex)
+    {
+        if (dirtyBatchBounds[batchIndex] != 0)
+        {
+            rebuildTexturedBatchBounds(m_texturedBatches[batchIndex]);
+        }
     }
 
     return true;
@@ -7633,9 +7679,10 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
         return false;
     }
 
-    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-    const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
-    m_renderVertices = buildMechanismAdjustedVertices(*m_indoorMapData, mapDeltaData, eventRuntimeState);
+    if (!updateMovingMechanismRenderVertices())
+    {
+        return false;
+    }
 
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
     {
@@ -7659,6 +7706,77 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
 
     ++m_inspectGeometryRevision;
     m_cachedInspectHitValid = false;
+    return true;
+}
+
+bool IndoorRenderer::updateMovingMechanismRenderVertices()
+{
+    if (!m_indoorMapData)
+    {
+        return false;
+    }
+
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+
+    if (m_renderVertices.size() != m_indoorMapData->vertices.size())
+    {
+        m_renderVertices = buildIndoorMechanismAdjustedVertices(
+            *m_indoorMapData,
+            mapDeltaData ? &mapDeltaData.value() : nullptr,
+            pEventRuntimeState);
+        return true;
+    }
+
+    if (!mapDeltaData || pEventRuntimeState == nullptr)
+    {
+        return true;
+    }
+
+    for (const MapDeltaDoor &door : mapDeltaData->doors)
+    {
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+
+        if (mechanismIterator == pEventRuntimeState->mechanisms.end() || !mechanismIterator->second.isMoving)
+        {
+            continue;
+        }
+
+        const size_t movableVertexCount = std::min(
+            door.vertexIds.size(),
+            std::min(door.xOffsets.size(), std::min(door.yOffsets.size(), door.zOffsets.size()))
+        );
+
+        if (movableVertexCount == 0)
+        {
+            continue;
+        }
+
+        const float distance = mechanismIterator->second.currentDistance;
+        const float directionX = static_cast<float>(door.directionX) / 65536.0f;
+        const float directionY = static_cast<float>(door.directionY) / 65536.0f;
+        const float directionZ = static_cast<float>(door.directionZ) / 65536.0f;
+
+        for (size_t vertexOffsetIndex = 0; vertexOffsetIndex < movableVertexCount; ++vertexOffsetIndex)
+        {
+            const uint16_t vertexId = door.vertexIds[vertexOffsetIndex];
+
+            if (vertexId >= m_renderVertices.size())
+            {
+                continue;
+            }
+
+            IndoorVertex &vertex = m_renderVertices[vertexId];
+            vertex.x = static_cast<int>(std::lround(
+                static_cast<float>(door.xOffsets[vertexOffsetIndex]) + directionX * distance));
+            vertex.y = static_cast<int>(std::lround(
+                static_cast<float>(door.yOffsets[vertexOffsetIndex]) + directionY * distance));
+            vertex.z = static_cast<int>(std::lround(
+                static_cast<float>(door.zOffsets[vertexOffsetIndex]) + directionZ * distance));
+        }
+    }
+
     return true;
 }
 

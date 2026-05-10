@@ -678,6 +678,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_visibility"))
+    {
+        bool parsed = settings.logIndoorVisibility;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.logIndoorVisibility = parsed;
+        }
+    }
+
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
         const std::optional<std::string> value = getIniValue(document, "keyboard", std::string(definition.iniKey));
@@ -865,6 +875,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
         << "[features]\n"
         << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << "\n\n"
+        << "[logging]\n"
+        << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << "\n\n"
         << "[keyboard]\n";
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())

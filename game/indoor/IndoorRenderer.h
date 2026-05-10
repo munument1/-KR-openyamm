@@ -326,6 +326,7 @@ private:
     void destroyIndoorTextureHandles();
     bool rebuildDerivedGeometryResources();
     bool updateMovingMechanismGeometryResources();
+    bool updateMovingMechanismRenderVertices();
     bool tryActivateInspectEvent(const InspectHit &inspectHit);
     InspectHit inspectAtCursor(
         const IndoorMapData &indoorMapData,

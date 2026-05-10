@@ -95,6 +95,7 @@ struct GameSettings
 
     bool startInMainMenu = false;
     bool bolsterMonsters = false;
+    bool logIndoorVisibility = false;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;
     uint32_t partySeedRosterId = 0;
