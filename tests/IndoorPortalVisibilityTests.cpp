@@ -640,7 +640,7 @@ TEST_CASE("indoor portal visibility does not seed linked sectors when starting i
     CHECK_EQ(result.visibleSectorMask[2], 0);
 }
 
-TEST_CASE("indoor portal visibility blocks traversal through closed mechanism doors")
+TEST_CASE("indoor portal visibility traverses closed mechanism door portals")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(2);
@@ -658,39 +658,6 @@ TEST_CASE("indoor portal visibility blocks traversal through closed mechanism do
 
     IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
     input.pMapDeltaData = &mapDeltaData;
-
-    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
-
-    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
-    CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 0);
-    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
-    REQUIRE(pBlockedTrace != nullptr);
-    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
-    CHECK(pBlockedTrace->blockerDoors[0].blocks);
-}
-
-TEST_CASE("indoor portal visibility can ignore closed mechanism doors for interaction picking")
-{
-    IndoorMapData mapData = {};
-    mapData.sectors.resize(2);
-
-    const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
-    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
-
-    MapDeltaData mapDeltaData = {};
-    mapDeltaData.doors.push_back(makeDoorBlockingFace(
-        1,
-        faceId,
-        solidFaceId,
-        static_cast<uint16_t>(EvtMechanismState::Closed)
-    ));
-
-    IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
-    input.pMapDeltaData = &mapDeltaData;
-    input.ignoreMechanismBlockers = true;
 
     const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
 
@@ -699,13 +666,9 @@ TEST_CASE("indoor portal visibility can ignore closed mechanism doors for intera
     CHECK_EQ(result.visibleSectorMask[1], 1);
     const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
     REQUIRE(pAcceptedTrace != nullptr);
-    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, 1);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
-    CHECK(pAcceptedTrace->blockerDoors[0].blocks);
 }
 
-TEST_CASE("indoor portal visibility blocks traversal through unlinked closed door geometry")
+TEST_CASE("indoor portal visibility ignores unlinked closed door geometry")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(2);
@@ -731,13 +694,9 @@ TEST_CASE("indoor portal visibility blocks traversal through unlinked closed doo
 
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 0);
-    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
-    REQUIRE(pBlockedTrace != nullptr);
-    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 23);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
-    CHECK(pBlockedTrace->blockerDoors[0].blocks);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
 }
 
 TEST_CASE("indoor portal visibility does not reapply crossed entry door geometry to child portals")
@@ -804,13 +763,9 @@ TEST_CASE("indoor portal visibility allows traversal through open mechanism door
     CHECK_EQ(result.visibleSectorMask[1], 1);
     const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
     REQUIRE(pAcceptedTrace != nullptr);
-    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, 1);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
-    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
 }
 
-TEST_CASE("indoor portal visibility blocks traversal through occluding initial-state door geometry")
+TEST_CASE("indoor portal visibility traverses occluding initial-state door geometry")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(2);
@@ -833,13 +788,9 @@ TEST_CASE("indoor portal visibility blocks traversal through occluding initial-s
 
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 0);
-    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
-    REQUIRE(pBlockedTrace != nullptr);
-    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
-    CHECK(pBlockedTrace->blockerDoors[0].blocks);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
 }
 
 TEST_CASE("indoor portal visibility allows traversal through moving mechanism doors")
@@ -871,7 +822,7 @@ TEST_CASE("indoor portal visibility allows traversal through moving mechanism do
     CHECK_EQ(result.visibleSectorMask[1], 1);
 }
 
-TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is open")
+TEST_CASE("d18 naga vault portal 318 traversal is independent of sliding door state")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
     const std::vector<uint8_t> mapBytes =
@@ -918,12 +869,10 @@ TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is op
 
     const IndoorPortalVisibilityResult closedResult = buildIndoorPortalVisibility(input);
     REQUIRE_GT(closedResult.visibleSectorMask.size(), NagaRoomSectorId);
-    CHECK_EQ(closedResult.visibleSectorMask[NagaRoomSectorId], 0);
+    CHECK_EQ(closedResult.visibleSectorMask[NagaRoomSectorId], 1);
     const IndoorPortalVisibilityTrace *pClosedTrace =
-        findPortalTraceForFace(closedResult, NagaPortalFaceId, "blocked_by_closed_door");
+        findPortalTraceForFace(closedResult, NagaPortalFaceId, "accepted");
     REQUIRE(pClosedTrace != nullptr);
-    REQUIRE_FALSE(pClosedTrace->blockerDoors.empty());
-    CHECK_EQ(pClosedTrace->blockerDoors[0].doorId, SlidingDoorId);
 
     std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
 
@@ -1052,11 +1001,6 @@ TEST_CASE("6d02 portal 3201 is not blocked by edge-adjacent closed door 2")
         findPortalTraceForFace(result, PortalFaceId, "accepted");
     REQUIRE(pOpenTrace != nullptr);
     CHECK_EQ(pOpenTrace->targetSectorId, portalFace.roomBehindNumber);
-    REQUIRE_EQ(pOpenTrace->blockerDoors.size(), 2);
-    CHECK_EQ(pOpenTrace->blockerDoors[0].doorId, EdgeAdjacentDoorId);
-    CHECK_FALSE(pOpenTrace->blockerDoors[0].blocks);
-    CHECK_EQ(pOpenTrace->blockerDoors[1].doorId, OpenPortalDoorId);
-    CHECK_FALSE(pOpenTrace->blockerDoors[1].blocks);
 }
 
 TEST_CASE("6d02 portal 2665 uses sector boundary instead of thin portal marker")
@@ -1149,8 +1093,6 @@ TEST_CASE("6d02 portal 3392 from sector 47 is not blocked by adjacent state-zero
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &*mapDeltaData);
     const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
     REQUIRE(pPortalLink != nullptr);
-    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), DoorId)
-            != pPortalLink->blockingDoorIds.end());
 
     IndoorPortalVisibilityInput input = {};
     input.pMapData = &*mapData;
@@ -1178,10 +1120,6 @@ TEST_CASE("6d02 portal 3392 from sector 47 is not blocked by adjacent state-zero
     const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceForFace(result, PortalFaceId, "accepted");
     REQUIRE(pAcceptedTrace != nullptr);
     CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
-    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, DoorId);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
-    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
 }
 
 TEST_CASE("6d01 portal 116 is not blocked by unlinked closed door bounds")
@@ -1234,11 +1172,6 @@ TEST_CASE("6d01 portal 116 is not blocked by unlinked closed door bounds")
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
     const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
     REQUIRE(pPortalLink != nullptr);
-    REQUIRE(std::find(
-                pPortalLink->blockingDoorIds.begin(),
-                pPortalLink->blockingDoorIds.end(),
-                SurroundingDoorId)
-            == pPortalLink->blockingDoorIds.end());
 
     std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
     RuntimeMechanismState closedDoorState = {};
@@ -1318,10 +1251,6 @@ TEST_CASE("6d01 room 7 chest portal 1941 is visible after opening its chest door
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
     const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
     REQUIRE(pPortalLink != nullptr);
-    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), OpenedDoorId)
-            != pPortalLink->blockingDoorIds.end());
-    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), AdjacentDoorId)
-            != pPortalLink->blockingDoorIds.end());
 
     std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
     RuntimeMechanismState openedDoorState = {};
@@ -1366,14 +1295,9 @@ TEST_CASE("6d01 room 7 chest portal 1941 is visible after opening its chest door
     const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceForFace(result, PortalFaceId, "accepted");
     REQUIRE(pAcceptedTrace != nullptr);
     CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
-    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 2);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, OpenedDoorId);
-    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
-    CHECK_EQ(pAcceptedTrace->blockerDoors[1].doorId, AdjacentDoorId);
-    CHECK_FALSE(pAcceptedTrace->blockerDoors[1].blocks);
 }
 
-TEST_CASE("hive start sector 76 stays isolated by initial-state entrance door")
+TEST_CASE("hive start sector 76 portal traversal ignores entrance door endpoint naming")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
     const std::vector<uint8_t> mapBytes =
@@ -1417,9 +1341,6 @@ TEST_CASE("hive start sector 76 stays isolated by initial-state entrance door")
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
     const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, EntrancePortalFaceId);
     REQUIRE(pPortalLink != nullptr);
-    REQUIRE(
-        std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), EntranceDoorId)
-        != pPortalLink->blockingDoorIds.end());
 
     std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
     RuntimeMechanismState initialEntranceDoorState = {};
@@ -1457,16 +1378,12 @@ TEST_CASE("hive start sector 76 stays isolated by initial-state entrance door")
     REQUIRE_GT(result.visibleSectorMask.size(), StartSectorId);
     REQUIRE_GT(result.visibleSectorMask.size(), EntranceSectorId);
     CHECK_EQ(result.visibleSectorMask[StartSectorId], 1);
-    CHECK_EQ(result.visibleSectorMask[EntranceSectorId], 0);
-    const IndoorPortalVisibilityTrace *pBlockedTrace =
-        findPortalTraceForFace(result, EntrancePortalFaceId, "blocked_by_closed_door");
-    REQUIRE(pBlockedTrace != nullptr);
-    REQUIRE_EQ(pBlockedTrace->sourceSectorId, StartSectorId);
-    REQUIRE_EQ(pBlockedTrace->targetSectorId, EntranceSectorId);
-    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, EntranceDoorId);
-    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
-    CHECK(pBlockedTrace->blockerDoors[0].blocks);
+    CHECK_EQ(result.visibleSectorMask[EntranceSectorId], 1);
+    const IndoorPortalVisibilityTrace *pInitialTrace =
+        findPortalTraceForFace(result, EntrancePortalFaceId, "accepted");
+    REQUIRE(pInitialTrace != nullptr);
+    REQUIRE_EQ(pInitialTrace->sourceSectorId, StartSectorId);
+    REQUIRE_EQ(pInitialTrace->targetSectorId, EntranceSectorId);
 
     RuntimeMechanismState openedEntranceDoorState = {};
     openedEntranceDoorState.state = static_cast<uint16_t>(EvtMechanismState::Closed);
@@ -1486,8 +1403,4 @@ TEST_CASE("hive start sector 76 stays isolated by initial-state entrance door")
     REQUIRE(pOpenedTrace != nullptr);
     REQUIRE_EQ(pOpenedTrace->sourceSectorId, StartSectorId);
     REQUIRE_EQ(pOpenedTrace->targetSectorId, EntranceSectorId);
-    REQUIRE_EQ(pOpenedTrace->blockerDoors.size(), 1);
-    CHECK_EQ(pOpenedTrace->blockerDoors[0].doorId, EntranceDoorId);
-    CHECK_EQ(pOpenedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
-    CHECK_FALSE(pOpenedTrace->blockerDoors[0].blocks);
 }

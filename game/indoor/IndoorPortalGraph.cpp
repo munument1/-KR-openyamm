@@ -13,22 +13,9 @@ bool containsUInt16(const std::vector<uint16_t> &values, uint16_t value)
     return std::find(values.begin(), values.end(), value) != values.end();
 }
 
-bool containsUInt32(const std::vector<uint32_t> &values, uint32_t value)
-{
-    return std::find(values.begin(), values.end(), value) != values.end();
-}
-
 void appendUniqueUInt16(std::vector<uint16_t> &values, uint16_t value)
 {
     if (!containsUInt16(values, value))
-    {
-        values.push_back(value);
-    }
-}
-
-void appendUniqueUInt32(std::vector<uint32_t> &values, uint32_t value)
-{
-    if (!containsUInt32(values, value))
     {
         values.push_back(value);
     }
@@ -97,33 +84,6 @@ void attachPortalToSector(
     appendUniqueUInt16(sector.connectedSectorIds, connectedSectorId);
 }
 
-void attachDirectDoorBlockers(IndoorPortalGraph &graph, const MapDeltaData *pMapDeltaData)
-{
-    if (pMapDeltaData == nullptr)
-    {
-        return;
-    }
-
-    for (const MapDeltaDoor &door : pMapDeltaData->doors)
-    {
-        for (uint16_t faceId : door.faceIds)
-        {
-            if (faceId >= graph.linkIdByFaceId.size())
-            {
-                continue;
-            }
-
-            const int16_t linkId = graph.linkIdByFaceId[faceId];
-
-            if (linkId < 0 || static_cast<size_t>(linkId) >= graph.portals.size())
-            {
-                continue;
-            }
-
-            appendUniqueUInt32(graph.portals[static_cast<size_t>(linkId)].blockingDoorIds, door.doorId);
-        }
-    }
-}
 }
 
 IndoorPortalGraph buildIndoorPortalGraph(const IndoorMapData &mapData, const MapDeltaData *pMapDeltaData)
@@ -250,7 +210,6 @@ IndoorPortalGraph buildIndoorPortalGraph(const IndoorMapData &mapData, const Map
         }
     }
 
-    attachDirectDoorBlockers(graph, pMapDeltaData);
     return graph;
 }
 

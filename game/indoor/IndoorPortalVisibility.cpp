@@ -1,7 +1,6 @@
 #include "game/indoor/IndoorPortalVisibility.h"
 
 #include "game/events/EventRuntime.h"
-#include "game/events/EvtEnums.h"
 #include "game/FaceEnums.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorPortalGraph.h"
@@ -9,8 +8,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
-#include <unordered_map>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -20,14 +17,6 @@ namespace
 constexpr float VisibilityEpsilon = 0.001f;
 constexpr float FrustumClipEpsilon = 5.0f;
 constexpr float NearPortalSlack = 128.0f;
-constexpr float DoorPortalBlockerBoundsSlack = 32.0f;
-
-struct VisibilityBounds
-{
-    bx::Vec3 min = {0.0f, 0.0f, 0.0f};
-    bx::Vec3 max = {0.0f, 0.0f, 0.0f};
-    bool hasPoint = false;
-};
 
 float dotVec(const bx::Vec3 &left, const bx::Vec3 &right)
 {
@@ -73,36 +62,6 @@ bx::Vec3 normalizeVec(const bx::Vec3 &value)
     }
 
     return scaleVec(value, 1.0f / length);
-}
-
-void includeBoundsPoint(VisibilityBounds &bounds, const bx::Vec3 &point)
-{
-    if (!bounds.hasPoint)
-    {
-        bounds.min = point;
-        bounds.max = point;
-        bounds.hasPoint = true;
-        return;
-    }
-
-    bounds.min.x = std::min(bounds.min.x, point.x);
-    bounds.min.y = std::min(bounds.min.y, point.y);
-    bounds.min.z = std::min(bounds.min.z, point.z);
-    bounds.max.x = std::max(bounds.max.x, point.x);
-    bounds.max.y = std::max(bounds.max.y, point.y);
-    bounds.max.z = std::max(bounds.max.z, point.z);
-}
-
-bool boundsOverlapWithSlack(const VisibilityBounds &left, const VisibilityBounds &right, float slack)
-{
-    return left.hasPoint
-        && right.hasPoint
-        && left.max.x + slack >= right.min.x
-        && left.min.x - slack <= right.max.x
-        && left.max.y + slack >= right.min.y
-        && left.min.y - slack <= right.max.y
-        && left.max.z + slack >= right.min.z
-        && left.min.z - slack <= right.max.z;
 }
 
 uint32_t effectiveFaceAttributes(
@@ -280,573 +239,6 @@ bool indoorPortalFaceVisible(
     return pEventRuntimeState == nullptr
         || !pEventRuntimeState->has_value()
         || !(*pEventRuntimeState)->hasFacetInvisibleOverride(static_cast<uint32_t>(faceIndex));
-}
-
-uint16_t resolveMechanismState(
-    const MapDeltaDoor &door,
-    const std::optional<EventRuntimeState> *pEventRuntimeState
-)
-{
-    if (pEventRuntimeState == nullptr || !pEventRuntimeState->has_value())
-    {
-        return door.state;
-    }
-
-    const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
-        (*pEventRuntimeState)->mechanisms.find(door.doorId);
-
-    if (mechanismIterator == (*pEventRuntimeState)->mechanisms.end())
-    {
-        return door.state;
-    }
-
-    return mechanismIterator->second.state;
-}
-
-bool segmentIntersectsTriangle(
-    const bx::Vec3 &origin,
-    const bx::Vec3 &target,
-    const bx::Vec3 &a,
-    const bx::Vec3 &b,
-    const bx::Vec3 &c)
-{
-    const bx::Vec3 direction = subtractVec(target, origin);
-    const bx::Vec3 edgeAB = subtractVec(b, a);
-    const bx::Vec3 edgeAC = subtractVec(c, a);
-    const bx::Vec3 pVector = crossVec(direction, edgeAC);
-    const float determinant = dotVec(edgeAB, pVector);
-
-    if (std::fabs(determinant) <= VisibilityEpsilon)
-    {
-        return false;
-    }
-
-    const float inverseDeterminant = 1.0f / determinant;
-    const bx::Vec3 tVector = subtractVec(origin, a);
-    const float u = dotVec(tVector, pVector) * inverseDeterminant;
-
-    if (u < -VisibilityEpsilon || u > 1.0f + VisibilityEpsilon)
-    {
-        return false;
-    }
-
-    const bx::Vec3 qVector = crossVec(tVector, edgeAB);
-    const float v = dotVec(direction, qVector) * inverseDeterminant;
-
-    if (v < -VisibilityEpsilon || u + v > 1.0f + VisibilityEpsilon)
-    {
-        return false;
-    }
-
-    const float t = dotVec(edgeAC, qVector) * inverseDeterminant;
-    return t > VisibilityEpsilon && t < 0.995f;
-}
-
-bool segmentIntersectsFace(
-    const IndoorMapData &mapData,
-    const std::vector<IndoorVertex> &vertices,
-    uint16_t faceId,
-    const bx::Vec3 &origin,
-    const bx::Vec3 &target)
-{
-    if (faceId >= mapData.faces.size())
-    {
-        return false;
-    }
-
-    const IndoorFace &face = mapData.faces[faceId];
-
-    if (face.vertexIndices.size() < 3)
-    {
-        return false;
-    }
-
-    const uint16_t firstVertexId = face.vertexIndices[0];
-
-    if (firstVertexId >= vertices.size())
-    {
-        return false;
-    }
-
-    const IndoorVertex &firstVertex = vertices[firstVertexId];
-    const bx::Vec3 a = {
-        static_cast<float>(firstVertex.x),
-        static_cast<float>(firstVertex.y),
-        static_cast<float>(firstVertex.z)
-    };
-
-    for (size_t vertexOffset = 1; vertexOffset + 1 < face.vertexIndices.size(); ++vertexOffset)
-    {
-        const uint16_t vertexIdB = face.vertexIndices[vertexOffset];
-        const uint16_t vertexIdC = face.vertexIndices[vertexOffset + 1];
-
-        if (vertexIdB >= vertices.size() || vertexIdC >= vertices.size())
-        {
-            continue;
-        }
-
-        const IndoorVertex &vertexB = vertices[vertexIdB];
-        const IndoorVertex &vertexC = vertices[vertexIdC];
-        const bx::Vec3 b = {
-            static_cast<float>(vertexB.x),
-            static_cast<float>(vertexB.y),
-            static_cast<float>(vertexB.z)
-        };
-        const bx::Vec3 c = {
-            static_cast<float>(vertexC.x),
-            static_cast<float>(vertexC.y),
-            static_cast<float>(vertexC.z)
-        };
-
-        if (segmentIntersectsTriangle(origin, target, a, b, c))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool indoorFaceIsPortalAperture(const IndoorMapData &mapData, uint16_t faceId)
-{
-    if (faceId >= mapData.faces.size())
-    {
-        return false;
-    }
-
-    const IndoorFace &face = mapData.faces[faceId];
-    return face.isPortal || hasFaceAttribute(face.attributes, FaceAttribute::IsPortal);
-}
-
-bool closedDoorOccludesPortal(
-    const IndoorMapData &mapData,
-    const std::vector<IndoorVertex> &vertices,
-    const MapDeltaDoor &door,
-    uint16_t portalFaceId,
-    const bx::Vec3 &cameraPosition,
-    const std::vector<bx::Vec3> &visiblePortalPolygon)
-{
-    if (visiblePortalPolygon.empty())
-    {
-        return false;
-    }
-
-    std::vector<bx::Vec3> portalSamples = visiblePortalPolygon;
-    bx::Vec3 portalCenter = {0.0f, 0.0f, 0.0f};
-
-    for (const bx::Vec3 &point : visiblePortalPolygon)
-    {
-        portalCenter = addVec(portalCenter, point);
-    }
-
-    portalCenter = scaleVec(portalCenter, 1.0f / static_cast<float>(visiblePortalPolygon.size()));
-    portalSamples.push_back(portalCenter);
-    std::vector<uint8_t> blockedSamples(portalSamples.size(), 0);
-
-    for (uint16_t doorFaceId : door.faceIds)
-    {
-        if (doorFaceId == portalFaceId || indoorFaceIsPortalAperture(mapData, doorFaceId))
-        {
-            continue;
-        }
-
-        for (size_t sampleIndex = 0; sampleIndex < portalSamples.size(); ++sampleIndex)
-        {
-            if (blockedSamples[sampleIndex] != 0)
-            {
-                continue;
-            }
-
-            if (segmentIntersectsFace(mapData, vertices, doorFaceId, cameraPosition, portalSamples[sampleIndex]))
-            {
-                blockedSamples[sampleIndex] = 1;
-            }
-        }
-    }
-
-    return std::all_of(
-        blockedSamples.begin(),
-        blockedSamples.end(),
-        [](uint8_t blocked)
-        {
-            return blocked != 0;
-        });
-}
-
-bool closedDoorBoundsOverlapPortal(
-    const VisibilityBounds &doorBounds,
-    const std::vector<bx::Vec3> &visiblePortalPolygon
-)
-{
-    VisibilityBounds portalBounds = {};
-
-    for (const bx::Vec3 &point : visiblePortalPolygon)
-    {
-        includeBoundsPoint(portalBounds, point);
-    }
-
-    if (!doorBounds.hasPoint || !portalBounds.hasPoint)
-    {
-        return false;
-    }
-
-    if (!boundsOverlapWithSlack(doorBounds, portalBounds, DoorPortalBlockerBoundsSlack))
-    {
-        return false;
-    }
-
-    const auto axisHasOnlySlackOverlap =
-        [](float doorMin, float doorMax, float portalMin, float portalMax)
-    {
-        const float portalSpan = portalMax - portalMin;
-
-        if (portalSpan <= VisibilityEpsilon || portalSpan > DoorPortalBlockerBoundsSlack)
-        {
-            return false;
-        }
-
-        const float exactOverlap = std::min(doorMax, portalMax) - std::max(doorMin, portalMin);
-        return exactOverlap <= VisibilityEpsilon;
-    };
-
-    return !axisHasOnlySlackOverlap(doorBounds.min.x, doorBounds.max.x, portalBounds.min.x, portalBounds.max.x)
-        && !axisHasOnlySlackOverlap(doorBounds.min.y, doorBounds.max.y, portalBounds.min.y, portalBounds.max.y)
-        && !axisHasOnlySlackOverlap(doorBounds.min.z, doorBounds.max.z, portalBounds.min.z, portalBounds.max.z);
-}
-
-bool doorBoundsProjectOntoPortal(
-    const VisibilityBounds &doorBounds,
-    const std::vector<bx::Vec3> &visiblePortalPolygon,
-    bool allowThinEdgeContact
-)
-{
-    VisibilityBounds portalBounds = {};
-
-    for (const bx::Vec3 &point : visiblePortalPolygon)
-    {
-        includeBoundsPoint(portalBounds, point);
-    }
-
-    if (!doorBounds.hasPoint || !portalBounds.hasPoint)
-    {
-        return false;
-    }
-
-    const auto axisProjects =
-        [allowThinEdgeContact](float doorMin, float doorMax, float portalMin, float portalMax)
-    {
-        const float portalSpan = portalMax - portalMin;
-
-        if (portalSpan <= VisibilityEpsilon)
-        {
-            const float exactOverlap = std::min(doorMax, portalMax) - std::max(doorMin, portalMin);
-            return allowThinEdgeContact ? exactOverlap >= -VisibilityEpsilon : exactOverlap > VisibilityEpsilon;
-        }
-
-        if (doorMax + DoorPortalBlockerBoundsSlack < portalMin
-            || doorMin - DoorPortalBlockerBoundsSlack > portalMax)
-        {
-            return false;
-        }
-
-        if (portalSpan <= DoorPortalBlockerBoundsSlack)
-        {
-            const float exactOverlap = std::min(doorMax, portalMax) - std::max(doorMin, portalMin);
-            return allowThinEdgeContact ? exactOverlap >= -VisibilityEpsilon : exactOverlap > VisibilityEpsilon;
-        }
-
-        return true;
-    };
-
-    return axisProjects(doorBounds.min.x, doorBounds.max.x, portalBounds.min.x, portalBounds.max.x)
-        && axisProjects(doorBounds.min.y, doorBounds.max.y, portalBounds.min.y, portalBounds.max.y)
-        && axisProjects(doorBounds.min.z, doorBounds.max.z, portalBounds.min.z, portalBounds.max.z);
-}
-
-bool doorBoundsNearPortal(
-    const VisibilityBounds &doorBounds,
-    const std::vector<bx::Vec3> &visiblePortalPolygon
-)
-{
-    VisibilityBounds portalBounds = {};
-
-    for (const bx::Vec3 &point : visiblePortalPolygon)
-    {
-        includeBoundsPoint(portalBounds, point);
-    }
-
-    return doorBounds.hasPoint
-        && portalBounds.hasPoint
-        && boundsOverlapWithSlack(doorBounds, portalBounds, DoorPortalBlockerBoundsSlack);
-}
-
-bool doorBoundsBetweenCameraAndPortal(
-    const VisibilityBounds &doorBounds,
-    const bx::Vec3 &cameraPosition,
-    const std::vector<bx::Vec3> &visiblePortalPolygon
-)
-{
-    if (!doorBounds.hasPoint || visiblePortalPolygon.empty())
-    {
-        return false;
-    }
-
-    bx::Vec3 portalCenter = {0.0f, 0.0f, 0.0f};
-
-    for (const bx::Vec3 &point : visiblePortalPolygon)
-    {
-        portalCenter = addVec(portalCenter, point);
-    }
-
-    portalCenter = scaleVec(portalCenter, 1.0f / static_cast<float>(visiblePortalPolygon.size()));
-
-    const bx::Vec3 doorCenter = {
-        (doorBounds.min.x + doorBounds.max.x) * 0.5f,
-        (doorBounds.min.y + doorBounds.max.y) * 0.5f,
-        (doorBounds.min.z + doorBounds.max.z) * 0.5f
-    };
-    const bx::Vec3 cameraToPortal = subtractVec(portalCenter, cameraPosition);
-    const bx::Vec3 cameraToDoor = subtractVec(doorCenter, cameraPosition);
-    const float portalDistanceSquared = dotVec(cameraToPortal, cameraToPortal);
-
-    if (portalDistanceSquared <= VisibilityEpsilon)
-    {
-        return true;
-    }
-
-    const float normalizedDoorDistance = dotVec(cameraToDoor, cameraToPortal) / portalDistanceSquared;
-    return normalizedDoorDistance >= -VisibilityEpsilon && normalizedDoorDistance <= 1.0f + VisibilityEpsilon;
-}
-
-std::vector<VisibilityBounds> buildDoorGeometryBounds(
-    const IndoorMapData &mapData,
-    const std::vector<IndoorVertex> &vertices,
-    const MapDeltaData *pMapDeltaData)
-{
-    std::vector<VisibilityBounds> doorBounds;
-
-    if (pMapDeltaData == nullptr)
-    {
-        return doorBounds;
-    }
-
-    doorBounds.resize(pMapDeltaData->doors.size());
-
-    for (size_t doorIndex = 0; doorIndex < pMapDeltaData->doors.size(); ++doorIndex)
-    {
-        const MapDeltaDoor &door = pMapDeltaData->doors[doorIndex];
-        VisibilityBounds &bounds = doorBounds[doorIndex];
-
-        for (uint16_t faceId : door.faceIds)
-        {
-            if (faceId >= mapData.faces.size())
-            {
-                continue;
-            }
-
-            const IndoorFace &face = mapData.faces[faceId];
-
-            if (face.isPortal
-                || hasFaceAttribute(effectiveFaceAttributes(face, faceId, pMapDeltaData), FaceAttribute::IsPortal))
-            {
-                continue;
-            }
-
-            for (uint16_t vertexId : face.vertexIndices)
-            {
-                if (vertexId >= vertices.size())
-                {
-                    continue;
-                }
-
-                const IndoorVertex &vertex = vertices[vertexId];
-                includeBoundsPoint(
-                    bounds,
-                    {
-                        static_cast<float>(vertex.x),
-                        static_cast<float>(vertex.y),
-                        static_cast<float>(vertex.z)
-                    });
-            }
-        }
-
-        if (bounds.hasPoint)
-        {
-            continue;
-        }
-
-        for (uint16_t vertexId : door.vertexIds)
-        {
-            if (vertexId >= vertices.size())
-            {
-                continue;
-            }
-
-            const IndoorVertex &vertex = vertices[vertexId];
-            includeBoundsPoint(
-                bounds,
-                {
-                    static_cast<float>(vertex.x),
-                    static_cast<float>(vertex.y),
-                    static_cast<float>(vertex.z)
-                });
-        }
-    }
-
-    return doorBounds;
-}
-
-bool containsDoorId(const std::vector<uint32_t> &doorIds, uint32_t doorId)
-{
-    return std::find(doorIds.begin(), doorIds.end(), doorId) != doorIds.end();
-}
-
-bool containsSectorId(const std::vector<uint16_t> &sectorIds, uint16_t sectorId)
-{
-    return std::find(sectorIds.begin(), sectorIds.end(), sectorId) != sectorIds.end();
-}
-
-void appendUniqueDoorId(std::vector<uint32_t> &doorIds, uint32_t doorId)
-{
-    if (!containsDoorId(doorIds, doorId))
-    {
-        doorIds.push_back(doorId);
-    }
-}
-
-std::vector<IndoorPortalVisibilityDoorTrace> collectPortalBlockerDoorTraces(
-    const IndoorPortalLink &portalLink,
-    const IndoorMapData &mapData,
-    const std::vector<IndoorVertex> &vertices,
-    const std::vector<IndoorVertex> &baseDoorVertices,
-    const MapDeltaData *pMapDeltaData,
-    const std::vector<VisibilityBounds> &doorGeometryBounds,
-    const std::vector<VisibilityBounds> &baseDoorGeometryBounds,
-    const std::optional<EventRuntimeState> *pEventRuntimeState,
-    const bx::Vec3 &cameraPosition,
-    const std::vector<bx::Vec3> &visiblePortalPolygon,
-    const std::vector<uint32_t> &crossedDoorIds
-)
-{
-    if (pMapDeltaData == nullptr)
-    {
-        return {};
-    }
-
-    std::vector<IndoorPortalVisibilityDoorTrace> blockerDoorTraces;
-
-    for (size_t doorIndex = 0; doorIndex < pMapDeltaData->doors.size(); ++doorIndex)
-    {
-        const MapDeltaDoor &door = pMapDeltaData->doors[doorIndex];
-
-        if (containsDoorId(crossedDoorIds, door.doorId))
-        {
-            continue;
-        }
-
-        const bool linked =
-            std::find(portalLink.blockingDoorIds.begin(), portalLink.blockingDoorIds.end(), door.doorId)
-                != portalLink.blockingDoorIds.end();
-        const uint16_t state = resolveMechanismState(door, pEventRuntimeState);
-        bool hasRuntimeMechanismState = false;
-        bool runtimeMechanismIsMoving = false;
-
-        if (pEventRuntimeState != nullptr && pEventRuntimeState->has_value())
-        {
-            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator runtimeMechanismIterator =
-                (*pEventRuntimeState)->mechanisms.find(door.doorId);
-
-            if (runtimeMechanismIterator != (*pEventRuntimeState)->mechanisms.end())
-            {
-                hasRuntimeMechanismState = true;
-                runtimeMechanismIsMoving = runtimeMechanismIterator->second.isMoving;
-            }
-        }
-        const std::vector<IndoorVertex> &blockerVertices =
-            hasRuntimeMechanismState ? vertices : baseDoorVertices;
-        const std::vector<VisibilityBounds> &blockerBounds =
-            hasRuntimeMechanismState ? doorGeometryBounds : baseDoorGeometryBounds;
-        const bool hasDoorBounds =
-            doorIndex < blockerBounds.size() && blockerBounds[doorIndex].hasPoint;
-        const bool boundsBlock =
-            hasDoorBounds
-            && closedDoorBoundsOverlapPortal(
-                blockerBounds[doorIndex],
-                visiblePortalPolygon);
-        const bool projectedBoundsBlock =
-            hasDoorBounds
-            && doorBoundsProjectOntoPortal(
-                blockerBounds[doorIndex],
-                visiblePortalPolygon,
-                linked);
-        const bool boundsBetweenPortal =
-            hasDoorBounds
-            && doorBoundsBetweenCameraAndPortal(
-                blockerBounds[doorIndex],
-                cameraPosition,
-                visiblePortalPolygon);
-        const bool rayCandidate =
-            !hasDoorBounds
-            || doorBoundsNearPortal(blockerBounds[doorIndex], visiblePortalPolygon)
-            || boundsBetweenPortal;
-        const bool rayBlock =
-            rayCandidate
-            && closedDoorOccludesPortal(
-                mapData,
-                blockerVertices,
-                door,
-                portalLink.faceId,
-                cameraPosition,
-                visiblePortalPolygon);
-        const bool unlinkedBoundsBlock = boundsBlock && door.sectorIds.empty();
-        const bool boundsBetweenPortalBlock = boundsBlock && boundsBetweenPortal;
-        const bool initialOpenLinkedProjectionBlock =
-            linked
-            && door.sectorIds.size() == 2
-            && containsSectorId(door.sectorIds, portalLink.sectorA)
-            && containsSectorId(door.sectorIds, portalLink.sectorB)
-            && state == static_cast<uint16_t>(EvtMechanismState::Open)
-            && projectedBoundsBlock;
-        const bool runtimeFullyOpenFromNonInitialOpenState =
-            hasRuntimeMechanismState
-            && door.state != static_cast<uint16_t>(EvtMechanismState::Open)
-            && state == static_cast<uint16_t>(EvtMechanismState::Open);
-        const bool runtimeDoorMoving =
-            hasRuntimeMechanismState
-            && (runtimeMechanismIsMoving
-                || state == static_cast<uint16_t>(EvtMechanismState::Opening)
-                || state == static_cast<uint16_t>(EvtMechanismState::Closing));
-        const bool geometryBlocks =
-            !runtimeDoorMoving
-            && !runtimeFullyOpenFromNonInitialOpenState
-            && (rayBlock
-                || initialOpenLinkedProjectionBlock
-                || (!linked && unlinkedBoundsBlock && boundsBetweenPortalBlock));
-
-        if (!linked && !geometryBlocks)
-        {
-            continue;
-        }
-
-        blockerDoorTraces.push_back({
-            .doorId = door.doorId,
-            .state = state,
-            .blocks = geometryBlocks,
-        });
-    }
-
-    return blockerDoorTraces;
-}
-
-bool hasBlockingClosedDoor(const std::vector<IndoorPortalVisibilityDoorTrace> &blockerDoorTraces)
-{
-    return std::any_of(
-        blockerDoorTraces.begin(),
-        blockerDoorTraces.end(),
-        [](const IndoorPortalVisibilityDoorTrace &trace)
-        {
-            return trace.blocks;
-        });
 }
 
 bool hasAncestorSector(
@@ -1102,8 +494,7 @@ void appendPortalTrace(
     uint16_t portalLinkId,
     uint16_t depth,
     bool accepted,
-    const std::string &reason,
-    std::vector<IndoorPortalVisibilityDoorTrace> blockerDoors = {})
+    const std::string &reason)
 {
     result.portalTraces.push_back({
         .sourceSectorId = sourceSectorId,
@@ -1113,7 +504,6 @@ void appendPortalTrace(
         .depth = depth,
         .accepted = accepted,
         .reason = reason,
-        .blockerDoors = std::move(blockerDoors),
     });
 }
 }
@@ -1131,9 +521,8 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
     }
 
     const IndoorMapData &mapData = *input.pMapData;
-    const std::vector<IndoorVertex> &vertices = *input.pVertices;
     const std::vector<IndoorVertex> &portalVertices =
-        input.pPortalVertices != nullptr ? *input.pPortalVertices : vertices;
+        input.pPortalVertices != nullptr ? *input.pPortalVertices : *input.pVertices;
     IndoorPortalGraph localPortalGraph = {};
     const IndoorPortalGraph *pPortalGraph = input.pPortalGraph;
 
@@ -1153,13 +542,6 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
     appendRootVisibilityNode(result, input.startSectorId, rootFrustumPlanes);
 
     IndoorFaceGeometryCache geometryCache(mapData.faces.size());
-    const std::vector<VisibilityBounds> doorGeometryBounds =
-        buildDoorGeometryBounds(mapData, vertices, input.pMapDeltaData);
-    const bool portalVerticesAreAdjustedVertices = &portalVertices == &vertices;
-    const std::vector<VisibilityBounds> baseDoorGeometryBounds =
-        portalVerticesAreAdjustedVertices
-            ? doorGeometryBounds
-            : buildDoorGeometryBounds(mapData, portalVertices, input.pMapDeltaData);
 
     for (size_t nodeIndex = 0; nodeIndex < result.nodes.size(); ++nodeIndex)
     {
@@ -1365,13 +747,6 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 continue;
             }
 
-            const std::vector<bx::Vec3> clippedBlockerPortal =
-                nearPortal
-                ? pGeometry->vertices
-                : clipPolygonToFrustum(pGeometry->vertices, currentNode.frustumPlanes);
-            const std::vector<bx::Vec3> &blockerPortal =
-                clippedBlockerPortal.size() >= 3 ? clippedBlockerPortal : pGeometry->vertices;
-
             std::vector<IndoorVisibilityPlane> childFrustumPlanes;
             if (std::fabs(pGeometry->normal.z) > 0.999f || nearPortal)
             {
@@ -1398,49 +773,12 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 continue;
             }
 
-            std::vector<IndoorPortalVisibilityDoorTrace> blockerDoorTraces =
-                collectPortalBlockerDoorTraces(
-                    portalLink,
-                    mapData,
-                    vertices,
-                    portalVertices,
-                    input.pMapDeltaData,
-                    doorGeometryBounds,
-                    baseDoorGeometryBounds,
-                    input.pEventRuntimeState,
-                    input.cameraPosition,
-                    blockerPortal,
-                    currentNode.crossedDoorIds);
-
-            if (!input.ignoreMechanismBlockers && hasBlockingClosedDoor(blockerDoorTraces))
-            {
-                ++result.rejectedPortalCount;
-                ++result.blockedPortalCount;
-                appendPortalTrace(
-                    result,
-                    currentNode.sectorId,
-                    connectedSectorId,
-                    faceId,
-                    portalLinkId,
-                    currentNode.depth,
-                    false,
-                    "blocked_by_closed_door",
-                    std::move(blockerDoorTraces));
-                continue;
-            }
-
             IndoorVisibilityNode childNode = {};
             childNode.sectorId = connectedSectorId;
             childNode.parentNodeIndex = static_cast<int16_t>(nodeIndex);
             childNode.entryPortalFaceId = static_cast<int16_t>(faceId);
             childNode.depth = static_cast<uint16_t>(currentNode.depth + 1);
             childNode.frustumPlanes = std::move(childFrustumPlanes);
-            childNode.crossedDoorIds = currentNode.crossedDoorIds;
-
-            for (uint32_t doorId : portalLink.blockingDoorIds)
-            {
-                appendUniqueDoorId(childNode.crossedDoorIds, doorId);
-            }
 
             const uint16_t childNodeIndex = static_cast<uint16_t>(result.nodes.size());
             result.nodes.push_back(std::move(childNode));
@@ -1456,8 +794,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 portalLinkId,
                 currentNode.depth,
                 true,
-                "accepted",
-                std::move(blockerDoorTraces));
+                "accepted");
             ++result.acceptedPortalCount;
         }
     }

@@ -75,7 +75,6 @@ constexpr float TicksPerSecond = 128.0f;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 constexpr float ActorUpdateStepSeconds = 1.0f / 128.0f;
 constexpr float MaxAccumulatedActorUpdateSeconds = 0.1f;
-constexpr float VisiblePortalSectorActivationIntervalSeconds = 0.1f;
 constexpr float ProjectileUpdateStepSeconds = 1.0f / 60.0f;
 constexpr int MaxProjectileUpdateStepsPerFrame = 4;
 constexpr float MaxAccumulatedProjectileUpdateSeconds =
@@ -3227,7 +3226,6 @@ void IndoorWorldRuntime::initialize(
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
-    m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
@@ -3237,7 +3235,7 @@ void IndoorWorldRuntime::initialize(
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
-    refreshActivatedIndoorSectors(false);
+    refreshActivatedIndoorSectors();
 }
 
 void IndoorWorldRuntime::initialize(
@@ -3295,7 +3293,6 @@ void IndoorWorldRuntime::initialize(
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
-    m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
@@ -3305,7 +3302,7 @@ void IndoorWorldRuntime::initialize(
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
-    refreshActivatedIndoorSectors(false);
+    refreshActivatedIndoorSectors();
 }
 
 void IndoorWorldRuntime::bindRenderer(IndoorRenderer *pRenderer)
@@ -3903,7 +3900,7 @@ void IndoorWorldRuntime::activateIndoorSector(int16_t sectorId)
     m_activatedIndoorSectorMask[sectorIndex] = 1;
 }
 
-void IndoorWorldRuntime::refreshActivatedIndoorSectors(bool includeVisiblePortalSectors, float deltaSeconds)
+void IndoorWorldRuntime::refreshActivatedIndoorSectors()
 {
     ensureIndoorSectorActivationMask();
 
@@ -3917,29 +3914,6 @@ void IndoorWorldRuntime::refreshActivatedIndoorSectors(bool includeVisiblePortal
         const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
         activateIndoorSector(moveState.sectorId);
         activateIndoorSector(moveState.eyeSectorId);
-
-        if (includeVisiblePortalSectors && m_pRenderer != nullptr)
-        {
-            m_visiblePortalSectorActivationAccumulatorSeconds =
-                std::min(
-                    m_visiblePortalSectorActivationAccumulatorSeconds + std::max(deltaSeconds, 0.0f),
-                    VisiblePortalSectorActivationIntervalSeconds);
-
-            if (m_visiblePortalSectorActivationAccumulatorSeconds < VisiblePortalSectorActivationIntervalSeconds)
-            {
-                return;
-            }
-
-            m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
-
-            const std::vector<int16_t> visibleSectorIds =
-                m_pRenderer->visibleIndoorPortalSectorIds(moveState.sectorId, moveState.eyeSectorId);
-
-            for (int16_t sectorId : visibleSectorIds)
-            {
-                activateIndoorSector(sectorId);
-            }
-        }
     }
 }
 
@@ -4019,21 +3993,18 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
             continue;
         }
 
-        if (!indoorActorSectorActivated(actor, pAiState))
-        {
-            continue;
-        }
-
         const float actorTargetZ = pAiState->preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
         const GameplayWorldPoint actorTargetPoint = {pAiState->preciseX, pAiState->preciseY, actorTargetZ};
         const GameplayWorldPoint partyTargetPoint =
             {partyFacts.position.x, partyFacts.position.y, partyFacts.position.z + PartyTargetHeightOffset};
+        const int16_t actorSectorId =
+            pAiState->sectorId >= 0 ? pAiState->sectorId : actor.sectorId;
         const float deltaX = partyTargetPoint.x - actorTargetPoint.x;
         const float deltaY = partyTargetPoint.y - actorTargetPoint.y;
         const float deltaZ = partyTargetPoint.z - actorTargetPoint.z;
         const float distanceToParty =
             std::max(0.0f, length3d(deltaX, deltaY, deltaZ) - static_cast<float>(actor.radius));
-        const bool sameSectorAsParty = actor.sectorId >= 0 && actor.sectorId == partySectorId;
+        const bool sameSectorAsParty = actorSectorId >= 0 && actorSectorId == partySectorId;
         const bool previouslyDetectedParty =
             pAiState->hasDetectedParty || defaultActorHasDetectedParty(actor, pAiState->hostileToParty);
         bool canDetectParty = sameSectorAsParty || previouslyDetectedParty;
@@ -4047,7 +4018,7 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
                     vertices,
                     geometryCache,
                     actorTargetPoint,
-                    actor.sectorId,
+                    actorSectorId,
                     partyTargetPoint,
                     partySectorId);
 
@@ -4141,11 +4112,6 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
         const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
         const MapActorAiState *pAiState =
             actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
-
-        if (!indoorActorSectorActivated(actor, pAiState))
-        {
-            continue;
-        }
 
         if (pDiagnostics != nullptr)
         {
@@ -7536,7 +7502,7 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
     recordDiagnostics(m_actorAiPerformanceDiagnostics.syncStateNanoseconds, syncBeginTickCount);
 
     const uint64_t activationBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
-    refreshActivatedIndoorSectors(false);
+    refreshActivatedIndoorSectors();
     recordDiagnostics(m_actorAiPerformanceDiagnostics.activationNanoseconds, activationBeginTickCount);
 
     m_actorUpdateAccumulatorSeconds =
@@ -7569,11 +7535,6 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
         {
             const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
             GameplayActorSpellEffectState &effectState = m_mapActorAiStates[actorIndex].spellEffects;
-
-            if (!indoorActorSectorActivated(actor, &m_mapActorAiStates[actorIndex]))
-            {
-                continue;
-            }
 
             if (!hasActiveActorSpellEffectOverride(effectState)
                 || (actorIndex < spellEffectsAppliedMask.size() && spellEffectsAppliedMask[actorIndex]))
@@ -7615,7 +7576,7 @@ void IndoorWorldRuntime::renderWorld(
         m_pGameplayView->render(width, height, input, deltaSeconds);
     }
 
-    refreshActivatedIndoorSectors(true, deltaSeconds);
+    refreshActivatedIndoorSectors();
     updateIndoorJournalRevealIfNeeded();
 }
 
@@ -12288,7 +12249,6 @@ IndoorWorldRuntime::Snapshot IndoorWorldRuntime::snapshot() const
     snapshot.activatedIndoorSectorMask = m_activatedIndoorSectorMask;
     snapshot.bloodSplats = m_bloodSplats;
     snapshot.actorUpdateAccumulatorSeconds = m_actorUpdateAccumulatorSeconds;
-    snapshot.visiblePortalSectorActivationAccumulatorSeconds = m_visiblePortalSectorActivationAccumulatorSeconds;
     return snapshot;
 }
 
@@ -12306,14 +12266,12 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_bloodSplats = snapshot.bloodSplats;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
-    m_visiblePortalSectorActivationAccumulatorSeconds =
-        snapshot.visiblePortalSectorActivationAccumulatorSeconds;
     m_indoorJournalRevealStateValid = false;
     ++m_indoorMinimapRevealRevision;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
     syncMapActorAiStates();
-    refreshActivatedIndoorSectors(false);
+    refreshActivatedIndoorSectors();
 
     const MapDeltaData *pMapDeltaData = mapDeltaData();
 

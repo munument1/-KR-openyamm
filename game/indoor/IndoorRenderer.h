@@ -121,7 +121,6 @@ public:
     std::optional<size_t> gameplayClosestVisibleHostileActorIndex() const;
     std::optional<bx::Vec3> gameplayActorTargetPoint(size_t actorIndex) const;
     std::optional<bx::Vec3> gameplayGroundTargetPoint(float screenX, float screenY) const;
-    std::vector<int16_t> visibleIndoorPortalSectorIds(int16_t sectorId, int16_t eyeSectorId) const;
     std::vector<int16_t> visibleIndoorMapRevealSectorIds(int16_t sectorId, int16_t eyeSectorId) const;
     float cameraYawRadians() const;
     float cameraPitchRadians() const;
@@ -402,10 +401,8 @@ private:
     struct IndoorPerformanceDiagnostics
     {
         uint64_t visibilityCalls = 0;
-        uint64_t visibilityInteractionCalls = 0;
         uint64_t visibilityCacheHits = 0;
         uint64_t visibilityBuilds = 0;
-        uint64_t visibilitySignatureNanoseconds = 0;
         uint64_t visibilityBuildNanoseconds = 0;
         uint64_t visibilityTotalNanoseconds = 0;
         uint64_t visibilityPortalCandidates = 0;
@@ -465,7 +462,6 @@ private:
         float yawRadians = 0.0f;
         float pitchRadians = 0.0f;
         float aspectRatio = 1.0f;
-        std::vector<uint32_t> doorStateSignature;
         std::vector<uint8_t> visibleSectorMask;
         std::vector<std::vector<IndoorVisibilityFrustum>> visibleSectorFrustums;
         std::vector<IndoorPortalVisibilityTrace> portalTraces;
@@ -474,19 +470,13 @@ private:
         {
             valid = false;
             sectorId = -1;
-            doorStateSignature.clear();
             visibleSectorMask.clear();
             visibleSectorFrustums.clear();
             portalTraces.clear();
         }
     };
-    PortalVisibilityCache &portalVisibilityCache(bool ignoreMechanismBlockers) const;
     void clearPortalVisibilityCaches() const;
-    std::vector<uint8_t> buildVisibleSectorMask(
-        const bx::Vec3 &cameraPosition,
-        bool ignoreMechanismBlockers = false
-    ) const;
-    std::vector<uint8_t> buildRenderVisibleSectorMask(const bx::Vec3 &cameraPosition) const;
+    std::vector<uint8_t> buildVisibleSectorMask(const bx::Vec3 &cameraPosition) const;
     void logIndoorVisibilityDiagnostics(
         const std::vector<uint8_t> &baseVisibleSectorMask,
         const std::vector<uint8_t> &renderVisibleSectorMask,
@@ -577,7 +567,6 @@ private:
     int m_lastRenderWidth = 0;
     int m_lastRenderHeight = 0;
     mutable PortalVisibilityCache m_renderPortalVisibilityCache;
-    mutable PortalVisibilityCache m_interactionPortalVisibilityCache;
     bool m_logIndoorVisibilityDiagnostics = false;
     bool m_logIndoorPerformanceDiagnostics = false;
     mutable IndoorPerformanceDiagnostics m_indoorPerformanceDiagnostics;

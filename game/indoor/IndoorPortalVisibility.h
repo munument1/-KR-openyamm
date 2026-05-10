@@ -30,14 +30,6 @@ struct IndoorVisibilityNode
     int16_t entryPortalFaceId = -1;
     uint16_t depth = 0;
     IndoorVisibilityFrustum frustumPlanes;
-    std::vector<uint32_t> crossedDoorIds;
-};
-
-struct IndoorPortalVisibilityDoorTrace
-{
-    uint32_t doorId = 0;
-    uint16_t state = 0;
-    bool blocks = false;
 };
 
 struct IndoorPortalVisibilityTrace
@@ -49,7 +41,6 @@ struct IndoorPortalVisibilityTrace
     uint16_t depth = 0;
     bool accepted = false;
     std::string reason;
-    std::vector<IndoorPortalVisibilityDoorTrace> blockerDoors;
 };
 
 struct IndoorPortalVisibilityInput
@@ -68,7 +59,6 @@ struct IndoorPortalVisibilityInput
     int16_t startSectorId = -1;
     uint16_t maxNodes = 256;
     uint16_t maxDepth = 32;
-    bool ignoreMechanismBlockers = false;
 };
 
 struct IndoorPortalVisibilityResult
@@ -82,7 +72,6 @@ struct IndoorPortalVisibilityResult
     uint32_t acceptedPortalCount = 0;
     uint32_t rejectedPortalCount = 0;
     uint32_t invalidPortalCount = 0;
-    uint32_t blockedPortalCount = 0;
     uint32_t ancestorRejectedPortalCount = 0;
     uint32_t directionRejectedPortalCount = 0;
     uint32_t clippedPortalRejectedCount = 0;

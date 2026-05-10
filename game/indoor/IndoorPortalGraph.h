@@ -37,7 +37,6 @@ struct IndoorPortalLink
     uint16_t faceId = 0;
     uint16_t sectorA = 0;
     uint16_t sectorB = 0;
-    std::vector<uint32_t> blockingDoorIds;
 };
 
 struct IndoorSectorPortalCache

@@ -322,63 +322,6 @@ float resolveMechanismDistance(
     const std::optional<EventRuntimeState> &eventRuntimeState
 );
 
-std::vector<uint32_t> buildDoorVisibilitySignature(
-    const std::optional<MapDeltaData> &mapDeltaData,
-    const std::optional<EventRuntimeState> &eventRuntimeState
-)
-{
-    constexpr float MovingDoorVisibilityDistanceStep = 8.0f;
-    std::vector<uint32_t> signature;
-
-    if (!mapDeltaData)
-    {
-        return signature;
-    }
-
-    signature.reserve(mapDeltaData->doors.size() * 3);
-
-    for (const MapDeltaDoor &door : mapDeltaData->doors)
-    {
-        uint16_t state = door.state;
-        float currentDistance = 0.0f;
-        bool moving = false;
-
-        if (eventRuntimeState)
-        {
-            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
-                eventRuntimeState->mechanisms.find(door.doorId);
-
-            if (mechanismIterator != eventRuntimeState->mechanisms.end())
-            {
-                state = mechanismIterator->second.state;
-                currentDistance = mechanismIterator->second.currentDistance;
-                moving = mechanismIterator->second.isMoving;
-            }
-        }
-
-        if (!moving)
-        {
-            moving =
-                state == static_cast<uint16_t>(EvtMechanismState::Opening)
-                || state == static_cast<uint16_t>(EvtMechanismState::Closing);
-        }
-
-        if (moving && currentDistance == 0.0f)
-        {
-            currentDistance = resolveMechanismDistance(door, eventRuntimeState);
-        }
-
-        const int movingDistanceBucket =
-            moving ? static_cast<int>(std::lround(currentDistance / MovingDoorVisibilityDistanceStep)) : 0;
-
-        signature.push_back(door.doorId);
-        signature.push_back(state);
-        signature.push_back(static_cast<uint32_t>(movingDistanceBucket));
-    }
-
-    return signature;
-}
-
 const MonsterEntry *resolveRuntimeMonsterEntry(const MonsterTable &monsterTable, const MapDeltaActor &actor)
 {
     const MonsterTable::MonsterDisplayNameEntry *pDisplayEntry =
@@ -2078,21 +2021,12 @@ bool IndoorRenderer::isFaceVisible(
     return !faceHasInvisibleOverride(faceIndex, eventRuntimeState);
 }
 
-IndoorRenderer::PortalVisibilityCache &IndoorRenderer::portalVisibilityCache(bool ignoreMechanismBlockers) const
-{
-    return ignoreMechanismBlockers ? m_interactionPortalVisibilityCache : m_renderPortalVisibilityCache;
-}
-
 void IndoorRenderer::clearPortalVisibilityCaches() const
 {
     m_renderPortalVisibilityCache.clear();
-    m_interactionPortalVisibilityCache.clear();
 }
 
-std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
-    const bx::Vec3 &cameraPosition,
-    bool ignoreMechanismBlockers
-) const
+std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &cameraPosition) const
 {
     const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
     const uint64_t totalBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
@@ -2127,16 +2061,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
 
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-    const uint64_t signatureBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
-    const std::vector<uint32_t> doorStateSignature = buildDoorVisibilitySignature(mapDeltaData, eventRuntimeState);
-
-    if (collectDiagnostics)
-    {
-        m_indoorPerformanceDiagnostics.visibilitySignatureNanoseconds +=
-            SDL_GetTicksNS() - signatureBeginTickCount;
-    }
-
-    PortalVisibilityCache &cache = portalVisibilityCache(ignoreMechanismBlockers);
+    PortalVisibilityCache &cache = m_renderPortalVisibilityCache;
     const float aspectRatio =
         m_lastRenderHeight > 0
         ? static_cast<float>(std::max(m_lastRenderWidth, 1)) / static_cast<float>(m_lastRenderHeight)
@@ -2145,7 +2070,6 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     if (cache.valid
         && cache.sectorId == startSectorId
         && cache.visibleSectorMask.size() == m_indoorMapData->sectors.size()
-        && cache.doorStateSignature == doorStateSignature
         && cache.cameraX == cameraPosition.x
         && cache.cameraY == cameraPosition.y
         && cache.cameraZ == cameraPosition.z
@@ -2156,11 +2080,6 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
         if (collectDiagnostics)
         {
             ++m_indoorPerformanceDiagnostics.visibilityCalls;
-
-            if (ignoreMechanismBlockers)
-            {
-                ++m_indoorPerformanceDiagnostics.visibilityInteractionCalls;
-            }
 
             ++m_indoorPerformanceDiagnostics.visibilityCacheHits;
             m_indoorPerformanceDiagnostics.visibilityTotalNanoseconds +=
@@ -2187,7 +2106,6 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     input.verticalFovDegrees = 60.0f;
     input.aspectRatio = aspectRatio;
     input.startSectorId = startSectorId;
-    input.ignoreMechanismBlockers = ignoreMechanismBlockers;
 
     const uint64_t visibilityBuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     const IndoorPortalVisibilityResult visibility = buildIndoorPortalVisibility(input);
@@ -2195,11 +2113,6 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     if (collectDiagnostics)
     {
         ++m_indoorPerformanceDiagnostics.visibilityCalls;
-
-        if (ignoreMechanismBlockers)
-        {
-            ++m_indoorPerformanceDiagnostics.visibilityInteractionCalls;
-        }
 
         ++m_indoorPerformanceDiagnostics.visibilityBuilds;
         m_indoorPerformanceDiagnostics.visibilityBuildNanoseconds +=
@@ -2219,64 +2132,10 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     cache.yawRadians = m_cameraYawRadians;
     cache.pitchRadians = m_cameraPitchRadians;
     cache.aspectRatio = aspectRatio;
-    cache.doorStateSignature = doorStateSignature;
     cache.visibleSectorMask = visibility.visibleSectorMask;
     cache.visibleSectorFrustums = visibility.frustumsBySector;
     cache.portalTraces = visibility.portalTraces;
     return cache.visibleSectorMask;
-}
-
-std::vector<uint8_t> IndoorRenderer::buildRenderVisibleSectorMask(const bx::Vec3 &cameraPosition) const
-{
-    return buildVisibleSectorMask(cameraPosition, false);
-}
-
-std::vector<int16_t> IndoorRenderer::visibleIndoorPortalSectorIds(int16_t sectorId, int16_t eyeSectorId) const
-{
-    std::vector<int16_t> sectorIds;
-
-    if (!m_indoorMapData)
-    {
-        return sectorIds;
-    }
-
-    const auto appendSectorId = [&](int16_t candidateSectorId)
-    {
-        if (candidateSectorId < 0 || static_cast<size_t>(candidateSectorId) >= m_indoorMapData->sectors.size())
-        {
-            return;
-        }
-
-        if (std::find(sectorIds.begin(), sectorIds.end(), candidateSectorId) != sectorIds.end())
-        {
-            return;
-        }
-
-        sectorIds.push_back(candidateSectorId);
-    };
-
-    appendSectorId(sectorId);
-    appendSectorId(eyeSectorId);
-
-    if (m_renderVertices.empty())
-    {
-        return sectorIds;
-    }
-
-    const bx::Vec3 eye = {m_cameraPositionX, m_cameraPositionY, m_cameraPositionZ};
-    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(eye, false);
-
-    for (size_t candidateSectorId = 0; candidateSectorId < visibleSectorMask.size(); ++candidateSectorId)
-    {
-        if (visibleSectorMask[candidateSectorId] == 0 || candidateSectorId > std::numeric_limits<int16_t>::max())
-        {
-            continue;
-        }
-
-        appendSectorId(static_cast<int16_t>(candidateSectorId));
-    }
-
-    return sectorIds;
 }
 
 void IndoorRenderer::logIndoorVisibilityDiagnostics(
@@ -2359,56 +2218,7 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
 
             std::cout << ']';
         };
-        const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
-        const auto printPortalBlockerDetails =
-            [](const IndoorPortalVisibilityTrace &trace)
-        {
-            std::cout << " blockers=" << trace.blockerDoors.size();
-
-            if (trace.blockerDoors.empty())
-            {
-                return;
-            }
-
-            std::cout << " blocker_states=[";
-
-            for (size_t index = 0; index < trace.blockerDoors.size(); ++index)
-            {
-                if (index != 0)
-                {
-                    std::cout << ',';
-                }
-
-                const IndoorPortalVisibilityDoorTrace &doorTrace = trace.blockerDoors[index];
-                std::cout << doorTrace.doorId << ':' << doorTrace.state << ':' << (doorTrace.blocks ? 1 : 0);
-            }
-
-            std::cout << ']';
-        };
-        const auto printPortalGraphBlockerIds =
-            [](const IndoorPortalLink &portalLink)
-        {
-            std::cout << " blockers=" << portalLink.blockingDoorIds.size();
-
-            if (portalLink.blockingDoorIds.empty())
-            {
-                return;
-            }
-
-            std::cout << " blocker_ids=[";
-
-            for (size_t index = 0; index < portalLink.blockingDoorIds.size(); ++index)
-            {
-                if (index != 0)
-                {
-                    std::cout << ',';
-                }
-
-                std::cout << portalLink.blockingDoorIds[index];
-            }
-
-            std::cout << ']';
-        };
+        const PortalVisibilityCache &renderPortalCache = m_renderPortalVisibilityCache;
 
         std::cout << "[IndoorVisibility] party_sector=" << moveState.sectorId
                   << " eye_sector=" << moveState.eyeSectorId
@@ -2494,9 +2304,8 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
                                   << " link=" << trace.portalLinkId
                                   << " depth=" << trace.depth
                                   << " accepted=" << (trace.accepted ? 1 : 0)
-                                  << " reason=" << trace.reason;
-                        printPortalBlockerDetails(trace);
-                        std::cout << '\n';
+                                  << " reason=" << trace.reason
+                                  << '\n';
                     }
 
                     if (!traceFound)
@@ -2506,9 +2315,7 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
                                   << " face=" << portalLink.faceId
                                   << " link=" << portalLinkId
                                   << " accepted=0"
-                                  << " reason=not_run";
-                        printPortalGraphBlockerIds(portalLink);
-                        std::cout << '\n';
+                                  << " reason=not_run\n";
                     }
                 }
             }
@@ -2539,14 +2346,10 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
 
         std::cout << "[IndoorPerf]"
                   << " visibility_calls=" << diagnostics.visibilityCalls
-                  << " visibility_interaction_calls=" << diagnostics.visibilityInteractionCalls
                   << " visibility_cache_hits=" << diagnostics.visibilityCacheHits
                   << " visibility_builds=" << diagnostics.visibilityBuilds
                   << " avg_visibility_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                       diagnostics.visibilityTotalNanoseconds,
-                      diagnostics.visibilityCalls))
-                  << " avg_visibility_signature_us=" << nanosecondsToMicroseconds(averageNanoseconds(
-                      diagnostics.visibilitySignatureNanoseconds,
                       diagnostics.visibilityCalls))
                   << " avg_visibility_build_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                       diagnostics.visibilityBuildNanoseconds,
@@ -2895,7 +2698,7 @@ std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sec
             && minY <= static_cast<float>(m_lastRenderHeight) + ScreenMargin;
     };
 
-    const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
+    const PortalVisibilityCache &renderPortalCache = m_renderPortalVisibilityCache;
 
     for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
     {
@@ -3078,10 +2881,10 @@ void IndoorRenderer::render(
     }
 
     const uint64_t visibilityBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
-    const std::vector<uint8_t> baseVisibleSectorMask = buildVisibleSectorMask(eye, false);
-    const std::vector<uint8_t> renderVisibleSectorMask = buildRenderVisibleSectorMask(eye);
+    const std::vector<uint8_t> renderVisibleSectorMask = buildVisibleSectorMask(eye);
+    const std::vector<uint8_t> &baseVisibleSectorMask = renderVisibleSectorMask;
     const std::vector<std::vector<IndoorVisibilityFrustum>> &renderVisibleSectorFrustums =
-        portalVisibilityCache(false).visibleSectorFrustums;
+        m_renderPortalVisibilityCache.visibleSectorFrustums;
 
     if (collectRenderDiagnostics)
     {
@@ -3159,7 +2962,7 @@ void IndoorRenderer::render(
         const auto updateCachedInspectHit =
             [&]() -> const InspectHit &
             {
-                const std::vector<uint8_t> interactionVisibleSectorMask = buildVisibleSectorMask(eye, true);
+                const std::vector<uint8_t> interactionVisibleSectorMask = buildVisibleSectorMask(eye);
                 m_cachedInspectHit = inspectAtCursor(
                     *m_indoorMapData,
                     m_renderVertices,
@@ -3935,7 +3738,7 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectGameplayWorldHi
         return std::nullopt;
     }
 
-    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(rayRequest.eye, true);
+    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(rayRequest.eye);
     return inspectAtCursor(
         *m_indoorMapData,
         m_renderVertices,
@@ -4231,7 +4034,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
     };
 
     std::vector<KeyboardCandidate> candidates;
-    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(rayRequest.eye, true);
+    const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(rayRequest.eye);
 
     const auto levelBlocksWorldPoint =
         [&](const bx::Vec3 &worldPoint) -> bool

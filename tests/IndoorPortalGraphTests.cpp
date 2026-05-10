@@ -302,7 +302,6 @@ TEST_CASE("indoor portal graph canonicalizes one portal into both connected sect
     CHECK_EQ(graph.portals[0].faceId, faceId);
     CHECK_EQ(graph.portals[0].sectorA, 0);
     CHECK_EQ(graph.portals[0].sectorB, 1);
-    CHECK_EQ(asSet(graph.portals[0].blockingDoorIds), std::set<uint32_t>{42});
     CHECK_EQ(asSet(graph.sectors[0].connectedSectorIds), std::set<uint16_t>{1});
     CHECK_EQ(asSet(graph.sectors[1].connectedSectorIds), std::set<uint16_t>{0});
     CHECK_EQ(asSet(portalFacesForSector(graph, 0)), std::set<uint16_t>{faceId});
@@ -378,7 +377,6 @@ TEST_CASE("indoor portal graph matches editor room snapshots")
                 CHECK_EQ(pLink->sectorA, snapshotPortal.room);
                 CHECK_EQ(pLink->sectorB, snapshotPortal.behindRoom);
                 CHECK_EQ(oppositeSector(*pLink, snapshot.roomId), snapshotPortal.connectedRoom);
-                CHECK_EQ(asSet(pLink->blockingDoorIds), asSet(snapshotPortal.directBlockingDoorIds));
             }
         }
     }

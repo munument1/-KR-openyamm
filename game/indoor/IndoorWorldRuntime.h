@@ -160,7 +160,6 @@ public:
         std::vector<uint8_t> activatedIndoorSectorMask;
         std::vector<BloodSplatState> bloodSplats;
         float actorUpdateAccumulatorSeconds = 0.0f;
-        float visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     };
 
     IndoorWorldRuntime() = default;
@@ -542,7 +541,7 @@ private:
     IndoorMovementController &actorMovementController();
     void ensureIndoorSectorActivationMask();
     void activateIndoorSector(int16_t sectorId);
-    void refreshActivatedIndoorSectors(bool includeVisiblePortalSectors, float deltaSeconds = 0.0f);
+    void refreshActivatedIndoorSectors();
     bool indoorSectorActivated(int16_t sectorId) const;
     bool indoorActorSectorActivated(const MapDeltaActor &actor, const MapActorAiState *pAiState) const;
     std::vector<bool> selectIndoorActiveActors(
@@ -686,7 +685,6 @@ private:
     std::vector<BloodSplatState> m_bloodSplats;
     uint64_t m_bloodSplatRevision = 0;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
-    float m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     float m_worldItemUpdateAccumulatorSeconds = 0.0f;
     bool m_scenarioPartyActorCollisionEnabled = true;
