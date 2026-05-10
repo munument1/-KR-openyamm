@@ -959,16 +959,19 @@ bool packedIndoorOutlineBit(const std::vector<uint8_t> &bits, size_t outlineInde
     return (bits[byteIndex] & (1u << (7u - outlineIndex % 8))) != 0;
 }
 
-void setPackedIndoorOutlineBit(std::vector<uint8_t> &bits, size_t outlineIndex)
+bool setPackedIndoorOutlineBit(std::vector<uint8_t> &bits, size_t outlineIndex)
 {
     const size_t byteIndex = outlineIndex / 8;
 
     if (byteIndex >= bits.size())
     {
-        return;
+        return false;
     }
 
-    bits[byteIndex] = static_cast<uint8_t>(bits[byteIndex] | (1u << (7u - outlineIndex % 8)));
+    const uint8_t bit = static_cast<uint8_t>(1u << (7u - outlineIndex % 8));
+    const uint8_t oldValue = bits[byteIndex];
+    bits[byteIndex] = static_cast<uint8_t>(oldValue | bit);
+    return bits[byteIndex] != oldValue;
 }
 
 uint32_t effectiveIndoorFaceAttributes(const IndoorFace &face, const MapDeltaData *pMapDeltaData, size_t faceIndex)
@@ -1011,36 +1014,11 @@ uint64_t mixIndoorMinimapSignature(uint64_t seed, uint64_t value)
     return seed;
 }
 
-uint64_t indoorMinimapByteVectorSignature(const std::vector<uint8_t> &values)
-{
-    uint64_t result = 1469598103934665603ull;
-
-    for (uint8_t value : values)
-    {
-        result ^= value;
-        result *= 1099511628211ull;
-    }
-
-    return result;
-}
-
-uint64_t indoorMinimapUIntVectorSignature(const std::vector<uint32_t> &values)
-{
-    uint64_t result = 1469598103934665603ull;
-
-    for (uint32_t value : values)
-    {
-        result ^= value;
-        result *= 1099511628211ull;
-    }
-
-    return result;
-}
-
 uint64_t indoorMinimapLineSignature(
     const IndoorMapData &indoorMapData,
     const MapDeltaData &mapDeltaData,
     const EventRuntimeState *pEventRuntimeState,
+    uint64_t minimapRevealRevision,
     float partyFootZ,
     bool showEventOutlines)
 {
@@ -1048,8 +1026,8 @@ uint64_t indoorMinimapLineSignature(
     signature = mixIndoorMinimapSignature(signature, reinterpret_cast<uintptr_t>(&indoorMapData));
     signature = mixIndoorMinimapSignature(signature, indoorMapData.faces.size());
     signature = mixIndoorMinimapSignature(signature, indoorMapData.outlines.size());
-    signature = mixIndoorMinimapSignature(signature, indoorMinimapByteVectorSignature(mapDeltaData.visibleOutlines));
-    signature = mixIndoorMinimapSignature(signature, indoorMinimapUIntVectorSignature(mapDeltaData.faceAttributes));
+    signature = mixIndoorMinimapSignature(signature, mapDeltaData.surfaceRevision);
+    signature = mixIndoorMinimapSignature(signature, minimapRevealRevision);
     signature = mixIndoorMinimapSignature(signature, static_cast<int32_t>(std::round(partyFootZ)));
     signature = mixIndoorMinimapSignature(signature, showEventOutlines ? 1u : 0u);
 
@@ -1079,13 +1057,14 @@ void ensureIndoorMapRevealState(const IndoorMapData &indoorMapData, MapDeltaData
     }
 }
 
-void updateIndoorJournalRevealMask(
+bool updateIndoorJournalRevealMask(
     const IndoorMapData &indoorMapData,
     const std::vector<int16_t> &revealSectorIds,
     const EventRuntimeState *pEventRuntimeState,
     MapDeltaData &mapDeltaData)
 {
     ensureIndoorMapRevealState(indoorMapData, mapDeltaData);
+    bool changedAny = false;
 
     const auto revealSectorFaces = [&](int16_t visibleSectorId)
     {
@@ -1109,7 +1088,9 @@ void updateIndoorJournalRevealMask(
                 return;
             }
 
+            const uint32_t oldAttributes = mapDeltaData.faceAttributes[faceId];
             mapDeltaData.faceAttributes[faceId] |= faceAttributeBit(FaceAttribute::SeenByParty);
+            changedAny = changedAny || mapDeltaData.faceAttributes[faceId] != oldAttributes;
         };
 
         for (uint16_t faceId : sector.faceIds)
@@ -1155,9 +1136,11 @@ void updateIndoorJournalRevealMask(
 
         if (revealed)
         {
-            setPackedIndoorOutlineBit(mapDeltaData.visibleOutlines, outlineIndex);
+            changedAny = setPackedIndoorOutlineBit(mapDeltaData.visibleOutlines, outlineIndex) || changedAny;
         }
     }
+
+    return changedAny;
 }
 
 bool indoorFaceHasMapEvent(const IndoorFace &face)
@@ -3138,6 +3121,7 @@ void IndoorWorldRuntime::initialize(
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
+    m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
@@ -3204,6 +3188,7 @@ void IndoorWorldRuntime::initialize(
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
+    m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
@@ -6462,8 +6447,25 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
                     otherHostileToParty,
                     otherActor.group,
                     otherActor.ally);
+            const GameplayActorTargetPolicyResult targetPolicy =
+                pActorService->resolveActorTargetPolicy(actorPolicyState, otherPolicyState);
+
+            if (!targetPolicy.canTarget)
+            {
+                continue;
+            }
+
             const float otherTargetZ =
                 otherAiState.preciseZ + std::max(24.0f, static_cast<float>(otherHeight) * 0.7f);
+            const float deltaZ = otherTargetZ - actorTargetZ;
+            const float distanceSquared = lengthSquared3d(deltaX, deltaY, deltaZ);
+
+            if (distanceSquared >= bestTargetDistanceSquared
+                || !isWithinRange3d(deltaX, deltaY, deltaZ, targetPolicy.engagementRange))
+            {
+                continue;
+            }
+
             const GameplayWorldPoint otherTargetPoint = {otherAiState.preciseX, otherAiState.preciseY, otherTargetZ};
             const bool hasLineOfSight =
                 otherActor.sectorId == actorSectorId
@@ -6477,6 +6479,11 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
                         actorSectorId,
                         otherTargetPoint,
                         otherActor.sectorId));
+
+            if (!hasLineOfSight)
+            {
+                continue;
+            }
 
             ActorTargetCandidateFacts candidate = {};
             candidate.kind = ActorAiTargetKind::Actor;
@@ -6496,28 +6503,6 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
             candidate.unavailable = false;
             candidate.hasLineOfSight = hasLineOfSight;
             facts.target.candidates.push_back(candidate);
-
-            if (!hasLineOfSight)
-            {
-                continue;
-            }
-
-            const GameplayActorTargetPolicyResult targetPolicy =
-                pActorService->resolveActorTargetPolicy(actorPolicyState, otherPolicyState);
-
-            if (!targetPolicy.canTarget)
-            {
-                continue;
-            }
-
-            const float deltaZ = otherTargetZ - actorTargetZ;
-            const float distanceSquared = lengthSquared3d(deltaX, deltaY, deltaZ);
-
-            if (distanceSquared >= bestTargetDistanceSquared
-                || !isWithinRange3d(deltaX, deltaY, deltaZ, targetPolicy.engagementRange))
-            {
-                continue;
-            }
 
             const float distanceToTarget = std::sqrt(distanceSquared);
             facts.target.currentKind = ActorAiTargetKind::Actor;
@@ -6870,11 +6855,18 @@ void IndoorWorldRuntime::updateIndoorJournalRevealIfNeeded()
 
         const std::vector<int16_t> revealSectorIds =
             m_pRenderer->visibleIndoorMapRevealSectorIds(moveState.sectorId, moveState.eyeSectorId);
-        updateIndoorJournalRevealMask(
+        const bool minimapRevealChanged = updateIndoorJournalRevealMask(
             *m_pIndoorMapData,
             revealSectorIds,
             pEventRuntimeState,
             *pMapDeltaData);
+
+        if (minimapRevealChanged)
+        {
+            ++m_indoorMinimapRevealRevision;
+            m_cachedGameplayMinimapLinesValid = false;
+        }
+
         m_indoorJournalRevealStateValid = true;
         m_lastIndoorJournalRevealSectorId = moveState.sectorId;
         m_lastIndoorJournalRevealEyeSectorId = moveState.eyeSectorId;
@@ -10098,6 +10090,7 @@ void IndoorWorldRuntime::collectGameplayMinimapLines(std::vector<GameplayMinimap
         *m_pIndoorMapData,
         *pMapDeltaData,
         pEventRuntimeState,
+        m_indoorMinimapRevealRevision,
         moveState.footZ,
         showEventOutlines);
 
@@ -10107,19 +10100,31 @@ void IndoorWorldRuntime::collectGameplayMinimapLines(std::vector<GameplayMinimap
         return;
     }
 
-    std::vector<uint8_t> visibleFaceMask(m_pIndoorMapData->faces.size(), 0);
+    std::vector<int8_t> visibleFaceCache(m_pIndoorMapData->faces.size(), -1);
+    const auto faceVisible =
+        [&](size_t faceIndex) -> bool
+        {
+            if (faceIndex >= m_pIndoorMapData->faces.size())
+            {
+                return false;
+            }
 
-    for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
-    {
-        visibleFaceMask[faceIndex] =
-            indoorMinimapFaceVisible(
-                m_pIndoorMapData->faces[faceIndex],
-                pMapDeltaData,
-                pEventRuntimeState,
-                faceIndex)
-            ? 1
-            : 0;
-    }
+            int8_t &cached = visibleFaceCache[faceIndex];
+
+            if (cached < 0)
+            {
+                cached =
+                    indoorMinimapFaceVisible(
+                        m_pIndoorMapData->faces[faceIndex],
+                        pMapDeltaData,
+                        pEventRuntimeState,
+                        faceIndex)
+                    ? 1
+                    : 0;
+            }
+
+            return cached != 0;
+        };
 
     for (size_t outlineIndex = 0; outlineIndex < m_pIndoorMapData->outlines.size(); ++outlineIndex)
     {
@@ -10138,7 +10143,7 @@ void IndoorWorldRuntime::collectGameplayMinimapLines(std::vector<GameplayMinimap
         const uint32_t face1Attributes = effectiveIndoorFaceAttributes(face1, pMapDeltaData, outline.face1Id);
         const uint32_t face2Attributes = effectiveIndoorFaceAttributes(face2, pMapDeltaData, outline.face2Id);
 
-        if (visibleFaceMask[outline.face1Id] == 0 || visibleFaceMask[outline.face2Id] == 0)
+        if (!faceVisible(outline.face1Id) || !faceVisible(outline.face2Id))
         {
             continue;
         }
@@ -11510,6 +11515,7 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_visiblePortalSectorActivationAccumulatorSeconds =
         snapshot.visiblePortalSectorActivationAccumulatorSeconds;
     m_indoorJournalRevealStateValid = false;
+    ++m_indoorMinimapRevealRevision;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
     syncMapActorAiStates();

@@ -629,6 +629,7 @@ private:
     int16_t m_lastIndoorJournalRevealSectorId = -1;
     int16_t m_lastIndoorJournalRevealEyeSectorId = -1;
     uint64_t m_lastIndoorJournalRevealSurfaceRevision = 0;
+    uint64_t m_indoorMinimapRevealRevision = 0;
     size_t m_lastIndoorJournalRevealFaceCount = 0;
     size_t m_lastIndoorJournalRevealOutlineCount = 0;
     mutable RuntimeGeometryCache m_runtimeGeometryCache;
