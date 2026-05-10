@@ -33,6 +33,7 @@
 #include "game/tables/ObjectTable.h"
 #include "game/StringUtils.h"
 #include "game/ui/GameplayOverlayTypes.h"
+#include "game/ui/WizardEyeMinimapRules.h"
 
 #include <bx/math.h>
 
@@ -14750,9 +14751,6 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
         return;
     }
 
-    const OutdoorMoveState *pMoveState =
-        m_pPartyRuntime != nullptr ? &m_pPartyRuntime->movementState() : nullptr;
-
     for (size_t actorIndex = 0; actorIndex < mapActorCount(); ++actorIndex)
     {
         const MapActorState *pActor = mapActorState(actorIndex);
@@ -14762,13 +14760,7 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
             continue;
         }
 
-        const bool actorNearby = pMoveState != nullptr
-            && length3d(
-                pActor->preciseX - pMoveState->x,
-                pActor->preciseY - pMoveState->y,
-                pActor->preciseZ - pMoveState->footZ) <= ActiveActorUpdateRange;
-
-        if (!pActor->isDead && !pActor->hasDetectedParty && !actorNearby)
+        if (!wizardEyeShowsActorMarker(pActor->isDead, pActor->hasDetectedParty))
         {
             continue;
         }

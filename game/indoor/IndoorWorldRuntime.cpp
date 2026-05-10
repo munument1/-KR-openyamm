@@ -38,6 +38,7 @@
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/SpellTable.h"
 #include "game/ui/GameplayOverlayTypes.h"
+#include "game/ui/WizardEyeMinimapRules.h"
 
 #include <SDL3/SDL.h>
 
@@ -11107,20 +11108,8 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
         return;
     }
 
-    const IndoorMoveState *pMoveState =
-        m_pPartyRuntime != nullptr ? &m_pPartyRuntime->movementState() : nullptr;
-
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
-        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
-        const MapActorAiState *pAiState =
-            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
-
-        if (!indoorActorSectorActivated(actor, pAiState))
-        {
-            continue;
-        }
-
         GameplayRuntimeActorState actorState = {};
 
         if (!actorRuntimeState(actorIndex, actorState) || actorState.isInvisible)
@@ -11128,13 +11117,7 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
             continue;
         }
 
-        const bool actorNearby = pMoveState != nullptr
-            && length3d(
-                actorState.preciseX - pMoveState->x,
-                actorState.preciseY - pMoveState->y,
-                actorState.preciseZ - pMoveState->footZ) <= ActiveActorUpdateRange;
-
-        if (!actorState.isDead && !actorState.hasDetectedParty && !actorNearby)
+        if (!wizardEyeShowsActorMarker(actorState.isDead, actorState.hasDetectedParty))
         {
             continue;
         }
@@ -11154,11 +11137,6 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
     {
         for (const MapDeltaSpriteObject &spriteObject : pMapDeltaData->spriteObjects)
         {
-            if (!indoorSectorActivated(spriteObject.sectorId))
-            {
-                continue;
-            }
-
             const ObjectEntry *pObjectEntry = m_pObjectTable->get(spriteObject.objectDescriptionId);
 
             if (pObjectEntry == nullptr

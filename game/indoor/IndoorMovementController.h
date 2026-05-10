@@ -332,5 +332,7 @@ private:
     std::vector<IndoorActorCollision> m_actorColliders;
     std::vector<IndoorCylinderCollision> m_decorationColliders;
     std::vector<IndoorCylinderCollision> m_spriteObjectColliders;
+    mutable std::vector<uint32_t> m_candidateFaceVisitStamps;
+    mutable uint32_t m_candidateFaceVisitStamp = 1;
 };
 }

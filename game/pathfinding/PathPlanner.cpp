@@ -348,6 +348,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
             [&](PathPoint candidate) -> void
         {
             ++result.debug.generatedCandidates;
+            PathFloorSample candidateFloor = {};
 
             if (request.object.canFly)
             {
@@ -356,17 +357,10 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
                     ++result.debug.rejectedFlyingInvalid;
                     return;
                 }
-
-                if (map.traceLine(currentPoint, candidate, request.object.radius, true).blocked)
-                {
-                    ++result.debug.rejectedWalkSegment;
-                    return;
-                }
             }
             else
             {
                 bool candidateValid = false;
-                PathFloorSample candidateFloor = {};
                 candidate = snapGroundPoint(map, candidate, request.object, candidateValid, &candidateFloor);
 
                 if (!candidateValid)
@@ -390,12 +384,6 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
 
                     return;
                 }
-
-                if (!map.traceWalkSegment(currentPoint, candidate, request.object))
-                {
-                    ++result.debug.rejectedWalkSegment;
-                    return;
-                }
             }
 
             const NodeKey key = makeNodeKey(candidate, stepSize);
@@ -412,6 +400,25 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
                     ++result.debug.rejectedDuplicate;
                     return;
                 }
+            }
+
+            if (request.object.canFly)
+            {
+                if (map.traceLine(currentPoint, candidate, request.object.radius, true).blocked)
+                {
+                    ++result.debug.rejectedWalkSegment;
+                    return;
+                }
+            }
+            else if (!map.traceWalkSegment(currentPoint, candidate, request.object))
+            {
+                ++result.debug.rejectedWalkSegment;
+                return;
+            }
+
+            if (found != nodeIndexByKey.end())
+            {
+                SearchNode &knownNode = nodes[found->second];
 
                 knownNode.point = candidate;
                 knownNode.cost = newCost;
@@ -419,7 +426,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
                 knownNode.parentIndex = openNode.nodeIndex;
                 knownNode.floorFacetIndex = request.object.canFly
                     ? static_cast<size_t>(-1)
-                    : map.floorAt({candidate.x, candidate.y, candidate.z + request.object.stepHeight}).facetIndex;
+                    : candidateFloor.facetIndex;
                 openSet.push({knownNode.estimate, found->second});
                 ++result.debug.acceptedCandidates;
                 ++result.debug.reopenedCandidates;
@@ -434,7 +441,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
             nextNode.parentIndex = openNode.nodeIndex;
             nextNode.floorFacetIndex = request.object.canFly
                 ? static_cast<size_t>(-1)
-                : map.floorAt({candidate.x, candidate.y, candidate.z + request.object.stepHeight}).facetIndex;
+                : candidateFloor.facetIndex;
             const size_t nextIndex = nodes.size();
             nodes.push_back(nextNode);
             nodeIndexByKey[key] = nextIndex;

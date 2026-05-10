@@ -2254,6 +2254,26 @@ std::vector<const IndoorFaceGeometryData *> IndoorMovementController::collectSwe
         candidates.reserve(m_pIndoorMapData->faces.size());
     }
 
+    uint32_t candidateVisitStamp = 0;
+    if (useSectorFilteredFaces)
+    {
+        const size_t faceCount = m_pIndoorMapData->faces.size();
+        if (m_candidateFaceVisitStamps.size() != faceCount)
+        {
+            m_candidateFaceVisitStamps.assign(faceCount, 0);
+            m_candidateFaceVisitStamp = 1;
+        }
+
+        ++m_candidateFaceVisitStamp;
+        if (m_candidateFaceVisitStamp == 0)
+        {
+            std::fill(m_candidateFaceVisitStamps.begin(), m_candidateFaceVisitStamps.end(), 0);
+            m_candidateFaceVisitStamp = 1;
+        }
+
+        candidateVisitStamp = m_candidateFaceVisitStamp;
+    }
+
     const auto appendCandidateFace = [&](size_t faceIndex, bool requireCollisionMask)
     {
         if (faceIndex >= m_pIndoorMapData->faces.size())
@@ -2274,6 +2294,16 @@ std::vector<const IndoorFaceGeometryData *> IndoorMovementController::collectSwe
             && (*pMechanismBlockingFaceMask)[faceIndex] == 0)
         {
             return;
+        }
+
+        if (useSectorFilteredFaces)
+        {
+            if (m_candidateFaceVisitStamps[faceIndex] == candidateVisitStamp)
+            {
+                return;
+            }
+
+            m_candidateFaceVisitStamps[faceIndex] = candidateVisitStamp;
         }
 
         const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(
@@ -2307,6 +2337,21 @@ std::vector<const IndoorFaceGeometryData *> IndoorMovementController::collectSwe
     {
         for (const SectorFaceCandidate &candidate : sectorFaceIds)
         {
+            if (candidate.requireCollisionMask)
+            {
+                continue;
+            }
+
+            appendCandidateFace(candidate.faceIndex, candidate.requireCollisionMask);
+        }
+
+        for (const SectorFaceCandidate &candidate : sectorFaceIds)
+        {
+            if (!candidate.requireCollisionMask)
+            {
+                continue;
+            }
+
             appendCandidateFace(candidate.faceIndex, candidate.requireCollisionMask);
         }
     }
