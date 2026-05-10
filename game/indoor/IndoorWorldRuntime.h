@@ -17,6 +17,7 @@
 #include "game/tables/MonsterTable.h"
 #include "game/tables/ObjectTable.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -471,7 +472,56 @@ private:
         std::vector<IndoorVertex> vertices;
         IndoorFaceGeometryCache geometryCache;
         bool pathMapValid = false;
-        PathMap pathMap;
+        std::shared_ptr<const PathMap> pathMapSnapshot;
+    };
+
+    struct IndoorActorAiPerformanceDiagnostics
+    {
+        uint64_t updateCalls = 0;
+        uint64_t fixedSteps = 0;
+        uint64_t totalNanoseconds = 0;
+        uint64_t syncStateNanoseconds = 0;
+        uint64_t activationNanoseconds = 0;
+        uint64_t collectNanoseconds = 0;
+        uint64_t selectActiveNanoseconds = 0;
+        uint64_t activeSelectionLosNanoseconds = 0;
+        uint64_t actorFactNanoseconds = 0;
+        uint64_t aiSystemNanoseconds = 0;
+        uint64_t applyNanoseconds = 0;
+        uint64_t colliderNanoseconds = 0;
+        uint64_t movementIntegrationNanoseconds = 0;
+        uint64_t movementSetupNanoseconds = 0;
+        uint64_t movementPathSetupNanoseconds = 0;
+        uint64_t physicsStepNanoseconds = 0;
+        uint64_t pathResolveNanoseconds = 0;
+        uint64_t movementEventNanoseconds = 0;
+        uint64_t resolveMoveNanoseconds = 0;
+        uint64_t movementStateWriteNanoseconds = 0;
+        uint64_t movementFactBuildNanoseconds = 0;
+        uint64_t postMovementAiNanoseconds = 0;
+        uint64_t postMovementApplyNanoseconds = 0;
+        uint64_t spellEffectNanoseconds = 0;
+        uint64_t actorCount = 0;
+        uint64_t activatedActorCount = 0;
+        uint64_t activeActorCount = 0;
+        uint64_t backgroundActorCount = 0;
+        uint64_t selectedActorCount = 0;
+        uint64_t actorFactCandidates = 0;
+        uint64_t actorFactsCollected = 0;
+        uint64_t actorUpdates = 0;
+        uint64_t movementIntegrations = 0;
+        uint64_t physicsSteps = 0;
+        uint64_t contactedActors = 0;
+        uint64_t blockedMoves = 0;
+        uint64_t activeSelectionLosChecks = 0;
+        uint64_t pathResolveCalls = 0;
+        uint64_t pathPlans = 0;
+        uint64_t pathQueued = 0;
+        uint64_t pathActive = 0;
+        uint64_t pathStopped = 0;
+        uint64_t pathIgnoredActorCollision = 0;
+        uint64_t crowdOverrideActors = 0;
+        uint64_t crowdStateUpdates = 0;
     };
 
     const MapEncounterInfo *encounterInfo(uint32_t typeIndexInMapStats) const;
@@ -484,9 +534,11 @@ private:
     void materializeInitialMonsterSpawns();
     void syncMapActorAiStates();
     RuntimeGeometryCache &runtimeGeometryCache() const;
-    const PathMap *indoorPathMap() const;
+    std::shared_ptr<const PathMap> indoorPathMap() const;
     bool indoorActorPathfindingEnabled() const;
     bool logIndoorPathfindingEnabled() const;
+    bool actorAiPerformanceDiagnosticsEnabled() const;
+    void logActorAiPerformanceDiagnostics(uint32_t currentTick);
     IndoorMovementController &actorMovementController();
     void ensureIndoorSectorActivationMask();
     void activateIndoorSector(int16_t sectorId);
@@ -497,16 +549,21 @@ private:
         const ActorPartyFacts &partyFacts,
         int16_t partySectorId,
         const std::vector<IndoorVertex> &vertices,
-        IndoorFaceGeometryCache &geometryCache) const;
-    ActorAiFrameFacts collectIndoorActorAiFrameFacts(float deltaSeconds) const;
+        IndoorFaceGeometryCache &geometryCache,
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr) const;
+    ActorAiFrameFacts collectIndoorActorAiFrameFacts(
+        float deltaSeconds,
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr) const;
     std::vector<bool> applyIndoorActorAiFrameResult(
         const ActorAiFrameResult &result,
-        const GameplayActorAiSystem &actorAiSystem);
+        const GameplayActorAiSystem &actorAiSystem,
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
     void applyIndoorActorMovementIntegration(
         IndoorMovementController &movementController,
         size_t actorIndex,
         const ActorAiUpdate &update,
-        const GameplayActorAiSystem &actorAiSystem);
+        const GameplayActorAiSystem &actorAiSystem,
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
     bool applyIndoorActorProjectileRequest(const ActorProjectileRequest &projectileRequest);
     bool addBloodSplat(uint32_t sourceActorId, float x, float y, float z, float radius);
     void bakeBloodSplatGeometry(BloodSplatState &splat) const;
@@ -646,6 +703,8 @@ private:
     double m_actorPathRuntimeSeconds = 0.0;
     size_t m_actorPathPlansThisStep = 0;
     double m_nextActorPathPlanSeconds = 0.0;
+    IndoorActorAiPerformanceDiagnostics m_actorAiPerformanceDiagnostics;
+    uint32_t m_lastActorAiPerformanceLogTick = 0;
     bool m_cachedGameplayMinimapLinesValid = false;
     uint64_t m_cachedGameplayMinimapLineSignature = 0;
     std::vector<GameplayMinimapLineState> m_cachedGameplayMinimapLines;

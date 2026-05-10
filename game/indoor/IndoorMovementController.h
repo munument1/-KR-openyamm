@@ -118,6 +118,7 @@ public:
     void updateActorColliderPosition(size_t actorIndex, int16_t sectorId, float x, float y, float z);
     void setDecorationColliders(const std::vector<IndoorCylinderCollision> &decorationColliders);
     void setSpriteObjectColliders(const std::vector<IndoorCylinderCollision> &spriteObjectColliders);
+    void invalidateRuntimeGeometryCache();
 
 private:
     IndoorFloorSample sampleSupportedFloor(

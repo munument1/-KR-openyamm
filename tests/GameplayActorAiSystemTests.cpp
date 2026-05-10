@@ -1189,6 +1189,59 @@ TEST_CASE("shared actor AI flees briefly after a single hostile actor contact")
     CHECK(*update.state.actionSeconds > 0.0f);
 }
 
+TEST_CASE("shared actor AI does not flee from actor contact while flying")
+{
+    GameplayActorAiSystem system;
+    ActorAiFacts actor = makeActor(8, 105);
+    actor.identity.hostilityType = 4;
+    actor.stats.canFly = true;
+    actor.runtime.motionState = ActorAiMotionState::Pursuing;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.movement.contactedActorCount = 1;
+    actor.movement.hasContactedActor = true;
+    actor.movement.contactedActorHostilityType = 4;
+    actor.movement.contactedActorPosition = {50.0f, 200.0f, 0.0f};
+
+    const OpenYAMM::Game::ActorAiUpdate update = system.updateActorAfterWorldMovement(actor);
+
+    CHECK_FALSE(update.state.motionState.has_value());
+    CHECK(update.movementIntent.action == ActorAiMovementAction::None);
+    CHECK_FALSE(update.movementIntent.clearVelocity);
+}
+
+TEST_CASE("shared actor AI crowd steers while flying")
+{
+    GameplayActorAiSystem system;
+    ActorAiFacts actor = makeActor(26, 126);
+    actor.identity.hostilityType = 4;
+    actor.stats.canFly = true;
+    actor.runtime.motionState = ActorAiMotionState::Pursuing;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.movement.contactedActorCount = 1;
+    actor.movement.hasContactedActor = true;
+    actor.movement.contactedActorHostilityType = 4;
+    actor.movement.contactedActorPosition = {50.0f, 200.0f, 0.0f};
+    actor.movement.meleePursuitActive = true;
+    actor.movement.allowCrowdSteering = true;
+    actor.movement.effectiveMoveSpeed = 200.0f;
+    actor.target.currentPosition = {300.0f, 200.0f, 0.0f};
+    actor.target.currentEdgeDistance = 400.0f;
+
+    const OpenYAMM::Game::ActorAiUpdate update = system.updateActorAfterWorldMovement(actor);
+
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Pursuing);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::Walking);
+    CHECK(update.movementIntent.action == ActorAiMovementAction::Pursue);
+    const bool hasDesiredMovement =
+        update.movementIntent.desiredMoveX != 0.0f || update.movementIntent.desiredMoveY != 0.0f;
+    CHECK(hasDesiredMovement);
+    CHECK_FALSE(update.movementIntent.clearVelocity);
+    REQUIRE(update.state.crowdSideSign.has_value());
+    CHECK(*update.state.crowdSideSign != 0);
+}
+
 TEST_CASE("shared actor AI continues fleeing with OE flee speed multiplier")
 {
     GameplayActorAiSystem system;

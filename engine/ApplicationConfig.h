@@ -25,6 +25,7 @@ struct ApplicationConfig
     int windowHeight;
     WindowMode windowMode;
     bool fpsTrace;
+    bool performanceTrace;
 
     static ApplicationConfig createDefault();
 };

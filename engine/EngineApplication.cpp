@@ -17,6 +17,16 @@ namespace
 constexpr int MinimumWindowAspectWidth = 4;
 constexpr int MinimumWindowAspectHeight = 3;
 
+uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
+{
+    return count != 0 ? totalNanoseconds / count : 0;
+}
+
+uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
+{
+    return nanoseconds / 1000ULL;
+}
+
 class SdlSubsystemGuard
 {
 public:
@@ -297,12 +307,21 @@ int EngineApplication::run() const
     bool isRunning = true;
     uint64_t lastFrameTickCount = SDL_GetTicksNS();
     const bool logFps = m_config.fpsTrace;
+    const bool collectPerformanceDiagnostics = m_config.performanceTrace;
+    const bool sampleFrames = logFps || collectPerformanceDiagnostics;
     float fpsSampleSeconds = 0.0f;
     uint32_t fpsSampleFrameCount = 0;
+    uint64_t fpsSampleEventCount = 0;
+    uint64_t fpsLoopNanoseconds = 0;
+    uint64_t fpsEventNanoseconds = 0;
+    uint64_t fpsWindowSizeNanoseconds = 0;
+    uint64_t fpsRenderCallbackNanoseconds = 0;
+    uint64_t fpsBgfxFrameNanoseconds = 0;
 
     while (isRunning)
     {
         const uint64_t currentFrameTickCount = SDL_GetTicksNS();
+        const uint64_t loopBeginTickCount = collectPerformanceDiagnostics ? currentFrameTickCount : 0;
         float deltaSeconds = 1.0f / 60.0f;
 
         if (currentFrameTickCount > lastFrameTickCount)
@@ -313,9 +332,13 @@ int EngineApplication::run() const
         lastFrameTickCount = currentFrameTickCount;
         float mouseWheelDelta = 0.0f;
         SDL_Event event;
+        const uint64_t eventBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+        uint64_t frameEventCount = 0;
 
         while (SDL_PollEvent(&event))
         {
+            ++frameEventCount;
+
             if (event.type == SDL_EVENT_QUIT)
             {
                 isRunning = false;
@@ -347,9 +370,23 @@ int EngineApplication::run() const
             }
         }
 
+        if (collectPerformanceDiagnostics)
+        {
+            fpsEventNanoseconds += SDL_GetTicksNS() - eventBeginTickCount;
+            fpsSampleEventCount += frameEventCount;
+        }
+
+        const uint64_t windowSizeBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         int drawableWidth = 0;
         int drawableHeight = 0;
         SDL_GetWindowSizeInPixels(pWindow.get(), &drawableWidth, &drawableHeight);
+
+        if (collectPerformanceDiagnostics)
+        {
+            fpsWindowSizeNanoseconds += SDL_GetTicksNS() - windowSizeBeginTickCount;
+        }
+
+        const uint64_t renderCallbackBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
 
         if (m_renderFrameCallback)
         {
@@ -361,10 +398,22 @@ int EngineApplication::run() const
             bgfx::touch(0);
         }
 
+        if (collectPerformanceDiagnostics)
+        {
+            fpsRenderCallbackNanoseconds += SDL_GetTicksNS() - renderCallbackBeginTickCount;
+        }
+
+        const uint64_t bgfxFrameBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         bgfx::frame();
 
-        if (logFps)
+        if (sampleFrames)
         {
+            if (collectPerformanceDiagnostics)
+            {
+                fpsBgfxFrameNanoseconds += SDL_GetTicksNS() - bgfxFrameBeginTickCount;
+                fpsLoopNanoseconds += SDL_GetTicksNS() - loopBeginTickCount;
+            }
+
             fpsSampleSeconds += deltaSeconds;
             ++fpsSampleFrameCount;
 
@@ -373,9 +422,55 @@ int EngineApplication::run() const
                 const float averageFps = fpsSampleSeconds > 0.0f
                     ? static_cast<float>(fpsSampleFrameCount) / fpsSampleSeconds
                     : 0.0f;
-                std::cout << "Average FPS (last second): " << averageFps << '\n';
+
+                if (logFps)
+                {
+                    std::cout << "Average FPS (last second): " << averageFps << '\n';
+                }
+
+                if (collectPerformanceDiagnostics)
+                {
+                    const uint64_t measuredNanoseconds =
+                        fpsEventNanoseconds
+                        + fpsWindowSizeNanoseconds
+                        + fpsRenderCallbackNanoseconds
+                        + fpsBgfxFrameNanoseconds;
+                    const uint64_t untrackedNanoseconds =
+                        fpsLoopNanoseconds > measuredNanoseconds
+                            ? fpsLoopNanoseconds - measuredNanoseconds
+                            : 0;
+                    std::cout << "[FramePerf]"
+                              << " frames=" << fpsSampleFrameCount
+                              << " events=" << fpsSampleEventCount
+                              << " avg_loop_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  fpsLoopNanoseconds,
+                                  fpsSampleFrameCount))
+                              << " avg_untracked_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  untrackedNanoseconds,
+                                  fpsSampleFrameCount))
+                              << " avg_events_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  fpsEventNanoseconds,
+                                  fpsSampleFrameCount))
+                              << " avg_window_size_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  fpsWindowSizeNanoseconds,
+                                  fpsSampleFrameCount))
+                              << " avg_render_callback_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  fpsRenderCallbackNanoseconds,
+                                  fpsSampleFrameCount))
+                              << " avg_bgfx_frame_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                                  fpsBgfxFrameNanoseconds,
+                                  fpsSampleFrameCount))
+                              << '\n';
+                }
+
                 fpsSampleSeconds = 0.0f;
                 fpsSampleFrameCount = 0;
+                fpsSampleEventCount = 0;
+                fpsLoopNanoseconds = 0;
+                fpsEventNanoseconds = 0;
+                fpsWindowSizeNanoseconds = 0;
+                fpsRenderCallbackNanoseconds = 0;
+                fpsBgfxFrameNanoseconds = 0;
             }
         }
     }

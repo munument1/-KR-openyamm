@@ -97,7 +97,10 @@ public:
     void bindActiveWorldRuntime(IGameplayWorldRuntime *pWorldRuntime);
     const GameplayInputFrame *currentGameplayInputFrame() const;
     void bindCurrentGameplayInputFrame(const GameplayInputFrame *pInputFrame);
-    void updateGameplay(const GameplayInputFrame &input, float deltaSeconds);
+    void updateGameplay(
+        const GameplayInputFrame &input,
+        float deltaSeconds,
+        bool collectPerformanceDiagnostics = false);
     void clearSharedInputFrameResult();
     void consumePendingGameplayAudioRequests();
     void renderGameplayUi(int width, int height);
@@ -182,6 +185,31 @@ public:
     void restoreFromSaveData(const GameSaveData &saveData);
 
 private:
+    struct GameplayUpdatePerformanceDiagnostics
+    {
+        uint64_t frames = 0;
+        uint64_t activeWorldFrames = 0;
+        uint64_t actorAiFrames = 0;
+        uint64_t totalNanoseconds = 0;
+        uint64_t sharedFrameStateNanoseconds = 0;
+        uint64_t worldInteractionStateNanoseconds = 0;
+        uint64_t activeMemberSyncNanoseconds = 0;
+        uint64_t sharedInputNanoseconds = 0;
+        uint64_t worldMovementNanoseconds = 0;
+        uint64_t actorAiNanoseconds = 0;
+        uint64_t combatEventsNanoseconds = 0;
+        uint64_t interactionFrameNanoseconds = 0;
+        uint64_t projectileAndCooldownNanoseconds = 0;
+        uint64_t preloadNanoseconds = 0;
+
+        bool hasActivity() const
+        {
+            return frames != 0;
+        }
+    };
+
+    void logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const;
+
     const GameDataRepository *m_pDataRepository = nullptr;
     std::optional<Party> m_partyState;
     SceneKind m_currentSceneKind = SceneKind::Outdoor;
@@ -217,5 +245,7 @@ private:
     std::optional<EventRuntimeState::PendingMapMove> m_pendingMapMove;
     SaveGameToPathCallback m_saveGameToPathCallback;
     SettingsChangedCallback m_settingsChangedCallback;
+    mutable GameplayUpdatePerformanceDiagnostics m_gameplayUpdatePerformanceDiagnostics;
+    mutable uint32_t m_lastGameplayUpdatePerformanceLogTick = 0;
 };
 }

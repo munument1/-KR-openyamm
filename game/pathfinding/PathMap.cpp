@@ -11,6 +11,7 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float PathEpsilon = 0.0001f;
+constexpr int32_t MaxPathGridCellSpan = 4096;
 
 PathPoint pointAdd(const PathPoint &left, const PathPoint &right)
 {
@@ -128,6 +129,21 @@ bool boundsOverlap(const PathBounds &left, const PathBounds &right)
         && left.minY - PathEpsilon <= right.maxY
         && left.maxZ + PathEpsilon >= right.minZ
         && left.minZ - PathEpsilon <= right.maxZ;
+}
+
+bool pointIsFinite(const PathPoint &point)
+{
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
+}
+
+bool boundsAreFinite(const PathBounds &bounds)
+{
+    return std::isfinite(bounds.minX)
+        && std::isfinite(bounds.maxX)
+        && std::isfinite(bounds.minY)
+        && std::isfinite(bounds.maxY)
+        && std::isfinite(bounds.minZ)
+        && std::isfinite(bounds.maxZ);
 }
 
 PathPoint computeFacetNormal(const PathFacet &facet)
@@ -338,6 +354,13 @@ size_t PathMap::revision() const
 
 PathFloorSample PathMap::floorAt(const PathPoint &position) const
 {
+    if (!pointIsFinite(position))
+    {
+        PathFloorSample voidSample = {};
+        voidSample.inVoid = true;
+        return voidSample;
+    }
+
     PathFloorSample bestBelow = {};
     float bestBelowDistance = std::numeric_limits<float>::max();
     PathFloorSample bestAbove = {};
@@ -347,6 +370,11 @@ PathFloorSample PathMap::floorAt(const PathPoint &position) const
 
     for (size_t index : candidates)
     {
+        if (index >= m_facets.size() || index >= m_geometry.size())
+        {
+            continue;
+        }
+
         const PathFacet &facet = m_facets[index];
         const FacetGeometry &geometry = m_geometry[index];
 
@@ -426,6 +454,13 @@ PathTraceResult PathMap::traceLine(
     bool checkBody
 ) const
 {
+    if (!pointIsFinite(from) || !pointIsFinite(to) || !std::isfinite(radius))
+    {
+        PathTraceResult result = {};
+        result.blocked = true;
+        return result;
+    }
+
     std::array<std::pair<PathPoint, PathPoint>, 3> traces = {};
     size_t traceCount = 1;
     traces[0] = {from, to};
@@ -451,6 +486,11 @@ PathTraceResult PathMap::traceLine(
 
         for (size_t facetIndex : candidates)
         {
+            if (facetIndex >= m_facets.size() || facetIndex >= m_geometry.size())
+            {
+                continue;
+            }
+
             const PathFacet &facet = m_facets[facetIndex];
             const FacetGeometry &geometry = m_geometry[facetIndex];
 
@@ -476,6 +516,15 @@ PathTraceResult PathMap::traceLine(
 
 bool PathMap::traceWalkSegment(const PathPoint &from, const PathPoint &to, const PathObject &object) const
 {
+    if (!pointIsFinite(from)
+        || !pointIsFinite(to)
+        || !std::isfinite(object.radius)
+        || !std::isfinite(object.stepLength)
+        || !std::isfinite(object.stepHeight))
+    {
+        return false;
+    }
+
     const float distance = xyDistance(from, to);
     const float sampleStep = std::max(24.0f, object.stepLength);
     const size_t sampleCount = std::max<size_t>(1, static_cast<size_t>(std::ceil(distance / sampleStep)));
@@ -532,6 +581,11 @@ bool PathMap::canReachDirectly(const PathPoint &from, const PathPoint &to, const
 
 std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) const
 {
+    if (!boundsAreFinite(bounds))
+    {
+        return {};
+    }
+
     struct CandidateScratch
     {
         std::vector<uint32_t> marks;
@@ -579,6 +633,24 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
     const int32_t minCellZ = gridCoordinate(bounds.minZ);
     const int32_t maxCellZ = gridCoordinate(bounds.maxZ);
 
+    if (static_cast<int64_t>(maxCellX) - static_cast<int64_t>(minCellX) > MaxPathGridCellSpan
+        || static_cast<int64_t>(maxCellY) - static_cast<int64_t>(minCellY) > MaxPathGridCellSpan
+        || static_cast<int64_t>(maxCellZ) - static_cast<int64_t>(minCellZ) > MaxPathGridCellSpan)
+    {
+        std::vector<size_t> candidates;
+        candidates.reserve(m_facets.size());
+
+        for (size_t index = 0; index < m_geometry.size(); ++index)
+        {
+            if (boundsOverlap(bounds, m_geometry[index].bounds))
+            {
+                candidates.push_back(index);
+            }
+        }
+
+        return candidates;
+    }
+
     for (int32_t cellX = minCellX; cellX <= maxCellX; ++cellX)
     {
         for (int32_t cellY = minCellY; cellY <= maxCellY; ++cellY)
@@ -594,6 +666,11 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
 
                 for (size_t facetIndex : cellIt->second)
                 {
+                    if (facetIndex >= m_geometry.size())
+                    {
+                        continue;
+                    }
+
                     if (boundsOverlap(bounds, m_geometry[facetIndex].bounds))
                     {
                         if (facetIndex < scratch.marks.size() && scratch.marks[facetIndex] != scratch.markId)
@@ -612,6 +689,11 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
 
 std::vector<size_t> PathMap::candidateFloorFacetsForPoint(float x, float y) const
 {
+    if (!std::isfinite(x) || !std::isfinite(y))
+    {
+        return {};
+    }
+
     if (m_gridCellSize <= PathEpsilon || m_floorGrid.empty())
     {
         return m_floorFacetIndices;
@@ -672,12 +754,24 @@ void PathMap::rebuildSpatialGrid()
             continue;
         }
 
+        if (!boundsAreFinite(geometry.bounds))
+        {
+            continue;
+        }
+
         const int32_t minCellX = gridCoordinate(geometry.bounds.minX);
         const int32_t maxCellX = gridCoordinate(geometry.bounds.maxX);
         const int32_t minCellY = gridCoordinate(geometry.bounds.minY);
         const int32_t maxCellY = gridCoordinate(geometry.bounds.maxY);
         const int32_t minCellZ = gridCoordinate(geometry.bounds.minZ);
         const int32_t maxCellZ = gridCoordinate(geometry.bounds.maxZ);
+
+        if (static_cast<int64_t>(maxCellX) - static_cast<int64_t>(minCellX) > MaxPathGridCellSpan
+            || static_cast<int64_t>(maxCellY) - static_cast<int64_t>(minCellY) > MaxPathGridCellSpan
+            || static_cast<int64_t>(maxCellZ) - static_cast<int64_t>(minCellZ) > MaxPathGridCellSpan)
+        {
+            continue;
+        }
 
         for (int32_t cellX = minCellX; cellX <= maxCellX; ++cellX)
         {
@@ -707,7 +801,29 @@ void PathMap::rebuildSpatialGrid()
 
 int32_t PathMap::gridCoordinate(float value) const
 {
-    return static_cast<int32_t>(std::floor(value / m_gridCellSize));
+    if (m_gridCellSize <= PathEpsilon || !std::isfinite(value))
+    {
+        return 0;
+    }
+
+    const float coordinate = std::floor(value / m_gridCellSize);
+
+    if (!std::isfinite(coordinate))
+    {
+        return 0;
+    }
+
+    if (coordinate <= static_cast<float>(std::numeric_limits<int32_t>::min()))
+    {
+        return std::numeric_limits<int32_t>::min();
+    }
+
+    if (coordinate >= static_cast<float>(std::numeric_limits<int32_t>::max()))
+    {
+        return std::numeric_limits<int32_t>::max();
+    }
+
+    return static_cast<int32_t>(coordinate);
 }
 
 bool PathMap::GridCellKey::operator==(const GridCellKey &other) const

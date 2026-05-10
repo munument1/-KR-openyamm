@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -16,6 +17,7 @@ constexpr float GeometryEpsilon = 0.0001f;
 constexpr float FloorSlack = 8.0f;
 constexpr float FloorContainmentSlack = 3.0f;
 constexpr float WalkableSlopeNormalZ = 0.68664550781f;
+constexpr size_t MaxIndoorFaceVertexCount = 128;
 
 struct ProjectedFacePoint
 {
@@ -626,7 +628,7 @@ const IndoorFaceGeometryData *IndoorFaceGeometryCache::geometryForFace(
     size_t faceIndex
 )
 {
-    if (faceIndex >= m_entryStates.size())
+    if (faceIndex >= m_entryStates.size() || faceIndex >= m_entries.size())
     {
         return nullptr;
     }
@@ -751,59 +753,59 @@ bool buildIndoorFaceGeometry(
             ? pMapDeltaData->faceAttributes[faceIndex]
             : face.attributes;
 
-    if (face.vertexIndices.size() < 3)
+    if (face.vertexIndices.size() < 3 || face.vertexIndices.size() > MaxIndoorFaceVertexCount)
     {
         return false;
     }
 
-    geometry = {};
-    geometry.faceIndex = faceIndex;
-    geometry.attributes = attributes;
-    geometry.sectorId = face.roomNumber;
-    geometry.backSectorId = face.roomBehindNumber;
-    geometry.facetType = face.facetType;
-    geometry.isPortal = face.isPortal || hasFaceAttribute(attributes, FaceAttribute::IsPortal);
-    geometry.vertices.reserve(face.vertexIndices.size());
-    geometry.projectedVertices.reserve(face.vertexIndices.size());
+    IndoorFaceGeometryData rebuiltGeometry = {};
+    rebuiltGeometry.faceIndex = faceIndex;
+    rebuiltGeometry.attributes = attributes;
+    rebuiltGeometry.sectorId = face.roomNumber;
+    rebuiltGeometry.backSectorId = face.roomBehindNumber;
+    rebuiltGeometry.facetType = face.facetType;
+    rebuiltGeometry.isPortal = face.isPortal || hasFaceAttribute(attributes, FaceAttribute::IsPortal);
+    rebuiltGeometry.vertices.reserve(face.vertexIndices.size());
+    rebuiltGeometry.projectedVertices.reserve(face.vertexIndices.size());
 
     for (uint16_t vertexIndex : face.vertexIndices)
     {
         if (vertexIndex >= vertices.size())
         {
-            geometry.vertices.clear();
             return false;
         }
 
-        geometry.vertices.push_back(indoorVertexToWorld(vertices[vertexIndex]));
+        rebuiltGeometry.vertices.push_back(indoorVertexToWorld(vertices[vertexIndex]));
     }
 
-    geometry.minX = geometry.maxX = geometry.vertices[0].x;
-    geometry.minY = geometry.maxY = geometry.vertices[0].y;
-    geometry.minZ = geometry.maxZ = geometry.vertices[0].z;
+    rebuiltGeometry.minX = rebuiltGeometry.maxX = rebuiltGeometry.vertices[0].x;
+    rebuiltGeometry.minY = rebuiltGeometry.maxY = rebuiltGeometry.vertices[0].y;
+    rebuiltGeometry.minZ = rebuiltGeometry.maxZ = rebuiltGeometry.vertices[0].z;
 
-    for (const bx::Vec3 &vertex : geometry.vertices)
+    for (const bx::Vec3 &vertex : rebuiltGeometry.vertices)
     {
-        geometry.minX = std::min(geometry.minX, vertex.x);
-        geometry.maxX = std::max(geometry.maxX, vertex.x);
-        geometry.minY = std::min(geometry.minY, vertex.y);
-        geometry.maxY = std::max(geometry.maxY, vertex.y);
-        geometry.minZ = std::min(geometry.minZ, vertex.z);
-        geometry.maxZ = std::max(geometry.maxZ, vertex.z);
+        rebuiltGeometry.minX = std::min(rebuiltGeometry.minX, vertex.x);
+        rebuiltGeometry.maxX = std::max(rebuiltGeometry.maxX, vertex.x);
+        rebuiltGeometry.minY = std::min(rebuiltGeometry.minY, vertex.y);
+        rebuiltGeometry.maxY = std::max(rebuiltGeometry.maxY, vertex.y);
+        rebuiltGeometry.minZ = std::min(rebuiltGeometry.minZ, vertex.z);
+        rebuiltGeometry.maxZ = std::max(rebuiltGeometry.maxZ, vertex.z);
     }
 
-    geometry.normal = vecNormalize(computeFaceNormal(vertices, face));
-    geometry.projectionAxis = chooseProjectionAxis(geometry.normal);
-    geometry.hasPlane = vecLength(geometry.normal) > GeometryEpsilon;
-    geometry.kind = classifyFaceKind(face, geometry.normal);
-    geometry.isWalkable =
-        !hasFaceAttribute(attributes, FaceAttribute::Untouchable) && faceIsWalkable(face, geometry.normal);
+    rebuiltGeometry.normal = vecNormalize(computeFaceNormal(vertices, face));
+    rebuiltGeometry.projectionAxis = chooseProjectionAxis(rebuiltGeometry.normal);
+    rebuiltGeometry.hasPlane = vecLength(rebuiltGeometry.normal) > GeometryEpsilon;
+    rebuiltGeometry.kind = classifyFaceKind(face, rebuiltGeometry.normal);
+    rebuiltGeometry.isWalkable =
+        !hasFaceAttribute(attributes, FaceAttribute::Untouchable) && faceIsWalkable(face, rebuiltGeometry.normal);
 
-    for (const bx::Vec3 &vertex : geometry.vertices)
+    for (const bx::Vec3 &vertex : rebuiltGeometry.vertices)
     {
-        const ProjectedFacePoint projected = projectFacePoint(geometry.projectionAxis, vertex);
-        geometry.projectedVertices.push_back({projected.x, projected.y});
+        const ProjectedFacePoint projected = projectFacePoint(rebuiltGeometry.projectionAxis, vertex);
+        rebuiltGeometry.projectedVertices.push_back({projected.x, projected.y});
     }
 
+    geometry = std::move(rebuiltGeometry);
     return true;
 }
 
@@ -1063,7 +1065,7 @@ IndoorCeilingSample sampleIndoorCeiling(
                 indoorMapData,
                 vertices,
                 faceId,
-                pGeometryCache,
+                nullptr,
                 geometryStorage);
 
             if (pGeometry == nullptr

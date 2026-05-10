@@ -99,6 +99,7 @@ struct GameSettings
     bool logIndoorVisibility = false;
     bool logIndoorPathfinding = false;
     bool fpsTrace = false;
+    bool performanceTrace = false;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;
     uint32_t partySeedRosterId = 0;

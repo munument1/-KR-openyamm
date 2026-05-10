@@ -9,12 +9,23 @@
 
 #include <cassert>
 #include <algorithm>
+#include <iostream>
 #include <utility>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
+uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
+{
+    return count != 0 ? totalNanoseconds / count : 0;
+}
+
+uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
+{
+    return nanoseconds / 1000ULL;
+}
+
 Party buildConfiguredParty(
     const Party::Snapshot &snapshot,
     const GameDataRepository &data)
@@ -352,11 +363,105 @@ void GameSession::bindCurrentGameplayInputFrame(const GameplayInputFrame *pInput
     m_pCurrentGameplayInputFrame = pInputFrame;
 }
 
-void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSeconds)
+void GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const
 {
+    constexpr uint32_t LogIntervalMs = 1000;
+
+    if (!m_gameplayUpdatePerformanceDiagnostics.hasActivity()
+        || currentTick - m_lastGameplayUpdatePerformanceLogTick < LogIntervalMs)
+    {
+        return;
+    }
+
+    m_lastGameplayUpdatePerformanceLogTick = currentTick;
+
+    const GameplayUpdatePerformanceDiagnostics diagnostics = m_gameplayUpdatePerformanceDiagnostics;
+    const uint64_t measuredNanoseconds =
+        diagnostics.sharedFrameStateNanoseconds
+        + diagnostics.worldInteractionStateNanoseconds
+        + diagnostics.activeMemberSyncNanoseconds
+        + diagnostics.sharedInputNanoseconds
+        + diagnostics.worldMovementNanoseconds
+        + diagnostics.actorAiNanoseconds
+        + diagnostics.combatEventsNanoseconds
+        + diagnostics.interactionFrameNanoseconds
+        + diagnostics.projectileAndCooldownNanoseconds
+        + diagnostics.preloadNanoseconds;
+    const uint64_t untrackedNanoseconds =
+        diagnostics.totalNanoseconds > measuredNanoseconds
+            ? diagnostics.totalNanoseconds - measuredNanoseconds
+            : 0;
+
+    std::cout << "[GameplayUpdatePerf]"
+              << " frames=" << diagnostics.frames
+              << " active_world_frames=" << diagnostics.activeWorldFrames
+              << " actor_ai_frames=" << diagnostics.actorAiFrames
+              << " avg_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.totalNanoseconds,
+                  diagnostics.frames))
+              << " avg_untracked_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  untrackedNanoseconds,
+                  diagnostics.frames))
+              << " avg_shared_frame_state_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.sharedFrameStateNanoseconds,
+                  diagnostics.frames))
+              << " avg_world_interaction_state_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.worldInteractionStateNanoseconds,
+                  diagnostics.frames))
+              << " avg_active_member_sync_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.activeMemberSyncNanoseconds,
+                  diagnostics.frames))
+              << " avg_shared_input_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.sharedInputNanoseconds,
+                  diagnostics.frames))
+              << " avg_world_movement_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.worldMovementNanoseconds,
+                  diagnostics.frames))
+              << " avg_actor_ai_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.actorAiNanoseconds,
+                  diagnostics.frames))
+              << " avg_combat_events_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.combatEventsNanoseconds,
+                  diagnostics.frames))
+              << " avg_interaction_frame_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.interactionFrameNanoseconds,
+                  diagnostics.frames))
+              << " avg_projectile_cooldown_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.projectileAndCooldownNanoseconds,
+                  diagnostics.frames))
+              << " avg_preload_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.preloadNanoseconds,
+                  diagnostics.frames))
+              << '\n';
+
+    m_gameplayUpdatePerformanceDiagnostics = {};
+}
+
+void GameSession::updateGameplay(
+    const GameplayInputFrame &input,
+    float deltaSeconds,
+    bool collectPerformanceDiagnostics)
+{
+    const uint64_t totalBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+
+    if (collectPerformanceDiagnostics)
+    {
+        ++m_gameplayUpdatePerformanceDiagnostics.frames;
+    }
+
+    const auto recordDiagnostics =
+        [&](uint64_t &field, uint64_t beginTickCount)
+    {
+        if (collectPerformanceDiagnostics)
+        {
+            field += SDL_GetTicksNS() - beginTickCount;
+        }
+    };
+
     bindCurrentGameplayInputFrame(&input);
     m_sharedInputFrameResult = {};
 
+    const uint64_t sharedFrameStateBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     GameplayScreenFrameUpdateConfig frameUpdateConfig = {};
     frameUpdateConfig.updateBuffInspectOverlay =
         m_currentSceneKind == SceneKind::Outdoor || m_currentSceneKind == SceneKind::Indoor;
@@ -366,8 +471,12 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
         input.screenHeight,
         deltaSeconds,
         frameUpdateConfig);
+    recordDiagnostics(
+        m_gameplayUpdatePerformanceDiagnostics.sharedFrameStateNanoseconds,
+        sharedFrameStateBeginTickCount);
 
     IGameplayWorldRuntime *pWorldRuntime = activeWorldRuntime();
+    const uint64_t worldInteractionStateBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     const bool hasActiveLootView =
         pWorldRuntime != nullptr
         && (pWorldRuntime->activeChestView() != nullptr || pWorldRuntime->activeCorpseView() != nullptr);
@@ -380,10 +489,22 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
                 .state = worldInteractionFrameState,
                 .hasActiveLootView = hasActiveLootView,
             });
+    recordDiagnostics(
+        m_gameplayUpdatePerformanceDiagnostics.worldInteractionStateNanoseconds,
+        worldInteractionStateBeginTickCount);
 
     if (pWorldRuntime != nullptr)
     {
+        if (collectPerformanceDiagnostics)
+        {
+            ++m_gameplayUpdatePerformanceDiagnostics.activeWorldFrames;
+        }
+
+        const uint64_t activeMemberSyncBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         synchronizeGameplayActiveMemberToReadyMember(m_gameplayScreenRuntime, m_gameplayScreenState);
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.activeMemberSyncNanoseconds,
+            activeMemberSyncBeginTickCount);
 
         const Party *pParty = pWorldRuntime->party();
         const bool hasReadyMember = pParty != nullptr && pParty->hasSelectableMemberInGameplay();
@@ -394,6 +515,7 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
         const bool isReadableScrollOverlayActive =
             m_gameplayScreenRuntime.readableScrollOverlayReadOnly().active;
 
+        const uint64_t sharedInputBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         m_sharedInputFrameResult =
             GameplayInputController::updateSharedGameplayInputFrame(
                 m_gameplayScreenState,
@@ -416,6 +538,7 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
                     .processSharedGameplayHotkeys = true,
                     .processQuickCast = true,
                 });
+        recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.sharedInputNanoseconds, sharedInputBeginTickCount);
 
         const bool gameplayCursorModeActive = m_sharedInputFrameResult.mouseLookPolicy.cursorModeActive;
         const bool pendingSpellTargetActive = m_gameplayScreenState.pendingSpellTarget().active;
@@ -428,7 +551,11 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
         const bool allowWorldMovementInput =
             !standardWorldInputBlocked
             && !pendingSpellTargetActive;
+        const uint64_t worldMovementBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         pWorldRuntime->updateWorldMovement(input, deltaSeconds, allowWorldMovementInput);
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.worldMovementNanoseconds,
+            worldMovementBeginTickCount);
 
         const bool gameplayWorldPaused =
             standardWorldInputBlocked
@@ -437,9 +564,17 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
 
         if (!gameplayWorldPaused)
         {
+            if (collectPerformanceDiagnostics)
+            {
+                ++m_gameplayUpdatePerformanceDiagnostics.actorAiFrames;
+            }
+
+            const uint64_t actorAiBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
             pWorldRuntime->updateActorAi(deltaSeconds);
+            recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.actorAiNanoseconds, actorAiBeginTickCount);
         }
 
+        const uint64_t combatEventsBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         Party *pMutableParty = pWorldRuntime->party();
         if (pMutableParty != nullptr && !m_gameplayCombatController.pendingCombatEvents().empty())
         {
@@ -450,8 +585,12 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
             };
             m_gameplayCombatController.handleAndClearPendingCombatEvents(combatEventContext);
         }
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.combatEventsNanoseconds,
+            combatEventsBeginTickCount);
 
         const bool worldInputBlocked = modalWorldInputBlocked || m_sharedWorldInteractionBlockedThisFrame;
+        const uint64_t interactionFrameBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         GameplayInteractionController::updateWorldInteractionFrame(
             m_gameplayScreenState,
             m_overlayInteractionState,
@@ -460,15 +599,30 @@ void GameSession::updateGameplay(const GameplayInputFrame &input, float deltaSec
             input,
             m_sharedInputFrameResult,
             worldInputBlocked);
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.interactionFrameNanoseconds,
+            interactionFrameBeginTickCount);
     }
 
     if (deltaSeconds > 0.0f)
     {
+        const uint64_t projectileCooldownBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameplayProjectileService.updateProjectileImpactPresentation(deltaSeconds);
         GameplayActionController::updateCooldowns(m_gameplayScreenState, deltaSeconds);
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.projectileAndCooldownNanoseconds,
+            projectileCooldownBeginTickCount);
     }
 
+    const uint64_t preloadBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     m_gameplayScreenRuntime.updateHouseVideoBackgroundPreloads();
+
+    if (collectPerformanceDiagnostics)
+    {
+        m_gameplayUpdatePerformanceDiagnostics.preloadNanoseconds += SDL_GetTicksNS() - preloadBeginTickCount;
+        m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
+        logGameplayUpdatePerformanceDiagnostics(SDL_GetTicks());
+    }
 }
 
 void GameSession::clearSharedInputFrameResult()

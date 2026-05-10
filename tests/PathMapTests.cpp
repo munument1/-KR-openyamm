@@ -3,6 +3,7 @@
 #include "game/pathfinding/PathMap.h"
 
 #include <cmath>
+#include <limits>
 #include <vector>
 
 using OpenYAMM::Game::PathFacet;
@@ -115,6 +116,30 @@ TEST_CASE("path map walking rejects floor height deltas above the actor step hei
 
     object.stepHeight = 90.0f;
     CHECK(map.traceWalkSegment({25.0f, 50.0f, 0.0f}, {75.0f, 50.0f, 80.0f}, object));
+}
+
+TEST_CASE("path map rejects non-finite path queries without touching spatial grids")
+{
+    PathMap map;
+    map.setFacets({
+        makeFloor(-100.0f, 100.0f, -100.0f, 100.0f, 0.0f),
+        makeWall(50.0f, -10.0f, 10.0f, 0.0f, 100.0f)
+    });
+    map.buildSpatialGrid(16.0f);
+
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const PathFloorSample floor = map.floorAt({nan, 0.0f, 40.0f});
+    CHECK_FALSE(floor.hasFloor);
+    CHECK(floor.inVoid);
+
+    const PathTraceResult trace = map.traceLine({0.0f, 0.0f, 40.0f}, {nan, 0.0f, 40.0f}, 8.0f, true);
+    CHECK(trace.blocked);
+
+    PathObject object = {};
+    object.radius = 8.0f;
+    object.stepLength = 24.0f;
+    object.stepHeight = 40.0f;
+    CHECK_FALSE(map.traceWalkSegment({0.0f, 0.0f, 0.0f}, {nan, 0.0f, 0.0f}, object));
 }
 
 TEST_CASE("path map body-radius side trace rejects narrow wall clearance")

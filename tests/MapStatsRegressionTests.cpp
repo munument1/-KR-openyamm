@@ -117,6 +117,15 @@ TEST_CASE("map stats parse perception difficulty")
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
 }
 
+TEST_CASE("map stats normalize non-audio redbook track")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pEscatonsPalace = mapStats.findByFileName("d35.blv");
+
+    REQUIRE(pEscatonsPalace != nullptr);
+    CHECK_EQ(pEscatonsPalace->redbookTrack, 0);
+}
+
 TEST_CASE("map stats parse base stealing fine")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();

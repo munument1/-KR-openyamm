@@ -161,6 +161,30 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypoint(
     const ActorPathResolveRequest &request
 )
 {
+    return resolveWaypointInternal(pathMap, nullptr, request);
+}
+
+ActorPathResolveResult ActorPathRuntime::resolveWaypoint(
+    std::shared_ptr<const PathMap> pathMap,
+    const ActorPathResolveRequest &request
+)
+{
+    if (pathMap == nullptr)
+    {
+        return {};
+    }
+
+    std::shared_ptr<const PathMap> pathMapSnapshot = std::move(pathMap);
+    const PathMap &pathMapReference = *pathMapSnapshot;
+    return resolveWaypointInternal(pathMapReference, pathMapSnapshot, request);
+}
+
+ActorPathResolveResult ActorPathRuntime::resolveWaypointInternal(
+    const PathMap &pathMap,
+    std::shared_ptr<const PathMap> pathMapSnapshot,
+    const ActorPathResolveRequest &request
+)
+{
     ActorPathResolveResult result = {};
     ActorPathState &state = stateForActor(request.actorIndex);
     const float planningRangeSquared = request.planningRange * request.planningRange;
@@ -234,7 +258,7 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypoint(
         }
         else
         {
-            queuePlan(pathMap, state, request, result);
+            queuePlan(pathMap, pathMapSnapshot, state, request, result);
 
             if (result.failed && !pathCanStillBeFollowed(state))
             {
@@ -397,6 +421,7 @@ bool ActorPathRuntime::installPlanResult(
 
 bool ActorPathRuntime::queuePlan(
     const PathMap &pathMap,
+    const std::shared_ptr<const PathMap> &pathMapSnapshot,
     ActorPathState &state,
     const ActorPathResolveRequest &request,
     ActorPathResolveResult &result
@@ -418,7 +443,10 @@ bool ActorPathRuntime::queuePlan(
 
     PendingPlanJob job = {};
     job.request = request;
-    job.pathMap = std::make_shared<PathMap>(pathMap);
+    job.pathMap =
+        pathMapSnapshot != nullptr
+            ? std::make_shared<PathMap>(*pathMapSnapshot)
+            : std::make_shared<PathMap>(pathMap);
 
     {
         std::lock_guard<std::mutex> lock(m_jobMutex);

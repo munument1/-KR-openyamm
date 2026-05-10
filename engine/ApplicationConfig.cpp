@@ -17,6 +17,7 @@ ApplicationConfig ApplicationConfig::createDefault()
     config.windowHeight = OPENYAMM_WINDOW_HEIGHT;
     config.windowMode = WindowMode::Windowed;
     config.fpsTrace = false;
+    config.performanceTrace = false;
     return config;
 }
 }

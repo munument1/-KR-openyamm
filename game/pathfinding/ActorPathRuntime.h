@@ -77,6 +77,9 @@ public:
     bool actorHasPendingPlan(size_t actorIndex) const;
     bool actorHasActivePath(size_t actorIndex) const;
     ActorPathResolveResult resolveWaypoint(const PathMap &pathMap, const ActorPathResolveRequest &request);
+    ActorPathResolveResult resolveWaypoint(
+        std::shared_ptr<const PathMap> pathMap,
+        const ActorPathResolveRequest &request);
 
 private:
     struct PendingPlanJob
@@ -95,6 +98,11 @@ private:
         PathPlanResult result;
     };
 
+    ActorPathResolveResult resolveWaypointInternal(
+        const PathMap &pathMap,
+        std::shared_ptr<const PathMap> pathMapSnapshot,
+        const ActorPathResolveRequest &request
+    );
     ActorPathState &stateForActor(size_t actorIndex);
     bool pathIsStale(const ActorPathState &state, const ActorPathResolveRequest &request) const;
     bool pathCanStillBeFollowed(const ActorPathState &state) const;
@@ -119,6 +127,7 @@ private:
     );
     bool queuePlan(
         const PathMap &pathMap,
+        const std::shared_ptr<const PathMap> &pathMapSnapshot,
         ActorPathState &state,
         const ActorPathResolveRequest &request,
         ActorPathResolveResult &result

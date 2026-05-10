@@ -30,6 +30,7 @@ add_executable(openyamm_unit_tests
     PathMapTests.cpp
     PathPlannerTests.cpp
     RegressionMapLoader.cpp
+    ScreenManagerTests.cpp
     SpellRegressionTests.cpp
     RegressionGameData.cpp
     SpellbookUiLayoutTests.cpp
@@ -38,6 +39,7 @@ add_executable(openyamm_unit_tests
     GameplayScreenRuntimeTestStubs.cpp
     ../game/app/GameSettings.cpp
     ../game/app/KeyboardBindings.cpp
+    ../game/app/ScreenManager.cpp
     ../engine/AudioSystem.cpp
     ../engine/AssetFileSystem.cpp
     ../engine/AssetScaleTier.cpp

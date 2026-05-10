@@ -307,6 +307,16 @@ uint32_t currentAnimationTicks()
     return static_cast<uint32_t>((static_cast<uint64_t>(SDL_GetTicks()) * 128ULL) / 1000ULL);
 }
 
+uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
+{
+    return count != 0 ? totalNanoseconds / count : 0;
+}
+
+uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
+{
+    return nanoseconds / 1000ULL;
+}
+
 float resolveMechanismDistance(
     const MapDeltaDoor &baseDoor,
     const std::optional<EventRuntimeState> &eventRuntimeState
@@ -2084,6 +2094,9 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     bool ignoreMechanismBlockers
 ) const
 {
+    const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
+    const uint64_t totalBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+
     if (!m_indoorMapData || m_indoorMapData->sectors.empty())
     {
         return {};
@@ -2114,7 +2127,15 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
 
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    const uint64_t signatureBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     const std::vector<uint32_t> doorStateSignature = buildDoorVisibilitySignature(mapDeltaData, eventRuntimeState);
+
+    if (collectDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.visibilitySignatureNanoseconds +=
+            SDL_GetTicksNS() - signatureBeginTickCount;
+    }
+
     PortalVisibilityCache &cache = portalVisibilityCache(ignoreMechanismBlockers);
     const float aspectRatio =
         m_lastRenderHeight > 0
@@ -2132,6 +2153,20 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
         && cache.pitchRadians == m_cameraPitchRadians
         && cache.aspectRatio == aspectRatio)
     {
+        if (collectDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.visibilityCalls;
+
+            if (ignoreMechanismBlockers)
+            {
+                ++m_indoorPerformanceDiagnostics.visibilityInteractionCalls;
+            }
+
+            ++m_indoorPerformanceDiagnostics.visibilityCacheHits;
+            m_indoorPerformanceDiagnostics.visibilityTotalNanoseconds +=
+                SDL_GetTicksNS() - totalBeginTickCount;
+        }
+
         return cache.visibleSectorMask;
     }
 
@@ -2154,7 +2189,27 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     input.startSectorId = startSectorId;
     input.ignoreMechanismBlockers = ignoreMechanismBlockers;
 
+    const uint64_t visibilityBuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     const IndoorPortalVisibilityResult visibility = buildIndoorPortalVisibility(input);
+
+    if (collectDiagnostics)
+    {
+        ++m_indoorPerformanceDiagnostics.visibilityCalls;
+
+        if (ignoreMechanismBlockers)
+        {
+            ++m_indoorPerformanceDiagnostics.visibilityInteractionCalls;
+        }
+
+        ++m_indoorPerformanceDiagnostics.visibilityBuilds;
+        m_indoorPerformanceDiagnostics.visibilityBuildNanoseconds +=
+            SDL_GetTicksNS() - visibilityBuildBeginTickCount;
+        m_indoorPerformanceDiagnostics.visibilityTotalNanoseconds +=
+            SDL_GetTicksNS() - totalBeginTickCount;
+        m_indoorPerformanceDiagnostics.visibilityPortalCandidates += visibility.portalCandidateCount;
+        m_indoorPerformanceDiagnostics.visibilityPortalsAccepted += visibility.acceptedPortalCount;
+        m_indoorPerformanceDiagnostics.visibilityPortalsRejected += visibility.rejectedPortalCount;
+    }
 
     cache.valid = true;
     cache.sectorId = startSectorId;
@@ -2241,220 +2296,344 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
 
     m_lastVisibilityDiagnosticsLogTick = currentTick;
 
-    const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
-    const auto printMask = [](const std::vector<uint8_t> &mask)
+    if (m_logIndoorVisibilityDiagnostics)
     {
-        std::cout << '[';
-        bool first = true;
-
-        for (size_t sectorId = 0; sectorId < mask.size(); ++sectorId)
+        const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
+        const auto printMask = [](const std::vector<uint8_t> &mask)
         {
-            if (mask[sectorId] == 0)
+            std::cout << '[';
+            bool first = true;
+
+            for (size_t sectorId = 0; sectorId < mask.size(); ++sectorId)
             {
-                continue;
-            }
+                if (mask[sectorId] == 0)
+                {
+                    continue;
+                }
 
-            if (!first)
-            {
-                std::cout << ',';
-            }
-
-            std::cout << sectorId;
-            first = false;
-        }
-
-        std::cout << ']';
-    };
-    const auto printSectorIds = [](const std::vector<int16_t> &sectorIds)
-    {
-        std::cout << '[';
-
-        for (size_t index = 0; index < sectorIds.size(); ++index)
-        {
-            if (index != 0)
-            {
-                std::cout << ',';
-            }
-
-            std::cout << sectorIds[index];
-        }
-
-        std::cout << ']';
-    };
-    const auto printNeighbors = [this](int16_t sectorId)
-    {
-        std::cout << '[';
-
-        if (sectorId >= 0 && static_cast<size_t>(sectorId) < m_neighboringSectorIds.size())
-        {
-            const std::vector<uint16_t> &neighbors = m_neighboringSectorIds[sectorId];
-
-            for (size_t index = 0; index < neighbors.size(); ++index)
-            {
-                if (index > 0)
+                if (!first)
                 {
                     std::cout << ',';
                 }
 
-                std::cout << neighbors[index];
+                std::cout << sectorId;
+                first = false;
             }
-        }
 
-        std::cout << ']';
-    };
-    const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
-    const auto printPortalBlockerDetails =
-        [](const IndoorPortalVisibilityTrace &trace)
-    {
-        std::cout << " blockers=" << trace.blockerDoors.size();
-
-        if (trace.blockerDoors.empty())
+            std::cout << ']';
+        };
+        const auto printSectorIds = [](const std::vector<int16_t> &sectorIds)
         {
-            return;
-        }
+            std::cout << '[';
 
-        std::cout << " blocker_states=[";
-
-        for (size_t index = 0; index < trace.blockerDoors.size(); ++index)
-        {
-            if (index != 0)
+            for (size_t index = 0; index < sectorIds.size(); ++index)
             {
-                std::cout << ',';
+                if (index != 0)
+                {
+                    std::cout << ',';
+                }
+
+                std::cout << sectorIds[index];
             }
 
-            const IndoorPortalVisibilityDoorTrace &doorTrace = trace.blockerDoors[index];
-            std::cout << doorTrace.doorId << ':' << doorTrace.state << ':' << (doorTrace.blocks ? 1 : 0);
-        }
-
-        std::cout << ']';
-    };
-    const auto printPortalGraphBlockerIds =
-        [](const IndoorPortalLink &portalLink)
-    {
-        std::cout << " blockers=" << portalLink.blockingDoorIds.size();
-
-        if (portalLink.blockingDoorIds.empty())
+            std::cout << ']';
+        };
+        const auto printNeighbors = [this](int16_t sectorId)
         {
-            return;
-        }
+            std::cout << '[';
 
-        std::cout << " blocker_ids=[";
-
-        for (size_t index = 0; index < portalLink.blockingDoorIds.size(); ++index)
-        {
-            if (index != 0)
+            if (sectorId >= 0 && static_cast<size_t>(sectorId) < m_neighboringSectorIds.size())
             {
-                std::cout << ',';
+                const std::vector<uint16_t> &neighbors = m_neighboringSectorIds[sectorId];
+
+                for (size_t index = 0; index < neighbors.size(); ++index)
+                {
+                    if (index > 0)
+                    {
+                        std::cout << ',';
+                    }
+
+                    std::cout << neighbors[index];
+                }
             }
 
-            std::cout << portalLink.blockingDoorIds[index];
-        }
-
-        std::cout << ']';
-    };
-
-    std::cout << "[IndoorVisibility] party_sector=" << moveState.sectorId
-              << " eye_sector=" << moveState.eyeSectorId
-              << " base_visible=";
-    printMask(baseVisibleSectorMask);
-    std::cout << " render_visible=";
-    printMask(renderVisibleSectorMask);
-    std::cout << " adjacent_party=";
-    printNeighbors(moveState.sectorId);
-    std::cout << " adjacent_eye=";
-    printNeighbors(moveState.eyeSectorId);
-    std::cout << " seen_sectors=";
-    printSectorIds(m_pSceneRuntime->worldRuntime().activatedIndoorSectorIds());
-    std::cout << '\n';
-
-    if (m_indoorPortalGraph)
-    {
-        std::vector<int16_t> portalDebugSectors;
-
-        const auto appendPortalDebugSector = [&](int16_t sectorId)
+            std::cout << ']';
+        };
+        const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
+        const auto printPortalBlockerDetails =
+            [](const IndoorPortalVisibilityTrace &trace)
         {
-            if (sectorId < 0
-                || static_cast<size_t>(sectorId) >= m_indoorPortalGraph->sectors.size()
-                || std::find(portalDebugSectors.begin(), portalDebugSectors.end(), sectorId)
-                    != portalDebugSectors.end())
+            std::cout << " blockers=" << trace.blockerDoors.size();
+
+            if (trace.blockerDoors.empty())
             {
                 return;
             }
 
-            portalDebugSectors.push_back(sectorId);
-        };
+            std::cout << " blocker_states=[";
 
-        appendPortalDebugSector(moveState.sectorId);
-        appendPortalDebugSector(moveState.eyeSectorId);
-
-        for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
-        {
-            appendPortalDebugSector(trace.sourceSectorId);
-        }
-
-        for (int16_t sourceSectorId : portalDebugSectors)
-        {
-            const IndoorSectorPortalCache &sectorCache =
-                m_indoorPortalGraph->sectors[static_cast<size_t>(sourceSectorId)];
-
-            if (sectorCache.portalLinkIds.empty())
+            for (size_t index = 0; index < trace.blockerDoors.size(); ++index)
             {
-                std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
-                          << " status=no_graph_portals\n";
-                continue;
+                if (index != 0)
+                {
+                    std::cout << ',';
+                }
+
+                const IndoorPortalVisibilityDoorTrace &doorTrace = trace.blockerDoors[index];
+                std::cout << doorTrace.doorId << ':' << doorTrace.state << ':' << (doorTrace.blocks ? 1 : 0);
             }
 
-            for (uint16_t portalLinkId : sectorCache.portalLinkIds)
+            std::cout << ']';
+        };
+        const auto printPortalGraphBlockerIds =
+            [](const IndoorPortalLink &portalLink)
+        {
+            std::cout << " blockers=" << portalLink.blockingDoorIds.size();
+
+            if (portalLink.blockingDoorIds.empty())
             {
-                if (portalLinkId >= m_indoorPortalGraph->portals.size())
+                return;
+            }
+
+            std::cout << " blocker_ids=[";
+
+            for (size_t index = 0; index < portalLink.blockingDoorIds.size(); ++index)
+            {
+                if (index != 0)
+                {
+                    std::cout << ',';
+                }
+
+                std::cout << portalLink.blockingDoorIds[index];
+            }
+
+            std::cout << ']';
+        };
+
+        std::cout << "[IndoorVisibility] party_sector=" << moveState.sectorId
+                  << " eye_sector=" << moveState.eyeSectorId
+                  << " base_visible=";
+        printMask(baseVisibleSectorMask);
+        std::cout << " render_visible=";
+        printMask(renderVisibleSectorMask);
+        std::cout << " adjacent_party=";
+        printNeighbors(moveState.sectorId);
+        std::cout << " adjacent_eye=";
+        printNeighbors(moveState.eyeSectorId);
+        std::cout << " seen_sectors=";
+        printSectorIds(m_pSceneRuntime->worldRuntime().activatedIndoorSectorIds());
+        std::cout << '\n';
+
+        if (m_indoorPortalGraph)
+        {
+            std::vector<int16_t> portalDebugSectors;
+
+            const auto appendPortalDebugSector = [&](int16_t sectorId)
+            {
+                if (sectorId < 0
+                    || static_cast<size_t>(sectorId) >= m_indoorPortalGraph->sectors.size()
+                    || std::find(portalDebugSectors.begin(), portalDebugSectors.end(), sectorId)
+                        != portalDebugSectors.end())
+                {
+                    return;
+                }
+
+                portalDebugSectors.push_back(sectorId);
+            };
+
+            appendPortalDebugSector(moveState.sectorId);
+            appendPortalDebugSector(moveState.eyeSectorId);
+
+            for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+            {
+                appendPortalDebugSector(trace.sourceSectorId);
+            }
+
+            for (int16_t sourceSectorId : portalDebugSectors)
+            {
+                const IndoorSectorPortalCache &sectorCache =
+                    m_indoorPortalGraph->sectors[static_cast<size_t>(sourceSectorId)];
+
+                if (sectorCache.portalLinkIds.empty())
                 {
                     std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
-                              << " link=" << portalLinkId
-                              << " status=invalid_graph_link\n";
+                              << " status=no_graph_portals\n";
                     continue;
                 }
 
-                const IndoorPortalLink &portalLink = m_indoorPortalGraph->portals[portalLinkId];
-                const int16_t targetSectorId =
-                    portalLink.sectorA == static_cast<uint16_t>(sourceSectorId)
-                        ? static_cast<int16_t>(portalLink.sectorB)
-                        : (portalLink.sectorB == static_cast<uint16_t>(sourceSectorId)
-                            ? static_cast<int16_t>(portalLink.sectorA)
-                            : static_cast<int16_t>(-1));
-                bool traceFound = false;
-
-                for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+                for (uint16_t portalLinkId : sectorCache.portalLinkIds)
                 {
-                    if (trace.sourceSectorId != sourceSectorId || trace.faceId != portalLink.faceId)
+                    if (portalLinkId >= m_indoorPortalGraph->portals.size())
                     {
+                        std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                                  << " link=" << portalLinkId
+                                  << " status=invalid_graph_link\n";
                         continue;
                     }
 
-                    traceFound = true;
-                    std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
-                              << " target=" << trace.targetSectorId
-                              << " face=" << trace.faceId
-                              << " link=" << trace.portalLinkId
-                              << " depth=" << trace.depth
-                              << " accepted=" << (trace.accepted ? 1 : 0)
-                              << " reason=" << trace.reason;
-                    printPortalBlockerDetails(trace);
-                    std::cout << '\n';
-                }
+                    const IndoorPortalLink &portalLink = m_indoorPortalGraph->portals[portalLinkId];
+                    const int16_t targetSectorId =
+                        portalLink.sectorA == static_cast<uint16_t>(sourceSectorId)
+                            ? static_cast<int16_t>(portalLink.sectorB)
+                            : (portalLink.sectorB == static_cast<uint16_t>(sourceSectorId)
+                                ? static_cast<int16_t>(portalLink.sectorA)
+                                : static_cast<int16_t>(-1));
+                    bool traceFound = false;
 
-                if (!traceFound)
-                {
-                    std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
-                              << " target=" << targetSectorId
-                              << " face=" << portalLink.faceId
-                              << " link=" << portalLinkId
-                              << " accepted=0"
-                              << " reason=not_run";
-                    printPortalGraphBlockerIds(portalLink);
-                    std::cout << '\n';
+                    for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+                    {
+                        if (trace.sourceSectorId != sourceSectorId || trace.faceId != portalLink.faceId)
+                        {
+                            continue;
+                        }
+
+                        traceFound = true;
+                        std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                                  << " target=" << trace.targetSectorId
+                                  << " face=" << trace.faceId
+                                  << " link=" << trace.portalLinkId
+                                  << " depth=" << trace.depth
+                                  << " accepted=" << (trace.accepted ? 1 : 0)
+                                  << " reason=" << trace.reason;
+                        printPortalBlockerDetails(trace);
+                        std::cout << '\n';
+                    }
+
+                    if (!traceFound)
+                    {
+                        std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                                  << " target=" << targetSectorId
+                                  << " face=" << portalLink.faceId
+                                  << " link=" << portalLinkId
+                                  << " accepted=0"
+                                  << " reason=not_run";
+                        printPortalGraphBlockerIds(portalLink);
+                        std::cout << '\n';
+                    }
                 }
             }
         }
+    }
+
+    const IndoorPerformanceDiagnostics diagnostics = m_indoorPerformanceDiagnostics;
+
+    if (diagnostics.hasActivity())
+    {
+        const uint64_t measuredRenderNanoseconds =
+            diagnostics.mechanismTotalNanoseconds
+            + diagnostics.renderWorldFxNanoseconds
+            + diagnostics.renderViewSetupNanoseconds
+            + diagnostics.renderVisibilityNanoseconds
+            + diagnostics.renderLightingNanoseconds
+            + diagnostics.renderInspectNanoseconds
+            + diagnostics.renderTexturedSubmitNanoseconds
+            + diagnostics.renderBloodSplatsNanoseconds
+            + diagnostics.renderDecorationNanoseconds
+            + diagnostics.renderActorNanoseconds
+            + diagnostics.renderSpriteObjectNanoseconds
+            + diagnostics.renderParticleNanoseconds;
+        const uint64_t untrackedRenderNanoseconds =
+            diagnostics.renderTotalNanoseconds > measuredRenderNanoseconds
+                ? diagnostics.renderTotalNanoseconds - measuredRenderNanoseconds
+                : 0;
+
+        std::cout << "[IndoorPerf]"
+                  << " visibility_calls=" << diagnostics.visibilityCalls
+                  << " visibility_interaction_calls=" << diagnostics.visibilityInteractionCalls
+                  << " visibility_cache_hits=" << diagnostics.visibilityCacheHits
+                  << " visibility_builds=" << diagnostics.visibilityBuilds
+                  << " avg_visibility_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.visibilityTotalNanoseconds,
+                      diagnostics.visibilityCalls))
+                  << " avg_visibility_signature_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.visibilitySignatureNanoseconds,
+                      diagnostics.visibilityCalls))
+                  << " avg_visibility_build_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.visibilityBuildNanoseconds,
+                      diagnostics.visibilityBuilds))
+                  << " portal_candidates=" << diagnostics.visibilityPortalCandidates
+                  << " portals_accepted=" << diagnostics.visibilityPortalsAccepted
+                  << " portals_rejected=" << diagnostics.visibilityPortalsRejected
+                  << " simulation_calls=" << diagnostics.simulationCalls
+                  << " simulation_advanced=" << diagnostics.simulationAdvancedFrames
+                  << " moving_frames=" << diagnostics.movingFrames
+                  << " moving_update_failures=" << diagnostics.movingUpdateFailures
+                  << " moving_full_rebuilds=" << diagnostics.movingFullRebuilds
+                  << " moving_fallback_full_rebuilds=" << diagnostics.movingFallbackFullRebuilds
+                  << " mechanism_settle_full_rebuilds=" << diagnostics.mechanismSettleFullRebuilds
+                  << " avg_simulation_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.simulationNanoseconds,
+                      diagnostics.simulationCalls))
+                  << " avg_mechanism_probe_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.mechanismProbeNanoseconds,
+                      diagnostics.simulationAdvancedFrames))
+                  << " avg_moving_vertices_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.movingRenderVerticesNanoseconds,
+                      diagnostics.movingFrames))
+                  << " avg_moving_face_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.movingFaceTotalNanoseconds,
+                      diagnostics.movingFrames))
+                  << " avg_moving_face_build_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.movingFaceBuildNanoseconds,
+                      diagnostics.movingFrames))
+                  << " avg_moving_upload_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.movingFaceUploadNanoseconds,
+                      diagnostics.movingFrames))
+                  << " avg_full_rebuild_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.fullRebuildNanoseconds,
+                      diagnostics.movingFullRebuilds))
+                  << " avg_mechanism_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.mechanismTotalNanoseconds,
+                      diagnostics.simulationAdvancedFrames))
+                  << " updated_faces=" << diagnostics.movingUpdatedFaces
+                  << " dirty_batches=" << diagnostics.movingDirtyBatches
+                  << " render_frames=" << diagnostics.renderFrames
+                  << " avg_render_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderTotalNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_render_untracked_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      untrackedRenderNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_world_fx_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderWorldFxNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_view_setup_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderViewSetupNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_visibility_phase_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderVisibilityNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_lighting_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderLightingNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_inspect_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderInspectNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_textured_submit_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderTexturedSubmitNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_blood_splats_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderBloodSplatsNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_decoration_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderDecorationNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_actor_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderActorNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_sprite_object_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderSpriteObjectNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_particle_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderParticleNanoseconds,
+                      diagnostics.renderFrames))
+                  << " textured_batches=" << diagnostics.renderTexturedBatches
+                  << " textured_visible=" << diagnostics.renderVisibleTexturedBatches
+                  << " textured_submitted=" << diagnostics.renderSubmittedTexturedBatches
+                  << " textured_culled=" << diagnostics.renderCulledTexturedBatches
+                  << '\n';
+
+        m_indoorPerformanceDiagnostics = {};
     }
 
 }
@@ -2758,6 +2937,17 @@ void IndoorRenderer::render(
         return;
     }
 
+    const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
+    m_logIndoorVisibilityDiagnostics = settings.logIndoorVisibility;
+    m_logIndoorPerformanceDiagnostics = settings.performanceTrace;
+    const bool collectRenderDiagnostics = m_logIndoorPerformanceDiagnostics;
+    const uint64_t renderBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+
+    if (collectRenderDiagnostics)
+    {
+        ++m_indoorPerformanceDiagnostics.renderFrames;
+    }
+
     const bool geometryToggleHeld = input.isScancodeHeld(SDL_SCANCODE_F8);
 
     if (geometryToggleHeld && !m_indoorGeometryRenderingToggleHeld)
@@ -2773,29 +2963,85 @@ void IndoorRenderer::render(
     const float deltaMilliseconds = deltaSeconds * 1000.0f;
     m_elapsedTime += std::max(deltaSeconds, 0.0f);
 
-    if (allowWorldInput && m_pSceneRuntime != nullptr && m_pSceneRuntime->advanceSimulation(deltaMilliseconds))
+    if (allowWorldInput && m_pSceneRuntime != nullptr)
     {
-        const bool mechanismsStillMoving = hasMovingMechanism(runtimeEventRuntimeState());
+        const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
+        const uint64_t mechanismBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const uint64_t simulationBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const bool simulationAdvanced = m_pSceneRuntime->advanceSimulation(deltaMilliseconds);
 
-        if (mechanismsStillMoving)
+        if (collectDiagnostics)
         {
-            updateMovingMechanismGeometryResources();
+            ++m_indoorPerformanceDiagnostics.simulationCalls;
+            m_indoorPerformanceDiagnostics.simulationNanoseconds += SDL_GetTicksNS() - simulationBeginTickCount;
         }
-        else
+
+        if (simulationAdvanced)
         {
-            rebuildDerivedGeometryResources();
+            if (collectDiagnostics)
+            {
+                ++m_indoorPerformanceDiagnostics.simulationAdvancedFrames;
+            }
+
+            const uint64_t mechanismProbeBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+            const bool mechanismsStillMoving = hasMovingMechanism(runtimeEventRuntimeState());
+
+            if (collectDiagnostics)
+            {
+                m_indoorPerformanceDiagnostics.mechanismProbeNanoseconds +=
+                    SDL_GetTicksNS() - mechanismProbeBeginTickCount;
+            }
+
+            if (mechanismsStillMoving)
+            {
+                if (collectDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.movingFrames;
+                }
+
+                if (!updateMovingMechanismGeometryResources() && collectDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.movingUpdateFailures;
+                }
+            }
+            else
+            {
+                const uint64_t rebuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+                rebuildDerivedGeometryResources();
+
+                if (collectDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.movingFullRebuilds;
+                    ++m_indoorPerformanceDiagnostics.mechanismSettleFullRebuilds;
+                    m_indoorPerformanceDiagnostics.fullRebuildNanoseconds +=
+                        SDL_GetTicksNS() - rebuildBeginTickCount;
+                }
+            }
+
+            if (collectDiagnostics)
+            {
+                m_indoorPerformanceDiagnostics.mechanismTotalNanoseconds +=
+                    SDL_GetTicksNS() - mechanismBeginTickCount;
+            }
         }
     }
 
-    m_worldFxSystem.setShadowsEnabled(gameSession.gameplayScreenRuntime().settingsSnapshot().shadows);
-    m_worldFxSystem.updateParticles(deltaSeconds, m_gameplayCursorMode);
+    const uint64_t worldFxBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
+    m_worldFxSystem.setShadowsEnabled(settings.shadows);
+    m_worldFxSystem.updateParticles(deltaSeconds, m_gameplayCursorMode);
     if (!m_gameplayCursorMode)
     {
         m_worldFxSystem.clearSpatialFx();
         m_worldFxSystem.syncProjectileFx(gameSession, deltaSeconds, true);
     }
 
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderWorldFxNanoseconds += SDL_GetTicksNS() - worldFxBeginTickCount;
+    }
+
+    const uint64_t viewSetupBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const float cosPitch = std::cos(m_cameraPitchRadians);
     const float sinPitch = std::sin(m_cameraPitchRadians);
     const float cosYaw = std::cos(m_cameraYawRadians);
@@ -2825,17 +3071,24 @@ void IndoorRenderer::render(
 
     bgfx::setViewTransform(MainViewId, viewMatrix, projectionMatrix);
     bgfx::touch(MainViewId);
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderViewSetupNanoseconds += SDL_GetTicksNS() - viewSetupBeginTickCount;
+    }
+
+    const uint64_t visibilityBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const std::vector<uint8_t> baseVisibleSectorMask = buildVisibleSectorMask(eye, false);
     const std::vector<uint8_t> renderVisibleSectorMask = buildRenderVisibleSectorMask(eye);
     const std::vector<std::vector<IndoorVisibilityFrustum>> &renderVisibleSectorFrustums =
         portalVisibilityCache(false).visibleSectorFrustums;
-    const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
 
-    if (settings.logIndoorVisibility)
+    if (collectRenderDiagnostics)
     {
-        logIndoorVisibilityDiagnostics(baseVisibleSectorMask, renderVisibleSectorMask, SDL_GetTicks());
+        m_indoorPerformanceDiagnostics.renderVisibilityNanoseconds += SDL_GetTicksNS() - visibilityBeginTickCount;
     }
 
+    const uint64_t lightingBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     IndoorLightingFrameInput lightingInput = {};
     lightingInput.pMapData = m_indoorMapData ? &m_indoorMapData.value() : nullptr;
     lightingInput.pEventRuntimeState = runtimeEventRuntimeState();
@@ -2851,6 +3104,12 @@ void IndoorRenderer::render(
     const IndoorDrawLightSet defaultLightSet =
         IndoorLightingRuntime::selectDrawLightSetForPoint(lightingFrame, eye, viewForward);
 
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderLightingNanoseconds += SDL_GetTicksNS() - lightingBeginTickCount;
+    }
+
+    const uint64_t inspectBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     InspectHit inspectHit = {};
     float mouseX = input.pointerX;
     float mouseY = input.pointerY;
@@ -2931,6 +3190,11 @@ void IndoorRenderer::render(
         inspectHit = m_cachedInspectHit;
     }
 
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderInspectNanoseconds += SDL_GetTicksNS() - inspectBeginTickCount;
+    }
+
     float modelMatrix[16] = {};
     bx::mtxIdentity(modelMatrix);
     const auto drawLightSetForBatch =
@@ -2949,6 +3213,12 @@ void IndoorRenderer::render(
                 batch.backSectorId,
                 bounds);
         };
+
+    const uint64_t texturedSubmitBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    uint64_t texturedBatchCount = 0;
+    uint64_t visibleTexturedBatchCount = 0;
+    uint64_t submittedTexturedBatchCount = 0;
+    uint64_t culledTexturedBatchCount = 0;
 
     if (!m_indoorGeometryRenderingDisabled
         && bgfx::isValid(m_indoorLitProgramHandle)
@@ -2971,10 +3241,15 @@ void IndoorRenderer::render(
 
         for (const TexturedBatch &batch : m_texturedBatches)
         {
+            ++texturedBatchCount;
+
             if (!isTexturedBatchVisible(batch, renderVisibleSectorMask))
             {
+                ++culledTexturedBatchCount;
                 continue;
             }
+
+            ++visibleTexturedBatchCount;
 
             if (!bgfx::isValid(batch.vertexBufferHandle) || batch.frameTextureHandles.empty() || batch.vertexCount == 0)
             {
@@ -3017,8 +3292,21 @@ void IndoorRenderer::render(
                 | BGFX_STATE_DEPTH_TEST_LEQUAL
             );
             bgfx::submit(MainViewId, m_indoorLitProgramHandle);
+            ++submittedTexturedBatchCount;
         }
     }
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderTexturedSubmitNanoseconds +=
+            SDL_GetTicksNS() - texturedSubmitBeginTickCount;
+        m_indoorPerformanceDiagnostics.renderTexturedBatches += texturedBatchCount;
+        m_indoorPerformanceDiagnostics.renderVisibleTexturedBatches += visibleTexturedBatchCount;
+        m_indoorPerformanceDiagnostics.renderSubmittedTexturedBatches += submittedTexturedBatchCount;
+        m_indoorPerformanceDiagnostics.renderCulledTexturedBatches += culledTexturedBatchCount;
+    }
+
+    const uint64_t bloodSplatsBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
     if (!m_indoorGeometryRenderingDisabled && settings.bloodSplats)
     {
@@ -3027,6 +3315,12 @@ void IndoorRenderer::render(
             defaultLightSet);
     }
 
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderBloodSplatsNanoseconds += SDL_GetTicksNS() - bloodSplatsBeginTickCount;
+    }
+
+    const uint64_t decorationBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderDecorationBillboards(
         MainViewId,
         viewMatrix,
@@ -3034,6 +3328,13 @@ void IndoorRenderer::render(
         renderVisibleSectorMask,
         renderVisibleSectorFrustums,
         lightingFrame);
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderDecorationNanoseconds += SDL_GetTicksNS() - decorationBeginTickCount;
+    }
+
+    const uint64_t actorBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderActorPreviewBillboards(
         MainViewId,
         viewMatrix,
@@ -3042,6 +3343,13 @@ void IndoorRenderer::render(
         renderVisibleSectorFrustums,
         lightingFrame,
         settings.spriteOutline);
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderActorNanoseconds += SDL_GetTicksNS() - actorBeginTickCount;
+    }
+
+    const uint64_t spriteObjectBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderSpriteObjectBillboards(
         MainViewId,
         viewMatrix,
@@ -3051,6 +3359,13 @@ void IndoorRenderer::render(
         lightingFrame,
         settings.spriteOutline);
 
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderSpriteObjectNanoseconds +=
+            SDL_GetTicksNS() - spriteObjectBeginTickCount;
+    }
+
+    const uint64_t particlesBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     ParticleRenderer::renderParticles(
         m_worldFxRenderResources,
         m_worldFxSystem.particles(),
@@ -3058,6 +3373,17 @@ void IndoorRenderer::render(
         viewMatrix,
         eye,
         static_cast<float>(viewWidth) / static_cast<float>(viewHeight));
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderParticleNanoseconds += SDL_GetTicksNS() - particlesBeginTickCount;
+        m_indoorPerformanceDiagnostics.renderTotalNanoseconds += SDL_GetTicksNS() - renderBeginTickCount;
+
+        if (m_logIndoorVisibilityDiagnostics || m_logIndoorPerformanceDiagnostics)
+        {
+            logIndoorVisibilityDiagnostics(baseVisibleSectorMask, renderVisibleSectorMask, SDL_GetTicks());
+        }
+    }
 }
 
 bool IndoorRenderer::hasHudRenderResources() const
@@ -7467,12 +7793,15 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
 
 bool IndoorRenderer::updateMovingMechanismFaceVertices(
     uint64_t &texturedBuildNanoseconds,
-    uint64_t &uploadNanoseconds
+    uint64_t &uploadNanoseconds,
+    size_t *pUpdatedFaceCount,
+    size_t *pDirtyBatchCount
 )
 {
     const std::vector<size_t> faceIndices = collectMovingMechanismFaceIndices();
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     std::vector<uint8_t> dirtyBatchBounds(m_texturedBatches.size(), 0);
+    size_t updatedFaceCount = 0;
 
     for (size_t faceIndex : faceIndices)
     {
@@ -7538,6 +7867,7 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
 
         std::copy(faceVertices.begin(), faceVertices.end(), batch.vertices.begin() + vertexOffset);
         dirtyBatchBounds[static_cast<size_t>(batchIndex)] = 1;
+        ++updatedFaceCount;
 
         const uint64_t uploadBeginTickCount = SDL_GetTicksNS();
         bgfx::update(
@@ -7548,12 +7878,25 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
         uploadNanoseconds += SDL_GetTicksNS() - uploadBeginTickCount;
     }
 
+    size_t dirtyBatchCount = 0;
+
     for (size_t batchIndex = 0; batchIndex < dirtyBatchBounds.size(); ++batchIndex)
     {
         if (dirtyBatchBounds[batchIndex] != 0)
         {
+            ++dirtyBatchCount;
             rebuildTexturedBatchBounds(m_texturedBatches[batchIndex]);
         }
+    }
+
+    if (pUpdatedFaceCount != nullptr)
+    {
+        *pUpdatedFaceCount = updatedFaceCount;
+    }
+
+    if (pDirtyBatchCount != nullptr)
+    {
+        *pDirtyBatchCount = dirtyBatchCount;
     }
 
     return true;
@@ -7728,9 +8071,18 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
         return false;
     }
 
+    const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
+    const uint64_t renderVerticesBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+
     if (!updateMovingMechanismRenderVertices())
     {
         return false;
+    }
+
+    if (collectDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.movingRenderVerticesNanoseconds +=
+            SDL_GetTicksNS() - renderVerticesBeginTickCount;
     }
 
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
@@ -7742,15 +8094,54 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
 
     if (!m_indoorTextureSet || texturedBatchesNeedFullRebuild())
     {
-        return rebuildDerivedGeometryResources();
+        const uint64_t rebuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const bool rebuilt = rebuildDerivedGeometryResources();
+
+        if (collectDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.movingFullRebuilds;
+            ++m_indoorPerformanceDiagnostics.movingFallbackFullRebuilds;
+            m_indoorPerformanceDiagnostics.fullRebuildNanoseconds +=
+                SDL_GetTicksNS() - rebuildBeginTickCount;
+        }
+
+        return rebuilt;
     }
 
     uint64_t texturedBuildNanoseconds = 0;
     uint64_t uploadNanoseconds = 0;
+    size_t updatedFaceCount = 0;
+    size_t dirtyBatchCount = 0;
+    const uint64_t faceUpdateBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
 
-    if (!updateMovingMechanismFaceVertices(texturedBuildNanoseconds, uploadNanoseconds))
+    if (!updateMovingMechanismFaceVertices(
+            texturedBuildNanoseconds,
+            uploadNanoseconds,
+            &updatedFaceCount,
+            &dirtyBatchCount))
     {
-        return rebuildDerivedGeometryResources();
+        const uint64_t rebuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const bool rebuilt = rebuildDerivedGeometryResources();
+
+        if (collectDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.movingFullRebuilds;
+            ++m_indoorPerformanceDiagnostics.movingFallbackFullRebuilds;
+            m_indoorPerformanceDiagnostics.fullRebuildNanoseconds +=
+                SDL_GetTicksNS() - rebuildBeginTickCount;
+        }
+
+        return rebuilt;
+    }
+
+    if (collectDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.movingFaceTotalNanoseconds +=
+            SDL_GetTicksNS() - faceUpdateBeginTickCount;
+        m_indoorPerformanceDiagnostics.movingFaceBuildNanoseconds += texturedBuildNanoseconds;
+        m_indoorPerformanceDiagnostics.movingFaceUploadNanoseconds += uploadNanoseconds;
+        m_indoorPerformanceDiagnostics.movingUpdatedFaces += updatedFaceCount;
+        m_indoorPerformanceDiagnostics.movingDirtyBatches += dirtyBatchCount;
     }
 
     ++m_inspectGeometryRevision;

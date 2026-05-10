@@ -157,6 +157,7 @@ void applySettingsConfigOverridesIfConfigured(
     }
 
     config.fpsTrace = settings->fpsTrace;
+    config.performanceTrace = settings->performanceTrace;
 }
 
 int runApplication(int argc, char **argv)

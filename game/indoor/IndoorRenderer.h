@@ -392,9 +392,69 @@ private:
     void rebuildIndoorRenderMemberships();
     void rebuildMechanismBindings();
     bool rebuildAllTexturedBatches(uint64_t &texturedBuildNanoseconds);
-    bool updateMovingMechanismFaceVertices(uint64_t &texturedBuildNanoseconds, uint64_t &uploadNanoseconds);
+    bool updateMovingMechanismFaceVertices(
+        uint64_t &texturedBuildNanoseconds,
+        uint64_t &uploadNanoseconds,
+        size_t *pUpdatedFaceCount = nullptr,
+        size_t *pDirtyBatchCount = nullptr);
     static void rebuildTexturedBatchBounds(TexturedBatch &batch);
     std::vector<size_t> collectMovingMechanismFaceIndices() const;
+    struct IndoorPerformanceDiagnostics
+    {
+        uint64_t visibilityCalls = 0;
+        uint64_t visibilityInteractionCalls = 0;
+        uint64_t visibilityCacheHits = 0;
+        uint64_t visibilityBuilds = 0;
+        uint64_t visibilitySignatureNanoseconds = 0;
+        uint64_t visibilityBuildNanoseconds = 0;
+        uint64_t visibilityTotalNanoseconds = 0;
+        uint64_t visibilityPortalCandidates = 0;
+        uint64_t visibilityPortalsAccepted = 0;
+        uint64_t visibilityPortalsRejected = 0;
+        uint64_t simulationCalls = 0;
+        uint64_t simulationAdvancedFrames = 0;
+        uint64_t simulationNanoseconds = 0;
+        uint64_t mechanismProbeNanoseconds = 0;
+        uint64_t movingFrames = 0;
+        uint64_t movingUpdateFailures = 0;
+        uint64_t movingRenderVerticesNanoseconds = 0;
+        uint64_t movingFaceTotalNanoseconds = 0;
+        uint64_t movingFaceBuildNanoseconds = 0;
+        uint64_t movingFaceUploadNanoseconds = 0;
+        uint64_t movingUpdatedFaces = 0;
+        uint64_t movingDirtyBatches = 0;
+        uint64_t movingFullRebuilds = 0;
+        uint64_t movingFallbackFullRebuilds = 0;
+        uint64_t mechanismSettleFullRebuilds = 0;
+        uint64_t fullRebuildNanoseconds = 0;
+        uint64_t mechanismTotalNanoseconds = 0;
+        uint64_t renderFrames = 0;
+        uint64_t renderTotalNanoseconds = 0;
+        uint64_t renderWorldFxNanoseconds = 0;
+        uint64_t renderViewSetupNanoseconds = 0;
+        uint64_t renderVisibilityNanoseconds = 0;
+        uint64_t renderLightingNanoseconds = 0;
+        uint64_t renderInspectNanoseconds = 0;
+        uint64_t renderTexturedSubmitNanoseconds = 0;
+        uint64_t renderBloodSplatsNanoseconds = 0;
+        uint64_t renderDecorationNanoseconds = 0;
+        uint64_t renderActorNanoseconds = 0;
+        uint64_t renderSpriteObjectNanoseconds = 0;
+        uint64_t renderParticleNanoseconds = 0;
+        uint64_t renderTexturedBatches = 0;
+        uint64_t renderVisibleTexturedBatches = 0;
+        uint64_t renderSubmittedTexturedBatches = 0;
+        uint64_t renderCulledTexturedBatches = 0;
+
+        bool hasActivity() const
+        {
+            return visibilityCalls != 0
+                || simulationCalls != 0
+                || movingFrames != 0
+                || movingFullRebuilds != 0
+                || renderFrames != 0;
+        }
+    };
     struct PortalVisibilityCache
     {
         bool valid = false;
@@ -518,6 +578,9 @@ private:
     int m_lastRenderHeight = 0;
     mutable PortalVisibilityCache m_renderPortalVisibilityCache;
     mutable PortalVisibilityCache m_interactionPortalVisibilityCache;
+    bool m_logIndoorVisibilityDiagnostics = false;
+    bool m_logIndoorPerformanceDiagnostics = false;
+    mutable IndoorPerformanceDiagnostics m_indoorPerformanceDiagnostics;
     bool m_gameplayMouseLookEnabled = false;
     bool m_gameplayCursorMode = false;
     bool m_jumpHeld;

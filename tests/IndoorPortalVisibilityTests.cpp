@@ -3,10 +3,13 @@
 #include "game/FaceEnums.h"
 #include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
+#include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
+#include "game/maps/IndoorSceneYml.h"
 #include "game/maps/MapDeltaData.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -74,6 +77,22 @@ uint16_t addSolidDoorFace(
 
     mapData.faces.push_back(std::move(face));
     return static_cast<uint16_t>(mapData.faces.size() - 1);
+}
+
+void translateFaceVertices(std::vector<IndoorVertex> &vertices, const IndoorFace &face, int dx, int dy, int dz)
+{
+    for (uint16_t vertexId : face.vertexIndices)
+    {
+        if (vertexId >= vertices.size())
+        {
+            continue;
+        }
+
+        IndoorVertex &vertex = vertices[vertexId];
+        vertex.x += dx;
+        vertex.y += dy;
+        vertex.z += dz;
+    }
 }
 
 IndoorPortalVisibilityInput makeVisibilityInput(const IndoorMapData &mapData)
@@ -172,6 +191,85 @@ const IndoorPortalVisibilityTrace *findPortalTraceForFace(
     return nullptr;
 }
 
+const MapDeltaDoor *findDoorContainingFace(const MapDeltaData &mapDeltaData, uint16_t faceId)
+{
+    for (const MapDeltaDoor &door : mapDeltaData.doors)
+    {
+        if (std::find(door.faceIds.begin(), door.faceIds.end(), faceId) != door.faceIds.end())
+        {
+            return &door;
+        }
+    }
+
+    return nullptr;
+}
+
+const MapDeltaDoor *findDoorById(const MapDeltaData &mapDeltaData, uint32_t doorId)
+{
+    for (const MapDeltaDoor &door : mapDeltaData.doors)
+    {
+        if (door.doorId == doorId)
+        {
+            return &door;
+        }
+    }
+
+    return nullptr;
+}
+
+bx::Vec3 faceCenter(const IndoorMapData &mapData, uint16_t faceId)
+{
+    bx::Vec3 center = {0.0f, 0.0f, 0.0f};
+
+    if (faceId >= mapData.faces.size())
+    {
+        return center;
+    }
+
+    const IndoorFace &face = mapData.faces[faceId];
+    size_t pointCount = 0;
+
+    for (uint16_t vertexId : face.vertexIndices)
+    {
+        if (vertexId >= mapData.vertices.size())
+        {
+            continue;
+        }
+
+        const IndoorVertex &vertex = mapData.vertices[vertexId];
+        center.x += static_cast<float>(vertex.x);
+        center.y += static_cast<float>(vertex.y);
+        center.z += static_cast<float>(vertex.z);
+        ++pointCount;
+    }
+
+    if (pointCount == 0)
+    {
+        return center;
+    }
+
+    const float reciprocalCount = 1.0f / static_cast<float>(pointCount);
+    center.x *= reciprocalCount;
+    center.y *= reciprocalCount;
+    center.z *= reciprocalCount;
+    return center;
+}
+
+bx::Vec3 sectorBoundsCenter(const IndoorMapData &mapData, uint16_t sectorId)
+{
+    if (sectorId >= mapData.sectors.size())
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    const IndoorSector &sector = mapData.sectors[sectorId];
+    return {
+        (static_cast<float>(sector.minX) + static_cast<float>(sector.maxX)) * 0.5f,
+        (static_cast<float>(sector.minY) + static_cast<float>(sector.maxY)) * 0.5f,
+        (static_cast<float>(sector.minZ) + static_cast<float>(sector.maxZ)) * 0.5f
+    };
+}
+
 std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 {
     std::ifstream input(path, std::ios::binary);
@@ -193,6 +291,18 @@ std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
     input.seekg(0, std::ios::beg);
     input.read(reinterpret_cast<char *>(bytes.data()), size);
     return input ? bytes : std::vector<uint8_t>{};
+}
+
+std::string readTextFile(const std::filesystem::path &path)
+{
+    std::ifstream input(path);
+
+    if (!input)
+    {
+        return {};
+    }
+
+    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
 }
 }
 
@@ -217,6 +327,40 @@ TEST_CASE("indoor portal visibility only traverses portals inside the camera fru
     CHECK_EQ(result.frustumsBySector[2].size(), 0);
     CHECK(sphereIntersectsAnyFrustum({150.0f, 0.0f, 0.0f}, 8.0f, result.frustumsBySector[1]));
     CHECK_FALSE(sphereIntersectsAnyFrustum({150.0f, 900.0f, 0.0f}, 8.0f, result.frustumsBySector[1]));
+}
+
+TEST_CASE("indoor portal visibility uses shared sector boundary for portal clipping")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(2);
+    mapData.sectors[0].minX = 0;
+    mapData.sectors[0].maxX = 512;
+    mapData.sectors[0].minY = -128;
+    mapData.sectors[0].maxY = 128;
+    mapData.sectors[0].minZ = 224;
+    mapData.sectors[0].maxZ = 480;
+    mapData.sectors[1].minX = 512;
+    mapData.sectors[1].maxX = 1024;
+    mapData.sectors[1].minY = -128;
+    mapData.sectors[1].maxY = 128;
+    mapData.sectors[1].minZ = 224;
+    mapData.sectors[1].maxZ = 480;
+
+    const uint16_t faceId = addPortalFace(mapData, 0, 1, 512, -1, 1, 224, 480);
+
+    IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
+    input.cameraPosition = {0.0f, -420.0f, 352.0f};
+    input.cameraForward = {1.0f, 0.0f, 0.0f};
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK(findPortalTraceForFace(result, faceId, "clipped_portal") == nullptr);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceForFace(result, faceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, 1);
 }
 
 TEST_CASE("indoor portal visibility keeps portals with visible vertices in front of the camera")
@@ -644,6 +788,14 @@ TEST_CASE("indoor portal visibility allows traversal through open mechanism door
 
     IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
     input.pMapDeltaData = &mapDeltaData;
+    std::vector<IndoorVertex> openVertices = mapData.vertices;
+    translateFaceVertices(openVertices, mapData.faces[solidFaceId], 0, 200, 0);
+    input.pVertices = &openVertices;
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState openDoorState = {};
+    openDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    eventRuntimeState->mechanisms[1] = openDoorState;
+    input.pEventRuntimeState = &eventRuntimeState;
 
     const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
 
@@ -656,6 +808,38 @@ TEST_CASE("indoor portal visibility allows traversal through open mechanism door
     CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, 1);
     CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
     CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
+}
+
+TEST_CASE("indoor portal visibility blocks traversal through occluding initial-state door geometry")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(2);
+
+    const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.doors.push_back(makeDoorBlockingFace(
+        1,
+        faceId,
+        solidFaceId,
+        static_cast<uint16_t>(EvtMechanismState::Open)
+    ));
+
+    IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
+    input.pMapDeltaData = &mapDeltaData;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 0);
+    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
+    REQUIRE(pBlockedTrace != nullptr);
+    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
+    CHECK(pBlockedTrace->blockerDoors[0].blocks);
 }
 
 TEST_CASE("indoor portal visibility allows traversal through moving mechanism doors")
@@ -676,6 +860,9 @@ TEST_CASE("indoor portal visibility allows traversal through moving mechanism do
 
     IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
     input.pMapDeltaData = &mapDeltaData;
+    std::vector<IndoorVertex> openingVertices = mapData.vertices;
+    translateFaceVertices(openingVertices, mapData.faces[solidFaceId], 0, 200, 0);
+    input.pVertices = &openingVertices;
 
     const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
 
@@ -713,10 +900,14 @@ TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is op
     CHECK_EQ(mapData->faces[NagaPortalFaceId].roomBehindNumber, Room3SectorId);
 
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &*mapDeltaData);
+    const MapDeltaDoor *pSlidingDoor = findDoorById(*mapDeltaData, SlidingDoorId);
+    REQUIRE(pSlidingDoor != nullptr);
+
     IndoorPortalVisibilityInput input = {};
     input.pMapData = &*mapData;
     input.pPortalGraph = &portalGraph;
     input.pVertices = &mapData->vertices;
+    input.pPortalVertices = &mapData->vertices;
     input.pMapDeltaData = &*mapDeltaData;
     input.cameraPosition = {416.0f, 0.0f, 0.0f};
     input.cameraForward = {0.0f, -1.0f, 0.0f};
@@ -735,10 +926,32 @@ TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is op
     CHECK_EQ(pClosedTrace->blockerDoors[0].doorId, SlidingDoorId);
 
     std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+
+    RuntimeMechanismState halfOpenDoorState = {};
+    halfOpenDoorState.state = static_cast<uint16_t>(EvtMechanismState::Opening);
+    halfOpenDoorState.currentDistance = static_cast<float>(pSlidingDoor->moveLength) * 0.5f;
+    halfOpenDoorState.isMoving = true;
+    eventRuntimeState->mechanisms[SlidingDoorId] = halfOpenDoorState;
+    input.pEventRuntimeState = &eventRuntimeState;
+    const std::vector<IndoorVertex> halfOpenVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &*mapDeltaData, &*eventRuntimeState);
+    input.pVertices = &halfOpenVertices;
+
+    const IndoorPortalVisibilityResult halfOpenResult = buildIndoorPortalVisibility(input);
+    REQUIRE_GT(halfOpenResult.visibleSectorMask.size(), NagaRoomSectorId);
+    CHECK_EQ(halfOpenResult.visibleSectorMask[NagaRoomSectorId], 1);
+    const IndoorPortalVisibilityTrace *pHalfOpenTrace =
+        findPortalTraceForFace(halfOpenResult, NagaPortalFaceId, "accepted");
+    REQUIRE(pHalfOpenTrace != nullptr);
+
     RuntimeMechanismState openDoorState = {};
     openDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    openDoorState.currentDistance = 0.0f;
+    openDoorState.isMoving = false;
     eventRuntimeState->mechanisms[SlidingDoorId] = openDoorState;
-    input.pEventRuntimeState = &eventRuntimeState;
+    const std::vector<IndoorVertex> openVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &*mapDeltaData, &*eventRuntimeState);
+    input.pVertices = &openVertices;
 
     const IndoorPortalVisibilityResult openResult = buildIndoorPortalVisibility(input);
     REQUIRE_GT(openResult.visibleSectorMask.size(), NagaRoomSectorId);
@@ -756,4 +969,525 @@ TEST_CASE("d18 naga vault portal 318 becomes visible when its sliding door is op
         findPortalTraceForFace(openFromRightEdgeResult, NagaPortalFaceId, "accepted");
     REQUIRE(pOpenFromRightEdgeTrace != nullptr);
     CHECK_EQ(pOpenFromRightEdgeTrace->targetSectorId, NagaRoomSectorId);
+}
+
+TEST_CASE("6d02 portal 3201 is not blocked by edge-adjacent closed door 2")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d02.blv");
+    const std::vector<uint8_t> deltaBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "_legacy" / "map_delta" / "6d02.dlv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(deltaBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    const MapDeltaDataLoader mapDeltaDataLoader = {};
+    std::optional<MapDeltaData> mapDeltaData = mapDeltaDataLoader.loadIndoorFromBytes(deltaBytes, *mapData);
+    REQUIRE(mapDeltaData);
+
+    constexpr uint16_t DoorFaceId = 2823;
+    constexpr uint16_t PortalFaceId = 3201;
+    constexpr uint32_t EdgeAdjacentDoorId = 2;
+    constexpr uint32_t OpenPortalDoorId = 7;
+
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const MapDeltaDoor *pEdgeAdjacentDoor = findDoorContainingFace(*mapDeltaData, DoorFaceId);
+    REQUIRE(pEdgeAdjacentDoor != nullptr);
+    CHECK_EQ(pEdgeAdjacentDoor->doorId, EdgeAdjacentDoorId);
+    const MapDeltaDoor *pOpenPortalDoor = findDoorById(*mapDeltaData, OpenPortalDoorId);
+    REQUIRE(pOpenPortalDoor != nullptr);
+
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_NE(portalFace.roomNumber, portalFace.roomBehindNumber);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &*mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState openDoorState = {};
+    openDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    openDoorState.currentDistance = 0.0f;
+    openDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[pOpenPortalDoor->doorId] = openDoorState;
+
+    RuntimeMechanismState closedDoorState = {};
+    closedDoorState.state = static_cast<uint16_t>(EvtMechanismState::Closed);
+    closedDoorState.currentDistance = static_cast<float>(pEdgeAdjacentDoor->moveLength);
+    closedDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[pEdgeAdjacentDoor->doorId] = closedDoorState;
+
+    const std::vector<IndoorVertex> adjustedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &*mapDeltaData, &*eventRuntimeState);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &adjustedVertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.pMapDeltaData = &*mapDeltaData;
+    input.pEventRuntimeState = &eventRuntimeState;
+    const bx::Vec3 portalCenter = faceCenter(*mapData, PortalFaceId);
+    input.cameraPosition = {16000.0f, -16000.0f, portalCenter.z};
+    input.cameraForward = {
+        portalCenter.x - input.cameraPosition.x,
+        portalCenter.y - input.cameraPosition.y,
+        portalCenter.z - input.cameraPosition.z
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = static_cast<int16_t>(portalFace.roomNumber);
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), portalFace.roomBehindNumber);
+    CHECK_EQ(result.visibleSectorMask[portalFace.roomBehindNumber], 1);
+    const IndoorPortalVisibilityTrace *pOpenTrace =
+        findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pOpenTrace != nullptr);
+    CHECK_EQ(pOpenTrace->targetSectorId, portalFace.roomBehindNumber);
+    REQUIRE_EQ(pOpenTrace->blockerDoors.size(), 2);
+    CHECK_EQ(pOpenTrace->blockerDoors[0].doorId, EdgeAdjacentDoorId);
+    CHECK_FALSE(pOpenTrace->blockerDoors[0].blocks);
+    CHECK_EQ(pOpenTrace->blockerDoors[1].doorId, OpenPortalDoorId);
+    CHECK_FALSE(pOpenTrace->blockerDoors[1].blocks);
+}
+
+TEST_CASE("6d02 portal 2665 uses sector boundary instead of thin portal marker")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d02.blv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    constexpr uint16_t PortalFaceId = 2665;
+    constexpr uint16_t SourceSectorId = 48;
+    constexpr uint16_t TargetSectorId = 51;
+
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, SourceSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, TargetSectorId);
+    CHECK_GE(mapData->sectors[SourceSectorId].maxX, mapData->sectors[TargetSectorId].minX);
+    CHECK_LE(mapData->sectors[SourceSectorId].minY, mapData->sectors[TargetSectorId].maxY);
+    CHECK_GE(mapData->sectors[SourceSectorId].maxY, mapData->sectors[TargetSectorId].minY);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, nullptr);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &mapData->vertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.cameraPosition = {16512.0f, -16200.0f, 352.0f};
+    input.cameraForward = {1.0f, 0.0f, 0.0f};
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    CHECK(findPortalTraceForFace(result, PortalFaceId, "clipped_portal") == nullptr);
+    CHECK(findPortalTraceForFace(result, PortalFaceId, "clipped_shared_boundary") == nullptr);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace =
+        findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+}
+
+TEST_CASE("6d02 portal 3392 from sector 47 is not blocked by adjacent state-zero door 2")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d02.blv");
+    const std::vector<uint8_t> deltaBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "_legacy" / "map_delta" / "6d02.dlv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(deltaBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    const MapDeltaDataLoader mapDeltaDataLoader = {};
+    std::optional<MapDeltaData> mapDeltaData = mapDeltaDataLoader.loadIndoorFromBytes(deltaBytes, *mapData);
+    REQUIRE(mapDeltaData);
+
+    constexpr uint16_t SourceSectorId = 47;
+    constexpr uint16_t TargetSectorId = 49;
+    constexpr uint16_t PortalFaceId = 3392;
+    constexpr uint32_t DoorId = 2;
+
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, SourceSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, TargetSectorId);
+
+    const MapDeltaDoor *pDoor = findDoorById(*mapDeltaData, DoorId);
+    REQUIRE(pDoor != nullptr);
+    CHECK_EQ(pDoor->state, static_cast<uint16_t>(EvtMechanismState::Open));
+    CHECK(std::find(pDoor->sectorIds.begin(), pDoor->sectorIds.end(), SourceSectorId) == pDoor->sectorIds.end());
+    REQUIRE(std::find(pDoor->sectorIds.begin(), pDoor->sectorIds.end(), TargetSectorId) != pDoor->sectorIds.end());
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &*mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), DoorId)
+            != pPortalLink->blockingDoorIds.end());
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &mapData->vertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.pMapDeltaData = &*mapDeltaData;
+    const bx::Vec3 cameraPosition = sectorBoundsCenter(*mapData, SourceSectorId);
+    const bx::Vec3 portalCenter = faceCenter(*mapData, PortalFaceId);
+    input.cameraPosition = cameraPosition;
+    input.cameraForward = {
+        portalCenter.x - cameraPosition.x,
+        portalCenter.y - cameraPosition.y,
+        portalCenter.z - cameraPosition.z
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, DoorId);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
+    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
+}
+
+TEST_CASE("6d01 portal 116 is not blocked by unlinked closed door bounds")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d01.blv");
+    const std::string sceneText =
+        readTextFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d01.scene.yml");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(sceneText.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    std::string sceneError;
+    const IndoorSceneYmlLoader sceneLoader = {};
+    std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, sceneError);
+    REQUIRE_MESSAGE(sceneData, sceneError);
+
+    constexpr uint16_t PortalFaceId = 116;
+    constexpr uint32_t SurroundingDoorId = 32;
+    constexpr uint16_t SourceSectorId = 4;
+    constexpr uint16_t TargetSectorId = 3;
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.faceAttributes.resize(mapData->faces.size());
+
+    for (size_t faceIndex = 0; faceIndex < mapData->faces.size(); ++faceIndex)
+    {
+        mapDeltaData.faceAttributes[faceIndex] = mapData->faces[faceIndex].attributes;
+    }
+
+    for (const IndoorSceneDoor &sceneDoor : sceneData->initialState.doors)
+    {
+        mapDeltaData.doors.push_back(sceneDoor.door);
+    }
+
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, SourceSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, TargetSectorId);
+
+    const MapDeltaDoor *pSurroundingDoor = findDoorById(mapDeltaData, SurroundingDoorId);
+    REQUIRE(pSurroundingDoor != nullptr);
+    REQUIRE(std::find(pSurroundingDoor->faceIds.begin(), pSurroundingDoor->faceIds.end(), PortalFaceId)
+            == pSurroundingDoor->faceIds.end());
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+    REQUIRE(std::find(
+                pPortalLink->blockingDoorIds.begin(),
+                pPortalLink->blockingDoorIds.end(),
+                SurroundingDoorId)
+            == pPortalLink->blockingDoorIds.end());
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState closedDoorState = {};
+    closedDoorState.state = static_cast<uint16_t>(EvtMechanismState::Closed);
+    closedDoorState.currentDistance = static_cast<float>(pSurroundingDoor->moveLength);
+    closedDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[SurroundingDoorId] = closedDoorState;
+
+    const std::vector<IndoorVertex> adjustedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &mapDeltaData, &*eventRuntimeState);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &adjustedVertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.pMapDeltaData = &mapDeltaData;
+    input.pEventRuntimeState = &eventRuntimeState;
+    input.cameraPosition = {-192.0f, 3900.0f, 128.0f};
+    input.cameraForward = {0.0f, 1.0f, 0.0f};
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace =
+        findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+}
+
+TEST_CASE("6d01 room 7 chest portal 1941 is visible after opening its chest door")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d01.blv");
+    const std::string sceneText =
+        readTextFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "6d01.scene.yml");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(sceneText.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    std::string sceneError;
+    const IndoorSceneYmlLoader sceneLoader = {};
+    std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, sceneError);
+    REQUIRE_MESSAGE(sceneData, sceneError);
+
+    MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(buildIndoorMapStateFromScene(*sceneData, *mapData, mapDeltaData, sceneError), sceneError);
+
+    constexpr uint16_t SourceSectorId = 7;
+    constexpr uint16_t TargetSectorId = 13;
+    constexpr uint16_t PortalFaceId = 1941;
+    constexpr uint32_t OpenedDoorId = 9;
+    constexpr uint32_t AdjacentDoorId = 8;
+
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, TargetSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, SourceSectorId);
+
+    const MapDeltaDoor *pOpenedDoor = findDoorById(mapDeltaData, OpenedDoorId);
+    REQUIRE(pOpenedDoor != nullptr);
+    const MapDeltaDoor *pAdjacentDoor = findDoorById(mapDeltaData, AdjacentDoorId);
+    REQUIRE(pAdjacentDoor != nullptr);
+    REQUIRE_GT(pOpenedDoor->sectorIds.size(), 2);
+    REQUIRE_GT(pAdjacentDoor->sectorIds.size(), 2);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), OpenedDoorId)
+            != pPortalLink->blockingDoorIds.end());
+    REQUIRE(std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), AdjacentDoorId)
+            != pPortalLink->blockingDoorIds.end());
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState openedDoorState = {};
+    openedDoorState.state = static_cast<uint16_t>(EvtMechanismState::Closed);
+    openedDoorState.currentDistance = static_cast<float>(pOpenedDoor->moveLength);
+    openedDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[OpenedDoorId] = openedDoorState;
+
+    RuntimeMechanismState adjacentDoorState = {};
+    adjacentDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    adjacentDoorState.currentDistance = 0.0f;
+    adjacentDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[AdjacentDoorId] = adjacentDoorState;
+
+    const std::vector<IndoorVertex> adjustedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &mapDeltaData, &*eventRuntimeState);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &adjustedVertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.pMapDeltaData = &mapDeltaData;
+    input.pEventRuntimeState = &eventRuntimeState;
+    const bx::Vec3 cameraPosition = sectorBoundsCenter(*mapData, SourceSectorId);
+    const bx::Vec3 portalCenter = faceCenter(*mapData, PortalFaceId);
+    input.cameraPosition = cameraPosition;
+    input.cameraForward = {
+        portalCenter.x - cameraPosition.x,
+        portalCenter.y - cameraPosition.y,
+        portalCenter.z - cameraPosition.z
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 2);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, OpenedDoorId);
+    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[1].doorId, AdjacentDoorId);
+    CHECK_FALSE(pAcceptedTrace->blockerDoors[1].blocks);
+}
+
+TEST_CASE("hive start sector 76 stays isolated by initial-state entrance door")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "hive.blv");
+    const std::string sceneText =
+        readTextFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "hive.scene.yml");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(sceneText.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    std::string sceneError;
+    const IndoorSceneYmlLoader sceneLoader = {};
+    std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, sceneError);
+    REQUIRE_MESSAGE(sceneData, sceneError);
+
+    MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(buildIndoorMapStateFromScene(*sceneData, *mapData, mapDeltaData, sceneError), sceneError);
+
+    constexpr uint16_t StartSectorId = 76;
+    constexpr uint16_t EntranceSectorId = 1;
+    constexpr uint16_t EntrancePortalFaceId = 3012;
+    constexpr uint32_t EntranceDoorId = 1;
+
+    REQUIRE_GT(mapData->sectors.size(), StartSectorId);
+    REQUIRE_LT(EntrancePortalFaceId, mapData->faces.size());
+    const IndoorFace &entrancePortalFace = mapData->faces[EntrancePortalFaceId];
+    CHECK_EQ(entrancePortalFace.roomNumber, StartSectorId);
+    CHECK_EQ(entrancePortalFace.roomBehindNumber, EntranceSectorId);
+
+    const MapDeltaDoor *pEntranceDoor = findDoorById(mapDeltaData, EntranceDoorId);
+    REQUIRE(pEntranceDoor != nullptr);
+    CHECK_EQ(pEntranceDoor->state, static_cast<uint16_t>(EvtMechanismState::Open));
+    REQUIRE(
+        std::find(pEntranceDoor->faceIds.begin(), pEntranceDoor->faceIds.end(), EntrancePortalFaceId)
+        != pEntranceDoor->faceIds.end());
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, EntrancePortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+    REQUIRE(
+        std::find(pPortalLink->blockingDoorIds.begin(), pPortalLink->blockingDoorIds.end(), EntranceDoorId)
+        != pPortalLink->blockingDoorIds.end());
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState initialEntranceDoorState = {};
+    initialEntranceDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    initialEntranceDoorState.currentDistance = 0.0f;
+    initialEntranceDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[EntranceDoorId] = initialEntranceDoorState;
+
+    const std::vector<IndoorVertex> adjustedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &mapDeltaData, &*eventRuntimeState);
+
+    const bx::Vec3 cameraPosition = sectorBoundsCenter(*mapData, StartSectorId);
+    const bx::Vec3 portalCenter = faceCenter(*mapData, EntrancePortalFaceId);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &adjustedVertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.pMapDeltaData = &mapDeltaData;
+    input.pEventRuntimeState = &eventRuntimeState;
+    input.cameraPosition = cameraPosition;
+    input.cameraForward = {
+        portalCenter.x - cameraPosition.x,
+        portalCenter.y - cameraPosition.y,
+        portalCenter.z - cameraPosition.z
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 1.0f;
+    input.startSectorId = StartSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), StartSectorId);
+    REQUIRE_GT(result.visibleSectorMask.size(), EntranceSectorId);
+    CHECK_EQ(result.visibleSectorMask[StartSectorId], 1);
+    CHECK_EQ(result.visibleSectorMask[EntranceSectorId], 0);
+    const IndoorPortalVisibilityTrace *pBlockedTrace =
+        findPortalTraceForFace(result, EntrancePortalFaceId, "blocked_by_closed_door");
+    REQUIRE(pBlockedTrace != nullptr);
+    REQUIRE_EQ(pBlockedTrace->sourceSectorId, StartSectorId);
+    REQUIRE_EQ(pBlockedTrace->targetSectorId, EntranceSectorId);
+    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, EntranceDoorId);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
+    CHECK(pBlockedTrace->blockerDoors[0].blocks);
+
+    RuntimeMechanismState openedEntranceDoorState = {};
+    openedEntranceDoorState.state = static_cast<uint16_t>(EvtMechanismState::Closed);
+    openedEntranceDoorState.currentDistance = static_cast<float>(pEntranceDoor->moveLength);
+    openedEntranceDoorState.isMoving = false;
+    eventRuntimeState->mechanisms[EntranceDoorId] = openedEntranceDoorState;
+    const std::vector<IndoorVertex> openedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &mapDeltaData, &*eventRuntimeState);
+    input.pVertices = &openedVertices;
+
+    const IndoorPortalVisibilityResult openedResult = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(openedResult.visibleSectorMask.size(), EntranceSectorId);
+    CHECK_EQ(openedResult.visibleSectorMask[EntranceSectorId], 1);
+    const IndoorPortalVisibilityTrace *pOpenedTrace =
+        findPortalTraceForFace(openedResult, EntrancePortalFaceId, "accepted");
+    REQUIRE(pOpenedTrace != nullptr);
+    REQUIRE_EQ(pOpenedTrace->sourceSectorId, StartSectorId);
+    REQUIRE_EQ(pOpenedTrace->targetSectorId, EntranceSectorId);
+    REQUIRE_EQ(pOpenedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pOpenedTrace->blockerDoors[0].doorId, EntranceDoorId);
+    CHECK_EQ(pOpenedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
+    CHECK_FALSE(pOpenedTrace->blockerDoors[0].blocks);
 }

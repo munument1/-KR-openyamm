@@ -368,6 +368,11 @@ void IndoorMovementController::setSpriteObjectColliders(
     m_spriteObjectColliders = spriteObjectColliders;
 }
 
+void IndoorMovementController::invalidateRuntimeGeometryCache()
+{
+    m_runtimeGeometryCache = {};
+}
+
 void IndoorMovementController::refreshRuntimeGeometryCache() const
 {
     if (m_pIndoorMapData == nullptr)

@@ -14,6 +14,39 @@ AppMode ScreenManager::currentMode() const
 
 void ScreenManager::setActiveScreen(std::unique_ptr<IScreen> pScreen)
 {
+    if (m_activeScreenRenderDepth != 0)
+    {
+        m_pPendingScreen = std::move(pScreen);
+        m_hasPendingScreen = true;
+        return;
+    }
+
+    applyActiveScreen(std::move(pScreen));
+}
+
+void ScreenManager::beginActiveScreenRender()
+{
+    ++m_activeScreenRenderDepth;
+}
+
+void ScreenManager::endActiveScreenRender()
+{
+    if (m_activeScreenRenderDepth == 0)
+    {
+        return;
+    }
+
+    --m_activeScreenRenderDepth;
+
+    if (m_activeScreenRenderDepth == 0 && m_hasPendingScreen)
+    {
+        m_hasPendingScreen = false;
+        applyActiveScreen(std::move(m_pPendingScreen));
+    }
+}
+
+void ScreenManager::applyActiveScreen(std::unique_ptr<IScreen> pScreen)
+{
     if (m_pActiveScreen)
     {
         m_pActiveScreen->onExit();

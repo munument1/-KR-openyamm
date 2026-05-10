@@ -38,6 +38,8 @@
 #include "game/tables/SpellTable.h"
 #include "game/ui/GameplayOverlayTypes.h"
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -54,6 +56,16 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
+{
+    return count != 0 ? totalNanoseconds / count : 0;
+}
+
+uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
+{
+    return nanoseconds / 1000ULL;
+}
+
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float SpecialJumpAngleUnitsPerTurn = 2048.0f;
 constexpr uint32_t RawContainingItemSize = 0x24;
@@ -3440,8 +3452,11 @@ void IndoorWorldRuntime::invalidateRuntimeGeometryCache()
     m_runtimeGeometryCache.vertices.clear();
     m_runtimeGeometryCache.geometryCache = IndoorFaceGeometryCache();
     m_runtimeGeometryCache.pathMapValid = false;
-    m_runtimeGeometryCache.pathMap.clear();
-    m_actorMovementController.reset();
+    m_runtimeGeometryCache.pathMapSnapshot.reset();
+    if (m_actorMovementController)
+    {
+        m_actorMovementController->invalidateRuntimeGeometryCache();
+    }
     m_actorPathRuntime.clear();
 }
 
@@ -3471,6 +3486,7 @@ void IndoorWorldRuntime::refreshMechanismRuntimeGeometryCache()
     }
 
     m_runtimeGeometryCache.pathMapValid = false;
+    m_runtimeGeometryCache.pathMapSnapshot.reset();
 
     if (logIndoorPathfindingEnabled())
     {
@@ -3489,7 +3505,7 @@ IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCac
     m_runtimeGeometryCache.vertices.clear();
     m_runtimeGeometryCache.geometryCache = IndoorFaceGeometryCache();
     m_runtimeGeometryCache.pathMapValid = false;
-    m_runtimeGeometryCache.pathMap.clear();
+    m_runtimeGeometryCache.pathMapSnapshot.reset();
 
     if (m_pIndoorMapData != nullptr)
     {
@@ -3503,7 +3519,7 @@ IndoorWorldRuntime::RuntimeGeometryCache &IndoorWorldRuntime::runtimeGeometryCac
     return m_runtimeGeometryCache;
 }
 
-const PathMap *IndoorWorldRuntime::indoorPathMap() const
+std::shared_ptr<const PathMap> IndoorWorldRuntime::indoorPathMap() const
 {
     if (m_pIndoorMapData == nullptr)
     {
@@ -3512,7 +3528,7 @@ const PathMap *IndoorWorldRuntime::indoorPathMap() const
 
     RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
 
-    if (!runtimeGeometry.pathMapValid)
+    if (!runtimeGeometry.pathMapValid || runtimeGeometry.pathMapSnapshot == nullptr)
     {
         IndoorPathMapBuildResult buildResult =
             IndoorPathfindingBuilder::buildPathMap(
@@ -3520,8 +3536,8 @@ const PathMap *IndoorWorldRuntime::indoorPathMap() const
                 runtimeGeometry.vertices,
                 mapDeltaData(),
                 &runtimeGeometry.geometryCache);
-        runtimeGeometry.pathMap = std::move(buildResult.pathMap);
-        runtimeGeometry.pathMap.buildSpatialGrid(IndoorPathSpatialGridCellSize);
+        buildResult.pathMap.buildSpatialGrid(IndoorPathSpatialGridCellSize);
+        runtimeGeometry.pathMapSnapshot = std::make_shared<PathMap>(std::move(buildResult.pathMap));
         runtimeGeometry.pathMapValid = true;
 
         if (logIndoorPathfindingEnabled())
@@ -3530,12 +3546,12 @@ const PathMap *IndoorWorldRuntime::indoorPathMap() const
                 << "\" source_faces=" << buildResult.sourceFaceCount
                 << " path_facets=" << buildResult.pathFacetCount
                 << " skipped_faces=" << buildResult.skippedFaceCount
-                << " revision=" << runtimeGeometry.pathMap.revision()
+                << " revision=" << runtimeGeometry.pathMapSnapshot->revision()
                 << '\n';
         }
     }
 
-    return &runtimeGeometry.pathMap;
+    return runtimeGeometry.pathMapSnapshot;
 }
 
 bool IndoorWorldRuntime::indoorActorPathfindingEnabled() const
@@ -3546,6 +3562,129 @@ bool IndoorWorldRuntime::indoorActorPathfindingEnabled() const
 bool IndoorWorldRuntime::logIndoorPathfindingEnabled() const
 {
     return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().logIndoorPathfinding;
+}
+
+bool IndoorWorldRuntime::actorAiPerformanceDiagnosticsEnabled() const
+{
+    return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().performanceTrace;
+}
+
+void IndoorWorldRuntime::logActorAiPerformanceDiagnostics(uint32_t currentTick)
+{
+    if (m_lastActorAiPerformanceLogTick == 0)
+    {
+        m_lastActorAiPerformanceLogTick = currentTick;
+    }
+
+    if (currentTick - m_lastActorAiPerformanceLogTick < 1000)
+    {
+        return;
+    }
+
+    const IndoorActorAiPerformanceDiagnostics &diagnostics = m_actorAiPerformanceDiagnostics;
+
+    if (diagnostics.updateCalls == 0)
+    {
+        m_lastActorAiPerformanceLogTick = currentTick;
+        return;
+    }
+
+    const uint64_t steps = diagnostics.fixedSteps;
+
+    std::cout << "[IndoorActorAiPerf]"
+              << " calls=" << diagnostics.updateCalls
+              << " steps=" << diagnostics.fixedSteps
+              << " avg_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.totalNanoseconds,
+                  diagnostics.updateCalls))
+              << " avg_sync_state_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.syncStateNanoseconds,
+                  diagnostics.updateCalls))
+              << " avg_activation_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.activationNanoseconds,
+                  diagnostics.updateCalls))
+              << " avg_collect_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.collectNanoseconds,
+                  steps))
+              << " avg_select_active_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.selectActiveNanoseconds,
+                  steps))
+              << " avg_select_los_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.activeSelectionLosNanoseconds,
+                  diagnostics.activeSelectionLosChecks))
+              << " avg_actor_fact_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.actorFactNanoseconds,
+                  diagnostics.actorFactCandidates))
+              << " avg_ai_system_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.aiSystemNanoseconds,
+                  steps))
+              << " avg_apply_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.applyNanoseconds,
+                  steps))
+              << " avg_collider_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.colliderNanoseconds,
+                  steps))
+              << " avg_move_integration_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementIntegrationNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_move_setup_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementSetupNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_move_path_setup_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementPathSetupNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_physics_step_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.physicsStepNanoseconds,
+                  diagnostics.physicsSteps))
+              << " avg_path_resolve_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.pathResolveNanoseconds,
+                  diagnostics.pathResolveCalls))
+              << " avg_move_event_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementEventNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_resolve_move_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.resolveMoveNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_move_state_write_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementStateWriteNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_move_fact_build_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.movementFactBuildNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_post_move_ai_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.postMovementAiNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_post_move_apply_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.postMovementApplyNanoseconds,
+                  diagnostics.movementIntegrations))
+              << " avg_spell_effect_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.spellEffectNanoseconds,
+                  steps))
+              << " avg_actors=" << averageNanoseconds(diagnostics.actorCount, steps)
+              << " avg_activated=" << averageNanoseconds(diagnostics.activatedActorCount, steps)
+              << " avg_active=" << averageNanoseconds(diagnostics.activeActorCount, steps)
+              << " avg_background=" << averageNanoseconds(diagnostics.backgroundActorCount, steps)
+              << " selected=" << diagnostics.selectedActorCount
+              << " actor_fact_candidates=" << diagnostics.actorFactCandidates
+              << " actor_facts=" << diagnostics.actorFactsCollected
+              << " actor_updates=" << diagnostics.actorUpdates
+              << " move_integrations=" << diagnostics.movementIntegrations
+              << " physics_steps=" << diagnostics.physicsSteps
+              << " contacts=" << diagnostics.contactedActors
+              << " blocked_moves=" << diagnostics.blockedMoves
+              << " select_los_checks=" << diagnostics.activeSelectionLosChecks
+              << " path_resolves=" << diagnostics.pathResolveCalls
+              << " path_plans=" << diagnostics.pathPlans
+              << " path_queued=" << diagnostics.pathQueued
+              << " path_active=" << diagnostics.pathActive
+              << " path_stopped=" << diagnostics.pathStopped
+              << " path_ignore_actor_collision=" << diagnostics.pathIgnoredActorCollision
+              << " crowd_overrides=" << diagnostics.crowdOverrideActors
+              << " crowd_state_updates=" << diagnostics.crowdStateUpdates
+              << '\n';
+
+    m_actorAiPerformanceDiagnostics = {};
+    m_lastActorAiPerformanceLogTick = currentTick;
 }
 
 IndoorMovementController &IndoorWorldRuntime::actorMovementController()
@@ -3842,14 +3981,26 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
     const ActorPartyFacts &partyFacts,
     int16_t partySectorId,
     const std::vector<IndoorVertex> &vertices,
-    IndoorFaceGeometryCache &geometryCache) const
+    IndoorFaceGeometryCache &geometryCache,
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics) const
 {
+    const uint64_t selectBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     const MapDeltaData *pMapDeltaData = mapDeltaData();
     std::vector<bool> activeActorMask(pMapDeltaData != nullptr ? pMapDeltaData->actors.size() : 0, false);
 
     if (pMapDeltaData == nullptr || pMapDeltaData->actors.empty())
     {
+        if (pDiagnostics != nullptr)
+        {
+            pDiagnostics->selectActiveNanoseconds += SDL_GetTicksNS() - selectBeginTickCount;
+        }
+
         return activeActorMask;
+    }
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->actorCount += pMapDeltaData->actors.size();
     }
 
     std::vector<std::pair<size_t, float>> activeActorDistances;
@@ -3885,19 +4036,27 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
         const bool sameSectorAsParty = actor.sectorId >= 0 && actor.sectorId == partySectorId;
         const bool previouslyDetectedParty =
             pAiState->hasDetectedParty || defaultActorHasDetectedParty(actor, pAiState->hostileToParty);
-        const bool canDetectParty =
-            sameSectorAsParty
-            || previouslyDetectedParty
-            || (m_pIndoorMapData != nullptr
-                && !vertices.empty()
-                && indoorDetectBetweenObjects(
+        bool canDetectParty = sameSectorAsParty || previouslyDetectedParty;
+
+        if (!canDetectParty && m_pIndoorMapData != nullptr && !vertices.empty())
+        {
+            const uint64_t losBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
+            canDetectParty =
+                indoorDetectBetweenObjects(
                     *m_pIndoorMapData,
                     vertices,
                     geometryCache,
                     actorTargetPoint,
                     actor.sectorId,
                     partyTargetPoint,
-                    partySectorId));
+                    partySectorId);
+
+            if (pDiagnostics != nullptr)
+            {
+                ++pDiagnostics->activeSelectionLosChecks;
+                pDiagnostics->activeSelectionLosNanoseconds += SDL_GetTicksNS() - losBeginTickCount;
+            }
+        }
 
         if (sameSectorAsParty || (distanceToParty <= ActiveActorUpdateRange && canDetectParty))
         {
@@ -3918,10 +4077,18 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
         activeActorMask[activeActorDistances[index].first] = true;
     }
 
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->selectedActorCount += std::min(activeActorDistances.size(), MaxActiveActorUpdates);
+        pDiagnostics->selectActiveNanoseconds += SDL_GetTicksNS() - selectBeginTickCount;
+    }
+
     return activeActorMask;
 }
 
-ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float deltaSeconds) const
+ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
+    float deltaSeconds,
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics) const
 {
     ActorAiFrameFacts facts = {};
     facts.deltaSeconds = deltaSeconds;
@@ -3960,7 +4127,7 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float delta
     }
 
     const std::vector<bool> activeActorMask =
-        selectIndoorActiveActors(facts.party, partySectorId, *pVertices, *pGeometryCache);
+        selectIndoorActiveActors(facts.party, partySectorId, *pVertices, *pGeometryCache, pDiagnostics);
     const size_t activeActorCount =
         static_cast<size_t>(std::count(activeActorMask.begin(), activeActorMask.end(), true));
     facts.activeActors.reserve(activeActorCount);
@@ -3980,7 +4147,14 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float delta
             continue;
         }
 
+        if (pDiagnostics != nullptr)
+        {
+            ++pDiagnostics->activatedActorCount;
+            ++pDiagnostics->actorFactCandidates;
+        }
+
         const bool active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
+        const uint64_t actorFactBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         const std::optional<ActorAiFacts> actorFacts =
             collectIndoorActorAiFacts(
                 actorIndex,
@@ -3989,9 +4163,19 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float delta
                 *pVertices,
                 *pGeometryCache);
 
+        if (pDiagnostics != nullptr)
+        {
+            pDiagnostics->actorFactNanoseconds += SDL_GetTicksNS() - actorFactBeginTickCount;
+        }
+
         if (!actorFacts)
         {
             continue;
+        }
+
+        if (pDiagnostics != nullptr)
+        {
+            ++pDiagnostics->actorFactsCollected;
         }
 
         if (active)
@@ -4004,12 +4188,19 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float delta
         }
     }
 
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->activeActorCount += facts.activeActors.size();
+        pDiagnostics->backgroundActorCount += facts.backgroundActors.size();
+    }
+
     return facts;
 }
 
 std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
     const ActorAiFrameResult &result,
-    const GameplayActorAiSystem &actorAiSystem)
+    const GameplayActorAiSystem &actorAiSystem,
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics)
 {
     MapDeltaData *pMapDeltaData = mapDeltaData();
     const size_t actorCount = pMapDeltaData != nullptr ? pMapDeltaData->actors.size() : 0;
@@ -4030,6 +4221,7 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
     m_actorPathRuntimeSeconds += ActorUpdateStepSeconds;
     m_actorPathPlansThisStep = 0;
     IndoorMovementController &movementController = actorMovementController();
+    const uint64_t colliderBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     std::vector<IndoorActorCollision> actorColliders = actorMovementCollidersForActorMovement(
         result.activeActorIndices);
     const std::vector<IndoorCylinderCollision> decorationColliders = decorationMovementColliders();
@@ -4052,6 +4244,12 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
     movementController.setActorColliders(actorColliders);
     movementController.setDecorationColliders(decorationColliders);
     movementController.setSpriteObjectColliders(spriteObjectColliders);
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->colliderNanoseconds += SDL_GetTicksNS() - colliderBeginTickCount;
+        pDiagnostics->actorUpdates += result.actorUpdates.size();
+    }
 
     for (const ActorAiUpdate &update : result.actorUpdates)
     {
@@ -4278,15 +4476,30 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
 
         if (update.movementIntent.applyMovement)
         {
+            const uint64_t movementBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
             applyIndoorActorMovementIntegration(
                 movementController,
                 update.actorIndex,
                 update,
-                actorAiSystem);
+                actorAiSystem,
+                pDiagnostics);
+
+            if (pDiagnostics != nullptr)
+            {
+                ++pDiagnostics->movementIntegrations;
+                pDiagnostics->movementIntegrationNanoseconds += SDL_GetTicksNS() - movementBeginTickCount;
+            }
         }
         else
         {
+            const uint64_t physicsBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
             applyIndoorActorPhysicsStep(movementController, update.actorIndex);
+
+            if (pDiagnostics != nullptr)
+            {
+                ++pDiagnostics->physicsSteps;
+                pDiagnostics->physicsStepNanoseconds += SDL_GetTicksNS() - physicsBeginTickCount;
+            }
         }
 
         if (update.attackRequest
@@ -6113,8 +6326,10 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     IndoorMovementController &movementController,
     size_t actorIndex,
     const ActorAiUpdate &update,
-    const GameplayActorAiSystem &actorAiSystem)
+    const GameplayActorAiSystem &actorAiSystem,
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics)
 {
+    const uint64_t setupBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     MapDeltaData *pMapDeltaData = mapDeltaData();
 
     if (pMapDeltaData == nullptr
@@ -6184,6 +6399,12 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         aiState.crowdSideLockRemainingSeconds > 0.0f
         || aiState.crowdRetreatRemainingSeconds > 0.0f
         || aiState.crowdStandRemainingSeconds > 0.0f;
+
+    if (pDiagnostics != nullptr && crowdOverrideActive)
+    {
+        ++pDiagnostics->crowdOverrideActors;
+    }
+
     const bool actorPathCanUseIntent =
         !actorCanFly
         && movementIntent.action == ActorAiMovementAction::Pursue
@@ -6192,6 +6413,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         && !movementIntent.inMeleeRange
         && !crowdOverrideActive;
     ActorPathResolveResult pathResult = {};
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->movementSetupNanoseconds += SDL_GetTicksNS() - setupBeginTickCount;
+    }
 
     if (!actorPathfindingEnabled)
     {
@@ -6216,10 +6442,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     if (actorPathfindingEnabled && actorPathCanUseIntent)
     {
-        const PathMap *pPathMap = indoorPathMap();
+        std::shared_ptr<const PathMap> pathMap = indoorPathMap();
 
-        if (pPathMap != nullptr)
+        if (pathMap != nullptr)
         {
+            uint64_t pathSetupBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
             m_actorPathRuntime.setWorkerCount(IndoorActorPathWorkerCount);
 
             PathObject pathObject = {};
@@ -6238,7 +6465,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             };
             pathRequest.object = pathObject;
             pathRequest.nodeLimit = IndoorActorPathNodeLimit;
-            pathRequest.mapRevision = pPathMap->revision();
+            pathRequest.mapRevision = pathMap->revision();
             pathRequest.planningRange = IndoorGroundPathPlanningRange;
             pathRequest.waypointReachDistance = collisionRadius;
             pathRequest.nowSeconds = m_actorPathRuntimeSeconds;
@@ -6252,7 +6479,45 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
                 m_actorPathPlansThisStep < IndoorActorPathPlanBudgetPerStep
                 && m_actorPathRuntimeSeconds >= m_nextActorPathPlanSeconds;
 
-            pathResult = m_actorPathRuntime.resolveWaypoint(*pPathMap, pathRequest);
+            if (pDiagnostics != nullptr)
+            {
+                pDiagnostics->movementPathSetupNanoseconds += SDL_GetTicksNS() - pathSetupBeginTickCount;
+            }
+
+            const uint64_t pathResolveBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
+            pathResult = m_actorPathRuntime.resolveWaypoint(pathMap, pathRequest);
+
+            if (pDiagnostics != nullptr)
+            {
+                ++pDiagnostics->pathResolveCalls;
+                pDiagnostics->pathResolveNanoseconds += SDL_GetTicksNS() - pathResolveBeginTickCount;
+
+                if (pathResult.planned)
+                {
+                    ++pDiagnostics->pathPlans;
+                }
+
+                if (pathResult.queued)
+                {
+                    ++pDiagnostics->pathQueued;
+                }
+
+                if (pathResult.pathActive)
+                {
+                    ++pDiagnostics->pathActive;
+                }
+
+                if (pathResult.failed
+                    || pathResult.cooldown
+                    || pathResult.deferred
+                    || pathResult.discarded)
+                {
+                    ++pDiagnostics->pathStopped;
+                }
+
+                pathSetupBeginTickCount = SDL_GetTicksNS();
+            }
+
             if (pathResult.planned || pathResult.queued)
             {
                 ++m_actorPathPlansThisStep;
@@ -6354,6 +6619,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
                 movementIntent.moveDirectionX = 0.0f;
                 movementIntent.moveDirectionY = 0.0f;
             }
+
+            if (pDiagnostics != nullptr)
+            {
+                pDiagnostics->movementPathSetupNanoseconds += SDL_GetTicksNS() - pathSetupBeginTickCount;
+            }
         }
     }
 
@@ -6405,6 +6675,12 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         && actorPathCanUseIntent
         && !actorInPartySector
         && pathTargetDistance >= IndoorPathIgnoreActorCollisionMinTargetDistance;
+    if (pDiagnostics != nullptr && ignoreActorCollisionForMovement)
+    {
+        ++pDiagnostics->pathIgnoredActorCollision;
+    }
+
+    const uint64_t resolveMoveBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     const IndoorMoveState resolvedMoveState =
         movementController.resolveMove(
             moveState,
@@ -6420,12 +6696,24 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             actorCanFly,
             ignoreActorCollisionForMovement);
 
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->resolveMoveNanoseconds += SDL_GetTicksNS() - resolveMoveBeginTickCount;
+    }
+
     if (moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
         && moveDebugInfo.hitFaceIndex != static_cast<size_t>(-1))
     {
+        const uint64_t eventBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         executeFaceTriggeredEvent(moveDebugInfo.hitFaceIndex, FaceAttribute::TriggerByMonster, false);
+
+        if (pDiagnostics != nullptr)
+        {
+            pDiagnostics->movementEventNanoseconds += SDL_GetTicksNS() - eventBeginTickCount;
+        }
     }
 
+    const uint64_t stateWriteBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     IndoorMoveState finalMoveState = resolvedMoveState;
     std::sort(contactedActorIndices.begin(), contactedActorIndices.end());
     const size_t contactedActorCount =
@@ -6438,6 +6726,16 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         std::abs(movementIntent.desiredMoveX) > 0.001f
         || std::abs(movementIntent.desiredMoveY) > 0.001f;
     const bool movedHorizontally = std::abs(deltaX) > 0.001f || std::abs(deltaY) > 0.001f;
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->contactedActors += contactedActorCount;
+
+        if (wantedHorizontalMove && !movedHorizontally)
+        {
+            ++pDiagnostics->blockedMoves;
+        }
+    }
 
     aiState.preciseX = finalMoveState.x;
     aiState.preciseY = finalMoveState.y;
@@ -6465,6 +6763,12 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         actor.sectorId = finalMoveState.sectorId;
     }
 
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->movementStateWriteNanoseconds += SDL_GetTicksNS() - stateWriteBeginTickCount;
+    }
+
+    const uint64_t factBuildBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     ActorAiFacts movementFacts = {};
     movementFacts.actorIndex = actorIndex;
     movementFacts.actorId = aiState.actorId;
@@ -6512,7 +6816,33 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     movementFacts.target.currentPosition = movementIntent.targetPosition;
     movementFacts.target.currentEdgeDistance = movementIntent.targetEdgeDistance;
 
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->movementFactBuildNanoseconds += SDL_GetTicksNS() - factBuildBeginTickCount;
+    }
+
+    const uint64_t postMovementAiBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     const ActorAiUpdate movementUpdate = actorAiSystem.updateActorAfterWorldMovement(movementFacts);
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->postMovementAiNanoseconds += SDL_GetTicksNS() - postMovementAiBeginTickCount;
+
+        const bool hasPositiveCrowdState =
+            (movementUpdate.state.crowdSideLockRemainingSeconds
+                && *movementUpdate.state.crowdSideLockRemainingSeconds > 0.0f)
+            || (movementUpdate.state.crowdRetreatRemainingSeconds
+                && *movementUpdate.state.crowdRetreatRemainingSeconds > 0.0f)
+            || (movementUpdate.state.crowdStandRemainingSeconds
+                && *movementUpdate.state.crowdStandRemainingSeconds > 0.0f);
+
+        if (hasPositiveCrowdState)
+        {
+            ++pDiagnostics->crowdStateUpdates;
+        }
+    }
+
+    const uint64_t postApplyBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
 
     if (movementUpdate.movementIntent.clearVelocity)
     {
@@ -6598,6 +6928,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     {
         aiState.animationState = *movementUpdate.animation.animationState;
         actor.currentActionAnimation = indoorActionAnimationFromActorAi(*movementUpdate.animation.animationState);
+    }
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->postMovementApplyNanoseconds += SDL_GetTicksNS() - postApplyBeginTickCount;
     }
 }
 
@@ -7165,6 +7500,16 @@ bool IndoorWorldRuntime::scenarioPartyActorCollisionEnabled() const
 
 void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
 {
+    const bool collectDiagnostics = actorAiPerformanceDiagnosticsEnabled();
+    const uint64_t totalBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics =
+        collectDiagnostics ? &m_actorAiPerformanceDiagnostics : nullptr;
+
+    if (pDiagnostics != nullptr)
+    {
+        ++pDiagnostics->updateCalls;
+    }
+
     if (deltaSeconds <= 0.0f || m_pGameplayActorService == nullptr)
     {
         return;
@@ -7177,20 +7522,49 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
         return;
     }
 
+    const auto recordDiagnostics =
+        [pDiagnostics](uint64_t &field, uint64_t beginTickCount)
+    {
+        if (pDiagnostics != nullptr)
+        {
+            field += SDL_GetTicksNS() - beginTickCount;
+        }
+    };
+
+    const uint64_t syncBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     syncMapActorAiStates();
+    recordDiagnostics(m_actorAiPerformanceDiagnostics.syncStateNanoseconds, syncBeginTickCount);
+
+    const uint64_t activationBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     refreshActivatedIndoorSectors(false);
+    recordDiagnostics(m_actorAiPerformanceDiagnostics.activationNanoseconds, activationBeginTickCount);
 
     m_actorUpdateAccumulatorSeconds =
         std::min(m_actorUpdateAccumulatorSeconds + deltaSeconds, MaxAccumulatedActorUpdateSeconds);
 
     while (m_actorUpdateAccumulatorSeconds >= ActorUpdateStepSeconds)
     {
-        const ActorAiFrameFacts actorAiFacts = collectIndoorActorAiFrameFacts(ActorUpdateStepSeconds);
-        const GameplayActorAiSystem actorAiSystem = {};
-        const ActorAiFrameResult actorAiResult = actorAiSystem.updateActors(actorAiFacts);
-        const std::vector<bool> spellEffectsAppliedMask =
-            applyIndoorActorAiFrameResult(actorAiResult, actorAiSystem);
+        if (pDiagnostics != nullptr)
+        {
+            ++pDiagnostics->fixedSteps;
+        }
 
+        const uint64_t collectBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const ActorAiFrameFacts actorAiFacts =
+            collectIndoorActorAiFrameFacts(ActorUpdateStepSeconds, pDiagnostics);
+        recordDiagnostics(m_actorAiPerformanceDiagnostics.collectNanoseconds, collectBeginTickCount);
+
+        const GameplayActorAiSystem actorAiSystem = {};
+        const uint64_t aiSystemBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const ActorAiFrameResult actorAiResult = actorAiSystem.updateActors(actorAiFacts);
+        recordDiagnostics(m_actorAiPerformanceDiagnostics.aiSystemNanoseconds, aiSystemBeginTickCount);
+
+        const uint64_t applyBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const std::vector<bool> spellEffectsAppliedMask =
+            applyIndoorActorAiFrameResult(actorAiResult, actorAiSystem, pDiagnostics);
+        recordDiagnostics(m_actorAiPerformanceDiagnostics.applyNanoseconds, applyBeginTickCount);
+
+        const uint64_t spellEffectBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
         for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
         {
             const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
@@ -7212,8 +7586,15 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
                 ActorUpdateStepSeconds,
                 m_mapActorAiStates[actorIndex].hostileToParty);
         }
+        recordDiagnostics(m_actorAiPerformanceDiagnostics.spellEffectNanoseconds, spellEffectBeginTickCount);
 
         m_actorUpdateAccumulatorSeconds -= ActorUpdateStepSeconds;
+    }
+
+    if (pDiagnostics != nullptr)
+    {
+        pDiagnostics->totalNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
+        logActorAiPerformanceDiagnostics(SDL_GetTicks());
     }
 }
 

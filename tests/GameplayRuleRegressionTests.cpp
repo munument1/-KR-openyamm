@@ -1564,6 +1564,72 @@ TEST_CASE("outdoor actor movement ignores pre-existing actor overlap")
     CHECK(resolved.x > state.x + 32.0f);
 }
 
+TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 0},
+        {512, 512, 0},
+        {-512, 512, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    mapData.faces = {floor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 512;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{64.0f, 160.0f};
+    const OpenYAMM::Game::IndoorMoveState state =
+        movementController.initializeStateFromEyePosition(0.0f, 0.0f, 160.0f, body);
+    REQUIRE(state.grounded);
+
+    OpenYAMM::Game::IndoorActorCollision overlappedActor = {};
+    overlappedActor.actorIndex = 42;
+    overlappedActor.sectorId = state.sectorId;
+    overlappedActor.x = 16.0f;
+    overlappedActor.y = 0.0f;
+    overlappedActor.z = state.footZ;
+    overlappedActor.radius = 64.0f;
+    overlappedActor.height = 160.0f;
+    movementController.setActorColliders({overlappedActor});
+
+    std::vector<size_t> contactedActorIndices;
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(
+            state,
+            body,
+            64.0f,
+            0.0f,
+            false,
+            0.5f,
+            &contactedActorIndices,
+            7);
+
+    CHECK(contactedActorIndices.empty());
+    CHECK(resolved.x > state.x + 24.0f);
+}
+
 TEST_CASE("event revealed outdoor bmodel collision updates party and actor movement caches")
 {
     OpenYAMM::Game::OutdoorMapData mapData = {};

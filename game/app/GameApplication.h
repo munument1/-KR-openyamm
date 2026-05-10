@@ -113,6 +113,31 @@ private:
         GameplayTraceMovementSnapshot stop;
     };
 
+    struct FramePerformanceDiagnostics
+    {
+        uint64_t frames = 0;
+        uint64_t totalNanoseconds = 0;
+        uint64_t pendingDebugMapJumpNanoseconds = 0;
+        uint64_t debugConsoleBeginNanoseconds = 0;
+        uint64_t inputNanoseconds = 0;
+        uint64_t activeScreenNanoseconds = 0;
+        uint64_t pendingStateNanoseconds = 0;
+        uint64_t gameplayUpdateNanoseconds = 0;
+        uint64_t worldUpdateNanoseconds = 0;
+        uint64_t renderWorldNanoseconds = 0;
+        uint64_t renderGameplayUiNanoseconds = 0;
+        uint64_t audioNanoseconds = 0;
+        uint64_t postWorldNanoseconds = 0;
+        uint64_t debugConsoleRenderNanoseconds = 0;
+        uint64_t activeScreenFrames = 0;
+        uint64_t gameplayWorldFrames = 0;
+
+        bool hasActivity() const
+        {
+            return frames != 0;
+        }
+    };
+
     friend class HeadlessGameplayDiagnostics;
     friend struct ScenarioGameApplicationAccess;
     friend struct GameApplicationTestAccess;
@@ -209,6 +234,7 @@ private:
     std::vector<std::string> resolvePendingInputAnswers(
         const EventRuntimeState::PendingInputPrompt &prompt) const;
     void renderFrame(int width, int height, float mouseWheelDelta, float deltaSeconds);
+    void logFramePerformanceDiagnostics(uint32_t currentTick);
 
     Engine::ApplicationConfig m_config;
     Engine::EngineApplication m_engineApplication;
@@ -256,6 +282,8 @@ private:
     std::string m_pendingInputStatusText;
     bool m_pendingInputTextActive = false;
     bool m_skipGameplayUpdateUntilPromptSubmitKeysReleased = false;
+    FramePerformanceDiagnostics m_framePerformanceDiagnostics;
+    uint32_t m_lastFramePerformanceLogTick = 0;
     DebugConsole m_debugConsole;
     GameImGuiBgfxRenderer m_debugConsoleRenderer;
     bool m_debugConsoleRendererInitialized = false;

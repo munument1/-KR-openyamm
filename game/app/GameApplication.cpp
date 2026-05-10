@@ -68,6 +68,16 @@ double millisecondsFromNanoseconds(uint64_t nanoseconds)
     return static_cast<double>(nanoseconds) / 1000000.0;
 }
 
+uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
+{
+    return count != 0 ? totalNanoseconds / count : 0;
+}
+
+uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
+{
+    return nanoseconds / 1000ULL;
+}
+
 bool mapLoadTimingEnabled()
 {
     const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
@@ -3889,6 +3899,7 @@ void GameApplication::loadOrCreateSettings()
     m_config.windowHeight = m_settings.resolutionHeight;
     m_config.windowMode = engineWindowModeForSettings(m_settings.windowMode);
     m_config.fpsTrace = m_settings.fpsTrace;
+    m_config.performanceTrace = m_settings.performanceTrace;
     m_engineApplication.setConfiguration(m_config);
 }
 
@@ -4751,6 +4762,88 @@ void GameApplication::renderLoadingOverlayProgress(int progressPercent)
         m_gameInputSystem.frame(),
         1.0f / 60.0f);
     bgfx::frame();
+}
+
+void GameApplication::logFramePerformanceDiagnostics(uint32_t currentTick)
+{
+    constexpr uint32_t LogIntervalMs = 1000;
+
+    if (!m_framePerformanceDiagnostics.hasActivity()
+        || currentTick - m_lastFramePerformanceLogTick < LogIntervalMs)
+    {
+        return;
+    }
+
+    m_lastFramePerformanceLogTick = currentTick;
+
+    const FramePerformanceDiagnostics diagnostics = m_framePerformanceDiagnostics;
+    const uint64_t measuredNanoseconds =
+        diagnostics.pendingDebugMapJumpNanoseconds
+        + diagnostics.debugConsoleBeginNanoseconds
+        + diagnostics.inputNanoseconds
+        + diagnostics.activeScreenNanoseconds
+        + diagnostics.pendingStateNanoseconds
+        + diagnostics.gameplayUpdateNanoseconds
+        + diagnostics.worldUpdateNanoseconds
+        + diagnostics.renderWorldNanoseconds
+        + diagnostics.renderGameplayUiNanoseconds
+        + diagnostics.audioNanoseconds
+        + diagnostics.postWorldNanoseconds
+        + diagnostics.debugConsoleRenderNanoseconds;
+    const uint64_t untrackedNanoseconds =
+        diagnostics.totalNanoseconds > measuredNanoseconds
+            ? diagnostics.totalNanoseconds - measuredNanoseconds
+            : 0;
+
+    std::cout << "[GameFramePerf]"
+              << " frames=" << diagnostics.frames
+              << " active_screen_frames=" << diagnostics.activeScreenFrames
+              << " gameplay_world_frames=" << diagnostics.gameplayWorldFrames
+              << " avg_total_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.totalNanoseconds,
+                  diagnostics.frames))
+              << " avg_untracked_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  untrackedNanoseconds,
+                  diagnostics.frames))
+              << " avg_pending_debug_jump_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.pendingDebugMapJumpNanoseconds,
+                  diagnostics.frames))
+              << " avg_debug_console_begin_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.debugConsoleBeginNanoseconds,
+                  diagnostics.frames))
+              << " avg_input_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.inputNanoseconds,
+                  diagnostics.frames))
+              << " avg_active_screen_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.activeScreenNanoseconds,
+                  diagnostics.frames))
+              << " avg_pending_state_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.pendingStateNanoseconds,
+                  diagnostics.frames))
+              << " avg_gameplay_update_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.gameplayUpdateNanoseconds,
+                  diagnostics.frames))
+              << " avg_world_update_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.worldUpdateNanoseconds,
+                  diagnostics.frames))
+              << " avg_render_world_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.renderWorldNanoseconds,
+                  diagnostics.frames))
+              << " avg_render_gameplay_ui_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.renderGameplayUiNanoseconds,
+                  diagnostics.frames))
+              << " avg_audio_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.audioNanoseconds,
+                  diagnostics.frames))
+              << " avg_post_world_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.postWorldNanoseconds,
+                  diagnostics.frames))
+              << " avg_debug_console_render_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.debugConsoleRenderNanoseconds,
+                  diagnostics.frames))
+              << '\n';
+
+    m_framePerformanceDiagnostics = {};
 }
 
 void GameApplication::pumpLoadingOverlayAnimation()
@@ -5798,18 +5891,59 @@ void GameApplication::reportQuickSaveStatus(const std::string &status)
 
 void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, float deltaSeconds)
 {
+    const bool collectFrameDiagnostics = m_config.performanceTrace;
+    const uint64_t frameBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+
+    if (collectFrameDiagnostics)
+    {
+        ++m_framePerformanceDiagnostics.frames;
+    }
+
+    const auto recordFrameDiagnostics =
+        [&](uint64_t &field, uint64_t beginTickCount)
+    {
+        if (collectFrameDiagnostics)
+        {
+            field += SDL_GetTicksNS() - beginTickCount;
+        }
+    };
+    const auto finishFrameDiagnostics =
+        [&]()
+    {
+        if (collectFrameDiagnostics)
+        {
+            m_framePerformanceDiagnostics.totalNanoseconds += SDL_GetTicksNS() - frameBeginTickCount;
+            logFramePerformanceDiagnostics(SDL_GetTicks());
+        }
+    };
+
     m_lastFrameWidth = width;
     m_lastFrameHeight = height;
 
+    const uint64_t pendingDebugMapJumpBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+
     if (processPendingDebugMapJump())
     {
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.pendingDebugMapJumpNanoseconds,
+            pendingDebugMapJumpBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
+    recordFrameDiagnostics(
+        m_framePerformanceDiagnostics.pendingDebugMapJumpNanoseconds,
+        pendingDebugMapJumpBeginTickCount);
+
+    const uint64_t debugConsoleBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     beginDebugConsoleFrame();
     const bool debugConsoleOpen = m_debugConsole.wantsGameplayInputBlocked();
     const bool debugConsoleFreezesGameplay = m_debugConsole.freezesGameplay();
+    recordFrameDiagnostics(
+        m_framePerformanceDiagnostics.debugConsoleBeginNanoseconds,
+        debugConsoleBeginTickCount);
 
+    const uint64_t inputBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     if (m_gameSession.consumeRelativeMouseMotionResetRequest())
     {
         m_gameInputSystem.resetRelativeMouseMotion();
@@ -5822,6 +5956,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         m_settings,
         debugConsoleOpen);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());
+    recordFrameDiagnostics(m_framePerformanceDiagnostics.inputNanoseconds, inputBeginTickCount);
 
     if (debugConsoleFreezesGameplay)
     {
@@ -5834,16 +5969,34 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
     if (IScreen *pActiveScreen = m_screenManager.activeScreen())
     {
+        const uint64_t activeScreenBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+        m_screenManager.beginActiveScreenRender();
         pActiveScreen->renderFrame(width, height, m_gameInputSystem.frame(), deltaSeconds);
+        m_screenManager.endActiveScreenRender();
         handleCompletedPartyDefeatScreen();
         handleCompletedEventMovieScreen();
         handleCompletedWinGameScreen();
         handleCompletedArcomageScreen();
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.activeScreenNanoseconds, activeScreenBeginTickCount);
+
+        if (collectFrameDiagnostics)
+        {
+            ++m_framePerformanceDiagnostics.activeScreenFrames;
+        }
+
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
+    const uint64_t pendingStateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     updateQuickSaveInput();
     updateGameplayTraceSnapshotHotkeys();
 
@@ -5857,8 +6010,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             handleCompletedWinGameScreen();
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
@@ -5871,8 +6032,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             handleCompletedWinGameScreen();
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
@@ -5885,8 +6054,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             handleCompletedWinGameScreen();
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
@@ -5897,8 +6074,16 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             pActiveScreen->renderFrame(width, height, m_gameInputSystem.frame(), deltaSeconds);
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
@@ -5919,16 +6104,23 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         }
     }
 
+    recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+
     if (!debugConsoleFreezesGameplay && !skipGameplayUpdateAfterInputPrompt)
     {
-        m_gameSession.updateGameplay(m_gameInputSystem.frame(), deltaSeconds);
+        const uint64_t gameplayUpdateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+        m_gameSession.updateGameplay(m_gameInputSystem.frame(), deltaSeconds, collectFrameDiagnostics);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.gameplayUpdateNanoseconds, gameplayUpdateBeginTickCount);
     }
+
+    const uint64_t pendingPromptBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
 
     if (!debugConsoleFreezesGameplay)
     {
         updatePendingInputPrompt();
         processPendingDimensionDoorOverlay();
     }
+    recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingPromptBeginTickCount);
 
     IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
 
@@ -5944,13 +6136,29 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (!gameplayWorldPaused)
         {
+            const uint64_t worldUpdateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             pWorldRuntime->updateWorld(deltaSeconds);
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.worldUpdateNanoseconds, worldUpdateBeginTickCount);
         }
 
+        const uint64_t postWorldBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameSession.consumePendingGameplayAudioRequests();
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postWorldBeginTickCount);
+        const uint64_t renderWorldBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         pWorldRuntime->renderWorld(width, height, m_gameInputSystem.frame(), deltaSeconds);
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.renderWorldNanoseconds, renderWorldBeginTickCount);
+        const uint64_t renderGameplayUiBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameSession.renderGameplayUi(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.renderGameplayUiNanoseconds,
+            renderGameplayUiBeginTickCount);
 
+        if (collectFrameDiagnostics)
+        {
+            ++m_framePerformanceDiagnostics.gameplayWorldFrames;
+        }
+
+        const uint64_t postRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         if (m_gameSession.consumeRelativeMouseMotionResetRequest())
         {
             m_gameInputSystem.resetRelativeMouseMotion();
@@ -5960,7 +6168,13 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         {
             GAMEPLAY_DEBUG_TRACE("menu_action action=new_game source=gameplay_menu");
             openNewGameScreen("gameplay_menu");
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postRenderBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
 
@@ -5968,9 +6182,18 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         {
             GAMEPLAY_DEBUG_TRACE("menu_action action=load_game source=gameplay_menu");
             openLoadGameScreen(true, "gameplay_menu");
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postRenderBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
+
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postRenderBeginTickCount);
+        const uint64_t audioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
 
         if (m_pMapSceneRuntime->kind() == SceneKind::Outdoor && m_pOutdoorPartyRuntime != nullptr)
         {
@@ -5989,21 +6212,42 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
             m_gameAudioSystem.update(0.0f, 0.0f, 0.0f, deltaSeconds);
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.audioNanoseconds, audioBeginTickCount);
+        const uint64_t postAudioBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+
         if (processPendingWinGame())
         {
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postAudioBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
 
         if (processPendingEventMovie())
         {
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postAudioBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
 
         if (processPendingReturnToMainMenu())
         {
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postAudioBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
 
@@ -6011,15 +6255,32 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (processPendingQuickSaveInput())
         {
+            recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postAudioBeginTickCount);
+            const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
             renderDebugConsoleFrame(width, height);
+            recordFrameDiagnostics(
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+                debugConsoleRenderBeginTickCount);
+            finishFrameDiagnostics();
             return;
         }
 
+        recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postAudioBeginTickCount);
+        const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         renderDebugConsoleFrame(width, height);
+        recordFrameDiagnostics(
+            m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+            debugConsoleRenderBeginTickCount);
+        finishFrameDiagnostics();
         return;
     }
 
+    const uint64_t debugConsoleRenderBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     renderDebugConsoleFrame(width, height);
+    recordFrameDiagnostics(
+        m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds,
+        debugConsoleRenderBeginTickCount);
+    finishFrameDiagnostics();
 }
 
 bool GameApplication::processPendingMapMove()
