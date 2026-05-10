@@ -56,7 +56,7 @@ void presentPendingEventDialog(
 
     if (pEventRuntimeState->pendingInputPrompt)
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "input_prompt_dialog_presented"
             " opened=" + std::string(result.dialogOpened ? "true" : "false")
             + " previous_message_count=" + std::to_string(previousMessageCount)

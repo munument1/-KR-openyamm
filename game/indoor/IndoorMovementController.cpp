@@ -84,59 +84,6 @@ void appendValidSectorId(const IndoorMapData &indoorMapData, std::vector<uint16_
     }
 }
 
-void appendConnectedSectorId(
-    const IndoorMapData &indoorMapData,
-    const IndoorFace &face,
-    uint16_t sectorId,
-    std::vector<uint16_t> &sectorIds
-)
-{
-    if (face.roomNumber == sectorId)
-    {
-        appendValidSectorId(indoorMapData, sectorIds, face.roomBehindNumber);
-    }
-    else if (face.roomBehindNumber == sectorId)
-    {
-        appendValidSectorId(indoorMapData, sectorIds, face.roomNumber);
-    }
-}
-
-std::vector<std::vector<uint16_t>> buildNeighboringIndoorSectorIds(const IndoorMapData &indoorMapData)
-{
-    std::vector<std::vector<uint16_t>> sectorIds(indoorMapData.sectors.size());
-
-    for (size_t sectorIndex = 0; sectorIndex < indoorMapData.sectors.size(); ++sectorIndex)
-    {
-        if (sectorIndex > std::numeric_limits<uint16_t>::max())
-        {
-            continue;
-        }
-
-        const uint16_t sectorId = static_cast<uint16_t>(sectorIndex);
-        std::vector<uint16_t> &neighbors = sectorIds[sectorIndex];
-        appendValidSectorId(indoorMapData, neighbors, sectorId);
-        const IndoorSector &sector = indoorMapData.sectors[sectorIndex];
-
-        for (uint16_t faceId : sector.portalFaceIds)
-        {
-            if (faceId < indoorMapData.faces.size())
-            {
-                appendConnectedSectorId(indoorMapData, indoorMapData.faces[faceId], sectorId, neighbors);
-            }
-        }
-
-        for (uint16_t faceId : sector.faceIds)
-        {
-            if (faceId < indoorMapData.faces.size())
-            {
-                appendConnectedSectorId(indoorMapData, indoorMapData.faces[faceId], sectorId, neighbors);
-            }
-        }
-    }
-
-    return sectorIds;
-}
-
 IndoorFloorSample sampleInvisibleSupportFaceWithFootprint(
     const IndoorMapData &indoorMapData,
     const std::vector<IndoorVertex> &vertices,

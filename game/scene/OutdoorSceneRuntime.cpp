@@ -225,7 +225,7 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
                     .faceIndex = moveState.supportFaceIndex,
                     .attributes = face.attributes,
                 };
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "pressure_plate_triggered world=outdoor event_id=" + std::to_string(face.cogTriggeredNumber)
                     + " bmodel_index=" + std::to_string(moveState.supportBModelIndex)
                     + " face_index=" + std::to_string(moveState.supportFaceIndex)
@@ -298,7 +298,7 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
                 transitionMove.z = *(*pTransition)->arrivalZ;
             }
 
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 std::string("map_transition_requested source_kind=\"map_boundary\"")
                 + " source_id=" + std::to_string(context.sourceId)
                 + " action_id=0 event_id=0 confirmation_required=true"

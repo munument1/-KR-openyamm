@@ -339,7 +339,7 @@ void GameplayScreenController::applySharedItemInspectSkillInteraction(
             + " pitch=" + std::to_string(pWorldRuntime->gameplayCameraPitchRadians());
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "item_inspect item_id=" + std::to_string(overlay.objectDescriptionId)
         + gameplayDebugTraceItemSummary(overlay.objectDescriptionId, pItemTable)
         + " source=" + itemInspectSourceTypeName(overlay.sourceType)

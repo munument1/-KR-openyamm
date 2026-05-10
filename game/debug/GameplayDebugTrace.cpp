@@ -107,13 +107,8 @@ bool gameplayDebugTraceSuppressed()
     return g_traceSuppressionDepth > 0;
 }
 
-void gameplayDebugTraceLog(const std::string &message)
+void gameplayDebugTraceWrite(const std::string &message)
 {
-    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
-    {
-        return;
-    }
-
     const std::string line = "[GameplayTrace] " + message;
     std::lock_guard<std::mutex> lock(gameplayTraceOutputMutex());
     std::cout << line << '\n';

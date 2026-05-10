@@ -3899,7 +3899,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         view.heldInventoryItem().grabOffsetX = 0.0f;
                         view.heldInventoryItem().grabOffsetY = 0.0f;
                         view.party()->setHeldItemForQueries(view.heldInventoryItem().item);
-                        gameplayDebugTraceLog(
+                        GAMEPLAY_DEBUG_TRACE(
                             "item_received destination=held source=chest item_id="
                             + std::to_string(view.heldInventoryItem().item.objectDescriptionId)
                             + gameplayDebugTraceItemSummary(
@@ -4044,7 +4044,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         }
                         else
                         {
-                            gameplayDebugTraceLog(
+                            GAMEPLAY_DEBUG_TRACE(
                                 "item_received destination=inventory source="
                                 + std::string(pCurrentChestView != nullptr ? "chest" : "corpse")
                                 + " item_id=" + std::to_string(removedItem.item.objectDescriptionId)

@@ -4723,7 +4723,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         {
             const OutdoorMoveState *pMoveState =
                 m_pOutdoorPartyRuntime != nullptr ? &m_pOutdoorPartyRuntime->movementState() : nullptr;
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "actor_inspect world=outdoor map=\"" + m_pOutdoorWorldRuntime->mapName() + "\""
                 + " actor_index=" + std::to_string(*runtimeActorIndex)
                 + " name=\"" + inspectState.displayName + "\""

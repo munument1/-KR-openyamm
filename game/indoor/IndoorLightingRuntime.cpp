@@ -179,6 +179,59 @@ bool sectorVisible(const std::vector<uint8_t> *pVisibleSectorMask, int16_t secto
         || sectorVisible(pVisibleSectorMask, static_cast<size_t>(sectorId));
 }
 
+float visibilityPlaneDistance(const IndoorVisibilityPlane &plane, const bx::Vec3 &point)
+{
+    return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.distance;
+}
+
+bool sphereIntersectsVisibilityFrustum(
+    const bx::Vec3 &center,
+    float radius,
+    const IndoorVisibilityFrustum &frustum)
+{
+    const float effectiveRadius = std::max(radius, 0.0f);
+
+    for (const IndoorVisibilityPlane &plane : frustum)
+    {
+        if (visibilityPlaneDistance(plane, center) < -effectiveRadius)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool sphereIntersectsVisibleSectorFrustums(
+    const std::vector<std::vector<IndoorVisibilityFrustum>> *pVisibleSectorFrustums,
+    int16_t sectorId,
+    const bx::Vec3 &center,
+    float radius)
+{
+    if (pVisibleSectorFrustums == nullptr || pVisibleSectorFrustums->empty())
+    {
+        return true;
+    }
+
+    if (sectorId < 0 || static_cast<size_t>(sectorId) >= pVisibleSectorFrustums->size())
+    {
+        return false;
+    }
+
+    const std::vector<IndoorVisibilityFrustum> &frustums =
+        (*pVisibleSectorFrustums)[static_cast<size_t>(sectorId)];
+
+    for (const IndoorVisibilityFrustum &frustum : frustums)
+    {
+        if (sphereIntersectsVisibilityFrustum(center, radius, frustum))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void appendFrameLight(
     IndoorLightingFrame &frame,
     const IndoorRenderLight &light,
@@ -988,8 +1041,20 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
     {
         for (const WorldFxLightEmitter &emitter : input.pWorldFxSystem->lightEmitters())
         {
+            const bx::Vec3 lightPosition = {emitter.x, emitter.y, emitter.z};
+
+            if (!sectorVisible(input.pVisibleSectorMask, emitter.sectorId)
+                || !sphereIntersectsVisibleSectorFrustums(
+                    input.pVisibleSectorFrustums,
+                    emitter.sectorId,
+                    lightPosition,
+                    emitter.radius))
+            {
+                continue;
+            }
+
             IndoorRenderLight light = {};
-            light.position = {emitter.x, emitter.y, emitter.z};
+            light.position = lightPosition;
             light.radius = emitter.radius;
             light.colorAbgr =
                 emitter.colorAbgr != 0
@@ -1029,6 +1094,15 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
 
                 appendedSourceIndices[sourceIndex] = 1;
                 const CachedLightSource &source = pStaticCache->sources[sourceIndex];
+
+                if (!sphereIntersectsVisibleSectorFrustums(
+                        input.pVisibleSectorFrustums,
+                        source.sectorId,
+                        source.position,
+                        source.radius))
+                {
+                    return;
+                }
 
                 if (source.kind == IndoorRenderLightKind::Static
                     && !isBlvLightEnabledByState(

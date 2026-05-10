@@ -19,6 +19,8 @@ using OpenYAMM::Game::IndoorMapData;
 using OpenYAMM::Game::IndoorRenderLight;
 using OpenYAMM::Game::IndoorRenderLightKind;
 using OpenYAMM::Game::IndoorSector;
+using OpenYAMM::Game::IndoorVisibilityFrustum;
+using OpenYAMM::Game::IndoorVisibilityPlane;
 using OpenYAMM::Game::DecorationBillboard;
 using OpenYAMM::Game::DecorationBillboardSet;
 using OpenYAMM::Game::MaxIndoorDrawLights;
@@ -300,6 +302,52 @@ TEST_CASE("indoor lighting selects static lights from the requested sector")
 
     REQUIRE_EQ(firstSectorDrawLights.lightCount, 1u);
     CHECK_EQ(firstSectorDrawLights.positions[0], doctest::Approx(100.0f));
+}
+
+TEST_CASE("indoor lighting filters visible-sector static lights by clipped frustum")
+{
+    IndoorMapData map = {};
+    map.sectors.resize(2);
+
+    IndoorLight visibleLight = {};
+    visibleLight.y = 0;
+    visibleLight.radius = 10;
+    visibleLight.red = 255;
+    visibleLight.green = 255;
+    visibleLight.blue = 255;
+    map.lights.push_back(visibleLight);
+    map.sectors[1].lightIds.push_back(0);
+
+    IndoorLight hiddenLight = {};
+    hiddenLight.y = 1000;
+    hiddenLight.radius = 10;
+    hiddenLight.red = 255;
+    hiddenLight.green = 255;
+    hiddenLight.blue = 255;
+    map.lights.push_back(hiddenLight);
+    map.sectors[1].lightIds.push_back(1);
+
+    std::vector<uint8_t> visibleSectorMask = {0, 1};
+    std::vector<std::vector<IndoorVisibilityFrustum>> visibleSectorFrustums(2);
+    IndoorVisibilityPlane maxY = {};
+    maxY.normal = {0.0f, -1.0f, 0.0f};
+    maxY.distance = 100.0f;
+    IndoorVisibilityPlane minY = {};
+    minY.normal = {0.0f, 1.0f, 0.0f};
+    minY.distance = 100.0f;
+    visibleSectorFrustums[1].push_back({maxY, minY});
+
+    IndoorLightingRuntime runtime;
+    runtime.rebuildStaticCache(map, nullptr);
+
+    IndoorLightingFrameInput input = {};
+    input.pMapData = &map;
+    input.pVisibleSectorMask = &visibleSectorMask;
+    input.pVisibleSectorFrustums = &visibleSectorFrustums;
+    const IndoorLightingFrame frame = runtime.buildFrame(input);
+
+    REQUIRE_EQ(frame.lights.size(), 1u);
+    CHECK_EQ(frame.lights.front().position.y, doctest::Approx(0.0f));
 }
 
 TEST_CASE("indoor lighting approximates non-detail lights instead of dropping them")

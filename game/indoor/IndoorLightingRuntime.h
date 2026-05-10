@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/indoor/IndoorPortalVisibility.h"
+
 #include <bx/math.h>
 
 #include <array>
@@ -67,6 +69,7 @@ struct IndoorLightingFrameInput
     const WorldFxSystem *pWorldFxSystem = nullptr;
     const Party *pParty = nullptr;
     const std::vector<uint8_t> *pVisibleSectorMask = nullptr;
+    const std::vector<std::vector<IndoorVisibilityFrustum>> *pVisibleSectorFrustums = nullptr;
     bx::Vec3 cameraPosition = {0.0f, 0.0f, 0.0f};
     bool coloredLights = true;
 };

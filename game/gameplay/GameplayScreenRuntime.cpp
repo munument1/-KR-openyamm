@@ -1090,7 +1090,7 @@ void GameplayScreenRuntime::beginRestAction(
     restScreen.totalMinutes = std::max(0.0f, minutes);
     restScreen.remainingMinutes = restScreen.totalMinutes;
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "rest_action_started mode=\"" + std::string(restModeTraceName(mode)) + "\""
         + " minutes=" + std::to_string(restScreen.totalMinutes)
         + " consume_food=" + (consumeFood ? "true" : "false")
@@ -1313,7 +1313,7 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
 
     if (remainingMinutes > 0.0f)
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "game_time_advanced source=rest"
             " mode=\"" + std::string(restModeTraceName(completedMode)) + "\""
             + " minutes=" + std::to_string(remainingMinutes)

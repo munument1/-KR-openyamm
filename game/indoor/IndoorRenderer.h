@@ -4,6 +4,8 @@
 #include "engine/AssetScaleTier.h"
 #include "game/indoor/IndoorMapData.h"
 #include "game/indoor/IndoorLightingRuntime.h"
+#include "game/indoor/IndoorPortalGraph.h"
+#include "game/indoor/IndoorPortalVisibility.h"
 #include "game/tables/ChestTable.h"
 #include "game/tables/ObjectTable.h"
 #include "game/maps/MapDeltaData.h"
@@ -346,6 +348,7 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
+        const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame
     );
     void renderActorPreviewBillboards(
@@ -353,6 +356,7 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
+        const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled
     );
@@ -361,6 +365,7 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
+        const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled
     );
@@ -382,6 +387,7 @@ private:
     const EventRuntimeState *runtimeEventRuntimeState() const;
     uint64_t currentTexturedBatchVisualRevision() const;
     bool texturedBatchesNeedFullRebuild() const;
+    void rebuildIndoorRenderMemberships();
     void rebuildMechanismBindings();
     bool rebuildAllTexturedBatches(uint64_t &texturedBuildNanoseconds);
     bool updateMovingMechanismFaceVertices(uint64_t &texturedBuildNanoseconds, uint64_t &uploadNanoseconds);
@@ -399,6 +405,8 @@ private:
         float aspectRatio = 1.0f;
         std::vector<uint32_t> doorStateSignature;
         std::vector<uint8_t> visibleSectorMask;
+        std::vector<std::vector<IndoorVisibilityFrustum>> visibleSectorFrustums;
+        std::vector<IndoorPortalVisibilityTrace> portalTraces;
 
         void clear()
         {
@@ -406,6 +414,8 @@ private:
             sectorId = -1;
             doorStateSignature.clear();
             visibleSectorMask.clear();
+            visibleSectorFrustums.clear();
+            portalTraces.clear();
         }
     };
     PortalVisibilityCache &portalVisibilityCache(bool ignoreMechanismBlockers) const;
@@ -414,7 +424,15 @@ private:
         const bx::Vec3 &cameraPosition,
         bool ignoreMechanismBlockers = false
     ) const;
+    std::vector<uint8_t> buildRenderVisibleSectorMask(const bx::Vec3 &cameraPosition) const;
+    void logIndoorVisibilityDiagnostics(
+        const std::vector<uint8_t> &baseVisibleSectorMask,
+        const std::vector<uint8_t> &renderVisibleSectorMask,
+        uint32_t currentTick
+    ) const;
     bool isSectorVisible(int16_t sectorId, const std::vector<uint8_t> &visibleSectorMask) const;
+    bool isRenderSectorVisible(int16_t sectorId, const std::vector<uint8_t> &visibleSectorMask) const;
+    bool isTexturedBatchVisible(const TexturedBatch &batch, const std::vector<uint8_t> &visibleSectorMask) const;
 
     bool m_isInitialized;
     bool m_isRenderable;
@@ -423,12 +441,16 @@ private:
     std::optional<ObjectTable> m_objectTable;
     const ItemTable *m_pItemTable = nullptr;
     std::optional<IndoorMapData> m_indoorMapData;
+    std::optional<IndoorPortalGraph> m_indoorPortalGraph;
     std::vector<IndoorVertex> m_renderVertices;
+    std::vector<std::vector<uint16_t>> m_neighboringSectorIds;
     IndoorSceneRuntime *m_pSceneRuntime = nullptr;
     std::optional<IndoorTextureSet> m_indoorTextureSet;
     std::optional<DecorationBillboardSet> m_indoorDecorationBillboardSet;
     std::optional<ActorPreviewBillboardSet> m_indoorActorPreviewBillboardSet;
     std::optional<SpriteObjectBillboardSet> m_indoorSpriteObjectBillboardSet;
+    std::vector<std::vector<size_t>> m_decorationBillboardIndicesBySector;
+    std::vector<std::vector<size_t>> m_staticSpriteObjectBillboardIndicesBySector;
     std::optional<HouseTable> m_houseTable;
     std::optional<ChestTable> m_chestTable;
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
@@ -497,6 +519,8 @@ private:
     bool m_gameplayMouseLookEnabled = false;
     bool m_gameplayCursorMode = false;
     bool m_jumpHeld;
+    bool m_indoorGeometryRenderingDisabled = false;
+    bool m_indoorGeometryRenderingToggleHeld = false;
     InspectHit m_cachedInspectHit = {};
     bool m_cachedInspectHitValid = false;
     float m_cachedInspectMouseX = 0.0f;
@@ -509,6 +533,7 @@ private:
     uint64_t m_inspectGeometryRevision = 0;
     uint64_t m_cachedInspectGeometryRevision = 0;
     uint64_t m_lastInspectUpdateTick = 0;
+    mutable uint32_t m_lastVisibilityDiagnosticsLogTick = 0;
     GameplayWorldPickRequest m_cachedGameplayWorldPickRequest = {};
 };
 }

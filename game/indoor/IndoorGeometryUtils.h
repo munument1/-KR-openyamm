@@ -101,6 +101,7 @@ std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
     const MapDeltaData *pIndoorMapDeltaData,
     const EventRuntimeState *pEventRuntimeState
 );
+std::vector<std::vector<uint16_t>> buildNeighboringIndoorSectorIds(const IndoorMapData &indoorMapData);
 float fixedIndoorDoorDirectionComponentToFloat(int value);
 bool indoorDoorCarriesPartySupport(const MapDeltaDoor &door);
 bx::Vec3 indoorVertexToWorld(const IndoorVertex &vertex);

@@ -1879,7 +1879,7 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
         GameplayRuntimeActorState runtimeActorState = {};
         const bool hasRuntimeActorState =
             pWorldRuntime->actorRuntimeState(pick->runtimeActorIndex, runtimeActorState);
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "actor_inspect world=indoor map=\""
             + (m_pIndoorSceneRuntime != nullptr ? m_pIndoorSceneRuntime->worldRuntime().mapName() : std::string())
             + "\" actor_index=" + std::to_string(pick->runtimeActorIndex)

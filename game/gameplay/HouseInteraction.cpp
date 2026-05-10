@@ -1964,7 +1964,7 @@ HouseActionResult performHouseAction(
                 .z = route.z,
                 .directionDegrees = route.directionDegrees,
             };
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "game_time_advanced source=\"" + pendingMapMove.traceSourceKind + "\""
                 + " source_id=" + std::to_string(houseEntry.id)
                 + " action_id=" + std::to_string(static_cast<uint32_t>(action.id))
@@ -1972,7 +1972,7 @@ HouseActionResult performHouseAction(
                 + " before_game_minutes=" + std::to_string(beforeGameMinutes)
                 + " after_game_minutes=" + std::to_string(afterGameMinutes)
                 + " game_minutes=" + std::to_string(afterGameMinutes));
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "map_transition_requested source_kind=\"" + pendingMapMove.traceSourceKind + "\""
                 + " source_id=" + std::to_string(houseEntry.id)
                 + " action_id=" + std::to_string(static_cast<uint32_t>(action.id))

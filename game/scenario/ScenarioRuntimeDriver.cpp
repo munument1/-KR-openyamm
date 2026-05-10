@@ -1179,27 +1179,6 @@ bool ScenarioRuntimeDriver::activeChestContainsItem(
         return false;
     }
 
-    if (const EventRuntimeState *pRuntimeState = eventRuntimeState())
-    {
-        for (const std::pair<const uint32_t, std::vector<EventRuntimeState::ChestItemRequest>> &entry
-            : pRuntimeState->chestItemRequests)
-        {
-            if (chestId && entry.first != *chestId)
-            {
-                continue;
-            }
-
-            for (const EventRuntimeState::ChestItemRequest &request : entry.second)
-            {
-                if (request.itemId == itemId)
-                {
-                    containsItem = true;
-                    return true;
-                }
-            }
-        }
-    }
-
     const GameplayChestViewState *pChestView = pWorldRuntime->activeChestView();
 
     if (pChestView == nullptr)

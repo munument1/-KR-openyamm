@@ -86,7 +86,7 @@ void logMapArrived(
     bool sameMap,
     float gameMinutes)
 {
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_arrived previous_map=\"" + previousMapFileName + "\""
         + " map=\"" + targetMapFileName + "\""
         + " game_minutes=" + std::to_string(gameMinutes)
@@ -378,7 +378,7 @@ void tracePartySnapshot(
     const Party::Snapshot &snapshot,
     const ItemTable *pItemTable)
 {
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         eventPrefix
         + "_party gold=" + std::to_string(snapshot.gold)
         + " bank_gold=" + std::to_string(snapshot.bankGold)
@@ -390,7 +390,7 @@ void tracePartySnapshot(
     for (size_t memberIndex = 0; memberIndex < snapshot.members.size(); ++memberIndex)
     {
         const Character &member = snapshot.members[memberIndex];
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             eventPrefix
             + "_party_member member_index=" + std::to_string(memberIndex)
             + " name=\"" + member.name + "\""
@@ -420,7 +420,7 @@ void tracePartySnapshot(
 
         if (!skills.empty())
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 eventPrefix
                 + "_party_skills member_index=" + std::to_string(memberIndex)
                 + " count=" + std::to_string(skills.size())
@@ -429,7 +429,7 @@ void tracePartySnapshot(
 
         for (uint32_t awardId : sortedIds(member.awards))
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 eventPrefix
                 + "_party_award member_index=" + std::to_string(memberIndex)
                 + " award_id=" + std::to_string(awardId));
@@ -437,7 +437,7 @@ void tracePartySnapshot(
 
         for (const InventoryItem &item : member.inventory)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 eventPrefix
                 + "_party_inventory member_index=" + std::to_string(memberIndex)
                 + " grid=(" + std::to_string(item.gridX)
@@ -453,7 +453,7 @@ void tracePartySnapshot(
                 continue;
             }
 
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 eventPrefix
                 + "_party_equipped member_index=" + std::to_string(memberIndex)
                 + " slot=" + traceEquipmentSlotName(slot)
@@ -464,12 +464,12 @@ void tracePartySnapshot(
 
     for (uint32_t qbitId : sortedIds(snapshot.questBits))
     {
-        gameplayDebugTraceLog(eventPrefix + "_qbit id=" + std::to_string(qbitId));
+        GAMEPLAY_DEBUG_TRACE(eventPrefix + "_qbit id=" + std::to_string(qbitId));
     }
 
     for (const auto &[variableId, value] : sortedMap(snapshot.eventVariables))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             eventPrefix
             + "_party_event_var id=" + std::to_string(variableId)
             + " value=" + std::to_string(value));
@@ -486,7 +486,7 @@ void tracePartySnapshot(
 
     for (const HiredNpcFollower &hireling : hirelings)
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             eventPrefix
             + "_hireling npc_id=" + std::to_string(hireling.npcId)
             + " profession_id=" + std::to_string(hireling.professionId)
@@ -504,7 +504,7 @@ void traceEventRuntimeStateMapVars(
 
     size_t nonZeroCount = 0;
     const std::string nonZeroValues = traceCompactMapVarSnapshot(runtimeState.mapVars, nonZeroCount);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         eventPrefix
         + "_map_vars map=\"" + mapName + "\""
         + " scene_kind=" + pSceneKind
@@ -515,7 +515,7 @@ void traceEventRuntimeStateMapVars(
 
     for (const auto &[name, value] : sortedStringIntMap(runtimeState.namedMapVars))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             eventPrefix
             + "_named_map_var map=\"" + mapName + "\""
             + " scene_kind=" + pSceneKind
@@ -531,7 +531,7 @@ void traceSaveDataStateDump(
     const ItemTable *pItemTable)
 {
     const std::string eventPrefix = "state_dump_" + phase;
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         eventPrefix
         + "_begin path=\"" + path.string() + "\""
         + " map=\"" + saveData.mapFileName + "\""
@@ -542,7 +542,7 @@ void traceSaveDataStateDump(
 
     for (const auto &[name, value] : sortedStringIntMap(saveData.namedGlobalVars))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             eventPrefix
             + "_named_global_var name=\"" + name + "\""
             + " value=" + std::to_string(value));
@@ -604,7 +604,7 @@ void traceSaveDataStateDump(
         }
     }
 
-    gameplayDebugTraceLog(eventPrefix + "_end path=\"" + path.string() + "\"");
+    GAMEPLAY_DEBUG_TRACE(eventPrefix + "_end path=\"" + path.string() + "\"");
 }
 
 TextureFilterMode textureFilterModeFromSetting(const std::string &value, TextureFilterMode fallback)
@@ -3269,13 +3269,13 @@ bool GameApplication::processPendingDebugMapJump()
     timingLogger.stage("debug start applied");
     const std::string sceneKind =
         m_pMapSceneRuntime != nullptr ? sceneKindName(m_pMapSceneRuntime->kind()) : "none";
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_loaded source=debug_console map=\"" + selectedMap->map.fileName + "\""
         + " scene_kind=" + sceneKind
         + " game_minutes=" + std::to_string(m_gameSession.gameMinutes())
         + " initialize_view=true"
         + " start_override=" + (pendingJump.start.has_value() ? "true" : "false"));
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "console_debug_map_load_travel map=\"" + selectedMap->map.fileName + "\""
         + " target=\"" + selectedMap->map.name + "\""
         + " map_id=" + std::to_string(selectedMap->map.id)
@@ -3392,7 +3392,7 @@ bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
         {
             const size_t remaining = MaxPendingInputLength - m_pendingInputText.size();
             m_pendingInputText.append(event.text.text, std::min(remaining, std::strlen(event.text.text)));
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "input_prompt_text_input text=" + traceInputPromptQuoted(event.text.text)
                 + " current=" + traceInputPromptQuoted(m_pendingInputText));
         }
@@ -3410,7 +3410,7 @@ bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
         return true;
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "input_prompt_key_down key=" + std::to_string(static_cast<int>(event.key.key))
         + " scancode=" + std::to_string(static_cast<int>(event.key.scancode)));
 
@@ -3482,7 +3482,7 @@ void GameApplication::updatePendingInputPrompt()
 
         if (pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "input_prompt_not_active"
                 + traceInputPromptFields(
                     *pRuntimeState->pendingInputPrompt,
@@ -3520,7 +3520,7 @@ void GameApplication::updatePendingInputPrompt()
 
         if (pWorldRuntime != nullptr && pRuntimeState != nullptr && pRuntimeState->pendingInputPrompt)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "input_prompt_opened"
                 + traceInputPromptFields(
                     *pRuntimeState->pendingInputPrompt,
@@ -3576,7 +3576,7 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
 
     if (!accepted)
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "input_prompt_canceled"
             + traceInputPromptFields(prompt, promptMapName, promptGameMinutes));
         m_skipGameplayUpdateUntilPromptSubmitKeysReleased = true;
@@ -3624,7 +3624,7 @@ void GameApplication::finishPendingInputPrompt(bool accepted)
         ? pWorldRuntime->executeMapEvent(prompt.eventId, previousMessageCount, continueStep)
         : pWorldRuntime->executeNpcTopicEvent(prompt.eventId, previousMessageCount, continueStep);
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "input_prompt_answered"
         + traceInputPromptFields(prompt, promptMapName, promptGameMinutes)
         + " answer=" + traceInputPromptQuoted(submittedInput)
@@ -3875,7 +3875,7 @@ bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
     if (gameplayDebugTraceEnabled() && !m_traceSessionHeaderLogged)
     {
         m_traceSessionHeaderLogged = true;
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "trace_session_begin"
             " world_id=\"" + m_activeWorldManifest.id + "\""
             + " configured_world_id=\"" + m_config.activeWorldId + "\""
@@ -4535,7 +4535,7 @@ bool GameApplication::loadCurrentSessionMap(
             + " yaw=" + std::to_string(pWorldRuntime->gameplayCameraYawRadians())
             + " pitch=" + std::to_string(pWorldRuntime->gameplayCameraPitchRadians());
     }
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_loaded map=\"" + m_gameSession.currentMapFileName() + "\""
         + " scene_kind=" + sceneKind
         + " game_minutes=" + std::to_string(traceGameMinutes)
@@ -4893,7 +4893,7 @@ void GameApplication::updateGameplayTraceSnapshotHotkeys()
         {
             ++m_traceMarkerSequence;
             const std::optional<GameplayTraceMovementSnapshot> snapshot = captureSnapshot();
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "trace_marker index=" + std::to_string(m_traceMarkerSequence)
                 + (snapshot.has_value() ? snapshotDetails(*snapshot) : std::string()));
             m_traceMarkerLatch = true;
@@ -4969,17 +4969,17 @@ void GameApplication::updateGameplayTraceSnapshotHotkeys()
                 const float deltaGameMinutes =
                     m_traceMovementCapture.stop.gameMinutes - m_traceMovementCapture.start.gameMinutes;
 
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "movement_segment sequence=" + std::to_string(m_traceMovementCapture.sequence)
                     + " input=forward"
                     + " duration_ms=" + std::to_string(durationMilliseconds)
                     + " delta_game_minutes=" + std::to_string(deltaGameMinutes)
                     + " accepted=true");
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "movement_segment_snapshot sequence=" + std::to_string(m_traceMovementCapture.sequence)
                     + " label=start"
                     + snapshotDetails(m_traceMovementCapture.start));
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "movement_segment_snapshot sequence=" + std::to_string(m_traceMovementCapture.sequence)
                     + " label=stop"
                     + snapshotDetails(m_traceMovementCapture.stop));
@@ -5002,7 +5002,7 @@ void GameApplication::updateGameplayTraceSnapshotHotkeys()
                     reason = "missing_stop";
                 }
 
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "movement_segment_status sequence=" + std::to_string(m_traceMovementCapture.sequence)
                     + " accepted=false"
                     + " reason=" + reason
@@ -5077,14 +5077,14 @@ bool GameApplication::quickSaveToPath(
 
     if (!selectedMap || m_pMapSceneRuntime == nullptr)
     {
-        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=unavailable");
+        GAMEPLAY_DEBUG_TRACE("save_game_failed path=\"" + path.string() + "\" reason=unavailable");
         reportQuickSaveStatus("Quick save unavailable");
         return false;
     }
 
     if (!selectedMap->map.runtimeRestrictions.allowSaveGame)
     {
-        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=restricted_map");
+        GAMEPLAY_DEBUG_TRACE("save_game_failed path=\"" + path.string() + "\" reason=restricted_map");
         reportQuickSaveStatus("Quick save unavailable here");
         return false;
     }
@@ -5094,7 +5094,7 @@ bool GameApplication::quickSaveToPath(
 
     if (!saveData)
     {
-        gameplayDebugTraceLog("save_game_failed path=\"" + path.string() + "\" reason=no_save_data");
+        GAMEPLAY_DEBUG_TRACE("save_game_failed path=\"" + path.string() + "\" reason=no_save_data");
         reportQuickSaveStatus("Quick save unavailable");
         return false;
     }
@@ -5106,7 +5106,7 @@ bool GameApplication::quickSaveToPath(
 
     if (!saveGameDataToPath(path, *saveData, error))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "save_game_failed path=\"" + path.string() + "\""
             + " map=\"" + saveData->mapFileName + "\""
             + " reason=\"" + error + "\"");
@@ -5115,12 +5115,14 @@ bool GameApplication::quickSaveToPath(
     }
 
     m_gameSession.setCurrentSavePath(path);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "save_game_written path=\"" + path.string() + "\""
         + " map=\"" + saveData->mapFileName + "\""
         + " scene_kind=" + sceneKindName(saveData->currentSceneKind)
         + " game_minutes=" + std::to_string(saveData->savedGameMinutes));
-    traceSaveDataStateDump("save", path, *saveData, &m_gameDataLoader.getItemTable());
+    GAMEPLAY_DEBUG_TRACE_BLOCK(
+        traceSaveDataStateDump("save", path, *saveData, &m_gameDataLoader.getItemTable());
+    );
     reportQuickSaveStatus("Quick save written");
     return true;
 }
@@ -5134,12 +5136,12 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
 {
     if (m_pAssetFileSystem == nullptr)
     {
-        gameplayDebugTraceLog("load_game_failed path=\"" + path.string() + "\" reason=unavailable");
+        GAMEPLAY_DEBUG_TRACE("load_game_failed path=\"" + path.string() + "\" reason=unavailable");
         reportQuickSaveStatus("Quick load unavailable");
         return false;
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "load_game_started path=\"" + path.string() + "\""
         + " initialize_view=" + (initializeView ? "true" : "false"));
     beginLoadingOverlay();
@@ -5150,14 +5152,16 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
     if (!saveData)
     {
         cancelLoadingOverlay();
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "load_game_failed path=\"" + path.string() + "\""
             + " reason=\"" + error + "\"");
         reportQuickSaveStatus("Quick load failed: " + error);
         return false;
     }
 
-    traceSaveDataStateDump("load_file", path, *saveData, &m_gameDataLoader.getItemTable());
+    GAMEPLAY_DEBUG_TRACE_BLOCK(
+        traceSaveDataStateDump("load_file", path, *saveData, &m_gameDataLoader.getItemTable());
+    );
     renderLoadingOverlayProgress(20);
 
     m_gameSession.restoreFromSaveData(*saveData);
@@ -5173,7 +5177,7 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
             }))
     {
         cancelLoadingOverlay();
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "load_game_failed path=\"" + path.string() + "\""
             + " map=\"" + saveData->mapFileName + "\""
             + " reason=runtime_init_failed");
@@ -5186,7 +5190,7 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
     if (!applyCurrentSessionToRuntime(initializeView))
     {
         cancelLoadingOverlay();
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "load_game_failed path=\"" + path.string() + "\""
             + " map=\"" + saveData->mapFileName + "\""
             + " reason=runtime_apply_failed");
@@ -5196,14 +5200,16 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
 
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "load_game_applied path=\"" + path.string() + "\""
         + " map=\"" + m_gameSession.currentMapFileName() + "\""
         + " scene_kind=" + sceneKindName(m_gameSession.currentSceneKind())
         + " game_minutes=" + std::to_string(m_gameSession.gameMinutes()));
     if (const std::optional<GameSaveData> appliedSaveData = m_gameSession.buildSaveData())
     {
-        traceSaveDataStateDump("load_applied", path, *appliedSaveData, &m_gameDataLoader.getItemTable());
+        GAMEPLAY_DEBUG_TRACE_BLOCK(
+            traceSaveDataStateDump("load_applied", path, *appliedSaveData, &m_gameDataLoader.getItemTable());
+        );
     }
     reportQuickSaveStatus("Quick load applied");
     return true;
@@ -5223,12 +5229,12 @@ void GameApplication::openMainMenuScreen()
         &m_gameAudioSystem,
         [this]()
         {
-            gameplayDebugTraceLog("menu_action action=new_game source=main_menu");
+            GAMEPLAY_DEBUG_TRACE("menu_action action=new_game source=main_menu");
             openNewGameScreen("main_menu");
         },
         [this]()
         {
-            gameplayDebugTraceLog("menu_action action=load_game source=main_menu");
+            GAMEPLAY_DEBUG_TRACE("menu_action action=load_game source=main_menu");
             openLoadGameScreen(false, "main_menu");
         },
         [this]()
@@ -5244,7 +5250,7 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::s
         return;
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "load_game_screen_opened source=\"" + source + "\""
         + " return_to_gameplay_menu=" + (returnToGameplayMenu ? "true" : "false"));
 
@@ -5292,7 +5298,7 @@ void GameApplication::openNewGameScreen(const std::string &source)
         return;
     }
 
-    gameplayDebugTraceLog("new_game_screen_opened source=\"" + source + "\"");
+    GAMEPLAY_DEBUG_TRACE("new_game_screen_opened source=\"" + source + "\"");
 
     m_gameAudioSystem.stopBackgroundMusicImmediate();
 
@@ -5562,7 +5568,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(
         continentStartDestination.value_or(resolveStartupDestination());
     const MergedContinentSettingEntry *pContinentSetting =
         continentId != 0 ? m_gameDataLoader.getMergedContinentSettingTable().findById(continentId) : nullptr;
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "new_game_starting continent_id=" + std::to_string(continentId)
         + " continent_note=\"" + (pContinentSetting != nullptr ? pContinentSetting->note : std::string()) + "\""
         + " map=\"" + startupDestination.mapFileName + "\""
@@ -5613,7 +5619,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(
     applyCurrentSettingsToActiveRuntime();
     applyMapStartDestination(startupDestination);
     synchronizeSessionFromRuntime();
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "new_game_started continent_id=" + std::to_string(continentId)
         + " continent_note=\"" + (pContinentSetting != nullptr ? pContinentSetting->note : std::string()) + "\""
         + " map=\"" + m_gameSession.currentMapFileName() + "\""
@@ -5624,10 +5630,12 @@ bool GameApplication::startNewSessionFromCharacterCreation(
                 + "," + std::to_string(m_gameSession.activeWorldRuntime()->partyFootZ())
             : std::string("0,0,0"))
         + ")");
-    tracePartySnapshot(
-        "new_game_started",
-        sessionParty.snapshot(),
-        &m_gameDataLoader.getItemTable());
+    GAMEPLAY_DEBUG_TRACE_BLOCK(
+        tracePartySnapshot(
+            "new_game_started",
+            sessionParty.snapshot(),
+            &m_gameDataLoader.getItemTable());
+    );
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
     return true;
@@ -5821,7 +5829,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (m_gameSession.consumePendingOpenNewGameScreenRequest())
         {
-            gameplayDebugTraceLog("menu_action action=new_game source=gameplay_menu");
+            GAMEPLAY_DEBUG_TRACE("menu_action action=new_game source=gameplay_menu");
             openNewGameScreen("gameplay_menu");
             renderDebugConsoleFrame(width, height);
             return;
@@ -5829,7 +5837,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         if (m_gameSession.consumePendingOpenLoadGameScreenRequest())
         {
-            gameplayDebugTraceLog("menu_action action=load_game source=gameplay_menu");
+            GAMEPLAY_DEBUG_TRACE("menu_action action=load_game source=gameplay_menu");
             openLoadGameScreen(true, "gameplay_menu");
             renderDebugConsoleFrame(width, height);
             return;
@@ -5954,12 +5962,14 @@ bool GameApplication::processPendingMapMove()
 
         m_gameAudioSystem.playCommonSound(SoundId::Teleport, GameAudioSystem::PlaybackGroup::Ui);
         synchronizeSessionFromRuntime();
-        logMapArrived(
-            previousMapFileName,
-            m_gameSession.currentMapFileName(),
-            *pendingMapMove,
-            true,
-            m_gameSession.gameMinutes());
+        GAMEPLAY_DEBUG_TRACE_BLOCK(
+            logMapArrived(
+                previousMapFileName,
+                m_gameSession.currentMapFileName(),
+                *pendingMapMove,
+                true,
+                m_gameSession.gameMinutes());
+        );
         return true;
     }
 
@@ -6037,7 +6047,9 @@ bool GameApplication::processPendingMapMove()
     {
         arrivedGameMinutes = pWorldRuntime->gameMinutes();
     }
-    logMapArrived(previousMapFileName, targetMapName, *pendingMapMove, false, arrivedGameMinutes);
+    GAMEPLAY_DEBUG_TRACE_BLOCK(
+        logMapArrived(previousMapFileName, targetMapName, *pendingMapMove, false, arrivedGameMinutes);
+    );
 
     if (isDungeonMapFileName(targetMapName) && !sameMapFileName(previousMapFileName, targetMapName))
     {

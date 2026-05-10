@@ -6,11 +6,13 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace OpenYAMM::Game
 {
 struct EventRuntimeState;
+struct IndoorPortalGraph;
 struct MapDeltaData;
 
 struct IndoorVisibilityPlane
@@ -19,18 +21,41 @@ struct IndoorVisibilityPlane
     float distance = 0.0f;
 };
 
+using IndoorVisibilityFrustum = std::vector<IndoorVisibilityPlane>;
+
 struct IndoorVisibilityNode
 {
     int16_t sectorId = -1;
     int16_t parentNodeIndex = -1;
     int16_t entryPortalFaceId = -1;
     uint16_t depth = 0;
-    std::vector<IndoorVisibilityPlane> frustumPlanes;
+    IndoorVisibilityFrustum frustumPlanes;
+    std::vector<uint32_t> crossedDoorIds;
+};
+
+struct IndoorPortalVisibilityDoorTrace
+{
+    uint32_t doorId = 0;
+    uint16_t state = 0;
+    bool blocks = false;
+};
+
+struct IndoorPortalVisibilityTrace
+{
+    int16_t sourceSectorId = -1;
+    int16_t targetSectorId = -1;
+    uint16_t faceId = 0;
+    uint16_t portalLinkId = 0;
+    uint16_t depth = 0;
+    bool accepted = false;
+    std::string reason;
+    std::vector<IndoorPortalVisibilityDoorTrace> blockerDoors;
 };
 
 struct IndoorPortalVisibilityInput
 {
     const IndoorMapData *pMapData = nullptr;
+    const IndoorPortalGraph *pPortalGraph = nullptr;
     const std::vector<IndoorVertex> *pVertices = nullptr;
     const MapDeltaData *pMapDeltaData = nullptr;
     const std::optional<EventRuntimeState> *pEventRuntimeState = nullptr;
@@ -50,6 +75,8 @@ struct IndoorPortalVisibilityResult
     std::vector<uint8_t> visibleSectorMask;
     std::vector<IndoorVisibilityNode> nodes;
     std::vector<std::vector<uint16_t>> nodeIndicesBySector;
+    std::vector<std::vector<IndoorVisibilityFrustum>> frustumsBySector;
+    std::vector<IndoorPortalVisibilityTrace> portalTraces;
     uint32_t portalCandidateCount = 0;
     uint32_t acceptedPortalCount = 0;
     uint32_t rejectedPortalCount = 0;

@@ -142,7 +142,7 @@ void traceRuntimeValueChange(
         return;
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         eventName
         + " map=\"" + runtimeState.mapFileName + "\""
         + " operation=" + pOperation
@@ -6511,7 +6511,7 @@ void tracePendingInputPromptCreated(
         }
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         std::string("input_prompt_created source=") + pSource
         + " map=" + traceQuoted(runtimeState.mapFileName)
         + " context=" + pContextKind
@@ -6984,7 +6984,7 @@ int luaSetDoorState(lua_State *pLuaState)
     const uint16_t previousState = runtimeMechanism.state;
     const bool wasMoving = runtimeMechanism.isMoving;
     EventRuntime::applyMechanismAction(runtimeMechanism, pDoor, action);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "mechanism_triggered kind=indoor_door id=" + std::to_string(mechanismId)
         + " action=" + gameplayDebugTraceMechanismActionName(actionValue)
         + " raw_action=" + std::to_string(actionValue)
@@ -7064,7 +7064,7 @@ int luaSetOutdoorModelMechanismState(lua_State *pLuaState)
     const uint16_t previousState = runtimeMechanism.state;
     const bool wasMoving = runtimeMechanism.isMoving;
     EventRuntime::applyMechanismAction(runtimeMechanism, nullptr, action);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "mechanism_triggered kind=outdoor_model id=" + std::to_string(mechanismId)
         + " action=" + gameplayDebugTraceMechanismActionName(actionValue)
         + " raw_action=" + std::to_string(actionValue)
@@ -7090,7 +7090,7 @@ int luaStopDoor(lua_State *pLuaState)
     RuntimeMechanismState &runtimeMechanism = pRuntimeState->mechanisms[mechanismId];
     const bool wasMoving = runtimeMechanism.isMoving;
     runtimeMechanism.isMoving = false;
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "mechanism_stopped id=" + std::to_string(mechanismId)
         + " state=" + gameplayDebugTraceMechanismStateName(runtimeMechanism.state)
         + " was_moving=" + (wasMoving ? "true" : "false"));
@@ -8544,7 +8544,7 @@ void EventRuntime::advanceMechanisms(
         const auto logMechanismCompleted =
             [&door](const RuntimeMechanismState &mechanism, float elapsedMs)
             {
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "mechanism_completed kind=indoor_door id=" + std::to_string(door.doorId)
                     + " state=" + gameplayDebugTraceMechanismStateName(mechanism.state)
                     + " elapsed_seconds=" + std::to_string(elapsedMs / 1000.0f)

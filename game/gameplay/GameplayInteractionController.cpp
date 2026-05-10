@@ -239,7 +239,7 @@ bool tryActivateWorldItem(
             return false;
         }
 
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "item_received destination=inventory source=world_item item_id="
             + std::to_string(removedItemState.item.objectDescriptionId)
             + gameplayDebugTraceItemSummary(removedItemState.item.objectDescriptionId, runtime.itemTable())
@@ -254,7 +254,7 @@ bool tryActivateWorldItem(
 
     GameplayHeldItemController::setHeldInventoryItem(heldItem, removedItemState.item);
     pParty->setHeldItemForQueries(removedItemState.item);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "item_received destination=held source=world_item item_id="
         + std::to_string(removedItemState.item.objectDescriptionId)
         + gameplayDebugTraceItemSummary(removedItemState.item.objectDescriptionId, runtime.itemTable())
@@ -274,7 +274,7 @@ bool tryActivateWorldHit(
 {
     if (pWorldRuntime == nullptr || !pWorldRuntime->canActivateWorldHit(hit, interactionMethod))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "interact method="
             + std::string(interactionMethod == GameplayInteractionMethod::Keyboard ? "keyboard" : "mouse")
             + gameplayTraceWorldContext(pWorldRuntime)
@@ -283,7 +283,7 @@ bool tryActivateWorldHit(
         return false;
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "interact method="
         + std::string(interactionMethod == GameplayInteractionMethod::Keyboard ? "keyboard" : "mouse")
         + gameplayTraceWorldContext(pWorldRuntime)

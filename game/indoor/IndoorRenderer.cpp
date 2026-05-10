@@ -11,6 +11,7 @@
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/indoor/IndoorGeometryUtils.h"
+#include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/render/TextureFiltering.h"
 #include "game/scene/IndoorSceneRuntime.h"
@@ -186,6 +187,15 @@ struct RuntimeSpriteObjectBillboard
     bool hasContainingItem = false;
     std::string objectName;
 };
+
+bool sectorVisibleForRuntimeBillboard(int16_t sectorId, const std::vector<uint8_t> *pVisibleSectorMask)
+{
+    return pVisibleSectorMask == nullptr
+        || pVisibleSectorMask->empty()
+        || (sectorId >= 0
+            && static_cast<size_t>(sectorId) < pVisibleSectorMask->size()
+            && (*pVisibleSectorMask)[static_cast<size_t>(sectorId)] != 0);
+}
 
 struct ProjectedPoint
 {
@@ -414,7 +424,8 @@ std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
     const MonsterTable &monsterTable,
     const SpriteFrameTable &spriteFrameTable,
     const MapDeltaData &mapDeltaData,
-    const IndoorWorldRuntime *pWorldRuntime = nullptr
+    const IndoorWorldRuntime *pWorldRuntime = nullptr,
+    const std::vector<uint8_t> *pVisibleSectorMask = nullptr
 )
 {
     std::vector<RuntimeActorBillboard> billboards;
@@ -431,6 +442,14 @@ std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
 
         const IndoorWorldRuntime::MapActorAiState *pActorAiState =
             pWorldRuntime != nullptr ? pWorldRuntime->mapActorAiState(actorIndex) : nullptr;
+        const int16_t sectorId =
+            pActorAiState != nullptr && pActorAiState->sectorId >= 0 ? pActorAiState->sectorId : actor.sectorId;
+
+        if (!sectorVisibleForRuntimeBillboard(sectorId, pVisibleSectorMask))
+        {
+            continue;
+        }
+
         const MonsterEntry *pMonsterEntry =
             pActorAiState == nullptr ? resolveRuntimeMonsterEntry(monsterTable, actor) : nullptr;
         const uint16_t spriteFrameIndex = pActorAiState != nullptr
@@ -447,8 +466,7 @@ std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
         billboard.x = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseX)) : actor.x;
         billboard.y = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseY)) : actor.y;
         billboard.z = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseZ)) : actor.z;
-        billboard.sectorId =
-            pActorAiState != nullptr && pActorAiState->sectorId >= 0 ? pActorAiState->sectorId : actor.sectorId;
+        billboard.sectorId = sectorId;
         billboard.radius = pActorAiState != nullptr ? pActorAiState->collisionRadius : actor.radius;
         billboard.height = pActorAiState != nullptr ? pActorAiState->collisionHeight : actor.height;
         billboard.spriteFrameIndex = spriteFrameIndex;
@@ -477,7 +495,8 @@ std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
 std::vector<RuntimeSpriteObjectBillboard> buildRuntimeSpriteObjectBillboards(
     const ObjectTable &objectTable,
     const ItemTable *pItemTable,
-    const MapDeltaData &mapDeltaData
+    const MapDeltaData &mapDeltaData,
+    const std::vector<uint8_t> *pVisibleSectorMask = nullptr
 )
 {
     std::vector<RuntimeSpriteObjectBillboard> billboards;
@@ -492,6 +511,11 @@ std::vector<RuntimeSpriteObjectBillboard> buildRuntimeSpriteObjectBillboards(
             containedItemId != 0 && pItemTable != nullptr ? pItemTable->get(containedItemId) : nullptr;
 
         if ((spriteObject.attributes & SpriteAttrRemoved) != 0)
+        {
+            continue;
+        }
+
+        if (!sectorVisibleForRuntimeBillboard(spriteObject.sectorId, pVisibleSectorMask))
         {
             continue;
         }
@@ -726,6 +750,54 @@ bool billboardSphereInFrustum(
     }
 
     return true;
+}
+
+bool sphereIntersectsIndoorVisibilityFrustum(
+    const bx::Vec3 &center,
+    float radius,
+    const IndoorVisibilityFrustum &frustumPlanes)
+{
+    const float effectiveRadius = std::max(radius + BillboardFrustumSlack, 0.0f);
+
+    for (const IndoorVisibilityPlane &plane : frustumPlanes)
+    {
+        if (indoorPlaneDistance(plane, center) < -effectiveRadius)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool sphereIntersectsVisibleSectorFrustums(
+    int16_t sectorId,
+    const bx::Vec3 &center,
+    float radius,
+    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums)
+{
+    if (visibleSectorFrustums.empty())
+    {
+        return true;
+    }
+
+    if (sectorId < 0 || static_cast<size_t>(sectorId) >= visibleSectorFrustums.size())
+    {
+        return false;
+    }
+
+    const std::vector<IndoorVisibilityFrustum> &sectorFrustums =
+        visibleSectorFrustums[static_cast<size_t>(sectorId)];
+
+    for (const IndoorVisibilityFrustum &frustum : sectorFrustums)
+    {
+        if (sphereIntersectsIndoorVisibilityFrustum(center, radius, frustum))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 struct IndoorInteractiveDecorationBinding
@@ -1649,6 +1721,24 @@ bool IndoorRenderer::initialize(
     m_indoorMapData = indoorMapData;
     clearPortalVisibilityCaches();
     m_pSceneRuntime = &sceneRuntime;
+    m_indoorPortalGraph = buildIndoorPortalGraph(
+        indoorMapData,
+        runtimeMapDeltaData() ? &runtimeMapDeltaData().value() : nullptr);
+    m_neighboringSectorIds.assign(indoorMapData.sectors.size(), {});
+
+    for (size_t sectorId = 0; sectorId < m_indoorPortalGraph->sectors.size(); ++sectorId)
+    {
+        if (sectorId <= std::numeric_limits<uint16_t>::max())
+        {
+            m_neighboringSectorIds[sectorId].push_back(static_cast<uint16_t>(sectorId));
+        }
+
+        for (uint16_t connectedSectorId : m_indoorPortalGraph->sectors[sectorId].connectedSectorIds)
+        {
+            m_neighboringSectorIds[sectorId].push_back(connectedSectorId);
+        }
+    }
+
     m_renderVertices = buildMechanismAdjustedVertices(
         indoorMapData,
         runtimeMapDeltaData(),
@@ -1657,6 +1747,7 @@ bool IndoorRenderer::initialize(
     m_indoorDecorationBillboardSet = indoorDecorationBillboardSet;
     m_indoorActorPreviewBillboardSet = indoorActorPreviewBillboardSet;
     m_indoorSpriteObjectBillboardSet = indoorSpriteObjectBillboardSet;
+    rebuildIndoorRenderMemberships();
     m_indoorLightingRuntime.rebuildStaticCache(
         indoorMapData,
         m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr);
@@ -2017,6 +2108,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     const float sinYaw = std::sin(m_cameraYawRadians);
     IndoorPortalVisibilityInput input = {};
     input.pMapData = &m_indoorMapData.value();
+    input.pPortalGraph = m_indoorPortalGraph ? &m_indoorPortalGraph.value() : nullptr;
     input.pVertices = &m_renderVertices;
     input.pMapDeltaData = mapDeltaData ? &mapDeltaData.value() : nullptr;
     input.pEventRuntimeState = &eventRuntimeState;
@@ -2040,7 +2132,249 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(
     cache.aspectRatio = aspectRatio;
     cache.doorStateSignature = doorStateSignature;
     cache.visibleSectorMask = visibility.visibleSectorMask;
+    cache.visibleSectorFrustums = visibility.frustumsBySector;
+    cache.portalTraces = visibility.portalTraces;
     return cache.visibleSectorMask;
+}
+
+std::vector<uint8_t> IndoorRenderer::buildRenderVisibleSectorMask(const bx::Vec3 &cameraPosition) const
+{
+    return buildVisibleSectorMask(cameraPosition, false);
+}
+
+void IndoorRenderer::logIndoorVisibilityDiagnostics(
+    const std::vector<uint8_t> &baseVisibleSectorMask,
+    const std::vector<uint8_t> &renderVisibleSectorMask,
+    uint32_t currentTick
+) const
+{
+    constexpr uint32_t LogIntervalMs = 1000;
+
+    if (currentTick - m_lastVisibilityDiagnosticsLogTick < LogIntervalMs
+        || !m_indoorMapData
+        || m_pSceneRuntime == nullptr)
+    {
+        return;
+    }
+
+    m_lastVisibilityDiagnosticsLogTick = currentTick;
+
+    const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
+    const auto printMask = [](const std::vector<uint8_t> &mask)
+    {
+        std::cout << '[';
+        bool first = true;
+
+        for (size_t sectorId = 0; sectorId < mask.size(); ++sectorId)
+        {
+            if (mask[sectorId] == 0)
+            {
+                continue;
+            }
+
+            if (!first)
+            {
+                std::cout << ',';
+            }
+
+            std::cout << sectorId;
+            first = false;
+        }
+
+        std::cout << ']';
+    };
+    const auto printSectorIds = [](const std::vector<int16_t> &sectorIds)
+    {
+        std::cout << '[';
+
+        for (size_t index = 0; index < sectorIds.size(); ++index)
+        {
+            if (index != 0)
+            {
+                std::cout << ',';
+            }
+
+            std::cout << sectorIds[index];
+        }
+
+        std::cout << ']';
+    };
+    const auto printNeighbors = [this](int16_t sectorId)
+    {
+        std::cout << '[';
+
+        if (sectorId >= 0 && static_cast<size_t>(sectorId) < m_neighboringSectorIds.size())
+        {
+            const std::vector<uint16_t> &neighbors = m_neighboringSectorIds[sectorId];
+
+            for (size_t index = 0; index < neighbors.size(); ++index)
+            {
+                if (index > 0)
+                {
+                    std::cout << ',';
+                }
+
+                std::cout << neighbors[index];
+            }
+        }
+
+        std::cout << ']';
+    };
+    const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
+    const auto printPortalBlockerDetails =
+        [](const IndoorPortalVisibilityTrace &trace)
+    {
+        std::cout << " blockers=" << trace.blockerDoors.size();
+
+        if (trace.blockerDoors.empty())
+        {
+            return;
+        }
+
+        std::cout << " blocker_states=[";
+
+        for (size_t index = 0; index < trace.blockerDoors.size(); ++index)
+        {
+            if (index != 0)
+            {
+                std::cout << ',';
+            }
+
+            const IndoorPortalVisibilityDoorTrace &doorTrace = trace.blockerDoors[index];
+            std::cout << doorTrace.doorId << ':' << doorTrace.state << ':' << (doorTrace.blocks ? 1 : 0);
+        }
+
+        std::cout << ']';
+    };
+    const auto printPortalGraphBlockerIds =
+        [](const IndoorPortalLink &portalLink)
+    {
+        std::cout << " blockers=" << portalLink.blockingDoorIds.size();
+
+        if (portalLink.blockingDoorIds.empty())
+        {
+            return;
+        }
+
+        std::cout << " blocker_ids=[";
+
+        for (size_t index = 0; index < portalLink.blockingDoorIds.size(); ++index)
+        {
+            if (index != 0)
+            {
+                std::cout << ',';
+            }
+
+            std::cout << portalLink.blockingDoorIds[index];
+        }
+
+        std::cout << ']';
+    };
+
+    std::cout << "[IndoorVisibility] party_sector=" << moveState.sectorId
+              << " eye_sector=" << moveState.eyeSectorId
+              << " base_visible=";
+    printMask(baseVisibleSectorMask);
+    std::cout << " render_visible=";
+    printMask(renderVisibleSectorMask);
+    std::cout << " adjacent_party=";
+    printNeighbors(moveState.sectorId);
+    std::cout << " adjacent_eye=";
+    printNeighbors(moveState.eyeSectorId);
+    std::cout << " seen_sectors=";
+    printSectorIds(m_pSceneRuntime->worldRuntime().activatedIndoorSectorIds());
+    std::cout << '\n';
+
+    if (m_indoorPortalGraph)
+    {
+        std::vector<int16_t> portalDebugSectors;
+
+        const auto appendPortalDebugSector = [&](int16_t sectorId)
+        {
+            if (sectorId < 0
+                || static_cast<size_t>(sectorId) >= m_indoorPortalGraph->sectors.size()
+                || std::find(portalDebugSectors.begin(), portalDebugSectors.end(), sectorId)
+                    != portalDebugSectors.end())
+            {
+                return;
+            }
+
+            portalDebugSectors.push_back(sectorId);
+        };
+
+        appendPortalDebugSector(moveState.sectorId);
+        appendPortalDebugSector(moveState.eyeSectorId);
+
+        for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+        {
+            appendPortalDebugSector(trace.sourceSectorId);
+        }
+
+        for (int16_t sourceSectorId : portalDebugSectors)
+        {
+            const IndoorSectorPortalCache &sectorCache =
+                m_indoorPortalGraph->sectors[static_cast<size_t>(sourceSectorId)];
+
+            if (sectorCache.portalLinkIds.empty())
+            {
+                std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                          << " status=no_graph_portals\n";
+                continue;
+            }
+
+            for (uint16_t portalLinkId : sectorCache.portalLinkIds)
+            {
+                if (portalLinkId >= m_indoorPortalGraph->portals.size())
+                {
+                    std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                              << " link=" << portalLinkId
+                              << " status=invalid_graph_link\n";
+                    continue;
+                }
+
+                const IndoorPortalLink &portalLink = m_indoorPortalGraph->portals[portalLinkId];
+                const int16_t targetSectorId =
+                    portalLink.sectorA == static_cast<uint16_t>(sourceSectorId)
+                        ? static_cast<int16_t>(portalLink.sectorB)
+                        : (portalLink.sectorB == static_cast<uint16_t>(sourceSectorId)
+                            ? static_cast<int16_t>(portalLink.sectorA)
+                            : static_cast<int16_t>(-1));
+                bool traceFound = false;
+
+                for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+                {
+                    if (trace.sourceSectorId != sourceSectorId || trace.faceId != portalLink.faceId)
+                    {
+                        continue;
+                    }
+
+                    traceFound = true;
+                    std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                              << " target=" << trace.targetSectorId
+                              << " face=" << trace.faceId
+                              << " link=" << trace.portalLinkId
+                              << " depth=" << trace.depth
+                              << " accepted=" << (trace.accepted ? 1 : 0)
+                              << " reason=" << trace.reason;
+                    printPortalBlockerDetails(trace);
+                    std::cout << '\n';
+                }
+
+                if (!traceFound)
+                {
+                    std::cout << "[IndoorVisibilityPortal] source=" << sourceSectorId
+                              << " target=" << targetSectorId
+                              << " face=" << portalLink.faceId
+                              << " link=" << portalLinkId
+                              << " accepted=0"
+                              << " reason=not_run";
+                    printPortalGraphBlockerIds(portalLink);
+                    std::cout << '\n';
+                }
+            }
+        }
+    }
+
 }
 
 bool IndoorRenderer::isSectorVisible(int16_t sectorId, const std::vector<uint8_t> &visibleSectorMask) const
@@ -2053,6 +2387,53 @@ bool IndoorRenderer::isSectorVisible(int16_t sectorId, const std::vector<uint8_t
     return sectorId >= 0
         && static_cast<size_t>(sectorId) < visibleSectorMask.size()
         && visibleSectorMask[sectorId] != 0;
+}
+
+bool IndoorRenderer::isRenderSectorVisible(int16_t sectorId, const std::vector<uint8_t> &visibleSectorMask) const
+{
+    if (visibleSectorMask.empty()
+        || sectorId < 0
+        || static_cast<size_t>(sectorId) >= visibleSectorMask.size())
+    {
+        return true;
+    }
+
+    return visibleSectorMask[sectorId] != 0;
+}
+
+bool IndoorRenderer::isTexturedBatchVisible(
+    const TexturedBatch &batch,
+    const std::vector<uint8_t> &visibleSectorMask
+) const
+{
+    if (visibleSectorMask.empty())
+    {
+        return true;
+    }
+
+    bool hasKnownSector = false;
+
+    if (batch.sectorId >= 0 && static_cast<size_t>(batch.sectorId) < visibleSectorMask.size())
+    {
+        hasKnownSector = true;
+
+        if (visibleSectorMask[batch.sectorId] != 0)
+        {
+            return true;
+        }
+    }
+
+    if (batch.backSectorId >= 0 && static_cast<size_t>(batch.backSectorId) < visibleSectorMask.size())
+    {
+        hasKnownSector = true;
+
+        if (visibleSectorMask[batch.backSectorId] != 0)
+        {
+            return true;
+        }
+    }
+
+    return !hasKnownSector;
 }
 
 std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sectorId, int16_t eyeSectorId) const
@@ -2253,47 +2634,16 @@ std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sec
             && minY <= static_cast<float>(m_lastRenderHeight) + ScreenMargin;
     };
 
-    const auto appendVisiblePortalNeighbor = [&](int16_t baseSectorId, uint16_t faceId)
+    const PortalVisibilityCache &renderPortalCache = portalVisibilityCache(false);
+
+    for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
     {
-        if (baseSectorId < 0
-            || static_cast<size_t>(baseSectorId) >= m_indoorMapData->sectors.size()
-            || faceId >= m_indoorMapData->faces.size()
-            || !portalFaceOnScreen(faceId))
+        if (!trace.accepted || !portalFaceOnScreen(trace.faceId))
         {
-            return;
+            continue;
         }
 
-        const IndoorFace &face = m_indoorMapData->faces[faceId];
-        int16_t connectedSectorId = -1;
-
-        if (face.roomNumber == static_cast<uint16_t>(baseSectorId))
-        {
-            connectedSectorId = static_cast<int16_t>(face.roomBehindNumber);
-        }
-        else if (face.roomBehindNumber == static_cast<uint16_t>(baseSectorId))
-        {
-            connectedSectorId = static_cast<int16_t>(face.roomNumber);
-        }
-
-        appendSectorId(connectedSectorId);
-    };
-
-    const size_t baseSectorCount = sectorIds.size();
-
-    for (size_t index = 0; index < baseSectorCount; ++index)
-    {
-        const int16_t baseSectorId = sectorIds[index];
-        const IndoorSector &sector = m_indoorMapData->sectors[baseSectorId];
-
-        for (uint16_t faceId : sector.portalFaceIds)
-        {
-            appendVisiblePortalNeighbor(baseSectorId, faceId);
-        }
-
-        for (uint16_t faceId : sector.faceIds)
-        {
-            appendVisiblePortalNeighbor(baseSectorId, faceId);
-        }
+        appendSectorId(trace.targetSectorId);
     }
 
     return sectorIds;
@@ -2325,6 +2675,18 @@ void IndoorRenderer::render(
         bgfx::touch(MainViewId);
         return;
     }
+
+    const bool geometryToggleHeld = input.isScancodeHeld(SDL_SCANCODE_F8);
+
+    if (geometryToggleHeld && !m_indoorGeometryRenderingToggleHeld)
+    {
+        m_indoorGeometryRenderingDisabled = !m_indoorGeometryRenderingDisabled;
+        std::cout << "Indoor geometry rendering "
+                  << (m_indoorGeometryRenderingDisabled ? "disabled" : "enabled")
+                  << " by F8\n";
+    }
+
+    m_indoorGeometryRenderingToggleHeld = geometryToggleHeld;
 
     const float deltaMilliseconds = deltaSeconds * 1000.0f;
     m_elapsedTime += std::max(deltaSeconds, 0.0f);
@@ -2381,7 +2743,13 @@ void IndoorRenderer::render(
 
     bgfx::setViewTransform(MainViewId, viewMatrix, projectionMatrix);
     bgfx::touch(MainViewId);
+    const std::vector<uint8_t> baseVisibleSectorMask = buildVisibleSectorMask(eye, false);
+    const std::vector<uint8_t> renderVisibleSectorMask = buildRenderVisibleSectorMask(eye);
+    const std::vector<std::vector<IndoorVisibilityFrustum>> &renderVisibleSectorFrustums =
+        portalVisibilityCache(false).visibleSectorFrustums;
+    logIndoorVisibilityDiagnostics(baseVisibleSectorMask, renderVisibleSectorMask, SDL_GetTicks());
     const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
+    const bool indoorMechanismsMoving = hasMovingMechanism(runtimeEventRuntimeState());
     IndoorLightingFrameInput lightingInput = {};
     lightingInput.pMapData = m_indoorMapData ? &m_indoorMapData.value() : nullptr;
     lightingInput.pEventRuntimeState = runtimeEventRuntimeState();
@@ -2389,7 +2757,8 @@ void IndoorRenderer::render(
         m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr;
     lightingInput.pWorldFxSystem = &m_worldFxSystem;
     lightingInput.pParty = m_pSceneRuntime != nullptr ? &m_pSceneRuntime->partyRuntime().party() : nullptr;
-    lightingInput.pVisibleSectorMask = nullptr;
+    lightingInput.pVisibleSectorMask = &renderVisibleSectorMask;
+    lightingInput.pVisibleSectorFrustums = &renderVisibleSectorFrustums;
     lightingInput.cameraPosition = eye;
     lightingInput.coloredLights = settings.coloredLights;
     const IndoorLightingFrame lightingFrame = m_indoorLightingRuntime.buildFrame(lightingInput);
@@ -2495,7 +2864,8 @@ void IndoorRenderer::render(
                 bounds);
         };
 
-    if (bgfx::isValid(m_indoorLitProgramHandle)
+    if (!m_indoorGeometryRenderingDisabled
+        && bgfx::isValid(m_indoorLitProgramHandle)
         && bgfx::isValid(m_textureSamplerHandle)
         && bgfx::isValid(m_indoorLightPositionsUniformHandle)
         && bgfx::isValid(m_indoorLightColorsUniformHandle)
@@ -2515,6 +2885,11 @@ void IndoorRenderer::render(
 
         for (const TexturedBatch &batch : m_texturedBatches)
         {
+            if (!indoorMechanismsMoving && !isTexturedBatchVisible(batch, renderVisibleSectorMask))
+            {
+                continue;
+            }
+
             if (!bgfx::isValid(batch.vertexBufferHandle) || batch.frameTextureHandles.empty() || batch.vertexCount == 0)
             {
                 continue;
@@ -2559,19 +2934,36 @@ void IndoorRenderer::render(
         }
     }
 
-    if (settings.bloodSplats)
+    if (!m_indoorGeometryRenderingDisabled && settings.bloodSplats)
     {
         renderBloodSplats(
             MainViewId,
             defaultLightSet);
     }
 
-    // BLV moving/elevator sectors are not always represented in the static portal graph. Geometry depth testing is a
-    // safer visibility gate for billboard rendering than hard sector culling here.
-    const std::vector<uint8_t> billboardSectorMask;
-    renderDecorationBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame);
-    renderActorPreviewBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame, settings.spriteOutline);
-    renderSpriteObjectBillboards(MainViewId, viewMatrix, eye, billboardSectorMask, lightingFrame, settings.spriteOutline);
+    renderDecorationBillboards(
+        MainViewId,
+        viewMatrix,
+        eye,
+        renderVisibleSectorMask,
+        renderVisibleSectorFrustums,
+        lightingFrame);
+    renderActorPreviewBillboards(
+        MainViewId,
+        viewMatrix,
+        eye,
+        renderVisibleSectorMask,
+        renderVisibleSectorFrustums,
+        lightingFrame,
+        settings.spriteOutline);
+    renderSpriteObjectBillboards(
+        MainViewId,
+        viewMatrix,
+        eye,
+        renderVisibleSectorMask,
+        renderVisibleSectorFrustums,
+        lightingFrame,
+        settings.spriteOutline);
 
     ParticleRenderer::renderParticles(
         m_worldFxRenderResources,
@@ -4202,8 +4594,10 @@ bool IndoorRenderer::activateGameplayWorldHit(const GameplayWorldHit &hit)
 void IndoorRenderer::shutdown()
 {
     m_indoorMapData.reset();
+    m_indoorPortalGraph.reset();
     m_indoorLightingRuntime.clearStaticCache();
     m_renderVertices.clear();
+    m_neighboringSectorIds.clear();
     m_pSceneRuntime = nullptr;
     m_pAssetFileSystem = nullptr;
     m_pItemTable = nullptr;
@@ -4215,8 +4609,13 @@ void IndoorRenderer::shutdown()
     m_indoorDecorationBillboardSet.reset();
     m_indoorActorPreviewBillboardSet.reset();
     m_indoorSpriteObjectBillboardSet.reset();
+    m_decorationBillboardIndicesBySector.clear();
+    m_staticSpriteObjectBillboardIndicesBySector.clear();
     m_houseTable.reset();
     m_mechanismBindings.clear();
+    m_lastVisibilityDiagnosticsLogTick = 0;
+    m_indoorGeometryRenderingDisabled = false;
+    m_indoorGeometryRenderingToggleHeld = false;
     clearPortalVisibilityCaches();
     m_worldFxSystem.reset();
 
@@ -4458,6 +4857,45 @@ EventRuntimeState *IndoorRenderer::runtimeEventRuntimeState()
 const EventRuntimeState *IndoorRenderer::runtimeEventRuntimeState() const
 {
     return m_pSceneRuntime != nullptr ? m_pSceneRuntime->eventRuntimeState() : nullptr;
+}
+
+void IndoorRenderer::rebuildIndoorRenderMemberships()
+{
+    const size_t sectorCount = m_indoorMapData ? m_indoorMapData->sectors.size() : 0;
+    m_decorationBillboardIndicesBySector.assign(sectorCount, {});
+    m_staticSpriteObjectBillboardIndicesBySector.assign(sectorCount, {});
+
+    if (m_indoorDecorationBillboardSet)
+    {
+        for (size_t billboardIndex = 0;
+             billboardIndex < m_indoorDecorationBillboardSet->billboards.size();
+             ++billboardIndex)
+        {
+            const DecorationBillboard &billboard = m_indoorDecorationBillboardSet->billboards[billboardIndex];
+
+            if (billboard.sectorId >= 0 && static_cast<size_t>(billboard.sectorId) < sectorCount)
+            {
+                m_decorationBillboardIndicesBySector[static_cast<size_t>(billboard.sectorId)].push_back(
+                    billboardIndex);
+            }
+        }
+    }
+
+    if (m_indoorSpriteObjectBillboardSet)
+    {
+        for (size_t billboardIndex = 0;
+             billboardIndex < m_indoorSpriteObjectBillboardSet->billboards.size();
+             ++billboardIndex)
+        {
+            const SpriteObjectBillboard &billboard = m_indoorSpriteObjectBillboardSet->billboards[billboardIndex];
+
+            if (billboard.sectorId >= 0 && static_cast<size_t>(billboard.sectorId) < sectorCount)
+            {
+                m_staticSpriteObjectBillboardIndicesBySector[static_cast<size_t>(billboard.sectorId)].push_back(
+                    billboardIndex);
+            }
+        }
+    }
 }
 
 void IndoorRenderer::TerrainVertex::init()
@@ -4874,6 +5312,7 @@ void IndoorRenderer::renderDecorationBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
+    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame
 )
 {
@@ -4954,11 +5393,12 @@ void IndoorRenderer::renderDecorationBillboards(
         return billboard.spriteId;
     };
 
-    for (const DecorationBillboard &billboard : m_indoorDecorationBillboardSet->billboards)
+    const auto appendDecorationBillboardDrawItem =
+        [&](const DecorationBillboard &billboard)
     {
-        if (!isSectorVisible(billboard.sectorId, visibleSectorMask))
+        if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
         {
-            continue;
+            return;
         }
 
         bool hidden = false;
@@ -4966,7 +5406,7 @@ void IndoorRenderer::renderDecorationBillboards(
 
         if (hidden || spriteId == 0)
         {
-            continue;
+            return;
         }
 
         const uint32_t animationOffsetTicks =
@@ -4976,7 +5416,7 @@ void IndoorRenderer::renderDecorationBillboards(
 
         if (pFrame == nullptr)
         {
-            continue;
+            return;
         }
 
         const float facingRadians = static_cast<float>(billboard.facing) * Pi / 180.0f;
@@ -4994,7 +5434,7 @@ void IndoorRenderer::renderDecorationBillboards(
             || pTexture->width <= 0
             || pTexture->height <= 0)
         {
-            continue;
+            return;
         }
 
         const float spriteScale = std::max(pFrame->scale, 0.01f);
@@ -5010,7 +5450,12 @@ void IndoorRenderer::renderDecorationBillboards(
 
         if (!billboardSphereInFrustum(center, radius, frustumPlanes))
         {
-            continue;
+            return;
+        }
+
+        if (!sphereIntersectsVisibleSectorFrustums(billboard.sectorId, center, radius, visibleSectorFrustums))
+        {
+            return;
         }
 
         const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
@@ -5024,6 +5469,32 @@ void IndoorRenderer::renderDecorationBillboards(
         drawItem.mirrored = resolvedTexture.mirrored;
         drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
         drawItems.push_back(drawItem);
+    };
+
+    if (!m_decorationBillboardIndicesBySector.empty())
+    {
+        for (size_t sectorId = 0; sectorId < m_decorationBillboardIndicesBySector.size(); ++sectorId)
+        {
+            if (!isRenderSectorVisible(static_cast<int16_t>(sectorId), visibleSectorMask))
+            {
+                continue;
+            }
+
+            for (size_t billboardIndex : m_decorationBillboardIndicesBySector[sectorId])
+            {
+                if (billboardIndex < m_indoorDecorationBillboardSet->billboards.size())
+                {
+                    appendDecorationBillboardDrawItem(m_indoorDecorationBillboardSet->billboards[billboardIndex]);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (const DecorationBillboard &billboard : m_indoorDecorationBillboardSet->billboards)
+        {
+            appendDecorationBillboardDrawItem(billboard);
+        }
     }
 
     std::sort(
@@ -5165,6 +5636,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
+    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled
 )
@@ -5219,7 +5691,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
             *m_monsterTable,
             m_indoorActorPreviewBillboardSet->spriteFrameTable,
             *mapDeltaData,
-            m_pSceneRuntime != nullptr ? &m_pSceneRuntime->worldRuntime() : nullptr)
+            m_pSceneRuntime != nullptr ? &m_pSceneRuntime->worldRuntime() : nullptr,
+            &visibleSectorMask)
         : std::vector<RuntimeActorBillboard>{};
     std::vector<BillboardDrawItem> drawItems;
     const bool useRuntimeBillboards = mapDeltaData.has_value() && m_pSceneRuntime != nullptr;
@@ -5232,7 +5705,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
     {
         for (const RuntimeActorBillboard &billboard : runtimeBillboards)
         {
-            if (!isSectorVisible(billboard.sectorId, visibleSectorMask))
+            if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
             {
                 continue;
             }
@@ -5294,6 +5767,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
             if (!billboardSphereInFrustum(center, radius, frustumPlanes))
+            {
+                continue;
+            }
+
+            if (!sphereIntersectsVisibleSectorFrustums(billboard.sectorId, center, radius, visibleSectorFrustums))
             {
                 continue;
             }
@@ -5643,6 +6121,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
+    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled
 )
@@ -5688,7 +6167,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const std::array<IndoorVisibilityPlane, 4> frustumPlanes =
         buildIndoorBillboardFrustumPlanes(cameraPosition, m_cameraYawRadians, m_cameraPitchRadians, aspectRatio);
     const auto spriteBillboardVisible =
-        [&frustumPlanes](float x, float y, float z, const SpriteFrameEntry &frame,
+        [&frustumPlanes, &visibleSectorFrustums](int16_t sectorId, float x, float y, float z,
+            const SpriteFrameEntry &frame,
             const BillboardTextureHandle &texture) -> bool
         {
             if (texture.width <= 0 || texture.height <= 0)
@@ -5707,7 +6187,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             };
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
-            return billboardSphereInFrustum(center, radius, frustumPlanes);
+            return billboardSphereInFrustum(center, radius, frustumPlanes)
+                && sphereIntersectsVisibleSectorFrustums(sectorId, center, radius, visibleSectorFrustums);
         };
 
     struct BillboardDrawItem
@@ -5728,7 +6209,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
     const std::vector<RuntimeSpriteObjectBillboard> runtimeBillboards =
         mapDeltaData && m_objectTable
-        ? buildRuntimeSpriteObjectBillboards(*m_objectTable, m_pItemTable, *mapDeltaData)
+        ? buildRuntimeSpriteObjectBillboards(*m_objectTable, m_pItemTable, *mapDeltaData, &visibleSectorMask)
         : std::vector<RuntimeSpriteObjectBillboard>{};
     std::vector<BillboardDrawItem> drawItems;
     const bool useRuntimeBillboards = mapDeltaData.has_value() && m_pSceneRuntime != nullptr;
@@ -5823,7 +6304,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 return;
             }
 
-            if (!spriteBillboardVisible(x, y, z, *pFrame, *pTexture))
+            if (!spriteBillboardVisible(sectorId, x, y, z, *pFrame, *pTexture))
             {
                 if (forceLog)
                 {
@@ -5874,7 +6355,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     {
         for (const RuntimeSpriteObjectBillboard &billboard : runtimeBillboards)
         {
-            if (!isSectorVisible(billboard.sectorId, visibleSectorMask))
+            if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
             {
                 continue;
             }
@@ -5900,6 +6381,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             }
 
             if (!spriteBillboardVisible(
+                    billboard.sectorId,
                     static_cast<float>(billboard.x),
                     static_cast<float>(billboard.y),
                     static_cast<float>(billboard.z),
@@ -5934,11 +6416,12 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     {
         if (m_indoorSpriteObjectBillboardSet)
         {
-            for (const SpriteObjectBillboard &billboard : m_indoorSpriteObjectBillboardSet->billboards)
+            const auto appendStaticSpriteObjectDrawItem =
+                [&](const SpriteObjectBillboard &billboard)
             {
-                if (!isSectorVisible(billboard.sectorId, visibleSectorMask))
+                if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
                 {
-                    continue;
+                    return;
                 }
 
                 const SpriteFrameEntry *pFrame =
@@ -5949,7 +6432,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
 
                 if (pFrame == nullptr)
                 {
-                    continue;
+                    return;
                 }
 
                 const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
@@ -5958,17 +6441,18 @@ void IndoorRenderer::renderSpriteObjectBillboards(
 
                 if (pTexture == nullptr || !bgfx::isValid(pTexture->textureHandle))
                 {
-                    continue;
+                    return;
                 }
 
                 if (!spriteBillboardVisible(
+                        billboard.sectorId,
                         static_cast<float>(billboard.x),
                         static_cast<float>(billboard.y),
                         static_cast<float>(billboard.z),
                         *pFrame,
                         *pTexture))
                 {
-                    continue;
+                    return;
                 }
 
                 const float deltaX = float(billboard.x) - cameraPosition.x;
@@ -5985,6 +6469,33 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 drawItem.mirrored = resolvedTexture.mirrored;
                 drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
                 drawItems.push_back(drawItem);
+            };
+
+            if (!m_staticSpriteObjectBillboardIndicesBySector.empty())
+            {
+                for (size_t sectorId = 0; sectorId < m_staticSpriteObjectBillboardIndicesBySector.size(); ++sectorId)
+                {
+                    if (!isRenderSectorVisible(static_cast<int16_t>(sectorId), visibleSectorMask))
+                    {
+                        continue;
+                    }
+
+                    for (size_t billboardIndex : m_staticSpriteObjectBillboardIndicesBySector[sectorId])
+                    {
+                        if (billboardIndex < m_indoorSpriteObjectBillboardSet->billboards.size())
+                        {
+                            appendStaticSpriteObjectDrawItem(
+                                m_indoorSpriteObjectBillboardSet->billboards[billboardIndex]);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (const SpriteObjectBillboard &billboard : m_indoorSpriteObjectBillboardSet->billboards)
+                {
+                    appendStaticSpriteObjectDrawItem(billboard);
+                }
             }
         }
     }

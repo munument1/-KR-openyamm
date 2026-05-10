@@ -4967,7 +4967,7 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
         }
 
         view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "item_received destination=inventory source=world_item item_id="
             + std::to_string(pWorldItem->item.objectDescriptionId)
             + gameplayDebugTraceItemSummary(pWorldItem->item.objectDescriptionId, &view.data().itemTable())
@@ -5000,7 +5000,7 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
 
         GameplayHeldItemController::setHeldInventoryItem(heldInventoryItem, worldItem.item);
         view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "item_received destination=held source=world_item item_id="
             + std::to_string(worldItem.item.objectDescriptionId)
             + gameplayDebugTraceItemSummary(worldItem.item.objectDescriptionId, &view.data().itemTable())

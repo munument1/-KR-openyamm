@@ -2441,7 +2441,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             const auto setHeldItem =
                 [&context, pParty](const InventoryItem &item)
                 {
-                    gameplayDebugTraceLog(
+                    GAMEPLAY_DEBUG_TRACE(
                         "held_item_changed active=true item_id=" + std::to_string(item.objectDescriptionId)
                         + " quantity=" + std::to_string(item.quantity)
                         + " grid=(" + std::to_string(item.gridX) + "," + std::to_string(item.gridY) + ")"
@@ -2464,7 +2464,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 {
                     if (context.heldInventoryItem().active)
                     {
-                        gameplayDebugTraceLog(
+                        GAMEPLAY_DEBUG_TRACE(
                             "held_item_changed active=false item_id="
                             + std::to_string(context.heldInventoryItem().item.objectDescriptionId)
                             + " source=party_overlay");

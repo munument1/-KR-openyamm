@@ -154,8 +154,10 @@ public:
         std::optional<CorpseViewState> activeCorpseView;
         std::vector<GameplayActorSpellEffectState> mapActorSpellEffectStates;
         std::vector<MapActorAiState> mapActorAiStates;
+        std::vector<uint8_t> activatedIndoorSectorMask;
         std::vector<BloodSplatState> bloodSplats;
         float actorUpdateAccumulatorSeconds = 0.0f;
+        float visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     };
 
     IndoorWorldRuntime() = default;
@@ -281,6 +283,7 @@ public:
     bool specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity) override;
     size_t mapActorCount() const override;
     const MapActorAiState *mapActorAiState(size_t actorIndex) const;
+    std::vector<int16_t> activatedIndoorSectorIds() const;
     size_t bloodSplatCount() const;
     const BloodSplatState *bloodSplatState(size_t splatIndex) const;
     uint64_t bloodSplatRevision() const;
@@ -477,6 +480,11 @@ private:
     void materializeInitialMonsterSpawns();
     void syncMapActorAiStates();
     RuntimeGeometryCache &runtimeGeometryCache() const;
+    void ensureIndoorSectorActivationMask();
+    void activateIndoorSector(int16_t sectorId);
+    void refreshActivatedIndoorSectors(bool includeVisiblePortalSectors, float deltaSeconds = 0.0f);
+    bool indoorSectorActivated(int16_t sectorId) const;
+    bool indoorActorSectorActivated(const MapDeltaActor &actor, const MapActorAiState *pAiState) const;
     std::vector<bool> selectIndoorActiveActors(
         const ActorPartyFacts &partyFacts,
         int16_t partySectorId,
@@ -609,9 +617,11 @@ private:
     std::optional<CorpseViewState> m_activeCorpseView;
     std::vector<MapActorAiState> m_mapActorAiStates;
     mutable ActorInspectPreviewAnimationState m_actorInspectPreviewAnimation = {};
+    std::vector<uint8_t> m_activatedIndoorSectorMask;
     std::vector<BloodSplatState> m_bloodSplats;
     uint64_t m_bloodSplatRevision = 0;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
+    float m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     float m_worldItemUpdateAccumulatorSeconds = 0.0f;
     bool m_scenarioPartyActorCollisionEnabled = true;

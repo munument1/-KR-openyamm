@@ -15,6 +15,7 @@ add_executable(openyamm_unit_tests
     ImageAssetLoaderTests.cpp
     IndoorCollisionPrimitivesTests.cpp
     IndoorLightingRuntimeTests.cpp
+    IndoorPortalGraphTests.cpp
     IndoorPortalVisibilityTests.cpp
     InventoryEquipRegressionTests.cpp
     MapStatsRegressionTests.cpp
@@ -87,6 +88,7 @@ add_executable(openyamm_unit_tests
     ../game/indoor/IndoorLightingRuntime.cpp
     ../game/indoor/IndoorMapData.cpp
     ../game/indoor/IndoorMovementController.cpp
+    ../game/indoor/IndoorPortalGraph.cpp
     ../game/indoor/IndoorPortalVisibility.cpp
     ../game/fx/ParticleRecipes.cpp
     ../game/fx/ParticleSystem.cpp

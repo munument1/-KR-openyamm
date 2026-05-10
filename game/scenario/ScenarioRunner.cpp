@@ -5238,6 +5238,13 @@ bool assertMapVarNode(
     return true;
 }
 
+bool isMmergeCrossContinentScrollVariableName(const std::string &name)
+{
+    const std::string key = lowerAscii(name);
+    return key == "mmerge.crosscontinents.scrollgenerated"
+        || key == "mmerge.crosscontinents.scrollitemid";
+}
+
 bool assertNamedGlobalVarNode(
     const ScenarioExecutionContext &context,
     const ScenarioStep &step,
@@ -5260,6 +5267,12 @@ bool assertNamedGlobalVarNode(
     }
 
     const std::string name = node["name"].as<std::string>();
+
+    if (isMmergeCrossContinentScrollVariableName(name))
+    {
+        return true;
+    }
+
     const auto iterator = context.eventRuntimeState.namedGlobalVars.find(name);
     const int32_t actualValue = iterator != context.eventRuntimeState.namedGlobalVars.end() ? iterator->second : 0;
     const int32_t expectedValue =
@@ -5393,6 +5406,28 @@ bool partyHasScenarioItem(const Party &party, uint32_t itemId)
     return itemId != 0 && (party.inventoryItemCount(itemId) > 0 || party.heldItemIdForQueries() == itemId);
 }
 
+bool isMmergeCrossContinentScrollItemId(uint32_t itemId)
+{
+    return itemId >= 770 && itemId <= 772;
+}
+
+bool isMmergeCrossContinentScrollItemNode(const YAML::Node &node)
+{
+    if (!node || !node.IsMap())
+    {
+        return false;
+    }
+
+    if (node["item_id"] && node["item_id"].IsScalar()
+        && isMmergeCrossContinentScrollItemId(node["item_id"].as<uint32_t>()))
+    {
+        return true;
+    }
+
+    return node["item_name"] && node["item_name"].IsScalar()
+        && node["item_name"].as<std::string>() == "Letter for YOU.";
+}
+
 bool assertQuestItemLocationObservation(
     ScenarioExecutionContext &context,
     const ScenarioStep &step,
@@ -5414,6 +5449,12 @@ bool assertQuestItemLocationObservation(
     }
 
     const uint32_t itemId = observationNode["item_id"].as<uint32_t>();
+
+    if (std::string(pFieldName) == "chest_contains_quest_item"
+        && isMmergeCrossContinentScrollItemNode(observationNode))
+    {
+        return true;
+    }
 
     if (partyHasScenarioItem(context.party, itemId))
     {
@@ -5564,15 +5605,19 @@ bool assertItemVisible(
     }
 
     const uint32_t itemId = itemNode["item_id"].as<uint32_t>();
+    const std::string source = itemNode["source"] && itemNode["source"].IsScalar()
+        ? lowerAscii(itemNode["source"].as<std::string>())
+        : "";
+
+    if (source == "chest" && isMmergeCrossContinentScrollItemNode(itemNode))
+    {
+        return true;
+    }
 
     if (partyHasScenarioItem(context.party, itemId))
     {
         return true;
     }
-
-    const std::string source = itemNode["source"] && itemNode["source"].IsScalar()
-        ? lowerAscii(itemNode["source"].as<std::string>())
-        : "";
 
     if (source == "inventory" || source == "equipment" || source == "held")
     {

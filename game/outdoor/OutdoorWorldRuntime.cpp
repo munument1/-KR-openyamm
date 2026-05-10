@@ -4136,7 +4136,7 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
         };
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "chest_opened scene_kind=outdoor map=\"" + mapName() + "\""
         + " chest_id=" + std::to_string(chestId)
         + " item_count=" + std::to_string(m_activeChestView->items.size())
@@ -4149,7 +4149,7 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
 
         if (!item.isGold && itemId != 0)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "chest_contains_item scene_kind=outdoor map=\"" + mapName() + "\""
                 + " chest_id=" + std::to_string(chestId)
                 + " item_id=" + std::to_string(itemId)
@@ -4161,7 +4161,7 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
 
         if (questLike)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "chest_contains_quest_item scene_kind=outdoor map=\"" + mapName() + "\""
                 + " chest_id=" + std::to_string(chestId)
                 + " item_id=" + std::to_string(itemId)
@@ -5027,7 +5027,7 @@ void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(size_t actorIndex, cons
     if (actor.specialItemId != 0
         && gameplayDebugTraceItemLooksQuestRelevant(actor.specialItemId, m_pItemTable))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "actor_quest_item_death scene_kind=outdoor map=\"" + mapName() + "\""
             + " actor_index=" + std::to_string(actorIndex)
             + " actor_id=" + std::to_string(actor.actorId)
@@ -5082,7 +5082,7 @@ void OutdoorWorldRuntime::spawnMonsterDeathDropsForActor(size_t actorIndex, cons
 
         if (gameplayDebugTraceItemLooksQuestRelevant(drop.itemId, m_pItemTable))
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "actor_quest_item_death scene_kind=outdoor map=\"" + mapName() + "\""
                 + " actor_index=" + std::to_string(actorIndex)
                 + " actor_id=" + std::to_string(actor.actorId)
@@ -5175,7 +5175,7 @@ bool OutdoorWorldRuntime::spawnMonsterDeathDropWorldItem(
 
     if (gameplayDebugTraceItemLooksQuestRelevant(item.objectDescriptionId, m_pItemTable))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "world_item_spawned source=monster_death scene_kind=outdoor map=\"" + mapName() + "\""
             + " world_item_index=" + std::to_string(m_worldItems.size() - 1)
             + " item_id=" + std::to_string(item.objectDescriptionId)
@@ -5664,7 +5664,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
                 mechanism.state = static_cast<uint16_t>(EvtMechanismState::Closed);
             }
 
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "mechanism_completed kind=outdoor_model id=" + std::to_string(entry.first)
                 + " state=" + gameplayDebugTraceMechanismStateName(mechanism.state)
                 + " elapsed_seconds=" + std::to_string(elapsedMs / 1000.0f)
@@ -13007,7 +13007,7 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
             if (!item.isGold && gameplayDebugTraceItemLooksQuestRelevant(itemId, m_pItemTable))
             {
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "corpse_contains_quest_item scene_kind=outdoor map=\"" + mapName() + "\""
                     + " actor_index=" + std::to_string(actorIndex)
                     + " actor_id=" + std::to_string(actor.actorId)

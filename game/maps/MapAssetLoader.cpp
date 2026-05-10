@@ -5,6 +5,7 @@
 #include "game/maps/MapIdentity.h"
 #include "game/maps/OutdoorSceneYml.h"
 #include "game/maps/TerrainTileData.h"
+#include "game/indoor/IndoorGeometryUtils.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/SpriteObjectDefs.h"
 #include "game/StringUtils.h"
@@ -2274,9 +2275,28 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
         }
     }
 
+    // Match the editor's room assignment for legacy maps that do not already carry complete decoration lists.
+    // This runs while loading the indoor billboard asset; render frames only consume cached sector ids.
+    IndoorFaceGeometryCache geometryCache(indoorMapData.faces.size());
+
     for (DecorationBillboard &billboard : billboardSet->billboards)
     {
-        if (billboard.entityIndex < entitySectorIds.size())
+        const std::optional<int16_t> resolvedSectorId =
+            findIndoorSectorForPoint(
+                indoorMapData,
+                indoorMapData.vertices,
+                {
+                    static_cast<float>(billboard.x),
+                    static_cast<float>(billboard.y),
+                    static_cast<float>(billboard.z)
+                },
+                &geometryCache);
+
+        if (resolvedSectorId)
+        {
+            billboard.sectorId = *resolvedSectorId;
+        }
+        else if (billboard.entityIndex < entitySectorIds.size())
         {
             billboard.sectorId = entitySectorIds[billboard.entityIndex];
         }

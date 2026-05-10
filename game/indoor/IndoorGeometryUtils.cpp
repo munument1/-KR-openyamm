@@ -2,6 +2,7 @@
 
 #include "game/FaceEnums.h"
 #include "game/events/EvtEnums.h"
+#include "game/indoor/IndoorPortalGraph.h"
 
 #include <algorithm>
 #include <cmath>
@@ -564,6 +565,31 @@ IndoorFloorSample evaluateIndoorFloorFace(
 IndoorFaceGeometryCache::IndoorFaceGeometryCache(size_t faceCount)
 {
     reset(faceCount);
+}
+
+std::vector<std::vector<uint16_t>> buildNeighboringIndoorSectorIds(const IndoorMapData &indoorMapData)
+{
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(indoorMapData);
+    std::vector<std::vector<uint16_t>> sectorIds(indoorMapData.sectors.size());
+
+    for (size_t sectorIndex = 0; sectorIndex < indoorMapData.sectors.size(); ++sectorIndex)
+    {
+        if (sectorIndex > std::numeric_limits<uint16_t>::max())
+        {
+            continue;
+        }
+
+        std::vector<uint16_t> &neighbors = sectorIds[sectorIndex];
+        neighbors.reserve(portalGraph.sectors[sectorIndex].connectedSectorIds.size() + 1);
+        neighbors.push_back(static_cast<uint16_t>(sectorIndex));
+
+        for (uint16_t connectedSectorId : portalGraph.sectors[sectorIndex].connectedSectorIds)
+        {
+            neighbors.push_back(connectedSectorId);
+        }
+    }
+
+    return sectorIds;
 }
 
 void IndoorFaceGeometryCache::reset(size_t faceCount)

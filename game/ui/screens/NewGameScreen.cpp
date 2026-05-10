@@ -2148,7 +2148,7 @@ void NewGameScreen::confirmCreation()
     if (m_continueAction)
     {
         const std::vector<Character> characters = buildPartyCharacters();
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "new_game_party_created continent_id=" + std::to_string(m_selectedContinent.id)
             + " continent_key=\"" + m_selectedContinent.key + "\""
             + " continent_name=\"" + m_selectedContinent.name + "\""
@@ -2157,7 +2157,7 @@ void NewGameScreen::confirmCreation()
         for (size_t memberIndex = 0; memberIndex < characters.size(); ++memberIndex)
         {
             const Character &member = characters[memberIndex];
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "new_game_party_member member_index=" + std::to_string(memberIndex)
                 + " name=\"" + member.name + "\""
                 + " class=\"" + member.className + "\""
@@ -2186,7 +2186,7 @@ void NewGameScreen::confirmCreation()
 
             for (const auto &[skillName, skill] : skills)
             {
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "new_game_party_skill member_index=" + std::to_string(memberIndex)
                     + " name=\"" + skillName + "\""
                     + " level=" + std::to_string(skill.level)
@@ -2228,7 +2228,7 @@ void NewGameScreen::selectContinent(const std::string &continentKey)
         .key = pContinent->key,
         .name = pContinent->name,
     };
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "new_game_continent_selected continent_id=" + std::to_string(m_selectedContinent.id)
         + " continent_key=\"" + m_selectedContinent.key + "\""
         + " continent_name=\"" + m_selectedContinent.name + "\"");

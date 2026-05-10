@@ -210,12 +210,7 @@ std::string dialogActionsJson(const EventDialogContent &dialog)
 
 void traceDialogState(const EventDialogContent &dialog, const std::string &reason)
 {
-    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
-    {
-        return;
-    }
-
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "dialog_state reason=" + reason
         + " active=" + (dialog.isActive ? "true" : "false")
         + " house_dialog=" + (dialog.isHouseDialog ? "true" : "false")
@@ -403,7 +398,7 @@ void logMapTransitionRequested(
 {
     eventRuntimeState.lastMapTransitionRequested =
         mapTransitionTrace(sourceKind, sourceId, actionId, eventId, move, confirmationRequired);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_transition_requested source_kind=\"" + sourceKind + "\""
         + " source_id=" + std::to_string(sourceId)
         + " action_id=" + std::to_string(actionId)
@@ -420,7 +415,7 @@ void logMapTransitionConfirmed(
 {
     eventRuntimeState.lastMapTransitionConfirmed =
         mapTransitionTrace(dialogueContextKindName(context.kind), context.sourceId, actionId, 0, move, false);
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_transition_confirmed source_kind=\"" + std::string(dialogueContextKindName(context.kind)) + "\""
         + " source_id=" + std::to_string(context.sourceId)
         + " action_id=" + std::to_string(actionId)
@@ -1140,7 +1135,7 @@ void applyMapTransitionTravelSideEffects(
         const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
         context.pWorldRuntime->advanceGameMinutes(static_cast<float>(transition.travelDays) * MinutesPerDay);
         const float afterGameMinutes = context.pWorldRuntime->gameMinutes();
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "game_time_advanced source=map_transition"
             " minutes=" + std::to_string(static_cast<float>(transition.travelDays) * MinutesPerDay)
             + " before_game_minutes=" + std::to_string(beforeGameMinutes)
@@ -1238,7 +1233,7 @@ void cancelMapTransition(GameplayDialogController::Context &context)
         .houseDialog = context.activeEventDialog.isHouseDialog,
         .actionCount = context.activeEventDialog.actions.size(),
     };
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "dialogue_canceled kind=map_transition source_id=" + std::to_string(sourceId)
         + " active_source_id=" + std::to_string(context.activeEventDialog.sourceId)
         + " house_dialog=" + (context.activeEventDialog.isHouseDialog ? "true" : "false"));
@@ -1247,7 +1242,7 @@ void cancelMapTransition(GameplayDialogController::Context &context)
         context.eventRuntimeState.lastMapTransitionCanceled =
             mapTransitionTrace("map_transition", sourceId, 0, 0, *transitionMapMove, false);
     }
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "map_transition_canceled source_kind=map_transition"
         + std::string(" source_id=") + std::to_string(sourceId)
         + (transitionMapMove ? pendingMapMoveTraceFields(*transitionMapMove) : std::string()));
@@ -1719,7 +1714,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
     const EventDialogAction &action = context.activeEventDialog.actions[context.selectionIndex];
     traceDialogState(context.activeEventDialog, "before_topic_clicked");
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "topic_clicked kind=" + std::string(eventDialogActionKindName(action.kind))
         + " action_id=" + std::to_string(action.id)
         + " secondary_id=" + std::to_string(action.secondaryId)
@@ -1905,7 +1900,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.pWorldRuntime->requestTravelAutosave();
             }
 
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "house_extra_exit source_id=" + std::to_string(pHouseEntry->id)
                 + " action_id=" + std::to_string(action.id)
                 + " label=\"" + action.label + "\""
@@ -3282,7 +3277,7 @@ GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
         .hostHouseId = hostHouseId,
         .actorIndex = sourceActorIndex,
     };
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "actor_dialog_started kind=npc_talk"
         + std::string(" map=\"") + (context.pWorldRuntime != nullptr ? context.pWorldRuntime->mapName() : "")
         + "\" npc_id=" + std::to_string(npcId)
@@ -3470,7 +3465,7 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
         .houseDialog = context.activeEventDialog.isHouseDialog,
         .actionCount = context.activeEventDialog.actions.size(),
     };
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "dialogue_canceled kind=" + std::string(dialogueContextKindName(pendingKind))
         + " active_source_id=" + std::to_string(context.activeEventDialog.sourceId)
         + " house_dialog=" + (context.activeEventDialog.isHouseDialog ? "true" : "false")

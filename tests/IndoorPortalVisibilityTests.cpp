@@ -2,6 +2,7 @@
 
 #include "game/FaceEnums.h"
 #include "game/events/EvtEnums.h"
+#include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/maps/MapDeltaData.h"
 
@@ -47,6 +48,29 @@ uint16_t addPortalFace(
     return faceId;
 }
 
+uint16_t addSolidDoorFace(
+    IndoorMapData &mapData,
+    int x,
+    int minY,
+    int maxY,
+    int minZ,
+    int maxZ)
+{
+    IndoorFace face = {};
+    face.roomNumber = 0;
+    face.roomBehindNumber = 0;
+    face.facetType = 1;
+    face.vertexIndices = {
+        addVertex(mapData, x, minY, minZ),
+        addVertex(mapData, x, minY, maxZ),
+        addVertex(mapData, x, maxY, maxZ),
+        addVertex(mapData, x, maxY, minZ),
+    };
+
+    mapData.faces.push_back(std::move(face));
+    return static_cast<uint16_t>(mapData.faces.size() - 1);
+}
+
 IndoorPortalVisibilityInput makeVisibilityInput(const IndoorMapData &mapData)
 {
     IndoorPortalVisibilityInput input = {};
@@ -61,7 +85,11 @@ IndoorPortalVisibilityInput makeVisibilityInput(const IndoorMapData &mapData)
     return input;
 }
 
-MapDeltaDoor makeDoorBlockingFace(uint32_t doorId, const std::vector<uint16_t> &vertexIds, uint16_t state)
+MapDeltaDoor makeDoorBlockingFace(
+    uint32_t doorId,
+    uint16_t portalFaceId,
+    uint16_t solidFaceId,
+    uint16_t state)
 {
     MapDeltaDoor door = {};
     door.doorId = doorId;
@@ -69,8 +97,58 @@ MapDeltaDoor makeDoorBlockingFace(uint32_t doorId, const std::vector<uint16_t> &
     door.moveLength = 100;
     door.openSpeed = 100;
     door.closeSpeed = 100;
-    door.vertexIds = vertexIds;
+    door.faceIds.push_back(solidFaceId);
+    door.faceIds.push_back(portalFaceId);
     return door;
+}
+
+float visibilityPlaneDistance(const IndoorVisibilityPlane &plane, const bx::Vec3 &point)
+{
+    return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.distance;
+}
+
+bool sphereIntersectsFrustum(const bx::Vec3 &center, float radius, const IndoorVisibilityFrustum &frustum)
+{
+    for (const IndoorVisibilityPlane &plane : frustum)
+    {
+        if (visibilityPlaneDistance(plane, center) < -radius)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool sphereIntersectsAnyFrustum(
+    const bx::Vec3 &center,
+    float radius,
+    const std::vector<IndoorVisibilityFrustum> &frustums)
+{
+    for (const IndoorVisibilityFrustum &frustum : frustums)
+    {
+        if (sphereIntersectsFrustum(center, radius, frustum))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+const IndoorPortalVisibilityTrace *findPortalTraceWithReason(
+    const IndoorPortalVisibilityResult &result,
+    const std::string &reason)
+{
+    for (const IndoorPortalVisibilityTrace &trace : result.portalTraces)
+    {
+        if (trace.reason == reason)
+        {
+            return &trace;
+        }
+    }
+
+    return nullptr;
 }
 }
 
@@ -89,9 +167,51 @@ TEST_CASE("indoor portal visibility only traverses portals inside the camera fru
     CHECK_EQ(result.visibleSectorMask[1], 1);
     CHECK_EQ(result.visibleSectorMask[2], 0);
     CHECK_EQ(result.nodes.size(), 2);
+    REQUIRE_EQ(result.frustumsBySector.size(), 3);
+    CHECK_EQ(result.frustumsBySector[0].size(), 1);
+    CHECK_EQ(result.frustumsBySector[1].size(), 1);
+    CHECK_EQ(result.frustumsBySector[2].size(), 0);
+    CHECK(sphereIntersectsAnyFrustum({150.0f, 0.0f, 0.0f}, 8.0f, result.frustumsBySector[1]));
+    CHECK_FALSE(sphereIntersectsAnyFrustum({150.0f, 900.0f, 0.0f}, 8.0f, result.frustumsBySector[1]));
 }
 
-TEST_CASE("indoor portal visibility traverses portal faces missing from sector portal lists")
+TEST_CASE("indoor portal visibility keeps portals with visible vertices in front of the camera")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(2);
+
+    IndoorFace face = {};
+    face.attributes = faceAttributeBit(FaceAttribute::IsPortal);
+    face.roomNumber = 0;
+    face.roomBehindNumber = 1;
+    face.facetType = 1;
+    face.isPortal = true;
+    face.vertexIndices = {
+        addVertex(mapData, -400, -24, -48),
+        addVertex(mapData, -400, -24, 48),
+        addVertex(mapData, 50, 24, 48),
+        addVertex(mapData, 50, 24, -48),
+    };
+
+    mapData.faces.push_back(std::move(face));
+    const uint16_t faceId = static_cast<uint16_t>(mapData.faces.size() - 1);
+    mapData.sectors[0].portalFaceIds.push_back(faceId);
+    mapData.sectors[0].faceIds.push_back(faceId);
+    mapData.sectors[1].portalFaceIds.push_back(faceId);
+    mapData.sectors[1].faceIds.push_back(faceId);
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(makeVisibilityInput(mapData));
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK_EQ(result.directionRejectedPortalCount, 0);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->faceId, faceId);
+}
+
+TEST_CASE("indoor portal visibility does not traverse portal faces missing from sector portal lists")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(2);
@@ -106,8 +226,8 @@ TEST_CASE("indoor portal visibility traverses portal faces missing from sector p
 
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 1);
-    CHECK_EQ(result.acceptedPortalCount, 1);
+    CHECK_EQ(result.visibleSectorMask[1], 0);
+    CHECK_EQ(result.acceptedPortalCount, 0);
 }
 
 TEST_CASE("indoor portal visibility carries narrowed portal frustum into child sectors")
@@ -126,6 +246,57 @@ TEST_CASE("indoor portal visibility carries narrowed portal frustum into child s
     CHECK_EQ(result.visibleSectorMask[1], 1);
     CHECK_EQ(result.visibleSectorMask[2], 1);
     CHECK_EQ(result.visibleSectorMask[3], 0);
+}
+
+TEST_CASE("indoor portal visibility recurses through two-sided child portal geometry")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(3);
+
+    addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+
+    IndoorFace reversedPortal = {};
+    reversedPortal.attributes = faceAttributeBit(FaceAttribute::IsPortal);
+    reversedPortal.roomNumber = 1;
+    reversedPortal.roomBehindNumber = 2;
+    reversedPortal.facetType = 1;
+    reversedPortal.isPortal = true;
+    reversedPortal.vertexIndices = {
+        addVertex(mapData, 200, -35, -35),
+        addVertex(mapData, 200, 35, -35),
+        addVertex(mapData, 200, 35, 35),
+        addVertex(mapData, 200, -35, 35),
+    };
+
+    mapData.faces.push_back(std::move(reversedPortal));
+    const uint16_t reversedPortalFaceId = static_cast<uint16_t>(mapData.faces.size() - 1);
+    mapData.sectors[1].portalFaceIds.push_back(reversedPortalFaceId);
+    mapData.sectors[1].faceIds.push_back(reversedPortalFaceId);
+    mapData.sectors[2].portalFaceIds.push_back(reversedPortalFaceId);
+    mapData.sectors[2].faceIds.push_back(reversedPortalFaceId);
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(makeVisibilityInput(mapData));
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 3);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK_EQ(result.visibleSectorMask[2], 1);
+}
+
+TEST_CASE("indoor portal visibility traverses invisible portal faces")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(2);
+
+    const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    mapData.faces[faceId].attributes |= faceAttributeBit(FaceAttribute::Invisible);
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(makeVisibilityInput(mapData));
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK_EQ(result.acceptedPortalCount, 1);
 }
 
 TEST_CASE("indoor portal visibility keeps duplicate nodes for sectors seen through different portals")
@@ -209,7 +380,7 @@ TEST_CASE("indoor portal visibility traverses a north-south portal from both sid
     CHECK_EQ(backResult.visibleSectorMask[1], 1);
 }
 
-TEST_CASE("indoor portal visibility includes frustum-visible unlinked geometry sectors")
+TEST_CASE("indoor portal visibility does not include frustum-visible unlinked geometry sectors")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(2);
@@ -238,10 +409,11 @@ TEST_CASE("indoor portal visibility includes frustum-visible unlinked geometry s
 
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 0);
+    CHECK_EQ(result.orphanVisibleSectorCount, 0);
 }
 
-TEST_CASE("indoor portal visibility seeds linked sectors when starting inside unlinked geometry")
+TEST_CASE("indoor portal visibility does not seed linked sectors when starting inside unlinked geometry")
 {
     IndoorMapData mapData = {};
     mapData.sectors.resize(3);
@@ -276,8 +448,8 @@ TEST_CASE("indoor portal visibility seeds linked sectors when starting inside un
 
     REQUIRE_EQ(result.visibleSectorMask.size(), 3);
     CHECK_EQ(result.visibleSectorMask[0], 1);
-    CHECK_EQ(result.visibleSectorMask[1], 1);
-    CHECK_EQ(result.visibleSectorMask[2], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 0);
+    CHECK_EQ(result.visibleSectorMask[2], 0);
 }
 
 TEST_CASE("indoor portal visibility blocks traversal through closed mechanism doors")
@@ -286,11 +458,13 @@ TEST_CASE("indoor portal visibility blocks traversal through closed mechanism do
     mapData.sectors.resize(2);
 
     const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
 
     MapDeltaData mapDeltaData = {};
     mapDeltaData.doors.push_back(makeDoorBlockingFace(
         1,
-        mapData.faces[faceId].vertexIndices,
+        faceId,
+        solidFaceId,
         static_cast<uint16_t>(EvtMechanismState::Closed)
     ));
 
@@ -302,6 +476,12 @@ TEST_CASE("indoor portal visibility blocks traversal through closed mechanism do
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
     CHECK_EQ(result.visibleSectorMask[1], 0);
+    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
+    REQUIRE(pBlockedTrace != nullptr);
+    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
+    CHECK(pBlockedTrace->blockerDoors[0].blocks);
 }
 
 TEST_CASE("indoor portal visibility can ignore closed mechanism doors for interaction picking")
@@ -310,11 +490,13 @@ TEST_CASE("indoor portal visibility can ignore closed mechanism doors for intera
     mapData.sectors.resize(2);
 
     const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
 
     MapDeltaData mapDeltaData = {};
     mapDeltaData.doors.push_back(makeDoorBlockingFace(
         1,
-        mapData.faces[faceId].vertexIndices,
+        faceId,
+        solidFaceId,
         static_cast<uint16_t>(EvtMechanismState::Closed)
     ));
 
@@ -327,6 +509,77 @@ TEST_CASE("indoor portal visibility can ignore closed mechanism doors for intera
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
     CHECK_EQ(result.visibleSectorMask[1], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, 1);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
+    CHECK(pAcceptedTrace->blockerDoors[0].blocks);
+}
+
+TEST_CASE("indoor portal visibility blocks traversal through unlinked closed door geometry")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(2);
+
+    addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
+
+    MapDeltaDoor door = {};
+    door.doorId = 23;
+    door.state = static_cast<uint16_t>(EvtMechanismState::Closed);
+    door.moveLength = 100;
+    door.openSpeed = 100;
+    door.closeSpeed = 100;
+    door.faceIds.push_back(solidFaceId);
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.doors.push_back(door);
+
+    IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
+    input.pMapDeltaData = &mapDeltaData;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 2);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 0);
+    const IndoorPortalVisibilityTrace *pBlockedTrace = findPortalTraceWithReason(result, "blocked_by_closed_door");
+    REQUIRE(pBlockedTrace != nullptr);
+    REQUIRE_EQ(pBlockedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].doorId, 23);
+    CHECK_EQ(pBlockedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Closed));
+    CHECK(pBlockedTrace->blockerDoors[0].blocks);
+}
+
+TEST_CASE("indoor portal visibility does not reapply crossed entry door geometry to child portals")
+{
+    IndoorMapData mapData = {};
+    mapData.sectors.resize(3);
+
+    const uint16_t entryPortalFaceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    addPortalFace(mapData, 1, 2, 200, -35, 35, -35, 35);
+    const uint16_t entryDoorSolidFaceId = addSolidDoorFace(mapData, 150, -40, 40, -40, 40);
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.doors.push_back(makeDoorBlockingFace(
+        17,
+        entryPortalFaceId,
+        entryDoorSolidFaceId,
+        static_cast<uint16_t>(EvtMechanismState::Closed)
+    ));
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(mapData, &mapDeltaData);
+    IndoorPortalVisibilityInput input = makeVisibilityInput(mapData);
+    input.pMapDeltaData = &mapDeltaData;
+    input.pPortalGraph = &portalGraph;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_EQ(result.visibleSectorMask.size(), 3);
+    CHECK_EQ(result.visibleSectorMask[0], 1);
+    CHECK_EQ(result.visibleSectorMask[1], 1);
+    CHECK_EQ(result.visibleSectorMask[2], 1);
 }
 
 TEST_CASE("indoor portal visibility allows traversal through open mechanism doors")
@@ -335,11 +588,13 @@ TEST_CASE("indoor portal visibility allows traversal through open mechanism door
     mapData.sectors.resize(2);
 
     const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
 
     MapDeltaData mapDeltaData = {};
     mapDeltaData.doors.push_back(makeDoorBlockingFace(
         1,
-        mapData.faces[faceId].vertexIndices,
+        faceId,
+        solidFaceId,
         static_cast<uint16_t>(EvtMechanismState::Open)
     ));
 
@@ -351,6 +606,12 @@ TEST_CASE("indoor portal visibility allows traversal through open mechanism door
     REQUIRE_EQ(result.visibleSectorMask.size(), 2);
     CHECK_EQ(result.visibleSectorMask[0], 1);
     CHECK_EQ(result.visibleSectorMask[1], 1);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace = findPortalTraceWithReason(result, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    REQUIRE_EQ(pAcceptedTrace->blockerDoors.size(), 1);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].doorId, 1);
+    CHECK_EQ(pAcceptedTrace->blockerDoors[0].state, static_cast<uint16_t>(EvtMechanismState::Open));
+    CHECK_FALSE(pAcceptedTrace->blockerDoors[0].blocks);
 }
 
 TEST_CASE("indoor portal visibility allows traversal through moving mechanism doors")
@@ -359,11 +620,13 @@ TEST_CASE("indoor portal visibility allows traversal through moving mechanism do
     mapData.sectors.resize(2);
 
     const uint16_t faceId = addPortalFace(mapData, 0, 1, 100, -40, 40, -40, 40);
+    const uint16_t solidFaceId = addSolidDoorFace(mapData, 50, -40, 40, -40, 40);
 
     MapDeltaData mapDeltaData = {};
     mapDeltaData.doors.push_back(makeDoorBlockingFace(
         1,
-        mapData.faces[faceId].vertexIndices,
+        faceId,
+        solidFaceId,
         static_cast<uint16_t>(EvtMechanismState::Opening)
     ));
 

@@ -61,6 +61,7 @@ constexpr float TicksPerSecond = 128.0f;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 constexpr float ActorUpdateStepSeconds = 1.0f / 128.0f;
 constexpr float MaxAccumulatedActorUpdateSeconds = 0.1f;
+constexpr float VisiblePortalSectorActivationIntervalSeconds = 0.1f;
 constexpr float ProjectileUpdateStepSeconds = 1.0f / 60.0f;
 constexpr int MaxProjectileUpdateStepsPerFrame = 4;
 constexpr float MaxAccumulatedProjectileUpdateSeconds =
@@ -3131,9 +3132,11 @@ void IndoorWorldRuntime::initialize(
     m_mapActorCorpseViews.clear();
     m_activeCorpseView.reset();
     m_mapActorAiStates.clear();
+    m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
+    m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
@@ -3141,6 +3144,7 @@ void IndoorWorldRuntime::initialize(
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
+    refreshActivatedIndoorSectors(false);
 }
 
 void IndoorWorldRuntime::initialize(
@@ -3194,9 +3198,11 @@ void IndoorWorldRuntime::initialize(
     m_mapActorCorpseViews.clear();
     m_activeCorpseView.reset();
     m_mapActorAiStates.clear();
+    m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
+    m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
@@ -3204,6 +3210,7 @@ void IndoorWorldRuntime::initialize(
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
+    refreshActivatedIndoorSectors(false);
 }
 
 void IndoorWorldRuntime::bindRenderer(IndoorRenderer *pRenderer)
@@ -3269,7 +3276,7 @@ bool IndoorWorldRuntime::executeFaceTriggeredEvent(
             .faceIndex = faceIndex,
             .attributes = attributes,
         };
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "pressure_plate_triggered world=indoor event_id=" + std::to_string(face.cogTriggered)
             + " face_index=" + std::to_string(faceIndex)
             + " attributes=" + std::to_string(attributes));
@@ -3569,6 +3576,110 @@ void IndoorWorldRuntime::syncMapActorAiStates()
     }
 }
 
+void IndoorWorldRuntime::ensureIndoorSectorActivationMask()
+{
+    if (m_pIndoorMapData == nullptr)
+    {
+        m_activatedIndoorSectorMask.clear();
+        return;
+    }
+
+    m_activatedIndoorSectorMask.resize(m_pIndoorMapData->sectors.size(), 0);
+}
+
+void IndoorWorldRuntime::activateIndoorSector(int16_t sectorId)
+{
+    if (m_pIndoorMapData == nullptr || sectorId < 0)
+    {
+        return;
+    }
+
+    ensureIndoorSectorActivationMask();
+
+    const size_t sectorIndex = static_cast<size_t>(sectorId);
+
+    if (sectorIndex >= m_activatedIndoorSectorMask.size())
+    {
+        return;
+    }
+
+    m_activatedIndoorSectorMask[sectorIndex] = 1;
+}
+
+void IndoorWorldRuntime::refreshActivatedIndoorSectors(bool includeVisiblePortalSectors, float deltaSeconds)
+{
+    ensureIndoorSectorActivationMask();
+
+    if (m_pIndoorMapData == nullptr)
+    {
+        return;
+    }
+
+    if (m_pPartyRuntime != nullptr)
+    {
+        const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
+        activateIndoorSector(moveState.sectorId);
+        activateIndoorSector(moveState.eyeSectorId);
+
+        if (includeVisiblePortalSectors && m_pRenderer != nullptr)
+        {
+            m_visiblePortalSectorActivationAccumulatorSeconds =
+                std::min(
+                    m_visiblePortalSectorActivationAccumulatorSeconds + std::max(deltaSeconds, 0.0f),
+                    VisiblePortalSectorActivationIntervalSeconds);
+
+            if (m_visiblePortalSectorActivationAccumulatorSeconds < VisiblePortalSectorActivationIntervalSeconds)
+            {
+                return;
+            }
+
+            m_visiblePortalSectorActivationAccumulatorSeconds = 0.0f;
+
+            const std::vector<int16_t> visibleSectorIds =
+                m_pRenderer->visibleIndoorMapRevealSectorIds(moveState.sectorId, moveState.eyeSectorId);
+
+            for (int16_t sectorId : visibleSectorIds)
+            {
+                activateIndoorSector(sectorId);
+            }
+        }
+    }
+}
+
+bool IndoorWorldRuntime::indoorSectorActivated(int16_t sectorId) const
+{
+    if (m_pIndoorMapData == nullptr || m_pPartyRuntime == nullptr)
+    {
+        return true;
+    }
+
+    if (sectorId < 0)
+    {
+        return true;
+    }
+
+    const size_t sectorIndex = static_cast<size_t>(sectorId);
+
+    if (sectorIndex >= m_pIndoorMapData->sectors.size())
+    {
+        return true;
+    }
+
+    return sectorIndex < m_activatedIndoorSectorMask.size()
+        && m_activatedIndoorSectorMask[sectorIndex] != 0;
+}
+
+bool IndoorWorldRuntime::indoorActorSectorActivated(
+    const MapDeltaActor &actor,
+    const MapActorAiState *pAiState
+) const
+{
+    const int16_t sectorId =
+        pAiState != nullptr && pAiState->sectorId >= 0 ? pAiState->sectorId : actor.sectorId;
+
+    return indoorSectorActivated(sectorId);
+}
+
 std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
     const ActorPartyFacts &partyFacts,
     int16_t partySectorId,
@@ -3595,6 +3706,11 @@ std::vector<bool> IndoorWorldRuntime::selectIndoorActiveActors(
         if (pAiState == nullptr
             || actor.hp <= 0
             || (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+        {
+            continue;
+        }
+
+        if (!indoorActorSectorActivated(actor, pAiState))
         {
             continue;
         }
@@ -3697,6 +3813,15 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(float delta
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
+        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        const MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        if (!indoorActorSectorActivated(actor, pAiState))
+        {
+            continue;
+        }
+
         const bool active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
         const std::optional<ActorAiFacts> actorFacts =
             collectIndoorActorAiFacts(
@@ -4765,6 +4890,14 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
                     continue;
                 }
 
+                const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+                const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+                if (!indoorActorSectorActivated(actor, &aiState))
+                {
+                    continue;
+                }
+
                 GameplayRuntimeActorState actorState = {};
                 if (!actorRuntimeState(actorIndex, actorState))
                 {
@@ -4776,15 +4909,15 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
                     m_pGameplayActorService != nullptr ? m_pGameplayActorService : &fallbackActorService;
                 const bool unavailable =
                     indoorActorUnavailableForCombat(
-                        pMapDeltaData->actors[actorIndex],
-                        m_mapActorAiStates[actorIndex],
+                        actor,
+                        aiState,
                         *pActorService);
                 const GameplayProjectileService::ProjectileCollisionActorFacts actorFacts = {
-                    m_mapActorAiStates[actorIndex].actorId,
+                    aiState.actorId,
                     actorState.isDead,
                     unavailable,
                     projectile.sourceKind != GameplayProjectileService::ProjectileState::SourceKind::Party
-                        && projectileSourceIsFriendlyToActor(projectile, m_mapActorAiStates[actorIndex])
+                        && projectileSourceIsFriendlyToActor(projectile, aiState)
                 };
 
                 if (!m_pGameplayProjectileService->canProjectileCollideWithActor(projectile, actorFacts))
@@ -6647,6 +6780,7 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
     }
 
     syncMapActorAiStates();
+    refreshActivatedIndoorSectors(false);
 
     m_actorUpdateAccumulatorSeconds =
         std::min(m_actorUpdateAccumulatorSeconds + deltaSeconds, MaxAccumulatedActorUpdateSeconds);
@@ -6663,6 +6797,11 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
         {
             const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
             GameplayActorSpellEffectState &effectState = m_mapActorAiStates[actorIndex].spellEffects;
+
+            if (!indoorActorSectorActivated(actor, &m_mapActorAiStates[actorIndex]))
+            {
+                continue;
+            }
 
             if (!hasActiveActorSpellEffectOverride(effectState)
                 || (actorIndex < spellEffectsAppliedMask.size() && spellEffectsAppliedMask[actorIndex]))
@@ -6697,6 +6836,7 @@ void IndoorWorldRuntime::renderWorld(
         m_pGameplayView->render(width, height, input, deltaSeconds);
     }
 
+    refreshActivatedIndoorSectors(true, deltaSeconds);
     updateIndoorJournalRevealIfNeeded();
 }
 
@@ -7218,6 +7358,25 @@ const IndoorWorldRuntime::MapActorAiState *IndoorWorldRuntime::mapActorAiState(s
     }
 
     return &m_mapActorAiStates[actorIndex];
+}
+
+std::vector<int16_t> IndoorWorldRuntime::activatedIndoorSectorIds() const
+{
+    std::vector<int16_t> sectorIds;
+    sectorIds.reserve(m_activatedIndoorSectorMask.size());
+
+    for (size_t sectorId = 0; sectorId < m_activatedIndoorSectorMask.size(); ++sectorId)
+    {
+        if (m_activatedIndoorSectorMask[sectorId] == 0
+            || sectorId > static_cast<size_t>(std::numeric_limits<int16_t>::max()))
+        {
+            continue;
+        }
+
+        sectorIds.push_back(static_cast<int16_t>(sectorId));
+    }
+
+    return sectorIds;
 }
 
 size_t IndoorWorldRuntime::bloodSplatCount() const
@@ -8203,6 +8362,15 @@ std::vector<size_t> IndoorWorldRuntime::collectMapActorIndicesWithinRadius(
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
+        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        const MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        if (!indoorActorSectorActivated(actor, pAiState))
+        {
+            continue;
+        }
+
         GameplayRuntimeActorState actorState = {};
 
         if (!actorRuntimeState(actorIndex, actorState)
@@ -8212,7 +8380,6 @@ std::vector<size_t> IndoorWorldRuntime::collectMapActorIndicesWithinRadius(
             continue;
         }
 
-        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
         const float targetZ =
             actorState.preciseZ + std::max(24.0f, static_cast<float>(actorState.height) * 0.7f);
         const float deltaX = actorState.preciseX - centerX;
@@ -8490,7 +8657,7 @@ void IndoorWorldRuntime::spawnMonsterDeathDropsForActor(size_t actorIndex, const
     if (actor.carriedItemId != 0
         && gameplayDebugTraceItemLooksQuestRelevant(actor.carriedItemId, m_pItemTable))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "actor_quest_item_death scene_kind=indoor map=\"" + mapName() + "\""
             + " actor_index=" + std::to_string(actorIndex)
             + " monster_id=" + std::to_string(monsterId)
@@ -8543,7 +8710,7 @@ void IndoorWorldRuntime::spawnMonsterDeathDropsForActor(size_t actorIndex, const
 
         if (gameplayDebugTraceItemLooksQuestRelevant(drop.itemId, m_pItemTable))
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "actor_quest_item_death scene_kind=indoor map=\"" + mapName() + "\""
                 + " actor_index=" + std::to_string(actorIndex)
                 + " monster_id=" + std::to_string(monsterId)
@@ -8625,7 +8792,7 @@ bool IndoorWorldRuntime::spawnMonsterDeathDropItem(
 
     if (gameplayDebugTraceItemLooksQuestRelevant(item.objectDescriptionId, m_pItemTable))
     {
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "world_item_spawned source=monster_death scene_kind=indoor map=\"" + mapName() + "\""
             + " world_item_index=" + std::to_string(pMapDeltaData->spriteObjects.size() - 1)
             + " item_id=" + std::to_string(item.objectDescriptionId)
@@ -9077,7 +9244,7 @@ bool IndoorWorldRuntime::activateWorldHit(const GameplayWorldHit &hit)
         pMapDeltaData->spriteObjects.erase(
             pMapDeltaData->spriteObjects.begin() + std::ptrdiff_t(hit.worldItem->worldItemIndex));
         m_pParty->requestSound(SoundId::Gold);
-        gameplayDebugTraceLog(
+        GAMEPLAY_DEBUG_TRACE(
             "item_received destination=inventory source=world_item item_id="
             + std::to_string(item.objectDescriptionId)
             + " world_item_index=" + std::to_string(hit.worldItem->worldItemIndex)
@@ -10033,6 +10200,15 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
+        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        const MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+
+        if (!indoorActorSectorActivated(actor, pAiState))
+        {
+            continue;
+        }
+
         GameplayRuntimeActorState actorState = {};
 
         if (!actorRuntimeState(actorIndex, actorState) || actorState.isInvisible)
@@ -10066,6 +10242,11 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
     {
         for (const MapDeltaSpriteObject &spriteObject : pMapDeltaData->spriteObjects)
         {
+            if (!indoorSectorActivated(spriteObject.sectorId))
+            {
+                continue;
+            }
+
             const ObjectEntry *pObjectEntry = m_pObjectTable->get(spriteObject.objectDescriptionId);
 
             if (pObjectEntry == nullptr
@@ -10321,7 +10502,7 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
             if (!item.isGold && gameplayDebugTraceItemLooksQuestRelevant(itemId, m_pItemTable))
             {
-                gameplayDebugTraceLog(
+                GAMEPLAY_DEBUG_TRACE(
                     "corpse_contains_quest_item scene_kind=indoor map=\"" + mapName() + "\""
                     + " actor_index=" + std::to_string(actorIndex)
                     + " monster_id=" + std::to_string(resolveIndoorActorStatsId(actor))
@@ -11073,6 +11254,11 @@ std::vector<IndoorActorCollision> IndoorWorldRuntime::actorMovementCollidersForA
         const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
         const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
 
+        if (!indoorActorSectorActivated(actor, &aiState))
+        {
+            continue;
+        }
+
         if (indoorActorUnavailableForCombat(actor, aiState, *pActorService))
         {
             continue;
@@ -11124,6 +11310,11 @@ std::vector<IndoorActorCollision> IndoorWorldRuntime::actorMovementCollidersForP
 
         const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
         const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+        if (!indoorActorSectorActivated(actor, &aiState))
+        {
+            continue;
+        }
 
         if (indoorActorUnavailableForCombat(actor, aiState, *pActorService))
         {
@@ -11295,8 +11486,10 @@ IndoorWorldRuntime::Snapshot IndoorWorldRuntime::snapshot() const
     snapshot.mapActorCorpseViews = m_mapActorCorpseViews;
     snapshot.activeCorpseView = m_activeCorpseView;
     snapshot.mapActorAiStates = m_mapActorAiStates;
+    snapshot.activatedIndoorSectorMask = m_activatedIndoorSectorMask;
     snapshot.bloodSplats = m_bloodSplats;
     snapshot.actorUpdateAccumulatorSeconds = m_actorUpdateAccumulatorSeconds;
+    snapshot.visiblePortalSectorActivationAccumulatorSeconds = m_visiblePortalSectorActivationAccumulatorSeconds;
     return snapshot;
 }
 
@@ -11310,13 +11503,17 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
     m_activeCorpseView = snapshot.activeCorpseView;
     m_mapActorAiStates = snapshot.mapActorAiStates;
+    m_activatedIndoorSectorMask = snapshot.activatedIndoorSectorMask;
     m_bloodSplats = snapshot.bloodSplats;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
+    m_visiblePortalSectorActivationAccumulatorSeconds =
+        snapshot.visiblePortalSectorActivationAccumulatorSeconds;
     m_indoorJournalRevealStateValid = false;
     m_cachedGameplayMinimapLinesValid = false;
     invalidateRuntimeGeometryCache();
     syncMapActorAiStates();
+    refreshActivatedIndoorSectors(false);
 
     const MapDeltaData *pMapDeltaData = mapDeltaData();
 
@@ -11404,7 +11601,7 @@ void IndoorWorldRuntime::activateChestView(uint32_t chestId)
         };
     }
 
-    gameplayDebugTraceLog(
+    GAMEPLAY_DEBUG_TRACE(
         "chest_opened scene_kind=indoor map=\"" + mapName() + "\""
         + " chest_id=" + std::to_string(chestId)
         + " item_count=" + std::to_string(m_activeChestView->items.size())
@@ -11417,7 +11614,7 @@ void IndoorWorldRuntime::activateChestView(uint32_t chestId)
 
         if (!item.isGold && itemId != 0)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "chest_contains_item scene_kind=indoor map=\"" + mapName() + "\""
                 + " chest_id=" + std::to_string(chestId)
                 + " item_id=" + std::to_string(itemId)
@@ -11429,7 +11626,7 @@ void IndoorWorldRuntime::activateChestView(uint32_t chestId)
 
         if (questLike)
         {
-            gameplayDebugTraceLog(
+            GAMEPLAY_DEBUG_TRACE(
                 "chest_contains_quest_item scene_kind=indoor map=\"" + mapName() + "\""
                 + " chest_id=" + std::to_string(chestId)
                 + " item_id=" + std::to_string(itemId)

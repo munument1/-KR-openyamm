@@ -6226,6 +6226,71 @@ TEST_CASE("mm7 dragon lair loads indoor billboards and lights")
         pLoadedMap->indoorActorPreviewBillboardSet->billboards.size());
 }
 
+TEST_CASE("mm6 darkmoor indoor decoration billboards keep editor room ownership")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "cd2.blv",
+        OpenYAMM::Game::MapLoadPurpose::BillboardPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorDecorationBillboardSet.has_value());
+
+    struct ExpectedDecorationSector
+    {
+        size_t entityIndex = 0;
+        int16_t sectorId = -1;
+    };
+
+    const std::array<ExpectedDecorationSector, 21> expectedSectors = {{
+        {328, 51},
+        {327, 51},
+        {292, 50},
+        {291, 50},
+        {293, 50},
+        {294, 50},
+        {267, 80},
+        {264, 80},
+        {268, 80},
+        {266, 80},
+        {265, 80},
+        {269, 80},
+        {270, 80},
+        {372, 71},
+        {373, 71},
+        {374, 71},
+        {375, 71},
+        {376, 71},
+        {385, 71},
+        {386, 71},
+        {387, 71},
+    }};
+
+    for (const ExpectedDecorationSector &expected : expectedSectors)
+    {
+        const std::vector<OpenYAMM::Game::DecorationBillboard> &billboards =
+            pLoadedMap->indoorDecorationBillboardSet->billboards;
+        const std::vector<OpenYAMM::Game::DecorationBillboard>::const_iterator billboardIt =
+            std::find_if(
+                billboards.begin(),
+                billboards.end(),
+                [&expected](const OpenYAMM::Game::DecorationBillboard &billboard)
+                {
+                    return billboard.entityIndex == expected.entityIndex;
+                });
+
+        REQUIRE_MESSAGE(
+            billboardIt != billboards.end(),
+            ("missing Darkmoor decoration billboard " + std::to_string(expected.entityIndex)).c_str());
+        CHECK_EQ(billboardIt->sectorId, expected.sectorId);
+    }
+}
+
 TEST_CASE("outdoor water bmodel faces load terrain-owned animation frames")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
