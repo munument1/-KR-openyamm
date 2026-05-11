@@ -190,6 +190,11 @@ def export_map_stats(source_path: Path, maps_dir: Path, output_path: Path) -> No
             if len(row) <= 2 or row[2].strip().lower() not in known_maps:
                 continue
 
+            # Redbook track 1 is the non-audio CD/data track in the extracted MP3 layout.
+            if len(row) > 28 and row[28].strip() == "1":
+                row = list(row)
+                row[28] = "0"
+
         output_rows.append(row)
 
     write_tab_rows(output_path, output_rows)
