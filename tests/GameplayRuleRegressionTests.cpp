@@ -11,12 +11,14 @@
 #include "game/gameplay/GameplayWorldItemInteraction.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/gameplay/SavePreviewImage.h"
+#include "game/indoor/IndoorMapData.h"
 #include "game/indoor/IndoorMovementController.h"
 #include "game/items/InventoryItemMixingRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/OutdoorSceneYml.h"
+#include "game/outdoor/OutdoorMapData.h"
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorMovementController.h"
@@ -1970,6 +1972,196 @@ TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
     CHECK(resolved.x > state.x + 24.0f);
 }
 
+TEST_CASE("indoor steep in-between floor keeps support but rejects uphill walking")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 2048},
+        {512, 512, 2048},
+        {-512, 512, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace steepFloor = {};
+    steepFloor.vertexIndices = {0, 1, 2, 3};
+    steepFloor.facetType = 4;
+    steepFloor.roomNumber = 1;
+    mapData.faces = {steepFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 512;
+    sector.minZ = 0;
+    sector.maxZ = 2200;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{37.0f, 160.0f};
+    OpenYAMM::Game::IndoorMoveState state = {};
+    state.x = 0.0f;
+    state.y = 0.0f;
+    state.footZ = 1024.0f;
+    state.eyeHeight = body.height;
+    state.sectorId = 1;
+    state.eyeSectorId = 1;
+    state.supportFaceIndex = 0;
+    state.grounded = true;
+
+    const OpenYAMM::Game::IndoorMoveState uphill =
+        movementController.resolveMove(state, body, 128.0f, 0.0f, false, 0.25f);
+
+    CHECK(uphill.x <= state.x + 1.0f);
+    CHECK(uphill.footZ <= state.footZ + 1.0f);
+
+    const OpenYAMM::Game::IndoorMoveState stationary =
+        movementController.resolveMove(state, body, 0.0f, 0.0f, false, 0.25f);
+
+    CHECK(stationary.grounded);
+    CHECK_EQ(stationary.supportFaceIndex, 0u);
+    CHECK_EQ(stationary.footZ, doctest::Approx(state.footZ));
+}
+
+TEST_CASE("indoor movement rejects standing clearance below body height")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -256, 0},
+        {256, -256, 0},
+        {256, 256, 0},
+        {-256, 256, 0},
+        {-256, -256, 100},
+        {-256, 256, 100},
+        {256, 256, 100},
+        {256, -256, 100},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace ceiling = {};
+    ceiling.vertexIndices = {4, 5, 6, 7};
+    ceiling.facetType = 5;
+    ceiling.roomNumber = 1;
+
+    mapData.faces = {floor, ceiling};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.ceilingCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = -256;
+    sector.maxY = 256;
+    sector.minZ = 0;
+    sector.maxZ = 300;
+    sector.floorFaceIds = {0};
+    sector.ceilingFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = {0, 1};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{37.0f, 160.0f};
+    OpenYAMM::Game::IndoorMoveState state = {};
+    state.x = 300.0f;
+    state.y = 0.0f;
+    state.footZ = 0.0f;
+    state.eyeHeight = body.height;
+    state.sectorId = 1;
+    state.eyeSectorId = 1;
+    state.supportFaceIndex = 0;
+    state.grounded = true;
+
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(state, body, -256.0f, 0.0f, false, 0.5f);
+
+    CHECK(resolved.x > 250.0f);
+    CHECK_EQ(resolved.footZ, doctest::Approx(state.footZ));
+}
+
+TEST_CASE("indoor movement rejects low ceiling even when body top starts above it")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -256, 0},
+        {256, -256, 0},
+        {256, 256, 0},
+        {-256, 256, 0},
+        {-256, -256, 100},
+        {-256, 256, 100},
+        {256, 256, 100},
+        {256, -256, 100},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace ceiling = {};
+    ceiling.vertexIndices = {4, 5, 6, 7};
+    ceiling.facetType = 5;
+    ceiling.roomNumber = 1;
+
+    mapData.faces = {floor, ceiling};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.ceilingCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = -256;
+    sector.maxY = 256;
+    sector.minZ = 0;
+    sector.maxZ = 300;
+    sector.floorFaceIds = {0};
+    sector.ceilingFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = {0, 1};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{37.0f, 160.0f};
+    OpenYAMM::Game::IndoorMoveState state = {};
+    state.x = 0.0f;
+    state.y = 0.0f;
+    state.footZ = 0.0f;
+    state.eyeHeight = body.height;
+    state.sectorId = 1;
+    state.eyeSectorId = 1;
+    state.supportFaceIndex = 0;
+    state.grounded = true;
+
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(state, body, 0.0f, 0.0f, false, 0.25f);
+
+    CHECK_EQ(resolved.footZ, doctest::Approx(state.footZ));
+    CHECK(resolved.grounded);
+}
+
 TEST_CASE("event revealed outdoor bmodel collision updates party and actor movement caches")
 {
     OpenYAMM::Game::OutdoorMapData mapData = {};
@@ -2341,6 +2533,27 @@ TEST_CASE("lua SetSprite stores visibility and decoration id")
     CHECK(hiddenIterator->second.hidden);
     REQUIRE(hiddenIterator->second.textureName.has_value());
     CHECK_EQ(*hiddenIterator->second.textureName, "swrdstx");
+}
+
+TEST_CASE("level decoration script event id comes from legacy uEventID field")
+{
+    OpenYAMM::Game::IndoorEntity indoorEntity = {};
+    indoorEntity.eventIdPrimary = 1;
+    indoorEntity.eventIdSecondary = 376;
+    CHECK_EQ(indoorEntity.scriptEventId(), 376u);
+    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 1u);
+
+    indoorEntity.eventIdPrimary = 0;
+    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 0u);
+
+    OpenYAMM::Game::OutdoorEntity outdoorEntity = {};
+    outdoorEntity.eventIdPrimary = 1;
+    outdoorEntity.eventIdSecondary = 376;
+    CHECK_EQ(outdoorEntity.scriptEventId(), 376u);
+    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 1u);
+
+    outdoorEntity.eventIdPrimary = 0;
+    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 0u);
 }
 
 TEST_CASE("lua event runtime stores question answer metadata and resumes continuation step")
@@ -3444,8 +3657,8 @@ TEST_CASE("merged dungeon transition dialog uses world house movie metadata befo
 
     REQUIRE(mm6ExitDialog.isActive);
     CHECK_EQ(mm6ExitDialog.title, "Abandoned Temple");
-    CHECK_EQ(mm6ExitDialog.videoName, "d02");
-    CHECK_EQ(mm6ExitDialog.videoDirectory, "Videos/Transitions");
+    CHECK(mm6ExitDialog.videoName.empty());
+    CHECK(mm6ExitDialog.videoDirectory.empty());
 
     OpenYAMM::Game::EventRuntimeState mm7RuntimeState = {};
     OpenYAMM::Game::EventRuntimeState::PendingMapMove mm7MapMove = {};
@@ -3515,8 +3728,8 @@ TEST_CASE("merged dungeon transition dialog uses world house movie metadata befo
 
     REQUIRE(mm7ExitDialog.isActive);
     CHECK_EQ(mm7ExitDialog.title, "The Temple of the Moon");
-    CHECK_EQ(mm7ExitDialog.videoName, "out01 temple of the moon");
-    CHECK_EQ(mm7ExitDialog.videoDirectory, "Videos/Transitions");
+    CHECK(mm7ExitDialog.videoName.empty());
+    CHECK(mm7ExitDialog.videoDirectory.empty());
 }
 
 TEST_CASE("outdoor boundary transition dialog uses default outdoor map icon")

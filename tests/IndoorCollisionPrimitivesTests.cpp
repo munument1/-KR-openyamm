@@ -14,10 +14,12 @@ using OpenYAMM::Game::IndoorFace;
 using OpenYAMM::Game::IndoorFaceGeometryData;
 using OpenYAMM::Game::IndoorFaceGeometryCache;
 using OpenYAMM::Game::IndoorFaceKind;
+using OpenYAMM::Game::IndoorCeilingSample;
 using OpenYAMM::Game::IndoorFloorSample;
 using OpenYAMM::Game::IndoorFaceSweepOptions;
 using OpenYAMM::Game::IndoorMapData;
 using OpenYAMM::Game::IndoorProjectionAxis;
+using OpenYAMM::Game::IndoorSector;
 using OpenYAMM::Game::IndoorSweptBody;
 using OpenYAMM::Game::IndoorSweptBodyBounds;
 using OpenYAMM::Game::IndoorSweptCylinder;
@@ -35,6 +37,7 @@ using OpenYAMM::Game::faceAttributeBit;
 using OpenYAMM::Game::indoorSweptBodyBoundsTouchFace;
 using OpenYAMM::Game::indoorSweptBodyTouchesPortalFace;
 using OpenYAMM::Game::projectIndoorVelocityAlongPlane;
+using OpenYAMM::Game::sampleIndoorCeiling;
 using OpenYAMM::Game::sampleIndoorFloor;
 using OpenYAMM::Game::selectNearestIndoorFaceHit;
 using OpenYAMM::Game::sweepIndoorBodyAgainstCylinder;
@@ -423,6 +426,75 @@ TEST_CASE("indoor floor sampling ignores horizontal portal faces")
     REQUIRE(sample.hasFloor);
     CHECK_EQ(sample.faceIndex, 1u);
     CHECK_EQ(sample.height, doctest::Approx(-96.0f));
+}
+
+TEST_CASE("indoor floor sampling keeps steep in-between floor height without making it walkable")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {128, -128, 512},
+        {128, 128, 512},
+        {-128, 128, 0}
+    };
+
+    IndoorFace steepFloor = {};
+    steepFloor.vertexIndices = {0, 1, 2, 3};
+    steepFloor.facetType = 4;
+    steepFloor.roomNumber = 0;
+
+    IndoorSector sector = {};
+    sector.floorFaceIds = {0};
+    mapData.faces = {steepFloor};
+    mapData.sectors = {sector};
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(mapData, mapData.vertices, 0);
+    REQUIRE(pGeometry != nullptr);
+    CHECK_EQ(pGeometry->kind, IndoorFaceKind::Wall);
+    CHECK_FALSE(pGeometry->isWalkable);
+
+    const IndoorFloorSample sample =
+        sampleIndoorFloor(mapData, mapData.vertices, 0.0f, 0.0f, 256.0f, 16.0f, 160.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasFloor);
+    CHECK_FALSE(sample.isWalkable);
+    CHECK_EQ(sample.faceIndex, 0u);
+    CHECK_EQ(sample.height, doctest::Approx(256.0f));
+}
+
+TEST_CASE("indoor ceiling sampling keeps in-between ceiling height")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 512},
+        {-128, 128, 512},
+        {128, 128, 0},
+        {128, -128, 0}
+    };
+
+    IndoorFace steepCeiling = {};
+    steepCeiling.vertexIndices = {0, 1, 2, 3};
+    steepCeiling.facetType = 6;
+    steepCeiling.roomNumber = 0;
+
+    IndoorSector sector = {};
+    sector.ceilingFaceIds = {0};
+    mapData.faces = {steepCeiling};
+    mapData.sectors = {sector};
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(mapData, mapData.vertices, 0);
+    REQUIRE(pGeometry != nullptr);
+    CHECK_EQ(pGeometry->kind, IndoorFaceKind::Wall);
+    CHECK(pGeometry->normal.z < 0.0f);
+
+    const IndoorCeilingSample sample =
+        sampleIndoorCeiling(mapData, mapData.vertices, 0.0f, 0.0f, 0.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasCeiling);
+    CHECK_EQ(sample.faceIndex, 0u);
+    CHECK_EQ(sample.height, doctest::Approx(256.0f));
 }
 
 TEST_CASE("wall velocity projection removes movement into plane")

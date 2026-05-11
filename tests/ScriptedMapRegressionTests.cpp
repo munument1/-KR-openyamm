@@ -1,6 +1,7 @@
 #include "doctest/doctest.h"
 
 #include "game/events/EventRuntime.h"
+#include "game/events/EventDialogContent.h"
 #include "game/events/ISceneEventContext.h"
 #include "game/FaceEnums.h"
 #include "game/gameplay/CorpseLootRuntime.h"
@@ -3226,11 +3227,24 @@ TEST_CASE("mm7 castle harmondale mmmerge local quest state")
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
 
         REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_EQ(runtimeState.actorGroupClearMasks[56] & hostileBit, 0u);
+        CHECK_EQ(runtimeState.actorGroupSetMasks[56] & invisibleBit, 0u);
         CHECK_EQ(runtimeState.actorGroupSetMasks[60] & hostileBit, hostileBit);
         CHECK_EQ(runtimeState.actorGroupClearMasks[60] & invisibleBit, invisibleBit);
         CHECK_EQ(party.bankGold(), 0);
         CHECK_FALSE(party.hasQuestBit(693));
         CHECK_FALSE(party.hasQuestBit(694));
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(610, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_EQ(runtimeState.actorGroupClearMasks[56] & hostileBit, hostileBit);
+        CHECK_EQ(runtimeState.actorGroupSetMasks[56] & invisibleBit, invisibleBit);
     }
 
     {
@@ -3546,6 +3560,81 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         REQUIRE(castleState.pendingDialogueContext.has_value());
         CHECK_EQ(castleState.pendingDialogueContext->sourceId, 397u);
 
+        OpenYAMM::Game::Party unrepairedParty = makeScriptedRegressionParty();
+        unrepairedParty.setQuestBit(519, true);
+        unrepairedParty.setQuestBit(644, true);
+        OpenYAMM::Game::EventRuntimeState unrepairedCastleState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            301,
+            unrepairedCastleState,
+            &unrepairedParty));
+        REQUIRE(unrepairedCastleState.pendingDialogueContext.has_value());
+        CHECK_EQ(unrepairedCastleState.pendingDialogueContext->transitionTextId, 390u);
+        const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
+        const std::vector<OpenYAMM::Game::MapStatsEntry> harmondaleMapEntries = {
+            []()
+            {
+                OpenYAMM::Game::MapStatsEntry entry = {};
+                entry.id = 63;
+                entry.name = "Harmondale";
+                entry.fileName = "7out02.odm";
+                return entry;
+            }(),
+            []()
+            {
+                OpenYAMM::Game::MapStatsEntry entry = {};
+                entry.id = 103;
+                entry.name = "Castle Harmondale";
+                entry.fileName = "7d29.blv";
+                return entry;
+            }(),
+        };
+        const OpenYAMM::Game::EventDialogContent unrepairedDialog = OpenYAMM::Game::buildEventDialogContent(
+            unrepairedCastleState,
+            0,
+            true,
+            nullptr,
+            &gameData.houseTable,
+            nullptr,
+            nullptr,
+            &gameData.transitionTable,
+            &harmondaleMapEntries[0],
+            &harmondaleMapEntries,
+            nullptr,
+            nullptr,
+            0.0f);
+        CHECK_EQ(unrepairedDialog.videoName, "out02 castle harmondy");
+
+        OpenYAMM::Game::Party repairedParty = makeScriptedRegressionParty();
+        repairedParty.setQuestBit(519, true);
+        repairedParty.setQuestBit(610, true);
+        OpenYAMM::Game::EventRuntimeState repairedCastleState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            301,
+            repairedCastleState,
+            &repairedParty));
+        REQUIRE(repairedCastleState.pendingDialogueContext.has_value());
+        CHECK_EQ(repairedCastleState.pendingDialogueContext->transitionTextId, 382u);
+        const OpenYAMM::Game::EventDialogContent repairedDialog = OpenYAMM::Game::buildEventDialogContent(
+            repairedCastleState,
+            0,
+            true,
+            nullptr,
+            &gameData.houseTable,
+            nullptr,
+            nullptr,
+            &gameData.transitionTable,
+            &harmondaleMapEntries[0],
+            &harmondaleMapEntries,
+            nullptr,
+            nullptr,
+            0.0f);
+        CHECK_EQ(repairedDialog.videoName, "out02 castle harmondy abandoned");
+
         OpenYAMM::Game::Party invadedParty = makeScriptedRegressionParty();
         invadedParty.setQuestBit(693, true);
         OpenYAMM::Game::EventRuntimeState invasionState = {};
@@ -3556,6 +3645,23 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         CHECK_EQ(
             invasionState.actorGroupSetMasks[60] & static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Hostile),
             static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Hostile));
+
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d29", "7d29_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(610, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        runtimeState.mapFileName = "7d29.blv";
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        REQUIRE(runtimeState.spriteOverrides.contains(10));
+        CHECK(runtimeState.spriteOverrides.at(10).hidden);
     }
 
     {
@@ -4385,6 +4491,52 @@ TEST_CASE("mm7 phase1 mmmerge map overlays apply runtime state changes")
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 376, runtimeState, &party));
         REQUIRE_EQ(runtimeState.hiredNpcFollowers.size(), 1u);
         CHECK_EQ(runtimeState.hiredNpcFollowers.front().npcId, 400u);
+        CHECK(party.hasQuestBit(1689));
+        REQUIRE(runtimeState.pendingDialogueContext.has_value());
+        CHECK_EQ(runtimeState.pendingDialogueContext->kind, OpenYAMM::Game::DialogueContextKind::NpcTalk);
+        CHECK_EQ(runtimeState.pendingDialogueContext->sourceId, 400u);
+        REQUIRE_MESSAGE(
+            OpenYAMM::Tests::regressionGameDataLoaded(),
+            OpenYAMM::Tests::regressionGameDataFailure().c_str());
+        const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
+        const OpenYAMM::Game::NpcEntry *pJaycen = gameData.npcDialogTable.getNpc(400);
+        REQUIRE(pJaycen != nullptr);
+        CHECK_EQ(pJaycen->greetId, 205u);
+        const OpenYAMM::Game::NpcGreetingEntry *pJaycenGreeting =
+            gameData.npcDialogTable.getGreetingForNpc(400);
+        REQUIRE(pJaycenGreeting != nullptr);
+        CHECK_FALSE(pJaycenGreeting->greetingPrimary.empty());
+        const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+            runtimeState,
+            runtimeState.messages.size(),
+            true,
+            &gameData.globalEventProgram,
+            &gameData.houseTable,
+            &gameData.classSkillTable,
+            &gameData.npcDialogTable,
+            &gameData.transitionTable,
+            nullptr,
+            nullptr,
+            &party,
+            nullptr,
+            -1.0f,
+            &gameData.mergedNpcProfessionTable,
+            &gameData.mergedNewsProfessionTopicTable,
+            &gameData.mergedNpcBtbTable,
+            &gameData.mergedTeacherTopicTable,
+            &gameData.mergedContinentSettingTable);
+        CHECK(dialog.isActive);
+        CHECK_EQ(dialog.title, "Jaycen Keldin");
+        CHECK_FALSE(dialog.lines.empty());
+        const bool hasDwarfGreeting =
+            std::find(dialog.lines.begin(), dialog.lines.end(), "Who are you?") != dialog.lines.end()
+            || std::find(dialog.lines.begin(), dialog.lines.end(), "I owe you my life.") != dialog.lines.end();
+        CHECK(hasDwarfGreeting);
+        const auto spriteOverride = runtimeState.spriteOverrides.find(1u);
+        REQUIRE(spriteOverride != runtimeState.spriteOverrides.end());
+        CHECK(spriteOverride->second.hidden);
+        REQUIRE(spriteOverride->second.textureName.has_value());
+        CHECK_EQ(*spriteOverride->second.textureName, "0");
     }
 
     {
