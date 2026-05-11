@@ -7,6 +7,26 @@
 
 namespace OpenYAMM::Game
 {
+int CharacterDollTypeEntry::mainHandWeaponAnchorX() const
+{
+    return rightHandClosedX + mainHandOffsetX;
+}
+
+int CharacterDollTypeEntry::mainHandWeaponAnchorY() const
+{
+    return rightHandClosedY + mainHandOffsetY;
+}
+
+int CharacterDollTypeEntry::offHandWeaponAnchorX() const
+{
+    return leftHandClosedX + offHandOffsetX;
+}
+
+int CharacterDollTypeEntry::offHandWeaponAnchorY() const
+{
+    return leftHandClosedY + offHandOffsetY;
+}
+
 namespace
 {
 bool parseUnsigned(const std::string &text, uint32_t &value)

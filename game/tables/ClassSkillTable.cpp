@@ -740,6 +740,31 @@ std::optional<std::string> ClassSkillTable::classNameForId(uint32_t classId) con
     return iterator->second;
 }
 
+bool ClassSkillTable::classIdIsAtLeast(uint32_t currentClassId, uint32_t minimumClassId) const
+{
+    if (currentClassId == minimumClassId)
+    {
+        return true;
+    }
+
+    const std::optional<std::string> currentClassName = classNameForId(currentClassId);
+    const std::optional<std::string> minimumClassName = classNameForId(minimumClassId);
+
+    if (!currentClassName || !minimumClassName)
+    {
+        return false;
+    }
+
+    const ClassMetadataEntry *pCurrent = metadataForClass(*currentClassName);
+    const ClassMetadataEntry *pMinimum = metadataForClass(*minimumClassName);
+
+    return pCurrent != nullptr
+        && pMinimum != nullptr
+        && pMinimum->classKind != 0
+        && pCurrent->classKind == pMinimum->classKind
+        && pCurrent->promotionStep >= pMinimum->promotionStep;
+}
+
 bool ClassSkillTable::hasClass(const std::string &className) const
 {
     return classIdForName(className).has_value();

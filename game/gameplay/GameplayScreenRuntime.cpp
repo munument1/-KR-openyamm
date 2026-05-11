@@ -3048,6 +3048,16 @@ void GameplayScreenRuntime::submitHudTexturedQuad(
     uiRuntime().submitHudTexturedQuad(texture.textureHandle, x, y, quadWidth, quadHeight);
 }
 
+void GameplayScreenRuntime::submitHudTexturedQuadRotatedCounterClockwise(
+    const HudTextureHandle &texture,
+    float x,
+    float y,
+    float quadWidth,
+    float quadHeight) const
+{
+    uiRuntime().submitHudTexturedQuadRotatedCounterClockwise(texture.textureHandle, x, y, quadWidth, quadHeight);
+}
+
 void GameplayScreenRuntime::renderLayoutLabel(
     const HudLayoutElement &layout,
     const ResolvedHudLayoutElement &resolved,
@@ -3584,6 +3594,7 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayScreenRuntime::resolveCh
     const UiLayoutManager::LayoutElement &layout,
     const ItemDefinition &itemDefinition,
     const GameplayHudTextureHandle &texture,
+    const CharacterDollEntry *pCharacterDollEntry,
     const CharacterDollTypeEntry *pCharacterDollType,
     EquipmentSlot slot,
     int screenWidth,
@@ -3652,10 +3663,27 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayScreenRuntime::resolveCh
         {
             if (slot == EquipmentSlot::MainHand)
             {
-                offsetX = pCharacterDollType->rightHandFingersX + pCharacterDollType->mainHandOffsetX
-                    - itemDefinition.equipX;
-                offsetY = pCharacterDollType->rightHandFingersY + pCharacterDollType->mainHandOffsetY
-                    - itemDefinition.equipY;
+                int mainHandAnchorX = pCharacterDollType->mainHandWeaponAnchorX();
+                int mainHandAnchorY = pCharacterDollType->mainHandWeaponAnchorY();
+
+                if (pCharacterDollEntry != nullptr)
+                {
+                    int rightHandFingersWidth = 0;
+                    int rightHandFingersHeight = 0;
+                    const bool hasRightHandFingersDimensions = gameplayUiRuntime().ensureHudTextureDimensions(
+                        pCharacterDollEntry->rightHandFingersAsset,
+                        rightHandFingersWidth,
+                        rightHandFingersHeight);
+
+                    if (hasRightHandFingersDimensions)
+                    {
+                        mainHandAnchorX = pCharacterDollType->rightHandFingersX
+                            + static_cast<int>(std::lround(static_cast<float>(rightHandFingersWidth) * 0.5f));
+                    }
+                }
+
+                offsetX = mainHandAnchorX - itemDefinition.equipX;
+                offsetY = mainHandAnchorY - itemDefinition.equipY;
             }
             else if (itemDefinition.equipStat == "Shield")
             {
@@ -3664,18 +3692,28 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayScreenRuntime::resolveCh
             }
             else
             {
-                offsetX = pCharacterDollType->rightHandFingersX + pCharacterDollType->offHandOffsetX
-                    - itemDefinition.equipX;
-                offsetY = pCharacterDollType->rightHandFingersY + pCharacterDollType->offHandOffsetY
-                    - itemDefinition.equipY;
+                const int offHandGripAnchorX = pCharacterDollType->offHandWeaponAnchorX()
+                    + pCharacterDollType->shieldX;
+                const int offHandGripAnchorY = pCharacterDollType->offHandWeaponAnchorY()
+                    + pCharacterDollType->shieldY;
+                offsetX = offHandGripAnchorX - itemDefinition.equipY;
+                offsetY = offHandGripAnchorY - (texture.width - itemDefinition.equipX);
             }
         }
 
         GameplayResolvedHudLayoutElement rect = {};
         rect.x = std::round(resolved->x + static_cast<float>(offsetX) * resolved->scale);
         rect.y = std::round(resolved->y + static_cast<float>(offsetY) * resolved->scale);
-        rect.width = iconWidth;
-        rect.height = iconHeight;
+        if (slot == EquipmentSlot::OffHand && itemDefinition.equipStat != "Shield")
+        {
+            rect.width = iconHeight;
+            rect.height = iconWidth;
+        }
+        else
+        {
+            rect.width = iconWidth;
+            rect.height = iconHeight;
+        }
         rect.scale = resolved->scale;
         return rect;
     }

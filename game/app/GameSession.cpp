@@ -10,6 +10,7 @@
 #include <cassert>
 #include <algorithm>
 #include <iostream>
+#include <string>
 #include <utility>
 
 namespace OpenYAMM::Game

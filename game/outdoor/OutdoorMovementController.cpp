@@ -12,6 +12,7 @@ namespace
 {
 constexpr float CollisionEpsilon = 0.01f;
 constexpr float CollisionMinMoveDistance = 0.5f;
+constexpr float SlopeSlideMinMoveDistance = 0.01f;
 constexpr float AllowedCollisionOvershoot = -100.0f;
 constexpr float ClosestDistance = 0.5f;
 constexpr float FloorSelectionHeightTolerance = 5.0f;
@@ -23,6 +24,10 @@ constexpr float DefaultBodyHeight = 192.0f;
 constexpr float MaxSmallSlopeHeight = 128.0f;
 constexpr float GroundSnapHeight = 1.0f;
 constexpr float CloseToGroundHeight = 32.0f;
+constexpr float BModelEdgeSupportHeightSlack = 32.0f;
+constexpr float BModelEdgeSupportMoveSlack = 2.0f;
+constexpr float BModelEdgeSupportVelocitySlack = 1.0f;
+constexpr float SlopeSlideGravityMultiplier = 4.0f;
 // OE outdoor party gravity is -2 * dtTicks * Gravity, with default Gravity = 5 and dt at 128 Hz.
 constexpr float GravityPerSecond = 1280.0f;
 constexpr uint8_t PolygonFloor = 0x3;
@@ -700,7 +705,10 @@ void resolveActorCylinderOverlaps(
     }
 }
 
-bool prepareCollisionState(CollisionState &collisionState, float deltaSeconds)
+bool prepareCollisionState(
+    CollisionState &collisionState,
+    float deltaSeconds,
+    float minMoveDistance = CollisionMinMoveDistance)
 {
     collisionState.speed = vecLength(collisionState.velocity);
 
@@ -712,7 +720,7 @@ bool prepareCollisionState(CollisionState &collisionState, float deltaSeconds)
     collisionState.direction = vecScale(collisionState.velocity, 1.0f / collisionState.speed);
     collisionState.moveDistance = deltaSeconds * collisionState.speed - collisionState.totalMoveDistance;
 
-    if (collisionState.moveDistance <= CollisionMinMoveDistance)
+    if (collisionState.moveDistance <= minMoveDistance)
     {
         return true;
     }
@@ -1356,6 +1364,133 @@ std::optional<FloorSample> queryPreferredSupportFloor(
     };
 }
 
+bool canRetainBModelEdgeSupport(
+    const OutdoorMoveState &state,
+    bool retainBModelEdgeSupport,
+    float x,
+    float y)
+{
+    if (!retainBModelEdgeSupport
+        || state.airborne
+        || state.supportKind != OutdoorSupportKind::BModelFace
+        || std::fabs(state.verticalVelocity) > BModelEdgeSupportVelocitySlack)
+    {
+        return false;
+    }
+
+    const float deltaX = x - state.x;
+    const float deltaY = y - state.y;
+    return deltaX * deltaX + deltaY * deltaY <= BModelEdgeSupportMoveSlack * BModelEdgeSupportMoveSlack;
+}
+
+bool preferredSupportCanWin(
+    const OutdoorMoveState &state,
+    const FloorSample &preferredSample,
+    const FloorSample &bestSample,
+    bool retainBModelEdgeSupport,
+    float x,
+    float y,
+    float z)
+{
+    if (preferredSample.height >= bestSample.height)
+    {
+        return true;
+    }
+
+    return canRetainBModelEdgeSupport(state, retainBModelEdgeSupport, x, y)
+        && preferredSample.height >= bestSample.height - BModelEdgeSupportHeightSlack
+        && z <= preferredSample.height + GroundSnapHeight + BModelEdgeSupportHeightSlack;
+}
+
+bool isSteepBModelSlideFace(const OutdoorFaceGeometryData &geometry)
+{
+    if (geometry.normal.z <= 0.0f || geometry.normal.z >= WalkableNormalZ)
+    {
+        return false;
+    }
+
+    return geometry.maxZ - geometry.minZ >= MaxSmallSlopeHeight;
+}
+
+std::optional<FloorSample> queryBModelFootprintSupportFloor(
+    const std::vector<OutdoorFaceGeometryData> &faces,
+    const std::vector<size_t> *pCandidateFaceIndices,
+    const OutdoorMoveState &state,
+    float bodyRadius,
+    float maxFloorRise,
+    float x,
+    float y,
+    float z,
+    bool retainBModelEdgeSupport)
+{
+    if (!canRetainBModelEdgeSupport(state, retainBModelEdgeSupport, x, y))
+    {
+        return std::nullopt;
+    }
+
+    std::optional<FloorSample> bestSample;
+
+    auto inspectGeometry =
+        [&](const OutdoorFaceGeometryData &geometry)
+    {
+        if (!outdoorFaceBlocksMovement(geometry)
+            || !geometry.isWalkable
+            || x < geometry.minX - bodyRadius
+            || x > geometry.maxX + bodyRadius
+            || y < geometry.minY - bodyRadius
+            || y > geometry.maxY + bodyRadius
+            || !isPointInsideOrNearPolygon(x, y, geometry.vertices, bodyRadius))
+        {
+            return;
+        }
+
+        float height = 0.0f;
+
+        if (!calculateFaceHeight(geometry, x, y, height)
+            || height > z + maxFloorRise
+            || height < z - CloseToGroundHeight)
+        {
+            return;
+        }
+
+        if (bestSample && height <= bestSample->height)
+        {
+            return;
+        }
+
+        bestSample = FloorSample{
+            true,
+            height,
+            std::fabs(geometry.normal.z),
+            true,
+            hasFaceAttribute(geometry.attributes, FaceAttribute::Fluid),
+            false,
+            geometry.bModelIndex,
+            geometry.faceIndex
+        };
+    };
+
+    if (pCandidateFaceIndices != nullptr)
+    {
+        for (size_t faceIndex : *pCandidateFaceIndices)
+        {
+            if (faceIndex < faces.size())
+            {
+                inspectGeometry(faces[faceIndex]);
+            }
+        }
+    }
+    else
+    {
+        for (const OutdoorFaceGeometryData &geometry : faces)
+        {
+            inspectGeometry(geometry);
+        }
+    }
+
+    return bestSample;
+}
+
 FloorSample queryFloorLevel(
     const OutdoorMapData &outdoorMapData,
     const std::vector<OutdoorFaceGeometryData> &faces,
@@ -1366,7 +1501,8 @@ FloorSample queryFloorLevel(
     float x,
     float y,
     float z,
-    FloorSupportMode supportMode)
+    FloorSupportMode supportMode,
+    bool retainBModelEdgeSupport = false)
 {
     const uint8_t terrainFlags = sampleOutdoorTerrainTileAttributes(outdoorMapData, x, y);
     const FloorSample terrainSample = {
@@ -1441,13 +1577,38 @@ FloorSample queryFloorLevel(
                 queryPreferredSupportFloor(faces, *preferredState, bodyRadius, maxFloorRise, x, y, z);
 
             if (preferredSample
-                && preferredSample->height >= bestSample.height
+                && preferredSupportCanWin(
+                    *preferredState,
+                    *preferredSample,
+                    bestSample,
+                    retainBModelEdgeSupport,
+                    x,
+                    y,
+                    z)
                 && preferredSample->height <= z + maxFloorRise
                 && (supportMode != FloorSupportMode::ActorConditionalBModels
                     || z - GroundSnapHeight + CollisionEpsilon >= preferredSample->height))
             {
                 bestSample = *preferredSample;
             }
+        }
+
+        const std::optional<FloorSample> footprintSample = preferredState
+            ? queryBModelFootprintSupportFloor(
+                faces,
+                pCandidateFaceIndices,
+                *preferredState,
+                bodyRadius,
+                maxFloorRise,
+                x,
+                y,
+                z,
+                retainBModelEdgeSupport)
+            : std::nullopt;
+
+        if (footprintSample && footprintSample->height >= bestSample.height)
+        {
+            bestSample = *footprintSample;
         }
 
         return bestSample;
@@ -1466,13 +1627,38 @@ FloorSample queryFloorLevel(
             queryPreferredSupportFloor(faces, *preferredState, bodyRadius, maxFloorRise, x, y, z);
 
         if (preferredSample
-            && preferredSample->height >= bestSample.height
+            && preferredSupportCanWin(
+                *preferredState,
+                *preferredSample,
+                bestSample,
+                retainBModelEdgeSupport,
+                x,
+                y,
+                z)
             && preferredSample->height <= z + maxFloorRise
             && (supportMode != FloorSupportMode::ActorConditionalBModels
                 || z - GroundSnapHeight + CollisionEpsilon >= preferredSample->height))
         {
             bestSample = *preferredSample;
         }
+    }
+
+    const std::optional<FloorSample> footprintSample = preferredState
+        ? queryBModelFootprintSupportFloor(
+            faces,
+            nullptr,
+            *preferredState,
+            bodyRadius,
+            maxFloorRise,
+            x,
+            y,
+            z,
+            retainBModelEdgeSupport)
+        : std::nullopt;
+
+    if (footprintSample && footprintSample->height >= bestSample.height)
+    {
+        bestSample = *footprintSample;
     }
 
     return bestSample;
@@ -1647,6 +1833,14 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
 {
     const float bodyRadius = std::max(1.0f, body.radius);
     const float bodyHeight = std::max(bodyRadius * 2.0f + 2.0f, body.height);
+    const bool retainBModelEdgeSupport =
+        !jumpRequested
+        && !flyUpRequested
+        && !flyDownRequested
+        && !flyingActive
+        && desiredVelocityX * desiredVelocityX + desiredVelocityY * desiredVelocityY
+            <= BModelEdgeSupportVelocitySlack * BModelEdgeSupportVelocitySlack
+        && std::fabs(desiredVelocityZ) <= BModelEdgeSupportVelocitySlack;
     std::vector<size_t> candidateFaceIndices;
     collectFaceCandidates(
         state.x - std::max(bodyRadius, FloorCheckSlack),
@@ -1665,11 +1859,19 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             state.x,
             state.y,
             state.footZ,
-            FloorSupportMode::IncludeBModels);
+            FloorSupportMode::IncludeBModels,
+            retainBModelEdgeSupport);
+    const OutdoorFaceGeometryData *pCurrentBModelGeometry = currentFloor.fromBModel
+        ? findFaceGeometry(currentFloor.bModelIndex, currentFloor.faceIndex)
+        : nullptr;
     const float currentGroundLevel = currentFloor.height + GroundSnapHeight;
     const bool partyAtHighSlope = !currentFloor.fromBModel && terrainSlopeTooHigh(*m_pOutdoorMapData, state.x, state.y);
     bool partyNotTouchingFloor = state.footZ > currentGroundLevel + GroundSnapHeight;
     const bool partyCloseToGround = state.footZ <= currentGroundLevel + CloseToGroundHeight;
+    const bool partyOnSteepBModel =
+        pCurrentBModelGeometry != nullptr
+        && isSteepBModelSlideFace(*pCurrentBModelGeometry)
+        && partyCloseToGround;
     const bool wasAirborne = state.airborne || partyNotTouchingFloor;
     float fallStartZ = state.fallStartZ;
 
@@ -1684,6 +1886,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
 
     bx::Vec3 partyNewPosition = {state.x, state.y, state.footZ};
     bx::Vec3 partyInputSpeed = {desiredVelocityX, desiredVelocityY, state.verticalVelocity};
+    bool slopeSlideActive = false;
 
     if (partyNewPosition.z < currentGroundLevel)
     {
@@ -1713,18 +1916,48 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         partyInputSpeed.z = jumpVelocity;
         partyNewPosition.z += jumpLift;
     }
-    else if (partyNotTouchingFloor)
+    else if (partyNotTouchingFloor && !partyOnSteepBModel)
     {
         partyInputSpeed.z -= GravityPerSecond * deltaSeconds;
     }
-    else if (!currentFloor.fromBModel && partyAtHighSlope)
+    else if ((!currentFloor.fromBModel && partyAtHighSlope) || partyOnSteepBModel)
     {
-        partyNewPosition.z = currentGroundLevel;
+        slopeSlideActive = true;
+        bx::Vec3 slopeNormal = {0.0f, 0.0f, 1.0f};
+        if (!currentFloor.fromBModel)
+        {
+            partyNewPosition.z = currentGroundLevel;
+            slopeNormal =
+                sampleOutdoorRenderedTerrainNormal(*m_pOutdoorMapData, partyNewPosition.x, partyNewPosition.y);
+        }
+        else
+        {
+            slopeNormal = pCurrentBModelGeometry->normal;
+        }
+        const float terrainDownhillLengthSquared =
+            slopeNormal.x * slopeNormal.x + slopeNormal.y * slopeNormal.y;
+
+        if (terrainDownhillLengthSquared > CollisionEpsilon * CollisionEpsilon)
+        {
+            const float downhillVelocity = partyInputSpeed.x * slopeNormal.x + partyInputSpeed.y * slopeNormal.y;
+
+            if (downhillVelocity < 0.0f)
+            {
+                partyInputSpeed.x -= slopeNormal.x * downhillVelocity / terrainDownhillLengthSquared;
+                partyInputSpeed.y -= slopeNormal.y * downhillVelocity / terrainDownhillLengthSquared;
+            }
+        }
+
+        partyInputSpeed.z -= GravityPerSecond * SlopeSlideGravityMultiplier * deltaSeconds;
+        const float normalVelocity = std::fabs(vecDot(partyInputSpeed, slopeNormal));
+        partyInputSpeed = vecAdd(partyInputSpeed, vecScale(slopeNormal, normalVelocity));
     }
 
+    std::optional<FloorSample> steppedBModelFloorSupport;
     const auto runCollisionPass =
         [this, deltaSeconds, &state, pContactedActorIndices, bodyRadius, bodyHeight, &ignoredActorCollider,
-            &candidateFaceIndices, partyCloseToGround, wasAirborne, flyingActive, waterWalkActive](
+            &candidateFaceIndices, partyCloseToGround, wasAirborne, flyingActive, waterWalkActive,
+            &steppedBModelFloorSupport, slopeSlideActive](
             bx::Vec3 &passPosition,
             bx::Vec3 &passInputSpeed,
             bool &passPartyNotOnModel)
@@ -1733,6 +1966,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         collisionState.radiusLo = bodyRadius;
         collisionState.radiusHi = bodyRadius;
         collisionState.checkHi = bodyRadius * 2.0f <= bodyHeight;
+        const float minMoveDistance =
+            slopeSlideActive ? SlopeSlideMinMoveDistance : CollisionMinMoveDistance;
 
         for (int attempt = 0; attempt < 5; ++attempt)
         {
@@ -1749,7 +1984,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             collisionState.positionLo = vecAdd(passPosition, bx::Vec3{0.0f, 0.0f, collisionState.radiusLo});
             collisionState.velocity = passInputSpeed;
 
-            if (prepareCollisionState(collisionState, deltaSeconds))
+            if (prepareCollisionState(collisionState, deltaSeconds, minMoveDistance))
             {
                 break;
             }
@@ -1864,15 +2099,17 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                     isOutdoorPositionWater(*m_pOutdoorMapData, m_outdoorLandMask, passPosition.x, newPosLow.y);
                 const bool allowWaterEntry =
                     wasAirborne || flyingActive || !partyCloseToGround || waterWalkActive || currentOnWater;
+                const float maxSteepTerrainAdvanceHeight =
+                    passPosition.z - GroundSnapHeight + CollisionEpsilon;
 
                 if (terrainSlopeTooHigh(*m_pOutdoorMapData, newPosLow.x, passPosition.y)
-                    && xAdvanceFloor.height > passPosition.z)
+                    && xAdvanceFloor.height > maxSteepTerrainAdvanceHeight)
                 {
                     moveInX = false;
                 }
 
                 if (terrainSlopeTooHigh(*m_pOutdoorMapData, passPosition.x, newPosLow.y)
-                    && yAdvanceFloor.height > passPosition.z)
+                    && yAdvanceFloor.height > maxSteepTerrainAdvanceHeight)
                 {
                     moveInY = false;
                 }
@@ -1901,7 +2138,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                     passPosition.y = newPosLow.y;
                 }
                 else if (terrainSlopeTooHigh(*m_pOutdoorMapData, newPosLow.x, newPosLow.y)
-                    && allNewFloor.height <= passPosition.z)
+                    && allNewFloor.height <= maxSteepTerrainAdvanceHeight)
                 {
                     passPosition.x = newPosLow.x;
                     passPosition.y = newPosLow.y;
@@ -2068,6 +2305,16 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                     if (floorRise > 0.0f && floorRise < 128.0f)
                     {
                         passPosition.z = hit.floorHeight;
+                        steppedBModelFloorSupport = FloorSample{
+                            true,
+                            hit.floorHeight,
+                            std::fabs(pGeometry->normal.z),
+                            true,
+                            hasFaceAttribute(pGeometry->attributes, FaceAttribute::Fluid),
+                            false,
+                            pGeometry->bModelIndex,
+                            pGeometry->faceIndex
+                        };
                     }
                 }
             }
@@ -2101,7 +2348,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         partyNewPosition.x + std::max(bodyRadius, FloorCheckSlack),
         partyNewPosition.y + std::max(bodyRadius, FloorCheckSlack),
         candidateFaceIndices);
-    const FloorSample finalFloor = queryFloorLevel(
+    FloorSample finalFloor = queryFloorLevel(
         *m_pOutdoorMapData,
         m_faces,
         state,
@@ -2111,10 +2358,18 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         partyNewPosition.x,
         partyNewPosition.y,
         partyNewPosition.z,
-        FloorSupportMode::IncludeBModels);
+        FloorSupportMode::IncludeBModels,
+        retainBModelEdgeSupport);
+
+    if (retainBModelEdgeSupport
+        && steppedBModelFloorSupport
+        && steppedBModelFloorSupport->height >= finalFloor.height
+        && partyNewPosition.z <= steppedBModelFloorSupport->height + GroundSnapHeight)
+    {
+        finalFloor = *steppedBModelFloorSupport;
+    }
+
     const float finalGroundLevel = finalFloor.height + GroundSnapHeight;
-    const bool requestedHorizontalMove =
-        desiredVelocityX * desiredVelocityX + desiredVelocityY * desiredVelocityY > CollisionEpsilon * CollisionEpsilon;
     bool landedThisFrame = false;
     float fallDistance = 0.0f;
 
@@ -2122,17 +2377,6 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     {
         landedThisFrame = wasAirborne && partyInputSpeed.z <= 0.0f;
         fallDistance = std::max(0.0f, fallStartZ - finalGroundLevel);
-        partyNewPosition.z = finalGroundLevel;
-        partyInputSpeed.z = 0.0f;
-    }
-    else if (!flyingActive
-        && !jumpRequested
-        && partyInputSpeed.z <= 0.0f
-        && (!requestedHorizontalMove || partyNewPosition.z <= state.footZ)
-        && partyNewPosition.z <= finalGroundLevel + CloseToGroundHeight)
-    {
-        landedThisFrame = wasAirborne;
-        fallDistance = landedThisFrame ? std::max(0.0f, fallStartZ - finalGroundLevel) : 0.0f;
         partyNewPosition.z = finalGroundLevel;
         partyInputSpeed.z = 0.0f;
     }

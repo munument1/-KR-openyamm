@@ -1036,8 +1036,17 @@ bool GameplayUiRuntime::isOpaqueHudPixelAtPoint(const GameplayRenderedInspectabl
         return true;
     }
 
-    const float normalizedX = std::clamp((x - item.x) / item.width, 0.0f, 0.999999f);
-    const float normalizedY = std::clamp((y - item.y) / item.height, 0.0f, 0.999999f);
+    float normalizedX = std::clamp((x - item.x) / item.width, 0.0f, 0.999999f);
+    float normalizedY = std::clamp((y - item.y) / item.height, 0.0f, 0.999999f);
+
+    if (item.rotatedCounterClockwise)
+    {
+        const float rotatedX = std::clamp(1.0f - ((y - item.y) / item.height), 0.0f, 0.999999f);
+        const float rotatedY = normalizedX;
+        normalizedX = rotatedX;
+        normalizedY = rotatedY;
+    }
+
     const int pixelX = std::clamp(int(normalizedX * textureWidth), 0, textureWidth - 1);
     const int pixelY = std::clamp(int(normalizedY * textureHeight), 0, textureHeight - 1);
     const size_t pixelOffset =
@@ -1122,6 +1131,7 @@ void GameplayUiRuntime::prepareHudView(int width, int height) const
         0.0f,
         bgfx::getCaps()->homogeneousDepth);
     bgfx::setViewRect(m_hudRenderBackend.viewId, 0, 0, static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    bgfx::setViewMode(m_hudRenderBackend.viewId, bgfx::ViewMode::Sequential);
     bgfx::setViewTransform(m_hudRenderBackend.viewId, nullptr, projectionMatrix);
     bgfx::touch(m_hudRenderBackend.viewId);
 }
@@ -1173,6 +1183,73 @@ void GameplayUiRuntime::submitHudTexturedQuad(
     pVertices[1] = {x + quadWidth, y, 0.0f, u1, v0};
     pVertices[2] = {x + quadWidth, y + quadHeight, 0.0f, u1, v1};
     pVertices[3] = {x, y + quadHeight, 0.0f, u0, v1};
+
+    uint16_t *pIndices = reinterpret_cast<uint16_t *>(indexBuffer.data);
+    pIndices[0] = 0;
+    pIndices[1] = 1;
+    pIndices[2] = 2;
+    pIndices[3] = 0;
+    pIndices[4] = 2;
+    pIndices[5] = 3;
+
+    float modelMatrix[16] = {};
+    bx::mtxIdentity(modelMatrix);
+    bgfx::setTransform(modelMatrix);
+    bgfx::setVertexBuffer(0, &vertexBuffer);
+    bgfx::setIndexBuffer(&indexBuffer);
+    bindTexture(
+        0,
+        m_hudRenderBackend.textureSamplerHandle,
+        textureHandle,
+        filterProfile,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA);
+    bgfx::submit(m_hudRenderBackend.viewId, m_hudRenderBackend.texturedProgramHandle);
+}
+
+void GameplayUiRuntime::submitHudTexturedQuadRotatedCounterClockwise(
+    bgfx::TextureHandle textureHandle,
+    float x,
+    float y,
+    float quadWidth,
+    float quadHeight,
+    TextureFilterProfile filterProfile) const
+{
+    if (!hasHudRenderResources()
+        || !bgfx::isValid(textureHandle)
+        || quadWidth <= 0.0f
+        || quadHeight <= 0.0f)
+    {
+        return;
+    }
+
+    bgfx::TransientVertexBuffer vertexBuffer = {};
+    bgfx::TransientIndexBuffer indexBuffer = {};
+
+    if (!bgfx::allocTransientBuffers(
+            &vertexBuffer,
+            gameplayHudQuadVertexLayout(),
+            4,
+            &indexBuffer,
+            6))
+    {
+        return;
+    }
+
+    struct HudQuadVertex
+    {
+        float x;
+        float y;
+        float z;
+        float u;
+        float v;
+    };
+
+    HudQuadVertex *pVertices = reinterpret_cast<HudQuadVertex *>(vertexBuffer.data);
+    pVertices[0] = {x, y, 0.0f, 1.0f, 0.0f};
+    pVertices[1] = {x + quadWidth, y, 0.0f, 1.0f, 1.0f};
+    pVertices[2] = {x + quadWidth, y + quadHeight, 0.0f, 0.0f, 1.0f};
+    pVertices[3] = {x, y + quadHeight, 0.0f, 0.0f, 0.0f};
 
     uint16_t *pIndices = reinterpret_cast<uint16_t *>(indexBuffer.data);
     pIndices[0] = 0;

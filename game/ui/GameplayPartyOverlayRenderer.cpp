@@ -1860,47 +1860,6 @@ std::optional<EquipmentSlot> characterEquipmentSlotForLayoutId(const std::string
     return std::nullopt;
 }
 
-const char *equipmentSlotName(EquipmentSlot slot)
-{
-    switch (slot)
-    {
-        case EquipmentSlot::OffHand:
-            return "OffHand";
-        case EquipmentSlot::MainHand:
-            return "MainHand";
-        case EquipmentSlot::Bow:
-            return "Bow";
-        case EquipmentSlot::Armor:
-            return "Armor";
-        case EquipmentSlot::Helm:
-            return "Helm";
-        case EquipmentSlot::Belt:
-            return "Belt";
-        case EquipmentSlot::Cloak:
-            return "Cloak";
-        case EquipmentSlot::Gauntlets:
-            return "Gauntlets";
-        case EquipmentSlot::Boots:
-            return "Boots";
-        case EquipmentSlot::Amulet:
-            return "Amulet";
-        case EquipmentSlot::Ring1:
-            return "Ring1";
-        case EquipmentSlot::Ring2:
-            return "Ring2";
-        case EquipmentSlot::Ring3:
-            return "Ring3";
-        case EquipmentSlot::Ring4:
-            return "Ring4";
-        case EquipmentSlot::Ring5:
-            return "Ring5";
-        case EquipmentSlot::Ring6:
-            return "Ring6";
-    }
-
-    return "Unknown";
-}
-
 void logCharacterEquipmentRender(
     const std::string &renderKey,
     const std::string &parentId,
@@ -7520,9 +7479,13 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             ? context.characterDollTable()->getDollType(pCharacterDollEntry->dollTypeId)
             : nullptr;
     const ItemDefinition *pMainHandItem =
-        pCharacter != nullptr && context.itemTable() != nullptr ? context.itemTable()->get(pCharacter->equipment.mainHand) : nullptr;
+        pCharacter != nullptr && context.itemTable() != nullptr
+            ? context.itemTable()->get(pCharacter->equipment.mainHand)
+            : nullptr;
     const ItemDefinition *pOffHandItem =
-        pCharacter != nullptr && context.itemTable() != nullptr ? context.itemTable()->get(pCharacter->equipment.offHand) : nullptr;
+        pCharacter != nullptr && context.itemTable() != nullptr
+            ? context.itemTable()->get(pCharacter->equipment.offHand)
+            : nullptr;
     SkillMastery spearMastery = SkillMastery::None;
 
     if (pCharacter != nullptr)
@@ -7539,6 +7502,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         pMainHandItem != nullptr
         && (pMainHandItem->equipStat == "Weapon2"
             || (canonicalSkillName(pMainHandItem->skillGroup) == "Spear" && spearMastery < SkillMastery::Master));
+    const bool offHandWeaponGripAbove =
+        pOffHandItem != nullptr && pOffHandItem->equipStat != "Shield";
     const auto submitCharacterDollLayer =
         [&context](
             const UiLayoutManager::LayoutElement &layout,
@@ -7822,6 +7787,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
     for (const std::string &layoutId : orderedCharacterLayoutIds)
     {
         const UiLayoutManager::LayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+        const std::optional<EquipmentSlot> candidateSlot =
+            pLayout != nullptr ? characterEquipmentSlotForLayoutId(pLayout->id) : std::nullopt;
 
         if (pLayout == nullptr
             || !hasVisibleCharacterAncestors(*pLayout)
@@ -7924,21 +7891,19 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         {
             if (pOffHandItem != nullptr)
             {
-                submitCharacterDollLayer(
-                    *pLayout,
-                    *resolved,
-                    pCharacterDollEntry->leftHandHoldAsset,
-                    pCharacterDollType->leftHandOpenX,
-                    pCharacterDollType->leftHandOpenY);
+                if (pOffHandItem->equipStat == "Shield")
+                {
+                    submitCharacterDollLayer(
+                        *pLayout,
+                        *resolved,
+                        pCharacterDollEntry->leftHandClosedAsset,
+                        pCharacterDollType->leftHandClosedX,
+                        pCharacterDollType->leftHandClosedY);
+                }
             }
             else if (leftHandDisabled)
             {
-                submitCharacterDollLayer(
-                    *pLayout,
-                    *resolved,
-                    pCharacterDollEntry->leftHandClosedAsset,
-                    pCharacterDollType->leftHandClosedX,
-                    pCharacterDollType->leftHandClosedY);
+                continue;
             }
             else
             {
@@ -7957,14 +7922,28 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             && !characterScreen.dollJewelryOverlayOpen
             && pCharacterDollEntry != nullptr
             && pCharacterDollType != nullptr
-            && pMainHandItem != nullptr)
+            && (pMainHandItem != nullptr || offHandWeaponGripAbove))
         {
-            submitCharacterDollLayer(
-                *pLayout,
-                *resolved,
-                pCharacterDollEntry->rightHandFingersAsset,
-                pCharacterDollType->rightHandFingersX,
-                pCharacterDollType->rightHandFingersY);
+            if (pMainHandItem != nullptr)
+            {
+                submitCharacterDollLayer(
+                    *pLayout,
+                    *resolved,
+                    pCharacterDollEntry->rightHandFingersAsset,
+                    pCharacterDollType->rightHandFingersX,
+                    pCharacterDollType->rightHandFingersY);
+            }
+
+            if (leftHandDisabled || offHandWeaponGripAbove)
+            {
+                submitCharacterDollLayer(
+                    *pLayout,
+                    *resolved,
+                    pCharacterDollEntry->leftHandHoldAsset,
+                    pCharacterDollType->leftHandOpenX,
+                    pCharacterDollType->leftHandOpenY);
+            }
+
             continue;
         }
 
@@ -8017,7 +7996,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             }
         }
 
-        const std::optional<EquipmentSlot> slot = characterEquipmentSlotForLayoutId(pLayout->id);
+        const std::optional<EquipmentSlot> slot = candidateSlot;
 
         if (slot.has_value() && pCharacter != nullptr && isVisibleInCharacterDollOverlay(*slot, characterScreen.dollJewelryOverlayOpen))
         {
@@ -8040,6 +8019,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                             *pLayout,
                             *pItemDefinition,
                             *itemTexture,
+                            pCharacterDollEntry,
                             pCharacterDollType,
                             *slot,
                             width,
@@ -8047,12 +8027,27 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
                     if (iconRect.has_value())
                     {
-                        context.submitHudTexturedQuad(
-                            *itemTexture,
-                            iconRect->x,
-                            iconRect->y,
-                            iconRect->width,
-                            iconRect->height);
+                        const bool rotatedCounterClockwise =
+                            *slot == EquipmentSlot::OffHand && pItemDefinition->equipStat != "Shield";
+
+                        if (rotatedCounterClockwise)
+                        {
+                            context.submitHudTexturedQuadRotatedCounterClockwise(
+                                *itemTexture,
+                                iconRect->x,
+                                iconRect->y,
+                                iconRect->width,
+                                iconRect->height);
+                        }
+                        else
+                        {
+                            context.submitHudTexturedQuad(
+                                *itemTexture,
+                                iconRect->x,
+                                iconRect->y,
+                                iconRect->width,
+                                iconRect->height);
+                        }
 
                         const bool equipmentSlotInteractive =
                             !characterScreen.dollJewelryOverlayOpen || isJewelryOverlayEquipmentSlot(*slot);
@@ -8078,6 +8073,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                             inspectableItem.y = iconRect->y;
                             inspectableItem.width = iconRect->width;
                             inspectableItem.height = iconRect->height;
+                            inspectableItem.rotatedCounterClockwise = rotatedCounterClockwise;
                             context.addRenderedInspectableHudItem(inspectableItem);
                         }
                     }

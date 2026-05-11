@@ -412,6 +412,7 @@ public:
         const UiLayoutManager::LayoutElement &layout,
         const ItemDefinition &itemDefinition,
         const GameplayHudTextureHandle &texture,
+        const CharacterDollEntry *pCharacterDollEntry,
         const CharacterDollTypeEntry *pCharacterDollType,
         EquipmentSlot slot,
         int screenWidth,
@@ -426,6 +427,12 @@ public:
         float v0,
         float u1,
         float v1) const;
+    void submitHudTexturedQuadRotatedCounterClockwise(
+        const HudTextureHandle &texture,
+        float x,
+        float y,
+        float quadWidth,
+        float quadHeight) const;
     bool renderHouseVideoFrame(float x, float y, float quadWidth, float quadHeight) const;
 
 private:

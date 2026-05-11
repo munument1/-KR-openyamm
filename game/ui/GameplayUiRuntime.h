@@ -153,6 +153,13 @@ public:
         float u1 = 1.0f,
         float v1 = 1.0f,
         TextureFilterProfile filterProfile = TextureFilterProfile::Ui) const;
+    void submitHudTexturedQuadRotatedCounterClockwise(
+        bgfx::TextureHandle textureHandle,
+        float x,
+        float y,
+        float quadWidth,
+        float quadHeight,
+        TextureFilterProfile filterProfile = TextureFilterProfile::Ui) const;
     void submitHudQuadBatch(
         const std::vector<GameplayHudBatchQuad> &quads,
         int screenWidth,

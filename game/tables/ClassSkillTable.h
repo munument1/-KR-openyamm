@@ -48,6 +48,7 @@ public:
     std::vector<CharacterSkill> getDefaultSkillsForCharacter(const std::string &className, uint32_t raceId) const;
     std::optional<uint32_t> classIdForName(const std::string &className) const;
     std::optional<std::string> classNameForId(uint32_t classId) const;
+    bool classIdIsAtLeast(uint32_t currentClassId, uint32_t minimumClassId) const;
     bool hasClass(const std::string &className) const;
 
 private:

@@ -63,6 +63,7 @@ bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z);
 bx::Vec3 outdoorBModelVertexToWorld(const OutdoorBModelVertex &vertex);
 float sampleOutdoorTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y);
 float sampleOutdoorRenderedTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y);
+bx::Vec3 sampleOutdoorRenderedTerrainNormal(const OutdoorMapData &outdoorMapData, float x, float y);
 float sampleOutdoorTerrainNormalZ(const OutdoorMapData &outdoorMapData, float x, float y);
 bool outdoorTerrainSlopeTooHigh(const OutdoorMapData &outdoorMapData, float x, float y);
 uint8_t sampleOutdoorTerrainTileAttributes(const OutdoorMapData &outdoorMapData, float x, float y);

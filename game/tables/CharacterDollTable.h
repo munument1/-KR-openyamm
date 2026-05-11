@@ -38,6 +38,11 @@ struct CharacterDollTypeEntry
     int bowOffsetY = 0;
     int shieldX = 0;
     int shieldY = 0;
+
+    int mainHandWeaponAnchorX() const;
+    int mainHandWeaponAnchorY() const;
+    int offHandWeaponAnchorX() const;
+    int offHandWeaponAnchorY() const;
 };
 
 struct CharacterDollEntry

@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
 #include <limits>
 #include <optional>
 #include <unordered_map>
@@ -640,47 +639,6 @@ uint32_t equippedItemId(const CharacterEquipment &equipment, EquipmentSlot slot)
     }
 
     return 0;
-}
-
-const char *equipmentSlotName(EquipmentSlot slot)
-{
-    switch (slot)
-    {
-    case EquipmentSlot::OffHand:
-        return "OffHand";
-    case EquipmentSlot::MainHand:
-        return "MainHand";
-    case EquipmentSlot::Bow:
-        return "Bow";
-    case EquipmentSlot::Armor:
-        return "Armor";
-    case EquipmentSlot::Helm:
-        return "Helm";
-    case EquipmentSlot::Belt:
-        return "Belt";
-    case EquipmentSlot::Cloak:
-        return "Cloak";
-    case EquipmentSlot::Gauntlets:
-        return "Gauntlets";
-    case EquipmentSlot::Boots:
-        return "Boots";
-    case EquipmentSlot::Amulet:
-        return "Amulet";
-    case EquipmentSlot::Ring1:
-        return "Ring1";
-    case EquipmentSlot::Ring2:
-        return "Ring2";
-    case EquipmentSlot::Ring3:
-        return "Ring3";
-    case EquipmentSlot::Ring4:
-        return "Ring4";
-    case EquipmentSlot::Ring5:
-        return "Ring5";
-    case EquipmentSlot::Ring6:
-        return "Ring6";
-    }
-
-    return "Unknown";
 }
 
 template <typename Target, typename ResolveTargetFn, typename ActivateTargetFn>
@@ -1807,6 +1765,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
          pParty,
          isReadOnlyAdventurersInnView,
          pActiveCharacter,
+         pActiveCharacterDollEntry,
          pActiveCharacterDollType,
          &resolveCharacterInventoryGrid](float pointerX, float pointerY) -> GameplayCharacterPointerTarget
         {
@@ -2217,6 +2176,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                             *pLayout,
                             *pItemDefinition,
                             *texture,
+                            pActiveCharacterDollEntry,
                             pActiveCharacterDollType,
                             target.slot,
                             screenWidth,
@@ -2511,6 +2471,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
         noneCharacterTarget,
         findCharacterPointerTarget,
         [&context,
+         pActiveCharacterDollEntry,
          pActiveCharacterDollType,
          pActiveCharacter,
          pParty,

@@ -533,11 +533,19 @@ std::optional<size_t> singleTargetMemberIndex(const std::vector<size_t> &targetM
     return std::nullopt;
 }
 
-bool classIdMatchesPromotionFamily(int32_t currentClassId, int32_t compareClassId)
+bool classIdMatchesPromotionFamily(const Party *pParty, int32_t currentClassId, int32_t compareClassId)
 {
     if (currentClassId == compareClassId)
     {
         return true;
+    }
+
+    const ClassSkillTable *pClassSkillTable = pParty != nullptr ? pParty->classSkillTable() : nullptr;
+    if (pClassSkillTable != nullptr && currentClassId >= 0 && compareClassId >= 0)
+    {
+        return pClassSkillTable->classIdIsAtLeast(
+            static_cast<uint32_t>(currentClassId),
+            static_cast<uint32_t>(compareClassId));
     }
 
     return compareClassId >= 0
@@ -1293,6 +1301,12 @@ bool characterMeetsSkillCheck(
     const SkillMastery mastery = normalizeCheckSkillMastery(rawMastery);
     return pSkill->mastery >= mastery
         && characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+}
+
+bool characterHasLearnedSkill(const Character &member, const std::string &skillName)
+{
+    const CharacterSkill *pSkill = member.findSkill(skillName);
+    return pSkill != nullptr && pSkill->level > 0 && pSkill->mastery != SkillMastery::None;
 }
 
 SkillMastery normalizeCheckSkillMastery(uint32_t rawMastery)
@@ -2179,7 +2193,7 @@ int32_t EventRuntime::getVariableValue(
             return 0;
         }
 
-        const std::optional<uint32_t> classId = mm8ClassIdForClassName(pMember->className);
+        const std::optional<uint32_t> classId = tableBackedClassIdForName(pParty, pMember->className);
         return classId ? static_cast<int32_t>(*classId) : 0;
     }
 
@@ -2690,7 +2704,8 @@ void EventRuntime::setVariableValue(
             return;
         }
 
-        const std::optional<std::string> className = classNameForMm8ClassId(static_cast<uint32_t>(value));
+        const std::optional<std::string> className =
+            tableBackedClassNameForId(pParty, static_cast<uint32_t>(value));
 
         if (!className)
         {
@@ -2980,6 +2995,7 @@ void EventRuntime::setVariableValue(
         const uint16_t joinedValue = static_cast<uint16_t>(std::max(0, value));
         const uint32_t level = joinedValue & 0x3Fu;
         const SkillMastery mastery = masteryFromJoinedValue(joinedValue);
+        std::vector<size_t> learnedMemberIndices;
 
         for (size_t targetMemberIndex : targetMemberIndices)
         {
@@ -3000,14 +3016,24 @@ void EventRuntime::setVariableValue(
                 continue;
             }
 
+            const bool hadLearnedSkill = characterHasLearnedSkill(*pMember, *skillName);
             CharacterSkill &skill = pMember->skills[*skillName];
             skill.name = *skillName;
             skill.level = level;
             skill.mastery = mastery;
+            if (!hadLearnedSkill)
+            {
+                learnedMemberIndices.push_back(targetMemberIndex);
+            }
             GameMechanics::refreshCharacterBaseResources(
                 *pMember,
                 false,
                 pParty != nullptr ? pParty->classMultiplierTable() : nullptr);
+        }
+
+        if (!learnedMemberIndices.empty())
+        {
+            queuePortraitFxRequest(runtimeState, PortraitFxEventKind::QuestComplete, pParty, learnedMemberIndices);
         }
 
         return;
@@ -3656,6 +3682,7 @@ void EventRuntime::addVariableValue(
                 continue;
             }
 
+            const bool hadLearnedSkill = characterHasLearnedSkill(*pMember, *skillName);
             CharacterSkill &skill = pMember->skills[*skillName];
             skill.name = *skillName;
             skill.level = std::max(0, static_cast<int>(skill.level) + value);
@@ -3668,6 +3695,11 @@ void EventRuntime::addVariableValue(
             else if (skill.mastery == SkillMastery::None)
             {
                 skill.mastery = SkillMastery::Normal;
+            }
+
+            if (!hadLearnedSkill && characterHasLearnedSkill(*pMember, *skillName))
+            {
+                queuePortraitFxRequest(runtimeState, PortraitFxEventKind::QuestComplete, pParty, {targetMemberIndex});
             }
 
             GameMechanics::refreshCharacterBaseResources(
@@ -8773,7 +8805,7 @@ bool evaluateCompareValue(
     {
         if (targetMemberIndices.empty())
         {
-            return classIdMatchesPromotionFamily(currentValue, compareValue);
+            return classIdMatchesPromotionFamily(pParty, currentValue, compareValue);
         }
 
         for (size_t targetMemberIndex : targetMemberIndices)
@@ -8781,7 +8813,7 @@ bool evaluateCompareValue(
             const int32_t targetValue =
                 EventRuntime::getVariableValue(runtimeState, variable, pParty, targetMemberIndex);
 
-            if (classIdMatchesPromotionFamily(targetValue, compareValue))
+            if (classIdMatchesPromotionFamily(pParty, targetValue, compareValue))
             {
                 return true;
             }
