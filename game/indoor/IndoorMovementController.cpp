@@ -1311,6 +1311,11 @@ IndoorMoveState IndoorMovementController::resolveMove(
             {candidateX, candidateY, resolvedEyeZ},
             &geometryCache,
             false);
+        if (!eyeSectorId)
+        {
+            return false;
+        }
+
         const std::optional<int16_t> floorSectorId =
             floor.hasFloor && floor.sectorId >= 0 ? std::optional<int16_t>(floor.sectorId) : std::nullopt;
         const std::optional<int16_t> fallbackSectorId =
@@ -1357,7 +1362,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
         candidateState.footZ = resolvedFootZ;
         candidateState.verticalVelocity = resolvedVerticalVelocity;
         candidateState.sectorId = floor.hasFloor ? floor.sectorId : eyeSectorId.value_or(state.sectorId);
-        candidateState.eyeSectorId = eyeSectorId.value_or(candidateState.sectorId);
+        candidateState.eyeSectorId = *eyeSectorId;
         candidateState.supportFaceIndex = floor.hasFloor ? floor.faceIndex : static_cast<size_t>(-1);
         candidateState.grounded = resolvedGrounded;
 
@@ -1670,6 +1675,13 @@ IndoorMoveState IndoorMovementController::resolveMove(
                 continue;
             }
 
+            if (iterativeState.grounded
+                && pFace->kind == IndoorFaceKind::Floor
+                && pFace->faceIndex == iterativeState.supportFaceIndex)
+            {
+                continue;
+            }
+
             responseFaceCandidates.push_back(pFace);
         }
 
@@ -1884,7 +1896,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
             const float stepDelta = stepFloorZ - iterativeState.footZ;
 
             if (pNearestHitGeometry->normal.z >= MaximumUphillSlopeNormalZ
-                && stepDelta > GroundSnapSlack
+                && stepDelta >= GroundSnapSlack
                 && stepDelta < MaximumStepUpFromCurrentFootZ)
             {
                 advancedState.footZ = stepFloorZ;
@@ -1894,6 +1906,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
                 advancedState.sectorId = static_cast<int16_t>(pNearestHitGeometry->sectorId);
                 advancedState.eyeSectorId = advancedState.sectorId;
                 iterativeVerticalVelocity = 0.0f;
+                nearestHit->normal = pNearestHitGeometry->normal;
             }
         }
 

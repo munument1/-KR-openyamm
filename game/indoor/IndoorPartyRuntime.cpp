@@ -220,6 +220,7 @@ void IndoorPartyRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
     m_alwaysRunEnabled = snapshot.alwaysRunEnabled;
+    m_movementController.invalidateRuntimeGeometryCache();
 }
 
 void IndoorPartyRuntime::setMovementSpeedMultiplier(float multiplier)

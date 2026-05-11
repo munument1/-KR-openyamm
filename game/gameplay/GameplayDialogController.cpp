@@ -1125,11 +1125,6 @@ void applyMapTransitionTravelSideEffects(
         context.pScreenRuntime->stopAllAudioPlayback();
     }
 
-    if (context.pWorldRuntime != nullptr)
-    {
-        context.pWorldRuntime->requestTravelAutosave();
-    }
-
     if (context.pWorldRuntime != nullptr && transition.travelDays > 0)
     {
         const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
@@ -1779,11 +1774,6 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.pScreenRuntime->stopAllAudioPlayback();
             }
 
-            if (context.pWorldRuntime != nullptr)
-            {
-                context.pWorldRuntime->requestTravelAutosave();
-            }
-
             context.eventRuntimeState.pendingMapMove =
                 *context.eventRuntimeState.pendingDialogueContext->transitionMapMove;
             result.shouldCloseActiveDialog = false;
@@ -1893,11 +1883,6 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             if (context.pScreenRuntime != nullptr)
             {
                 context.pScreenRuntime->stopAllAudioPlayback();
-            }
-
-            if (context.pWorldRuntime != nullptr)
-            {
-                context.pWorldRuntime->requestTravelAutosave();
             }
 
             GAMEPLAY_DEBUG_TRACE(

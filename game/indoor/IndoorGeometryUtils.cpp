@@ -569,6 +569,189 @@ IndoorFaceGeometryCache::IndoorFaceGeometryCache(size_t faceCount)
     reset(faceCount);
 }
 
+namespace
+{
+float indoorDotProduct(const bx::Vec3 &left, const bx::Vec3 &right)
+{
+    return left.x * right.x + left.y * right.y + left.z * right.z;
+}
+
+bool indoorSegmentMayTouchFaceBounds(
+    const bx::Vec3 &segmentStart,
+    const bx::Vec3 &segmentEnd,
+    const IndoorFaceGeometryData &geometry,
+    float padding)
+{
+    return std::max(segmentStart.x, segmentEnd.x) + padding >= geometry.minX
+        && std::min(segmentStart.x, segmentEnd.x) - padding <= geometry.maxX
+        && std::max(segmentStart.y, segmentEnd.y) + padding >= geometry.minY
+        && std::min(segmentStart.y, segmentEnd.y) - padding <= geometry.maxY
+        && std::max(segmentStart.z, segmentEnd.z) + padding >= geometry.minZ
+        && std::min(segmentStart.z, segmentEnd.z) - padding <= geometry.maxZ;
+}
+
+bool indoorPortalFacesRaySource(
+    const IndoorFaceGeometryData &geometry,
+    const bx::Vec3 &raySource,
+    int16_t currentSectorId)
+{
+    if (geometry.vertices.empty() || indoorSectorBehindPortal(geometry, currentSectorId) < 0)
+    {
+        return false;
+    }
+
+    const bx::Vec3 planeDelta = {
+        geometry.vertices.front().x - raySource.x,
+        geometry.vertices.front().y - raySource.y,
+        geometry.vertices.front().z - raySource.z
+    };
+    float facingDot = indoorDotProduct(geometry.normal, planeDelta);
+
+    if (currentSectorId != static_cast<int16_t>(geometry.sectorId))
+    {
+        facingDot = -facingDot;
+    }
+
+    return facingDot < 0.0f;
+}
+}
+
+int16_t indoorSectorBehindPortal(const IndoorFaceGeometryData &geometry, int16_t currentSectorId)
+{
+    if (geometry.sectorId == currentSectorId)
+    {
+        return static_cast<int16_t>(geometry.backSectorId);
+    }
+
+    if (geometry.backSectorId == currentSectorId)
+    {
+        return static_cast<int16_t>(geometry.sectorId);
+    }
+
+    return -1;
+}
+
+IndoorPortalSectorTrace traceIndoorLineThroughPortalSectors(
+    const IndoorMapData &indoorMapData,
+    const std::vector<IndoorVertex> &vertices,
+    IndoorFaceGeometryCache &geometryCache,
+    const bx::Vec3 &start,
+    int16_t sourceSectorId,
+    const bx::Vec3 &end,
+    int16_t targetSectorId,
+    int portalLimit)
+{
+    constexpr float PlaneEpsilon = 0.0001f;
+    IndoorPortalSectorTrace trace = {};
+
+    const auto appendSectorId = [&trace, &indoorMapData](int16_t sectorId)
+    {
+        if (sectorId < 0
+            || static_cast<size_t>(sectorId) >= indoorMapData.sectors.size()
+            || std::find(trace.sectorIds.begin(), trace.sectorIds.end(), sectorId) != trace.sectorIds.end())
+        {
+            return;
+        }
+
+        trace.sectorIds.push_back(sectorId);
+    };
+
+    if (sourceSectorId < 0
+        || targetSectorId < 0
+        || static_cast<size_t>(sourceSectorId) >= indoorMapData.sectors.size()
+        || static_cast<size_t>(targetSectorId) >= indoorMapData.sectors.size())
+    {
+        return trace;
+    }
+
+    appendSectorId(sourceSectorId);
+
+    if (sourceSectorId == targetSectorId)
+    {
+        trace.reachedTargetSector = true;
+        return trace;
+    }
+
+    const bx::Vec3 segment = {end.x - start.x, end.y - start.y, end.z - start.z};
+    int16_t currentSectorId = sourceSectorId;
+
+    for (int portalStep = 0; portalStep < portalLimit; ++portalStep)
+    {
+        if (currentSectorId < 0 || static_cast<size_t>(currentSectorId) >= indoorMapData.sectors.size())
+        {
+            return trace;
+        }
+
+        const IndoorSector &sector = indoorMapData.sectors[currentSectorId];
+        int16_t nextSectorId = -1;
+
+        for (uint16_t faceId : sector.portalFaceIds)
+        {
+            const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(indoorMapData, vertices, faceId);
+
+            if (pGeometry == nullptr
+                || !pGeometry->hasPlane
+                || !pGeometry->isPortal
+                || !indoorPortalFacesRaySource(*pGeometry, start, currentSectorId)
+                || !indoorSegmentMayTouchFaceBounds(start, end, *pGeometry, 0.0f))
+            {
+                continue;
+            }
+
+            const float denominator = indoorDotProduct(segment, pGeometry->normal);
+
+            if (std::fabs(denominator) <= PlaneEpsilon)
+            {
+                continue;
+            }
+
+            const bx::Vec3 planeDelta = {
+                pGeometry->vertices.front().x - start.x,
+                pGeometry->vertices.front().y - start.y,
+                pGeometry->vertices.front().z - start.z
+            };
+            const float progress = indoorDotProduct(planeDelta, pGeometry->normal) / denominator;
+
+            if (progress < 0.0f || progress > 1.0f)
+            {
+                continue;
+            }
+
+            const bx::Vec3 portalPoint = {
+                start.x + segment.x * progress,
+                start.y + segment.y * progress,
+                start.z + segment.z * progress
+            };
+
+            if (!isPointInsideIndoorPolygonProjected(portalPoint, pGeometry->vertices, pGeometry->normal))
+            {
+                continue;
+            }
+
+            nextSectorId = indoorSectorBehindPortal(*pGeometry, currentSectorId);
+            break;
+        }
+
+        if (nextSectorId < 0 || nextSectorId == currentSectorId)
+        {
+            return trace;
+        }
+
+        appendSectorId(nextSectorId);
+
+        if (nextSectorId == targetSectorId)
+        {
+            trace.reachedTargetSector = true;
+            return trace;
+        }
+
+        currentSectorId = nextSectorId;
+    }
+
+    trace.reachedTargetSector = currentSectorId == targetSectorId;
+    return trace;
+}
+
 std::vector<std::vector<uint16_t>> buildNeighboringIndoorSectorIds(const IndoorMapData &indoorMapData)
 {
     const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(indoorMapData);

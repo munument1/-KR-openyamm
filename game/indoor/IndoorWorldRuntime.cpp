@@ -2071,8 +2071,6 @@ std::optional<IndoorProjectileCollisionCandidate> findProjectileIndoorFaceHit(
     return bestCollision;
 }
 
-int16_t sectorBehindPortal(const IndoorFaceGeometryData &geometry, int16_t currentSectorId);
-
 std::vector<size_t> collectIndoorCombatLineFaceCandidates(
     const IndoorMapData &indoorMapData,
     const std::vector<IndoorVertex> &vertices,
@@ -2082,7 +2080,6 @@ std::vector<size_t> collectIndoorCombatLineFaceCandidates(
     int16_t sourceSectorId,
     int16_t targetSectorId)
 {
-    constexpr float PlaneEpsilon = 0.0001f;
     std::vector<int16_t> sectorIds;
     const auto appendSectorId = [&sectorIds, &indoorMapData](int16_t sectorId)
     {
@@ -2099,79 +2096,21 @@ std::vector<size_t> collectIndoorCombatLineFaceCandidates(
     appendSectorId(sourceSectorId);
 
     const bx::Vec3 start = {segmentStart.x, segmentStart.y, segmentStart.z};
-    const bx::Vec3 segment = {
-        segmentEnd.x - segmentStart.x,
-        segmentEnd.y - segmentStart.y,
-        segmentEnd.z - segmentStart.z
-    };
-    int16_t currentSectorId = sourceSectorId;
+    const bx::Vec3 end = {segmentEnd.x, segmentEnd.y, segmentEnd.z};
+    const IndoorPortalSectorTrace portalTrace =
+        traceIndoorLineThroughPortalSectors(
+            indoorMapData,
+            vertices,
+            geometryCache,
+            start,
+            sourceSectorId,
+            end,
+            targetSectorId,
+            IndoorActorDetectPortalLimit);
 
-    for (int portalStep = 0;
-         portalStep < IndoorActorDetectPortalLimit && currentSectorId != targetSectorId;
-         ++portalStep)
+    for (int16_t sectorId : portalTrace.sectorIds)
     {
-        if (currentSectorId < 0 || static_cast<size_t>(currentSectorId) >= indoorMapData.sectors.size())
-        {
-            break;
-        }
-
-        const IndoorSector &sector = indoorMapData.sectors[currentSectorId];
-        int16_t nextSectorId = -1;
-
-        for (uint16_t faceId : sector.portalFaceIds)
-        {
-            const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(indoorMapData, vertices, faceId);
-
-            if (pGeometry == nullptr
-                || !pGeometry->hasPlane
-                || !pGeometry->isPortal
-                || sectorBehindPortal(*pGeometry, currentSectorId) < 0
-                || !indoorSegmentMayTouchFaceBounds(segmentStart, segmentEnd, *pGeometry, 0.0f))
-            {
-                continue;
-            }
-
-            const float denominator = dotProduct(segment, pGeometry->normal);
-
-            if (std::fabs(denominator) <= PlaneEpsilon)
-            {
-                continue;
-            }
-
-            const bx::Vec3 planeDelta = {
-                pGeometry->vertices.front().x - start.x,
-                pGeometry->vertices.front().y - start.y,
-                pGeometry->vertices.front().z - start.z
-            };
-            const float progress = dotProduct(planeDelta, pGeometry->normal) / denominator;
-
-            if (progress < 0.0f || progress > 1.0f)
-            {
-                continue;
-            }
-
-            const bx::Vec3 portalPoint = {
-                start.x + segment.x * progress,
-                start.y + segment.y * progress,
-                start.z + segment.z * progress
-            };
-
-            if (!isPointInsideIndoorPolygonProjected(portalPoint, pGeometry->vertices, pGeometry->normal))
-            {
-                continue;
-            }
-
-            nextSectorId = sectorBehindPortal(*pGeometry, currentSectorId);
-            break;
-        }
-
-        if (nextSectorId < 0 || nextSectorId == currentSectorId)
-        {
-            break;
-        }
-
-        appendSectorId(nextSectorId);
-        currentSectorId = nextSectorId;
+        appendSectorId(sectorId);
     }
 
     std::vector<size_t> faceIndices;
@@ -2639,21 +2578,6 @@ GameplayActorTargetPolicyState buildIndoorActorTargetPolicyState(
     return state;
 }
 
-int16_t sectorBehindPortal(const IndoorFaceGeometryData &geometry, int16_t currentSectorId)
-{
-    if (geometry.sectorId == currentSectorId)
-    {
-        return static_cast<int16_t>(geometry.backSectorId);
-    }
-
-    if (geometry.backSectorId == currentSectorId)
-    {
-        return static_cast<int16_t>(geometry.sectorId);
-    }
-
-    return -1;
-}
-
 bool indoorDetectBetweenObjects(
     const IndoorMapData &indoorMapData,
     const std::vector<IndoorVertex> &vertices,
@@ -2696,80 +2620,16 @@ bool indoorDetectBetweenObjects(
     }
 
     const bx::Vec3 start = {from.x, from.y, from.z};
-    const bx::Vec3 segment = {deltaX, deltaY, deltaZ};
-    int16_t currentSectorId = fromSectorId;
-
-    for (int portalStep = 0; portalStep < IndoorActorDetectPortalLimit; ++portalStep)
-    {
-        if (currentSectorId < 0 || static_cast<size_t>(currentSectorId) >= indoorMapData.sectors.size())
-        {
-            return false;
-        }
-
-        const IndoorSector &sector = indoorMapData.sectors[currentSectorId];
-        int16_t nextSectorId = -1;
-
-        for (uint16_t faceId : sector.portalFaceIds)
-        {
-            const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(indoorMapData, vertices, faceId);
-
-            if (pGeometry == nullptr
-                || !pGeometry->hasPlane
-                || !pGeometry->isPortal
-                || sectorBehindPortal(*pGeometry, currentSectorId) < 0
-                || !indoorSegmentMayTouchFaceBounds(from, to, *pGeometry, 0.0f))
-            {
-                continue;
-            }
-
-            const float denominator = dotProduct(segment, pGeometry->normal);
-
-            if (std::fabs(denominator) <= PlaneEpsilon)
-            {
-                continue;
-            }
-
-            const bx::Vec3 planeDelta = {
-                pGeometry->vertices.front().x - start.x,
-                pGeometry->vertices.front().y - start.y,
-                pGeometry->vertices.front().z - start.z
-            };
-            const float progress = dotProduct(planeDelta, pGeometry->normal) / denominator;
-
-            if (progress < 0.0f || progress > 1.0f)
-            {
-                continue;
-            }
-
-            const bx::Vec3 portalPoint = {
-                start.x + segment.x * progress,
-                start.y + segment.y * progress,
-                start.z + segment.z * progress
-            };
-
-            if (!isPointInsideIndoorPolygonProjected(portalPoint, pGeometry->vertices, pGeometry->normal))
-            {
-                continue;
-            }
-
-            nextSectorId = sectorBehindPortal(*pGeometry, currentSectorId);
-            break;
-        }
-
-        if (nextSectorId < 0 || nextSectorId == currentSectorId)
-        {
-            return false;
-        }
-
-        if (nextSectorId == toSectorId)
-        {
-            return true;
-        }
-
-        currentSectorId = nextSectorId;
-    }
-
-    return currentSectorId == toSectorId;
+    const bx::Vec3 end = {to.x, to.y, to.z};
+    return traceIndoorLineThroughPortalSectors(
+        indoorMapData,
+        vertices,
+        geometryCache,
+        start,
+        fromSectorId,
+        end,
+        toSectorId,
+        IndoorActorDetectPortalLimit).reachedTargetSector;
 }
 
 bool indoorActorUnavailableForCombat(
@@ -6844,10 +6704,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     const float deltaX = finalMoveState.x - oldX;
     const float deltaY = finalMoveState.y - oldY;
+    const float actualMoveDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
     const bool wantedHorizontalMove =
         std::abs(movementIntent.desiredMoveX) > 0.001f
         || std::abs(movementIntent.desiredMoveY) > 0.001f;
-    const bool movedHorizontally = std::abs(deltaX) > 0.001f || std::abs(deltaY) > 0.001f;
+    const bool movedHorizontally = actualMoveDistance > 0.001f;
 
     if (pDiagnostics != nullptr)
     {
@@ -7901,7 +7762,7 @@ GameplayWorldUiRenderState IndoorWorldRuntime::gameplayUiRenderState(int width, 
 
 bool IndoorWorldRuntime::requestTravelAutosave()
 {
-    return false;
+    return m_pGameplayView != nullptr && m_pGameplayView->requestTravelAutosave();
 }
 
 void IndoorWorldRuntime::cancelPendingMapTransition()

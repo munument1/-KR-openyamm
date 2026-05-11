@@ -759,6 +759,11 @@ bool sameMapFileName(const std::string &left, const std::string &right)
     return toLowerCopy(left) == toLowerCopy(right);
 }
 
+bool isAutosavePath(const std::filesystem::path &path)
+{
+    return toLowerCopy(path.stem().string()) == "autosave";
+}
+
 int effectiveRespawnAreaIdForMap(const MapStatsEntry &mapEntry, const std::string &mapFileName)
 {
     const bool indoorMap = toLowerCopy(mapFileName).ends_with(".blv");
@@ -5304,7 +5309,7 @@ bool GameApplication::quickSaveToPath(
         return false;
     }
 
-    if (!selectedMap->map.runtimeRestrictions.allowSaveGame)
+    if (!selectedMap->map.runtimeRestrictions.allowSaveGame && !isAutosavePath(path))
     {
         GAMEPLAY_DEBUG_TRACE("save_game_failed path=\"" + path.string() + "\" reason=restricted_map");
         reportQuickSaveStatus("Quick save unavailable here");
@@ -6459,6 +6464,12 @@ bool GameApplication::processPendingMapMove()
     synchronizeSessionFromRuntime();
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();
+
+    if (IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime())
+    {
+        pWorldRuntime->requestTravelAutosave();
+    }
+
     return true;
 }
 

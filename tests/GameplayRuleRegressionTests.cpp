@@ -1564,6 +1564,70 @@ TEST_CASE("outdoor actor movement ignores pre-existing actor overlap")
     CHECK(resolved.x > state.x + 32.0f);
 }
 
+TEST_CASE("outdoor party snaps nearby bmodel support instead of falling while grounded")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    OpenYAMM::Game::OutdoorBModel bmodel = {};
+    bmodel.vertices = {
+        {-128, -128, 100},
+        {128, -128, 100},
+        {128, 128, 100},
+        {-128, 128, 100},
+    };
+    bmodel.minX = -128;
+    bmodel.maxX = 128;
+    bmodel.minY = -128;
+    bmodel.maxY = 128;
+    bmodel.minZ = 100;
+    bmodel.maxZ = 100;
+
+    OpenYAMM::Game::OutdoorBModelFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.polygonType = 3;
+    bmodel.faces = {floor};
+    mapData.bmodels = {bmodel};
+
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OpenYAMM::Game::OutdoorMoveState state = movementController.initializeState(0.0f, 0.0f, 101.0f);
+    REQUIRE_EQ(state.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+    state.footZ += 17.0f;
+    state.verticalVelocity = -120.0f;
+    state.airborne = false;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f);
+
+    CHECK_EQ(resolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+    CHECK_FALSE(resolved.airborne);
+    CHECK(resolved.footZ == doctest::Approx(101.0f));
+    CHECK(resolved.verticalVelocity == doctest::Approx(0.0f));
+}
+
 TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
@@ -3511,6 +3575,234 @@ TEST_CASE("indoor support sampling does not treat side-opening doors as carry pl
         controller.initializeStateFromEyePosition(768.0f, 512.0f, 160.0f, body);
 
     CHECK_NE(state.supportFaceIndex, 1u);
+}
+
+TEST_CASE("indoor movement steps over floor lip equal to ground snap slack")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, 0, 0},
+        {256, 0, 0},
+        {256, 160, 0},
+        {-256, 160, 0},
+        {-256, 160, 8},
+        {256, 160, 8},
+        {256, 192, 8},
+        {-256, 192, 8},
+        {-256, 192, 0},
+        {256, 192, 0},
+        {256, 384, 0},
+        {-256, 384, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace sourceFloor = {};
+    sourceFloor.vertexIndices = {0, 1, 2, 3};
+    sourceFloor.facetType = 3;
+    sourceFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace lipFloor = {};
+    lipFloor.vertexIndices = {4, 5, 6, 7};
+    lipFloor.facetType = 3;
+    lipFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace targetFloor = {};
+    targetFloor.vertexIndices = {8, 9, 10, 11};
+    targetFloor.facetType = 3;
+    targetFloor.roomNumber = 1;
+
+    mapData.faces = {sourceFloor, lipFloor, targetFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 3;
+    sector.faceCount = 3;
+    sector.nonBspFaceCount = 3;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = 0;
+    sector.maxY = 384;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1, 2};
+    sector.faceIds = {0, 1, 2};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 80.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(initial, body, 0.0f, 240.0f, false, 1.0f);
+
+    CHECK(moved.y > 224.0f);
+    CHECK(moved.grounded);
+    CHECK_EQ(moved.supportFaceIndex, 2u);
+    CHECK_EQ(moved.footZ, doctest::Approx(0.0f));
+}
+
+TEST_CASE("indoor movement does not collide with current sloped support floor")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {9064, 4250, 112},
+        {9064, 3994, 112},
+        {10088, 3994, 240},
+        {10088, 4250, 240},
+        {11496, 3994, 240},
+        {11496, 4250, 240},
+        {10088, 4250, 496},
+        {10088, 3994, 496},
+    };
+
+    OpenYAMM::Game::IndoorFace ramp = {};
+    ramp.vertexIndices = {0, 1, 2, 3};
+    ramp.facetType = 4;
+    ramp.roomNumber = 19;
+
+    OpenYAMM::Game::IndoorFace flatFloor = {};
+    flatFloor.vertexIndices = {3, 2, 4, 5};
+    flatFloor.facetType = 3;
+    flatFloor.roomNumber = 20;
+
+    OpenYAMM::Game::IndoorFace portal = {};
+    portal.vertexIndices = {3, 6, 7, 2};
+    portal.facetType = 1;
+    portal.roomNumber = 20;
+    portal.roomBehindNumber = 19;
+    portal.attributes = OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::IsPortal);
+    portal.isPortal = true;
+
+    mapData.faces = {ramp, flatFloor, portal};
+
+    mapData.sectors.resize(21);
+    OpenYAMM::Game::IndoorSector &rampSector = mapData.sectors[19];
+    rampSector.floorCount = 1;
+    rampSector.portalCount = 1;
+    rampSector.faceCount = 2;
+    rampSector.nonBspFaceCount = 2;
+    rampSector.minX = 9064;
+    rampSector.maxX = 10088;
+    rampSector.minY = 3994;
+    rampSector.maxY = 4250;
+    rampSector.minZ = 112;
+    rampSector.maxZ = 496;
+    rampSector.floorFaceIds = {0};
+    rampSector.portalFaceIds = {2};
+    rampSector.faceIds = {0, 2};
+    rampSector.nonBspFaceIds = rampSector.faceIds;
+
+    OpenYAMM::Game::IndoorSector &flatSector = mapData.sectors[20];
+    flatSector.floorCount = 1;
+    flatSector.portalCount = 1;
+    flatSector.faceCount = 2;
+    flatSector.nonBspFaceCount = 2;
+    flatSector.minX = 10088;
+    flatSector.maxX = 11496;
+    flatSector.minY = 3994;
+    flatSector.maxY = 4250;
+    flatSector.minZ = 240;
+    flatSector.maxZ = 496;
+    flatSector.floorFaceIds = {1};
+    flatSector.portalFaceIds = {2};
+    flatSector.faceIds = {1, 2};
+    flatSector.nonBspFaceIds = flatSector.faceIds;
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const float startX = 10078.9f;
+    const float startY = 4126.26f;
+    const float startFootZ = 238.862f;
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(startX, startY, startFootZ + body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+    CHECK_EQ(initial.footZ, doctest::Approx(startFootZ).epsilon(0.001));
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            -767.635f,
+            -23.677f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            true,
+            &debugInfo);
+
+    CHECK(moved.x < initial.x - 1.0f);
+    CHECK(moved.grounded);
+    CHECK_EQ(moved.supportFaceIndex, 0u);
+    CHECK(debugInfo.hitFaceIndex != 0u);
+}
+
+TEST_CASE("indoor movement rejects positions whose eye point leaves all sectors")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -128, 0},
+        {256, -128, 0},
+        {256, 128, 0},
+        {-256, 128, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    mapData.faces = {floor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -64;
+    sector.maxX = 64;
+    sector.minY = -128;
+    sector.maxY = 128;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 0.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.eyeSectorId, 1);
+
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            128.0f,
+            0.0f,
+            false,
+            1.0f);
+
+    CHECK_EQ(moved.x, doctest::Approx(initial.x));
+    CHECK_EQ(moved.y, doctest::Approx(initial.y));
+    CHECK(moved.grounded);
+    CHECK_EQ(moved.supportFaceIndex, 0u);
 }
 
 TEST_CASE("resolve character attack sound id uses shared weapon family mapping")

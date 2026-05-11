@@ -123,6 +123,7 @@ public:
     void setCameraAngles(float yawRadians, float pitchRadians);
     void reopenMenuScreen();
     bool requestQuickSave();
+    bool requestTravelAutosave();
     void setSettingsSnapshot(const GameSettings &settings);
     bool executeEventHooks(EventRuntimeHookKind kind);
 

@@ -57,6 +57,7 @@ constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
 constexpr float WalkingSoundMovementSpeedThreshold = 20.0f;
 constexpr float WalkingMotionHoldSeconds = 0.125f;
 constexpr uint16_t HudViewId = 2;
+const std::filesystem::path AutosavePath = std::filesystem::path("saves") / "autosave.oysav";
 using SpellbookPointerTargetType = IndoorSpellbookPointerTargetType;
 using SpellbookPointerTarget = IndoorSpellbookPointerTarget;
 using CharacterPointerTargetType = IndoorCharacterPointerTargetType;
@@ -69,6 +70,11 @@ struct UiViewportRect
     float width = 0.0f;
     float height = 0.0f;
 };
+
+bool isAutosavePath(const std::filesystem::path &path)
+{
+    return toLowerCopy(path.stem().string()) == "autosave";
+}
 
 struct ParsedHudFontGlyphMetrics
 {
@@ -1678,13 +1684,18 @@ bool IndoorGameView::requestQuickSave()
     return beginSaveWithPreview(std::filesystem::path("saves") / "quicksave.oysav", "", false);
 }
 
+bool IndoorGameView::requestTravelAutosave()
+{
+    return beginSaveWithPreview(AutosavePath, "", false);
+}
+
 bool IndoorGameView::beginSaveWithPreview(
     const std::filesystem::path &path,
     const std::string &saveName,
     bool closeUiOnSuccess)
 {
     if (!m_gameSession.canSaveGameToPath()
-        || (m_map && !m_map->runtimeRestrictions.allowSaveGame))
+        || (m_map && !m_map->runtimeRestrictions.allowSaveGame && !isAutosavePath(path)))
     {
         return false;
     }

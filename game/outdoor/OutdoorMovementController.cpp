@@ -2113,6 +2113,8 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         partyNewPosition.z,
         FloorSupportMode::IncludeBModels);
     const float finalGroundLevel = finalFloor.height + GroundSnapHeight;
+    const bool requestedHorizontalMove =
+        desiredVelocityX * desiredVelocityX + desiredVelocityY * desiredVelocityY > CollisionEpsilon * CollisionEpsilon;
     bool landedThisFrame = false;
     float fallDistance = 0.0f;
 
@@ -2120,6 +2122,17 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     {
         landedThisFrame = wasAirborne && partyInputSpeed.z <= 0.0f;
         fallDistance = std::max(0.0f, fallStartZ - finalGroundLevel);
+        partyNewPosition.z = finalGroundLevel;
+        partyInputSpeed.z = 0.0f;
+    }
+    else if (!flyingActive
+        && !jumpRequested
+        && partyInputSpeed.z <= 0.0f
+        && (!requestedHorizontalMove || partyNewPosition.z <= state.footZ)
+        && partyNewPosition.z <= finalGroundLevel + CloseToGroundHeight)
+    {
+        landedThisFrame = wasAirborne;
+        fallDistance = landedThisFrame ? std::max(0.0f, fallStartZ - finalGroundLevel) : 0.0f;
         partyNewPosition.z = finalGroundLevel;
         partyInputSpeed.z = 0.0f;
     }

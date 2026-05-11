@@ -1847,20 +1847,7 @@ void OutdoorInteractionController::closeActiveEventDialog(OutdoorGameView &view)
 
 bool OutdoorInteractionController::requestTravelAutosave(OutdoorGameView &view)
 {
-    if (!view.m_gameSession.canSaveGameToPath())
-    {
-        return false;
-    }
-
-    std::string error;
-
-    if (!view.m_gameSession.saveGameToPath(view.m_autosavePath, "", {}, error))
-    {
-        return false;
-    }
-
-    view.m_gameSession.gameplayScreenRuntime().refreshSaveGameOverlaySlots();
-    return true;
+    return view.requestTravelAutosave();
 }
 
 void OutdoorInteractionController::cancelPendingMapTransition(OutdoorGameView &view)

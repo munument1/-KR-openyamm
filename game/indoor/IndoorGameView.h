@@ -82,6 +82,7 @@ public:
         const PartySpellCastRequest &request,
         const std::string &spellName) override;
     GameSettings &mutableSettings();
+    bool requestTravelAutosave();
     bool trySaveToSelectedGameSlot() override;
     const GameSettings &settingsSnapshot() const;
     GameplayWorldUiRenderState gameplayUiRenderState(int width, int height) const;

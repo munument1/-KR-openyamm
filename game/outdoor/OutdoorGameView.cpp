@@ -74,6 +74,11 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+bool isAutosavePath(const std::filesystem::path &path)
+{
+    return toLowerCopy(path.stem().string()) == "autosave";
+}
+
 double millisecondsFromNanoseconds(uint64_t nanoseconds)
 {
     return static_cast<double>(nanoseconds) / 1000000.0;
@@ -4233,13 +4238,18 @@ bool OutdoorGameView::requestQuickSave()
     return beginSaveWithPreview(std::filesystem::path("saves") / "quicksave.oysav", "", false);
 }
 
+bool OutdoorGameView::requestTravelAutosave()
+{
+    return beginSaveWithPreview(m_autosavePath, "", false);
+}
+
 bool OutdoorGameView::beginSaveWithPreview(
     const std::filesystem::path &path,
     const std::string &saveName,
     bool closeUiOnSuccess)
 {
     if (!m_gameSession.canSaveGameToPath()
-        || (m_map && !m_map->runtimeRestrictions.allowSaveGame))
+        || (m_map && !m_map->runtimeRestrictions.allowSaveGame && !isAutosavePath(path)))
     {
         return false;
     }

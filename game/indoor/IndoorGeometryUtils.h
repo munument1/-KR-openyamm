@@ -96,6 +96,12 @@ struct IndoorCeilingSample
     size_t faceIndex = static_cast<size_t>(-1);
 };
 
+struct IndoorPortalSectorTrace
+{
+    bool reachedTargetSector = false;
+    std::vector<int16_t> sectorIds;
+};
+
 std::vector<IndoorVertex> buildIndoorMechanismAdjustedVertices(
     const IndoorMapData &indoorMapData,
     const MapDeltaData *pIndoorMapDeltaData,
@@ -121,6 +127,17 @@ bool isPointInsideIndoorPolygonProjected(
     const bx::Vec3 &point,
     const std::vector<bx::Vec3> &vertices,
     const bx::Vec3 &normal
+);
+int16_t indoorSectorBehindPortal(const IndoorFaceGeometryData &geometry, int16_t currentSectorId);
+IndoorPortalSectorTrace traceIndoorLineThroughPortalSectors(
+    const IndoorMapData &indoorMapData,
+    const std::vector<IndoorVertex> &vertices,
+    IndoorFaceGeometryCache &geometryCache,
+    const bx::Vec3 &start,
+    int16_t sourceSectorId,
+    const bx::Vec3 &end,
+    int16_t targetSectorId,
+    int portalLimit
 );
 float calculateIndoorFaceHeight(const IndoorFaceGeometryData &geometry, float x, float y);
 bool isIndoorCylinderBlockedByFace(

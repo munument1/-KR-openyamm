@@ -24,7 +24,12 @@ using OpenYAMM::Game::IndoorSweptCylinder;
 using OpenYAMM::Game::IndoorSweptCylinderHit;
 using OpenYAMM::Game::IndoorSweptFaceHit;
 using OpenYAMM::Game::IndoorSweptSphere;
+using OpenYAMM::Game::MapDeltaDoor;
 using OpenYAMM::Game::MapDeltaData;
+using OpenYAMM::Game::RuntimeMechanismState;
+using OpenYAMM::Game::EventRuntimeState;
+using OpenYAMM::Game::applyIndoorMechanismDoorToVertices;
+using OpenYAMM::Game::buildIndoorMechanismAdjustedVertices;
 using OpenYAMM::Game::buildIndoorSweptBodyBounds;
 using OpenYAMM::Game::faceAttributeBit;
 using OpenYAMM::Game::indoorSweptBodyBoundsTouchFace;
@@ -102,6 +107,49 @@ IndoorSweptCylinder makeCylinder(float x, float y, float z, float radius, float 
     cylinder.height = height;
     return cylinder;
 }
+}
+
+TEST_CASE("incremental mechanism vertex update matches full adjusted vertex build")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {0, 0, 0},
+        {100, 0, 0},
+        {0, 100, 0}
+    };
+
+    MapDeltaDoor door = {};
+    door.doorId = 12;
+    door.directionX = 65536;
+    door.directionY = 32768;
+    door.directionZ = -65536;
+    door.vertexIds = {0, 2};
+    door.xOffsets = {10, 20};
+    door.yOffsets = {30, 40};
+    door.zOffsets = {50, 60};
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.doors.push_back(door);
+
+    RuntimeMechanismState mechanism = {};
+    mechanism.currentDistance = 8.0f;
+
+    EventRuntimeState eventRuntimeState = {};
+    eventRuntimeState.mechanisms[door.doorId] = mechanism;
+
+    const std::vector<OpenYAMM::Game::IndoorVertex> fullVertices =
+        buildIndoorMechanismAdjustedVertices(mapData, &mapDeltaData, &eventRuntimeState);
+    std::vector<OpenYAMM::Game::IndoorVertex> incrementalVertices = mapData.vertices;
+    applyIndoorMechanismDoorToVertices(door, mechanism.currentDistance, incrementalVertices);
+
+    REQUIRE(incrementalVertices.size() == fullVertices.size());
+
+    for (size_t vertexIndex = 0; vertexIndex < fullVertices.size(); ++vertexIndex)
+    {
+        CHECK(incrementalVertices[vertexIndex].x == fullVertices[vertexIndex].x);
+        CHECK(incrementalVertices[vertexIndex].y == fullVertices[vertexIndex].y);
+        CHECK(incrementalVertices[vertexIndex].z == fullVertices[vertexIndex].z);
+    }
 }
 
 TEST_CASE("swept indoor sphere misses face outside polygon")

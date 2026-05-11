@@ -341,6 +341,13 @@ float averagePortalAxisCoordinate(const std::vector<bx::Vec3> &vertices, int axi
     return value / static_cast<float>(vertices.size());
 }
 
+bool portalNormalSupportsSharedBoundaryPolygon(const bx::Vec3 &normal)
+{
+    constexpr float AxisAlignedPortalNormalThreshold = 0.95f;
+    const float dominantComponent = std::max(std::fabs(normal.x), std::max(std::fabs(normal.y), std::fabs(normal.z)));
+    return dominantComponent >= AxisAlignedPortalNormalThreshold;
+}
+
 bool buildSharedSectorBoundaryPortalPolygon(
     const IndoorMapData &mapData,
     const IndoorFaceGeometryData &geometry,
@@ -349,6 +356,7 @@ bool buildSharedSectorBoundaryPortalPolygon(
     std::vector<bx::Vec3> &portalPolygon)
 {
     if (!geometry.hasPlane
+        || !portalNormalSupportsSharedBoundaryPolygon(geometry.normal)
         || sectorAId < 0
         || sectorBId < 0
         || static_cast<size_t>(sectorAId) >= mapData.sectors.size()

@@ -399,6 +399,132 @@ TEST_CASE("indoor portal visibility keeps portals with visible vertices in front
     CHECK_EQ(pAcceptedTrace->faceId, faceId);
 }
 
+TEST_CASE("cd3 diagonal arch sliver sector preserves room visibility")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "cd3.blv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    constexpr uint16_t SourceSectorId = 1;
+    constexpr uint16_t SliverSectorId = 10;
+    constexpr uint16_t TargetSectorId = 11;
+    constexpr uint16_t FirstPortalFaceId = 2715;
+    constexpr uint16_t SecondPortalFaceId = 2902;
+
+    REQUIRE_GT(mapData->sectors.size(), TargetSectorId);
+    REQUIRE_LT(FirstPortalFaceId, mapData->faces.size());
+    REQUIRE_LT(SecondPortalFaceId, mapData->faces.size());
+    CHECK_EQ(mapData->faces[FirstPortalFaceId].roomNumber, SourceSectorId);
+    CHECK_EQ(mapData->faces[FirstPortalFaceId].roomBehindNumber, SliverSectorId);
+    CHECK_EQ(mapData->faces[SecondPortalFaceId].roomNumber, TargetSectorId);
+    CHECK_EQ(mapData->faces[SecondPortalFaceId].roomBehindNumber, SliverSectorId);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData);
+
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &mapData->vertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.cameraPosition = {6371.0f, 3445.0f, 240.0f};
+    const bx::Vec3 portalCenter = faceCenter(*mapData, FirstPortalFaceId);
+    input.cameraForward = {
+        portalCenter.x - input.cameraPosition.x,
+        portalCenter.y - input.cameraPosition.y,
+        portalCenter.z - input.cameraPosition.z
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 16.0f / 9.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    CHECK_EQ(result.visibleSectorMask[SliverSectorId], 1);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    const IndoorPortalVisibilityTrace *pSecondPortalTrace =
+        findPortalTraceForFace(result, SecondPortalFaceId, "accepted");
+    REQUIRE(pSecondPortalTrace != nullptr);
+    CHECK_EQ(pSecondPortalTrace->sourceSectorId, SliverSectorId);
+    CHECK_EQ(pSecondPortalTrace->targetSectorId, TargetSectorId);
+}
+
+TEST_CASE("cd3 actor detection crosses diagonal sliver sector without portal backtracking")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "cd3.blv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    constexpr int16_t PartySectorId = 1;
+    constexpr int16_t SliverSectorId = 10;
+    constexpr int16_t ActorSectorId = 11;
+    constexpr uint16_t PartyPortalFaceId = 2715;
+    constexpr uint16_t ActorPortalFaceId = 2902;
+
+    IndoorFaceGeometryCache geometryCache(mapData->faces.size());
+    const IndoorFaceGeometryData *pPartyPortalGeometry =
+        geometryCache.geometryForFace(*mapData, mapData->vertices, PartyPortalFaceId);
+    const IndoorFaceGeometryData *pActorPortalGeometry =
+        geometryCache.geometryForFace(*mapData, mapData->vertices, ActorPortalFaceId);
+    REQUIRE(pPartyPortalGeometry != nullptr);
+    REQUIRE(pActorPortalGeometry != nullptr);
+    REQUIRE(!pPartyPortalGeometry->vertices.empty());
+    REQUIRE(!pActorPortalGeometry->vertices.empty());
+
+    const bx::Vec3 actorPortalCenter = faceCenter(*mapData, ActorPortalFaceId);
+    const bx::Vec3 partyPortalCenter = faceCenter(*mapData, PartyPortalFaceId);
+    const bx::Vec3 actorPoint = {
+        actorPortalCenter.x + pActorPortalGeometry->normal.x * 128.0f,
+        actorPortalCenter.y + pActorPortalGeometry->normal.y * 128.0f,
+        actorPortalCenter.z + pActorPortalGeometry->normal.z * 128.0f
+    };
+    const bx::Vec3 partyPoint = {
+        partyPortalCenter.x + pPartyPortalGeometry->normal.x * 128.0f,
+        partyPortalCenter.y + pPartyPortalGeometry->normal.y * 128.0f,
+        partyPortalCenter.z + pPartyPortalGeometry->normal.z * 128.0f
+    };
+
+    const IndoorPortalSectorTrace actorToPartyTrace =
+        traceIndoorLineThroughPortalSectors(
+            *mapData,
+            mapData->vertices,
+            geometryCache,
+            actorPoint,
+            ActorSectorId,
+            partyPoint,
+            PartySectorId,
+            30);
+
+    CHECK(actorToPartyTrace.reachedTargetSector);
+    CHECK_EQ(actorToPartyTrace.sectorIds, std::vector<int16_t>{ActorSectorId, SliverSectorId, PartySectorId});
+
+    const IndoorPortalSectorTrace partyToActorTrace =
+        traceIndoorLineThroughPortalSectors(
+            *mapData,
+            mapData->vertices,
+            geometryCache,
+            partyPoint,
+            PartySectorId,
+            actorPoint,
+            ActorSectorId,
+            30);
+
+    CHECK(partyToActorTrace.reachedTargetSector);
+    CHECK_EQ(partyToActorTrace.sectorIds, std::vector<int16_t>{PartySectorId, SliverSectorId, ActorSectorId});
+}
+
 TEST_CASE("indoor portal visibility does not traverse portal faces missing from sector portal lists")
 {
     IndoorMapData mapData = {};

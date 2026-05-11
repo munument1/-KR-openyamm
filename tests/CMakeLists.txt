@@ -15,6 +15,7 @@ add_executable(openyamm_unit_tests
     GameplayProjectileServiceTests.cpp
     ImageAssetLoaderTests.cpp
     IndoorCollisionPrimitivesTests.cpp
+    IndoorActorActivationTests.cpp
     IndoorLightingRuntimeTests.cpp
     IndoorPathfindingBuilderTests.cpp
     IndoorPortalGraphTests.cpp
