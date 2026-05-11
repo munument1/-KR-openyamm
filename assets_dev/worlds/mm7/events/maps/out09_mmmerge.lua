@@ -1,8 +1,8 @@
 -- MMMerge supplement: Evenmorn obelisk treasure and Dimension Door trigger.
 
-ReplaceMapEvent(6, "Dimension Door", function()
+AppendMapEvent(6, function()
     MM7.OpenDimensionDoor()
-end, "Dimension Door")
+end)
 
 RegisterMapOnLoadEvent(65009, "MMMerge Evenmorn obelisk treasure", function()
     MM7.UpdateEvenmornObeliskTreasure()

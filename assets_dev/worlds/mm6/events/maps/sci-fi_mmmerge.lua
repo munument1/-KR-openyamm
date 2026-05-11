@@ -2,6 +2,7 @@
 
 ReplaceMapEvent(61, "Computer Terminal", function()
     evt.SetTexture(2927, "trekscon")
+    SetQBit(QBit(1300)) -- Control Center blaster terminal was read.
 
     for playerIndex = 0, evt.GetPartyMemberCount() - 1 do
         evt.ForPlayer(playerIndex)

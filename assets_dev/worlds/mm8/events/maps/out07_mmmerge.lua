@@ -44,7 +44,7 @@ ReplaceMapEvent(455, "Tree", function()
     MM8.TryExchangeGem(GemExchangeEntries)
 end, "Tree")
 
-ReplaceMapEvent(500, "Dimension Door", function()
+RegisterEvent(500, "Dimension Door", function()
     MM8.OpenDimensionDoor()
 end, "Dimension Door")
 

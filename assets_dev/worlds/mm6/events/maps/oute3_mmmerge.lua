@@ -18,11 +18,11 @@ ReplaceMapEvent(16, "New Sorpigal Coach Company", function()
     evt.EnterHouse(470)
 end, "New Sorpigal Coach Company")
 
-ReplaceMapEvent(140, "Dimension Door", function()
+AppendMapEvent(140, function()
     if not evt.Cmp(MapVar(50), 1) then
         MM6.OpenDimensionDoor()
     end
-end, "Dimension Door")
+end)
 
 ReplaceMapEvent(220, "Volcano", function()
     MM6.RunNewSorpigalVolcanoSequence()

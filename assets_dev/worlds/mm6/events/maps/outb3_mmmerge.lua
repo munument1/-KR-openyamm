@@ -43,6 +43,6 @@ RegisterMapRefillHook(65020, "Reset Shrine of the Gods blessings", function()
     end
 end)
 
-ReplaceMapEvent(105, "Dimension Door", function()
+AppendMapEvent(105, function()
     MM6.OpenDimensionDoor()
-end, "Dimension Door")
+end)

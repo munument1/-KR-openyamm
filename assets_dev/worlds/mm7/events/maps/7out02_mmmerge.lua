@@ -1,8 +1,8 @@
 -- MMMerge supplement: Harmondale outdoor castle, judge, invasion, and scavenger repairs.
 
-ReplaceMapEvent(37, "Arbiter follower cleanup", function()
+AppendMapEvent(37, function()
     MM7.RemoveJudgeFollowers()
-end, "Arbiter")
+end)
 
 ReplaceMapEvent(301, "Enter Castle Harmondale", function()
     MM7.EnterCastleHarmondaleOutdoor()

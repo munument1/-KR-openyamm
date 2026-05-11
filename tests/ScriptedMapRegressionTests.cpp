@@ -5409,6 +5409,7 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 61, runtimeState, &party));
+        CHECK(party.hasQuestBit(1300));
         CHECK_EQ(runtimeState.textureOverrides[2927], "trekscon");
         REQUIRE_FALSE(runtimeState.messages.empty());
         CHECK(
