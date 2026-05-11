@@ -351,6 +351,7 @@ public:
         CharacterPage page = CharacterPage::Inventory;
         CharacterScreenSource source = CharacterScreenSource::Party;
         size_t sourceIndex = 0;
+        size_t awardScrollOffset = 0;
         size_t adventurersInnScrollOffset = 0;
     };
 

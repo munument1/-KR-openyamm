@@ -198,6 +198,8 @@ TEST_CASE("settings debug startup options round trip")
     settings.bolsterMonsters = true;
     settings.logIndoorVisibility = true;
     settings.fpsTrace = true;
+    settings.hitchTrace = true;
+    settings.hitchThresholdMilliseconds = 12.5f;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -215,6 +217,8 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->logIndoorVisibility);
     CHECK(loadedSettings->fpsTrace);
+    CHECK(loadedSettings->hitchTrace);
+    CHECK(loadedSettings->hitchThresholdMilliseconds == doctest::Approx(12.5f));
 
     std::filesystem::remove(path);
 }

@@ -1973,6 +1973,93 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
             }
 
+            const auto resolveCharacterButtonTarget =
+                [&context, screenWidth, screenHeight, pointerX, pointerY](
+                    const char *pLayoutId,
+                    GameplayCharacterPointerTargetType targetType) -> GameplayCharacterPointerTarget
+                {
+                    const UiLayoutManager::LayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
+
+                    if (pLayout == nullptr)
+                    {
+                        return {};
+                    }
+
+                    const std::optional<GameplayResolvedHudLayoutElement> resolved =
+                        context.resolveHudLayoutElement(
+                            pLayoutId,
+                            screenWidth,
+                            screenHeight,
+                            pLayout->width,
+                            pLayout->height);
+
+                    if (!resolved.has_value() || !context.isPointerInsideResolvedElement(*resolved, pointerX, pointerY))
+                    {
+                        return {};
+                    }
+
+                    GameplayCharacterPointerTarget target = {};
+                    target.type = targetType;
+                    return target;
+                };
+
+            if (context.characterScreenReadOnly().page == GameplayUiController::CharacterPage::Awards)
+            {
+                GameplayCharacterPointerTarget target = resolveCharacterButtonTarget(
+                    "CharacterAwardsScrollUpButton",
+                    GameplayCharacterPointerTargetType::AwardScrollUpButton);
+
+                if (target.type != GameplayCharacterPointerTargetType::None)
+                {
+                    return target;
+                }
+
+                target = resolveCharacterButtonTarget(
+                    "CharacterAwardsScrollDownButton",
+                    GameplayCharacterPointerTargetType::AwardScrollDownButton);
+
+                if (target.type != GameplayCharacterPointerTargetType::None)
+                {
+                    return target;
+                }
+
+                target = resolveCharacterButtonTarget(
+                    "CharacterAwardsScrollThumb",
+                    GameplayCharacterPointerTargetType::AwardScrollTrack);
+
+                if (target.type == GameplayCharacterPointerTargetType::None)
+                {
+                    target = resolveCharacterButtonTarget(
+                        "CharacterAwardsScrollTrack",
+                        GameplayCharacterPointerTargetType::AwardScrollTrack);
+                }
+
+                if (target.type != GameplayCharacterPointerTargetType::None)
+                {
+                    const UiLayoutManager::LayoutElement *pTrackLayout =
+                        context.findHudLayoutElement("CharacterAwardsScrollTrack");
+                    const std::optional<GameplayResolvedHudLayoutElement> trackRect =
+                        pTrackLayout != nullptr
+                            ? context.resolveHudLayoutElement(
+                                "CharacterAwardsScrollTrack",
+                                screenWidth,
+                                screenHeight,
+                                pTrackLayout->width,
+                                pTrackLayout->height)
+                            : std::nullopt;
+
+                    if (trackRect.has_value() && trackRect->height > 0.0f)
+                    {
+                        target.scrollFraction = std::clamp(
+                            (pointerY - trackRect->y) / trackRect->height,
+                            0.0f,
+                            1.0f);
+                    }
+
+                    return target;
+                }
+            }
+
             if (!context.isAdventurersInnCharacterSourceActive() && pParty != nullptr && pParty->activeMemberIndex() > 0)
             {
                 const UiLayoutManager::LayoutElement *pDismissLayout =
@@ -2526,7 +2613,44 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     return;
                 }
 
+                if (context.characterScreenReadOnly().page != target.page)
+                {
+                    context.characterScreen().awardScrollOffset = 0;
+                }
+
                 context.characterScreen().page = target.page;
+                return;
+            }
+
+            if (target.type == GameplayCharacterPointerTargetType::AwardScrollUpButton)
+            {
+                if (context.characterScreenReadOnly().awardScrollOffset > 0)
+                {
+                    --context.characterScreen().awardScrollOffset;
+                }
+
+                return;
+            }
+
+            if (target.type == GameplayCharacterPointerTargetType::AwardScrollDownButton && pActiveCharacter != nullptr)
+            {
+                const size_t maximumScrollOffset =
+                    pActiveCharacter->awards.empty() ? 0 : pActiveCharacter->awards.size() - 1;
+
+                if (context.characterScreenReadOnly().awardScrollOffset < maximumScrollOffset)
+                {
+                    ++context.characterScreen().awardScrollOffset;
+                }
+
+                return;
+            }
+
+            if (target.type == GameplayCharacterPointerTargetType::AwardScrollTrack && pActiveCharacter != nullptr)
+            {
+                const size_t maximumScrollOffset =
+                    pActiveCharacter->awards.empty() ? 0 : pActiveCharacter->awards.size() - 1;
+                context.characterScreen().awardScrollOffset = static_cast<size_t>(
+                    std::round(target.scrollFraction * static_cast<float>(maximumScrollOffset)));
                 return;
             }
 

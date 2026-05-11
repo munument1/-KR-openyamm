@@ -305,6 +305,9 @@ enum class GameplayCharacterPointerTargetType
     ExitButton,
     DismissButton,
     MagnifyButton,
+    AwardScrollUpButton,
+    AwardScrollDownButton,
+    AwardScrollTrack,
     AdventurersInnHireButton,
     AdventurersInnScrollUpButton,
     AdventurersInnScrollDownButton,
@@ -327,6 +330,7 @@ struct GameplayCharacterPointerTarget
     uint8_t gridY = 0;
     EquipmentSlot equipmentSlot = EquipmentSlot::MainHand;
     size_t innIndex = 0;
+    float scrollFraction = 0.0f;
 
     bool operator==(const GameplayCharacterPointerTarget &other) const = default;
 };

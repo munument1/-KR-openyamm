@@ -6226,6 +6226,92 @@ TEST_CASE("mm7 dragon lair loads indoor billboards and lights")
         pLoadedMap->indoorActorPreviewBillboardSet->billboards.size());
 }
 
+TEST_CASE("mm6 darkmoor actor previews preload random encounter tier textures")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "cd2.blv",
+        OpenYAMM::Game::MapLoadPurpose::ActorPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorActorPreviewBillboardSet.has_value());
+
+    const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
+        *pLoadedMap->indoorActorPreviewBillboardSet;
+    const OpenYAMM::Game::MapStatsEntry *pMapEntry =
+        mapLoader.gameDataLoader.getMapStats().findByFileName("cd2.blv");
+    REQUIRE(pMapEntry != nullptr);
+
+    const auto textureLoaded =
+        [&billboardSet](const std::string &textureName, int16_t paletteId) -> bool
+        {
+            return std::any_of(
+                billboardSet.textures.begin(),
+                billboardSet.textures.end(),
+                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == textureName && texture.paletteId == paletteId;
+                });
+        };
+    const auto requireTierTexture =
+        [&](const OpenYAMM::Game::MapEncounterInfo &encounter, char tierLetter)
+        {
+            const std::string pictureBase =
+                encounter.pictureName.empty() ? encounter.monsterName : encounter.pictureName;
+            const std::string pictureName = pictureBase + " " + std::string(1, tierLetter);
+            const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pStats =
+                mapLoader.gameDataLoader.getMonsterTable().findStatsByPictureName(pictureName);
+            REQUIRE(pStats != nullptr);
+
+            const OpenYAMM::Game::MonsterEntry *pMonsterEntry =
+                mapLoader.gameDataLoader.getMonsterTable().findById(static_cast<int16_t>(pStats->id));
+            REQUIRE(pMonsterEntry != nullptr);
+
+            bool checkedAnySprite = false;
+
+            for (const std::string &spriteName : pMonsterEntry->spriteNames)
+            {
+                if (spriteName.empty() || spriteName == "null")
+                {
+                    continue;
+                }
+
+                const std::optional<uint16_t> spriteFrameIndex =
+                    billboardSet.spriteFrameTable.findFrameIndexBySpriteName(spriteName);
+                REQUIRE(spriteFrameIndex.has_value());
+
+                const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+                    billboardSet.spriteFrameTable.getFrame(*spriteFrameIndex, 0);
+                REQUIRE(pFrame != nullptr);
+
+                const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+                    OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, 0);
+                CHECK(textureLoaded(resolvedTexture.textureName, pFrame->paletteId));
+                checkedAnySprite = true;
+            }
+
+            CHECK(checkedAnySprite);
+        };
+
+    const std::array<const OpenYAMM::Game::MapEncounterInfo *, 3> encounters = {{
+        &pMapEntry->encounter1,
+        &pMapEntry->encounter2,
+        &pMapEntry->encounter3,
+    }};
+
+    for (const OpenYAMM::Game::MapEncounterInfo *pEncounter : encounters)
+    {
+        REQUIRE(pEncounter != nullptr);
+        requireTierTexture(*pEncounter, 'B');
+        requireTierTexture(*pEncounter, 'C');
+    }
+}
+
 TEST_CASE("mm6 darkmoor indoor decoration billboards keep editor room ownership")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();

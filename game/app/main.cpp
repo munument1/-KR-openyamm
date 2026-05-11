@@ -158,6 +158,8 @@ void applySettingsConfigOverridesIfConfigured(
 
     config.fpsTrace = settings->fpsTrace;
     config.performanceTrace = settings->performanceTrace;
+    config.hitchTrace = settings->hitchTrace;
+    config.hitchThresholdMilliseconds = settings->hitchThresholdMilliseconds;
 }
 
 int runApplication(int argc, char **argv)

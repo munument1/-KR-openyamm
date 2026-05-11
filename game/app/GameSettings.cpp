@@ -728,6 +728,26 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "hitch_trace"))
+    {
+        bool parsed = settings.hitchTrace;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.hitchTrace = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "hitch_threshold_ms"))
+    {
+        float parsed = settings.hitchThresholdMilliseconds;
+
+        if (parseFloatValue(*value, parsed))
+        {
+            settings.hitchThresholdMilliseconds = std::clamp(parsed, 0.1f, 1000.0f);
+        }
+    }
+
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
         const std::optional<std::string> value = getIniValue(document, "keyboard", std::string(definition.iniKey));
@@ -920,7 +940,9 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.logIndoorPathfinding ? "true" : "false") << '\n'
         << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << '\n'
-        << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << "\n\n"
+        << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
+        << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'
+        << "hitch_threshold_ms=" << std::clamp(settings.hitchThresholdMilliseconds, 0.1f, 1000.0f) << "\n\n"
         << "[keyboard]\n";
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())

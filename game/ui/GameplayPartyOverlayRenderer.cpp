@@ -3,8 +3,8 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/JournalQuestRuntime.h"
-#include "game/gameplay/StoryTextFormatter.h"
 #include "game/events/EvtEnums.h"
+#include "game/gameplay/StoryTextFormatter.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
@@ -18,6 +18,7 @@
 #include "game/ui/SpellbookUiLayout.h"
 #include "game/StringUtils.h"
 #include "game/ui/KeyboardScreenLayout.h"
+#include "engine/TextTable.h"
 
 #include <SDL3/SDL.h>
 #include <bx/math.h>
@@ -32,6 +33,7 @@
 #include <cstdlib>
 #include <functional>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -71,6 +73,29 @@ struct PointerRenderInput
     bool isLeftMousePressed = false;
 };
 
+struct CharacterAwardDefinition
+{
+    uint32_t id = 0;
+    std::string text;
+    int priority = 0;
+};
+
+struct CharacterAwardRenderLine
+{
+    uint32_t id = 0;
+    std::string text;
+    int priority = 0;
+};
+
+constexpr std::array<uint32_t, 6> CharacterAwardColorsAbgr = {{
+    0xffa06cf8u, // Magenta, #F86CA0
+    0xfff8dc70u, // Malibu, #70DCF8
+    0xfff0c0c0u, // MoonRaker, #C0C0F0
+    0xff60f440u, // ScreaminGreen, #40F460
+    0xff60f4e8u, // Canary, #E8F460
+    0xffc0fcf0u, // Mimosa, #F0FCC0
+}};
+
 PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &context)
 {
     PointerRenderInput input = {};
@@ -85,6 +110,200 @@ PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &context)
     input.mouseY = pInputFrame->pointerY;
     input.isLeftMousePressed = pInputFrame->leftMouseButton.held;
     return input;
+}
+
+std::optional<uint32_t> parseUnsignedCell(const std::string &value)
+{
+    char *pEnd = nullptr;
+    const unsigned long parsed = std::strtoul(value.c_str(), &pEnd, 10);
+
+    if (pEnd == value.c_str() || *pEnd != '\0' || parsed > std::numeric_limits<uint32_t>::max())
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<uint32_t>(parsed);
+}
+
+std::optional<int> parseIntCell(const std::string &value)
+{
+    char *pEnd = nullptr;
+    const long parsed = std::strtol(value.c_str(), &pEnd, 10);
+
+    if (pEnd == value.c_str() || *pEnd != '\0' || parsed < std::numeric_limits<int>::min()
+        || parsed > std::numeric_limits<int>::max())
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<int>(parsed);
+}
+
+const std::vector<CharacterAwardDefinition> &loadCharacterAwardDefinitions(
+    const Engine::AssetFileSystem *pAssetFileSystem)
+{
+    static const Engine::AssetFileSystem *pCachedAssetFileSystem = nullptr;
+    static std::vector<CharacterAwardDefinition> cachedDefinitions;
+
+    if (pCachedAssetFileSystem == pAssetFileSystem)
+    {
+        return cachedDefinitions;
+    }
+
+    pCachedAssetFileSystem = pAssetFileSystem;
+    cachedDefinitions.clear();
+
+    if (pAssetFileSystem == nullptr)
+    {
+        return cachedDefinitions;
+    }
+
+    const std::optional<std::string> contents =
+        pAssetFileSystem->readTextFile("engine/data_tables/english/awards.txt");
+
+    if (!contents)
+    {
+        return cachedDefinitions;
+    }
+
+    const std::optional<Engine::TextTable> table = Engine::TextTable::parseTabSeparated(*contents);
+
+    if (!table)
+    {
+        return cachedDefinitions;
+    }
+
+    for (size_t rowIndex = 0; rowIndex < table->getRowCount(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = table->getRow(rowIndex);
+
+        if (row.size() < 3 || row[0] == "A Bit")
+        {
+            continue;
+        }
+
+        const std::optional<uint32_t> id = parseUnsignedCell(row[0]);
+
+        if (!id || *id == 0 || row[1].empty())
+        {
+            continue;
+        }
+
+        CharacterAwardDefinition definition = {};
+        definition.id = *id;
+        definition.text = row[1];
+        definition.priority = parseIntCell(row[2]).value_or(0);
+        cachedDefinitions.push_back(std::move(definition));
+    }
+
+    return cachedDefinitions;
+}
+
+std::string replaceFirstPrintfUnsigned(std::string text, uint32_t value)
+{
+    size_t position = text.find("%lu");
+    size_t markerLength = 3;
+
+    if (position == std::string::npos)
+    {
+        position = text.find("%u");
+        markerLength = 2;
+    }
+
+    if (position != std::string::npos)
+    {
+        text.replace(position, markerLength, std::to_string(value));
+    }
+
+    return text;
+}
+
+uint32_t awardCounterValue(uint32_t awardId, const Party *pParty)
+{
+    if (pParty == nullptr)
+    {
+        return 0;
+    }
+
+    switch (awardId)
+    {
+        case 36:
+            return pParty->arcomageWinCount();
+        case 37:
+            return pParty->arcomageLossCount();
+        case 43:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::NumDeaths))));
+        case 44:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::NumBounties))));
+        case 45:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::PrisonTerms))));
+        case 46:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsPage))));
+        case 47:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsSquire))));
+        case 48:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsKnight))));
+        case 49:
+            return static_cast<uint32_t>(std::max<int32_t>(
+                0,
+                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsLord))));
+        default:
+            return 0;
+    }
+}
+
+std::vector<CharacterAwardRenderLine> buildCharacterAwardLines(
+    const Character *pCharacter,
+    const Party *pParty,
+    const Engine::AssetFileSystem *pAssetFileSystem)
+{
+    std::vector<CharacterAwardRenderLine> lines;
+
+    if (pCharacter == nullptr)
+    {
+        return lines;
+    }
+
+    const std::vector<CharacterAwardDefinition> &definitions =
+        loadCharacterAwardDefinitions(pAssetFileSystem);
+
+    for (const CharacterAwardDefinition &definition : definitions)
+    {
+        if (!pCharacter->awards.contains(definition.id))
+        {
+            continue;
+        }
+
+        CharacterAwardRenderLine line = {};
+        line.id = definition.id;
+        line.text = definition.text.find('%') != std::string::npos
+            ? replaceFirstPrintfUnsigned(definition.text, awardCounterValue(definition.id, pParty))
+            : definition.text;
+        line.priority = definition.priority;
+        lines.push_back(std::move(line));
+    }
+
+    std::stable_sort(
+        lines.begin(),
+        lines.end(),
+        [](const CharacterAwardRenderLine &left, const CharacterAwardRenderLine &right)
+        {
+            return left.priority < right.priority;
+        });
+
+    return lines;
 }
 
 uint32_t currentAnimationTicks()
@@ -944,6 +1163,193 @@ void renderHudLines(
         context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
         context.renderHudFontLayer(font, coloredMainTextureHandle, lines[index], x, lineY, fontScale);
     }
+}
+
+void renderCharacterAwardsList(
+    GameplayScreenRuntime &context,
+    const Character *pCharacter,
+    const Party *pParty,
+    int width,
+    int height)
+{
+    const UiLayoutManager::LayoutElement *pListLayout = context.findHudLayoutElement("CharacterAwardsList");
+
+    if (pListLayout == nullptr)
+    {
+        return;
+    }
+
+    const std::optional<GameplayResolvedHudLayoutElement> listRect =
+        context.resolveHudLayoutElement(
+            "CharacterAwardsList",
+            width,
+            height,
+            pListLayout->width,
+            pListLayout->height);
+
+    if (!listRect)
+    {
+        return;
+    }
+
+    const std::optional<GameplayHudFontHandle> font = context.findHudFont(pListLayout->fontName);
+
+    if (!font)
+    {
+        return;
+    }
+
+    float fontScale = listRect->scale * std::max(0.1f, pListLayout->textScale);
+
+    if (fontScale >= 1.0f)
+    {
+        fontScale = snappedHudFontScale(fontScale);
+    }
+    else
+    {
+        fontScale = std::max(0.5f, fontScale);
+    }
+
+    const std::vector<CharacterAwardRenderLine> awards =
+        buildCharacterAwardLines(pCharacter, pParty, context.gameplayUiRuntime().assetFileSystem());
+    const float lineHeight = static_cast<float>(font->fontHeight) * fontScale;
+    const float awardGap = 8.0f * listRect->scale;
+    const float wrapWidth = std::max(1.0f, listRect->width - pListLayout->textPadX * listRect->scale);
+    std::vector<std::vector<std::string>> wrappedAwardLines;
+    std::vector<float> awardHeights;
+    wrappedAwardLines.reserve(awards.size());
+    awardHeights.reserve(awards.size());
+
+    for (const CharacterAwardRenderLine &award : awards)
+    {
+        std::vector<std::string> wrappedLines = context.wrapHudTextToWidth(*font, award.text, wrapWidth / fontScale);
+
+        if (wrappedLines.empty())
+        {
+            wrappedLines.push_back("");
+        }
+
+        awardHeights.push_back(lineHeight * static_cast<float>(wrappedLines.size()));
+        wrappedAwardLines.push_back(std::move(wrappedLines));
+    }
+
+    const auto suffixFits =
+        [&awardHeights, listRect, awardGap](size_t startIndex) -> bool
+        {
+            float y = 0.0f;
+
+            for (size_t index = startIndex; index < awardHeights.size(); ++index)
+            {
+                y += awardHeights[index];
+
+                if (y > listRect->height)
+                {
+                    return false;
+                }
+
+                y += awardGap;
+            }
+
+            return true;
+        };
+
+    size_t maximumScrollOffset = 0;
+
+    while (maximumScrollOffset < awards.size() && !suffixFits(maximumScrollOffset))
+    {
+        ++maximumScrollOffset;
+    }
+
+    if (!awards.empty())
+    {
+        maximumScrollOffset = std::min(maximumScrollOffset, awards.size() - 1);
+    }
+
+    GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+    characterScreen.awardScrollOffset = std::min(characterScreen.awardScrollOffset, maximumScrollOffset);
+
+    float textY = std::round(listRect->y + pListLayout->textPadY * listRect->scale);
+    const float textX = std::round(listRect->x + pListLayout->textPadX * listRect->scale);
+
+    for (size_t awardIndex = characterScreen.awardScrollOffset; awardIndex < awards.size(); ++awardIndex)
+    {
+        if (textY > listRect->y && textY + awardHeights[awardIndex] > listRect->y + listRect->height)
+        {
+            break;
+        }
+
+        const size_t colorIndex =
+            static_cast<size_t>(std::max(0, awards[awardIndex].priority)) % CharacterAwardColorsAbgr.size();
+        renderHudLines(
+            context,
+            *font,
+            CharacterAwardColorsAbgr[colorIndex],
+            wrappedAwardLines[awardIndex],
+            textX,
+            textY,
+            fontScale);
+        textY += awardHeights[awardIndex] + awardGap;
+    }
+
+    const UiLayoutManager::LayoutElement *pThumbLayout = context.findHudLayoutElement("CharacterAwardsScrollThumb");
+    const UiLayoutManager::LayoutElement *pTrackLayout = context.findHudLayoutElement("CharacterAwardsScrollTrack");
+    const UiLayoutManager::LayoutElement *pDownButtonLayout =
+        context.findHudLayoutElement("CharacterAwardsScrollDownButton");
+
+    if (pThumbLayout == nullptr
+        || pTrackLayout == nullptr
+        || pDownButtonLayout == nullptr
+        || pThumbLayout->primaryAsset.empty())
+    {
+        return;
+    }
+
+    const std::optional<GameplayResolvedHudLayoutElement> thumbRect =
+        context.resolveHudLayoutElement(
+            "CharacterAwardsScrollThumb",
+            width,
+            height,
+            pThumbLayout->width,
+            pThumbLayout->height);
+    const std::optional<GameplayResolvedHudLayoutElement> trackRect =
+        context.resolveHudLayoutElement(
+            "CharacterAwardsScrollTrack",
+            width,
+            height,
+            pTrackLayout->width,
+            pTrackLayout->height);
+    const std::optional<GameplayResolvedHudLayoutElement> downButtonRect =
+        context.resolveHudLayoutElement(
+            "CharacterAwardsScrollDownButton",
+            width,
+            height,
+            pDownButtonLayout->width,
+            pDownButtonLayout->height);
+
+    if (!thumbRect || !trackRect || !downButtonRect)
+    {
+        return;
+    }
+
+    std::optional<GameplayHudTextureHandle> texture =
+        context.gameplayUiRuntime().ensureHudTextureLoaded(pThumbLayout->primaryAsset);
+
+    if (!texture)
+    {
+        return;
+    }
+
+    const float fraction = maximumScrollOffset > 0
+        ? static_cast<float>(characterScreen.awardScrollOffset) / static_cast<float>(maximumScrollOffset)
+        : 0.0f;
+    const float trackInset = 3.0f * trackRect->scale;
+    const float trackTop = trackRect->y + trackInset;
+    const float trackBottom = downButtonRect->y;
+    const float thumbTravel =
+        std::max(0.0f, trackBottom - thumbRect->height - trackTop);
+    const float thumbY = std::round(trackTop + thumbTravel * fraction);
+
+    context.submitHudTexturedQuad(*texture, thumbRect->x, thumbY, thumbRect->width, thumbRect->height);
 }
 
 std::string formatRestTimeText(float gameMinutes)
@@ -7452,6 +7858,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             continue;
         }
 
+        if (normalizedLayoutId == "characterawardsscrollthumb")
+        {
+            continue;
+        }
+
         if (normalizedLayoutId == "characterdolljewelryoverlaypanel" && !characterScreen.dollJewelryOverlayOpen)
         {
             continue;
@@ -7674,7 +8085,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             }
         }
 
-        if (!pLayout->labelText.empty())
+        if (!pLayout->labelText.empty() && normalizedLayoutId != "characterawardslist")
         {
             UiLayoutManager::LayoutElement layoutForRender = *pLayout;
 
@@ -7755,6 +8166,18 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             {
                 context.renderLayoutLabel(layoutForRender, *resolved, label);
             }
+        }
+    }
+
+    if (characterScreen.page == GameplayUiController::CharacterPage::Awards
+        && !isAdventurersInnRoster)
+    {
+        const UiLayoutManager::LayoutElement *pAwardsListLayout =
+            context.findHudLayoutElement("CharacterAwardsList");
+
+        if (pAwardsListLayout != nullptr && shouldRenderInCurrentPass(pAwardsListLayout->zIndex))
+        {
+            renderCharacterAwardsList(context, pCharacter, &party, width, height);
         }
     }
 

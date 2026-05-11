@@ -100,6 +100,8 @@ struct GameSettings
     bool logIndoorPathfinding = false;
     bool fpsTrace = false;
     bool performanceTrace = false;
+    bool hitchTrace = false;
+    float hitchThresholdMilliseconds = 8.0f;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;
     uint32_t partySeedRosterId = 0;

@@ -1098,22 +1098,72 @@ elements:
           - id: CharacterAwardsList
             anchor: top_left
             offset_x: 18
-            offset_y: 52
+            offset_y: 41
             width: 382
-            height: 256
+            height: 275
             interactive: true
             text:
               value: "{awards}"
-              font: Lucida
+              font: Arrus
               color: white
               align_x: left
               align_y: top
             notes: Awards list block.
 
+          - id: CharacterAwardsScrollUpButton
+            anchor: top_left
+            offset_x: 435
+            offset_y: 39
+            width: 17
+            height: 17
+            z_index: 300
+            interactive: true
+            asset:
+              default: AR_UP_UP
+              highlighted: AR_UP_HT
+              pressed: AR_UP_DN
+            notes: Awards list scroll up button.
+
+          - id: CharacterAwardsScrollTrack
+            anchor: top_left
+            offset_x: 440
+            offset_y: 53
+            width: 16
+            height: 236
+            z_index: 299
+            interactive: true
+            notes: Awards list invisible scroll track.
+
+          - id: CharacterAwardsScrollThumb
+            anchor: top_left
+            offset_x: 434
+            offset_y: 61
+            width: 17
+            height: 17
+            z_index: 301
+            interactive: true
+            asset:
+              default: but_thum
+            notes: Awards list scroll thumb.
+
+          - id: CharacterAwardsScrollDownButton
+            anchor: top_left
+            offset_x: 435
+            offset_y: 288
+            width: 17
+            height: 17
+            z_index: 300
+            interactive: true
+            asset:
+              default: AR_DN_UP
+              highlighted: AR_DN_HT
+              pressed: AR_DN_DN
+            notes: Awards list scroll down button.
+
           - id: CharacterAwardDetail
             anchor: top_left
             offset_x: 18
-            offset_y: 314
+            offset_y: 326
             width: 430
             height: 18
             text:

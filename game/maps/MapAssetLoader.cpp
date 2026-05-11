@@ -2567,6 +2567,21 @@ std::optional<std::string> resolveMonsterNameForSpawn(const MapStatsEntry &map, 
     return std::nullopt;
 }
 
+const MapEncounterInfo *mapEncounterInfoBySlot(const MapStatsEntry &map, int encounterSlot)
+{
+    switch (encounterSlot)
+    {
+        case 1:
+            return &map.encounter1;
+        case 2:
+            return &map.encounter2;
+        case 3:
+            return &map.encounter3;
+        default:
+            return nullptr;
+    }
+}
+
 int16_t resolveMapDeltaActorMonsterId(const MapDeltaActor &actor)
 {
     if (actor.monsterInfoId > 0)
@@ -2660,6 +2675,52 @@ void appendMonsterActionTextures(
     for (uint16_t spriteFrameIndex : actionSpriteFrameIndices)
     {
         appendSpriteFrameTextures(textureRequests, spriteFrameTable, spriteFrameIndex);
+    }
+}
+
+void appendEncounterSlotTierTextures(
+    std::vector<BitmapTextureRequest> &textureRequests,
+    const SpriteFrameTable &spriteFrameTable,
+    const MapStatsEntry &map,
+    const MonsterTable &monsterTable,
+    int encounterSlot)
+{
+    const MapEncounterInfo *pEncounter = mapEncounterInfoBySlot(map, encounterSlot);
+
+    if (pEncounter == nullptr)
+    {
+        return;
+    }
+
+    const std::string pictureBase =
+        trimAsciiWhitespace(pEncounter->pictureName.empty() ? pEncounter->monsterName : pEncounter->pictureName);
+
+    if (pictureBase.empty())
+    {
+        return;
+    }
+
+    for (char tierLetter : {'A', 'B', 'C'})
+    {
+        const std::string pictureName = pictureBase + " " + std::string(1, tierLetter);
+        const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsByPictureName(pictureName);
+
+        if (pStats == nullptr)
+        {
+            continue;
+        }
+
+        const MonsterEntry *pMonsterEntry = monsterTable.findById(static_cast<int16_t>(pStats->id));
+
+        if (pMonsterEntry == nullptr)
+        {
+            continue;
+        }
+
+        appendMonsterActionTextures(
+            textureRequests,
+            spriteFrameTable,
+            buildMonsterActionSpriteFrameIndices(spriteFrameTable, pMonsterEntry));
     }
 }
 
@@ -2868,6 +2929,16 @@ void appendSpawnActors(
 
         appendMonsterActionTextures(textureRequests, billboardSet.spriteFrameTable, actionSpriteFrameIndices);
         appendSpriteFrameTextures(textureRequests, billboardSet.spriteFrameTable, *frameIndex);
+
+        if (spawn.typeId == 3 && spawn.index >= 1 && spawn.index <= 3)
+        {
+            appendEncounterSlotTierTextures(
+                textureRequests,
+                billboardSet.spriteFrameTable,
+                map,
+                monsterTable,
+                spawn.index);
+        }
     }
 }
 
