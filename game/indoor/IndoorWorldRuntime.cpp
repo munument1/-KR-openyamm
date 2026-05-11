@@ -737,11 +737,13 @@ constexpr float IndoorProjectileBounceFactor = IndoorWorldItemBounceFactor;
 constexpr float IndoorProjectileBounceStopVelocity = IndoorWorldItemBounceStopVelocity;
 constexpr float IndoorProjectileGroundDamping = IndoorWorldItemGroundDamping;
 constexpr float IndoorProjectileSettledHorizontalSpeedSquared = IndoorWorldItemRestingHorizontalSpeedSquared;
-constexpr std::array<std::array<int, 3>, 4> IndoorEncounterDifficultyTierWeights = {{
-    {60, 30, 10},
-    {30, 50, 20},
-    {10, 40, 50},
-    {0, 25, 75}
+constexpr std::array<std::array<int, 3>, 6> IndoorEncounterDifficultyTierWeights = {{
+    {{100, 0, 0}},
+    {{90, 8, 2}},
+    {{70, 20, 10}},
+    {{50, 30, 20}},
+    {{30, 40, 30}},
+    {{10, 50, 40}},
 }};
 
 bool indoorProjectileShouldSettle(const GameplayProjectileService::ProjectileState &projectile)
@@ -851,7 +853,7 @@ char resolveIndoorEncounterTierLetter(
         return 'A';
     }
 
-    const int difficulty = std::clamp(pEncounter->difficulty, 0, 3);
+    const int difficulty = std::clamp(pEncounter->difficulty, 0, 5);
     const std::array<int, 3> &weights = IndoorEncounterDifficultyTierWeights[difficulty];
     const int totalWeight = std::max(1, weights[0] + weights[1] + weights[2]);
     std::mt19937 rng(seed);

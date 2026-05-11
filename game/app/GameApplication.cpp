@@ -4999,6 +4999,30 @@ void GameApplication::updateQuickSaveInput()
 
 }
 
+void GameApplication::updateDoubleSpeedInput()
+{
+    if (m_gameSession.gameplayScreenRuntime().currentHudScreenState() != GameplayHudScreenState::Gameplay)
+    {
+        return;
+    }
+
+    const GameplayInputFrame &inputFrame = m_gameInputSystem.frame();
+
+    if (!inputFrame.action(KeyboardAction::DoubleSpeed).pressed)
+    {
+        return;
+    }
+
+    m_doubleSpeedActive = !m_doubleSpeedActive;
+    m_gameSession.gameplayScreenRuntime().setStatusBarEvent(
+        m_doubleSpeedActive ? "Fast mode (2x)" : "Normal mode (1x)");
+}
+
+float GameApplication::gameplayDeltaSeconds(float deltaSeconds) const
+{
+    return m_doubleSpeedActive ? deltaSeconds * 2.0f : deltaSeconds;
+}
+
 void GameApplication::updateGameplayTraceSnapshotHotkeys()
 {
     if (!gameplayDebugTraceEnabled())
@@ -6055,6 +6079,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
     const uint64_t pendingStateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     updateQuickSaveInput();
+    updateDoubleSpeedInput();
     updateGameplayTraceSnapshotHotkeys();
 
     if (processPendingPartyDefeat())
@@ -6162,11 +6187,12 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     }
 
     recordFrameDiagnostics(m_framePerformanceDiagnostics.pendingStateNanoseconds, pendingStateBeginTickCount);
+    const float scaledGameplayDeltaSeconds = gameplayDeltaSeconds(deltaSeconds);
 
     if (!debugConsoleFreezesGameplay && !skipGameplayUpdateAfterInputPrompt)
     {
         const uint64_t gameplayUpdateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
-        m_gameSession.updateGameplay(m_gameInputSystem.frame(), deltaSeconds, collectFrameDiagnostics);
+        m_gameSession.updateGameplay(m_gameInputSystem.frame(), scaledGameplayDeltaSeconds, collectFrameDiagnostics);
         recordFrameDiagnostics(m_framePerformanceDiagnostics.gameplayUpdateNanoseconds, gameplayUpdateBeginTickCount);
     }
 
@@ -6194,7 +6220,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         if (!gameplayWorldPaused)
         {
             const uint64_t worldUpdateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
-            pWorldRuntime->updateWorld(deltaSeconds);
+            pWorldRuntime->updateWorld(scaledGameplayDeltaSeconds);
             recordFrameDiagnostics(m_framePerformanceDiagnostics.worldUpdateNanoseconds, worldUpdateBeginTickCount);
         }
 
@@ -6202,7 +6228,8 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         m_gameSession.consumePendingGameplayAudioRequests();
         recordFrameDiagnostics(m_framePerformanceDiagnostics.postWorldNanoseconds, postWorldBeginTickCount);
         const uint64_t renderWorldBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
-        pWorldRuntime->renderWorld(width, height, m_gameInputSystem.frame(), deltaSeconds);
+        const float worldRenderDeltaSeconds = gameplayWorldPaused ? deltaSeconds : scaledGameplayDeltaSeconds;
+        pWorldRuntime->renderWorld(width, height, m_gameInputSystem.frame(), worldRenderDeltaSeconds);
         recordFrameDiagnostics(m_framePerformanceDiagnostics.renderWorldNanoseconds, renderWorldBeginTickCount);
         const uint64_t renderGameplayUiBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameSession.renderGameplayUi(width, height);

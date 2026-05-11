@@ -24,6 +24,9 @@ set(OPENYAMM_SPDLOG_VERSION "v1.16.0")
 set(OPENYAMM_FMT_VERSION "12.1.0")
 set(OPENYAMM_FFMPEG_VERSION "n8.0.1")
 set(OPENYAMM_YAML_CPP_VERSION "0.8.0")
+set(OPENYAMM_LUA_VERSION "5.4.8")
+set(OPENYAMM_LUA_URL "https://www.lua.org/ftp/lua-${OPENYAMM_LUA_VERSION}.tar.gz")
+set(OPENYAMM_LUA_URL_HASH "SHA256=4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae")
 
 function(openyamm_populate_dependency dependencyName outputSourceDirVariable)
     FetchContent_GetProperties(${dependencyName})
@@ -57,6 +60,69 @@ function(openyamm_configure_sdl3)
     )
 
     FetchContent_MakeAvailable(sdl3)
+endfunction()
+
+function(openyamm_configure_lua)
+    FetchContent_Declare(
+        lua
+        URL ${OPENYAMM_LUA_URL}
+        URL_HASH ${OPENYAMM_LUA_URL_HASH}
+        DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    )
+
+    openyamm_populate_dependency(lua luaSourceDir)
+
+    if (NOT TARGET openyamm_lua)
+        add_library(openyamm_lua STATIC
+            ${luaSourceDir}/src/lapi.c
+            ${luaSourceDir}/src/lauxlib.c
+            ${luaSourceDir}/src/lbaselib.c
+            ${luaSourceDir}/src/lcode.c
+            ${luaSourceDir}/src/lcorolib.c
+            ${luaSourceDir}/src/lctype.c
+            ${luaSourceDir}/src/ldblib.c
+            ${luaSourceDir}/src/ldebug.c
+            ${luaSourceDir}/src/ldo.c
+            ${luaSourceDir}/src/ldump.c
+            ${luaSourceDir}/src/lfunc.c
+            ${luaSourceDir}/src/lgc.c
+            ${luaSourceDir}/src/linit.c
+            ${luaSourceDir}/src/liolib.c
+            ${luaSourceDir}/src/llex.c
+            ${luaSourceDir}/src/lmathlib.c
+            ${luaSourceDir}/src/lmem.c
+            ${luaSourceDir}/src/loadlib.c
+            ${luaSourceDir}/src/lobject.c
+            ${luaSourceDir}/src/lopcodes.c
+            ${luaSourceDir}/src/loslib.c
+            ${luaSourceDir}/src/lparser.c
+            ${luaSourceDir}/src/lstate.c
+            ${luaSourceDir}/src/lstring.c
+            ${luaSourceDir}/src/lstrlib.c
+            ${luaSourceDir}/src/ltable.c
+            ${luaSourceDir}/src/ltablib.c
+            ${luaSourceDir}/src/ltm.c
+            ${luaSourceDir}/src/lundump.c
+            ${luaSourceDir}/src/lutf8lib.c
+            ${luaSourceDir}/src/lvm.c
+            ${luaSourceDir}/src/lzio.c
+        )
+
+        add_library(Lua::Lua ALIAS openyamm_lua)
+
+        target_include_directories(openyamm_lua
+            PUBLIC
+                ${luaSourceDir}/src
+        )
+
+        target_compile_features(openyamm_lua PUBLIC c_std_99)
+
+        if (UNIX)
+            target_link_libraries(openyamm_lua PUBLIC m)
+        endif()
+    endif()
+
+    set(OPENYAMM_LUA_TARGET openyamm_lua PARENT_SCOPE)
 endfunction()
 
 function(openyamm_configure_fmt)
@@ -131,21 +197,6 @@ function(openyamm_configure_physfs)
 endfunction()
 
 function(openyamm_configure_yaml_cpp)
-    find_path(OPENYAMM_YAML_CPP_INCLUDE_DIR yaml-cpp/yaml.h)
-    find_library(OPENYAMM_YAML_CPP_LIBRARY yaml-cpp)
-
-    if (OPENYAMM_YAML_CPP_INCLUDE_DIR AND OPENYAMM_YAML_CPP_LIBRARY)
-        if (NOT TARGET yaml-cpp::yaml-cpp)
-            add_library(yaml-cpp::yaml-cpp UNKNOWN IMPORTED)
-            set_target_properties(yaml-cpp::yaml-cpp PROPERTIES
-                IMPORTED_LOCATION "${OPENYAMM_YAML_CPP_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${OPENYAMM_YAML_CPP_INCLUDE_DIR}"
-            )
-        endif()
-
-        return()
-    endif()
-
     set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
     set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)

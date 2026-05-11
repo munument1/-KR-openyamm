@@ -12,6 +12,7 @@ namespace OpenYAMM::Game
 {
 enum class KeyboardBindingPage : uint8_t
 {
+    Hidden = 0,
     Page1 = 1,
     Page2 = 2
 };
@@ -52,6 +53,7 @@ enum class KeyboardAction : uint8_t
     FlyUp,
     FlyDown,
     Land,
+    DoubleSpeed,
     Count
 };
 

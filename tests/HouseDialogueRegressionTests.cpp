@@ -1133,15 +1133,21 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(harness.eventRuntimeState().messages.back().find("joined the followers") != std::string::npos);
 }
 
-TEST_CASE("merged in-house NPC followers can be hired and leave their house")
+TEST_CASE("merged in-house plain NPC followers can be hired and leave their house")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
     harness.party().addGold(10000);
 
+    constexpr uint32_t NaomiWindHouseId = 1377;
+    constexpr uint32_t NaomiWindNpcId = 1051;
     constexpr uint32_t WilmaCookHouseId = 1476;
     const OpenYAMM::Game::HouseEntry *pHouse = gameData.houseTable.get(WilmaCookHouseId);
     REQUIRE(pHouse != nullptr);
+
+    const OpenYAMM::Game::EventDialogContent naomiDialog =
+        harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
+    CHECK(findActionIndexByLabel(naomiDialog, "Join").has_value());
 
     std::vector<uint32_t> residentIds =
         OpenYAMM::Game::collectSelectableResidentNpcIds(
@@ -1189,6 +1195,19 @@ TEST_CASE("merged in-house NPC followers can be hired and leave their house")
             gameData.npcDialogTable,
             harness.eventRuntimeState());
     CHECK(std::find(residentIds.begin(), residentIds.end(), WilmaCookGateMasterNpcId) == residentIds.end());
+}
+
+TEST_CASE("merged in-house scripted teachers do not offer profession hire")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    constexpr uint32_t MasterIdentifyItemTeacherHouseId = 798;
+    const OpenYAMM::Game::EventDialogContent dialog =
+        harness.openNpcDialogue(MasterIdentifyItemTeacherNpcId, MasterIdentifyItemTeacherHouseId);
+
+    CHECK(dialogHasActionLabel(dialog, "Master Identify Item"));
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Join").has_value());
 }
 
 TEST_CASE("merged NPC follower action topics execute abilities instead of stale topic text")

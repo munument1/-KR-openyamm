@@ -517,11 +517,13 @@ uint32_t monsterActorAttackSeed(
         ^ salt;
 }
 
-constexpr std::array<std::array<int, 3>, 4> EncounterDifficultyTierWeights = {{
+constexpr std::array<std::array<int, 3>, 6> EncounterDifficultyTierWeights = {{
     {{100, 0, 0}},
     {{90, 8, 2}},
     {{70, 20, 10}},
     {{50, 30, 20}},
+    {{30, 40, 30}},
+    {{10, 50, 40}},
 }};
 constexpr float GroundSnapHeight = 1.0f;
 constexpr float OeNonFlyingActorRadius = 40.0f;
@@ -3344,7 +3346,7 @@ char resolveEncounterTierLetter(
         return 'A';
     }
 
-    const int difficulty = std::clamp(pEncounter->difficulty, 0, 3);
+    const int difficulty = std::clamp(pEncounter->difficulty, 0, 5);
     const std::array<int, 3> &weights = EncounterDifficultyTierWeights[difficulty];
     const int aWeight = weights[0];
     const int bWeight = weights[1];

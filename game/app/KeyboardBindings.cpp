@@ -73,9 +73,11 @@ const std::array<KeyboardBindingDefinition, KeyboardActionCount> KeyboardBinding
         SDL_SCANCODE_K, true},
     {KeyboardAction::Land, "land", "Land", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 6,
         SDL_SCANCODE_HOME, true},
+    {KeyboardAction::DoubleSpeed, "double_speed", "Double Speed", KeyboardBindingPage::Hidden,
+        KeyboardBindingColumn::Left, 0, SDL_SCANCODE_F2, true},
 }};
 
-const std::array<KeyboardScancodeName, 53> KeyboardScancodeNames = {{
+const std::array<KeyboardScancodeName, 54> KeyboardScancodeNames = {{
     {SDL_SCANCODE_A, "A"},
     {SDL_SCANCODE_B, "B"},
     {SDL_SCANCODE_C, "C"},
@@ -129,6 +131,7 @@ const std::array<KeyboardScancodeName, 53> KeyboardScancodeNames = {{
     {SDL_SCANCODE_KP_PLUS, "Add"},
     {SDL_SCANCODE_KP_MINUS, "Subtract"},
     {SDL_SCANCODE_BACKSPACE, "Backspace"},
+    {SDL_SCANCODE_F2, "F2"},
 }};
 
 std::string normalizeBindingName(const std::string &value)

@@ -78,7 +78,7 @@ elements:
             height: 112
             text:
               value: "{text}"
-              font: Lucida
+              font: Arrus
               align_x: left
               align_y: top
             notes: Main dialogue text body.

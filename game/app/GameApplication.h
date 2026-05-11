@@ -188,6 +188,8 @@ private:
     void captureCurrentSceneState();
     void restoreSavedOutdoorWorldStateForSelectedMap();
     void updateQuickSaveInput();
+    void updateDoubleSpeedInput();
+    float gameplayDeltaSeconds(float deltaSeconds) const;
     void updateGameplayTraceSnapshotHotkeys();
     bool processPendingQuickSaveInput();
     bool quickSave();
@@ -256,6 +258,7 @@ private:
     Engine::AssetFileSystem *m_pAssetFileSystem;
     bool m_quickSaveLatch = false;
     bool m_quickLoadLatch = false;
+    bool m_doubleSpeedActive = false;
     bool m_advanceTimeLatch = false;
     bool m_traceSnapshotStartLatch = false;
     bool m_traceSnapshotEndLatch = false;

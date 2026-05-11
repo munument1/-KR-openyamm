@@ -81,6 +81,11 @@ constexpr float DialogueTextRightInset = 6.0f;
 constexpr float DialogueTextPrimaryFontMaxHeight = 344.0f;
 constexpr const char *DialogueTextSmallFontName = "Create";
 
+float dialogueTextLineAdvance(const GameplayScreenRuntime::HudFontHandle &font)
+{
+    return static_cast<float>(std::max(1, font.fontHeight - 3));
+}
+
 enum class HouseShopVerticalAlign
 {
     Center,
@@ -589,7 +594,11 @@ std::optional<DialogueBodyTextMetrics> calculateDialogueBodyTextMetrics(
                 wrappedLineCount += std::max<size_t>(1, wrappedLines.size());
             }
 
-            metrics.textHeight = static_cast<float>(wrappedLineCount) * static_cast<float>(font.fontHeight)
+            const float contentHeight = wrappedLineCount > 0
+                ? static_cast<float>(font.fontHeight)
+                    + static_cast<float>(wrappedLineCount - 1) * dialogueTextLineAdvance(font)
+                : 0.0f;
+            metrics.textHeight = contentHeight
                 + textPadY * 2.0f
                 + DialogueTextTopInset
                 + DialogueTextBottomInset;
@@ -2053,7 +2062,7 @@ void GameplayDialogueRenderer::renderDialogueBodyText(
         coloredMainTextureHandle = font.mainTextureHandle;
     }
 
-    const float lineHeight = static_cast<float>(font.fontHeight) * fontScale;
+    const float lineHeight = dialogueTextLineAdvance(font) * fontScale;
     float textX = resolvedText->x + pDialogueTextLayout->textPadX * fontScale;
     float textY = resolvedText->y + (pDialogueTextLayout->textPadY + DialogueTextTopInset) * fontScale;
     textX = std::round(textX);

@@ -1264,9 +1264,10 @@ std::optional<NpcEntry> runtimeNpcEntry(
 
 bool npcCanOfferProfessionHire(
     const NpcEntry &npc,
-    const MergedNpcProfessionEntry &profession)
+    const MergedNpcProfessionEntry &profession,
+    bool allowProfessionBasedHire)
 {
-    return npc.joins || profession.joins;
+    return npc.joins || (allowProfessionBasedHire && profession.joins);
 }
 
 int currentMaximumHealth(const Character &member)
@@ -2648,7 +2649,10 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
         if (pNpc == nullptr
             || pProfession == nullptr
-            || !npcCanOfferProfessionHire(*pNpc, *pProfession)
+            || !npcCanOfferProfessionHire(
+                *pNpc,
+                *pProfession,
+                currentDialogueHostHouseId(context.eventRuntimeState) == 0 || pNpc->topicIds.empty())
             || !continentAllowsNpcFollowers(context.pCurrentMap, context.pContinentSettingTable))
         {
             context.eventRuntimeState.messages.push_back("That follower is not available.");
@@ -2719,7 +2723,10 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
         if (pNpc == nullptr
             || pProfession == nullptr
-            || !npcCanOfferProfessionHire(*pNpc, *pProfession)
+            || !npcCanOfferProfessionHire(
+                *pNpc,
+                *pProfession,
+                currentDialogueHostHouseId(context.eventRuntimeState) == 0 || pNpc->topicIds.empty())
             || !continentAllowsNpcFollowers(context.pCurrentMap, context.pContinentSettingTable))
         {
             context.eventRuntimeState.messages.push_back("That follower is not available.");

@@ -145,9 +145,10 @@ bool hasHiredNpcFollower(const EventRuntimeState &eventRuntimeState, uint32_t np
 
 bool npcCanOfferProfessionHire(
     const NpcEntry &npc,
-    const MergedNpcProfessionEntry &profession)
+    const MergedNpcProfessionEntry &profession,
+    bool allowProfessionBasedHire)
 {
-    return npc.joins || profession.joins;
+    return npc.joins || (allowProfessionBasedHire && profession.joins);
 }
 
 void appendNpcBtbAction(
@@ -1306,10 +1307,12 @@ EventDialogContent buildEventDialogContent(
                         : nullptr;
                 const bool npcIsHired =
                     pNpc != nullptr && hasHiredNpcFollower(npcRuntimeState, pNpc->id);
+                const bool allowProfessionBasedHire =
+                    pNpc != nullptr && (context.hostHouseId == 0 || pNpc->topicIds.empty());
                 const bool suppressProfessionTopicForHireableNpc =
                     pNpc != nullptr
                     && pProfession != nullptr
-                    && npcCanOfferProfessionHire(*pNpc, *pProfession)
+                    && npcCanOfferProfessionHire(*pNpc, *pProfession, allowProfessionBasedHire)
                     && !npcIsHired;
 
                 for (const NpcDialogTable::ResolvedTopic &topic : topics)
@@ -1370,12 +1373,13 @@ EventDialogContent buildEventDialogContent(
                     || (pNpc != nullptr
                         && pProfession != nullptr
                         && !npcIsHired
-                        && npcCanOfferProfessionHire(*pNpc, *pProfession));
+                        && npcCanOfferProfessionHire(*pNpc, *pProfession, allowProfessionBasedHire));
                 bool suppressProfessionNewsForBtbGate = false;
 
                 if (canUseProfessionFallback && pNpc != nullptr && pProfession != nullptr)
                 {
-                    const bool npcCanJoin = npcCanOfferProfessionHire(*pNpc, *pProfession);
+                    const bool npcCanJoin =
+                        npcCanOfferProfessionHire(*pNpc, *pProfession, allowProfessionBasedHire);
                     const bool canUseNpcFollowers =
                         continentAllowsNpcFollowers(pCurrentMap, pContinentSettingTable);
                     const MergedNpcBtbEntry *pBtbEntry =
