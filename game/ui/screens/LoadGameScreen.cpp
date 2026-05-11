@@ -452,14 +452,42 @@ LoadGameScreen::LoadGameScreen(
 {
 }
 
+std::vector<LoadGameScreen::SaveSlotSummary> LoadGameScreen::s_cachedSlots;
+bool LoadGameScreen::s_cachedSlotsValid = false;
+
 AppMode LoadGameScreen::mode() const
 {
     return AppMode::LoadMenu;
 }
 
+void LoadGameScreen::prepareForFirstFrame()
+{
+    ensureLayoutLoaded();
+    preloadLayoutAssets(m_layoutManager);
+
+    if (s_cachedSlotsValid)
+    {
+        loadCachedSaveSlots();
+    }
+    else
+    {
+        refreshSaveSlots();
+    }
+}
+
 void LoadGameScreen::onEnter()
 {
-    refreshSaveSlots();
+    if (!m_slotsLoaded)
+    {
+        if (s_cachedSlotsValid)
+        {
+            loadCachedSaveSlots();
+        }
+        else
+        {
+            refreshSaveSlots();
+        }
+    }
 }
 
 void LoadGameScreen::drawScreen(float deltaSeconds)
@@ -662,6 +690,7 @@ void LoadGameScreen::drawScreen(float deltaSeconds)
 void LoadGameScreen::refreshSaveSlots()
 {
     m_slots.clear();
+    m_slotsLoaded = false;
     std::filesystem::create_directories("saves");
 
     for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator("saves"))
@@ -728,6 +757,24 @@ void LoadGameScreen::refreshSaveSlots()
     m_scrollOffset = 0;
     m_lastClickedSlotIndex = static_cast<size_t>(-1);
     m_lastClickedSlotTicks = 0;
+    m_slotsLoaded = true;
+    s_cachedSlots = m_slots;
+    s_cachedSlotsValid = true;
+}
+
+void LoadGameScreen::loadCachedSaveSlots()
+{
+    m_slots = s_cachedSlots;
+
+    if (m_selectedIndex >= m_slots.size())
+    {
+        m_selectedIndex = 0;
+    }
+
+    m_scrollOffset = 0;
+    m_lastClickedSlotIndex = static_cast<size_t>(-1);
+    m_lastClickedSlotTicks = 0;
+    m_slotsLoaded = true;
 }
 
 bool LoadGameScreen::tryLoadSelectedSlot()

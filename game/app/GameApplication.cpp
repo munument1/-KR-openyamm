@@ -4956,6 +4956,8 @@ void GameApplication::restoreSavedOutdoorWorldStateForSelectedMap()
 
 void GameApplication::shutdownRenderer()
 {
+    MenuScreenBase::shutdownSharedResources();
+    m_mainMenuChildScreensPrepared = false;
     m_outdoorGameView.shutdown();
     m_indoorGameView.shutdown();
     m_indoorRenderer.shutdown();
@@ -5449,9 +5451,7 @@ void GameApplication::openMainMenuScreen()
         return;
     }
 
-    m_gameAudioSystem.setBackgroundMusicTrack(MainMenuMusicTrack);
-
-    m_screenManager.setActiveScreen(std::make_unique<MainMenuScreen>(
+    std::unique_ptr<MainMenuScreen> pScreen = std::make_unique<MainMenuScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         [this]()
@@ -5467,7 +5467,46 @@ void GameApplication::openMainMenuScreen()
         [this]()
         {
             requestApplicationQuit();
-        }));
+        });
+
+    pScreen->prepareForFirstFrame();
+
+    if (!m_mainMenuChildScreensPrepared)
+    {
+        {
+            NewGameScreen warmupScreen(
+                *m_pAssetFileSystem,
+                &m_gameAudioSystem,
+                m_gameSession.data(),
+                m_settings.newGameGodLich,
+                [](const std::vector<Character> &, uint32_t)
+                {
+                },
+                []()
+                {
+                });
+            warmupScreen.prepareForFirstFrame();
+        }
+
+        {
+            LoadGameScreen warmupScreen(
+                *m_pAssetFileSystem,
+                m_gameSession.data(),
+                [](const std::filesystem::path &) -> bool
+                {
+                    return false;
+                },
+                []()
+                {
+                });
+            warmupScreen.prepareForFirstFrame();
+        }
+
+        m_mainMenuChildScreensPrepared = true;
+    }
+
+    m_gameAudioSystem.setBackgroundMusicTrack(MainMenuMusicTrack);
+    m_screenManager.setActiveScreen(std::move(pScreen));
 }
 
 void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::string &source)
@@ -5481,7 +5520,7 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::s
         "load_game_screen_opened source=\"" + source + "\""
         + " return_to_gameplay_menu=" + (returnToGameplayMenu ? "true" : "false"));
 
-    m_screenManager.setActiveScreen(std::make_unique<LoadGameScreen>(
+    std::unique_ptr<LoadGameScreen> pScreen = std::make_unique<LoadGameScreen>(
         *m_pAssetFileSystem,
         m_gameSession.data(),
         [this](const std::filesystem::path &path) -> bool
@@ -5515,7 +5554,14 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::s
             {
                 openMainMenuScreen();
             }
-        }));
+        });
+
+    if (!m_mainMenuChildScreensPrepared)
+    {
+        pScreen->prepareForFirstFrame();
+    }
+
+    m_screenManager.setActiveScreen(std::move(pScreen));
 }
 
 void GameApplication::openNewGameScreen(const std::string &source)
@@ -5527,9 +5573,7 @@ void GameApplication::openNewGameScreen(const std::string &source)
 
     GAMEPLAY_DEBUG_TRACE("new_game_screen_opened source=\"" + source + "\"");
 
-    m_gameAudioSystem.stopBackgroundMusicImmediate();
-
-    m_screenManager.setActiveScreen(std::make_unique<NewGameScreen>(
+    std::unique_ptr<NewGameScreen> pScreen = std::make_unique<NewGameScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         m_gameSession.data(),
@@ -5541,7 +5585,15 @@ void GameApplication::openNewGameScreen(const std::string &source)
         [this]()
         {
             openMainMenuScreen();
-        }));
+        });
+
+    if (!m_mainMenuChildScreensPrepared)
+    {
+        pScreen->prepareForFirstFrame();
+    }
+
+    m_gameAudioSystem.stopBackgroundMusicImmediate();
+    m_screenManager.setActiveScreen(std::move(pScreen));
 }
 
 std::optional<uint32_t> GameApplication::activeWorldContinentId() const

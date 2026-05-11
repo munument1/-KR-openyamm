@@ -2,6 +2,7 @@
 #include "engine/BgfxContext.h"
 #include "engine/ImageAssetLoader.h"
 #include "game/render/TextureFiltering.h"
+#include "game/ui/UiLayoutManager.h"
 
 #include <SDL3/SDL.h>
 #include <bx/math.h>
@@ -499,6 +500,17 @@ std::optional<std::vector<uint8_t>> loadTexturePixelsBgra(
 }
 
 bgfx::VertexLayout MenuScreenBase::MenuVertex::ms_layout;
+std::vector<MenuScreenBase::TextureHandle> MenuScreenBase::s_textureHandles;
+std::vector<MenuScreenBase::TextureColorHandle> MenuScreenBase::s_textureColorHandles;
+std::vector<MenuScreenBase::DynamicTextureHandle> MenuScreenBase::s_dynamicTextureHandles;
+std::vector<MenuScreenBase::FontHandle> MenuScreenBase::s_fontHandles;
+std::vector<MenuScreenBase::FontColorHandle> MenuScreenBase::s_fontColorHandles;
+std::unordered_map<std::string, size_t> MenuScreenBase::s_textureIndexByName;
+std::unordered_map<std::string, size_t> MenuScreenBase::s_fontIndexByName;
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+    MenuScreenBase::s_directoryEntriesByPath;
+std::unordered_map<std::string, std::optional<std::string>> MenuScreenBase::s_resolvedTexturePaths;
+std::unordered_map<std::string, std::optional<std::string>> MenuScreenBase::s_resolvedFontPaths;
 
 void MenuScreenBase::MenuVertex::init()
 {
@@ -516,6 +528,90 @@ MenuScreenBase::MenuScreenBase(const Engine::AssetFileSystem &assetFileSystem)
 MenuScreenBase::~MenuScreenBase()
 {
     destroyRendererResources();
+}
+
+void MenuScreenBase::shutdownSharedResources()
+{
+    if (!Engine::BgfxContext::isBgfxInitialized())
+    {
+        s_textureHandles.clear();
+        s_textureIndexByName.clear();
+        s_resolvedTexturePaths.clear();
+        s_textureColorHandles.clear();
+        s_dynamicTextureHandles.clear();
+        s_fontHandles.clear();
+        s_fontIndexByName.clear();
+        s_resolvedFontPaths.clear();
+        s_fontColorHandles.clear();
+        s_directoryEntriesByPath.clear();
+        return;
+    }
+
+    for (TextureHandle &textureHandle : s_textureHandles)
+    {
+        if (bgfx::isValid(textureHandle.handle))
+        {
+            bgfx::destroy(textureHandle.handle);
+            textureHandle.handle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    s_textureHandles.clear();
+    s_textureIndexByName.clear();
+    s_resolvedTexturePaths.clear();
+
+    for (TextureColorHandle &textureColorHandle : s_textureColorHandles)
+    {
+        if (bgfx::isValid(textureColorHandle.handle))
+        {
+            bgfx::destroy(textureColorHandle.handle);
+            textureColorHandle.handle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    s_textureColorHandles.clear();
+
+    for (DynamicTextureHandle &textureHandle : s_dynamicTextureHandles)
+    {
+        if (bgfx::isValid(textureHandle.handle))
+        {
+            bgfx::destroy(textureHandle.handle);
+            textureHandle.handle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    s_dynamicTextureHandles.clear();
+
+    for (FontHandle &fontHandle : s_fontHandles)
+    {
+        if (bgfx::isValid(fontHandle.mainTextureHandle))
+        {
+            bgfx::destroy(fontHandle.mainTextureHandle);
+            fontHandle.mainTextureHandle = BGFX_INVALID_HANDLE;
+        }
+
+        if (bgfx::isValid(fontHandle.shadowTextureHandle))
+        {
+            bgfx::destroy(fontHandle.shadowTextureHandle);
+            fontHandle.shadowTextureHandle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    s_fontHandles.clear();
+    s_fontIndexByName.clear();
+    s_resolvedFontPaths.clear();
+
+    for (FontColorHandle &fontColorHandle : s_fontColorHandles)
+    {
+        if (bgfx::isValid(fontColorHandle.handle))
+        {
+            bgfx::destroy(fontColorHandle.handle);
+            fontColorHandle.handle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    s_fontColorHandles.clear();
+    s_directoryEntriesByPath.clear();
 }
 
 void MenuScreenBase::renderFrame(
@@ -1135,6 +1231,44 @@ void MenuScreenBase::drawViewportSidePanels(const std::string &textureName, floa
     }
 }
 
+void MenuScreenBase::preloadTexture(const std::string &textureName)
+{
+    if (textureName.empty() || !Engine::BgfxContext::isBgfxInitialized())
+    {
+        return;
+    }
+
+    ensureRendererInitialized();
+    ensureTexture(textureName);
+}
+
+void MenuScreenBase::preloadFont(const std::string &fontName)
+{
+    if (fontName.empty() || !Engine::BgfxContext::isBgfxInitialized())
+    {
+        return;
+    }
+
+    ensureRendererInitialized();
+    ensureFont(fontName);
+}
+
+void MenuScreenBase::preloadLayoutAssets(const UiLayoutManager &layoutManager)
+{
+    for (const auto &elementPair : layoutManager.elements())
+    {
+        const UiLayoutManager::LayoutElement &element = elementPair.second;
+        preloadTexture(element.primaryAsset);
+        preloadTexture(element.hoverAsset);
+        preloadTexture(element.pressedAsset);
+        preloadTexture(element.secondaryAsset);
+        preloadTexture(element.tertiaryAsset);
+        preloadTexture(element.quaternaryAsset);
+        preloadTexture(element.quinaryAsset);
+        preloadFont(element.fontName);
+    }
+}
+
 void MenuScreenBase::ensureRendererInitialized()
 {
     if (m_rendererInitialized)
@@ -1155,95 +1289,13 @@ void MenuScreenBase::ensureRendererInitialized()
 
 void MenuScreenBase::destroyRendererResources()
 {
-    if (!Engine::BgfxContext::isBgfxInitialized())
-    {
-        m_textureHandles.clear();
-        m_textureIndexByName.clear();
-        m_resolvedTexturePaths.clear();
-        m_textureColorHandles.clear();
-        m_dynamicTextureHandles.clear();
-        m_fontHandles.clear();
-        m_fontIndexByName.clear();
-        m_resolvedFontPaths.clear();
-        m_fontColorHandles.clear();
-        m_texturedProgramHandle = BGFX_INVALID_HANDLE;
-        m_textureUniformHandle = BGFX_INVALID_HANDLE;
-        m_rendererInitialized = false;
-        return;
-    }
-
-    for (TextureHandle &textureHandle : m_textureHandles)
-    {
-        if (bgfx::isValid(textureHandle.handle))
-        {
-            bgfx::destroy(textureHandle.handle);
-            textureHandle.handle = BGFX_INVALID_HANDLE;
-        }
-    }
-
-    m_textureHandles.clear();
-    m_textureIndexByName.clear();
-    m_resolvedTexturePaths.clear();
-
-    for (TextureColorHandle &textureColorHandle : m_textureColorHandles)
-    {
-        if (bgfx::isValid(textureColorHandle.handle))
-        {
-            bgfx::destroy(textureColorHandle.handle);
-            textureColorHandle.handle = BGFX_INVALID_HANDLE;
-        }
-    }
-
-    m_textureColorHandles.clear();
-
-    for (DynamicTextureHandle &textureHandle : m_dynamicTextureHandles)
-    {
-        if (bgfx::isValid(textureHandle.handle))
-        {
-            bgfx::destroy(textureHandle.handle);
-            textureHandle.handle = BGFX_INVALID_HANDLE;
-        }
-    }
-
-    m_dynamicTextureHandles.clear();
-
-    for (FontHandle &fontHandle : m_fontHandles)
-    {
-        if (bgfx::isValid(fontHandle.mainTextureHandle))
-        {
-            bgfx::destroy(fontHandle.mainTextureHandle);
-            fontHandle.mainTextureHandle = BGFX_INVALID_HANDLE;
-        }
-
-        if (bgfx::isValid(fontHandle.shadowTextureHandle))
-        {
-            bgfx::destroy(fontHandle.shadowTextureHandle);
-            fontHandle.shadowTextureHandle = BGFX_INVALID_HANDLE;
-        }
-    }
-
-    m_fontHandles.clear();
-    m_fontIndexByName.clear();
-    m_resolvedFontPaths.clear();
-
-    for (FontColorHandle &fontColorHandle : m_fontColorHandles)
-    {
-        if (bgfx::isValid(fontColorHandle.handle))
-        {
-            bgfx::destroy(fontColorHandle.handle);
-            fontColorHandle.handle = BGFX_INVALID_HANDLE;
-        }
-    }
-
-    m_fontColorHandles.clear();
-
-    if (bgfx::isValid(m_texturedProgramHandle))
+    if (Engine::BgfxContext::isBgfxInitialized() && bgfx::isValid(m_texturedProgramHandle))
     {
         bgfx::destroy(m_texturedProgramHandle);
         m_texturedProgramHandle = BGFX_INVALID_HANDLE;
     }
 
-    if (bgfx::isValid(m_textureUniformHandle))
+    if (Engine::BgfxContext::isBgfxInitialized() && bgfx::isValid(m_textureUniformHandle))
     {
         bgfx::destroy(m_textureUniformHandle);
         m_textureUniformHandle = BGFX_INVALID_HANDLE;
@@ -1255,8 +1307,8 @@ void MenuScreenBase::destroyRendererResources()
 const MenuScreenBase::TextureHandle *MenuScreenBase::findTexture(const std::string &textureName) const
 {
     const std::string normalized = toLowerCopy(textureName);
-    const std::unordered_map<std::string, size_t>::const_iterator it = m_textureIndexByName.find(normalized);
-    return it != m_textureIndexByName.end() ? &m_textureHandles[it->second] : nullptr;
+    const std::unordered_map<std::string, size_t>::const_iterator it = s_textureIndexByName.find(normalized);
+    return it != s_textureIndexByName.end() ? &s_textureHandles[it->second] : nullptr;
 }
 
 const MenuScreenBase::TextureHandle *MenuScreenBase::ensureTexture(const std::string &textureName)
@@ -1320,16 +1372,16 @@ const MenuScreenBase::TextureHandle *MenuScreenBase::ensureTexture(const std::st
         return nullptr;
     }
 
-    m_textureHandles.push_back(std::move(textureHandle));
-    m_textureIndexByName[m_textureHandles.back().normalizedTextureName] = m_textureHandles.size() - 1;
-    return &m_textureHandles.back();
+    s_textureHandles.push_back(std::move(textureHandle));
+    s_textureIndexByName[s_textureHandles.back().normalizedTextureName] = s_textureHandles.size() - 1;
+    return &s_textureHandles.back();
 }
 
 const MenuScreenBase::FontHandle *MenuScreenBase::findFont(const std::string &fontName) const
 {
     const std::string normalized = toLowerCopy(fontName);
-    const std::unordered_map<std::string, size_t>::const_iterator it = m_fontIndexByName.find(normalized);
-    return it != m_fontIndexByName.end() ? &m_fontHandles[it->second] : nullptr;
+    const std::unordered_map<std::string, size_t>::const_iterator it = s_fontIndexByName.find(normalized);
+    return it != s_fontIndexByName.end() ? &s_fontHandles[it->second] : nullptr;
 }
 
 const MenuScreenBase::FontHandle *MenuScreenBase::ensureFont(const std::string &fontName)
@@ -1464,9 +1516,9 @@ const MenuScreenBase::FontHandle *MenuScreenBase::ensureFont(const std::string &
         return nullptr;
     }
 
-    m_fontHandles.push_back(std::move(fontHandle));
-    m_fontIndexByName[m_fontHandles.back().normalizedFontName] = m_fontHandles.size() - 1;
-    return &m_fontHandles.back();
+    s_fontHandles.push_back(std::move(fontHandle));
+    s_fontIndexByName[s_fontHandles.back().normalizedFontName] = s_fontHandles.size() - 1;
+    return &s_fontHandles.back();
 }
 
 bgfx::TextureHandle MenuScreenBase::ensureDynamicTexture(
@@ -1480,7 +1532,7 @@ bgfx::TextureHandle MenuScreenBase::ensureDynamicTexture(
         return BGFX_INVALID_HANDLE;
     }
 
-    for (DynamicTextureHandle &textureHandle : m_dynamicTextureHandles)
+    for (DynamicTextureHandle &textureHandle : s_dynamicTextureHandles)
     {
         if (textureHandle.cacheKey != cacheKey)
         {
@@ -1546,8 +1598,8 @@ bgfx::TextureHandle MenuScreenBase::ensureDynamicTexture(
         static_cast<uint16_t>(width),
         static_cast<uint16_t>(height),
         bgfx::copy(pixelsBgra.data(), static_cast<uint32_t>(pixelsBgra.size())));
-    m_dynamicTextureHandles.push_back(std::move(textureHandle));
-    return m_dynamicTextureHandles.back().handle;
+    s_dynamicTextureHandles.push_back(std::move(textureHandle));
+    return s_dynamicTextureHandles.back().handle;
 }
 
 bgfx::TextureHandle MenuScreenBase::ensureTextureColor(const TextureHandle &texture, uint32_t colorAbgr)
@@ -1557,7 +1609,7 @@ bgfx::TextureHandle MenuScreenBase::ensureTextureColor(const TextureHandle &text
         return texture.handle;
     }
 
-    for (const TextureColorHandle &textureColorHandle : m_textureColorHandles)
+    for (const TextureColorHandle &textureColorHandle : s_textureColorHandles)
     {
         if (textureColorHandle.normalizedTextureName == texture.normalizedTextureName
             && textureColorHandle.colorAbgr == colorAbgr)
@@ -1613,8 +1665,8 @@ bgfx::TextureHandle MenuScreenBase::ensureTextureColor(const TextureHandle &text
     textureColorHandle.normalizedTextureName = texture.normalizedTextureName;
     textureColorHandle.colorAbgr = colorAbgr;
     textureColorHandle.handle = textureHandle;
-    m_textureColorHandles.push_back(std::move(textureColorHandle));
-    return m_textureColorHandles.back().handle;
+    s_textureColorHandles.push_back(std::move(textureColorHandle));
+    return s_textureColorHandles.back().handle;
 }
 
 bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint32_t colorAbgr)
@@ -1624,7 +1676,7 @@ bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint
         return font.mainTextureHandle;
     }
 
-    for (const FontColorHandle &fontColorHandle : m_fontColorHandles)
+    for (const FontColorHandle &fontColorHandle : s_fontColorHandles)
     {
         if (fontColorHandle.normalizedFontName == font.normalizedFontName
             && fontColorHandle.colorAbgr == colorAbgr)
@@ -1680,16 +1732,16 @@ bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint
     fontColorHandle.normalizedFontName = font.normalizedFontName;
     fontColorHandle.colorAbgr = colorAbgr;
     fontColorHandle.handle = textureHandle;
-    m_fontColorHandles.push_back(std::move(fontColorHandle));
-    return m_fontColorHandles.back().handle;
+    s_fontColorHandles.push_back(std::move(fontColorHandle));
+    return s_fontColorHandles.back().handle;
 }
 
 std::optional<std::string> MenuScreenBase::resolveTexturePath(const std::string &textureName)
 {
     const std::string normalizedName = toLowerCopy(textureName);
-    const auto cachedIt = m_resolvedTexturePaths.find(normalizedName);
+    const auto cachedIt = s_resolvedTexturePaths.find(normalizedName);
 
-    if (cachedIt != m_resolvedTexturePaths.end())
+    if (cachedIt != s_resolvedTexturePaths.end())
     {
         return cachedIt->second;
     }
@@ -1705,9 +1757,9 @@ std::optional<std::string> MenuScreenBase::resolveTexturePath(const std::string 
 
     for (const std::string &directory : directories)
     {
-        auto entriesIt = m_directoryEntriesByPath.find(directory);
+        auto entriesIt = s_directoryEntriesByPath.find(directory);
 
-        if (entriesIt == m_directoryEntriesByPath.end())
+        if (entriesIt == s_directoryEntriesByPath.end())
         {
             std::unordered_map<std::string, std::string> entries;
 
@@ -1716,7 +1768,7 @@ std::optional<std::string> MenuScreenBase::resolveTexturePath(const std::string 
                 entries.emplace(toLowerCopy(entry), directory + "/" + entry);
             }
 
-            entriesIt = m_directoryEntriesByPath.emplace(directory, std::move(entries)).first;
+            entriesIt = s_directoryEntriesByPath.emplace(directory, std::move(entries)).first;
         }
 
         for (const std::string &extension : extensions)
@@ -1725,13 +1777,13 @@ std::optional<std::string> MenuScreenBase::resolveTexturePath(const std::string 
 
             if (resolvedIt != entriesIt->second.end())
             {
-                m_resolvedTexturePaths[normalizedName] = resolvedIt->second;
+                s_resolvedTexturePaths[normalizedName] = resolvedIt->second;
                 return resolvedIt->second;
             }
         }
     }
 
-    m_resolvedTexturePaths[normalizedName] = std::nullopt;
+    s_resolvedTexturePaths[normalizedName] = std::nullopt;
     return std::nullopt;
 }
 
@@ -1739,9 +1791,9 @@ std::optional<std::string> MenuScreenBase::resolveFontPath(const std::string &fo
 {
     const std::string normalizedName = toLowerCopy(fontName);
     const std::unordered_map<std::string, std::optional<std::string>>::const_iterator cachedIt =
-        m_resolvedFontPaths.find(normalizedName);
+        s_resolvedFontPaths.find(normalizedName);
 
-    if (cachedIt != m_resolvedFontPaths.end())
+    if (cachedIt != s_resolvedFontPaths.end())
     {
         return cachedIt->second;
     }
@@ -1754,9 +1806,9 @@ std::optional<std::string> MenuScreenBase::resolveFontPath(const std::string &fo
     for (const std::string &directory : directories)
     {
         std::unordered_map<std::string, std::unordered_map<std::string, std::string>>::iterator entriesIt =
-            m_directoryEntriesByPath.find(directory);
+            s_directoryEntriesByPath.find(directory);
 
-        if (entriesIt == m_directoryEntriesByPath.end())
+        if (entriesIt == s_directoryEntriesByPath.end())
         {
             std::unordered_map<std::string, std::string> entries;
 
@@ -1765,7 +1817,7 @@ std::optional<std::string> MenuScreenBase::resolveFontPath(const std::string &fo
                 entries.emplace(toLowerCopy(entry), directory + "/" + entry);
             }
 
-            entriesIt = m_directoryEntriesByPath.emplace(directory, std::move(entries)).first;
+            entriesIt = s_directoryEntriesByPath.emplace(directory, std::move(entries)).first;
         }
 
         const std::unordered_map<std::string, std::string>::const_iterator resolvedIt =
@@ -1773,12 +1825,12 @@ std::optional<std::string> MenuScreenBase::resolveFontPath(const std::string &fo
 
         if (resolvedIt != entriesIt->second.end())
         {
-            m_resolvedFontPaths[normalizedName] = resolvedIt->second;
+            s_resolvedFontPaths[normalizedName] = resolvedIt->second;
             return resolvedIt->second;
         }
     }
 
-    m_resolvedFontPaths[normalizedName] = std::nullopt;
+    s_resolvedFontPaths[normalizedName] = std::nullopt;
     return std::nullopt;
 }
 }

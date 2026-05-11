@@ -24,6 +24,7 @@ public:
         Action quitAction);
 
     AppMode mode() const override;
+    void prepareForFirstFrame();
 
 private:
     void drawScreen(float deltaSeconds) override;

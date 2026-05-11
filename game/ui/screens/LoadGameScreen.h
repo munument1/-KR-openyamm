@@ -25,6 +25,7 @@ public:
         CancelAction cancelAction);
 
     AppMode mode() const override;
+    void prepareForFirstFrame();
     void onEnter() override;
 
 private:
@@ -58,6 +59,7 @@ private:
         const std::string &layoutId,
         const std::string &text,
         uint32_t colorAbgrOverride = 0) const;
+    void loadCachedSaveSlots();
 
     const GameDataRepository *m_pGameData = nullptr;
     LoadAction m_loadAction;
@@ -71,5 +73,9 @@ private:
     uint64_t m_lastClickedSlotTicks = 0;
     size_t m_lastClickedSlotIndex = static_cast<size_t>(-1);
     std::vector<SaveSlotSummary> m_slots;
+    bool m_slotsLoaded = false;
+
+    static std::vector<SaveSlotSummary> s_cachedSlots;
+    static bool s_cachedSlotsValid;
 };
 }

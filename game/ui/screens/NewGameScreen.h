@@ -57,6 +57,7 @@ public:
         BackAction backAction);
 
     AppMode mode() const override;
+    void prepareForFirstFrame();
     void onEnter() override;
     void onExit() override;
     void handleSdlEvent(const SDL_Event &event) override;

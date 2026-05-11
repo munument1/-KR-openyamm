@@ -882,6 +882,17 @@ AppMode NewGameScreen::mode() const
     return AppMode::NewGame;
 }
 
+void NewGameScreen::prepareForFirstFrame()
+{
+    ensureContinentLayoutLoaded();
+    ensureLayoutLoaded();
+    preloadLayoutAssets(m_continentLayoutManager);
+    preloadLayoutAssets(m_layoutManager);
+    preloadTexture("selring");
+    preloadFont("create");
+    preloadFont("SMALLNUM");
+}
+
 void NewGameScreen::onEnter()
 {
     ensureContinentLayoutLoaded();

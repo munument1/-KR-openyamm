@@ -273,6 +273,7 @@ private:
     bool m_loadingOverlayActive = false;
     int m_loadingOverlayCurrentProgressPercent = 0;
     uint64_t m_loadingOverlayNextAnimationFrameTick = 0;
+    bool m_mainMenuChildScreensPrepared = false;
     int m_lastFrameWidth = 640;
     int m_lastFrameHeight = 480;
     std::optional<std::string> m_pendingPartyDefeatRespawnMapFileName;

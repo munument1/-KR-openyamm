@@ -14,6 +14,8 @@
 
 namespace OpenYAMM::Game
 {
+class UiLayoutManager;
+
 class MenuScreenBase : public IScreen
 {
 public:
@@ -55,6 +57,8 @@ public:
 
     explicit MenuScreenBase(const Engine::AssetFileSystem &assetFileSystem);
     ~MenuScreenBase() override;
+
+    static void shutdownSharedResources();
 
     void renderFrame(
         int width,
@@ -109,6 +113,9 @@ protected:
     void drawDebugText(int pixelX, int pixelY, uint8_t color, const std::string &text) const;
     bool hitTest(const Rect &rect) const;
     void drawViewportSidePanels(const std::string &textureName, float logicalWidth, float logicalHeight);
+    void preloadTexture(const std::string &textureName);
+    void preloadFont(const std::string &fontName);
+    void preloadLayoutAssets(const UiLayoutManager &layoutManager);
 
 private:
     struct MenuVertex
@@ -213,15 +220,15 @@ private:
     bool m_clearBackground = true;
     bgfx::ProgramHandle m_texturedProgramHandle = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_textureUniformHandle = BGFX_INVALID_HANDLE;
-    std::vector<TextureHandle> m_textureHandles;
-    std::vector<TextureColorHandle> m_textureColorHandles;
-    std::vector<DynamicTextureHandle> m_dynamicTextureHandles;
-    std::vector<FontHandle> m_fontHandles;
-    std::vector<FontColorHandle> m_fontColorHandles;
-    std::unordered_map<std::string, size_t> m_textureIndexByName;
-    std::unordered_map<std::string, size_t> m_fontIndexByName;
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_directoryEntriesByPath;
-    std::unordered_map<std::string, std::optional<std::string>> m_resolvedTexturePaths;
-    std::unordered_map<std::string, std::optional<std::string>> m_resolvedFontPaths;
+    static std::vector<TextureHandle> s_textureHandles;
+    static std::vector<TextureColorHandle> s_textureColorHandles;
+    static std::vector<DynamicTextureHandle> s_dynamicTextureHandles;
+    static std::vector<FontHandle> s_fontHandles;
+    static std::vector<FontColorHandle> s_fontColorHandles;
+    static std::unordered_map<std::string, size_t> s_textureIndexByName;
+    static std::unordered_map<std::string, size_t> s_fontIndexByName;
+    static std::unordered_map<std::string, std::unordered_map<std::string, std::string>> s_directoryEntriesByPath;
+    static std::unordered_map<std::string, std::optional<std::string>> s_resolvedTexturePaths;
+    static std::unordered_map<std::string, std::optional<std::string>> s_resolvedFontPaths;
 };
 }

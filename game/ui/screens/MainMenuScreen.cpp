@@ -277,6 +277,12 @@ AppMode MainMenuScreen::mode() const
     return AppMode::MainMenu;
 }
 
+void MainMenuScreen::prepareForFirstFrame()
+{
+    ensureLayoutLoaded();
+    preloadLayoutAssets(m_layoutManager);
+}
+
 void MainMenuScreen::drawScreen(float deltaSeconds)
 {
     static_cast<void>(deltaSeconds);
