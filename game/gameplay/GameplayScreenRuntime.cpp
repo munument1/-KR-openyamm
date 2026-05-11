@@ -1206,7 +1206,9 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
 
     EventDialogContent &dialog = activeEventDialog();
 
-    if (dialog.isActive && !dialog.videoName.empty())
+    if (dialog.isActive
+        && dialog.presentation != EventDialogPresentation::Transition
+        && !dialog.videoName.empty())
     {
         stopHouseVideoPlayback();
         dialog.videoName.clear();

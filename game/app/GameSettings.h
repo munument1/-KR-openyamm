@@ -101,6 +101,7 @@ struct GameSettings
     bool fpsTrace = false;
     bool performanceTrace = false;
     bool hitchTrace = false;
+    bool collisionTrace = false;
     float hitchThresholdMilliseconds = 8.0f;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;

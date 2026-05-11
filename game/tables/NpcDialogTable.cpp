@@ -226,19 +226,20 @@ std::optional<NpcDialogTable::GuildMembershipOffer> buildGuildMembershipOffer(ui
 bool NpcDialogTable::loadGreetingsFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_greetings.clear();
+    std::vector<std::string> pendingRow;
 
-    for (const std::vector<std::string> &row : rows)
+    auto appendPendingRow = [this](const std::vector<std::string> &row)
     {
         if (row.size() <= 4)
         {
-            continue;
+            return;
         }
 
         uint32_t id = 0;
 
         if (!parseUnsigned(row[0], id))
         {
-            continue;
+            return;
         }
 
         NpcGreetingEntry entry = {};
@@ -247,8 +248,44 @@ bool NpcDialogTable::loadGreetingsFromRows(const std::vector<std::vector<std::st
         entry.greetingSecondary = row[2];
         entry.owner = row[4];
         m_greetings[id] = std::move(entry);
+    };
+
+    auto appendContinuationRow = [](std::vector<std::string> &target, const std::vector<std::string> &continuation)
+    {
+        if (target.empty() || continuation.empty())
+        {
+            return;
+        }
+
+        if (!target.back().empty())
+        {
+            target.back() += '\n';
+        }
+
+        target.back() += continuation.front();
+
+        for (size_t index = 1; index < continuation.size(); ++index)
+        {
+            target.push_back(continuation[index]);
+        }
+    };
+
+    for (const std::vector<std::string> &row : rows)
+    {
+        uint32_t id = 0;
+        const bool startsNewGreeting = !row.empty() && parseUnsigned(row[0], id);
+
+        if (startsNewGreeting)
+        {
+            appendPendingRow(pendingRow);
+            pendingRow = row;
+            continue;
+        }
+
+        appendContinuationRow(pendingRow, row);
     }
 
+    appendPendingRow(pendingRow);
     return !m_greetings.empty();
 }
 

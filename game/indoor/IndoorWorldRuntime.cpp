@@ -4126,6 +4126,14 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
             ? pMapDeltaData->actors.size() - activeActorCount
             : 0);
 
+    std::vector<uint8_t> spellEffectOverrideMask(m_mapActorAiStates.size(), 0);
+
+    for (size_t actorIndex = 0; actorIndex < m_mapActorAiStates.size(); ++actorIndex)
+    {
+        spellEffectOverrideMask[actorIndex] =
+            hasActiveActorSpellEffectOverride(m_mapActorAiStates[actorIndex].spellEffects) ? 1 : 0;
+    }
+
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
         const MapActorAiState *pAiState =
@@ -4145,7 +4153,13 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
         const bool active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
         const uint64_t actorFactBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         const std::optional<ActorAiFacts> actorFacts =
-            collectIndoorActorAiFacts(actorIndex, active, facts.party, *pVertices, *pGeometryCache);
+            collectIndoorActorAiFacts(
+                actorIndex,
+                active,
+                facts.party,
+                *pVertices,
+                *pGeometryCache,
+                spellEffectOverrideMask);
 
         if (pDiagnostics != nullptr)
         {
@@ -6926,7 +6940,8 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     bool active,
     const ActorPartyFacts &partyFacts,
     const std::vector<IndoorVertex> &vertices,
-    IndoorFaceGeometryCache &geometryCache) const
+    IndoorFaceGeometryCache &geometryCache,
+    const std::vector<uint8_t> &spellEffectOverrideMask) const
 {
     const MapDeltaData *pMapDeltaData = mapDeltaData();
 
@@ -6967,7 +6982,8 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
             pMonsterEntry);
     const bool actorInvisible = (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0;
     const bool defaultHostile = defaultActorHostileToParty(actor, m_pMonsterTable);
-    const bool hasEffectOverride = hasActiveActorSpellEffectOverride(aiState.spellEffects);
+    const bool hasEffectOverride =
+        actorIndex < spellEffectOverrideMask.size() && spellEffectOverrideMask[actorIndex] != 0;
     const bool hostileToParty = hasEffectOverride ? aiState.spellEffects.hostileToParty : aiState.hostileToParty;
     const bool hasDetectedParty = hasEffectOverride
         ? aiState.spellEffects.hasDetectedParty
@@ -7169,7 +7185,8 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
 
             const uint16_t otherRadius = otherActor.radius != 0 ? otherActor.radius : uint16_t(32);
             const uint16_t otherHeight = otherActor.height != 0 ? otherActor.height : uint16_t(128);
-            const bool otherHasEffectOverride = hasActiveActorSpellEffectOverride(otherAiState.spellEffects);
+            const bool otherHasEffectOverride =
+                otherActorIndex < spellEffectOverrideMask.size() && spellEffectOverrideMask[otherActorIndex] != 0;
             const bool otherHostileToParty =
                 otherHasEffectOverride ? otherAiState.spellEffects.hostileToParty : otherAiState.hostileToParty;
             const GameplayActorTargetPolicyState otherPolicyState =
@@ -11057,7 +11074,7 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
 
             if (m_pEventRuntimeState != nullptr && m_pEventRuntimeState->has_value())
             {
-                const uint32_t overrideKey = static_cast<uint32_t>(entityIndex);
+                const uint32_t overrideKey = entity.spriteOverrideKey(entityIndex);
                 const auto overrideIterator = (*m_pEventRuntimeState)->spriteOverrides.find(overrideKey);
 
                 if (overrideIterator != (*m_pEventRuntimeState)->spriteOverrides.end()

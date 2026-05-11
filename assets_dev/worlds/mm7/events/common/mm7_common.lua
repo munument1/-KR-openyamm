@@ -70,6 +70,15 @@ function MM7.HideCastleHarmondaleMercenaries()
     evt.SetMonGroupBit(60, MonsterBits.Invisible, 1)
 end
 
+function MM7.HideCastleHarmondaleGoblinsIfRebuilt()
+    if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2
+        return
+    end
+
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
+    evt.SetMonGroupBit(56, MonsterBits.Invisible, 1)
+end
+
 function MM7.UpdateCastleHarmondaleMercenariesOnLoad()
     if IsQBitSet(QBit(526))
         and IsQBitSet(QBit(695))

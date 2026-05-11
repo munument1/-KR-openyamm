@@ -14832,9 +14832,11 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
                 continue;
             }
 
+            const OutdoorEntity &entity = m_pOutdoorMapData->entities[entityIndex];
+
             if (m_eventRuntimeState)
             {
-                const uint32_t overrideKey = static_cast<uint32_t>(entityIndex);
+                const uint32_t overrideKey = entity.spriteOverrideKey(entityIndex);
                 const auto overrideIterator = m_eventRuntimeState->spriteOverrides.find(overrideKey);
 
                 if (overrideIterator != m_eventRuntimeState->spriteOverrides.end() && overrideIterator->second.hidden)
@@ -14843,7 +14845,6 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
                 }
             }
 
-            const OutdoorEntity &entity = m_pOutdoorMapData->entities[entityIndex];
             GameplayMinimapMarkerState marker = {};
             marker.type = GameplayMinimapMarkerType::Decoration;
             marker.u = std::clamp((static_cast<float>(entity.x) + 32768.0f) / 65536.0f, 0.0f, 1.0f);

@@ -5621,6 +5621,7 @@ int luaReturnToMainMenu(lua_State *pLuaState)
 int luaSetSprite(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
     const uint32_t cogNumber = eventReferenceId(luaL_checkinteger(pLuaState, 1));
     const bool visible = luaEventBoolean(pLuaState, 2);
     EventRuntimeState::SpriteOverride spriteOverride = {};
@@ -5632,6 +5633,14 @@ int luaSetSprite(lua_State *pLuaState)
     }
 
     pRuntimeState->spriteOverrides[cogNumber] = std::move(spriteOverride);
+    GAMEPLAY_DEBUG_TRACE(
+        std::string("event_set_sprite")
+        + " map=\"" + pRuntimeState->mapFileName + "\""
+        + " event_id=" + std::to_string(pExecutionContext != nullptr ? pExecutionContext->currentEventId : 0)
+        + " cog=" + std::to_string(cogNumber)
+        + " visible=" + (visible ? std::string("true") : std::string("false"))
+        + " hidden=" + (!visible ? std::string("true") : std::string("false"))
+        + " texture=" + traceQuoted(spriteOverride.textureName.value_or(std::string())));
     return 0;
 }
 
@@ -8050,9 +8059,20 @@ bool EventRuntime::executeOnLoadEvents(
             continue;
         }
 
+        executionContext.currentEventId = eventId;
+        executionContext.executingGlobalHandler = true;
+
         if (invokeLuaHandler(*this, iterator->second, executionContext))
         {
             ++runtimeState.globalOnLoadEventsExecuted;
+            GAMEPLAY_DEBUG_TRACE(
+                std::string("event_onload_executed")
+                + " map=\"" + runtimeState.mapFileName + "\""
+                + " scope=global"
+                + " event_id=" + std::to_string(eventId)
+                + " local_count=" + std::to_string(runtimeState.localOnLoadEventsExecuted)
+                + " global_count=" + std::to_string(runtimeState.globalOnLoadEventsExecuted)
+                + " sprite_overrides=" + std::to_string(runtimeState.spriteOverrides.size()));
         }
     }
 
@@ -8065,9 +8085,20 @@ bool EventRuntime::executeOnLoadEvents(
             continue;
         }
 
+        executionContext.currentEventId = eventId;
+        executionContext.executingGlobalHandler = false;
+
         if (invokeLuaHandler(*this, iterator->second, executionContext))
         {
             ++runtimeState.localOnLoadEventsExecuted;
+            GAMEPLAY_DEBUG_TRACE(
+                std::string("event_onload_executed")
+                + " map=\"" + runtimeState.mapFileName + "\""
+                + " scope=local"
+                + " event_id=" + std::to_string(eventId)
+                + " local_count=" + std::to_string(runtimeState.localOnLoadEventsExecuted)
+                + " global_count=" + std::to_string(runtimeState.globalOnLoadEventsExecuted)
+                + " sprite_overrides=" + std::to_string(runtimeState.spriteOverrides.size()));
         }
     }
 

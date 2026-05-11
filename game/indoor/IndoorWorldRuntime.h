@@ -595,7 +595,8 @@ private:
         bool active,
         const ActorPartyFacts &partyFacts,
         const std::vector<IndoorVertex> &vertices,
-        IndoorFaceGeometryCache &geometryCache
+        IndoorFaceGeometryCache &geometryCache,
+        const std::vector<uint8_t> &spellEffectOverrideMask
     ) const;
     bool indoorActorCanApplyPartyMeleeImpact(size_t actorIndex) const;
     ChestViewState buildChestView(uint32_t chestId) const;

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -83,6 +84,21 @@ struct IndoorMoveDebugInfo
     int16_t startEyeSectorId = -1;
 };
 
+struct IndoorCollisionTraceInfo
+{
+    bool crossedBlockingFace = false;
+    size_t blockingFaceIndex = static_cast<size_t>(-1);
+    bx::Vec3 blockingFaceNormal = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 blockingFacePoint = {0.0f, 0.0f, 0.0f};
+    float blockingFaceMoveDistance = 0.0f;
+    float blockingFaceAdjustedMoveDistance = 0.0f;
+    bool sectorChanged = false;
+    bool sectorTransitionTouchedPortal = false;
+    size_t portalFaceIndex = static_cast<size_t>(-1);
+    bool supportLost = false;
+    bool suddenDrop = false;
+};
+
 class IndoorMovementController
 {
 public:
@@ -113,6 +129,16 @@ public:
         bool ignoreActorCollisions = false,
         float jumpVelocity = 420.0f,
         float jumpLift = 1.0f
+    ) const;
+    IndoorCollisionTraceInfo traceCollisionIssues(
+        const IndoorMoveState &start,
+        const IndoorMoveState &end,
+        const IndoorBodyDimensions &body
+    ) const;
+    std::string buildCollisionTraceProbeDetails(
+        const IndoorMoveState &start,
+        const IndoorMoveState &end,
+        const IndoorBodyDimensions &body
     ) const;
     void setActorColliders(const std::vector<IndoorActorCollision> &actorColliders);
     void updateActorColliderPosition(size_t actorIndex, int16_t sectorId, float x, float y, float z);
@@ -274,6 +300,22 @@ private:
         const IndoorBodyDimensions &body
     ) const;
     SweptCollisionState buildSweptCollisionState(const SweptCollisionRequest &request) const;
+    IndoorMoveState resolveMoveSingleStep(
+        const IndoorMoveState &state,
+        const IndoorBodyDimensions &body,
+        float desiredVelocityX,
+        float desiredVelocityY,
+        bool jumpRequested,
+        float deltaSeconds,
+        std::vector<size_t> *pContactedActorIndices,
+        std::optional<size_t> ignoredActorIndex,
+        bool blockActorSlide,
+        IndoorMoveDebugInfo *pDebugInfo,
+        bool flyingActive,
+        bool ignoreActorCollisions,
+        float jumpVelocity,
+        float jumpLift
+    ) const;
     bool collidesAtPosition(
         const std::vector<IndoorVertex> &vertices,
         IndoorFaceGeometryCache &geometryCache,
@@ -285,6 +327,7 @@ private:
         const std::vector<uint8_t> *pMechanismBlockingFaceMask,
         std::optional<int16_t> primarySectorId,
         std::optional<int16_t> secondarySectorId,
+        size_t ignoredSupportFaceIndex,
         float movementX,
         float movementY,
         IndoorWallCollision *pWallCollision

@@ -1,8 +1,12 @@
 #include "game/indoor/IndoorPartyRuntime.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/tables/ItemTable.h"
 
 #include <algorithm>
+#include <cmath>
+#include <sstream>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -13,6 +17,32 @@ constexpr float GameSecondsPerRealSecond = GameMinutesPerRealSecond * 60.0f;
 constexpr float IndoorMovementStepSeconds = 1.0f / 128.0f;
 constexpr float MaxAccumulatedMovementSeconds = 0.1f;
 constexpr float DefaultJumpVelocity = 420.0f;
+
+const char *indoorMoveBlockKindName(IndoorMoveBlockKind kind)
+{
+    switch (kind)
+    {
+        case IndoorMoveBlockKind::None:
+            return "none";
+        case IndoorMoveBlockKind::Wall:
+            return "wall";
+        case IndoorMoveBlockKind::Actor:
+            return "actor";
+        case IndoorMoveBlockKind::Party:
+            return "party";
+        case IndoorMoveBlockKind::InvalidPosition:
+            return "invalid_position";
+    }
+
+    return "unknown";
+}
+
+std::string indoorCollisionTracePoint(const bx::Vec3 &point)
+{
+    std::ostringstream out;
+    out << "(" << point.x << "," << point.y << "," << point.z << ")";
+    return out.str();
+}
 }
 
 IndoorPartyRuntime::IndoorPartyRuntime(IndoorMovementController movementController, const ItemTable &itemTable)
@@ -112,8 +142,12 @@ void IndoorPartyRuntime::update(
 
     while (m_movementAccumulatorSeconds >= IndoorMovementStepSeconds)
     {
+        m_collisionTraceClockSeconds += IndoorMovementStepSeconds;
+        const IndoorMoveState previousMovementState = m_movementState;
         const float jumpVelocityThisStep = m_pendingJumpVelocity.value_or(DefaultJumpVelocity);
         const float jumpLiftThisStep = m_pendingJumpLift;
+        IndoorMoveDebugInfo debugInfo = {};
+        IndoorMoveDebugInfo *pDebugInfo = m_collisionTraceEnabled ? &debugInfo : nullptr;
         m_movementState = m_movementController.resolveMove(
             m_movementState,
             body,
@@ -124,11 +158,92 @@ void IndoorPartyRuntime::update(
             nullptr,
             std::nullopt,
             true,
-            nullptr,
+            pDebugInfo,
             false,
             false,
             jumpVelocityThisStep,
             jumpLiftThisStep);
+        if (m_collisionTraceEnabled)
+        {
+            const IndoorCollisionTraceInfo traceInfo =
+                m_movementController.traceCollisionIssues(previousMovementState, m_movementState, body);
+            const float deltaX = m_movementState.x - previousMovementState.x;
+            const float deltaY = m_movementState.y - previousMovementState.y;
+            const float deltaZ = m_movementState.footZ - previousMovementState.footZ;
+            const float horizontalDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+            const bool sectorChangedWithoutPortal =
+                traceInfo.sectorChanged && !traceInfo.sectorTransitionTouchedPortal;
+            const bool acceptedThroughBlockingFace =
+                debugInfo.fullMoveSucceeded && traceInfo.crossedBlockingFace;
+            const bool suspiciousSupportLoss =
+                traceInfo.supportLost
+                && !m_pendingJumpRequested
+                && previousMovementState.verticalVelocity <= 0.0f;
+            const bool suspicious =
+                acceptedThroughBlockingFace
+                || sectorChangedWithoutPortal
+                || traceInfo.suddenDrop
+                || suspiciousSupportLoss;
+            const bool periodicProbe = m_collisionTraceClockSeconds >= m_nextCollisionTraceSeconds;
+
+            if ((suspicious || periodicProbe) && m_collisionTraceClockSeconds >= m_nextCollisionTraceSeconds)
+            {
+                const std::string probeDetails =
+                    m_movementController.buildCollisionTraceProbeDetails(previousMovementState, m_movementState, body);
+                std::ostringstream out;
+                out << "indoor_collision_trace"
+                    << " map=\"" << m_collisionTraceMapName << "\""
+                    << " reason=" << (suspicious ? "suspicious" : "periodic")
+                    << " start=(" << previousMovementState.x
+                    << "," << previousMovementState.y
+                    << "," << previousMovementState.footZ << ")"
+                    << " end=(" << m_movementState.x
+                    << "," << m_movementState.y
+                    << "," << m_movementState.footZ << ")"
+                    << " delta=(" << deltaX << "," << deltaY << "," << deltaZ << ")"
+                    << " horizontal_distance=" << horizontalDistance
+                    << " start_sector=" << previousMovementState.sectorId
+                    << " end_sector=" << m_movementState.sectorId
+                    << " start_eye_sector=" << previousMovementState.eyeSectorId
+                    << " end_eye_sector=" << m_movementState.eyeSectorId
+                    << " start_grounded=" << (previousMovementState.grounded ? "true" : "false")
+                    << " end_grounded=" << (m_movementState.grounded ? "true" : "false")
+                    << " start_support=" << previousMovementState.supportFaceIndex
+                    << " end_support=" << m_movementState.supportFaceIndex
+                    << " start_velocity_z=" << previousMovementState.verticalVelocity
+                    << " end_velocity_z=" << m_movementState.verticalVelocity
+                    << " requested_velocity=("
+                    << desiredVelocityX * m_movementSpeedMultiplier + impulseVelocityX
+                    << "," << desiredVelocityY * m_movementSpeedMultiplier + impulseVelocityY << ")"
+                    << " jump_requested=" << (m_pendingJumpRequested ? "true" : "false")
+                    << " debug_block=" << indoorMoveBlockKindName(debugInfo.primaryBlockKind)
+                    << " full_succeeded=" << (debugInfo.fullMoveSucceeded ? "true" : "false")
+                    << " response_tried=" << (debugInfo.collisionResponseTried ? "true" : "false")
+                    << " response_succeeded=" << (debugInfo.collisionResponseSucceeded ? "true" : "false")
+                    << " hit_face=" << debugInfo.hitFaceIndex
+                    << " hit_normal=" << indoorCollisionTracePoint(debugInfo.hitNormal)
+                    << " hit_point=" << indoorCollisionTracePoint(debugInfo.hitPoint)
+                    << " hit_move=" << debugInfo.hitMoveDistance
+                    << " hit_adjusted=" << debugInfo.hitAdjustedMoveDistance
+                    << " hit_height_offset=" << debugInfo.hitHeightOffset
+                    << " response_step=" << indoorCollisionTracePoint(debugInfo.responseStep)
+                    << " crossed_blocking_face=" << (traceInfo.crossedBlockingFace ? "true" : "false")
+                    << " blocking_face=" << traceInfo.blockingFaceIndex
+                    << " blocking_face_normal=" << indoorCollisionTracePoint(traceInfo.blockingFaceNormal)
+                    << " blocking_face_point=" << indoorCollisionTracePoint(traceInfo.blockingFacePoint)
+                    << " blocking_face_move=" << traceInfo.blockingFaceMoveDistance
+                    << " blocking_face_adjusted_move=" << traceInfo.blockingFaceAdjustedMoveDistance
+                    << " sector_changed=" << (traceInfo.sectorChanged ? "true" : "false")
+                    << " sector_transition_portal="
+                    << (traceInfo.sectorTransitionTouchedPortal ? "true" : "false")
+                    << " portal_face=" << traceInfo.portalFaceIndex
+                    << " support_lost=" << (traceInfo.supportLost ? "true" : "false")
+                    << " sudden_drop=" << (traceInfo.suddenDrop ? "true" : "false")
+                    << probeDetails;
+                gameplayDebugTraceWrite(out.str());
+                m_nextCollisionTraceSeconds = m_collisionTraceClockSeconds + 1.0f;
+            }
+        }
         m_pendingJumpRequested = false;
         m_pendingJumpVelocity.reset();
         m_pendingJumpLift = 1.0f;
@@ -231,6 +346,21 @@ void IndoorPartyRuntime::setMovementSpeedMultiplier(float multiplier)
 void IndoorPartyRuntime::setAlwaysRunEnabled(bool enabled)
 {
     m_alwaysRunEnabled = enabled;
+}
+
+void IndoorPartyRuntime::setCollisionTraceEnabled(bool enabled, std::string mapName)
+{
+    const bool wasEnabled = m_collisionTraceEnabled;
+    const std::string previousMapName = m_collisionTraceMapName;
+    m_collisionTraceEnabled = enabled;
+    m_collisionTraceMapName = std::move(mapName);
+    m_collisionTraceClockSeconds = 0.0f;
+    m_nextCollisionTraceSeconds = 0.0f;
+
+    if (enabled && (!wasEnabled || m_collisionTraceMapName != previousMapName))
+    {
+        gameplayDebugTraceWrite("indoor_collision_trace_enabled map=\"" + m_collisionTraceMapName + "\"");
+    }
 }
 
 bool IndoorPartyRuntime::alwaysRunEnabled() const

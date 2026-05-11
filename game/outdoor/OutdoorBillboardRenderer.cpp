@@ -923,7 +923,10 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             if (view.m_outdoorMapData && billboard.entityIndex < view.m_outdoorMapData->entities.size())
             {
                 const OutdoorEntity &entity = view.m_outdoorMapData->entities[billboard.entityIndex];
-                directEventId = entity.eventIdPrimary != 0 ? entity.eventIdPrimary : entity.eventIdSecondary;
+                if (entity.eventIdSecondary != 0)
+                {
+                    directEventId = entity.eventIdSecondary;
+                }
             }
 
             if (!directEventId.has_value()
@@ -1919,7 +1922,7 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
             return spriteId;
         }
 
-        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
+        const uint32_t overrideKey = billboard.spriteOverrideKey();
 
         const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -2233,7 +2236,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             return spriteId;
         }
 
-        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
+        const uint32_t overrideKey = billboard.spriteOverrideKey();
 
         const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 

@@ -149,7 +149,7 @@ RegisterEvent(196, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -167,7 +167,7 @@ RegisterEvent(197, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -185,7 +185,7 @@ RegisterEvent(198, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 8 then
@@ -272,7 +272,7 @@ RegisterEvent(383, "Legacy event 383", function()
 end)
 
 RegisterEvent(501, "Leave the Red Dwarf Mines", function()
-    evt.MoveToMap(20980, 14802, 1, 1536, 0, 0, 0, 0, "7out06.odm")
+    evt.MoveToMap(20980, 14802, 1, 1536, 0, 0, 0, 4, "7out06.odm") -- The Bracada Desert
 end, "Leave the Red Dwarf Mines")
 
 RegisterEvent(65535, "", function()

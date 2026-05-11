@@ -501,6 +501,10 @@ private:
     std::optional<DecorationBillboardSet> m_indoorDecorationBillboardSet;
     std::optional<ActorPreviewBillboardSet> m_indoorActorPreviewBillboardSet;
     std::optional<SpriteObjectBillboardSet> m_indoorSpriteObjectBillboardSet;
+    std::vector<uint8_t> m_indoorInteractiveDecorationDecorVarIndicesByEntity;
+    std::vector<uint16_t> m_indoorInteractiveDecorationBaseEventIdsByEntity;
+    std::vector<uint8_t> m_indoorInteractiveDecorationEventCountsByEntity;
+    std::vector<uint8_t> m_indoorInteractiveDecorationHideWhenClearedByEntity;
     std::vector<std::vector<size_t>> m_decorationBillboardIndicesBySector;
     std::vector<std::vector<size_t>> m_staticSpriteObjectBillboardIndicesBySector;
     std::optional<HouseTable> m_houseTable;

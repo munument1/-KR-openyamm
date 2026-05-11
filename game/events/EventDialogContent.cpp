@@ -390,6 +390,23 @@ std::string transitionVideoNameForDungeonHouse(
     return {};
 }
 
+std::string transitionVideoNameForDungeonHouseId(const HouseTable *pHouseTable, uint32_t houseId)
+{
+    if (pHouseTable == nullptr || houseId == 0)
+    {
+        return {};
+    }
+
+    const HouseEntry *pHouseEntry = pHouseTable->get(houseId);
+
+    if (pHouseEntry == nullptr || pHouseEntry->type != "Dungeon Ent" || pHouseEntry->videoName.empty())
+    {
+        return {};
+    }
+
+    return pHouseEntry->videoName;
+}
+
 std::string transitionVideoNameForMap(const std::string &mapFileName)
 {
     const std::string normalized = lowerMapFileName(mapFileName);
@@ -929,23 +946,28 @@ EventDialogContent buildEventDialogContent(
             dialog.title = !transitionMapName.empty() ? transitionMapName : "Travel";
         }
 
-        const MapStatsEntry *pDungeonHouseMap = destinationIsDungeon
-            ? pCurrentMap
-            : (leavingCurrentDungeon ? pDestinationMap : nullptr);
-        dialog.videoName = pDungeonHouseMap != nullptr
-            ? transitionVideoNameForDungeonHouse(pHouseTable, pDungeonHouseMap, dialog.title)
-            : std::string();
-        if (dialog.videoName.empty() && pTransitionText != nullptr && !pTransitionText->title.empty())
+        const MapStatsEntry *pDungeonHouseMap = destinationIsDungeon ? pCurrentMap : nullptr;
+        if (!leavingCurrentDungeon)
         {
-            dialog.videoName = transitionVideoNameForTransitionTitle(pTransitionText->title);
-        }
-        if (dialog.videoName.empty() && !dialog.title.empty())
-        {
-            dialog.videoName = transitionVideoNameForTransitionTitle(dialog.title);
-        }
-        if (dialog.videoName.empty())
-        {
-            dialog.videoName = transitionVideoNameForMap(transitionMapName);
+            dialog.videoName = transitionVideoNameForDungeonHouseId(pHouseTable, context.transitionTextId);
+            if (dialog.videoName.empty())
+            {
+                dialog.videoName = pDungeonHouseMap != nullptr
+                    ? transitionVideoNameForDungeonHouse(pHouseTable, pDungeonHouseMap, dialog.title)
+                    : std::string();
+            }
+            if (dialog.videoName.empty() && pTransitionText != nullptr && !pTransitionText->title.empty())
+            {
+                dialog.videoName = transitionVideoNameForTransitionTitle(pTransitionText->title);
+            }
+            if (dialog.videoName.empty() && !dialog.title.empty())
+            {
+                dialog.videoName = transitionVideoNameForTransitionTitle(dialog.title);
+            }
+            if (dialog.videoName.empty())
+            {
+                dialog.videoName = transitionVideoNameForMap(transitionMapName);
+            }
         }
         dialog.videoDirectory = !dialog.videoName.empty() ? TransitionVideoDirectory : std::string();
 

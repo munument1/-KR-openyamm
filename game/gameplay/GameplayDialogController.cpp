@@ -1777,7 +1777,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
             context.eventRuntimeState.pendingMapMove =
                 *context.eventRuntimeState.pendingDialogueContext->transitionMapMove;
-            result.shouldCloseActiveDialog = false;
+            result.shouldCloseActiveDialog = true;
             return result;
         }
 
@@ -1833,7 +1833,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             pendingMapMove,
             action.id);
         context.eventRuntimeState.pendingMapMove = std::move(pendingMapMove);
-        result.shouldCloseActiveDialog = false;
+        result.shouldCloseActiveDialog = true;
         return result;
     }
 

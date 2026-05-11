@@ -794,28 +794,43 @@ struct IndoorInteractiveDecorationBinding
     bool hideWhenCleared = false;
 };
 
-std::optional<IndoorInteractiveDecorationBinding> resolveIndoorInteractiveDecorationBinding(
+constexpr uint8_t InvalidInteractiveDecorationDecorVarIndex = 0xff;
+constexpr uint8_t MaxInteractiveDecorationDecorVarCount = 125;
+
+void buildIndoorInteractiveDecorationBindingCaches(
     const IndoorMapData &indoorMapData,
-    const DecorationBillboardSet &billboardSet,
-    size_t targetEntityIndex)
+    const DecorationBillboardSet *pBillboardSet,
+    std::vector<uint8_t> &decorVarIndicesByEntity,
+    std::vector<uint16_t> &baseEventIdsByEntity,
+    std::vector<uint8_t> &eventCountsByEntity,
+    std::vector<uint8_t> &hideWhenClearedByEntity)
 {
+    decorVarIndicesByEntity.assign(indoorMapData.entities.size(), InvalidInteractiveDecorationDecorVarIndex);
+    baseEventIdsByEntity.assign(indoorMapData.entities.size(), 0);
+    eventCountsByEntity.assign(indoorMapData.entities.size(), 0);
+    hideWhenClearedByEntity.assign(indoorMapData.entities.size(), 0);
+
+    if (pBillboardSet == nullptr)
+    {
+        return;
+    }
+
     uint8_t decorVarIndex = 0;
-    constexpr uint8_t MaxDecorationVarCount = 125;
 
     for (size_t entityIndex = 0; entityIndex < indoorMapData.entities.size(); ++entityIndex)
     {
         const IndoorEntity &entity = indoorMapData.entities[entityIndex];
 
-        if (entity.eventIdPrimary != 0 || entity.eventIdSecondary != 0)
+        if (entity.scriptEventId() != 0)
         {
             continue;
         }
 
-        const DecorationEntry *pDecoration = billboardSet.decorationTable.get(entity.decorationListId);
+        const DecorationEntry *pDecoration = pBillboardSet->decorationTable.get(entity.decorationListId);
 
         if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
         {
-            pDecoration = billboardSet.decorationTable.findByInternalName(entity.name);
+            pDecoration = pBillboardSet->decorationTable.findByInternalName(entity.name);
         }
 
         if (pDecoration == nullptr)
@@ -826,25 +841,54 @@ std::optional<IndoorInteractiveDecorationBinding> resolveIndoorInteractiveDecora
         const std::optional<InteractiveDecorationBindingSpec> bindingSpec =
             resolveInteractiveDecorationBindingSpec(*pDecoration, entity.name);
 
-        if (!bindingSpec || decorVarIndex >= MaxDecorationVarCount)
+        if (!bindingSpec || decorVarIndex >= MaxInteractiveDecorationDecorVarCount)
         {
             continue;
         }
 
-        if (entityIndex == targetEntityIndex)
-        {
-            IndoorInteractiveDecorationBinding binding = {};
-            binding.decorVarIndex = decorVarIndex;
-            binding.baseEventId = bindingSpec->baseEventId;
-            binding.eventCount = bindingSpec->eventCount;
-            binding.hideWhenCleared = bindingSpec->hideWhenCleared;
-            return binding;
-        }
+        decorVarIndicesByEntity[entityIndex] = decorVarIndex;
+        baseEventIdsByEntity[entityIndex] = bindingSpec->baseEventId;
+        eventCountsByEntity[entityIndex] = bindingSpec->eventCount;
+        hideWhenClearedByEntity[entityIndex] = bindingSpec->hideWhenCleared ? 1 : 0;
 
         ++decorVarIndex;
     }
+}
 
-    return std::nullopt;
+std::optional<IndoorInteractiveDecorationBinding> resolveIndoorInteractiveDecorationBinding(
+    const std::vector<uint8_t> &decorVarIndicesByEntity,
+    const std::vector<uint16_t> &baseEventIdsByEntity,
+    const std::vector<uint8_t> &eventCountsByEntity,
+    const std::vector<uint8_t> &hideWhenClearedByEntity,
+    size_t targetEntityIndex)
+{
+    if (targetEntityIndex >= decorVarIndicesByEntity.size()
+        || targetEntityIndex >= baseEventIdsByEntity.size()
+        || targetEntityIndex >= eventCountsByEntity.size()
+        || targetEntityIndex >= hideWhenClearedByEntity.size())
+    {
+        return std::nullopt;
+    }
+
+    const uint8_t decorVarIndex = decorVarIndicesByEntity[targetEntityIndex];
+
+    if (decorVarIndex == InvalidInteractiveDecorationDecorVarIndex)
+    {
+        return std::nullopt;
+    }
+
+    IndoorInteractiveDecorationBinding binding = {};
+    binding.decorVarIndex = decorVarIndex;
+    binding.baseEventId = baseEventIdsByEntity[targetEntityIndex];
+    binding.eventCount = eventCountsByEntity[targetEntityIndex];
+    binding.hideWhenCleared = hideWhenClearedByEntity[targetEntityIndex] != 0;
+
+    if (binding.baseEventId == 0 || binding.eventCount == 0)
+    {
+        return std::nullopt;
+    }
+
+    return binding;
 }
 
 std::optional<uint16_t> resolveIndoorInteractiveDecorationEventId(
@@ -864,6 +908,16 @@ std::optional<uint16_t> resolveIndoorInteractiveDecorationEventId(
     }
 
     return static_cast<uint16_t>(binding.baseEventId + state);
+}
+
+uint16_t resolveIndoorEntityScriptEventId(const IndoorEntity &entity)
+{
+    return entity.scriptEventId();
+}
+
+uint16_t resolveIndoorEntityScriptEventId(uint16_t eventIdSecondary)
+{
+    return eventIdSecondary;
 }
 
 struct ProjectedFacePoint
@@ -1731,6 +1785,13 @@ bool IndoorRenderer::initialize(
         runtimeEventRuntimeStateStorage());
     m_indoorTextureSet = indoorTextureSet;
     m_indoorDecorationBillboardSet = indoorDecorationBillboardSet;
+    buildIndoorInteractiveDecorationBindingCaches(
+        indoorMapData,
+        m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+        m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+        m_indoorInteractiveDecorationBaseEventIdsByEntity,
+        m_indoorInteractiveDecorationEventCountsByEntity,
+        m_indoorInteractiveDecorationHideWhenClearedByEntity);
     m_indoorActorPreviewBillboardSet = indoorActorPreviewBillboardSet;
     m_indoorSpriteObjectBillboardSet = indoorSpriteObjectBillboardSet;
     rebuildIndoorRenderMemberships();
@@ -3857,8 +3918,7 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
 {
     if (inspectHit.kind == "entity")
     {
-        const uint16_t directEventId =
-            inspectHit.eventIdPrimary != 0 ? inspectHit.eventIdPrimary : inspectHit.eventIdSecondary;
+        const uint16_t directEventId = resolveIndoorEntityScriptEventId(inspectHit.eventIdSecondary);
 
         if (directEventId != 0)
         {
@@ -3867,15 +3927,17 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
 
         const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
-        if (!m_indoorMapData || !m_indoorDecorationBillboardSet || pEventRuntimeState == nullptr)
+        if (!m_indoorMapData || pEventRuntimeState == nullptr)
         {
             return 0;
         }
 
         const std::optional<IndoorInteractiveDecorationBinding> binding =
             resolveIndoorInteractiveDecorationBinding(
-                *m_indoorMapData,
-                *m_indoorDecorationBillboardSet,
+                m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                m_indoorInteractiveDecorationEventCountsByEntity,
+                m_indoorInteractiveDecorationHideWhenClearedByEntity,
                 inspectHit.index);
 
         if (!binding)
@@ -3938,8 +4000,7 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
             return decorationHint;
         }
 
-        const uint16_t directEventId =
-            inspectHit.eventIdPrimary != 0 ? inspectHit.eventIdPrimary : inspectHit.eventIdSecondary;
+        const uint16_t directEventId = resolveIndoorEntityScriptEventId(inspectHit.eventIdSecondary);
 
         if (directEventId != 0)
         {
@@ -4824,6 +4885,10 @@ void IndoorRenderer::shutdown()
     m_indoorDecorationBillboardSet.reset();
     m_indoorActorPreviewBillboardSet.reset();
     m_indoorSpriteObjectBillboardSet.reset();
+    m_indoorInteractiveDecorationDecorVarIndicesByEntity.clear();
+    m_indoorInteractiveDecorationBaseEventIdsByEntity.clear();
+    m_indoorInteractiveDecorationEventCountsByEntity.clear();
+    m_indoorInteractiveDecorationHideWhenClearedByEntity.clear();
     m_decorationBillboardIndicesBySector.clear();
     m_staticSpriteObjectBillboardIndicesBySector.clear();
     m_houseTable.reset();
@@ -5576,8 +5641,7 @@ void IndoorRenderer::renderDecorationBillboards(
             return billboard.spriteId;
         }
 
-        const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
-
+        const uint32_t overrideKey = billboard.spriteOverrideKey();
         const auto overrideIterator = eventRuntimeState->spriteOverrides.find(overrideKey);
 
         if (overrideIterator == eventRuntimeState->spriteOverrides.end())
@@ -8047,15 +8111,15 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
     const uint16_t eventId = inspectHitEventId(inspectHit);
 
     if (inspectHit.kind == "entity"
-        && inspectHit.eventIdPrimary == 0
-        && inspectHit.eventIdSecondary == 0
-        && m_indoorMapData
-        && m_indoorDecorationBillboardSet)
+        && resolveIndoorEntityScriptEventId(inspectHit.eventIdSecondary) == 0
+        && m_indoorMapData)
     {
         const std::optional<IndoorInteractiveDecorationBinding> binding =
             resolveIndoorInteractiveDecorationBinding(
-                *m_indoorMapData,
-                *m_indoorDecorationBillboardSet,
+                m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                m_indoorInteractiveDecorationEventCountsByEntity,
+                m_indoorInteractiveDecorationHideWhenClearedByEntity,
                 inspectHit.index);
 
         if (binding && eventId != 0)
@@ -8666,6 +8730,253 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
             bestHit.variablePrimary = entity.variablePrimary;
             bestHit.variableSecondary = entity.variableSecondary;
             bestHit.specialTrigger = entity.specialTrigger;
+        }
+    }
+
+    if (m_indoorDecorationBillboardSet)
+    {
+        const float cosPitch = std::cos(m_cameraPitchRadians);
+        const float sinPitch = std::sin(m_cameraPitchRadians);
+        const float cosYaw = std::cos(m_cameraYawRadians);
+        const float sinYaw = std::sin(m_cameraYawRadians);
+        const bx::Vec3 eye = {m_cameraPositionX, m_cameraPositionY, m_cameraPositionZ};
+        const bx::Vec3 at = {
+            m_cameraPositionX + cosYaw * cosPitch,
+            m_cameraPositionY + sinYaw * cosPitch,
+            m_cameraPositionZ + sinPitch
+        };
+        const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
+        float viewMatrix[16] = {};
+        bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
+        const bx::Vec3 cameraRight = {viewMatrix[0], viewMatrix[4], viewMatrix[8]};
+        const bx::Vec3 cameraUp = {viewMatrix[1], viewMatrix[5], viewMatrix[9]};
+        const uint32_t animationTimeTicks = currentAnimationTicks();
+
+        const auto isOpaqueBillboardPixel =
+            [](const BillboardTextureHandle &texture, float normalizedU, float normalizedV) -> bool
+            {
+                if (texture.physicalWidth <= 0
+                    || texture.physicalHeight <= 0
+                    || texture.pixels.empty())
+                {
+                    return true;
+                }
+
+                const int pixelX = std::clamp(
+                    static_cast<int>(std::floor(normalizedU * static_cast<float>(texture.physicalWidth))),
+                    0,
+                    texture.physicalWidth - 1);
+                const int pixelY = std::clamp(
+                    static_cast<int>(std::floor(normalizedV * static_cast<float>(texture.physicalHeight))),
+                    0,
+                    texture.physicalHeight - 1);
+                const size_t pixelOffset = static_cast<size_t>((pixelY * texture.physicalWidth + pixelX) * 4);
+                return pixelOffset + 3 < texture.pixels.size() && texture.pixels[pixelOffset + 3] != 0;
+            };
+
+        const auto resolveDecorationBillboardSpriteId =
+            [this, &eventRuntimeState](const DecorationBillboard &billboard, bool &hidden)
+            {
+                hidden = false;
+
+                if (!m_indoorDecorationBillboardSet || !eventRuntimeState.has_value())
+                {
+                    return billboard.spriteId;
+                }
+
+                const uint32_t overrideKey = billboard.spriteOverrideKey();
+                const auto overrideIterator = eventRuntimeState->spriteOverrides.find(overrideKey);
+
+                if (overrideIterator == eventRuntimeState->spriteOverrides.end())
+                {
+                    return billboard.spriteId;
+                }
+
+                hidden = overrideIterator->second.hidden;
+
+                if (!overrideIterator->second.textureName.has_value() || overrideIterator->second.textureName->empty())
+                {
+                    return billboard.spriteId;
+                }
+
+                if (const DecorationEntry *pDecoration =
+                        m_indoorDecorationBillboardSet->decorationTable.findByInternalName(
+                            *overrideIterator->second.textureName))
+                {
+                    return pDecoration->spriteId;
+                }
+
+                if (const std::optional<uint16_t> spriteId =
+                        m_indoorDecorationBillboardSet->spriteFrameTable.findFrameIndexBySpriteName(
+                            *overrideIterator->second.textureName))
+                {
+                    return *spriteId;
+                }
+
+                return billboard.spriteId;
+            };
+
+        const auto decorationHasInteraction =
+            [this, &eventRuntimeState](const DecorationBillboard &billboard)
+            {
+                if (billboard.eventIdSecondary != 0)
+                {
+                    return true;
+                }
+
+                if (!eventRuntimeState.has_value())
+                {
+                    return false;
+                }
+
+                return resolveIndoorInteractiveDecorationBinding(
+                    m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                    m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                    m_indoorInteractiveDecorationEventCountsByEntity,
+                    m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    billboard.entityIndex).has_value();
+            };
+
+        const auto decorationHasHint =
+            [this](const DecorationBillboard &billboard)
+            {
+                const DecorationEntry *pDecoration =
+                    m_indoorDecorationBillboardSet->decorationTable.get(billboard.decorationId);
+
+                if ((pDecoration == nullptr || pDecoration->hint.empty()) && !billboard.name.empty())
+                {
+                    pDecoration = m_indoorDecorationBillboardSet->decorationTable.findByInternalName(billboard.name);
+                }
+
+                return pDecoration != nullptr && !pDecoration->hint.empty();
+            };
+
+        for (const DecorationBillboard &billboard : m_indoorDecorationBillboardSet->billboards)
+        {
+            if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
+            {
+                continue;
+            }
+
+            if (!decorationHasInteraction(billboard) && !decorationHasHint(billboard))
+            {
+                continue;
+            }
+
+            bool hidden = false;
+            const uint16_t spriteId = resolveDecorationBillboardSpriteId(billboard, hidden);
+
+            if (hidden || spriteId == 0)
+            {
+                continue;
+            }
+
+            const uint32_t animationOffsetTicks =
+                animationTimeTicks + static_cast<uint32_t>(std::abs(billboard.x + billboard.y));
+            const SpriteFrameEntry *pFrame =
+                m_indoorDecorationBillboardSet->spriteFrameTable.getFrame(spriteId, animationOffsetTicks);
+
+            if (pFrame == nullptr)
+            {
+                continue;
+            }
+
+            const float facingRadians = static_cast<float>(billboard.facing) * Pi / 180.0f;
+            const float angleToCamera = std::atan2(
+                static_cast<float>(billboard.y) - m_cameraPositionY,
+                static_cast<float>(billboard.x) - m_cameraPositionX);
+            const float octantAngle = facingRadians - angleToCamera + Pi + (Pi / 8.0f);
+            const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
+            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
+            const BillboardTextureHandle *pTexture = findBillboardTexture(resolvedTexture.textureName);
+
+            if (pTexture == nullptr || pTexture->width <= 0 || pTexture->height <= 0)
+            {
+                continue;
+            }
+
+            const float spriteScale = std::max(pFrame->scale, 0.01f);
+            const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
+            const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
+            const bx::Vec3 center = {
+                static_cast<float>(billboard.x),
+                static_cast<float>(billboard.y),
+                static_cast<float>(billboard.z) + worldHeight * 0.5f
+            };
+            const bx::Vec3 planeNormal = {
+                -cameraRight.y * cameraUp.z + cameraRight.z * cameraUp.y,
+                -cameraRight.z * cameraUp.x + cameraRight.x * cameraUp.z,
+                -cameraRight.x * cameraUp.y + cameraRight.y * cameraUp.x
+            };
+            const float denominator = vecDot(rayDirection, planeNormal);
+
+            if (std::fabs(denominator) <= InspectRayEpsilon)
+            {
+                continue;
+            }
+
+            const float distance = vecDot(vecSubtract(center, rayOrigin), planeNormal) / denominator;
+
+            if (distance <= InspectRayEpsilon
+                || (distance >= bestDistance && (bestHit.kind != "face" || distance > bestDistance + 8.0f)))
+            {
+                continue;
+            }
+
+            const bx::Vec3 hitPoint = {
+                rayOrigin.x + rayDirection.x * distance,
+                rayOrigin.y + rayDirection.y * distance,
+                rayOrigin.z + rayDirection.z * distance
+            };
+            const bx::Vec3 localDelta = vecSubtract(hitPoint, center);
+            const float localX = vecDot(localDelta, cameraRight);
+            const float localY = vecDot(localDelta, cameraUp);
+            const float halfWidth = worldWidth * 0.5f;
+            const float halfHeight = worldHeight * 0.5f;
+
+            if (std::fabs(localX) > halfWidth || std::fabs(localY) > halfHeight)
+            {
+                continue;
+            }
+
+            float normalizedU = (localX + halfWidth) / worldWidth;
+            const float normalizedV = (halfHeight - localY) / worldHeight;
+
+            if (resolvedTexture.mirrored)
+            {
+                normalizedU = 1.0f - normalizedU;
+            }
+
+            if (!isOpaqueBillboardPixel(*pTexture, normalizedU, normalizedV))
+            {
+                continue;
+            }
+
+            bestDistance = distance;
+            bestHit.hasHit = true;
+            bestHit.kind = "entity";
+            bestHit.index = billboard.entityIndex;
+            bestHit.name = billboard.name;
+            bestHit.textureName.clear();
+            bestHit.distance = distance;
+            bestHit.decorationListId = billboard.decorationId;
+            bestHit.eventIdPrimary = billboard.eventIdPrimary;
+            bestHit.eventIdSecondary = billboard.eventIdSecondary;
+            bestHit.variablePrimary = 0;
+            bestHit.variableSecondary = 0;
+            bestHit.specialTrigger = 0;
+
+            if (billboard.entityIndex < indoorMapData.entities.size())
+            {
+                const IndoorEntity &entity = indoorMapData.entities[billboard.entityIndex];
+                bestHit.name = entity.name;
+                bestHit.decorationListId = entity.decorationListId;
+                bestHit.eventIdPrimary = entity.eventIdPrimary;
+                bestHit.eventIdSecondary = entity.eventIdSecondary;
+                bestHit.variablePrimary = entity.variablePrimary;
+                bestHit.variableSecondary = entity.variableSecondary;
+                bestHit.specialTrigger = entity.specialTrigger;
+            }
         }
     }
 

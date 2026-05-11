@@ -83,6 +83,17 @@ struct OutdoorEntity
     uint16_t variableSecondary = 0;
     uint16_t specialTrigger = 0;
     std::string name;
+
+    uint16_t scriptEventId() const
+    {
+        return eventIdSecondary;
+    }
+
+    uint32_t spriteOverrideKey(size_t entityIndex) const
+    {
+        static_cast<void>(entityIndex);
+        return eventIdPrimary;
+    }
 };
 
 struct OutdoorSpawn

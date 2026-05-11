@@ -180,6 +180,18 @@ bool faceIsWalkable(const IndoorFace &face, const bx::Vec3 &normal)
     return normal.z > WalkableSlopeNormalZ;
 }
 
+bool faceCanDefineFloorHeight(const IndoorFaceGeometryData &geometry)
+{
+    return geometry.kind == IndoorFaceKind::Floor
+        || (geometry.facetType == 4 && geometry.normal.z > GeometryEpsilon);
+}
+
+bool faceCanDefineCeilingHeight(const IndoorFaceGeometryData &geometry)
+{
+    return geometry.kind == IndoorFaceKind::Ceiling
+        || (geometry.facetType == 6 && geometry.normal.z < -GeometryEpsilon);
+}
+
 bool sectorBoundingBoxIntersectsProbe(const IndoorSector &sector, const bx::Vec3 &point)
 {
     constexpr float ProbeHalfWidth = 5.0f;
@@ -529,8 +541,7 @@ IndoorFloorSample evaluateIndoorFloorFace(
 
     if (pGeometry == nullptr
         || pGeometry->isPortal
-        || !pGeometry->isWalkable
-        || pGeometry->kind != IndoorFaceKind::Floor
+        || !faceCanDefineFloorHeight(*pGeometry)
         || x < pGeometry->minX - FloorSlack
         || x > pGeometry->maxX + FloorSlack
         || y < pGeometry->minY - FloorSlack
@@ -556,6 +567,7 @@ IndoorFloorSample evaluateIndoorFloorFace(
 
     IndoorFloorSample sample = {};
     sample.hasFloor = true;
+    sample.isWalkable = pGeometry->isWalkable;
     sample.height = height;
     sample.normalZ = pGeometry->normal.z;
     sample.sectorId = static_cast<int16_t>(pGeometry->sectorId);
@@ -1261,7 +1273,7 @@ IndoorCeilingSample sampleIndoorCeiling(
                 geometryStorage);
 
             if (pGeometry == nullptr
-                || pGeometry->kind != IndoorFaceKind::Ceiling
+                || !faceCanDefineCeilingHeight(*pGeometry)
                 || x < pGeometry->minX - FloorSlack
                 || x > pGeometry->maxX + FloorSlack
                 || y < pGeometry->minY - FloorSlack

@@ -913,7 +913,6 @@ void GameplayScreenController::renderStandardUi(
             || context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
             || context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair)
         && context.currentHudScreenState() == GameplayHudScreenState::Dialogue;
-
     renderSharedOverlays(
         context,
         width,

@@ -185,6 +185,16 @@ bool outdoorFaceIsInteractionActivatable(uint32_t attributes, uint16_t eventId)
         && !outdoorFaceHasInvisibleAttribute(attributes);
 }
 
+uint16_t resolveOutdoorEntityScriptEventId(const OutdoorEntity &entity)
+{
+    return entity.scriptEventId();
+}
+
+uint16_t resolveOutdoorEntityScriptEventId(uint16_t eventIdSecondary)
+{
+    return eventIdSecondary;
+}
+
 bool interactiveDecorationHidesWhenCleared(OutdoorGameView::InteractiveDecorationFamily family)
 {
     return family == OutdoorGameView::InteractiveDecorationFamily::CampFire;
@@ -1437,7 +1447,7 @@ uint16_t OutdoorInteractionController::resolveDecorationBillboardSpriteId(
         return spriteId;
     }
 
-    const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
+    const uint32_t overrideKey = billboard.spriteOverrideKey();
 
     const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -1488,7 +1498,7 @@ void OutdoorInteractionController::rebuildInteractiveDecorationBindings(OutdoorG
     {
         const OutdoorEntity &entity = view.m_outdoorMapData->entities[entityIndex];
 
-        if (entity.eventIdPrimary != 0 || entity.eventIdSecondary != 0)
+        if (resolveOutdoorEntityScriptEventId(entity) != 0)
         {
             continue;
         }
@@ -1980,7 +1990,7 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
         if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
         {
             const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
-            directEventId = entity.eventIdPrimary != 0 ? entity.eventIdPrimary : entity.eventIdSecondary;
+            directEventId = resolveOutdoorEntityScriptEventId(entity);
         }
 
         if (directEventId)
@@ -2018,14 +2028,7 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
             return interactiveText;
         }
 
-        const std::optional<std::string> primaryHint = resolveEventHintText(view, inspectHit.eventIdPrimary);
-
-        if (primaryHint && !primaryHint->empty())
-        {
-            return primaryHint;
-        }
-
-        return resolveEventHintText(view, inspectHit.eventIdSecondary);
+        return resolveEventHintText(view, resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary));
     }
 
     if (inspectHit.kind == "face")
@@ -3390,15 +3393,14 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
     auto isDirectEventEntity =
         [](const OutdoorEntity &entity)
         {
-            return entity.eventIdPrimary != 0 || entity.eventIdSecondary != 0;
+            return resolveOutdoorEntityScriptEventId(entity) != 0;
         };
 
     auto bestHitIsPassiveEntity =
         [&](const OutdoorGameView::InspectHit &inspectHit)
         {
             return inspectHit.kind == "entity"
-                && inspectHit.eventIdPrimary == 0
-                && inspectHit.eventIdSecondary == 0;
+                && resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary) == 0;
         };
 
     auto bestHitIsPassiveSpawn =
@@ -3704,7 +3706,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 return spriteId;
             }
 
-            const uint32_t overrideKey = static_cast<uint32_t>(billboard.entityIndex);
+            const uint32_t overrideKey = billboard.spriteOverrideKey();
 
             const auto overrideIterator = pEventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -3755,7 +3757,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
             if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
             {
                 const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
-                directEventId = entity.eventIdPrimary != 0 ? entity.eventIdPrimary : entity.eventIdSecondary;
+                directEventId = resolveOutdoorEntityScriptEventId(entity);
             }
             const bool interactiveDecoration = interactiveEventId.has_value() || directEventId.has_value();
             const DecorationEntry *pDecorationEntry =
@@ -5078,12 +5080,12 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
 
         if (eventId == 0)
         {
-            eventId = inspectHit.eventIdPrimary != 0 ? inspectHit.eventIdPrimary : inspectHit.eventIdSecondary;
+            eventId = resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary);
         }
     }
     else if (inspectHit.kind == "entity")
     {
-        eventId = inspectHit.eventIdPrimary != 0 ? inspectHit.eventIdPrimary : inspectHit.eventIdSecondary;
+        eventId = resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary);
 
         if (eventId == 0)
         {
@@ -5342,7 +5344,7 @@ bool OutdoorInteractionController::canActivateEventTargetInspectEvent(
 
     if (inspectHit.kind == "entity")
     {
-        if (inspectHit.eventIdPrimary != 0 || inspectHit.eventIdSecondary != 0)
+        if (resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary) != 0)
         {
             return true;
         }
@@ -5364,7 +5366,7 @@ bool OutdoorInteractionController::canActivateEventTargetInspectEvent(
         {
             const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
 
-            if (entity.eventIdPrimary != 0 || entity.eventIdSecondary != 0)
+            if (resolveOutdoorEntityScriptEventId(entity) != 0)
             {
                 return true;
             }

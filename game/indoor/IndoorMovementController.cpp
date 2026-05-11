@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <sstream>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -18,13 +19,62 @@ constexpr float MaximumDrop = 160.0f;
 constexpr float MaximumStepUpFromCurrentFootZ = 128.0f;
 constexpr float MaximumUphillSlopeNormalZ = 0.70767211914f;
 constexpr float SlideFactor = 0.89263916f;
+constexpr float SteepFloorSlideHorizontalSpeed = 10.0f;
+constexpr float SteepFloorSlideDownSpeed = 20.0f;
 constexpr float GravityPerSecond = 960.0f;
 constexpr float GroundSnapSlack = 8.0f;
 constexpr float CylinderCollisionHorizontalEpsilon = 0.0001f;
+constexpr float SteepFloorUphillEpsilon = 0.01f;
+constexpr float IndoorMovementSubstepDistance = 24.0f;
+constexpr int MaxIndoorMovementSubsteps = 64;
+constexpr float WallOverlapRecoveryMinVelocity = 480.0f;
 
 bool hasCylinderCollisionHorizontalComponent(float x, float y)
 {
     return x * x + y * y > CylinderCollisionHorizontalEpsilon * CylinderCollisionHorizontalEpsilon;
+}
+
+int indoorMovementSubstepCount(
+    const IndoorMoveState &state,
+    float desiredVelocityX,
+    float desiredVelocityY,
+    bool jumpRequested,
+    float deltaSeconds,
+    float jumpVelocity
+)
+{
+    const float horizontalVelocity =
+        std::sqrt(desiredVelocityX * desiredVelocityX + desiredVelocityY * desiredVelocityY);
+    const float horizontalDistance = horizontalVelocity * deltaSeconds;
+    const float jumpSpeed = jumpRequested ? jumpVelocity : 0.0f;
+    const float verticalSpeed = std::max(std::fabs(state.verticalVelocity), jumpSpeed);
+    const float verticalDistance = verticalSpeed * deltaSeconds + GravityPerSecond * deltaSeconds * deltaSeconds;
+    const float movementDistance = std::max(horizontalDistance, verticalDistance);
+
+    if (movementDistance <= IndoorMovementSubstepDistance)
+    {
+        return 1;
+    }
+
+    const int substepCount = static_cast<int>(std::ceil(movementDistance / IndoorMovementSubstepDistance));
+    return std::clamp(substepCount, 1, MaxIndoorMovementSubsteps);
+}
+
+const char *indoorTraceFaceKindName(IndoorFaceKind kind)
+{
+    switch (kind)
+    {
+        case IndoorFaceKind::Unknown:
+            return "unknown";
+        case IndoorFaceKind::Floor:
+            return "floor";
+        case IndoorFaceKind::Ceiling:
+            return "ceiling";
+        case IndoorFaceKind::Wall:
+            return "wall";
+    }
+
+    return "unknown";
 }
 
 bool indoorFloorTooSteepForUphillStep(
@@ -37,8 +87,17 @@ bool indoorFloorTooSteepForUphillStep(
     if (!floor.hasFloor
         || floor.faceIndex >= indoorMapData.faces.size()
         || floor.normalZ <= 0.0f
-        || floor.normalZ >= MaximumUphillSlopeNormalZ
-        || floor.height <= currentFootZ + GroundSnapSlack)
+        || floor.normalZ >= MaximumUphillSlopeNormalZ)
+    {
+        return false;
+    }
+
+    if (!floor.isWalkable)
+    {
+        return floor.height > currentFootZ + SteepFloorUphillEpsilon;
+    }
+
+    if (floor.height <= currentFootZ + GroundSnapSlack)
     {
         return false;
     }
@@ -55,6 +114,45 @@ bool indoorFloorTooSteepForUphillStep(
     }
 
     return true;
+}
+
+bool indoorFaceIsSteepFloorCollisionSurface(const IndoorFaceGeometryData &geometry)
+{
+    if (geometry.normal.z <= 0.0f || geometry.normal.z >= MaximumUphillSlopeNormalZ)
+    {
+        return false;
+    }
+
+    if (geometry.facetType == 4 && hasFaceAttribute(geometry.attributes, FaceAttribute::Invisible))
+    {
+        return false;
+    }
+
+    return geometry.facetType == 3 || geometry.facetType == 4 || geometry.kind == IndoorFaceKind::Floor;
+}
+
+bx::Vec3 applySteepFloorCollisionResponse(
+    const bx::Vec3 &step,
+    const IndoorFaceGeometryData *pGeometry,
+    float deltaSeconds
+)
+{
+    if (pGeometry == nullptr || !indoorFaceIsSteepFloorCollisionSurface(*pGeometry))
+    {
+        return step;
+    }
+
+    bx::Vec3 response = step;
+
+    if (response.z > 0.0f)
+    {
+        response.z = 0.0f;
+    }
+
+    response.x += pGeometry->normal.x * SteepFloorSlideHorizontalSpeed * deltaSeconds;
+    response.y += pGeometry->normal.y * SteepFloorSlideHorizontalSpeed * deltaSeconds;
+    response.z -= SteepFloorSlideDownSpeed * deltaSeconds;
+    return response;
 }
 
 bool indoorFaceIsInvisibleSupportRamp(const IndoorFace &face, uint32_t attributes)
@@ -1024,6 +1122,7 @@ IndoorMoveState IndoorMovementController::initializeStateFromEyePosition(
                 &mechanismBlockingFaceMask,
                 candidateState.sectorId >= 0 ? std::optional<int16_t>(candidateState.sectorId) : std::nullopt,
                 candidateState.eyeSectorId >= 0 ? std::optional<int16_t>(candidateState.eyeSectorId) : std::nullopt,
+                candidateState.supportFaceIndex,
                 0.0f,
                 0.0f,
                 nullptr);
@@ -1050,6 +1149,124 @@ IndoorMoveState IndoorMovementController::initializeStateFromEyePosition(
 }
 
 IndoorMoveState IndoorMovementController::resolveMove(
+    const IndoorMoveState &state,
+    const IndoorBodyDimensions &body,
+    float desiredVelocityX,
+    float desiredVelocityY,
+    bool jumpRequested,
+    float deltaSeconds,
+    std::vector<size_t> *pContactedActorIndices,
+    std::optional<size_t> ignoredActorIndex,
+    bool blockActorSlide,
+    IndoorMoveDebugInfo *pDebugInfo,
+    bool flyingActive,
+    bool ignoreActorCollisions,
+    float jumpVelocity,
+    float jumpLift
+) const
+{
+    if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
+    {
+        return state;
+    }
+
+    const int substepCount = indoorMovementSubstepCount(
+        state,
+        desiredVelocityX,
+        desiredVelocityY,
+        jumpRequested,
+        deltaSeconds,
+        jumpVelocity);
+
+    if (substepCount <= 1)
+    {
+        return resolveMoveSingleStep(
+            state,
+            body,
+            desiredVelocityX,
+            desiredVelocityY,
+            jumpRequested,
+            deltaSeconds,
+            pContactedActorIndices,
+            ignoredActorIndex,
+            blockActorSlide,
+            pDebugInfo,
+            flyingActive,
+            ignoreActorCollisions,
+            jumpVelocity,
+            jumpLift);
+    }
+
+    const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
+    IndoorFaceGeometryCache &geometryCache = m_runtimeGeometryCache.geometryCache;
+    const float preflightEyeZ =
+        state.eyeZ() + state.verticalVelocity * deltaSeconds + (jumpRequested ? jumpVelocity * deltaSeconds : 0.0f);
+    const std::optional<int16_t> preflightEyeSectorId = findIndoorSectorForPoint(
+        *m_pIndoorMapData,
+        runtimeCache.vertices,
+        {state.x + desiredVelocityX * deltaSeconds, state.y + desiredVelocityY * deltaSeconds, preflightEyeZ},
+        &geometryCache,
+        false);
+
+    if (!preflightEyeSectorId)
+    {
+        return resolveMoveSingleStep(
+            state,
+            body,
+            desiredVelocityX,
+            desiredVelocityY,
+            jumpRequested,
+            deltaSeconds,
+            pContactedActorIndices,
+            ignoredActorIndex,
+            blockActorSlide,
+            pDebugInfo,
+            flyingActive,
+            ignoreActorCollisions,
+            jumpVelocity,
+            jumpLift);
+    }
+
+    IndoorMoveState currentState = state;
+    IndoorMoveDebugInfo stepDebug = {};
+    const float substepDeltaSeconds = deltaSeconds / static_cast<float>(substepCount);
+
+    for (int substepIndex = 0; substepIndex < substepCount; ++substepIndex)
+    {
+        const bool substepJumpRequested = jumpRequested && substepIndex == 0;
+        currentState = resolveMoveSingleStep(
+            currentState,
+            body,
+            desiredVelocityX,
+            desiredVelocityY,
+            substepJumpRequested,
+            substepDeltaSeconds,
+            pContactedActorIndices,
+            ignoredActorIndex,
+            blockActorSlide,
+            &stepDebug,
+            flyingActive,
+            ignoreActorCollisions,
+            jumpVelocity,
+            jumpLift);
+
+        if (blockActorSlide
+            && (stepDebug.primaryBlockKind == IndoorMoveBlockKind::Actor
+                || stepDebug.primaryBlockKind == IndoorMoveBlockKind::Party))
+        {
+            break;
+        }
+    }
+
+    if (pDebugInfo != nullptr)
+    {
+        *pDebugInfo = stepDebug;
+    }
+
+    return currentState;
+}
+
+IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     const IndoorMoveState &state,
     const IndoorBodyDimensions &body,
     float desiredVelocityX,
@@ -1108,7 +1325,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
         preferredSectorId,
         &nonBlockingMechanismFaceMask);
     const IndoorFloorSample preferredCurrentFloor =
-        state.supportFaceIndex != static_cast<size_t>(-1)
+        state.grounded && state.supportFaceIndex != static_cast<size_t>(-1)
         ? sampleSupportedFloorOnFace(
             vertices,
             geometryCache,
@@ -1286,7 +1503,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
             vertices,
             candidateX,
             candidateY,
-            resolvedFootZ + body.height,
+            resolvedFootZ,
             floor.hasFloor && floor.sectorId >= 0 ? std::optional<int16_t>(floor.sectorId) : preferredSectorId,
             &nonBlockingMechanismFaceMask,
             &geometryCache);
@@ -1299,6 +1516,11 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
         if (floor.hasFloor && resolvedFootZ < floor.height)
         {
+            if (ceiling.hasCeiling)
+            {
+                return false;
+            }
+
             resolvedFootZ = floor.height;
             resolvedVerticalVelocity = 0.0f;
             resolvedGrounded = !flying;
@@ -1335,6 +1557,7 @@ IndoorMoveState IndoorMovementController::resolveMove(
                 &mechanismBlockingFaceMask,
                 primarySectorId,
                 eyeSectorId,
+                state.grounded ? state.supportFaceIndex : static_cast<size_t>(-1),
                 candidateX - currentX,
                 candidateY - currentY,
                 pWallCollision))
@@ -1363,7 +1586,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
         candidateState.verticalVelocity = resolvedVerticalVelocity;
         candidateState.sectorId = floor.hasFloor ? floor.sectorId : eyeSectorId.value_or(state.sectorId);
         candidateState.eyeSectorId = *eyeSectorId;
-        candidateState.supportFaceIndex = floor.hasFloor ? floor.faceIndex : static_cast<size_t>(-1);
+        candidateState.supportFaceIndex =
+            floor.hasFloor && resolvedGrounded ? floor.faceIndex : static_cast<size_t>(-1);
         candidateState.grounded = resolvedGrounded;
 
         return true;
@@ -1391,6 +1615,111 @@ IndoorMoveState IndoorMovementController::resolveMove(
             pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::InvalidPosition;
         }
     };
+
+    const auto findCurrentWallOverlap = [&](const IndoorMoveState &moveState) -> IndoorWallCollision
+    {
+        IndoorWallCollision bestOverlap = {};
+        float bestPenetration = -1.0f;
+        const std::vector<const IndoorFaceGeometryData *> candidateFaces = collectSweptCollisionFaceCandidates(
+            vertices,
+            geometryCache,
+            moveState.x,
+            moveState.y,
+            moveState.footZ,
+            body,
+            0.0f,
+            0.0f,
+            0.0f,
+            &collisionFaceMask,
+            &mechanismBlockingFaceMask,
+            moveState.sectorId >= 0 ? std::optional<int16_t>(moveState.sectorId) : std::nullopt,
+            moveState.eyeSectorId >= 0 ? std::optional<int16_t>(moveState.eyeSectorId) : std::nullopt);
+
+        for (const IndoorFaceGeometryData *pGeometry : candidateFaces)
+        {
+            if (pGeometry == nullptr
+                || pGeometry->kind != IndoorFaceKind::Wall
+                || pGeometry->isPortal
+                || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
+                || pGeometry->maxZ <= moveState.footZ + MaximumRise
+                || (moveState.grounded
+                    && pGeometry->faceIndex == moveState.supportFaceIndex
+                    && indoorFaceIsSteepFloorCollisionSurface(*pGeometry))
+                || !isIndoorCylinderBlockedByFace(*pGeometry, moveState.x, moveState.y, moveState.footZ, body.radius, body.height))
+            {
+                continue;
+            }
+
+            const bx::Vec3 bodyCenter = {
+                moveState.x,
+                moveState.y,
+                moveState.footZ + std::min(body.height * 0.5f, std::max(body.radius, 1.0f))
+            };
+            const float planeDistance =
+                std::fabs(dotVec(subtractVec(bodyCenter, pGeometry->vertices.front()), pGeometry->normal));
+            const float penetration = body.radius - planeDistance;
+
+            if (!bestOverlap.hit || penetration > bestPenetration)
+            {
+                bestOverlap.hit = true;
+                bestOverlap.normal = pGeometry->normal;
+                bestOverlap.faceIndex = pGeometry->faceIndex;
+                bestPenetration = penetration;
+            }
+        }
+
+        return bestOverlap;
+    };
+
+    if (!state.grounded
+        && state.supportFaceIndex != static_cast<size_t>(-1)
+        && std::fabs(state.verticalVelocity) >= WallOverlapRecoveryMinVelocity)
+    {
+        const IndoorWallCollision overlap = findCurrentWallOverlap(state);
+        const bx::Vec3 horizontalNormal = normalizeVec({overlap.normal.x, overlap.normal.y, 0.0f});
+
+        if (overlap.hit && lengthVec(horizontalNormal) > 0.0001f)
+        {
+            constexpr std::array<float, 5> RecoveryDistances = {{4.0f, 8.0f, 16.0f, 32.0f, 48.0f}};
+
+            for (float directionSign : {1.0f, -1.0f})
+            {
+                for (float distance : RecoveryDistances)
+                {
+                    IndoorMoveState recoveredState = {};
+
+                    if (tryResolvePosition(
+                            state.x,
+                            state.y,
+                            state.x + horizontalNormal.x * directionSign * distance,
+                            state.y + horizontalNormal.y * directionSign * distance,
+                            state.footZ,
+                            0.0f,
+                            recoveredState,
+                            true,
+                            nullptr,
+                            nullptr))
+                    {
+                        if (pDebugInfo != nullptr)
+                        {
+                            pDebugInfo->collisionResponseTried = true;
+                            pDebugInfo->collisionResponseSucceeded = true;
+                            pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::Wall;
+                            pDebugInfo->hitFaceIndex = overlap.faceIndex;
+                            pDebugInfo->hitNormal = overlap.normal;
+                            pDebugInfo->responseStep = {
+                                recoveredState.x - state.x,
+                                recoveredState.y - state.y,
+                                recoveredState.footZ - state.footZ
+                            };
+                        }
+
+                        return recoveredState;
+                    }
+                }
+            }
+        }
+    }
 
     auto selectNearestActorBodyHit =
         [&](const IndoorMoveState &moveState, const bx::Vec3 &direction, float distance)
@@ -1548,7 +1877,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
         [&](
             const bx::Vec3 &step,
             const SweptCollisionHit &hit,
-            const IndoorMoveState &advancedState) -> bx::Vec3
+            const IndoorMoveState &advancedState,
+            const IndoorFaceGeometryData *pHitGeometry) -> bx::Vec3
     {
         if (hit.type != SweptCollisionHitType::Face)
         {
@@ -1573,7 +1903,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
         if (lengthVec(slidePlaneNormal) <= 0.0001f)
         {
-            return projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
+            const bx::Vec3 responseStep = projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
+            return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
         }
 
         const bx::Vec3 intendedLowSphereCenter = {
@@ -1585,12 +1916,25 @@ IndoorMoveState IndoorMovementController::resolveMove(
             dotVec(subtractVec(intendedLowSphereCenter, slidePlaneOrigin), slidePlaneNormal);
         const bx::Vec3 projectedDestination =
             subtractVec(intendedLowSphereCenter, scaleVec(slidePlaneNormal, destinationPlaneDistance));
-        const bx::Vec3 slideDirection =
+        bx::Vec3 slideDirection =
             normalizeVec(subtractVec(projectedDestination, slidePlaneOrigin));
 
         if (lengthVec(slideDirection) <= 0.0001f)
         {
-            return projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
+            const bx::Vec3 responseStep = projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
+            return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
+        }
+
+        if (pHitGeometry != nullptr
+            && indoorFaceIsSteepFloorCollisionSurface(*pHitGeometry)
+            && slideDirection.z > 0.0f)
+        {
+            const bx::Vec3 horizontalSlideDirection = normalizeVec({slideDirection.x, slideDirection.y, 0.0f});
+
+            if (lengthVec(horizontalSlideDirection) > 0.0001f)
+            {
+                slideDirection = horizontalSlideDirection;
+            }
         }
 
         const float projectedStepDistance = dotVec(step, slideDirection);
@@ -1600,7 +1944,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             return {0.0f, 0.0f, 0.0f};
         }
 
-        return scaleVec(slideDirection, projectedStepDistance * SlideFactor);
+        const bx::Vec3 responseStep = scaleVec(slideDirection, projectedStepDistance * SlideFactor);
+        return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
     };
 
     if (movementDistance(remainingStep.x, remainingStep.y, remainingStep.z) <= 0.0001f)
@@ -1676,8 +2021,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             }
 
             if (iterativeState.grounded
-                && pFace->kind == IndoorFaceKind::Floor
-                && pFace->faceIndex == iterativeState.supportFaceIndex)
+                && pFace->faceIndex == iterativeState.supportFaceIndex
+                && (pFace->kind == IndoorFaceKind::Floor || indoorFaceIsSteepFloorCollisionSurface(*pFace)))
             {
                 continue;
             }
@@ -1792,8 +2137,12 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
             if (fullMoveWallCollision.hit && !fullMoveBlockedByActor)
             {
-                const bx::Vec3 slideStep =
+                const IndoorFaceGeometryData *pWallGeometry =
+                    geometryCache.geometryForFace(*m_pIndoorMapData, vertices, fullMoveWallCollision.faceIndex);
+                const bx::Vec3 projectedSlideStep =
                     projectIndoorVelocityAlongPlane(remainingStep, fullMoveWallCollision.normal, SlideFactor);
+                const bx::Vec3 slideStep =
+                    applySteepFloorCollisionResponse(projectedSlideStep, pWallGeometry, deltaSeconds);
 
                 if (movementDistance(slideStep.x, slideStep.y, slideStep.z) > 0.0001f)
                 {
@@ -1942,11 +2291,13 @@ IndoorMoveState IndoorMovementController::resolveMove(
 
         if (nearestHit->type == SweptCollisionHitType::Face && nearestHit->boundaryHit)
         {
-            remainingStep = projectStepAfterFaceHit(leftoverStep, *nearestHit, advancedState);
+            remainingStep = projectStepAfterFaceHit(leftoverStep, *nearestHit, advancedState, pNearestHitGeometry);
         }
         else
         {
-            remainingStep = projectIndoorVelocityAlongPlane(leftoverStep, nearestHit->normal, responseDamping);
+            const bx::Vec3 responseStep =
+                projectIndoorVelocityAlongPlane(leftoverStep, nearestHit->normal, responseDamping);
+            remainingStep = applySteepFloorCollisionResponse(responseStep, pNearestHitGeometry, deltaSeconds);
         }
 
         if (pDebugInfo != nullptr)
@@ -1969,6 +2320,398 @@ IndoorMoveState IndoorMovementController::resolveMove(
     return iterativeState;
 }
 
+IndoorCollisionTraceInfo IndoorMovementController::traceCollisionIssues(
+    const IndoorMoveState &start,
+    const IndoorMoveState &end,
+    const IndoorBodyDimensions &body
+) const
+{
+    IndoorCollisionTraceInfo trace = {};
+
+    if (m_pIndoorMapData == nullptr)
+    {
+        return trace;
+    }
+
+    const float moveX = end.x - start.x;
+    const float moveY = end.y - start.y;
+    const float moveZ = end.footZ - start.footZ;
+    const float moveDistance = movementDistance(moveX, moveY, moveZ);
+    trace.sectorChanged = start.sectorId != end.sectorId || start.eyeSectorId != end.eyeSectorId;
+    trace.supportLost = start.grounded && !end.grounded && end.supportFaceIndex == static_cast<size_t>(-1);
+    trace.suddenDrop = start.grounded && !end.grounded && start.footZ - end.footZ > MaximumDrop * 0.5f;
+
+    if (moveDistance <= 0.0001f)
+    {
+        return trace;
+    }
+
+    const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
+    IndoorFaceGeometryCache &geometryCache = m_runtimeGeometryCache.geometryCache;
+    const std::vector<IndoorVertex> &vertices = runtimeCache.vertices;
+    const std::vector<uint8_t> &collisionFaceMask = runtimeCache.collisionFaceMask;
+    const std::vector<uint8_t> &mechanismBlockingFaceMask = runtimeCache.mechanismBlockingFaceMask;
+    const std::optional<int16_t> startSector =
+        start.sectorId >= 0 ? std::optional<int16_t>(start.sectorId) : std::nullopt;
+    const std::optional<int16_t> startEyeSector =
+        start.eyeSectorId >= 0 ? std::optional<int16_t>(start.eyeSectorId) : std::nullopt;
+    const bx::Vec3 direction = movementDirection(moveX, moveY, moveZ);
+    const IndoorSweptBody sweptBody = buildPrimitiveSweptBody(start.x, start.y, start.footZ, body);
+    const std::vector<const IndoorFaceGeometryData *> candidates = collectSweptCollisionFaceCandidates(
+        vertices,
+        geometryCache,
+        start.x,
+        start.y,
+        start.footZ,
+        body,
+        moveX,
+        moveY,
+        moveZ,
+        &collisionFaceMask,
+        &mechanismBlockingFaceMask,
+        startSector,
+        startEyeSector);
+    std::vector<const IndoorFaceGeometryData *> blockingWallCandidates;
+    blockingWallCandidates.reserve(candidates.size());
+
+    for (const IndoorFaceGeometryData *pGeometry : candidates)
+    {
+        if (pGeometry == nullptr
+            || pGeometry->kind != IndoorFaceKind::Wall
+            || pGeometry->isPortal
+            || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
+            || pGeometry->maxZ <= std::min(start.footZ, end.footZ) + MaximumRise)
+        {
+            continue;
+        }
+
+        blockingWallCandidates.push_back(pGeometry);
+    }
+
+    IndoorFaceSweepOptions sweepOptions = {};
+    sweepOptions.pCollisionFaceMask = &collisionFaceMask;
+    sweepOptions.pMechanismBlockingFaceMask = &mechanismBlockingFaceMask;
+    sweepOptions.includePortalFaces = false;
+
+    const std::optional<IndoorSweptFaceHit> wallHit =
+        selectNearestIndoorFaceHit(sweptBody, direction, moveDistance, blockingWallCandidates, sweepOptions);
+
+    if (wallHit && wallHit->adjustedMoveDistance <= moveDistance + 0.5f)
+    {
+        trace.crossedBlockingFace = true;
+        trace.blockingFaceIndex = wallHit->faceIndex;
+        trace.blockingFaceNormal = wallHit->normal;
+        trace.blockingFacePoint = wallHit->point;
+        trace.blockingFaceMoveDistance = wallHit->moveDistance;
+        trace.blockingFaceAdjustedMoveDistance = wallHit->adjustedMoveDistance;
+    }
+
+    if (trace.sectorChanged)
+    {
+        std::vector<uint16_t> portalFaceIds;
+
+        const auto appendPortalFaces = [this, &portalFaceIds](int16_t sectorId)
+        {
+            if (sectorId < 0 || static_cast<size_t>(sectorId) >= m_pIndoorMapData->sectors.size())
+            {
+                return;
+            }
+
+            for (uint16_t faceIndex : m_pIndoorMapData->sectors[sectorId].portalFaceIds)
+            {
+                if (std::find(portalFaceIds.begin(), portalFaceIds.end(), faceIndex) == portalFaceIds.end())
+                {
+                    portalFaceIds.push_back(faceIndex);
+                }
+            }
+        };
+
+        appendPortalFaces(start.sectorId);
+        appendPortalFaces(start.eyeSectorId);
+        appendPortalFaces(end.sectorId);
+        appendPortalFaces(end.eyeSectorId);
+
+        for (uint16_t faceIndex : portalFaceIds)
+        {
+            const IndoorFaceGeometryData *pGeometry =
+                geometryCache.geometryForFace(*m_pIndoorMapData, vertices, faceIndex);
+
+            if (pGeometry == nullptr)
+            {
+                continue;
+            }
+
+            if (indoorSweptBodyTouchesPortalFace(sweptBody, direction, moveDistance, *pGeometry))
+            {
+                trace.sectorTransitionTouchedPortal = true;
+                trace.portalFaceIndex = faceIndex;
+                break;
+            }
+        }
+    }
+
+    return trace;
+}
+
+std::string IndoorMovementController::buildCollisionTraceProbeDetails(
+    const IndoorMoveState &start,
+    const IndoorMoveState &end,
+    const IndoorBodyDimensions &body
+) const
+{
+    if (m_pIndoorMapData == nullptr)
+    {
+        return {};
+    }
+
+    const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
+    IndoorFaceGeometryCache &geometryCache = m_runtimeGeometryCache.geometryCache;
+    const std::vector<IndoorVertex> &vertices = runtimeCache.vertices;
+    const std::vector<uint8_t> &nonBlockingMechanismFaceMask = runtimeCache.nonBlockingMechanismFaceMask;
+    const std::vector<uint8_t> &collisionFaceMask = runtimeCache.collisionFaceMask;
+    const std::vector<uint8_t> &mechanismBlockingFaceMask = runtimeCache.mechanismBlockingFaceMask;
+    const float moveX = end.x - start.x;
+    const float moveY = end.y - start.y;
+    const float moveZ = end.footZ - start.footZ;
+    const float moveDistance = movementDistance(moveX, moveY, moveZ);
+    const bx::Vec3 direction =
+        moveDistance > 0.0001f ? movementDirection(moveX, moveY, moveZ) : bx::Vec3{0.0f, 0.0f, 0.0f};
+    const IndoorSweptBody sweptBody = buildPrimitiveSweptBody(start.x, start.y, start.footZ, body);
+    const IndoorSweptBodyBounds sweptBounds = buildIndoorSweptBodyBounds(sweptBody, direction, moveDistance);
+    const std::optional<int16_t> startSector =
+        start.sectorId >= 0 ? std::optional<int16_t>(start.sectorId) : std::nullopt;
+    const std::optional<int16_t> startEyeSector =
+        start.eyeSectorId >= 0 ? std::optional<int16_t>(start.eyeSectorId) : std::nullopt;
+    const std::vector<int16_t> sweptSectorIds = collectSweptCollisionSectorIds(
+        vertices,
+        geometryCache,
+        start.x,
+        start.y,
+        start.footZ,
+        body,
+        moveX,
+        moveY,
+        moveZ,
+        startSector,
+        startEyeSector);
+    const IndoorFloorSample startFloor = sampleSupportedFloor(
+        vertices,
+        geometryCache,
+        start.x,
+        start.y,
+        start.footZ,
+        MaximumRise,
+        body.height + 1024.0f,
+        body,
+        startSector,
+        &nonBlockingMechanismFaceMask);
+    const IndoorFloorSample endFloor = sampleSupportedFloor(
+        vertices,
+        geometryCache,
+        end.x,
+        end.y,
+        end.footZ,
+        MaximumRise,
+        body.height + 1024.0f,
+        body,
+        end.sectorId >= 0 ? std::optional<int16_t>(end.sectorId) : std::nullopt,
+        &nonBlockingMechanismFaceMask);
+    const bx::Vec3 endBodyCenter = {
+        end.x,
+        end.y,
+        end.footZ + std::min(body.height * 0.5f, std::max(body.radius, 1.0f))
+    };
+
+    struct ProbeFace
+    {
+        const IndoorFaceGeometryData *pGeometry = nullptr;
+        std::optional<IndoorSweptFaceHit> sweepHit;
+        float planeDistance = 0.0f;
+        bool boundsTouch = false;
+        bool blockedAtEnd = false;
+        bool portalTouch = false;
+        bool relevantSector = false;
+        bool supportFace = false;
+        int priority = 0;
+    };
+
+    const auto sectorIsRelevant =
+        [&sweptSectorIds, &start, &end](uint16_t sectorId) -> bool
+        {
+            const int16_t signedSectorId = static_cast<int16_t>(sectorId);
+
+            if (signedSectorId == start.sectorId
+                || signedSectorId == start.eyeSectorId
+                || signedSectorId == end.sectorId
+                || signedSectorId == end.eyeSectorId)
+            {
+                return true;
+            }
+
+            return std::find(sweptSectorIds.begin(), sweptSectorIds.end(), signedSectorId) != sweptSectorIds.end();
+        };
+
+    IndoorFaceSweepOptions sweepOptions = {};
+    sweepOptions.pCollisionFaceMask = &collisionFaceMask;
+    sweepOptions.pMechanismBlockingFaceMask = &mechanismBlockingFaceMask;
+    sweepOptions.includePortalFaces = true;
+
+    std::vector<ProbeFace> probeFaces;
+    probeFaces.reserve(32);
+
+    for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
+    {
+        const IndoorFaceGeometryData *pGeometry =
+            geometryCache.geometryForFace(*m_pIndoorMapData, vertices, faceIndex);
+
+        if (pGeometry == nullptr || pGeometry->vertices.empty())
+        {
+            continue;
+        }
+
+        const bool relevantSector =
+            sectorIsRelevant(pGeometry->sectorId)
+            || sectorIsRelevant(pGeometry->backSectorId);
+        const bool supportFace =
+            faceIndex == start.supportFaceIndex
+            || faceIndex == end.supportFaceIndex
+            || (startFloor.hasFloor && faceIndex == startFloor.faceIndex)
+            || (endFloor.hasFloor && faceIndex == endFloor.faceIndex);
+        const bool boundsTouch = indoorSweptBodyBoundsTouchFace(sweptBounds, *pGeometry, body.radius + 48.0f);
+        const bool blockedAtEnd =
+            pGeometry->kind == IndoorFaceKind::Wall
+            && !pGeometry->isPortal
+            && pGeometry->maxZ > end.footZ + MaximumRise
+            && isIndoorCylinderBlockedByFace(*pGeometry, end.x, end.y, end.footZ, body.radius, body.height);
+        const bool portalTouch =
+            pGeometry->isPortal
+            && moveDistance > 0.0001f
+            && indoorSweptBodyTouchesPortalFace(sweptBody, direction, moveDistance, *pGeometry);
+        std::optional<IndoorSweptFaceHit> sweepHit;
+
+        if (moveDistance > 0.0001f
+            && boundsTouch
+            && canSweepAgainstIndoorFace(*pGeometry, sweepOptions))
+        {
+            sweepHit = sweepIndoorBodyAgainstFace(sweptBody, direction, moveDistance, *pGeometry, sweepOptions);
+        }
+
+        if (!supportFace && !blockedAtEnd && !portalTouch && !sweepHit && !(relevantSector && boundsTouch))
+        {
+            continue;
+        }
+
+        ProbeFace face = {};
+        face.pGeometry = pGeometry;
+        face.sweepHit = sweepHit;
+        face.boundsTouch = boundsTouch;
+        face.blockedAtEnd = blockedAtEnd;
+        face.portalTouch = portalTouch;
+        face.relevantSector = relevantSector;
+        face.supportFace = supportFace;
+        face.planeDistance = std::fabs(dotVec(subtractVec(endBodyCenter, pGeometry->vertices.front()), pGeometry->normal));
+        face.priority =
+            sweepHit || blockedAtEnd || portalTouch
+                ? 0
+                : supportFace
+                    ? 1
+                    : relevantSector && boundsTouch
+                        ? 2
+                        : relevantSector
+                            ? 3
+                            : 4;
+        probeFaces.push_back(face);
+    }
+
+    std::sort(
+        probeFaces.begin(),
+        probeFaces.end(),
+        [](const ProbeFace &left, const ProbeFace &right)
+        {
+            if (left.priority != right.priority)
+            {
+                return left.priority < right.priority;
+            }
+
+            return left.planeDistance < right.planeDistance;
+        });
+
+    std::ostringstream out;
+    out << " trace_swept_sectors=\"";
+
+    for (size_t index = 0; index < sweptSectorIds.size(); ++index)
+    {
+        if (index > 0)
+        {
+            out << ",";
+        }
+
+        out << sweptSectorIds[index];
+    }
+
+    out << "\""
+        << " trace_start_floor_has=" << (startFloor.hasFloor ? "true" : "false")
+        << " trace_start_floor=" << startFloor.faceIndex
+        << " trace_start_floor_sector=" << startFloor.sectorId
+        << " trace_start_floor_height=" << startFloor.height
+        << " trace_start_floor_normal_z=" << startFloor.normalZ
+        << " trace_end_floor_has=" << (endFloor.hasFloor ? "true" : "false")
+        << " trace_end_floor=" << endFloor.faceIndex
+        << " trace_end_floor_sector=" << endFloor.sectorId
+        << " trace_end_floor_height=" << endFloor.height
+        << " trace_end_floor_normal_z=" << endFloor.normalZ
+        << " trace_near_faces=\"";
+
+    constexpr size_t MaxProbeFaces = 18;
+    const size_t faceCount = std::min(MaxProbeFaces, probeFaces.size());
+
+    for (size_t index = 0; index < faceCount; ++index)
+    {
+        const ProbeFace &face = probeFaces[index];
+        const IndoorFaceGeometryData &geometry = *face.pGeometry;
+
+        if (index > 0)
+        {
+            out << ";";
+        }
+
+        out << geometry.faceIndex
+            << ":kind=" << indoorTraceFaceKindName(geometry.kind)
+            << ":portal=" << (geometry.isPortal ? "true" : "false")
+            << ":facet=" << static_cast<int>(geometry.facetType)
+            << ":sector=" << geometry.sectorId
+            << ":back=" << geometry.backSectorId
+            << ":normal=(" << geometry.normal.x << "," << geometry.normal.y << "," << geometry.normal.z << ")"
+            << ":bounds=(" << geometry.minX << "," << geometry.minY << "," << geometry.minZ
+            << ")-(" << geometry.maxX << "," << geometry.maxY << "," << geometry.maxZ << ")"
+            << ":dist=" << face.planeDistance
+            << ":bounds_touch=" << (face.boundsTouch ? "true" : "false")
+            << ":blocked_end=" << (face.blockedAtEnd ? "true" : "false")
+            << ":portal_touch=" << (face.portalTouch ? "true" : "false")
+            << ":support=" << (face.supportFace ? "true" : "false")
+            << ":relevant_sector=" << (face.relevantSector ? "true" : "false");
+
+        if (face.sweepHit)
+        {
+            out << ":sweep_hit=true"
+                << ":hit_move=" << face.sweepHit->moveDistance
+                << ":hit_adjusted=" << face.sweepHit->adjustedMoveDistance
+                << ":hit_point=(" << face.sweepHit->point.x
+                << "," << face.sweepHit->point.y
+                << "," << face.sweepHit->point.z << ")"
+                << ":hit_height_offset=" << face.sweepHit->heightOffset
+                << ":boundary=" << (face.sweepHit->boundaryHit ? "true" : "false");
+        }
+        else
+        {
+            out << ":sweep_hit=false";
+        }
+    }
+
+    out << "\"";
+    return out.str();
+}
+
 bool IndoorMovementController::collidesAtPosition(
     const std::vector<IndoorVertex> &vertices,
     IndoorFaceGeometryCache &geometryCache,
@@ -1980,6 +2723,7 @@ bool IndoorMovementController::collidesAtPosition(
     const std::vector<uint8_t> *pMechanismBlockingFaceMask,
     std::optional<int16_t> primarySectorId,
     std::optional<int16_t> secondarySectorId,
+    size_t ignoredSupportFaceIndex,
     float movementX,
     float movementY,
     IndoorWallCollision *pWallCollision
@@ -2010,6 +2754,13 @@ bool IndoorMovementController::collidesAtPosition(
 
     for (const IndoorFaceGeometryData *pGeometry : candidateFaces)
     {
+        if (pGeometry != nullptr
+            && pGeometry->faceIndex == ignoredSupportFaceIndex
+            && (pGeometry->kind == IndoorFaceKind::Floor || indoorFaceIsSteepFloorCollisionSurface(*pGeometry)))
+        {
+            continue;
+        }
+
         if (pGeometry == nullptr
             || pGeometry->kind != IndoorFaceKind::Wall
             || pGeometry->isPortal

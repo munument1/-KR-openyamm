@@ -82,6 +82,7 @@ private:
 struct IndoorFloorSample
 {
     bool hasFloor = false;
+    bool isWalkable = false;
     float height = 0.0f;
     float normalZ = 1.0f;
     int16_t sectorId = -1;

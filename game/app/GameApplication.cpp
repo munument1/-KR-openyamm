@@ -3939,6 +3939,9 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
         pIndoorRuntime->worldRuntime().setBolsterMonstersEnabled(m_settings.bolsterMonsters);
         pIndoorRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);
         pIndoorRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
+        pIndoorRuntime->partyRuntime().setCollisionTraceEnabled(
+            m_settings.collisionTrace,
+            pIndoorRuntime->currentMapFileName());
     }
 
     if (m_pMapSceneRuntime != nullptr)
@@ -4418,6 +4421,12 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_gameSession.applyNamedGlobalVarsToRuntime(*pEventRuntimeState);
 
             EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            eventRuntime.executeOnLoadEvents(
+                selectedMap->localEventProgram,
+                selectedMap->globalEventProgram,
+                *pEventRuntimeState,
+                &pIndoorSceneRuntime->party(),
+                pIndoorSceneRuntime->sceneEventContext());
             eventRuntime.executeMapRefillHooks(
                 selectedMap->localEventProgram,
                 selectedMap->globalEventProgram,
@@ -4431,6 +4440,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
 
         pIndoorSceneRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
         pIndoorSceneRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);
+        pIndoorSceneRuntime->partyRuntime().setCollisionTraceEnabled(
+            m_settings.collisionTrace,
+            selectedMap->map.fileName);
 
         if (initializeView
             && !m_indoorRenderer.initialize(

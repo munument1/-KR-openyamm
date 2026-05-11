@@ -738,6 +738,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "collision_trace"))
+    {
+        bool parsed = settings.collisionTrace;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.collisionTrace = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "logging", "hitch_threshold_ms"))
     {
         float parsed = settings.hitchThresholdMilliseconds;
@@ -942,6 +952,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << '\n'
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'
+        << "collision_trace=" << (settings.collisionTrace ? "true" : "false") << '\n'
         << "hitch_threshold_ms=" << std::clamp(settings.hitchThresholdMilliseconds, 0.1f, 1000.0f) << "\n\n"
         << "[keyboard]\n";
 

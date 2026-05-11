@@ -93,6 +93,11 @@ struct DecorationBillboard
     uint16_t eventIdSecondary = 0;
     int16_t sectorId = -1;
     std::string name;
+
+    uint32_t spriteOverrideKey() const
+    {
+        return eventIdPrimary;
+    }
 };
 
 struct DecorationBillboardSet

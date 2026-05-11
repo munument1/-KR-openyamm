@@ -262,7 +262,7 @@ void UiLayoutManager::clear()
 {
     m_layoutOrder.clear();
     m_layoutElements.clear();
-    m_normalizedLayoutIdByExactId.clear();
+    m_layoutElementByLookupId.clear();
     m_sortedLayoutIdsByScreen.clear();
 }
 
@@ -487,8 +487,16 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
                 element.normalizedId = toLowerCopy(element.id);
                 element.normalizedScreen = toLowerCopy(element.screen);
                 m_layoutOrder.push_back(element.id);
-                m_normalizedLayoutIdByExactId[element.id] = element.normalizedId;
                 m_layoutElements[element.normalizedId] = element;
+                const auto elementIterator = m_layoutElements.find(element.normalizedId);
+
+                if (elementIterator == m_layoutElements.end())
+                {
+                    return false;
+                }
+
+                m_layoutElementByLookupId[element.id] = &elementIterator->second;
+                m_layoutElementByLookupId[element.normalizedId] = &elementIterator->second;
 
                 const YAML::Node childrenNode = node["children"];
 
@@ -531,18 +539,17 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
 
 const UiLayoutManager::LayoutElement *UiLayoutManager::findElement(const std::string &layoutId) const
 {
-    std::unordered_map<std::string, std::string>::const_iterator exactIterator =
-        m_normalizedLayoutIdByExactId.find(layoutId);
-    const std::string normalizedLayoutId =
-        exactIterator != m_normalizedLayoutIdByExactId.end() ? exactIterator->second : toLowerCopy(layoutId);
-    const auto iterator = m_layoutElements.find(normalizedLayoutId);
+    const auto lookupIterator = m_layoutElementByLookupId.find(layoutId);
 
-    if (iterator == m_layoutElements.end())
+    if (lookupIterator != m_layoutElementByLookupId.end())
     {
-        return nullptr;
+        return lookupIterator->second;
     }
 
-    return &iterator->second;
+    const std::string normalizedLayoutId = toLowerCopy(layoutId);
+    const auto normalizedLookupIterator = m_layoutElementByLookupId.find(normalizedLayoutId);
+
+    return normalizedLookupIterator != m_layoutElementByLookupId.end() ? normalizedLookupIterator->second : nullptr;
 }
 
 const std::vector<std::string> &UiLayoutManager::sortedLayoutIdsForScreenCached(const std::string &screen) const

@@ -122,7 +122,7 @@ public:
 private:
     std::vector<std::string> m_layoutOrder;
     std::unordered_map<std::string, LayoutElement> m_layoutElements;
-    std::unordered_map<std::string, std::string> m_normalizedLayoutIdByExactId;
+    std::unordered_map<std::string, const LayoutElement *> m_layoutElementByLookupId;
     mutable std::unordered_map<std::string, std::vector<std::string>> m_sortedLayoutIdsByScreen;
 };
 }

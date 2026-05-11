@@ -4,6 +4,7 @@
 #include "game/party/Party.h"
 
 #include <optional>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -48,6 +49,7 @@ public:
     void restoreSnapshot(const Snapshot &snapshot);
     void setMovementSpeedMultiplier(float multiplier);
     void setAlwaysRunEnabled(bool enabled);
+    void setCollisionTraceEnabled(bool enabled, std::string mapName);
     bool alwaysRunEnabled() const;
     void syncSpellMovementStatesFromPartyBuffs();
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
@@ -59,6 +61,10 @@ private:
     IndoorMoveState m_movementState = {};
     float m_movementSpeedMultiplier = 1.0f;
     bool m_alwaysRunEnabled = true;
+    bool m_collisionTraceEnabled = false;
+    std::string m_collisionTraceMapName;
+    float m_collisionTraceClockSeconds = 0.0f;
+    float m_nextCollisionTraceSeconds = 0.0f;
     float m_movementAccumulatorSeconds = 0.0f;
     bool m_pendingJumpRequested = false;
     float m_pendingImpulseVelocityX = 0.0f;

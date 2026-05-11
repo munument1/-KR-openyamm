@@ -64,7 +64,7 @@ std::vector<size_t> buildIndoorInteractiveDecorationDecorVarIndices(
     {
         const IndoorEntity &entity = mapData.entities[entityIndex];
 
-        if (entity.eventIdPrimary != 0 || entity.eventIdSecondary != 0)
+        if (entity.scriptEventId() != 0)
         {
             continue;
         }
@@ -944,7 +944,7 @@ IndoorLightingRuntime::StaticLightCache IndoorLightingRuntime::buildStaticCache(
             light.intensity = 1.0f;
             light.sectorId = billboard.sectorId;
             light.kind = IndoorRenderLightKind::Decoration;
-            light.runtimeOverrideKey = static_cast<uint32_t>(billboard.entityIndex);
+            light.runtimeOverrideKey = billboard.spriteOverrideKey();
 
             if (billboard.entityIndex < mapData.entities.size()
                 && billboard.entityIndex < decorationDecorVarIndices.size())

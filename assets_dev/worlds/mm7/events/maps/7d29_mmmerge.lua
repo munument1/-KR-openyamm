@@ -11,6 +11,7 @@ end)
 
 RemoveMapEvent(377)
 RegisterMapOnLoadEvent(377, "MMMerge Harmondale mercenary invasion state", function()
+    MM7.HideCastleHarmondaleGoblinsIfRebuilt()
     MM7.UpdateCastleHarmondaleMercenariesOnLoad()
     MM7.MarkCrossContinentAntagarichIfComplete()
 end)
