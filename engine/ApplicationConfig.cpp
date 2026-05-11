@@ -18,6 +18,8 @@ ApplicationConfig ApplicationConfig::createDefault()
     config.windowMode = WindowMode::Windowed;
     config.fpsTrace = false;
     config.performanceTrace = false;
+    config.hitchTrace = false;
+    config.hitchThresholdMilliseconds = 8.0f;
     return config;
 }
 }

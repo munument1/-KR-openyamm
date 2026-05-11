@@ -1564,7 +1564,115 @@ TEST_CASE("outdoor actor movement ignores pre-existing actor overlap")
     CHECK(resolved.x > state.x + 32.0f);
 }
 
-TEST_CASE("outdoor party snaps nearby bmodel support instead of falling while grounded")
+TEST_CASE("outdoor steep terrain slides stationary party downhill")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    const int tileX = 64;
+    const int tileY = 64;
+    const size_t highCornerIndex = static_cast<size_t>(tileY * OpenYAMM::Game::OutdoorMapData::TerrainWidth + tileX);
+    mapData.heightMap[highCornerIndex] = 64;
+
+    const float x = OpenYAMM::Game::outdoorGridCornerWorldX(tileX) + 128.0f;
+    const float y = OpenYAMM::Game::outdoorGridCornerWorldY(tileY) - 128.0f;
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = x;
+    state.y = y;
+    state.footZ = OpenYAMM::Game::sampleOutdoorRenderedTerrainHeight(mapData, x, y) + 1.0f;
+    state.verticalVelocity = 0.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::Terrain;
+    state.airborne = false;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f);
+
+    CHECK_GT(resolved.x, state.x);
+    CHECK_LT(resolved.y, state.y);
+    CHECK_EQ(resolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::Terrain);
+    CHECK_FALSE(resolved.airborne);
+}
+
+TEST_CASE("outdoor steep terrain rejects uphill input and keeps sliding downhill")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    const int tileX = 64;
+    const int tileY = 64;
+    const size_t highCornerIndex = static_cast<size_t>(tileY * OpenYAMM::Game::OutdoorMapData::TerrainWidth + tileX);
+    mapData.heightMap[highCornerIndex] = 64;
+
+    const float x = OpenYAMM::Game::outdoorGridCornerWorldX(tileX) + 128.0f;
+    const float y = OpenYAMM::Game::outdoorGridCornerWorldY(tileY) - 128.0f;
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = x;
+    state.y = y;
+    state.footZ = OpenYAMM::Game::sampleOutdoorRenderedTerrainHeight(mapData, x, y) + 1.0f;
+    state.verticalVelocity = 0.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::Terrain;
+    state.airborne = false;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        -512.0f,
+        512.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        0.1f);
+
+    CHECK_GT(resolved.x, state.x);
+    CHECK_LT(resolved.y, state.y);
+    CHECK_LE(resolved.footZ, state.footZ);
+    CHECK_FALSE(resolved.airborne);
+}
+
+TEST_CASE("outdoor steep bmodel support slides stationary party downhill")
 {
     OpenYAMM::Game::OutdoorMapData mapData = {};
     mapData.heightMap.assign(
@@ -1576,17 +1684,84 @@ TEST_CASE("outdoor party snaps nearby bmodel support instead of falling while gr
 
     OpenYAMM::Game::OutdoorBModel bmodel = {};
     bmodel.vertices = {
-        {-128, -128, 100},
-        {128, -128, 100},
-        {128, 128, 100},
-        {-128, 128, 100},
+        {0, 0, 0},
+        {512, 0, 512},
+        {512, 512, 512},
+        {0, 512, 0},
+    };
+    bmodel.minX = 0;
+    bmodel.maxX = 512;
+    bmodel.minY = 0;
+    bmodel.maxY = 512;
+    bmodel.minZ = 0;
+    bmodel.maxZ = 512;
+
+    OpenYAMM::Game::OutdoorBModelFace steepFace = {};
+    steepFace.vertexIndices = {0, 1, 2, 3};
+    steepFace.polygonType = 4;
+    bmodel.faces = {steepFace};
+    mapData.bmodels = {bmodel};
+
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = 128.0f;
+    state.y = 128.0f;
+    state.footZ = 147.0f;
+    state.verticalVelocity = 0.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::BModelFace;
+    state.supportBModelIndex = 0;
+    state.supportFaceIndex = 0;
+    state.airborne = true;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f);
+
+    CHECK_LT(resolved.x, state.x);
+    CHECK_EQ(resolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+}
+
+TEST_CASE("outdoor stationary party keeps bmodel edge support instead of jiggling to nearby terrain")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        4);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    OpenYAMM::Game::OutdoorBModel bmodel = {};
+    bmodel.vertices = {
+        {-128, -128, 112},
+        {128, -128, 112},
+        {128, 128, 112},
+        {-128, 128, 112},
     };
     bmodel.minX = -128;
     bmodel.maxX = 128;
     bmodel.minY = -128;
     bmodel.maxY = 128;
-    bmodel.minZ = 100;
-    bmodel.maxZ = 100;
+    bmodel.minZ = 112;
+    bmodel.maxZ = 112;
 
     OpenYAMM::Game::OutdoorBModelFace floor = {};
     floor.vertexIndices = {0, 1, 2, 3};
@@ -1600,10 +1775,110 @@ TEST_CASE("outdoor party snaps nearby bmodel support instead of falling while gr
         std::nullopt,
         std::nullopt,
         std::nullopt);
-    OpenYAMM::Game::OutdoorMoveState state = movementController.initializeState(0.0f, 0.0f, 101.0f);
-    REQUIRE_EQ(state.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
-    state.footZ += 17.0f;
-    state.verticalVelocity = -120.0f;
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = 140.0f;
+    state.y = 0.0f;
+    state.footZ = 113.0f;
+    state.verticalVelocity = 0.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::BModelFace;
+    state.supportBModelIndex = 0;
+    state.supportFaceIndex = 0;
+    state.airborne = false;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState stationaryResolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f);
+
+    CHECK_EQ(stationaryResolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+    CHECK_EQ(stationaryResolved.footZ, doctest::Approx(113.0f));
+    CHECK_FALSE(stationaryResolved.airborne);
+
+    const OpenYAMM::Game::OutdoorMoveState movingResolved = movementController.resolveMove(
+        state,
+        64.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f);
+
+    CHECK_EQ(movingResolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::Terrain);
+    CHECK_EQ(movingResolved.footZ, doctest::Approx(129.0f));
+}
+
+TEST_CASE("outdoor stationary party uses bmodel stair tread under capsule footprint")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    OpenYAMM::Game::OutdoorBModel bmodel = {};
+    bmodel.vertices = {
+        {-64, -64, 1424},
+        {64, -64, 1424},
+        {64, 64, 1424},
+        {-64, 64, 1424},
+        {65, -64, 1440},
+        {193, -64, 1440},
+        {193, 64, 1440},
+        {65, 64, 1440},
+    };
+    bmodel.minX = -64;
+    bmodel.maxX = 193;
+    bmodel.minY = -64;
+    bmodel.maxY = 64;
+    bmodel.minZ = 1424;
+    bmodel.maxZ = 1440;
+
+    OpenYAMM::Game::OutdoorBModelFace lowerTread = {};
+    lowerTread.vertexIndices = {0, 1, 2, 3};
+    lowerTread.polygonType = 3;
+
+    OpenYAMM::Game::OutdoorBModelFace upperTread = {};
+    upperTread.vertexIndices = {4, 5, 6, 7};
+    upperTread.polygonType = 3;
+
+    bmodel.faces = {lowerTread, upperTread};
+    mapData.bmodels = {bmodel};
+
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = 50.0f;
+    state.y = 0.0f;
+    state.footZ = 1440.0f;
+    state.verticalVelocity = 0.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::BModelFace;
+    state.supportBModelIndex = 0;
+    state.supportFaceIndex = 0;
     state.airborne = false;
     state.fallStartZ = state.footZ;
 
@@ -1623,9 +1898,10 @@ TEST_CASE("outdoor party snaps nearby bmodel support instead of falling while gr
         1.0f / 128.0f);
 
     CHECK_EQ(resolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+    CHECK_EQ(resolved.supportFaceIndex, 1u);
+    CHECK_EQ(resolved.footZ, doctest::Approx(1441.0f));
+    CHECK_EQ(resolved.verticalVelocity, doctest::Approx(0.0f));
     CHECK_FALSE(resolved.airborne);
-    CHECK(resolved.footZ == doctest::Approx(101.0f));
-    CHECK(resolved.verticalVelocity == doctest::Approx(0.0f));
 }
 
 TEST_CASE("indoor actor movement ignores pre-existing actor overlap")

@@ -5271,6 +5271,18 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
             REQUIRE(pSkill != nullptr);
             CHECK_EQ(pSkill->level, 1);
         }
+
+        REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
+        CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::QuestComplete);
+        CHECK_EQ(runtimeState.portraitFxRequests.front().memberIndices, std::vector<size_t>({0, 1, 2}));
+        REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
+        CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
+
+        runtimeState.portraitFxRequests.clear();
+        runtimeState.pendingSounds.clear();
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 61, runtimeState, &party));
+        CHECK(runtimeState.portraitFxRequests.empty());
+        CHECK(runtimeState.pendingSounds.empty());
     }
 
     {

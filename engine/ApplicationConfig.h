@@ -26,6 +26,8 @@ struct ApplicationConfig
     WindowMode windowMode;
     bool fpsTrace;
     bool performanceTrace;
+    bool hitchTrace;
+    float hitchThresholdMilliseconds;
 
     static ApplicationConfig createDefault();
 };

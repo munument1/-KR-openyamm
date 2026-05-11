@@ -306,6 +306,19 @@ TEST_CASE("merged house movie metadata drives videos and proprietor portraits")
     CHECK(std::filesystem::exists(mm8WorldRoot / "icons/npc1325.bmp"));
 }
 
+TEST_CASE("character doll weapon anchors follow MMerge hold offsets")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    const OpenYAMM::Game::CharacterDollTypeEntry *pDollType = gameData.characterDollTable.getDollType(4);
+    REQUIRE(pDollType != nullptr);
+
+    CHECK_EQ(pDollType->mainHandWeaponAnchorX(), 17);
+    CHECK_EQ(pDollType->mainHandWeaponAnchorY(), 171);
+    CHECK_EQ(pDollType->offHandWeaponAnchorX(), 128);
+    CHECK_EQ(pDollType->offHandWeaponAnchorY(), 165);
+}
+
 TEST_CASE("outdoor minimap icons are world-owned")
 {
     const std::filesystem::path assetRoot = std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev";

@@ -308,7 +308,11 @@ int EngineApplication::run() const
     uint64_t lastFrameTickCount = SDL_GetTicksNS();
     const bool logFps = m_config.fpsTrace;
     const bool collectPerformanceDiagnostics = m_config.performanceTrace;
+    const bool logFrameHitches = m_config.hitchTrace;
+    const bool collectFrameTimings = collectPerformanceDiagnostics || logFrameHitches;
     const bool sampleFrames = logFps || collectPerformanceDiagnostics;
+    const uint64_t hitchThresholdNanoseconds =
+        static_cast<uint64_t>(std::max(0.1f, m_config.hitchThresholdMilliseconds) * 1000000.0f);
     float fpsSampleSeconds = 0.0f;
     uint32_t fpsSampleFrameCount = 0;
     uint64_t fpsSampleEventCount = 0;
@@ -321,18 +325,20 @@ int EngineApplication::run() const
     while (isRunning)
     {
         const uint64_t currentFrameTickCount = SDL_GetTicksNS();
-        const uint64_t loopBeginTickCount = collectPerformanceDiagnostics ? currentFrameTickCount : 0;
+        const uint64_t loopBeginTickCount = collectFrameTimings ? currentFrameTickCount : 0;
+        uint64_t frameDeltaNanoseconds = 16666667ULL;
         float deltaSeconds = 1.0f / 60.0f;
 
         if (currentFrameTickCount > lastFrameTickCount)
         {
-            deltaSeconds = static_cast<float>(currentFrameTickCount - lastFrameTickCount) / 1000000000.0f;
+            frameDeltaNanoseconds = currentFrameTickCount - lastFrameTickCount;
+            deltaSeconds = static_cast<float>(frameDeltaNanoseconds) / 1000000000.0f;
         }
 
         lastFrameTickCount = currentFrameTickCount;
         float mouseWheelDelta = 0.0f;
         SDL_Event event;
-        const uint64_t eventBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+        const uint64_t eventBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
         uint64_t frameEventCount = 0;
 
         while (SDL_PollEvent(&event))
@@ -370,23 +376,37 @@ int EngineApplication::run() const
             }
         }
 
-        if (collectPerformanceDiagnostics)
+        uint64_t frameEventNanoseconds = 0;
+
+        if (collectFrameTimings)
         {
-            fpsEventNanoseconds += SDL_GetTicksNS() - eventBeginTickCount;
-            fpsSampleEventCount += frameEventCount;
+            frameEventNanoseconds = SDL_GetTicksNS() - eventBeginTickCount;
+
+            if (collectPerformanceDiagnostics)
+            {
+                fpsEventNanoseconds += frameEventNanoseconds;
+                fpsSampleEventCount += frameEventCount;
+            }
         }
 
-        const uint64_t windowSizeBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+        const uint64_t windowSizeBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
         int drawableWidth = 0;
         int drawableHeight = 0;
         SDL_GetWindowSizeInPixels(pWindow.get(), &drawableWidth, &drawableHeight);
 
-        if (collectPerformanceDiagnostics)
+        uint64_t frameWindowSizeNanoseconds = 0;
+
+        if (collectFrameTimings)
         {
-            fpsWindowSizeNanoseconds += SDL_GetTicksNS() - windowSizeBeginTickCount;
+            frameWindowSizeNanoseconds = SDL_GetTicksNS() - windowSizeBeginTickCount;
+
+            if (collectPerformanceDiagnostics)
+            {
+                fpsWindowSizeNanoseconds += frameWindowSizeNanoseconds;
+            }
         }
 
-        const uint64_t renderCallbackBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+        const uint64_t renderCallbackBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
 
         if (m_renderFrameCallback)
         {
@@ -398,22 +418,59 @@ int EngineApplication::run() const
             bgfx::touch(0);
         }
 
-        if (collectPerformanceDiagnostics)
+        uint64_t frameRenderCallbackNanoseconds = 0;
+
+        if (collectFrameTimings)
         {
-            fpsRenderCallbackNanoseconds += SDL_GetTicksNS() - renderCallbackBeginTickCount;
+            frameRenderCallbackNanoseconds = SDL_GetTicksNS() - renderCallbackBeginTickCount;
+
+            if (collectPerformanceDiagnostics)
+            {
+                fpsRenderCallbackNanoseconds += frameRenderCallbackNanoseconds;
+            }
         }
 
-        const uint64_t bgfxFrameBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+        const uint64_t bgfxFrameBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
         bgfx::frame();
+
+        if (collectFrameTimings)
+        {
+            const uint64_t frameBgfxFrameNanoseconds = SDL_GetTicksNS() - bgfxFrameBeginTickCount;
+            const uint64_t frameLoopNanoseconds = SDL_GetTicksNS() - loopBeginTickCount;
+
+            if (collectPerformanceDiagnostics)
+            {
+                fpsBgfxFrameNanoseconds += frameBgfxFrameNanoseconds;
+                fpsLoopNanoseconds += frameLoopNanoseconds;
+            }
+
+            if (logFrameHitches && frameLoopNanoseconds >= hitchThresholdNanoseconds)
+            {
+                const uint64_t measuredNanoseconds =
+                    frameEventNanoseconds
+                    + frameWindowSizeNanoseconds
+                    + frameRenderCallbackNanoseconds
+                    + frameBgfxFrameNanoseconds;
+                const uint64_t untrackedNanoseconds =
+                    frameLoopNanoseconds > measuredNanoseconds
+                        ? frameLoopNanoseconds - measuredNanoseconds
+                        : 0;
+                std::cout << "[FrameHitch]"
+                          << " frame_us=" << nanosecondsToMicroseconds(frameLoopNanoseconds)
+                          << " delta_us=" << nanosecondsToMicroseconds(frameDeltaNanoseconds)
+                          << " threshold_us=" << nanosecondsToMicroseconds(hitchThresholdNanoseconds)
+                          << " events=" << frameEventCount
+                          << " events_us=" << nanosecondsToMicroseconds(frameEventNanoseconds)
+                          << " window_size_us=" << nanosecondsToMicroseconds(frameWindowSizeNanoseconds)
+                          << " render_callback_us=" << nanosecondsToMicroseconds(frameRenderCallbackNanoseconds)
+                          << " bgfx_frame_us=" << nanosecondsToMicroseconds(frameBgfxFrameNanoseconds)
+                          << " untracked_us=" << nanosecondsToMicroseconds(untrackedNanoseconds)
+                          << '\n';
+            }
+        }
 
         if (sampleFrames)
         {
-            if (collectPerformanceDiagnostics)
-            {
-                fpsBgfxFrameNanoseconds += SDL_GetTicksNS() - bgfxFrameBeginTickCount;
-                fpsLoopNanoseconds += SDL_GetTicksNS() - loopBeginTickCount;
-            }
-
             fpsSampleSeconds += deltaSeconds;
             ++fpsSampleFrameCount;
 

@@ -4156,7 +4156,7 @@ TEST_CASE("repeat promotion events include first member")
         {734, "Troll", "WarTroll", 1539, false, 1538},
         {735, "Knight", "Champion", 1541, false, 1540},
         {736, "Dragon", "GreatWyrm", 1544, false, 1543},
-        {737, "Cleric", "Priest", 31, true, 1546},
+        {737, "Cleric", "PriestLight", 31, true, 1546},
         {738, "Necromancer", "Lich", 35, true, 1548},
         {739, "Vampire", "Nosferatu", 33, true, 1547},
         {740, "Minotaur", "MinotaurLord", 29, true, 1545},

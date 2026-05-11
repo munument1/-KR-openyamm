@@ -737,45 +737,14 @@ function support.clearPlayerBit(bitId)
 end
 
 function support.isAtLeast(selector, value)
-    if selector == support.varTag.ClassId then
-        value = support.mergedClassIdToEngineClassId(value)
-    end
-
     return evt.Cmp(selector, value)
 end
 
 function support.mergedClassIdToEngineClassId(value)
-    local classMap = {
-        [4] = 2,   -- Cleric
-        [5] = 3,   -- Priest
-        [6] = 3,   -- PriestLight
-        [7] = 3,   -- PriestDark
-        [8] = 10,  -- DarkElf
-        [9] = 11,  -- Patriarch
-        [10] = 14, -- Dragon
-        [11] = 15, -- GreatWyrm
-        [16] = 4,  -- Knight
-        [17] = 4,  -- Cavalier
-        [18] = 5,  -- BlackKnight
-        [19] = 5,  -- Champion
-        [20] = 8,  -- Minotaur
-        [21] = 9,  -- MinotaurLord
-        [38] = 6,  -- Troll
-        [39] = 7,  -- WarTroll
-        [40] = 12, -- Vampire
-        [41] = 13, -- Nosferatu
-        [44] = 0,  -- Necromancer
-        [45] = 1,  -- Lich
-    }
-
-    return classMap[value] or value
+    return value
 end
 
 function support.addValue(selector, value)
-    if selector == support.varTag.ClassId then
-        value = support.mergedClassIdToEngineClassId(value)
-    end
-
     if selector == support.varTag.IsIntellectMoreThanBase then
         local packedSelector = support.packSelector(selector, value)
         evt.Add(packedSelector, value)
@@ -786,10 +755,6 @@ function support.addValue(selector, value)
 end
 
 function support.setValue(selector, value)
-    if selector == support.varTag.ClassId then
-        value = support.mergedClassIdToEngineClassId(value)
-    end
-
     if selector == support.varTag.IsIntellectMoreThanBase then
         local packedSelector = support.packSelector(selector, value)
         evt.Set(packedSelector, value)
