@@ -5778,6 +5778,13 @@ int luaMoveToMap(lua_State *pLuaState)
         }
     }
 
+    if (pExecutionContext != nullptr)
+    {
+        move.traceSourceKind = "lua_event";
+        move.traceEventId = pExecutionContext->currentEventId;
+        move.traceDestinationName = move.mapName.value_or(std::string("current_map"));
+    }
+
     if (move.mapName.has_value() && move.x == 0 && move.y == 0 && move.z == 0)
     {
         move.useMapStartPosition = true;
@@ -5808,6 +5815,18 @@ int luaMoveToMap(lua_State *pLuaState)
     }
     else
     {
+        GAMEPLAY_DEBUG_TRACE(
+            "event_move_to_map_queued map=\"" + pRuntimeState->mapFileName + "\""
+            + " event_id=" + std::to_string(pExecutionContext != nullptr ? pExecutionContext->currentEventId : 0)
+            + " scope=\""
+            + (pExecutionContext != nullptr && pExecutionContext->executingGlobalHandler ? "global" : "local")
+            + "\" target_map=\"" + move.mapName.value_or(std::string("current_map")) + "\""
+            + " use_start_position=" + (move.useMapStartPosition ? std::string("true") : std::string("false"))
+            + " pos=(" + std::to_string(move.x)
+            + "," + std::to_string(move.y)
+            + "," + std::to_string(move.z) + ")"
+            + " direction_degrees="
+            + (move.directionDegrees.has_value() ? std::to_string(*move.directionDegrees) : std::string("none")));
         pRuntimeState->pendingMapMove = std::move(move);
     }
 
@@ -8346,6 +8365,12 @@ bool EventRuntime::executeEventById(
     if (localIterator != m_luaSessionCache->localScope.handlers.end())
     {
         const size_t openedChestBeginIndex = runtimeState.openedChestIds.size();
+        GAMEPLAY_DEBUG_TRACE(
+            "lua_event_execute map=\"" + runtimeState.mapFileName + "\""
+            + " scope=\"local\""
+            + " event_id=" + std::to_string(eventId)
+            + " continue_step="
+            + (continueStep.has_value() ? std::to_string(*continueStep) : std::string("none")));
         const bool invoked = invokeLuaHandler(*this, localIterator->second, executionContext, continueStep);
 
         if (invoked)
@@ -8379,6 +8404,12 @@ bool EventRuntime::executeEventById(
     {
         executionContext.executingGlobalHandler = true;
         const size_t openedChestBeginIndex = runtimeState.openedChestIds.size();
+        GAMEPLAY_DEBUG_TRACE(
+            "lua_event_execute map=\"" + runtimeState.mapFileName + "\""
+            + " scope=\"global\""
+            + " event_id=" + std::to_string(eventId)
+            + " continue_step="
+            + (continueStep.has_value() ? std::to_string(*continueStep) : std::string("none")));
         const bool invoked = invokeLuaHandler(*this, globalIterator->second, executionContext, continueStep);
 
         if (invoked)

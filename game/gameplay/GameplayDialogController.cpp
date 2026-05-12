@@ -680,10 +680,16 @@ bool tryAddRuntimeMapNote(
     uint32_t continent,
     const MapStatsEntry *pCurrentMap,
     const IGameplayWorldRuntime *pWorldRuntime,
-    const Party *pParty)
+    const Party *pParty,
+    bool queueAutonoteFx = true)
 {
+    if (pCurrentMap == nullptr || pCurrentMap->fileName.empty() || continent == 0)
+    {
+        return false;
+    }
+
     const uint32_t noteId = continent * 1000 + teacherTopic.masteryRank * 100 + teacherTopic.skillId;
-    const std::string noteMapFileName = pCurrentMap != nullptr ? toLowerCopy(pCurrentMap->fileName) : std::string();
+    const std::string noteMapFileName = toLowerCopy(pCurrentMap->fileName);
     const std::optional<EventRuntimeState::MapNoteSourcePoint> mapNoteSourcePoint =
         eventRuntimeState.pendingDialogueContext
             ? eventRuntimeState.pendingDialogueContext->mapNoteSourcePoint
@@ -721,7 +727,11 @@ bool tryAddRuntimeMapNote(
     }
 
     eventRuntimeState.runtimeMapNotes[noteId] = std::move(note);
-    queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
+    if (queueAutonoteFx)
+    {
+        queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
+    }
+
     return true;
 }
 
@@ -736,6 +746,8 @@ bool tryRegisterTrainerNote(
     const IGameplayWorldRuntime *pWorldRuntime,
     const Party *pParty)
 {
+    const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
+        resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
     const std::optional<uint32_t> autonoteId =
         pTeacherAutonoteTable != nullptr
             ? pTeacherAutonoteTable->autonoteIdForTopicAndNpc(topicId, npcId)
@@ -743,9 +755,6 @@ bool tryRegisterTrainerNote(
 
     if (!autonoteId.has_value())
     {
-        const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
-            resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
-
         if (!teacherTopic.has_value())
         {
             return false;
@@ -761,17 +770,35 @@ bool tryRegisterTrainerNote(
     }
 
     const uint32_t rawId = (*autonoteId << 16) | AutoNoteVariableTag;
-
     const auto variableIt = eventRuntimeState.variables.find(rawId);
+    bool changed = false;
 
-    if (variableIt != eventRuntimeState.variables.end() && variableIt->second != 0)
+    if (variableIt == eventRuntimeState.variables.end() || variableIt->second == 0)
     {
-        return false;
+        eventRuntimeState.variables[rawId] = 1;
+        changed = true;
     }
 
-    eventRuntimeState.variables[rawId] = 1;
-    queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
-    return true;
+    if (teacherTopic.has_value())
+    {
+        changed =
+            tryAddRuntimeMapNote(
+                eventRuntimeState,
+                *teacherTopic,
+                continentForMap(pCurrentMap, pBolsterMapTable),
+                pCurrentMap,
+                pWorldRuntime,
+                pParty,
+                false)
+            || changed;
+    }
+
+    if (changed)
+    {
+        queuePortraitFxRequest(eventRuntimeState, PortraitFxEventKind::AutoNote, pParty);
+    }
+
+    return changed;
 }
 
 void queueUiSound(EventRuntimeState &eventRuntimeState, uint32_t soundId)

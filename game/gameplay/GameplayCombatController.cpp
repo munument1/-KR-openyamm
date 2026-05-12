@@ -887,7 +887,8 @@ std::string GameplayCombatController::formatPartyAttackStatusText(
     const std::string &attackerName,
     const std::string &targetName,
     const CharacterAttackResult &attack,
-    bool killed)
+    bool killed,
+    std::optional<int> appliedDamage)
 {
     if (!attack.canAttack)
     {
@@ -909,9 +910,11 @@ std::string GameplayCombatController::formatPartyAttackStatusText(
         return {};
     }
 
+    const int statusDamage = std::max(0, appliedDamage.value_or(attack.damage));
+
     if (killed)
     {
-        return attackerName + " inflicts " + std::to_string(attack.damage) + " points killing " + targetName;
+        return attackerName + " inflicts " + std::to_string(statusDamage) + " points killing " + targetName;
     }
 
     if (attack.paralyzeTarget)
@@ -929,10 +932,10 @@ std::string GameplayCombatController::formatPartyAttackStatusText(
         || attack.mode == CharacterAttackMode::Blaster
         || attack.mode == CharacterAttackMode::DragonBreath)
     {
-        return attackerName + " shoots " + targetName + " for " + std::to_string(attack.damage) + " points";
+        return attackerName + " shoots " + targetName + " for " + std::to_string(statusDamage) + " points";
     }
 
-    return attackerName + " hits " + targetName + " for " + std::to_string(attack.damage) + " damage";
+    return attackerName + " hits " + targetName + " for " + std::to_string(statusDamage) + " damage";
 }
 
 void GameplayCombatController::handlePartyAttackPresentation(
@@ -978,7 +981,8 @@ void GameplayCombatController::handlePartyAttackPresentation(
             attack.attackerName,
             attack.targetName,
             attack.attack,
-            attack.killed));
+            attack.killed,
+            attack.appliedDamage));
 }
 
 void GameplayCombatController::handlePendingCombatEvents(

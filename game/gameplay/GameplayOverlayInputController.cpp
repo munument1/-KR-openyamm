@@ -3233,6 +3233,41 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                 (currentDialogueHostHouseId(pEventRuntimeState) != 0 && view.houseTable() != nullptr)
                 ? view.houseTable()->get(currentDialogueHostHouseId(pEventRuntimeState))
                 : nullptr;
+            const bool serviceInventoryOverlayActive =
+                view.inventoryNestedOverlay().active
+                && (view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+                    || view.inventoryNestedOverlay().mode
+                        == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
+                    || view.inventoryNestedOverlay().mode
+                        == GameplayUiController::InventoryNestedOverlayMode::ShopRepair);
+            const bool overlayBlocksServiceTopics = view.houseShopOverlay().active || serviceInventoryOverlayActive;
+
+            if (overlayBlocksServiceTopics)
+            {
+                const GameplayScreenRuntime::HudLayoutElement *pGoodbyeLayout =
+                    view.findHudLayoutElement("DialogueGoodbyeButton");
+                const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedGoodbye =
+                    pGoodbyeLayout != nullptr
+                    ? view.resolveHudLayoutElement(
+                        "DialogueGoodbyeButton",
+                        screenWidth,
+                        screenHeight,
+                        pGoodbyeLayout->width,
+                        pGoodbyeLayout->height)
+                    : std::nullopt;
+
+                if (resolvedGoodbye
+                    && mouseX >= resolvedGoodbye->x
+                    && mouseX < resolvedGoodbye->x + resolvedGoodbye->width
+                    && mouseY >= resolvedGoodbye->y
+                    && mouseY < resolvedGoodbye->y + resolvedGoodbye->height)
+                {
+                    return {GameplayDialoguePointerTargetType::CloseButton, 0};
+                }
+
+                return {};
+            }
+
             const bool showEventDialogPanel =
                 isResidentSelectionMode || !view.activeEventDialog().actions.empty() || pHostHouseEntry != nullptr;
 

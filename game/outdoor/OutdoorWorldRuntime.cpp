@@ -10484,6 +10484,11 @@ bool OutdoorWorldRuntime::updateTimers(
             continue;
         }
 
+        GAMEPLAY_DEBUG_TRACE(
+            "timer_event_fired world=outdoor event_id=" + std::to_string(timer.eventId)
+            + " repeating=" + (timer.repeating ? std::string("true") : std::string("false"))
+            + " interval_game_minutes=" + std::to_string(timer.intervalGameMinutes));
+
         if (eventRuntime.executeEventById(
                 localEventProgram,
                 globalEventProgram,
@@ -14762,14 +14767,15 @@ void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMini
             continue;
         }
 
-        if (!wizardEyeShowsActorMarker(pActor->isDead, pActor->hasDetectedParty))
+        const bool hostileToParty =
+            pActor->hostileToParty && !outdoorActorIsPartyControlled(pActor->controlMode);
+
+        if (!wizardEyeShowsActorMarker(pActor->isDead, pActor->hasDetectedParty, hostileToParty))
         {
             continue;
         }
 
         GameplayMinimapMarkerState marker = {};
-        const bool hostileToParty =
-            pActor->hostileToParty && !outdoorActorIsPartyControlled(pActor->controlMode);
         marker.type = pActor->isDead
             ? GameplayMinimapMarkerType::CorpseActor
             : hostileToParty ? GameplayMinimapMarkerType::HostileActor : GameplayMinimapMarkerType::FriendlyActor;

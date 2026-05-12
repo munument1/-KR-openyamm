@@ -55,6 +55,7 @@ public:
         std::string attackerName;
         std::string targetName;
         CharacterAttackResult attack = {};
+        std::optional<int> appliedDamage;
         bool actionPerformed = false;
         bool attacked = false;
         bool hadMeleeTarget = false;
@@ -66,7 +67,8 @@ public:
         const std::string &attackerName,
         const std::string &targetName,
         const CharacterAttackResult &attack,
-        bool killed);
+        bool killed,
+        std::optional<int> appliedDamage = std::nullopt);
 
     static void handlePartyAttackPresentation(
         GameplayScreenRuntime *pRuntime,

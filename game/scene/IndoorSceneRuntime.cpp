@@ -1,5 +1,6 @@
 #include "game/scene/IndoorSceneRuntime.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/gameplay/InteractiveDecorationRules.h"
@@ -59,6 +60,90 @@ void appendTimersFromProgram(
         timer.remainingGameMinutes = trigger.remainingGameMinutes;
         timers.push_back(std::move(timer));
     }
+}
+
+std::vector<IndoorSceneRuntime::TimerState> timersFromPrograms(
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram)
+{
+    std::vector<IndoorSceneRuntime::TimerState> timers;
+    appendTimersFromProgram(localProgram, timers);
+    appendTimersFromProgram(globalProgram, timers);
+    return timers;
+}
+
+bool sameTimerSchedule(
+    const IndoorSceneRuntime::TimerState &left,
+    const IndoorSceneRuntime::TimerState &right)
+{
+    constexpr float TimerIntervalEpsilon = 0.001f;
+
+    return left.repeating == right.repeating
+        && left.targetHour == right.targetHour
+        && std::fabs(left.intervalGameMinutes - right.intervalGameMinutes) <= TimerIntervalEpsilon;
+}
+
+std::vector<IndoorSceneRuntime::TimerState> reconcileSavedTimersWithProgram(
+    const std::vector<IndoorSceneRuntime::TimerState> &savedTimers,
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram,
+    const std::string &mapFileName)
+{
+    std::vector<IndoorSceneRuntime::TimerState> currentTimers = timersFromPrograms(localProgram, globalProgram);
+
+    if (currentTimers.empty() || savedTimers.empty())
+    {
+        return savedTimers.empty() ? currentTimers : savedTimers;
+    }
+
+    std::vector<bool> usedSavedTimers(savedTimers.size(), false);
+
+    for (IndoorSceneRuntime::TimerState &currentTimer : currentTimers)
+    {
+        size_t matchedIndex = static_cast<size_t>(-1);
+
+        for (size_t savedIndex = 0; savedIndex < savedTimers.size(); ++savedIndex)
+        {
+            if (!usedSavedTimers[savedIndex] && savedTimers[savedIndex].eventId == currentTimer.eventId)
+            {
+                matchedIndex = savedIndex;
+                break;
+            }
+        }
+
+        if (matchedIndex == static_cast<size_t>(-1))
+        {
+            for (size_t savedIndex = 0; savedIndex < savedTimers.size(); ++savedIndex)
+            {
+                if (!usedSavedTimers[savedIndex] && sameTimerSchedule(savedTimers[savedIndex], currentTimer))
+                {
+                    matchedIndex = savedIndex;
+                    break;
+                }
+            }
+        }
+
+        if (matchedIndex == static_cast<size_t>(-1))
+        {
+            continue;
+        }
+
+        const IndoorSceneRuntime::TimerState savedTimer = savedTimers[matchedIndex];
+        usedSavedTimers[matchedIndex] = true;
+        currentTimer.remainingGameMinutes = savedTimer.remainingGameMinutes;
+        currentTimer.hasFired = savedTimer.hasFired;
+
+        if (savedTimer.eventId != currentTimer.eventId)
+        {
+            GAMEPLAY_DEBUG_TRACE(
+                "timer_state_reconciled world=indoor map=\"" + mapFileName + "\""
+                + " saved_event_id=" + std::to_string(savedTimer.eventId)
+                + " current_event_id=" + std::to_string(currentTimer.eventId)
+                + " interval_game_minutes=" + std::to_string(currentTimer.intervalGameMinutes));
+        }
+    }
+
+    return currentTimers;
 }
 
 bool hasPersistedDecorationState(const std::optional<MapDeltaData> &mapDeltaData)
@@ -672,7 +757,7 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     {
         m_partyRuntime.party().applyGlobalNpcStateTo(*m_eventRuntimeState);
     }
-    m_timers = snapshot.timers;
+    m_timers = reconcileSavedTimersWithProgram(snapshot.timers, m_localEventProgram, m_globalEventProgram, m_mapFileName);
     m_lastProcessedPartyMoveStateForFaceTriggers = snapshot.lastProcessedPartyMoveStateForFaceTriggers;
     m_mechanismAudioStates.clear();
     m_mechanismAccumulatorMilliseconds = snapshot.mechanismAccumulatorMilliseconds;
@@ -876,6 +961,11 @@ bool IndoorSceneRuntime::updateTimers(float deltaGameMinutes)
         {
             continue;
         }
+
+        GAMEPLAY_DEBUG_TRACE(
+            "timer_event_fired world=indoor event_id=" + std::to_string(timer.eventId)
+            + " repeating=" + (timer.repeating ? std::string("true") : std::string("false"))
+            + " interval_game_minutes=" + std::to_string(timer.intervalGameMinutes));
 
         if (m_eventRuntime.executeEventById(
                 m_localEventProgram,

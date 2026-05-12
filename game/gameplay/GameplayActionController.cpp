@@ -643,6 +643,7 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
     bool actionPerformed = false;
     bool attacked = false;
     bool killed = false;
+    std::optional<int> appliedMeleeDamage;
     const bool hadMeleeTarget = target.has_value() && targetInMeleeRange;
 
     if (attack.mode == CharacterAttackMode::Melee)
@@ -656,6 +657,7 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             && config.pWorldRuntime != nullptr)
         {
             const int appliedDamage = resolveMeleeAppliedDamage(config, *pAttacker, *target, attack, rng);
+            appliedMeleeDamage = appliedDamage;
             const int beforeHp = target->currentHp;
             attacked = config.pWorldRuntime->applyPartyAttackMeleeDamage(
                 target->actorIndex,
@@ -671,6 +673,10 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
 
                 const std::optional<GameplayPartyAttackActorFacts> afterTarget =
                     config.pWorldRuntime->partyAttackActorFacts(target->actorIndex, false);
+                if (afterTarget)
+                {
+                    appliedMeleeDamage = std::max(0, beforeHp - afterTarget->currentHp);
+                }
                 killed = beforeHp > 0 && afterTarget && afterTarget->currentHp <= 0;
 
                 if (pAttacker->vampiricHealFraction > 0.0f && appliedDamage > 0)
@@ -816,6 +822,7 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             .attackerName = pAttacker->name,
             .targetName = targetName,
             .attack = attack,
+            .appliedDamage = appliedMeleeDamage,
             .actionPerformed = actionPerformed,
             .attacked = attacked,
             .hadMeleeTarget = hadMeleeTarget,

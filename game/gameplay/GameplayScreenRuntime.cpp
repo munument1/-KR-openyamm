@@ -2454,12 +2454,18 @@ void GameplayScreenRuntime::resetLootOverlayInteractionState()
     interactionState().chestClickLatch = false;
     interactionState().chestItemClickLatch = false;
     interactionState().chestPressedTarget = {};
-    closeInventoryNestedOverlay();
+
+    if (inventoryNestedOverlay().active
+        && inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ChestTransfer)
+    {
+        closeInventoryNestedOverlay();
+        resetInventoryNestedOverlayInteractionState();
+    }
+
     interactionState().lootChestItemLatch = false;
     interactionState().chestSelectUpLatch = false;
     interactionState().chestSelectDownLatch = false;
     interactionState().chestSelectionIndex = 0;
-    resetInventoryNestedOverlayInteractionState();
 }
 
 GameSettings &GameplayScreenRuntime::mutableSettings() const
