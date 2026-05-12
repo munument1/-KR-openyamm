@@ -1,9 +1,9 @@
-#	Note	Continent	Bolster kind	Spells	Summons	Weather	Bolster extra	Profs max rarity	Custom sky
+#	Note	Continent	Bolster kind	Spells	Summons	Weather	Bolster extra	Profs max rarity	Custom sky	Rain	Snow
 0			0	-	-		0	0	
 1	Dagger Wound Island	1	LowerToEqual	-	-	-	0	10	sunsetclouds
 2	Ravenshore	1	LowerToEqual	x	-	x	0	20	
 3	Alvar	1	LowerToEqual	x	-	x	0	50	
-4	Ironsand Desert	1	LowerToEqual	x	-	-	0	20	plansky3
+4	Ironsand Desert	1	LowerToEqual	x	-	-	0	20	plansky3	-	
 5	Garrote Gorge	1	LowerToEqual	x	-	x	0	10	
 6	Shadowspire	1	LowerToEqual	x	x	x	0	80	stormclds
 7	Murmurwoods	1	LowerToEqual	x	x	x	0	10	
@@ -62,15 +62,15 @@
 60	Yaardrake's Cave	1	LowerToEqual	x	-	-	0		
 61	NWC	1	0	-	-	-	0		
 62	Emerald Island	2	LowerToEqual	x	-	-	0	10	
-63	Harmondale	2	LowerToEqual	x	-	x	0	20	
-64	Erathia	2	LowerToEqual	x	-	x	0	30	
+63	Harmondale	2	LowerToEqual	x	-	x	0	20			x
+64	Erathia	2	LowerToEqual	x	-	x	0	30			x
 65	The Tularean Forest	2	LowerToEqual	x	x	x	0	30	
-66	Deyja	2	LowerToEqual	x	x	-	0	30	
-67	The Bracada Desert	2	LowerToEqual	x	x	-	0	30	7plansky3
+66	Deyja	2	LowerToEqual	x	x	-	0	30		-	
+67	The Bracada Desert	2	LowerToEqual	x	x	-	0	30	7plansky3	-	
 68	Evenmorn Island	2	LowerToEqual	x	x	x	0	10	
-69	Mount Nighon	2	LowerToEqual	x	-	x	0	50	
+69	Mount Nighon	2	LowerToEqual	x	-	x	0	50			x
 70	The Barrow Downs	2	LowerToEqual	x	-	x	0	0	
-71	The Land of the Giants	2	LowerToEqual	x	x	x	0	0	
+71	The Land of the Giants	2	LowerToEqual	x	x	x	0	0			x
 72	Tatalia	2	LowerToEqual	x	-	x	0	30	
 73	Avlee	2	LowerToEqual	x	-	x	0	50	
 74	Shoals	2	LowerToEqual	x	-	-	0	0	
@@ -139,7 +139,7 @@
 137	Sweet Water	3	LowerToEqual	x	x	-	0	80	
 138	Paradise Valley	3	LowerToEqual	x	-	-	0	80	
 139	Hermit's Isle	3	LowerToEqual	x	-	-	0	80	
-140	Kriegspire	3	LowerToEqual	x	x	-	0	80	
+140	Kriegspire	3	LowerToEqual	x	x	x	0	80			x
 141	Blackshire	3	LowerToEqual	x	-	x	0	80	
 142	Dragonsand	3	LowerToEqual	x	x	-	0	80	
 143	Frozen Highlands	3	LowerToEqual	x	-	x	0	50	

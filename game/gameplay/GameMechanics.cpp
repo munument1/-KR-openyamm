@@ -28,6 +28,7 @@ constexpr int OeMinimumMeleeRecoveryTicks = 30;
 constexpr int OeMinimumRangedRecoveryTicks = 5;
 constexpr int OeMinimumBlasterRecoveryTicks = 5;
 constexpr uint32_t WandAttackSkillLevel = 8;
+constexpr uint32_t Mm7WetsuitItemId = 1406;
 
 constexpr int ParameterBonusThresholds[29] = {
     500, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 75, 50, 40,
@@ -709,6 +710,16 @@ bool isTwoHandedWeapon(const ItemDefinition &itemDefinition)
 bool isSpearItem(const ItemDefinition &itemDefinition)
 {
     return canonicalSkillName(itemDefinition.skillGroup) == "Spear";
+}
+
+bool isWetsuitItem(const ItemDefinition &itemDefinition)
+{
+    return itemDefinition.itemId == Mm7WetsuitItemId;
+}
+
+bool isBlasterItem(const ItemDefinition &itemDefinition)
+{
+    return canonicalSkillName(itemDefinition.skillGroup) == "Blaster";
 }
 
 bool isWeaponItem(const ItemDefinition &itemDefinition)
@@ -3040,13 +3051,103 @@ bool GameMechanics::canCharacterEquipItem(
         return false;
     }
 
-    if (requiresLearnedSkillToEquip(itemDefinition) && !character.hasSkill(itemDefinition.skillGroup))
+    if (!isWetsuitItem(itemDefinition)
+        && requiresLearnedSkillToEquip(itemDefinition)
+        && !character.hasSkill(itemDefinition.skillGroup))
     {
         return false;
     }
 
     return ItemRuntime::characterMeetsClassRestriction(character, itemDefinition)
         && ItemRuntime::characterMeetsRaceRestriction(character, itemDefinition);
+}
+
+bool GameMechanics::isEquipmentAllowedWithWetsuit(
+    const Character &character,
+    const ItemTable *pItemTable,
+    EquipmentSlot targetSlot,
+    uint32_t targetItemId,
+    std::optional<EquipmentSlot> displacedSlot)
+{
+    static constexpr std::array<EquipmentSlot, 16> EquipmentSlots = {{
+        EquipmentSlot::OffHand,
+        EquipmentSlot::MainHand,
+        EquipmentSlot::Bow,
+        EquipmentSlot::Armor,
+        EquipmentSlot::Helm,
+        EquipmentSlot::Belt,
+        EquipmentSlot::Cloak,
+        EquipmentSlot::Gauntlets,
+        EquipmentSlot::Boots,
+        EquipmentSlot::Amulet,
+        EquipmentSlot::Ring1,
+        EquipmentSlot::Ring2,
+        EquipmentSlot::Ring3,
+        EquipmentSlot::Ring4,
+        EquipmentSlot::Ring5,
+        EquipmentSlot::Ring6,
+    }};
+
+    bool hasWetsuit = false;
+
+    for (EquipmentSlot slot : EquipmentSlots)
+    {
+        uint32_t itemId = equippedItemId(character.equipment, slot);
+
+        if (displacedSlot.has_value() && *displacedSlot == slot)
+        {
+            itemId = 0;
+        }
+
+        if (slot == targetSlot)
+        {
+            itemId = targetItemId;
+        }
+
+        if (itemId == Mm7WetsuitItemId)
+        {
+            hasWetsuit = true;
+            break;
+        }
+    }
+
+    if (!hasWetsuit)
+    {
+        return true;
+    }
+
+    for (EquipmentSlot slot : EquipmentSlots)
+    {
+        uint32_t itemId = equippedItemId(character.equipment, slot);
+
+        if (displacedSlot.has_value() && *displacedSlot == slot)
+        {
+            itemId = 0;
+        }
+
+        if (slot == targetSlot)
+        {
+            itemId = targetItemId;
+        }
+
+        if (itemId == 0 || itemId == Mm7WetsuitItemId)
+        {
+            continue;
+        }
+
+        const ItemDefinition *pItemDefinition = pItemTable != nullptr ? pItemTable->get(itemId) : nullptr;
+        const bool weaponSlot =
+            slot == EquipmentSlot::MainHand || slot == EquipmentSlot::OffHand || slot == EquipmentSlot::Bow;
+
+        if (weaponSlot && pItemDefinition != nullptr && isBlasterItem(*pItemDefinition))
+        {
+            continue;
+        }
+
+        return false;
+    }
+
+    return true;
 }
 
 std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
@@ -3068,6 +3169,21 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
     const bool hasOffHandItem = character.equipment.offHand != 0;
     const bool hasTwoHandedMain =
         pMainHand != nullptr ? isTwoHandedWeapon(*pMainHand) : false;
+    const auto finishPlan =
+        [&](const CharacterEquipPlan &candidate) -> std::optional<CharacterEquipPlan>
+        {
+            if (!isEquipmentAllowedWithWetsuit(
+                    character,
+                    pItemTable,
+                    candidate.targetSlot,
+                    itemDefinition.itemId,
+                    candidate.displacedSlot))
+            {
+                return std::nullopt;
+            }
+
+            return candidate;
+        };
 
     if (explicitSlot)
     {
@@ -3087,7 +3203,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
                 plan.displacedSlot = slot;
             }
 
-            return plan;
+            return finishPlan(plan);
         }
 
         if (itemDefinition.equipStat == "Gauntlets")
@@ -3101,7 +3217,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = equippedItemId(character.equipment, EquipmentSlot::Gauntlets) != 0
                 ? std::optional<EquipmentSlot>(EquipmentSlot::Gauntlets)
                 : std::nullopt;
-            return plan;
+            return finishPlan(plan);
         }
 
         if (itemDefinition.equipStat == "Amulet")
@@ -3115,7 +3231,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = equippedItemId(character.equipment, EquipmentSlot::Amulet) != 0
                 ? std::optional<EquipmentSlot>(EquipmentSlot::Amulet)
                 : std::nullopt;
-            return plan;
+            return finishPlan(plan);
         }
 
         if (slot == EquipmentSlot::Armor && itemDefinition.equipStat == "Armor")
@@ -3152,7 +3268,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = plan.targetSlot;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
 
     if (itemDefinition.equipStat == "Ring")
@@ -3165,7 +3281,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = EquipmentSlot::Ring1;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
 
     if (itemDefinition.equipStat == "Gauntlets")
@@ -3174,7 +3290,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
         plan.displacedSlot = equippedItemId(character.equipment, EquipmentSlot::Gauntlets) != 0
             ? std::optional<EquipmentSlot>(EquipmentSlot::Gauntlets)
             : std::nullopt;
-        return plan;
+        return finishPlan(plan);
     }
 
     if (itemDefinition.equipStat == "Amulet")
@@ -3183,7 +3299,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
         plan.displacedSlot = equippedItemId(character.equipment, EquipmentSlot::Amulet) != 0
             ? std::optional<EquipmentSlot>(EquipmentSlot::Amulet)
             : std::nullopt;
-        return plan;
+        return finishPlan(plan);
     }
 
     if (itemDefinition.equipStat == "Armor")
@@ -3223,7 +3339,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = plan.targetSlot;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
 
     else if (itemDefinition.equipStat == "Shield")
@@ -3246,7 +3362,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = EquipmentSlot::MainHand;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
     else if (itemDefinition.equipStat == "Weapon2")
     {
@@ -3266,7 +3382,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = EquipmentSlot::OffHand;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
     else if (itemDefinition.equipStat == "Weapon1or2")
     {
@@ -3282,7 +3398,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = EquipmentSlot::MainHand;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
     else if (itemDefinition.equipStat == "Weapon" || itemDefinition.equipStat == "WeaponW")
     {
@@ -3308,7 +3424,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
                 plan.displacedSlot = EquipmentSlot::OffHand;
             }
 
-            return plan;
+            return finishPlan(plan);
         }
 
         plan.targetSlot = EquipmentSlot::MainHand;
@@ -3318,7 +3434,7 @@ std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(
             plan.displacedSlot = EquipmentSlot::MainHand;
         }
 
-        return plan;
+        return finishPlan(plan);
     }
 
     return std::nullopt;

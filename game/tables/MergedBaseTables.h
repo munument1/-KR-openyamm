@@ -175,6 +175,8 @@ struct MergedBolsterMapEntry
     bool spells = false;
     bool summons = false;
     bool weather = false;
+    bool rain = true;
+    bool snow = false;
     uint32_t bolsterExtra = 0;
     std::optional<uint32_t> professionMaxRarity;
     std::string customSky;
@@ -307,6 +309,7 @@ struct MergedOutdoorTravelDirection
     std::string mapName;
     std::string side;
     std::optional<uint32_t> days;
+    std::string requirements;
 };
 
 struct MergedOutdoorTravelEntry

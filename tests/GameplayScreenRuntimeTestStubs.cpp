@@ -41,6 +41,12 @@ void GameplayScreenRuntime::triggerPortraitFaceAnimation(size_t memberIndex, Fac
     (void)animationId;
 }
 
+void GameplayScreenRuntime::triggerPortraitEventFxWithoutSpeech(size_t memberIndex, PortraitFxEventKind eventKind)
+{
+    (void)memberIndex;
+    (void)eventKind;
+}
+
 void GameplayScreenRuntime::triggerPortraitFaceAnimationForAllLivingMembers(FaceAnimationId animationId)
 {
     (void)animationId;

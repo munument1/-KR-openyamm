@@ -4,7 +4,7 @@ RegisterGameplayActionHook(65016, "MMMerge Shoals underwater action gate", funct
     MM7.BlockShoalsUnderwaterAction(context)
 end)
 
-RegisterMapOnLoadEvent(65018, "MMMerge Shoals party portrait override", function()
+RegisterMapOnLoadEvent(65018, "MMMerge Shoals portrait cleanup", function()
     MM7.ApplyShoalsPartyPortraits()
 end)
 
@@ -14,4 +14,5 @@ end)
 
 RegisterMapTimerEvent(65017, 0.25, function()
     MM7.LeaveShoalsIfAboveWater()
+    MM7.KillUnsuitedShoalsPartyMembers()
 end, "MMMerge Shoals surfacing travel")

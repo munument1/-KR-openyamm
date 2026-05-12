@@ -20,6 +20,12 @@ enum class MapBoundaryEdge : uint8_t
     West = 3,
 };
 
+enum class MapTransitionSurfaceRequirement : uint8_t
+{
+    Land = 0,
+    Water = 1,
+};
+
 struct MapEncounterInfo
 {
     int chance = 0;
@@ -48,6 +54,8 @@ struct MapEdgeTransition
     std::optional<int> arrivalX;
     std::optional<int> arrivalY;
     std::optional<int> arrivalZ;
+    MapTransitionSurfaceRequirement requiredOriginSurface = MapTransitionSurfaceRequirement::Land;
+    std::vector<uint32_t> requiredQuestBitsAny;
 };
 
 struct MapStatsEntry

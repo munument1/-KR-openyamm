@@ -1,6 +1,6 @@
 	Map Stats			First					x5	D20's		Random Encounter																					
 			Reset	Visit	Per	Refil	Alert	Steal	Lock	Trap	Tres	Enc	M1	M2	M3			Dif	Appear			Dif	Appear			Dif	Appear	Redbook					
-#	Name	File name	#	Day	0-20	Days	Days	Perm	0-20	0-10	0-6	%	%	%	%	Mon1 Pic	Mon 1	 1-5	#	Mon2 Pic	Mon 2	 1-5	#	Mon3 Pic	Mon 3	 1-5	#	Track	EAX Environments	Map Designer	Notes	in area	
+#	Name	File name	#	Day	0-20	Days	Days	Perm	0-20	0-10	0-6	%	%	%	%	Mon1 Pic	Mon 1	 1-5	#	Mon2 Pic	Mon 2	 1-5	#	Mon3 Pic	Mon 3	 1-5	#	Track	EAX Environments	Map Designer	Notes	area	in area	world_id
 1	Dagger Wound Island	out01.odm	0	0	0	672	0	1	0	0	0	10	0	100	0	Lizardmen Warrior	Lizardmen Warrior	1	 2-5	Wimpy Pirate Warrior Male	Wimpy Pirate Warrior Male	1	 1-3	Couatl (winged snake)	Couatl (winged snake)	1	 1-3	4	FOREST	100			x
 2	Ravenshore	out02.odm	0	0	1	672	0	2	1	1	1	10	0	50	50	Human Mercenary	Human Mercenary	3	 2-5	Centaur	Centaur	1	 1-3	Dire Wolf	Dire Wolf	1	 1-3	9	PLAINS	2			x
 3	Alvar	out03.odm	0	0	2	672	0	5	2	1	1	10	0	50	50	Dark Elf Warrior	Dark Elf Warrior	2	 1-3	Ogre Warrior	Ogre Warrior	1	 1-3	Wasp Warrior	Wasp Warrior	1	 1-3	3	PLAINS	3			-
@@ -68,12 +68,12 @@
 65	The Tularean Forest	7out04.odm	0	0	4	672	7	3	4	2	1	10	0	100	0	Treant	Treant	1	 1-1	Elf Spearman	Elf Spearman	2	 1-3	Fighter Chain	Fighter Chain	2	 1-3	33	FOREST	0	"Elvish capital--Cliffs, waterfalls, forest"		-
 66	Deyja	7out05.odm	0	0	6	672	7	5	6	3	2	10	0	50	50	0	0	1	 1-3	Harpy	Harpy	2	 1-3	Zombie	Zombie	3	 1-3	17	MOUNTAIN	0	Necromancer zone--wasteland		-
 67	The Bracada Desert	7out06.odm	0	0	6	672	7	5	6	3	2	10	50	50	0	Golem	Golem	2	 1-3	Griffin	Griffin	2	 1-3	0	0	1	 1-3	17	MOUNTAIN	0	"Wizard's area--desert w/ oasis, sharp mountains"		-
-68	Evenmorn Island	out09.odm	0	0	8	168	7	5	8	4	2	10	40	30	30	Skeleton Warrior	Skeleton Warrior	3	 1-3	Ghost	Ghost	2	 1-3	Gargoyle	Gargoyle	1	 1-3	21	PLAINS	0	Haunted island of the church of the sun and moon. Perm. fog		-
-69	Mount Nighon	out10.odm	0	0	10	672	7	7	10	5	3	10	40	30	30	Warlock	Warlock	2	 1-3	Roc	Roc	3	 1-3	Hydra	Hydra	1	 1-3	26	MOUNTAIN	0	Warlock Capital--Snowy mountains.  Warlock home inside of volcano		-
-70	The Barrow Downs	out11.odm	0	0	5	168	7	5	5	3	2	10	40	30	30	AGog	AGog	1	 1-3	Ghost	Ghost	1	 1-3	Gargoyle	Gargoyle	1	 1-3	27	MOUNTAIN	0	"Dwarvish lands (no dwarves outside)--rough hills, rocky"		-
-71	The Land of the Giants	out12.odm	0	0	20	168	7	5	20	9	6	10	40	30	30	ADragon	ADragon	3	 1-3	Titan	Titan	3	 1-3	Devil	Devil	3	 1-3	27	MOUNTAIN	0	"devils, titans, dragons--mountainous and desolate"		-
+68	Evenmorn Island	out09.odm	0	0	8	168	7	5	8	4	2	10	40	30	30	Skeleton Warrior	Skeleton Warrior	3	 1-3	Ghost	Ghost	2	 1-3	Gargoyle	Gargoyle	1	 1-3	21	PLAINS	0	Haunted island of the church of the sun and moon. Perm. fog		-	mm7
+69	Mount Nighon	out10.odm	0	0	10	672	7	7	10	5	3	10	40	30	30	Warlock	Warlock	2	 1-3	Roc	Roc	3	 1-3	Hydra	Hydra	1	 1-3	26	MOUNTAIN	0	Warlock Capital--Snowy mountains.  Warlock home inside of volcano		-	mm7
+70	The Barrow Downs	out11.odm	0	0	5	168	7	5	5	3	2	10	40	30	30	AGog	AGog	1	 1-3	Ghost	Ghost	1	 1-3	Gargoyle	Gargoyle	1	 1-3	27	MOUNTAIN	0	"Dwarvish lands (no dwarves outside)--rough hills, rocky"		-	mm7
+71	The Land of the Giants	out12.odm	0	0	20	168	7	5	20	9	6	10	40	30	30	ADragon	ADragon	3	 1-3	Titan	Titan	3	 1-3	Devil	Devil	3	 1-3	27	MOUNTAIN	0	"devils, titans, dragons--mountainous and desolate"		-	mm7
 72	Tatalia	7out13.odm	0	0	8	672	7	5	8	4	2	10	50	0	50	Archer	Archer	3	 1-3	0	0	1	 1-3	ATroll	ATroll	3	 1-3	19	PLAINS	0	"human territory--swampy with some nice, cultivated areas"		-
-73	Avlee	out14.odm	0	0	8	672	7	5	8	4	2	10	40	30	30	Elf Spearman	Elf Spearman	3	 1-3	AWyvern	AWyvern	3	 1-3	Elemental Water	Elemental Water	3	 1-3	19	FOREST	0	"Elvish territory--slightly tropical, nice beach, lush"		-
+73	Avlee	out14.odm	0	0	8	672	7	5	8	4	2	10	40	30	30	Elf Spearman	Elf Spearman	3	 1-3	AWyvern	AWyvern	3	 1-3	Elemental Water	Elemental Water	3	 1-3	19	FOREST	0	"Elvish territory--slightly tropical, nice beach, lush"		-	mm7
 74	Shoals	7out15.odm	0	0	1	168	7	0	1	1	1	10	100	0	0	Sea Monster	Sea Monster	5	 1-3	0	0	1	 1-3	0	0	1	 1-3	24	UNDERWATER	0	Underwater terrain		-
 75	The Erathian Sewers	d01.blv	0	0	5	672	7	10	5	2	1	10	50	50	0	Thief	Thief	1	 1-3	Rat	Rat	3	 1-3	0	0	1	 1-3	18	CAVE	0	Thief guild and sewers.  Many entrance/exits.  Golem guarded treasure	3	-
 76	The Maze	d02.blv	0	0	12	672	7	10	12	6	5	10	40	30	30	AMinotaur	AMinotaur	4	 1-3	Hydra	Hydra	2	 1-3	Warlock	Warlock	3	 1-3	18	STONEROOM	0	minotaur maze used by the warlocks to breed new minotaurs.	10	x

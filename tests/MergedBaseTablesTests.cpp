@@ -176,6 +176,27 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     REQUIRE(characterSelectionTable.loadFromYaml(
         loadDataTableText("character_selection.yml"),
         characterSelectionErrorMessage));
+    constexpr uint32_t PeasantClassId = 48;
+    for (uint32_t raceId = 0; raceId <= 10; ++raceId)
+    {
+        const std::vector<std::string> *pAllowedClasses = characterSelectionTable.allowedClassesForRaceId(raceId);
+        if (pAllowedClasses == nullptr)
+        {
+            continue;
+        }
+
+        CHECK(std::find(pAllowedClasses->begin(), pAllowedClasses->end(), "Peasant") == pAllowedClasses->end());
+    }
+
+    for (const OpenYAMM::Game::MergedCharacterSelectionContinent &continent : characterSelectionTable.continents())
+    {
+        CHECK(
+            std::find(
+                continent.availableClassIds.begin(),
+                continent.availableClassIds.end(),
+                PeasantClassId) == continent.availableClassIds.end());
+    }
+
     std::string raceSkillErrorMessage;
     REQUIRE(raceSkillTable.loadFromYaml(loadDataTableText("race_skills.yml"), raceSkillErrorMessage));
     REQUIRE(teacherTopicTable.loadFromRows(loadRows("teacher_topics.txt")));
@@ -290,6 +311,14 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
 
     CHECK_GT(bolsterMapTable.entries().size(), 20u);
     CHECK_EQ(bolsterMapTable.entries()[1].note, "Dagger Wound Island");
+    const OpenYAMM::Game::MergedBolsterMapEntry *pHarmondale = bolsterMapTable.findById(63u);
+    REQUIRE(pHarmondale != nullptr);
+    CHECK_FALSE(pHarmondale->rain);
+    CHECK(pHarmondale->snow);
+    const OpenYAMM::Game::MergedBolsterMapEntry *pTulareanForest = bolsterMapTable.findById(65u);
+    REQUIRE(pTulareanForest != nullptr);
+    CHECK(pTulareanForest->rain);
+    CHECK_FALSE(pTulareanForest->snow);
 
     CHECK_GT(bolsterMonsterTable.entries().size(), 100u);
     CHECK_EQ(bolsterMonsterTable.entries()[1].type, "Lizardman");

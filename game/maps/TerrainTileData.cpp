@@ -141,7 +141,9 @@ std::optional<std::vector<TerrainTileDescriptor>> loadTerrainTileDescriptors(
     const Engine::AssetFileSystem &assetFileSystem,
     const OutdoorMapData &outdoorMapData)
 {
-    const std::string worldId = inferWorldIdFromMapFileName(outdoorMapData.fileName, assetFileSystem.getActiveWorldId());
+    const std::string worldId = !outdoorMapData.worldId.empty()
+        ? outdoorMapData.worldId
+        : inferWorldIdFromMapFileName(outdoorMapData.fileName, assetFileSystem.getActiveWorldId());
     const std::string fileName = terrainTileDataFileNameForWorld(worldId);
     const std::string engineTablePath = "engine/data_tables/" + fileName;
     const bool remapDirectTilesByMasterTile = normalizeWorldId(worldId) == DefaultWorldId;

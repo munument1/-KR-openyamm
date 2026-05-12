@@ -2705,6 +2705,8 @@ TEST_CASE("mm8 mmmerge out07 statues dimension door and duplicate gems apply")
         dimensionDoorState,
         &dimensionDoorParty));
     CHECK(dimensionDoorState.pendingDimensionDoorOverlay);
+    REQUIRE(dimensionDoorState.lastActivationResult.has_value());
+    CHECK_EQ(*dimensionDoorState.lastActivationResult, "You feel high magic presence here.");
 }
 
 TEST_CASE("mm8 mmmerge out13 cannon sequence advances through every reusable stage")
@@ -3046,7 +3048,7 @@ TEST_CASE("mm8 mmmerge on-load and kill-tracker overlays apply runtime state")
     }
 }
 
-TEST_CASE("mm8 merged continent weather settings are applied to selected outdoor maps")
+TEST_CASE("merged continent weather settings are applied to selected outdoor maps")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
 
@@ -3064,11 +3066,68 @@ TEST_CASE("mm8 merged continent weather settings are applied to selected outdoor
     CHECK(profile.mergedWeatherConfigured);
     CHECK_EQ(profile.mergedMapId, 4u);
     CHECK_FALSE(profile.mergedWeatherEnabled);
+    CHECK_FALSE(profile.mergedRainEnabled);
+    CHECK_FALSE(profile.mergedSnowEnabled);
+    CHECK_EQ(profile.mergedRainChancePercent, 20);
+    CHECK_EQ(profile.mergedSnowChancePercent, 15);
     CHECK_EQ(profile.mergedCustomSkyTextureName, "plansky3");
     REQUIRE_FALSE(profile.mergedSkyTextureNames.empty());
     CHECK_EQ(profile.mergedSkyTextureNames.front(), "plansky3");
     CHECK_EQ(selectedMap->outdoorMapData->skyTexture, "plansky3");
     CHECK_EQ(selectedMap->outdoorMapDeltaData->locationTime.skyTextureName, "plansky3");
+
+    auto loadWeatherProfile =
+        [&](const char *pMapFileName) -> OpenYAMM::Game::OutdoorWeatherProfile
+        {
+            OpenYAMM::Game::GameDataLoader loader = {};
+            REQUIRE(loader.loadForHeadlessGameplay(mapLoader.assetFileSystem));
+            REQUIRE(loader.loadMapByFileNameForHeadlessGameplay(mapLoader.assetFileSystem, pMapFileName));
+
+            const std::optional<OpenYAMM::Game::MapAssetInfo> &mapInfo = loader.getSelectedMap();
+            REQUIRE(mapInfo.has_value());
+            REQUIRE(mapInfo->outdoorWeatherProfile.has_value());
+            return *mapInfo->outdoorWeatherProfile;
+        };
+
+    const OpenYAMM::Game::OutdoorWeatherProfile tularean = loadWeatherProfile("7out04.odm");
+    CHECK(tularean.mergedWeatherEnabled);
+    CHECK(tularean.mergedRainEnabled);
+    CHECK_FALSE(tularean.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile harmondale = loadWeatherProfile("7out02.odm");
+    CHECK(harmondale.mergedWeatherEnabled);
+    CHECK(harmondale.mergedRainEnabled);
+    CHECK(harmondale.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile erathia = loadWeatherProfile("7out03.odm");
+    CHECK(erathia.mergedWeatherEnabled);
+    CHECK(erathia.mergedRainEnabled);
+    CHECK(erathia.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile bracada = loadWeatherProfile("7out06.odm");
+    CHECK_FALSE(bracada.mergedWeatherEnabled);
+    CHECK_FALSE(bracada.mergedRainEnabled);
+    CHECK_FALSE(bracada.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile nighon = loadWeatherProfile("out10.odm");
+    CHECK(nighon.mergedWeatherEnabled);
+    CHECK(nighon.mergedRainEnabled);
+    CHECK(nighon.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile landOfTheGiants = loadWeatherProfile("out12.odm");
+    CHECK(landOfTheGiants.mergedWeatherEnabled);
+    CHECK(landOfTheGiants.mergedRainEnabled);
+    CHECK(landOfTheGiants.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile kriegspire = loadWeatherProfile("outb1.odm");
+    CHECK(kriegspire.mergedWeatherEnabled);
+    CHECK(kriegspire.mergedRainEnabled);
+    CHECK(kriegspire.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile frozenHighlands = loadWeatherProfile("outc1.odm");
+    CHECK(frozenHighlands.mergedWeatherEnabled);
+    CHECK(frozenHighlands.mergedRainEnabled);
+    CHECK_FALSE(frozenHighlands.mergedSnowEnabled);
 }
 
 TEST_CASE("mm7 emerald island mmmerge tavern topics remove arcomage")
@@ -3450,6 +3509,8 @@ TEST_CASE("mm7 deyja tatalia and evenmorn mmmerge overlays apply local behavior"
         dimensionState.namedGlobalVars["MMerge.CrossContinents.GotMainQuest"] = 1;
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 6, dimensionState, &party));
         CHECK(dimensionState.pendingDimensionDoorOverlay);
+        REQUIRE(dimensionState.lastActivationResult.has_value());
+        CHECK_EQ(*dimensionState.lastActivationResult, "You feel high magic presence here.");
 
         OpenYAMM::Game::EventRuntimeState treasureState = {};
         treasureState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 1;
@@ -3481,6 +3542,8 @@ TEST_CASE("mm7 tularean forest mmmerge artifact and clanker overlays apply")
         runtimeState.namedGlobalVars["MMerge.CrossContinents.GotMainQuest"] = 1;
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 504, runtimeState, &party));
         CHECK(runtimeState.pendingDimensionDoorOverlay);
+        REQUIRE(runtimeState.lastActivationResult.has_value());
+        CHECK_EQ(*runtimeState.lastActivationResult, "You feel high magic presence here.");
     }
 
     {
@@ -3718,9 +3781,39 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         REQUIRE(blockedState.activeHookContext->statusText.has_value());
         CHECK_EQ(*blockedState.activeHookContext->statusText, "You must all be wearing your wetsuits!");
 
+        OpenYAMM::Game::Party inventoryOnlyParty = makeScriptedRegressionParty();
+        inventoryOnlyParty.setQuestBit(642, true);
+        REQUIRE(inventoryOnlyParty.member(0) != nullptr);
+        inventoryOnlyParty.member(0)->inventory.push_back(makeScriptedInventoryItem(1406));
+        OpenYAMM::Game::EventRuntimeState inventoryOnlyState = {};
+        inventoryOnlyState.activeHookContext = hookContext;
+        REQUIRE(eventRuntime.executeHooks(
+            localEventProgram,
+            std::nullopt,
+            OpenYAMM::Game::EventRuntimeHookKind::MapTransition,
+            inventoryOnlyState,
+            &inventoryOnlyParty));
+        REQUIRE(inventoryOnlyState.activeHookContext.has_value());
+        CHECK(inventoryOnlyState.activeHookContext->blocked);
+
+        OpenYAMM::Game::Party noQuestParty = makeScriptedRegressionParty();
+        REQUIRE(noQuestParty.member(0) != nullptr);
+        noQuestParty.member(0)->equipment.armor = 1406;
+        OpenYAMM::Game::EventRuntimeState noQuestState = {};
+        noQuestState.activeHookContext = hookContext;
+        REQUIRE(eventRuntime.executeHooks(
+            localEventProgram,
+            std::nullopt,
+            OpenYAMM::Game::EventRuntimeHookKind::MapTransition,
+            noQuestState,
+            &noQuestParty));
+        REQUIRE(noQuestState.activeHookContext.has_value());
+        CHECK(noQuestState.activeHookContext->blocked);
+
         OpenYAMM::Game::Party allowedParty = makeScriptedRegressionParty();
+        allowedParty.setQuestBit(642, true);
         REQUIRE(allowedParty.member(0) != nullptr);
-        allowedParty.member(0)->inventory.push_back(makeScriptedInventoryItem(1406));
+        allowedParty.member(0)->equipment.armor = 1406;
         OpenYAMM::Game::EventRuntimeState allowedState = {};
         allowedState.activeHookContext = hookContext;
         REQUIRE(eventRuntime.executeHooks(
@@ -3747,11 +3840,27 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
         REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
         REQUIRE(party.member(0) != nullptr);
-        CHECK_EQ(party.member(0)->portraitPictureId, 30u);
+        CHECK_EQ(party.member(0)->portraitPictureId, 4u);
 
         REQUIRE(eventRuntime.executeOnLeaveEvents(localEventProgram, std::nullopt, runtimeState, &party));
         REQUIRE(party.member(0) != nullptr);
         CHECK_EQ(party.member(0)->portraitPictureId, 4u);
+
+        OpenYAMM::Game::Party oldSaveParty = makeScriptedRegressionParty();
+        REQUIRE(oldSaveParty.member(0) != nullptr);
+        oldSaveParty.member(0)->portraitPictureId = 30;
+        oldSaveParty.member(0)->portraitTextureName = "WetS_01";
+        OpenYAMM::Game::EventRuntimeState oldSaveState = {};
+        eventRuntime.initializeMapRuntimeState(std::nullopt, oldSaveState);
+        oldSaveState.namedMapVars["ShoalsOriginalPortrait0"] = 5;
+        REQUIRE(eventRuntime.executeOnLoadEvents(
+            localEventProgram,
+            std::nullopt,
+            oldSaveState,
+            &oldSaveParty));
+        REQUIRE(oldSaveParty.member(0) != nullptr);
+        CHECK_EQ(oldSaveParty.member(0)->portraitPictureId, 4u);
+        CHECK_EQ(oldSaveState.namedMapVars["ShoalsOriginalPortrait0"], 0);
 
         runtimeState = {};
         OpenYAMM::Game::EventRuntimeState::ActiveHookContext hookContext = {};
@@ -3766,6 +3875,40 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
             &party));
         REQUIRE(runtimeState.activeHookContext.has_value());
         CHECK(runtimeState.activeHookContext->blocked);
+
+        OpenYAMM::Game::Party unsuitedParty = makeScriptedRegressionParty();
+        REQUIRE(unsuitedParty.member(0) != nullptr);
+        unsuitedParty.member(0)->health = 40;
+        RecordingGameplayWorldContext shoalsWorldContext;
+        shoalsWorldContext.setPartyPosition(0.0f, 0.0f, 0.0f);
+        OpenYAMM::Game::EventRuntimeState unsuitedTimerState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            65017,
+            unsuitedTimerState,
+            &unsuitedParty,
+            &shoalsWorldContext));
+        REQUIRE(unsuitedParty.member(0) != nullptr);
+        CHECK_EQ(unsuitedParty.member(0)->health, 0);
+        CHECK(unsuitedParty.member(0)->conditions.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead)));
+
+        OpenYAMM::Game::Party suitedParty = makeScriptedRegressionParty();
+        REQUIRE(suitedParty.member(0) != nullptr);
+        suitedParty.member(0)->equipment.armor = 1406;
+        OpenYAMM::Game::EventRuntimeState suitedTimerState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            65017,
+            suitedTimerState,
+            &suitedParty,
+            &shoalsWorldContext));
+        REQUIRE(suitedParty.member(0) != nullptr);
+        CHECK_EQ(suitedParty.member(0)->health, 40);
+        CHECK_FALSE(suitedParty.member(0)->conditions.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead)));
     }
 
     {
@@ -4109,16 +4252,32 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
     {
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        REQUIRE(party.member(0)->addInventoryItem(makeScriptedInventoryItem(1407)));
+        party.setQuestBit(642, true);
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
         REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 920, runtimeState, &party));
-        CHECK(party.hasQuestBit(642));
-
-        party.setQuestBit(783, true);
-        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 920, runtimeState, &party));
-        CHECK_FALSE(party.hasQuestBit(642));
-
-        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 922, runtimeState, &party));
         CHECK(party.hasQuestBit(783));
+        CHECK_FALSE(party.hasQuestBit(642));
+        CHECK_EQ(party.inventoryItemCount(1407), 0);
+        CHECK_EQ(runtimeState.npcTopicOverrides[419][1], 0u);
+        REQUIRE(runtimeState.pendingMovie.has_value());
+        CHECK_EQ(runtimeState.pendingMovie->movieName, "\"Endgame 1 Good\"");
+        CHECK(runtimeState.pendingMovie->restoreAfterPlayback);
+
+        OpenYAMM::Game::Party darkParty = makeScriptedRegressionParty();
+        REQUIRE(darkParty.member(0) != nullptr);
+        REQUIRE(darkParty.member(0)->addInventoryItem(makeScriptedInventoryItem(1407)));
+        darkParty.setQuestBit(643, true);
+        OpenYAMM::Game::EventRuntimeState darkRuntimeState = {};
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 922, darkRuntimeState, &darkParty));
+        CHECK(darkParty.hasQuestBit(783));
+        CHECK_FALSE(darkParty.hasQuestBit(643));
+        CHECK_EQ(darkParty.inventoryItemCount(1407), 0);
+        CHECK_EQ(darkRuntimeState.npcTopicOverrides[423][1], 0u);
+        REQUIRE(darkRuntimeState.pendingMovie.has_value());
+        CHECK_EQ(darkRuntimeState.pendingMovie->movieName, "\"Endgame 2 Evil\"");
+        CHECK(darkRuntimeState.pendingMovie->restoreAfterPlayback);
     }
 }
 
@@ -4774,8 +4933,20 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             REQUIRE(runtimeState.snowEnabled.has_value());
             CHECK(*runtimeState.snowEnabled);
 
+            OpenYAMM::Game::Party hermitOnlyParty = makeScriptedRegressionParty();
+            hermitOnlyParty.setQuestBit(1252, true);
+            OpenYAMM::Game::EventRuntimeState hermitOnlyState = {};
+            REQUIRE(eventRuntime.buildOnLoadState(
+                localEventProgram,
+                std::nullopt,
+                std::nullopt,
+                hermitOnlyState,
+                &hermitOnlyParty));
+            REQUIRE(hermitOnlyState.snowEnabled.has_value());
+            CHECK(*hermitOnlyState.snowEnabled);
+
             OpenYAMM::Game::Party endedWinterParty = makeScriptedRegressionParty();
-            endedWinterParty.setQuestBit(1252, true);
+            endedWinterParty.addAward(62);
             OpenYAMM::Game::EventRuntimeState endedWinterState = {};
             REQUIRE(eventRuntime.buildOnLoadState(
                 localEventProgram,
@@ -4786,7 +4957,8 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             CHECK_FALSE(endedWinterState.outdoorSkyTextureOverride.has_value());
             CHECK_FALSE(endedWinterState.outdoorFogWeakDistanceOverride.has_value());
             CHECK_FALSE(endedWinterState.outdoorFogStrongDistanceOverride.has_value());
-            CHECK_FALSE(endedWinterState.snowEnabled.has_value());
+            REQUIRE(endedWinterState.snowEnabled.has_value());
+            CHECK_FALSE(*endedWinterState.snowEnabled);
         }
 
         const uint32_t textureKey =
@@ -5993,6 +6165,22 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         CHECK_FALSE(endingParty.hasQuestBit(1222));
         REQUIRE(endingParty.member(0) != nullptr);
         CHECK(endingParty.member(0)->awards.contains(78));
+
+        OpenYAMM::Game::Party completedWithoutScrollParty = makeScriptedRegressionParty();
+        completedWithoutScrollParty.setQuestBit(784, true);
+        OpenYAMM::Game::EventRuntimeState completedWithoutScrollState = {};
+        completedWithoutScrollState.namedMapVars["HiveReactorKilled"] = 1;
+        completedWithoutScrollState.namedMapVars["HiveQueenKilled"] = 1;
+        REQUIRE(eventRuntime.executeOnLeaveEvents(
+            localEventProgram,
+            std::nullopt,
+            completedWithoutScrollState,
+            &completedWithoutScrollParty));
+        REQUIRE(completedWithoutScrollState.pendingMovie.has_value());
+        CHECK_EQ(completedWithoutScrollState.pendingMovie->movieName, "mm6end2");
+        CHECK(completedWithoutScrollState.pendingReturnToMainMenu);
+        REQUIRE_FALSE(completedWithoutScrollState.pendingSounds.empty());
+        CHECK_EQ(completedWithoutScrollState.pendingSounds.back().soundId, 130u);
 
         OpenYAMM::Game::EventRuntimeState badEndingState = {};
         badEndingState.namedMapVars["HiveReactorKilled"] = 1;

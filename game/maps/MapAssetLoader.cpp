@@ -3886,6 +3886,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 
         if (assetInfo.outdoorMapData)
         {
+            assetInfo.outdoorMapData->worldId = map.worldId;
             assetInfo.outdoorMapData->fileName = map.fileName;
 
             if (sceneText)

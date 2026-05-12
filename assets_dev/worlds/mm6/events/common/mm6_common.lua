@@ -290,7 +290,8 @@ function MM6.EnsureChestItem(chestId, itemId, gridX, gridY)
 end
 
 function MM6.ApplyFrozenHighlandsWinterState()
-    if IsQBitSet(QBit(1252)) then
+    if HasAward(Award(62)) or IsQBitSet(QBit(1199)) then
+        evt.SetSnow(0, false)
         return
     end
 

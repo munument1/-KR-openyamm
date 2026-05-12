@@ -123,6 +123,7 @@ struct OutdoorMapData
     static constexpr int TerrainHeightScale = 32;
 
     int version = 0;
+    std::string worldId;
     std::string name;
     std::string fileName;
     std::string description;

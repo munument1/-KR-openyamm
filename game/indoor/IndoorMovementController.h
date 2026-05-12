@@ -146,6 +146,7 @@ public:
     void setSpriteObjectColliders(const std::vector<IndoorCylinderCollision> &spriteObjectColliders);
     void invalidateRuntimeGeometryCache();
     void applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds);
+    bool supportFaceIsBurning(size_t faceIndex) const;
 
 private:
     IndoorFloorSample sampleSupportedFloor(

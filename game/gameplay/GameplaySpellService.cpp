@@ -631,7 +631,10 @@ bool GameplaySpellService::tryOpenSelectionUi(
     {
         if (runtime.shouldTownPortalCastOpenDimensionDoor())
         {
-            runtime.openDimensionDoorOverlay(request.casterMemberIndex, request.spellId);
+            runtime.openDimensionDoorOverlay(
+                request.casterMemberIndex,
+                request.spellId,
+                "You feel high magic presence here.");
             return true;
         }
 

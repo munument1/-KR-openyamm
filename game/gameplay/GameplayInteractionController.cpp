@@ -340,6 +340,66 @@ GameplayActionController::WorldPoint toActionWorldPoint(const GameplayWorldPoint
     };
 }
 
+std::optional<GameplayActionController::WorldPoint> partyRangedTargetFromWorldHit(const GameplayWorldHit &hit)
+{
+    if (!hit.hasHit)
+    {
+        return std::nullopt;
+    }
+
+    switch (hit.kind)
+    {
+        case GameplayWorldHitKind::WorldItem:
+            if (hit.worldItem)
+            {
+                return GameplayActionController::WorldPoint{
+                    .x = hit.worldItem->hitPoint.x,
+                    .y = hit.worldItem->hitPoint.y,
+                    .z = hit.worldItem->hitPoint.z,
+                };
+            }
+            break;
+        case GameplayWorldHitKind::EventTarget:
+            if (hit.eventTarget)
+            {
+                return GameplayActionController::WorldPoint{
+                    .x = hit.eventTarget->hitPoint.x,
+                    .y = hit.eventTarget->hitPoint.y,
+                    .z = hit.eventTarget->hitPoint.z,
+                };
+            }
+            break;
+        case GameplayWorldHitKind::Object:
+            if (hit.object)
+            {
+                return GameplayActionController::WorldPoint{
+                    .x = hit.object->hitPoint.x,
+                    .y = hit.object->hitPoint.y,
+                    .z = hit.object->hitPoint.z,
+                };
+            }
+            break;
+        case GameplayWorldHitKind::Ground:
+            if (hit.ground && hit.ground->isValid)
+            {
+                return GameplayActionController::WorldPoint{
+                    .x = hit.ground->worldPoint.x,
+                    .y = hit.ground->worldPoint.y,
+                    .z = hit.ground->worldPoint.z,
+                };
+            }
+            break;
+        case GameplayWorldHitKind::Actor:
+        case GameplayWorldHitKind::Chest:
+        case GameplayWorldHitKind::Corpse:
+        case GameplayWorldHitKind::None:
+        default:
+            break;
+    }
+
+    return std::nullopt;
+}
+
 GameplaySpellActionController::TargetQueries buildSpellActionTargetQueries(
     GameplayScreenState &screenState,
     const GameplayInputFrame &input)
@@ -395,6 +455,8 @@ void executePartyAttack(
         currentHit.kind == GameplayWorldHitKind::Actor && currentHit.actor
             ? currentHit.actor->displayName
             : "";
+    const std::optional<GameplayActionController::WorldPoint> hitRangedTarget =
+        partyRangedTargetFromWorldHit(currentHit);
 
     GameplayActionController::executePartyAttack(
         GameplayActionController::PartyAttackConfig{
@@ -412,8 +474,8 @@ void executePartyAttack(
             .rangedSource = toActionWorldPoint(partyAttackInput.rangedSource),
             .rangedRight = toActionWorldPoint(partyAttackInput.rangedRight),
             .defaultRangedTarget = toActionWorldPoint(partyAttackInput.defaultRangedTarget),
-            .rayRangedTarget = toActionWorldPoint(partyAttackInput.rayRangedTarget),
-            .hasRayRangedTarget = partyAttackInput.hasRayRangedTarget,
+            .rayRangedTarget = hitRangedTarget.value_or(toActionWorldPoint(partyAttackInput.rayRangedTarget)),
+            .hasRayRangedTarget = hitRangedTarget.has_value() || partyAttackInput.hasRayRangedTarget,
             .fallbackQuery = partyAttackInput.fallbackQuery,
             .worldInspectionRefreshRequest = standardHoverInput.hoverRequest,
             .randomSeed = partyAttackRandomSeed(),

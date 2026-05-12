@@ -340,10 +340,29 @@ ReplaceGlobalEvent(893, "MMMerge Judge Fairweather follower", function(...)
     MM7.ChooseJudgeFairweatherFollower()
 end)
 
-ReplaceGlobalEvent(920, "MMMerge Antagarich endgame started", function()
-    MM7.UpdateAntagarichEndgameStarted()
+local previousGlobalEvent920 = evt.global[920]
+ReplaceGlobalEvent(920, "MMMerge Resurectra final task complete", function(...)
+    local completingFinalTask = HasItem(1407) -- Oscillation Overthruster
+
+    if previousGlobalEvent920 ~= nil then
+        previousGlobalEvent920(...)
+    end
+
+    if completingFinalTask then
+        ClearQBit(QBit(642)) -- Return the Oscillation Overthruster to Resurectra.
+        MM7.MarkAntagarichEndgameComplete()
+    end
 end)
 
-ReplaceGlobalEvent(922, "MMMerge Antagarich endgame complete", function()
-    MM7.MarkAntagarichEndgameComplete()
+local previousGlobalEvent922 = evt.global[922]
+ReplaceGlobalEvent(922, "MMMerge Kastore final task complete", function(...)
+    local completingFinalTask = HasItem(1407) -- Oscillation Overthruster
+
+    if previousGlobalEvent922 ~= nil then
+        previousGlobalEvent922(...)
+    end
+
+    if completingFinalTask then
+        MM7.MarkAntagarichEndgameComplete()
+    end
 end)

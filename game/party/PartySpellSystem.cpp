@@ -2787,45 +2787,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
             }
             else if (spellId == SpellId::DispelMagic)
             {
-                for (PartyBuffId buffId : {
-                         PartyBuffId::TorchLight,
-                         PartyBuffId::WizardEye,
-                         PartyBuffId::FeatherFall,
-                         PartyBuffId::DetectLife,
-                         PartyBuffId::WaterWalk,
-                         PartyBuffId::Fly,
-                         PartyBuffId::Invisibility,
-                         PartyBuffId::Stoneskin,
-                         PartyBuffId::DayOfGods,
-                         PartyBuffId::ProtectionFromMagic,
-                         PartyBuffId::FireResistance,
-                         PartyBuffId::WaterResistance,
-                         PartyBuffId::AirResistance,
-                         PartyBuffId::EarthResistance,
-                         PartyBuffId::MindResistance,
-                         PartyBuffId::BodyResistance,
-                         PartyBuffId::Shield,
-                         PartyBuffId::Heroism,
-                         PartyBuffId::Haste,
-                         PartyBuffId::Immolation})
-                {
-                    party.clearPartyBuff(buffId);
-                }
-
-                for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
-                {
-                    for (CharacterBuffId buffId : {
-                             CharacterBuffId::Bless,
-                             CharacterBuffId::Fate,
-                             CharacterBuffId::Preservation,
-                             CharacterBuffId::Regeneration,
-                             CharacterBuffId::Hammerhands,
-                             CharacterBuffId::PainReflection})
-                    {
-                        party.clearCharacterBuff(memberIndex, buffId);
-                    }
-                }
-
+                party.clearDispellableBuffs();
                 castSucceeded = true;
             }
 

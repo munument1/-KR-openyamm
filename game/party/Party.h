@@ -530,6 +530,8 @@ public:
         uint32_t casterMemberIndex);
     void clearPartyBuff(PartyBuffId buffId);
     void clearCharacterBuff(size_t memberIndex, CharacterBuffId buffId);
+    bool clearDispellableBuffs();
+    bool hasDispellableBuffs() const;
     bool hasPartyBuff(PartyBuffId buffId) const;
     bool hasCharacterBuff(size_t memberIndex, CharacterBuffId buffId) const;
     const PartyBuffState *partyBuff(PartyBuffId buffId) const;

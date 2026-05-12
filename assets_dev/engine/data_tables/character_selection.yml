@@ -14,7 +14,6 @@ race_class_availability:
       - Thief
       - Sorcerer
       - Necromancer
-      - Peasant
   - race: Vampire
     race_id: 1
     classes:
@@ -31,7 +30,6 @@ race_class_availability:
       - Ranger
       - Thief
       - Sorcerer
-      - Peasant
   - race: Minotaur
     race_id: 3
     classes:
@@ -44,7 +42,6 @@ race_class_availability:
       - Paladin
       - Ranger
       - Sorcerer
-      - Peasant
   - race: Troll
     race_id: 4
     classes:
@@ -69,7 +66,6 @@ race_class_availability:
       - Ranger
       - Thief
       - Sorcerer
-      - Peasant
   - race: Goblin
     race_id: 8
     classes:
@@ -83,7 +79,6 @@ race_class_availability:
       - Ranger
       - Thief
       - Sorcerer
-      - Peasant
   - race: Dwarf
     race_id: 9
     classes:
@@ -97,7 +92,6 @@ race_class_availability:
       - Ranger
       - Thief
       - Sorcerer
-      - Peasant
   - race: Zombie
     race_id: 10
     classes: []
@@ -106,24 +100,24 @@ new_game_continents:
   - id: 1
     key: jadame
     name: Jadam
-    available_class_ids: [5, 8, 16, 20, 38, 40, 44, 48]
+    available_class_ids: [5, 8, 16, 20, 38, 40, 44]
     available_race_ids: [0, 1, 2, 3, 4, 7, 8, 9]
     portrait_exceptions: []
   - id: 2
     key: antagarich
     name: Antagarich
-    available_class_ids: [0, 4, 12, 16, 22, 26, 30, 34, 42, 48]
+    available_class_ids: [0, 4, 12, 16, 22, 26, 30, 34, 42]
     available_race_ids: [0, 3, 7, 8, 9]
     portrait_exceptions: []
   - id: 3
     key: enroth
     name: Enroth
-    available_class_ids: [0, 4, 12, 16, 26, 42, 48]
+    available_class_ids: [0, 4, 12, 16, 26, 42]
     available_race_ids: [0, 3, 7, 9]
     portrait_exceptions: []
   - id: 4
     key: between_time
     name: "Between time"
-    available_class_ids: [5, 8, 16, 20, 38, 40, 44, 48]
+    available_class_ids: [5, 8, 16, 20, 38, 40, 44]
     available_race_ids: [0, 1, 2, 3, 4, 9]
     portrait_exceptions: []

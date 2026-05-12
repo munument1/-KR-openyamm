@@ -243,6 +243,7 @@ public:
     void resetCharacterOverlayInteractionState();
     void updatePartyPortraitAnimations(float deltaSeconds);
     uint32_t animationTicks() const;
+    void triggerPortraitEventFxWithoutSpeech(size_t memberIndex, PortraitFxEventKind eventKind);
     void triggerPortraitFaceAnimation(size_t memberIndex, FaceAnimationId animationId);
     void triggerPortraitFaceAnimationForAllLivingMembers(FaceAnimationId animationId);
     bool canPlaySpeechReaction(size_t memberIndex, SpeechId speechId, uint32_t nowTicks);
@@ -378,7 +379,10 @@ public:
     bool ensureTownPortalDestinationsLoaded();
     bool ensureDimensionDoorDestinationsLoaded();
     bool shouldTownPortalCastOpenDimensionDoor() const;
-    bool openDimensionDoorOverlay(size_t casterMemberIndex, uint32_t spellId);
+    bool openDimensionDoorOverlay(
+        size_t casterMemberIndex,
+        uint32_t spellId,
+        const std::string &statusText = "Choose Dimension Door destination");
     const std::string &townPortalBackgroundTextureName() const;
     const std::vector<GameplayTownPortalDestination> &townPortalDestinations() const;
     std::string resolveMapLocationName(const std::string &mapFileName) const;

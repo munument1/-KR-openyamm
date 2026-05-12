@@ -103,6 +103,14 @@ public:
         int spellId,
         bool affectsAllParty,
         CombatDamageType damageType);
+    void recordPartyProjectileImpact(
+        uint32_t sourceId,
+        int damage,
+        int attackBonus,
+        int spellId,
+        bool affectsAllParty,
+        CombatDamageType damageType,
+        GameplayActorAttackAbility ability);
     void recordPartyProjectileActorImpact(
         uint32_t sourceId,
         uint32_t sourcePartyMemberIndex,
@@ -132,7 +140,8 @@ private:
         int attackBonus,
         int spellId,
         bool affectsAllParty,
-        CombatDamageType damageType);
+        CombatDamageType damageType,
+        GameplayActorAttackAbility ability);
     static CombatEvent buildPartyProjectileActorImpactEvent(
         uint32_t sourceId,
         uint32_t sourcePartyMemberIndex,

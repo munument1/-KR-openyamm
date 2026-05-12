@@ -35,11 +35,22 @@ void OutdoorPartyRuntime::teleportTo(float x, float y, float footZHint)
 
 void OutdoorPartyRuntime::update(const OutdoorMovementInput &input, float deltaSeconds)
 {
+    m_movementStatusText.clear();
     m_movementDriver.update(input, deltaSeconds);
     m_party.updateRecovery(deltaSeconds, m_movementDriver.partyMovementState().running ? 0.5f : 1.0f);
     m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
     syncSpellMovementStatesFromPartyBuffs();
-    m_party.applyMovementEffects(m_movementDriver.consumePendingEffects());
+    const OutdoorMovementEffects effects = m_movementDriver.consumePendingEffects();
+    m_party.applyMovementEffects(effects);
+
+    if (effects.burningDamageTicks > 0)
+    {
+        m_movementStatusText = "You are burning!";
+    }
+    else if (effects.waterDamageTicks > 0)
+    {
+        m_movementStatusText = "You are drowning!";
+    }
 }
 
 void OutdoorPartyRuntime::setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders)
@@ -90,6 +101,11 @@ const Party &OutdoorPartyRuntime::party() const
 Party &OutdoorPartyRuntime::party()
 {
     return m_party;
+}
+
+const std::string &OutdoorPartyRuntime::movementStatusText() const
+{
+    return m_movementStatusText;
 }
 
 float OutdoorPartyRuntime::partyX() const

@@ -7001,7 +7001,7 @@ bool GameApplication::processPendingDimensionDoorOverlay()
         spellIdValue(SpellId::TownPortal),
         casterMemberIndex);
     screenRuntime.resetUtilitySpellOverlayInteractionState();
-    screenRuntime.setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    screenRuntime.setStatusBarEvent("You feel high magic presence here.", 4.0f);
     return true;
 }
 
@@ -7061,7 +7061,9 @@ void GameApplication::handleCompletedEventMovieScreen()
     }
 
     m_screenManager.setActiveScreen(nullptr);
-    m_gameSession.gameplayScreenRuntime().interactionState().menuToggleLatch = true;
+    GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    screenRuntime.updatePreviousKeyboardStateSnapshot(m_gameInputSystem.frame().keyboardState());
+    screenRuntime.interactionState().menuToggleLatch = true;
 }
 
 void GameApplication::handleCompletedWinGameScreen()

@@ -41,6 +41,7 @@ public:
     const IndoorMoveState &movementState() const;
     const Party &party() const;
     Party &party();
+    const std::string &movementStatusText() const;
     float partyX() const;
     float partyY() const;
     float partyFootZ() const;
@@ -72,5 +73,7 @@ private:
     float m_pendingImpulseVelocityZ = 0.0f;
     std::optional<float> m_pendingJumpVelocity;
     float m_pendingJumpLift = 1.0f;
+    float m_burningDamageTimerSeconds = 0.0f;
+    std::string m_movementStatusText;
 };
 }

@@ -129,6 +129,7 @@ void GameplayFxService::triggerPortraitEventFxWithoutSpeech(
 
         case PortraitFxEventKind::StatDecrease:
         case PortraitFxEventKind::Disease:
+        case PortraitFxEventKind::MonsterSpecial:
         case PortraitFxEventKind::None:
             break;
     }
@@ -292,6 +293,9 @@ void GameplayFxService::consumePendingPortraitEventFxRequest(
 
         case PortraitFxEventKind::Disease:
             runtime.playSpeechReaction(request.memberIndices.front(), SpeechId::Poisoned, false);
+            break;
+
+        case PortraitFxEventKind::MonsterSpecial:
             break;
 
         case PortraitFxEventKind::None:

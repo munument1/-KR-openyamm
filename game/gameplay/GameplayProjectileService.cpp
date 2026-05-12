@@ -361,6 +361,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     const float directionX = deltaX / distance;
     const float directionY = deltaY / distance;
     const float directionZ = deltaZ / distance;
+    const float spawnForwardOffset = std::clamp(request.spawnForwardOffset, 0.0f, distance);
 
     ProjectileState projectile = {};
     projectile.projectileId = allocateProjectileId();
@@ -387,9 +388,9 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     projectile.sourceX = request.sourceX;
     projectile.sourceY = request.sourceY;
     projectile.sourceZ = request.sourceZ;
-    projectile.x = request.sourceX + directionX * request.spawnForwardOffset;
-    projectile.y = request.sourceY + directionY * request.spawnForwardOffset;
-    projectile.z = request.sourceZ;
+    projectile.x = request.sourceX + directionX * spawnForwardOffset;
+    projectile.y = request.sourceY + directionY * spawnForwardOffset;
+    projectile.z = request.sourceZ + directionZ * spawnForwardOffset;
     projectile.velocityX = directionX * request.definition.speed;
     projectile.velocityY = directionY * request.definition.speed;
     projectile.velocityZ = directionZ * request.definition.speed;

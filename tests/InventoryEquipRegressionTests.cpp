@@ -433,6 +433,87 @@ TEST_CASE("equip plan requires the skill and respects the doll type")
     CHECK_FALSE(OpenYAMM::Game::GameMechanics::canCharacterEquipItem(character, *pHelm, &dollType));
 }
 
+TEST_CASE("wetsuit equip rules require empty equipment except blasters")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::ItemDefinition *pWetsuit = gameData.itemTable.get(1406);
+    const OpenYAMM::Game::ItemDefinition *pMm7Blaster = gameData.itemTable.get(866);
+    const OpenYAMM::Game::ItemDefinition *pMm6BlasterRifle = gameData.itemTable.get(1667);
+    const OpenYAMM::Game::ItemDefinition *pRing = gameData.itemTable.get(138);
+    REQUIRE(pWetsuit != nullptr);
+    REQUIRE(pMm7Blaster != nullptr);
+    REQUIRE(pMm6BlasterRifle != nullptr);
+    REQUIRE(pRing != nullptr);
+
+    OpenYAMM::Game::Character character = {};
+    character.skills["Blaster"] = {"Blaster", 1, OpenYAMM::Game::SkillMastery::Normal};
+
+    std::optional<OpenYAMM::Game::CharacterEquipPlan> plan =
+        OpenYAMM::Game::GameMechanics::resolveCharacterEquipPlan(
+            character,
+            *pWetsuit,
+            &gameData.itemTable,
+            nullptr,
+            std::nullopt,
+            false);
+    REQUIRE(plan.has_value());
+    CHECK(plan->targetSlot == OpenYAMM::Game::EquipmentSlot::Armor);
+
+    character.equipment.ring1 = pRing->itemId;
+    CHECK_FALSE(OpenYAMM::Game::GameMechanics::resolveCharacterEquipPlan(
+        character,
+        *pWetsuit,
+        &gameData.itemTable,
+        nullptr,
+        std::nullopt,
+        false));
+
+    character.equipment = {};
+    character.equipment.mainHand = pMm7Blaster->itemId;
+    CHECK(OpenYAMM::Game::GameMechanics::resolveCharacterEquipPlan(
+        character,
+        *pWetsuit,
+        &gameData.itemTable,
+        nullptr,
+        std::nullopt,
+        false));
+
+    character.equipment = {};
+    character.equipment.armor = pWetsuit->itemId;
+    CHECK_FALSE(OpenYAMM::Game::GameMechanics::resolveCharacterEquipPlan(
+        character,
+        *pRing,
+        &gameData.itemTable,
+        nullptr,
+        std::nullopt,
+        false));
+    CHECK(OpenYAMM::Game::GameMechanics::resolveCharacterEquipPlan(
+        character,
+        *pMm6BlasterRifle,
+        &gameData.itemTable,
+        nullptr,
+        std::nullopt,
+        false));
+
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->equipment = {};
+    pMember->equipment.armor = pWetsuit->itemId;
+    std::optional<OpenYAMM::Game::InventoryItem> heldReplacement;
+    CHECK_FALSE(party.tryEquipItemOnMember(
+        0,
+        OpenYAMM::Game::EquipmentSlot::Ring1,
+        OpenYAMM::Game::ItemGenerator::makeInventoryItem(
+            pRing->itemId,
+            gameData.itemTable,
+            OpenYAMM::Game::ItemGenerationMode::ChestLoot),
+        std::nullopt,
+        false,
+        heldReplacement));
+    CHECK_EQ(party.lastStatus(), "cannot equip");
+}
+
 TEST_CASE("party rejects a race restricted artifact for the wrong member")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

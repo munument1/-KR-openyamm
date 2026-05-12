@@ -2,6 +2,7 @@
 
 #include "game/FaceEnums.h"
 #include "game/indoor/IndoorCollisionPrimitives.h"
+#include "game/StringUtils.h"
 
 #include <algorithm>
 #include <array>
@@ -672,6 +673,33 @@ const IndoorMovementController::RuntimeGeometryCache &IndoorMovementController::
 {
     refreshRuntimeGeometryCache();
     return m_runtimeGeometryCache;
+}
+
+bool IndoorMovementController::supportFaceIsBurning(size_t faceIndex) const
+{
+    if (m_pIndoorMapData == nullptr || faceIndex >= m_pIndoorMapData->faces.size())
+    {
+        return false;
+    }
+
+    const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
+    const MapDeltaData *pMapDeltaData =
+        m_pMapDeltaData != nullptr && m_pMapDeltaData->has_value() ? &m_pMapDeltaData->value() : nullptr;
+    const uint32_t attributes =
+        pMapDeltaData != nullptr && faceIndex < pMapDeltaData->faceAttributes.size()
+            ? pMapDeltaData->faceAttributes[faceIndex]
+            : face.attributes;
+
+    if (hasFaceAttribute(attributes, FaceAttribute::Lava))
+    {
+        return true;
+    }
+
+    const std::string textureName = toLowerCopy(face.textureName);
+    return textureName == "lava"
+        || textureName == "lavtyl"
+        || textureName == "lavatyl"
+        || textureName.starts_with("lava");
 }
 
 IndoorMovementController::SweptCollisionRequest IndoorMovementController::buildSweptCollisionRequest(

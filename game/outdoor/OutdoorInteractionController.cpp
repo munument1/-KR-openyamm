@@ -2393,9 +2393,9 @@ GameplayPartyAttackFrameInput OutdoorInteractionController::buildPartyAttackFram
     input.hasRayRangedTarget = pickRequest.hasRay && vecLength(pickRequest.rayDirection) > InspectRayEpsilon;
     input.rayRangedTarget =
         GameplayWorldPoint{
-            .x = attackSourceX + pickRequest.rayDirection.x * 5120.0f,
-            .y = attackSourceY + pickRequest.rayDirection.y * 5120.0f,
-            .z = attackSourceZ + pickRequest.rayDirection.z * 5120.0f,
+            .x = pickRequest.rayOrigin.x + pickRequest.rayDirection.x * 5120.0f,
+            .y = pickRequest.rayOrigin.y + pickRequest.rayDirection.y * 5120.0f,
+            .z = pickRequest.rayOrigin.z + pickRequest.rayDirection.z * 5120.0f,
         };
     std::copy(
         pickRequest.viewMatrix.begin(),

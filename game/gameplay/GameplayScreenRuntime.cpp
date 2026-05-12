@@ -8,6 +8,7 @@
 #include "game/gameplay/GameplayDialogContextBuilder.h"
 #include "game/gameplay/GameplayDialogUiFlow.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/GameplaySaveLoadUiSupport.h"
 #include "game/gameplay/GameplaySpellService.h"
@@ -1211,9 +1212,7 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
 
     EventDialogContent &dialog = activeEventDialog();
 
-    if (dialog.isActive
-        && dialog.presentation != EventDialogPresentation::Transition
-        && !dialog.videoName.empty())
+    if (dialog.isActive && !dialog.videoName.empty())
     {
         stopHouseVideoPlayback();
         dialog.videoName.clear();
@@ -2067,6 +2066,11 @@ void GameplayScreenRuntime::triggerPortraitFaceAnimation(size_t memberIndex, Fac
         mixPortraitSequenceValue(currentAnimationTicks() ^ static_cast<uint32_t>(memberIndex + 1u) ^ pEntry->portraitIds.size());
     const size_t choiceIndex = sequenceValue % pEntry->portraitIds.size();
     playPortraitExpression(memberIndex, pEntry->portraitIds[choiceIndex], std::nullopt);
+}
+
+void GameplayScreenRuntime::triggerPortraitEventFxWithoutSpeech(size_t memberIndex, PortraitFxEventKind eventKind)
+{
+    fxService().triggerPortraitEventFxWithoutSpeech(*this, memberIndex, eventKind);
 }
 
 uint32_t GameplayScreenRuntime::animationTicks() const
@@ -3417,7 +3421,10 @@ bool GameplayScreenRuntime::shouldTownPortalCastOpenDimensionDoor() const
     return false;
 }
 
-bool GameplayScreenRuntime::openDimensionDoorOverlay(size_t casterMemberIndex, uint32_t spellId)
+bool GameplayScreenRuntime::openDimensionDoorOverlay(
+    size_t casterMemberIndex,
+    uint32_t spellId,
+    const std::string &statusText)
 {
     if (!ensureDimensionDoorDestinationsLoaded())
     {
@@ -3430,7 +3437,7 @@ bool GameplayScreenRuntime::openDimensionDoorOverlay(size_t casterMemberIndex, u
         spellId,
         casterMemberIndex);
     resetUtilitySpellOverlayInteractionState();
-    setStatusBarEvent("Choose Dimension Door destination", 4.0f);
+    setStatusBarEvent(statusText, 4.0f);
     return true;
 }
 

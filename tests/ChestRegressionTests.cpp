@@ -662,3 +662,20 @@ TEST_CASE("outdoor Dagger Wound chest events materialize authored Cure Disease s
         CHECK(chestViewContainsItemId(view, cureDiseaseScrollId));
     }
 }
+
+TEST_CASE("chest open requests are one-shot transient event outputs")
+{
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.openedChestIds.push_back(7);
+
+    const std::vector<uint32_t> openedChestIds = OpenYAMM::Game::consumeOpenedChestIds(runtimeState);
+
+    REQUIRE_EQ(openedChestIds.size(), 1u);
+    CHECK_EQ(openedChestIds.front(), 7u);
+    CHECK(runtimeState.openedChestIds.empty());
+
+    runtimeState.openedChestIds.push_back(9);
+    OpenYAMM::Game::clearTransientEventRuntimeState(runtimeState);
+
+    CHECK(runtimeState.openedChestIds.empty());
+}

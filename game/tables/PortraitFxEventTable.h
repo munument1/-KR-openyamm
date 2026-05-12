@@ -19,6 +19,7 @@ enum class PortraitFxEventKind : uint8_t
     QuestComplete,
     StatIncrease,
     StatDecrease,
+    MonsterSpecial,
 };
 
 struct PortraitFxEventEntry

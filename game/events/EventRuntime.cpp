@@ -5620,6 +5620,7 @@ int luaOpenDimensionDoor(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     pRuntimeState->pendingDimensionDoorOverlay = true;
+    pRuntimeState->lastActivationResult = "You feel high magic presence here.";
     return 0;
 }
 
@@ -7993,6 +7994,7 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.activeHookContext.reset();
     runtimeState.messages.clear();
     runtimeState.statusMessages.clear();
+    runtimeState.openedChestIds.clear();
     runtimeState.grantedItems.clear();
     runtimeState.grantedItemIds.clear();
     runtimeState.clearHeldItemRequest = false;
@@ -8011,6 +8013,13 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.pendingSounds.clear();
     runtimeState.lastAffectedMechanismIds.clear();
     runtimeState.lastActivationResult.reset();
+}
+
+std::vector<uint32_t> consumeOpenedChestIds(EventRuntimeState &runtimeState)
+{
+    std::vector<uint32_t> openedChestIds = runtimeState.openedChestIds;
+    runtimeState.openedChestIds.clear();
+    return openedChestIds;
 }
 
 uint32_t normalizedHistoryContinentId(uint32_t continentId)

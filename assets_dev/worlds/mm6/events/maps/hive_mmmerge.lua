@@ -12,6 +12,11 @@ local function queenKilled()
     return evt.GetMapVar("HiveQueenKilled", 0) ~= 0
 end
 
+local function partyHasRitualOfTheVoid()
+    evt.ForPlayer(Players.All)
+    return HasItem(2164)
+end
+
 local function badEnd()
     evt.ShowMovie("mm6end2", false)
     evt.PlaySound(130)
@@ -81,9 +86,7 @@ RegisterMonsterKilledHook(65011, "Hive reactor and queen kill flow", function(co
         return
     end
 
-    evt.ForPlayer(Players.All)
-
-    if HasItem(2164) then -- Ritual of the Void
+    if partyHasRitualOfTheVoid() then
         evt.SetMapVar("HiveReactorKilled", 1)
         summonReactorAmbush()
         openReactorDoors()
@@ -104,7 +107,7 @@ end)
 
 RegisterMapOnLeaveEvent(65012, "Hive ending", function()
     if reactorKilled() then
-        if queenKilled() then
+        if queenKilled() and partyHasRitualOfTheVoid() then
             goodEnd()
         else
             badEnd()

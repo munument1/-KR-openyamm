@@ -97,6 +97,7 @@ add_executable(openyamm_unit_tests
     ../game/indoor/IndoorLightingRuntime.cpp
     ../game/indoor/IndoorMapData.cpp
     ../game/indoor/IndoorMovementController.cpp
+    ../game/indoor/IndoorPartyRuntime.cpp
     ../game/indoor/IndoorPathfindingBuilder.cpp
     ../game/indoor/IndoorPortalGraph.cpp
     ../game/indoor/IndoorPortalVisibility.cpp

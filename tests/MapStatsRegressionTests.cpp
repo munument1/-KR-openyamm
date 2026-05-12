@@ -187,6 +187,24 @@ TEST_CASE("merged outdoor travels add mm6 map boundary transitions")
     CHECK(pNewSorpigal->westTransition->useMapStartPosition);
 }
 
+TEST_CASE("merged outdoor travels add Avlee Shoals special transition")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pAvlee = mapStats.findByFileName("out14.odm");
+
+    REQUIRE(pAvlee != nullptr);
+    REQUIRE(pAvlee->westTransition.has_value());
+    CHECK_EQ(pAvlee->westTransition->destinationMapFileName, "7out15.odm");
+    CHECK_EQ(pAvlee->westTransition->travelDays, 0);
+    CHECK_EQ(
+        pAvlee->westTransition->requiredOriginSurface,
+        OpenYAMM::Game::MapTransitionSurfaceRequirement::Water);
+    REQUIRE_EQ(pAvlee->westTransition->requiredQuestBitsAny.size(), 3u);
+    CHECK_EQ(pAvlee->westTransition->requiredQuestBitsAny[0], 642u);
+    CHECK_EQ(pAvlee->westTransition->requiredQuestBitsAny[1], 643u);
+    CHECK_EQ(pAvlee->westTransition->requiredQuestBitsAny[2], 783u);
+}
+
 TEST_CASE("merged outdoor travels preserve original mm8 boundary transitions")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
@@ -222,6 +240,8 @@ TEST_CASE("map stats assign default canonical MM8 map identity")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
     const OpenYAMM::Game::MapStatsEntry *pDaggerWound = mapStats.findByFileName("Out01.odm");
+    const OpenYAMM::Game::MapStatsEntry *pMountNighon = mapStats.findByFileName("out10.odm");
+    const OpenYAMM::Game::MapStatsEntry *pLandOfTheGiants = mapStats.findByFileName("out12.odm");
     const OpenYAMM::Game::MapStatsEntry *pBreach = mapStats.findByFileName("Breach.odm");
     const OpenYAMM::Game::MapStatsEntry *pBrAlvar = mapStats.findByFileName("BrAlvar.odm");
     const OpenYAMM::Game::MapStatsEntry *pBrBase = mapStats.findByFileName("BrBase.blv");
@@ -229,6 +249,13 @@ TEST_CASE("map stats assign default canonical MM8 map identity")
     REQUIRE(pDaggerWound != nullptr);
     CHECK_EQ(pDaggerWound->worldId, OpenYAMM::Game::DefaultWorldId);
     CHECK_EQ(pDaggerWound->canonicalId, "world.mm8.map.out01");
+
+    REQUIRE(pMountNighon != nullptr);
+    REQUIRE(pLandOfTheGiants != nullptr);
+    CHECK_EQ(pMountNighon->worldId, "mm7");
+    CHECK_EQ(pMountNighon->canonicalId, "world.mm7.map.out10");
+    CHECK_EQ(pLandOfTheGiants->worldId, "mm7");
+    CHECK_EQ(pLandOfTheGiants->canonicalId, "world.mm7.map.out12");
 
     REQUIRE(pBreach != nullptr);
     REQUIRE(pBrAlvar != nullptr);

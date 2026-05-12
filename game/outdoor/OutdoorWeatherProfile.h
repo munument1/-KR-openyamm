@@ -45,6 +45,10 @@ struct OutdoorWeatherProfile
     bool mergedWeatherConfigured = false;
     uint32_t mergedMapId = 0;
     bool mergedWeatherEnabled = false;
+    bool mergedRainEnabled = false;
+    bool mergedSnowEnabled = false;
+    int mergedRainChancePercent = 20;
+    int mergedSnowChancePercent = 15;
     std::string mergedCustomSkyTextureName;
     std::vector<std::string> mergedSkyTextureNames;
 };

@@ -1306,6 +1306,23 @@ GameplayProjectileService::MonsterAttackAbility projectileAbilityFromActorAbilit
     }
 }
 
+GameplayActorAttackAbility actorAbilityFromProjectileAbility(
+    GameplayProjectileService::MonsterAttackAbility ability)
+{
+    switch (ability)
+    {
+        case GameplayProjectileService::MonsterAttackAbility::Attack2:
+            return GameplayActorAttackAbility::Attack2;
+        case GameplayProjectileService::MonsterAttackAbility::Spell1:
+            return GameplayActorAttackAbility::Spell1;
+        case GameplayProjectileService::MonsterAttackAbility::Spell2:
+            return GameplayActorAttackAbility::Spell2;
+        case GameplayProjectileService::MonsterAttackAbility::Attack1:
+        default:
+            return GameplayActorAttackAbility::Attack1;
+    }
+}
+
 bool actorAbilityIsSpellProjectile(GameplayActorAttackAbility ability)
 {
     return ability == GameplayActorAttackAbility::Spell1 || ability == GameplayActorAttackAbility::Spell2;
@@ -1576,31 +1593,25 @@ bool hasActiveActorSpellEffectOverride(const GameplayActorSpellEffectState &stat
 
 bool partyHasDispellableBuffs(const Party *pParty)
 {
-    if (pParty == nullptr)
+    return pParty != nullptr && pParty->hasDispellableBuffs();
+}
+
+void queuePartySpellFx(EventRuntimeState *pEventRuntimeState, uint32_t spellId, const Party *pParty)
+{
+    if (pEventRuntimeState == nullptr || pParty == nullptr)
     {
-        return false;
+        return;
     }
 
-    for (size_t buffIndex = 0; buffIndex < PartyBuffCount; ++buffIndex)
-    {
-        if (pParty->hasPartyBuff(static_cast<PartyBuffId>(buffIndex)))
-        {
-            return true;
-        }
-    }
+    EventRuntimeState::SpellFxRequest request = {};
+    request.spellId = spellId;
 
     for (size_t memberIndex = 0; memberIndex < pParty->members().size(); ++memberIndex)
     {
-        for (size_t buffIndex = 0; buffIndex < CharacterBuffCount; ++buffIndex)
-        {
-            if (pParty->hasCharacterBuff(memberIndex, static_cast<CharacterBuffId>(buffIndex)))
-            {
-                return true;
-            }
-        }
+        request.memberIndices.push_back(memberIndex);
     }
 
-    return false;
+    pEventRuntimeState->spellFxRequests.push_back(std::move(request));
 }
 
 int16_t resolveIndoorActorStatsId(const MapDeltaActor &actor);
@@ -2352,15 +2363,14 @@ bool monsterEntryHasCorpseSprite(const MonsterEntry *pMonsterEntry)
     return !spriteName.empty() && spriteName != "null";
 }
 
-bool monsterStatsIsKreegan(const MonsterTable::MonsterStatsEntry *pStats)
+bool monsterStatsLeavesNoCorpse(const MonsterTable::MonsterStatsEntry *pStats)
 {
     if (pStats == nullptr)
     {
         return false;
     }
 
-    const std::string pictureName = toLowerCopy(pStats->pictureName);
-    return pictureName.starts_with("devil ") || pictureName.starts_with("demon");
+    return pStats->hasKind(MonsterKind::NoCorpse);
 }
 
 bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const MapDeltaActor &actor)
@@ -2372,7 +2382,7 @@ bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const MapDeltaAct
 
     const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(resolveIndoorActorStatsId(actor));
 
-    if (monsterStatsIsKreegan(pStats))
+    if (monsterStatsLeavesNoCorpse(pStats))
     {
         return false;
     }
@@ -2389,7 +2399,7 @@ bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, int16_t monsterId
 
     const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(monsterId);
 
-    if (monsterStatsIsKreegan(pStats))
+    if (monsterStatsLeavesNoCorpse(pStats))
     {
         return false;
     }
@@ -4676,10 +4686,6 @@ bool IndoorWorldRuntime::applyIndoorActorProjectileRequest(const ActorProjectile
     const size_t actorCount = pMapDeltaData != nullptr ? pMapDeltaData->actors.size() : 0;
 
     if (pMapDeltaData == nullptr
-        || m_pGameplayProjectileService == nullptr
-        || m_pMonsterProjectileTable == nullptr
-        || m_pObjectTable == nullptr
-        || m_pSpellTable == nullptr
         || projectileRequest.sourceActorIndex >= actorCount
         || projectileRequest.sourceActorIndex >= m_mapActorAiStates.size())
     {
@@ -4696,6 +4702,28 @@ bool IndoorWorldRuntime::applyIndoorActorProjectileRequest(const ActorProjectile
         m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(sourceState.monsterId) : nullptr;
 
     if (pStats == nullptr)
+    {
+        return false;
+    }
+
+    if (isSpellId(projectileRequest.spellId, SpellId::DispelMagic)
+        && projectileRequest.targetKind == ActorAiTargetKind::Party
+        && m_pParty != nullptr)
+    {
+        const bool cleared = m_pParty->clearDispellableBuffs();
+
+        if (cleared)
+        {
+            queuePartySpellFx(eventRuntimeState(), projectileRequest.spellId, m_pParty);
+        }
+
+        return cleared;
+    }
+
+    if (m_pGameplayProjectileService == nullptr
+        || m_pMonsterProjectileTable == nullptr
+        || m_pObjectTable == nullptr
+        || m_pSpellTable == nullptr)
     {
         return false;
     }
@@ -5503,7 +5531,8 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
                 projectile.attackBonus,
                 projectile.spellId,
                 false,
-                projectile.damageType);
+                projectile.damageType,
+                actorAbilityFromProjectileAbility(projectile.ability));
         }
         else if (m_pParty != nullptr)
         {
@@ -5686,7 +5715,8 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
                         projectile.attackBonus,
                         projectile.spellId,
                         true,
-                        projectile.damageType);
+                        projectile.damageType,
+                        actorAbilityFromProjectileAbility(projectile.ability));
                 }
                 else if (m_pParty != nullptr)
                 {
@@ -7487,6 +7517,11 @@ void IndoorWorldRuntime::updateWorldMovement(
     if (m_pRenderer != nullptr)
     {
         m_pRenderer->updateWorldMovement(input, deltaSeconds, allowWorldInput);
+    }
+
+    if (m_pGameplayView != nullptr && m_pPartyRuntime != nullptr && !m_pPartyRuntime->movementStatusText().empty())
+    {
+        m_pGameplayView->setStatusBarEvent(m_pPartyRuntime->movementStatusText());
     }
 }
 
@@ -10373,7 +10408,7 @@ bool IndoorWorldRuntime::spawnPartyAttackProjectile(const GameplayPartyAttackPro
     spawnRequest.targetX = request.target.x;
     spawnRequest.targetY = request.target.y;
     spawnRequest.targetZ = request.target.z;
-    spawnRequest.spawnForwardOffset = PartyCollisionRadius;
+    spawnRequest.spawnForwardOffset = 0.0f;
     if (m_pPartyRuntime != nullptr)
     {
         const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
@@ -10555,9 +10590,9 @@ GameplayPartyAttackFrameInput IndoorWorldRuntime::buildPartyAttackFrameInput(
     {
         input.defaultRangedTarget =
             GameplayWorldPoint{
-                .x = attackSourceX + pickRequest.rayDirection.x * 5120.0f,
-                .y = attackSourceY + pickRequest.rayDirection.y * 5120.0f,
-                .z = attackSourceZ + pickRequest.rayDirection.z * 5120.0f,
+                .x = pickRequest.rayOrigin.x + pickRequest.rayDirection.x * 5120.0f,
+                .y = pickRequest.rayOrigin.y + pickRequest.rayDirection.y * 5120.0f,
+                .z = pickRequest.rayOrigin.z + pickRequest.rayDirection.z * 5120.0f,
             };
         input.rayRangedTarget = input.defaultRangedTarget;
         input.hasRayRangedTarget = true;
@@ -11888,7 +11923,9 @@ void IndoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMask
         }
     }
 
-    for (uint32_t openedChestId : pEventRuntimeState->openedChestIds)
+    const std::vector<uint32_t> openedChestIds = consumeOpenedChestIds(*pEventRuntimeState);
+
+    for (uint32_t openedChestId : openedChestIds)
     {
         if (openedChestId < pMapDeltaData->chests.size())
         {

@@ -158,6 +158,11 @@ void OutdoorGameplayInputController::updateCameraFromInput(
                         view.m_pOutdoorWorldRuntime->applyGrantedEventItemsToHeldInventory();
                     }
 
+                    if (!view.m_pOutdoorPartyRuntime->movementStatusText().empty())
+                    {
+                        view.setStatusBarEvent(view.m_pOutdoorPartyRuntime->movementStatusText());
+                    }
+
                     if (frameAdvanceResult.shouldOpenEventDialog)
                     {
                         if (view.m_pOutdoorWorldRuntime != nullptr)

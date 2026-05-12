@@ -242,5 +242,11 @@ public:
         const CharacterDollTypeEntry *pCharacterDollType,
         std::optional<EquipmentSlot> explicitSlot,
         bool preferOffHand);
+    static bool isEquipmentAllowedWithWetsuit(
+        const Character &character,
+        const ItemTable *pItemTable,
+        EquipmentSlot targetSlot,
+        uint32_t targetItemId,
+        std::optional<EquipmentSlot> displacedSlot);
 };
 }

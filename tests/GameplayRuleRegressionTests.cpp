@@ -15,6 +15,7 @@
 #include "game/gameplay/SavePreviewImage.h"
 #include "game/indoor/IndoorMapData.h"
 #include "game/indoor/IndoorMovementController.h"
+#include "game/indoor/IndoorPartyRuntime.h"
 #include "game/items/InventoryItemMixingRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
@@ -24,9 +25,11 @@
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorMovementController.h"
+#include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/Party.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/JournalQuestTable.h"
+#include "game/tables/ItemTable.h"
 #include "game/tables/MonsterTable.h"
 #include "game/tables/SurfaceMaterialTable.h"
 
@@ -42,6 +45,7 @@
 #include <optional>
 #include <random>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace
@@ -117,6 +121,45 @@ public:
         activeCorpse = false;
     }
 };
+
+class MonsterSpecialAttackTestWorldRuntime : public OpenYAMM::Tests::PartySpellTestWorldRuntime
+{
+public:
+    std::optional<OpenYAMM::Game::GameplayCombatActorInfo> actorInfo;
+
+    std::optional<OpenYAMM::Game::GameplayCombatActorInfo> combatActorInfoById(uint32_t actorId) const override
+    {
+        if (actorInfo && actorInfo->actorId == actorId)
+        {
+            return actorInfo;
+        }
+
+        return std::nullopt;
+    }
+};
+
+OpenYAMM::Game::Party makeMonsterSpecialAttackTestParty()
+{
+    OpenYAMM::Game::Character member =
+        OpenYAMM::Tests::makeSpellRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
+    member.might = 1;
+    member.intellect = 1;
+    member.personality = 1;
+    member.endurance = 1;
+    member.speed = 1;
+    member.accuracy = 1;
+    member.luck = 1;
+    member.maxHealth = 100;
+    member.health = 100;
+
+    OpenYAMM::Game::PartySeed seed = {};
+    seed.members.push_back(member);
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(seed);
+    party.setActiveMemberIndex(0);
+    return party;
+}
 
 const OpenYAMM::Tests::RegressionGameData &requireRegressionGameData()
 {
@@ -420,6 +463,26 @@ TEST_CASE("party ground movement blocks water entry without water walk")
 
     CHECK_FALSE(resolved.supportOnWater);
     CHECK_FALSE(isOutdoorPositionWaterForDiagnostics(boundary.mapData, std::nullopt, resolved.x, resolved.y));
+}
+
+TEST_CASE("outdoor water damage tick reports drowning status text")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::OutdoorPartyRuntime partyRuntime(std::move(movementDriver), itemTable);
+    partyRuntime.initialize(boundary.waterX, boundary.waterY, 0.0f, true);
+
+    partyRuntime.update(OpenYAMM::Game::OutdoorMovementInput{}, 1.0f);
+
+    CHECK_EQ(partyRuntime.party().waterDamageTicks(), 1u);
+    CHECK_EQ(partyRuntime.party().lastStatus(), "water damage");
+    CHECK_EQ(partyRuntime.movementStatusText(), "You are drowning!");
 }
 
 TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tilesets")
@@ -786,6 +849,19 @@ TEST_CASE("outdoor terrain descriptors use mm6 and mm7 merged tile tables")
     CHECK((*emeraldIslandDescriptors)[126].textureName == "7wtrtyl");
     CHECK(((*emeraldIslandDescriptors)[126].flags & OpenYAMM::Game::TerrainTileFlagWater) != 0);
     CHECK(assetFileSystem.exists("terrain/7wtrtyl.bmp"));
+
+    OpenYAMM::Game::OutdoorMapData nighon = {};
+    nighon.worldId = "mm7";
+    nighon.fileName = "out10.odm";
+    nighon.masterTile = 1;
+    nighon.tileSetLookupIndices = {342, 126, 234, 414};
+
+    const std::optional<std::vector<OpenYAMM::Game::TerrainTileDescriptor>> nighonDescriptors =
+        OpenYAMM::Game::loadTerrainTileDescriptors(assetFileSystem, nighon);
+    REQUIRE(nighonDescriptors.has_value());
+    CHECK((*nighonDescriptors)[1].textureName == "7dirttyl");
+    CHECK((*nighonDescriptors)[90].textureName == "7snow");
+    CHECK((*nighonDescriptors)[126].textureName == "7wtrtyl");
 }
 
 TEST_CASE("outdoor terrain descriptor flags are applied to movement attributes")
@@ -1076,6 +1152,101 @@ TEST_CASE("party melee status text reports applied damage")
             true,
             12),
         "Ariel inflicts 12 points killing Goblin");
+}
+
+TEST_CASE("monster Attack1 projectile applies special attack condition")
+{
+    constexpr uint32_t ActorId = 77;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 100,
+        .attackBonus = 1000,
+        .specialAttackKind = OpenYAMM::Game::MonsterSpecialAttackKind::Paralyze,
+        .specialAttackLevel = 1,
+        .displayName = "Paralyzing Archer",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordPartyProjectileImpact(
+        ActorId,
+        1,
+        1000,
+        0,
+        false,
+        OpenYAMM::Game::CombatDamageType::Physical,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    const OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    CHECK(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
+}
+
+TEST_CASE("monster non-Attack1 projectile does not apply special attack condition")
+{
+    constexpr uint32_t ActorId = 78;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 100,
+        .attackBonus = 1000,
+        .specialAttackKind = OpenYAMM::Game::MonsterSpecialAttackKind::Paralyze,
+        .specialAttackLevel = 1,
+        .displayName = "Paralyzing Caster",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordPartyProjectileImpact(
+        ActorId,
+        1,
+        1000,
+        0,
+        false,
+        OpenYAMM::Game::CombatDamageType::Physical,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack2);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    const OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
+}
+
+TEST_CASE("dispel magic clears party and character buffs through shared party helper")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::Haste,
+        60.0f,
+        0,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Haste),
+        1,
+        OpenYAMM::Game::SkillMastery::Expert,
+        0);
+    party.applyCharacterBuff(
+        0,
+        OpenYAMM::Game::CharacterBuffId::Bless,
+        60.0f,
+        5,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Bless),
+        1,
+        OpenYAMM::Game::SkillMastery::Expert,
+        0);
+
+    REQUIRE(party.hasDispellableBuffs());
+    CHECK(party.clearDispellableBuffs());
+    CHECK_FALSE(party.hasPartyBuff(OpenYAMM::Game::PartyBuffId::Haste));
+    CHECK_FALSE(party.hasCharacterBuff(0, OpenYAMM::Game::CharacterBuffId::Bless));
+    CHECK_FALSE(party.hasDispellableBuffs());
 }
 
 TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recovery")
@@ -2100,6 +2271,58 @@ TEST_CASE("indoor steep in-between floor keeps support but rejects uphill walkin
     CHECK(stationary.grounded);
     CHECK_EQ(stationary.supportFaceIndex, 0u);
     CHECK_EQ(stationary.footZ, doctest::Approx(state.footZ));
+}
+
+TEST_CASE("indoor lava support applies recurring burning damage")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 0},
+        {512, 512, 0},
+        {-512, 512, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace lavaFloor = {};
+    lavaFloor.vertexIndices = {0, 1, 2, 3};
+    lavaFloor.facetType = 3;
+    lavaFloor.roomNumber = 1;
+    lavaFloor.textureName = "Lava";
+    mapData.faces = {lavaFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 512;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::IndoorPartyRuntime partyRuntime(std::move(movementController), itemTable);
+    partyRuntime.initializeEyePosition(0.0f, 0.0f, 160.0f, true);
+
+    REQUIRE(partyRuntime.movementState().grounded);
+    REQUIRE_EQ(partyRuntime.movementState().supportFaceIndex, 0u);
+    const int initialHealth = partyRuntime.party().totalHealth();
+
+    partyRuntime.update(0.0f, 0.0f, false, false, 1.0f);
+
+    CHECK_EQ(partyRuntime.party().burningDamageTicks(), 1u);
+    CHECK_LT(partyRuntime.party().totalHealth(), initialHealth);
+    CHECK_EQ(partyRuntime.party().lastStatus(), "burning damage");
+    CHECK_EQ(partyRuntime.movementStatusText(), "You are burning!");
 }
 
 TEST_CASE("indoor movement rejects standing clearance below body height")

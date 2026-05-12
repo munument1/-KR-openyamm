@@ -5,6 +5,7 @@
 #include "game/party/Party.h"
 
 #include <optional>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -35,6 +36,7 @@ public:
     const OutdoorPartyMovementState &partyMovementState() const;
     const Party &party() const;
     Party &party();
+    const std::string &movementStatusText() const;
     float partyX() const;
     float partyY() const;
     float partyFootZ() const;
@@ -56,6 +58,7 @@ public:
 private:
     OutdoorMovementDriver m_movementDriver;
     Party m_party;
+    std::string m_movementStatusText;
     bool m_debugFlyingOverride = false;
 };
 }

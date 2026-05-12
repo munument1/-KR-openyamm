@@ -143,7 +143,23 @@ TEST_CASE("monster stats parser promotes comma separated kind flags")
     CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
     CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Titan));
+    CHECK_FALSE(pMonster->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK_FALSE(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
+}
+
+TEST_CASE("monster stats parser promotes no corpse kind flag")
+{
+    OpenYAMM::Game::MonsterTable table = {};
+    std::vector<std::string> row = makeMonsterStatsRow(499, "Devil Captain", true, "", 0, "", 0, "");
+    row.resize(40);
+    row[39] = "no_corpse";
+
+    REQUIRE(table.loadStatsFromRows({row}));
+
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMonster = table.findStatsById(499);
+
+    REQUIRE(pMonster != nullptr);
+    CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
 }
 
 TEST_CASE("monster stats parser rejects unknown kind flags")

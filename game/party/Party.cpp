@@ -4166,6 +4166,17 @@ bool Party::tryEquipItemOnMember(
         displacedSlot = targetSlot;
     }
 
+    if (!GameMechanics::isEquipmentAllowedWithWetsuit(
+            *pMember,
+            m_pItemTable,
+            targetSlot,
+            item.objectDescriptionId,
+            displacedSlot))
+    {
+        m_lastStatus = "cannot equip";
+        return false;
+    }
+
     const uint32_t displacedItemId =
         displacedSlot ? ::OpenYAMM::Game::equippedItemId(pMember->equipment, *displacedSlot) : 0;
     const EquippedItemRuntimeState displacedRuntimeState =
@@ -5492,6 +5503,111 @@ void Party::clearCharacterBuff(size_t memberIndex, CharacterBuffId buffId)
 
     m_characterBuffs[memberIndex][static_cast<size_t>(buffId)] = {};
     rebuildMagicalBonusesFromBuffs();
+}
+
+bool Party::clearDispellableBuffs()
+{
+    bool cleared = false;
+
+    for (PartyBuffId buffId : {
+             PartyBuffId::TorchLight,
+             PartyBuffId::WizardEye,
+             PartyBuffId::FeatherFall,
+             PartyBuffId::DetectLife,
+             PartyBuffId::WaterWalk,
+             PartyBuffId::Fly,
+             PartyBuffId::Invisibility,
+             PartyBuffId::Stoneskin,
+             PartyBuffId::DayOfGods,
+             PartyBuffId::ProtectionFromMagic,
+             PartyBuffId::FireResistance,
+             PartyBuffId::WaterResistance,
+             PartyBuffId::AirResistance,
+             PartyBuffId::EarthResistance,
+             PartyBuffId::MindResistance,
+             PartyBuffId::BodyResistance,
+             PartyBuffId::Shield,
+             PartyBuffId::Heroism,
+             PartyBuffId::Haste,
+             PartyBuffId::Immolation})
+    {
+        const size_t buffIndex = static_cast<size_t>(buffId);
+        cleared = m_partyBuffs[buffIndex].active() || cleared;
+        m_partyBuffs[buffIndex] = {};
+    }
+
+    for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
+    {
+        for (CharacterBuffId buffId : {
+                 CharacterBuffId::Bless,
+                 CharacterBuffId::Fate,
+                 CharacterBuffId::Preservation,
+                 CharacterBuffId::Regeneration,
+                 CharacterBuffId::Hammerhands,
+                 CharacterBuffId::PainReflection})
+        {
+            const size_t buffIndex = static_cast<size_t>(buffId);
+            cleared = m_characterBuffs[memberIndex][buffIndex].active() || cleared;
+            m_characterBuffs[memberIndex][buffIndex] = {};
+        }
+    }
+
+    if (cleared)
+    {
+        rebuildMagicalBonusesFromBuffs();
+    }
+
+    return cleared;
+}
+
+bool Party::hasDispellableBuffs() const
+{
+    for (PartyBuffId buffId : {
+             PartyBuffId::TorchLight,
+             PartyBuffId::WizardEye,
+             PartyBuffId::FeatherFall,
+             PartyBuffId::DetectLife,
+             PartyBuffId::WaterWalk,
+             PartyBuffId::Fly,
+             PartyBuffId::Invisibility,
+             PartyBuffId::Stoneskin,
+             PartyBuffId::DayOfGods,
+             PartyBuffId::ProtectionFromMagic,
+             PartyBuffId::FireResistance,
+             PartyBuffId::WaterResistance,
+             PartyBuffId::AirResistance,
+             PartyBuffId::EarthResistance,
+             PartyBuffId::MindResistance,
+             PartyBuffId::BodyResistance,
+             PartyBuffId::Shield,
+             PartyBuffId::Heroism,
+             PartyBuffId::Haste,
+             PartyBuffId::Immolation})
+    {
+        if (m_partyBuffs[static_cast<size_t>(buffId)].active())
+        {
+            return true;
+        }
+    }
+
+    for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
+    {
+        for (CharacterBuffId buffId : {
+                 CharacterBuffId::Bless,
+                 CharacterBuffId::Fate,
+                 CharacterBuffId::Preservation,
+                 CharacterBuffId::Regeneration,
+                 CharacterBuffId::Hammerhands,
+                 CharacterBuffId::PainReflection})
+        {
+            if (m_characterBuffs[memberIndex][static_cast<size_t>(buffId)].active())
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool Party::hasPartyBuff(PartyBuffId buffId) const

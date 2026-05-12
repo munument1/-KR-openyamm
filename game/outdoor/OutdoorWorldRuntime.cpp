@@ -976,25 +976,62 @@ std::string mergedSkyTextureNameForProfile(const OutdoorWeatherProfile &profile,
     return profile.mergedSkyTextureNames[static_cast<size_t>(skyIndex)];
 }
 
-bool mergedWeatherStateUsesSnow(float gameMinutes, int mapId, int weatherState)
+struct MergedPrecipitationRoll
 {
-    const int month = monthFromGameMinutes(gameMinutes);
+    bool snow = false;
+    bool rain = false;
+    OutdoorWorldRuntime::RainIntensityPreset rainIntensity = OutdoorWorldRuntime::RainIntensityPreset::Off;
+};
 
-    if (month == 12 || month <= 2)
+OutdoorWorldRuntime::RainIntensityPreset mergedRainIntensityForRoll(int roll)
+{
+    switch (roll)
     {
-        return true;
+        case 0:
+            return OutdoorWorldRuntime::RainIntensityPreset::Medium;
+        case 1:
+            return OutdoorWorldRuntime::RainIntensityPreset::Heavy;
+        default:
+            return OutdoorWorldRuntime::RainIntensityPreset::VeryHeavy;
+    }
+}
+
+MergedPrecipitationRoll mergedPrecipitationRoll(
+    const OutdoorWeatherProfile &profile,
+    int mapId,
+    int weatherDayIndex)
+{
+    uint32_t seed = 0x8f3d9a15u;
+    seed ^= static_cast<uint32_t>(std::max(mapId, 0)) * 2246822519u;
+    seed ^= static_cast<uint32_t>(std::max(weatherDayIndex, 0)) * 3266489917u;
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<int> percentDistribution(0, 99);
+
+    MergedPrecipitationRoll result = {};
+
+    if (profile.mergedSnowEnabled)
+    {
+        const int snowChance = std::clamp(profile.mergedSnowChancePercent, 0, 100);
+
+        if (percentDistribution(rng) < snowChance)
+        {
+            result.snow = true;
+            return result;
+        }
     }
 
-    if (month >= 3 && month <= 5)
+    if (profile.mergedRainEnabled)
     {
-        uint32_t seed = 0xa511e9b3u;
-        seed ^= static_cast<uint32_t>(std::max(mapId, 0)) * 668265263u;
-        seed ^= static_cast<uint32_t>(std::max(weatherState, 0)) * 374761393u;
-        std::mt19937 rng(seed);
-        return std::uniform_int_distribution<int>(0, 1)(rng) == 1;
+        const int rainChance = std::clamp(profile.mergedRainChancePercent, 0, 100);
+
+        if (percentDistribution(rng) < rainChance)
+        {
+            result.rain = true;
+            result.rainIntensity = mergedRainIntensityForRoll(std::uniform_int_distribution<int>(0, 2)(rng));
+        }
     }
 
-    return false;
+    return result;
 }
 
 OutdoorWorldRuntime::AtmosphereState buildAtmosphereSourceState(
@@ -2811,15 +2848,14 @@ bool monsterEntryHasCorpseSprite(const MonsterEntry *pMonsterEntry)
     return !spriteName.empty() && spriteName != "null";
 }
 
-bool monsterStatsIsKreegan(const MonsterTable::MonsterStatsEntry *pStats)
+bool monsterStatsLeavesNoCorpse(const MonsterTable::MonsterStatsEntry *pStats)
 {
     if (pStats == nullptr)
     {
         return false;
     }
 
-    const std::string pictureName = toLowerCopy(pStats->pictureName);
-    return pictureName.starts_with("devil ") || pictureName.starts_with("demon");
+    return pStats->hasKind(MonsterKind::NoCorpse);
 }
 
 bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const OutdoorWorldRuntime::MapActorState &actor)
@@ -2831,7 +2867,7 @@ bool actorShouldLeaveCorpse(const MonsterTable *pMonsterTable, const OutdoorWorl
 
     const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(actor.monsterId);
 
-    if (monsterStatsIsKreegan(pStats))
+    if (monsterStatsLeavesNoCorpse(pStats))
     {
         return false;
     }
@@ -3209,31 +3245,25 @@ GameplayActorSpellEffectState buildGameplayActorSpellEffectState(const OutdoorWo
 
 bool partyHasDispellableBuffs(const Party *pParty)
 {
-    if (pParty == nullptr)
+    return pParty != nullptr && pParty->hasDispellableBuffs();
+}
+
+void queuePartySpellFx(EventRuntimeState *pEventRuntimeState, uint32_t spellId, const Party *pParty)
+{
+    if (pEventRuntimeState == nullptr || pParty == nullptr)
     {
-        return false;
+        return;
     }
 
-    for (size_t buffIndex = 0; buffIndex < PartyBuffCount; ++buffIndex)
-    {
-        if (pParty->hasPartyBuff(static_cast<PartyBuffId>(buffIndex)))
-        {
-            return true;
-        }
-    }
+    EventRuntimeState::SpellFxRequest request = {};
+    request.spellId = spellId;
 
     for (size_t memberIndex = 0; memberIndex < pParty->members().size(); ++memberIndex)
     {
-        for (size_t buffIndex = 0; buffIndex < CharacterBuffCount; ++buffIndex)
-        {
-            if (pParty->hasCharacterBuff(memberIndex, static_cast<CharacterBuffId>(buffIndex)))
-            {
-                return true;
-            }
-        }
+        request.memberIndices.push_back(memberIndex);
     }
 
-    return false;
+    pEventRuntimeState->spellFxRequests.push_back(std::move(request));
 }
 
 void applyGameplayActorSpellEffectState(
@@ -6199,13 +6229,13 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
     if (!profile.mergedWeatherEnabled)
     {
         m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
+        m_atmosphereState.rainIntensity = 0.0f;
         syncAtmosphereStateToMapDelta();
         return true;
     }
 
     const int skyCount = static_cast<int>(profile.mergedSkyTextureNames.size());
     const int fogThreshold = skyCount / 3;
-    const int precipitationThreshold = skyCount / 2;
 
     if (weatherState > fogThreshold)
     {
@@ -6221,22 +6251,25 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
         m_atmosphereState.fogStrongDistance = 0;
     }
 
-    if (weatherState > precipitationThreshold)
+    const MergedPrecipitationRoll precipitationRoll =
+        mergedPrecipitationRoll(profile, m_mapId, weatherDayIndexForMinutes(m_gameMinutes));
+
+    if (precipitationRoll.snow)
     {
-        if (mergedWeatherStateUsesSnow(m_gameMinutes, m_mapId, weatherState))
-        {
-            m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
-            m_atmosphereState.weatherFlags |= MapWeatherSnowing;
-        }
-        else
-        {
-            m_atmosphereState.weatherFlags &= ~MapWeatherSnowing;
-            m_atmosphereState.weatherFlags |= MapWeatherRaining;
-        }
+        m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
+        m_atmosphereState.weatherFlags |= MapWeatherSnowing;
+        m_atmosphereState.rainIntensity = 0.0f;
+    }
+    else if (precipitationRoll.rain)
+    {
+        m_atmosphereState.weatherFlags &= ~MapWeatherSnowing;
+        m_atmosphereState.weatherFlags |= MapWeatherRaining;
+        m_atmosphereState.rainIntensity = rainIntensityValue(precipitationRoll.rainIntensity);
     }
     else
     {
         m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
+        m_atmosphereState.rainIntensity = 0.0f;
     }
 
     syncAtmosphereStateToMapDelta();
@@ -6406,7 +6439,17 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
             m_eventRuntimeState->outdoorFogStrongDistanceOverride.value_or(m_atmosphereState.fogStrongDistance);
     }
 
-    m_atmosphereState.rainIntensity = (m_atmosphereState.weatherFlags & MapWeatherRaining) != 0 ? 1.0f : 0.0f;
+    if ((m_atmosphereState.weatherFlags & MapWeatherRaining) != 0)
+    {
+        if (m_atmosphereState.rainIntensity <= 0.0f)
+        {
+            m_atmosphereState.rainIntensity = rainIntensityValue(RainIntensityPreset::Medium);
+        }
+    }
+    else
+    {
+        m_atmosphereState.rainIntensity = 0.0f;
+    }
 
     if (m_hasRainIntensityOverride)
     {
@@ -7149,6 +7192,18 @@ void OutdoorWorldRuntime::applyOutdoorActorProjectileRequests(
                 actor.actorId,
                 projectileRequest.damage,
                 projectileRequest.damageType);
+        }
+
+        if (isSpellId(projectileRequest.spellId, SpellId::DispelMagic)
+            && projectileRequest.targetKind == ActorAiTargetKind::Party
+            && m_pParty != nullptr)
+        {
+            const bool cleared = m_pParty->clearDispellableBuffs();
+            if (cleared)
+            {
+                queuePartySpellFx(eventRuntimeState(), projectileRequest.spellId, m_pParty);
+            }
+            continue;
         }
 
         if (projectileRequest.targetKind != ActorAiTargetKind::None)
@@ -9754,7 +9809,8 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
                 projectile.attackBonus,
                 projectile.spellId,
                 false,
-                projectile.damageType);
+                projectile.damageType,
+                gameplayAttackAbilityFromOutdoor(projectile.ability));
         }
     }
 
@@ -9834,7 +9890,8 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
                     projectile.attackBonus,
                     projectile.spellId,
                     true,
-                    projectile.damageType);
+                    projectile.damageType,
+                    gameplayAttackAbilityFromOutdoor(projectile.ability));
             }
 
             if (areaImpact.logHits)
@@ -10425,7 +10482,9 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
         }
     }
 
-    for (uint32_t chestId : m_eventRuntimeState->openedChestIds)
+    const std::vector<uint32_t> openedChestIds = consumeOpenedChestIds(*m_eventRuntimeState);
+
+    for (uint32_t chestId : openedChestIds)
     {
         if (chestId < m_openedChests.size())
         {
@@ -14499,7 +14558,7 @@ bool OutdoorWorldRuntime::spawnPartyProjectile(const PartyProjectileRequest &req
     spawnRequest.targetX = request.targetX;
     spawnRequest.targetY = request.targetY;
     spawnRequest.targetZ = request.targetZ;
-    spawnRequest.spawnForwardOffset = PartyCollisionRadius;
+    spawnRequest.spawnForwardOffset = 0.0f;
     const GameplayProjectileService::ProjectileSpawnResult spawnResult =
         projectileService().spawnProjectile(spawnRequest);
     const GameplayProjectileService::ProjectileSpawnEffects spawnEffects =

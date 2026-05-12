@@ -400,7 +400,10 @@ RegisterEvent(210, "Legacy event 210", function()
 end)
 
 RegisterEvent(211, "Legacy event 211", function()
-    if IsQBitSet(QBit(1252)) then return end -- NPC
+    if HasAward(Award(62)) or IsQBitSet(QBit(1199)) then -- Ended Winter
+        evt.SetSnow(0, false)
+        return
+    end
     evt.SetSnow(0, 1)
 end)
 

@@ -72,6 +72,11 @@ bool isMarkerCell(const std::string &value)
     return trimmed == "x" || trimmed == "X";
 }
 
+bool isDisabledCell(const std::string &value)
+{
+    return trimCopy(value) == "-";
+}
+
 bool parseUnsigned(const std::string &value, uint32_t &result)
 {
     const std::string trimmed = trimCopy(value);
@@ -1785,6 +1790,8 @@ bool MergedBolsterMapTable::loadFromRows(const std::vector<std::vector<std::stri
         entry.bolsterExtra = parseOptionalUnsigned(row, 7);
         entry.professionMaxRarity = parseOptionalUnsignedValue(row, 8);
         entry.customSky = row.size() > 9 ? trimCopy(row[9]) : "";
+        entry.rain = row.size() > 10 ? !isDisabledCell(row[10]) : true;
+        entry.snow = row.size() > 11 ? isMarkerCell(row[11]) : false;
         m_entries.push_back(std::move(entry));
     }
 
@@ -2366,12 +2373,16 @@ bool MergedOutdoorTravelTable::loadFromRows(const std::vector<std::vector<std::s
     m_entries.clear();
 
     const auto parseDirection =
-        [](const std::vector<std::string> &row, size_t baseIndex) -> MergedOutdoorTravelDirection
+        [](
+            const std::vector<std::string> &row,
+            size_t baseIndex,
+            size_t requirementIndex) -> MergedOutdoorTravelDirection
         {
             MergedOutdoorTravelDirection direction = {};
             direction.mapName = baseIndex < row.size() ? trimCopy(row[baseIndex]) : "";
             direction.side = baseIndex + 1 < row.size() ? trimCopy(row[baseIndex + 1]) : "";
             direction.days = parseOptionalUnsignedValue(row, baseIndex + 2);
+            direction.requirements = requirementIndex < row.size() ? trimCopy(row[requirementIndex]) : "";
             return direction;
         };
 
@@ -2386,10 +2397,10 @@ bool MergedOutdoorTravelTable::loadFromRows(const std::vector<std::vector<std::s
 
         MergedOutdoorTravelEntry entry = {};
         entry.keyMap = trimCopy(row[0]);
-        entry.up = parseDirection(row, 1);
-        entry.down = parseDirection(row, 4);
-        entry.left = parseDirection(row, 7);
-        entry.right = parseDirection(row, 10);
+        entry.up = parseDirection(row, 1, 15);
+        entry.down = parseDirection(row, 4, 16);
+        entry.left = parseDirection(row, 7, 17);
+        entry.right = parseDirection(row, 10, 18);
         entry.straightTravel = isMarkerCell(row[13]);
         entry.notes = trimCopy(row[14]);
         m_entries.push_back(std::move(entry));

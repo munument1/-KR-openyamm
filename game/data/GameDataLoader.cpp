@@ -3661,6 +3661,10 @@ void GameDataLoader::applyMergedContinentSettingsToSelectedMap(const Engine::Ass
     profile.mergedWeatherConfigured = true;
     profile.mergedMapId = static_cast<uint32_t>(m_selectedMap->map.id);
     profile.mergedWeatherEnabled = pBolsterMap->weather;
+    profile.mergedRainEnabled = pBolsterMap->weather && pBolsterMap->rain;
+    profile.mergedSnowEnabled = pBolsterMap->weather && pBolsterMap->snow;
+    profile.mergedRainChancePercent = 20;
+    profile.mergedSnowChancePercent = 15;
     profile.mergedCustomSkyTextureName = resolveMergedSkyTextureNameCached(pBolsterMap->customSky);
     profile.mergedSkyTextureNames.clear();
 

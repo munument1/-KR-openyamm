@@ -7,6 +7,7 @@
 #include <cctype>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -71,6 +72,7 @@ constexpr size_t RedbookTrackColumn = 28;
 constexpr size_t EnvironmentColumn = 29;
 constexpr size_t AreaIdColumn = 32;
 constexpr size_t InAreaColumn = 33;
+constexpr size_t WorldIdColumn = 34;
 constexpr int MergedOutdoorBoundsMinX = -23143;
 constexpr int MergedOutdoorBoundsMaxX = 23143;
 constexpr int MergedOutdoorBoundsMinY = -23143;
@@ -167,6 +169,116 @@ bool parseIntegerLocal(const std::string &value, int &result)
     }
 
     return processedCharacters == trimmedValue.size();
+}
+
+std::string lowercaseCopy(const std::string &value)
+{
+    std::string result = value;
+    std::transform(
+        result.begin(),
+        result.end(),
+        result.begin(),
+        [](unsigned char character)
+        {
+            return static_cast<char>(std::tolower(character));
+        });
+    return result;
+}
+
+std::vector<std::string> splitString(const std::string &value, char separator)
+{
+    std::vector<std::string> parts;
+    std::stringstream stream(value);
+    std::string part;
+
+    while (std::getline(stream, part, separator))
+    {
+        parts.push_back(trimCopy(part));
+    }
+
+    return parts;
+}
+
+bool parseRequiredQBitsAny(const std::string &value, std::vector<uint32_t> &qbits)
+{
+    qbits.clear();
+
+    for (const std::string &part : splitString(value, '|'))
+    {
+        if (part.empty())
+        {
+            continue;
+        }
+
+        int parsedQBit = 0;
+
+        if (!parseIntegerLocal(part, parsedQBit) || parsedQBit <= 0)
+        {
+            return false;
+        }
+
+        qbits.push_back(static_cast<uint32_t>(parsedQBit));
+    }
+
+    return true;
+}
+
+bool applyTransitionRequirements(
+    const std::string &requirements,
+    MapEdgeTransition &transition,
+    std::string &errorMessage)
+{
+    for (const std::string &part : splitString(requirements, ';'))
+    {
+        if (part.empty())
+        {
+            continue;
+        }
+
+        const size_t equalsPosition = part.find('=');
+
+        if (equalsPosition == std::string::npos)
+        {
+            errorMessage = "missing '=' in transition requirement: " + part;
+            return false;
+        }
+
+        const std::string key = lowercaseCopy(trimCopy(part.substr(0, equalsPosition)));
+        const std::string value = trimCopy(part.substr(equalsPosition + 1));
+        const std::string lowerValue = lowercaseCopy(value);
+
+        if (key == "surface")
+        {
+            if (lowerValue == "land")
+            {
+                transition.requiredOriginSurface = MapTransitionSurfaceRequirement::Land;
+            }
+            else if (lowerValue == "water")
+            {
+                transition.requiredOriginSurface = MapTransitionSurfaceRequirement::Water;
+            }
+            else
+            {
+                errorMessage = "invalid transition surface requirement: " + value;
+                return false;
+            }
+        }
+        else if (key == "qbit" || key == "qbits")
+        {
+            if (!parseRequiredQBitsAny(value, transition.requiredQuestBitsAny))
+            {
+                errorMessage = "invalid transition qbit requirement: " + value;
+                return false;
+            }
+        }
+        else
+        {
+            errorMessage = "unknown transition requirement: " + key;
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool parseEncounterInfo(
@@ -321,7 +433,7 @@ size_t navigationArrivalZColumn(MapBoundaryEdge edge)
     return NavigationNorthArrivalZColumn;
 }
 
-void applyMergedOutdoorTravelDirection(
+bool applyMergedOutdoorTravelDirection(
     MapStatsEntry &entry,
     MapBoundaryEdge edge,
     const MergedOutdoorTravelDirection &direction)
@@ -330,20 +442,31 @@ void applyMergedOutdoorTravelDirection(
 
     if (pTransition == nullptr)
     {
-        return;
+        return true;
     }
 
     if (direction.mapName.empty())
     {
         pTransition->reset();
-        return;
+        return true;
     }
 
     MapEdgeTransition transition = {};
     transition.destinationMapFileName = direction.mapName;
     transition.travelDays = static_cast<int>(direction.days.value_or(0));
     transition.useMapStartPosition = true;
+
+    std::string errorMessage;
+
+    if (!applyTransitionRequirements(direction.requirements, transition, errorMessage))
+    {
+        std::cerr << "merged outdoor travel row for " << entry.fileName << " has invalid requirements: "
+            << errorMessage << '\n';
+        return false;
+    }
+
     *pTransition = std::move(transition);
+    return true;
 }
 }
 
@@ -482,7 +605,10 @@ bool MapStats::loadFromRows(const std::vector<std::vector<std::string>> &rows, c
 
         entry.name = getColumnValue(row, NameColumn);
         entry.fileName = getColumnValue(row, FileNameColumn);
-        entry.worldId = inferWorldIdFromMapFileName(entry.fileName, worldId);
+        const std::string explicitWorldId = trimCopy(getColumnValue(row, WorldIdColumn));
+        entry.worldId = explicitWorldId.empty()
+            ? inferWorldIdFromMapFileName(entry.fileName, worldId)
+            : normalizeWorldId(explicitWorldId);
         entry.canonicalId = buildCanonicalMapId(entry.worldId, entry.fileName);
         entry.environmentName = getColumnValue(row, EnvironmentColumn);
         entry.areaId = 0;
@@ -663,10 +789,13 @@ bool MapStats::applyMergedOutdoorTravels(const MergedOutdoorTravelTable &outdoor
         bounds.maxY = MergedOutdoorBoundsMaxY;
         pEntry->outdoorBounds = bounds;
 
-        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up);
-        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down);
-        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left);
-        applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right);
+        if (!applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up)
+            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down)
+            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left)
+            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right))
+        {
+            return false;
+        }
     }
 
     return true;

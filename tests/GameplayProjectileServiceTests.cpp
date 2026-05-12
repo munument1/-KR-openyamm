@@ -427,6 +427,32 @@ TEST_CASE("projectile frame without collision advances motion without expiring")
     CHECK_EQ(result.motion.endZ, doctest::Approx(32.0f));
 }
 
+TEST_CASE("projectile spawn forward offset stays on the ray and does not overshoot close targets")
+{
+    GameplayProjectileService service;
+    GameplayProjectileService::ProjectileSpawnRequest request = {};
+    request.sourceKind = GameplayProjectileService::ProjectileState::SourceKind::Party;
+    request.definition.speed = 100.0f;
+    request.definition.lifetimeTicks = 100;
+    request.sourceX = 0.0f;
+    request.sourceY = 0.0f;
+    request.sourceZ = 0.0f;
+    request.targetX = 10.0f;
+    request.targetY = 0.0f;
+    request.targetZ = 10.0f;
+    request.spawnForwardOffset = 100.0f;
+
+    const GameplayProjectileService::ProjectileSpawnResult result = service.spawnProjectile(request);
+
+    CHECK(result.kind == GameplayProjectileService::ProjectileSpawnResult::Kind::SpawnedProjectile);
+    CHECK_EQ(result.projectile.x, doctest::Approx(10.0f));
+    CHECK_EQ(result.projectile.y, doctest::Approx(0.0f));
+    CHECK_EQ(result.projectile.z, doctest::Approx(10.0f));
+    CHECK_EQ(result.projectile.velocityX, doctest::Approx(70.71068f));
+    CHECK_EQ(result.projectile.velocityY, doctest::Approx(0.0f));
+    CHECK_EQ(result.projectile.velocityZ, doctest::Approx(70.71068f));
+}
+
 TEST_CASE("direct party projectile impact does not also apply splash to the party")
 {
     GameplayProjectileService service;

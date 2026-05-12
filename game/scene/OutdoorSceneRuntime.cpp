@@ -75,12 +75,38 @@ bool enteredPressurePlateFace(const OutdoorMoveState &previousState, const Outdo
 
 bool canOfferMapTransition(
     const OutdoorPartyRuntime &partyRuntime,
-    const OutdoorMoveState &moveState)
+    const OutdoorMoveState &moveState,
+    const MapEdgeTransition &transition)
 {
-    return !partyRuntime.partyMovementState().flying
-        && !moveState.airborne
-        && !moveState.supportOnWater
-        && !moveState.supportOnBurning;
+    if (partyRuntime.partyMovementState().flying || moveState.airborne || moveState.supportOnBurning)
+    {
+        return false;
+    }
+
+    if (transition.requiredOriginSurface == MapTransitionSurfaceRequirement::Water)
+    {
+        return moveState.supportOnWater;
+    }
+
+    return !moveState.supportOnWater;
+}
+
+bool transitionQuestRequirementsMet(const Party &party, const MapEdgeTransition &transition)
+{
+    if (transition.requiredQuestBitsAny.empty())
+    {
+        return true;
+    }
+
+    for (uint32_t qbit : transition.requiredQuestBitsAny)
+    {
+        if (party.hasQuestBit(qbit))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 }
 
@@ -269,13 +295,16 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
     if (pEventRuntimeState != nullptr
         && !pEventRuntimeState->pendingDialogueContext.has_value()
         && !pEventRuntimeState->pendingMapMove.has_value()
-        && m_pPartyRuntime->movementEvents().blockedBoundaryEdge.has_value()
-        && canOfferMapTransition(*m_pPartyRuntime, moveState))
+        && m_pPartyRuntime->movementEvents().blockedBoundaryEdge.has_value())
     {
         const std::optional<MapEdgeTransition> *pTransition =
             m_mapEntry.edgeTransition(*m_pPartyRuntime->movementEvents().blockedBoundaryEdge);
 
-        if (pTransition != nullptr && pTransition->has_value() && !(*pTransition)->destinationMapFileName.empty())
+        if (pTransition != nullptr
+            && pTransition->has_value()
+            && !(*pTransition)->destinationMapFileName.empty()
+            && canOfferMapTransition(*m_pPartyRuntime, moveState, **pTransition)
+            && transitionQuestRequirementsMet(m_pPartyRuntime->party(), **pTransition))
         {
             EventRuntimeState::PendingDialogueContext context = {};
             context.kind = DialogueContextKind::MapTransition;

@@ -56,6 +56,75 @@ void triggerPortraitFaceAnimation(
     }
 }
 
+void triggerMonsterSpecialPortraitFx(
+    GameplayScreenRuntime *pRuntime,
+    size_t memberIndex)
+{
+    if (pRuntime != nullptr)
+    {
+        pRuntime->triggerPortraitEventFxWithoutSpeech(memberIndex, PortraitFxEventKind::MonsterSpecial);
+    }
+}
+
+SoundId soundForMonsterSpecialAttack(MonsterSpecialAttackKind specialAttackKind)
+{
+    switch (specialAttackKind)
+    {
+        case MonsterSpecialAttackKind::Curse:
+        case MonsterSpecialAttackKind::Weak:
+        case MonsterSpecialAttackKind::Sleep:
+        case MonsterSpecialAttackKind::Drunk:
+        case MonsterSpecialAttackKind::Fear:
+            return SoundId::Star1;
+
+        case MonsterSpecialAttackKind::PoisonWeak:
+        case MonsterSpecialAttackKind::PoisonMedium:
+        case MonsterSpecialAttackKind::PoisonSevere:
+        case MonsterSpecialAttackKind::DiseaseWeak:
+        case MonsterSpecialAttackKind::DiseaseMedium:
+        case MonsterSpecialAttackKind::DiseaseSevere:
+            return SoundId::Star2;
+
+        case MonsterSpecialAttackKind::Insane:
+        case MonsterSpecialAttackKind::Paralyze:
+        case MonsterSpecialAttackKind::Unconscious:
+            return SoundId::Star4;
+
+        case MonsterSpecialAttackKind::Dead:
+        case MonsterSpecialAttackKind::Petrify:
+        case MonsterSpecialAttackKind::Eradicate:
+            return SoundId::Eradicate;
+
+        case MonsterSpecialAttackKind::BreakAny:
+        case MonsterSpecialAttackKind::BreakArmor:
+        case MonsterSpecialAttackKind::BreakWeapon:
+            return SoundId::MetalVsMetal03;
+
+        case MonsterSpecialAttackKind::Aging:
+        case MonsterSpecialAttackKind::ManaDrain:
+            return SoundId::ElecCircle;
+
+        default:
+            return SoundId::None;
+    }
+}
+
+void playMonsterSpecialAttackSound(
+    GameplayScreenRuntime *pRuntime,
+    MonsterSpecialAttackKind specialAttackKind)
+{
+    if (pRuntime == nullptr)
+    {
+        return;
+    }
+
+    const SoundId soundId = soundForMonsterSpecialAttack(specialAttackKind);
+    if (soundId != SoundId::None)
+    {
+        pRuntime->playCommonUiSound(soundId);
+    }
+}
+
 void triggerPortraitFaceAnimationForAllLivingMembers(
     GameplayScreenRuntime *pRuntime,
     FaceAnimationId animationId)
@@ -445,7 +514,6 @@ std::vector<BreakItemCandidate> collectBreakItemCandidates(
             && pRuntimeState != nullptr
             && pItemDefinition != nullptr
             && !pRuntimeState->broken
-            && isBreakableItemDefinition(*pItemDefinition)
             && itemMatchesBreakSpecial(*pItemDefinition, specialAttackKind))
         {
             candidates.push_back({nullptr, pRuntimeState, pItemDefinition});
@@ -644,8 +712,16 @@ bool shouldApplyMonsterSpecialAttack(
     const GameplayCombatActorInfo &sourceActor,
     std::mt19937 &rng)
 {
-    if (event.type != GameplayCombatController::CombatEventType::MonsterMeleeImpact
-        || event.ability != GameplayActorAttackAbility::Attack1
+    const bool attack1Melee =
+        event.type == GameplayCombatController::CombatEventType::MonsterMeleeImpact
+        && event.ability == GameplayActorAttackAbility::Attack1;
+    const bool attack1Projectile =
+        event.type == GameplayCombatController::CombatEventType::PartyProjectileImpact
+        && !event.affectsAllParty
+        && event.ability == GameplayActorAttackAbility::Attack1
+        && event.spellId == 0;
+
+    if ((!attack1Melee && !attack1Projectile)
         || sourceActor.specialAttackKind == MonsterSpecialAttackKind::None
         || sourceActor.specialAttackLevel <= 0
         || sourceActor.monsterLevel <= 0)
@@ -757,6 +833,8 @@ bool applyMonsterSpecialAttack(
 
     if (applied)
     {
+        triggerMonsterSpecialPortraitFx(context.pRuntime, memberIndex);
+        playMonsterSpecialAttackSound(context.pRuntime, sourceActor.specialAttackKind);
         triggerPortraitFaceAnimation(
             context.pRuntime,
             memberIndex,
@@ -849,7 +927,8 @@ GameplayCombatController::CombatEvent GameplayCombatController::buildPartyProjec
     int attackBonus,
     int spellId,
     bool affectsAllParty,
-    CombatDamageType damageType)
+    CombatDamageType damageType,
+    GameplayActorAttackAbility ability)
 {
     CombatEvent event = {};
     event.type = CombatEventType::PartyProjectileImpact;
@@ -859,6 +938,7 @@ GameplayCombatController::CombatEvent GameplayCombatController::buildPartyProjec
     event.spellId = spellId;
     event.affectsAllParty = affectsAllParty;
     event.damageType = damageType;
+    event.ability = ability;
     return event;
 }
 
@@ -1296,8 +1376,27 @@ void GameplayCombatController::recordPartyProjectileImpact(
     bool affectsAllParty,
     CombatDamageType damageType)
 {
+    recordPartyProjectileImpact(
+        sourceId,
+        damage,
+        attackBonus,
+        spellId,
+        affectsAllParty,
+        damageType,
+        GameplayActorAttackAbility::Attack1);
+}
+
+void GameplayCombatController::recordPartyProjectileImpact(
+    uint32_t sourceId,
+    int damage,
+    int attackBonus,
+    int spellId,
+    bool affectsAllParty,
+    CombatDamageType damageType,
+    GameplayActorAttackAbility ability)
+{
     m_pendingCombatEvents.push_back(
-        buildPartyProjectileImpactEvent(sourceId, damage, attackBonus, spellId, affectsAllParty, damageType));
+        buildPartyProjectileImpactEvent(sourceId, damage, attackBonus, spellId, affectsAllParty, damageType, ability));
 }
 
 void GameplayCombatController::recordPartyProjectileActorImpact(

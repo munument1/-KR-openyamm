@@ -33,6 +33,7 @@ SpellId	Name	Animation
 74	Cure Disease	spheal2
 75	Protection From Magic	spell75
 77	Power Cure	spheal3
+80	Dispel Magic	spboost3
 83	Day Of The Gods	spboost3
 85	Day Of Protection	spboost3
 86	Hour Of Power	spboost3

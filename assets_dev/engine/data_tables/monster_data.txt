@@ -500,12 +500,12 @@ Default Monster Data					Stats								Movement and Combat					Attack 1			Attack 
 496	Agar's Pet	Cockatrice A	13	55	13	299	4D20	0	Y	Free	Normal	4	240	80	0	Paralyze	Phys	1D12	0	0	0	0	0	30	"Mind Blast,N,10"	0	0	10	10	10	10	Imm	Imm	Imm	Imm	Imm	0	0	-
 497	Agar's Monster	Cockatrice B	15	67	15	375	6D20	0	Y	Free	Aggress	4	260	80	0	Paralyze	Phys	1D12+6	0	0	0	0	0	30	"Mind Blast,N,15"	0	0	20	20	20	20	Imm	Imm	Imm	Imm	Imm	0	0	-
 498	Agar's Abomination	Cockatrice C	17	79	17	459	10D20	0	Y	Free	Suicidal	4	280	80	0	Stonex2	Phys	2D12+6	0	0	0	0	0	30	"Mind Blast,N,20"	0	0	30	30	30	30	Imm	Imm	Imm	Imm	Imm	0	0	-
-499	Devil Captain	DemonFly A	30	180	25	1200	0	0	Y	Long	Aggress	4	250	60	0	Disease2	Phys	2D8+10	0	20	Fire	3D8	Fire	20	"Fireball,N,6"	0	0	Imm	30	30	30	30	30	30	30	30	50	0	-
-500	Devil Master	DemonFly B	50	400	35	3000	0	0	Y	Long	Aggress	4	300	50	0	Disease3	Phys	2D8+15	0	20	Fire	4D8	Fire	20	"Meteor Shower,M,10"	0	0	Imm	40	40	40	40	40	40	40	40	50	0	-
-501	Devil King	DemonFly C	70	700	45	5600	0	0	Y	Med	Suicidal	4	350	40	0	DrainSP	Phys	2D8+20	0	20	Fire	5D8	Fire	20	"Incinerate,M,14"	0	0	Imm	50	50	50	Imm	Imm	Imm	Imm	Imm	50	0	-
-502	Devil Spawn	Demon A	20	100	20	600	0	0	N	Med	Aggress	4	200	70	0	Disease2	Phys	2D6+8	0	20	Fire	3D6	Fire	20	"Fire Bolt,N,4"	0	0	Imm	20	20	20	20	20	20	20	20	50	0	-
-503	Devil Worker	Demon B	40	280	30	2000	0	0	N	Med	Aggress	4	250	60	0	Disease3	Phys	2D6+14	0	20	Fire	4D6	Fire	20	"Fire Bolt,N,8"	0	0	Imm	30	30	30	30	30	30	30	30	50	0	-
-504	Devil Warrior	Demon C	60	540	40	4200	0	0	N	Short	Suicidal	4	300	50	0	DrainSP	Phys	2D6+20	0	20	Fire	5D6	Fire	20	"Fireball,N,12"	0	0	Imm	50	50	50	Imm	Imm	Imm	Imm	Imm	50	0	-
+499	Devil Captain	DemonFly A	30	180	25	1200	0	0	Y	Long	Aggress	4	250	60	0	Disease2	Phys	2D8+10	0	20	Fire	3D8	Fire	20	"Fireball,N,6"	0	0	Imm	30	30	30	30	30	30	30	30	50	0	no_corpse
+500	Devil Master	DemonFly B	50	400	35	3000	0	0	Y	Long	Aggress	4	300	50	0	Disease3	Phys	2D8+15	0	20	Fire	4D8	Fire	20	"Meteor Shower,M,10"	0	0	Imm	40	40	40	40	40	40	40	40	50	0	no_corpse
+501	Devil King	DemonFly C	70	700	45	5600	0	0	Y	Med	Suicidal	4	350	40	0	DrainSP	Phys	2D8+20	0	20	Fire	5D8	Fire	20	"Incinerate,M,14"	0	0	Imm	50	50	50	Imm	Imm	Imm	Imm	Imm	50	0	no_corpse
+502	Devil Spawn	Demon A	20	100	20	600	0	0	N	Med	Aggress	4	200	70	0	Disease2	Phys	2D6+8	0	20	Fire	3D6	Fire	20	"Fire Bolt,N,4"	0	0	Imm	20	20	20	20	20	20	20	20	50	0	no_corpse
+503	Devil Worker	Demon B	40	280	30	2000	0	0	N	Med	Aggress	4	250	60	0	Disease3	Phys	2D6+14	0	20	Fire	4D6	Fire	20	"Fire Bolt,N,8"	0	0	Imm	30	30	30	30	30	30	30	30	50	0	no_corpse
+504	Devil Warrior	Demon C	60	540	40	4200	0	0	N	Short	Suicidal	4	300	50	0	DrainSP	Phys	2D6+20	0	20	Fire	5D6	Fire	20	"Fireball,N,12"	0	0	Imm	50	50	50	Imm	Imm	Imm	Imm	Imm	50	0	no_corpse
 505	Fire Lizard	DragonCave A	40	280	40	2000	20%100D10+L4	0	N	Med	Aggress	4	200	70	2	0	Fire	10D6	Fire	0	0	0	0	0	0	0	0	Imm	30	30	30	30	30	30	30	30	20	0	-
 506	Lightning Lizard	DragonCave B	50	400	50	3000	20%150D10+L5	0	N	Short	Aggress	4	220	65	2	BrkItem	Air	12D6	Air	0	0	0	0	0	0	0	0	40	Imm	40	40	40	40	40	40	40	30	0	-
 507	Thunder Lizard	DragonCave C	60	540	60	4200	20%200D10+L5	0	N	Short	Aggress	4	240	60	2	BrkItem	Water	14D6	Water	0	0	0	0	0	0	0	0	50	50	Imm	50	50	50	50	50	50	40	0	-

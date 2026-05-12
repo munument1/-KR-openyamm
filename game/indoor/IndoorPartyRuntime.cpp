@@ -15,6 +15,7 @@ namespace
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float GameSecondsPerRealSecond = GameMinutesPerRealSecond * 60.0f;
 constexpr float IndoorMovementStepSeconds = 1.0f / 128.0f;
+constexpr float DamageTickSeconds = 1.0f;
 constexpr float MaxAccumulatedMovementSeconds = 0.1f;
 constexpr float DefaultJumpVelocity = 420.0f;
 
@@ -67,6 +68,7 @@ void IndoorPartyRuntime::initializeEyePosition(float x, float y, float z, bool r
     m_pendingImpulseVelocityZ = 0.0f;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_burningDamageTimerSeconds = 0.0f;
 }
 
 void IndoorPartyRuntime::initializePartyPosition(float x, float y, float z, bool resetParty)
@@ -86,6 +88,7 @@ void IndoorPartyRuntime::teleportEyePosition(float x, float y, float z)
     m_pendingImpulseVelocityZ = 0.0f;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_burningDamageTimerSeconds = 0.0f;
 }
 
 void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
@@ -96,6 +99,7 @@ void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
     m_pendingJumpRequested = false;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_burningDamageTimerSeconds = 0.0f;
 }
 
 void IndoorPartyRuntime::translatePartyPosition(float deltaX, float deltaY, float deltaZ)
@@ -114,6 +118,8 @@ void IndoorPartyRuntime::update(
     bool running,
     float deltaSeconds)
 {
+    m_movementStatusText.clear();
+
     if (deltaSeconds <= 0.0f)
     {
         return;
@@ -249,6 +255,30 @@ void IndoorPartyRuntime::update(
         m_pendingJumpLift = 1.0f;
         m_movementAccumulatorSeconds -= IndoorMovementStepSeconds;
     }
+
+    if (m_movementState.grounded && m_movementController.supportFaceIsBurning(m_movementState.supportFaceIndex))
+    {
+        m_burningDamageTimerSeconds += deltaSeconds;
+
+        OutdoorMovementEffects effects = {};
+
+        while (m_burningDamageTimerSeconds >= DamageTickSeconds)
+        {
+            effects.burningDamageTicks += 1;
+            m_burningDamageTimerSeconds -= DamageTickSeconds;
+        }
+
+        m_party.applyMovementEffects(effects);
+
+        if (effects.burningDamageTicks > 0)
+        {
+            m_movementStatusText = "You are burning!";
+        }
+    }
+    else
+    {
+        m_burningDamageTimerSeconds = 0.0f;
+    }
 }
 
 void IndoorPartyRuntime::setActorColliders(const std::vector<IndoorActorCollision> &actorColliders)
@@ -289,6 +319,11 @@ const Party &IndoorPartyRuntime::party() const
 Party &IndoorPartyRuntime::party()
 {
     return m_party;
+}
+
+const std::string &IndoorPartyRuntime::movementStatusText() const
+{
+    return m_movementStatusText;
 }
 
 float IndoorPartyRuntime::partyX() const
@@ -334,6 +369,7 @@ void IndoorPartyRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_pendingImpulseVelocityZ = snapshot.pendingImpulseVelocityZ;
     m_pendingJumpVelocity.reset();
     m_pendingJumpLift = 1.0f;
+    m_burningDamageTimerSeconds = 0.0f;
     m_alwaysRunEnabled = snapshot.alwaysRunEnabled;
     m_movementController.invalidateRuntimeGeometryCache();
 }

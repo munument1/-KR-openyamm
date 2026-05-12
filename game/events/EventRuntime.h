@@ -489,6 +489,7 @@ struct EventRuntimeBindingReport
 };
 
 void clearTransientEventRuntimeState(EventRuntimeState &runtimeState);
+std::vector<uint32_t> consumeOpenedChestIds(EventRuntimeState &runtimeState);
 uint32_t normalizedHistoryContinentId(uint32_t continentId);
 void setActiveHistoryContinent(EventRuntimeState &runtimeState, uint32_t continentId);
 const std::unordered_map<uint32_t, int32_t> &historyEventTimesForActiveContinent(

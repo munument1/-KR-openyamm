@@ -52,6 +52,11 @@ PortraitFxEventKind parsePortraitFxEventKind(const std::string &value)
         return PortraitFxEventKind::StatDecrease;
     }
 
+    if (normalized == "monsterspecial")
+    {
+        return PortraitFxEventKind::MonsterSpecial;
+    }
+
     return PortraitFxEventKind::None;
 }
 }

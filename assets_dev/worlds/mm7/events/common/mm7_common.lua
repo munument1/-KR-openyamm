@@ -9,6 +9,7 @@ MM7.GolemNpcId = 395
 MM7.ArcomageDeckItemId = 1453
 MM7.ScavengerAdvertisementItemId = 774
 MM7.WetsuitItemId = 1406
+MM7.WetsuitPortraitId = 30
 
 MM7.HouseServiceType = {
     Tavern = 4,
@@ -202,14 +203,6 @@ function MM7.CastOffToHarmondale()
     evt.SetNPCTopic(340, 3, 0)
     AdvanceGameMinutes(14 * 24 * 60)
     evt.MoveToMap(-17331, 12547, 465, 1024, 0, 0, 0, 0, "7out02.odm")
-end
-
-function MM7.UpdateAntagarichEndgameStarted()
-    if IsQBitSet(QBit(783)) then
-        ClearQBit(QBit(642))
-    else
-        SetQBit(QBit(642))
-    end
 end
 
 function MM7.MarkAntagarichEndgameComplete()
@@ -1752,8 +1745,7 @@ function MM7.AllPartyMembersHaveWetsuit()
     local count = evt.GetPartyMemberCount()
 
     for memberIndex = 0, count - 1 do
-        if not evt.PartyMemberHasEquippedItem(memberIndex, MM7.WetsuitItemId)
-            and not evt.PartyMemberHasItem(memberIndex, MM7.WetsuitItemId) then
+        if not evt.PartyMemberHasEquippedItem(memberIndex, MM7.WetsuitItemId) then
             return false
         end
     end
@@ -1770,15 +1762,17 @@ function MM7.BlockShoalsTravelWithoutWetsuits(context)
         return
     end
 
+    local hasLincolnQuest = IsQBitSet(QBit(642)) or IsQBitSet(QBit(643)) or IsQBitSet(QBit(783))
+    if not hasLincolnQuest then
+        evt.SetHookBlocked(true, nil)
+        return
+    end
+
     if MM7.AllPartyMembersHaveWetsuit() then
         return
     end
 
-    local status = nil
-    if IsQBitSet(QBit(642)) or IsQBitSet(QBit(643)) or IsQBitSet(QBit(783)) then
-        status = "You must all be wearing your wetsuits!"
-    end
-    evt.SetHookBlocked(true, status)
+    evt.SetHookBlocked(true, "You must all be wearing your wetsuits!")
 end
 
 function MM7.BlockShoalsUnderwaterAction(context)
@@ -1794,26 +1788,42 @@ function MM7.BlockShoalsUnderwaterAction(context)
 end
 
 function MM7.ApplyShoalsPartyPortraits()
-    local count = evt.GetPartyMemberCount()
-
-    for memberIndex = 0, count - 1 do
-        local varName = "ShoalsOriginalPortrait" .. tostring(memberIndex)
-        if evt.GetMapVar(varName, 0) == 0 then
-            evt.SetMapVar(varName, evt.GetPartyMemberPortraitId(memberIndex) + 1)
-        end
-        evt.SetPartyMemberPortraitId(memberIndex, 30)
-    end
+    -- Older OpenYAMM saves may already be on Shoals with the temporary wetsuit portrait forced.
+    MM7.RestoreShoalsPartyPortraits()
 end
 
 function MM7.RestoreShoalsPartyPortraits()
     local count = evt.GetPartyMemberCount()
 
     for memberIndex = 0, count - 1 do
-        local storedPortrait = evt.GetMapVar("ShoalsOriginalPortrait" .. tostring(memberIndex), 0)
+        local varName = "ShoalsOriginalPortrait" .. tostring(memberIndex)
+        local storedPortrait = evt.GetMapVar(varName, 0)
         if storedPortrait > 0 then
             evt.SetPartyMemberPortraitId(memberIndex, storedPortrait - 1)
         end
+        evt.SetMapVar(varName, 0)
     end
+end
+
+function MM7.KillUnsuitedShoalsPartyMembers()
+    local _, _, partyZ = evt.GetPartyPosition()
+    if partyZ > 3900 and evt.GetCurrentScreen() == 0 then
+        return
+    end
+
+    local count = evt.GetPartyMemberCount()
+
+    for memberIndex = 0, count - 1 do
+        if not evt.PartyMemberHasEquippedItem(memberIndex, MM7.WetsuitItemId) then
+            evt.ForPlayer(memberIndex)
+            if not IsAtLeast(Dead, 0) then
+                SetValue(CurrentHealth, 0)
+                SetValue(Dead, 0)
+            end
+        end
+    end
+
+    evt.ForPlayer(Players.Current)
 end
 
 function MM7.LeaveShoalsIfAboveWater()
