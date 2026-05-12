@@ -2653,6 +2653,383 @@ std::vector<uint16_t> collectIndoorDoorRoomIds(const Game::IndoorMapData &indoor
     return roomIds;
 }
 
+bool containsIndoorId(const std::vector<uint16_t> &ids, uint16_t id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
+std::string yamlQuoted(const std::string &value)
+{
+    std::string result = "\"";
+
+    for (char character : value)
+    {
+        if (character == '\\' || character == '"')
+        {
+            result.push_back('\\');
+            result.push_back(character);
+        }
+        else if (character == '\n')
+        {
+            result += "\\n";
+        }
+        else if (character == '\r')
+        {
+            result += "\\r";
+        }
+        else if (character == '\t')
+        {
+            result += "\\t";
+        }
+        else
+        {
+            result.push_back(character);
+        }
+    }
+
+    result.push_back('"');
+    return result;
+}
+
+std::string sanitizeDiagnosticFileStem(const std::string &value)
+{
+    std::string result;
+    result.reserve(value.size());
+
+    for (char character : value)
+    {
+        const unsigned char byte = static_cast<unsigned char>(character);
+
+        if (std::isalnum(byte) != 0 || character == '-' || character == '_')
+        {
+            result.push_back(static_cast<char>(std::tolower(byte)));
+        }
+        else if (character == '.' || character == ' ')
+        {
+            result.push_back('_');
+        }
+    }
+
+    while (!result.empty() && result.back() == '_')
+    {
+        result.pop_back();
+    }
+
+    return result.empty() ? "indoor_map" : result;
+}
+
+std::string indoorMechanismStateName(uint16_t state)
+{
+    switch (static_cast<Game::EvtMechanismState>(state))
+    {
+    case Game::EvtMechanismState::Open:
+        return "Open";
+    case Game::EvtMechanismState::Closed:
+        return "Closed";
+    case Game::EvtMechanismState::Opening:
+        return "Opening";
+    case Game::EvtMechanismState::Closing:
+        return "Closing";
+    }
+
+    return "Unknown";
+}
+
+template <typename Integer>
+void writeYamlIntegerList(std::ostream &output, const std::string &key, const std::vector<Integer> &values, int indent)
+{
+    output << std::string(static_cast<size_t>(indent), ' ') << key << ": [";
+
+    for (size_t index = 0; index < values.size(); ++index)
+    {
+        if (index != 0)
+        {
+            output << ", ";
+        }
+
+        output << values[index];
+    }
+
+    output << "]\n";
+}
+
+std::vector<size_t> collectIndoorActorIndicesForRoom(const Game::IndoorSceneData &sceneData, uint16_t roomId)
+{
+    std::vector<size_t> actorIndices;
+
+    for (size_t actorIndex = 0; actorIndex < sceneData.initialState.actors.size(); ++actorIndex)
+    {
+        const Game::MapDeltaActor &actor = sceneData.initialState.actors[actorIndex];
+
+        if (actor.sectorId == static_cast<int16_t>(roomId))
+        {
+            actorIndices.push_back(actorIndex);
+        }
+    }
+
+    return actorIndices;
+}
+
+std::vector<size_t> collectIndoorSpriteObjectIndicesForRoom(const Game::IndoorSceneData &sceneData, uint16_t roomId)
+{
+    std::vector<size_t> objectIndices;
+
+    for (size_t objectIndex = 0; objectIndex < sceneData.initialState.spriteObjects.size(); ++objectIndex)
+    {
+        const Game::MapDeltaSpriteObject &spriteObject = sceneData.initialState.spriteObjects[objectIndex];
+
+        if (spriteObject.sectorId == static_cast<int16_t>(roomId))
+        {
+            objectIndices.push_back(objectIndex);
+        }
+    }
+
+    return objectIndices;
+}
+
+std::vector<size_t> collectIndoorDoorIndicesForRoom(
+    const Game::IndoorSceneData &sceneData,
+    const Game::IndoorMapData &indoorGeometry,
+    uint16_t roomId)
+{
+    std::vector<size_t> doorIndices;
+
+    for (size_t doorIndex = 0; doorIndex < sceneData.initialState.doors.size(); ++doorIndex)
+    {
+        const Game::IndoorSceneDoor &door = sceneData.initialState.doors[doorIndex];
+        const std::vector<uint16_t> doorRoomIds = collectIndoorDoorRoomIds(indoorGeometry, door.door);
+
+        if (containsIndoorId(doorRoomIds, roomId))
+        {
+            doorIndices.push_back(doorIndex);
+        }
+    }
+
+    return doorIndices;
+}
+
+std::vector<uint16_t> collectIndoorRoomPortalFaceIds(const Game::IndoorMapData &indoorGeometry, uint16_t roomId)
+{
+    if (roomId >= indoorGeometry.sectors.size())
+    {
+        return {};
+    }
+
+    const Game::IndoorSector &sector = indoorGeometry.sectors[roomId];
+    std::vector<uint16_t> portalFaceIds;
+    portalFaceIds.reserve(sector.portalFaceIds.size());
+
+    const auto appendPortalFace =
+        [&](uint16_t faceId)
+    {
+        if (faceId >= indoorGeometry.faces.size() || containsIndoorId(portalFaceIds, faceId))
+        {
+            return;
+        }
+
+        const Game::IndoorFace &face = indoorGeometry.faces[faceId];
+        const bool isPortal = face.isPortal || Game::hasFaceAttribute(face.attributes, Game::FaceAttribute::IsPortal);
+
+        if (!isPortal)
+        {
+            return;
+        }
+
+        if (face.roomNumber == roomId || face.roomBehindNumber == roomId)
+        {
+            portalFaceIds.push_back(faceId);
+        }
+    };
+
+    for (uint16_t faceId : sector.portalFaceIds)
+    {
+        appendPortalFace(faceId);
+    }
+
+    for (uint16_t faceId : sector.faceIds)
+    {
+        appendPortalFace(faceId);
+    }
+
+    return portalFaceIds;
+}
+
+std::filesystem::path indoorGeometryDiagnosticPath(const EditorDocument &document)
+{
+    std::string mapName = document.displayName();
+
+    if (mapName.empty() && !document.scenePhysicalPath().empty())
+    {
+        mapName = document.scenePhysicalPath().stem().string();
+    }
+
+    const std::string fileStem = sanitizeDiagnosticFileStem(std::filesystem::path(mapName).stem().string());
+    return std::filesystem::current_path() / "tests" / "indoor_geometry" / (fileStem + ".yml");
+}
+
+bool appendIndoorRoomGeometryDiagnostic(
+    const EditorSession &session,
+    uint16_t roomId,
+    size_t selectedFaceIndex,
+    std::filesystem::path &outputPath,
+    std::string &errorMessage)
+{
+    const EditorDocument &document = session.document();
+
+    if (document.kind() != EditorDocument::Kind::Indoor)
+    {
+        errorMessage = "current document is not an indoor map";
+        return false;
+    }
+
+    const Game::IndoorMapData &indoorGeometry = document.indoorGeometry();
+    const Game::IndoorSceneData &sceneData = document.indoorSceneData();
+
+    if (roomId >= indoorGeometry.sectors.size())
+    {
+        errorMessage = "room id is out of range";
+        return false;
+    }
+
+    outputPath = indoorGeometryDiagnosticPath(document);
+    std::error_code filesystemError;
+    std::filesystem::create_directories(outputPath.parent_path(), filesystemError);
+
+    if (filesystemError)
+    {
+        errorMessage = "could not create " + outputPath.parent_path().string() + ": " + filesystemError.message();
+        return false;
+    }
+
+    std::ofstream output(outputPath, std::ios::out | std::ios::app);
+
+    if (!output)
+    {
+        errorMessage = "could not open " + outputPath.string() + " for append";
+        return false;
+    }
+
+    const Game::IndoorSector &sector = indoorGeometry.sectors[roomId];
+    const std::vector<uint16_t> connectedRoomIds = connectedIndoorRoomIds(indoorGeometry, roomId);
+    const std::vector<uint16_t> portalFaceIds = collectIndoorRoomPortalFaceIds(indoorGeometry, roomId);
+    const std::vector<size_t> roomDoorIndices = collectIndoorDoorIndicesForRoom(sceneData, indoorGeometry, roomId);
+    const std::vector<size_t> roomActorIndices = collectIndoorActorIndicesForRoom(sceneData, roomId);
+    const std::vector<size_t> roomSpriteObjectIndices = collectIndoorSpriteObjectIndicesForRoom(sceneData, roomId);
+    const std::string mapName =
+        document.displayName().empty() ? document.scenePhysicalPath().filename().string() : document.displayName();
+
+    output << "---\n";
+    output << "kind: indoor_room_geometry_snapshot\n";
+    output << "map: " << yamlQuoted(mapName) << "\n";
+    output << "scene: " << yamlQuoted(document.sceneVirtualPath()) << "\n";
+    output << "room_id: " << roomId << "\n";
+    output << "selected_face: " << selectedFaceIndex << "\n";
+    output << "room_bounds:\n";
+    output << "  min: [" << sector.minX << ", " << sector.minY << ", " << sector.minZ << "]\n";
+    output << "  max: [" << sector.maxX << ", " << sector.maxY << ", " << sector.maxZ << "]\n";
+    writeYamlIntegerList(output, "connected_rooms", connectedRoomIds, 0);
+    writeYamlIntegerList(output, "raw_portal_face_ids", sector.portalFaceIds, 0);
+    writeYamlIntegerList(output, "raw_face_ids", sector.faceIds, 0);
+
+    output << "portals:\n";
+
+    if (portalFaceIds.empty())
+    {
+        output << "  []\n";
+    }
+    else
+    {
+        for (size_t portalIndex = 0; portalIndex < portalFaceIds.size(); ++portalIndex)
+        {
+            const uint16_t faceId = portalFaceIds[portalIndex];
+            const Game::IndoorFace &portalFace = indoorGeometry.faces[faceId];
+            const uint16_t connectedRoom =
+                portalFace.roomNumber == roomId ? portalFace.roomBehindNumber : portalFace.roomNumber;
+            const std::vector<size_t> linkedDoorIndices =
+                collectLinkedIndoorMechanismIndicesForFaces(sceneData, {faceId});
+
+            output << "  - portal_id: " << portalIndex << "\n";
+            output << "    face_id: " << faceId << "\n";
+            output << "    room: " << portalFace.roomNumber << "\n";
+            output << "    behind_room: " << portalFace.roomBehindNumber << "\n";
+            output << "    connected_room: " << connectedRoom << "\n";
+            output << "    listed_in_portal_face_ids: "
+                << (containsIndoorId(sector.portalFaceIds, faceId) ? "true" : "false") << "\n";
+            output << "    listed_in_face_ids: "
+                << (containsIndoorId(sector.faceIds, faceId) ? "true" : "false") << "\n";
+            output << "    direct_blocking_door_ids: [";
+
+            for (size_t index = 0; index < linkedDoorIndices.size(); ++index)
+            {
+                if (index != 0)
+                {
+                    output << ", ";
+                }
+
+                const size_t doorIndex = linkedDoorIndices[index];
+                output << sceneData.initialState.doors[doorIndex].door.doorId;
+            }
+
+            output << "]\n";
+        }
+    }
+
+    output << "doors:\n";
+
+    if (roomDoorIndices.empty())
+    {
+        output << "  []\n";
+    }
+    else
+    {
+        for (size_t doorIndex : roomDoorIndices)
+        {
+            const Game::IndoorSceneDoor &door = sceneData.initialState.doors[doorIndex];
+            const std::vector<uint16_t> doorRoomIds = collectIndoorDoorRoomIds(indoorGeometry, door.door);
+            std::vector<uint16_t> linkedPortalFaceIds;
+
+            for (uint16_t faceId : door.door.faceIds)
+            {
+                if (containsIndoorId(portalFaceIds, faceId))
+                {
+                    linkedPortalFaceIds.push_back(faceId);
+                }
+            }
+
+            output << "  - door_index: " << doorIndex << "\n";
+            output << "    door_id: " << door.door.doorId << "\n";
+            output << "    state: " << door.door.state << "\n";
+            output << "    state_name: " << yamlQuoted(indoorMechanismStateName(door.door.state)) << "\n";
+            writeYamlIntegerList(output, "face_ids", door.door.faceIds, 4);
+            writeYamlIntegerList(output, "sector_ids", door.door.sectorIds, 4);
+            writeYamlIntegerList(output, "affected_rooms", doorRoomIds, 4);
+            writeYamlIntegerList(output, "linked_portal_face_ids", linkedPortalFaceIds, 4);
+        }
+    }
+
+    output << "objects:\n";
+    output << "  decorations:\n";
+    output << "    count: " << sector.decorationIds.size() << "\n";
+    writeYamlIntegerList(output, "ids", sector.decorationIds, 4);
+    output << "  lights:\n";
+    output << "    count: " << sector.lightIds.size() << "\n";
+    writeYamlIntegerList(output, "ids", sector.lightIds, 4);
+    output << "  actors:\n";
+    output << "    count: " << roomActorIndices.size() << "\n";
+    writeYamlIntegerList(output, "ids", roomActorIndices, 4);
+    output << "  sprite_objects:\n";
+    output << "    count: " << roomSpriteObjectIndices.size() << "\n";
+    writeYamlIntegerList(output, "ids", roomSpriteObjectIndices, 4);
+
+    if (!output)
+    {
+        errorMessage = "failed while writing " + outputPath.string();
+        return false;
+    }
+
+    return true;
+}
+
 std::string formatIndoorRoomList(const std::vector<uint16_t> &roomIds)
 {
     if (roomIds.empty())
@@ -4792,6 +5169,21 @@ const Game::OutdoorSceneInteractiveFace *findInteractiveFace(
     }
 
     return nullptr;
+}
+
+Game::OutdoorSceneInteractiveFace makeInteractiveFaceEntry(
+    size_t bmodelIndex,
+    size_t faceIndex,
+    const Game::OutdoorBModelFace &face)
+{
+    Game::OutdoorSceneInteractiveFace interactiveFace = {};
+    interactiveFace.bmodelIndex = bmodelIndex;
+    interactiveFace.faceIndex = faceIndex;
+    interactiveFace.legacyAttributes = face.attributes;
+    interactiveFace.cogNumber = face.cogNumber;
+    interactiveFace.cogTriggeredNumber = face.cogTriggeredNumber;
+    interactiveFace.cogTrigger = face.cogTrigger;
+    return interactiveFace;
 }
 
 }
@@ -11543,13 +11935,10 @@ void EditorMainWindow::renderBModelInspector(EditorSession &session, size_t bmod
 
                     if (pInteractiveFace == nullptr)
                     {
-                        sceneData.interactiveFaces.push_back({
+                        sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(
                             bmodelIndex,
                             currentFaceIndex,
-                            face.attributes,
-                            face.cogNumber,
-                            face.cogTriggeredNumber,
-                            face.cogTrigger});
+                            face));
                         pInteractiveFace = &sceneData.interactiveFaces.back();
                     }
 
@@ -12476,6 +12865,60 @@ void EditorMainWindow::renderInteractiveFaceInspector(EditorSession &session)
                 }
             }
 
+            if (currentRoomValid)
+            {
+                if (ImGui::Button("Append Room Geometry Snapshot"))
+                {
+                    std::filesystem::path outputPath;
+                    std::string errorMessage;
+
+                    if (appendIndoorRoomGeometryDiagnostic(
+                            session,
+                            face.roomNumber,
+                            faceIndex,
+                            outputPath,
+                            errorMessage))
+                    {
+                        const std::string message = "Appended room geometry snapshot to " + outputPath.string();
+                        session.logInfo(message);
+                        setStatusMessage(StatusMessageKind::Success, message);
+                    }
+                    else
+                    {
+                        session.logError(errorMessage);
+                        setStatusMessage(StatusMessageKind::Error, errorMessage);
+                    }
+                }
+            }
+
+            if (effectivePortal && behindRoomValid && face.roomBehindNumber != face.roomNumber)
+            {
+                ImGui::SameLine();
+
+                if (ImGui::Button("Append Other Side Snapshot"))
+                {
+                    std::filesystem::path outputPath;
+                    std::string errorMessage;
+
+                    if (appendIndoorRoomGeometryDiagnostic(
+                            session,
+                            face.roomBehindNumber,
+                            faceIndex,
+                            outputPath,
+                            errorMessage))
+                    {
+                        const std::string message = "Appended other-side room snapshot to " + outputPath.string();
+                        session.logInfo(message);
+                        setStatusMessage(StatusMessageKind::Success, message);
+                    }
+                    else
+                    {
+                        session.logError(errorMessage);
+                        setStatusMessage(StatusMessageKind::Error, errorMessage);
+                    }
+                }
+            }
+
             endInspectorSectionBlock();
         }
 
@@ -12900,13 +13343,10 @@ void EditorMainWindow::renderInteractiveFaceInspector(EditorSession &session)
 
                     if (pSelectedInteractiveFace == nullptr)
                     {
-                        sceneData.interactiveFaces.push_back({
+                        sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(
                             selectedBModelIndex,
                             selectedFaceIndex,
-                            selectedFace.attributes,
-                            selectedFace.cogNumber,
-                            selectedFace.cogTriggeredNumber,
-                            selectedFace.cogTrigger});
+                            selectedFace));
                         pSelectedInteractiveFace = &sceneData.interactiveFaces.back();
                     }
 
@@ -12994,13 +13434,10 @@ void EditorMainWindow::renderInteractiveFaceInspector(EditorSession &session)
 
                     if (pSelectedInteractiveFace == nullptr)
                     {
-                        sceneData.interactiveFaces.push_back({
+                        sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(
                             selectedBModelIndex,
                             selectedFaceIndex,
-                            selectedFace.attributes,
-                            selectedFace.cogNumber,
-                            selectedFace.cogTriggeredNumber,
-                            selectedFace.cogTrigger});
+                            selectedFace));
                         pSelectedInteractiveFace = &sceneData.interactiveFaces.back();
                     }
 
@@ -13043,13 +13480,10 @@ void EditorMainWindow::renderInteractiveFaceInspector(EditorSession &session)
 
                 if (pSelectedInteractiveFace == nullptr)
                 {
-                    sceneData.interactiveFaces.push_back({
+                    sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(
                         selectedBModelIndex,
                         selectedFaceIndex,
-                        selectedFace.attributes,
-                        selectedFace.cogNumber,
-                        selectedFace.cogTriggeredNumber,
-                        selectedFace.cogTrigger});
+                        selectedFace));
                     pSelectedInteractiveFace = &sceneData.interactiveFaces.back();
                 }
 
@@ -13076,13 +13510,10 @@ void EditorMainWindow::renderInteractiveFaceInspector(EditorSession &session)
         if (ImGui::Button("Add Interactive Face Entry"))
         {
             session.captureUndoSnapshot();
-            sceneData.interactiveFaces.push_back({
+            sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(
                 bmodelIndex,
                 faceIndex,
-                baseFace.attributes,
-                baseFace.cogNumber,
-                baseFace.cogTriggeredNumber,
-                baseFace.cogTrigger});
+                baseFace));
             pInteractiveFace = &sceneData.interactiveFaces.back();
             changed = true;
         }

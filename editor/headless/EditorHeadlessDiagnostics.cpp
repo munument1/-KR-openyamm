@@ -54,6 +54,24 @@ bool containsDiagnosticSubstring(const std::vector<std::string> &diagnostics, co
     return false;
 }
 
+Game::OutdoorSceneInteractiveFace makeInteractiveFaceEntry(
+    size_t bmodelIndex,
+    size_t faceIndex,
+    uint32_t legacyAttributes,
+    uint16_t cogNumber,
+    uint16_t cogTriggeredNumber,
+    uint16_t cogTrigger)
+{
+    Game::OutdoorSceneInteractiveFace interactiveFace = {};
+    interactiveFace.bmodelIndex = bmodelIndex;
+    interactiveFace.faceIndex = faceIndex;
+    interactiveFace.legacyAttributes = legacyAttributes;
+    interactiveFace.cogNumber = cogNumber;
+    interactiveFace.cogTriggeredNumber = cogTriggeredNumber;
+    interactiveFace.cogTrigger = cogTrigger;
+    return interactiveFace;
+}
+
 std::filesystem::path activeWorldEditorPath(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::filesystem::path &relativePath)
@@ -729,7 +747,7 @@ bool verifyOutdoorSceneRoundTrip(
     {
         if (!document.outdoorGeometry().bmodels.empty() && !document.outdoorGeometry().bmodels[0].faces.empty())
         {
-            sceneData.interactiveFaces.push_back({0, 0, 1, 0, 0, 0});
+            sceneData.interactiveFaces.push_back(makeInteractiveFaceEntry(0, 0, 1, 0, 0, 0));
         }
     }
     else
