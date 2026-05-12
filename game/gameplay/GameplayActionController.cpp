@@ -227,7 +227,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> resolveUsableActo
     const std::optional<GameplayPartyAttackActorFacts> actor =
         config.pWorldRuntime->partyAttackActorFacts(*actorIndex, false);
 
-    if (!actor || actor->isDead || actor->isInvisible)
+    if (!actor || !GameplayActionController::isPartyAttackActorTargetable(*actor))
     {
         return std::nullopt;
     }
@@ -268,7 +268,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> chooseFallbackRan
 
     for (const GameplayPartyAttackActorFacts &actor : actors)
     {
-        if (actor.isDead || actor.isInvisible || !actor.hostileToParty || !actor.visibleForFallback)
+        if (!GameplayActionController::isPartyAttackFallbackCandidate(actor))
         {
             continue;
         }
@@ -669,8 +669,8 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                     attack,
                     toRuntimeWorldPoint(config.partyPosition));
 
-                const std::optional<PartyAttackActorFacts> afterTarget =
-                    resolveUsableActorTarget(config, target->actorIndex);
+                const std::optional<GameplayPartyAttackActorFacts> afterTarget =
+                    config.pWorldRuntime->partyAttackActorFacts(target->actorIndex, false);
                 killed = beforeHp > 0 && afterTarget && afterTarget->currentHp <= 0;
 
                 if (pAttacker->vampiricHealFraction > 0.0f && appliedDamage > 0)

@@ -79,19 +79,19 @@ RegisterEvent(13, "Guardian of Kriegspire", function(continueStep)
             return
         end
         SubtractValue(Gold, 50000)
-        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
     end
     if continueStep ~= nil then return end
     if not IsQBitSet(QBit(1364)) then -- NPC
-        evt.SimpleMessage("\"The Guardian of Kriegspire proclaims, 'For 50,000 gold, the secret will be revealed!'\"")
+        evt.SetMessage("\"The Guardian of Kriegspire proclaims, 'For 50,000 gold, the secret will be revealed!'\"")
         evt.AskQuestion(13, 3, 10, 5, 11, 12, "Accept (Yes/No)?", {"Yes", "Y"})
         return nil
     end
-    evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
 end, "Guardian of Kriegspire")
 
 RegisterEvent(15, "Legacy event 15", function()
-    evt.MoveToMap(5773, 5678, -848, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(5773, 5678, -848, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(17, "Door", function()
@@ -103,7 +103,7 @@ RegisterEvent(18, "Legacy event 18", function()
 end)
 
 RegisterEvent(19, "Legacy event 19", function()
-    evt.MoveToMap(-11534, -9562, 97, 1536, 0, 0, 0, 0, "outb1.odm")
+    evt.MoveToMap(-11534, -9562, 97, 1536, 0, 0, 0, 0, "outb1.odm") -- Kriegspire
 end)
 
 RegisterEvent(20, "Legacy event 20", function()
@@ -202,7 +202,7 @@ RegisterEvent(27, "Curator of Kriegspire", function(continueStep)
         SubtractValue(1638635, 25)
     end
     if continueStep ~= nil then return end
-    evt.SimpleMessage("\"The Curator of Kriegspire proclaims, 'For 10,000 gold you shall be healed.'\"")
+    evt.SetMessage("\"The Curator of Kriegspire proclaims, 'For 10,000 gold you shall be healed.'\"")
     evt.AskQuestion(27, 2, 10, 4, 11, 12, "Accept (Yes/No)?", {"Yes", "Y"})
     return nil
 end, "Curator of Kriegspire")
@@ -225,6 +225,7 @@ RegisterEvent(42, "Chest", function()
             return
         end
         evt.OpenChest(9)
+        return
     end
     evt.OpenChest(2)
     SetQBit(QBit(1323)) -- NPC
@@ -244,7 +245,7 @@ RegisterEvent(45, "Chest", function()
 end, "Chest")
 
 RegisterEvent(46, "Legacy event 46", function()
-    evt.MoveToMap(6383, 4644, 222, 315, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(6383, 4644, 222, 315, 0, 0, 0, 0)
 end)
 
 RegisterEvent(49, "Chest", function()
@@ -272,7 +273,7 @@ RegisterEvent(60, "Legacy event 60", function()
 end)
 
 RegisterEvent(61, "Legacy event 61", function()
-    evt.MoveToMap(9111, 2540, 121, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(9111, 2540, 121, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(62, "Legacy event 62", function()

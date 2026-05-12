@@ -625,6 +625,7 @@ RegisterEvent(68, "Chest", function()
             return
         end
         evt.OpenChest(2)
+        return
     end
     evt.OpenChest(1)
     SetQBit(QBit(1328)) -- NPC
@@ -670,11 +671,11 @@ RegisterEvent(73, "Chest", function()
 end, "Chest")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-4158, 1792, 1233, 0, 0, 0, 181, 1, "6t8.blv")
+    evt.MoveToMap(-4158, 1792, 1233, 0, 0, 0, 181, 1, "6t8.blv") -- Temple of the Snake
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(-9600, 22127, 1, 512, 0, 0, 190, 1, "6d17.blv")
+    evt.MoveToMap(-9600, 22127, 1, 512, 0, 0, 190, 1, "6d17.blv") -- Lair of the Wolf
 end)
 
 RegisterEvent(92, "Temple Baa", function()
@@ -758,10 +759,14 @@ RegisterEvent(211, "Legacy event 211", function()
     end
 end)
 
-RegisterEvent(212, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            hd_scawehSfdewee")
-    SetQBit(QBit(1388)) -- NPC
-    SetAutonote(446) -- Obelisk Message # 5: hd_scawehSfdewee
+RegisterEvent(212, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1388)) -- NPC
+        SetAutonote(446) -- Obelisk Message # 5: hd_scawehSfdewee
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            hd_scawehSfdewee")
+    evt._PressAnyKey(212, 2)
 end, "Obelisk")
 
 RegisterEvent(213, "Legacy event 213", function()
@@ -786,6 +791,7 @@ RegisterEvent(261, "Shrine of Magic", function()
         evt.ForPlayer(Players.All)
         AddValue(FireResistance, 3)
         evt.StatusText("+3 Magic permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Magic")

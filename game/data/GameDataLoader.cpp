@@ -3414,12 +3414,7 @@ bool GameDataLoader::loadSelectedMap(
             ? m_selectedMap->outdoorMapDeltaData
             : m_selectedMap->indoorMapDeltaData;
         EventRuntimeState runtimeState = {};
-        eventRuntime.buildOnLoadState(
-            m_selectedMap->localEventProgram,
-            m_selectedMap->globalEventProgram,
-            mapDeltaData,
-            runtimeState
-        );
+        eventRuntime.initializeMapRuntimeState(mapDeltaData, runtimeState);
         runtimeState.mapFileName = m_selectedMap->map.fileName;
         m_selectedMap->eventRuntimeState = std::move(runtimeState);
     }

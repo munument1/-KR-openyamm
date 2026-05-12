@@ -15,14 +15,6 @@ elements:
         asset:
           default: title
 
-      - id: MainMenuActionColumn
-        anchor: inside_top_right
-        offset_x: -20
-        offset_y: 184
-        width: 135
-        height: 179
-        z_index: 20
-
       - id: MainMenuNewGameButton
         anchor: top_right
         offset_x: -20

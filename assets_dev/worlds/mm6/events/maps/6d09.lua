@@ -208,7 +208,7 @@ RegisterEvent(41, "Legacy event 41", function()
 end)
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(20212, 13238, 97, 1408, 0, 0, 0, 0, "outc3.odm")
+    evt.MoveToMap(20212, 13238, 97, 1408, 0, 0, 0, 0, "outc3.odm") -- Mire of the Damned
 end, "Exit")
 
 RegisterEvent(60, "Legacy event 60", function()

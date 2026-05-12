@@ -514,6 +514,10 @@ public:
     static uint64_t transportRouteOverrideKey(uint32_t houseId, uint32_t routeIndex);
 
     static float calculateMechanismDistance(const MapDeltaDoor &door, const RuntimeMechanismState &runtimeMechanism);
+    void initializeMapRuntimeState(
+        const std::optional<MapDeltaData> &mapDeltaData,
+        EventRuntimeState &runtimeState
+    ) const;
     bool buildOnLoadState(
         const std::optional<ScriptedEventProgram> &localProgram,
         const std::optional<ScriptedEventProgram> &globalProgram,

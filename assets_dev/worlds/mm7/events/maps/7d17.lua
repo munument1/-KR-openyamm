@@ -35,9 +35,8 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     SetValue(MapVar(2), 1)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghost A, spawn Skeleton Warrior A, spawn Thief A
 end)
-
 RegisterEvent(3, "Legacy event 3", function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
@@ -51,6 +50,7 @@ RegisterEvent(4, "Legacy event 4", function()
             return
         end
         evt.StatusText("You Successfully disarm the trap")
+        return
     end
     evt.CastSpell(32, 15, 4, -512, 3936, 246, 608, 3936, 246) -- Ice Blast
 end)
@@ -219,7 +219,7 @@ RegisterEvent(416, "Legacy event 416", function()
 end)
 
 RegisterEvent(501, "Leave the Tidewater Caverns", function()
-    evt.MoveToMap(-19112, 2248, 49, 896, 0, 0, 0, 0, "7out13.odm")
+    evt.MoveToMap(-19112, 2248, 49, 896, 0, 0, 0, 0, "7out13.odm") -- Tatalia
 end, "Leave the Tidewater Caverns")
 
 RegisterEvent(65535, "", function()

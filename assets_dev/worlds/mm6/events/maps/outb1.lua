@@ -149,23 +149,23 @@ RegisterEvent(90, "Legacy event 90", function()
         evt.StatusText("You are not a follower of Baa.  Begone!")
         return
     end
-    evt.MoveToMap(2094, -19, 177, 337, 0, 0, 179, 1, "6t7.blv")
+    evt.MoveToMap(2094, -19, 177, 337, 0, 0, 179, 1, "6t7.blv") -- Superior Temple of Baa
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(2702, -2926, 1, 1024, 0, 0, 192, 1, "6d19.blv")
+    evt.MoveToMap(2702, -2926, 1, 1024, 0, 0, 192, 1, "6d19.blv") -- Agar's Laboratory
 end)
 
 RegisterEvent(92, "Legacy event 92", function()
-    evt.MoveToMap(-49, -42, -2, 512, 0, 0, 193, 1, "6d20.blv")
+    evt.MoveToMap(-49, -42, -2, 512, 0, 0, 193, 1, "6d20.blv") -- Caves of the Dragon Riders
 end)
 
 RegisterEvent(93, "Legacy event 93", function()
-    evt.MoveToMap(5861, 2720, 169, 0, 0, 0, 171, 1, "cd3.blv")
+    evt.MoveToMap(5861, 2720, 169, 0, 0, 0, 171, 1, "cd3.blv") -- Castle Kriegspire
 end)
 
 RegisterEvent(94, "Demon Lair", function()
-    evt.MoveToMap(1893, 122, 1, 1024, 0, 0, 0, 0, "zdwj02.blv")
+    evt.MoveToMap(1893, 122, 1, 1024, 0, 0, 0, 0, "zdwj02.blv") -- Devil Outpost
 end, "Demon Lair")
 
 RegisterEvent(100, "Drink from Well.", function()
@@ -260,10 +260,14 @@ RegisterEvent(151, "Legacy event 151", function()
     end
 end)
 
-RegisterEvent(152, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            t_haat_lt__en_lc")
-    SetQBit(QBit(1387)) -- NPC
-    SetAutonote(445) -- Obelisk Message # 4: t_haat_lt__en_lc
+RegisterEvent(152, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1387)) -- NPC
+        SetAutonote(445) -- Obelisk Message # 4: t_haat_lt__en_lc
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            t_haat_lt__en_lc")
+    evt._PressAnyKey(152, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Cold", function()
@@ -283,6 +287,7 @@ RegisterEvent(261, "Shrine of Cold", function()
         evt.ForPlayer(Players.All)
         AddValue(WaterResistance, 3)
         evt.StatusText("+3 Cold resistance permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Cold")
@@ -304,6 +309,7 @@ RegisterEvent(262, "Shrine of Fire", function()
         evt.ForPlayer(Players.All)
         AddValue(FireResistance, 3)
         evt.StatusText("+3 Fire permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Fire")

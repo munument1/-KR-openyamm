@@ -183,6 +183,8 @@ private:
         std::vector<bgfx::TextureHandle> frameTextureHandles;
         std::vector<uint32_t> frameLengthTicks;
         uint32_t animationLengthTicks = 0;
+        int textureWidth = 0;
+        int textureHeight = 0;
         uint32_t vertexCapacity = 0;
         uint32_t vertexCount = 0;
         bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
@@ -528,6 +530,8 @@ private:
     bgfx::UniformHandle m_indoorLightColorsUniformHandle;
     bgfx::UniformHandle m_indoorLightParamsUniformHandle;
     bgfx::UniformHandle m_secretPulseParamsUniformHandle;
+    bgfx::UniformHandle m_indoorSkyParamsUniformHandle;
+    bgfx::UniformHandle m_indoorSkyProjectionParamsUniformHandle;
     bgfx::UniformHandle m_billboardAmbientUniformHandle;
     bgfx::UniformHandle m_billboardOverrideColorUniformHandle;
     bgfx::UniformHandle m_billboardOutlineParamsUniformHandle;

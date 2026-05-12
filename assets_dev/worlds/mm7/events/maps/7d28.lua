@@ -18,7 +18,7 @@ RegisterEvent(1, "Legacy event 1", function()
 end)
 
 RegisterEvent(101, "Legacy event 101", function()
-    evt.MoveToMap(13839, 16367, 169, 1, 0, 0, 0, 0, "7out01.odm")
+    evt.MoveToMap(13839, 16367, 169, 1, 0, 0, 0, 0, "7out01.odm") -- Emerald Island
 end)
 
 RegisterEvent(201, "Legacy event 201", function()

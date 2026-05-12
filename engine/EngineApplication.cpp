@@ -546,7 +546,7 @@ bool EngineApplication::validateConfiguration() const
 {
     if (!std::filesystem::exists(m_config.assetRoot))
     {
-        std::cerr << "Development asset root does not exist: " << m_config.assetRoot << '\n';
+        std::cerr << "Asset root does not exist: " << m_config.assetRoot << '\n';
         return false;
     }
 

@@ -26,7 +26,7 @@ RegisterEvent(76, "Chest", function()
 end, "Chest")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-2048, 3453, 2049, 1536, 0, 0, 177, 1, "6t6.blv")
+    evt.MoveToMap(-2048, 3453, 2049, 1536, 0, 0, 177, 1, "6t6.blv") -- Supreme Temple of Baa
 end)
 
 RegisterEvent(100, "Drink from Fountain", function()
@@ -35,9 +35,13 @@ RegisterEvent(100, "Drink from Fountain", function()
     SetAutonote(439) -- Unnatural aging cured at fountain to the east of Hermit's Isle.
 end, "Drink from Fountain")
 
-RegisterEvent(210, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _etecpe__ersoede")
-    SetQBit(QBit(1386)) -- NPC
-    SetAutonote(444) -- Obelisk Message # 3: _etecpe__ersoede
+RegisterEvent(210, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1386)) -- NPC
+        SetAutonote(444) -- Obelisk Message # 3: _etecpe__ersoede
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _etecpe__ersoede")
+    evt._PressAnyKey(210, 2)
 end, "Obelisk")
 

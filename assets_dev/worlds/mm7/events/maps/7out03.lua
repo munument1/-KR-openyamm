@@ -35,12 +35,12 @@ SetMapMetadata({
 RegisterEvent(1, "Legacy event 1", function()
     if not IsQBitSet(QBit(720)) then -- TP Buff City of Steadwick
         SetQBit(QBit(720)) -- TP Buff City of Steadwick
-        evt.SetMonGroupBit(57, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(58, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(57, MonsterBits.Hostile, 1) -- actor group 57: spawn Fighter Leather A
+        evt.SetMonGroupBit(58, MonsterBits.Hostile, 1) -- actor group 58: spawn Griffin A, spawn Griffin B, spawn Griffin C
         return
     end
-    evt.SetMonGroupBit(57, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(58, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(57, MonsterBits.Hostile, 1) -- actor group 57: spawn Fighter Leather A
+    evt.SetMonGroupBit(58, MonsterBits.Hostile, 1) -- actor group 58: spawn Griffin A, spawn Griffin B, spawn Griffin C
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -371,6 +371,7 @@ RegisterEvent(202, "Drink from the Well", function()
             evt.StatusText("Refreshing!")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -780,15 +781,15 @@ RegisterEvent(500, "Legacy event 500", function()
 end)
 
 RegisterEvent(501, "Enter The Erathian Sewer", function()
-    evt.MoveToMap(28, -217, 1, 512, 0, 0, 136, 1, "d01.blv")
+    evt.MoveToMap(28, -217, 1, 512, 0, 0, 136, 1, "d01.blv") -- The Erathian Sewers
 end, "Enter The Erathian Sewer")
 
 RegisterEvent(502, "Enter Fort Riverstride", function()
-    evt.MoveToMap(64, -448, 1, 512, 0, 0, 137, 1, "\t7d31.blv")
+    evt.MoveToMap(64, -448, 1, 512, 0, 0, 137, 1, "7d31.blv") -- Fort Riverstride
 end, "Enter Fort Riverstride")
 
 RegisterEvent(503, "Enter Castle Gryphonheart", function()
-    evt.MoveToMap(768, 0, 1, 1024, 0, 0, 127, 1, "\t7d33.blv")
+    evt.MoveToMap(768, 0, 1, 1024, 0, 0, 127, 1, "7d33.blv") -- Castle Gryphonheart
 end, "Enter Castle Gryphonheart")
 
 RegisterEvent(504, "Door", function()
@@ -797,26 +798,26 @@ RegisterEvent(504, "Door", function()
         evt.FaceAnimation(FaceAnimation.DoorLocked)
         return
     end
-    evt.MoveToMap(-6314, -618, 1873, 1024, 0, 0, 127, 1, "\t7d33.blv")
+    evt.MoveToMap(-6314, -618, 1873, 1024, 0, 0, 127, 1, "7d33.blv") -- Castle Gryphonheart
 end, "Door")
 
 RegisterEvent(505, "Enter Fort Riverstride", function()
-    evt.MoveToMap(-1262, 587, -1215, 1024, 0, 0, 137, 1, "\t7d31.blv")
+    evt.MoveToMap(-1262, 587, -1215, 1024, 0, 0, 137, 1, "7d31.blv") -- Fort Riverstride
 end, "Enter Fort Riverstride")
 
 RegisterEvent(506, "Enter The Erathian Sewer", function()
-    evt.MoveToMap(6647, 3511, -511, 1024, 0, 0, 136, 1, "d01.blv")
+    evt.MoveToMap(6647, 3511, -511, 1024, 0, 0, 136, 1, "d01.blv") -- The Erathian Sewers
 end, "Enter The Erathian Sewer")
 
 RegisterEvent(507, "Enter The Erathian Sewer", function()
-    evt.MoveToMap(-6507, 10205, -383, 512, 0, 0, 136, 1, "d01.blv")
+    evt.MoveToMap(-6507, 10205, -383, 512, 0, 0, 136, 1, "d01.blv") -- The Erathian Sewers
 end, "Enter The Erathian Sewer")
 
 RegisterEvent(508, "Enter", function()
-    evt.MoveToMap(-111, -25, 1, 640, 0, 0, 0, 0, "mdt11.blv")
+    evt.MoveToMap(-111, -25, 1, 640, 0, 0, 0, 0, "mdt11.blv") -- The Hidden Tomb
 end, "Enter")
 
 RegisterEvent(509, "Enter", function()
-    evt.MoveToMap(-104, 128, 1, 0, 0, 0, 0, 0, "mdt14.blv")
+    evt.MoveToMap(-104, 128, 1, 0, 0, 0, 0, 0, "mdt14.blv") -- The Bandit Caves
 end, "Enter")
 

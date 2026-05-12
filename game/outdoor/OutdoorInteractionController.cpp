@@ -37,6 +37,7 @@ namespace
 {
 constexpr float InspectRayEpsilon = 0.0001f;
 constexpr float Pi = 3.14159265358979323846f;
+constexpr float PartyAttackProjectileSourceHeight = 192.0f / 3.0f;
 
 std::array<float, 3> outdoorBModelRuntimeOffset(
     const EventRuntimeState *pEventRuntimeState,
@@ -2357,7 +2358,7 @@ GameplayPartyAttackFrameInput OutdoorInteractionController::buildPartyAttackFram
     const OutdoorMoveState &moveState = view.m_pOutdoorPartyRuntime->movementState();
     const float attackSourceX = moveState.x;
     const float attackSourceY = moveState.y;
-    const float attackSourceZ = moveState.footZ + 96.0f;
+    const float attackSourceZ = moveState.footZ + PartyAttackProjectileSourceHeight;
     const float attackCameraYawRadians = view.effectiveCameraYawRadians();
     const float attackCameraPitchRadians = view.effectiveCameraPitchRadians();
     const float attackRightX = -std::sin(attackCameraYawRadians);
@@ -2392,9 +2393,9 @@ GameplayPartyAttackFrameInput OutdoorInteractionController::buildPartyAttackFram
     input.hasRayRangedTarget = pickRequest.hasRay && vecLength(pickRequest.rayDirection) > InspectRayEpsilon;
     input.rayRangedTarget =
         GameplayWorldPoint{
-            .x = pickRequest.rayOrigin.x + pickRequest.rayDirection.x * 5120.0f,
-            .y = pickRequest.rayOrigin.y + pickRequest.rayDirection.y * 5120.0f,
-            .z = pickRequest.rayOrigin.z + pickRequest.rayDirection.z * 5120.0f,
+            .x = attackSourceX + pickRequest.rayDirection.x * 5120.0f,
+            .y = attackSourceY + pickRequest.rayDirection.y * 5120.0f,
+            .z = attackSourceZ + pickRequest.rayDirection.z * 5120.0f,
         };
     std::copy(
         pickRequest.viewMatrix.begin(),

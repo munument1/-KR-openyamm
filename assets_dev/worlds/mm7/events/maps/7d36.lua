@@ -125,7 +125,7 @@ RegisterEvent(196, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1492), 1492) -- Erudine-laced ore
     elseif randomStep == 8 then
@@ -143,7 +143,7 @@ RegisterEvent(197, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1492), 1492) -- Erudine-laced ore
     elseif randomStep == 8 then
@@ -161,7 +161,7 @@ RegisterEvent(198, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1491), 1491) -- Kergar-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1492), 1492) -- Erudine-laced ore
     elseif randomStep == 8 then
@@ -180,11 +180,11 @@ RegisterEvent(452, "Legacy event 452", function()
 end)
 
 RegisterEvent(501, "Leave the Cave", function()
-    evt.MoveToMap(20890, -3119, 1, 896, 0, 0, 0, 0, "out12.odm")
+    evt.MoveToMap(20890, -3119, 1, 896, 0, 0, 0, 0, "out12.odm") -- The Land of the Giants
 end, "Leave the Cave")
 
 RegisterEvent(502, "Leave the Cave", function()
-    evt.MoveToMap(2324, 7371, 1644, 1428, 0, 0, 0, 0, "7d07.blv")
+    evt.MoveToMap(2324, 7371, 1644, 1428, 0, 0, 0, 0, "7d07.blv") -- Thunderfist Mountain
 end, "Leave the Cave")
 
 RegisterEvent(65535, "", function()

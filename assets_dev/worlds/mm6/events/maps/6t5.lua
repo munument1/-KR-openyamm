@@ -269,8 +269,12 @@ RegisterEvent(21, "Altar of Luck", function()
     end
 end, "Altar of Luck")
 
-RegisterEvent(22, "Plaque", function()
-    evt.SimpleMessage("\"Life above all, Accuracy before Might, Endurance before Speed, and finally, Luck.\"")
+RegisterEvent(22, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"Life above all, Accuracy before Might, Endurance before Speed, and finally, Luck.\"")
+    evt._PressAnyKey(22, 2)
 end, "Plaque")
 
 RegisterEvent(23, "Door", function()
@@ -298,7 +302,7 @@ RegisterEvent(27, "Altar of the Moon", function()
 end, "Altar of the Moon")
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(-18178, 19695, 161, 512, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(-18178, 19695, 161, 512, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

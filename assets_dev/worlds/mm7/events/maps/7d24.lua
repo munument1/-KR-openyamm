@@ -178,7 +178,7 @@ RegisterEvent(200, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -196,7 +196,7 @@ RegisterEvent(201, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -326,7 +326,7 @@ RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Dwarven Commander, Dwarven Lieutenant, Dwarven Soldier
     SetValue(MapVar(6), 2)
 end)
 
@@ -337,11 +337,11 @@ RegisterEvent(453, "Legacy event 453", function()
 end)
 
 RegisterEvent(501, "Leave Stone City", function()
-    evt.MoveToMap(-2384, 3064, 2091, 0, 0, 0, 0, 0, "out11.odm")
+    evt.MoveToMap(-2384, 3064, 2091, 0, 0, 0, 0, 0, "out11.odm") -- The Barrow Downs
 end, "Leave Stone City")
 
 RegisterEvent(502, "Leave Stone City", function()
-    evt.MoveToMap(522, -808, 1, 1024, 0, 0, 0, 0, "7d35.blv")
+    evt.MoveToMap(522, -808, 1, 1024, 0, 0, 0, 0, "7d35.blv") -- Nighon Tunnels
 end, "Leave Stone City")
 
 RegisterEvent(65535, "", function()

@@ -41,23 +41,25 @@ RegisterEvent(1, "Legacy event 1", function()
                 ClearQBit(QBit(782)) -- Your friends are mad at you
                 SetValue(MapVar(6), 0)
                 evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
-                evt.SetMonGroupBit(55, MonsterBits.Hostile, 0)
+                evt.SetMonGroupBit(55, MonsterBits.Hostile, 0) -- actor group 55: Angel Lord, Wizard
+                return
             end
             SetValue(MapVar(6), 2)
             evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Angel Lord, Wizard
             return
         elseif IsAtLeast(MapVar(6), 2) then
             evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Angel Lord, Wizard
             return
         else
             return
         end
+        return
     end
     SetValue(MapVar(6), 2)
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Angel Lord, Wizard
 end)
 
 RegisterEvent(3, "Legacy event 3", function()
@@ -156,7 +158,7 @@ end, "Chest")
 
 RegisterEvent(376, "Hostel", function()
     if IsQBitSet(QBit(639)) then -- Assassinate Robert the Wise in his house in Celeste and return to Tolberti in the Pit.
-        evt.MoveToMap(0, 3808, 129, 270, 0, 0, 0, 0, "\tmdt15.blv")
+        evt.MoveToMap(0, 3808, 129, 270, 0, 0, 0, 0, "mdt15.blv") -- The Small House
     elseif IsQBitSet(QBit(626)) then -- Finished Wizard Proving Grounds
         if IsQBitSet(QBit(627)) then -- Finished Wizard Task 2 - Temple of Dark
             if IsQBitSet(QBit(628)) then -- Finished Wizard Task 3 - Wine Cellar
@@ -174,6 +176,7 @@ RegisterEvent(376, "Hostel", function()
                         evt.EnterHouse(1065) -- Hostel
                         return
                     end
+                    return
                 end
             end
         end
@@ -318,26 +321,26 @@ RegisterEvent(451, "Legacy event 451", function()
     local randomStep = PickRandomOption(451, 1, {1, 2, 3, 4, 5, 6})
     if randomStep == 1 then
         evt.MoveToMap(8146, 4379, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-2815, 1288, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-2815, 1288, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
     elseif randomStep == 2 then
-        evt.MoveToMap(-2815, 1288, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-2815, 1288, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
     elseif randomStep == 3 then
-        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-11883, 8667, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
     elseif randomStep == 4 then
-        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0)
-        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-22231, 13145, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
+        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
     elseif randomStep == 5 then
-        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0)
+        evt.MoveToMap(-12770, 18344, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
     end
-    evt.MoveToMap(9185, 18564, 3700, 0, 0, 0, 0, 0)
+    evt.MoveToMap(9185, 18564, 3700, 0, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
 end)
 
 RegisterEvent(452, "Take a Drink", function()
@@ -354,15 +357,15 @@ RegisterEvent(452, "Take a Drink", function()
 end, "Take a Drink")
 
 RegisterEvent(501, "Leave Celeste", function()
-    evt.MoveToMap(-9718, 10097, 2449, 1536, 0, 0, 0, 0, "7out06.odm")
+    evt.MoveToMap(-9718, 10097, 2449, 1536, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
 end, "Leave Celeste")
 
 RegisterEvent(502, "Enter the Walls of Mist", function()
-    evt.MoveToMap(-896, -4717, 161, 512, 0, 0, 144, 1, "\t7d11.blv")
+    evt.MoveToMap(-896, -4717, 161, 512, 0, 0, 144, 1, "7d11.blv") -- The Walls of Mist
 end, "Enter the Walls of Mist")
 
 RegisterEvent(503, "Enter Castle Lambent", function()
-    evt.MoveToMap(64, -640, 1, 512, 0, 0, 130, 1, "\t7d30.blv")
+    evt.MoveToMap(64, -640, 1, 512, 0, 0, 130, 1, "7d30.blv") -- Castle Lambent
 end, "Enter Castle Lambent")
 
 RegisterEvent(504, "Enter The Temple of the Light", function()

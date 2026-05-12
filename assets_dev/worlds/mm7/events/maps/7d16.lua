@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Elder Vampire, Shade, spawn Bat A, spawn Necromancer A, +1 more
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -178,6 +178,6 @@ end, "Wine Rack")
 
 RegisterEvent(501, "Leave the Vampire Family House", function()
     SetQBit(QBit(619)) -- Slayed the vampire
-    evt.MoveToMap(8216, -10619, 289, 0, 0, 0, 0, 0, "7out13.odm")
+    evt.MoveToMap(8216, -10619, 289, 0, 0, 0, 0, 0, "7out13.odm") -- Tatalia
 end, "Leave the Vampire Family House")
 

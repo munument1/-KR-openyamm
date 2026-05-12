@@ -372,7 +372,7 @@ RegisterEvent(100, "Chest", function()
 end, "Chest")
 
 RegisterEvent(451, "Legacy event 451", function()
-    evt.MoveToMap(1152, -768, -576, 1024, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(1152, -768, -576, 1024, 0, 0, 0, 0)
 end)
 
 RegisterEvent(452, "Legacy event 452", function()

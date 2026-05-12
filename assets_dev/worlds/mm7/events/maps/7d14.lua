@@ -35,8 +35,8 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Wizard
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Archmage, spawn Golem A, spawn Mage A
         evt.SetMonGroupBit(57, MonsterBits.Hostile, 1)
     end
 end)
@@ -228,7 +228,7 @@ end)
 
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Archmage, spawn Golem A, spawn Mage A
     SetValue(MapVar(6), 2)
 end)
 
@@ -247,10 +247,10 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(455, "Door", function()
-    evt.DamagePlayer(7, 2, 10)
+    evt.DamagePlayer(Players.Current, const.Damage.Water, 10)
 end, "Door")
 
 RegisterEvent(501, "Leave the School of Sorcery", function()
-    evt.MoveToMap(1530, -16578, 1377, 512, 0, 0, 0, 0, "7out06.odm")
+    evt.MoveToMap(1530, -16578, 1377, 512, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
 end, "Leave the School of Sorcery")
 

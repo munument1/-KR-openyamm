@@ -35,12 +35,12 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
     else
         return
     end
@@ -69,7 +69,7 @@ end, "Door")
 
 RegisterEvent(7, "Door", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
         SetValue(MapVar(6), 2)
         evt.SetDoorState(12, DoorAction.Open)
         evt.SetDoorState(13, DoorAction.Open)
@@ -81,7 +81,7 @@ end, "Door")
 
 RegisterEvent(8, "Door", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
         SetValue(MapVar(6), 2)
         evt.SetDoorState(14, DoorAction.Open)
         evt.SetDoorState(15, DoorAction.Open)
@@ -118,8 +118,8 @@ end)
 RegisterEvent(176, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(1)
         return
     end
@@ -129,8 +129,8 @@ end, "Chest")
 RegisterEvent(177, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(2)
         return
     end
@@ -140,8 +140,8 @@ end, "Chest")
 RegisterEvent(178, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(3)
         return
     end
@@ -151,8 +151,8 @@ end, "Chest")
 RegisterEvent(179, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(4)
         return
     end
@@ -162,8 +162,8 @@ end, "Chest")
 RegisterEvent(180, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(5)
         return
     end
@@ -173,8 +173,8 @@ end, "Chest")
 RegisterEvent(181, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(6)
         return
     end
@@ -184,8 +184,8 @@ end, "Chest")
 RegisterEvent(182, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(7)
         return
     end
@@ -195,8 +195,8 @@ end, "Chest")
 RegisterEvent(183, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(8)
         return
     end
@@ -206,8 +206,8 @@ end, "Chest")
 RegisterEvent(184, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(9)
         return
     end
@@ -217,8 +217,8 @@ end, "Chest")
 RegisterEvent(185, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(10)
         return
     end
@@ -228,8 +228,8 @@ end, "Chest")
 RegisterEvent(186, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(11)
         return
     end
@@ -239,8 +239,8 @@ end, "Chest")
 RegisterEvent(187, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(12)
         return
     end
@@ -250,8 +250,8 @@ end, "Chest")
 RegisterEvent(188, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(13)
         return
     end
@@ -261,8 +261,8 @@ end, "Chest")
 RegisterEvent(189, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(14)
         return
     end
@@ -272,8 +272,8 @@ end, "Chest")
 RegisterEvent(190, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(15)
         return
     end
@@ -283,8 +283,8 @@ end, "Chest")
 RegisterEvent(191, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(16)
         return
     end
@@ -294,8 +294,8 @@ end, "Chest")
 RegisterEvent(192, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(17)
         return
     end
@@ -305,8 +305,8 @@ end, "Chest")
 RegisterEvent(193, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(18)
         return
     end
@@ -316,8 +316,8 @@ end, "Chest")
 RegisterEvent(194, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(19)
         return
     end
@@ -327,8 +327,8 @@ end, "Chest")
 RegisterEvent(195, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
         evt.OpenChest(0)
         return
     end
@@ -458,8 +458,8 @@ end)
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
     SetValue(MapVar(6), 2)
 end)
 
@@ -474,10 +474,10 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Leave Castle Navan", function()
-    evt.MoveToMap(-18532, -10251, 1537, 0, 0, 0, 0, 0, "7out04.odm")
+    evt.MoveToMap(-18532, -10251, 1537, 0, 0, 0, 0, 0, "7out04.odm") -- The Tularean Forest
 end, "Leave Castle Navan")
 
 RegisterEvent(502, "Leave Castle Navan", function()
-    evt.MoveToMap(-3257, -12544, 833, 0, 0, 0, 0, 0, "7d08.blv")
+    evt.MoveToMap(-3257, -12544, 833, 0, 0, 0, 0, 0, "7d08.blv") -- The Tularean Caves
 end, "Leave Castle Navan")
 

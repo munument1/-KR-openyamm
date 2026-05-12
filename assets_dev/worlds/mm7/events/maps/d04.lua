@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Acolyte of the Moon, Cleric of the Moon, Priest of the Moon, spawn Devil A, +1 more
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -171,6 +171,6 @@ RegisterEvent(195, "Chest", function()
 end, "Chest")
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(-9306, -19451, 3361, 0, 0, 0, 0, 0, "out14.odm")
+    evt.MoveToMap(-9306, -19451, 3361, 0, 0, 0, 0, 0, "out14.odm") -- Avlee
 end)
 

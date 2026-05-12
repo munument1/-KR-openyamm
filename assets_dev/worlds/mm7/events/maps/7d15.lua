@@ -35,12 +35,12 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if not IsQBitSet(QBit(532)) then -- Watchtower 6. Weight in the appropriate box. Important for Global event 47 (Spy promotion)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
         return
     end
     evt.SetDoorState(13, DoorAction.Close)
     evt.SetDoorState(12, DoorAction.Close)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
 end)
 
 RegisterEvent(3, "Legacy event 3", function()
@@ -209,7 +209,7 @@ end)
 
 RegisterEvent(453, "Legacy event 453", function()
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
     SetValue(MapVar(6), 2)
 end)
 
@@ -219,20 +219,20 @@ end)
 
 RegisterEvent(455, "Legacy event 455", function()
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
     else
         return
     end
 end)
 
 RegisterEvent(501, "Leave Watchtower 6", function()
-    evt.MoveToMap(-16449, -18181, 6401, 1664, 0, 0, 0, 0, "7out05.odm")
+    evt.MoveToMap(-16449, -18181, 6401, 1664, 0, 0, 0, 0, "7out05.odm") -- Deyja
 end, "Leave Watchtower 6")
 
 RegisterEvent(502, "Leave Watchtower 6", function()
-    evt.MoveToMap(-20388, -17503, 4193, 1828, 0, 0, 0, 0, "7out05.odm")
+    evt.MoveToMap(-20388, -17503, 4193, 1828, 0, 0, 0, 0, "7out05.odm") -- Deyja
 end, "Leave Watchtower 6")
 

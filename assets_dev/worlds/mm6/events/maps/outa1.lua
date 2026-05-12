@@ -20,7 +20,7 @@ end, "Chest")
 
 RegisterEvent(90, " ", function()
     if IsQBitSet(QBit(1261)) then return end -- NPC
-    evt.MoveToMap(435, 3707, 1, 512, 0, 0, 165, 1, "hive.blv")
+    evt.MoveToMap(435, 3707, 1, 512, 0, 0, 165, 1, "hive.blv") -- The Hive
 end, " ")
 
 RegisterEvent(100, "Drink from Well.", function()
@@ -79,9 +79,13 @@ RegisterEvent(205, " ", function()
     evt.EnterHouse(1231) -- House
 end, " ")
 
-RegisterEvent(210, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            Itotecthothesaip")
-    SetQBit(QBit(1384)) -- NPC
-    SetAutonote(442) -- Obelisk Message # 1: Itotecthothesaip
+RegisterEvent(210, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1384)) -- NPC
+        SetAutonote(442) -- Obelisk Message # 1: Itotecthothesaip
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            Itotecthothesaip")
+    evt._PressAnyKey(210, 2)
 end, "Obelisk")
 

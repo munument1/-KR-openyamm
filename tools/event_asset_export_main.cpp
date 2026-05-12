@@ -1864,6 +1864,60 @@ void populateMapEncounterNames(LegacyLuaExportLookups &lookups, const MapStatsEn
     }
 }
 
+void populateTownPortalQBitRemaps(
+    LegacyLuaExportLookups &lookups,
+    const std::string &outputStem,
+    LegacyEventVersion version)
+{
+    const std::string lowerStem = toLowerCopy(outputStem);
+
+    if (version == LegacyEventVersion::Mm7)
+    {
+        struct TownPortalQBitRemap
+        {
+            uint32_t rawId = 0;
+            uint32_t canonicalId = 0;
+            const char *comment = nullptr;
+        };
+
+        const std::unordered_map<std::string, TownPortalQBitRemap> remaps = {
+            {"7d25", {182, 722, "TP Buff Celeste"}},
+            {"7d26", {185, 723, "TP Buff The Pit"}},
+            {"7d29", {181, 718, "TP Buff Castle Harmondale"}},
+            {"7out03", {184, 720, "TP Buff City of Steadwick"}},
+            {"7out04", {180, 719, "TP Buff Tularean Forest"}},
+            {"out10", {183, 721, "TP Buff Nighon"}},
+        };
+        const auto iterator = remaps.find(lowerStem);
+
+        if (iterator != remaps.end())
+        {
+            lookups.qbitRemaps[iterator->second.rawId] = iterator->second.canonicalId;
+            lookups.questNotes[iterator->second.canonicalId] = iterator->second.comment;
+        }
+
+        return;
+    }
+
+    if (version == LegacyEventVersion::Mm8)
+    {
+        const std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> remaps = {
+            {"out03", {181, 301}}, // Alvar
+            {"out02", {180, 302}}, // Ravenshore
+            {"d24", {184, 303}},   // Balthazar Lair
+            {"out13", {183, 304}}, // Regna
+            {"out06", {182, 305}}, // Shadowspire
+            {"out01", {185, 306}}, // Dagger Wound Island
+        };
+        const auto iterator = remaps.find(lowerStem);
+
+        if (iterator != remaps.end())
+        {
+            lookups.qbitRemaps[iterator->second.first] = iterator->second.second;
+        }
+    }
+}
+
 bool exportLegacyProgram(
     const AssetFileSystem &assetFileSystem,
     const std::filesystem::path &scriptsRoot,
@@ -1966,6 +2020,7 @@ bool exportLegacyProgram(
             lookups.monsterNames,
             pMapEntry);
         populateMapEncounterNames(lookups, pMapEntry);
+        populateTownPortalQBitRemaps(lookups, outputStem, version);
         lookups.summonObjectTypesByEventStep =
             loadDecompiledSummonObjectTypes(decompiledSummonObjectTypes, outputStem);
     }

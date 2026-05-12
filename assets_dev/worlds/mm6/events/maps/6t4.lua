@@ -89,7 +89,7 @@ RegisterEvent(13, "Cabinet", function()
 end, "Cabinet")
 
 RegisterEvent(14, "Exit", function()
-    evt.MoveToMap(-7537, 4032, 97, 0, 0, 0, 0, 0, "outd2.odm")
+    evt.MoveToMap(-7537, 4032, 97, 0, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end, "Exit")
 
 RegisterEvent(15, "Legacy event 15", function()

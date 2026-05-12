@@ -404,6 +404,7 @@ RegisterEvent(451, "Bookshelf", function()
             evt.StatusText("You found nothing useful")
         end
         AddValue(MapVar(41), 1)
+        return
     end
     evt.StatusText("You found nothing useful")
     AddValue(MapVar(41), 1)

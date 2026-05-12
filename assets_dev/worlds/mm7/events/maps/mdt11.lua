@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn 0 A, spawn Lich A, spawn Vampire A
 end)
 
 RegisterNoOpEvent(2, "Legacy event 2")
@@ -121,6 +121,6 @@ RegisterEvent(195, "Sarcophagus", function()
 end, "Sarcophagus")
 
 RegisterEvent(501, "Leave the Hidden tomb", function()
-    evt.MoveToMap(14207, -21526, 0, 1536, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(14207, -21526, 0, 1536, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end, "Leave the Hidden tomb")
 

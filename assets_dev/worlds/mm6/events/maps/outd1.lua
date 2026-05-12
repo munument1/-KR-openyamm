@@ -120,7 +120,7 @@ RegisterEvent(33, "Circus", function()
 end, "Circus")
 
 RegisterEvent(34, "Throne Room", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 83, 1, "0.")
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 83, 1)
     evt.EnterHouse(226) -- Throne Room
 end, "Throne Room")
 
@@ -329,15 +329,15 @@ RegisterEvent(102, "Chest", function()
 end, "Chest")
 
 RegisterEvent(150, "Legacy event 150", function()
-    evt.MoveToMap(-127, 4190, 1, 1536, 0, 0, 185, 1, "6d12.blv")
+    evt.MoveToMap(-127, 4190, 1, 1536, 0, 0, 185, 1, "6d12.blv") -- Silver Helm Stronghold
 end)
 
 RegisterEvent(151, "Legacy event 151", function()
-    evt.MoveToMap(-128, -3968, 1, 512, 0, 0, 186, 1, "6d13.blv")
+    evt.MoveToMap(-128, -3968, 1, 512, 0, 0, 186, 1, "6d13.blv") -- The Monolith
 end)
 
 RegisterEvent(152, "Legacy event 152", function()
-    evt.MoveToMap(-4724, 1494, 127, 1920, 0, 0, 189, 1, "6d16.blv")
+    evt.MoveToMap(-4724, 1494, 127, 1920, 0, 0, 189, 1, "6d16.blv") -- Warlord's Fortress
 end)
 
 RegisterEvent(161, "Drink from Well.", function()
@@ -444,19 +444,19 @@ RegisterEvent(211, "Circle of Stones", function()
 end, "Circle of Stones")
 
 RegisterEvent(212, "Legacy event 212", function()
-    evt.MoveToMap(-12344, 17112, 1, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-12344, 17112, 1, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(213, "Legacy event 213", function()
-    evt.MoveToMap(-9400, 17184, 1, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-9400, 17184, 1, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(214, "Legacy event 214", function()
-    evt.MoveToMap(-11512, 19368, 1, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-11512, 19368, 1, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(215, "Legacy event 215", function()
-    evt.MoveToMap(-9192, 21936, 160, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-9192, 21936, 160, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(220, "Legacy event 220", function()
@@ -506,10 +506,14 @@ RegisterEvent(223, "Legacy event 223", function()
     SetQBit(QBit(1203)) -- NPC
 end)
 
-RegisterEvent(224, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            nnaifnt_ieif_tu_")
-    SetQBit(QBit(1393)) -- NPC
-    SetAutonote(451) -- Obelisk Message # 10: nnaifnt_ieif_tu_
+RegisterEvent(224, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1393)) -- NPC
+        SetAutonote(451) -- Obelisk Message # 10: nnaifnt_ieif_tu_
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            nnaifnt_ieif_tu_")
+    evt._PressAnyKey(224, 2)
 end, "Obelisk")
 
 RegisterEvent(226, "Legacy event 226", function()
@@ -534,6 +538,7 @@ RegisterEvent(261, "Shrine of Personality", function()
         evt.ForPlayer(Players.All)
         AddValue(BasePersonality, 3)
         evt.StatusText("+3 Personality permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Personality")

@@ -20,7 +20,7 @@ RegisterEvent(3, "Switch", function()
 end, "Switch")
 
 RegisterEvent(4, "Glowing dinosaur bones", function()
-    evt.MoveToMap(1576, -1921, 1, 44, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(1576, -1921, 1, 44, 0, 0, 0, 0)
 end, "Glowing dinosaur bones")
 
 RegisterEvent(6, "Lever", function()
@@ -505,7 +505,7 @@ RegisterEvent(35, "Legacy event 35", function()
 end)
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(-19604, 20019, 161, 1024, 0, 0, 0, 0, "outd3.odm")
+    evt.MoveToMap(-19604, 20019, 161, 1024, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

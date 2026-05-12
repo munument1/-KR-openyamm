@@ -14,7 +14,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Exit", function()
-    evt.MoveToMap(14088, 2800, 96, 1024, 0, 0, 0, 0, "OutD3.Odm")
+    evt.MoveToMap(14088, 2800, 96, 1024, 0, 0, 0, 0, "OutD3.Odm") -- Castle Ironfist
 end, "Exit")
 
 RegisterEvent(5, "Legacy event 5", function()

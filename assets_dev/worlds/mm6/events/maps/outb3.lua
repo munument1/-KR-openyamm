@@ -86,7 +86,7 @@ RegisterEvent(79, "Chest", function()
 end, "Chest")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-9734, -19201, 772, 512, 0, 0, 164, 1, "pyramid.blv")
+    evt.MoveToMap(-9734, -19201, 772, 512, 0, 0, 164, 1, "pyramid.blv") -- Tomb of VARN
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
@@ -202,10 +202,14 @@ RegisterEvent(106, "Legacy event 106", function()
     end
 end)
 
-RegisterEvent(107, "Obelisk", function()
-    evt.SimpleMessage("\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            erbthieaeuu,_o'd\"")
-    SetQBit(QBit(1389)) -- NPC
-    SetAutonote(447) -- Obelisk Message # 6: erbthieaeuu,_o'd
+RegisterEvent(107, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1389)) -- NPC
+        SetAutonote(447) -- Obelisk Message # 6: erbthieaeuu,_o'd
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            erbthieaeuu,_o'd\"")
+    evt._PressAnyKey(107, 2)
 end, "Obelisk")
 
 RegisterEvent(108, "rock", function()

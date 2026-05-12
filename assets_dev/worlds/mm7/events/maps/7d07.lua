@@ -36,7 +36,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AMinotaur A, spawn Beholder A, spawn Warlock A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -305,26 +305,26 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(-7673, -7957, 3201, 512, 0, 0, 0, 0, "out10.odm")
+    evt.MoveToMap(-7673, -7957, 3201, 512, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave Thunderfist Mountain")
 
 RegisterEvent(502, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(-14395, 3771, 3201, 1024, 0, 0, 0, 0, "out10.odm")
+    evt.MoveToMap(-14395, 3771, 3201, 1024, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave Thunderfist Mountain")
 
 RegisterEvent(503, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(6138, 3063, 2406, 0, 0, 0, 0, 0, "out10.odm")
+    evt.MoveToMap(6138, 3063, 2406, 0, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave Thunderfist Mountain")
 
 RegisterEvent(504, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(11623, -11083, 3840, 0, 0, 0, 0, 0, "out10.odm")
+    evt.MoveToMap(11623, -11083, 3840, 0, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave Thunderfist Mountain")
 
 RegisterEvent(505, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(9350, -1010, 1, 744, 0, 0, 45, 0, "7d35.blv")
+    evt.MoveToMap(9350, -1010, 1, 744, 0, 0, 45, 0, "7d35.blv") -- Nighon Tunnels
 end, "Leave Thunderfist Mountain")
 
 RegisterEvent(506, "Leave Thunderfist Mountain", function()
-    evt.MoveToMap(-437, -1078, 1, 256, 0, 0, 48, 0, "7d36.blv")
+    evt.MoveToMap(-437, -1078, 1, 256, 0, 0, 48, 0, "7d36.blv") -- Tunnels to Eeofol
 end, "Leave Thunderfist Mountain")
 

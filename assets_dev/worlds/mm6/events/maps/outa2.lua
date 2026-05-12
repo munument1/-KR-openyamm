@@ -141,9 +141,13 @@ RegisterEvent(100, "Drink from Fountain", function()
     SetAutonote(440) -- 100 Hit points and spell points from fountain in the desert in Paradise Valley.
 end, "Drink from Fountain")
 
-RegisterEvent(200, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            nhrh_aherheatvdi")
-    SetQBit(QBit(1385)) -- NPC
-    SetAutonote(443) -- Obelisk Message # 2: nhrh_aherheatvdi
+RegisterEvent(200, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1385)) -- NPC
+        SetAutonote(443) -- Obelisk Message # 2: nhrh_aherheatvdi
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            nhrh_aherheatvdi")
+    evt._PressAnyKey(200, 2)
 end, "Obelisk")
 

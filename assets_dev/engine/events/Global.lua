@@ -9339,6 +9339,7 @@ RegisterGlobalEvent(858, "Legacy event 858", function()
                             ClearQBit(QBit(1694)) -- Replacement for NPCs ¹66 ver. 7
                             evt.SetNPCTopic(398, 0, 0) -- Hothfarr IX topic 0 cleared
                             evt.SetNPCGreeting(398, 203) -- Hothfarr IX greeting: Welcome, Harmondale! Stone city is at your disposal.
+                            return
                         end
                     end
                 end
@@ -9841,6 +9842,7 @@ RegisterGlobalEvent(882, "Legacy event 882", function()
             evt.SetMessage("I really do need those plans soon.\nIf you take too long, I'll have to prepare my attack without the plans.")
             return
         end
+        return
     end
     evt.SetMessage("The time where I could have used those plans is over.\nThanks for any efforts you may have put into finding them, but I no longer need the plans.")
     evt.SetNPCTopic(409, 0, 0) -- ElfKing topic 0 cleared
@@ -12100,6 +12102,7 @@ RegisterGlobalEvent(1213, "Legacy event 1213", function()
             SetAward(Award(53)) -- Found and placed all the statuettes
             evt.SetNPCGreeting(627, 289) -- Thom Lumbra greeting: Excellent work; my associates are quite pleased.
             evt.SetNPCTopic(627, 0, 0) -- Thom Lumbra topic 0 cleared
+            return
         end
     end
     evt.SetMessage("All three statuettes are not placed.")
@@ -12132,6 +12135,7 @@ RegisterGlobalEvent(1215, "Legacy event 1215", function()
             SetAward(Award(55)) -- Retrieved the complete set of paintings
             evt.SetNPCGreeting(628, 291) -- Ferdinand Visconti greeting 291
             evt.SetNPCTopic(628, 0, 0) -- Ferdinand Visconti topic 0 cleared
+            return
         end
     end
     evt.SetMessage("Remember, I need the complete set of paintings-- they aren't worth much by themselves.\nWhen you have the rest, bring them all to me.")
@@ -13982,6 +13986,7 @@ RegisterGlobalEvent(1389, "Legacy event 1389", function()
             evt.SetNPCTopic(793, 0, 1390) -- Oracle topic 0: Kreegan
             evt.SetNPCTopic(793, 1, 1391) -- Oracle topic 1: Ancients
             evt.SetMessage("You now have access to the Control Center.\nSimply ask to be transported and I will oblige.\nOne warning however– the guardians of the Control Center are no longer under my control, so please exercise caution while visiting the Center.")
+            return
         end
         evt.SetMessage("I am Melian, Guardian of Enroth.\nThank you for replacing my memory modules.\nArchibald took them from here when I refused to give him any help in his battle for succession.\nYour timing is impeccable.\nThe Kreegan have invaded our world, and you must try and stop them.\nUnfortunately, Archibald’s attempts at extracting information from me have damaged me enough that I cannot help you directly now.\nInstead, I can only give you advice.While most of the Kreegan can be slain with ordinary weapons and spells, the elite guards and upper echelon breeders have tougher skin and natural defenses that protect them from anything but very powerful weapons.\nIn the planetary control center beneath me are the weapons and armor you will need to survive battle with the enemy.\nMy orders, however, will only permit passage to someone with a Control Cube.\nMy instruments tell me that the only Control Cube left in Enroth can be found somewhere underground in Dragonsand.\n")
         return
@@ -14211,6 +14216,7 @@ RegisterGlobalEvent(1413, "Legacy event 1413", function()
                             end
                         end
                         evt.SetNPCTopic(800, 1, 1407) -- Erik Von Stromgard topic 1: Master Archers
+                        return
                     end
                 end
             end
@@ -15923,6 +15929,7 @@ RegisterGlobalEvent(1448, "Legacy event 1448", function()
             evt.SetMessage("Thanks for the lamp!")
             return
         end
+        return
     end
     evt.ForPlayer(Players.Member1)
     if HasItem(2103) then -- Magic Lamp
@@ -15953,6 +15960,7 @@ RegisterGlobalEvent(1448, "Legacy event 1448", function()
             evt.SetMessage("Thanks for the lamp!")
             return
         end
+        return
     end
     evt.ForPlayer(Players.Member2)
     if HasItem(2103) then -- Magic Lamp
@@ -15983,6 +15991,7 @@ RegisterGlobalEvent(1448, "Legacy event 1448", function()
             evt.SetMessage("Thanks for the lamp!")
             return
         end
+        return
     end
     evt.ForPlayer(Players.Member3)
     if HasItem(2103) then -- Magic Lamp
@@ -16013,6 +16022,7 @@ RegisterGlobalEvent(1448, "Legacy event 1448", function()
             evt.SetMessage("Thanks for the lamp!")
             return
         end
+        return
     end
     evt.SetMessage("I'm collecting used magic lamps, but I don't have any money.\nI'll trade you some of these pretty stones for the lamps, though.")
 end)

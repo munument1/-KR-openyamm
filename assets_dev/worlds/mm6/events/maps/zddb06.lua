@@ -59,6 +59,7 @@ RegisterEvent(6, "Switch", function()
         end
         evt.StatusText("You were fast enough to dodge the bigger rocks.")
         evt.FaceExpression(33)
+        return
     end
     evt.StatusText("The switch is locked in place.")
 end, "Switch")

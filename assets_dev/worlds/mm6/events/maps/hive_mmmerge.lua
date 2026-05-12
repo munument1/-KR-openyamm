@@ -95,8 +95,7 @@ RegisterMonsterKilledHook(65011, "Hive reactor and queen kill flow", function(co
             0,
             0,
             0,
-            0,
-            "0.")
+            0)
         restorePartyAfterReactor()
     else
         badEnd()

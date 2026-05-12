@@ -31,7 +31,7 @@ ReplaceMapEvent(210, "Legacy event 210", function(continueStep)
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
             evt.SimpleMessage("Well")
-            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
+            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0)
             return
         end
 
@@ -48,7 +48,7 @@ ReplaceMapEvent(210, "Legacy event 210", function(continueStep)
 
     if continueStep == 13 then
         evt.SimpleMessage("Well")
-        evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0)
         return
     end
 

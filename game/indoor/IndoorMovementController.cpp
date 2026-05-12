@@ -131,6 +131,57 @@ bool indoorFaceIsSteepFloorCollisionSurface(const IndoorFaceGeometryData &geomet
     return geometry.facetType == 3 || geometry.facetType == 4 || geometry.kind == IndoorFaceKind::Floor;
 }
 
+bool indoorFaceBlocksAsWallOverlap(const IndoorFaceGeometryData &geometry, float footZ)
+{
+    if (geometry.kind != IndoorFaceKind::Wall
+        || geometry.isPortal
+        || hasFaceAttribute(geometry.attributes, FaceAttribute::Untouchable)
+        || geometry.maxZ <= footZ + MaximumRise)
+    {
+        return false;
+    }
+
+    return !indoorFaceIsSteepFloorCollisionSurface(geometry);
+}
+
+bool indoorBodyStartsInsideSteepFloorSweepRadius(
+    const IndoorFaceGeometryData &geometry,
+    const IndoorBodyDimensions &body,
+    float x,
+    float y,
+    float footZ
+)
+{
+    if (!indoorFaceIsSteepFloorCollisionSurface(geometry) || geometry.vertices.empty())
+    {
+        return false;
+    }
+
+    const float lowHeightOffset = std::max(0.0f, body.radius);
+    const float highHeightOffset = std::max(lowHeightOffset, body.height - body.radius);
+    const float midHeightOffset = (lowHeightOffset + highHeightOffset) * 0.5f;
+    const std::array<float, 3> heightOffsets = {{lowHeightOffset, midHeightOffset, highHeightOffset}};
+
+    for (float heightOffset : heightOffsets)
+    {
+        const bx::Vec3 sphereCenter = {x, y, footZ + heightOffset};
+        const bx::Vec3 delta = {
+            sphereCenter.x - geometry.vertices.front().x,
+            sphereCenter.y - geometry.vertices.front().y,
+            sphereCenter.z - geometry.vertices.front().z
+        };
+        const float planeDistance =
+            std::fabs(delta.x * geometry.normal.x + delta.y * geometry.normal.y + delta.z * geometry.normal.z);
+
+        if (planeDistance <= body.radius + 0.5f)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bx::Vec3 applySteepFloorCollisionResponse(
     const bx::Vec3 &step,
     const IndoorFaceGeometryData *pGeometry,
@@ -1459,6 +1510,65 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             floor = approximateFloor;
         }
 
+        const float movementX = candidateX - currentX;
+        const float movementY = candidateY - currentY;
+        const float movementLength = std::sqrt(movementX * movementX + movementY * movementY);
+        IndoorFloorSample leadingFootprintFloor = {};
+
+        if (state.grounded
+            && !flying
+            && !sweptRequest.jumpRequested
+            && movementLength > 0.0001f)
+        {
+            const float probeX = candidateX + movementX / movementLength * body.radius;
+            const float probeY = candidateY + movementY / movementLength * body.radius;
+            leadingFootprintFloor = sampleSupportedFloor(
+                vertices,
+                geometryCache,
+                probeX,
+                probeY,
+                positionFootZ,
+                MaximumRise,
+                body.height + 1024.0f,
+                body,
+                preferredSectorId,
+                &nonBlockingMechanismFaceMask);
+
+            if (floor.hasFloor
+                && floor.faceIndex == state.supportFaceIndex
+                && leadingFootprintFloor.hasFloor
+                && leadingFootprintFloor.faceIndex != floor.faceIndex
+                && !indoorFloorTooSteepForUphillStep(
+                    *m_pIndoorMapData,
+                    pMapDeltaData,
+                    leadingFootprintFloor,
+                    state.footZ)
+                && leadingFootprintFloor.height <= state.footZ + MaximumStepUpFromCurrentFootZ)
+            {
+                floor = leadingFootprintFloor;
+            }
+        }
+
+        if (floor.hasFloor
+            && !flying
+            && !sweptRequest.jumpRequested
+            && indoorFloorTooSteepForUphillStep(*m_pIndoorMapData, pMapDeltaData, floor, state.footZ))
+        {
+            if (leadingFootprintFloor.hasFloor)
+            {
+                if (leadingFootprintFloor.faceIndex != floor.faceIndex
+                    && !indoorFloorTooSteepForUphillStep(
+                        *m_pIndoorMapData,
+                        pMapDeltaData,
+                        leadingFootprintFloor,
+                        state.footZ)
+                    && leadingFootprintFloor.height <= state.footZ + MaximumStepUpFromCurrentFootZ)
+                {
+                    floor = leadingFootprintFloor;
+                }
+            }
+        }
+
         if (floor.hasFloor
             && !flying
             && !sweptRequest.jumpRequested
@@ -1638,10 +1748,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         for (const IndoorFaceGeometryData *pGeometry : candidateFaces)
         {
             if (pGeometry == nullptr
-                || pGeometry->kind != IndoorFaceKind::Wall
-                || pGeometry->isPortal
-                || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
-                || pGeometry->maxZ <= moveState.footZ + MaximumRise
+                || !indoorFaceBlocksAsWallOverlap(*pGeometry, moveState.footZ)
                 || (moveState.grounded
                     && pGeometry->faceIndex == moveState.supportFaceIndex
                     && indoorFaceIsSteepFloorCollisionSurface(*pGeometry))
@@ -2027,6 +2134,16 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 continue;
             }
 
+            if (indoorBodyStartsInsideSteepFloorSweepRadius(
+                    *pFace,
+                    body,
+                    iterativeState.x,
+                    iterativeState.y,
+                    iterativeState.footZ))
+            {
+                continue;
+            }
+
             responseFaceCandidates.push_back(pFace);
         }
 
@@ -2377,10 +2494,7 @@ IndoorCollisionTraceInfo IndoorMovementController::traceCollisionIssues(
     for (const IndoorFaceGeometryData *pGeometry : candidates)
     {
         if (pGeometry == nullptr
-            || pGeometry->kind != IndoorFaceKind::Wall
-            || pGeometry->isPortal
-            || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
-            || pGeometry->maxZ <= std::min(start.footZ, end.footZ) + MaximumRise)
+            || !indoorFaceBlocksAsWallOverlap(*pGeometry, std::min(start.footZ, end.footZ)))
         {
             continue;
         }
@@ -2579,9 +2693,7 @@ std::string IndoorMovementController::buildCollisionTraceProbeDetails(
             || (endFloor.hasFloor && faceIndex == endFloor.faceIndex);
         const bool boundsTouch = indoorSweptBodyBoundsTouchFace(sweptBounds, *pGeometry, body.radius + 48.0f);
         const bool blockedAtEnd =
-            pGeometry->kind == IndoorFaceKind::Wall
-            && !pGeometry->isPortal
-            && pGeometry->maxZ > end.footZ + MaximumRise
+            indoorFaceBlocksAsWallOverlap(*pGeometry, end.footZ)
             && isIndoorCylinderBlockedByFace(*pGeometry, end.x, end.y, end.footZ, body.radius, body.height);
         const bool portalTouch =
             pGeometry->isPortal
@@ -2762,10 +2874,7 @@ bool IndoorMovementController::collidesAtPosition(
         }
 
         if (pGeometry == nullptr
-            || pGeometry->kind != IndoorFaceKind::Wall
-            || pGeometry->isPortal
-            || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
-            || pGeometry->maxZ <= footZ + MaximumRise
+            || !indoorFaceBlocksAsWallOverlap(*pGeometry, footZ)
             || !isIndoorCylinderBlockedByFace(*pGeometry, x, y, footZ, body.radius, body.height))
         {
             continue;

@@ -541,6 +541,7 @@ IndoorFloorSample evaluateIndoorFloorFace(
 
     if (pGeometry == nullptr
         || pGeometry->isPortal
+        || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
         || !faceCanDefineFloorHeight(*pGeometry)
         || x < pGeometry->minX - FloorSlack
         || x > pGeometry->maxX + FloorSlack
@@ -1269,10 +1270,11 @@ IndoorCeilingSample sampleIndoorCeiling(
                 indoorMapData,
                 vertices,
                 faceId,
-                nullptr,
+                pGeometryCache,
                 geometryStorage);
 
             if (pGeometry == nullptr
+                || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
                 || !faceCanDefineCeilingHeight(*pGeometry)
                 || x < pGeometry->minX - FloorSlack
                 || x > pGeometry->maxX + FloorSlack
@@ -1423,7 +1425,8 @@ std::optional<int16_t> findIndoorSectorForPoint(
                     geometryStorage);
 
                 if (pGeometry == nullptr
-                    || pGeometry->kind != IndoorFaceKind::Floor
+                    || hasFaceAttribute(pGeometry->attributes, FaceAttribute::Untouchable)
+                    || !faceCanDefineFloorHeight(*pGeometry)
                     || point.x < pGeometry->minX - FloorSlack
                     || point.x > pGeometry->maxX + FloorSlack
                     || point.y < pGeometry->minY - FloorSlack

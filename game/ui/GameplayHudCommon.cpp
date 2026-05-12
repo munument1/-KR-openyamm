@@ -683,7 +683,8 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCa
     GameplayAssetLoadCache &cache,
     const std::string &textureName,
     int &width,
-    int &height)
+    int &height,
+    GameplayHudBitmapTransparencyMode transparencyMode)
 {
     if (pAssetFileSystem == nullptr)
     {
@@ -691,6 +692,7 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCa
     }
 
     Engine::ImageDecodeOptions decodeOptions = {};
+    decodeOptions.applyPaletteZeroTransparencyKey = transparencyMode == GameplayHudBitmapTransparencyMode::ItemIcon;
     decodeOptions.applyMagentaTransparencyKey = true;
     decodeOptions.applyTealTransparencyKey = true;
     decodeOptions.applyBlackTransparencyKey = usesBlackTransparencyKey(textureName);
@@ -731,8 +733,6 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadSpriteBitmapPixelsBgr
     Engine::ImageDecodeOptions decodeOptions = {};
     decodeOptions.overridePalette = loadCachedActPalette(pAssetFileSystem, cache, paletteId, worldId);
     decodeOptions.applyPaletteZeroTransparencyKey = true;
-    decodeOptions.applyMagentaTransparencyKey = true;
-    decodeOptions.applyTealTransparencyKey = true;
 
     const std::optional<Engine::ImagePixelsBgra> image = Engine::loadImageAssetPixelsBgra(
         *pAssetFileSystem,
@@ -774,7 +774,8 @@ bool GameplayHudCommon::loadHudTexture(
     GameplayAssetLoadCache &cache,
     const std::string &textureName,
     std::vector<GameplayHudTextureData> &textures,
-    std::unordered_map<std::string, size_t> &textureIndexByName)
+    std::unordered_map<std::string, size_t> &textureIndexByName,
+    GameplayHudBitmapTransparencyMode transparencyMode)
 {
     if (textureName.empty())
     {
@@ -789,7 +790,7 @@ bool GameplayHudCommon::loadHudTexture(
     int width = 0;
     int height = 0;
     const std::optional<std::vector<uint8_t>> pixels =
-        loadHudBitmapPixelsBgraCached(pAssetFileSystem, cache, textureName, width, height);
+        loadHudBitmapPixelsBgraCached(pAssetFileSystem, cache, textureName, width, height, transparencyMode);
 
     if (!pixels || width <= 0 || height <= 0 || pAssetFileSystem == nullptr)
     {

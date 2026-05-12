@@ -410,7 +410,7 @@ void GameplayHudOverlayRenderer::renderChestPanel(GameplayScreenRuntime &view, i
             }
 
             const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-                view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
             if (!itemTexture)
             {
@@ -435,6 +435,7 @@ void GameplayHudOverlayRenderer::renderChestPanel(GameplayScreenRuntime &view, i
             inspectableItem.sourceType = GameplayUiController::ItemInspectSourceType::Chest;
             inspectableItem.sourceLootItemIndex = itemIndex;
             inspectableItem.textureName = pItemDefinition->iconName;
+            inspectableItem.textureUsesItemIconTransparency = true;
             inspectableItem.x = itemRect.x;
             inspectableItem.y = itemRect.y;
             inspectableItem.width = itemRect.width;
@@ -525,7 +526,7 @@ void GameplayHudOverlayRenderer::renderInventoryNestedOverlay(
         }
 
         const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-            view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+            view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
         if (!itemTexture)
         {
@@ -573,6 +574,7 @@ void GameplayHudOverlayRenderer::renderInventoryNestedOverlay(
         inspectableItem.sourceGridX = item.gridX;
         inspectableItem.sourceGridY = item.gridY;
         inspectableItem.textureName = pItemDefinition->iconName;
+        inspectableItem.textureUsesItemIconTransparency = true;
         inspectableItem.x = itemRect.x;
         inspectableItem.y = itemRect.y;
         inspectableItem.width = itemRect.width;

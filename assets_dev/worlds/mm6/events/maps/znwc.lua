@@ -326,6 +326,7 @@ RegisterEvent(60, "Shelves", function()
             AddValue(InventoryItem(114), 114) -- Citizen Hat
             return
         end
+        return
     end
     evt.StatusText("Nothing here")
 end, "Shelves")

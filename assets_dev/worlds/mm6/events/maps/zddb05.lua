@@ -24,7 +24,7 @@ RegisterEvent(2, "Legacy event 2", function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.StatusText("Poisonous spores force you back.")
     evt.DamagePlayer(Players.All, const.Damage.Water, 8)
-    evt.MoveToMap(-128, -1152, 0, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-128, -1152, 0, 0, 0, 0, 0, 0)
     SetValue(MapVar(4), 1)
 end)
 
@@ -46,14 +46,18 @@ RegisterEvent(5, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(6, "Legacy event 6", function()
-    if IsAtLeast(MapVar(5), 1) then
-        return
-    elseif IsAtLeast(MapVar(3), 1) then
-        evt.SimpleMessage("\"A small nymph comes out of a hole in the floor thanking you for clearing the spores, he shakes your hand vigorously then disappears down the hole (which somehow disappears after him). +500 experience.\"")
+RegisterEvent(6, "Legacy event 6", function(continueStep)
+    if continueStep == 5 then
         evt.ForPlayer(Players.All)
         AddValue(Experience, 500)
         AddValue(MapVar(5), 1)
+    end
+    if continueStep ~= nil then return end
+    if IsAtLeast(MapVar(5), 1) then
+        return
+    elseif IsAtLeast(MapVar(3), 1) then
+        evt.SetMessage("\"A small nymph comes out of a hole in the floor thanking you for clearing the spores, he shakes your hand vigorously then disappears down the hole (which somehow disappears after him). +500 experience.\"")
+        evt._PressAnyKey(6, 5)
     else
         return
     end

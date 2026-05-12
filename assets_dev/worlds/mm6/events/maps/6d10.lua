@@ -141,6 +141,7 @@ RegisterEvent(29, "Chest", function()
             return
         end
         evt.OpenChest(11)
+        return
     end
     SetValue(MapVar(5), 1)
     SetQBit(QBit(1028)) -- 4 D10, given when you retreive artifact from chest
@@ -166,7 +167,7 @@ RegisterEvent(32, "Door", function()
 end, "Door")
 
 RegisterEvent(33, "Exit", function()
-    evt.MoveToMap(-4369, -18311, 161, 1536, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(-4369, -18311, 161, 1536, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(34, "Cabinet", function()

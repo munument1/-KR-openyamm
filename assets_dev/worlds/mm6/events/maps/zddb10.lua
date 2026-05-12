@@ -47,9 +47,13 @@ RegisterEvent(8, "Old bones.", function()
     evt.DamagePlayer(Players.Current, const.Damage.Air, 10)
 end, "Old bones.")
 
-RegisterEvent(9, "Wall with missing bricks.", function()
-    evt.SimpleMessage("Something slimey moves behind this brick wall.")
-    AddValue(Insane, 1)
+RegisterEvent(9, "Wall with missing bricks.", function(continueStep)
+    if continueStep == 2 then
+        AddValue(Insane, 1)
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("Something slimey moves behind this brick wall.")
+    evt._PressAnyKey(9, 2)
 end, "Wall with missing bricks.")
 
 RegisterEvent(10, "Wall with missing bricks.", function()
@@ -147,23 +151,104 @@ RegisterEvent(25, "Burial niche", function()
     AddValue(MapVar(24), 1)
 end, "Burial niche")
 
-RegisterEvent(26, "Burial niche", function()
-    if IsAtLeast(MapVar(25), 1) then return end
-    local randomStep = PickRandomOption(26, 2, {2, 5, 8, 12})
-    if randomStep == 2 then
-        evt.StatusText("You search the Burial niche and find some gold.")
-        AddValue(Gold, 300)
-    elseif randomStep == 5 then
-        evt.StatusText("The bones seems to charge with electricity !!.")
-        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
-    elseif randomStep == 8 then
-        evt.StatusText("These are really old bones...really old.")
-        AddValue(Age, 5)
-    elseif randomStep == 12 then
-        evt.StatusText("You gain knowledge from these ancient bones.")
-        AddValue(Experience, 400)
+RegisterEvent(26, "Burial niche", function(continueStep)
+    local function Step_0()
+        if IsAtLeast(MapVar(25), 1) then return 15 end
+        return 1
     end
-    AddValue(MapVar(25), 1)
+    local function Step_1()
+        return PickRandomOption(26, 1, {2, 5, 8, 12})
+    end
+    local function Step_2()
+        evt.StatusText("You search the Burial niche and find some gold.")
+        return 3
+    end
+    local function Step_3()
+        AddValue(Gold, 300)
+        return 4
+    end
+    local function Step_4()
+        return 14
+    end
+    local function Step_5()
+        evt.StatusText("The bones seems to charge with electricity !!.")
+        return 6
+    end
+    local function Step_6()
+        evt.DamagePlayer(Players.Current, const.Damage.Fire, 10)
+        return 7
+    end
+    local function Step_7()
+        return 14
+    end
+    local function Step_8()
+        evt.StatusText("These are really old bones...really old.")
+        return 9
+    end
+    local function Step_9()
+        evt._PressAnyKey(26, 10)
+        return nil
+    end
+    local function Step_10()
+        AddValue(Age, 5)
+        return 11
+    end
+    local function Step_11()
+        return 14
+    end
+    local function Step_12()
+        evt.StatusText("You gain knowledge from these ancient bones.")
+        return 13
+    end
+    local function Step_13()
+        AddValue(Experience, 400)
+        return 14
+    end
+    local function Step_14()
+        AddValue(MapVar(25), 1)
+        return 15
+    end
+    local function Step_15()
+        return nil
+    end
+    local step = continueStep or 0
+    while step ~= nil do
+        if step == 0 then
+            step = Step_0()
+        elseif step == 1 then
+            step = Step_1()
+        elseif step == 2 then
+            step = Step_2()
+        elseif step == 3 then
+            step = Step_3()
+        elseif step == 4 then
+            step = Step_4()
+        elseif step == 5 then
+            step = Step_5()
+        elseif step == 6 then
+            step = Step_6()
+        elseif step == 7 then
+            step = Step_7()
+        elseif step == 8 then
+            step = Step_8()
+        elseif step == 9 then
+            step = Step_9()
+        elseif step == 10 then
+            step = Step_10()
+        elseif step == 11 then
+            step = Step_11()
+        elseif step == 12 then
+            step = Step_12()
+        elseif step == 13 then
+            step = Step_13()
+        elseif step == 14 then
+            step = Step_14()
+        elseif step == 15 then
+            step = Step_15()
+        else
+            step = nil
+        end
+    end
 end, "Burial niche")
 
 RegisterEvent(27, "Burial niche", function()
@@ -313,11 +398,15 @@ end, "Skeleton in a cage.")
 
 RegisterEvent(37, "Legacy event 37", function()
     evt.StatusText("A strange force reaches out of the wall and grabs you.")
-    evt.MoveToMap(12416, 3200, -2304, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(12416, 3200, -2304, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(38, "Door.", function()
+RegisterEvent(38, "Door.", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
     evt.StatusText("The door will not budge.")
+    evt._PressAnyKey(38, 2)
 end, "Door.")
 
 RegisterEvent(39, "Sack", function()
@@ -345,7 +434,11 @@ RegisterEvent(42, "Door.", function()
     evt.StatusText("The door will not budge.")
 end, "Door.")
 
-RegisterEvent(43, "Door.", function()
-    evt.SimpleMessage("A scrawled message on the brick reads   2=1  3=2  1=3")
+RegisterEvent(43, "Door.", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("A scrawled message on the brick reads   2=1  3=2  1=3")
+    evt._PressAnyKey(43, 2)
 end, "Door.")
 

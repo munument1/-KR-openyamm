@@ -39,24 +39,26 @@ RegisterEvent(1, "Legacy event 1", function()
             if IsAtLeast(Counter(10), 720) then
                 ClearQBit(QBit(782)) -- Your friends are mad at you
                 SetValue(MapVar(6), 0)
-                evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
-                evt.SetMonGroupBit(55, MonsterBits.Hostile, 0)
+                evt.SetMonGroupBit(56, MonsterBits.Hostile, 0) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+                evt.SetMonGroupBit(55, MonsterBits.Hostile, 0) -- actor group 55: Speaker for the Dead
+                return
             end
             SetValue(MapVar(6), 2)
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
             return
         elseif IsAtLeast(MapVar(6), 2) then
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+            evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
             return
         else
             return
         end
+        return
     end
     SetValue(MapVar(6), 2)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
 end)
 
 RegisterEvent(5, "Enter the Throne Room", function()
@@ -86,8 +88,8 @@ end)
 RegisterEvent(176, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
     end
     if not IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.OpenChest(1)
@@ -97,6 +99,7 @@ RegisterEvent(176, "Chest", function()
         evt.OpenChest(0)
         SetQBit(QBit(743)) -- Lich Jar Case - I lost it
         SetQBit(QBit(662)) -- Got Lich Jar from Castle Gloaming
+        return
     end
     evt.OpenChest(1)
 end, "Chest")
@@ -104,8 +107,8 @@ end, "Chest")
 RegisterEvent(177, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(2)
         return
     end
@@ -115,8 +118,8 @@ end, "Chest")
 RegisterEvent(178, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(3)
         return
     end
@@ -126,8 +129,8 @@ end, "Chest")
 RegisterEvent(179, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(4)
         return
     end
@@ -137,8 +140,8 @@ end, "Chest")
 RegisterEvent(180, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(5)
         return
     end
@@ -159,11 +162,11 @@ RegisterEvent(181, "Chest", function()
         return 3
     end
     local function Step_3()
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
         return 4
     end
     local function Step_4()
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         return 5
     end
     local function Step_5()
@@ -243,11 +246,11 @@ RegisterEvent(182, "Chest", function()
         return 3
     end
     local function Step_3()
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
         return 4
     end
     local function Step_4()
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         return 5
     end
     local function Step_5()
@@ -316,8 +319,8 @@ end, "Chest")
 RegisterEvent(183, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(8)
         return
     end
@@ -327,8 +330,8 @@ end, "Chest")
 RegisterEvent(184, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(9)
         return
     end
@@ -338,8 +341,8 @@ end, "Chest")
 RegisterEvent(185, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(10)
         return
     end
@@ -349,8 +352,8 @@ end, "Chest")
 RegisterEvent(186, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(11)
         return
     end
@@ -360,8 +363,8 @@ end, "Chest")
 RegisterEvent(187, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(12)
         return
     end
@@ -371,8 +374,8 @@ end, "Chest")
 RegisterEvent(188, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(13)
         return
     end
@@ -382,8 +385,8 @@ end, "Chest")
 RegisterEvent(189, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(14)
         return
     end
@@ -393,8 +396,8 @@ end, "Chest")
 RegisterEvent(190, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(15)
         return
     end
@@ -404,8 +407,8 @@ end, "Chest")
 RegisterEvent(191, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(16)
         return
     end
@@ -415,8 +418,8 @@ end, "Chest")
 RegisterEvent(192, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(17)
         return
     end
@@ -426,8 +429,8 @@ end, "Chest")
 RegisterEvent(193, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(18)
         return
     end
@@ -437,8 +440,8 @@ end, "Chest")
 RegisterEvent(194, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(19)
         return
     end
@@ -448,8 +451,8 @@ end, "Chest")
 RegisterEvent(195, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
         evt.OpenChest(0)
         return
     end
@@ -462,8 +465,8 @@ RegisterEvent(376, "Legacy event 376", function()
         evt.SetTexture(10, "cnb")
         AddValue(InventoryItem(1422), 1422) -- Big Tapestry
         SetQBit(QBit(711)) -- Take the Associate's Tapestry
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
         SetValue(MapVar(6), 2)
     else
     end
@@ -485,8 +488,8 @@ end)
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
     SetValue(MapVar(6), 2)
     SetValue(Counter(10), 0)
     SetQBit(QBit(782)) -- Your friends are mad at you
@@ -513,10 +516,10 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(-11435, -20277, 1, 0, 0, 0, 0, 0, "7d26.blv")
+    evt.MoveToMap(-11435, -20277, 1, 0, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 
 RegisterEvent(502, "Legacy event 502", function()
-    evt.MoveToMap(-10656, -23968, -384, 0, 0, 0, 0, 0, "7d26.blv")
+    evt.MoveToMap(-10656, -23968, -384, 0, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 

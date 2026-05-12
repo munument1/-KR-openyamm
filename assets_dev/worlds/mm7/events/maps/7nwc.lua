@@ -476,6 +476,6 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(-177331, 12547, 465, 0, 0, 0, 0, 0, "7out02.odm")
+    evt.MoveToMap(-177331, 12547, 465, 0, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end)
 

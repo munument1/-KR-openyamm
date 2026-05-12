@@ -52,6 +52,30 @@ bool readableNormalEventIsTooLarge(std::string_view luaText)
     return countLuaLines(luaText) > MaxReadableNormalEventLines;
 }
 
+bool endsWithReturnStatement(std::string_view luaText)
+{
+    size_t end = luaText.size();
+
+    while (end > 0 && std::isspace(static_cast<unsigned char>(luaText[end - 1])))
+    {
+        --end;
+    }
+
+    const size_t lineBegin = luaText.rfind('\n', end == 0 ? 0 : end - 1);
+    size_t begin = lineBegin == std::string_view::npos ? 0 : lineBegin + 1;
+
+    while (begin < end && std::isspace(static_cast<unsigned char>(luaText[begin])))
+    {
+        ++begin;
+    }
+
+    const std::string_view line = luaText.substr(begin, end - begin);
+    return line == "return"
+        || (line.size() > 6
+            && line.substr(0, 6) == "return"
+            && std::isspace(static_cast<unsigned char>(line[6])));
+}
+
 void trimTrailingTopLevelReturn(std::ostringstream &stream)
 {
     std::string text = stream.str();
@@ -176,6 +200,7 @@ struct FormattedSelector
     std::string expression;
     SelectorSemantic semantic = SelectorSemantic::Generic;
     uint32_t index = 0;
+    uint32_t rawIndex = 0;
 };
 
 template <typename TValue>
@@ -214,6 +239,26 @@ std::optional<std::string> readPayloadString(const std::vector<uint8_t> &payload
     return std::nullopt;
 }
 
+std::optional<std::string> normalizeMoveToMapName(std::optional<std::string> mapName)
+{
+    if (!mapName)
+    {
+        return std::nullopt;
+    }
+
+    while (!mapName->empty() && static_cast<unsigned char>((*mapName)[0]) <= ' ')
+    {
+        mapName->erase(mapName->begin());
+    }
+
+    if (mapName->empty() || *mapName == "0" || *mapName == "0.")
+    {
+        return std::nullopt;
+    }
+
+    return mapName;
+}
+
 std::optional<std::string> readMoveToMapName(const std::vector<uint8_t> &payload, size_t offset)
 {
     std::optional<std::string> mapName = readPayloadString(payload, offset);
@@ -223,7 +268,7 @@ std::optional<std::string> readMoveToMapName(const std::vector<uint8_t> &payload
         mapName = readPayloadString(payload, offset + 1);
     }
 
-    return mapName;
+    return normalizeMoveToMapName(mapName);
 }
 
 std::string escapeLuaString(std::string_view text)
@@ -1081,7 +1126,9 @@ EvtVariable canonicalMm8Variable(uint32_t rawVariableId, uint32_t index)
     }
 }
 
-FormattedSelector formatSelector(uint32_t rawValue)
+FormattedSelector formatSelector(
+    uint32_t rawValue,
+    const std::unordered_map<uint32_t, uint32_t> &qbitRemaps)
 {
     const uint32_t rawVariableId = rawValue & 0xFFFFu;
     const uint32_t index = rawValue >> 16;
@@ -1089,7 +1136,15 @@ FormattedSelector formatSelector(uint32_t rawValue)
 
     if (variableId == EvtVariable::QBits)
     {
-        return {"QBit(" + std::to_string(index) + ")", SelectorSemantic::QBit, index};
+        uint32_t mappedIndex = index;
+        const auto iterator = qbitRemaps.find(index);
+
+        if (iterator != qbitRemaps.end())
+        {
+            mappedIndex = iterator->second;
+        }
+
+        return {"QBit(" + std::to_string(mappedIndex) + ")", SelectorSemantic::QBit, mappedIndex, index};
     }
 
     if (variableId == EvtVariable::Inventory)
@@ -1309,6 +1364,12 @@ FormattedSelector formatSelector(uint32_t rawValue)
     return {std::to_string(rawValue)};
 }
 
+bool selectorValueMatches(const FormattedSelector &selector, uint32_t value)
+{
+    return value == selector.index
+        || (selector.rawIndex != 0 && value == selector.rawIndex);
+}
+
 std::optional<std::string> resolveSelectorComment(
     const FormattedSelector &selector,
     const LegacyLuaExportLookups &lookups)
@@ -1349,7 +1410,7 @@ std::string formatCompareExpression(
             || selector.semantic == SelectorSemantic::Award
             || selector.semantic == SelectorSemantic::Autonote
             || selector.semantic == SelectorSemantic::PlayerBit)
-        && value == selector.index)
+        && selectorValueMatches(selector, value))
     {
         switch (selector.semantic)
         {
@@ -1361,12 +1422,12 @@ std::string formatCompareExpression(
         }
     }
 
-    if (selector.semantic == SelectorSemantic::InventoryItem && value == selector.index)
+    if (selector.semantic == SelectorSemantic::InventoryItem && selectorValueMatches(selector, value))
     {
         return "HasItem(" + std::to_string(selector.index) + ")";
     }
 
-    if (selector.semantic == SelectorSemantic::PlayerValue && value == selector.index)
+    if (selector.semantic == SelectorSemantic::PlayerValue && selectorValueMatches(selector, value))
     {
         return "HasPlayer(" + std::to_string(selector.index) + ")";
     }
@@ -1378,7 +1439,7 @@ std::string formatAddExpression(
     const FormattedSelector &selector,
     uint32_t value)
 {
-    if (value == selector.index)
+    if (selectorValueMatches(selector, value))
     {
         switch (selector.semantic)
         {
@@ -1397,7 +1458,7 @@ std::string formatSubtractExpression(
     const FormattedSelector &selector,
     uint32_t value)
 {
-    if (value == selector.index)
+    if (selectorValueMatches(selector, value))
     {
         switch (selector.semantic)
         {
@@ -1409,7 +1470,7 @@ std::string formatSubtractExpression(
         }
     }
 
-    if (selector.semantic == SelectorSemantic::InventoryItem && value == selector.index)
+    if (selector.semantic == SelectorSemantic::InventoryItem && selectorValueMatches(selector, value))
     {
         return "RemoveItem(" + std::to_string(selector.index) + ")";
     }
@@ -1421,7 +1482,7 @@ std::string formatSetExpression(
     const FormattedSelector &selector,
     uint32_t value)
 {
-    if (value == selector.index)
+    if (selectorValueMatches(selector, value))
     {
         switch (selector.semantic)
         {
@@ -3176,7 +3237,7 @@ bool formatReadableConditionInstruction(
                 return false;
             }
 
-            const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+            const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
             condition = formatCompareExpression(selector, instruction.arguments[1]);
             comment = resolveSelectorComment(selector, lookups);
             return true;
@@ -3189,7 +3250,7 @@ bool formatReadableConditionInstruction(
                 return false;
             }
 
-            const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+            const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
             condition = "evt.CheckItemsCount(" + selector.expression + ", "
                 + std::to_string(instruction.arguments[1]) + ")";
             comment = resolveSelectorComment(selector, lookups);
@@ -3299,7 +3360,7 @@ bool emitReadableActionInstruction(
         case LegacyLuaOperation::Add:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatAddExpression(selector, instruction.arguments[1]),
@@ -3313,7 +3374,7 @@ bool emitReadableActionInstruction(
         case LegacyLuaOperation::Subtract:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatSubtractExpression(selector, instruction.arguments[1]),
@@ -3327,7 +3388,7 @@ bool emitReadableActionInstruction(
         case LegacyLuaOperation::Set:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatSetExpression(selector, instruction.arguments[1]),
@@ -3341,7 +3402,7 @@ bool emitReadableActionInstruction(
         case LegacyLuaOperation::RemoveItems:
             if (!instruction.arguments.empty())
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     "evt.RemoveItems(" + selector.expression + ")",
@@ -7077,7 +7138,14 @@ bool tryEmitBranchToJoin(
         std::string("if ") + (negateCondition ? "not " : "") + condition + " then",
         conditionComment,
         indentLevel);
-    stream << branchStream.str();
+    const std::string branchBody = branchStream.str();
+    stream << branchBody;
+
+    if (!branchReachedJoinStep && !endsWithReturnStatement(branchBody))
+    {
+        emitIndentedLineWithComment(stream, "return", std::nullopt, indentLevel + 1);
+    }
+
     emitIndentedLineWithComment(stream, "end", std::nullopt, indentLevel);
 
     if (branchReachedJoinStep)
@@ -7568,7 +7636,7 @@ void emitNormalInstruction(
         case LegacyLuaOperation::Compare:
             if (instruction.arguments.size() >= 2 && instruction.jumpTargetStep)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     "if " + formatCompareExpression(selector, instruction.arguments[1]) + " then return "
@@ -7624,7 +7692,7 @@ void emitNormalInstruction(
         case LegacyLuaOperation::Add:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatAddExpression(selector, instruction.arguments[1]),
@@ -7636,7 +7704,7 @@ void emitNormalInstruction(
         case LegacyLuaOperation::Subtract:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatSubtractExpression(selector, instruction.arguments[1]),
@@ -7648,7 +7716,7 @@ void emitNormalInstruction(
         case LegacyLuaOperation::Set:
             if (instruction.arguments.size() >= 2)
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
                     formatSetExpression(selector, instruction.arguments[1]),
@@ -8817,7 +8885,7 @@ bool isAlwaysTrueCompactCondition(const LegacyLuaInstruction &instruction)
         return false;
     }
 
-    const FormattedSelector selector = formatSelector(instruction.arguments[0]);
+    const FormattedSelector selector = formatSelector(instruction.arguments[0], {});
     return selector.semantic == SelectorSemantic::MapVar && instruction.arguments[1] == 0;
 }
 
@@ -9753,6 +9821,11 @@ bool tryEmitCompactFalseOptionalBlock(
         {
             return false;
         }
+    }
+
+    if (falseIsland.returns)
+    {
+        emitIndentedLineWithComment(stream, "return", std::nullopt, 2);
     }
 
     emitIndentedLineWithComment(stream, "end", std::nullopt, 1);

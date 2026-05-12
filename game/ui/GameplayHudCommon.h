@@ -73,6 +73,12 @@ struct GameplayHudTextureColorTextureData
     bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
 };
 
+enum class GameplayHudBitmapTransparencyMode
+{
+    HudColorKey,
+    ItemIcon
+};
+
 struct GameplayUiViewportRect
 {
     float x = 0.0f;
@@ -157,7 +163,8 @@ public:
         GameplayAssetLoadCache &cache,
         const std::string &textureName,
         int &width,
-        int &height);
+        int &height,
+        GameplayHudBitmapTransparencyMode transparencyMode = GameplayHudBitmapTransparencyMode::HudColorKey);
     static std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgraCached(
         const Engine::AssetFileSystem *pAssetFileSystem,
         GameplayAssetLoadCache &cache,
@@ -175,7 +182,8 @@ public:
         GameplayAssetLoadCache &cache,
         const std::string &textureName,
         std::vector<GameplayHudTextureData> &textures,
-        std::unordered_map<std::string, size_t> &textureIndexByName);
+        std::unordered_map<std::string, size_t> &textureIndexByName,
+        GameplayHudBitmapTransparencyMode transparencyMode = GameplayHudBitmapTransparencyMode::HudColorKey);
     static std::optional<GameplayHudTextureHandle> ensureDynamicHudTexture(
         const std::string &textureName,
         int width,

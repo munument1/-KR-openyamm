@@ -225,8 +225,6 @@ std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgra(
     Engine::ImageDecodeOptions decodeOptions = {};
     decodeOptions.overridePalette = overridePalette;
     decodeOptions.applyPaletteZeroTransparencyKey = true;
-    decodeOptions.applyMagentaTransparencyKey = true;
-    decodeOptions.applyTealTransparencyKey = true;
 
     const std::optional<Engine::ImagePixelsBgra> image =
         Engine::decodeImagePixelsBgra(bitmapBytes, virtualPath, decodeOptions);
@@ -3202,6 +3200,8 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             float x,
             float y,
             float z,
+            float velocityX,
+            float velocityY,
             uint16_t cachedSpriteFrameIndex,
             uint16_t spriteId,
             const std::string &spriteName,
@@ -3278,7 +3278,18 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
                 return;
             }
 
-            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
+            const float velocityLengthSquared = velocityX * velocityX + velocityY * velocityY;
+            int octant = 0;
+
+            if (velocityLengthSquared > 0.000001f)
+            {
+                const float angleToCamera = std::atan2(y - cameraPosition.y, x - cameraPosition.x);
+                const float projectileYawRadians = std::atan2(velocityY, velocityX);
+                const float octantAngle = projectileYawRadians - angleToCamera + Pi + (Pi / 8.0f);
+                octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
+            }
+
+            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
             const OutdoorGameView::BillboardTextureHandle *pTexture =
                 ensureSpriteBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId);
 
@@ -3346,6 +3357,8 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             projectile.x,
             projectile.y,
             projectile.z,
+            projectile.velocityX,
+            projectile.velocityY,
             projectile.objectSpriteFrameIndex,
             projectile.objectSpriteId,
             projectile.objectSpriteName,
@@ -3379,6 +3392,8 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             impact.x,
             impact.y,
             impact.z,
+            0.0f,
+            0.0f,
             impact.objectSpriteFrameIndex,
             impact.objectSpriteId,
             impact.objectSpriteName,
@@ -3401,6 +3416,8 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             pTrap->x,
             pTrap->y,
             pTrap->z,
+            0.0f,
+            0.0f,
             pTrap->objectSpriteFrameIndex,
             pTrap->objectSpriteId,
             pTrap->objectSpriteName,

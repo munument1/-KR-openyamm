@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Fighter Leather A, spawn Thief A
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -53,6 +53,7 @@ RegisterEvent(176, "Chest", function()
             SetValue(MapVar(2), 1)
             SetQBit(QBit(672)) -- Got Signet ring out of chest
             evt.OpenChest(0)
+            return
         end
         evt.OpenChest(1)
         return
@@ -137,6 +138,6 @@ RegisterEvent(195, "Chest", function()
 end, "Chest")
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(18005, 7107, 2913, 1728, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(18005, 7107, 2913, 1728, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end)
 

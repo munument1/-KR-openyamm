@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Warlock A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -181,6 +181,6 @@ RegisterEvent(451, "Take a Drink", function()
 end, "Take a Drink")
 
 RegisterEvent(501, "Leave the Maze", function()
-    evt.MoveToMap(-11822, 21398, 3201, 1664, 0, 0, 0, 0, "out10.odm")
+    evt.MoveToMap(-11822, 21398, 3201, 1664, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave the Maze")
 

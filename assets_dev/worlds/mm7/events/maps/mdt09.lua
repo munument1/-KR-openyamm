@@ -38,7 +38,7 @@ RegisterEvent(1, "Legacy event 1", function()
     if IsQBitSet(QBit(535)) then -- Killed dragon when on Crusader quest
         return
     elseif IsQBitSet(QBit(1684)) then -- Replacement for NPCs ¹17 ver. 7
-        evt.SetMonGroupBit(56, MonsterBits.Invisible, 0)
+        evt.SetMonGroupBit(56, MonsterBits.Invisible, 0) -- actor group 56: Blue Dragon
         return
     else
         return
@@ -128,7 +128,7 @@ end, "Door")
 RegisterEvent(376, "Legacy event 376", function()
     if not IsQBitSet(QBit(534)) then return end -- Kill Wromthrax the Heartless in his cave in Tatalia, then talk to Sir Charles Quixote.
     if IsQBitSet(QBit(535)) then return end -- Killed dragon when on Crusader quest
-    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56; at least 1 matching actor defeated
+    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56: Blue Dragon; at least 1 matching actor defeated
         evt.ForPlayer(Players.All)
         SetQBit(QBit(535)) -- Killed dragon when on Crusader quest
         evt.SetNPCGreeting(356, 0) -- Sir Charles Quixote greeting cleared
@@ -137,6 +137,6 @@ RegisterEvent(376, "Legacy event 376", function()
 end)
 
 RegisterEvent(501, "Leave the Cave", function()
-    evt.MoveToMap(-1037, 21058, 2656, 1536, 0, 0, 0, 0, "7out13.odm")
+    evt.MoveToMap(-1037, 21058, 2656, 1536, 0, 0, 0, 0, "7out13.odm") -- Tatalia
 end, "Leave the Cave")
 

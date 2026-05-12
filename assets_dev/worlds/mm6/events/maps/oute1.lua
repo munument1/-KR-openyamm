@@ -86,7 +86,7 @@ RegisterEvent(59, "Legacy event 59", function()
 end)
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-2921, 13139, 225, 1536, 0, 0, 163, 1, "cd1.blv")
+    evt.MoveToMap(-2921, 13139, 225, 1536, 0, 0, 163, 1, "cd1.blv") -- Castle Alamos
 end)
 
 RegisterEvent(100, "Drink from Fountain.", function()
@@ -126,10 +126,14 @@ RegisterEvent(226, "Legacy event 226", function()
     evt.SetSprite(99, 1, "swrdstx")
 end)
 
-RegisterEvent(227, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            oon_htfdorstusl_")
-    SetQBit(QBit(1396)) -- NPC
-    SetAutonote(454) -- Obelisk Message # 13: oon_htfdorstusl_
+RegisterEvent(227, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1396)) -- NPC
+        SetAutonote(454) -- Obelisk Message # 13: oon_htfdorstusl_
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            oon_htfdorstusl_")
+    evt._PressAnyKey(227, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Poison", function()
@@ -149,6 +153,7 @@ RegisterEvent(261, "Shrine of Poison", function()
         evt.ForPlayer(Players.All)
         AddValue(EarthResistance, 3)
         evt.StatusText("+3 Poison resistance permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Poison")

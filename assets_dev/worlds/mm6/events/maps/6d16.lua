@@ -149,13 +149,13 @@ end, "Switch")
 RegisterEvent(20, "Door", function()
     local randomStep = PickRandomOption(20, 1, {3, 5, 7, 9})
     if randomStep == 3 then
-        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 5 then
-        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 7 then
-        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 9 then
-        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0)
     end
     evt.StatusText("You are pulled through the door!")
 end, "Door")
@@ -163,13 +163,13 @@ end, "Door")
 RegisterEvent(21, "Door", function()
     local randomStep = PickRandomOption(21, 1, {1, 5, 7, 9})
     if randomStep == 1 then
-        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 5 then
-        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 7 then
-        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 9 then
-        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0)
     end
     evt.StatusText("You are pulled through the door!")
 end, "Door")
@@ -177,13 +177,13 @@ end, "Door")
 RegisterEvent(22, "Door", function()
     local randomStep = PickRandomOption(22, 1, {1, 3, 7, 9})
     if randomStep == 1 then
-        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 3 then
-        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 7 then
-        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 9 then
-        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0)
     end
     evt.StatusText("You are pulled through the door!")
 end, "Door")
@@ -191,13 +191,13 @@ end, "Door")
 RegisterEvent(23, "Door", function()
     local randomStep = PickRandomOption(23, 1, {1, 3, 5, 9})
     if randomStep == 1 then
-        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 3 then
-        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 5 then
-        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 9 then
-        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1036, -1775, -255, 1536, 0, 0, 0, 0)
     end
     evt.StatusText("You are pulled through the door!")
 end, "Door")
@@ -205,13 +205,13 @@ end, "Door")
 RegisterEvent(24, "Door", function()
     local randomStep = PickRandomOption(24, 1, {1, 3, 5, 7})
     if randomStep == 1 then
-        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3586, -789, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 3 then
-        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-2539, -512, -255, 1024, 0, 0, 0, 0)
     elseif randomStep == 5 then
-        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1537, -788, -255, 512, 0, 0, 0, 0)
     elseif randomStep == 7 then
-        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1012, -1284, -255, 1024, 0, 0, 0, 0)
     end
     evt.StatusText("You are pulled through the door!")
 end, "Door")
@@ -270,6 +270,7 @@ RegisterEvent(36, "Chest", function()
     end
     if not IsAtLeast(MapVar(22), 1) then
         evt.OpenChest(0)
+        return
     end
     evt.OpenChest(11)
     SetQBit(QBit(1076)) -- 52 D16, Given when characters find the Eagle Statuette
@@ -335,7 +336,7 @@ RegisterEvent(48, "Legacy event 48", function()
 end)
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(-18606, 9831, 160, 1536, 0, 0, 0, 0, "outd1.odm")
+    evt.MoveToMap(-18606, 9831, 160, 1536, 0, 0, 0, 0, "outd1.odm") -- Silver Cove
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

@@ -233,7 +233,7 @@ RegisterEvent(26, "Legacy event 26", function()
 end)
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(-17658, -12361, 257, 1024, 0, 0, 0, 0, "outd1.odm")
+    evt.MoveToMap(-17658, -12361, 257, 1024, 0, 0, 0, 0, "outd1.odm") -- Silver Cove
 end, "Exit")
 
 RegisterEvent(51, "Strange rock", function()

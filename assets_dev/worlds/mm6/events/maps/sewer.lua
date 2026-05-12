@@ -157,27 +157,27 @@ RegisterEvent(19, "Well", function()
 end, "Well")
 
 RegisterEvent(20, "Exit", function()
-    evt.MoveToMap(5322, 16780, 256, 512, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(5322, 16780, 256, 512, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(21, "Exit", function()
-    evt.MoveToMap(10592, 16625, 161, 1024, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(10592, 16625, 161, 1024, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(22, "Exit", function()
-    evt.MoveToMap(12226, 11741, 1, 1024, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(12226, 11741, 1, 1024, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(23, "Exit", function()
-    evt.MoveToMap(12322, 8748, 256, 512, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(12322, 8748, 256, 512, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(24, "Exit", function()
-    evt.MoveToMap(9465, 8037, 256, 1024, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(9465, 8037, 256, 1024, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(25, "Exit", function()
-    evt.MoveToMap(12184, 8703, 256, 512, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(12184, 8703, 256, 512, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(26, "Door", function()
@@ -192,7 +192,7 @@ end, "Cylinder")
 
 RegisterEvent(28, "Legacy event 28", function()
     if IsQBitSet(QBit(1200)) then -- NPC
-        evt.MoveToMap(-3078, 2819, 2049, 1536, 0, 0, 0, 0, "6t6.blv")
+        evt.MoveToMap(-3078, 2819, 2049, 1536, 0, 0, 0, 0, "6t6.blv") -- Supreme Temple of Baa
     end
 end)
 

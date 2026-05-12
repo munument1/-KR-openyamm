@@ -111,12 +111,12 @@ end, "White Cap Transport Co.")
 RegisterEvent(32, "White Cap Transport Co.", nil, "White Cap Transport Co.")
 
 RegisterEvent(33, "Throne Room", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 82, 1, "0.")
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 82, 1)
     evt.EnterHouse(225) -- Throne Room
 end, "Throne Room")
 
 RegisterEvent(34, "Throne Room", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 84, 1, "0.")
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 84, 1)
     evt.EnterHouse(227) -- Throne Room
 end, "Throne Room")
 
@@ -281,11 +281,11 @@ RegisterEvent(86, "Legacy event 86", function()
 end)
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(1408, -1664, 1, 1024, 0, 0, 180, 1, "6d08.blv")
+    evt.MoveToMap(1408, -1664, 1, 1024, 0, 0, 180, 1, "6d08.blv") -- Shadow Guild
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(-495, -219, 1, 512, 0, 0, 188, 1, "6d15.blv")
+    evt.MoveToMap(-495, -219, 1, 512, 0, 0, 188, 1, "6d15.blv") -- Icewind Keep
 end)
 
 RegisterEvent(100, "Drink from Well.", function()
@@ -404,10 +404,14 @@ RegisterEvent(211, "Legacy event 211", function()
     evt.SetSnow(0, 1)
 end)
 
-RegisterEvent(213, "Obelisk", function()
-    evt.SimpleMessage("\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _ay,enis_nn_ans.\"")
-    SetQBit(QBit(1390)) -- NPC
-    SetAutonote(448) -- Obelisk Message # 7: _ay,enis_nn_ans.
+RegisterEvent(213, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1390)) -- NPC
+        SetAutonote(448) -- Obelisk Message # 7: _ay,enis_nn_ans.
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _ay,enis_nn_ans.\"")
+    evt._PressAnyKey(213, 2)
 end, "Obelisk")
 
 RegisterEvent(214, "Legacy event 214", function()
@@ -432,6 +436,7 @@ RegisterEvent(261, "Shrine of Endurance", function()
         evt.ForPlayer(Players.All)
         AddValue(BaseEndurance, 3)
         evt.StatusText("+3 Endurance permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Endurance")

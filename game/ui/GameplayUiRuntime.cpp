@@ -656,6 +656,22 @@ bool GameplayUiRuntime::loadHudTexture(const std::string &textureName)
         m_hudTextureIndexByName);
 }
 
+bool GameplayUiRuntime::loadItemIconTexture(const std::string &textureName)
+{
+    if (!canUseBgfxResources())
+    {
+        return false;
+    }
+
+    return GameplayHudCommon::loadHudTexture(
+        m_pAssetFileSystem,
+        m_assetLoadCache,
+        textureName,
+        m_hudTextureHandles,
+        m_hudTextureIndexByName,
+        GameplayHudBitmapTransparencyMode::ItemIcon);
+}
+
 bool GameplayUiRuntime::loadHudFont(const std::string &fontName)
 {
     if (!canUseBgfxResources())
@@ -743,6 +759,29 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayUiRuntime::resolveHudLay
 std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureHudTextureLoaded(const std::string &textureName)
 {
     if (textureName.empty() || !loadHudTexture(textureName))
+    {
+        return std::nullopt;
+    }
+
+    const GameplayHudTextureData *pTexture =
+        GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName);
+
+    if (pTexture == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    GameplayHudTextureHandle result = {};
+    result.textureName = pTexture->textureName;
+    result.width = pTexture->width;
+    result.height = pTexture->height;
+    result.textureHandle = pTexture->textureHandle;
+    return result;
+}
+
+std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureItemIconTextureLoaded(const std::string &textureName)
+{
+    if (textureName.empty() || !loadItemIconTexture(textureName))
     {
         return std::nullopt;
     }
@@ -894,6 +933,22 @@ bool GameplayUiRuntime::ensureHudTextureDimensions(const std::string &textureNam
     return true;
 }
 
+bool GameplayUiRuntime::ensureItemIconTextureDimensions(const std::string &textureName, int &width, int &height)
+{
+    const std::optional<GameplayHudTextureHandle> texture = ensureItemIconTextureLoaded(textureName);
+
+    if (!texture)
+    {
+        width = 0;
+        height = 0;
+        return false;
+    }
+
+    width = texture->width;
+    height = texture->height;
+    return true;
+}
+
 bool GameplayUiRuntime::tryGetOpaqueHudTextureBounds(
     const std::string &textureName,
     int &width,
@@ -1026,10 +1081,16 @@ bool GameplayUiRuntime::isOpaqueHudPixelAtPoint(const GameplayRenderedInspectabl
 
     int textureWidth = 0;
     int textureHeight = 0;
-    const std::optional<std::vector<uint8_t>> pixels = loadHudBitmapPixelsBgraCached(
-        item.textureName,
-        textureWidth,
-        textureHeight);
+    const std::optional<std::vector<uint8_t>> pixels =
+        GameplayHudCommon::loadHudBitmapPixelsBgraCached(
+            m_pAssetFileSystem,
+            m_assetLoadCache,
+            item.textureName,
+            textureWidth,
+            textureHeight,
+            item.textureUsesItemIconTransparency
+                ? GameplayHudBitmapTransparencyMode::ItemIcon
+                : GameplayHudBitmapTransparencyMode::HudColorKey);
 
     if (!pixels || textureWidth <= 0 || textureHeight <= 0)
     {

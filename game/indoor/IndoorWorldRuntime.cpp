@@ -10527,7 +10527,7 @@ GameplayPartyAttackFrameInput IndoorWorldRuntime::buildPartyAttackFrameInput(
     const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
     const float attackSourceX = moveState.x;
     const float attackSourceY = moveState.y;
-    const float attackSourceZ = moveState.eyeZ();
+    const float attackSourceZ = moveState.footZ + PartyCollisionHeight / 3.0f;
     const float yawRadians = m_pRenderer != nullptr ? m_pRenderer->cameraYawRadians() : 0.0f;
 
     GameplayPartyAttackFrameInput input = {};
@@ -10555,9 +10555,9 @@ GameplayPartyAttackFrameInput IndoorWorldRuntime::buildPartyAttackFrameInput(
     {
         input.defaultRangedTarget =
             GameplayWorldPoint{
-                .x = pickRequest.rayOrigin.x + pickRequest.rayDirection.x * 5120.0f,
-                .y = pickRequest.rayOrigin.y + pickRequest.rayDirection.y * 5120.0f,
-                .z = pickRequest.rayOrigin.z + pickRequest.rayDirection.z * 5120.0f,
+                .x = attackSourceX + pickRequest.rayDirection.x * 5120.0f,
+                .y = attackSourceY + pickRequest.rayDirection.y * 5120.0f,
+                .z = attackSourceZ + pickRequest.rayDirection.z * 5120.0f,
             };
         input.rayRangedTarget = input.defaultRangedTarget;
         input.hasRayRangedTarget = true;

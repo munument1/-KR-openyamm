@@ -2426,8 +2426,6 @@ std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgra(
     Engine::ImageDecodeOptions decodeOptions = {};
     decodeOptions.overridePalette = overridePalette;
     decodeOptions.applyPaletteZeroTransparencyKey = true;
-    decodeOptions.applyMagentaTransparencyKey = true;
-    decodeOptions.applyTealTransparencyKey = true;
 
     const std::optional<Engine::ImagePixelsBgra> image =
         Engine::decodeImagePixelsBgra(bitmapBytes, virtualPath, decodeOptions);
@@ -4287,7 +4285,7 @@ void OutdoorGameView::clearWorldInteractionInputLatches()
     m_cachedHoverInspectHitValid = false;
     m_lastHoverInspectUpdateNanoseconds = 0;
     m_cachedHoverInspectHit = {};
-    screenRuntime.mutableStatusBarHoverText().clear();
+    screenRuntime.clearStatusBarHoverText();
 }
 
 float OutdoorGameView::innRestDurationMinutes(uint32_t houseId) const

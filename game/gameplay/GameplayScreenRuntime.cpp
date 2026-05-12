@@ -890,9 +890,14 @@ const std::string &GameplayScreenRuntime::statusBarHoverText() const
     return uiController().statusBar().hoverText;
 }
 
-std::string &GameplayScreenRuntime::mutableStatusBarHoverText() const
+void GameplayScreenRuntime::setStatusBarHoverText(const std::string &text) const
 {
-    return uiController().statusBar().hoverText;
+    uiController().setStatusBarHoverText(text);
+}
+
+void GameplayScreenRuntime::clearStatusBarHoverText() const
+{
+    uiController().clearStatusBarHoverText();
 }
 
 size_t &GameplayScreenRuntime::eventDialogSelectionIndex() const
@@ -3583,7 +3588,7 @@ std::string GameplayScreenRuntime::resolveEquippedItemHudTextureName(
         int width = 0;
         int height = 0;
 
-        if (gameplayUiRuntime().ensureHudTextureDimensions(candidateName, width, height))
+        if (gameplayUiRuntime().ensureItemIconTextureDimensions(candidateName, width, height))
         {
             return candidateName;
         }

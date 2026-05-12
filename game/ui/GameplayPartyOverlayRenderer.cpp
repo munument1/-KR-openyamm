@@ -5087,7 +5087,7 @@ void GameplayPartyOverlayRenderer::renderHeldInventoryItem(GameplayScreenRuntime
     }
 
     const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
-        context.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+        context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
     if (!texture)
     {
@@ -5188,7 +5188,9 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
                 context.specialItemEnchantTable());
     const std::string itemValue = std::to_string(std::max(0, resolvedItemValue));
     const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-        !pItemDefinition->iconName.empty() ? context.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName) : std::nullopt;
+        !pItemDefinition->iconName.empty()
+            ? context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName)
+            : std::nullopt;
     const std::optional<GameplayScreenRuntime::HudFontHandle> bodyFont = context.findHudFont("SMALLNUM");
     const GameplayScreenRuntime::HudFontHandle *pBodyFont = bodyFont ? &*bodyFont : nullptr;
     const float bodyLineHeight =
@@ -8010,7 +8012,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                 const uint32_t dollTypeId = pCharacterDollType != nullptr ? pCharacterDollType->id : 0;
                 const std::string textureName =
                     context.resolveEquippedItemHudTextureName(*pItemDefinition, dollTypeId, hasRightHandWeapon, *slot);
-                const std::optional<GameplayHudTextureHandle> itemTexture = context.gameplayUiRuntime().ensureHudTextureLoaded(textureName);
+                const std::optional<GameplayHudTextureHandle> itemTexture =
+                    context.gameplayUiRuntime().ensureItemIconTextureLoaded(textureName);
 
                 if (itemTexture.has_value())
                 {
@@ -8069,6 +8072,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                             inspectableItem.sourceMemberIndex = characterSourceIndex;
                             inspectableItem.equipmentSlot = *slot;
                             inspectableItem.textureName = textureName;
+                            inspectableItem.textureUsesItemIconTransparency = true;
                             inspectableItem.x = iconRect->x;
                             inspectableItem.y = iconRect->y;
                             inspectableItem.width = iconRect->width;
@@ -8213,7 +8217,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                     }
 
                     const std::optional<GameplayHudTextureHandle> itemTexture =
-                        context.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                        context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                     if (!itemTexture.has_value())
                     {
@@ -8238,6 +8242,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                     inspectableItem.sourceGridX = item.gridX;
                     inspectableItem.sourceGridY = item.gridY;
                     inspectableItem.textureName = pItemDefinition->iconName;
+                    inspectableItem.textureUsesItemIconTransparency = true;
                     inspectableItem.x = itemRect.x;
                     inspectableItem.y = itemRect.y;
                     inspectableItem.width = itemRect.width;

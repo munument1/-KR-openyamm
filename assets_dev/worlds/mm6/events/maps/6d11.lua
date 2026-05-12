@@ -195,6 +195,7 @@ RegisterEvent(50, "Chest", function()
             return
         end
         evt.OpenChest(8)
+        return
     end
     evt.OpenChest(9)
     SetValue(MapVar(2), 1)
@@ -213,28 +214,28 @@ RegisterEvent(53, "Door", function()
 end, "Door")
 
 RegisterEvent(60, "Exit", function()
-    evt.MoveToMap(-19677, -17439, 96, 0, 0, 0, 0, 0, "outd3.odm")
+    evt.MoveToMap(-19677, -17439, 96, 0, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
 RegisterEvent(65, "Legacy event 65", function()
-    evt.MoveToMap(-5768, 656, -1296, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-5768, 656, -1296, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(66, "Legacy event 66", function()
-    evt.MoveToMap(-6416, 7560, -1296, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-6416, 7560, -1296, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(69, "Legacy event 69", function()
-    evt.MoveToMap(6538, 114, -255, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(6538, 114, -255, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(70, "Legacy event 70", function()
-    evt.MoveToMap(6537, 5945, -255, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(6537, 5945, -255, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(71, "Legacy event 71", function()
     if IsAtLeast(MapVar(3), 1) then
-        evt.MoveToMap(3584, -5248, -832, 512, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(3584, -5248, -832, 512, 0, 0, 0, 0)
         SubtractValue(MapVar(3), 1)
         evt.SummonMonsters(1, 1, 1, 1408, -4992, -832, 0, 0) -- encounter slot 1 "BGhost" tier A, count 1, pos=(1408, -4992, -832), actor group 0, no unique actor name
         evt.SummonMonsters(1, 2, 1, 1408, -4864, -832, 0, 0) -- encounter slot 1 "BGhost" tier B, count 1, pos=(1408, -4864, -832), actor group 0, no unique actor name

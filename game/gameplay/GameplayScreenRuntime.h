@@ -157,7 +157,8 @@ public:
     std::string &statusBarEventText() const;
     float &statusBarEventRemainingSeconds() const;
     const std::string &statusBarHoverText() const;
-    std::string &mutableStatusBarHoverText() const;
+    void setStatusBarHoverText(const std::string &text) const;
+    void clearStatusBarHoverText() const;
     size_t &eventDialogSelectionIndex() const;
     GameplayOverlayInteractionState &interactionState() const;
     const GameplayInputFrame *currentGameplayInputFrame() const;

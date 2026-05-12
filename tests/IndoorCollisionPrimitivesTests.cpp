@@ -428,6 +428,100 @@ TEST_CASE("indoor floor sampling ignores horizontal portal faces")
     CHECK_EQ(sample.height, doctest::Approx(-96.0f));
 }
 
+TEST_CASE("indoor floor sampling ignores runtime untouchable faces")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {128, -128, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -128, -96},
+        {128, -128, -96},
+        {128, 128, -96},
+        {-128, 128, -96}
+    };
+
+    IndoorFace hiddenFloor = {};
+    hiddenFloor.vertexIndices = {0, 1, 2, 3};
+    hiddenFloor.facetType = 3;
+    hiddenFloor.roomNumber = 0;
+
+    IndoorFace lowerFloor = {};
+    lowerFloor.vertexIndices = {4, 5, 6, 7};
+    lowerFloor.facetType = 3;
+    lowerFloor.roomNumber = 0;
+
+    IndoorSector sector = {};
+    sector.floorFaceIds = {0, 1};
+    mapData.faces = {hiddenFloor, lowerFloor};
+    mapData.sectors = {sector};
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.faceAttributes = {
+        faceAttributeBit(FaceAttribute::Invisible) | faceAttributeBit(FaceAttribute::Untouchable),
+        0
+    };
+    mapDeltaData.surfaceRevision = 1;
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    geometryCache.setAttributeOverrides(&mapDeltaData);
+
+    const IndoorFloorSample sample =
+        sampleIndoorFloor(mapData, mapData.vertices, 0.0f, 0.0f, 8.0f, 16.0f, 160.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasFloor);
+    CHECK_EQ(sample.faceIndex, 1u);
+    CHECK_EQ(sample.height, doctest::Approx(-96.0f));
+}
+
+TEST_CASE("indoor ceiling sampling ignores runtime untouchable faces")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 128},
+        {128, -128, 128},
+        {128, 128, 128},
+        {-128, 128, 128},
+        {-128, -128, 256},
+        {128, -128, 256},
+        {128, 128, 256},
+        {-128, 128, 256}
+    };
+
+    IndoorFace hiddenCeiling = {};
+    hiddenCeiling.vertexIndices = {0, 1, 2, 3};
+    hiddenCeiling.facetType = 5;
+    hiddenCeiling.roomNumber = 0;
+
+    IndoorFace upperCeiling = {};
+    upperCeiling.vertexIndices = {4, 5, 6, 7};
+    upperCeiling.facetType = 5;
+    upperCeiling.roomNumber = 0;
+
+    IndoorSector sector = {};
+    sector.ceilingFaceIds = {0, 1};
+    mapData.faces = {hiddenCeiling, upperCeiling};
+    mapData.sectors = {sector};
+
+    MapDeltaData mapDeltaData = {};
+    mapDeltaData.faceAttributes = {
+        faceAttributeBit(FaceAttribute::Invisible) | faceAttributeBit(FaceAttribute::Untouchable),
+        0
+    };
+    mapDeltaData.surfaceRevision = 1;
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    geometryCache.setAttributeOverrides(&mapDeltaData);
+
+    const IndoorCeilingSample sample =
+        sampleIndoorCeiling(mapData, mapData.vertices, 0.0f, 0.0f, 0.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasCeiling);
+    CHECK_EQ(sample.faceIndex, 1u);
+    CHECK_EQ(sample.height, doctest::Approx(256.0f));
+}
+
 TEST_CASE("indoor floor sampling keeps steep in-between floor height without making it walkable")
 {
     IndoorMapData mapData = {};

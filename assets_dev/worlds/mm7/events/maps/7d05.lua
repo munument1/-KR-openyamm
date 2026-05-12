@@ -157,6 +157,6 @@ RegisterEvent(457, "Legacy event 457", function()
 end)
 
 RegisterEvent(501, "Leave the Arena", function()
-    evt.MoveToMap(-5692, 11137, 1, 1024, 0, 0, 0, 0, "7out02.odm")
+    evt.MoveToMap(-5692, 11137, 1, 1024, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end, "Leave the Arena")
 

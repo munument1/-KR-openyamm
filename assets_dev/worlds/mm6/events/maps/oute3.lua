@@ -295,15 +295,15 @@ RegisterEvent(101, "Legacy event 101", function()
         RemoveItem(2109) -- Key to Goblinwatch
         SetQBit(QBit(1324)) -- Peter
     end
-    evt.MoveToMap(601, 6871, 177, 1400, 0, 0, 161, 1, "6d01.blv")
+    evt.MoveToMap(601, 6871, 177, 1400, 0, 0, 161, 1, "6d01.blv") -- Goblinwatch
 end)
 
 RegisterEvent(102, "Legacy event 102", function()
-    evt.MoveToMap(16406, -19669, 865, 500, 0, 0, 166, 1, "6d02.blv")
+    evt.MoveToMap(16406, -19669, 865, 500, 0, 0, 166, 1, "6d02.blv") -- Abandoned Temple
 end)
 
 RegisterEvent(103, "Legacy event 103", function()
-    evt.MoveToMap(-2688, 1216, 1153, 1536, 0, 0, 191, 1, "6d18.blv")
+    evt.MoveToMap(-2688, 1216, 1153, 1536, 0, 0, 191, 1, "6d18.blv") -- Gharik's Forge
 end)
 
 RegisterEvent(104, "Legacy event 104", function()
@@ -474,31 +474,50 @@ RegisterEvent(150, "Drink from Fountain", function()
     SetAutonote(393) -- 10 Points of temporary might from the northeast fountain in New Sorpigal.
 end, "Drink from Fountain")
 
-RegisterEvent(210, "Well", function()
+RegisterEvent(210, "Well", function(continueStep)
+    if continueStep == 11 then
+        return
+    end
+    if continueStep == 15 then
+        return
+    end
+    if continueStep == 19 then
+        return
+    end
+    if continueStep == 23 then
+        return
+    end
+    if continueStep == 27 then
+        return
+    end
+    if continueStep == 31 then
+        return
+    end
+    if continueStep ~= nil then return end
     if IsAtLeast(Gold, 10000) then
         SubtractValue(Gold, 1000)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 11)
     elseif IsAtLeast(Gold, 5000) then
         SubtractValue(Gold, 500)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 15)
     elseif IsAtLeast(Gold, 1000) then
         SubtractValue(Gold, 100)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 19)
     elseif IsAtLeast(Gold, 500) then
         SubtractValue(Gold, 50)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 23)
     elseif IsAtLeast(Gold, 100) then
         SubtractValue(Gold, 10)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 27)
     elseif IsAtLeast(Gold, 50) then
         SubtractValue(Gold, 5)
-        evt.SimpleMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
-        return
+        evt.SetMessage("Your purse feels much lighter as you foolishly throw your money into the well.")
+        evt._PressAnyKey(210, 31)
     elseif IsAtLeast(Gold, 40) then
         return
     else
@@ -582,10 +601,14 @@ RegisterEvent(232, "Legacy event 232", function()
     end
 end)
 
-RegisterEvent(240, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _nrh__tf__cehr__")
-    SetAutonote(456) -- Obelisk Message # 15: _nrh__tf__cehr__
-    SetQBit(QBit(1398)) -- NPC
+RegisterEvent(240, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetAutonote(456) -- Obelisk Message # 15: _nrh__tf__cehr__
+        SetQBit(QBit(1398)) -- NPC
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _nrh__tf__cehr__")
+    evt._PressAnyKey(240, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Luck", function()
@@ -605,6 +628,7 @@ RegisterEvent(261, "Shrine of Luck", function()
         evt.ForPlayer(Players.All)
         AddValue(BaseLuck, 3)
         evt.StatusText("+3 Luck permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Luck")

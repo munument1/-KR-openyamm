@@ -162,12 +162,12 @@ std::optional<ImagePixelsBgra> decodeBmpPixelsBgra(
     }
 
     SDL_Palette *pBasePalette = SDL_GetSurfacePalette(pLoadedSurface);
-    const bool canApplyPalette =
-        options.overridePalette.has_value()
-        && pLoadedSurface->format == SDL_PIXELFORMAT_INDEX8
-        && pBasePalette != nullptr;
+    const bool canUseIndexedPalette =
+        pLoadedSurface->format == SDL_PIXELFORMAT_INDEX8
+        && pBasePalette != nullptr
+        && (options.overridePalette.has_value() || options.applyPaletteZeroTransparencyKey);
 
-    if (canApplyPalette)
+    if (canUseIndexedPalette)
     {
         ImagePixelsBgra result = {};
         result.width = pLoadedSurface->w;
@@ -186,13 +186,23 @@ std::optional<ImagePixelsBgra> decodeBmpPixelsBgra(
                     paletteIndex < pBasePalette->ncolors ? pBasePalette->colors[paletteIndex] : SDL_Color{0, 0, 0, 255};
                 const bool isZeroIndexKey = options.applyPaletteZeroTransparencyKey && paletteIndex == 0;
                 const bool isColorKey = isTransparentKey(sourceColor.r, sourceColor.g, sourceColor.b, options);
-                const size_t paletteOffset = static_cast<size_t>(paletteIndex) * 3;
                 const size_t pixelOffset =
                     (static_cast<size_t>(row) * static_cast<size_t>(result.width) + static_cast<size_t>(column)) * 4;
 
-                result.pixels[pixelOffset + 0] = (*options.overridePalette)[paletteOffset + 2];
-                result.pixels[pixelOffset + 1] = (*options.overridePalette)[paletteOffset + 1];
-                result.pixels[pixelOffset + 2] = (*options.overridePalette)[paletteOffset + 0];
+                if (options.overridePalette.has_value())
+                {
+                    const size_t paletteOffset = static_cast<size_t>(paletteIndex) * 3;
+                    result.pixels[pixelOffset + 0] = (*options.overridePalette)[paletteOffset + 2];
+                    result.pixels[pixelOffset + 1] = (*options.overridePalette)[paletteOffset + 1];
+                    result.pixels[pixelOffset + 2] = (*options.overridePalette)[paletteOffset + 0];
+                }
+                else
+                {
+                    result.pixels[pixelOffset + 0] = sourceColor.b;
+                    result.pixels[pixelOffset + 1] = sourceColor.g;
+                    result.pixels[pixelOffset + 2] = sourceColor.r;
+                }
+
                 result.pixels[pixelOffset + 3] = (isZeroIndexKey || isColorKey) ? 0 : 255;
             }
         }

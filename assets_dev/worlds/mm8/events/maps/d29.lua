@@ -356,19 +356,19 @@ RegisterEvent(100, "Chest", function()
 end, "Chest")
 
 RegisterEvent(451, "Legacy event 451", function()
-    evt.MoveToMap(-2016, 3840, 1056, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-2016, 3840, 1056, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(452, "Legacy event 452", function()
-    evt.MoveToMap(544, 3296, 2336, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(544, 3296, 2336, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(453, "Legacy event 453", function()
-    evt.MoveToMap(2784, 3840, -244, 1024, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2784, 3840, -244, 1024, 0, 0, 0, 0)
 end)
 
 RegisterEvent(454, "Legacy event 454", function()
-    evt.MoveToMap(2784, 3840, 1056, 1024, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2784, 3840, 1056, 1024, 0, 0, 0, 0)
 end)
 
 RegisterEvent(501, "Leave the Castle of Fire", function()

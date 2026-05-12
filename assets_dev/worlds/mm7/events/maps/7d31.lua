@@ -35,10 +35,10 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Archer A, spawn Fighter Chain A, spawn Swordsman A
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Archer A, spawn Fighter Chain A, spawn Swordsman A
     else
         return
     end
@@ -290,7 +290,7 @@ end)
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Archer A, spawn Fighter Chain A, spawn Swordsman A
     SetValue(MapVar(6), 2)
     evt.PlaySound(42317, -2304, 640)
     evt.PlaySound(42317, 256, 256)
@@ -314,10 +314,10 @@ RegisterEvent(455, "Legacy event 455", function()
 end)
 
 RegisterEvent(501, "Leave Fort Riverstride", function()
-    evt.MoveToMap(11270, -2144, 1601, 1536, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(11270, -2144, 1601, 1536, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end, "Leave Fort Riverstride")
 
 RegisterEvent(502, "Leave Fort Riverstride", function()
-    evt.MoveToMap(10531, -1536, 513, 0, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(10531, -1536, 513, 0, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end, "Leave Fort Riverstride")
 

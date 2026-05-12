@@ -33,12 +33,16 @@ ResolvedLayoutElement resolveAttachedLayoutRect(
     float height,
     float gapX,
     float gapY,
-    float scale)
+    float scale,
+    std::optional<float> visibleRightEdge = std::nullopt)
 {
     ResolvedLayoutElement resolved = {};
     resolved.width = width;
     resolved.height = height;
     resolved.scale = scale;
+    const float parentRight = visibleRightEdge.has_value()
+        ? std::min(parent.x + parent.width, *visibleRightEdge)
+        : parent.x + parent.width;
 
     switch (attachTo)
     {
@@ -83,7 +87,7 @@ ResolvedLayoutElement resolveAttachedLayoutRect(
             break;
 
         case UiLayoutManager::LayoutAttachMode::InsideRight:
-            resolved.x = parent.x + parent.width - resolved.width + gapX * scale;
+            resolved.x = parentRight - resolved.width + gapX * scale;
             resolved.y = parent.y + (parent.height - resolved.height) * 0.5f + gapY * scale;
             break;
 
@@ -98,7 +102,7 @@ ResolvedLayoutElement resolveAttachedLayoutRect(
             break;
 
         case UiLayoutManager::LayoutAttachMode::InsideTopRight:
-            resolved.x = parent.x + parent.width - resolved.width + gapX * scale;
+            resolved.x = parentRight - resolved.width + gapX * scale;
             resolved.y = parent.y + gapY * scale;
             break;
 
@@ -113,7 +117,7 @@ ResolvedLayoutElement resolveAttachedLayoutRect(
             break;
 
         case UiLayoutManager::LayoutAttachMode::InsideBottomRight:
-            resolved.x = parent.x + parent.width - resolved.width + gapX * scale;
+            resolved.x = parentRight - resolved.width + gapX * scale;
             resolved.y = parent.y + parent.height - resolved.height + gapY * scale;
             break;
 
@@ -157,6 +161,14 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
     const float viewportHeight = ReferenceHeight * baseScale;
     const float viewportX = (static_cast<float>(screenWidth) - viewportWidth) * 0.5f;
     const float viewportY = (static_cast<float>(screenHeight) - viewportHeight) * 0.5f;
+    const float anchorX = element.anchorSpace == UiLayoutManager::LayoutAnchorSpace::Screen ? 0.0f : viewportX;
+    const float anchorY = element.anchorSpace == UiLayoutManager::LayoutAnchorSpace::Screen ? 0.0f : viewportY;
+    const float anchorWidth = element.anchorSpace == UiLayoutManager::LayoutAnchorSpace::Screen
+        ? static_cast<float>(screenWidth)
+        : viewportWidth;
+    const float anchorHeight = element.anchorSpace == UiLayoutManager::LayoutAnchorSpace::Screen
+        ? static_cast<float>(screenHeight)
+        : viewportHeight;
     ResolvedLayoutElement resolved = {};
 
     if (!element.parentId.empty())
@@ -196,7 +208,10 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
             resolved.height,
             element.gapX,
             element.gapY,
-            resolved.scale);
+            resolved.scale,
+            element.anchorSpace == UiLayoutManager::LayoutAnchorSpace::Screen
+                ? std::optional<float>(static_cast<float>(screenWidth))
+                : std::nullopt);
         visited.erase(layoutId);
         return resolved;
     }
@@ -208,48 +223,48 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
     switch (element.anchor)
     {
         case UiLayoutManager::LayoutAnchor::TopLeft:
-            resolved.x = viewportX + element.offsetX * resolved.scale;
-            resolved.y = viewportY + element.offsetY * resolved.scale;
+            resolved.x = anchorX + element.offsetX * resolved.scale;
+            resolved.y = anchorY + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::TopCenter:
-            resolved.x = viewportX + viewportWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
-            resolved.y = viewportY + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
+            resolved.y = anchorY + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::TopRight:
-            resolved.x = viewportX + viewportWidth - resolved.width + element.offsetX * resolved.scale;
-            resolved.y = viewportY + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth - resolved.width + element.offsetX * resolved.scale;
+            resolved.y = anchorY + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::Left:
-            resolved.x = viewportX + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
+            resolved.x = anchorX + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::Center:
-            resolved.x = viewportX + viewportWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::Right:
-            resolved.x = viewportX + viewportWidth - resolved.width + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth - resolved.width + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight * 0.5f - resolved.height * 0.5f + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::BottomLeft:
-            resolved.x = viewportX + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight - resolved.height + element.offsetY * resolved.scale;
+            resolved.x = anchorX + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight - resolved.height + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::BottomCenter:
-            resolved.x = viewportX + viewportWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight - resolved.height + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth * 0.5f - resolved.width * 0.5f + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight - resolved.height + element.offsetY * resolved.scale;
             break;
 
         case UiLayoutManager::LayoutAnchor::BottomRight:
-            resolved.x = viewportX + viewportWidth - resolved.width + element.offsetX * resolved.scale;
-            resolved.y = viewportY + viewportHeight - resolved.height + element.offsetY * resolved.scale;
+            resolved.x = anchorX + anchorWidth - resolved.width + element.offsetX * resolved.scale;
+            resolved.y = anchorY + anchorHeight - resolved.height + element.offsetY * resolved.scale;
             break;
     }
 

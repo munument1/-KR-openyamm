@@ -35,7 +35,7 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     SetValue(MapVar(2), 1)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Cleric Moon A, spawn Wight A
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -320,6 +320,6 @@ end)
 RegisterEvent(501, "Leave the Grand Temple of the Moon", function()
     evt.ForPlayer(Players.All)
     RemoveItem(1143) -- Telekinesis
-    evt.MoveToMap(8472, -3176, 32, 1408, 0, 0, 0, 0, "out09.odm")
+    evt.MoveToMap(8472, -3176, 32, 1408, 0, 0, 0, 0, "out09.odm") -- Evenmorn Island
 end, "Leave the Grand Temple of the Moon")
 

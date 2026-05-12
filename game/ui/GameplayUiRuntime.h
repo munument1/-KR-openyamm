@@ -87,6 +87,7 @@ public:
     const std::vector<GameplayTownPortalDestination> &townPortalDestinations() const;
 
     bool loadHudTexture(const std::string &textureName);
+    bool loadItemIconTexture(const std::string &textureName);
     bool loadHudFont(const std::string &fontName);
     std::optional<std::vector<uint8_t>> loadHudBitmapPixelsBgraCached(
         const std::string &textureName,
@@ -109,6 +110,7 @@ public:
         float fallbackWidth,
         float fallbackHeight) const;
     std::optional<GameplayHudTextureHandle> ensureHudTextureLoaded(const std::string &textureName);
+    std::optional<GameplayHudTextureHandle> ensureItemIconTextureLoaded(const std::string &textureName);
     std::optional<GameplayHudTextureHandle> ensureSolidHudTextureLoaded(
         const std::string &textureName,
         uint32_t abgrColor);
@@ -119,6 +121,7 @@ public:
         const std::vector<uint8_t> &bgraPixels);
     const std::vector<uint8_t> *hudTexturePixels(const std::string &textureName, int &width, int &height);
     bool ensureHudTextureDimensions(const std::string &textureName, int &width, int &height);
+    bool ensureItemIconTextureDimensions(const std::string &textureName, int &width, int &height);
     bool tryGetOpaqueHudTextureBounds(
         const std::string &textureName,
         int &width,

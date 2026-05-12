@@ -231,27 +231,27 @@ RegisterEvent(46, "Chest", function()
 end, "Chest")
 
 RegisterEvent(47, "Legacy event 47", function()
-    evt.MoveToMap(4747, -16024, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(4747, -16024, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(48, "Legacy event 48", function()
-    evt.MoveToMap(4439, -9086, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(4439, -9086, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(49, "Legacy event 49", function()
-    evt.MoveToMap(2427, -19303, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2427, -19303, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(50, "Legacy event 50", function()
-    evt.MoveToMap(2673, -11904, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2673, -11904, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(51, "Legacy event 51", function()
-    evt.MoveToMap(8583, -16348, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(8583, -16348, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(52, "Legacy event 52", function()
-    evt.MoveToMap(8827, -9341, 1825, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(8827, -9341, 1825, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(54, "Wolf Altar", function()
@@ -286,7 +286,7 @@ RegisterEvent(56, "Legacy event 56", function()
 end)
 
 RegisterEvent(58, "Exit", function()
-    evt.MoveToMap(-13100, 2028, 161, 640, 0, 0, 0, 0, "outb2.odm")
+    evt.MoveToMap(-13100, 2028, 161, 640, 0, 0, 0, 0, "outb2.odm") -- Blackshire
 end, "Exit")
 
 RegisterEvent(59, "Legacy event 59", function()

@@ -19,7 +19,7 @@ These rules apply to all AI-generated contributions in this repository.
 
 - Use the local OpenEnroth checkout at `reference/OpenEnroth-git/`; do not search OpenEnroth on the web when local
   reference is available.
-- Preferred build command: `cmake --build build --target openyamm -j25`.
+- Development compile command: `cmake --build build --target openyamm -j25` (passed).
 - Prefer doctest/unit coverage for pure logic.
 - Use focused headless coverage for runtime/map behavior when unit tests are not enough.
 - If a task explicitly names planning documents, follow those documents for that task only; do not treat stale plans as

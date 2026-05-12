@@ -13,7 +13,7 @@ ReplaceMapEvent(13, "Guardian of Kriegspire", function(continueStep)
         end
 
         SubtractValue(Gold, 50000)
-        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
         return
     end
 
@@ -22,7 +22,7 @@ ReplaceMapEvent(13, "Guardian of Kriegspire", function(continueStep)
     end
 
     if IsQBitSet(QBit(1364)) then
-        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
         return
     end
 

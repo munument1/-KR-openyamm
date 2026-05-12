@@ -338,15 +338,15 @@ RegisterEvent(201, "Earth Lord's Cell", function()
 end, "Earth Lord's Cell")
 
 RegisterEvent(451, "Legacy event 451", function()
-    evt.MoveToMap(47, -76, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(47, -76, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(452, "Legacy event 452", function()
-    evt.MoveToMap(64, 448, -3008, -1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(64, 448, -3008, -1, 0, 0, 0, 0)
 end)
 
 RegisterEvent(453, "Legacy event 453", function()
-    evt.MoveToMap(-1, 211, -3519, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-1, 211, -3519, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(501, "Leave the Prison of the Lord of Earth", function()

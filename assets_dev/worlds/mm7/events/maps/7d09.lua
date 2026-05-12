@@ -70,6 +70,7 @@ RegisterEvent(176, "Chest", function()
             evt.OpenChest(0)
             return
         end
+        return
     end
     evt.OpenChest(0)
 end, "Chest")
@@ -151,6 +152,6 @@ RegisterEvent(195, "Chest", function()
 end, "Chest")
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(18754, -17550, 929, 768, 0, 0, 0, 0, "out14.odm")
+    evt.MoveToMap(18754, -17550, 929, 768, 0, 0, 0, 0, "out14.odm") -- Avlee
 end)
 

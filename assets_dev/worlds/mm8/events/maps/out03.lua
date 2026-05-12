@@ -600,7 +600,7 @@ RegisterEvent(490, "Legacy event 490", function()
 end)
 
 RegisterEvent(491, "Ogre Raiding Fort", function()
-    evt.MoveToMap(-20497, 1169, 1051, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-20497, 1169, 1051, 1536, 0, 0, 0, 0)
 end, "Ogre Raiding Fort")
 
 RegisterEvent(495, "Pine tree", function()

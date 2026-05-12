@@ -79,11 +79,11 @@ RegisterEvent(12, "Door", function()
 end, "Door")
 
 RegisterEvent(13, "Legacy event 13", function()
-    evt.MoveToMap(-2112, 14240, 40, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-2112, 14240, 40, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(14, "Legacy event 14", function()
-    evt.MoveToMap(4480, 8064, -340, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(4480, 8064, -340, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(18, "Legacy event 18", function()
@@ -131,7 +131,7 @@ end, "Chest")
 
 RegisterEvent(47, "Teleporter", function()
     if IsQBitSet(QBit(1078)) then -- Chris
-        evt.MoveToMap(7829, -7173, 224, 568, 0, 0, 0, 0, "outd1.odm")
+        evt.MoveToMap(7829, -7173, 224, 568, 0, 0, 0, 0, "outd1.odm") -- Silver Cove
     end
 end, "Teleporter")
 
@@ -182,7 +182,7 @@ RegisterEvent(60, "Legacy event 60", function()
 end)
 
 RegisterEvent(61, "Exit", function()
-    evt.MoveToMap(13830, 7687, 673, 512, 0, 0, 0, 0, "oute1.odm")
+    evt.MoveToMap(13830, 7687, 673, 512, 0, 0, 0, 0, "oute1.odm") -- Eel Infested Waters
 end, "Exit")
 
 RegisterEvent(62, "Door", function()
@@ -193,35 +193,55 @@ RegisterEvent(63, "Door", function()
     evt.SetDoorState(3, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(64, "Tree", function()
+RegisterEvent(64, "Tree", function(continueStep)
+    if continueStep == 3 then
+    end
+    if continueStep ~= nil then return end
     SetValue(MapVar(3), 1)
-    evt.SimpleMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The first is half the forth plus one, better hurry or you'll be done!\"")
+    evt.SetMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The first is half the forth plus one, better hurry or you'll be done!\"")
+    evt._PressAnyKey(64, 3)
 end, "Tree")
 
-RegisterEvent(65, "Tree", function()
+RegisterEvent(65, "Tree", function(continueStep)
+    if continueStep == 3 then
+    end
+    if continueStep ~= nil then return end
     SetValue(MapVar(4), 1)
-    evt.SimpleMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The second is next to the third, oh so pretty like a bird!\"")
+    evt.SetMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The second is next to the third, oh so pretty like a bird!\"")
+    evt._PressAnyKey(65, 3)
 end, "Tree")
 
-RegisterEvent(66, "Tree", function()
+RegisterEvent(66, "Tree", function(continueStep)
+    if continueStep == 3 then
+    end
+    if continueStep ~= nil then return end
     SetValue(MapVar(5), 1)
-    evt.SimpleMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The third is the first of twenty six, A through Z you'll have to mix!\"")
+    evt.SetMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The third is the first of twenty six, A through Z you'll have to mix!\"")
+    evt._PressAnyKey(66, 3)
 end, "Tree")
 
-RegisterEvent(67, "Tree", function()
+RegisterEvent(67, "Tree", function(continueStep)
+    if continueStep == 3 then
+    end
+    if continueStep ~= nil then return end
     SetValue(MapVar(6), 1)
-    evt.SimpleMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The fifth is twice the second, five letters in all I reckon!\"")
+    evt.SetMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The fifth is twice the second, five letters in all I reckon!\"")
+    evt._PressAnyKey(67, 3)
 end, "Tree")
 
-RegisterEvent(68, "Tree", function()
+RegisterEvent(68, "Tree", function(continueStep)
+    if continueStep == 3 then
+    end
+    if continueStep ~= nil then return end
     SetValue(MapVar(7), 1)
-    evt.SimpleMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The forth is eight from the end, Archibald really is your friend!\"")
+    evt.SetMessage("\"Etched into the tree a message reads:                                                                                                                                                                                                                              The forth is eight from the end, Archibald really is your friend!\"")
+    evt._PressAnyKey(68, 3)
 end, "Tree")
 
 RegisterEvent(69, "Legacy event 69", function(continueStep)
     if continueStep == 4 then
         evt.StatusText("Wrong!")
-        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
         return
     end
     if continueStep == 23 then
@@ -230,7 +250,7 @@ RegisterEvent(69, "Legacy event 69", function(continueStep)
     end
     if continueStep == 17 then
         evt.StatusText("Wrong!")
-        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
         return
     end
     if continueStep == 20 then
@@ -246,18 +266,18 @@ RegisterEvent(69, "Legacy event 69", function(continueStep)
             if IsAtLeast(MapVar(5), 1) then
                 if IsAtLeast(MapVar(6), 1) then
                     if IsAtLeast(MapVar(7), 1) then
-                        evt.SimpleMessage("Restricted area - Keep out.")
+                        evt.SetMessage("Restricted area - Keep out.")
                         evt.AskQuestion(69, 17, 14, 20, 15, 16, "What's the password?", {"JBARD", "jbard"})
                         return nil
                     end
                 end
             end
         end
-        evt.SimpleMessage("Restricted area - Keep out.")
+        evt.SetMessage("Restricted area - Keep out.")
         evt.AskQuestion(69, 4, 14, 23, 15, 16, "What's the password?", {"JBARD", "jbard"})
         return nil
     else
-        evt.SimpleMessage("Restricted area - Keep out.")
+        evt.SetMessage("Restricted area - Keep out.")
         evt.AskQuestion(69, 4, 14, 23, 15, 16, "What's the password?", {"JBARD", "jbard"})
         return nil
     end

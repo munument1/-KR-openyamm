@@ -116,7 +116,7 @@ end)
 
 RegisterEvent(28, "Legacy event 28", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -125,7 +125,7 @@ end)
 
 RegisterEvent(29, "Legacy event 29", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(10384, 2224, 0, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(10384, 2224, 0, 0, 0, 0, 0, 0)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -134,7 +134,7 @@ end)
 
 RegisterEvent(30, "Legacy event 30", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -143,7 +143,7 @@ end)
 
 RegisterEvent(31, "Legacy event 31", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(8608, 128, 630, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(8608, 128, 630, 0, 0, 0, 0, 0)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -152,7 +152,7 @@ end)
 
 RegisterEvent(32, "Legacy event 32", function()
     if not IsAtLeast(MapVar(2), 1) then
-        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
     end
     evt.SetDoorState(10, DoorAction.Close)
@@ -161,7 +161,7 @@ end)
 
 RegisterEvent(33, "Legacy event 33", function()
     if not IsAtLeast(MapVar(3), 1) then
-        evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0)
         return
     end
     if not IsAtLeast(MapVar(3), 2) then
@@ -171,7 +171,7 @@ RegisterEvent(33, "Legacy event 33", function()
         evt.StatusText("The way has been cleared")
         return
     end
-    evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(34, "Podium", function()
@@ -212,7 +212,7 @@ end)
 
 RegisterEvent(37, "Legacy event 37", function()
     if not IsAtLeast(MapVar(3), 1) then
-        evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
         return
     end
     if not IsAtLeast(MapVar(3), 2) then
@@ -222,61 +222,59 @@ RegisterEvent(37, "Legacy event 37", function()
         evt.StatusText("The way has been cleared")
         return
     end
-    evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(38, "Legacy event 38", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(39, "Legacy event 39", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-7328, 10496, 600, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-7328, 10496, 600, 0, 0, 0, 0, 0)
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(40, "Legacy event 40", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-6112, 10912, 600, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-6112, 10912, 600, 0, 0, 0, 0, 0)
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(41, "Legacy event 41", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(42, "Legacy event 42", function()
     if not IsAtLeast(MapVar(4), 1) then
-        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
     end
-    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(43, "Legacy event 43", function()
-    evt.MoveToMap(13744, 640, -180, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(13744, 640, -180, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(44, "Legacy event 44", function()
-    evt.MoveToMap(2528, 3568, -635, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2528, 3568, -635, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(45, "Sign", function()
-    if not IsAtLeast(MapVar(4), 1) then
-        SetValue(MapVar(4), 1)
-        evt.SimpleMessage("The fires of the dead shall burn forever")
+RegisterEvent(45, "Sign", function(continueStep)
+    if continueStep == 4 then
         evt.SetTexture(4298, "lavatyl")
         evt.SetTexture(4299, "lavatyl")
         evt.SetTexture(4300, "lavatyl")
@@ -287,6 +285,13 @@ RegisterEvent(45, "Sign", function()
         evt.SetFacetBit(4300, FacetBits.Fluid, 1)
         evt.SetFacetBit(4301, FacetBits.Fluid, 1)
         evt.SetFacetBit(4302, FacetBits.Fluid, 1)
+        return
+    end
+    if continueStep ~= nil then return end
+    if not IsAtLeast(MapVar(4), 1) then
+        SetValue(MapVar(4), 1)
+        evt.SetMessage("The fires of the dead shall burn forever")
+        evt._PressAnyKey(45, 4)
         return
     end
     SetValue(MapVar(4), 0)
@@ -342,9 +347,13 @@ RegisterEvent(52, "Legacy event 52", function()
     evt.SummonMonsters(1, 2, 3, -5376, 11904, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-5376, 11904, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(53, "Sign", function()
-    evt.SimpleMessage("The crimson embers will lead the way")
-    evt.SetDoorState(13, DoorAction.Trigger)
+RegisterEvent(53, "Sign", function(continueStep)
+    if continueStep == 2 then
+        evt.SetDoorState(13, DoorAction.Trigger)
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The crimson embers will lead the way")
+    evt._PressAnyKey(53, 2)
 end, "Sign")
 
 RegisterEvent(54, "Lever", function()
@@ -372,9 +381,13 @@ RegisterEvent(54, "Lever", function()
     evt.SetTexture(4223, "orwtrtyl")
 end, "Lever")
 
-RegisterEvent(55, "Sign", function()
-    evt.SimpleMessage("The crimson embers will lead the way")
-    evt.SetDoorState(11, DoorAction.Trigger)
+RegisterEvent(55, "Sign", function(continueStep)
+    if continueStep == 2 then
+        evt.SetDoorState(11, DoorAction.Trigger)
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The crimson embers will lead the way")
+    evt._PressAnyKey(55, 2)
 end, "Sign")
 
 RegisterEvent(56, "Sign", function()
@@ -457,7 +470,7 @@ RegisterEvent(59, "Forcefield", function()
 end, "Forcefield")
 
 RegisterEvent(60, "Legacy event 60", function()
-    evt.MoveToMap(-17281, 17465, 2081, 0, 0, 0, 0, 0, "outc3.odm")
+    evt.MoveToMap(-17281, 17465, 2081, 0, 0, 0, 0, 0, "outc3.odm") -- Mire of the Damned
 end)
 
 RegisterEvent(61, "Sarcophagus", function(continueStep)
@@ -471,7 +484,7 @@ RegisterEvent(61, "Sarcophagus", function(continueStep)
     end
     if continueStep ~= nil then return end
     if IsAtLeast(MapVar(11), 1) then return end
-    evt.SimpleMessage("Steal from the dead?")
+    evt.SetMessage("Steal from the dead?")
     evt.AskQuestion(61, 3, 21, 4, 22, 23, "Steal (Yes/No)?", {"Yes", "Y"})
     return nil
 end, "Sarcophagus")
@@ -487,7 +500,7 @@ RegisterEvent(62, "Sarcophagus", function(continueStep)
     end
     if continueStep ~= nil then return end
     if IsAtLeast(MapVar(12), 1) then return end
-    evt.SimpleMessage("Steal from the dead?")
+    evt.SetMessage("Steal from the dead?")
     evt.AskQuestion(62, 3, 21, 4, 22, 23, "Steal (Yes/No)?", {"Yes", "Y"})
     return nil
 end, "Sarcophagus")
@@ -503,7 +516,7 @@ RegisterEvent(63, "Sarcophagus", function(continueStep)
     end
     if continueStep ~= nil then return end
     if IsAtLeast(MapVar(13), 1) then return end
-    evt.SimpleMessage("Steal from the dead?")
+    evt.SetMessage("Steal from the dead?")
     evt.AskQuestion(63, 3, 21, 4, 22, 23, "Steal (Yes/No)?", {"Yes", "Y"})
     return nil
 end, "Sarcophagus")

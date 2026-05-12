@@ -748,7 +748,7 @@ RegisterEvent(501, "Leave the Lincoln", function()
                 if HasItem(1406) then -- Wetsuit
                     evt.ForPlayer(Players.Current)
                     if HasItem(1406) then -- Wetsuit
-                        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, "7out15.odm")
+                        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, "7out15.odm") -- Shoals
                         return
                     end
                 end

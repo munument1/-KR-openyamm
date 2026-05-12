@@ -36,10 +36,10 @@ SetMapMetadata({
 RegisterEvent(1, "Legacy event 1", function()
     if not IsQBitSet(QBit(721)) then -- TP Buff Nighon
         SetQBit(QBit(721)) -- TP Buff Nighon
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Hydra A, spawn Roc A, spawn Warlock A
         return
     end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Hydra A, spawn Roc A, spawn Warlock A
 end)
 
 RegisterEvent(3, "The Tannery", function()
@@ -84,7 +84,7 @@ end, "The Blooded Dagger")
 
 RegisterEvent(16, "The Blooded Dagger", nil, "The Blooded Dagger")
 
-RegisterEvent(51, "House", nil, "House")
+RegisterEvent(51, "Legacy event 51", nil)
 
 RegisterEvent(52, "Whitesky Residence", function()
     evt.EnterHouse(990) -- Whitesky Residence
@@ -138,117 +138,112 @@ RegisterEvent(64, "Hawthorne Residence", function()
     evt.EnterHouse(1149) -- Hawthorne Residence
 end, "Hawthorne Residence")
 
-RegisterEvent(151, "Chest ", function()
+RegisterEvent(151, "Legacy event 151", function()
     evt.OpenChest(1)
-end, "Chest ")
+end)
 
-RegisterEvent(152, "Chest ", function()
+RegisterEvent(152, "Legacy event 152", function()
     evt.OpenChest(2)
-end, "Chest ")
+end)
 
-RegisterEvent(153, "Chest ", function()
+RegisterEvent(153, "Legacy event 153", function()
     evt.OpenChest(3)
-end, "Chest ")
+end)
 
-RegisterEvent(154, "Chest ", function()
+RegisterEvent(154, "Legacy event 154", function()
     evt.OpenChest(4)
-end, "Chest ")
+end)
 
-RegisterEvent(155, "Chest ", function()
+RegisterEvent(155, "Legacy event 155", function()
     evt.OpenChest(5)
-end, "Chest ")
+end)
 
-RegisterEvent(156, "Chest ", function()
+RegisterEvent(156, "Legacy event 156", function()
     evt.OpenChest(6)
-end, "Chest ")
+end)
 
-RegisterEvent(157, "Chest ", function()
+RegisterEvent(157, "Legacy event 157", function()
     evt.OpenChest(7)
-end, "Chest ")
+end)
 
-RegisterEvent(158, "Chest ", function()
+RegisterEvent(158, "Legacy event 158", function()
     evt.OpenChest(8)
-end, "Chest ")
+end)
 
-RegisterEvent(159, "Chest ", function()
+RegisterEvent(159, "Legacy event 159", function()
     evt.OpenChest(9)
-end, "Chest ")
+end)
 
-RegisterEvent(160, "Chest ", function()
+RegisterEvent(160, "Legacy event 160", function()
     evt.OpenChest(10)
-end, "Chest ")
+end)
 
-RegisterEvent(161, "Chest ", function()
+RegisterEvent(161, "Legacy event 161", function()
     evt.OpenChest(11)
-end, "Chest ")
+end)
 
-RegisterEvent(162, "Chest ", function()
+RegisterEvent(162, "Legacy event 162", function()
     evt.OpenChest(12)
-end, "Chest ")
+end)
 
-RegisterEvent(163, "Chest ", function()
+RegisterEvent(163, "Legacy event 163", function()
     evt.OpenChest(13)
-end, "Chest ")
+end)
 
-RegisterEvent(164, "Chest ", function()
+RegisterEvent(164, "Legacy event 164", function()
     evt.OpenChest(14)
-end, "Chest ")
+end)
 
-RegisterEvent(165, "Chest ", function()
+RegisterEvent(165, "Legacy event 165", function()
     evt.OpenChest(15)
-end, "Chest ")
+end)
 
-RegisterEvent(166, "Chest ", function()
+RegisterEvent(166, "Legacy event 166", function()
     evt.OpenChest(16)
-end, "Chest ")
+end)
 
-RegisterEvent(167, "Chest ", function()
+RegisterEvent(167, "Legacy event 167", function()
     evt.OpenChest(17)
-end, "Chest ")
+end)
 
-RegisterEvent(168, "Chest ", function()
+RegisterEvent(168, "Legacy event 168", function()
     evt.OpenChest(18)
-end, "Chest ")
+end)
 
-RegisterEvent(169, "Chest ", function()
+RegisterEvent(169, "Legacy event 169", function()
     evt.OpenChest(19)
-end, "Chest ")
+end)
 
-RegisterEvent(170, "Chest ", function()
+RegisterEvent(170, "Legacy event 170", function()
     evt.OpenChest(0)
-end, "Chest ")
+end)
 
-RegisterEvent(201, "Well", nil, "Well")
+RegisterEvent(201, "Chest", nil, "Chest")
 
-RegisterEvent(202, "Drink from the Well", function()
+RegisterEvent(202, "Legacy event 202", function()
     if not IsPlayerBitSet(PlayerBit(15)) then
         if not IsAutonoteSet(277) then -- 2 Skill Points from the well near Offerings and Blessings in Damocles in Mount Nighon.
             SetAutonote(277) -- 2 Skill Points from the well near Offerings and Blessings in Damocles in Mount Nighon.
         end
         AddValue(SkillPoints, 2)
         SetPlayerBit(PlayerBit(15))
-        evt.StatusText("+2 Skill Points")
         return
     end
-    evt.StatusText("Refreshing!")
-end, "Drink from the Well")
+end)
 
-RegisterEvent(203, "Drink from the Well", function()
+RegisterEvent(203, "Legacy event 203", function()
     if not IsPlayerBitSet(PlayerBit(16)) then
         if not IsAutonoteSet(278) then -- 2 points of permanent Personality from the well near Fortune's Folly in Damocles in Mount Nighon.
             SetAutonote(278) -- 2 points of permanent Personality from the well near Fortune's Folly in Damocles in Mount Nighon.
         end
         AddValue(BasePersonality, 2)
         SetPlayerBit(PlayerBit(16))
-        evt.StatusText("+2 Personality (Permanent)")
         return
     end
-    evt.StatusText("Refreshing!")
-end, "Drink from the Well")
+end)
 
-RegisterEvent(204, "Drink from the Well", function()
+RegisterEvent(204, "Legacy event 204", function()
     if IsPlayerBitSet(PlayerBit(17)) then
-        evt.StatusText("Refreshing!")
         return
     elseif IsAutonoteSet(279) then -- 20 points of temporary Air, Earth, Fire, Water, Body, and Mind resistances from the well near the Fire Guild in Damocles in Mount Nighon.
         AddValue(FireResistanceBonus, 20)
@@ -258,7 +253,6 @@ RegisterEvent(204, "Drink from the Well", function()
         AddValue(EarthResistanceBonus, 20)
         AddValue(MindResistanceBonus, 20)
         SetPlayerBit(PlayerBit(17))
-        evt.StatusText("+20 All Resistances (Temporary)")
         return
     else
         SetAutonote(279) -- 20 points of temporary Air, Earth, Fire, Water, Body, and Mind resistances from the well near the Fire Guild in Damocles in Mount Nighon.
@@ -269,14 +263,13 @@ RegisterEvent(204, "Drink from the Well", function()
         AddValue(EarthResistanceBonus, 20)
         AddValue(MindResistanceBonus, 20)
         SetPlayerBit(PlayerBit(17))
-        evt.StatusText("+20 All Resistances (Temporary)")
         return
     end
-end, "Drink from the Well")
+end)
 
-RegisterEvent(205, "Fountain", nil, "Fountain")
+RegisterEvent(205, "Legacy event 205", nil)
 
-RegisterEvent(206, "Drink from the Fountain", function()
+RegisterEvent(206, "Legacy event 206", function()
     if not IsPlayerBitSet(PlayerBit(14)) then
         if not IsAutonoteSet(276) then -- 50 points of temporary Intellect and Personality from the central fountain in Damocles in Mount Nighon.
             SetAutonote(276) -- 50 points of temporary Intellect and Personality from the central fountain in Damocles in Mount Nighon.
@@ -284,56 +277,47 @@ RegisterEvent(206, "Drink from the Fountain", function()
         AddValue(PersonalityBonus, 50)
         AddValue(IntellectBonus, 50)
         SetPlayerBit(PlayerBit(14))
-        evt.StatusText("+50 Intellect and Personality (Temporary)")
         return
     end
-    evt.StatusText("Refreshing!")
-end, "Drink from the Fountain")
+end)
 
-RegisterEvent(207, "Drink from the Well", function()
+RegisterEvent(207, "Legacy event 207", function()
     if not IsAtLeast(MaxSpellPoints, 0) then
         AddValue(CurrentSpellPoints, 25)
-        evt.StatusText("+50 Spell Points")
         SetAutonote(280) -- 50 Spell Points recovered from the well in the eastern village in Mount Nighon.
         return
     end
-    evt.StatusText("Refreshing!")
-end, "Drink from the Well")
+end)
 
-RegisterEvent(208, "Drink from the Well", function()
+RegisterEvent(208, "Legacy event 208", function()
     if not IsAtLeast(MaxHealth, 0) then
         AddValue(CurrentHealth, 25)
-        evt.StatusText("+50 Hit Points")
         SetAutonote(281) -- 50 Hit Points recovered from the well in the western village in Mount Nighon.
         return
     end
-    evt.StatusText("Refreshing!")
-end, "Drink from the Well")
+end)
 
-RegisterEvent(209, "Thunderfist Mountain", nil, "Thunderfist Mountain")
+RegisterEvent(209, "Legacy event 209", nil)
 
-RegisterEvent(210, "The Maze", nil, "The Maze")
+RegisterEvent(210, "Legacy event 210", nil)
 
-RegisterEvent(451, "Shrine", nil, "Shrine")
+RegisterEvent(451, "Legacy event 451", nil)
 
-RegisterEvent(452, "Altar", function()
+RegisterEvent(452, "Legacy event 452", function()
     if not IsPlayerBitSet(PlayerBit(28)) then
         AddValue(BasePersonality, 10)
         AddValue(BaseIntellect, 10)
         SetPlayerBit(PlayerBit(28))
-        evt.StatusText("+10 Personality and Intellect(Permanent)")
         return
     end
-    evt.StatusText("You Pray")
-end, "Altar")
+end)
 
-RegisterEvent(453, "Obelisk", function()
+RegisterEvent(453, "Legacy event 453", function()
     if IsQBitSet(QBit(684)) then return end -- Visited Obelisk in Area 10
-    evt.StatusText("fi_eo_od")
     SetAutonote(317) -- Obelisk message #9: fi_eo_od
     evt.ForPlayer(Players.All)
     SetQBit(QBit(684)) -- Visited Obelisk in Area 10
-end, "Obelisk")
+end)
 
 RegisterEvent(454, "Legacy event 454", function()
     evt.ForPlayer(Players.All)
@@ -348,23 +332,23 @@ RegisterEvent(500, "Legacy event 500", function()
     end
 end)
 
-RegisterEvent(501, "Enter Thunderfist Mountain", function()
-    evt.MoveToMap(-1024, 768, 4097, 1792, 0, 0, 150, 1, "\t7d07.blv")
-end, "Enter Thunderfist Mountain")
+RegisterEvent(501, "Legacy event 501", function()
+    evt.MoveToMap(-1024, 768, 4097, 1792, 0, 0, 150, 1, "7d07.blv") -- Thunderfist Mountain
+end)
 
-RegisterEvent(502, "Enter The Maze", function()
-    evt.MoveToMap(1536, -8614, 1, 512, 0, 0, 151, 1, "d02.blv")
-end, "Enter The Maze")
+RegisterEvent(502, "Legacy event 502", function()
+    evt.MoveToMap(1536, -8614, 1, 512, 0, 0, 151, 1, "d02.blv") -- The Maze
+end)
 
-RegisterEvent(503, "Enter Thunderfist Mountain", function()
-    evt.MoveToMap(9960, 1443, 390, 1936, 0, 0, 150, 1, "\t7d07.blv")
-end, "Enter Thunderfist Mountain")
+RegisterEvent(503, "Legacy event 503", function()
+    evt.MoveToMap(9960, 1443, 390, 1936, 0, 0, 150, 1, "7d07.blv") -- Thunderfist Mountain
+end)
 
-RegisterEvent(504, "Enter Thunderfist Mountain", function()
-    evt.MoveToMap(-11058, 4858, 3969, 148, 0, 0, 150, 1, "\t7d07.blv")
-end, "Enter Thunderfist Mountain")
+RegisterEvent(504, "Legacy event 504", function()
+    evt.MoveToMap(-11058, 4858, 3969, 148, 0, 0, 150, 1, "7d07.blv") -- Thunderfist Mountain
+end)
 
-RegisterEvent(505, "Enter Thunderfist Mountain", function()
-    evt.MoveToMap(11471, -3498, 2814, 414, 0, 0, 150, 1, "\t7d07.blv")
-end, "Enter Thunderfist Mountain")
+RegisterEvent(505, "Legacy event 505", function()
+    evt.MoveToMap(11471, -3498, 2814, 414, 0, 0, 150, 1, "7d07.blv") -- Thunderfist Mountain
+end)
 

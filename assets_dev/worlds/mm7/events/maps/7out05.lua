@@ -37,24 +37,24 @@ RegisterEvent(1, "Legacy event 1", function()
     SetValue(MapVar(31), 5)
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Hobgoblin
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Harpy A, spawn Zombie A
         return
     elseif IsQBitSet(QBit(782)) then -- Your friends are mad at you
         if IsAtLeast(Counter(10), 720) then
             ClearQBit(QBit(782)) -- Your friends are mad at you
             SetValue(MapVar(6), 0)
-            evt.SetMonGroupBit(55, MonsterBits.Hostile, 0)
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
+            evt.SetMonGroupBit(55, MonsterBits.Hostile, 0) -- actor group 55: Hobgoblin
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 0) -- actor group 56: spawn Harpy A, spawn Zombie A
             return
         end
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Hobgoblin
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Harpy A, spawn Zombie A
         return
     elseif IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Hobgoblin
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Harpy A, spawn Zombie A
         return
     else
         return
@@ -297,6 +297,7 @@ RegisterEvent(202, "Drink from the Well", function()
             evt.StatusText("Refreshing!")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -371,6 +372,7 @@ RegisterEvent(207, "Drink from the Well", function()
             evt.StatusText("+5 Fire Resistance (Permanent)")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -453,11 +455,11 @@ RegisterEvent(500, "Legacy event 500", function()
 end)
 
 RegisterEvent(501, "Enter the Hall of the Pit", function()
-    evt.MoveToMap(512, -3156, 1, 545, 0, 0, 140, 1, "t04.blv")
+    evt.MoveToMap(512, -3156, 1, 545, 0, 0, 140, 1, "t04.blv") -- The Hall of the Pit
 end, "Enter the Hall of the Pit")
 
 RegisterEvent(502, "Enter Watchtower 6", function()
-    evt.MoveToMap(-416, -1033, 1, 512, 0, 0, 141, 1, "\t7d15.blv")
+    evt.MoveToMap(-416, -1033, 1, 512, 0, 0, 141, 1, "7d15.blv") -- Watchtower 6
 end, "Enter Watchtower 6")
 
 RegisterEvent(503, "Legacy event 503", function()
@@ -465,15 +467,15 @@ RegisterEvent(503, "Legacy event 503", function()
         evt.SpeakNPC(357) -- William Setag
         return
     end
-    evt.MoveToMap(442, -1112, 1, 512, 0, 0, 0, 0, "\tmdt10.blv")
+    evt.MoveToMap(442, -1112, 1, 512, 0, 0, 0, 0, "mdt10.blv") -- William Setag's Tower
 end)
 
 RegisterEvent(504, "Enter Watchtower 6", function()
     if not IsQBitSet(QBit(708)) then -- Find second entrance to Watchtower6
         SetQBit(QBit(708)) -- Find second entrance to Watchtower6
-        evt.MoveToMap(190, 4946, -511, 1024, 0, 0, 141, 1, "\t7d15.blv")
+        evt.MoveToMap(190, 4946, -511, 1024, 0, 0, 141, 1, "7d15.blv") -- Watchtower 6
         return
     end
-    evt.MoveToMap(190, 4946, -511, 1024, 0, 0, 141, 1, "\t7d15.blv")
+    evt.MoveToMap(190, 4946, -511, 1024, 0, 0, 141, 1, "7d15.blv") -- Watchtower 6
 end, "Enter Watchtower 6")
 

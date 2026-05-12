@@ -125,7 +125,7 @@ RegisterEvent(196, "Legacy event 196", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1488), 1488) -- Iron-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 7 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
@@ -142,7 +142,7 @@ RegisterEvent(197, "Legacy event 197", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 7 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
@@ -159,7 +159,7 @@ RegisterEvent(198, "Legacy event 198", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 7 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
@@ -169,7 +169,7 @@ RegisterEvent(198, "Legacy event 198", function()
 end)
 
 RegisterEvent(501, "Leave the White Cliff Caves", function()
-    evt.MoveToMap(9686, -17990, 702, 1024, 0, 0, 0, 0, "7out02.odm")
+    evt.MoveToMap(9686, -17990, 702, 1024, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end, "Leave the White Cliff Caves")
 
 RegisterEvent(65535, "", function()

@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Bowman, Master of the Sword, spawn Archer A, spawn Fighter Leather A, +1 more
 end)
 
 RegisterEvent(3, "Legacy event 3", function()
@@ -312,6 +312,6 @@ RegisterEvent(452, "Bookcase", function()
 end, "Bookcase")
 
 RegisterEvent(501, "Leave the Mercenary Guild", function()
-    evt.MoveToMap(17920, 16803, 3072, 1536, 0, 0, 0, 0, "7out13.odm")
+    evt.MoveToMap(17920, 16803, 3072, 1536, 0, 0, 0, 0, "7out13.odm") -- Tatalia
 end, "Leave the Mercenary Guild")
 

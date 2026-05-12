@@ -1065,7 +1065,7 @@ void GameplayDialogueRenderer::updateHouseShopHoverTopicText(
         }
 
         const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-            view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+            view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
         if (!itemTexture)
         {
@@ -1236,7 +1236,7 @@ void GameplayDialogueRenderer::renderHouseShopOverlay(
         }
 
         const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-            view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+            view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
         if (!itemTexture)
         {
@@ -1276,6 +1276,7 @@ void GameplayDialogueRenderer::renderHouseShopOverlay(
         inspectableItem.hasItemState = true;
         inspectableItem.itemState = item;
         inspectableItem.textureName = pItemDefinition->iconName;
+        inspectableItem.textureUsesItemIconTransparency = true;
         inspectableItem.x = drawRect.x;
         inspectableItem.y = drawRect.y;
         inspectableItem.width = drawRect.width;

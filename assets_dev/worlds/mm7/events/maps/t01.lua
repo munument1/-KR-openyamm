@@ -35,13 +35,13 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         return
     elseif IsQBitSet(QBit(611)) then -- Chose the path of Light
         return
     else
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         return
     end
 end)
@@ -147,7 +147,7 @@ RegisterEvent(176, "Chest", function()
         return 3
     end
     local function Step_3()
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         return 4
     end
     local function Step_4()
@@ -198,7 +198,7 @@ end, "Chest")
 RegisterEvent(177, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(2)
         return
@@ -209,7 +209,7 @@ end, "Chest")
 RegisterEvent(178, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(3)
         return
@@ -220,7 +220,7 @@ end, "Chest")
 RegisterEvent(179, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(4)
         return
@@ -231,7 +231,7 @@ end, "Chest")
 RegisterEvent(180, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(5)
         return
@@ -242,7 +242,7 @@ end, "Chest")
 RegisterEvent(181, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(6)
         return
@@ -253,7 +253,7 @@ end, "Chest")
 RegisterEvent(182, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(7)
         return
@@ -264,7 +264,7 @@ end, "Chest")
 RegisterEvent(183, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(8)
         return
@@ -275,7 +275,7 @@ end, "Chest")
 RegisterEvent(184, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(9)
         return
@@ -286,7 +286,7 @@ end, "Chest")
 RegisterEvent(185, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(10)
         return
@@ -297,7 +297,7 @@ end, "Chest")
 RegisterEvent(186, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(11)
         return
@@ -308,7 +308,7 @@ end, "Chest")
 RegisterEvent(187, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(12)
         return
@@ -319,7 +319,7 @@ end, "Chest")
 RegisterEvent(188, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(13)
         return
@@ -330,7 +330,7 @@ end, "Chest")
 RegisterEvent(189, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(14)
         return
@@ -341,7 +341,7 @@ end, "Chest")
 RegisterEvent(190, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(15)
         return
@@ -352,7 +352,7 @@ end, "Chest")
 RegisterEvent(191, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(16)
         return
@@ -363,7 +363,7 @@ end, "Chest")
 RegisterEvent(192, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(17)
         return
@@ -374,7 +374,7 @@ end, "Chest")
 RegisterEvent(193, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(18)
         return
@@ -385,7 +385,7 @@ end, "Chest")
 RegisterEvent(194, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(19)
         return
@@ -396,7 +396,7 @@ end, "Chest")
 RegisterEvent(195, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
         evt.OpenChest(20)
         return
@@ -412,7 +412,7 @@ end)
 
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
     SetValue(MapVar(6), 2)
 end)
 
@@ -429,6 +429,6 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Leave the Temple of Light", function()
-    evt.MoveToMap(-5779, 15131, 225, 1536, 0, 0, 0, 0, "7d25.blv")
+    evt.MoveToMap(-5779, 15131, 225, 1536, 0, 0, 0, 0, "7d25.blv") -- Celeste
 end, "Leave the Temple of Light")
 

@@ -134,12 +134,20 @@ RegisterEvent(11, "Door", function()
     evt.SetDoorState(12, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(12, "Sign", function()
-    evt.SimpleMessage("\"A silver sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+RegisterEvent(12, "Sign", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"A silver sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+    evt._PressAnyKey(12, 2)
 end, "Sign")
 
-RegisterEvent(14, "Sign", function()
-    evt.SimpleMessage("\"A copper sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+RegisterEvent(14, "Sign", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"A copper sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+    evt._PressAnyKey(14, 2)
 end, "Sign")
 
 RegisterEvent(15, "Door", function()
@@ -147,8 +155,12 @@ RegisterEvent(15, "Door", function()
     evt.SetDoorState(16, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(16, "Sign", function()
-    evt.SimpleMessage("\"A lapis sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+RegisterEvent(16, "Sign", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"A lapis sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+    evt._PressAnyKey(16, 2)
 end, "Sign")
 
 RegisterEvent(17, "Door", function()
@@ -201,6 +213,7 @@ RegisterEvent(20, "Door", function()
         else
             return
         end
+        return
     end
     evt.DamagePlayer(Players.All, const.Damage.Fire, 10)
     evt.StatusText("Zap!")
@@ -263,8 +276,12 @@ RegisterEvent(23, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(24, "Sign", function()
-    evt.SimpleMessage("\"A wooden sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+RegisterEvent(24, "Sign", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"A wooden sign reads: As the winds blow, the seasons change, and only at the end of all can the doors be opened.\"")
+    evt._PressAnyKey(24, 2)
 end, "Sign")
 
 RegisterEvent(26, "Legacy event 26", function()
@@ -318,7 +335,7 @@ RegisterEvent(34, "Fountain", function()
 end, "Fountain")
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(4885, -7698, 96, 1536, 0, 0, 0, 0, "outd3.odm")
+    evt.MoveToMap(4885, -7698, 96, 1536, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

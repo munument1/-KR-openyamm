@@ -2928,7 +2928,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                         }
 
                         const std::optional<GameplayScreenRuntime::HudTextureHandle> itemTexture =
-                            view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                            view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                         if (!itemTexture)
                         {
@@ -3327,7 +3327,10 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
 
                 if (resolvedEventDialog && pTopicRowLayout != nullptr)
                 {
-                    if (view.activeEventDialog().presentation == EventDialogPresentation::Transition)
+                    const bool isTransitionDialog =
+                        view.activeEventDialog().presentation == EventDialogPresentation::Transition;
+
+                    if (isTransitionDialog)
                     {
                         const GameplayScreenRuntime::HudLayoutElement *pOkLayout =
                             view.findHudLayoutElement("DialogueOkButton");
@@ -3358,8 +3361,52 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     const float panelInnerX = resolvedEventDialog->x + panelPaddingX;
                     const float panelInnerY = resolvedEventDialog->y + panelPaddingY;
                     const float panelInnerWidth = resolvedEventDialog->width - panelPaddingX * 2.0f;
-                    const float portraitBorderSize = 80.0f * panelScale;
                     const float sectionGap = 8.0f * panelScale;
+                    const float houseTitleToPortraitGap = 2.0f * panelScale;
+                    const GameplayScreenRuntime::HudLayoutElement *pNpcPortraitLayout =
+                        view.findHudLayoutElement("DialogueNpcPortrait");
+                    const GameplayScreenRuntime::HudLayoutElement *pHouseTitleLayout =
+                        view.findHudLayoutElement("DialogueHouseTitle");
+                    const GameplayScreenRuntime::HudLayoutElement *pNpcNameLayout =
+                        view.findHudLayoutElement("DialogueNpcName");
+                    const GameplayScreenRuntime::HudLayoutElement *pEffectiveHouseTitleLayout =
+                        pHouseTitleLayout != nullptr ? pHouseTitleLayout : pNpcNameLayout;
+                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedPortraitTemplate =
+                        pNpcPortraitLayout != nullptr
+                        ? view.resolveHudLayoutElement(
+                            "DialogueNpcPortrait",
+                            screenWidth,
+                            screenHeight,
+                            pNpcPortraitLayout->width,
+                            pNpcPortraitLayout->height)
+                        : std::nullopt;
+                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedNpcNameTemplate =
+                        pNpcNameLayout != nullptr
+                        ? view.resolveHudLayoutElement(
+                            "DialogueNpcName",
+                            screenWidth,
+                            screenHeight,
+                            pNpcNameLayout->width,
+                            pNpcNameLayout->height)
+                        : std::nullopt;
+                    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedHouseTitleTemplate =
+                        pEffectiveHouseTitleLayout != nullptr
+                        ? view.resolveHudLayoutElement(
+                            pEffectiveHouseTitleLayout->id,
+                            screenWidth,
+                            screenHeight,
+                            pEffectiveHouseTitleLayout->width,
+                            pEffectiveHouseTitleLayout->height)
+                        : std::nullopt;
+                    const float portraitAreaHeight =
+                        resolvedPortraitTemplate ? resolvedPortraitTemplate->height : 80.0f * panelScale;
+                    const float portraitBaseY =
+                        resolvedPortraitTemplate ? resolvedPortraitTemplate->y : panelInnerY;
+                    const float nameHeight =
+                        resolvedNpcNameTemplate ? resolvedNpcNameTemplate->height : 20.0f * panelScale;
+                    const float nameOffsetY = resolvedNpcNameTemplate && resolvedPortraitTemplate
+                        ? (resolvedNpcNameTemplate->y - resolvedPortraitTemplate->y)
+                        : portraitAreaHeight + 2.0f * panelScale;
                     const std::optional<GameplayScreenRuntime::HudFontHandle> topicFont =
                         view.findHudFont(pTopicRowLayout->fontName);
                     const float topicFontScale =
@@ -3387,12 +3434,27 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     actionRowHeights.reserve(visibleActionCount);
                     actionPressHeights.reserve(visibleActionCount);
 
-                    if (pHostHouseEntry != nullptr)
+                    if ((pHostHouseEntry != nullptr || isTransitionDialog) && pEffectiveHouseTitleLayout != nullptr)
                     {
-                        contentY += 20.0f * panelScale + sectionGap;
+                        const float houseTitleHeight = resolvedHouseTitleTemplate
+                            ? resolvedHouseTitleTemplate->height
+                            : 20.0f * panelScale;
+                        contentY += houseTitleHeight + houseTitleToPortraitGap;
                     }
 
-                    contentY += portraitBorderSize + 20.0f * panelScale + sectionGap;
+                    contentY = std::max(contentY, portraitBaseY);
+
+                    const float portraitY = std::round(contentY);
+                    float nextContentY = portraitY + portraitAreaHeight;
+
+                    if (!isTransitionDialog
+                        && pNpcNameLayout != nullptr
+                        && !view.activeEventDialog().title.empty())
+                    {
+                        nextContentY = portraitY + nameOffsetY + nameHeight;
+                    }
+
+                    contentY = nextContentY + (isTransitionDialog ? 15.0f * panelScale : sectionGap);
                     const float availableHeight =
                         resolvedEventDialog->y + resolvedEventDialog->height - panelPaddingY - contentY;
 
@@ -3652,7 +3714,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                     if (pItemDefinition != nullptr && !pItemDefinition->iconName.empty())
                     {
                         const std::optional<GameplayScreenRuntime::HudTextureHandle> pItemTexture =
-                            view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                            view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                         if (pItemTexture)
                         {
@@ -3722,7 +3784,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         if (pItemDefinition != nullptr && !pItemDefinition->iconName.empty())
                         {
                             const std::optional<GameplayScreenRuntime::HudTextureHandle> pItemTexture =
-                                view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                                view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                             if (pItemTexture)
                             {
@@ -3828,7 +3890,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                 if (pItemDefinition != nullptr)
                 {
                     const std::optional<GameplayScreenRuntime::HudTextureHandle> pItemTexture =
-                        view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                        view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                     if (pItemTexture)
                     {
@@ -3913,7 +3975,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                         if (pItemDefinition != nullptr && !pItemDefinition->iconName.empty())
                         {
                             const std::optional<GameplayScreenRuntime::HudTextureHandle> pItemTexture =
-                                view.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                                view.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                             if (pItemTexture)
                             {

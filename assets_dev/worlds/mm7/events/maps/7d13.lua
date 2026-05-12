@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghoul A, spawn Wight A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -186,10 +186,10 @@ end)
 RegisterEvent(501, "Legacy event 501", function()
     local randomStep = PickRandomOption(501, 1, {1, 1, 1, 3, 3, 3})
     if randomStep == 1 then
-        evt.MoveToMap(335, -1064, 1, 768, 0, 0, 0, 0)
+        evt.MoveToMap(335, -1064, 1, 768, 0, 0, 0, 0, "mdk02.blv") -- Barrow IV
         return
     elseif randomStep == 3 then
-        evt.MoveToMap(-426, 281, -15, 1664, 0, 0, 0, 0)
+        evt.MoveToMap(-426, 281, -15, 1664, 0, 0, 0, 0, "mdt02.blv") -- Barrow VI
         return
     end
 end)

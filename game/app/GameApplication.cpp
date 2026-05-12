@@ -2066,6 +2066,7 @@ void GameApplication::registerDebugConsoleCommands()
                 << "time [advance [days]], "
                 << "qbit get|set|clear <id>, qbit dump [active|all|filter], "
                 << "global get|set|clear <name> [value], global dump [filter], "
+                << "mapvar get|set|clear <index> [value], mapvar dump, "
                 << "award get|set|clear <id>, award dump [active|all|filter], gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
@@ -2469,6 +2470,105 @@ void GameApplication::registerDebugConsoleCommands()
             }
 
             return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "mapvar",
+        .description = "Inspect or mutate current map variables.",
+        .usage = "mapvar get|set|clear <index> [value] | mapvar dump",
+        .callback = [activeEventRuntimeState, commandResult](const DebugConsole::CommandContext &context)
+        {
+            EventRuntimeState *pRuntimeState = activeEventRuntimeState();
+
+            if (pRuntimeState == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            if (context.args.empty())
+            {
+                return commandResult(false, "Usage: mapvar get|set|clear <index> [value] | mapvar dump");
+            }
+
+            const std::string action = toLowerCopy(context.args[0]);
+
+            if (action == "dump")
+            {
+                std::ostringstream out;
+                out << "Map vars:\n";
+                size_t emitted = 0;
+
+                for (size_t index = 0; index < pRuntimeState->mapVars.size(); ++index)
+                {
+                    const uint32_t value = static_cast<uint32_t>(pRuntimeState->mapVars[index]);
+
+                    if (value == 0)
+                    {
+                        continue;
+                    }
+
+                    out << index << "=" << value << '\n';
+                    ++emitted;
+                }
+
+                if (emitted == 0)
+                {
+                    out << "<none>";
+                }
+
+                return commandResult(true, out.str());
+            }
+
+            if (context.args.size() < 2)
+            {
+                return commandResult(false, "Usage: mapvar get|set|clear <index> [value] | mapvar dump");
+            }
+
+            const std::optional<int32_t> parsedIndex = parseInt32Argument(context.args[1]);
+
+            if (!parsedIndex || *parsedIndex < 0
+                || static_cast<size_t>(*parsedIndex) >= pRuntimeState->mapVars.size())
+            {
+                return commandResult(false, "Invalid map var index.");
+            }
+
+            const size_t index = static_cast<size_t>(*parsedIndex);
+
+            if (action == "get")
+            {
+                return commandResult(
+                    true,
+                    "mapvar " + std::to_string(index) + "="
+                        + std::to_string(static_cast<uint32_t>(pRuntimeState->mapVars[index])));
+            }
+
+            if (action == "set")
+            {
+                if (context.args.size() < 3)
+                {
+                    return commandResult(false, "Usage: mapvar set <index> <value>");
+                }
+
+                const std::optional<int32_t> parsedValue = parseInt32Argument(context.args[2]);
+
+                if (!parsedValue || *parsedValue < 0 || *parsedValue > 255)
+                {
+                    return commandResult(false, "Invalid map var value.");
+                }
+
+                pRuntimeState->mapVars[index] = static_cast<uint8_t>(*parsedValue);
+                return commandResult(
+                    true,
+                    "mapvar " + std::to_string(index) + "=" + std::to_string(*parsedValue));
+            }
+
+            if (action == "clear")
+            {
+                pRuntimeState->mapVars[index] = 0;
+                return commandResult(true, "mapvar " + std::to_string(index) + "=0");
+            }
+
+            return commandResult(false, "Usage: mapvar get|set|clear <index> [value] | mapvar dump");
         }});
 
     m_debugConsole.registerCommand({
@@ -3323,13 +3423,31 @@ bool GameApplication::processPendingDebugMapJump()
         return false;
     }
 
-    if (m_pMapSceneRuntime != nullptr)
+    const std::string previousMapFileName = m_gameSession.currentMapFileName();
+    const bool isSameMapJump = sameMapFileName(pTargetMap->fileName, previousMapFileName);
+    EventRuntimeState *pLeavingRuntimeState =
+        m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
+    PendingMapLeaveOutputs onLeaveOutputs = {};
+
+    if (!isSameMapJump)
     {
-        captureCurrentSceneState();
+        executeCurrentMapOnLeaveEvents();
+        onLeaveOutputs = pLeavingRuntimeState != nullptr
+            ? consumePendingMapLeaveOutputs(*pLeavingRuntimeState)
+            : PendingMapLeaveOutputs{};
     }
+
+    captureCurrentSceneState();
 
     if (!activateWorldForMap(*pTargetMap))
     {
+        if (pLeavingRuntimeState != nullptr
+            && m_pMapSceneRuntime != nullptr
+            && m_pMapSceneRuntime->eventRuntimeState() == pLeavingRuntimeState)
+        {
+            appendPendingMapLeaveOutputs(*pLeavingRuntimeState, std::move(onLeaveOutputs));
+        }
+
         m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: world switch failed.");
         return false;
     }
@@ -3343,6 +3461,13 @@ bool GameApplication::processPendingDebugMapJump()
 
     if (!m_gameDataLoader.loadMapByIdForGameplay(*m_pAssetFileSystem, mapId))
     {
+        if (pLeavingRuntimeState != nullptr
+            && m_pMapSceneRuntime != nullptr
+            && m_pMapSceneRuntime->eventRuntimeState() == pLeavingRuntimeState)
+        {
+            appendPendingMapLeaveOutputs(*pLeavingRuntimeState, std::move(onLeaveOutputs));
+        }
+
         cancelLoadingOverlay();
         m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: map load failed.");
         return false;
@@ -3354,6 +3479,13 @@ bool GameApplication::processPendingDebugMapJump()
 
     if (!selectedMap)
     {
+        if (pLeavingRuntimeState != nullptr
+            && m_pMapSceneRuntime != nullptr
+            && m_pMapSceneRuntime->eventRuntimeState() == pLeavingRuntimeState)
+        {
+            appendPendingMapLeaveOutputs(*pLeavingRuntimeState, std::move(onLeaveOutputs));
+        }
+
         cancelLoadingOverlay();
         m_debugConsole.addMessage(DebugConsole::MessageKind::Error, "Map jump failed: selected map missing.");
         return false;
@@ -3370,6 +3502,17 @@ bool GameApplication::processPendingDebugMapJump()
         return false;
     }
     timingLogger.stage("runtime and view initialized");
+
+    if (!isSameMapJump)
+    {
+        EventRuntimeState *pArrivingRuntimeState =
+            m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
+
+        if (pArrivingRuntimeState != nullptr)
+        {
+            appendPendingMapLeaveOutputs(*pArrivingRuntimeState, std::move(onLeaveOutputs));
+        }
+    }
 
     std::optional<int32_t> debugStartDirectionDegrees;
 

@@ -124,6 +124,7 @@ RegisterEvent(25, "Chest", function()
             return
         end
         evt.OpenChest(7)
+        return
     end
     evt.OpenChest(5)
     AddValue(MapVar(11), 1)
@@ -220,7 +221,7 @@ RegisterEvent(35, "Gate", function()
 end, "Gate")
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(-18638, -5133, 64, 0, 0, 0, 0, 0, "outc1.odm")
+    evt.MoveToMap(-18638, -5133, 64, 0, 0, 0, 0, 0, "outc1.odm") -- Frozen Highlands
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

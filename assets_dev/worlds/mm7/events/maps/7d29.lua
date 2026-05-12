@@ -66,6 +66,7 @@ RegisterEvent(1, "Legacy event 1", function()
         else
             return
         end
+        return
     end
     evt.SetDoorState(35, DoorAction.Open)
     evt.SetSprite(10, 0, "0")
@@ -102,7 +103,7 @@ end)
 
 RegisterEvent(2, "Legacy event 2", function()
     if IsQBitSet(QBit(647)) then return end -- Player castle goblins are all dead
-    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 0, false) then -- actor group 56; all matching actors defeated
+    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 0, false) then -- actor group 56: spawn Bat A, spawn Goblin A, spawn Rat A; all matching actors defeated
         evt.ForPlayer(Players.All)
         SetQBit(QBit(647)) -- Player castle goblins are all dead
     end
@@ -361,16 +362,16 @@ RegisterEvent(197, "Bookcase", function()
 end, "Bookcase")
 
 RegisterEvent(376, "Legacy event 376", function()
-    evt.SetMonGroupBit(57, MonsterBits.Hostile, 0)
-    evt.SetMonGroupBit(57, MonsterBits.Invisible, 1)
+    evt.SetMonGroupBit(57, MonsterBits.Hostile, 0) -- actor group 57: Gold Golem
+    evt.SetMonGroupBit(57, MonsterBits.Invisible, 1) -- actor group 57: Gold Golem
     if IsQBitSet(QBit(585)) then -- Finished constructing Golem with Abbey normal head
-        evt.SetMonGroupBit(57, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(57, MonsterBits.Hostile, 1) -- actor group 57: Gold Golem
         ClearQBit(QBit(1686)) -- Replacement for NPCs ¹56 ver. 7
-        evt.SetMonGroupBit(57, MonsterBits.Invisible, 0)
+        evt.SetMonGroupBit(57, MonsterBits.Invisible, 0) -- actor group 57: Gold Golem
         return
     elseif IsQBitSet(QBit(586)) then -- Finished constructing Golem with normal head
         ClearQBit(QBit(1686)) -- Replacement for NPCs ¹56 ver. 7
-        evt.SetMonGroupBit(57, MonsterBits.Invisible, 0)
+        evt.SetMonGroupBit(57, MonsterBits.Invisible, 0) -- actor group 57: Gold Golem
         return
     else
         return
@@ -378,16 +379,16 @@ RegisterEvent(376, "Legacy event 376", function()
 end)
 
 RegisterEvent(377, "Legacy event 377", function()
-    evt.SetMonGroupBit(60, MonsterBits.Hostile, 0)
-    evt.SetMonGroupBit(60, MonsterBits.Invisible, 1)
+    evt.SetMonGroupBit(60, MonsterBits.Hostile, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+    evt.SetMonGroupBit(60, MonsterBits.Invisible, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
     if IsQBitSet(QBit(526)) then -- Accepted Fireball wand from Malwick
         if IsQBitSet(QBit(702)) then -- Finished with Malwick & Assc.
             return
         elseif IsQBitSet(QBit(696)) then -- Killed all castle monsters
             return
         elseif IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
-            evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+            evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+            evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
             SetValue(BankGold, 0)
             ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
             ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -396,8 +397,8 @@ RegisterEvent(377, "Legacy event 377", function()
             if IsAtLeast(Counter(5), 672) then
                 evt.ForPlayer(Players.All)
                 SetQBit(QBit(695)) -- Failed either goto or do guild quest
-                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
                 SetValue(BankGold, 0)
                 ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
                 ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -407,8 +408,8 @@ RegisterEvent(377, "Legacy event 377", function()
             if IsAtLeast(Counter(5), 336) then
                 evt.ForPlayer(Players.All)
                 SetQBit(QBit(695)) -- Failed either goto or do guild quest
-                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
                 SetValue(BankGold, 0)
                 ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
                 ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -417,6 +418,7 @@ RegisterEvent(377, "Legacy event 377", function()
         else
             return
         end
+        return
     end
     SetValue(BankGold, 0)
     ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
@@ -426,7 +428,7 @@ end)
 RegisterEvent(378, "Legacy event 378", function()
     if not IsQBitSet(QBit(695)) then return end -- Failed either goto or do guild quest
     if IsQBitSet(QBit(696)) then return end -- Killed all castle monsters
-    if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60; all matching actors defeated
+    if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more; all matching actors defeated
     evt.ForPlayer(Players.All)
     SetQBit(QBit(696)) -- Killed all castle monsters
     if IsQBitSet(QBit(697)) then -- Killed all outdoor monsters
@@ -575,6 +577,6 @@ RegisterEvent(451, "Legacy event 451", function()
 end)
 
 RegisterEvent(501, "Leave Castle Harmondale", function()
-    evt.MoveToMap(-18325, 12564, 480, 0, 0, 0, 0, 0, "7out02.odm")
+    evt.MoveToMap(-18325, 12564, 480, 0, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end, "Leave Castle Harmondale")
 

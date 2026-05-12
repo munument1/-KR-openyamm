@@ -123,7 +123,7 @@ end)
 
 RegisterEvent(21, "Legacy event 21", function()
     evt.StatusText("A teleporter!")
-    evt.MoveToMap(3264, -1336, 513, 192, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(3264, -1336, 513, 192, 0, 0, 0, 0)
 end)
 
 RegisterEvent(22, "Legacy event 22", function()
@@ -158,6 +158,6 @@ RegisterEvent(25, "Cage", function()
 end, "Cage")
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(9230, 7102, 64, 512, 0, 0, 0, 0, "outb2.odm")
+    evt.MoveToMap(9230, 7102, 64, 512, 0, 0, 0, 0, "outb2.odm") -- Blackshire
 end, "Exit")
 

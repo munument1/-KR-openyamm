@@ -43,6 +43,10 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr float IndoorCameraVerticalFovDegrees = 60.0f;
+constexpr float IndoorSkyProjectionPitchOffsetRadians = 3.14159265358979323846f / 64.0f;
+constexpr float IndoorSkyProjectionFarClipDistance = 50000.0f;
+
 float secretFaceVertexFlag(uint32_t attributes)
 {
     return hasFaceAttribute(attributes, FaceAttribute::IsSecret) ? 1.0f : 0.0f;
@@ -1622,14 +1626,27 @@ std::string normalizeBillboardTextureName(const std::string &textureName)
 
 std::array<float, 4> indoorFaceFlowInfo(
     uint32_t effectiveAttributes,
+    uint8_t facetType,
     int textureWidth,
     int textureHeight)
 {
     constexpr float FlowPixelsPerSecond = 62.5f;
+    constexpr float IndoorSkyTextureScale = 0.25f;
+    constexpr float IndoorSkyScrollPixelsPerSecond = 1000.0f / 64.0f * IndoorSkyTextureScale;
     std::array<float, 4> flowInfo = {0.0f, 0.0f, 0.0f, 0.0f};
 
     if (textureWidth <= 0 || textureHeight <= 0)
     {
+        return flowInfo;
+    }
+
+    if (hasFaceAttribute(effectiveAttributes, FaceAttribute::IndoorSky)
+        && facetType != 3
+        && facetType != 4)
+    {
+        flowInfo[0] = 1.0f / static_cast<float>(textureWidth);
+        flowInfo[1] = 1.0f / static_cast<float>(textureHeight);
+        flowInfo[3] = -2.0f;
         return flowInfo;
     }
 
@@ -1653,7 +1670,25 @@ std::array<float, 4> indoorFaceFlowInfo(
 
     flowInfo[2] = hasFaceAttribute(effectiveAttributes, FaceAttribute::Lava) ? 1.0f : 0.0f;
     flowInfo[3] = hasFaceAttribute(effectiveAttributes, FaceAttribute::Fluid) ? 1.0f : 0.0f;
+
+    if (hasFaceAttribute(effectiveAttributes, FaceAttribute::IndoorSky))
+    {
+        flowInfo[0] += IndoorSkyScrollPixelsPerSecond / static_cast<float>(textureWidth);
+        flowInfo[1] += IndoorSkyScrollPixelsPerSecond / static_cast<float>(textureHeight);
+        flowInfo[3] = -1.0f;
+    }
+
     return flowInfo;
+}
+
+float indoorFaceTextureCoordinateScale(uint32_t effectiveAttributes, uint8_t facetType)
+{
+    if (!hasFaceAttribute(effectiveAttributes, FaceAttribute::IndoorSky))
+    {
+        return 1.0f;
+    }
+
+    return (facetType == 3 || facetType == 4) ? 0.25f : 1.0f;
 }
 
 float fixedDoorDirectionComponentToFloat(int value)
@@ -1699,6 +1734,8 @@ IndoorRenderer::IndoorRenderer()
     , m_indoorLightColorsUniformHandle(BGFX_INVALID_HANDLE)
     , m_indoorLightParamsUniformHandle(BGFX_INVALID_HANDLE)
     , m_secretPulseParamsUniformHandle(BGFX_INVALID_HANDLE)
+    , m_indoorSkyParamsUniformHandle(BGFX_INVALID_HANDLE)
+    , m_indoorSkyProjectionParamsUniformHandle(BGFX_INVALID_HANDLE)
     , m_billboardAmbientUniformHandle(BGFX_INVALID_HANDLE)
     , m_billboardOverrideColorUniformHandle(BGFX_INVALID_HANDLE)
     , m_billboardOutlineParamsUniformHandle(BGFX_INVALID_HANDLE)
@@ -1972,6 +2009,9 @@ bool IndoorRenderer::initialize(
         bgfx::createUniform("u_indoorLightColors", bgfx::UniformType::Vec4, MaxIndoorShaderLights);
     m_indoorLightParamsUniformHandle = bgfx::createUniform("u_indoorLightParams", bgfx::UniformType::Vec4);
     m_secretPulseParamsUniformHandle = bgfx::createUniform("u_secretPulseParams", bgfx::UniformType::Vec4);
+    m_indoorSkyParamsUniformHandle = bgfx::createUniform("u_indoorSkyParams", bgfx::UniformType::Vec4);
+    m_indoorSkyProjectionParamsUniformHandle =
+        bgfx::createUniform("u_indoorSkyProjectionParams", bgfx::UniformType::Vec4);
     m_billboardAmbientUniformHandle = bgfx::createUniform("u_billboardAmbient", bgfx::UniformType::Vec4);
     m_billboardOverrideColorUniformHandle =
         bgfx::createUniform("u_billboardOverrideColor", bgfx::UniformType::Vec4);
@@ -2015,6 +2055,8 @@ bool IndoorRenderer::initialize(
         || !bgfx::isValid(m_indoorLightColorsUniformHandle)
         || !bgfx::isValid(m_indoorLightParamsUniformHandle)
         || !bgfx::isValid(m_secretPulseParamsUniformHandle)
+        || !bgfx::isValid(m_indoorSkyParamsUniformHandle)
+        || !bgfx::isValid(m_indoorSkyProjectionParamsUniformHandle)
         || !bgfx::isValid(m_billboardAmbientUniformHandle)
         || !bgfx::isValid(m_billboardOverrideColorUniformHandle)
         || !bgfx::isValid(m_billboardOutlineParamsUniformHandle)
@@ -3090,7 +3132,9 @@ void IndoorRenderer::render(
         && bgfx::isValid(m_indoorLightPositionsUniformHandle)
         && bgfx::isValid(m_indoorLightColorsUniformHandle)
         && bgfx::isValid(m_indoorLightParamsUniformHandle)
-        && bgfx::isValid(m_secretPulseParamsUniformHandle))
+        && bgfx::isValid(m_secretPulseParamsUniformHandle)
+        && bgfx::isValid(m_indoorSkyParamsUniformHandle)
+        && bgfx::isValid(m_indoorSkyProjectionParamsUniformHandle))
     {
         const bool secretFacesDetected =
             m_map.has_value()
@@ -3148,7 +3192,38 @@ void IndoorRenderer::render(
                 batchLightSet.colors.data(),
                 MaxIndoorShaderLights);
             bgfx::setUniform(m_indoorLightParamsUniformHandle, batchLightSet.params.data());
-            bgfx::setUniform(m_secretPulseParamsUniformHandle, secretPulseParams.data());
+            std::array<float, 4> batchSecretPulseParams = secretPulseParams;
+
+            if (batch.textureWidth > 0 && batch.textureHeight > 0)
+            {
+                batchSecretPulseParams[2] =
+                    -eye.x * 0.25f / static_cast<float>(batch.textureWidth);
+                batchSecretPulseParams[3] =
+                    eye.y * 0.25f / static_cast<float>(batch.textureHeight);
+            }
+
+            bgfx::setUniform(m_secretPulseParamsUniformHandle, batchSecretPulseParams.data());
+            const std::array<float, 4> indoorSkyParams = {
+                batchSecretPulseParams[2],
+                batchSecretPulseParams[3],
+                m_cameraYawRadians,
+                m_cameraPitchRadians
+            };
+            bgfx::setUniform(m_indoorSkyParamsUniformHandle, indoorSkyParams.data());
+            const float viewPlaneDistancePixels =
+                (static_cast<float>(viewHeight) * 0.5f)
+                / std::tan((IndoorCameraVerticalFovDegrees * Pi / 180.0f) * 0.5f);
+            const float horizonHeightOffset =
+                (viewPlaneDistancePixels * eye.z)
+                / (viewPlaneDistancePixels + IndoorSkyProjectionFarClipDistance)
+                + static_cast<float>(viewHeight) * 0.5f;
+            const std::array<float, 4> indoorSkyProjectionParams = {
+                static_cast<float>(viewWidth) * 0.5f,
+                horizonHeightOffset,
+                1.0f / viewPlaneDistancePixels,
+                IndoorSkyProjectionPitchOffsetRadians
+            };
+            bgfx::setUniform(m_indoorSkyProjectionParamsUniformHandle, indoorSkyProjectionParams.data());
             bgfx::setState(
                 BGFX_STATE_WRITE_RGB
                 | BGFX_STATE_WRITE_A
@@ -4917,6 +4992,8 @@ void IndoorRenderer::shutdown()
         m_indoorLightColorsUniformHandle = BGFX_INVALID_HANDLE;
         m_indoorLightParamsUniformHandle = BGFX_INVALID_HANDLE;
         m_secretPulseParamsUniformHandle = BGFX_INVALID_HANDLE;
+        m_indoorSkyParamsUniformHandle = BGFX_INVALID_HANDLE;
+        m_indoorSkyProjectionParamsUniformHandle = BGFX_INVALID_HANDLE;
         m_billboardAmbientUniformHandle = BGFX_INVALID_HANDLE;
         m_billboardOverrideColorUniformHandle = BGFX_INVALID_HANDLE;
         m_billboardOutlineParamsUniformHandle = BGFX_INVALID_HANDLE;
@@ -5042,6 +5119,18 @@ void IndoorRenderer::shutdown()
     {
         bgfx::destroy(m_secretPulseParamsUniformHandle);
         m_secretPulseParamsUniformHandle = BGFX_INVALID_HANDLE;
+    }
+
+    if (bgfx::isValid(m_indoorSkyParamsUniformHandle))
+    {
+        bgfx::destroy(m_indoorSkyParamsUniformHandle);
+        m_indoorSkyParamsUniformHandle = BGFX_INVALID_HANDLE;
+    }
+
+    if (bgfx::isValid(m_indoorSkyProjectionParamsUniformHandle))
+    {
+        bgfx::destroy(m_indoorSkyProjectionParamsUniformHandle);
+        m_indoorSkyProjectionParamsUniformHandle = BGFX_INVALID_HANDLE;
     }
 
     if (bgfx::isValid(m_billboardAmbientUniformHandle))
@@ -5544,6 +5633,8 @@ void IndoorRenderer::renderBloodSplats(
         || !bgfx::isValid(m_indoorLightColorsUniformHandle)
         || !bgfx::isValid(m_indoorLightParamsUniformHandle)
         || !bgfx::isValid(m_secretPulseParamsUniformHandle)
+        || !bgfx::isValid(m_indoorSkyParamsUniformHandle)
+        || !bgfx::isValid(m_indoorSkyProjectionParamsUniformHandle)
         || m_pSceneRuntime->worldRuntime().bloodSplatCount() == 0)
     {
         return;
@@ -5578,6 +5669,10 @@ void IndoorRenderer::renderBloodSplats(
     bgfx::setUniform(m_indoorLightParamsUniformHandle, lightSet.params.data());
     const std::array<float, 4> secretPulseParams = {0.0f, m_elapsedTime, 0.0f, 0.0f};
     bgfx::setUniform(m_secretPulseParamsUniformHandle, secretPulseParams.data());
+    const std::array<float, 4> indoorSkyParams = {0.0f, 0.0f, m_cameraYawRadians, m_cameraPitchRadians};
+    bgfx::setUniform(m_indoorSkyParamsUniformHandle, indoorSkyParams.data());
+    const std::array<float, 4> indoorSkyProjectionParams = {0.0f, 0.0f, 1.0f, IndoorSkyProjectionPitchOffsetRadians};
+    bgfx::setUniform(m_indoorSkyProjectionParamsUniformHandle, indoorSkyProjectionParams.data());
     bgfx::setState(
         BGFX_STATE_WRITE_RGB
         | BGFX_STATE_WRITE_A
@@ -6509,6 +6604,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             float x,
             float y,
             float z,
+            float velocityX,
+            float velocityY,
             int16_t sectorId,
             uint32_t timeTicks,
             bool forceLog = false)
@@ -6563,7 +6660,18 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 return;
             }
 
-            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
+            const float velocityLengthSquared = velocityX * velocityX + velocityY * velocityY;
+            int octant = 0;
+
+            if (velocityLengthSquared > 0.000001f)
+            {
+                const float angleToCamera = std::atan2(y - cameraPosition.y, x - cameraPosition.x);
+                const float projectileYawRadians = std::atan2(velocityY, velocityX);
+                const float octantAngle = projectileYawRadians - angleToCamera + Pi + (Pi / 8.0f);
+                octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
+            }
+
+            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
             const BillboardTextureHandle *pTexture =
                 ensureSpriteBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
@@ -6794,6 +6902,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 projectile.x,
                 projectile.y,
                 projectile.z,
+                projectile.velocityX,
+                projectile.velocityY,
                 projectile.sectorId,
                 projectile.timeSinceCreatedTicks);
         }
@@ -6819,6 +6929,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 impact.x,
                 impact.y,
                 impact.z,
+                0.0f,
+                0.0f,
                 impact.sectorId,
                 impact.freezeAnimation ? 0u : impact.timeSinceCreatedTicks,
                 impact.objectName.find("Trap") != std::string::npos);
@@ -7603,6 +7715,10 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             continue;
         }
 
+        TexturedBatch &batch = m_texturedBatches[batchIndex];
+        batch.textureWidth = pTexture->width;
+        batch.textureHeight = pTexture->height;
+
         const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
         const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
             *m_indoorMapData,
@@ -7619,7 +7735,6 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             continue;
         }
 
-        TexturedBatch &batch = m_texturedBatches[batchIndex];
         m_faceBatchIndices[faceIndex] = static_cast<int32_t>(batchIndex);
         m_faceVertexOffsets[faceIndex] = static_cast<uint32_t>(batch.vertices.size());
         m_faceVertexCounts[faceIndex] = static_cast<uint32_t>(faceVertices.size());
@@ -8257,7 +8372,8 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
 
     const bx::Vec3 faceNormal = computeFaceNormal(transformedVertices, face);
     const std::array<float, 4> flowInfo =
-        indoorFaceFlowInfo(effectiveAttributes, texture.width, texture.height);
+        indoorFaceFlowInfo(effectiveAttributes, face.facetType, texture.width, texture.height);
+    const float textureCoordinateScale = indoorFaceTextureCoordinateScale(effectiveAttributes, face.facetType);
 
     const std::optional<MechanismFaceTextureState> mechanismFaceTextureState =
         findMechanismFaceTextureState(faceIndex, indoorMapDeltaData, eventRuntimeState);
@@ -8417,16 +8533,24 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
                 && faceVertexIndex < geometryUs.size()
                 && faceVertexIndex < geometryVs.size())
             {
-                texturedVertex.u = (geometryUs[faceVertexIndex] + geometryDeltaU) / static_cast<float>(texture.width);
-                texturedVertex.v = (geometryVs[faceVertexIndex] + geometryDeltaV) / static_cast<float>(texture.height);
+                texturedVertex.u =
+                    (geometryUs[faceVertexIndex] + geometryDeltaU)
+                    * textureCoordinateScale
+                    / static_cast<float>(texture.width);
+                texturedVertex.v =
+                    (geometryVs[faceVertexIndex] + geometryDeltaV)
+                    * textureCoordinateScale
+                    / static_cast<float>(texture.height);
             }
             else
             {
                 texturedVertex.u =
                     static_cast<float>(face.textureDeltaU + face.textureUs[faceVertexIndex])
+                    * textureCoordinateScale
                     / static_cast<float>(texture.width);
                 texturedVertex.v =
                     static_cast<float>(face.textureDeltaV + face.textureVs[faceVertexIndex])
+                    * textureCoordinateScale
                     / static_cast<float>(texture.height);
             }
 

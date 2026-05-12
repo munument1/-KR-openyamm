@@ -163,7 +163,7 @@ RegisterEvent(31, "Chest", function()
 end, "Chest")
 
 RegisterEvent(50, "Legacy event 50", function()
-    evt.MoveToMap(7474, 17670, 97, 1024, 0, 0, 0, 0, "outd2.odm")
+    evt.MoveToMap(7474, 17670, 97, 1024, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end)
 
 RegisterEvent(55, "Legacy event 55", function()

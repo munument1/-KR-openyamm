@@ -92,12 +92,22 @@ RegisterEvent(42, "King's Library", function()
     evt.EnterHouse(0)
 end, "King's Library")
 
-RegisterEvent(43, "Throne Room", function()
+RegisterEvent(43, "Throne Room", function(continueStep)
+    if continueStep == 13 then
+        evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1)
+        evt.EnterHouse(222) -- Throne Room
+        return
+    end
+    if continueStep == 19 then
+    end
+    if continueStep ~= nil then return end
     if IsQBitSet(QBit(1114)) then -- Entertain Nicolai. - Paul
         if not IsQBitSet(QBit(1700)) then -- Replacement for NPCs ¹13 ver. 6
-            evt.SimpleMessage("The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!")
+            evt.SetMessage("The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!")
+            evt._PressAnyKey(43, 19)
+            return
         end
-        evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1, "0.")
+        evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1)
         evt.EnterHouse(222) -- Throne Room
         return
     elseif IsQBitSet(QBit(1119)) then -- Find and return Prince Nicolai to Castle Ironfist. - Walt
@@ -105,17 +115,17 @@ RegisterEvent(43, "Throne Room", function()
             evt.MoveNPC(798, 222) -- Nicolai Ironfist -> Throne Room
             ClearQBit(QBit(1700)) -- Replacement for NPCs ¹13 ver. 6
             ClearQBit(QBit(1119)) -- Find and return Prince Nicolai to Castle Ironfist. - Walt
-            evt.SimpleMessage("\"Well, thanks for sneaking me out of the Castle.  Sorry about the circus thing—I hope I wasn’t too much trouble to find.  I’ll go in myself so no one will see that it was you who kidnapped me.  Thanks again, and goodbye.  I’ll remember this, and I owe you a favor! \"")
+            evt.SetMessage("\"Well, thanks for sneaking me out of the Castle.  Sorry about the circus thing—I hope I wasn’t too much trouble to find.  I’ll go in myself so no one will see that it was you who kidnapped me.  Thanks again, and goodbye.  I’ll remember this, and I owe you a favor! \"")
             evt.ForPlayer(Players.All)
             AddValue(Experience, 7500)
             evt.SetNPCTopic(798, 0, 1337) -- Nicolai Ironfist topic 0: The Circus
-            evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1, "0.")
-            evt.EnterHouse(222) -- Throne Room
+            evt._PressAnyKey(43, 13)
             return
         end
-        evt.SimpleMessage("The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!")
+        evt.SetMessage("The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!")
+        evt._PressAnyKey(43, 19)
     else
-        evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1, "0.")
+        evt.MoveToMap(0, 0, 0, 0, 0, 0, 79, 1)
         evt.EnterHouse(222) -- Throne Room
         return
     end
@@ -271,23 +281,23 @@ RegisterEvent(83, "Castle Ironfist", function()
 end, "Castle Ironfist")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 169, 1, "6d03.blv")
+    evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 169, 1, "6d03.blv") -- Shadow Guild Hideout
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(1664, -1896, 1, 1024, 0, 0, 174, 1, "6d05.blv")
+    evt.MoveToMap(1664, -1896, 1, 1024, 0, 0, 174, 1, "6d05.blv") -- Snergle's Caverns
 end)
 
 RegisterEvent(92, "Legacy event 92", function()
-    evt.MoveToMap(2716, -256, 1, 1024, 0, 0, 176, 1, "6d06.blv")
+    evt.MoveToMap(2716, -256, 1, 1024, 0, 0, 176, 1, "6d06.blv") -- Dragoons' Caverns
 end)
 
 RegisterEvent(93, "Legacy event 93", function()
-    evt.MoveToMap(128, -151, 1, 512, 0, 0, 184, 1, "6d11.blv")
+    evt.MoveToMap(128, -151, 1, 512, 0, 0, 184, 1, "6d11.blv") -- Corlagon's Estate
 end)
 
 RegisterEvent(94, "Legacy event 94", function()
-    evt.MoveToMap(-15592, 120, -191, 0, 0, 0, 162, 1, "6t1.blv")
+    evt.MoveToMap(-15592, 120, -191, 0, 0, 0, 162, 1, "6t1.blv") -- Temple of Baa
 end)
 
 RegisterEvent(97, "Temple Baa", function()
@@ -342,7 +352,7 @@ end)
 
 RegisterEvent(201, "Keep Off!", function()
     SetValue(MapVar(2), 1)
-    evt.MoveToMap(-12045, -6073, 2, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-12045, -6073, 2, 512, 0, 0, 0, 0)
 end, "Keep Off!")
 
 RegisterEvent(202, "Keep Off!", function()
@@ -351,18 +361,26 @@ end, "Keep Off!")
 
 RegisterEvent(203, "Keep Off!", function()
     evt.SetSnow(1, 0)
-    evt.MoveToMap(17920, 14344, 2080, 1024, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(17920, 14344, 2080, 1024, 0, 0, 0, 0)
 end, "Keep Off!")
 
 RegisterEvent(210, "Legacy event 210", function(continueStep)
+    if continueStep == 5 then
+        evt.SetMessage("Chest")
+        evt._PressAnyKey(210, 7)
+    end
+    if continueStep == 7 then
+        evt.AskQuestion(210, 8, 8, 9, 9, 9, "Refreshing!", {"The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!", "The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!"})
+        return nil
+    end
     if continueStep == 8 then
         evt.AskQuestion(210, 9, 8, 14, 10, 10, "Refreshing!", {"Crate", "Crate"})
         return nil
     end
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
-            evt.SimpleMessage("Well")
-            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
+            evt.SetMessage("Well")
+            evt._PressAnyKey(210, 12)
             return
         end
         SubtractValue(Gold, 100)
@@ -370,8 +388,8 @@ RegisterEvent(210, "Legacy event 210", function(continueStep)
     end
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
-            evt.SimpleMessage("Well")
-            evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0, "0.")
+            evt.SetMessage("Well")
+            evt._PressAnyKey(210, 12)
             return
         end
         SubtractValue(Gold, 100)
@@ -381,14 +399,16 @@ RegisterEvent(210, "Legacy event 210", function(continueStep)
         evt.SummonMonsters(1, 2, 5, 4920, 12976, 0, 0, 0) -- encounter slot 1 "LizardArch" tier B, count 5, pos=(4920, 12976, 0), actor group 0, no unique actor name
         SetValue(MapVar(6), 0)
     end
+    if continueStep == 12 then
+        evt.MoveToMap(4856, 10288, 0, 500, 0, 0, 0, 0)
+        return
+    end
     if continueStep ~= nil then return end
     if IsAtLeast(MapVar(6), 0) then return end
     evt.CastSpell(98, 1, 1, 5784, 11584, 512, 5784, 11584, 0) -- Armageddon
     evt.CastSpell(98, 1, 1, 4312, 11600, 512, 4312, 11600, 0) -- Armageddon
-    evt.SimpleMessage("All Hit points restored.")
-    evt.SimpleMessage("Chest")
-    evt.AskQuestion(210, 8, 8, 9, 9, 9, "Refreshing!", {"The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!", "The prince has been kidnapped!  No visitors will be admitted until this crisis has been resolved!"})
-    return nil
+    evt.SetMessage("All Hit points restored.")
+    evt._PressAnyKey(210, 5)
 end)
 
 RegisterEvent(220, "Legacy event 220", function()
@@ -440,10 +460,14 @@ RegisterEvent(231, "Well", function()
     end
 end, "Well")
 
-RegisterEvent(232, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _t_staoi_on_oiz_")
-    SetQBit(QBit(1395)) -- NPC
-    SetAutonote(453) -- Obelisk Message # 12: _t_staoi_on_oiz_
+RegisterEvent(232, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1395)) -- NPC
+        SetAutonote(453) -- Obelisk Message # 12: _t_staoi_on_oiz_
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _t_staoi_on_oiz_")
+    evt._PressAnyKey(232, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Electricity", function()
@@ -463,6 +487,7 @@ RegisterEvent(261, "Shrine of Electricity", function()
         evt.ForPlayer(Players.All)
         AddValue(AirResistance, 3)
         evt.StatusText("+3 Electricity resistance permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Electricity")

@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Priest of the Sun, spawn Cleric Sun A, spawn Monk A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -208,6 +208,6 @@ RegisterEvent(451, "Legacy event 451", function()
 end)
 
 RegisterEvent(501, "Leave the Grand Temple of the Sun", function()
-    evt.MoveToMap(-7166, 11033, 185, 1536, 0, 0, 0, 0, "\tout09.odm")
+    evt.MoveToMap(-7166, 11033, 185, 1536, 0, 0, 0, 0, "out09.odm") -- Evenmorn Island
 end, "Leave the Grand Temple of the Sun")
 

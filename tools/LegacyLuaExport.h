@@ -46,6 +46,7 @@ struct LegacyLuaExportLookups
     std::unordered_map<uint32_t, std::string> questNotes;
     std::unordered_map<uint32_t, std::string> autonoteTexts;
     std::unordered_map<uint32_t, std::string> awardTexts;
+    std::unordered_map<uint32_t, uint32_t> qbitRemaps;
     std::unordered_map<uint32_t, std::string> inputStringAnswerTexts;
     std::unordered_map<uint32_t, uint32_t> summonObjectTypesByEventStep;
 };

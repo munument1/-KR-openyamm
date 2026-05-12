@@ -38,12 +38,12 @@ RegisterEvent(1, "Legacy event 1", function()
         evt.SetSprite(2, 0, "0")
     end
     if IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
     end
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
-    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56; at least 1 matching actor defeated
+    if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A; at least 1 matching actor defeated
         SetValue(MapVar(6), 2)
     end
 end)
@@ -55,7 +55,7 @@ RegisterEvent(3, "Door", function()
             evt.SpeakNPC(622) -- Guard
             return
         end
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
     end
     evt.SetDoorState(3, DoorAction.Open)
@@ -75,7 +75,7 @@ end)
 
 RegisterEvent(176, "Cabinet", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
         evt.OpenChest(1)
         return
@@ -85,7 +85,7 @@ end, "Cabinet")
 
 RegisterEvent(177, "Cabinet", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
         evt.OpenChest(2)
         return
@@ -95,7 +95,7 @@ end, "Cabinet")
 
 RegisterEvent(178, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
         evt.OpenChest(3)
         return
@@ -105,7 +105,7 @@ end, "Chest")
 
 RegisterEvent(179, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
         evt.OpenChest(4)
         return
@@ -115,7 +115,7 @@ end, "Chest")
 
 RegisterEvent(180, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         SetValue(MapVar(6), 2)
         evt.OpenChest(5)
         return
@@ -126,7 +126,7 @@ end, "Chest")
 RegisterEvent(181, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(6)
         return
     end
@@ -136,7 +136,7 @@ end, "Chest")
 RegisterEvent(182, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(7)
         return
     end
@@ -146,7 +146,7 @@ end, "Chest")
 RegisterEvent(183, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(8)
         return
     end
@@ -156,7 +156,7 @@ end, "Chest")
 RegisterEvent(184, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(9)
         return
     end
@@ -166,7 +166,7 @@ end, "Chest")
 RegisterEvent(185, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(10)
         return
     end
@@ -176,7 +176,7 @@ end, "Chest")
 RegisterEvent(186, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(11)
         return
     end
@@ -186,7 +186,7 @@ end, "Chest")
 RegisterEvent(187, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(12)
         return
     end
@@ -196,7 +196,7 @@ end, "Chest")
 RegisterEvent(188, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(13)
         return
     end
@@ -206,7 +206,7 @@ end, "Chest")
 RegisterEvent(189, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(14)
         return
     end
@@ -216,7 +216,7 @@ end, "Chest")
 RegisterEvent(190, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(15)
         return
     end
@@ -226,7 +226,7 @@ end, "Chest")
 RegisterEvent(191, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(16)
         return
     end
@@ -236,7 +236,7 @@ end, "Chest")
 RegisterEvent(192, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(17)
         return
     end
@@ -246,7 +246,7 @@ end, "Chest")
 RegisterEvent(193, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(18)
         return
     end
@@ -256,7 +256,7 @@ end, "Chest")
 RegisterEvent(194, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(19)
         return
     end
@@ -266,7 +266,7 @@ end, "Chest")
 RegisterEvent(195, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
         evt.OpenChest(0)
         return
     end
@@ -301,7 +301,7 @@ end)
 
 RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(MapVar(6), 2) then return end
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
     SetValue(MapVar(6), 2)
 end)
 
@@ -311,6 +311,6 @@ RegisterEvent(453, "Legacy event 453", function()
 end)
 
 RegisterEvent(501, "Leave Lord Markham's Manor", function()
-    evt.MoveToMap(11012, -14936, 384, 512, 0, 0, 0, 0, "7out13.odm")
+    evt.MoveToMap(11012, -14936, 384, 512, 0, 0, 0, 0, "7out13.odm") -- Tatalia
 end, "Leave Lord Markham's Manor")
 

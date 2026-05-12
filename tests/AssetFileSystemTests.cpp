@@ -10,6 +10,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -26,6 +27,113 @@ void writeTextFile(const std::filesystem::path &path, const std::string &content
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     file << contents;
+}
+
+uint32_t crc32ForString(const std::string &contents)
+{
+    uint32_t crc = 0xffffffffu;
+
+    for (const unsigned char byte : contents)
+    {
+        crc ^= byte;
+
+        for (int bitIndex = 0; bitIndex < 8; ++bitIndex)
+        {
+            crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
+        }
+    }
+
+    return crc ^ 0xffffffffu;
+}
+
+void writeUInt16(std::ofstream &file, uint16_t value)
+{
+    file.put(static_cast<char>(value & 0xffu));
+    file.put(static_cast<char>((value >> 8) & 0xffu));
+}
+
+void writeUInt32(std::ofstream &file, uint32_t value)
+{
+    file.put(static_cast<char>(value & 0xffu));
+    file.put(static_cast<char>((value >> 8) & 0xffu));
+    file.put(static_cast<char>((value >> 16) & 0xffu));
+    file.put(static_cast<char>((value >> 24) & 0xffu));
+}
+
+void writeZipFile(
+    const std::filesystem::path &path,
+    const std::vector<std::pair<std::string, std::string>> &files)
+{
+    struct CentralDirectoryEntry
+    {
+        std::string name;
+        uint32_t crc = 0;
+        uint32_t size = 0;
+        uint32_t localHeaderOffset = 0;
+    };
+
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    std::vector<CentralDirectoryEntry> centralDirectoryEntries;
+
+    for (const std::pair<std::string, std::string> &entry : files)
+    {
+        CentralDirectoryEntry centralDirectoryEntry = {};
+        centralDirectoryEntry.name = entry.first;
+        centralDirectoryEntry.crc = crc32ForString(entry.second);
+        centralDirectoryEntry.size = static_cast<uint32_t>(entry.second.size());
+        centralDirectoryEntry.localHeaderOffset = static_cast<uint32_t>(file.tellp());
+        centralDirectoryEntries.push_back(centralDirectoryEntry);
+
+        writeUInt32(file, 0x04034b50u);
+        writeUInt16(file, 20);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt32(file, centralDirectoryEntry.crc);
+        writeUInt32(file, centralDirectoryEntry.size);
+        writeUInt32(file, centralDirectoryEntry.size);
+        writeUInt16(file, static_cast<uint16_t>(centralDirectoryEntry.name.size()));
+        writeUInt16(file, 0);
+        file.write(centralDirectoryEntry.name.data(), static_cast<std::streamsize>(centralDirectoryEntry.name.size()));
+        file.write(entry.second.data(), static_cast<std::streamsize>(entry.second.size()));
+    }
+
+    const uint32_t centralDirectoryOffset = static_cast<uint32_t>(file.tellp());
+
+    for (const CentralDirectoryEntry &entry : centralDirectoryEntries)
+    {
+        writeUInt32(file, 0x02014b50u);
+        writeUInt16(file, 20);
+        writeUInt16(file, 20);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt32(file, entry.crc);
+        writeUInt32(file, entry.size);
+        writeUInt32(file, entry.size);
+        writeUInt16(file, static_cast<uint16_t>(entry.name.size()));
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt16(file, 0);
+        writeUInt32(file, 0);
+        writeUInt32(file, entry.localHeaderOffset);
+        file.write(entry.name.data(), static_cast<std::streamsize>(entry.name.size()));
+    }
+
+    const uint32_t centralDirectorySize = static_cast<uint32_t>(file.tellp()) - centralDirectoryOffset;
+
+    writeUInt32(file, 0x06054b50u);
+    writeUInt16(file, 0);
+    writeUInt16(file, 0);
+    writeUInt16(file, static_cast<uint16_t>(centralDirectoryEntries.size()));
+    writeUInt16(file, static_cast<uint16_t>(centralDirectoryEntries.size()));
+    writeUInt32(file, centralDirectorySize);
+    writeUInt32(file, centralDirectoryOffset);
+    writeUInt16(file, 0);
 }
 
 bool containsEntry(const std::vector<std::string> &entries, const std::string &entry)
@@ -111,6 +219,68 @@ TEST_CASE("AssetFileSystem keeps legacy fallback and enumerates package aliases"
         CHECK(containsEntry(entries, "legacy_only.yml"));
         CHECK(containsEntry(entries, "engine_only.yml"));
         CHECK(containsEntry(entries, "shared.yml"));
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("AssetFileSystem mounts generated runtime zip package sets")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets";
+
+    writeZipFile(
+        assetRoot / "engine.zip",
+        {
+            {"ui/layout.yml", "engine-ui"},
+            {"data_tables/english/Global.txt", "engine-global"}
+        });
+    writeZipFile(
+        assetRoot / "worlds" / "mm6.zip",
+        {
+            {"maps/shared.odm", "active-map"},
+            {"textures/shared.bmp", "active-texture"}
+        });
+    writeZipFile(
+        assetRoot / "worlds" / "mm8.zip",
+        {
+            {"maps/out01.odm", "inactive-map"},
+            {"textures/shared.bmp", "inactive-texture"}
+        });
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1,
+            "mm6"));
+
+        const std::optional<std::string> uiText = assetFileSystem.readTextFile("Data/ui/layout.yml");
+        REQUIRE(uiText.has_value());
+        CHECK_EQ(*uiText, "engine-ui");
+
+        const std::optional<std::string> sharedMapText = assetFileSystem.readTextFile("Data/games/shared.odm");
+        REQUIRE(sharedMapText.has_value());
+        CHECK_EQ(*sharedMapText, "active-map");
+
+        const std::optional<std::string> inactiveMapText = assetFileSystem.readTextFile("Data/games/out01.odm");
+        REQUIRE(inactiveMapText.has_value());
+        CHECK_EQ(*inactiveMapText, "inactive-map");
+
+        const std::optional<std::string> sharedTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/shared.bmp");
+        REQUIRE(sharedTextureText.has_value());
+        CHECK_EQ(*sharedTextureText, "active-texture");
+
+        CHECK_FALSE(assetFileSystem.resolvePhysicalPath("Data/games/shared.odm").has_value());
+
+        REQUIRE(assetFileSystem.switchActiveWorld("mm8"));
+
+        const std::optional<std::string> switchedTextureText =
+            assetFileSystem.readTextFile("Data/bitmaps/shared.bmp");
+        REQUIRE(switchedTextureText.has_value());
+        CHECK_EQ(*switchedTextureText, "inactive-texture");
     }
 
     std::filesystem::remove_all(temporaryRoot);

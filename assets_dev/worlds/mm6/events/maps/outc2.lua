@@ -76,12 +76,13 @@ RegisterEvent(19, "Free Haven Temple", function()
             ClearQBit(QBit(1212)) -- Quest item bits for seer
             SetQBit(QBit(1132)) -- NPC
             evt.EnterHouse(326) -- Temple Stone
+            return
         end
         evt.EnterHouse(326) -- Temple Stone
         return
     elseif IsQBitSet(QBit(1130)) then -- NPC
         if not IsQBitSet(QBit(1129)) then -- Hire a Stonecutter and a Carpenter, bring them to Temple Stone in Free Haven to repair the Temple, and then return to Lord Anthony Stone at Castle Stone. - NPC
-            evt.SimpleMessage("You hand the Sacred Chalice to the monks of the temple who ensconce it in the main altar.")
+            evt.SetMessage("You hand the Sacred Chalice to the monks of the temple who ensconce it in the main altar.")
             evt.EnterHouse(326) -- Temple Stone
             return
         end
@@ -92,7 +93,7 @@ RegisterEvent(19, "Free Haven Temple", function()
             SetQBit(QBit(1130)) -- NPC
             ClearQBit(QBit(1709)) -- Replacement for HasNPCProfession ¹63 ver. 6
             ClearQBit(QBit(1708)) -- Replacement for HasNPCProfession ¹64 ver. 6
-            evt.SimpleMessage("The stone cutter and carpenter begin rebuilding the temple.")
+            evt.SetMessage("The stone cutter and carpenter begin rebuilding the temple.")
         end
         evt.EnterHouse(1442) -- Free Haven Temple
         return
@@ -547,19 +548,19 @@ RegisterEvent(139, "Castle Stone", function()
 end, "Castle Stone")
 
 RegisterEvent(150, "Legacy event 150", function()
-    evt.MoveToMap(-2, -128, 1, 512, 0, 0, 183, 1, "6d10.blv")
+    evt.MoveToMap(-2, -128, 1, 512, 0, 0, 183, 1, "6d10.blv") -- Dragoons' Keep
 end)
 
 RegisterEvent(151, "Legacy event 151", function()
-    evt.MoveToMap(-118, -1640, 1, 512, 0, 0, 187, 1, "6d14.blv")
+    evt.MoveToMap(-118, -1640, 1, 512, 0, 0, 187, 1, "6d14.blv") -- Tomb of Ethric the Mad
 end)
 
 RegisterEvent(152, "Legacy event 152", function()
-    evt.MoveToMap(0, -2135, 125, 512, 0, 0, 175, 1, "6t5.blv")
+    evt.MoveToMap(0, -2135, 125, 512, 0, 0, 175, 1, "6t5.blv") -- Temple of the Moon
 end)
 
 RegisterEvent(153, "Legacy event 153", function()
-    evt.MoveToMap(7059, -6153, 1, 128, 0, 0, 195, 1, "oracle.blv")
+    evt.MoveToMap(7059, -6153, 1, 128, 0, 0, 195, 1, "oracle.blv") -- Oracle of Enroth
 end)
 
 RegisterEvent(161, "Drink from Well.", function()
@@ -630,7 +631,7 @@ RegisterEvent(210, "Legacy event 210", function()
 end)
 
 RegisterEvent(211, "Throne Room", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 81, 1, "0.")
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 81, 1)
     evt.EnterHouse(224) -- Throne Room
 end, "Throne Room")
 
@@ -639,10 +640,14 @@ RegisterEvent(212, "Legacy event 212", function()
     SetQBit(QBit(1202)) -- NPC
 end)
 
-RegisterEvent(213, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            lg____gtS_cln;__")
-    SetQBit(QBit(1391)) -- NPC
-    SetAutonote(449) -- Obelisk Message # 8: lg____gtS_cln;__
+RegisterEvent(213, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1391)) -- NPC
+        SetAutonote(449) -- Obelisk Message # 8: lg____gtS_cln;__
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            lg____gtS_cln;__")
+    evt._PressAnyKey(213, 2)
 end, "Obelisk")
 
 RegisterEvent(214, "Legacy event 214", function()
@@ -667,6 +672,7 @@ RegisterEvent(261, "Shrine of Accuracy", function()
         evt.ForPlayer(Players.All)
         AddValue(BaseAccuracy, 3)
         evt.StatusText("+3 Accuracy permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Accuracy")

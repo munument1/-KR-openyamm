@@ -2,7 +2,7 @@
 
 ReplaceMapEvent(69, "Legacy event 69", function(continueStep)
     if continueStep == 4 then
-        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
         evt.StatusText("Wrong!")
         return
     end

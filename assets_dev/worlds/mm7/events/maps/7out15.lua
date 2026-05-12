@@ -124,6 +124,6 @@ RegisterEvent(453, "Obelisk", function()
 end, "Obelisk")
 
 RegisterEvent(501, "Enter the Lincoln", function()
-    evt.MoveToMap(524, 1463, 225, 1536, 0, 0, 160, 1, "\t7d23.blv")
+    evt.MoveToMap(524, 1463, 225, 1536, 0, 0, 160, 1, "7d23.blv") -- The Lincoln
 end, "Enter the Lincoln")
 

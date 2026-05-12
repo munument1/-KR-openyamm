@@ -35,8 +35,8 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Bowman, spawn ATroll A, spawn Archer A
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Bowman
     end
 end)
 
@@ -446,13 +446,13 @@ RegisterEvent(500, "Legacy event 500", function()
 end)
 
 RegisterEvent(501, "Enter the Wine Cellar", function()
-    evt.MoveToMap(601, -512, 1, 1024, 0, 0, 156, 1, "7d16.blv")
+    evt.MoveToMap(601, -512, 1, 1024, 0, 0, 156, 1, "7d16.blv") -- The Wine Cellar
 end, "Enter the Wine Cellar")
 
 RegisterEvent(502, "Enter the Mercenary Guild", function()
     if IsQBitSet(QBit(526)) then -- Accepted Fireball wand from Malwick
         if IsQBitSet(QBit(702)) then -- Finished with Malwick & Assc.
-            evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "\t7d20.blv")
+            evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "7d20.blv") -- The Mercenary Guild
             return
         elseif IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
             evt.SetNPCGreeting(438, 283) -- Niles Stantley greeting 283
@@ -480,22 +480,22 @@ RegisterEvent(502, "Enter the Mercenary Guild", function()
             end
             evt.SpeakNPC(438) -- Niles Stantley
         else
-            evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "\t7d20.blv")
+            evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "7d20.blv") -- The Mercenary Guild
         end
     return
     end
-    evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "\t7d20.blv")
+    evt.MoveToMap(886, 2601, 1, 474, 0, 0, 154, 1, "7d20.blv") -- The Mercenary Guild
 end, "Enter the Mercenary Guild")
 
 RegisterEvent(503, "Enter the Tidewater Caverns", function()
-    evt.MoveToMap(-1944, -2052, 1, 0, 0, 0, 155, 1, "\t7d17.blv")
+    evt.MoveToMap(-1944, -2052, 1, 0, 0, 0, 155, 1, "7d17.blv") -- The Tidewater Caverns
 end, "Enter the Tidewater Caverns")
 
 RegisterEvent(504, "Enter Lord Markham's Manor", function()
-    evt.MoveToMap(-33, -600, 1, 512, 0, 0, 0, 0, "\t7d18.blv")
+    evt.MoveToMap(-33, -600, 1, 512, 0, 0, 0, 0, "7d18.blv") -- Lord Markham's Manor
 end, "Enter Lord Markham's Manor")
 
 RegisterEvent(505, "Enter the Cave", function()
-    evt.MoveToMap(-2568, -143, 97, 257, 0, 0, 0, 0, "mdt09.blv")
+    evt.MoveToMap(-2568, -143, 97, 257, 0, 0, 0, 0, "mdt09.blv") -- Wromthrax's Cave
 end, "Enter the Cave")
 

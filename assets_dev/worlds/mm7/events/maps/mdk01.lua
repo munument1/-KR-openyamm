@@ -34,12 +34,12 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if not IsQBitSet(QBit(704)) then -- Turn on map in mdkXX(Dwarven Barrow)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Rat A
         return
     end
     evt.SetDoorState(25, DoorAction.Open)
     evt.SetDoorState(26, DoorAction.Open)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Rat A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -174,7 +174,7 @@ RegisterEvent(451, "Lever", function()
 end, "Lever")
 
 RegisterEvent(501, "Leave the Dwarven Barrow", function()
-    evt.MoveToMap(10155, -18616, 1601, 1024, 0, 0, 0, 0, "out11.odm")
+    evt.MoveToMap(10155, -18616, 1601, 1024, 0, 0, 0, 0, "out11.odm") -- The Barrow Downs
 end, "Leave the Dwarven Barrow")
 
 RegisterEvent(502, "Leave the Dwarven Barrow", function()

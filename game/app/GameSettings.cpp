@@ -380,6 +380,11 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
     const IniDocument document = parseIniDocument(buffer.str());
     GameSettings settings = GameSettings::createDefault();
 
+    if (const std::optional<std::string> value = getIniValue(document, "assets", "root"))
+    {
+        settings.assetRoot = trimCopy(*value);
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "audio", "sound_volume"))
     {
         int parsed = settings.soundVolume;
@@ -928,6 +933,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
     output
         << "; OpenYAMM settings\n"
         << "; Volumes use the original-style 0..9 scale.\n\n"
+        << "[assets]\n"
+        << "root=" << settings.assetRoot << "\n\n"
         << "[audio]\n"
         << "sound_volume=" << std::clamp(settings.soundVolume, 0, 9) << '\n'
         << "music_volume=" << std::clamp(settings.musicVolume, 0, 9) << '\n'

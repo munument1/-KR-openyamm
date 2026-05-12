@@ -42,23 +42,25 @@ RegisterEvent(1, "Legacy event 1", function()
             if IsAtLeast(Counter(10), 720) then
                 ClearQBit(QBit(782)) -- Your friends are mad at you
                 SetValue(MapVar(6), 0)
-                evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
+                evt.SetMonGroupBit(56, MonsterBits.Hostile, 0) -- actor group 56: peasant, spawn Lich A, spawn Necromancer A, spawn Vampire A
                 evt.SetMonGroupBit(55, MonsterBits.Hostile, 0)
+                return
             end
             SetValue(MapVar(6), 2)
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: peasant, spawn Lich A, spawn Necromancer A, spawn Vampire A
             evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
             return
         elseif IsAtLeast(MapVar(6), 2) then
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: peasant, spawn Lich A, spawn Necromancer A, spawn Vampire A
             evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
             return
         else
             return
         end
+        return
     end
     SetValue(MapVar(6), 2)
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: peasant, spawn Lich A, spawn Necromancer A, spawn Vampire A
     evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
 end)
 
@@ -144,7 +146,7 @@ end, "Chest")
 
 RegisterEvent(376, "Hostel", function()
     if IsQBitSet(QBit(621)) then -- Assassinate Tolberti in his house in the Pit and return his control cube to Robert the Wise in Celeste.
-        evt.MoveToMap(-15360, 3808, 129, 270, 0, 0, 0, 0, "\tmdt15.blv")
+        evt.MoveToMap(-15360, 3808, 129, 270, 0, 0, 0, 0, "mdt15.blv") -- The Small House
     elseif IsQBitSet(QBit(622)) then -- Finished Necro Proving Grounds
         if IsQBitSet(QBit(623)) then -- Finished Necro Task 2 - Temple of Light
             if IsQBitSet(QBit(624)) then -- Finished Necro Task 3 - Soul Jars
@@ -166,6 +168,7 @@ RegisterEvent(376, "Hostel", function()
                         evt.EnterHouse(1070) -- Hostel
                         return
                     end
+                    return
                 end
             end
         end
@@ -321,7 +324,7 @@ RegisterEvent(457, "Legacy event 457", function()
 end)
 
 RegisterEvent(501, "Leave the Pit", function()
-    evt.MoveToMap(498, 16198, 161, 1536, 0, 0, 0, 0, "t04.blv")
+    evt.MoveToMap(498, 16198, 161, 1536, 0, 0, 0, 0, "t04.blv") -- The Hall of the Pit
 end, "Leave the Pit")
 
 RegisterEvent(502, "Enter The Temple of the Dark", function()
@@ -329,14 +332,14 @@ RegisterEvent(502, "Enter The Temple of the Dark", function()
 end, "Enter The Temple of the Dark")
 
 RegisterEvent(503, "Enter the Breeding Zone", function()
-    evt.MoveToMap(-320, -1216, 1, 0, 0, 0, 146, 1, "7d10.blv")
+    evt.MoveToMap(-320, -1216, 1, 0, 0, 0, 146, 1, "7d10.blv") -- The Breeding Zone
 end, "Enter the Breeding Zone")
 
 RegisterEvent(504, "Enter Castle Gloaming", function()
-    evt.MoveToMap(96, 3424, 1, 1088, 0, 0, 129, 1, "\td03.blv")
+    evt.MoveToMap(96, 3424, 1, 1088, 0, 0, 129, 1, "d03.blv") -- Castle Gloaming
 end, "Enter Castle Gloaming")
 
 RegisterEvent(505, "Enter Castle Gloaming", function()
-    evt.MoveToMap(874, -261, -377, 1024, 0, 0, 129, 1, "\td03.blv")
+    evt.MoveToMap(874, -261, -377, 1024, 0, 0, 129, 1, "d03.blv") -- Castle Gloaming
 end, "Enter Castle Gloaming")
 

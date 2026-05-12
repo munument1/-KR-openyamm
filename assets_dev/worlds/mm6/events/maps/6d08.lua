@@ -232,7 +232,7 @@ RegisterEvent(24, "Suspicious Floor", function()
     SetValue(MapVar(18), 1)
     evt.SetTexture(1079, "mystryb")
     evt.SummonMonsters(3, 1, 1, 2688, 3968, 1, 0, 0) -- encounter slot 3 "BGenie" tier A, count 1, pos=(2688, 3968, 1), actor group 0, no unique actor name
-    evt.MoveToMap(2179, 4314, 1, 1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2179, 4314, 1, 1, 0, 0, 0, 0)
 end, "Suspicious Floor")
 
 RegisterEvent(25, "Suspicious Floor", function()
@@ -254,7 +254,7 @@ end, "Suspicious Floor")
 
 RegisterEvent(26, "Legacy event 26", function()
     if IsAtLeast(MapVar(18), 1) then
-        evt.MoveToMap(8832, -4992, 87, 1, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(8832, -4992, 87, 1, 0, 0, 0, 0)
     end
 end)
 
@@ -327,7 +327,7 @@ RegisterEvent(46, "Legacy event 46", function()
 end)
 
 RegisterEvent(53, "Exit", function()
-    evt.MoveToMap(15218, -14862, 161, 0, 0, 0, 0, 0, "outc1.odm")
+    evt.MoveToMap(15218, -14862, 161, 0, 0, 0, 0, 0, "outc1.odm") -- Frozen Highlands
 end, "Exit")
 
 RegisterEvent(54, "Bag", function()
@@ -359,7 +359,7 @@ RegisterEvent(61, "Magic Door", function(continueStep)
         evt.SetDoorState(61, DoorAction.Close)
     end
     if continueStep ~= nil then return end
-    evt.SimpleMessage("\"You cannot see me, hear me or touch me.  I lie behind the stars and alter what is real, I am what you really fear, Close your eyes and come I near. What am I?\"")
+    evt.SetMessage("\"You cannot see me, hear me or touch me.  I lie behind the stars and alter what is real, I am what you really fear, Close your eyes and come I near. What am I?\"")
     evt.AskQuestion(61, 2, 21, 4, 19, 20, "Answer?  ", {"dark", "darkness"})
     return nil
 end, "Magic Door")
@@ -373,7 +373,7 @@ RegisterEvent(62, "Magic Door", function(continueStep)
         evt.SetDoorState(62, DoorAction.Close)
     end
     if continueStep ~= nil then return end
-    evt.SimpleMessage("\"I go through an apple, or point out your way, I fit in a bow, then a target, to stay. What am I?\"")
+    evt.SetMessage("\"I go through an apple, or point out your way, I fit in a bow, then a target, to stay. What am I?\"")
     evt.AskQuestion(62, 2, 21, 4, 24, 25, "Answer?  ", {"arrow", "an arrow"})
     return nil
 end, "Magic Door")
@@ -387,7 +387,7 @@ RegisterEvent(63, "Magic Door", function(continueStep)
         evt.SetDoorState(63, DoorAction.Close)
     end
     if continueStep ~= nil then return end
-    evt.SimpleMessage("\"What consumes rocks, levels mountains, destroys wood, pushes the clouds across the sky, and can make a young one old?\"")
+    evt.SetMessage("\"What consumes rocks, levels mountains, destroys wood, pushes the clouds across the sky, and can make a young one old?\"")
     evt.AskQuestion(63, 2, 21, 4, 27, 27, "Answer?  ", {"time", "time"})
     return nil
 end, "Magic Door")
@@ -401,7 +401,7 @@ RegisterEvent(64, "Magic Door", function(continueStep)
         evt.SetDoorState(64, DoorAction.Close)
     end
     if continueStep ~= nil then return end
-    evt.SimpleMessage("\"Alive without breath, as cold as death, never thirsty ever drinking, all in mail never clinking, ever travelling, never walking, mouth ever moving, never talking.  What am I? \"")
+    evt.SetMessage("\"Alive without breath, as cold as death, never thirsty ever drinking, all in mail never clinking, ever travelling, never walking, mouth ever moving, never talking.  What am I? \"")
     evt.AskQuestion(64, 2, 21, 4, 29, 30, "Answer?  ", {"fish", "a fish"})
     return nil
 end, "Magic Door")
@@ -412,7 +412,7 @@ RegisterEvent(65, "Legacy event 65", function()
 end)
 
 RegisterEvent(66, "Legacy event 66", function()
-    evt.MoveToMap(1408, -1664, 1, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(1408, -1664, 1, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(67, "Legacy event 67", function()

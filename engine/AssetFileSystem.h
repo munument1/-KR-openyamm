@@ -59,11 +59,16 @@ private:
     {
         std::filesystem::path root;
         std::string mountPoint;
+        bool archive = false;
     };
 
     bool isInitialized() const;
     bool validateTierDirectories(const std::filesystem::path &assetRoot) const;
+    bool validateTierDirectoriesInMountedPackages() const;
+    bool isPackagedAssetRoot(const std::filesystem::path &assetRoot) const;
     bool mountDevelopmentPackageRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
+    bool mountPackagedAssetRoot(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
+    bool mountPackageArchiveIfPresent(const std::filesystem::path &archivePath, bool appendToPath);
     bool mountSearchRoot(const std::filesystem::path &assetRoot, bool appendToPath);
     bool mountSearchRootAt(
         const std::filesystem::path &assetRoot,

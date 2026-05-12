@@ -36,11 +36,11 @@ SetMapMetadata({
 RegisterEvent(1, "Legacy event 1", function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
     else
         return
     end
@@ -98,7 +98,7 @@ RegisterEvent(176, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(1)
         return
     end
@@ -109,7 +109,7 @@ RegisterEvent(177, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(2)
         return
     end
@@ -120,7 +120,7 @@ RegisterEvent(178, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(3)
         return
     end
@@ -131,7 +131,7 @@ RegisterEvent(179, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(4)
         return
     end
@@ -142,7 +142,7 @@ RegisterEvent(180, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(5)
         return
     end
@@ -153,7 +153,7 @@ RegisterEvent(181, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(6)
         return
     end
@@ -164,7 +164,7 @@ RegisterEvent(182, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(7)
         return
     end
@@ -175,7 +175,7 @@ RegisterEvent(183, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(8)
         return
     end
@@ -186,7 +186,7 @@ RegisterEvent(184, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(9)
         return
     end
@@ -197,7 +197,7 @@ RegisterEvent(185, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(10)
         return
     end
@@ -208,7 +208,7 @@ RegisterEvent(186, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(11)
         return
     end
@@ -219,7 +219,7 @@ RegisterEvent(187, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(12)
         return
     end
@@ -230,7 +230,7 @@ RegisterEvent(188, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(13)
         return
     end
@@ -241,7 +241,7 @@ RegisterEvent(189, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(14)
         return
     end
@@ -252,7 +252,7 @@ RegisterEvent(190, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(15)
         return
     end
@@ -263,7 +263,7 @@ RegisterEvent(191, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(16)
         return
     end
@@ -274,7 +274,7 @@ RegisterEvent(192, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(17)
         return
     end
@@ -285,7 +285,7 @@ RegisterEvent(193, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(18)
         return
     end
@@ -296,7 +296,7 @@ RegisterEvent(194, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(19)
         return
     end
@@ -307,7 +307,7 @@ RegisterEvent(195, "Chest", function()
     if not IsAtLeast(MapVar(6), 2) then
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
         evt.OpenChest(0)
         return
     end
@@ -433,7 +433,7 @@ RegisterEvent(452, "Legacy event 452", function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
     SetValue(MapVar(6), 2)
 end)
 
@@ -448,7 +448,7 @@ RegisterEvent(454, "Legacy event 454", function()
 end)
 
 RegisterEvent(501, "Leave Castle Gryphonheart", function()
-    evt.MoveToMap(-486, 9984, 2401, 1024, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(-486, 9984, 2401, 1024, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end, "Leave Castle Gryphonheart")
 
 RegisterEvent(502, "Leave Castle Gryphonheart", function()
@@ -457,6 +457,6 @@ RegisterEvent(502, "Leave Castle Gryphonheart", function()
         evt.FaceAnimation(FaceAnimation.DoorLocked)
         return
     end
-    evt.MoveToMap(1050, 9991, 2913, 1024, 0, 0, 0, 0, "7out03.odm")
+    evt.MoveToMap(1050, 9991, 2913, 1024, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end, "Leave Castle Gryphonheart")
 

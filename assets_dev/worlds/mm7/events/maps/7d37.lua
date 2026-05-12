@@ -33,7 +33,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghost A, spawn Ghoul A, spawn Wight A
 end)
 
 RegisterEvent(2, "Legacy event 2", function()
@@ -318,6 +318,6 @@ RegisterEvent(376, "Portrait", function()
 end, "Portrait")
 
 RegisterEvent(501, "Leave the Haunted Mansion", function()
-    evt.MoveToMap(-19207, 12339, 33, 1536, 0, 0, 0, 0, "out11.odm")
+    evt.MoveToMap(-19207, 12339, 33, 1536, 0, 0, 0, 0, "out11.odm") -- The Barrow Downs
 end, "Leave the Haunted Mansion")
 

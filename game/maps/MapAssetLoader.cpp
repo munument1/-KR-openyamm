@@ -1718,8 +1718,9 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         ? loadActPalette(assetFileSystem, paletteId, bitmapLoadCache, paletteWorldId)
         : std::nullopt;
     decodeOptions.applyPaletteZeroTransparencyKey = applyTransparencyKey;
-    decodeOptions.applyMagentaTransparencyKey = true;
-    decodeOptions.applyTealTransparencyKey = applyTransparencyKey;
+    const bool isSpriteTexture = directoryPath == "Data/sprites";
+    decodeOptions.applyMagentaTransparencyKey = !isSpriteTexture;
+    decodeOptions.applyTealTransparencyKey = applyTransparencyKey && !isSpriteTexture;
 
     std::optional<Engine::ImagePixelsBgra> image =
         Engine::decodeImagePixelsBgra(*bitmapBytes, *bitmapPath, decodeOptions);

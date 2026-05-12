@@ -272,6 +272,6 @@ RegisterEvent(460, "Legacy event 460", function()
 end)
 
 RegisterEvent(501, "Leave the Hall Under the Hill", function()
-    evt.MoveToMap(1550, 21117, 800, 1536, 0, 0, 0, 0, "out14.odm")
+    evt.MoveToMap(1550, 21117, 800, 1536, 0, 0, 0, 0, "out14.odm") -- Avlee
 end, "Leave the Hall Under the Hill")
 

@@ -334,7 +334,7 @@ RegisterEvent(100, "Chest", function()
 end, "Chest")
 
 RegisterEvent(451, "Legacy event 451", function()
-    evt.MoveToMap(0, 640, 679, 1536, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(0, 640, 679, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(501, "Leave the War Camp", function()

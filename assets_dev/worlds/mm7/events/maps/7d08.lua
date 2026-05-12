@@ -40,7 +40,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Elf Spearman A
     if IsAtLeast(MapVar(3), 1) then
         evt.SetFacetBit(1, FacetBits.Untouchable, 1)
         evt.SetFacetBit(1, FacetBits.Fluid, 1)
@@ -233,7 +233,7 @@ RegisterEvent(196, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -251,7 +251,7 @@ RegisterEvent(197, "Ore Vein", function()
     elseif randomStep == 4 then
         AddValue(InventoryItem(1489), 1489) -- Siertal-laced ore
     elseif randomStep == 6 then
-        evt.DamagePlayer(5, 0, 50)
+        evt.DamagePlayer(Players.All, const.Damage.Fire, 50)
         evt.StatusText("Cave In !")
         AddValue(InventoryItem(1490), 1490) -- Phylt-laced ore
     elseif randomStep == 8 then
@@ -278,16 +278,17 @@ RegisterEvent(376, "Door", function()
             evt.SpeakNPC(410) -- Loren Steel
             return
         end
+        return
     end
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Door")
 
 RegisterEvent(501, "Exit the Tularean Caves", function()
-    evt.MoveToMap(-13798, 19726, 4192, 1024, 0, 0, 0, 0, "7out04.odm")
+    evt.MoveToMap(-13798, 19726, 4192, 1024, 0, 0, 0, 0, "7out04.odm") -- The Tularean Forest
 end, "Exit the Tularean Caves")
 
 RegisterEvent(502, "Exit the Tularean Caves", function()
-    evt.MoveToMap(-10183, 12574, -1967, 1792, 0, 0, 0, 0, "\t7d32.blv")
+    evt.MoveToMap(-10183, 12574, -1967, 1792, 0, 0, 0, 0, "7d32.blv") -- Castle Navan
 end, "Exit the Tularean Caves")
 
 RegisterEvent(65535, "", function()

@@ -611,11 +611,11 @@ RegisterEvent(79, "Crate", function()
 end, "Crate")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-3714, 1250, 1, 0, 0, 0, 182, 1, "6d09.blv")
+    evt.MoveToMap(-3714, 1250, 1, 0, 0, 0, 182, 1, "6d09.blv") -- Snergle's Iron Mines
 end)
 
 RegisterEvent(91, "Legacy event 91", function()
-    evt.MoveToMap(21169, 1920, -689, 1024, 0, 0, 168, 1, "cd2.blv")
+    evt.MoveToMap(21169, 1920, -689, 1024, 0, 0, 168, 1, "cd2.blv") -- Castle Darkmoor
 end)
 
 RegisterEvent(92, "Temple Baa", function()
@@ -623,7 +623,7 @@ RegisterEvent(92, "Temple Baa", function()
 end, "Temple Baa")
 
 RegisterEvent(93, "Dragon's Lair", function()
-    evt.MoveToMap(-622, 239, 1, 128, 0, 0, 0, 0, "zddb01.blv")
+    evt.MoveToMap(-622, 239, 1, 128, 0, 0, 0, 0, "zddb01.blv") -- Dragon's Lair
 end, "Dragon's Lair")
 
 RegisterEvent(100, "Drink from Fountain", function()
@@ -698,10 +698,14 @@ RegisterEvent(222, "Legacy event 222", function()
     end
 end)
 
-RegisterEvent(223, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            aoflo'h.hbtid_p_")
-    SetQBit(QBit(1392)) -- NPC
-    SetAutonote(450) -- Obelisk Message # 9: aoflo'h.hbtid_p_
+RegisterEvent(223, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1392)) -- NPC
+        SetAutonote(450) -- Obelisk Message # 9: aoflo'h.hbtid_p_
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            aoflo'h.hbtid_p_")
+    evt._PressAnyKey(223, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Speed", function()
@@ -721,6 +725,7 @@ RegisterEvent(261, "Shrine of Speed", function()
         evt.ForPlayer(Players.All)
         AddValue(BaseSpeed, 3)
         evt.StatusText("+3 Speed permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Speed")

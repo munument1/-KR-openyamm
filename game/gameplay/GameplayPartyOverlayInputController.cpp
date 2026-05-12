@@ -853,12 +853,12 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             const std::string actionLabel = isDimensionDoorOverlayMode(context.utilitySpellOverlayReadOnly().mode)
                 ? "Dimension Door to "
                 : "Town Portal to ";
-            context.mutableStatusBarHoverText() =
-                actionLabel + context.townPortalDestinations()[hoveredTarget.index].label;
+            context.setStatusBarHoverText(
+                actionLabel + context.townPortalDestinations()[hoveredTarget.index].label);
         }
         else
         {
-            context.mutableStatusBarHoverText().clear();
+            context.clearStatusBarHoverText();
         }
 
         handlePointerClickRelease(
@@ -907,7 +907,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
         return;
     }
 
-    context.mutableStatusBarHoverText().clear();
+    context.clearStatusBarHoverText();
 
     if (context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::LloydsBeacon)
     {
@@ -999,7 +999,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                     {
                         const std::string locationName =
                             beacon->locationName.empty() ? beacon->mapName : beacon->locationName;
-                        context.mutableStatusBarHoverText() = "Recall to " + locationName;
+                        context.setStatusBarHoverText("Recall to " + locationName);
                     }
                 }
                 else
@@ -1014,11 +1014,12 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                     {
                         const std::string locationName =
                             beacon->locationName.empty() ? beacon->mapName : beacon->locationName;
-                        context.mutableStatusBarHoverText() = "Set " + currentLocationName + " over " + locationName;
+                        context.setStatusBarHoverText(
+                            "Set " + currentLocationName + " over " + locationName);
                     }
                     else
                     {
-                        context.mutableStatusBarHoverText() = "Set beacon to " + currentLocationName;
+                        context.setStatusBarHoverText("Set beacon to " + currentLocationName);
                     }
                 }
             }
@@ -2168,7 +2169,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                         hasRightHandWeapon,
                         target.slot);
                     const std::optional<GameplayHudTextureHandle> texture =
-                        context.gameplayUiRuntime().ensureHudTextureLoaded(dynamicTextureName);
+                        context.gameplayUiRuntime().ensureItemIconTextureLoaded(dynamicTextureName);
 
                     if (texture.has_value())
                     {
@@ -3018,7 +3019,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 }
 
                 const std::optional<GameplayHudTextureHandle> itemTexture =
-                    context.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                    context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
                 if (!itemTexture.has_value())
                 {
@@ -3108,7 +3109,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             }
 
             const std::optional<GameplayHudTextureHandle> itemTexture =
-                context.gameplayUiRuntime().ensureHudTextureLoaded(pItemDefinition->iconName);
+                context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
 
             if (!itemTexture.has_value())
             {

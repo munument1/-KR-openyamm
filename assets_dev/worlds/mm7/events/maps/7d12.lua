@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Beholder A, spawn Golem A
 end)
 
 RegisterEvent(3, "Legacy event 3", function()
@@ -317,6 +317,6 @@ RegisterEvent(452, "Legacy event 452", function()
 end)
 
 RegisterEvent(501, "Exit Clanker's Lab", function()
-    evt.MoveToMap(14670, 12831, 193, 1024, 0, 0, 0, 0, "7out04.odm")
+    evt.MoveToMap(14670, 12831, 193, 1024, 0, 0, 0, 0, "7out04.odm") -- The Tularean Forest
 end, "Exit Clanker's Lab")
 

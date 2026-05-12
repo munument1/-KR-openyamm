@@ -48,6 +48,7 @@ RegisterEvent(2, "Legacy event 2", function()
             SetQBit(QBit(631)) -- Killed Evil MM3 Person
         end
         SetQBit(QBit(746)) -- Control Cube - I lost it
+        return
     end
     SetQBit(QBit(630)) -- Killed Good MM3 Person
     SetQBit(QBit(746)) -- Control Cube - I lost it
@@ -134,10 +135,10 @@ RegisterEvent(195, "Door", function()
 end, "Door")
 
 RegisterEvent(501, "Legacy event 501", function()
-    evt.MoveToMap(5648, 12374, 33, 0, 0, 0, 0, 0, "7d25.blv")
+    evt.MoveToMap(5648, 12374, 33, 0, 0, 0, 0, 0, "7d25.blv") -- Celeste
 end)
 
 RegisterEvent(502, "Legacy event 502", function()
-    evt.MoveToMap(-7745, -6673, 65, 1024, 0, 0, 0, 0, "7d26.blv")
+    evt.MoveToMap(-7745, -6673, 65, 1024, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 

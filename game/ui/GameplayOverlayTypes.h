@@ -632,6 +632,7 @@ struct GameplayRenderedInspectableHudItem
     EquipmentSlot equipmentSlot = EquipmentSlot::MainHand;
     size_t sourceLootItemIndex = 0;
     std::string textureName;
+    bool textureUsesItemIconTransparency = false;
     bool hasValueOverride = false;
     int valueOverride = 0;
     float x = 0.0f;

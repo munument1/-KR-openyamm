@@ -122,12 +122,14 @@ RegisterEvent(16, "Lever", function()
                 evt.StatusText("The Door is locked")
                 return
             end
+            return
         end
         evt.SetDoorState(29, DoorAction.Close)
         evt.SetDoorState(30, DoorAction.Close)
         RemoveItem(2107) -- Key to Gharik's Laboratory
         SetQBit(QBit(1400)) -- NPC
         ClearQBit(QBit(1223)) -- Quest item bits for seer
+        return
     end
     evt.ForPlayer(Players.All)
     if HasItem(2107) then -- Key to Gharik's Laboratory
@@ -203,12 +205,12 @@ end, "Lever")
 
 RegisterEvent(31, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(1916, 6618, 1, 502, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(1916, 6618, 1, 502, 0, 0, 0, 0)
 end, "Tile")
 
 RegisterEvent(32, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-2688, 1152, 1152, 1550, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-2688, 1152, 1152, 1550, 0, 0, 0, 0)
 end, "Tile")
 
 RegisterEvent(33, "Lever", function()
@@ -249,17 +251,17 @@ end, "Lever")
 
 RegisterEvent(41, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1822, 4049, 1, 502, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-1822, 4049, 1, 502, 0, 0, 0, 0)
 end, "Tile")
 
 RegisterEvent(42, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(134, 1151, 1, 502, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(134, 1151, 1, 502, 0, 0, 0, 0)
 end, "Tile")
 
 RegisterEvent(43, "Tile", function()
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(2324, -141, -2047, 896, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2324, -141, -2047, 896, 0, 0, 0, 0)
 end, "Tile")
 
 RegisterEvent(44, "Chest", function()
@@ -288,6 +290,7 @@ RegisterEvent(48, "Chest", function()
             return
         end
         evt.OpenChest(8)
+        return
     end
     evt.OpenChest(5)
     SetQBit(QBit(1029)) -- 5 D18, questbit for getting hourglass
@@ -465,7 +468,7 @@ RegisterEvent(62, "Bookcase", function()
 end, "Bookcase")
 
 RegisterEvent(90, "Exit", function()
-    evt.MoveToMap(15585, 11125, 97, 512, 0, 0, 0, 0, "oute3.odm")
+    evt.MoveToMap(15585, 11125, 97, 512, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end, "Exit")
 
 RegisterEvent(91, "Legacy event 91", function()

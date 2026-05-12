@@ -1,6 +1,7 @@
 #include "doctest/doctest.h"
 
 #include "game/party/SpellIds.h"
+#include "game/ui/GameplayUiController.h"
 #include "game/ui/SpellbookUiLayout.h"
 
 using OpenYAMM::Game::findSpellbookSchoolUiDefinition;
@@ -50,4 +51,38 @@ TEST_CASE("spellbook ui layout uses canonical school slot mapping")
     REQUIRE(pHourOfPowerDefinition != nullptr);
     CHECK(pHourOfPowerDefinition->school == GameplayUiController::SpellbookSchool::Light);
     CHECK(spellbookSpellLayoutId(GameplayUiController::SpellbookSchool::Light, 12).empty());
+}
+
+TEST_CASE("status bar hover text does not replace active event text")
+{
+    GameplayUiController uiController = {};
+
+    uiController.setStatusBarHoverText("Old hover");
+    CHECK_EQ(uiController.statusBar().hoverText, "Old hover");
+
+    uiController.setStatusBarEvent("You found an item!", 2.0f);
+    uiController.setStatusBarHoverText("New hover");
+
+    CHECK(uiController.statusBarEventActive());
+    CHECK_EQ(uiController.statusBar().eventText, "You found an item!");
+    CHECK_EQ(uiController.statusBar().hoverText, "Old hover");
+
+    uiController.updateStatusBarEvent(2.0f);
+    CHECK_FALSE(uiController.statusBarEventActive());
+
+    uiController.setStatusBarHoverText("New hover");
+    CHECK_EQ(uiController.statusBar().hoverText, "New hover");
+}
+
+TEST_CASE("status bar hover text can clear while event text is active")
+{
+    GameplayUiController uiController = {};
+
+    uiController.setStatusBarHoverText("Old hover");
+    uiController.setStatusBarEvent("You found gold!", 2.0f);
+    uiController.clearStatusBarHoverText();
+
+    CHECK(uiController.statusBarEventActive());
+    CHECK_EQ(uiController.statusBar().eventText, "You found gold!");
+    CHECK(uiController.statusBar().hoverText.empty());
 }

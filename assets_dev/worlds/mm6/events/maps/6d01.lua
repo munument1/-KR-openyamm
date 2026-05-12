@@ -215,7 +215,7 @@ RegisterEvent(30, "L", function()
 end, "L")
 
 RegisterEvent(31, "M", function()
-    evt.MoveToMap(9000, 1916, -767, 128, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(9000, 1916, -767, 128, 0, 0, 0, 0)
 end, "M")
 
 RegisterEvent(32, "N", function()
@@ -328,7 +328,7 @@ RegisterEvent(50, "Chest", function()
 end, "Chest")
 
 RegisterEvent(51, "Exit Door", function()
-    evt.MoveToMap(-18400, -14982, 1600, 512, 0, 0, 0, 0, "oute3.odm")
+    evt.MoveToMap(-18400, -14982, 1600, 512, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end, "Exit Door")
 
 RegisterEvent(55, "Legacy event 55", function()

@@ -151,6 +151,11 @@ void applySettingsConfigOverridesIfConfigured(
         config.activeWorldId = settings->startWorldId;
     }
 
+    if (!settings->assetRoot.empty())
+    {
+        config.assetRoot = settings->assetRoot;
+    }
+
     if (!assetScaleArgumentProvided)
     {
         config.assetScaleProfile = settings->assetScaleProfile;

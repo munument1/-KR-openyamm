@@ -18,6 +18,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 #include <limits>
 #include <string_view>
 #include <unordered_map>
@@ -4506,6 +4507,61 @@ int luaBeginCanShowTopic(lua_State *pLuaState)
     return 0;
 }
 
+std::string luaDebugSourceName(const lua_Debug &debugInfo)
+{
+    const char *pSource = debugInfo.source != nullptr ? debugInfo.source : debugInfo.short_src;
+
+    if (pSource == nullptr || pSource[0] == '\0')
+    {
+        return "lua";
+    }
+
+    if (pSource[0] == '@')
+    {
+        return std::string(pSource + 1);
+    }
+
+    return std::string(pSource);
+}
+
+int luaDebugPrint(lua_State *pLuaState)
+{
+    lua_Debug debugInfo = {};
+    std::string sourceName = "lua";
+    int lineNumber = 0;
+
+    if (lua_getstack(pLuaState, 1, &debugInfo) != 0
+        && lua_getinfo(pLuaState, "Sl", &debugInfo) != 0)
+    {
+        sourceName = luaDebugSourceName(debugInfo);
+        lineNumber = debugInfo.currentline;
+    }
+
+    std::string message;
+    const int argumentCount = lua_gettop(pLuaState);
+
+    for (int argumentIndex = 1; argumentIndex <= argumentCount; ++argumentIndex)
+    {
+        if (argumentIndex > 1)
+        {
+            message += '\t';
+        }
+
+        size_t length = 0;
+        const char *pText = luaL_tolstring(pLuaState, argumentIndex, &length);
+
+        if (pText != nullptr)
+        {
+            message.append(pText, length);
+        }
+
+        lua_pop(pLuaState, 1);
+    }
+
+    std::cout << '[' << sourceName << ':' << lineNumber << "]: " << message << '\n';
+    return 0;
+}
+
 int luaForPlayer(lua_State *pLuaState)
 {
     LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
@@ -7430,6 +7486,7 @@ void registerEventBindings(LuaSessionCache &session)
 
     registerLuaFunction(pLuaState, "_BeginEvent", luaBeginEvent);
     registerLuaFunction(pLuaState, "_BeginCanShowTopic", luaBeginCanShowTopic);
+    registerLuaFunction(pLuaState, "Debug", luaDebugPrint);
     registerLuaFunction(pLuaState, "_RandomJump", luaRandomJump);
     registerLuaFunction(pLuaState, "AskQuestion", luaAskQuestion);
     registerLuaFunction(pLuaState, "AskQuestionWithAnswerSteps", luaAskQuestionWithAnswerSteps);
@@ -7989,13 +8046,9 @@ uint64_t EventRuntime::transportRouteOverrideKey(uint32_t houseId, uint32_t rout
     return (static_cast<uint64_t>(houseId) << 32) | routeIndex;
 }
 
-bool EventRuntime::buildOnLoadState(
-    const std::optional<ScriptedEventProgram> &localProgram,
-    const std::optional<ScriptedEventProgram> &globalProgram,
+void EventRuntime::initializeMapRuntimeState(
     const std::optional<MapDeltaData> &mapDeltaData,
-    EventRuntimeState &runtimeState,
-    Party *pParty,
-    ISceneEventContext *pSceneEventContext
+    EventRuntimeState &runtimeState
 ) const
 {
     const std::unordered_map<std::string, int32_t> namedGlobalVars = runtimeState.namedGlobalVars;
@@ -8020,6 +8073,18 @@ bool EventRuntime::buildOnLoadState(
             runtimeState.mapVars[mapVarIndex] = mapDeltaData->eventVariables.mapVars[mapVarIndex];
         }
     }
+}
+
+bool EventRuntime::buildOnLoadState(
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram,
+    const std::optional<MapDeltaData> &mapDeltaData,
+    EventRuntimeState &runtimeState,
+    Party *pParty,
+    ISceneEventContext *pSceneEventContext
+) const
+{
+    initializeMapRuntimeState(mapDeltaData, runtimeState);
 
     return executeOnLoadEvents(localProgram, globalProgram, runtimeState, pParty, pSceneEventContext);
 }

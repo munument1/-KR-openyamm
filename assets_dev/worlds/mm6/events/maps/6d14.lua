@@ -270,7 +270,7 @@ RegisterEvent(40, "Door.", function()
 end, "Door.")
 
 RegisterEvent(50, "Exit.", function()
-    evt.MoveToMap(-19989, -1020, 159, 256, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(-19989, -1020, 159, 256, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit.")
 
 RegisterEvent(51, "Burial niche", function()

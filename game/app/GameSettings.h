@@ -106,6 +106,7 @@ struct GameSettings
     KeyboardSettings keyboard = {};
     bool preseedParty = true;
     uint32_t partySeedRosterId = 0;
+    std::string assetRoot;
     std::string startWorldId = "mm8";
     std::string startMapFile;
     bool overrideStartPosition = false;

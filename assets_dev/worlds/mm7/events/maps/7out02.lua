@@ -380,8 +380,8 @@ RegisterEvent(50, "Legacy event 50", function()
             evt.ShowMovie("\"pcout01\"", true)
             return
         elseif IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
-            evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-            evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+            evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+            evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
             SetValue(BankGold, 0)
             ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
             ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -394,8 +394,8 @@ RegisterEvent(50, "Legacy event 50", function()
             if IsAtLeast(Counter(5), 672) then
                 SetQBit(QBit(695)) -- Failed either goto or do guild quest
                 evt.SpeakNPC(437) -- Messenger
-                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
                 SetValue(BankGold, 0)
                 ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
                 ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -409,8 +409,8 @@ RegisterEvent(50, "Legacy event 50", function()
             if IsAtLeast(Counter(5), 336) then
                 SetQBit(QBit(695)) -- Failed either goto or do guild quest
                 evt.SpeakNPC(437) -- Messenger
-                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1)
-                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0)
+                evt.SetMonGroupBit(60, MonsterBits.Hostile, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
+                evt.SetMonGroupBit(60, MonsterBits.Invisible, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
                 SetValue(BankGold, 0)
                 ClearQBit(QBit(693)) -- Go to the Mercenary Guild in Tatalia and talk to Niles Stantley within two weeks. - Goto Merc Guild
                 ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
@@ -451,7 +451,7 @@ end)
 RegisterEvent(51, "Legacy event 51", function()
     if not IsQBitSet(QBit(695)) then return end -- Failed either goto or do guild quest
     if IsQBitSet(QBit(697)) then return end -- Killed all outdoor monsters
-    if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60; all matching actors defeated
+    if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more; all matching actors defeated
     evt.ForPlayer(Players.All)
     SetQBit(QBit(697)) -- Killed all outdoor monsters
     if IsQBitSet(QBit(696)) then -- Killed all castle monsters
@@ -708,7 +708,7 @@ RegisterEvent(221, "Altar", function()
         evt.StatusText("You Pray")
         return
     end
-    evt.MoveToMap(4221, 17840, 769, 1536, 0, 0, 0, 0)
+    evt.MoveToMap(4221, 17840, 769, 1536, 0, 0, 0, 0, "out12.odm") -- The Land of the Giants
 end, "Altar")
 
 RegisterEvent(222, "Shrine", nil, "Shrine")
@@ -727,6 +727,7 @@ RegisterEvent(223, "Drink from the Well", function()
             evt.StatusText("Refreshing!")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -891,10 +892,10 @@ RegisterEvent(236, "Legacy event 236", function()
     SetQBit(QBit(760)) -- Took area 2 hill fort
     evt.CastSpell(2, 10, 4, 6545, 10984, 4000, 6545, 5678, 111) -- Fire Bolt
     evt.CastSpell(2, 10, 4, 13458, 8781, 4000, 8805, 5257, 204) -- Fire Bolt
-    evt.SummonMonsters(1, 1, 10, 5232, 1424, 0, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(5232, 1424, 0), actor group 51, no unique actor name
-    evt.SummonMonsters(1, 1, 10, 10880, 784, 64, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(10880, 784, 64), actor group 51, no unique actor name
-    evt.SummonMonsters(1, 1, 10, 5824, 6400, 12, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(5824, 6400, 12), actor group 51, no unique actor name
-    evt.SummonMonsters(1, 1, 10, 10832, 6208, 0, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(10832, 6208, 0), actor group 51, no unique actor name
+    evt.SummonMonsters(1, 1, 10, 5232, 1424, 0, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(5232, 1424, 0), actor group 51: Hobgoblin, Peasant, spawn Goblin A, spawn type 2 index 2, +1 more, no unique actor name
+    evt.SummonMonsters(1, 1, 10, 10880, 784, 64, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(10880, 784, 64), actor group 51: Hobgoblin, Peasant, spawn Goblin A, spawn type 2 index 2, +1 more, no unique actor name
+    evt.SummonMonsters(1, 1, 10, 5824, 6400, 12, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(5824, 6400, 12), actor group 51: Hobgoblin, Peasant, spawn Goblin A, spawn type 2 index 2, +1 more, no unique actor name
+    evt.SummonMonsters(1, 1, 10, 10832, 6208, 0, 51, 0) -- encounter slot 1 "Goblin" tier A, count 10, pos=(10832, 6208, 0), actor group 51: Hobgoblin, Peasant, spawn Goblin A, spawn type 2 index 2, +1 more, no unique actor name
     evt.CastSpell(2, 10, 4, 8096, -3423, 4000, 7952, 3872, 320) -- Fire Bolt
     evt.CastSpell(2, 10, 4, 12240, 7312, 0, 8160, 5136, 314) -- Fire Bolt
 end)
@@ -931,7 +932,7 @@ end, "Signal Fire Pit")
 
 RegisterEvent(240, "Legacy event 240", function()
     if IsQBitSet(QBit(774)) then -- Time for Gobs to appear in area 2(raiding camp)
-        evt.SetMonGroupBit(71, MonsterBits.Invisible, 0)
+        evt.SetMonGroupBit(71, MonsterBits.Invisible, 0) -- actor group 71: Goblin, Goblin Lord, Hobgoblin
     end
 end)
 
@@ -1192,14 +1193,14 @@ RegisterEvent(301, "Enter Castle Harmondale", function()
             SetQBit(QBit(644)) -- Butler only shows up once (area 2)
             return
         end
-        evt.MoveToMap(-5073, -2842, 1, 512, 0, 0, 134, 1, "\t7d29.blv")
+        evt.MoveToMap(-5073, -2842, 1, 512, 0, 0, 134, 1, "7d29.blv") -- Castle Harmondale
         return
     end
-    evt.MoveToMap(-5073, -2842, 1, 512, 0, 0, 126, 1, "\t7d29.blv")
+    evt.MoveToMap(-5073, -2842, 1, 512, 0, 0, 126, 1, "7d29.blv") -- Castle Harmondale
 end, "Enter Castle Harmondale")
 
 RegisterEvent(302, "Enter the White Cliff Caves", function()
-    evt.MoveToMap(1344, -256, -107, 1024, 0, 0, 135, 1, "7d21.blv")
+    evt.MoveToMap(1344, -256, -107, 1024, 0, 0, 135, 1, "7d21.blv") -- White Cliff Cave
 end, "Enter the White Cliff Caves")
 
 RegisterEvent(65535, "", function()

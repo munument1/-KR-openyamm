@@ -34,7 +34,7 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Gargoyle A, spawn Ghost A
 end)
 
 RegisterEvent(3, "Miner's Only", function()
@@ -366,22 +366,22 @@ RegisterEvent(453, "Obelisk", function()
 end, "Obelisk")
 
 RegisterEvent(501, "Enter Stone City", function()
-    evt.MoveToMap(245, -5362, 34, 512, 0, 0, 152, 1, "7d24.blv")
+    evt.MoveToMap(245, -5362, 34, 512, 0, 0, 152, 1, "7d24.blv") -- Stone City
 end, "Enter Stone City")
 
 RegisterEvent(502, "Enter Mansion", function()
-    evt.MoveToMap(2, -1096, -31, 512, 0, 0, 0, 0, "\t7d37.blv")
+    evt.MoveToMap(2, -1096, -31, 512, 0, 0, 0, 0, "7d37.blv") -- The Haunted Mansion
 end, "Enter Mansion")
 
 RegisterEvent(503, "Enter Dwarven Barrow", function()
-    evt.MoveToMap(382, 324, -15, 1280, 0, 0, 61, 4, "mdt01.blv")
+    evt.MoveToMap(382, 324, -15, 1280, 0, 0, 61, 4, "mdt01.blv") -- Barrow IX
 end, "Enter Dwarven Barrow")
 
 RegisterEvent(504, "Enter Dwarven Barrow", function()
-    evt.MoveToMap(106, -666, 49, 256, 0, 0, 61, 4, "mdr01.blv")
+    evt.MoveToMap(106, -666, 49, 256, 0, 0, 61, 4, "mdr01.blv") -- Barrow X
 end, "Enter Dwarven Barrow")
 
 RegisterEvent(505, "Enter Dwarven Barrow", function()
-    evt.MoveToMap(-384, -983, 1, 256, 0, 0, 61, 4, "mdk01.blv")
+    evt.MoveToMap(-384, -983, 1, 256, 0, 0, 61, 4, "mdk01.blv") -- Barrow VII
 end, "Enter Dwarven Barrow")
 

@@ -3348,6 +3348,26 @@ TEST_CASE("mm7 castle lambent and gloaming mmmerge faction gates")
     }
 }
 
+TEST_CASE("mm7 castle gloaming soul jar chest stops after dark path chest")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "d03", "d03_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    party.setQuestBit(611, true);
+
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 176, runtimeState, &party));
+
+    REQUIRE_EQ(runtimeState.openedChestIds.size(), 1u);
+    CHECK_EQ(runtimeState.openedChestIds.front(), 0u);
+    CHECK(party.hasQuestBit(743));
+    CHECK(party.hasQuestBit(662));
+}
+
 TEST_CASE("mm7 deyja tatalia and evenmorn mmmerge overlays apply local behavior")
 {
     REQUIRE_MESSAGE(
@@ -3545,11 +3565,16 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
         party.addHiredNpcFollower({416, 0, 0});
         party.addHiredNpcFollower({417, 0, 0});
+        party.setQuestBit(1697, true);
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
         runtimeState.hiredNpcFollowers = {{416, 0, 0}, {417, 0, 0}};
 
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 37, runtimeState, &party));
         CHECK(runtimeState.hiredNpcFollowers.empty());
+        CHECK(party.hasQuestBit(611));
+        CHECK(party.hasQuestBit(664));
+        CHECK_FALSE(party.hasQuestBit(1697));
+        CHECK_FALSE(party.hasQuestBit(1698));
 
         party.setQuestBit(519, true);
         OpenYAMM::Game::EventRuntimeState castleState = {};
@@ -3985,10 +4010,14 @@ TEST_CASE("mm7 global mmmerge supplement keeps quest followers in sync")
         REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 891, runtimeState, &party));
         CHECK_FALSE(hasFollower(runtimeState, 416));
         CHECK(hasFollower(runtimeState, 417));
+        CHECK_FALSE(party.hasQuestBit(1697));
+        CHECK(party.hasQuestBit(1698));
 
         REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 893, runtimeState, &party));
         CHECK(hasFollower(runtimeState, 416));
         CHECK_FALSE(hasFollower(runtimeState, 417));
+        CHECK(party.hasQuestBit(1697));
+        CHECK_FALSE(party.hasQuestBit(1698));
     }
 }
 
@@ -4439,6 +4468,41 @@ TEST_CASE("mm7 stone city mmmerge throne room and dwarf king cleanup")
 
 TEST_CASE("mm7 phase1 mmmerge map overlays apply runtime state changes")
 {
+    {
+        const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+        OpenYAMM::Game::GameDataLoader gameDataLoader = {};
+        REQUIRE(gameDataLoader.loadForHeadlessGameplay(mapLoader.assetFileSystem));
+        REQUIRE(gameDataLoader.loadMapByFileNameForHeadlessGameplay(mapLoader.assetFileSystem, "7d25.blv"));
+
+        const std::optional<OpenYAMM::Game::MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+        REQUIRE(selectedMap.has_value());
+        REQUIRE(selectedMap->eventRuntimeState.has_value());
+        const OpenYAMM::Game::EventRuntimeState &loadedState = *selectedMap->eventRuntimeState;
+        CHECK_EQ(loadedState.localOnLoadEventsExecuted, 0u);
+        CHECK_EQ(loadedState.globalOnLoadEventsExecuted, 0u);
+        CHECK_EQ(loadedState.mapVars[6], 0u);
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(611, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = loadedState;
+        REQUIRE(eventRuntime.executeOnLoadEvents(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram,
+            runtimeState,
+            &party));
+        CHECK_EQ(runtimeState.mapVars[6], 0u);
+
+        constexpr uint32_t hostileMask = static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Hostile);
+        for (const uint32_t groupId : {55u, 56u, 57u})
+        {
+            const std::unordered_map<uint32_t, uint32_t>::const_iterator it =
+                runtimeState.actorGroupSetMasks.find(groupId);
+            const uint32_t setMask = it != runtimeState.actorGroupSetMasks.end() ? it->second : 0u;
+            CHECK_EQ(setMask & hostileMask, 0u);
+        }
+    }
+
     {
         std::string error;
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
@@ -5636,6 +5700,20 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         OpenYAMM::Game::EventRuntimeState cubeState = {};
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 45, cubeState, &party));
         CHECK_EQ(cubeState.mapVars[4], 1u);
+        REQUIRE(cubeState.pendingInputPrompt.has_value());
+        CHECK_EQ(cubeState.pendingInputPrompt->eventId, 45);
+        CHECK_EQ(cubeState.pendingInputPrompt->continueStep, 4);
+        cubeState.pendingInputPrompt.reset();
+        cubeState.pendingDialogueContext.reset();
+
+        REQUIRE(eventRuntime.executeNpcTopicEventById(
+            localEventProgram,
+            std::nullopt,
+            45,
+            cubeState,
+            &party,
+            nullptr,
+            4));
         for (uint32_t faceIndex : {4298u, 4299u, 4300u, 4301u, 4302u})
         {
             CHECK_EQ(cubeState.textureOverrides[faceIndex], "lavatyl");
@@ -6356,6 +6434,55 @@ TEST_CASE("mm7 world prefixed monster sprites load for indoor actor previews")
     CHECK_EQ(billboardSet.missingTextureActorCount, 0u);
     CHECK_EQ(billboardSet.texturedActorCount, billboardSet.billboards.size());
     CHECK_FALSE(billboardSet.textures.empty());
+}
+
+TEST_CASE("mm7 walls of mist air elementals resolve actor preview textures")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7d11.blv",
+        OpenYAMM::Game::MapLoadPurpose::ActorPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorActorPreviewBillboardSet.has_value());
+
+    const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
+        *pLoadedMap->indoorActorPreviewBillboardSet;
+    const auto airElementalIt = std::find_if(
+        billboardSet.billboards.begin(),
+        billboardSet.billboards.end(),
+        [](const OpenYAMM::Game::ActorPreviewBillboard &billboard)
+        {
+            return billboard.monsterId == 232;
+        });
+    REQUIRE(airElementalIt != billboardSet.billboards.end());
+    CHECK_NE(airElementalIt->spriteFrameIndex, 0u);
+
+    const std::optional<uint16_t> airElementalCFrameIndex =
+        billboardSet.spriteFrameTable.findFrameIndexBySpriteName("m197s");
+    REQUIRE(airElementalCFrameIndex.has_value());
+    const OpenYAMM::Game::SpriteFrameEntry *pAirElementalCFrame =
+        billboardSet.spriteFrameTable.getFrame(*airElementalCFrameIndex, 0);
+    REQUIRE(pAirElementalCFrame != nullptr);
+    const OpenYAMM::Game::ResolvedSpriteTexture airElementalTexture =
+        OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pAirElementalCFrame, 0);
+    CHECK_EQ(airElementalTexture.textureName, "m508sa0");
+    CHECK_EQ(pAirElementalCFrame->paletteId, 508);
+
+    const auto textureIt = std::find_if(
+        billboardSet.textures.begin(),
+        billboardSet.textures.end(),
+        [&airElementalTexture, pAirElementalCFrame](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+        {
+            return texture.textureName == airElementalTexture.textureName
+                && texture.paletteId == pAirElementalCFrame->paletteId;
+        });
+    CHECK(textureIt != billboardSet.textures.end());
 }
 
 TEST_CASE("mm7 dragon lair loads indoor billboards and lights")

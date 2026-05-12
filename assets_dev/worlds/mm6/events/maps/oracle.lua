@@ -491,7 +491,7 @@ RegisterEvent(17, "Legacy event 17", function()
 end)
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(12182, 5379, 320, 1024, 0, 0, 0, 0, "outc2.odm")
+    evt.MoveToMap(12182, 5379, 320, 1024, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
 RegisterEvent(51, "Legacy event 51", function()

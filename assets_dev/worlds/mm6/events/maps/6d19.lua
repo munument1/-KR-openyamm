@@ -135,6 +135,6 @@ RegisterEvent(35, "Cauldron", function()
 end, "Cauldron")
 
 RegisterEvent(50, "Exit", function()
-    evt.MoveToMap(7762, 16306, 449, 1664, 0, 0, 0, 0, "outb1.odm")
+    evt.MoveToMap(7762, 16306, 449, 1664, 0, 0, 0, 0, "outb1.odm") -- Kriegspire
 end, "Exit")
 

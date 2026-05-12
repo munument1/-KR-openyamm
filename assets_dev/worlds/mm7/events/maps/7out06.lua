@@ -258,27 +258,27 @@ end, "Chest ")
 RegisterEvent(222, "Legacy event 222", function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Golem A
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Griffin A
         return
     elseif IsQBitSet(QBit(782)) then -- Your friends are mad at you
         if IsAtLeast(Counter(10), 720) then
             ClearQBit(QBit(782)) -- Your friends are mad at you
             SetValue(MapVar(6), 0)
-            evt.SetMonGroupBit(56, MonsterBits.Hostile, 0)
-            evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+            evt.SetMonGroupBit(56, MonsterBits.Hostile, 0) -- actor group 56: spawn Golem A
+            evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Griffin A
             return
         end
         SetValue(MapVar(6), 2)
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Golem A
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Griffin A
         return
     elseif IsAtLeast(MapVar(6), 2) then
-        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Golem A
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Griffin A
         return
     else
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Griffin A
         return
     end
 end)
@@ -412,6 +412,7 @@ RegisterEvent(457, "Drink from the Well", function()
             evt.StatusText("Refreshing!")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -424,6 +425,7 @@ RegisterEvent(459, "Well", function()
     if not IsAtLeast(Gold, 100) then
         SubtractValue(Gold, 99)
         evt.StatusText("You make a wish")
+        return
     end
     SubtractValue(Gold, 100)
     local randomStep = PickRandomOption(459, 5, {6, 16})
@@ -434,7 +436,7 @@ RegisterEvent(459, "Well", function()
         elseif randomStep == 10 then
             AddValue(EarthResistanceBonus, 20)
         elseif randomStep == 12 then
-            evt.DamagePlayer(7, 1, 50)
+            evt.DamagePlayer(Players.Current, const.Damage.Air, 50)
         elseif randomStep == 14 then
             SetValue(Asleep, 0)
         end
@@ -534,16 +536,16 @@ RegisterEvent(500, "Legacy event 500", function()
 end)
 
 RegisterEvent(501, "Enter the School of Sorcery", function()
-    evt.MoveToMap(2, -1341, -159, 512, 0, 0, 142, 1, "\t7d14.blv")
+    evt.MoveToMap(2, -1341, -159, 512, 0, 0, 142, 1, "7d14.blv") -- The School of Sorcery
 end, "Enter the School of Sorcery")
 
 RegisterEvent(502, "Enter the Red Dwarf Mines", function()
-    evt.MoveToMap(26, 6, 1, 512, 0, 0, 143, 1, "7d34.blv")
+    evt.MoveToMap(26, 6, 1, 512, 0, 0, 143, 1, "7d34.blv") -- The Red Dwarf Mines
 end, "Enter the Red Dwarf Mines")
 
 RegisterEvent(503, "Legacy event 503", function()
     if IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)) then -- Chose the path of Light
-        evt.MoveToMap(-6790, 1095, 33, 0, 0, 0, 0, 0, "7d25.blv")
+        evt.MoveToMap(-6790, 1095, 33, 0, 0, 0, 0, 0, "7d25.blv") -- Celeste
     end
 end)
 

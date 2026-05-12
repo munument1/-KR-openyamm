@@ -5,37 +5,37 @@ sprites:
     sprite_name: "m196a"
     animation_length_raw: 14
     frames:
-      - texture_name: "m194aa"
+      - texture_name: "m508aa"
         frame_length_raw: 2
         flags: [HasMore, First, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ab"
+      - texture_name: "m508ab"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ac"
+      - texture_name: "m508ac"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ad"
+      - texture_name: "m508ad"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ae"
+      - texture_name: "m508ae"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194af"
+      - texture_name: "m508af"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ag"
+      - texture_name: "m508ag"
         frame_length_raw: 2
         flags: [Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
@@ -44,32 +44,32 @@ sprites:
     sprite_name: "m196d"
     animation_length_raw: 12
     frames:
-      - texture_name: "m194na0"
+      - texture_name: "m508na0"
         frame_length_raw: 2
         flags: [HasMore, First, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194da0"
+      - texture_name: "m508da0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194db0"
+      - texture_name: "m508db0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194dc0"
+      - texture_name: "m508dc0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194dd0"
+      - texture_name: "m508dd0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194de0"
+      - texture_name: "m508de0"
         frame_length_raw: 2
         flags: [Image1, Center]
         scale: 1.299988
@@ -78,37 +78,37 @@ sprites:
     sprite_name: "m196w"
     animation_length_raw: 14
     frames:
-      - texture_name: "m194wa"
+      - texture_name: "m508wa"
         frame_length_raw: 2
         flags: [HasMore, First, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194wb"
+      - texture_name: "m508wb"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194wc"
+      - texture_name: "m508wc"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194wd"
+      - texture_name: "m508wd"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194we"
+      - texture_name: "m508we"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194wf"
+      - texture_name: "m508wf"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194wg"
+      - texture_name: "m508wg"
         frame_length_raw: 2
         flags: [Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
@@ -117,32 +117,32 @@ sprites:
     sprite_name: "m196n"
     animation_length_raw: 12
     frames:
-      - texture_name: "m194na"
+      - texture_name: "m508na"
         frame_length_raw: 2
         flags: [HasMore, First, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194nb"
+      - texture_name: "m508nb"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194nc"
+      - texture_name: "m508nc"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194nd"
+      - texture_name: "m508nd"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ne"
+      - texture_name: "m508ne"
         frame_length_raw: 2
         flags: [HasMore, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194nf"
+      - texture_name: "m508nf"
         frame_length_raw: 2
         flags: [Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988
@@ -151,32 +151,32 @@ sprites:
     sprite_name: "m196f"
     animation_length_raw: 13
     frames:
-      - texture_name: "m194fa0"
+      - texture_name: "m508fa0"
         frame_length_raw: 2
         flags: [HasMore, First, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194fb0"
+      - texture_name: "m508fb0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194fc0"
+      - texture_name: "m508fc0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194fd0"
+      - texture_name: "m508fd0"
         frame_length_raw: 3
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194fe0"
+      - texture_name: "m508fe0"
         frame_length_raw: 2
         flags: [HasMore, Image1, Center]
         scale: 1.299988
         palette_id: 508
-      - texture_name: "m194ff0"
+      - texture_name: "m508ff0"
         frame_length_raw: 2
         flags: [Image1, Center]
         scale: 1.299988
@@ -185,7 +185,7 @@ sprites:
     sprite_name: "m196s"
     animation_length_raw: 2
     frames:
-      - texture_name: "m194sa"
+      - texture_name: "m508sa"
         frame_length_raw: 2
         flags: [First, Center, Mirror5, Mirror6, Mirror7]
         scale: 1.299988

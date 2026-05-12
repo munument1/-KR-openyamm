@@ -44,7 +44,7 @@ RegisterEvent(1, "Well of VARN", function(continueStep)
         evt.FaceExpression(35)
         return
     end
-    evt.SimpleMessage("What is the Captain's code?")
+    evt.SetMessage("What is the Captain's code?")
     evt.AskQuestion(1, 10, 44, 14, 43, 43, "Answer?  ", {"kriK", "kriK"})
     return nil
 end, "Well of VARN")
@@ -137,6 +137,7 @@ RegisterEvent(12, "Legacy event 12", function()
             evt.StatusText("Radiation Damage!")
             return
         end
+        return
     end
     evt.StatusText("Crystal Skull absorbs radiation damage.")
 end)
@@ -198,11 +199,11 @@ RegisterEvent(16, "Picture Door", function()
 end, "Picture Door")
 
 RegisterEvent(17, "Exit", function()
-    evt.MoveToMap(-6647, 13018, 1761, 1536, 0, 0, 0, 0, "outb3.odm")
+    evt.MoveToMap(-6647, 13018, 1761, 1536, 0, 0, 0, 0, "outb3.odm") -- Dragonsand
 end, "Exit")
 
 RegisterEvent(18, "Exit", function()
-    evt.MoveToMap(-6611, 11408, 480, 1536, 0, 0, 0, 0, "outb3.odm")
+    evt.MoveToMap(-6611, 11408, 480, 1536, 0, 0, 0, 0, "outb3.odm") -- Dragonsand
 end, "Exit")
 
 RegisterEvent(19, "Picture", nil, "Picture")
@@ -231,7 +232,7 @@ RegisterEvent(21, "Cleansing Pool", function(continueStep)
     if continueStep ~= nil then return end
     SetValue(MapVar(2), 0)
     if not HasItem(2158) then return end -- First Mate's Code
-    evt.SimpleMessage("What is the first mate's code?")
+    evt.SetMessage("What is the first mate's code?")
     evt.AskQuestion(21, 5, 44, 9, 33, 33, "Answer?  ", {"kcopS", "kcopS"})
     return nil
 end, "Cleansing Pool")
@@ -256,7 +257,7 @@ RegisterEvent(22, "Cleansing Pool", function(continueStep)
     if continueStep ~= nil then return end
     SetValue(MapVar(2), 0)
     if not HasItem(2159) then return end -- Navigator's Code
-    evt.SimpleMessage("What is the navigator's code?")
+    evt.SetMessage("What is the navigator's code?")
     evt.AskQuestion(22, 5, 44, 9, 35, 35, "Answer?  ", {"uluS", "uluS"})
     return nil
 end, "Cleansing Pool")
@@ -281,7 +282,7 @@ RegisterEvent(23, "Cleansing Pool", function(continueStep)
     if continueStep ~= nil then return end
     SetValue(MapVar(2), 0)
     if not HasItem(2160) then return end -- Communication Officer's Code
-    evt.SimpleMessage("What is the communication officer's code?")
+    evt.SetMessage("What is the communication officer's code?")
     evt.AskQuestion(23, 5, 44, 9, 37, 37, "Answer?  ", {"aruhU", "aruhU"})
     return nil
 end, "Cleansing Pool")
@@ -306,7 +307,7 @@ RegisterEvent(24, "Cleansing Pool", function(continueStep)
     if continueStep ~= nil then return end
     SetValue(MapVar(2), 0)
     if not HasItem(2161) then return end -- Engineer's Code
-    evt.SimpleMessage("What is the engineer's code?")
+    evt.SetMessage("What is the engineer's code?")
     evt.AskQuestion(24, 5, 44, 9, 39, 39, "Answer?  ", {"yttocS", "yttocS"})
     return nil
 end, "Cleansing Pool")
@@ -331,7 +332,7 @@ RegisterEvent(25, "Cleansing Pool", function(continueStep)
     if continueStep ~= nil then return end
     SetValue(MapVar(2), 0)
     if not HasItem(2162) then return end -- Doctor's Code
-    evt.SimpleMessage("What is the doctor's code?")
+    evt.SetMessage("What is the doctor's code?")
     evt.AskQuestion(25, 5, 44, 9, 41, 41, "Answer?  ", {"yoccM", "yoccM"})
     return nil
 end, "Cleansing Pool")
@@ -388,7 +389,7 @@ RegisterEvent(32, "Switch", function()
 end, "Switch")
 
 RegisterEvent(33, "Legacy event 33", function()
-    evt.MoveToMap(-9344, -192, 8034, 1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-9344, -192, 8034, 1, 0, 0, 0, 0)
     evt.SetDoorState(33, DoorAction.Open)
 end)
 
@@ -447,16 +448,28 @@ RegisterEvent(45, "Chest", function()
     SetQBit(QBit(1256)) -- Quest item bits for seer
 end, "Chest")
 
-RegisterEvent(46, "Plaque", function()
-    evt.SimpleMessage("Warning!  Sensor array controls are strictly off limits to unauthorized personnel!  Use of the Sign of Sight is restricted to communications technicians only!  A mild electric shock will be transmitted to violators.")
+RegisterEvent(46, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("Warning!  Sensor array controls are strictly off limits to unauthorized personnel!  Use of the Sign of Sight is restricted to communications technicians only!  A mild electric shock will be transmitted to violators.")
+    evt._PressAnyKey(46, 2)
 end, "Plaque")
 
-RegisterEvent(47, "Plaque", function()
-    evt.SimpleMessage("Warning!  Cargo lift controls are strictly off limits to unauthorized personnel!  Use of the Sign of the Scarab is restricted to supply officers only!  A mild electric shock will be transmitted to violators.")
+RegisterEvent(47, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("Warning!  Cargo lift controls are strictly off limits to unauthorized personnel!  Use of the Sign of the Scarab is restricted to supply officers only!  A mild electric shock will be transmitted to violators.")
+    evt._PressAnyKey(47, 2)
 end, "Plaque")
 
-RegisterEvent(48, "Plaque", function()
-    evt.SimpleMessage("The entrance to the central pyramid lies to the South.")
+RegisterEvent(48, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The entrance to the central pyramid lies to the South.")
+    evt._PressAnyKey(48, 2)
 end, "Plaque")
 
 RegisterEvent(49, "Chest", function()
@@ -467,20 +480,36 @@ RegisterEvent(51, "Legacy event 51", function()
     SetValue(MapVar(2), 1)
 end)
 
-RegisterEvent(52, "Plaque", function()
-    evt.SimpleMessage("Only the one bearing the key may speak the code.")
+RegisterEvent(52, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("Only the one bearing the key may speak the code.")
+    evt._PressAnyKey(52, 2)
 end, "Plaque")
 
-RegisterEvent(53, "Plaque", function()
-    evt.SimpleMessage("The Well of VARN must be keyed last.")
+RegisterEvent(53, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The Well of VARN must be keyed last.")
+    evt._PressAnyKey(53, 2)
 end, "Plaque")
 
-RegisterEvent(54, "Plaque", function()
-    evt.SimpleMessage("Warning!  Power Fluctuations!  Alert Engineering immediately!")
+RegisterEvent(54, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("Warning!  Power Fluctuations!  Alert Engineering immediately!")
+    evt._PressAnyKey(54, 2)
 end, "Plaque")
 
-RegisterEvent(55, "Plaque", function()
-    evt.SimpleMessage("\"In case of energy leak, bathe in one of the medicated pools placed for your safety and convenience.\"")
+RegisterEvent(55, "Plaque", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"In case of energy leak, bathe in one of the medicated pools placed for your safety and convenience.\"")
+    evt._PressAnyKey(55, 2)
 end, "Plaque")
 
 RegisterEvent(56, "Legacy event 56", function()
@@ -563,11 +592,19 @@ RegisterEvent(71, "Bookcase", function()
     AddValue(InventoryItem(1953), 1953) -- Mass Distortion
 end, "Bookcase")
 
-RegisterEvent(72, "Tapestry", function()
-    evt.SimpleMessage("\"With painstaking care, you are able to decipher the message of the hieroglyphs:                                                                                                                                                     Though the Crossing of the Void be a long and arduous journey, the land you find at the end will be sweet and unspoiled by ancestors or the Enemy.  Take heart that your children's children will live in a perfect world free of war, free of famine, and free of fear.  Remember your sacred duty to care for the Ship on her long Voyage and ensure her safe arrival in the Promised Land.  Tend well the Guardian and house it securely away from the ship lest both be lost in a single misfortune.\"")
+RegisterEvent(72, "Tapestry", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"With painstaking care, you are able to decipher the message of the hieroglyphs:                                                                                                                                                     Though the Crossing of the Void be a long and arduous journey, the land you find at the end will be sweet and unspoiled by ancestors or the Enemy.  Take heart that your children's children will live in a perfect world free of war, free of famine, and free of fear.  Remember your sacred duty to care for the Ship on her long Voyage and ensure her safe arrival in the Promised Land.  Tend well the Guardian and house it securely away from the ship lest both be lost in a single misfortune.\"")
+    evt._PressAnyKey(72, 2)
 end, "Tapestry")
 
-RegisterEvent(73, "Tapestry", function()
-    evt.SimpleMessage("\"With painstaking care, you are able to decipher the message of the hieroglyphs, intermixed with diagrams of devils:                                                                                          Remember our Enemy, children, and never underestimate the danger they pose.  Though you will never see one during your journey, you must be forever vigilant against invasion from the Void once the Voyage has ended.  Mighty beyond words, the Enemy is nonetheless vulnerable after a Crossing, for their numbers are small and their defenses weak.  Use the energy weapons carried on the Ship to defeat them, and never, ever engage the Enemy with lesser weapons, or you will surely perish.\"")
+RegisterEvent(73, "Tapestry", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"With painstaking care, you are able to decipher the message of the hieroglyphs, intermixed with diagrams of devils:                                                                                          Remember our Enemy, children, and never underestimate the danger they pose.  Though you will never see one during your journey, you must be forever vigilant against invasion from the Void once the Voyage has ended.  Mighty beyond words, the Enemy is nonetheless vulnerable after a Crossing, for their numbers are small and their defenses weak.  Use the energy weapons carried on the Ship to defeat them, and never, ever engage the Enemy with lesser weapons, or you will surely perish.\"")
+    evt._PressAnyKey(73, 2)
 end, "Tapestry")
 

@@ -80,6 +80,16 @@ public:
         bool visibleForFallback = false;
     };
 
+    static bool isPartyAttackActorTargetable(const GameplayPartyAttackActorFacts &actor)
+    {
+        return !actor.isDead && actor.currentHp > 0 && !actor.isInvisible;
+    }
+
+    static bool isPartyAttackFallbackCandidate(const GameplayPartyAttackActorFacts &actor)
+    {
+        return isPartyAttackActorTargetable(actor) && actor.hostileToParty && actor.visibleForFallback;
+    }
+
     struct AttackCastResult
     {
         bool castStarted = false;

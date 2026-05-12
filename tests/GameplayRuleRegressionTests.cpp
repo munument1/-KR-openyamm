@@ -6,6 +6,7 @@
 #include "game/FaceEnums.h"
 #include "game/events/EventRuntime.h"
 #include "game/events/EventDialogContent.h"
+#include "game/gameplay/GameplayActionController.h"
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
@@ -36,9 +37,11 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <random>
 #include <sstream>
+#include <vector>
 
 namespace
 {
@@ -1006,6 +1009,45 @@ TEST_CASE("empty wand falls back to bow attack profile")
     CHECK_FALSE(profile.hasWand);
     CHECK(profile.hasBow);
     CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Bow);
+}
+
+TEST_CASE("party attack target filtering treats dying actors as unavailable")
+{
+    OpenYAMM::Game::GameplayPartyAttackActorFacts dyingActor = {
+        .actorIndex = 0,
+        .monsterId = 1,
+        .displayName = "Dying Target",
+        .position = {.x = 0.0f, .y = 0.0f, .z = 0.0f},
+        .radius = 32,
+        .height = 96,
+        .currentHp = 0,
+        .maxHp = 20,
+        .effectiveArmorClass = 10,
+        .isDead = false,
+        .isInvisible = false,
+        .hostileToParty = true,
+        .visibleForFallback = true,
+    };
+    OpenYAMM::Game::GameplayPartyAttackActorFacts aliveActor = {
+        .actorIndex = 1,
+        .monsterId = 1,
+        .displayName = "Alive Target",
+        .position = {.x = 0.0f, .y = 0.0f, .z = 0.0f},
+        .radius = 32,
+        .height = 96,
+        .currentHp = 20,
+        .maxHp = 20,
+        .effectiveArmorClass = 10,
+        .isDead = false,
+        .isInvisible = false,
+        .hostileToParty = true,
+        .visibleForFallback = true,
+    };
+
+    CHECK_FALSE(OpenYAMM::Game::GameplayActionController::isPartyAttackActorTargetable(dyingActor));
+    CHECK_FALSE(OpenYAMM::Game::GameplayActionController::isPartyAttackFallbackCandidate(dyingActor));
+    CHECK(OpenYAMM::Game::GameplayActionController::isPartyAttackActorTargetable(aliveActor));
+    CHECK(OpenYAMM::Game::GameplayActionController::isPartyAttackFallbackCandidate(aliveActor));
 }
 
 TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recovery")
@@ -3265,6 +3307,30 @@ TEST_CASE("lua event runtime onload executes SpeakNPC handlers")
     CHECK_EQ(runtimeState.pendingDialogueContext->sourceId, 39u);
 }
 
+TEST_CASE("lua event debug print includes source and line")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[700] = function()\n"
+        "    evt._BeginEvent(700)\n"
+        "    evt.Debug(\"alpha\", 42, true)\n"
+        "end\n",
+        "@SyntheticDebugPrint.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    std::ostringstream capturedOutput;
+    std::streambuf *pPreviousBuffer = std::cout.rdbuf(capturedOutput.rdbuf());
+
+    const bool executed =
+        eventRuntime.executeEventById(scriptedProgram, std::nullopt, 700, runtimeState, nullptr, nullptr);
+    std::cout.rdbuf(pPreviousBuffer);
+
+    REQUIRE(executed);
+    CHECK_EQ(capturedOutput.str(), "[SyntheticDebugPrint.lua:3]: alpha\t42\ttrue\n");
+}
+
 TEST_CASE("lua event runtime onload sees party quest bits")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -4225,7 +4291,7 @@ TEST_CASE("indoor movement does not collide with current sloped support floor")
             -767.635f,
             -23.677f,
             false,
-            1.0f / 128.0f,
+            1.0f / 64.0f,
             nullptr,
             std::nullopt,
             true,
@@ -4235,6 +4301,398 @@ TEST_CASE("indoor movement does not collide with current sloped support floor")
     CHECK(moved.grounded);
     CHECK_EQ(moved.supportFaceIndex, 0u);
     CHECK(debugInfo.hitFaceIndex != 0u);
+}
+
+TEST_CASE("indoor airborne movement does not endpoint-collide with steep floor-like wall facets")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -72, -45},
+        {128, -72, -45},
+        {128, 0, 0},
+        {-128, 0, 0},
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 48, 96},
+        {-128, 48, 96},
+    };
+
+    OpenYAMM::Game::IndoorFace lowerSlope = {};
+    lowerSlope.vertexIndices = {0, 1, 2, 3};
+    lowerSlope.facetType = 4;
+    lowerSlope.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepBoatSlope = {};
+    steepBoatSlope.vertexIndices = {4, 5, 6, 7};
+    steepBoatSlope.facetType = 4;
+    steepBoatSlope.roomNumber = 1;
+
+    mapData.faces = {lowerSlope, steepBoatSlope};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.wallCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -72;
+    sector.maxY = 48;
+    sector.minZ = -64;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.wallFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+
+    OpenYAMM::Game::IndoorMoveState initial = {};
+    initial.x = 0.0f;
+    initial.y = -11.65f;
+    initial.footZ = 22.4f;
+    initial.eyeHeight = body.height;
+    initial.verticalVelocity = -9000.0f;
+    initial.sectorId = 1;
+    initial.eyeSectorId = 1;
+    initial.supportFaceIndex = static_cast<size_t>(-1);
+    initial.grounded = false;
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            768.0f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK(moved.y > initial.y + 1.0f);
+    CHECK(moved.footZ < initial.footZ);
+    CHECK_NE(debugInfo.hitFaceIndex, 1u);
+}
+
+TEST_CASE("indoor movement keeps sector while walking onto steep floor-like wall facet")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -16, 0},
+        {128, -16, 0},
+        {128, 0, 0},
+        {-128, 0, 0},
+        {-128, -64, -96},
+        {128, -64, -96},
+        {128, -16, 0},
+        {-128, -16, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace flatFloor = {};
+    flatFloor.vertexIndices = {0, 1, 2, 3};
+    flatFloor.facetType = 3;
+    flatFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace narrowTread = {};
+    narrowTread.vertexIndices = {4, 5, 6, 7};
+    narrowTread.facetType = 3;
+    narrowTread.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepRamp = {};
+    steepRamp.vertexIndices = {8, 9, 10, 11};
+    steepRamp.facetType = 4;
+    steepRamp.roomNumber = 1;
+
+    mapData.faces = {flatFloor, narrowTread, steepRamp};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 3;
+    sector.faceCount = 3;
+    sector.nonBspFaceCount = 3;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -64;
+    sector.maxY = 128;
+    sector.minZ = -128;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1, 2};
+    sector.faceIds = {0, 1, 2};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 8.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            -128.0f,
+            false,
+            0.25f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK(moved.y < -20.0f);
+    CHECK(moved.footZ <= initial.footZ);
+    CHECK_EQ(moved.sectorId, 1);
+    CHECK_EQ(moved.eyeSectorId, 1);
+    CHECK_NE(debugInfo.primaryBlockKind, OpenYAMM::Game::IndoorMoveBlockKind::InvalidPosition);
+}
+
+TEST_CASE("indoor movement steps from steep floor-like wall facet onto footprint floor")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -64, -96},
+        {128, -64, -96},
+        {128, -16, 0},
+        {-128, -16, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace flatFloor = {};
+    flatFloor.vertexIndices = {0, 1, 2, 3};
+    flatFloor.facetType = 3;
+    flatFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepRamp = {};
+    steepRamp.vertexIndices = {4, 5, 6, 7};
+    steepRamp.facetType = 4;
+    steepRamp.roomNumber = 1;
+
+    mapData.faces = {flatFloor, steepRamp};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 2;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -64;
+    sector.maxY = 128;
+    sector.minZ = -128;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+
+    OpenYAMM::Game::IndoorMoveState initial = {};
+    initial.x = 0.0f;
+    initial.y = -26.0f;
+    initial.footZ = -20.0f;
+    initial.eyeHeight = body.height;
+    initial.sectorId = 1;
+    initial.eyeSectorId = 1;
+    initial.supportFaceIndex = 1;
+    initial.grounded = true;
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            768.0f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK(moved.y > initial.y + 1.0f);
+    CHECK_EQ(moved.supportFaceIndex, 0u);
+    CHECK_EQ(moved.footZ, doctest::Approx(0.0f));
+    CHECK_NE(debugInfo.primaryBlockKind, OpenYAMM::Game::IndoorMoveBlockKind::InvalidPosition);
+}
+
+TEST_CASE("indoor movement leaves flat edge using leading footprint floor")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -16, -32},
+        {128, -16, -32},
+        {128, 0, 0},
+        {-128, 0, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace flatFloor = {};
+    flatFloor.vertexIndices = {0, 1, 2, 3};
+    flatFloor.facetType = 3;
+    flatFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepRamp = {};
+    steepRamp.vertexIndices = {4, 5, 6, 7};
+    steepRamp.facetType = 4;
+    steepRamp.roomNumber = 1;
+
+    mapData.faces = {flatFloor, steepRamp};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 2;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -16;
+    sector.maxY = 128;
+    sector.minZ = -64;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{8.0f, 160.0f};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 6.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            -128.0f,
+            false,
+            1.0f / 64.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK(moved.y < initial.y - 1.0f);
+    CHECK_NE(debugInfo.primaryBlockKind, OpenYAMM::Game::IndoorMoveBlockKind::InvalidPosition);
+}
+
+TEST_CASE("indoor movement crosses d03 moat edge toward boat slope")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-9696, 2376, -1848},
+        {-9312, 2376, -1848},
+        {-9312, 2976, -1848},
+        {-9696, 2976, -1848},
+        {-9756, 2364, -1848},
+        {-9168, 2364, -1848},
+        {-9168, 2376, -1848},
+        {-9756, 2376, -1848},
+        {-9756, 2316, -1944},
+        {-9180, 2316, -1944},
+        {-9180, 2364, -1848},
+        {-9756, 2364, -1848},
+    };
+
+    OpenYAMM::Game::IndoorFace moatFloor = {};
+    moatFloor.vertexIndices = {0, 1, 2, 3};
+    moatFloor.facetType = 3;
+    moatFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace edgeFloor = {};
+    edgeFloor.vertexIndices = {4, 5, 6, 7};
+    edgeFloor.facetType = 3;
+    edgeFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace boatSlope = {};
+    boatSlope.vertexIndices = {8, 9, 10, 11};
+    boatSlope.facetType = 4;
+    boatSlope.roomNumber = 1;
+
+    mapData.faces = {moatFloor, edgeFloor, boatSlope};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 3;
+    sector.faceCount = 3;
+    sector.nonBspFaceCount = 3;
+    sector.minX = -9800;
+    sector.maxX = -9100;
+    sector.minY = 2300;
+    sector.maxY = 3000;
+    sector.minZ = -2000;
+    sector.maxZ = -1600;
+    sector.floorFaceIds = {0, 1, 2};
+    sector.faceIds = {0, 1, 2};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+
+    OpenYAMM::Game::IndoorMoveState initial = {};
+    initial.x = -9556.89f;
+    initial.y = 2379.93f;
+    initial.footZ = -1848.0f;
+    initial.eyeHeight = body.height;
+    initial.sectorId = 1;
+    initial.eyeSectorId = 1;
+    initial.supportFaceIndex = 0;
+    initial.grounded = true;
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            -3.22991f,
+            -767.993f,
+            false,
+            1.0f / 64.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK(moved.y < initial.y - 1.0f);
+    CHECK_NE(debugInfo.primaryBlockKind, OpenYAMM::Game::IndoorMoveBlockKind::InvalidPosition);
 }
 
 TEST_CASE("indoor movement rejects positions whose eye point leaves all sectors")

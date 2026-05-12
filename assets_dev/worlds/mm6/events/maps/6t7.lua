@@ -223,8 +223,12 @@ end, "Chest")
 
 RegisterEvent(34, "Baa Head Two", nil, "Baa Head Two")
 
-RegisterEvent(36, "Podium", function()
-    evt.SimpleMessage("\"Expert Perception is the key and the doors of Baa will let you be.                                                                                                                                                                                                                  The Spiral then each head, talk to Baa or you'll be dead.\"")
+RegisterEvent(36, "Podium", function(continueStep)
+    if continueStep == 2 then
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("\"Expert Perception is the key and the doors of Baa will let you be.                                                                                                                                                                                                                  The Spiral then each head, talk to Baa or you'll be dead.\"")
+    evt._PressAnyKey(36, 2)
 end, "Podium")
 
 RegisterEvent(38, "Chest", function()
@@ -268,6 +272,7 @@ RegisterEvent(40, "Chest", function()
             return
         end
         evt.OpenChest(8)
+        return
     end
     evt.OpenChest(7)
     RemoveItem(2187) -- High Cleric's Key
@@ -287,7 +292,7 @@ RegisterEvent(45, "Chest", function()
 end, "Chest")
 
 RegisterEvent(60, "Legacy event 60", function()
-    evt.MoveToMap(17078, -6601, 161, 1280, 0, 0, 0, 0, "outb1.odm")
+    evt.MoveToMap(17078, -6601, 161, 1280, 0, 0, 0, 0, "outb1.odm") -- Kriegspire
 end)
 
 RegisterEvent(61, "Legacy event 61", function()

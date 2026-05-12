@@ -39,10 +39,10 @@ RegisterEvent(1, "Legacy event 1", function()
         SetQBit(QBit(719)) -- TP Buff Tularean Forest
     end
     if not IsQBitSet(QBit(553)) then -- Solved Tree quest
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1)
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 1) -- actor group 61: spawn Treant A
         return
     end
-    evt.SetMonGroupBit(61, MonsterBits.Hostile, 0)
+    evt.SetMonGroupBit(61, MonsterBits.Hostile, 0) -- actor group 61: spawn Treant A
 end)
 
 RegisterEvent(3, "Chest ", function()
@@ -327,6 +327,7 @@ RegisterEvent(202, "Drink from the Well", function()
             evt.StatusText("Refreshing!")
             return
         end
+        return
     end
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
@@ -465,9 +466,9 @@ RegisterEvent(401, "Legacy event 401", function()
         SetValue(MapVar(13), 1)
         evt.SetFacetBit(1, FacetBits.Untouchable, 0)
         evt.SetFacetBit(1, FacetBits.Invisible, 0)
-        evt.SummonMonsters(2, 2, 3, -15752, 21272, 3273, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 3, pos=(-15752, 21272, 3273), actor group 51, no unique actor name
-        evt.SummonMonsters(2, 2, 5, -14000, 18576, 4250, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 5, pos=(-14000, 18576, 4250), actor group 51, no unique actor name
-        evt.SummonMonsters(2, 2, 10, -16016, 19280, 3284, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 10, pos=(-16016, 19280, 3284), actor group 51, no unique actor name
+        evt.SummonMonsters(2, 2, 3, -15752, 21272, 3273, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 3, pos=(-15752, 21272, 3273), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
+        evt.SummonMonsters(2, 2, 5, -14000, 18576, 4250, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 5, pos=(-14000, 18576, 4250), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
+        evt.SummonMonsters(2, 2, 10, -16016, 19280, 3284, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 10, pos=(-16016, 19280, 3284), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
         evt.SummonMonsters(3, 2, 30, -15752, 21272, 3273, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 30, pos=(-15752, 21272, 3273), actor group 50, no unique actor name
         evt.SummonMonsters(3, 2, 9, -14000, 18576, 4250, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 9, pos=(-14000, 18576, 4250), actor group 50, no unique actor name
         evt.SummonMonsters(3, 2, 10, -16016, 19280, 3284, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 10, pos=(-16016, 19280, 3284), actor group 50, no unique actor name
@@ -488,9 +489,9 @@ RegisterEvent(401, "Legacy event 401", function()
             SetValue(MapVar(13), 1)
             evt.SetFacetBit(1, FacetBits.Untouchable, 0)
             evt.SetFacetBit(1, FacetBits.Invisible, 0)
-            evt.SummonMonsters(2, 2, 3, -15752, 21272, 3273, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 3, pos=(-15752, 21272, 3273), actor group 51, no unique actor name
-            evt.SummonMonsters(2, 2, 5, -14000, 18576, 4250, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 5, pos=(-14000, 18576, 4250), actor group 51, no unique actor name
-            evt.SummonMonsters(2, 2, 10, -16016, 19280, 3284, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 10, pos=(-16016, 19280, 3284), actor group 51, no unique actor name
+            evt.SummonMonsters(2, 2, 3, -15752, 21272, 3273, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 3, pos=(-15752, 21272, 3273), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
+            evt.SummonMonsters(2, 2, 5, -14000, 18576, 4250, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 5, pos=(-14000, 18576, 4250), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
+            evt.SummonMonsters(2, 2, 10, -16016, 19280, 3284, 51, 0) -- encounter slot 2 "Elf Spearman" tier B, count 10, pos=(-16016, 19280, 3284), actor group 51: Peasant, spawn type 2 index 3, no unique actor name
             evt.SummonMonsters(3, 2, 30, -15752, 21272, 3273, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 30, pos=(-15752, 21272, 3273), actor group 50, no unique actor name
             evt.SummonMonsters(3, 2, 9, -14000, 18576, 4250, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 9, pos=(-14000, 18576, 4250), actor group 50, no unique actor name
             evt.SummonMonsters(3, 2, 10, -16016, 19280, 3284, 50, 0) -- encounter slot 3 "Fighter Chain" tier B, count 10, pos=(-16016, 19280, 3284), actor group 50, no unique actor name
@@ -507,7 +508,7 @@ end)
 
 RegisterEvent(403, "Legacy event 403", function()
     if IsQBitSet(QBit(553)) then -- Solved Tree quest
-        evt.SetMonGroupBit(61, MonsterBits.Hostile, 0)
+        evt.SetMonGroupBit(61, MonsterBits.Hostile, 0) -- actor group 61: spawn Treant A
     end
 end)
 
@@ -675,16 +676,16 @@ RegisterEvent(500, "Legacy event 500", function()
 end)
 
 RegisterEvent(501, "Barrel", function()
-    evt.MoveToMap(0, -1589, 225, 512, 0, 0, 128, 1, "7d32.blv")
+    evt.MoveToMap(0, -1589, 225, 512, 0, 0, 128, 1, "7d32.blv") -- Castle Navan
 end, "Barrel")
 
 RegisterEvent(502, "Enter Castle Navan", function()
-    evt.MoveToMap(2071, 448, 1, 1024, 0, 0, 138, 1, "7d08.blv")
+    evt.MoveToMap(2071, 448, 1, 1024, 0, 0, 138, 1, "7d08.blv") -- The Tularean Caves
 end, "Enter Castle Navan")
 
 RegisterEvent(503, "Enter Clanker's Laboratory", function()
     if not IsQBitSet(QBit(710)) then -- Archibald in Clankers Lab now
-        evt.MoveToMap(0, -709, 1, 512, 0, 0, 139, 1, "\t7d12.blv")
+        evt.MoveToMap(0, -709, 1, 512, 0, 0, 139, 1, "7d12.blv") -- Clanker's Laboratory
         evt.SpeakNPC(427) -- Archibald Ironfist
         return
     end

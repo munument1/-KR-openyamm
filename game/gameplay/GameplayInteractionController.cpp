@@ -446,7 +446,7 @@ void clearWorldInteractionFrameState(
     quickSpellState.clear();
 
     clearWorldHover(runtime.worldRuntime());
-    runtime.mutableStatusBarHoverText().clear();
+    runtime.clearStatusBarHoverText();
 }
 }
 
@@ -1185,7 +1185,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
             currentHit);
     }
 
-    runtime.mutableStatusBarHoverText() = result.hover.statusText;
+    runtime.setStatusBarHoverText(result.hover.statusText);
 
     return result;
 }

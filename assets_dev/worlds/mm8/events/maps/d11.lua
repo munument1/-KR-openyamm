@@ -342,6 +342,6 @@ RegisterEvent(502, "Leave the Wasp Nest", function()
 end, "Leave the Wasp Nest")
 
 RegisterEvent(503, "Leave the Wasp Nest", function()
-    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0)
 end, "Leave the Wasp Nest")
 

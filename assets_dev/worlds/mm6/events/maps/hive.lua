@@ -83,7 +83,7 @@ RegisterEvent(14, "Door", function()
 end, "Door")
 
 RegisterEvent(16, "Switch", function()
-    evt.MoveToMap(468, 3690, 1, 45, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(468, 3690, 1, 45, 0, 0, 0, 0)
     evt.SetDoorState(16, DoorAction.Trigger)
     SetValue(MapVar(2), 0)
     evt.StatusText("Flush system deactivated")
@@ -188,7 +188,7 @@ RegisterEvent(45, "Chest", function()
 end, "Chest")
 
 RegisterEvent(48, "Exit", function()
-    evt.MoveToMap(-14355, 15010, 3841, 1408, 0, 0, 0, 0, "outa1.odm")
+    evt.MoveToMap(-14355, 15010, 3841, 1408, 0, 0, 0, 0, "outa1.odm") -- Sweet Water
 end, "Exit")
 
 RegisterEvent(50, "Switch", function()

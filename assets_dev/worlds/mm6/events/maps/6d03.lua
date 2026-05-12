@@ -98,7 +98,7 @@ RegisterEvent(19, "Chest", function()
 end, "Chest")
 
 RegisterEvent(20, "Exit", function()
-    evt.MoveToMap(-350, 18784, 256, 1792, 0, 0, 0, 0, "outd3.odm")
+    evt.MoveToMap(-350, 18784, 256, 1792, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
 RegisterEvent(21, "Legacy event 21", function()

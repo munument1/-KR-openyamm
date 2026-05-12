@@ -153,6 +153,7 @@ RegisterEvent(20, "Door", function()
             evt.StatusText("The Door is warded.")
             return
         end
+        return
     end
     evt.SetDoorState(20, DoorAction.Close)
 end, "Door")
@@ -183,20 +184,20 @@ RegisterEvent(27, "Stone Face", function()
     end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
 end, "Stone Face")
 
 RegisterEvent(28, "Legacy event 28", function()
-    evt.MoveToMap(-2853, 1600, -2655, 1024, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-2853, 1600, -2655, 1024, 0, 0, 0, 0)
 end)
 
 RegisterEvent(29, "Legacy event 29", function()
-    evt.MoveToMap(2823, 1534, -2655, 45, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(2823, 1534, -2655, 45, 0, 0, 0, 0)
 end)
 
 RegisterEvent(30, "Door", function()
@@ -273,7 +274,7 @@ RegisterEvent(50, "Legacy event 50", function()
 end)
 
 RegisterEvent(51, "Exit", function()
-    evt.MoveToMap(16387, -20005, 225, 512, 0, 0, 0, 0, "outd2.odm")
+    evt.MoveToMap(16387, -20005, 225, 512, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end, "Exit")
 
 RegisterEvent(52, "Lord of Fire", function()
@@ -297,12 +298,12 @@ RegisterEvent(54, "Stone Face", function()
     end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
 end, "Stone Face")
 
 RegisterEvent(55, "Door", function()
@@ -327,12 +328,12 @@ RegisterEvent(58, "Stone Face", function()
     end
     if not IsAtLeast(MapVar(2), 1) then
         evt.StatusText("\"Ah, delicious amber!\"")
-        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+        evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
         return
     end
     evt.StatusText("All must have amber.  Take life force!")
     SetValue(MapVar(2), 0)
-    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
 end, "Stone Face")
 
 RegisterEvent(59, "Bag", function()

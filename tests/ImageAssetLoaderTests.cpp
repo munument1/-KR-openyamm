@@ -22,6 +22,54 @@ std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 
     return std::vector<uint8_t>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
+
+void appendUInt16(std::vector<uint8_t> &bytes, uint16_t value)
+{
+    bytes.push_back(static_cast<uint8_t>(value & 0xffu));
+    bytes.push_back(static_cast<uint8_t>((value >> 8) & 0xffu));
+}
+
+void appendUInt32(std::vector<uint8_t> &bytes, uint32_t value)
+{
+    bytes.push_back(static_cast<uint8_t>(value & 0xffu));
+    bytes.push_back(static_cast<uint8_t>((value >> 8) & 0xffu));
+    bytes.push_back(static_cast<uint8_t>((value >> 16) & 0xffu));
+    bytes.push_back(static_cast<uint8_t>((value >> 24) & 0xffu));
+}
+
+std::vector<uint8_t> makeTwoPixelIndexedBmp()
+{
+    constexpr uint32_t fileHeaderSize = 14;
+    constexpr uint32_t dibHeaderSize = 40;
+    constexpr uint32_t paletteBytes = 2 * 4;
+    constexpr uint32_t pixelOffset = fileHeaderSize + dibHeaderSize + paletteBytes;
+    constexpr uint32_t rowBytes = 4;
+    constexpr uint32_t fileSize = pixelOffset + rowBytes;
+
+    std::vector<uint8_t> bytes;
+    bytes.reserve(fileSize);
+    bytes.push_back('B');
+    bytes.push_back('M');
+    appendUInt32(bytes, fileSize);
+    appendUInt16(bytes, 0);
+    appendUInt16(bytes, 0);
+    appendUInt32(bytes, pixelOffset);
+    appendUInt32(bytes, dibHeaderSize);
+    appendUInt32(bytes, 2);
+    appendUInt32(bytes, 1);
+    appendUInt16(bytes, 1);
+    appendUInt16(bytes, 8);
+    appendUInt32(bytes, 0);
+    appendUInt32(bytes, rowBytes);
+    appendUInt32(bytes, 0);
+    appendUInt32(bytes, 0);
+    appendUInt32(bytes, 2);
+    appendUInt32(bytes, 0);
+    bytes.insert(bytes.end(), {252, 252, 0, 0});
+    bytes.insert(bytes.end(), {0, 0, 255, 0});
+    bytes.insert(bytes.end(), {0, 1, 0, 0});
+    return bytes;
+}
 }
 
 TEST_CASE("ImageAssetLoader decodes PNG pixels through shared loader")
@@ -40,4 +88,27 @@ TEST_CASE("ImageAssetLoader decodes PNG pixels through shared loader")
     CHECK(image->width > 0);
     CHECK(image->height > 0);
     CHECK(image->pixels.size() == static_cast<size_t>(image->width) * static_cast<size_t>(image->height) * 4);
+}
+
+TEST_CASE("ImageAssetLoader applies palette zero transparency without override palette")
+{
+    OpenYAMM::Engine::ImageDecodeOptions options = {};
+    options.applyPaletteZeroTransparencyKey = true;
+    const std::vector<uint8_t> bytes = makeTwoPixelIndexedBmp();
+
+    const std::optional<OpenYAMM::Engine::ImagePixelsBgra> image =
+        OpenYAMM::Engine::decodeImagePixelsBgra(bytes, "indexed-zero-key.bmp", options);
+
+    REQUIRE(image.has_value());
+    REQUIRE(image->width == 2);
+    REQUIRE(image->height == 1);
+    REQUIRE(image->pixels.size() == 8);
+    CHECK(image->pixels[0] == 252);
+    CHECK(image->pixels[1] == 252);
+    CHECK(image->pixels[2] == 0);
+    CHECK(image->pixels[3] == 0);
+    CHECK(image->pixels[4] == 0);
+    CHECK(image->pixels[5] == 0);
+    CHECK(image->pixels[6] == 255);
+    CHECK(image->pixels[7] == 255);
 }

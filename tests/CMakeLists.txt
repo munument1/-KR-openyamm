@@ -21,6 +21,7 @@ add_executable(openyamm_unit_tests
     IndoorPortalGraphTests.cpp
     IndoorPortalVisibilityTests.cpp
     InventoryEquipRegressionTests.cpp
+    LegacyLuaExportTests.cpp
     MapStatsRegressionTests.cpp
     MapDeltaDataTests.cpp
     MM7MechanicsRuntimeTests.cpp
@@ -156,6 +157,9 @@ add_executable(openyamm_unit_tests
     ../game/pathfinding/ActorPathRuntime.cpp
     ../game/pathfinding/PathMap.cpp
     ../game/pathfinding/PathPlanner.cpp
+    ../tools/LegacyLuaExport.cpp
+    ../tools/legacy_events/EvtProgram.cpp
+    ../tools/legacy_events/StrTable.cpp
 )
 
 target_include_directories(openyamm_unit_tests

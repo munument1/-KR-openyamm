@@ -34,7 +34,7 @@ SetMapMetadata({
 
 RegisterEvent(1, "Legacy event 1", function()
     if IsQBitSet(QBit(612)) then return end -- Chose the path of Dark
-    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
+    evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Gargoyle A, spawn Harpy A, spawn Zombie A
 end)
 
 RegisterEvent(3, "Door", function()
@@ -143,12 +143,12 @@ RegisterEvent(453, "Legacy event 453", function()
 end)
 
 RegisterEvent(501, "Leave the Hall of the Pit", function()
-    evt.MoveToMap(18294, 6145, 1825, 1152, 0, 0, 0, 0, "7out05.odm")
+    evt.MoveToMap(18294, 6145, 1825, 1152, 0, 0, 0, 0, "7out05.odm") -- Deyja
 end, "Leave the Hall of the Pit")
 
 RegisterEvent(502, "Enter the Pit", function()
     if IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)) then -- Chose the path of Light
-        evt.MoveToMap(-256, 1024, 65, 1536, 0, 0, 0, 0, "7d26.blv")
+        evt.MoveToMap(-256, 1024, 65, 1536, 0, 0, 0, 0, "7d26.blv") -- The Pit
     end
 end, "Enter the Pit")
 

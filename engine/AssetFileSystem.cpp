@@ -32,6 +32,8 @@ constexpr const char *TerrainDirectoryName = "terrain";
 constexpr const char *TerrainTextureFallbackDirectoryName = "terrain_textures";
 constexpr const char *SkyTextureDirectoryName = "sky_textures";
 constexpr const char *LegacyDirectoryName = "_legacy";
+constexpr const char *SingleAssetPackageName = "assets.zip";
+constexpr const char *EngineAssetPackageName = "engine.zip";
 
 struct TieredAssetDirectory
 {
@@ -244,6 +246,41 @@ bool packageDirectoryExistsForTier(
         || anyWorldPackageRootExists(assetRoot, scaledDirectoryName);
 }
 
+bool isZipArchivePath(const std::filesystem::path &path)
+{
+    return std::filesystem::is_regular_file(path) && toLowerAscii(path.extension().string()) == ".zip";
+}
+
+std::vector<std::filesystem::path> collectExistingWorldPackageArchives(
+    const std::filesystem::path &assetRoot)
+{
+    std::vector<std::filesystem::path> packageArchives;
+    const std::filesystem::path worldsRoot = assetRoot / WorldsDevelopmentRootName;
+
+    if (!std::filesystem::is_directory(worldsRoot))
+    {
+        return packageArchives;
+    }
+
+    for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(worldsRoot))
+    {
+        if (isZipArchivePath(entry.path()))
+        {
+            packageArchives.push_back(entry.path());
+        }
+    }
+
+    std::sort(
+        packageArchives.begin(),
+        packageArchives.end(),
+        [](const std::filesystem::path &left, const std::filesystem::path &right)
+        {
+            return left.generic_string() < right.generic_string();
+        });
+
+    return packageArchives;
+}
+
 bool legacyDirectoryExistsForTier(
     const std::filesystem::path &assetRoot,
     const std::string &legacyDirectoryName,
@@ -386,26 +423,50 @@ bool AssetFileSystem::initialize(
     m_assetScaleProfile = assetScaleProfile;
     m_activeWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
 
-    if (!validateTierDirectories(assetRoot))
+    const bool packagedAssetRoot = isPackagedAssetRoot(assetRoot);
+
+    if (!packagedAssetRoot && !validateTierDirectories(assetRoot))
     {
         shutdown();
         return false;
     }
 
-    if (!mountSearchRoot(assetRoot, true))
+    if (packagedAssetRoot)
     {
-        shutdown();
-        return false;
-    }
+        if (!mountPackagedAssetRoot(assetRoot, m_activeWorldId))
+        {
+            shutdown();
+            return false;
+        }
 
-    if (!mountDevelopmentPackageRoots(assetRoot, m_activeWorldId))
+        if (!validateTierDirectoriesInMountedPackages())
+        {
+            shutdown();
+            return false;
+        }
+    }
+    else
     {
-        shutdown();
-        return false;
+        if (!mountSearchRoot(assetRoot, true))
+        {
+            shutdown();
+            return false;
+        }
+
+        if (!mountDevelopmentPackageRoots(assetRoot, m_activeWorldId))
+        {
+            shutdown();
+            return false;
+        }
     }
 
     m_developmentRoot = assetRoot;
     m_editorDevelopmentRoot = deriveEditorDevelopmentRoot(assetRoot);
+
+    if (packagedAssetRoot)
+    {
+        return true;
+    }
 
     const std::filesystem::path editorDevelopmentRoot = deriveEditorDevelopmentRoot(assetRoot);
     std::error_code createDirectoriesError;
@@ -453,6 +514,19 @@ bool AssetFileSystem::switchActiveWorld(const std::string &activeWorldId)
 
 bool AssetFileSystem::mountDevelopmentRoot(const std::filesystem::path &assetRoot)
 {
+    if (isPackagedAssetRoot(assetRoot))
+    {
+        if (!mountPackagedAssetRoot(assetRoot, DefaultActiveWorldId))
+        {
+            return false;
+        }
+
+        m_activeWorldId = DefaultActiveWorldId;
+        m_developmentRoot = assetRoot;
+        m_editorDevelopmentRoot = deriveEditorDevelopmentRoot(assetRoot);
+        return true;
+    }
+
     if (!mountSearchRoot(assetRoot, true))
     {
         return false;
@@ -531,6 +605,89 @@ bool AssetFileSystem::mountDevelopmentPackageRoots(
     return true;
 }
 
+bool AssetFileSystem::isPackagedAssetRoot(const std::filesystem::path &assetRoot) const
+{
+    if (isZipArchivePath(assetRoot))
+    {
+        return true;
+    }
+
+    if (!std::filesystem::is_directory(assetRoot))
+    {
+        return false;
+    }
+
+    return isZipArchivePath(assetRoot / SingleAssetPackageName)
+        || isZipArchivePath(assetRoot / EngineAssetPackageName)
+        || !collectExistingWorldPackageArchives(assetRoot).empty();
+}
+
+bool AssetFileSystem::mountPackagedAssetRoot(
+    const std::filesystem::path &assetRoot,
+    const std::string &activeWorldId)
+{
+    const std::string normalizedWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
+
+    if (isZipArchivePath(assetRoot))
+    {
+        return mountSearchRoot(assetRoot, true);
+    }
+
+    if (!std::filesystem::is_directory(assetRoot))
+    {
+        std::cerr << "Packaged asset root does not exist: " << assetRoot << '\n';
+        return false;
+    }
+
+    if (!mountPackageArchiveIfPresent(assetRoot / SingleAssetPackageName, true))
+    {
+        return false;
+    }
+
+    if (!mountPackageArchiveIfPresent(assetRoot / EngineAssetPackageName, true))
+    {
+        return false;
+    }
+
+    const std::filesystem::path activeWorldArchive =
+        assetRoot / WorldsDevelopmentRootName / (normalizedWorldId + ".zip");
+
+    if (!mountPackageArchiveIfPresent(activeWorldArchive, false))
+    {
+        return false;
+    }
+
+    const std::vector<std::filesystem::path> worldArchives = collectExistingWorldPackageArchives(assetRoot);
+
+    for (const std::filesystem::path &worldArchive : worldArchives)
+    {
+        if (worldArchive != activeWorldArchive && !mountPackageArchiveIfPresent(worldArchive, true))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool AssetFileSystem::mountPackageArchiveIfPresent(
+    const std::filesystem::path &archivePath,
+    bool appendToPath)
+{
+    if (!std::filesystem::exists(archivePath))
+    {
+        return true;
+    }
+
+    if (!isZipArchivePath(archivePath))
+    {
+        std::cerr << "Asset package is not a zip archive: " << archivePath << '\n';
+        return false;
+    }
+
+    return mountSearchRoot(archivePath, appendToPath);
+}
+
 bool AssetFileSystem::mountSearchRoot(const std::filesystem::path &assetRoot, bool appendToPath)
 {
     return mountSearchRootAt(assetRoot, "/", appendToPath);
@@ -562,6 +719,7 @@ bool AssetFileSystem::mountSearchRootAt(
     SearchMount searchMount;
     searchMount.root = assetRoot;
     searchMount.mountPoint = normalizeVirtualPath(mountPoint);
+    searchMount.archive = isZipArchivePath(assetRoot);
 
     if (appendToPath)
     {
@@ -922,6 +1080,11 @@ std::optional<std::filesystem::path> AssetFileSystem::resolvePhysicalPath(const 
 
         for (const SearchMount &searchMount : m_searchMounts)
         {
+            if (searchMount.archive)
+            {
+                continue;
+            }
+
             for (const std::string &physicalPathCandidate : physicalPathCandidates)
             {
                 std::filesystem::path relativePath = physicalPathCandidate;
@@ -1058,6 +1221,57 @@ bool AssetFileSystem::validateTierDirectories(const std::filesystem::path &asset
                       << " is missing required directory under " << assetRoot << '\n';
             return false;
         }
+    }
+
+    return true;
+}
+
+bool AssetFileSystem::validateTierDirectoriesInMountedPackages() const
+{
+    struct RequiredTieredDirectory
+    {
+        AssetScaleCategory category;
+        const char *pPackageDirectoryName;
+        const char *pLegacyDirectoryName;
+    };
+
+    constexpr std::array<RequiredTieredDirectory, 4> RequiredTieredDirectories = {
+        RequiredTieredDirectory{AssetScaleCategory::Textures, "textures", "Data/bitmaps"},
+        RequiredTieredDirectory{AssetScaleCategory::Terrain, "terrain", "Data/terrain"},
+        RequiredTieredDirectory{AssetScaleCategory::Sprites, "sprites", "Data/sprites"},
+        RequiredTieredDirectory{AssetScaleCategory::Icons, "icons", "Data/icons"}
+    };
+
+    for (const RequiredTieredDirectory &requiredDirectory : RequiredTieredDirectories)
+    {
+        const AssetScaleTier assetScaleTier =
+            assetScaleTierForCategory(m_assetScaleProfile, requiredDirectory.category);
+
+        if (assetScaleTier == AssetScaleTier::X1)
+        {
+            continue;
+        }
+
+        const std::string scaledPackageDirectoryName =
+            std::string(requiredDirectory.pPackageDirectoryName) + assetScaleTierDirectorySuffix(assetScaleTier);
+        const std::filesystem::path legacyPath(requiredDirectory.pLegacyDirectoryName);
+        const std::filesystem::path parentPath = legacyPath.parent_path();
+        const std::string scaledLegacyDirectoryName =
+            legacyPath.filename().string() + assetScaleTierDirectorySuffix(assetScaleTier);
+        const std::filesystem::path scaledLegacyPath = parentPath.empty()
+            ? std::filesystem::path(scaledLegacyDirectoryName)
+            : parentPath / scaledLegacyDirectoryName;
+
+        if (PHYSFS_exists(scaledPackageDirectoryName.c_str()) != 0
+            || PHYSFS_exists(scaledLegacyPath.generic_string().c_str()) != 0)
+        {
+            continue;
+        }
+
+        std::cerr << "Selected " << requiredDirectory.pPackageDirectoryName << " asset tier "
+                  << assetScaleTierToString(assetScaleTier)
+                  << " is missing required directory in mounted asset packages\n";
+        return false;
     }
 
     return true;

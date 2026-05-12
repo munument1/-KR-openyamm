@@ -448,11 +448,11 @@ RegisterEvent(449, "Fountain", nil, "Fountain")
 RegisterEvent(450, "Well", nil, "Well")
 
 RegisterEvent(451, "Legacy event 451", function()
-    evt.MoveToMap(-480, 5432, 384, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-480, 5432, 384, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(452, "Legacy event 452", function()
-    evt.MoveToMap(10123, 4488, 736, 0, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(10123, 4488, 736, 0, 0, 0, 0, 0)
 end)
 
 RegisterEvent(453, "Legacy event 453", function()
@@ -465,11 +465,11 @@ RegisterEvent(453, "Legacy event 453", function()
         if IsQBitSet(QBit(8)) then -- Fredrick Talimere visited by player with crystal in their possesion.
             RemoveItem(617) -- Power Stone
             SetQBit(QBit(1)) -- Activate Area 1 teleporters 3 and 4.
-            evt.MoveToMap(-21528, -1384, 0, 512, 0, 0, 0, 0, "0.")
+            evt.MoveToMap(-21528, -1384, 0, 512, 0, 0, 0, 0)
         end
         return
     end
-    evt.MoveToMap(-21528, -1384, 0, 512, 0, 0, 0, 0, "0.")
+    evt.MoveToMap(-21528, -1384, 0, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(454, "Abandoned Temple", function()
@@ -528,38 +528,38 @@ end)
 
 RegisterEvent(457, "Fire the Cannon !", function()
     evt.CastSpell(6, 1, 2, 8704, 2000, 686, 8704, 1965, 686) -- Fireball
-    evt.CastSpell(136, 1, 2, 8704, 1950, 686, 8704, -2592, 686) -- Cannonball
+    evt.CastSpell(136, 1, 2, 8704, 1950, 686, 8704, -2592, 686)
 end, "Fire the Cannon !")
 
 RegisterEvent(458, "Fire the Cannon !", function()
     evt.CastSpell(6, 1, 2, 15872, 1500, 686, 15872, -1000, 686) -- Fireball
-    evt.CastSpell(136, 1, 2, 15872, 1440, 686, 15872, -3100, 686) -- Cannonball
+    evt.CastSpell(136, 1, 2, 15872, 1440, 686, 15872, -3100, 686)
 end, "Fire the Cannon !")
 
 RegisterEvent(459, "Fire the Cannon !", function()
     evt.CastSpell(6, 1, 2, 18400, 3584, 652, 18522, 3584, 652) -- Fireball
-    evt.CastSpell(136, 1, 2, 18522, 3584, 652, 22880, 3584, 100) -- Cannonball
+    evt.CastSpell(136, 1, 2, 18522, 3584, 652, 22880, 3584, 100)
 end, "Fire the Cannon !")
 
 RegisterEvent(460, "Legacy event 460", function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     if not evt.CheckMonstersKilled(ActorKillCheck.UniqueNameId, 8, 1, true) then -- unique actor 8 "Lizardman Lookout"; at least 1 matching actor defeated
         evt.CastSpell(6, 1, 2, 15872, 1500, 686, 15872, -1000, 686) -- Fireball
-        evt.CastSpell(136, 1, 2, 15872, 1440, 686, 15872, -3100, 100) -- Cannonball
+        evt.CastSpell(136, 1, 2, 15872, 1440, 686, 15872, -3100, 100)
     end
     if evt.CheckMonstersKilled(ActorKillCheck.UniqueNameId, 9, 1, true) then return end -- unique actor 9 "Lizardman Lookout"; at least 1 matching actor defeated
     evt.CastSpell(6, 1, 2, 1536, 16400, 682, 1536, 16480, 682) -- Fireball
-    evt.CastSpell(136, 1, 2, 1536, 16480, 682, 1536, 21528, 100) -- Cannonball
+    evt.CastSpell(136, 1, 2, 1536, 16480, 682, 1536, 21528, 100)
 end)
 
 RegisterEvent(461, "Fire the Cannon !", function()
     evt.CastSpell(6, 1, 2, 1536, 16400, 682, 1536, 16480, 682) -- Fireball
-    evt.CastSpell(136, 1, 2, 1536, 16480, 682, 1536, 21528, 100) -- Cannonball
+    evt.CastSpell(136, 1, 2, 1536, 16480, 682, 1536, 21528, 100)
 end, "Fire the Cannon !")
 
 RegisterEvent(462, "Fire the Cannon !", function()
     evt.CastSpell(6, 1, 2, -520, 15360, 682, -610, 15360, 682) -- Fireball
-    evt.CastSpell(136, 1, 2, -610, 15360, 682, -6320, 15360, 100) -- Cannonball
+    evt.CastSpell(136, 1, 2, -610, 15360, 682, -6320, 15360, 100)
 end, "Fire the Cannon !")
 
 RegisterEvent(463, "Legacy event 463", function()
@@ -675,11 +675,11 @@ RegisterEvent(465, "Legacy event 465", function()
         if IsQBitSet(QBit(8)) then -- Fredrick Talimere visited by player with crystal in their possesion.
             RemoveItem(617) -- Power Stone
             SetQBit(QBit(1)) -- Activate Area 1 teleporters 3 and 4.
-            evt.MoveToMap(-12496, -9728, 160, 512, 0, 0, 0, 0, "0")
+            evt.MoveToMap(-12496, -9728, 160, 512, 0, 0, 0, 0)
         end
         return
     end
-    evt.MoveToMap(-12496, -9728, 160, 512, 0, 0, 0, 0, "0")
+    evt.MoveToMap(-12496, -9728, 160, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(466, "Legacy event 466", function()
@@ -692,7 +692,7 @@ RegisterEvent(466, "Legacy event 466", function()
         RemoveItem(618) -- Power Stone
         SetQBit(QBit(2)) -- Activate Area 1 teleporters 5 and 6.
     end
-    evt.MoveToMap(-13912, 14096, 0, 512, 0, 0, 0, 0, "0")
+    evt.MoveToMap(-13912, 14096, 0, 512, 0, 0, 0, 0)
 end)
 
 RegisterEvent(467, "Legacy event 467", function()
@@ -705,7 +705,7 @@ RegisterEvent(467, "Legacy event 467", function()
         RemoveItem(618) -- Power Stone
         SetQBit(QBit(2)) -- Activate Area 1 teleporters 5 and 6.
     end
-    evt.MoveToMap(-18952, 8608, 96, 1536, 0, 0, 0, 0, "0")
+    evt.MoveToMap(-18952, 8608, 96, 1536, 0, 0, 0, 0)
 end)
 
 RegisterEvent(468, "Legacy event 468", function()
@@ -739,14 +739,14 @@ end)
 RegisterEvent(470, "Legacy event 470", nil)
 
 RegisterEvent(471, "Legacy event 471", function()
-    evt.MoveToMap(8760, 4408, 736, 1536, 0, 0, 0, 0, "0")
+    evt.MoveToMap(8760, 4408, 736, 1536, 0, 0, 0, 0)
     if IsQBitSet(QBit(227)) then return end -- Turn on Temple Bypass tele in area one
     SetQBit(QBit(227)) -- Turn on Temple Bypass tele in area one
 end)
 
 RegisterEvent(472, "Legacy event 472", function()
     if IsQBitSet(QBit(227)) then -- Turn on Temple Bypass tele in area one
-        evt.MoveToMap(21216, 18680, 0, 1024, 0, 0, 0, 0, "0")
+        evt.MoveToMap(21216, 18680, 0, 1024, 0, 0, 0, 0)
     end
 end)
 

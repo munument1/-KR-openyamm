@@ -458,6 +458,35 @@ void GameplayUiController::setStatusBarEvent(const std::string &text, float dura
     state.statusBar.eventRemainingSeconds = std::max(0.0f, durationSeconds);
 }
 
+bool GameplayUiController::statusBarEventActive() const
+{
+    const State &state = resolvedState();
+    return state.statusBar.eventRemainingSeconds > 0.0f && !state.statusBar.eventText.empty();
+}
+
+void GameplayUiController::setStatusBarHoverText(const std::string &text)
+{
+    if (text.empty())
+    {
+        clearStatusBarHoverText();
+        return;
+    }
+
+    State &state = resolvedState();
+
+    if (statusBarEventActive())
+    {
+        return;
+    }
+
+    state.statusBar.hoverText = text;
+}
+
+void GameplayUiController::clearStatusBarHoverText()
+{
+    resolvedState().statusBar.hoverText.clear();
+}
+
 void GameplayUiController::updateStatusBarEvent(float deltaSeconds)
 {
     State &state = resolvedState();

@@ -580,19 +580,19 @@ RegisterEvent(64, "Chest", function()
 end, "Chest")
 
 RegisterEvent(90, "Legacy event 90", function()
-    evt.MoveToMap(-1792, -19, 1, 0, 0, 0, 172, 1, "6d04.blv")
+    evt.MoveToMap(-1792, -19, 1, 0, 0, 0, 172, 1, "6d04.blv") -- Hall of the Fire Lord
 end)
 
 RegisterEvent(91, "Drink from Well.", function()
-    evt.MoveToMap(0, -2231, 513, 512, 0, 0, 167, 1, "6t2.blv")
+    evt.MoveToMap(0, -2231, 513, 512, 0, 0, 167, 1, "6t2.blv") -- Temple of the Fist
 end, "Drink from Well.")
 
 RegisterEvent(92, "Drink from Well.", function()
-    evt.MoveToMap(-3258, 483, 49, 0, 0, 0, 173, 1, "6t4.blv")
+    evt.MoveToMap(-3258, 483, 49, 0, 0, 0, 173, 1, "6t4.blv") -- Temple of the Sun
 end, "Drink from Well.")
 
 RegisterEvent(93, "Drink from Well.", function()
-    evt.MoveToMap(2817, -4748, -639, 512, 0, 0, 170, 1, "6t3.blv")
+    evt.MoveToMap(2817, -4748, -639, 512, 0, 0, 170, 1, "6t3.blv") -- Temple of Tsantsa
 end, "Drink from Well.")
 
 RegisterEvent(94, "Temple Baa", function()
@@ -686,10 +686,14 @@ RegisterEvent(221, "Pedestal", function()
     end
 end, "Pedestal")
 
-RegisterEvent(223, "Obelisk", function()
-    evt.SimpleMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            d_re_e_Hpfotyhz_")
-    SetQBit(QBit(1394)) -- NPC
-    SetAutonote(452) -- Obelisk Message # 11: d_re_e_Hpfotyhz_
+RegisterEvent(223, "Obelisk", function(continueStep)
+    if continueStep == 2 then
+        SetQBit(QBit(1394)) -- NPC
+        SetAutonote(452) -- Obelisk Message # 11: d_re_e_Hpfotyhz_
+    end
+    if continueStep ~= nil then return end
+    evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            d_re_e_Hpfotyhz_")
+    evt._PressAnyKey(223, 2)
 end, "Obelisk")
 
 RegisterEvent(261, "Shrine of Might", function()
@@ -709,6 +713,7 @@ RegisterEvent(261, "Shrine of Might", function()
         evt.ForPlayer(Players.All)
         AddValue(BaseMight, 3)
         evt.StatusText("+3 Might permanent")
+        return
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Might")
