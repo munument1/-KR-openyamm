@@ -29,6 +29,7 @@ constexpr const char *MapsDirectoryName = "maps";
 constexpr const char *EventsDirectoryName = "events";
 constexpr const char *TexturesDirectoryName = "textures";
 constexpr const char *TerrainDirectoryName = "terrain";
+constexpr const char *SpritesDirectoryName = "sprites";
 constexpr const char *TerrainTextureFallbackDirectoryName = "terrain_textures";
 constexpr const char *SkyTextureDirectoryName = "sky_textures";
 constexpr const char *LegacyDirectoryName = "_legacy";
@@ -563,6 +564,11 @@ bool AssetFileSystem::mountDevelopmentPackageRoots(
     }
 
     if (!mountMergedWorldMapRuntimeRoots(assetRoot, normalizedWorldId))
+    {
+        return false;
+    }
+
+    if (!mountMergedWorldPackageRoots(assetRoot, normalizedWorldId, SpritesDirectoryName))
     {
         return false;
     }
