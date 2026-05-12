@@ -485,6 +485,82 @@ std::optional<std::vector<uint8_t>> readFirstExistingBinary(
     return std::nullopt;
 }
 
+std::optional<std::filesystem::path> resolveFirstExistingPhysicalPath(
+    const AssetFileSystem &assetFileSystem,
+    const std::vector<std::string> &candidates,
+    std::string &resolvedPath)
+{
+    for (const std::string &candidate : candidates)
+    {
+        const std::optional<std::filesystem::path> physicalPath =
+            assetFileSystem.resolvePhysicalPath(candidate);
+
+        if (physicalPath)
+        {
+            resolvedPath = candidate;
+            return physicalPath;
+        }
+    }
+
+    for (const std::string &candidate : candidates)
+    {
+        const std::filesystem::path candidatePath(candidate);
+        const std::string parentPath = candidatePath.parent_path().generic_string();
+        const std::string fileName = toLowerCopy(candidatePath.filename().string());
+
+        if (parentPath.empty() || fileName.empty())
+        {
+            continue;
+        }
+
+        for (const std::string &entryName : assetFileSystem.enumerate(parentPath))
+        {
+            if (toLowerCopy(entryName) != fileName)
+            {
+                continue;
+            }
+
+            const std::string matchedPath = parentPath + "/" + entryName;
+            const std::optional<std::filesystem::path> physicalPath =
+                assetFileSystem.resolvePhysicalPath(matchedPath);
+
+            if (physicalPath)
+            {
+                resolvedPath = matchedPath;
+                return physicalPath;
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::filesystem::path canonicalPathOrLexical(const std::filesystem::path &path)
+{
+    std::error_code error;
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, error);
+    return error ? path.lexically_normal() : canonicalPath;
+}
+
+bool pathIsInside(const std::filesystem::path &path, const std::filesystem::path &directory)
+{
+    const std::filesystem::path canonicalPath = canonicalPathOrLexical(path);
+    const std::filesystem::path canonicalDirectory = canonicalPathOrLexical(directory);
+    auto pathIterator = canonicalPath.begin();
+
+    for (auto directoryIterator = canonicalDirectory.begin();
+        directoryIterator != canonicalDirectory.end();
+        ++directoryIterator, ++pathIterator)
+    {
+        if (pathIterator == canonicalPath.end() || *pathIterator != *directoryIterator)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool loadTextTableRows(
     const AssetFileSystem &assetFileSystem,
     const std::string &virtualPath,
@@ -2159,7 +2235,9 @@ int main(int argc, char **argv)
     const std::filesystem::path globalScriptsRoot =
         assetFileSystem.getDevelopmentRoot() / "engine" / "events";
     const std::filesystem::path worldScriptsRoot =
-        assetFileSystem.getDevelopmentRoot() / "worlds" / config.activeWorldId / "events";
+        assetFileSystem.getDevelopmentRoot() / "worlds" / assetFileSystem.getActiveWorldId() / "events";
+    const std::filesystem::path activeWorldRoot =
+        assetFileSystem.getDevelopmentRoot() / "worlds" / assetFileSystem.getActiveWorldId();
     const std::filesystem::path dumpsRoot = std::filesystem::current_path() / "script_dumps";
 
     if (!exportLegacyProgram(
@@ -2180,6 +2258,7 @@ int main(int argc, char **argv)
     }
 
     size_t exportedMapCount = 0;
+    size_t skippedForeignMapCount = 0;
 
     for (const MapStatsEntry &entry : mapStats.getEntries())
     {
@@ -2193,6 +2272,24 @@ int main(int argc, char **argv)
 
         if (mapFilter && *mapFilter != lowerMapStem && *mapFilter != mapStem)
         {
+            continue;
+        }
+
+        std::string resolvedEvtPath;
+        const std::optional<std::filesystem::path> evtPhysicalPath =
+            resolveFirstExistingPhysicalPath(
+                assetFileSystem,
+                buildLegacyScriptPathCandidates(tablePaths.legacyEventsDir, mapStem, ".evt"),
+                resolvedEvtPath);
+
+        if (!evtPhysicalPath)
+        {
+            continue;
+        }
+
+        if (!pathIsInside(*evtPhysicalPath, activeWorldRoot))
+        {
+            ++skippedForeignMapCount;
             continue;
         }
 
@@ -2217,20 +2314,14 @@ int main(int argc, char **argv)
 
         if (extension == ".odm" || extension == ".blv")
         {
-            std::string resolvedEvtPath;
-            if (readFirstExistingBinary(
-                    assetFileSystem,
-                    buildLegacyScriptPathCandidates(tablePaths.legacyEventsDir, mapStem, ".evt"),
-                    resolvedEvtPath))
-            {
-                ++exportedMapCount;
-            }
+            ++exportedMapCount;
         }
     }
 
     std::cout << "Exported legacy event assets:\n";
     std::cout << "  global=yes\n";
     std::cout << "  map_count=" << exportedMapCount << '\n';
+    std::cout << "  skipped_foreign_map_count=" << skippedForeignMapCount << '\n';
     std::cout << "  legacy_event_version=" << static_cast<int>(tablePaths.legacyEventVersion) << '\n';
     std::cout << "  global_scripts_root=" << globalScriptsRoot << '\n';
     std::cout << "  world_scripts_root=" << worldScriptsRoot << '\n';

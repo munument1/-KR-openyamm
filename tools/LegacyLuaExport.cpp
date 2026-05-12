@@ -1660,17 +1660,51 @@ std::optional<uint8_t> firstSourceNormalStep(const EvtEvent &event)
     return std::nullopt;
 }
 
+std::optional<uint8_t> firstSourceNormalStepAtOrAfter(const EvtEvent &event, uint8_t minimumStep)
+{
+    for (const EvtInstruction &instruction : event.instructions)
+    {
+        if (instruction.step < minimumStep || isIgnoredSourceNormalOpcode(instruction.opcode))
+        {
+            continue;
+        }
+
+        return instruction.step;
+    }
+
+    return std::nullopt;
+}
+
 std::optional<uint8_t> triggerContinuationStep(const EvtEvent &event, EvtOpcode triggerOpcode)
 {
     for (const EvtInstruction &instruction : event.instructions)
     {
         if (instruction.opcode == triggerOpcode)
         {
-            return static_cast<uint8_t>(instruction.step + 1);
+            return firstSourceNormalStepAtOrAfter(event, static_cast<uint8_t>(instruction.step + 1));
         }
     }
 
     return std::nullopt;
+}
+
+bool hasSupportedOnTimerSchedule(const EvtEvent &event)
+{
+    for (const EvtInstruction &instruction : event.instructions)
+    {
+        if (instruction.opcode != EvtOpcode::OnTimer)
+        {
+            continue;
+        }
+
+        if ((instruction.listValues.size() > 6 && instruction.listValues[6] > 0)
+            || (instruction.listValues.size() > 3 && instruction.listValues[3] > 0))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool triggerNeedsSyntheticEntry(const EvtEvent &event, EvtOpcode triggerOpcode)
@@ -1726,6 +1760,11 @@ std::vector<SyntheticTriggerEvent> collectSyntheticTriggerEvents(const EvtProgra
     const auto addSyntheticTrigger =
         [&syntheticEvents, &reserveSyntheticEventId](const EvtEvent &event, EvtOpcode triggerOpcode)
         {
+            if (triggerOpcode == EvtOpcode::OnTimer && !hasSupportedOnTimerSchedule(event))
+            {
+                return;
+            }
+
             const std::optional<uint8_t> continuationStep = triggerContinuationStep(event, triggerOpcode);
 
             if (!continuationStep || !triggerNeedsSyntheticEntry(event, triggerOpcode))
@@ -1745,6 +1784,7 @@ std::vector<SyntheticTriggerEvent> collectSyntheticTriggerEvents(const EvtProgra
     {
         addSyntheticTrigger(event, EvtOpcode::OnMapReload);
         addSyntheticTrigger(event, EvtOpcode::OnMapLeave);
+        addSyntheticTrigger(event, EvtOpcode::OnTimer);
     }
 
     return syntheticEvents;
@@ -1772,7 +1812,9 @@ std::optional<uint8_t> firstSyntheticTriggerLabelStep(const EvtEvent &event)
 
     for (const EvtInstruction &instruction : event.instructions)
     {
-        if (instruction.opcode != EvtOpcode::OnMapReload && instruction.opcode != EvtOpcode::OnMapLeave)
+        if (instruction.opcode != EvtOpcode::OnMapReload
+            && instruction.opcode != EvtOpcode::OnMapLeave
+            && instruction.opcode != EvtOpcode::OnTimer)
         {
             continue;
         }
@@ -11272,7 +11314,9 @@ void emitMetadata(
             if (instruction.listValues.size() > 6 && instruction.listValues[6] > 0)
             {
                 const float intervalGameMinutes = static_cast<float>(instruction.listValues[6]) * 0.5f;
-                stream << "    { eventId = " << event.eventId
+                const std::optional<uint16_t> syntheticEventId =
+                    findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnTimer);
+                stream << "    { eventId = " << syntheticEventId.value_or(event.eventId)
                        << ", repeating = true"
                        << ", intervalGameMinutes = " << intervalGameMinutes
                        << ", remainingGameMinutes = " << intervalGameMinutes << " },\n";
@@ -11288,7 +11332,9 @@ void emitMetadata(
                     remainingGameMinutes += 24.0f * 60.0f;
                 }
 
-                stream << "    { eventId = " << event.eventId
+                const std::optional<uint16_t> syntheticEventId =
+                    findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnTimer);
+                stream << "    { eventId = " << syntheticEventId.value_or(event.eventId)
                        << ", repeating = false"
                        << ", targetHour = " << static_cast<int>(instruction.listValues[3])
                        << ", intervalGameMinutes = " << (static_cast<float>(instruction.listValues[3]) * 60.0f)

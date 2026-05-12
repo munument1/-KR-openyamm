@@ -566,6 +566,7 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
     writeTextFile(assetRoot / "worlds" / "mm6" / "maps" / "shared.odm", "active-map");
     writeTextFile(assetRoot / "worlds" / "mm6" / "events" / "maps" / "shared.lua", "active-script");
     writeTextFile(assetRoot / "worlds" / "mm6" / "textures" / "shared.bmp", "active-texture");
+    writeTextFile(assetRoot / "worlds" / "mm6" / "sprites" / "shared.bmp", "active-sprite");
     writeTextFile(assetRoot / "worlds" / "mm6" / "_legacy" / "map_delta" / "shared.odm", "active-delta");
     writeTextFile(assetRoot / "worlds" / "mm8" / "maps" / "out01.odm", "inactive-map");
     writeTextFile(assetRoot / "worlds" / "mm8" / "maps" / "shared.odm", "inactive-map");
@@ -573,6 +574,8 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
     writeTextFile(assetRoot / "worlds" / "mm8" / "events" / "maps" / "shared.lua", "inactive-script");
     writeTextFile(assetRoot / "worlds" / "mm8" / "textures" / "sky01.bmp", "inactive-texture");
     writeTextFile(assetRoot / "worlds" / "mm8" / "textures" / "shared.bmp", "inactive-texture");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "sprites" / "m390sa0.bmp", "inactive-sprite");
+    writeTextFile(assetRoot / "worlds" / "mm8" / "sprites" / "shared.bmp", "inactive-sprite");
     writeTextFile(assetRoot / "worlds" / "mm8" / "_legacy" / "map_delta" / "out01.odm", "inactive-delta");
     writeTextFile(assetRoot / "worlds" / "mm8" / "_legacy" / "map_delta" / "shared.odm", "inactive-delta");
 
@@ -599,6 +602,11 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
         REQUIRE(inactiveTextureText.has_value());
         CHECK_EQ(*inactiveTextureText, "inactive-texture");
 
+        const std::optional<std::string> inactiveSpriteText =
+            assetFileSystem.readTextFile("Data/sprites/m390sa0.bmp");
+        REQUIRE(inactiveSpriteText.has_value());
+        CHECK_EQ(*inactiveSpriteText, "inactive-sprite");
+
         const std::optional<std::string> inactiveDeltaText =
             assetFileSystem.readTextFile("_legacy/map_delta/out01.odm");
         REQUIRE(inactiveDeltaText.has_value());
@@ -623,6 +631,11 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
         REQUIRE(sharedTextureText.has_value());
         CHECK_EQ(*sharedTextureText, "active-texture");
 
+        const std::optional<std::string> sharedSpriteText =
+            assetFileSystem.readTextFile("Data/sprites/shared.bmp");
+        REQUIRE(sharedSpriteText.has_value());
+        CHECK_EQ(*sharedSpriteText, "active-sprite");
+
         REQUIRE(assetFileSystem.switchActiveWorld("mm8"));
         CHECK_EQ(assetFileSystem.getActiveWorldId(), "mm8");
 
@@ -635,6 +648,11 @@ TEST_CASE("AssetFileSystem merges inactive world map runtime roots")
             assetFileSystem.resolvePhysicalPath("Data/bitmaps/shared.bmp");
         REQUIRE(switchedSharedTexturePhysicalPath.has_value());
         CHECK(switchedSharedTexturePhysicalPath->generic_string().ends_with("assets_dev/worlds/mm8/textures/shared.bmp"));
+
+        const std::optional<std::string> switchedSharedSpriteText =
+            assetFileSystem.readTextFile("Data/sprites/shared.bmp");
+        REQUIRE(switchedSharedSpriteText.has_value());
+        CHECK_EQ(*switchedSharedSpriteText, "inactive-sprite");
     }
 
     std::filesystem::remove_all(temporaryRoot);

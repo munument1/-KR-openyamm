@@ -7,6 +7,7 @@
 #include "game/events/EventRuntime.h"
 #include "game/events/EventDialogContent.h"
 #include "game/gameplay/GameplayActionController.h"
+#include "game/gameplay/GameplayCombatController.h"
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
@@ -1048,6 +1049,33 @@ TEST_CASE("party attack target filtering treats dying actors as unavailable")
     CHECK_FALSE(OpenYAMM::Game::GameplayActionController::isPartyAttackFallbackCandidate(dyingActor));
     CHECK(OpenYAMM::Game::GameplayActionController::isPartyAttackActorTargetable(aliveActor));
     CHECK(OpenYAMM::Game::GameplayActionController::isPartyAttackFallbackCandidate(aliveActor));
+}
+
+TEST_CASE("party melee status text reports applied damage")
+{
+    OpenYAMM::Game::CharacterAttackResult attack = {};
+    attack.mode = OpenYAMM::Game::CharacterAttackMode::Melee;
+    attack.canAttack = true;
+    attack.hit = true;
+    attack.damage = 48;
+
+    CHECK_EQ(
+        OpenYAMM::Game::GameplayCombatController::formatPartyAttackStatusText(
+            "Ariel",
+            "Goblin",
+            attack,
+            false,
+            12),
+        "Ariel hits Goblin for 12 damage");
+
+    CHECK_EQ(
+        OpenYAMM::Game::GameplayCombatController::formatPartyAttackStatusText(
+            "Ariel",
+            "Goblin",
+            attack,
+            true,
+            12),
+        "Ariel inflicts 12 points killing Goblin");
 }
 
 TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recovery")
@@ -3365,6 +3393,36 @@ TEST_CASE("lua event runtime onload sees party quest bits")
     const bool invisibleBitWasSet =
         setIt != runtimeState.facetSetMasks.end() && (setIt->second & invisibleBit) != 0;
     CHECK_FALSE(invisibleBitWasSet);
+}
+
+TEST_CASE("lua event runtime onload sets party quest bits")
+{
+    constexpr uint32_t QBitId = 721;
+    constexpr uint32_t QBitSelector = (QBitId << 16) | static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::QBits);
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    if not evt.Cmp(" + std::to_string(QBitSelector) + ", " + std::to_string(QBitId) + ") then\n"
+        "        evt.Add(" + std::to_string(QBitSelector) + ", " + std::to_string(QBitId) + ")\n"
+        "    end\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticOnLoadSetPartyQuestBit.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map,
+        {1});
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.setQuestBit(QBitId, false);
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeOnLoadEvents(scriptedProgram, std::nullopt, runtimeState, &party, nullptr));
+    CHECK_EQ(runtimeState.localOnLoadEventsExecuted, 1u);
+    CHECK(party.hasQuestBit(QBitId));
 }
 
 TEST_CASE("dagger wound onload seeds starting roster quest bits")

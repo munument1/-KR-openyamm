@@ -68,3 +68,66 @@ TEST_CASE("legacy lua exporter preserves return for castle gloaming soul jar che
     CHECK(qbit662 < branchReturn);
     CHECK(branchReturn < laterChest1);
 }
+
+TEST_CASE("legacy lua exporter separates timer continuation from direct event body")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d35.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d35.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Nighon Tunnels";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const size_t timerLineMatch = lua.find("intervalGameMinutes = 2.5");
+    REQUIRE(timerLineMatch != std::string::npos);
+    const size_t timerLineStart = lua.rfind('{', timerLineMatch);
+    const size_t timerLineEnd = lua.find('\n', timerLineMatch);
+    REQUIRE(timerLineStart != std::string::npos);
+    REQUIRE(timerLineEnd != std::string::npos);
+    const std::string timerLine = lua.substr(timerLineStart, timerLineEnd - timerLineStart);
+    INFO(timerLine);
+    CHECK(timerLine.find("eventId = 452") == std::string::npos);
+
+    const size_t timerEventIdStart = timerLine.find("eventId = ");
+    REQUIRE(timerEventIdStart != std::string::npos);
+    const size_t timerEventIdValueStart = timerEventIdStart + std::string("eventId = ").size();
+    const size_t timerEventIdValueEnd = timerLine.find(',', timerEventIdValueStart);
+    REQUIRE(timerEventIdValueEnd != std::string::npos);
+    const std::string timerEventIdText =
+        timerLine.substr(timerEventIdValueStart, timerEventIdValueEnd - timerEventIdValueStart);
+
+    const size_t directEventStart = lua.find("RegisterEvent(452");
+    REQUIRE(directEventStart != std::string::npos);
+    const size_t directEventEnd = lua.find("RegisterEvent(454", directEventStart);
+    REQUIRE(directEventEnd != std::string::npos);
+    const std::string directEventLua = lua.substr(directEventStart, directEventEnd - directEventStart);
+    INFO(directEventLua);
+    CHECK(directEventLua.find("evt.MoveToMap(1232, 6896, -384") != std::string::npos);
+    CHECK(directEventLua.find("evt.CastSpell(6") == std::string::npos);
+
+    const std::string syntheticRegistration = "RegisterEvent(" + timerEventIdText;
+    const size_t timerEventStart = lua.find(syntheticRegistration);
+    REQUIRE(timerEventStart != std::string::npos);
+    const size_t timerEventEnd = lua.find("\n\n", timerEventStart);
+    REQUIRE(timerEventEnd != std::string::npos);
+    const std::string timerEventLua = lua.substr(timerEventStart, timerEventEnd - timerEventStart);
+    INFO(timerEventLua);
+    CHECK(timerEventLua.find("evt.MoveToMap(1232, 6896, -384") == std::string::npos);
+    CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 13891") != std::string::npos);
+    CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 14618") != std::string::npos);
+}

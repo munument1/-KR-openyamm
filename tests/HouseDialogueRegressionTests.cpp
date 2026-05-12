@@ -2403,6 +2403,35 @@ TEST_CASE("mastery teacher not enough gold")
     CHECK_EQ(noteIt->second, 1);
 }
 
+TEST_CASE("teacher topic with explicit autonote also creates merged teacher map note")
+{
+    OpenYAMM::Game::MapStatsEntry emeraldIsland = {};
+    emeraldIsland.id = 62;
+    emeraldIsland.fileName = "7out01.odm";
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.setCurrentMap(emeraldIsland);
+
+    const OpenYAMM::Game::EventDialogContent &dialog =
+        harness.openNpcDialogue(MasterIdentifyItemTeacherNpcId);
+    CHECK(dialogHasActionLabel(dialog, "Master Identify Item"));
+
+    constexpr uint32_t MergedMasterIdentifyItemAutonoteId = 162;
+    constexpr uint32_t MergedMasterIdentifyItemAutonoteVariable =
+        (MergedMasterIdentifyItemAutonoteId << 16) | 0x00e1u;
+    const auto variableIt = harness.eventRuntimeState().variables.find(MergedMasterIdentifyItemAutonoteVariable);
+    REQUIRE(variableIt != harness.eventRuntimeState().variables.end());
+    CHECK_EQ(variableIt->second, 1);
+
+    constexpr uint32_t MasterIdentifyItemMapNoteId = 2224;
+    const auto noteIt = harness.eventRuntimeState().runtimeMapNotes.find(MasterIdentifyItemMapNoteId);
+    REQUIRE(noteIt != harness.eventRuntimeState().runtimeMapNotes.end());
+    CHECK(noteIt->second.active);
+    CHECK_EQ(noteIt->second.mapFileName, "7out01.odm");
+    CHECK_EQ(noteIt->second.text, "Identify Item - Master");
+}
+
 TEST_CASE("mastery teacher missing skill")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

@@ -1241,7 +1241,7 @@ std::optional<OpenYAMM::Game::ScriptedEventProgram> loadMm7GlobalSupplementProgr
     const std::optional<std::string> baseLua =
         readSourceTextFile(sourceRoot / "assets_dev/engine/events/Global.lua");
     const std::optional<std::string> overlayLua =
-        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm7/events/Global_mmmerge.lua");
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm7/events/Global_mm7_mmmerge.lua");
 
     REQUIRE(supportLua.has_value());
     REQUIRE(crossContinentsCommonLua.has_value());
@@ -1252,7 +1252,7 @@ std::optional<OpenYAMM::Game::ScriptedEventProgram> loadMm7GlobalSupplementProgr
     return OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
         *supportLua + "\n\n" + *crossContinentsCommonLua + "\n\n" + *commonLua + "\n\n" + *baseLua
             + "\n\n" + *overlayLua,
-        "@events/Global.lua + events/Global_mmmerge.lua",
+        "@events/Global.lua + events/Global_mm7_mmmerge.lua",
         OpenYAMM::Game::ScriptedEventScope::Global,
         error);
 }
@@ -1326,7 +1326,7 @@ std::optional<OpenYAMM::Game::ScriptedEventProgram> loadMm6GlobalSupplementProgr
     const std::optional<std::string> baseLua =
         readSourceTextFile(sourceRoot / "assets_dev/engine/events/Global.lua");
     const std::optional<std::string> overlayLua =
-        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/Global_mmmerge.lua");
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/Global_mm6_mmmerge.lua");
 
     REQUIRE(supportLua.has_value());
     REQUIRE(crossContinentsCommonLua.has_value());
@@ -1337,7 +1337,7 @@ std::optional<OpenYAMM::Game::ScriptedEventProgram> loadMm6GlobalSupplementProgr
     return OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
         *supportLua + "\n\n" + *crossContinentsCommonLua + "\n\n" + *commonLua + "\n\n" + *baseLua
             + "\n\n" + *overlayLua,
-        "@events/Global.lua + events/Global_mmmerge.lua",
+        "@events/Global.lua + events/Global_mm6_mmmerge.lua",
         OpenYAMM::Game::ScriptedEventScope::Global,
         error);
 }
@@ -1636,7 +1636,10 @@ TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
     REQUIRE(selectedMap->globalEventProgram->luaSourceName().has_value());
     CHECK(selectedMap->globalEventProgram->luaSourceName()->starts_with("@events/Global.lua"));
     CHECK(
-        selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mmmerge.lua")
+        selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mm6_mmmerge.lua")
+        != std::string::npos);
+    CHECK(
+        selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mm7_mmmerge.lua")
         != std::string::npos);
     CHECK(std::filesystem::exists(
         std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/events/Global.lua"));
@@ -1967,7 +1970,7 @@ TEST_CASE("seer lost item topic recovers ever owned active quest items")
     const std::optional<std::string> mm6CommonLua =
         readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/common/mm6_common.lua");
     const std::optional<std::string> mm6GlobalLua =
-        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/Global_mmmerge.lua");
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/Global_mm6_mmmerge.lua");
 
     REQUIRE(supportLua.has_value());
     REQUIRE(mm6CommonLua.has_value());
@@ -1977,7 +1980,7 @@ TEST_CASE("seer lost item topic recovers ever owned active quest items")
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalEventProgram =
         OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
             *supportLua + "\n\n" + *mm6CommonLua + "\n\n" + *mm6GlobalLua,
-            "@events/Global_mmmerge.lua",
+            "@events/Global_mm6_mmmerge.lua",
             OpenYAMM::Game::ScriptedEventScope::Global,
             error);
     REQUIRE_MESSAGE(globalEventProgram.has_value(), error.c_str());
@@ -6434,6 +6437,127 @@ TEST_CASE("mm7 world prefixed monster sprites load for indoor actor previews")
     CHECK_EQ(billboardSet.missingTextureActorCount, 0u);
     CHECK_EQ(billboardSet.texturedActorCount, billboardSet.billboards.size());
     CHECK_FALSE(billboardSet.textures.empty());
+}
+
+TEST_CASE("mm7 nighon actor previews load world sprite packages")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+
+    const auto textureLoaded =
+        [](const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet,
+           const std::string &textureName,
+           int16_t paletteId) -> bool
+        {
+            return std::any_of(
+                billboardSet.textures.begin(),
+                billboardSet.textures.end(),
+                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == textureName && texture.paletteId == paletteId;
+                });
+        };
+
+    const OpenYAMM::Game::MapAssetInfo *pMountNighon = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "out10.odm",
+        OpenYAMM::Game::MapLoadPurpose::ActorPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pMountNighon != nullptr);
+    REQUIRE(pMountNighon->outdoorActorPreviewBillboardSet.has_value());
+    CHECK_EQ(pMountNighon->outdoorActorPreviewBillboardSet->missingTextureActorCount, 0u);
+    CHECK(textureLoaded(*pMountNighon->outdoorActorPreviewBillboardSet, "m390sa0", 553));
+    CHECK(textureLoaded(*pMountNighon->outdoorActorPreviewBillboardSet, "m390sa0", 555));
+
+    const OpenYAMM::Game::MapAssetInfo *pNighonTunnels = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7d35.blv",
+        OpenYAMM::Game::MapLoadPurpose::ActorPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pNighonTunnels != nullptr);
+    REQUIRE(pNighonTunnels->indoorActorPreviewBillboardSet.has_value());
+    CHECK_EQ(pNighonTunnels->indoorActorPreviewBillboardSet->missingTextureActorCount, 0u);
+    CHECK(textureLoaded(*pNighonTunnels->indoorActorPreviewBillboardSet, "m250sa0", 613));
+    CHECK(textureLoaded(*pNighonTunnels->indoorActorPreviewBillboardSet, "m250sa0", 615));
+}
+
+TEST_CASE("mm7 Mount Nighon local relations keep resident warlocks peaceful to town peasants")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    OpenYAMM::Game::MapAssetInfo loadedMap = {};
+
+    REQUIRE(loadOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "out10.odm",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        },
+        loadedMap));
+    REQUIRE(loadedMap.outdoorMapDeltaData.has_value());
+
+    const std::vector<OpenYAMM::Game::MapDeltaActor> &actors = loadedMap.outdoorMapDeltaData->actors;
+    REQUIRE_GT(actors.size(), 31u);
+
+    for (size_t actorIndex = 0; actorIndex <= 8; ++actorIndex)
+    {
+        CHECK_EQ(actors[actorIndex].monsterInfoId, 419);
+        CHECK_EQ(actors[actorIndex].group, 55u);
+    }
+
+    CHECK_EQ(actors[12].group, 79u);
+    CHECK_EQ(actors[13].group, 77u);
+    CHECK_EQ(actors[30].group, 77u);
+    CHECK_EQ(actors[31].group, 78u);
+
+    OpenYAMM::Game::GameplayActorService actorService = {};
+    actorService.bindTables(&mapLoader.gameDataLoader.getMonsterTable(), &mapLoader.gameDataLoader.getSpellTable());
+
+    OpenYAMM::Game::GameplayActorTargetPolicyState warlock = {};
+    warlock.monsterId = actors[0].monsterInfoId;
+    warlock.relationMonsterId = actorService.relationMonsterId(warlock.monsterId, actors[0].ally);
+    warlock.group = actors[0].group;
+    warlock.height = actors[0].height;
+
+    OpenYAMM::Game::GameplayActorTargetPolicyState peasant = {};
+    peasant.monsterId = actors[9].monsterInfoId;
+    peasant.relationMonsterId = actorService.relationMonsterId(peasant.monsterId, actors[9].ally);
+    peasant.group = actors[9].group;
+    peasant.height = actors[9].height;
+
+    CHECK(actorService.resolveActorTargetPolicy(warlock, peasant).canTarget);
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "out10", "out10_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+
+    for (uint32_t peasantId = 360; peasantId <= 366; ++peasantId)
+    {
+        const uint32_t warlockToPeasantKey =
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(419, peasantId);
+        const uint32_t peasantToWarlockKey =
+            OpenYAMM::Game::EventRuntime::monsterRelationOverrideKey(peasantId, 419);
+
+        REQUIRE(runtimeState.monsterRelationOverrides.contains(warlockToPeasantKey));
+        CHECK_EQ(runtimeState.monsterRelationOverrides.at(warlockToPeasantKey), 0);
+        REQUIRE(runtimeState.monsterRelationOverrides.contains(peasantToWarlockKey));
+        CHECK_EQ(runtimeState.monsterRelationOverrides.at(peasantToWarlockKey), 0);
+    }
 }
 
 TEST_CASE("mm7 walls of mist air elementals resolve actor preview textures")
