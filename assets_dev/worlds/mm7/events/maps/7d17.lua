@@ -37,6 +37,7 @@ RegisterEvent(1, "Legacy event 1", function()
     SetValue(MapVar(2), 1)
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghost A, spawn Skeleton Warrior A, spawn Thief A
 end)
+
 RegisterEvent(3, "Legacy event 3", function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
@@ -239,3 +240,4 @@ RegisterEvent(65533, "", function()
         evt.SetTexture(4, "c2b")
     end
 end)
+

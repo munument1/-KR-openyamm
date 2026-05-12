@@ -3,7 +3,7 @@
 
 SetMapMetadata({
     onLoad = {1, 2, 3, 4, 5},
-    onLeave = {6, 7, 8, 65535, 10},
+    onLeave = {6, 7, 8, 9, 10},
     openedChestIds = {
     [81] = {0},
     [82] = {1},
@@ -87,7 +87,31 @@ RegisterEvent(8, "Legacy event 8", function()
     SetValue(Counter(10), 0)
 end)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterEvent(9, "Legacy event 9", function()
+    if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
+        return
+    elseif IsQBitSet(QBit(155)) then -- Killed all Dragons in Garrote Gorge Area
+        return
+    else
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 189, 0, false) then return end -- monster 189 "Hatchling"; all matching actors defeated
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 190, 0, false) then return end -- monster 190 "Dragonette"; all matching actors defeated
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 191, 0, false) then return end -- monster 191 "Young Dragon"; all matching actors defeated
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 69, 0, false) then return end -- monster 69 "Dragon"; all matching actors defeated
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 70, 0, false) then return end -- monster 70 "Dragon Flightleader"; all matching actors defeated
+        if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 71, 0, false) then return end -- monster 71 "Great Wyrm"; all matching actors defeated
+        if not IsQBitSet(QBit(156)) then -- Questbit set for Riki
+            SetQBit(QBit(156)) -- Questbit set for Riki
+            evt.SummonMonsters(2, 1, 223, -8, 170, 0, 1, 0) -- encounter slot 2 "Wimpy Dragon" tier A, count 223, pos=(-8, 170, 0), actor group 1, no unique actor name
+            evt.SetMonGroupBit(1, MonsterBits.Invisible, 1)
+            return
+        end
+        SetQBit(QBit(155)) -- Killed all Dragons in Garrote Gorge Area
+        SetQBit(QBit(225)) -- dead questbit for internal use(bling)
+        ClearQBit(QBit(225)) -- dead questbit for internal use(bling)
+        evt.StatusText("You have killed all of the Dragons")
+        return
+    end
+end)
 
 RegisterEvent(10, "Legacy event 10", function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
@@ -216,7 +240,4 @@ end)
 RegisterEvent(501, "Leave the dragon cave", function()
     evt.MoveToMap(6376, 12420, 1616, 0, 0, 0, 0, 1, "out05.odm") -- Garrote Gorge
 end, "Leave the dragon cave")
-
-RegisterEvent(65535, "", function()
-end)
 

@@ -30,7 +30,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {6, 15, 18, 24},
     timers = {
-    { eventId = 452, repeating = true, intervalGameMinutes = 2.5, remainingGameMinutes = 2.5 },
+    { eventId = 65532, repeating = true, intervalGameMinutes = 2.5, remainingGameMinutes = 2.5 },
     { eventId = 454, repeating = true, intervalGameMinutes = 4, remainingGameMinutes = 4 },
     { eventId = 456, repeating = true, intervalGameMinutes = 3.5, remainingGameMinutes = 3.5 },
     },
@@ -39,6 +39,7 @@ SetMapMetadata({
 RegisterEvent(3, "Legacy event 3", function()
     evt.SetDoorState(1, DoorAction.Trigger)
 end)
+
 RegisterEvent(176, "Chest", function()
     evt.OpenChest(1)
 end, "Chest")
@@ -182,8 +183,6 @@ end)
 
 RegisterEvent(452, "Legacy event 452", function()
     evt.MoveToMap(1232, 6896, -384, 0, 0, 0, 0, 0)
-    evt.CastSpell(6, 7, 4, 13891, 229, 161, 13891, 4912, 161) -- Fireball
-    evt.CastSpell(6, 7, 4, 14618, 857, 161, 9284, 857, 161) -- Fireball
 end)
 
 RegisterEvent(454, "Legacy event 454", function()
@@ -227,4 +226,9 @@ RegisterEvent(65533, "", function()
     if IsAtLeast(MapVar(18), 1) then
         evt.SetTexture(4, "cwb1")
     end
+end)
+
+RegisterEvent(65532, "", function()
+    evt.CastSpell(6, 7, 4, 13891, 229, 161, 13891, 4912, 161) -- Fireball
+    evt.CastSpell(6, 7, 4, 14618, 857, 161, 9284, 857, 161) -- Fireball
 end)
