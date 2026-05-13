@@ -327,6 +327,7 @@ int outdoorMinimapArrowIndex(float yawRadians)
 enum class ItemTintContext
 {
     None,
+    CharacterScreen,
     Held,
     Equipped,
     ShopIdentify,
@@ -366,6 +367,14 @@ uint32_t itemTintColorAbgr(
 
     switch (context)
     {
+        case ItemTintContext::CharacterScreen:
+            if (isBroken)
+            {
+                return BrokenItemTintColorAbgr;
+            }
+
+            break;
+
         case ItemTintContext::Held:
         case ItemTintContext::Equipped:
             if (isBroken)
@@ -401,6 +410,41 @@ uint32_t itemTintColorAbgr(
     }
 
     return 0xffffffffu;
+}
+
+void submitItemTintOverlay(
+    GameplayScreenRuntime &context,
+    const GameplayScreenRuntime::HudTextureHandle &texture,
+    float x,
+    float y,
+    float width,
+    float height,
+    bool rotatedCounterClockwise,
+    uint32_t colorAbgr)
+{
+    if (colorAbgr == 0xffffffffu)
+    {
+        return;
+    }
+
+    const bgfx::TextureHandle tintedTextureHandle =
+        context.gameplayUiRuntime().ensureHudTextureColor(texture, colorAbgr);
+
+    if (!bgfx::isValid(tintedTextureHandle) || tintedTextureHandle.idx == texture.textureHandle.idx)
+    {
+        return;
+    }
+
+    GameplayScreenRuntime::HudTextureHandle tintedTexture = texture;
+    tintedTexture.textureHandle = tintedTextureHandle;
+
+    if (rotatedCounterClockwise)
+    {
+        context.submitHudTexturedQuadRotatedCounterClockwise(tintedTexture, x, y, width, height);
+        return;
+    }
+
+    context.submitHudTexturedQuad(tintedTexture, x, y, width, height);
 }
 
 uint32_t makeAbgrColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)
@@ -5107,17 +5151,15 @@ void GameplayPartyOverlayRenderer::renderHeldInventoryItem(GameplayScreenRuntime
     const float itemHeight = static_cast<float>(texture->height) * scale;
 
     context.submitHudTexturedQuad(*texture, itemX, itemY, itemWidth, itemHeight);
-
-    const bgfx::TextureHandle tintedTextureHandle = context.gameplayUiRuntime().ensureHudTextureColor(
+    submitItemTintOverlay(
+        context,
         *texture,
+        itemX,
+        itemY,
+        itemWidth,
+        itemHeight,
+        false,
         itemTintColorAbgr(&heldItem.item, pItemDefinition, ItemTintContext::Held));
-
-    if (bgfx::isValid(tintedTextureHandle) && tintedTextureHandle.idx != texture->textureHandle.idx)
-    {
-        GameplayScreenRuntime::HudTextureHandle tintedTexture = *texture;
-        tintedTexture.textureHandle = tintedTextureHandle;
-        context.submitHudTexturedQuad(tintedTexture, itemX, itemY, itemWidth, itemHeight);
-    }
 }
 
 void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntime &context, int width, int height)
@@ -7359,6 +7401,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             return renderAboveHud ? zIndex >= hudZThreshold : zIndex < hudZThreshold;
         };
     const size_t characterSourceIndex = context.selectedCharacterScreenSourceIndex();
+    const bool inspectedCharacterCanAct = pCharacter != nullptr && GameMechanics::canAct(*pCharacter);
 
     CharacterSheetSummary summary = {};
     std::string mightValue = "0 / 0";
@@ -8030,6 +8073,10 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
                     if (iconRect.has_value())
                     {
+                        const std::optional<InventoryItem> equippedItemState =
+                            context.partyReadOnly() != nullptr
+                                ? context.partyReadOnly()->equippedItem(characterSourceIndex, *slot)
+                                : std::nullopt;
                         const bool rotatedCounterClockwise =
                             *slot == EquipmentSlot::OffHand && pItemDefinition->equipStat != "Shield";
 
@@ -8052,16 +8099,27 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                                 iconRect->height);
                         }
 
+                        submitItemTintOverlay(
+                            context,
+                            *itemTexture,
+                            iconRect->x,
+                            iconRect->y,
+                            iconRect->width,
+                            iconRect->height,
+                            rotatedCounterClockwise,
+                            itemTintColorAbgr(
+                                equippedItemState ? &*equippedItemState : nullptr,
+                                pItemDefinition,
+                                ItemTintContext::CharacterScreen));
+
                         const bool equipmentSlotInteractive =
                             !characterScreen.dollJewelryOverlayOpen || isJewelryOverlayEquipmentSlot(*slot);
 
-                        if (equipmentSlotInteractive)
+                        if (equipmentSlotInteractive && inspectedCharacterCanAct)
                         {
                             GameplayRenderedInspectableHudItem inspectableItem = {};
                             inspectableItem.objectDescriptionId = pItemDefinition->itemId;
                             inspectableItem.hasItemState = true;
-                            const std::optional<InventoryItem> equippedItemState =
-                                context.partyReadOnly()->equippedItem(characterSourceIndex, *slot);
 
                             if (equippedItemState.has_value())
                             {
@@ -8229,25 +8287,37 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                     const InventoryItemScreenRect itemRect =
                         computeInventoryItemScreenRect(gridMetrics, item, itemWidth, itemHeight);
                     context.submitHudTexturedQuad(*itemTexture, itemRect.x, itemRect.y, itemRect.width, itemRect.height);
+                    submitItemTintOverlay(
+                        context,
+                        *itemTexture,
+                        itemRect.x,
+                        itemRect.y,
+                        itemRect.width,
+                        itemRect.height,
+                        false,
+                        itemTintColorAbgr(&item, pItemDefinition, ItemTintContext::CharacterScreen));
 
-                    GameplayRenderedInspectableHudItem inspectableItem = {};
-                    inspectableItem.objectDescriptionId = item.objectDescriptionId;
-                    inspectableItem.hasItemState = true;
-                    inspectableItem.itemState = item;
-                    inspectableItem.sourceType =
-                        context.isAdventurersInnCharacterSourceActive()
-                            ? GameplayUiController::ItemInspectSourceType::None
-                            : GameplayUiController::ItemInspectSourceType::Inventory;
-                    inspectableItem.sourceMemberIndex = characterSourceIndex;
-                    inspectableItem.sourceGridX = item.gridX;
-                    inspectableItem.sourceGridY = item.gridY;
-                    inspectableItem.textureName = pItemDefinition->iconName;
-                    inspectableItem.textureUsesItemIconTransparency = true;
-                    inspectableItem.x = itemRect.x;
-                    inspectableItem.y = itemRect.y;
-                    inspectableItem.width = itemRect.width;
-                    inspectableItem.height = itemRect.height;
-                    context.addRenderedInspectableHudItem(inspectableItem);
+                    if (inspectedCharacterCanAct)
+                    {
+                        GameplayRenderedInspectableHudItem inspectableItem = {};
+                        inspectableItem.objectDescriptionId = item.objectDescriptionId;
+                        inspectableItem.hasItemState = true;
+                        inspectableItem.itemState = item;
+                        inspectableItem.sourceType =
+                            context.isAdventurersInnCharacterSourceActive()
+                                ? GameplayUiController::ItemInspectSourceType::None
+                                : GameplayUiController::ItemInspectSourceType::Inventory;
+                        inspectableItem.sourceMemberIndex = characterSourceIndex;
+                        inspectableItem.sourceGridX = item.gridX;
+                        inspectableItem.sourceGridY = item.gridY;
+                        inspectableItem.textureName = pItemDefinition->iconName;
+                        inspectableItem.textureUsesItemIconTransparency = true;
+                        inspectableItem.x = itemRect.x;
+                        inspectableItem.y = itemRect.y;
+                        inspectableItem.width = itemRect.width;
+                        inspectableItem.height = itemRect.height;
+                        context.addRenderedInspectableHudItem(inspectableItem);
+                    }
                 }
             }
         }

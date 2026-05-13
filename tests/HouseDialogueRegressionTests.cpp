@@ -8,6 +8,7 @@
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/maps/SaveGame.h"
+#include "game/party/PartySpellSystem.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
@@ -29,6 +30,8 @@
 namespace
 {
 constexpr uint32_t TempleHouseId = 303;
+constexpr uint32_t NewSorpigalTempleHouseId = 325;
+constexpr uint32_t BlackshireTempleHouseId = 327;
 constexpr uint32_t ElementalGuildHouseId = 139;
 constexpr uint32_t TrainingHallHouseId = 1564;
 constexpr uint32_t BankHouseId = 281;
@@ -59,8 +62,18 @@ constexpr uint32_t TessTuckerNpcId = 835;
 constexpr uint32_t BufordAllmanNpcId = 992;
 constexpr uint32_t AbdulaiMahgrebNpcId = 1010;
 constexpr uint32_t KevinWatchPeasantNpcId = 977;
+constexpr uint32_t IrisPoppyfieldNpcId = 971;
 constexpr uint32_t WilmaCookGateMasterNpcId = 1035;
+constexpr uint32_t NaomiWindNpcId = 1051;
+constexpr uint32_t NaomiWindHouseId = 1377;
+constexpr uint32_t PaulHapsburgNpcId = 1164;
+constexpr uint32_t BardProfessionId = 36;
+constexpr uint32_t WindMasterProfessionId = 39;
+constexpr uint32_t WaterMasterProfessionId = 40;
 constexpr uint32_t GateMasterProfessionId = 41;
+constexpr uint32_t AcolyteProfessionId = 42;
+constexpr uint32_t PiperProfessionId = 43;
+constexpr uint32_t MasterHealerProfessionId = 12;
 constexpr uint32_t StonNpcId = 27;
 constexpr uint32_t LawrenceMarkNpcId = 379;
 constexpr uint32_t ExpertBlasterNpcId = 558;
@@ -695,7 +708,18 @@ TEST_CASE("generated generic actors use merged NPC names, professions, and rarit
     CHECK_FALSE(dialogHasActionLabel(dialog, "Bribe"));
 
     const std::vector<std::string> labels = collectActionLabels(dialog);
-    CHECK(std::find(labels.begin(), labels.end(), pProfession->profession) != labels.end());
+    if (pProfession->joins)
+    {
+        CHECK(std::find(labels.begin(), labels.end(), "Join") != labels.end());
+        CHECK(std::find(labels.begin(), labels.end(), pProfession->profession) == labels.end());
+        CHECK_EQ(
+            std::find(labels.begin(), labels.end(), "More Info") != labels.end(),
+            pProfession->descriptionTextId != 0);
+    }
+    else
+    {
+        CHECK(std::find(labels.begin(), labels.end(), pProfession->profession) != labels.end());
+    }
 }
 
 TEST_CASE("generated generic actors are limited to peasant bolster monsters")
@@ -807,6 +831,7 @@ TEST_CASE("generated follower actor state hides and survives save data round tri
     follower.npcId = 1184;
     follower.professionId = 52;
     follower.weeklyCost = 300;
+    follower.abilityUsedDay = 7;
     runtimeState.hiredNpcFollowers.push_back(follower);
 
     REQUIRE(OpenYAMM::Game::hideGeneratedNpcActor(runtimeState, 1184, &emeraldIsland));
@@ -840,6 +865,7 @@ TEST_CASE("generated follower actor state hides and survives save data round tri
     CHECK_EQ(loadedState.hiredNpcFollowers.front().npcId, 1184u);
     CHECK_EQ(loadedState.hiredNpcFollowers.front().professionId, 52u);
     CHECK_EQ(loadedState.hiredNpcFollowers.front().weeklyCost, 300u);
+    CHECK_EQ(loadedState.hiredNpcFollowers.front().abilityUsedDay, 7u);
     CHECK((loadedState.actorSetMasks.at(4) & invisibleBit) != 0);
 }
 
@@ -1093,20 +1119,50 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
 
     OpenYAMM::Game::EventDialogContent dialog = harness.openNpcDialogue(WilmaCookGateMasterNpcId);
     const std::optional<size_t> gateMasterHireIndex = findActionIndexByLabel(dialog, "Join");
-    const std::optional<size_t> newsIndex = findActionIndexByLabel(dialog, "Gate Master");
+    const std::optional<size_t> gateMasterInfoIndex = findActionIndexByLabel(dialog, "More Info");
 
     CHECK(gateMasterHireIndex.has_value());
+    REQUIRE(gateMasterInfoIndex.has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Cast Town Portal").has_value());
-    CHECK_FALSE(findActionIndexByLabel(dialog, "More Info").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Gate Master").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Beg").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Threat").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Bribe").has_value());
-    CHECK(newsIndex.has_value());
+
+    harness.executeAndPresent(*gateMasterInfoIndex);
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(harness.eventRuntimeState().messages.back().find("Town Portal spell") != std::string::npos);
+
+    const OpenYAMM::Game::NpcEntry *pIris = gameData.npcDialogTable.getNpc(IrisPoppyfieldNpcId);
+    REQUIRE(pIris != nullptr);
+    CHECK_EQ(pIris->professionId, BardProfessionId);
+    CHECK(pIris->joins);
+
+    dialog = harness.openNpcDialogue(IrisPoppyfieldNpcId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Bard").has_value());
+
+    const OpenYAMM::Game::NpcEntry *pPaul = gameData.npcDialogTable.getNpc(PaulHapsburgNpcId);
+    REQUIRE(pPaul != nullptr);
+    CHECK_EQ(pPaul->professionId, MasterHealerProfessionId);
+    CHECK(pPaul->joins);
+
+    dialog = harness.openNpcDialogue(PaulHapsburgNpcId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    const std::optional<size_t> paulInfoIndex = findActionIndexByLabel(dialog, "More Info");
+    REQUIRE(paulInfoIndex.has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Master Healer").has_value());
+
+    harness.executeAndPresent(*paulInfoIndex);
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(harness.eventRuntimeState().messages.back().find("Completely heals party") != std::string::npos);
+    CHECK(harness.eventRuntimeState().messages.back().find("potions") == std::string::npos);
 
     dialog = harness.openNpcDialogue(KevinWatchPeasantNpcId, 0, 4);
     const std::optional<size_t> peasantHireIndex = findActionIndexByLabel(dialog, "Join");
     REQUIRE(peasantHireIndex.has_value());
-    CHECK(findActionIndexByLabel(dialog, "Peasant").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "Peasant").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "More Info").has_value());
     const OpenYAMM::Game::EventDialogContent offerDialog =
         harness.executeAndPresent(*peasantHireIndex);
@@ -1139,8 +1195,6 @@ TEST_CASE("merged in-house plain NPC followers can be hired and leave their hous
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
     harness.party().addGold(10000);
 
-    constexpr uint32_t NaomiWindHouseId = 1377;
-    constexpr uint32_t NaomiWindNpcId = 1051;
     constexpr uint32_t WilmaCookHouseId = 1476;
     const OpenYAMM::Game::HouseEntry *pHouse = gameData.houseTable.get(WilmaCookHouseId);
     REQUIRE(pHouse != nullptr);
@@ -1148,6 +1202,8 @@ TEST_CASE("merged in-house plain NPC followers can be hired and leave their hous
     const OpenYAMM::Game::EventDialogContent naomiDialog =
         harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
     CHECK(findActionIndexByLabel(naomiDialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(naomiDialog, "More Info").has_value());
+    CHECK_FALSE(findActionIndexByLabel(naomiDialog, "Gate Master").has_value());
 
     std::vector<uint32_t> residentIds =
         OpenYAMM::Game::collectSelectableResidentNpcIds(
@@ -1195,6 +1251,80 @@ TEST_CASE("merged in-house plain NPC followers can be hired and leave their hous
             gameData.npcDialogTable,
             harness.eventRuntimeState());
     CHECK(std::find(residentIds.begin(), residentIds.end(), WilmaCookGateMasterNpcId) == residentIds.end());
+}
+
+TEST_CASE("Naomi Wind in-house hire requires start gold and leaves house after hire")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    const OpenYAMM::Game::HouseEntry *pHouse = gameData.houseTable.get(NaomiWindHouseId);
+    REQUIRE(pHouse != nullptr);
+
+    {
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+        harness.party().addGold(175);
+
+        const OpenYAMM::Game::EventDialogContent dialog =
+            harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
+        const std::optional<size_t> infoIndex = findActionIndexByLabel(dialog, "More Info");
+        REQUIRE(infoIndex.has_value());
+        CHECK_FALSE(findActionIndexByLabel(dialog, "Gate Master").has_value());
+
+        harness.executeAndPresent(*infoIndex);
+        REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+        CHECK(harness.eventRuntimeState().messages.back().find("Town Portal spell") != std::string::npos);
+
+        const OpenYAMM::Game::EventDialogContent refreshedDialog =
+            harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
+        const std::optional<size_t> hireIndex = findActionIndexByLabel(refreshedDialog, "Join");
+        REQUIRE(hireIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent offerDialog = harness.executeAndPresent(*hireIndex);
+        const std::optional<size_t> acceptIndex = findActionIndexByLabel(offerDialog, "Yes");
+        REQUIRE(acceptIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent refusedDialog = harness.executeAndPresent(*acceptIndex);
+        CHECK(refusedDialog.isActive);
+        CHECK(harness.eventRuntimeState().hiredNpcFollowers.empty());
+        CHECK_FALSE(harness.eventRuntimeState().unavailableNpcIds.contains(NaomiWindNpcId));
+        REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+        CHECK_EQ(harness.eventRuntimeState().messages.back(), "You don't have enough gold!");
+        CHECK(harness.eventRuntimeState().messages.back().find("Lost Book") == std::string::npos);
+
+        const std::vector<uint32_t> residentIds =
+            OpenYAMM::Game::collectSelectableResidentNpcIds(
+                *pHouse,
+                gameData.npcDialogTable,
+                harness.eventRuntimeState());
+        CHECK(std::find(residentIds.begin(), residentIds.end(), NaomiWindNpcId) != residentIds.end());
+    }
+
+    {
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+        harness.party().addGold(2000);
+
+        const OpenYAMM::Game::EventDialogContent dialog =
+            harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
+        const std::optional<size_t> hireIndex = findActionIndexByLabel(dialog, "Join");
+        REQUIRE(hireIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent offerDialog = harness.executeAndPresent(*hireIndex);
+        const std::optional<size_t> acceptIndex = findActionIndexByLabel(offerDialog, "Yes");
+        REQUIRE(acceptIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent hiredDialog = harness.executeAndPresent(*acceptIndex);
+        CHECK_FALSE(hiredDialog.isActive);
+        REQUIRE_EQ(harness.eventRuntimeState().hiredNpcFollowers.size(), 1u);
+        CHECK_EQ(harness.eventRuntimeState().hiredNpcFollowers.front().npcId, NaomiWindNpcId);
+        CHECK(harness.eventRuntimeState().unavailableNpcIds.contains(NaomiWindNpcId));
+
+        const std::vector<uint32_t> residentIds =
+            OpenYAMM::Game::collectSelectableResidentNpcIds(
+                *pHouse,
+                gameData.npcDialogTable,
+                harness.eventRuntimeState());
+        CHECK(std::find(residentIds.begin(), residentIds.end(), NaomiWindNpcId) == residentIds.end());
+    }
 }
 
 TEST_CASE("merged in-house scripted teachers do not offer profession hire")
@@ -1245,11 +1375,186 @@ TEST_CASE("merged NPC follower action topics execute abilities instead of stale 
     REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
     CHECK_EQ(harness.eventRuntimeState().messages.back(), "Done!");
     CHECK_FALSE(findActionIndexByLabel(afterHealDialog, "Heal Party").has_value());
+    REQUIRE_EQ(harness.eventRuntimeState().hiredNpcFollowers.size(), 1u);
+    CHECK_EQ(
+        harness.eventRuntimeState().hiredNpcFollowers.front().abilityUsedDay,
+        OpenYAMM::Game::npcProfessionActionCooldownDay(harness.worldRuntime().gameMinutes()));
     CHECK_EQ(
         harness.eventRuntimeState().variables[OpenYAMM::Game::npcProfessionActionCooldownVariableKey(
             SharlaQuinnMasterHealerNpcId)],
         static_cast<int32_t>(OpenYAMM::Game::npcProfessionActionCooldownDay(
             harness.worldRuntime().gameMinutes())));
+}
+
+TEST_CASE("gate master town portal uses follower spell power")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    harness.eventRuntimeState().hiredNpcFollowers.push_back({WilmaCookGateMasterNpcId, GateMasterProfessionId, 2000});
+    harness.eventRuntimeState().unavailableNpcIds.insert(WilmaCookGateMasterNpcId);
+    harness.party().addHiredNpcFollower({WilmaCookGateMasterNpcId, GateMasterProfessionId, 2000});
+
+    OpenYAMM::Game::Character *pActiveMember = harness.party().activeMember();
+    REQUIRE(pActiveMember != nullptr);
+    pActiveMember->skills.erase("WaterMagic");
+    pActiveMember->spellPoints = 0;
+    pActiveMember->recoverySecondsRemaining = 0.0f;
+
+    const OpenYAMM::Game::EventDialogContent dialog =
+        harness.openNpcDialogue(WilmaCookGateMasterNpcId);
+    const std::optional<size_t> townPortalIndex = findActionIndexByLabel(dialog, "Cast Town Portal");
+    REQUIRE(townPortalIndex.has_value());
+
+    harness.executeAndPresent(*townPortalIndex);
+
+    const OpenYAMM::Game::GameplayUiController::UtilitySpellOverlayState &overlay =
+        harness.uiController().utilitySpellOverlay();
+    REQUIRE(overlay.active);
+    CHECK_EQ(overlay.mode, OpenYAMM::Game::GameplayUiController::UtilitySpellOverlayMode::TownPortal);
+    CHECK_EQ(overlay.skillLevelOverride, 10u);
+    CHECK_EQ(overlay.skillMasteryOverride, OpenYAMM::Game::SkillMastery::Master);
+    CHECK_FALSE(overlay.spendMana);
+    CHECK_FALSE(overlay.applyRecovery);
+    CHECK(overlay.bypassGameplayCasterValidation);
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = overlay.casterMemberIndex;
+    request.spellId = overlay.spellId;
+    request.skillLevelOverride = overlay.skillLevelOverride;
+    request.skillMasteryOverride = overlay.skillMasteryOverride;
+    request.spendMana = overlay.spendMana;
+    request.applyRecovery = overlay.applyRecovery;
+    request.bypassGameplayCasterValidation = overlay.bypassGameplayCasterValidation;
+    request.utilityAction = OpenYAMM::Game::PartySpellUtilityActionKind::TownPortalDestination;
+    request.hasUtilityMapMove = true;
+    request.utilityMapMoveMapName = "out01.odm";
+    request.utilityMapMoveX = 10;
+    request.utilityMapMoveY = 20;
+    request.utilityMapMoveZ = 30;
+    request.utilityMapMoveDirectionDegrees = 90;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        harness.party(),
+        harness.worldRuntime(),
+        gameData.spellTable,
+        request);
+
+    CHECK(result.succeeded());
+    REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("out01.odm"));
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->x, 10);
+
+    REQUIRE_EQ(harness.eventRuntimeState().hiredNpcFollowers.size(), 1u);
+    CHECK_EQ(
+        harness.eventRuntimeState().hiredNpcFollowers.front().abilityUsedDay,
+        OpenYAMM::Game::npcProfessionActionCooldownDay(harness.worldRuntime().gameMinutes()));
+
+    const OpenYAMM::Game::EventDialogContent usedDialog =
+        harness.openNpcDialogue(WilmaCookGateMasterNpcId);
+    CHECK_FALSE(findActionIndexByLabel(usedDialog, "Cast Town Portal").has_value());
+
+    harness.worldRuntime().advanceGameMinutes(18.0f * 60.0f);
+    const OpenYAMM::Game::EventDialogContent nextDayDialog =
+        harness.openNpcDialogue(WilmaCookGateMasterNpcId);
+    CHECK(findActionIndexByLabel(nextDayDialog, "Cast Town Portal").has_value());
+}
+
+TEST_CASE("wind master follower spell queues normal cast feedback")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    harness.eventRuntimeState().npcProfessionOverrides[KevinWatchPeasantNpcId] = WindMasterProfessionId;
+    harness.eventRuntimeState().hiredNpcFollowers.push_back({KevinWatchPeasantNpcId, WindMasterProfessionId, 2000});
+    harness.eventRuntimeState().unavailableNpcIds.insert(KevinWatchPeasantNpcId);
+    harness.party().addHiredNpcFollower({KevinWatchPeasantNpcId, WindMasterProfessionId, 2000});
+
+    const OpenYAMM::Game::EventDialogContent dialog =
+        harness.openNpcDialogue(KevinWatchPeasantNpcId);
+    const std::optional<size_t> flyIndex = findActionIndexByLabel(dialog, "Cast Fly");
+    REQUIRE(flyIndex.has_value());
+
+    harness.executeAndPresent(*flyIndex);
+
+    const OpenYAMM::Game::PartyBuffState *pFlyBuff =
+        harness.party().partyBuff(OpenYAMM::Game::PartyBuffId::Fly);
+    REQUIRE(pFlyBuff != nullptr);
+    CHECK(pFlyBuff->active());
+
+    REQUIRE_EQ(harness.eventRuntimeState().spellFxRequests.size(), 1u);
+    CHECK_EQ(
+        harness.eventRuntimeState().spellFxRequests.front().spellId,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Fly));
+    CHECK_EQ(
+        harness.eventRuntimeState().spellFxRequests.front().memberIndices.size(),
+        harness.party().members().size());
+
+    const OpenYAMM::Game::SpellEntry *pFlySpell =
+        gameData.spellTable.findById(static_cast<int>(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Fly)));
+    REQUIRE(pFlySpell != nullptr);
+    REQUIRE_FALSE(harness.eventRuntimeState().pendingSounds.empty());
+    CHECK_EQ(harness.eventRuntimeState().pendingSounds.back().soundId, pFlySpell->effectSoundId);
+}
+
+TEST_CASE("hired NPC spell abilities use OE durations")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    auto castFollowerSpell = [&gameData](uint32_t professionId, const std::string &actionLabel)
+    {
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+        harness.eventRuntimeState().npcProfessionOverrides[KevinWatchPeasantNpcId] = professionId;
+        harness.eventRuntimeState().hiredNpcFollowers.push_back({KevinWatchPeasantNpcId, professionId, 2000});
+        harness.eventRuntimeState().unavailableNpcIds.insert(KevinWatchPeasantNpcId);
+        harness.party().addHiredNpcFollower({KevinWatchPeasantNpcId, professionId, 2000});
+
+        const OpenYAMM::Game::EventDialogContent dialog = harness.openNpcDialogue(KevinWatchPeasantNpcId);
+        const std::optional<size_t> actionIndex = findActionIndexByLabel(dialog, actionLabel);
+        REQUIRE(actionIndex.has_value());
+        harness.executeAndPresent(*actionIndex);
+
+        return harness;
+    };
+
+    OpenYAMM::Tests::HouseDialogueTestHarness flyHarness =
+        castFollowerSpell(WindMasterProfessionId, "Cast Fly");
+    const OpenYAMM::Game::PartyBuffState *pFly =
+        flyHarness.party().partyBuff(OpenYAMM::Game::PartyBuffId::Fly);
+    REQUIRE(pFly != nullptr);
+    CHECK_EQ(pFly->remainingSeconds, doctest::Approx(7200.0f));
+    CHECK_EQ(pFly->skillLevel, 2u);
+    CHECK_EQ(pFly->skillMastery, OpenYAMM::Game::SkillMastery::Master);
+
+    OpenYAMM::Tests::HouseDialogueTestHarness waterWalkHarness =
+        castFollowerSpell(WaterMasterProfessionId, "Cast Walk on Water");
+    const OpenYAMM::Game::PartyBuffState *pWaterWalk =
+        waterWalkHarness.party().partyBuff(OpenYAMM::Game::PartyBuffId::WaterWalk);
+    REQUIRE(pWaterWalk != nullptr);
+    CHECK_EQ(pWaterWalk->remainingSeconds, doctest::Approx(10800.0f));
+    CHECK_EQ(pWaterWalk->skillLevel, 3u);
+    CHECK_EQ(pWaterWalk->skillMastery, OpenYAMM::Game::SkillMastery::Master);
+
+    OpenYAMM::Tests::HouseDialogueTestHarness blessHarness =
+        castFollowerSpell(AcolyteProfessionId, "Cast Bless");
+    for (size_t memberIndex = 0; memberIndex < blessHarness.party().members().size(); ++memberIndex)
+    {
+        const OpenYAMM::Game::CharacterBuffState *pBless =
+            blessHarness.party().characterBuff(memberIndex, OpenYAMM::Game::CharacterBuffId::Bless);
+        REQUIRE(pBless != nullptr);
+        CHECK_EQ(pBless->remainingSeconds, doctest::Approx(8100.0f));
+        CHECK_EQ(pBless->skillLevel, 5u);
+        CHECK_EQ(pBless->skillMastery, OpenYAMM::Game::SkillMastery::Master);
+    }
+
+    OpenYAMM::Tests::HouseDialogueTestHarness heroismHarness =
+        castFollowerSpell(PiperProfessionId, "Cast Heroism");
+    const OpenYAMM::Game::PartyBuffState *pHeroism =
+        heroismHarness.party().partyBuff(OpenYAMM::Game::PartyBuffId::Heroism);
+    REQUIRE(pHeroism != nullptr);
+    CHECK_EQ(pHeroism->remainingSeconds, doctest::Approx(8100.0f));
+    CHECK_EQ(pHeroism->skillLevel, 5u);
+    CHECK_EQ(pHeroism->skillMastery, OpenYAMM::Game::SkillMastery::Master);
 }
 
 TEST_CASE("dismissing hired NPC closes dialogue")
@@ -1330,21 +1635,21 @@ TEST_CASE("merged continent settings gate profession news fallback")
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
     harness.party().addGold(10000);
 
+    constexpr uint32_t KyleLutvigChildNpcId = 810;
+
     OpenYAMM::Game::MapStatsEntry jadameMap = {};
     jadameMap.mergedContinentId = 1;
     harness.setCurrentMap(jadameMap);
 
-    const OpenYAMM::Game::EventDialogContent jadameDialog = harness.openNpcDialogue(WilmaCookGateMasterNpcId);
-    CHECK(findActionIndexByLabel(jadameDialog, "Join").has_value());
-    CHECK_FALSE(findActionIndexByLabel(jadameDialog, "Gate Master").has_value());
+    const OpenYAMM::Game::EventDialogContent jadameDialog = harness.openNpcDialogue(KyleLutvigChildNpcId);
+    CHECK_FALSE(findActionIndexByLabel(jadameDialog, "Child").has_value());
 
-    OpenYAMM::Game::MapStatsEntry enrothMap = {};
-    enrothMap.mergedContinentId = 3;
-    harness.setCurrentMap(enrothMap);
+    OpenYAMM::Game::MapStatsEntry betweenTimeMap = {};
+    betweenTimeMap.mergedContinentId = 4;
+    harness.setCurrentMap(betweenTimeMap);
 
-    const OpenYAMM::Game::EventDialogContent enrothDialog = harness.openNpcDialogue(WilmaCookGateMasterNpcId);
-    CHECK(findActionIndexByLabel(enrothDialog, "Join").has_value());
-    CHECK(findActionIndexByLabel(enrothDialog, "Gate Master").has_value());
+    const OpenYAMM::Game::EventDialogContent betweenTimeDialog = harness.openNpcDialogue(KyleLutvigChildNpcId);
+    CHECK(findActionIndexByLabel(betweenTimeDialog, "Child").has_value());
 }
 
 TEST_CASE("merged continent settings gate NPC follower offers")
@@ -2039,6 +2344,151 @@ TEST_CASE("dwi temple skill learning")
     REQUIRE(pCleric != nullptr);
     CHECK(pCleric->hasSkill("Merchant"));
     CHECK_LT(harness.party().gold(), initialGold);
+}
+
+TEST_CASE("temple healing restores active member to effective resource maximums")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pTempleHouse = gameData.houseTable.get(TempleHouseId);
+
+    REQUIRE(pTempleHouse != nullptr);
+
+    harness.party().addGold(1000);
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    pMember->maxHealth = 80;
+    pMember->health = 80;
+    pMember->maxSpellPoints = 60;
+    pMember->spellPoints = 60;
+    pMember->magicalBonuses.maxHealth = 30;
+    pMember->magicalBonuses.maxSpellPoints = 15;
+
+    const std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pTempleHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        0.0f,
+        OpenYAMM::Game::DialogueMenuId::None);
+    const std::optional<OpenYAMM::Game::HouseActionOption> healAction =
+        findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal);
+
+    REQUIRE(healAction.has_value());
+
+    const OpenYAMM::Game::HouseActionResult result = OpenYAMM::Game::performHouseAction(
+        *healAction,
+        *pTempleHouse,
+        harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime());
+
+    CHECK(result.succeeded);
+    pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    CHECK_EQ(pMember->health, 110);
+    CHECK_EQ(pMember->spellPoints, 75);
+}
+
+TEST_CASE("temple healing price uses condition age and house multiplier")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pTempleHouse = gameData.houseTable.get(TempleHouseId);
+
+    REQUIRE(pTempleHouse != nullptr);
+
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    pMember->maxHealth = 80;
+    pMember->health = 60;
+    pMember->maxSpellPoints = 20;
+    pMember->spellPoints = 20;
+
+    std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pTempleHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    std::optional<OpenYAMM::Game::HouseActionOption> healAction =
+        findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal);
+
+    REQUIRE(healAction.has_value());
+    CHECK_EQ(healAction->label, "Heal 10 gold");
+
+    harness.worldRuntime().advanceGameMinutes(10.0f * 24.0f * 60.0f);
+    pMember->health = pMember->maxHealth;
+    const size_t deadIndex = static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead);
+    pMember->conditions.set(deadIndex);
+    pMember->conditionStartGameMinutes[deadIndex] =
+        harness.worldRuntime().gameMinutes() - 2.0f * 24.0f * 60.0f;
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pTempleHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    healAction = findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal);
+
+    REQUIRE(healAction.has_value());
+    CHECK_EQ(healAction->label, "Heal 150 gold");
+}
+
+TEST_CASE("mm6 temple healing tier limits serious condition treatment")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pNewSorpigalTemple = gameData.houseTable.get(NewSorpigalTempleHouseId);
+    const OpenYAMM::Game::HouseEntry *pBlackshireTemple = gameData.houseTable.get(BlackshireTempleHouseId);
+
+    REQUIRE(pNewSorpigalTemple != nullptr);
+    REQUIRE(pBlackshireTemple != nullptr);
+    CHECK_EQ(pNewSorpigalTemple->templeHealingTier, doctest::Approx(2.0f));
+    CHECK_EQ(pBlackshireTemple->templeHealingTier, doctest::Approx(2.5f));
+
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    const size_t deadIndex = static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead);
+    const size_t eradicatedIndex = static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Eradicated);
+
+    pMember->conditions.set(deadIndex);
+    pMember->conditionStartGameMinutes[deadIndex] = harness.worldRuntime().gameMinutes();
+
+    std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pNewSorpigalTemple,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    CHECK(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+
+    pMember->conditions.reset();
+    pMember->conditionStartGameMinutes.fill(0.0f);
+    pMember->conditions.set(eradicatedIndex);
+    pMember->conditionStartGameMinutes[eradicatedIndex] = harness.worldRuntime().gameMinutes();
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pNewSorpigalTemple,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    CHECK_FALSE(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pBlackshireTemple,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    CHECK(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
 }
 
 TEST_CASE("dwi guild skill learning")
@@ -3328,6 +3778,10 @@ TEST_CASE("transport action spends gold advances time and queues map move")
     pActiveMember->health = std::max(1, pActiveMember->health - 20);
     pActiveMember->spellPoints = std::max(0, pActiveMember->spellPoints - 5);
     pActiveMember->recoverySecondsRemaining = 3.0f;
+    pActiveMember->levelModifier = 30;
+    pActiveMember->armorClassModifier = 40;
+    pActiveMember->ageModifier = 5;
+    pActiveMember->magicalBonuses.might = 25;
     pActiveMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak));
     pActiveMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Fear));
 
@@ -3362,6 +3816,10 @@ TEST_CASE("transport action spends gold advances time and queues map move")
     CHECK_FALSE(pActiveMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak)));
     CHECK_FALSE(pActiveMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Fear)));
     CHECK_EQ(pActiveMember->recoverySecondsRemaining, doctest::Approx(0.0f));
+    CHECK_EQ(pActiveMember->levelModifier, 0);
+    CHECK_EQ(pActiveMember->armorClassModifier, 0);
+    CHECK_EQ(pActiveMember->ageModifier, 0);
+    CHECK_EQ(pActiveMember->magicalBonuses.might, 0);
     CHECK_FALSE(harness.party().hasPartyBuff(OpenYAMM::Game::PartyBuffId::TorchLight));
 
     const OpenYAMM::Game::EventRuntimeState *pWorldRuntimeState = harness.worldRuntime().eventRuntimeState();
@@ -3379,6 +3837,80 @@ TEST_CASE("transport action spends gold advances time and queues map move")
     REQUIRE(pendingMapMove->directionDegrees.has_value());
     CHECK_EQ(*pendingMapMove->directionDegrees, 0);
     CHECK_FALSE(pendingMapMove->useMapStartPosition);
+}
+
+TEST_CASE("outdoor transition map move applies travel rest food and temporary reset")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    OpenYAMM::Game::MapStatsEntry currentMap = {};
+    currentMap.name = "Ravenshore";
+    currentMap.fileName = "Out02.odm";
+    harness.setCurrentMap(currentMap);
+
+    OpenYAMM::Game::EventRuntimeState::PendingMapMove mapMove = {};
+    mapMove.mapName = std::string("Out06.odm");
+    mapMove.x = 100;
+    mapMove.y = 200;
+    mapMove.z = 300;
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext pendingContext = {};
+    pendingContext.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    pendingContext.transitionMapMove = mapMove;
+    harness.eventRuntimeState().pendingDialogueContext = pendingContext;
+
+    harness.party().addFood(10);
+    const int initialFood = harness.party().food();
+    harness.party().applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::TorchLight,
+        600.0f,
+        1,
+        0,
+        0,
+        OpenYAMM::Game::SkillMastery::None,
+        0);
+
+    OpenYAMM::Game::Character *pActiveMember = harness.party().activeMember();
+    REQUIRE(pActiveMember != nullptr);
+    pActiveMember->health = std::max(1, pActiveMember->health - 20);
+    pActiveMember->spellPoints = std::max(0, pActiveMember->spellPoints - 5);
+    pActiveMember->levelModifier = 30;
+    pActiveMember->armorClassModifier = 40;
+    pActiveMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak));
+
+    const float initialGameMinutes = harness.worldRuntime().gameMinutes();
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.presentPendingDialog(0, true);
+    std::optional<size_t> confirmIndex;
+
+    for (size_t actionIndex = 0; actionIndex < dialog.actions.size(); ++actionIndex)
+    {
+        if (dialog.actions[actionIndex].kind == OpenYAMM::Game::EventDialogActionKind::MapTransitionConfirm)
+        {
+            confirmIndex = actionIndex;
+            break;
+        }
+    }
+
+    REQUIRE(confirmIndex.has_value());
+    const OpenYAMM::Game::GameplayDialogController::Result result =
+        harness.executeActiveDialogAction(*confirmIndex);
+
+    CHECK(result.shouldCloseActiveDialog);
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(initialGameMinutes + 5.0f * 24.0f * 60.0f));
+    CHECK_EQ(harness.party().food(), initialFood - 5);
+
+    pActiveMember = harness.party().activeMember();
+    REQUIRE(pActiveMember != nullptr);
+    CHECK_EQ(pActiveMember->health, pActiveMember->maxHealth);
+    CHECK_EQ(pActiveMember->spellPoints, pActiveMember->maxSpellPoints);
+    CHECK_EQ(pActiveMember->levelModifier, 0);
+    CHECK_EQ(pActiveMember->armorClassModifier, 0);
+    CHECK_FALSE(pActiveMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak)));
+    CHECK_FALSE(harness.party().hasPartyBuff(OpenYAMM::Game::PartyBuffId::TorchLight));
+
+    REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("Out06.odm"));
 }
 
 TEST_CASE("merged transport tables drive mm8 boat routes")
@@ -4474,10 +5006,7 @@ TEST_CASE("event teacher hint sets autonote and note fx")
     }
 
     CHECK(sawAutoNoteFx);
-    REQUIRE_FALSE(harness.eventRuntimeState().pendingSounds.empty());
-    CHECK_EQ(
-        harness.eventRuntimeState().pendingSounds.back().soundId,
-        static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
+    CHECK(harness.eventRuntimeState().pendingSounds.empty());
     REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
     CHECK_NE(
         harness.eventRuntimeState().messages.front().find("Ashandra Withersmythe"),

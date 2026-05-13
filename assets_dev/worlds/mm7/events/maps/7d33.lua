@@ -379,7 +379,7 @@ end, "Bookcase")
 RegisterEvent(198, "Bookcase", function()
 end, "Bookcase")
 
-RegisterEvent(376, "Door", function()
+RegisterEvent(376, "Alice Hargreaves", function()
     if not IsQBitSet(QBit(537)) then -- Mini-dungeon Area 5. Rescued/Captured Alice Hargreaves.
         if IsQBitSet(QBit(1685)) then -- Replacement for NPCs ¹54 ver. 7
             evt.StatusText("The Door is Locked")
@@ -395,7 +395,7 @@ RegisterEvent(376, "Door", function()
     end
     evt.StatusText("The Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "Door")
+end, "Alice Hargreaves")
 
 RegisterEvent(377, "Portrait", function()
     if IsQBitSet(QBit(776)) then return end -- Took Roland Painting
@@ -411,7 +411,7 @@ RegisterEvent(378, "Portrait", function()
     SetQBit(QBit(777)) -- Took Archi Painting
 end, "Portrait")
 
-RegisterEvent(416, "Enter the Throne Room", function()
+RegisterEvent(416, "Throne Room", function()
     if IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         if not IsAtLeast(MapVar(6), 2) then
             evt.EnterHouse(217) -- Throne Room
@@ -420,7 +420,7 @@ RegisterEvent(416, "Enter the Throne Room", function()
     end
     evt.FaceAnimation(FaceAnimation.DoorLocked)
     evt.StatusText("The Door is Locked")
-end, "Enter the Throne Room")
+end, "Throne Room")
 
 RegisterEvent(451, "Legacy event 451", function()
     if IsAtLeast(Invisible, 0) then return end

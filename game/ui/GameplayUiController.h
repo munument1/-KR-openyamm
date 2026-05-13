@@ -249,6 +249,7 @@ public:
     {
         bool active = false;
         RestMode mode = RestMode::None;
+        bool innRest = false;
         float totalMinutes = 0.0f;
         float remainingMinutes = 0.0f;
         float hourglassElapsedSeconds = 0.0f;
@@ -388,6 +389,12 @@ public:
         UtilitySpellOverlayMode mode = UtilitySpellOverlayMode::None;
         uint32_t spellId = 0;
         size_t casterMemberIndex = 0;
+        uint32_t skillLevelOverride = 0;
+        SkillMastery skillMasteryOverride = SkillMastery::None;
+        bool spendMana = true;
+        bool applyRecovery = true;
+        bool bypassRequiredMastery = false;
+        bool bypassGameplayCasterValidation = false;
         bool lloydRecallMode = false;
         bool lloydSetPreviewCapturePending = false;
         bool lloydSetPreviewScreenshotRequested = false;

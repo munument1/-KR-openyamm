@@ -74,7 +74,8 @@ uint32_t remapCasterMemberIndexAfterDismiss(uint32_t casterMemberIndex, size_t d
 
 bool characterNeedsTempleHealing(const Character &member)
 {
-    if (member.health < member.maxHealth || member.spellPoints < member.maxSpellPoints)
+    if (member.health < Party::effectiveMaximumHealth(member)
+        || member.spellPoints < Party::effectiveMaximumSpellPoints(member))
     {
         return true;
     }
@@ -90,6 +91,13 @@ bool characterNeedsTempleHealing(const Character &member)
     return false;
 }
 
+void clearTemporaryEventBonuses(Character &member)
+{
+    member.armorClassModifier = 0;
+    member.levelModifier = 0;
+    member.ageModifier = 0;
+}
+
 uint32_t primaryStatWithMagicalBonus(uint32_t baseValue, int magicalBonus)
 {
     const int64_t adjustedValue = static_cast<int64_t>(baseValue) + magicalBonus;
@@ -98,14 +106,12 @@ uint32_t primaryStatWithMagicalBonus(uint32_t baseValue, int magicalBonus)
 
 int currentMaximumHealth(const Character &member)
 {
-    return std::max(1, member.maxHealth + member.permanentBonuses.maxHealth + member.magicalBonuses.maxHealth);
+    return Party::effectiveMaximumHealth(member);
 }
 
 int currentMaximumSpellPoints(const Character &member)
 {
-    return std::max(
-        0,
-        member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints);
+    return Party::effectiveMaximumSpellPoints(member);
 }
 
 void applyMagicalPrimaryStatResourceBonuses(
@@ -987,19 +993,33 @@ void updateMemberIncapacitatedCondition(Character &member, bool preservationActi
     if (member.health > 0)
     {
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Unconscious));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Unconscious)] = 0.0f;
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Dead));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Dead)] = 0.0f;
         return;
     }
 
     if (member.health + static_cast<int>(member.endurance) >= 1 || preservationActive)
     {
-        member.conditions.set(static_cast<size_t>(CharacterCondition::Unconscious));
+        const size_t unconsciousIndex = static_cast<size_t>(CharacterCondition::Unconscious);
+        if (!member.conditions.test(unconsciousIndex))
+        {
+            member.conditionStartGameMinutes[unconsciousIndex] = 0.0f;
+        }
+        member.conditions.set(unconsciousIndex);
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Dead));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Dead)] = 0.0f;
     }
     else
     {
-        member.conditions.set(static_cast<size_t>(CharacterCondition::Dead));
+        const size_t deadIndex = static_cast<size_t>(CharacterCondition::Dead);
+        if (!member.conditions.test(deadIndex))
+        {
+            member.conditionStartGameMinutes[deadIndex] = 0.0f;
+        }
+        member.conditions.set(deadIndex);
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Unconscious));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Unconscious)] = 0.0f;
     }
 }
 
@@ -3039,6 +3059,16 @@ bool Party::removeItem(uint32_t objectDescriptionId, uint32_t quantity)
     return removedCount == quantity;
 }
 
+int Party::effectiveMaximumHealth(const Character &member)
+{
+    return GameMechanics::calculateEffectiveCharacterMaxHealth(member);
+}
+
+int Party::effectiveMaximumSpellPoints(const Character &member)
+{
+    return GameMechanics::calculateEffectiveCharacterMaxSpellPoints(member);
+}
+
 bool Party::needsHealing() const
 {
     for (const Character &member : m_members)
@@ -3077,7 +3107,9 @@ void Party::reviveAndRestoreAll()
 
     for (Character &member : m_members)
     {
+        clearTemporaryEventBonuses(member);
         member.conditions.reset();
+        member.conditionStartGameMinutes.fill(0.0f);
         member.recoverySecondsRemaining = 0.0f;
         member.healthRegenAccumulator = 0.0f;
         member.spellRegenAccumulator = 0.0f;
@@ -3100,6 +3132,8 @@ void Party::restAndHealAll()
 
     for (Character &member : m_members)
     {
+        clearTemporaryEventBonuses(member);
+
         if (member.conditions.test(static_cast<size_t>(CharacterCondition::Dead))
             || member.conditions.test(static_cast<size_t>(CharacterCondition::Petrified))
             || member.conditions.test(static_cast<size_t>(CharacterCondition::Eradicated)))
@@ -3108,10 +3142,15 @@ void Party::restAndHealAll()
         }
 
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Unconscious));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Unconscious)] = 0.0f;
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Drunk));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Drunk)] = 0.0f;
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Fear));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Fear)] = 0.0f;
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Asleep));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Asleep)] = 0.0f;
         member.conditions.reset(static_cast<size_t>(CharacterCondition::Weak));
+        member.conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Weak)] = 0.0f;
         member.recoverySecondsRemaining = 0.0f;
 
         member.health = currentMaximumHealth(member);
@@ -3157,10 +3196,12 @@ void Party::restoreActiveMember()
         return;
     }
 
-    pMember->health = pMember->maxHealth;
-    pMember->spellPoints = pMember->maxSpellPoints;
+    pMember->health = effectiveMaximumHealth(*pMember);
+    pMember->spellPoints = effectiveMaximumSpellPoints(*pMember);
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Unconscious));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Unconscious)] = 0.0f;
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Dead));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Dead)] = 0.0f;
 }
 
 bool Party::trainLeader(uint32_t maxLevel, uint32_t &newLevel, uint32_t &skillPointsEarned)
@@ -3684,6 +3725,10 @@ void Party::applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const
         {
             runtimeState.hiredNpcFollowers.push_back(follower);
         }
+        else
+        {
+            *existingFollowerIt = follower;
+        }
 
         if (follower.npcId != 0)
         {
@@ -3787,6 +3832,18 @@ void Party::removeHiredNpcFollower(uint32_t npcId)
         }
 
         m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
+    }
+}
+
+void Party::setHiredNpcFollowerAbilityUsedDay(uint32_t npcId, uint32_t day)
+{
+    for (HiredNpcFollower &follower : m_hiredNpcFollowers)
+    {
+        if (follower.npcId == npcId)
+        {
+            follower.abilityUsedDay = day;
+            return;
+        }
     }
 }
 
@@ -5647,10 +5704,11 @@ bool Party::clearMemberCondition(size_t memberIndex, CharacterCondition conditio
     }
 
     pMember->conditions.reset(static_cast<size_t>(condition));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(condition)] = 0.0f;
     return true;
 }
 
-bool Party::applyMemberCondition(size_t memberIndex, CharacterCondition condition)
+bool Party::applyMemberCondition(size_t memberIndex, CharacterCondition condition, float gameMinutes)
 {
     Character *pMember = member(memberIndex);
 
@@ -5664,6 +5722,8 @@ bool Party::applyMemberCondition(size_t memberIndex, CharacterCondition conditio
 
     if (!alreadyHadCondition)
     {
+        pMember->conditionStartGameMinutes[static_cast<size_t>(condition)] = std::max(0.0f, gameMinutes);
+
         switch (condition)
         {
             case CharacterCondition::Drunk:
@@ -5705,8 +5765,7 @@ bool Party::healMember(size_t memberIndex, int amount)
         return false;
     }
 
-    const int maxHealth =
-        std::max(1, pMember->maxHealth + pMember->permanentBonuses.maxHealth + pMember->magicalBonuses.maxHealth);
+    const int maxHealth = effectiveMaximumHealth(*pMember);
     const int previousHealth = pMember->health;
     pMember->health = std::clamp(pMember->health + amount, 0, maxHealth);
     updateMemberIncapacitatedCondition(
@@ -5725,10 +5784,15 @@ bool Party::reviveMember(size_t memberIndex, int health, bool applyWeak)
     }
 
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Unconscious));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Unconscious)] = 0.0f;
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Dead));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Dead)] = 0.0f;
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Petrified));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Petrified)] = 0.0f;
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Eradicated));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Eradicated)] = 0.0f;
     pMember->conditions.reset(static_cast<size_t>(CharacterCondition::Zombie));
+    pMember->conditionStartGameMinutes[static_cast<size_t>(CharacterCondition::Zombie)] = 0.0f;
     pMember->health = std::max(1, health);
 
     if (applyWeak)

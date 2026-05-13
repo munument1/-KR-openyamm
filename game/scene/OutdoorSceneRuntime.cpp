@@ -2,6 +2,8 @@
 #include "game/FaceEnums.h"
 #include "game/debug/GameplayDebugTrace.h"
 
+#include <cmath>
+
 namespace OpenYAMM::Game
 {
 namespace
@@ -107,6 +109,45 @@ bool transitionQuestRequirementsMet(const Party &party, const MapEdgeTransition 
     }
 
     return false;
+}
+
+int32_t roundedOutdoorCoordinate(float value)
+{
+    return static_cast<int32_t>(std::lround(value));
+}
+
+float mmergeStraightTravelCoordinate(float coordinate)
+{
+    const float sign = coordinate > 0.0f ? -1.0f : 1.0f;
+    return (std::abs(coordinate) - 30.0f) * sign;
+}
+
+void applyMergedStraightTravelArrival(
+    EventRuntimeState::PendingMapMove &move,
+    const MapEdgeTransition &transition,
+    const OutdoorMoveState &moveState)
+{
+    if (!transition.straightTravel || !transition.straightTravelSide.has_value())
+    {
+        return;
+    }
+
+    move.useMapStartPosition = false;
+    move.x = roundedOutdoorCoordinate(moveState.x);
+    move.y = roundedOutdoorCoordinate(moveState.y);
+    move.z = roundedOutdoorCoordinate(moveState.footZ);
+
+    switch (*transition.straightTravelSide)
+    {
+        case MapBoundaryEdge::North:
+        case MapBoundaryEdge::South:
+            move.y = roundedOutdoorCoordinate(mmergeStraightTravelCoordinate(moveState.y));
+            break;
+        case MapBoundaryEdge::East:
+        case MapBoundaryEdge::West:
+            move.x = roundedOutdoorCoordinate(mmergeStraightTravelCoordinate(moveState.x));
+            break;
+    }
 }
 }
 
@@ -325,6 +366,10 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
                 transitionMove.x = *(*pTransition)->arrivalX;
                 transitionMove.y = *(*pTransition)->arrivalY;
                 transitionMove.z = *(*pTransition)->arrivalZ;
+            }
+            else
+            {
+                applyMergedStraightTravelArrival(transitionMove, **pTransition, moveState);
             }
 
             GAMEPLAY_DEBUG_TRACE(

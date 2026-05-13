@@ -18,6 +18,7 @@ namespace
 constexpr size_t MapIdColumn = 0;
 constexpr size_t NameColumn = 1;
 constexpr size_t FileNameColumn = 2;
+constexpr size_t RespawnIntervalDaysColumn = 6;
 constexpr size_t PerceptionDifficultyColumn = 5;
 constexpr size_t BaseStealingFineColumn = 8;
 constexpr size_t DisarmDifficultyColumn = 9;
@@ -197,6 +198,53 @@ std::vector<std::string> splitString(const std::string &value, char separator)
     }
 
     return parts;
+}
+
+std::optional<MapBoundaryEdge> parseMergedOutdoorTravelSide(const std::string &value)
+{
+    const std::string side = lowercaseCopy(trimCopy(value));
+
+    if (side == "up" || side == "1")
+    {
+        return MapBoundaryEdge::North;
+    }
+
+    if (side == "down" || side == "2")
+    {
+        return MapBoundaryEdge::South;
+    }
+
+    if (side == "left" || side == "3")
+    {
+        return MapBoundaryEdge::West;
+    }
+
+    if (side == "right" || side == "4")
+    {
+        return MapBoundaryEdge::East;
+    }
+
+    return std::nullopt;
+}
+
+int boundaryTravelHeadingDegrees(MapBoundaryEdge edge)
+{
+    switch (edge)
+    {
+        case MapBoundaryEdge::North:
+            return 90;
+
+        case MapBoundaryEdge::South:
+            return 270;
+
+        case MapBoundaryEdge::East:
+            return 0;
+
+        case MapBoundaryEdge::West:
+            return 180;
+    }
+
+    return 0;
 }
 
 bool parseRequiredQBitsAny(const std::string &value, std::vector<uint32_t> &qbits)
@@ -436,7 +484,8 @@ size_t navigationArrivalZColumn(MapBoundaryEdge edge)
 bool applyMergedOutdoorTravelDirection(
     MapStatsEntry &entry,
     MapBoundaryEdge edge,
-    const MergedOutdoorTravelDirection &direction)
+    const MergedOutdoorTravelDirection &direction,
+    bool straightTravel)
 {
     std::optional<MapEdgeTransition> *pTransition = entry.edgeTransition(edge);
 
@@ -454,7 +503,13 @@ bool applyMergedOutdoorTravelDirection(
     MapEdgeTransition transition = {};
     transition.destinationMapFileName = direction.mapName;
     transition.travelDays = static_cast<int>(direction.days.value_or(0));
-    transition.useMapStartPosition = true;
+    transition.straightTravel = straightTravel;
+    transition.straightTravelSide = straightTravel ? parseMergedOutdoorTravelSide(direction.side) : std::nullopt;
+    transition.useMapStartPosition = !transition.straightTravelSide.has_value();
+    if (transition.straightTravelSide.has_value())
+    {
+        transition.directionDegrees = boundaryTravelHeadingDegrees(edge);
+    }
 
     std::string errorMessage;
 
@@ -531,6 +586,12 @@ bool MapStats::loadFromRows(const std::vector<std::vector<std::string>> &rows, c
 
         const std::string encounterChanceValue = getColumnValue(row, EncounterChanceColumn);
         const std::string redbookTrackValue = getColumnValue(row, RedbookTrackColumn);
+
+        if (!parseInteger(getColumnValue(row, RespawnIntervalDaysColumn), entry.respawnIntervalDays))
+        {
+            std::cerr << "MapStats row has invalid respawn interval for map id " << entry.id << '\n';
+            return false;
+        }
 
         if (!parseInteger(getColumnValue(row, PerceptionDifficultyColumn), entry.perceptionDifficulty))
         {
@@ -789,10 +850,26 @@ bool MapStats::applyMergedOutdoorTravels(const MergedOutdoorTravelTable &outdoor
         bounds.maxY = MergedOutdoorBoundsMaxY;
         pEntry->outdoorBounds = bounds;
 
-        if (!applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::North, outdoorTravel.up)
-            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::South, outdoorTravel.down)
-            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::West, outdoorTravel.left)
-            || !applyMergedOutdoorTravelDirection(*pEntry, MapBoundaryEdge::East, outdoorTravel.right))
+        if (!applyMergedOutdoorTravelDirection(
+                *pEntry,
+                MapBoundaryEdge::North,
+                outdoorTravel.up,
+                outdoorTravel.straightTravel)
+            || !applyMergedOutdoorTravelDirection(
+                *pEntry,
+                MapBoundaryEdge::South,
+                outdoorTravel.down,
+                outdoorTravel.straightTravel)
+            || !applyMergedOutdoorTravelDirection(
+                *pEntry,
+                MapBoundaryEdge::West,
+                outdoorTravel.left,
+                outdoorTravel.straightTravel)
+            || !applyMergedOutdoorTravelDirection(
+                *pEntry,
+                MapBoundaryEdge::East,
+                outdoorTravel.right,
+                outdoorTravel.straightTravel))
         {
             return false;
         }

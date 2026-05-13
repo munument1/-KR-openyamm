@@ -286,6 +286,7 @@ private:
     std::string m_pendingInputStatusText;
     bool m_pendingInputTextActive = false;
     bool m_skipGameplayUpdateUntilPromptSubmitKeysReleased = false;
+    bool m_loadingSavedGameRuntime = false;
     FramePerformanceDiagnostics m_framePerformanceDiagnostics;
     uint32_t m_lastFramePerformanceLogTick = 0;
     DebugConsole m_debugConsole;

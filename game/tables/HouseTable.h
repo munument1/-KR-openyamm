@@ -83,6 +83,8 @@ struct HouseEntry
     std::string proprietorTitle;
     float priceMultiplier = 0.0f;
     float skillPriceMultiplier = 0.0f;
+    float templeHealingTier = 0.0f;
+    int templeBehavior = 0;
     StockRule standardStockRule;
     StockRule specialStockRule;
     StockRule spellbookStockRule;

@@ -469,6 +469,7 @@ public:
     struct Snapshot
     {
         float gameMinutes = 0.0f;
+        MapDeltaLocationInfo locationInfo = {};
         AtmosphereState atmosphere = {};
         std::vector<TimerState> timers;
         std::vector<MapActorState> mapActors;
@@ -544,6 +545,7 @@ public:
     bool allowsLloydsBeacon() const override;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void applyMapReentryReset() override;
     float currentGameMinutes() const override;
     float gameMinutes() const override;
     int currentHour() const override;
@@ -762,6 +764,7 @@ public:
     float gameplayCameraYawRadians() const override;
     float gameplayCameraPitchRadians() const override;
     bool partyIsAirborneForRest() const override;
+    bool partyIsFlyingForEventChecks() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     bool specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity) override;

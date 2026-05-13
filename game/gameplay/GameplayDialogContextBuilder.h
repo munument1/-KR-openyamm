@@ -36,7 +36,8 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
     const MergedBolsterMapTable *pBolsterMapTable = nullptr,
     const MergedContinentSettingTable *pContinentSettingTable = nullptr,
     const MergedTeacherTopicTable *pTeacherTopicTable = nullptr,
-    const MergedTeacherAutonoteTable *pTeacherAutonoteTable = nullptr)
+    const MergedTeacherAutonoteTable *pTeacherAutonoteTable = nullptr,
+    const SpellTable *pSpellTable = nullptr)
 {
     GameplayDialogController::Context context = {
         uiController,
@@ -62,7 +63,8 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
         pContinentSettingTable,
         pTeacherTopicTable,
         pTeacherAutonoteTable,
-        dialogueHudActive
+        dialogueHudActive,
+        pSpellTable
     };
     return context;
 }

@@ -23,6 +23,7 @@ constexpr uint32_t UnidentifiedItemTintColorAbgr = 0x80ff0000u;
 enum class ItemTintContext
 {
     None,
+    Inventory,
     ShopIdentify,
     ShopRepair,
 };
@@ -90,6 +91,14 @@ uint32_t itemTintColorAbgr(
 
     switch (context)
     {
+        case ItemTintContext::Inventory:
+            if (isBroken)
+            {
+                return BrokenItemTintColorAbgr;
+            }
+
+            break;
+
         case ItemTintContext::ShopIdentify:
             if (isUnidentified)
             {
@@ -539,7 +548,7 @@ void GameplayHudOverlayRenderer::renderInventoryNestedOverlay(
             computeInventoryItemScreenRect(gridMetrics, item, itemWidth, itemHeight);
         view.submitHudTexturedQuad(*itemTexture, itemRect.x, itemRect.y, itemRect.width, itemRect.height);
 
-        ItemTintContext tintContext = ItemTintContext::None;
+        ItemTintContext tintContext = ItemTintContext::Inventory;
 
         switch (view.inventoryNestedOverlay().mode)
         {

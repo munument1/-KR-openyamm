@@ -540,6 +540,11 @@ bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
             (row.size() > 12 && !row[12].empty()) ? std::strtof(row[12].c_str(), nullptr) : 0.0f;
         entry.skillPriceMultiplier =
             (row.size() > 13 && !row[13].empty()) ? std::strtof(row[13].c_str(), nullptr) : 0.0f;
+        entry.templeBehavior = (row.size() > 15 && !row[15].empty()) ? parseSigned(row[15]) : 0;
+        if (entry.type == "Temple" && ((entry.id >= 325 && entry.id <= 334) || entry.id == 1442))
+        {
+            entry.templeHealingTier = entry.skillPriceMultiplier;
+        }
         entry.stockRefreshDays = (row.size() > 15 && !row[15].empty()) ? std::atoi(row[15].c_str()) : 0;
         entry.openHour = (row.size() > 18 && !row[18].empty()) ? std::atoi(row[18].c_str()) : 0;
         entry.closeHour = (row.size() > 19 && !row[19].empty()) ? std::atoi(row[19].c_str()) : 0;

@@ -334,7 +334,8 @@ GameplaySpellService::SpellRequestResolution GameplaySpellService::resolveSpellR
 {
     SpellRequestResolution resolution = {};
 
-    if (!tryValidateCasterForGameplayCast(runtime, request.casterMemberIndex))
+    if (!request.bypassGameplayCasterValidation
+        && !tryValidateCasterForGameplayCast(runtime, request.casterMemberIndex))
     {
         return resolution;
     }

@@ -52,7 +52,8 @@ bool evaluateCompareValue(
     int32_t compareValue,
     const Party *pParty,
     const std::vector<size_t> &targetMemberIndices,
-    bool usePartyWideInventory);
+    bool usePartyWideInventory,
+    const ISceneEventContext *pSceneEventContext = nullptr);
 const Party *readableParty(lua_State *pLuaState);
 const MapDeltaDoor *findMechanismDoorById(const MapDeltaData *pMapDeltaData, uint32_t mechanismId);
 void initializeRuntimeMechanismStateFromDoor(
@@ -646,14 +647,14 @@ std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
 {
     switch (kind)
     {
-        case PortraitFxEventKind::AutoNote:
         case PortraitFxEventKind::QuestComplete:
-        case PortraitFxEventKind::StatIncrease:
             return SoundId::Quest;
 
         case PortraitFxEventKind::AwardGain:
             return SoundId::Chimes;
 
+        case PortraitFxEventKind::AutoNote:
+        case PortraitFxEventKind::StatIncrease:
         case PortraitFxEventKind::StatDecrease:
         case PortraitFxEventKind::Disease:
         case PortraitFxEventKind::None:
@@ -1726,18 +1727,12 @@ void writeCharacterVariableValue(Character &member, uint32_t rawId, int32_t valu
 
 int resolveCharacterEffectiveMaxHealth(const Character &member)
 {
-    return std::max(
-        1,
-        member.maxHealth + member.permanentBonuses.maxHealth + member.magicalBonuses.maxHealth
-    );
+    return GameMechanics::calculateEffectiveCharacterMaxHealth(member);
 }
 
 int resolveCharacterEffectiveMaxSpellPoints(const Character &member)
 {
-    return std::max(
-        0,
-        member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints
-    );
+    return GameMechanics::calculateEffectiveCharacterMaxSpellPoints(member);
 }
 
 int floorToInt(float value)
@@ -2113,7 +2108,8 @@ int32_t EventRuntime::getVariableValue(
     const EventRuntimeState &runtimeState,
     const VariableRef &variable,
     const Party *pParty,
-    const std::optional<size_t> &memberIndex
+    const std::optional<size_t> &memberIndex,
+    const ISceneEventContext *pSceneEventContext
 )
 {
     const EvtVariable variableId = static_cast<EvtVariable>(variable.tag);
@@ -2485,7 +2481,21 @@ int32_t EventRuntime::getVariableValue(
                     : 0;
 
             case EvtVariable::IsFlying:
-                return pParty != nullptr && pParty->hasPartyBuff(PartyBuffId::Fly) ? 1 : 0;
+                if (pParty == nullptr || !pParty->hasPartyBuff(PartyBuffId::Fly))
+                {
+                    return 0;
+                }
+
+                if (pSceneEventContext == nullptr)
+                {
+                    return 1;
+                }
+
+                {
+                    const IGameplayWorldRuntime *pWorldRuntime =
+                        dynamic_cast<const IGameplayWorldRuntime *>(pSceneEventContext);
+                    return pWorldRuntime != nullptr && pWorldRuntime->partyIsFlyingForEventChecks() ? 1 : 0;
+                }
 
             case EvtVariable::HiredNpcHasSpeciality:
                 for (const EventRuntimeState::HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)
@@ -2504,7 +2514,9 @@ int32_t EventRuntime::getVariableValue(
                 return resolveMonthFromDayOfYear(getVariableValue(
                     runtimeState,
                     decodeVariable(static_cast<uint32_t>(EvtVariable::DayOfYear)),
-                    pParty));
+                    pParty,
+                    std::nullopt,
+                    pSceneEventContext));
 
             case EvtVariable::Counter1:
             case EvtVariable::Counter2:
@@ -2976,6 +2988,18 @@ void EventRuntime::setVariableValue(
             }
         }
 
+        if (variable.kind == VariableKind::LevelBonus)
+        {
+            if (value > previousValue)
+            {
+                queuePortraitFxRequest(runtimeState, PortraitFxEventKind::StatIncrease, pParty, targetMemberIndices);
+            }
+            else if (value < previousValue)
+            {
+                queuePortraitFxRequest(runtimeState, PortraitFxEventKind::StatDecrease, pParty, targetMemberIndices);
+            }
+        }
+
         return;
     }
 
@@ -3067,7 +3091,11 @@ void EventRuntime::setVariableValue(
 
             const bool hadCondition = pMember->conditions.test(static_cast<size_t>(*condition));
 
-            if (pParty->applyMemberCondition(targetMemberIndex, *condition) && !hadCondition)
+            if (pParty->applyMemberCondition(
+                    targetMemberIndex,
+                    *condition,
+                    static_cast<float>(currentGameMinutesFromRuntimeState(runtimeState)))
+                && !hadCondition)
             {
                 changed = true;
             }
@@ -3095,6 +3123,7 @@ void EventRuntime::setVariableValue(
             if (pMember != nullptr)
             {
                 pMember->conditions.reset();
+                pMember->conditionStartGameMinutes.fill(0.0f);
             }
         }
 
@@ -3344,7 +3373,11 @@ void EventRuntime::addVariableValue(
 
             const bool hadCondition = pMember->conditions.test(static_cast<size_t>(*condition));
 
-            if (pParty->applyMemberCondition(targetMemberIndex, *condition) && !hadCondition)
+            if (pParty->applyMemberCondition(
+                    targetMemberIndex,
+                    *condition,
+                    static_cast<float>(currentGameMinutesFromRuntimeState(runtimeState)))
+                && !hadCondition)
             {
                 changed = true;
             }
@@ -4587,7 +4620,8 @@ int luaCompare(lua_State *pLuaState)
             compareValue,
             readableParty(pLuaState),
             selectedTargetMemberIndices(pLuaState),
-            pExecutionContext == nullptr || pExecutionContext->selector.kind == PartySelectorKind::None));
+            pExecutionContext == nullptr || pExecutionContext->selector.kind == PartySelectorKind::None,
+            readonlySceneEventContext(pExecutionContext)));
     return 1;
 }
 
@@ -8926,7 +8960,8 @@ bool evaluateCompareValue(
     int32_t compareValue,
     const Party *pParty,
     const std::vector<size_t> &targetMemberIndices,
-    bool usePartyWideInventory
+    bool usePartyWideInventory,
+    const ISceneEventContext *pSceneEventContext
 )
 {
     const EventRuntime::VariableRef variable = EventRuntime::decodeVariable(rawVariableId);
@@ -8935,7 +8970,8 @@ bool evaluateCompareValue(
         usePartyWideInventory && variable.kind == EventRuntime::VariableKind::Inventory
             ? std::nullopt
             : singleTargetMemberIndex(targetMemberIndices);
-    const int32_t currentValue = EventRuntime::getVariableValue(runtimeState, variable, pParty, memberIndex);
+    const int32_t currentValue =
+        EventRuntime::getVariableValue(runtimeState, variable, pParty, memberIndex, pSceneEventContext);
 
     if (variable.kind == EventRuntime::VariableKind::ClassId)
     {
@@ -8947,7 +8983,12 @@ bool evaluateCompareValue(
         for (size_t targetMemberIndex : targetMemberIndices)
         {
             const int32_t targetValue =
-                EventRuntime::getVariableValue(runtimeState, variable, pParty, targetMemberIndex);
+                EventRuntime::getVariableValue(
+                    runtimeState,
+                    variable,
+                    pParty,
+                    targetMemberIndex,
+                    pSceneEventContext);
 
             if (classIdMatchesPromotionFamily(pParty, targetValue, compareValue))
             {

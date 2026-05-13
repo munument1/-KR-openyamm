@@ -200,9 +200,9 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Door", function()
+RegisterEvent(376, "Master Thief", function()
     evt.EnterHouse(1162) -- Master Thief
-end, "Door")
+end, "Master Thief")
 
 RegisterEvent(451, "Legacy event 451", function()
     evt.SetDoorState(24, DoorAction.Trigger)

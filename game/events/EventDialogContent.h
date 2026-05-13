@@ -118,6 +118,10 @@ uint32_t npcBtbDialogueAccessDay(float currentGameMinutes);
 bool npcProfessionActionTopicHasDailyCooldown(uint32_t topicId);
 uint32_t npcProfessionActionCooldownVariableKey(uint32_t npcId);
 uint32_t npcProfessionActionCooldownDay(float currentGameMinutes);
+bool npcProfessionActionUsedToday(
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId,
+    float currentGameMinutes);
 
 EventDialogContent buildEventDialogContent(
     EventRuntimeState &eventRuntimeState,

@@ -12296,6 +12296,10 @@ IndoorWorldRuntime::Snapshot IndoorWorldRuntime::snapshot() const
     snapshot.activatedIndoorSectorMask = m_activatedIndoorSectorMask;
     snapshot.bloodSplats = m_bloodSplats;
     snapshot.actorUpdateAccumulatorSeconds = m_actorUpdateAccumulatorSeconds;
+    if (m_pGameplayProjectileService != nullptr)
+    {
+        snapshot.projectileState = m_pGameplayProjectileService->snapshot();
+    }
     return snapshot;
 }
 
@@ -12316,6 +12320,10 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_indoorJournalRevealStateValid = false;
     ++m_indoorMinimapRevealRevision;
     m_cachedGameplayMinimapLinesValid = false;
+    if (m_pGameplayProjectileService != nullptr)
+    {
+        m_pGameplayProjectileService->restoreSnapshot(snapshot.projectileState);
+    }
     invalidateRuntimeGeometryCache();
     syncMapActorAiStates();
     refreshActivatedIndoorSectors();
@@ -12350,6 +12358,130 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     }
 
     applyEventRuntimeState(true);
+}
+
+void IndoorWorldRuntime::applyMapReentryReset()
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (pMapDeltaData != nullptr)
+    {
+        const size_t actorCount = std::min(pMapDeltaData->actors.size(), m_mapActorAiStates.size());
+
+        for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex)
+        {
+            MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+            MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+            const bool canAct =
+                actor.hp > 0
+                && aiState.motionState != ActorAiMotionState::Dying
+                && aiState.motionState != ActorAiMotionState::Dead;
+
+            if (!canAct)
+            {
+                continue;
+            }
+
+            const MonsterTable::MonsterStatsEntry *pStats =
+                m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(aiState.monsterId) : nullptr;
+            const MonsterEntry *pMonsterEntry =
+                m_pMonsterTable != nullptr ? resolveRuntimeMonsterEntry(*m_pMonsterTable, actor) : nullptr;
+            const GameplayMonsterBolsterResult bolster =
+                pStats != nullptr
+                    ? resolveGameplayMonsterBolster(
+                        GameplayBolsterRuntimeContext{
+                            .pMap = m_map ? &*m_map : nullptr,
+                            .pMonsterTable = m_pMonsterTable,
+                            .pBolsterMapTable = m_pMergedBolsterMapTable,
+                            .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                            .pParty = m_pParty,
+                            .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
+                        },
+                        *pStats,
+                        pMonsterEntry)
+                    : GameplayMonsterBolsterResult{};
+
+            aiState.preciseX = aiState.homePreciseX;
+            aiState.preciseY = aiState.homePreciseY;
+            aiState.preciseZ = aiState.homePreciseZ;
+            aiState.motionState = ActorAiMotionState::Standing;
+            aiState.animationState = ActorAiAnimationState::Standing;
+            aiState.animationTimeTicks = 0.0f;
+            aiState.actionSeconds = 0.0f;
+            aiState.moveDirectionX = 0.0f;
+            aiState.moveDirectionY = 0.0f;
+            aiState.velocityX = 0.0f;
+            aiState.velocityY = 0.0f;
+            aiState.velocityZ = 0.0f;
+            aiState.attackImpactTriggered = false;
+            resetIndoorActorCrowdSteeringState(aiState);
+
+            if (m_pIndoorMapData != nullptr)
+            {
+                const IndoorBodyDimensions body{
+                    static_cast<float>(aiState.collisionRadius),
+                    static_cast<float>(aiState.collisionHeight)
+                };
+                const IndoorMoveState resetMoveState = actorMovementController().initializeStateFromEyePosition(
+                    aiState.preciseX,
+                    aiState.preciseY,
+                    aiState.preciseZ + body.height,
+                    body);
+                aiState.preciseX = resetMoveState.x;
+                aiState.preciseY = resetMoveState.y;
+                aiState.preciseZ = resetMoveState.footZ;
+                aiState.sectorId = resetMoveState.sectorId;
+                aiState.eyeSectorId = resetMoveState.eyeSectorId;
+                aiState.supportFaceIndex = resetMoveState.supportFaceIndex;
+                aiState.grounded = resetMoveState.grounded;
+                aiState.velocityX = 0.0f;
+                aiState.velocityY = 0.0f;
+                aiState.velocityZ = 0.0f;
+                actorMovementController().updateActorColliderPosition(
+                    actorIndex,
+                    aiState.sectorId,
+                    aiState.preciseX,
+                    aiState.preciseY,
+                    aiState.preciseZ);
+            }
+
+            actor.x = static_cast<int>(std::lround(aiState.preciseX));
+            actor.y = static_cast<int>(std::lround(aiState.preciseY));
+            actor.z = static_cast<int>(std::lround(aiState.preciseZ));
+            if (aiState.sectorId >= 0)
+            {
+                actor.sectorId = aiState.sectorId;
+            }
+            actor.hp = static_cast<int16_t>(std::clamp(
+                pStats != nullptr ? bolster.maxHp : std::max<int>(1, actor.hp),
+                1,
+                32767));
+            actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Standing);
+        }
+
+        if (m_pObjectTable != nullptr)
+        {
+            std::erase_if(
+                pMapDeltaData->spriteObjects,
+                [this](const MapDeltaSpriteObject &spriteObject)
+                {
+                    const ObjectEntry *pObjectEntry = m_pObjectTable->get(spriteObject.objectDescriptionId);
+                    return (spriteObject.soundId & 8u) != 0
+                        || pObjectEntry == nullptr
+                        || (pObjectEntry->flags & ObjectDescUnpickable) != 0;
+                });
+        }
+    }
+
+    m_actorPathRuntime.clear();
+
+    if (m_pGameplayProjectileService != nullptr)
+    {
+        m_pGameplayProjectileService->clearActiveProjectiles();
+    }
+
+    invalidateRuntimeGeometryCache();
+    refreshActivatedIndoorSectors();
 }
 
 IndoorWorldRuntime::ChestViewState IndoorWorldRuntime::buildChestView(uint32_t chestId) const

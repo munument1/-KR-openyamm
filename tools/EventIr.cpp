@@ -461,6 +461,7 @@ std::optional<std::string> EventIrProgram::getHint(uint16_t eventId) const
     }
 
     bool mouseOverFound = false;
+    std::optional<std::string> mouseOverText;
 
     for (const EventIrInstruction &instruction : pEvent->instructions)
     {
@@ -470,7 +471,7 @@ std::optional<std::string> EventIrProgram::getHint(uint16_t eventId) const
 
             if (instruction.text && !instruction.text->empty())
             {
-                return instruction.text;
+                mouseOverText = instruction.text;
             }
         }
 
@@ -483,7 +484,7 @@ std::optional<std::string> EventIrProgram::getHint(uint16_t eventId) const
         }
     }
 
-    return std::nullopt;
+    return mouseOverText;
 }
 
 std::optional<std::string> EventIrProgram::summarizeEvent(uint16_t eventId) const

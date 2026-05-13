@@ -54,6 +54,8 @@ struct MapEdgeTransition
     std::optional<int> arrivalX;
     std::optional<int> arrivalY;
     std::optional<int> arrivalZ;
+    bool straightTravel = false;
+    std::optional<MapBoundaryEdge> straightTravelSide;
     MapTransitionSurfaceRequirement requiredOriginSurface = MapTransitionSurfaceRequirement::Land;
     std::vector<uint32_t> requiredQuestBitsAny;
 };
@@ -65,6 +67,7 @@ struct MapStatsEntry
     std::string canonicalId;
     std::string name;
     std::string fileName;
+    int respawnIntervalDays = 0;
     int perceptionDifficulty = 0;
     int baseStealingFine = 0;
     int disarmDifficulty = 0;

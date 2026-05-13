@@ -543,6 +543,7 @@ public:
     void clear();
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void clearActiveProjectiles();
 
     uint32_t nextProjectileId() const;
     uint32_t allocateProjectileId();

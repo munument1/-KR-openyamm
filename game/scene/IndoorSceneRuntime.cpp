@@ -763,6 +763,11 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_mechanismAccumulatorMilliseconds = snapshot.mechanismAccumulatorMilliseconds;
 }
 
+void IndoorSceneRuntime::applyMapReentryReset()
+{
+    m_worldRuntime.applyMapReentryReset();
+}
+
 bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
 {
     if (!m_eventRuntimeState || !m_mapDeltaData || deltaMilliseconds <= 0.0f)

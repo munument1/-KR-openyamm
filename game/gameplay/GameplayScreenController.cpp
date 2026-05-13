@@ -1,6 +1,7 @@
 #include "game/gameplay/GameplayScreenController.h"
 
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/GameplayInputController.h"
 #include "game/gameplay/GameplayItemService.h"
@@ -356,6 +357,17 @@ void GameplayScreenController::applySharedItemInspectSkillInteraction(
     if (pActiveMember == nullptr || pItemDefinition == nullptr)
     {
         return;
+    }
+
+    if (overlay.sourceType == GameplayUiController::ItemInspectSourceType::Inventory
+        || overlay.sourceType == GameplayUiController::ItemInspectSourceType::Equipment)
+    {
+        const Character *pSourceMember = pParty->member(overlay.sourceMemberIndex);
+
+        if (pSourceMember == nullptr || !GameMechanics::canAct(*pSourceMember))
+        {
+            return;
+        }
     }
 
     const size_t activeMemberIndex = pParty->activeMemberIndex();

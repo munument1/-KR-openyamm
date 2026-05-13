@@ -61,7 +61,7 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Speaker for the Dead
 end)
 
-RegisterEvent(5, "Enter the Throne Room", function()
+RegisterEvent(5, "Throne Room", function()
     if not IsAtLeast(MapVar(6), 2) then
         if not IsQBitSet(QBit(710)) then -- Archibald in Clankers Lab now
             evt.EnterHouse(219) -- Throne Room
@@ -71,7 +71,7 @@ RegisterEvent(5, "Enter the Throne Room", function()
         return
     end
     evt.StatusText("The Door is Locked")
-end, "Enter the Throne Room")
+end, "Throne Room")
 
 RegisterEvent(151, "Legacy event 151", function()
     evt.MoveToMap(-8684, -15996, -2327, 0, 0, 0, 0, 0)

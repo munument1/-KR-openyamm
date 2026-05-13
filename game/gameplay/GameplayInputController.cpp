@@ -9,6 +9,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <optional>
+
 namespace OpenYAMM::Game
 {
 namespace
@@ -63,6 +65,23 @@ bool isEscapeNewlyPressed(GameplayScreenRuntime &context, const bool *pKeyboardS
     return pKeyboardState != nullptr
         && pKeyboardState[SDL_SCANCODE_ESCAPE]
         && context.previousKeyboardState()[SDL_SCANCODE_ESCAPE] == 0;
+}
+
+std::optional<size_t> nextSelectableMemberIndex(const Party &party, bool requireGameplayReady)
+{
+    const size_t memberCount = party.members().size();
+
+    for (size_t offset = 1; offset <= memberCount; ++offset)
+    {
+        const size_t memberIndex = (party.activeMemberIndex() + offset) % memberCount;
+
+        if (!requireGameplayReady || party.canSelectMemberInGameplay(memberIndex))
+        {
+            return memberIndex;
+        }
+    }
+
+    return std::nullopt;
 }
 
 GameplaySpellActionController::TargetQueries buildSpellActionTargetQueries(
@@ -322,13 +341,17 @@ void GameplayInputController::handleStandardUiHotkeys(
         return;
     }
 
-    const size_t nextMemberIndex = (pParty->activeMemberIndex() + 1) % pParty->members().size();
     const bool requireGameplayReady =
         config.requireGameplayReadyForPartySelection
         && !activeEventDialog
         && !hasActiveLootView
         && !houseShopActive;
-    context.trySelectPartyMember(nextMemberIndex, requireGameplayReady);
+    const std::optional<size_t> nextMemberIndex = nextSelectableMemberIndex(*pParty, requireGameplayReady);
+
+    if (nextMemberIndex.has_value())
+    {
+        context.trySelectPartyMember(*nextMemberIndex, requireGameplayReady);
+    }
 }
 
 void GameplayInputController::handleSharedGameplayHotkeys(

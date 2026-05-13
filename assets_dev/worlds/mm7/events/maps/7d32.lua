@@ -437,7 +437,7 @@ RegisterEvent(376, "Legacy event 376", function()
     SetQBit(QBit(572)) -- Robbed Elven treasury. Black Knight promo quest.
 end)
 
-RegisterEvent(416, "Enter the Throne Room", function()
+RegisterEvent(416, "Throne Room", function()
     if IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         if not IsAtLeast(MapVar(6), 2) then
             evt.EnterHouse(218) -- Throne Room
@@ -446,7 +446,7 @@ RegisterEvent(416, "Enter the Throne Room", function()
     end
     evt.StatusText("The Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "Enter the Throne Room")
+end, "Throne Room")
 
 RegisterEvent(451, "Legacy event 451", function()
     if IsAtLeast(Invisible, 0) then return end

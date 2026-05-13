@@ -15,6 +15,8 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr float MinutesPerDay = 24.0f * 60.0f;
+
 int masteryMerchantMultiplier(SkillMastery mastery)
 {
     switch (mastery)
@@ -37,43 +39,40 @@ int masteryMerchantMultiplier(SkillMastery mastery)
     }
 }
 
-int worstConditionSeverity(const Character &member)
+int conditionDaysPassed(const Character &member, CharacterCondition condition, float gameMinutes)
 {
-    if (member.conditions.test(static_cast<size_t>(CharacterCondition::Eradicated)))
+    const size_t conditionIndex = static_cast<size_t>(condition);
+
+    if (!member.conditions.test(conditionIndex))
     {
-        return 10;
+        return 0;
     }
 
-    if (member.conditions.test(static_cast<size_t>(CharacterCondition::Dead))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::Petrified)))
-    {
-        return 5;
-    }
+    const float startGameMinutes = member.conditionStartGameMinutes[conditionIndex];
 
-    if (member.conditions.test(static_cast<size_t>(CharacterCondition::Paralyzed))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::DiseaseMedium))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::DiseaseSevere))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::PoisonSevere)))
-    {
-        return 3;
-    }
-
-    if (member.conditions.test(static_cast<size_t>(CharacterCondition::Weak))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::PoisonWeak))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::PoisonMedium))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::Fear))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::Insane))
-        || member.conditions.test(static_cast<size_t>(CharacterCondition::Cursed)))
-    {
-        return 2;
-    }
-
-    if (member.health < member.maxHealth || member.spellPoints < member.maxSpellPoints)
+    if (startGameMinutes <= 0.0f || gameMinutes < startGameMinutes)
     {
         return 1;
     }
 
-    return 0;
+    return static_cast<int>(std::floor((gameMinutes - startGameMinutes) / MinutesPerDay)) + 1;
+}
+
+int highestMinorConditionDaysPassed(const Character &member, float gameMinutes)
+{
+    int highestDaysPassed = 1;
+
+    for (size_t conditionIndex = 0; conditionIndex <= static_cast<size_t>(CharacterCondition::Unconscious);
+        ++conditionIndex)
+    {
+        const int daysPassed = conditionDaysPassed(
+            member,
+            static_cast<CharacterCondition>(conditionIndex),
+            gameMinutes);
+        highestDaysPassed = std::max(highestDaysPassed, daysPassed);
+    }
+
+    return highestDaysPassed;
 }
 
 int classTierForClassName(const std::string &className)
@@ -295,12 +294,37 @@ int PriceCalculator::tavernFoodPrice(
     return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }
 
-int PriceCalculator::templeHealPrice(const Character *pCharacter, const HouseEntry &houseEntry)
+int PriceCalculator::templeHealPrice(const Character *pCharacter, const HouseEntry &houseEntry, float gameMinutes)
 {
     const Character dummy = {};
     const Character &member = pCharacter != nullptr ? *pCharacter : dummy;
-    const int severity = std::max(1, worstConditionSeverity(member));
-    const int result = static_cast<int>(std::round(static_cast<float>(severity) * houseEntry.priceMultiplier));
+    int conditionTimeMultiplier = 1;
+    int baseConditionMultiplier = 1;
+
+    if (member.conditions.test(static_cast<size_t>(CharacterCondition::Eradicated)))
+    {
+        conditionTimeMultiplier = conditionDaysPassed(member, CharacterCondition::Eradicated, gameMinutes);
+        baseConditionMultiplier = 10;
+    }
+    else if (member.conditions.test(static_cast<size_t>(CharacterCondition::Petrified)))
+    {
+        conditionTimeMultiplier = conditionDaysPassed(member, CharacterCondition::Petrified, gameMinutes);
+        baseConditionMultiplier = 5;
+    }
+    else if (member.conditions.test(static_cast<size_t>(CharacterCondition::Dead)))
+    {
+        conditionTimeMultiplier = conditionDaysPassed(member, CharacterCondition::Dead, gameMinutes);
+        baseConditionMultiplier = 5;
+    }
+    else if (member.conditions.any())
+    {
+        conditionTimeMultiplier = highestMinorConditionDaysPassed(member, gameMinutes);
+    }
+
+    const int result = static_cast<int>(
+        static_cast<double>(conditionTimeMultiplier)
+        * static_cast<double>(baseConditionMultiplier)
+        * static_cast<double>(houseEntry.priceMultiplier));
     return std::clamp(result, 1, 10000);
 }
 

@@ -784,10 +784,22 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
     }
 
     const size_t activeMemberIndex = party.activeMemberIndex();
-    const Character *pActiveMember = party.member(activeMemberIndex);
+    size_t selectedMemberRingIndex = activeMemberIndex;
+
+    if (hudScreenState == GameplayHudScreenState::Character)
+    {
+        const GameplayUiController::CharacterScreenState &characterScreen = context.characterScreenReadOnly();
+
+        if (characterScreen.open && characterScreen.source == GameplayUiController::CharacterScreenSource::Party)
+        {
+            selectedMemberRingIndex = characterScreen.sourceIndex;
+        }
+    }
+
+    const Character *pSelectedMember = party.member(selectedMemberRingIndex);
     const bool showSelectedMemberRing = hudScreenState == GameplayHudScreenState::Gameplay
-        ? (pActiveMember != nullptr && GameMechanics::canTakeGameplayAction(*pActiveMember))
-        : party.canSelectMemberInGameplay(activeMemberIndex);
+        ? (pSelectedMember != nullptr && GameMechanics::canTakeGameplayAction(*pSelectedMember))
+        : pSelectedMember != nullptr;
     const float nearestHostileDistance =
         manaFrame ? nearestHostileActorDistanceToParty(context.worldRuntime()) : std::numeric_limits<float>::max();
 
@@ -814,7 +826,7 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
         context.renderPortraitFx(memberIndex, portraitX, portraitY, portraitWidth, portraitHeight);
         submitQuad(queuedHudQuads, *faceMask, portraitX, portraitY, portraitWidth, portraitHeight);
 
-        if (showSelectedMemberRing && memberIndex == activeMemberIndex && selectionRing)
+        if (showSelectedMemberRing && memberIndex == selectedMemberRingIndex && selectionRing)
         {
             submitQuad(queuedHudQuads, *selectionRing, portraitX - uiScale, portraitY, portraitWidth, portraitHeight);
         }
@@ -878,12 +890,8 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
             const float leftFillX = barFrameX + 1.0f * uiScale;
             const float rightFillX = barFrameX + 5.0f * uiScale;
             const float fillWidth = 3.0f * uiScale;
-            const int maxHealth = std::max(
-                1,
-                member.maxHealth + member.permanentBonuses.maxHealth + member.magicalBonuses.maxHealth);
-            const int maxSpellPoints = std::max(
-                0,
-                member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints);
+            const int maxHealth = GameMechanics::calculateEffectiveCharacterMaxHealth(member);
+            const int maxSpellPoints = GameMechanics::calculateEffectiveCharacterMaxSpellPoints(member);
             const float healthPercent = (maxHealth > 0)
                 ? std::clamp(static_cast<float>(member.health) / static_cast<float>(maxHealth), 0.0f, 1.0f)
                 : 0.0f;

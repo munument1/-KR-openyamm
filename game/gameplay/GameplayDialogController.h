@@ -23,6 +23,7 @@ struct MapStatsEntry;
 class NpcDialogTable;
 class Party;
 class RosterTable;
+class SpellTable;
 class TransitionTable;
 class MergedNpcProfessionTable;
 class MergedNewsProfessionTopicTable;
@@ -63,6 +64,7 @@ public:
         const MergedTeacherTopicTable *pTeacherTopicTable = nullptr;
         const MergedTeacherAutonoteTable *pTeacherAutonoteTable = nullptr;
         bool dialogueHudActive = false;
+        const SpellTable *pSpellTable = nullptr;
     };
 
     struct Result

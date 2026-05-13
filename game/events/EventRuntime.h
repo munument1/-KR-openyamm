@@ -651,7 +651,8 @@ public:
         const EventRuntimeState &runtimeState,
         const VariableRef &variable,
         const Party *pParty,
-        const std::optional<size_t> &memberIndex = std::nullopt
+        const std::optional<size_t> &memberIndex = std::nullopt,
+        const ISceneEventContext *pSceneEventContext = nullptr
     );
     static void setVariableValue(
         EventRuntimeState &runtimeState,

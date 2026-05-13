@@ -159,6 +159,12 @@ public:
     static int calculateBaseCharacterMaxSpellPoints(
         const Character &character,
         const ClassMultiplierTable *pClassMultiplierTable = nullptr);
+    static int calculateEffectiveCharacterMaxHealth(
+        const Character &character,
+        const ClassMultiplierTable *pClassMultiplierTable = nullptr);
+    static int calculateEffectiveCharacterMaxSpellPoints(
+        const Character &character,
+        const ClassMultiplierTable *pClassMultiplierTable = nullptr);
     static void refreshCharacterBaseResources(
         Character &character,
         bool restoreCurrentToMaximum = false,

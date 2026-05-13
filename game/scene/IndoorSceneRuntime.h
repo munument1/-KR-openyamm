@@ -115,6 +115,7 @@ public:
     const IndoorWorldRuntime &worldRuntime() const;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void applyMapReentryReset();
     bool advanceSimulation(float deltaMilliseconds);
     bool activateEvent(
         uint16_t eventId,

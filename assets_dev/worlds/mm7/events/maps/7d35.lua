@@ -232,3 +232,4 @@ RegisterEvent(65532, "", function()
     evt.CastSpell(6, 7, 4, 13891, 229, 161, 13891, 4912, 161) -- Fireball
     evt.CastSpell(6, 7, 4, 14618, 857, 161, 9284, 857, 161) -- Fireball
 end)
+

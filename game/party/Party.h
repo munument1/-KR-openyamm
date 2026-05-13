@@ -112,6 +112,7 @@ struct Character
     CharacterEquipment equipment = {};
     CharacterEquipmentRuntimeState equipmentRuntime = {};
     std::bitset<CharacterConditionCount> conditions = {};
+    std::array<float, CharacterConditionCount> conditionStartGameMinutes = {};
     std::unordered_map<std::string, CharacterSkill> skills;
     std::unordered_set<uint32_t> awards;
     std::unordered_map<uint16_t, int32_t> eventVariables;
@@ -383,6 +384,7 @@ public:
     void setNpcUnavailable(uint32_t npcId, bool unavailable);
     void addHiredNpcFollower(const HiredNpcFollower &follower);
     void removeHiredNpcFollower(uint32_t npcId);
+    void setHiredNpcFollowerAbilityUsedDay(uint32_t npcId, uint32_t day);
     bool tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool tryGrantInventoryItem(const InventoryItem &item, size_t *pRecipientMemberIndex = nullptr);
     bool tryGrantInventoryItemStartingAt(
@@ -391,6 +393,8 @@ public:
         size_t *pRecipientMemberIndex = nullptr);
     void grantItem(uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool removeItem(uint32_t objectDescriptionId, uint32_t quantity = 1);
+    static int effectiveMaximumHealth(const Character &member);
+    static int effectiveMaximumSpellPoints(const Character &member);
     bool needsHealing() const;
     bool activeMemberNeedsHealing() const;
     void restoreAll();
@@ -536,7 +540,7 @@ public:
     bool hasCharacterBuff(size_t memberIndex, CharacterBuffId buffId) const;
     const PartyBuffState *partyBuff(PartyBuffId buffId) const;
     const CharacterBuffState *characterBuff(size_t memberIndex, CharacterBuffId buffId) const;
-    bool applyMemberCondition(size_t memberIndex, CharacterCondition condition);
+    bool applyMemberCondition(size_t memberIndex, CharacterCondition condition, float gameMinutes = 0.0f);
     bool clearMemberCondition(size_t memberIndex, CharacterCondition condition);
     bool hasMemberConditionImmunity(size_t memberIndex, CharacterCondition condition) const;
     bool healMember(size_t memberIndex, int amount);

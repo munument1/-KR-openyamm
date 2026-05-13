@@ -2229,6 +2229,7 @@ std::optional<std::string> getLegacyHint(
     const LegacyLuaExportLookups &lookups)
 {
     bool mouseOverFound = false;
+    std::optional<std::string> mouseOverText;
 
     for (const EvtInstruction &instruction : event.instructions)
     {
@@ -2242,7 +2243,7 @@ std::optional<std::string> getLegacyHint(
 
                 if (text && !text->empty())
                 {
-                    return text;
+                    mouseOverText = text;
                 }
             }
         }
@@ -2258,7 +2259,7 @@ std::optional<std::string> getLegacyHint(
         }
     }
 
-    return std::nullopt;
+    return mouseOverText;
 }
 
 std::optional<std::string> summarizeLegacyEvent(

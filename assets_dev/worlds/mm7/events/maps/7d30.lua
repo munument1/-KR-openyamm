@@ -492,13 +492,13 @@ RegisterEvent(377, "Legacy event 377", function()
     end
 end)
 
-RegisterEvent(416, "Enter the Throne Room", function()
+RegisterEvent(416, "Throne Room", function()
     if not IsAtLeast(MapVar(6), 2) then
         evt.EnterHouse(220) -- Throne Room
         return
     end
     evt.StatusText("The Door is Locked")
-end, "Enter the Throne Room")
+end, "Throne Room")
 
 RegisterEvent(451, "Legacy event 451", function()
     if IsAtLeast(Invisible, 0) then return end

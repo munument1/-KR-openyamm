@@ -222,17 +222,22 @@ std::optional<std::string> EvtProgram::getHint(uint16_t eventId, const StrTable 
     }
 
     bool mouseOverFound = false;
+    std::optional<std::string> mouseOverText;
 
     for (const EvtInstruction &instruction : pEvent->instructions)
     {
-        if (instruction.opcode == EvtOpcode::MouseOver && instruction.textId)
+        if (instruction.opcode == EvtOpcode::MouseOver)
         {
             mouseOverFound = true;
-            const std::optional<std::string> text = strTable.get(*instruction.textId);
 
-            if (text && !text->empty())
+            if (instruction.textId)
             {
-                return text;
+                const std::optional<std::string> text = strTable.get(*instruction.textId);
+
+                if (text && !text->empty())
+                {
+                    mouseOverText = text;
+                }
             }
         }
 
@@ -247,7 +252,7 @@ std::optional<std::string> EvtProgram::getHint(uint16_t eventId, const StrTable 
         }
     }
 
-    return std::nullopt;
+    return mouseOverText;
 }
 
 std::optional<std::string> EvtProgram::summarizeEvent(uint16_t eventId, const StrTable &strTable, const HouseTable &houseTable) const

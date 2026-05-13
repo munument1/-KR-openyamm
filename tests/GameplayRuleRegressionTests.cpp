@@ -729,6 +729,37 @@ TEST_CASE("mm8 arena map fixups expose runtime restrictions")
     CHECK(mergedArenaScene.runtimeRestrictions.isArena);
 }
 
+TEST_CASE("mm6 Hive forbids Lloyds Beacon but allows saving")
+{
+    const std::filesystem::path hiveScenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm6/maps/hive.scene.yml";
+    std::ifstream hiveSceneFile(hiveScenePath);
+    REQUIRE(hiveSceneFile.good());
+    std::ostringstream hiveSceneText;
+    hiveSceneText << hiveSceneFile.rdbuf();
+
+    OpenYAMM::Game::IndoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::IndoorSceneData> hiveScene =
+        sceneLoader.loadFromText(hiveSceneText.str(), sceneError);
+    REQUIRE_MESSAGE(hiveScene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::IndoorSceneData mergedHiveScene = *hiveScene;
+
+    const std::filesystem::path hiveOverlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm6/maps/hive_1.scene.yml";
+    std::ifstream hiveOverlayFile(hiveOverlayPath);
+    REQUIRE(hiveOverlayFile.good());
+    std::ostringstream hiveOverlayText;
+    hiveOverlayText << hiveOverlayFile.rdbuf();
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedHiveScene, hiveOverlayText.str(), sceneError),
+        sceneError.c_str());
+
+    CHECK(mergedHiveScene.runtimeRestrictions.allowSaveGame);
+    CHECK_FALSE(mergedHiveScene.runtimeRestrictions.allowLloydsBeacon);
+    CHECK_FALSE(mergedHiveScene.runtimeRestrictions.isArena);
+}
+
 TEST_CASE("mm7 Temple of the Moon scene keeps MMerge initial door states")
 {
     const std::filesystem::path scenePath =
@@ -1218,6 +1249,53 @@ TEST_CASE("monster non-Attack1 projectile does not apply special attack conditio
     const OpenYAMM::Game::Character *pMember = party.member(0);
     REQUIRE(pMember != nullptr);
     CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
+}
+
+TEST_CASE("monster break item uses regular inventory plus equipment candidates")
+{
+    constexpr uint32_t ActorId = 79;
+    constexpr uint32_t RegularWeaponId = 31;
+    constexpr uint32_t PotionId = 222;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    party.setItemTable(&gameData.itemTable);
+    party.setItemEnchantTables(
+        &gameData.standardItemEnchantTable,
+        &gameData.specialItemEnchantTable);
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->inventory.clear();
+    REQUIRE(pMember->addInventoryItemAt(makeTestInventoryItem(PotionId), 0, 0));
+    pMember->equipment.mainHand = RegularWeaponId;
+
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 100,
+        .attackBonus = 1000,
+        .specialAttackKind = OpenYAMM::Game::MonsterSpecialAttackKind::BreakAny,
+        .specialAttackLevel = 1,
+        .displayName = "Item Breaker",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        0,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Physical,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack2);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    const OpenYAMM::Game::InventoryItem *pPotionItem = pMember->inventoryItemAt(0, 0);
+    REQUIRE(pPotionItem != nullptr);
+    CHECK_FALSE(pPotionItem->broken);
+    CHECK(pMember->equipmentRuntime.mainHand.broken);
 }
 
 TEST_CASE("dispel magic clears party and character buffs through shared party helper")

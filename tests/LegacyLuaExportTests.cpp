@@ -131,3 +131,40 @@ TEST_CASE("legacy lua exporter separates timer continuation from direct event bo
     CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 13891") != std::string::npos);
     CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 14618") != std::string::npos);
 }
+
+TEST_CASE("legacy lua exporter prefers house names over stale mouseover hints for house events")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/OUTB2.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/OUTB2.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Blackshire";
+    lookups.houseNames[34] = "Stout Heart Staff and Spear";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const size_t eventStart = lua.find("RegisterEvent(2");
+    REQUIRE(eventStart != std::string::npos);
+    const size_t eventEnd = lua.find("RegisterEvent(3", eventStart);
+    REQUIRE(eventEnd != std::string::npos);
+    const std::string eventLua = lua.substr(eventStart, eventEnd - eventStart);
+    INFO(eventLua);
+
+    CHECK(eventLua.find("RegisterEvent(2, \"Stout Heart Staff and Spear\"") != std::string::npos);
+    CHECK(eventLua.find("end, \"Stout Heart Staff and Spear\")") != std::string::npos);
+    CHECK(eventLua.find("You pray at the shrine") == std::string::npos);
+}

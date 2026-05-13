@@ -173,7 +173,7 @@ public:
     bool activeMemberHasSpellbookSchool(GameplayUiController::SpellbookSchool school) const;
     void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
     void openRestOverlay(bool enforceWorldRestrictions = true);
-    void beginRestAction(GameplayUiController::RestMode mode, float minutes, bool consumeFood);
+    void beginRestAction(GameplayUiController::RestMode mode, float minutes, bool consumeFood, bool innRest);
     void startRestAction(GameplayUiController::RestMode mode, float minutes);
     void startInnRest(float durationMinutes);
     void openSpellbookOverlay();

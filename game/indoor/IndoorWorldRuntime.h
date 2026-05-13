@@ -161,6 +161,7 @@ public:
         std::vector<uint8_t> activatedIndoorSectorMask;
         std::vector<BloodSplatState> bloodSplats;
         float actorUpdateAccumulatorSeconds = 0.0f;
+        GameplayProjectileService::Snapshot projectileState;
     };
 
     IndoorWorldRuntime() = default;
@@ -454,6 +455,7 @@ public:
         const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms);
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void applyMapReentryReset() override;
 
     bool hasIndoorCombatLineOfSight(
         const GameplayWorldPoint &from,

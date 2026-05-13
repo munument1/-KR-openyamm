@@ -2027,6 +2027,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
                 }
 
                 pMember->conditions.reset();
+                pMember->conditionStartGameMinutes.fill(0.0f);
                 pMember->health = pMember->maxHealth;
                 pMember->spellPoints = pMember->maxSpellPoints;
             }

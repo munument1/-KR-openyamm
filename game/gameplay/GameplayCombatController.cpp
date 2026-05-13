@@ -19,6 +19,8 @@ namespace
 {
 constexpr uint32_t KillSpeechChancePercent = 20;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
+constexpr uint32_t FirstRegularBreakableItemId = 1;
+constexpr uint32_t LastRegularBreakableItemId = 134;
 
 struct DamagedMember
 {
@@ -31,6 +33,25 @@ struct BreakItemCandidate
     InventoryItem *pInventoryItem = nullptr;
     EquippedItemRuntimeState *pEquippedRuntime = nullptr;
     const ItemDefinition *pItemDefinition = nullptr;
+};
+
+constexpr EquipmentSlot BreakItemEquipmentSlots[] = {
+    EquipmentSlot::OffHand,
+    EquipmentSlot::MainHand,
+    EquipmentSlot::Bow,
+    EquipmentSlot::Armor,
+    EquipmentSlot::Helm,
+    EquipmentSlot::Belt,
+    EquipmentSlot::Cloak,
+    EquipmentSlot::Gauntlets,
+    EquipmentSlot::Boots,
+    EquipmentSlot::Amulet,
+    EquipmentSlot::Ring1,
+    EquipmentSlot::Ring2,
+    EquipmentSlot::Ring3,
+    EquipmentSlot::Ring4,
+    EquipmentSlot::Ring5,
+    EquipmentSlot::Ring6,
 };
 
 std::optional<GameplayCombatActorInfo> resolveActor(
@@ -432,9 +453,32 @@ EquippedItemRuntimeState *equippedItemRuntimeState(Character &character, Equipme
     return nullptr;
 }
 
-bool isBreakableItemDefinition(const ItemDefinition &itemDefinition)
+int parseIntegerOrZero(const std::string &text)
 {
-    return itemDefinition.rarity == ItemRarity::Common;
+    if (text.empty())
+    {
+        return 0;
+    }
+
+    try
+    {
+        return std::stoi(text);
+    }
+    catch (...)
+    {
+        return 0;
+    }
+}
+
+bool isRegularBreakableItemDefinition(const ItemDefinition &itemDefinition)
+{
+    return itemDefinition.itemId >= FirstRegularBreakableItemId
+        && itemDefinition.itemId <= LastRegularBreakableItemId;
+}
+
+int breakItemSaveBonus(const ItemDefinition &itemDefinition)
+{
+    return 3 * (static_cast<int>(itemDefinition.rarity) + parseIntegerOrZero(itemDefinition.mod2));
 }
 
 bool itemMatchesBreakSpecial(
@@ -446,7 +490,7 @@ bool itemMatchesBreakSpecial(
     switch (specialAttackKind)
     {
         case MonsterSpecialAttackKind::BreakAny:
-            return isBreakableItemDefinition(itemDefinition);
+            return isRegularBreakableItemDefinition(itemDefinition);
         case MonsterSpecialAttackKind::BreakArmor:
             return category == ItemEnchantCategory::Armor || category == ItemEnchantCategory::Shield;
         case MonsterSpecialAttackKind::BreakWeapon:
@@ -476,35 +520,16 @@ std::vector<BreakItemCandidate> collectBreakItemCandidates(
         {
             const ItemDefinition *pItemDefinition = pItemTable->get(item.objectDescriptionId);
 
-            if (pItemDefinition != nullptr && !item.broken && itemMatchesBreakSpecial(*pItemDefinition, specialAttackKind))
+            if (pItemDefinition != nullptr
+                && !item.broken
+                && itemMatchesBreakSpecial(*pItemDefinition, specialAttackKind))
             {
                 candidates.push_back({&item, nullptr, pItemDefinition});
             }
         }
-
-        return candidates;
     }
 
-    constexpr EquipmentSlot slots[] = {
-        EquipmentSlot::OffHand,
-        EquipmentSlot::MainHand,
-        EquipmentSlot::Bow,
-        EquipmentSlot::Armor,
-        EquipmentSlot::Helm,
-        EquipmentSlot::Belt,
-        EquipmentSlot::Cloak,
-        EquipmentSlot::Gauntlets,
-        EquipmentSlot::Boots,
-        EquipmentSlot::Amulet,
-        EquipmentSlot::Ring1,
-        EquipmentSlot::Ring2,
-        EquipmentSlot::Ring3,
-        EquipmentSlot::Ring4,
-        EquipmentSlot::Ring5,
-        EquipmentSlot::Ring6,
-    };
-
-    for (EquipmentSlot slot : slots)
+    for (EquipmentSlot slot : BreakItemEquipmentSlots)
     {
         const uint32_t itemId = equippedItemId(member, slot);
         EquippedItemRuntimeState *pRuntimeState = equippedItemRuntimeState(member, slot);
@@ -651,7 +676,7 @@ int monsterSpecialAttackSaveBonus(
         case MonsterSpecialAttackKind::BreakWeapon:
             if (pBreakCandidate != nullptr && pBreakCandidate->pItemDefinition != nullptr)
             {
-                return 3 * (static_cast<int>(pBreakCandidate->pItemDefinition->rarity) + 1);
+                return breakItemSaveBonus(*pBreakCandidate->pItemDefinition);
             }
             return 0;
         default:
@@ -712,16 +737,14 @@ bool shouldApplyMonsterSpecialAttack(
     const GameplayCombatActorInfo &sourceActor,
     std::mt19937 &rng)
 {
-    const bool attack1Melee =
-        event.type == GameplayCombatController::CombatEventType::MonsterMeleeImpact
-        && event.ability == GameplayActorAttackAbility::Attack1;
+    const bool monsterMelee = event.type == GameplayCombatController::CombatEventType::MonsterMeleeImpact;
     const bool attack1Projectile =
         event.type == GameplayCombatController::CombatEventType::PartyProjectileImpact
         && !event.affectsAllParty
         && event.ability == GameplayActorAttackAbility::Attack1
         && event.spellId == 0;
 
-    if ((!attack1Melee && !attack1Projectile)
+    if ((!monsterMelee && !attack1Projectile)
         || sourceActor.specialAttackKind == MonsterSpecialAttackKind::None
         || sourceActor.specialAttackLevel <= 0
         || sourceActor.monsterLevel <= 0)
@@ -758,6 +781,16 @@ bool applyMonsterSpecialAttack(
 
     std::vector<BreakItemCandidate> breakCandidates;
     const BreakItemCandidate *pBreakCandidate = nullptr;
+    const ItemTable *pItemTable =
+        context.pRuntime != nullptr ? context.pRuntime->itemTable() : context.party.itemTable();
+    const StandardItemEnchantTable *pStandardItemEnchantTable =
+        context.pRuntime != nullptr
+            ? context.pRuntime->standardItemEnchantTable()
+            : context.party.standardItemEnchantTable();
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable =
+        context.pRuntime != nullptr
+            ? context.pRuntime->specialItemEnchantTable()
+            : context.party.specialItemEnchantTable();
 
     if (sourceActor.specialAttackKind == MonsterSpecialAttackKind::BreakAny
         || sourceActor.specialAttackKind == MonsterSpecialAttackKind::BreakArmor
@@ -765,7 +798,7 @@ bool applyMonsterSpecialAttack(
     {
         breakCandidates = collectBreakItemCandidates(
             *pMember,
-            context.pRuntime != nullptr ? context.pRuntime->itemTable() : nullptr,
+            pItemTable,
             sourceActor.specialAttackKind);
 
         if (breakCandidates.empty())
@@ -780,9 +813,9 @@ bool applyMonsterSpecialAttack(
 
     const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(
         *pMember,
-        context.pRuntime != nullptr ? context.pRuntime->itemTable() : nullptr,
-        context.pRuntime != nullptr ? context.pRuntime->standardItemEnchantTable() : nullptr,
-        context.pRuntime != nullptr ? context.pRuntime->specialItemEnchantTable() : nullptr);
+        pItemTable,
+        pStandardItemEnchantTable,
+        pSpecialItemEnchantTable);
 
     if (memberImmuneToMonsterSpecialAttack(summary, sourceActor.specialAttackKind))
     {
@@ -805,7 +838,8 @@ bool applyMonsterSpecialAttack(
 
     if (condition)
     {
-        applied = context.party.applyMemberCondition(memberIndex, *condition);
+        const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
+        applied = context.party.applyMemberCondition(memberIndex, *condition, gameMinutes);
     }
     else if (sourceActor.specialAttackKind == MonsterSpecialAttackKind::ManaDrain)
     {
@@ -1182,6 +1216,7 @@ void GameplayCombatController::handlePendingCombatEvents(
             event.type == CombatEventType::PartyProjectileImpact && event.damageType == CombatDamageType::Physical;
         bool damagedParty = false;
         std::vector<DamagedMember> damagedMembers;
+        std::vector<size_t> specialAttackMembers;
 
         if (event.affectsAllParty)
         {
@@ -1214,6 +1249,8 @@ void GameplayCombatController::handlePendingCombatEvents(
                     showHitStatus(context.pRuntime, pMember->name + " evades damage");
                     continue;
                 }
+
+                specialAttackMembers.push_back(memberIndex);
 
                 const int adjustedDamage =
                     adjustedIncomingDamageForMember(context, event, *pMember, memberIndex, isPhysicalProjectile);
@@ -1251,6 +1288,11 @@ void GameplayCombatController::handlePendingCombatEvents(
                 showHitStatus(context.pRuntime, pTargetMember->name + " evades damage");
             }
 
+            if (!evaded && targetMemberIndex.has_value())
+            {
+                specialAttackMembers.push_back(*targetMemberIndex);
+            }
+
             damagedParty = targetMemberIndex
                 ? (!evaded && context.party.applyDamageToMember(*targetMemberIndex, adjustedDamage, ""))
                 : false;
@@ -1276,10 +1318,13 @@ void GameplayCombatController::handlePendingCombatEvents(
             {
                 applyIncomingHitSideEffects(context, damagedMember.memberIndex);
                 applyPainReflection(context, event, damagedMember.memberIndex, damagedMember.damage);
+            }
 
-                if (sourceActor)
+            if (sourceActor)
+            {
+                for (size_t memberIndex : specialAttackMembers)
                 {
-                    applyMonsterSpecialAttack(context, event, *sourceActor, damagedMember.memberIndex);
+                    applyMonsterSpecialAttack(context, event, *sourceActor, memberIndex);
                 }
             }
 
@@ -1291,6 +1336,13 @@ void GameplayCombatController::handlePendingCombatEvents(
             else
             {
                 triggerPortraitFaceAnimation(context.pRuntime, *targetMemberIndex, FaceAnimationId::Damaged);
+            }
+        }
+        else if (sourceActor)
+        {
+            for (size_t memberIndex : specialAttackMembers)
+            {
+                applyMonsterSpecialAttack(context, event, *sourceActor, memberIndex);
             }
         }
     }

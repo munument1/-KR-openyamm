@@ -214,14 +214,14 @@ RegisterEvent(415, "Obelisk", function()
     SetQBit(QBit(689)) -- Visited Obelisk in Area 39
 end, "Obelisk")
 
-RegisterEvent(416, "Enter the Throne Room", function()
+RegisterEvent(416, "Throne Room", function()
     if not HasAward(Award(3)) then -- Removed goblins from Castle Harmondale
         evt.FaceAnimation(FaceAnimation.DoorLocked)
         evt.StatusText("The Door is Locked")
         return
     end
     evt.EnterHouse(216) -- Throne Room
-end, "Enter the Throne Room")
+end, "Throne Room")
 
 RegisterEvent(417, "The Balanced Axe", function()
     evt.EnterHouse(17) -- The Balanced Axe
@@ -277,41 +277,41 @@ end, "Master Guild of Earth")
 
 RegisterEvent(434, "Master Guild of Earth", nil, "Master Guild of Earth")
 
-RegisterEvent(435, "Cabinet", function()
+RegisterEvent(435, "Keenedge Residence", function()
     evt.EnterHouse(1051) -- Keenedge Residence
-end, "Cabinet")
+end, "Keenedge Residence")
 
-RegisterEvent(436, "Cabinet", function()
+RegisterEvent(436, "Seline's House", function()
     evt.EnterHouse(1052) -- Seline's House
-end, "Cabinet")
+end, "Seline's House")
 
-RegisterEvent(437, "Cabinet", function()
+RegisterEvent(437, "Welman Residence", function()
     evt.EnterHouse(1053) -- Welman Residence
-end, "Cabinet")
+end, "Welman Residence")
 
-RegisterEvent(438, "Cabinet", function()
+RegisterEvent(438, "Thain's House", function()
     evt.EnterHouse(1054) -- Thain's House
-end, "Cabinet")
+end, "Thain's House")
 
-RegisterEvent(439, "Cabinet", function()
+RegisterEvent(439, "Gizmo's", function()
     evt.EnterHouse(1055) -- Gizmo's
-end, "Cabinet")
+end, "Gizmo's")
 
-RegisterEvent(440, "Cabinet", function()
+RegisterEvent(440, "Spark's House", function()
     evt.EnterHouse(1056) -- Spark's House
-end, "Cabinet")
+end, "Spark's House")
 
-RegisterEvent(441, "Cabinet", function()
+RegisterEvent(441, "Thorinson Residence", function()
     evt.EnterHouse(1057) -- Thorinson Residence
-end, "Cabinet")
+end, "Thorinson Residence")
 
-RegisterEvent(442, "Cabinet", function()
+RegisterEvent(442, "Urthsmite Residence", function()
     evt.EnterHouse(1058) -- Urthsmite Residence
-end, "Cabinet")
+end, "Urthsmite Residence")
 
-RegisterEvent(443, "Cabinet", function()
+RegisterEvent(443, "Throne Room", function()
     evt.EnterHouse(216) -- Throne Room
-end, "Cabinet")
+end, "Throne Room")
 
 RegisterEvent(444, "House", nil, "House")
 

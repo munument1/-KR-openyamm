@@ -5913,6 +5913,10 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
     Snapshot snapshot = {};
     const GameplayProjectileService::Snapshot projectileSnapshot = projectileService().snapshot();
     snapshot.gameMinutes = m_gameMinutes;
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        snapshot.locationInfo = m_pOutdoorMapDeltaData->locationInfo;
+    }
     snapshot.atmosphere = m_atmosphereState;
     snapshot.timers = m_timers;
     snapshot.mapActors = m_mapActors;
@@ -5969,6 +5973,10 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     projectileSnapshot.projectileImpacts = snapshot.projectileImpacts;
 
     m_gameMinutes = snapshot.gameMinutes;
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        m_pOutdoorMapDeltaData->locationInfo = snapshot.locationInfo;
+    }
     m_atmosphereState = snapshot.atmosphere;
     m_timers = snapshot.timers;
     m_mapActors = snapshot.mapActors;
@@ -6020,6 +6028,84 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     clearPendingCombatEvents();
     refreshAtmosphereState();
     applyEventRuntimeState(true);
+}
+
+void OutdoorWorldRuntime::applyMapReentryReset()
+{
+    for (MapActorState &actor : m_mapActors)
+    {
+        const bool canAct =
+            actor.currentHp > 0
+            && actor.aiState != ActorAiState::Dying
+            && actor.aiState != ActorAiState::Dead;
+
+        if (!canAct)
+        {
+            continue;
+        }
+
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+        actor.preciseX = actor.homePreciseX;
+        actor.preciseY = actor.homePreciseY;
+        actor.preciseZ = actor.homePreciseZ;
+        actor.x = actor.homeX;
+        actor.y = actor.homeY;
+        actor.z = actor.homeZ;
+        actor.currentHp = std::max(1, actor.maxHp);
+        actor.aiState = ActorAiState::Standing;
+        actor.animation = ActorAnimation::Standing;
+        actor.animationTimeTicks = 0.0f;
+        actor.actionSeconds = 0.0f;
+        actor.moveDirectionX = 0.0f;
+        actor.moveDirectionY = 0.0f;
+        actor.velocityX = 0.0f;
+        actor.velocityY = 0.0f;
+        actor.velocityZ = 0.0f;
+        actor.attackImpactTriggered = false;
+        resetCrowdSteeringState(actor);
+
+        if (m_outdoorMovementController)
+        {
+            const float collisionRadius = actorCollisionRadius(actor, pStats);
+            actor.movementState = m_outdoorMovementController->initializeActorStateForBody(
+                actor.preciseX,
+                actor.preciseY,
+                actor.preciseZ + GroundSnapHeight,
+                collisionRadius);
+            actor.movementStateInitialized = true;
+            syncActorFromMovementState(actor);
+            actor.velocityX = 0.0f;
+            actor.velocityY = 0.0f;
+            actor.velocityZ = 0.0f;
+        }
+    }
+
+    if (m_pGameplayProjectileService != nullptr)
+    {
+        m_pGameplayProjectileService->clearActiveProjectiles();
+    }
+    m_fireSpikeTraps.clear();
+
+    if (m_pObjectTable != nullptr)
+    {
+        std::erase_if(
+            m_worldItems,
+            [this](const WorldItemState &worldItem)
+            {
+                const ObjectEntry *pObjectEntry = m_pObjectTable->get(worldItem.objectDescriptionId);
+                return (worldItem.soundId & 8u) != 0
+                    || pObjectEntry == nullptr
+                    || (pObjectEntry->flags & ObjectDescUnpickable) != 0;
+            });
+    }
+
+    if (m_outdoorMovementController && m_pMonsterTable != nullptr)
+    {
+        const std::vector<bool> activeActorMask(m_mapActors.size(), true);
+        m_outdoorMovementController->setActorColliders(
+            buildNearbyActorMovementColliders(m_mapActors, activeActorMask, *m_pMonsterTable));
+    }
 }
 
 float OutdoorWorldRuntime::gameMinutes() const
@@ -14098,6 +14184,13 @@ bool OutdoorWorldRuntime::partyIsAirborneForRest() const
 {
     return m_pPartyRuntime != nullptr
         && (m_pPartyRuntime->movementState().airborne || m_pPartyRuntime->partyMovementState().flying);
+}
+
+bool OutdoorWorldRuntime::partyIsFlyingForEventChecks() const
+{
+    return m_pPartyRuntime != nullptr
+        && m_pPartyRuntime->movementState().airborne
+        && m_pPartyRuntime->partyMovementState().flying;
 }
 
 void OutdoorWorldRuntime::syncSpellMovementStatesFromPartyBuffs()

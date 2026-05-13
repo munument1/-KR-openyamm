@@ -438,7 +438,7 @@ RegisterEvent(378, "Legacy event 378", function()
     end
 end)
 
-RegisterEvent(416, "Enter the Throne Room", function()
+RegisterEvent(416, "Sanctuary", function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.EnterHouse(380)
         return
@@ -451,9 +451,9 @@ RegisterEvent(416, "Enter the Throne Room", function()
         evt.EnterHouse(381)
         return
     end
-end, "Enter the Throne Room")
+end, "Sanctuary")
 
-RegisterEvent(417, "The door is blocked", function()
+RegisterEvent(417, "Beakers and Bottles", function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.EnterHouse(380)
         return
@@ -466,7 +466,7 @@ RegisterEvent(417, "The door is blocked", function()
         evt.EnterHouse(381)
         return
     end
-end, "The door is blocked")
+end, "Beakers and Bottles")
 
 RegisterEvent(418, "Thel's Armor and Shields", function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)

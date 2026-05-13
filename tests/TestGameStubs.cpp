@@ -45,6 +45,24 @@ int GameMechanics::calculateBaseCharacterMaxSpellPoints(
     return std::max(0, character.maxSpellPoints);
 }
 
+int GameMechanics::calculateEffectiveCharacterMaxHealth(
+    const Character &character,
+    const ClassMultiplierTable *pClassMultiplierTable)
+{
+    (void)pClassMultiplierTable;
+    return std::max(1, character.maxHealth + character.permanentBonuses.maxHealth + character.magicalBonuses.maxHealth);
+}
+
+int GameMechanics::calculateEffectiveCharacterMaxSpellPoints(
+    const Character &character,
+    const ClassMultiplierTable *pClassMultiplierTable)
+{
+    (void)pClassMultiplierTable;
+    return std::max(
+        0,
+        character.maxSpellPoints + character.permanentBonuses.maxSpellPoints + character.magicalBonuses.maxSpellPoints);
+}
+
 void GameMechanics::refreshCharacterBaseResources(
     Character &character,
     bool restoreCurrentToMaximum,

@@ -311,7 +311,8 @@ private:
             nullptr,
             &m_gameData.mergedContinentSettingTable,
             &m_gameData.mergedTeacherTopicTable,
-            &m_gameData.mergedTeacherAutonoteTable);
+            &m_gameData.mergedTeacherAutonoteTable,
+            &m_gameData.spellTable);
     }
 
     const RegressionGameData &m_gameData;

@@ -27,6 +27,7 @@ public:
     AppMode mode() const override;
     void prepareForFirstFrame();
     void onEnter() override;
+    static void invalidateCachedSaveSlots();
 
 private:
     struct SaveSlotSummary

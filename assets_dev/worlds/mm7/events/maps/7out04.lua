@@ -45,9 +45,9 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(61, MonsterBits.Hostile, 0) -- actor group 61: spawn Treant A
 end)
 
-RegisterEvent(3, "Chest ", function()
+RegisterEvent(3, "Buckskins and Bucklers", function()
     evt.EnterHouse(51) -- Buckskins and Bucklers
-end, "Chest ")
+end, "Buckskins and Bucklers")
 
 RegisterEvent(4, "Buckskins and Bucklers", nil, "Buckskins and Bucklers")
 

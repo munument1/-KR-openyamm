@@ -455,6 +455,12 @@ LoadGameScreen::LoadGameScreen(
 std::vector<LoadGameScreen::SaveSlotSummary> LoadGameScreen::s_cachedSlots;
 bool LoadGameScreen::s_cachedSlotsValid = false;
 
+void LoadGameScreen::invalidateCachedSaveSlots()
+{
+    s_cachedSlots.clear();
+    s_cachedSlotsValid = false;
+}
+
 AppMode LoadGameScreen::mode() const
 {
     return AppMode::LoadMenu;

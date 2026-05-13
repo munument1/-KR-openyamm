@@ -92,9 +92,7 @@ std::optional<uint32_t> tryParseSpellId(const ItemDefinition &itemDefinition)
 
 int maxSpellPointsForMember(const Character &member)
 {
-    return std::max(
-        0,
-        member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints);
+    return Party::effectiveMaximumSpellPoints(member);
 }
 
 bool restoreSpellPoints(Character &member, int amount)
@@ -1141,17 +1139,17 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
 
             if (dayOfMonth == 6 || dayOfMonth == 20)
             {
-                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Eradicated);
+                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Eradicated, context.gameMinutes);
                 result.soundId = SoundId::Gong;
             }
             else if (dayOfMonth == 12 || dayOfMonth == 26)
             {
-                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Dead);
+                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Dead, context.gameMinutes);
                 result.soundId = SoundId::Gong;
             }
             else if (dayOfMonth == 4 || dayOfMonth == 25)
             {
-                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Petrified);
+                party.applyMemberCondition(targetMemberIndex, CharacterCondition::Petrified, context.gameMinutes);
                 result.soundId = SoundId::Gong;
             }
 

@@ -327,9 +327,9 @@ RegisterEvent(501, "Leave the Pit", function()
     evt.MoveToMap(498, 16198, 161, 1536, 0, 0, 0, 0, "t04.blv") -- The Hall of the Pit
 end, "Leave the Pit")
 
-RegisterEvent(502, "Enter The Temple of the Dark", function()
+RegisterEvent(502, "Temple of Dark", function()
     evt.EnterHouse(317) -- Temple of Dark
-end, "Enter The Temple of the Dark")
+end, "Temple of Dark")
 
 RegisterEvent(503, "Enter the Breeding Zone", function()
     evt.MoveToMap(-320, -1216, 1, 0, 0, 0, 146, 1, "7d10.blv") -- The Breeding Zone

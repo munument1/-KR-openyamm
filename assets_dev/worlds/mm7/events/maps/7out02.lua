@@ -1053,134 +1053,134 @@ RegisterEvent(250, "Legacy event 250", function()
     goto step_8
 end)
 
-RegisterEvent(251, "House", function()
+RegisterEvent(251, "Mist Manor", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1101) -- Mist Manor
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Mist Manor")
 
-RegisterEvent(252, "House", function()
+RegisterEvent(252, "Hillsmen Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1102) -- Hillsmen Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Hillsmen Residence")
 
-RegisterEvent(253, "House", function()
+RegisterEvent(253, "Stillwater Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1103) -- Stillwater Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Stillwater Residence")
 
-RegisterEvent(254, "House", function()
+RegisterEvent(254, "Mark Manor", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1104) -- Mark Manor
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Mark Manor")
 
-RegisterEvent(255, "House", function()
+RegisterEvent(255, "Bowes Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1105) -- Bowes Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Bowes Residence")
 
-RegisterEvent(256, "House", function()
+RegisterEvent(256, "Temper Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1106) -- Temper Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Temper Residence")
 
-RegisterEvent(257, "House", function()
+RegisterEvent(257, "Krewlen Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1107) -- Krewlen Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Krewlen Residence")
 
-RegisterEvent(258, "House", function()
+RegisterEvent(258, "Withersmythe's Home", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1108) -- Withersmythe's Home
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Withersmythe's Home")
 
-RegisterEvent(260, "House", function()
+RegisterEvent(260, "Kern Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1121) -- Kern Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Kern Residence")
 
-RegisterEvent(261, "House", function()
+RegisterEvent(261, "Chadric's House", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1122) -- Chadric's House
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Chadric's House")
 
-RegisterEvent(262, "House", function()
+RegisterEvent(262, "Weider Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1123) -- Weider Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Weider Residence")
 
-RegisterEvent(263, "House", function()
+RegisterEvent(263, "Hume Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1126) -- Hume Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Hume Residence")
 
-RegisterEvent(264, "House", function()
+RegisterEvent(264, "Farswell Residence", function()
     if not IsQBitSet(QBit(695)) then -- Failed either goto or do guild quest
         evt.EnterHouse(1127) -- Farswell Residence
         return
     end
     evt.StatusText("This Door is Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "House")
+end, "Farswell Residence")
 
 RegisterEvent(265, "House", nil, "House")
 
 RegisterEvent(266, "Hut", nil, "Hut")
 
-RegisterEvent(267, "Hut", function()
+RegisterEvent(267, "Skinner's House", function()
     evt.EnterHouse(1124) -- Skinner's House
-end, "Hut")
+end, "Skinner's House")
 
-RegisterEvent(268, "Hut", function()
+RegisterEvent(268, "Torrent's", function()
     evt.EnterHouse(1125) -- Torrent's
-end, "Hut")
+end, "Torrent's")
 
 RegisterEvent(301, "Enter Castle Harmondale", function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)

@@ -268,6 +268,12 @@ void GameplayProjectileService::restoreSnapshot(const Snapshot &snapshot)
     m_projectileImpacts = snapshot.projectileImpacts;
 }
 
+void GameplayProjectileService::clearActiveProjectiles()
+{
+    m_projectiles.clear();
+    m_projectileImpacts.clear();
+}
+
 uint32_t GameplayProjectileService::nextProjectileId() const
 {
     return m_nextProjectileId;

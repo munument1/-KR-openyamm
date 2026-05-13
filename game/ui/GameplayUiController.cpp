@@ -413,6 +413,12 @@ void GameplayUiController::openUtilitySpellOverlay(
     state.utilitySpellOverlay.mode = mode;
     state.utilitySpellOverlay.spellId = spellId;
     state.utilitySpellOverlay.casterMemberIndex = casterMemberIndex;
+    state.utilitySpellOverlay.skillLevelOverride = 0;
+    state.utilitySpellOverlay.skillMasteryOverride = SkillMastery::None;
+    state.utilitySpellOverlay.spendMana = true;
+    state.utilitySpellOverlay.applyRecovery = true;
+    state.utilitySpellOverlay.bypassRequiredMastery = false;
+    state.utilitySpellOverlay.bypassGameplayCasterValidation = false;
     state.utilitySpellOverlay.lloydRecallMode = lloydRecallMode;
 }
 

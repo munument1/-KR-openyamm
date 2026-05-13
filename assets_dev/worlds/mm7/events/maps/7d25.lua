@@ -368,7 +368,7 @@ RegisterEvent(503, "Enter Castle Lambent", function()
     evt.MoveToMap(64, -640, 1, 512, 0, 0, 130, 1, "7d30.blv") -- Castle Lambent
 end, "Enter Castle Lambent")
 
-RegisterEvent(504, "Enter The Temple of the Light", function()
+RegisterEvent(504, "Temple of Light", function()
     evt.EnterHouse(316) -- Temple of Light
-end, "Enter The Temple of the Light")
+end, "Temple of Light")
 

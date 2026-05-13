@@ -557,9 +557,81 @@ int roundPrice(float multiplier, int scale, int minimumPrice)
     return std::max(minimumPrice, scaledPrice);
 }
 
-int templeHealCost(const HouseEntry &houseEntry)
+float templeConditionHealingTier(CharacterCondition condition)
 {
-    return roundPrice(houseEntry.priceMultiplier, 20, 10);
+    switch (condition)
+    {
+        case CharacterCondition::Eradicated:
+        case CharacterCondition::Zombie:
+            return 2.5f;
+
+        case CharacterCondition::Dead:
+        case CharacterCondition::Petrified:
+            return 2.0f;
+
+        case CharacterCondition::Asleep:
+        case CharacterCondition::PoisonMedium:
+        case CharacterCondition::DiseaseMedium:
+        case CharacterCondition::PoisonSevere:
+        case CharacterCondition::DiseaseSevere:
+        case CharacterCondition::Paralyzed:
+        case CharacterCondition::Unconscious:
+            return 1.5f;
+
+        case CharacterCondition::Cursed:
+        case CharacterCondition::Weak:
+        case CharacterCondition::Fear:
+        case CharacterCondition::Drunk:
+        case CharacterCondition::Insane:
+        case CharacterCondition::PoisonWeak:
+        case CharacterCondition::DiseaseWeak:
+        default:
+            return 1.0f;
+    }
+}
+
+bool templeCanTreatCondition(const HouseEntry &houseEntry, CharacterCondition condition)
+{
+    if (houseEntry.templeHealingTier <= 0.0f)
+    {
+        return true;
+    }
+
+    return houseEntry.templeHealingTier + 0.001f >= templeConditionHealingTier(condition);
+}
+
+bool templeCanTreatActiveMemberNeed(const HouseEntry &houseEntry, const Character &member)
+{
+    bool hasCondition = false;
+
+    for (size_t conditionIndex = 0; conditionIndex < CharacterConditionCount; ++conditionIndex)
+    {
+        if (!member.conditions.test(conditionIndex))
+        {
+            continue;
+        }
+
+        hasCondition = true;
+        if (!templeCanTreatCondition(houseEntry, static_cast<CharacterCondition>(conditionIndex)))
+        {
+            return false;
+        }
+    }
+
+    return hasCondition
+        || member.health < Party::effectiveMaximumHealth(member)
+        || member.spellPoints < Party::effectiveMaximumSpellPoints(member);
+}
+
+bool activeMemberNeedsTempleHealing(const Party &party, const HouseEntry &houseEntry)
+{
+    const Character *pMember = party.activeMember();
+    return pMember != nullptr && templeCanTreatActiveMemberNeed(houseEntry, *pMember);
+}
+
+int templeHealCost(const HouseEntry &houseEntry, const Character *pMember, float gameMinutes)
+{
+    return PriceCalculator::templeHealPrice(pMember, houseEntry, gameMinutes);
 }
 
 int templeDonationCost(const HouseEntry &houseEntry)
@@ -947,11 +1019,13 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (serviceType == HouseServiceType::Temple)
     {
-        if (pParty == nullptr || pParty->activeMemberNeedsHealing())
+        const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
+
+        if (pParty == nullptr || activeMemberNeedsTempleHealing(*pParty, houseEntry))
         {
             options.push_back(makeOption(
                 HouseActionId::TempleHeal,
-                "Heal " + std::to_string(templeHealCost(houseEntry)) + " gold",
+                "Heal " + std::to_string(templeHealCost(houseEntry, pMember, currentGameMinutes)) + " gold",
                 isHouseOpenNow,
                 closedReason
             ));
@@ -1388,13 +1462,21 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            if (!party.activeMemberNeedsHealing())
+            if (!activeMemberNeedsTempleHealing(party, houseEntry))
             {
-                result.messages.push_back("The temple staff says " + pMember->name + " is already well.");
+                if (party.activeMemberNeedsHealing())
+                {
+                    result.messages.push_back("The temple staff cannot treat " + pMember->name + "'s condition.");
+                }
+                else
+                {
+                    result.messages.push_back("The temple staff says " + pMember->name + " is already well.");
+                }
                 return result;
             }
 
-            const int price = templeHealCost(houseEntry);
+            const float gameMinutes = pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : 0.0f;
+            const int price = templeHealCost(houseEntry, pMember, gameMinutes);
 
             if (party.gold() < price)
             {
@@ -1407,9 +1489,10 @@ HouseActionResult performHouseAction(
             party.addGold(-price);
             if (Character *pHealedMember = party.activeMember())
             {
-                pHealedMember->health = pHealedMember->maxHealth;
-                pHealedMember->spellPoints = pHealedMember->maxSpellPoints;
+                pHealedMember->health = Party::effectiveMaximumHealth(*pHealedMember);
+                pHealedMember->spellPoints = Party::effectiveMaximumSpellPoints(*pHealedMember);
                 pHealedMember->conditions.reset();
+                pHealedMember->conditionStartGameMinutes.fill(0.0f);
             }
             result.messages.push_back(
                 "The temple restores " + pMember->name + " for " + std::to_string(price) + " gold.");
@@ -1534,7 +1617,8 @@ HouseActionResult performHouseAction(
 
             if (tavernDrinkMakesPartyDrunk())
             {
-                party.applyMemberCondition(party.activeMemberIndex(), CharacterCondition::Drunk);
+                const float gameMinutes = pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : 0.0f;
+                party.applyMemberCondition(party.activeMemberIndex(), CharacterCondition::Drunk, gameMinutes);
                 result.additionalSpeechIds.push_back(SpeechId::TavernGotDrunk);
             }
 

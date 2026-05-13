@@ -256,6 +256,36 @@ TEST_CASE("character sheet marks experience as trainable at the OE threshold")
     CHECK_EQ(summary.level.actual, 5);
 }
 
+TEST_CASE("temporary level bonus raises displayed level and effective resources")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    OpenYAMM::Game::Character character = {};
+    character.className = "Cleric";
+    character.role = "Cleric";
+    character.level = 5;
+    character.endurance = 14;
+    character.personality = 14;
+    character.maxHealth = OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxHealth(
+        character,
+        &gameData.classMultiplierTable);
+    character.maxSpellPoints = OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxSpellPoints(
+        character,
+        &gameData.classMultiplierTable);
+    const int baseHealth = character.maxHealth;
+    const int baseSpellPoints = character.maxSpellPoints;
+
+    character.levelModifier = 30;
+
+    const OpenYAMM::Game::CharacterSheetSummary summary =
+        OpenYAMM::Game::GameMechanics::buildCharacterSheetSummary(character, &gameData.itemTable);
+
+    CHECK_EQ(summary.level.base, 5);
+    CHECK_EQ(summary.level.actual, 35);
+    CHECK_GT(summary.health.maximum, baseHealth);
+    CHECK_GT(summary.spellPoints.maximum, baseSpellPoints);
+}
+
 TEST_CASE("character sheet resistance split does not double count equipment bonuses")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

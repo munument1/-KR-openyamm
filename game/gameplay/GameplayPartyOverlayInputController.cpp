@@ -283,6 +283,18 @@ void applyDimensionDoorCastOverrides(PartySpellCastRequest &request)
     request.utilityMapMoveUseFullscreenLoading = true;
 }
 
+void applyUtilitySpellOverlayCastOverrides(
+    PartySpellCastRequest &request,
+    const GameplayUiController::UtilitySpellOverlayState &overlay)
+{
+    request.skillLevelOverride = overlay.skillLevelOverride;
+    request.skillMasteryOverride = overlay.skillMasteryOverride;
+    request.spendMana = overlay.spendMana;
+    request.applyRecovery = overlay.applyRecovery;
+    request.bypassRequiredMastery = overlay.bypassRequiredMastery;
+    request.bypassGameplayCasterValidation = overlay.bypassGameplayCasterValidation;
+}
+
 std::optional<DimensionDoorLanding> resolveDimensionDoorLanding(
     const Party *pParty,
     const GameplayTownPortalDestination &destination)
@@ -887,6 +899,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                 PartySpellCastRequest request = {};
                 request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
                 request.spellId = context.utilitySpellOverlayReadOnly().spellId;
+                applyUtilitySpellOverlayCastOverrides(request, context.utilitySpellOverlayReadOnly());
                 request.utilityAction = PartySpellUtilityActionKind::TownPortalDestination;
                 request.hasUtilityMapMove = true;
                 request.utilityActionId = destination.id;
@@ -1184,6 +1197,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             PartySpellCastRequest request = {};
             request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
             request.spellId = context.utilitySpellOverlayReadOnly().spellId;
+            applyUtilitySpellOverlayCastOverrides(request, context.utilitySpellOverlayReadOnly());
 
             if (target.type == GameplayUtilitySpellPointerTargetType::TownPortalDestination)
             {
@@ -1646,6 +1660,16 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
     Character *pActiveCharacter = const_cast<Character *>(context.selectedCharacterScreenCharacter());
     Party *pParty = context.party();
     const bool isReadOnlyAdventurersInnView = context.isReadOnlyAdventurersInnCharacterViewActive();
+    const size_t selectedPartyMemberIndex =
+        pParty != nullptr && !context.isAdventurersInnCharacterSourceActive()
+            ? context.selectedCharacterScreenSourceIndex()
+            : (pParty != nullptr ? pParty->activeMemberIndex() : 0);
+    const Character *pSelectedPartyMember =
+        pParty != nullptr && !context.isAdventurersInnCharacterSourceActive()
+            ? pParty->member(selectedPartyMemberIndex)
+            : nullptr;
+    const bool selectedPartyMemberCanAct =
+        pSelectedPartyMember != nullptr && GameMechanics::canAct(*pSelectedPartyMember);
     const auto clearPendingCharacterDismiss =
         [&context]()
         {
@@ -1659,7 +1683,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
         || (context.interactionState().pendingCharacterDismissMemberIndex.has_value()
             && (nowTicks > context.interactionState().pendingCharacterDismissExpiresTicks
                 || *context.interactionState().pendingCharacterDismissMemberIndex >= pParty->members().size()
-                || *context.interactionState().pendingCharacterDismissMemberIndex != pParty->activeMemberIndex())))
+                || *context.interactionState().pendingCharacterDismissMemberIndex != selectedPartyMemberIndex)))
     {
         clearPendingCharacterDismiss();
     }
@@ -1722,8 +1746,14 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
     {
         if (pParty != nullptr && !pParty->members().empty())
         {
-            const size_t nextMemberIndex = (pParty->activeMemberIndex() + 1) % pParty->members().size();
-            context.trySelectPartyMember(nextMemberIndex, false);
+            const size_t nextMemberIndex = (selectedPartyMemberIndex + 1) % pParty->members().size();
+            context.characterScreen().source = GameplayUiController::CharacterScreenSource::Party;
+            context.characterScreen().sourceIndex = nextMemberIndex;
+
+            if (pParty->canSelectMemberInGameplay(nextMemberIndex))
+            {
+                context.trySelectPartyMember(nextMemberIndex, true);
+            }
         }
 
         context.interactionState().characterMemberCycleLatch = true;
@@ -2433,7 +2463,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
     if (pParty != nullptr)
     {
         context.itemService().updateReadableScrollOverlayForHeldItem(
-            pParty->activeMemberIndex(),
+            selectedPartyMemberIndex,
             hoveredCharacterTarget,
             isLeftMousePressed);
 
@@ -2443,7 +2473,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             && (hoveredCharacterTarget.type == GameplayCharacterPointerTargetType::InventoryItem
                 || hoveredCharacterTarget.type == GameplayCharacterPointerTargetType::InventoryCell))
         {
-            const Character *pHoveredCharacter = pParty->activeMember();
+            const Character *pHoveredCharacter = pParty->member(selectedPartyMemberIndex);
             const InventoryItem *pTargetItem =
                 pHoveredCharacter != nullptr
                     ? pHoveredCharacter->inventoryItemAt(hoveredCharacterTarget.gridX, hoveredCharacterTarget.gridY)
@@ -2452,7 +2482,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             if (pTargetItem != nullptr
                 && context.itemService().tryUseHeldItemOnInventoryItem(
                     context,
-                    pParty->activeMemberIndex(),
+                    selectedPartyMemberIndex,
                     pTargetItem->gridX,
                     pTargetItem->gridY))
             {
@@ -2482,7 +2512,9 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
          mouseY,
          &clearPendingCharacterDismiss,
          &resolveCharacterInventoryGrid,
-         isReadOnlyAdventurersInnView](const GameplayCharacterPointerTarget &target)
+         isReadOnlyAdventurersInnView,
+         selectedPartyMemberIndex,
+         selectedPartyMemberCanAct](const GameplayCharacterPointerTarget &target)
         {
             const bool isInventorySpellTargetMode =
                 context.utilitySpellOverlayReadOnly().active
@@ -2547,7 +2579,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
                     request.spellId = context.utilitySpellOverlayReadOnly().spellId;
                     request.targetItemMemberIndex =
-                        pParty != nullptr ? std::optional<size_t>(pParty->activeMemberIndex()) : std::nullopt;
+                        pParty != nullptr ? std::optional<size_t>(selectedPartyMemberIndex) : std::nullopt;
                     request.targetInventoryGridX = target.gridX;
                     request.targetInventoryGridY = target.gridY;
                     context.tryCastSpellRequest(request, resolveSpellName(request.spellId));
@@ -2560,7 +2592,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
                     request.spellId = context.utilitySpellOverlayReadOnly().spellId;
                     request.targetItemMemberIndex =
-                        pParty != nullptr ? std::optional<size_t>(pParty->activeMemberIndex()) : std::nullopt;
+                        pParty != nullptr ? std::optional<size_t>(selectedPartyMemberIndex) : std::nullopt;
                     request.targetEquipmentSlot = target.equipmentSlot;
                     context.tryCastSpellRequest(request, resolveSpellName(request.spellId));
                     return;
@@ -2730,7 +2762,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
             if (target.type == GameplayCharacterPointerTargetType::DismissButton && pParty != nullptr)
             {
-                const size_t memberIndex = pParty->activeMemberIndex();
+                const size_t memberIndex = selectedPartyMemberIndex;
                 const Character *pMember = pParty->member(memberIndex);
 
                 if (pMember == nullptr || memberIndex == 0)
@@ -2780,6 +2812,12 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
             if (target.type == GameplayCharacterPointerTargetType::SkillRow && pParty != nullptr)
             {
+                if (pParty->activeMemberIndex() != selectedPartyMemberIndex
+                    && !context.trySelectPartyMember(selectedPartyMemberIndex, true))
+                {
+                    return;
+                }
+
                 if (pParty->increaseActiveMemberSkillLevel(target.skillName))
                 {
                     if (context.audioSystem() != nullptr)
@@ -2798,17 +2836,23 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 return;
             }
 
-            Character *pCharacter = pParty->activeMember();
+            Character *pCharacter = pParty->member(selectedPartyMemberIndex);
 
             if (pCharacter == nullptr)
             {
                 return;
             }
 
-            const size_t memberIndex = pParty->activeMemberIndex();
+            const size_t memberIndex = selectedPartyMemberIndex;
 
             if (target.type == GameplayCharacterPointerTargetType::EquipmentSlot)
             {
+                if (!selectedPartyMemberCanAct)
+                {
+                    context.setStatusBarEvent("Can't do that");
+                    return;
+                }
+
                 if (!context.heldInventoryItem().active)
                 {
                     InventoryItem unequippedItem = {};
@@ -2894,6 +2938,12 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
             if (target.type == GameplayCharacterPointerTargetType::DollPanel && context.heldInventoryItem().active)
             {
+                if (!selectedPartyMemberCanAct)
+                {
+                    context.setStatusBarEvent("Can't do that");
+                    return;
+                }
+
                 const InventoryItemUseAction useAction =
                     InventoryItemUseRuntime::classifyItemUse(
                         context.heldInventoryItem().item,

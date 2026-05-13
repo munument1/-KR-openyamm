@@ -161,8 +161,6 @@ constexpr float InteractionWorldItemMinHalfExtent = 20.0f;
 constexpr float InteractionWorldItemMinHeight = 40.0f;
 constexpr float InteractionSpriteObjectMinHalfExtent = 24.0f;
 constexpr float InteractionSpriteObjectMinHeight = 48.0f;
-constexpr float OutdoorEventTargetInteractionDepth = 1024.0f;
-
 bool outdoorFaceHasInvisibleAttribute(uint32_t attributes)
 {
     return hasFaceAttribute(attributes, FaceAttribute::Invisible);
@@ -739,13 +737,6 @@ float interactionDepthForInputMethod(
         ? settings.keyboardInteractionDepth
         : settings.mouseInteractionDepth;
     return static_cast<float>(std::clamp(configuredDepth, 32, 4096));
-}
-
-float eventTargetInteractionDepthForInputMethod(
-    const OutdoorGameView &view,
-    OutdoorInteractionController::InteractionInputMethod inputMethod)
-{
-    return std::max(interactionDepthForInputMethod(view, inputMethod), OutdoorEventTargetInteractionDepth);
 }
 
 bool shouldSkipSpriteObjectInspectTarget(const SpriteObjectBillboard &object, const ObjectEntry *pObjectEntry)
@@ -1732,7 +1723,8 @@ GameplayDialogController::Context OutdoorInteractionController::createGameplayDi
         &view.data().mergedBolsterMapTable(),
         &view.data().mergedContinentSettingTable(),
         &view.data().mergedTeacherTopicTable(),
-        &view.data().mergedTeacherAutonoteTable());
+        &view.data().mergedTeacherAutonoteTable(),
+        &view.data().spellTable());
 }
 
 void OutdoorInteractionController::executeActiveDialogAction(OutdoorGameView &view)
@@ -5440,7 +5432,7 @@ bool OutdoorInteractionController::canActivateInteractionEventTargetInspectEvent
     InteractionInputMethod inputMethod)
 {
     return canActivateEventTargetInspectEvent(view, inspectHit)
-        && inspectHit.distance < eventTargetInteractionDepthForInputMethod(view, inputMethod);
+        && isInteractionInspectHitInRange(view, inspectHit, inputMethod);
 }
 
 bool OutdoorInteractionController::canDispatchWorldActivation(

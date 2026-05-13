@@ -172,6 +172,9 @@ void GameplayHudInputController::handlePartyPortraitInput(
                 }
                 else if (switchCharacterOnFailedPlacement)
                 {
+                    GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+                    characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
+                    characterScreen.sourceIndex = *memberIndex;
                     context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
                 }
 
@@ -192,7 +195,20 @@ void GameplayHudInputController::handlePartyPortraitInput(
                 && nowTicks >= context.interactionState().lastPartyPortraitClickTicks
                 && nowTicks - context.interactionState().lastPartyPortraitClickTicks <= PartyPortraitDoubleClickWindowMs;
 
-            if (!context.trySelectPartyMember(*memberIndex, config.requireGameplayReady))
+            if (context.characterScreenReadOnly().open && !context.isAdventurersInnCharacterSourceActive())
+            {
+                GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+                characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
+                characterScreen.sourceIndex = *memberIndex;
+                context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
+                context.interactionState().lastPartyPortraitClickTicks = nowTicks;
+                context.interactionState().lastPartyPortraitClickedIndex = *memberIndex;
+                return;
+            }
+
+            const bool selected = context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
+
+            if (!selected && !isGameplayInventoryDoubleClick)
             {
                 return;
             }
@@ -204,7 +220,7 @@ void GameplayHudInputController::handlePartyPortraitInput(
                 characterScreen.open = true;
                 characterScreen.page = GameplayUiController::CharacterPage::Inventory;
                 characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
-                characterScreen.sourceIndex = 0;
+                characterScreen.sourceIndex = *memberIndex;
             }
             else if (isChestInventoryDoubleClick)
             {

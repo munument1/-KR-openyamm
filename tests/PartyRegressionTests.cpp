@@ -279,6 +279,41 @@ TEST_CASE("named runtime globals survive save data round trip")
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFQHint3"), 1);
 }
 
+TEST_CASE("outdoor location reset metadata survives save data round trip")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.currentSceneKind = OpenYAMM::Game::SceneKind::Outdoor;
+    saveData.mapFileName = "out02.odm";
+    saveData.party = party.snapshot();
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld.locationInfo.respawnCount = 3;
+    saveData.outdoorWorld.locationInfo.lastRespawnDay = 124;
+    saveData.outdoorWorld.locationInfo.reputation = -7;
+    saveData.outdoorWorld.locationInfo.alertStatus = 1;
+    saveData.outdoorWorldStates["out02.odm"] = saveData.outdoorWorld;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_outdoor_location_info_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->hasOutdoorRuntimeState);
+    CHECK_EQ(loaded->outdoorWorld.locationInfo.respawnCount, 3);
+    CHECK_EQ(loaded->outdoorWorld.locationInfo.lastRespawnDay, 124);
+    CHECK_EQ(loaded->outdoorWorld.locationInfo.reputation, -7);
+    CHECK_EQ(loaded->outdoorWorld.locationInfo.alertStatus, 1);
+    REQUIRE(loaded->outdoorWorldStates.contains("out02.odm"));
+    CHECK_EQ(loaded->outdoorWorldStates.at("out02.odm").locationInfo.lastRespawnDay, 124);
+}
+
 TEST_CASE("party ever owned item ids survive save data round trip")
 {
     OpenYAMM::Game::Party party = {};

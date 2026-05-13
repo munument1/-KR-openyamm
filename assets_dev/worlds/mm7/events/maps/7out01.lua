@@ -22,17 +22,17 @@ SetMapMetadata({
 
 RegisterEvent(1, "Welcome to Emerald Isle", nil, "Welcome to Emerald Isle")
 
-RegisterEvent(2, "Crate", function()
+RegisterEvent(2, "The Knight's Blade", function()
     evt.EnterHouse(8) -- The Knight's Blade
-end, "Crate")
+end, "The Knight's Blade")
 
-RegisterEvent(3, "Crate", nil, "Crate")
+RegisterEvent(3, "The Knight's Blade", nil, "The Knight's Blade")
 
-RegisterEvent(4, "Button", function()
+RegisterEvent(4, "Erik's Armory", function()
     evt.EnterHouse(43) -- Erik's Armory
-end, "Button")
+end, "Erik's Armory")
 
-RegisterEvent(5, "Button", nil, "Button")
+RegisterEvent(5, "Erik's Armory", nil, "Erik's Armory")
 
 RegisterEvent(6, "Emerald Enchantments", function()
     evt.EnterHouse(84) -- Emerald Enchantments

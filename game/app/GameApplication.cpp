@@ -753,10 +753,92 @@ constexpr std::array<std::string_view, 8> DebugBreachEntryClearedGlobals = {{
     "MMerge.CrossContinents.HintByNPC.775",
 }};
 constexpr float EnterDungeonSpeechDelaySeconds = 2.0f;
+constexpr float GameMinutesPerLocationDay = 24.0f * 60.0f;
 
 bool sameMapFileName(const std::string &left, const std::string &right)
 {
     return toLowerCopy(left) == toLowerCopy(right);
+}
+
+int32_t currentLocationDay(float gameMinutes)
+{
+    return static_cast<int32_t>(std::floor(std::max(0.0f, gameMinutes) / GameMinutesPerLocationDay)) + 1;
+}
+
+bool timedMapRespawnDue(
+    const MapStatsEntry &map,
+    const MapDeltaLocationInfo &locationInfo,
+    int32_t currentLocationDay)
+{
+    return map.respawnIntervalDays > 0
+        && locationInfo.lastRespawnDay > 0
+        && currentLocationDay - locationInfo.lastRespawnDay >= map.respawnIntervalDays;
+}
+
+const OutdoorWorldRuntime::Snapshot *findSavedOutdoorWorldState(
+    const GameSession &session,
+    const MapAssetInfo &mapAssetInfo)
+{
+    const std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot> &states = session.outdoorWorldStates();
+    std::unordered_map<std::string, OutdoorWorldRuntime::Snapshot>::const_iterator stateIt = states.end();
+
+    if (!mapAssetInfo.map.canonicalId.empty())
+    {
+        stateIt = states.find(mapAssetInfo.map.canonicalId);
+    }
+
+    if (stateIt == states.end())
+    {
+        stateIt = states.find(mapAssetInfo.map.fileName);
+    }
+
+    return stateIt != states.end() ? &stateIt->second : nullptr;
+}
+
+const IndoorSceneRuntime::Snapshot *findSavedIndoorSceneState(
+    const GameSession &session,
+    const MapAssetInfo &mapAssetInfo)
+{
+    const std::unordered_map<std::string, IndoorSceneRuntime::Snapshot> &states = session.indoorSceneStates();
+    std::unordered_map<std::string, IndoorSceneRuntime::Snapshot>::const_iterator stateIt = states.end();
+
+    if (!mapAssetInfo.map.canonicalId.empty())
+    {
+        stateIt = states.find(mapAssetInfo.map.canonicalId);
+    }
+
+    if (stateIt == states.end())
+    {
+        stateIt = states.find(mapAssetInfo.map.fileName);
+    }
+
+    return stateIt != states.end() ? &stateIt->second : nullptr;
+}
+
+bool savedSelectedMapStateNeedsFreshAssets(
+    const GameSession &session,
+    const MapAssetInfo &mapAssetInfo,
+    int32_t currentLocationDay)
+{
+    if (mapAssetInfo.outdoorMapData)
+    {
+        const OutdoorWorldRuntime::Snapshot *pSnapshot = findSavedOutdoorWorldState(session, mapAssetInfo);
+        return pSnapshot != nullptr
+            && timedMapRespawnDue(mapAssetInfo.map, pSnapshot->locationInfo, currentLocationDay);
+    }
+
+    if (mapAssetInfo.indoorMapData)
+    {
+        const IndoorSceneRuntime::Snapshot *pSnapshot = findSavedIndoorSceneState(session, mapAssetInfo);
+        return pSnapshot != nullptr
+            && pSnapshot->mapDeltaData
+            && timedMapRespawnDue(
+                mapAssetInfo.map,
+                pSnapshot->mapDeltaData->locationInfo,
+                currentLocationDay);
+    }
+
+    return false;
 }
 
 bool isAutosavePath(const std::filesystem::path &path)
@@ -4371,6 +4453,36 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_gameSession.setPartyState(m_pOutdoorPartyRuntime->party());
         }
 
+        const int32_t currentMapDay = currentLocationDay(m_gameSession.gameMinutes());
+        const OutdoorWorldRuntime::Snapshot *pSavedOutdoorState =
+            findSavedOutdoorWorldState(m_gameSession, *selectedMap);
+        const bool outdoorTimedRespawn =
+            pSavedOutdoorState != nullptr
+                && timedMapRespawnDue(selectedMap->map, pSavedOutdoorState->locationInfo, currentMapDay);
+        const bool restoreSavedOutdoorState = pSavedOutdoorState != nullptr && !outdoorTimedRespawn;
+        const int32_t previousOutdoorProcessedRespawnCount =
+            pSavedOutdoorState != nullptr ? pSavedOutdoorState->locationInfo.respawnCount : 0;
+        MapDeltaLocationInfo outdoorLocationInfo =
+            pSavedOutdoorState != nullptr
+                ? pSavedOutdoorState->locationInfo
+                : (selectedMap->outdoorMapDeltaData
+                    ? selectedMap->outdoorMapDeltaData->locationInfo
+                    : MapDeltaLocationInfo{});
+
+        if (outdoorTimedRespawn)
+        {
+            outdoorLocationInfo.respawnCount++;
+        }
+        outdoorLocationInfo.lastRespawnDay = currentMapDay;
+
+        std::optional<MapDeltaData> *pOutdoorMapDeltaData =
+            const_cast<std::optional<MapDeltaData> *>(&selectedMap->outdoorMapDeltaData);
+        if (pOutdoorMapDeltaData != nullptr && pOutdoorMapDeltaData->has_value() && !restoreSavedOutdoorState)
+        {
+            (*pOutdoorMapDeltaData)->locationInfo = outdoorLocationInfo;
+            (*pOutdoorMapDeltaData)->locationInfo.lastRespawnDay = 0;
+        }
+
         m_pOutdoorWorldRuntime = std::make_unique<OutdoorWorldRuntime>();
         m_pOutdoorWorldRuntime->setBolsterMonstersEnabled(m_settings.bolsterMonsters);
         m_pOutdoorWorldRuntime->initialize(
@@ -4404,10 +4516,31 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         );
         timingLogger.stage("outdoor runtime initialized");
 
-        restoreSavedOutdoorWorldStateForSelectedMap();
+        if (restoreSavedOutdoorState)
+        {
+            m_pOutdoorWorldRuntime->restoreSnapshot(*pSavedOutdoorState);
+        }
         OutdoorWorldRuntime::Snapshot outdoorTimeSnapshot = m_pOutdoorWorldRuntime->snapshot();
         outdoorTimeSnapshot.gameMinutes = m_gameSession.gameMinutes();
+        if (!restoreSavedOutdoorState || outdoorTimeSnapshot.locationInfo.lastRespawnDay <= 0)
+        {
+            outdoorTimeSnapshot.locationInfo = outdoorLocationInfo;
+        }
+        if (outdoorTimedRespawn && pSavedOutdoorState != nullptr)
+        {
+            outdoorTimeSnapshot.fullyRevealedCells = pSavedOutdoorState->fullyRevealedCells;
+            outdoorTimeSnapshot.partiallyRevealedCells = pSavedOutdoorState->partiallyRevealedCells;
+            if (outdoorTimeSnapshot.eventRuntimeState)
+            {
+                outdoorTimeSnapshot.eventRuntimeState->processedMapRespawnCount =
+                    previousOutdoorProcessedRespawnCount;
+            }
+        }
         m_pOutdoorWorldRuntime->restoreSnapshot(outdoorTimeSnapshot);
+        if (!m_loadingSavedGameRuntime)
+        {
+            m_pOutdoorWorldRuntime->applyMapReentryReset();
+        }
         applyPartyReputationToWorld(
             m_pOutdoorPartyRuntime->party(),
             *m_pOutdoorWorldRuntime,
@@ -4509,6 +4642,42 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             selectedMap->indoorSpriteObjectBillboardSet
                 ? &selectedMap->indoorSpriteObjectBillboardSet->spriteFrameTable
                 : pIndoorActorSpriteFrameTable;
+        const int32_t currentMapDay = currentLocationDay(m_gameSession.gameMinutes());
+        const IndoorSceneRuntime::Snapshot *pSavedIndoorState =
+            findSavedIndoorSceneState(m_gameSession, *selectedMap);
+        const bool indoorTimedRespawn =
+            pSavedIndoorState != nullptr
+            && pSavedIndoorState->mapDeltaData
+            && timedMapRespawnDue(
+                selectedMap->map,
+                pSavedIndoorState->mapDeltaData->locationInfo,
+                currentMapDay);
+        const bool restoreSavedIndoorState = pSavedIndoorState != nullptr && !indoorTimedRespawn;
+        const int32_t previousIndoorProcessedRespawnCount =
+            pSavedIndoorState != nullptr
+                && pSavedIndoorState->mapDeltaData
+                    ? pSavedIndoorState->mapDeltaData->locationInfo.respawnCount
+                    : 0;
+        MapDeltaLocationInfo indoorLocationInfo =
+            pSavedIndoorState != nullptr && pSavedIndoorState->mapDeltaData
+                ? pSavedIndoorState->mapDeltaData->locationInfo
+                : (selectedMap->indoorMapDeltaData
+                    ? selectedMap->indoorMapDeltaData->locationInfo
+                    : MapDeltaLocationInfo{});
+
+        if (indoorTimedRespawn)
+        {
+            indoorLocationInfo.respawnCount++;
+        }
+        indoorLocationInfo.lastRespawnDay = currentMapDay;
+
+        std::optional<MapDeltaData> indoorMapDeltaDataForRuntime = selectedMap->indoorMapDeltaData;
+        if (indoorMapDeltaDataForRuntime && !restoreSavedIndoorState)
+        {
+            indoorMapDeltaDataForRuntime->locationInfo = indoorLocationInfo;
+            indoorMapDeltaDataForRuntime->locationInfo.lastRespawnDay = 0;
+        }
+
         std::unique_ptr<IndoorSceneRuntime> pIndoorSceneRuntime = std::make_unique<IndoorSceneRuntime>(
             selectedMap->map.fileName,
             selectedMap->map,
@@ -4520,7 +4689,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_gameDataLoader.getItemTable(),
             m_gameDataLoader.getChestTable(),
             party,
-            selectedMap->indoorMapDeltaData,
+            indoorMapDeltaDataForRuntime,
             selectedMap->eventRuntimeState,
             selectedMap->localEventProgram,
             selectedMap->globalEventProgram,
@@ -4535,22 +4704,35 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_settings.bolsterMonsters
         );
         timingLogger.stage("indoor runtime initialized");
-        std::unordered_map<std::string, IndoorSceneRuntime::Snapshot>::const_iterator indoorStateIt =
-            m_gameSession.indoorSceneStates().find(selectedMap->map.canonicalId);
-
-        if (indoorStateIt == m_gameSession.indoorSceneStates().end())
+        if (restoreSavedIndoorState && pSavedIndoorState != nullptr)
         {
-            indoorStateIt = m_gameSession.indoorSceneStates().find(selectedMap->map.fileName);
-        }
-
-        if (indoorStateIt != m_gameSession.indoorSceneStates().end())
-        {
-            pIndoorSceneRuntime->restoreSnapshot(indoorStateIt->second);
+            pIndoorSceneRuntime->restoreSnapshot(*pSavedIndoorState);
         }
 
         IndoorSceneRuntime::Snapshot indoorTimeSnapshot = pIndoorSceneRuntime->snapshot();
         indoorTimeSnapshot.worldRuntime.gameMinutes = m_gameSession.gameMinutes();
+        if (indoorTimeSnapshot.mapDeltaData
+            && (!restoreSavedIndoorState || indoorTimeSnapshot.mapDeltaData->locationInfo.lastRespawnDay <= 0))
+        {
+            indoorTimeSnapshot.mapDeltaData->locationInfo = indoorLocationInfo;
+        }
+        if (indoorTimedRespawn && pSavedIndoorState != nullptr && pSavedIndoorState->mapDeltaData)
+        {
+            if (indoorTimeSnapshot.mapDeltaData)
+            {
+                indoorTimeSnapshot.mapDeltaData->visibleOutlines = pSavedIndoorState->mapDeltaData->visibleOutlines;
+            }
+            if (indoorTimeSnapshot.eventRuntimeState)
+            {
+                indoorTimeSnapshot.eventRuntimeState->processedMapRespawnCount =
+                    previousIndoorProcessedRespawnCount;
+            }
+        }
         pIndoorSceneRuntime->restoreSnapshot(indoorTimeSnapshot);
+        if (!m_loadingSavedGameRuntime)
+        {
+            pIndoorSceneRuntime->applyMapReentryReset();
+        }
         applyPartyReputationToWorld(
             pIndoorSceneRuntime->party(),
             pIndoorSceneRuntime->worldRuntime(),
@@ -4781,8 +4963,14 @@ bool GameApplication::loadCurrentSessionMap(
     const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
     const bool selectedMapMatchesSession =
         selectedMap.has_value() && sameMapFileName(selectedMap->map.fileName, m_gameSession.currentMapFileName());
+    const bool forceReloadSelectedMapForRespawn =
+        selectedMapMatchesSession
+        && savedSelectedMapStateNeedsFreshAssets(
+            m_gameSession,
+            *selectedMap,
+            currentLocationDay(m_gameSession.gameMinutes()));
 
-    if (!selectedMapMatchesSession
+    if ((!selectedMapMatchesSession || forceReloadSelectedMapForRespawn)
         && !m_gameDataLoader.loadMapByFileNameForGameplay(
                 *m_pAssetFileSystem,
                 m_gameSession.currentMapFileName(),
@@ -4799,7 +4987,7 @@ bool GameApplication::loadCurrentSessionMap(
     }
 
     timingLogger.stage(
-        selectedMapMatchesSession
+        selectedMapMatchesSession && !forceReloadSelectedMapForRespawn
             ? "game data loader map load reused selected map"
             : "game data loader map load");
 
@@ -5523,6 +5711,7 @@ bool GameApplication::quickSaveToPath(
     }
 
     m_gameSession.setCurrentSavePath(path);
+    LoadGameScreen::invalidateCachedSaveSlots();
     GAMEPLAY_DEBUG_TRACE(
         "save_game_written path=\"" + path.string() + "\""
         + " map=\"" + saveData->mapFileName + "\""
@@ -5577,12 +5766,17 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
 
     renderLoadingOverlayProgress(35);
 
-    if (!loadCurrentSessionMap(
-            initializeView,
-            [this](int localProgress)
-            {
-                renderLoadingOverlayProgress(remapLoadingProgress(localProgress, 40, 85));
-            }))
+    const bool previousLoadingSavedGameRuntime = m_loadingSavedGameRuntime;
+    m_loadingSavedGameRuntime = true;
+    const bool mapLoaded = loadCurrentSessionMap(
+        initializeView,
+        [this](int localProgress)
+        {
+            renderLoadingOverlayProgress(remapLoadingProgress(localProgress, 40, 85));
+        });
+    m_loadingSavedGameRuntime = previousLoadingSavedGameRuntime;
+
+    if (!mapLoaded)
     {
         cancelLoadingOverlay();
         GAMEPLAY_DEBUG_TRACE(

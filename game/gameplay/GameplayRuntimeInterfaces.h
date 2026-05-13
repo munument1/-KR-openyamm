@@ -400,6 +400,9 @@ public:
     virtual const std::vector<uint8_t> *journalMapPartiallyRevealedCells() const = 0;
     virtual int restFoodRequired() const = 0;
     virtual void advanceGameMinutes(float minutes) = 0;
+    virtual void applyMapReentryReset()
+    {
+    }
     virtual int currentLocationReputation() const = 0;
     virtual void setCurrentLocationReputation(int reputation) = 0;
     virtual void applyEventRuntimeState(bool syncPersistentHostilityMasks = false)
@@ -420,6 +423,10 @@ public:
         return 0.0f;
     }
     virtual bool partyIsAirborneForRest() const
+    {
+        return false;
+    }
+    virtual bool partyIsFlyingForEventChecks() const
     {
         return false;
     }

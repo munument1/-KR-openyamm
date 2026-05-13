@@ -220,6 +220,11 @@ public:
         m_indoorMap = indoorMap;
     }
 
+    void setPartyFlyingForEventChecks(bool flying)
+    {
+        m_partyFlyingForEventChecks = flying;
+    }
+
     const std::string &mapName() const override
     {
         return m_mapName;
@@ -293,6 +298,11 @@ public:
     float partyFootZ() const override
     {
         return m_partyZ;
+    }
+
+    bool partyIsFlyingForEventChecks() const override
+    {
+        return m_partyFlyingForEventChecks;
     }
 
     void syncSpellMovementStatesFromPartyBuffs() override
@@ -826,6 +836,7 @@ private:
     float m_partyY = 0.0f;
     float m_partyZ = 0.0f;
     bool m_indoorMap = false;
+    bool m_partyFlyingForEventChecks = false;
 };
 
 const OpenYAMM::Tests::RegressionMapLoader &requireRegressionMapLoader()
@@ -4993,7 +5004,7 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
 
         OpenYAMM::Game::EventRuntimeState noFlyTimerState = {};
         OpenYAMM::Game::Party noFlyParty = makeScriptedRegressionParty();
-        RecordingSceneEventContext noFlyContext = {};
+        RecordingGameplayWorldContext noFlyContext = {};
         REQUIRE(eventRuntime.executeEventById(
             localEventProgram,
             std::nullopt,
@@ -5002,6 +5013,27 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             &noFlyParty,
             &noFlyContext));
         CHECK(noFlyContext.castSpellCalls.empty());
+
+        OpenYAMM::Game::EventRuntimeState groundedFlyTimerState = {};
+        OpenYAMM::Game::Party groundedFlyParty = makeScriptedRegressionParty();
+        groundedFlyParty.applyPartyBuff(
+            OpenYAMM::Game::PartyBuffId::Fly,
+            300.0f,
+            0,
+            0,
+            0,
+            OpenYAMM::Game::SkillMastery::Normal,
+            0);
+        RecordingGameplayWorldContext groundedFlyContext = {};
+        groundedFlyContext.setPartyFlyingForEventChecks(false);
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            dragonTowerTimerEventId,
+            groundedFlyTimerState,
+            &groundedFlyParty,
+            &groundedFlyContext));
+        CHECK(groundedFlyContext.castSpellCalls.empty());
 
         OpenYAMM::Game::EventRuntimeState flyTimerState = {};
         OpenYAMM::Game::Party flyParty = makeScriptedRegressionParty();
@@ -5013,7 +5045,8 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             0,
             OpenYAMM::Game::SkillMastery::Normal,
             0);
-        RecordingSceneEventContext flyContext = {};
+        RecordingGameplayWorldContext flyContext = {};
+        flyContext.setPartyFlyingForEventChecks(true);
         REQUIRE(eventRuntime.executeEventById(
             localEventProgram,
             std::nullopt,
@@ -5047,7 +5080,8 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             0,
             OpenYAMM::Game::SkillMastery::Normal,
             0);
-        RecordingSceneEventContext invisibleContext = {};
+        RecordingGameplayWorldContext invisibleContext = {};
+        invisibleContext.setPartyFlyingForEventChecks(true);
         REQUIRE(eventRuntime.executeEventById(
             localEventProgram,
             std::nullopt,
@@ -5068,7 +5102,8 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
             OpenYAMM::Game::SkillMastery::Normal,
             0);
         disabledParty.setQuestBit(testCase.dragonTowerQbitId, true);
-        RecordingSceneEventContext disabledContext = {};
+        RecordingGameplayWorldContext disabledContext = {};
+        disabledContext.setPartyFlyingForEventChecks(true);
         REQUIRE(eventRuntime.executeEventById(
             localEventProgram,
             std::nullopt,
@@ -5696,6 +5731,53 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         OpenYAMM::Game::EventRuntimeState ownedState = {};
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 68, ownedState, &ownedParty));
         CHECK_FALSE(ownedState.chestItemRequests.contains(1));
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outb1", "outb1_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::PartySeed partySeed = {};
+        partySeed.members.push_back(makeRegressionPartyMember("Brom", "Cleric", "PC03-01", 3));
+        OpenYAMM::Game::Party party = {};
+        party.seed(partySeed);
+        OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        pMember->level = 5;
+        pMember->maxHealth = 80;
+        pMember->health = 80;
+        pMember->maxSpellPoints = 60;
+        pMember->spellPoints = 60;
+
+        const int baseEffectiveHealth = OpenYAMM::Game::Party::effectiveMaximumHealth(*pMember);
+        const int baseEffectiveSpellPoints = OpenYAMM::Game::Party::effectiveMaximumSpellPoints(*pMember);
+
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 102, runtimeState, &party));
+
+        pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        CHECK_EQ(pMember->levelModifier, 30);
+        CHECK_GT(OpenYAMM::Game::Party::effectiveMaximumHealth(*pMember), baseEffectiveHealth);
+        CHECK_GT(OpenYAMM::Game::Party::effectiveMaximumSpellPoints(*pMember), baseEffectiveSpellPoints);
+
+        bool foundStatIncreaseFx = false;
+        for (const OpenYAMM::Game::EventRuntimeState::PortraitFxRequest &request : runtimeState.portraitFxRequests)
+        {
+            if (request.kind == OpenYAMM::Game::PortraitFxEventKind::StatIncrease
+                && request.memberIndices == std::vector<size_t>({0}))
+            {
+                foundStatIncreaseFx = true;
+            }
+        }
+
+        CHECK(foundStatIncreaseFx);
+        CHECK(runtimeState.pendingSounds.empty());
+        REQUIRE_FALSE(runtimeState.statusMessages.empty());
+        CHECK_EQ(runtimeState.statusMessages.back(), "+30 Level temporary.  Look Out!");
     }
 
     {

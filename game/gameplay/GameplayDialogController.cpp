@@ -14,6 +14,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
+#include "game/tables/SpellTable.h"
 #include "game/party/Party.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/RosterTable.h"
@@ -262,14 +263,14 @@ std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
 {
     switch (kind)
     {
-        case PortraitFxEventKind::AutoNote:
         case PortraitFxEventKind::QuestComplete:
-        case PortraitFxEventKind::StatIncrease:
             return SoundId::Quest;
 
         case PortraitFxEventKind::AwardGain:
             return SoundId::Chimes;
 
+        case PortraitFxEventKind::AutoNote:
+        case PortraitFxEventKind::StatIncrease:
         case PortraitFxEventKind::StatDecrease:
         case PortraitFxEventKind::Disease:
         case PortraitFxEventKind::None:
@@ -324,6 +325,28 @@ int mapTransitionTravelFoodRequired(
     }
 
     return std::max(0, transition.travelDays);
+}
+
+int outdoorMapMoveTravelDays(
+    const GameplayDialogController::Context &context,
+    const EventRuntimeState::PendingMapMove &move)
+{
+    if (context.pCurrentMap == nullptr || !move.mapName.has_value())
+    {
+        return 0;
+    }
+
+    const std::string currentMapFileName = toLowerCopy(context.pCurrentMap->fileName);
+    const std::string destinationMapFileName = toLowerCopy(*move.mapName);
+
+    if (currentMapFileName == destinationMapFileName
+        || !isOutdoorMapFileName(currentMapFileName)
+        || !isOutdoorMapFileName(destinationMapFileName))
+    {
+        return 0;
+    }
+
+    return OutdoorMapTravelFoodCost;
 }
 
 bool isCurrentMapDungeon(const GameplayDialogController::Context &context)
@@ -1111,7 +1134,7 @@ int boundaryTravelHeadingDegrees(MapBoundaryEdge edge)
     return 0;
 }
 
-void applyTravelFoodAndFatigue(Party &party, int foodRequired)
+void applyTravelFoodAndFatigue(Party &party, int foodRequired, float gameMinutes)
 {
     if (foodRequired <= 0)
     {
@@ -1139,7 +1162,7 @@ void applyTravelFoodAndFatigue(Party &party, int foodRequired)
             continue;
         }
 
-        party.applyMemberCondition(memberIndex, CharacterCondition::Weak);
+        party.applyMemberCondition(memberIndex, CharacterCondition::Weak, gameMinutes);
     }
 }
 
@@ -1168,7 +1191,45 @@ void applyMapTransitionTravelSideEffects(
     if (context.pParty != nullptr)
     {
         context.pParty->restAndHealAll();
-        applyTravelFoodAndFatigue(*context.pParty, mapTransitionTravelFoodRequired(context, transition));
+        const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
+        applyTravelFoodAndFatigue(*context.pParty, mapTransitionTravelFoodRequired(context, transition), gameMinutes);
+    }
+}
+
+void applyPendingMapMoveTravelSideEffects(
+    GameplayDialogController::Context &context,
+    const EventRuntimeState::PendingMapMove &move)
+{
+    const int travelDays = outdoorMapMoveTravelDays(context, move);
+
+    if (travelDays <= 0)
+    {
+        return;
+    }
+
+    if (context.pScreenRuntime != nullptr)
+    {
+        context.pScreenRuntime->stopAllAudioPlayback();
+    }
+
+    if (context.pWorldRuntime != nullptr)
+    {
+        const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
+        context.pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays) * MinutesPerDay);
+        const float afterGameMinutes = context.pWorldRuntime->gameMinutes();
+        GAMEPLAY_DEBUG_TRACE(
+            "game_time_advanced source=event_map_transition"
+            " minutes=" + std::to_string(static_cast<float>(travelDays) * MinutesPerDay)
+            + " before_game_minutes=" + std::to_string(beforeGameMinutes)
+            + " after_game_minutes=" + std::to_string(afterGameMinutes)
+            + " game_minutes=" + std::to_string(afterGameMinutes));
+    }
+
+    if (context.pParty != nullptr)
+    {
+        context.pParty->restAndHealAll();
+        const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
+        applyTravelFoodAndFatigue(*context.pParty, OutdoorMapTravelFoodCost, gameMinutes);
     }
 }
 
@@ -1299,14 +1360,12 @@ bool npcCanOfferProfessionHire(
 
 int currentMaximumHealth(const Character &member)
 {
-    return std::max(1, member.maxHealth + member.permanentBonuses.maxHealth + member.magicalBonuses.maxHealth);
+    return Party::effectiveMaximumHealth(member);
 }
 
 int currentMaximumSpellPoints(const Character &member)
 {
-    return std::max(
-        0,
-        member.maxSpellPoints + member.permanentBonuses.maxSpellPoints + member.magicalBonuses.maxSpellPoints);
+    return Party::effectiveMaximumSpellPoints(member);
 }
 
 void restorePartyHealth(Party &party)
@@ -1352,6 +1411,7 @@ void clearAllPartyConditions(Party &party)
         if (pMember != nullptr)
         {
             pMember->conditions.reset();
+            pMember->conditionStartGameMinutes.fill(0.0f);
         }
     }
 }
@@ -1359,24 +1419,95 @@ void clearAllPartyConditions(Party &party)
 void markNpcProfessionActionUsed(
     EventRuntimeState &eventRuntimeState,
     uint32_t npcId,
-    const IGameplayWorldRuntime *pWorldRuntime)
+    const IGameplayWorldRuntime *pWorldRuntime,
+    Party *pParty)
 {
-    eventRuntimeState.variables[npcProfessionActionCooldownVariableKey(npcId)] =
-        static_cast<int32_t>(npcProfessionActionCooldownDay(
-            pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f));
+    const uint32_t usedDay = npcProfessionActionCooldownDay(
+        pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f);
+
+    for (EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
+    {
+        if (follower.npcId == npcId)
+        {
+            follower.abilityUsedDay = usedDay;
+            break;
+        }
+    }
+
+    if (pParty != nullptr)
+    {
+        pParty->setHiredNpcFollowerAbilityUsedDay(npcId, usedDay);
+    }
+
+    eventRuntimeState.variables[npcProfessionActionCooldownVariableKey(npcId)] = static_cast<int32_t>(usedDay);
 }
 
-bool npcProfessionActionUsedToday(
-    const EventRuntimeState &eventRuntimeState,
-    uint32_t npcId,
-    const IGameplayWorldRuntime *pWorldRuntime)
+std::vector<size_t> allPartyMemberIndices(const Party &party)
 {
-    const std::unordered_map<uint32_t, int32_t>::const_iterator cooldownIt =
-        eventRuntimeState.variables.find(npcProfessionActionCooldownVariableKey(npcId));
-    return cooldownIt != eventRuntimeState.variables.end()
-        && cooldownIt->second == static_cast<int32_t>(
-            npcProfessionActionCooldownDay(
-                pWorldRuntime != nullptr ? pWorldRuntime->gameMinutes() : -1.0f));
+    std::vector<size_t> memberIndices;
+    memberIndices.reserve(party.members().size());
+
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        memberIndices.push_back(memberIndex);
+    }
+
+    return memberIndices;
+}
+
+const SpellEntry *npcFollowerSpellEntry(
+    const GameplayDialogController::Context &context,
+    uint32_t spellId)
+{
+    return context.pSpellTable != nullptr ? context.pSpellTable->findById(static_cast<int>(spellId)) : nullptr;
+}
+
+void queueNpcFollowerSpellFeedback(
+    GameplayDialogController::Context &context,
+    uint32_t spellId)
+{
+    if (context.pParty != nullptr)
+    {
+        EventRuntimeState::SpellFxRequest spellFxRequest = {};
+        spellFxRequest.spellId = spellId;
+        spellFxRequest.memberIndices = allPartyMemberIndices(*context.pParty);
+        context.eventRuntimeState.spellFxRequests.push_back(std::move(spellFxRequest));
+    }
+
+    const SpellEntry *pSpellEntry = npcFollowerSpellEntry(context, spellId);
+
+    if (pSpellEntry != nullptr && pSpellEntry->effectSoundId > 0)
+    {
+        EventRuntimeState::PendingSound sound = {};
+        sound.soundScope = SoundScope::Engine;
+        sound.soundId = pSpellEntry->effectSoundId;
+        context.eventRuntimeState.pendingSounds.push_back(sound);
+    }
+}
+
+bool castNpcFollowerPartySpell(
+    GameplayDialogController::Context &context,
+    uint32_t spellId,
+    uint32_t skillLevel,
+    uint32_t rawSkillMastery)
+{
+    if (context.pParty == nullptr)
+    {
+        return false;
+    }
+
+    if (!tryApplyEventSpellBuffs(*context.pParty, spellId, skillLevel, rawSkillMastery))
+    {
+        return false;
+    }
+
+    if (context.pWorldRuntime != nullptr)
+    {
+        context.pWorldRuntime->syncSpellMovementStatesFromPartyBuffs();
+    }
+
+    queueNpcFollowerSpellFeedback(context, spellId);
+    return true;
 }
 
 struct NpcProfessionActionExecution
@@ -1411,7 +1542,10 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
         npcId);
     const NpcProfessionId professionId = static_cast<NpcProfessionId>(npc ? npc->professionId : 0u);
 
-    if (npcProfessionActionUsedToday(context.eventRuntimeState, npcId, context.pWorldRuntime))
+    if (npcProfessionActionUsedToday(
+            context.eventRuntimeState,
+            npcId,
+            context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : -1.0f))
     {
         context.eventRuntimeState.messages.push_back("Sorry, come back another day");
         return execution;
@@ -1466,18 +1600,18 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastFly):
             applied = professionId == NpcProfessionId::WindMaster
-                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Fly), 2, 4);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::Fly), 2, 3);
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastWaterWalk):
             applied = professionId == NpcProfessionId::WaterMaster
-                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::WaterWalk), 3, 4);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::WaterWalk), 3, 3);
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastTownPortal):
             if (professionId == NpcProfessionId::GateMaster)
             {
-                markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime);
+                markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime, context.pParty);
 
                 const size_t casterMemberIndex =
                     context.pParty->members().empty() ? 0u : context.pParty->activeMemberIndex();
@@ -1485,6 +1619,13 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
                     GameplayUiController::UtilitySpellOverlayMode::TownPortal,
                     spellIdValue(SpellId::TownPortal),
                     casterMemberIndex);
+                GameplayUiController::UtilitySpellOverlayState &overlay =
+                    context.uiController.utilitySpellOverlay();
+                overlay.skillLevelOverride = 10;
+                overlay.skillMasteryOverride = SkillMastery::Master;
+                overlay.spendMana = false;
+                overlay.applyRecovery = false;
+                overlay.bypassGameplayCasterValidation = true;
 
                 execution.closeDialog = true;
                 return execution;
@@ -1493,12 +1634,12 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastBless):
             applied = professionId == NpcProfessionId::Acolyte
-                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Bless), 5, 3);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::Bless), 5, 3);
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastHeroism):
             applied = professionId == NpcProfessionId::Piper
-                && tryApplyEventSpellBuffs(*context.pParty, spellIdValue(SpellId::Heroism), 5, 3);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::Heroism), 5, 3);
             break;
 
         default:
@@ -1511,7 +1652,7 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
         return execution;
     }
 
-    markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime);
+    markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime, context.pParty);
     context.eventRuntimeState.messages.push_back("Done!");
     return execution;
 }
@@ -1802,6 +1943,9 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 context.pScreenRuntime->stopAllAudioPlayback();
             }
 
+            applyPendingMapMoveTravelSideEffects(
+                context,
+                *context.eventRuntimeState.pendingDialogueContext->transitionMapMove);
             context.eventRuntimeState.pendingMapMove =
                 *context.eventRuntimeState.pendingDialogueContext->transitionMapMove;
             result.shouldCloseActiveDialog = true;
@@ -2120,12 +2264,6 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             if (houseResult.succeeded && option.id == HouseActionId::TempleHeal)
             {
                 playCommonUiSound(context, SoundId::Heal);
-
-                playSpeechReaction(
-                    context,
-                    context.pParty->activeMemberIndex(),
-                    SpeechId::TempleHeal,
-                    true);
             }
 
             if (houseResult.succeeded
@@ -2774,7 +2912,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         {
             context.eventRuntimeState.messages.push_back(npcTextOrFallback(
                 context.pNpcDialogTable,
-                155,
+                125,
                 "You do not have enough gold."));
         }
         else

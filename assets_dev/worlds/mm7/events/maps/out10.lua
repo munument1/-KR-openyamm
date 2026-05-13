@@ -34,7 +34,6 @@ SetMapMetadata({
 })
 
 RegisterEvent(1, "Legacy event 1", function()
-    evt.Debug("load")
     if not IsQBitSet(QBit(721)) then -- TP Buff Nighon
         SetQBit(QBit(721)) -- TP Buff Nighon
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Hydra A, spawn Roc A, spawn Warlock A

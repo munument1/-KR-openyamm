@@ -117,6 +117,21 @@ TEST_CASE("map stats parse perception difficulty")
     CHECK_EQ(pRavenshore->perceptionDifficulty, 1);
 }
 
+TEST_CASE("map stats parse refill days")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pDaggerWound = mapStats.findByFileName("Out01.odm");
+    const OpenYAMM::Game::MapStatsEntry *pIronsand = mapStats.findByFileName("out04.odm");
+    const OpenYAMM::Game::MapStatsEntry *pCastleHarmondale = mapStats.findByFileName("7d29.blv");
+
+    REQUIRE(pDaggerWound != nullptr);
+    REQUIRE(pIronsand != nullptr);
+    REQUIRE(pCastleHarmondale != nullptr);
+    CHECK_EQ(pDaggerWound->respawnIntervalDays, 672);
+    CHECK_EQ(pIronsand->respawnIntervalDays, 336);
+    CHECK_EQ(pCastleHarmondale->respawnIntervalDays, -1);
+}
+
 TEST_CASE("map stats normalize non-audio redbook track")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
@@ -184,7 +199,12 @@ TEST_CASE("merged outdoor travels add mm6 map boundary transitions")
     REQUIRE(pNewSorpigal->westTransition.has_value());
     CHECK_EQ(pNewSorpigal->westTransition->destinationMapFileName, "outd3.odm");
     CHECK_EQ(pNewSorpigal->westTransition->travelDays, 5);
-    CHECK(pNewSorpigal->westTransition->useMapStartPosition);
+    CHECK_FALSE(pNewSorpigal->westTransition->useMapStartPosition);
+    CHECK(pNewSorpigal->westTransition->straightTravel);
+    REQUIRE(pNewSorpigal->westTransition->straightTravelSide.has_value());
+    CHECK_EQ(*pNewSorpigal->westTransition->straightTravelSide, OpenYAMM::Game::MapBoundaryEdge::West);
+    REQUIRE(pNewSorpigal->westTransition->directionDegrees.has_value());
+    CHECK_EQ(*pNewSorpigal->westTransition->directionDegrees, 180);
 }
 
 TEST_CASE("merged outdoor travels add Avlee Shoals special transition")

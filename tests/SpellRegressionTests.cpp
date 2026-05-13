@@ -1114,6 +1114,13 @@ TEST_CASE("lloyds beacon set stores location preview and recall queues map move"
     recallRequest.utilityAction = OpenYAMM::Game::PartySpellUtilityActionKind::LloydsBeaconRecall;
     recallRequest.utilitySlotIndex = 0;
 
+    OpenYAMM::Game::Character *pMutableCaster = party.member(0);
+    REQUIRE(pMutableCaster != nullptr);
+    pMutableCaster->levelModifier = 30;
+    pMutableCaster->armorClassModifier = 40;
+    pMutableCaster->ageModifier = 5;
+    pMutableCaster->magicalBonuses.might = 25;
+
     const OpenYAMM::Game::PartySpellCastResult recallResult = OpenYAMM::Game::PartySpellSystem::castSpell(
         party,
         worldRuntime,
@@ -1127,6 +1134,10 @@ TEST_CASE("lloyds beacon set stores location preview and recall queues map move"
     CHECK_EQ(worldRuntime.eventRuntimeState()->pendingMapMove->y, 20);
     CHECK_EQ(worldRuntime.eventRuntimeState()->pendingMapMove->z, 30);
     CHECK_EQ(worldRuntime.eventRuntimeState()->pendingMapMove->directionDegrees, 90);
+    CHECK_EQ(pMutableCaster->levelModifier, 30);
+    CHECK_EQ(pMutableCaster->armorClassModifier, 40);
+    CHECK_EQ(pMutableCaster->ageModifier, 5);
+    CHECK_EQ(pMutableCaster->magicalBonuses.might, 25);
 }
 
 TEST_CASE("lloyds beacon preview data survives save round trip")

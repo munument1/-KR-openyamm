@@ -284,14 +284,14 @@ RegisterEvent(376, "Legacy event 376", function()
     evt.CastSpell(15, 20, 3, -1132, 1001, 374, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(416, "Enter Lord Markham's Chamber", function()
+RegisterEvent(416, "Lord Markham's Chamber", function()
     if not IsAtLeast(MapVar(6), 2) then
         evt.EnterHouse(215) -- Lord Markham's Chamber
         return
     end
     evt.StatusText("This Door has Been Locked")
     evt.FaceAnimation(FaceAnimation.DoorLocked)
-end, "Enter Lord Markham's Chamber")
+end, "Lord Markham's Chamber")
 
 RegisterEvent(451, "Legacy event 451", function()
     if IsAtLeast(MapVar(6), 1) then return end

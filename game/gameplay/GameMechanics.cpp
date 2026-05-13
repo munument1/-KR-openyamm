@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <limits>
 #include <string_view>
 
 namespace OpenYAMM::Game
@@ -278,6 +279,15 @@ std::optional<ClassMultiplierEntry> classMultiplierForClassName(
 int levelWithBonus(uint32_t level, int statBonus)
 {
     return static_cast<int>(level) + statBonus;
+}
+
+uint32_t levelWithModifier(uint32_t level, int levelModifier)
+{
+    const int64_t adjustedLevel = static_cast<int64_t>(std::max(level, 1u)) + levelModifier;
+    return static_cast<uint32_t>(std::clamp<int64_t>(
+        adjustedLevel,
+        1,
+        std::numeric_limits<uint32_t>::max()));
 }
 
 bool hasCondition(const Character &character, CharacterCondition condition)
@@ -1928,6 +1938,49 @@ int GameMechanics::calculateBaseCharacterMaxSpellPoints(
     return std::max(0, multiplier->baseMana + manaByLevel + manaBySkill);
 }
 
+int GameMechanics::calculateEffectiveCharacterMaxHealth(
+    const Character &character,
+    const ClassMultiplierTable *pClassMultiplierTable)
+{
+    int maximum = character.maxHealth + character.permanentBonuses.maxHealth + character.magicalBonuses.maxHealth;
+
+    if (character.levelModifier != 0)
+    {
+        Character baseCharacter = character;
+        baseCharacter.levelModifier = 0;
+
+        Character adjustedCharacter = baseCharacter;
+        adjustedCharacter.level = levelWithModifier(character.level, character.levelModifier);
+
+        maximum += calculateBaseCharacterMaxHealth(adjustedCharacter, pClassMultiplierTable)
+            - calculateBaseCharacterMaxHealth(baseCharacter, pClassMultiplierTable);
+    }
+
+    return std::max(1, maximum);
+}
+
+int GameMechanics::calculateEffectiveCharacterMaxSpellPoints(
+    const Character &character,
+    const ClassMultiplierTable *pClassMultiplierTable)
+{
+    int maximum =
+        character.maxSpellPoints + character.permanentBonuses.maxSpellPoints + character.magicalBonuses.maxSpellPoints;
+
+    if (character.levelModifier != 0)
+    {
+        Character baseCharacter = character;
+        baseCharacter.levelModifier = 0;
+
+        Character adjustedCharacter = baseCharacter;
+        adjustedCharacter.level = levelWithModifier(character.level, character.levelModifier);
+
+        maximum += calculateBaseCharacterMaxSpellPoints(adjustedCharacter, pClassMultiplierTable)
+            - calculateBaseCharacterMaxSpellPoints(baseCharacter, pClassMultiplierTable);
+    }
+
+    return std::max(0, maximum);
+}
+
 void GameMechanics::refreshCharacterBaseResources(
     Character &character,
     bool restoreCurrentToMaximum,
@@ -2057,11 +2110,11 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     summary.luck = makeSheetValue(baseLuck, actualLuck + followerLuckBonus);
 
     summary.health.baseMaximum = character.maxHealth + character.permanentBonuses.maxHealth;
-    summary.health.maximum = summary.health.baseMaximum + character.magicalBonuses.maxHealth;
+    summary.health.maximum = calculateEffectiveCharacterMaxHealth(character);
     summary.health.current = std::clamp(character.health, 0, std::max(0, summary.health.maximum));
 
     summary.spellPoints.baseMaximum = character.maxSpellPoints + character.permanentBonuses.maxSpellPoints;
-    summary.spellPoints.maximum = summary.spellPoints.baseMaximum + character.magicalBonuses.maxSpellPoints;
+    summary.spellPoints.maximum = calculateEffectiveCharacterMaxSpellPoints(character);
     summary.spellPoints.current = std::clamp(character.spellPoints, 0, std::max(0, summary.spellPoints.maximum));
 
     const int armorBase = parameterBonus(actualSpeed)
@@ -2071,9 +2124,10 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     const int armorActual = std::max(0, armorBase + character.magicalBonuses.armorClass);
     summary.armorClass = makeSheetValue(std::max(0, armorBase), armorActual);
 
-    summary.level = makeSheetValue(
-        static_cast<int>(character.level),
-        static_cast<int>(maximumTrainableLevelFromExperience(character)));
+    const int displayedActualLevel = character.levelModifier != 0
+        ? static_cast<int>(levelWithModifier(character.level, character.levelModifier))
+        : static_cast<int>(maximumTrainableLevelFromExperience(character));
+    summary.level = makeSheetValue(static_cast<int>(character.level), displayedActualLevel);
 
     const bool leatherGrandmaster =
         equippedItems.pArmor != nullptr

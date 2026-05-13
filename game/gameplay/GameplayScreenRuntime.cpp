@@ -467,7 +467,8 @@ GameplayDialogController::Context GameplayScreenRuntime::buildDialogContext(Even
         &m_session.data().mergedBolsterMapTable(),
         &m_session.data().mergedContinentSettingTable(),
         &m_session.data().mergedTeacherTopicTable(),
-        &m_session.data().mergedTeacherAutonoteTable());
+        &m_session.data().mergedTeacherAutonoteTable(),
+        &m_session.data().spellTable());
 }
 
 void GameplayScreenRuntime::presentPendingEventDialog(
@@ -925,6 +926,12 @@ bool GameplayScreenRuntime::trySelectPartyMember(size_t memberIndex, bool requir
         return false;
     }
 
+    GameplayUiController::CharacterScreenState &screen = characterScreen();
+    if (screen.open && screen.source == GameplayUiController::CharacterScreenSource::Party)
+    {
+        screen.sourceIndex = memberIndex;
+    }
+
     EventRuntimeState *pEventRuntimeState = worldRuntime() != nullptr ? worldRuntime()->eventRuntimeState() : nullptr;
 
     if (pEventRuntimeState != nullptr && activeEventDialog().isActive)
@@ -944,8 +951,24 @@ size_t GameplayScreenRuntime::selectedCharacterScreenSourceIndex() const
         return 0;
     }
 
+    if (pParty->members().empty())
+    {
+        return 0;
+    }
+
     const GameplayUiController::CharacterScreenState &screen = characterScreenReadOnly();
-    return isAdventurersInnCharacterSourceActive() ? screen.sourceIndex : pParty->activeMemberIndex();
+
+    if (isAdventurersInnCharacterSourceActive())
+    {
+        return screen.sourceIndex;
+    }
+
+    if (screen.open && screen.source == GameplayUiController::CharacterScreenSource::Party)
+    {
+        return std::min(screen.sourceIndex, pParty->members().size() - 1);
+    }
+
+    return pParty->activeMemberIndex();
 }
 
 const Character *GameplayScreenRuntime::selectedCharacterScreenCharacter() const
@@ -962,7 +985,7 @@ const Character *GameplayScreenRuntime::selectedCharacterScreenCharacter() const
         return pParty->adventurersInnCharacter(characterScreenReadOnly().sourceIndex);
     }
 
-    return pParty->activeMember();
+    return pParty->member(selectedCharacterScreenSourceIndex());
 }
 
 bool GameplayScreenRuntime::isAdventurersInnCharacterSourceActive() const
@@ -1048,7 +1071,8 @@ void GameplayScreenRuntime::openRestOverlay(bool enforceWorldRestrictions)
 void GameplayScreenRuntime::beginRestAction(
     GameplayUiController::RestMode mode,
     float minutes,
-    bool consumeFood)
+    bool consumeFood,
+    bool innRest)
 {
     GameplayUiController::RestScreenState &restScreen = restScreenState();
 
@@ -1093,6 +1117,7 @@ void GameplayScreenRuntime::beginRestAction(
     }
 
     restScreen.mode = mode;
+    restScreen.innRest = innRest;
     restScreen.totalMinutes = std::max(0.0f, minutes);
     restScreen.remainingMinutes = restScreen.totalMinutes;
 
@@ -1105,18 +1130,19 @@ void GameplayScreenRuntime::beginRestAction(
     if (restScreen.remainingMinutes <= 0.0f)
     {
         restScreen.mode = GameplayUiController::RestMode::None;
+        restScreen.innRest = false;
     }
 }
 
 void GameplayScreenRuntime::startRestAction(GameplayUiController::RestMode mode, float minutes)
 {
-    beginRestAction(mode, minutes, true);
+    beginRestAction(mode, minutes, true, false);
 }
 
 void GameplayScreenRuntime::startInnRest(float durationMinutes)
 {
     openRestOverlay(false);
-    beginRestAction(GameplayUiController::RestMode::Heal, durationMinutes, false);
+    beginRestAction(GameplayUiController::RestMode::Heal, durationMinutes, false, true);
 }
 
 void GameplayScreenRuntime::openSpellbookOverlay()
@@ -1178,7 +1204,7 @@ void GameplayScreenRuntime::toggleCharacterInventoryScreen()
     {
         characterScreen.page = GameplayUiController::CharacterPage::Inventory;
         characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
-        characterScreen.sourceIndex = 0;
+        characterScreen.sourceIndex = partyReadOnly() != nullptr ? partyReadOnly()->activeMemberIndex() : 0;
         characterScreen.dollJewelryOverlayOpen = false;
         characterScreen.adventurersInnRosterOverlayOpen = false;
         closeSpellbookOverlay();
@@ -1301,6 +1327,7 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
     }
 
     const GameplayUiController::RestMode completedMode = restScreen.mode;
+    const bool completedInnRest = restScreen.innRest;
     const float remainingMinutes = std::max(0.0f, restScreen.remainingMinutes);
     const float beforeGameMinutes = worldRuntime() != nullptr ? worldRuntime()->gameMinutes() : 0.0f;
 
@@ -1329,8 +1356,14 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
     }
 
     restScreen.mode = GameplayUiController::RestMode::None;
+    restScreen.innRest = false;
     restScreen.totalMinutes = 0.0f;
     restScreen.remainingMinutes = 0.0f;
+
+    if (completedMode == GameplayUiController::RestMode::Heal && completedInnRest && worldRuntime() != nullptr)
+    {
+        worldRuntime()->applyMapReentryReset();
+    }
 
     if (completedMode == GameplayUiController::RestMode::Heal && party() != nullptr)
     {

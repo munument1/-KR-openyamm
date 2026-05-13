@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <unordered_map>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -784,7 +786,38 @@ uint32_t npcProfessionActionCooldownDay(float currentGameMinutes)
     }
 
     constexpr uint32_t MinutesPerDay = 24u * 60u;
-    return static_cast<uint32_t>(currentGameMinutes) / MinutesPerDay + 1u;
+    constexpr float OeDailyResetMinute = 3.0f * 60.0f;
+    const int32_t elapsedResetDays =
+        static_cast<int32_t>(std::floor((currentGameMinutes - OeDailyResetMinute) / MinutesPerDay));
+    return static_cast<uint32_t>(std::max<int32_t>(0, elapsedResetDays + 1));
+}
+
+bool npcProfessionActionUsedToday(
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId,
+    float currentGameMinutes)
+{
+    const uint32_t currentDay = npcProfessionActionCooldownDay(currentGameMinutes);
+
+    const auto followerIt = std::find_if(
+        eventRuntimeState.hiredNpcFollowers.begin(),
+        eventRuntimeState.hiredNpcFollowers.end(),
+        [npcId](const EventRuntimeState::HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        });
+
+    if (followerIt != eventRuntimeState.hiredNpcFollowers.end()
+        && followerIt->abilityUsedDay != 0
+        && followerIt->abilityUsedDay == currentDay)
+    {
+        return true;
+    }
+
+    const std::unordered_map<uint32_t, int32_t>::const_iterator variableIt =
+        eventRuntimeState.variables.find(npcProfessionActionCooldownVariableKey(npcId));
+    return variableIt != eventRuntimeState.variables.end()
+        && variableIt->second == static_cast<int32_t>(currentDay);
 }
 
 EventDialogContent buildEventDialogContent(
@@ -1396,7 +1429,7 @@ EventDialogContent buildEventDialogContent(
                         && pProfession != nullptr
                         && !npcIsHired
                         && npcCanOfferProfessionHire(*pNpc, *pProfession, allowProfessionBasedHire));
-                bool suppressProfessionNewsForBtbGate = false;
+                bool suppressProfessionNews = false;
 
                 if (canUseProfessionFallback && pNpc != nullptr && pProfession != nullptr)
                 {
@@ -1442,7 +1475,7 @@ EventDialogContent buildEventDialogContent(
                             pBtbEntry->bribeFailTextId,
                             pBtbEntry->acceptBribe,
                             pProfession->weeklyCost != 0 ? pProfession->weeklyCost : 50u);
-                        suppressProfessionNewsForBtbGate = true;
+                        suppressProfessionNews = true;
                     }
                     else if (!npcIsHired && npcCanJoin && canUseNpcFollowers)
                     {
@@ -1453,6 +1486,18 @@ EventDialogContent buildEventDialogContent(
                         action.enabled = npcRuntimeState.hiredNpcFollowers.size() < MaxNpcFollowerCount;
                         action.disabledReason = action.enabled ? std::string() : "You already have enough followers.";
                         dialog.actions.push_back(std::move(action));
+
+                        if (pProfession->descriptionTextId != 0)
+                        {
+                            EventDialogAction infoAction = {};
+                            infoAction.kind = EventDialogActionKind::NpcProfessionDescription;
+                            infoAction.id = pNpc->professionId;
+                            infoAction.secondaryId = pProfession->descriptionTextId;
+                            infoAction.label = "More Info";
+                            dialog.actions.push_back(std::move(infoAction));
+                        }
+
+                        suppressProfessionNews = true;
                     }
                     else
                     {
@@ -1460,9 +1505,7 @@ EventDialogContent buildEventDialogContent(
                         {
                             const bool actionOnCooldown = npcProfessionActionTopicHasDailyCooldown(
                                 pProfession->actionTopicId)
-                                && npcRuntimeState.variables[npcProfessionActionCooldownVariableKey(pNpc->id)]
-                                    == static_cast<int32_t>(
-                                        npcProfessionActionCooldownDay(currentGameMinutes));
+                                && npcProfessionActionUsedToday(npcRuntimeState, pNpc->id, currentGameMinutes);
 
                             const std::optional<NpcDialogTable::ResolvedTopic> professionTopic =
                                 pNpcDialogTable->getTopicById(pProfession->actionTopicId);
@@ -1501,7 +1544,7 @@ EventDialogContent buildEventDialogContent(
                 }
 
                 if (canUseProfessionFallback
-                    && !suppressProfessionNewsForBtbGate
+                    && !suppressProfessionNews
                     && !npcIsHired
                     && pNpc != nullptr
                     && pProfession != nullptr
