@@ -291,6 +291,7 @@ bool NpcDialogTable::loadGreetingsFromRows(const std::vector<std::vector<std::st
 
 bool NpcDialogTable::loadNewsFromRows(const std::vector<std::vector<std::string>> &rows)
 {
+    m_newsTopics.clear();
     m_newsTexts.clear();
 
     for (const std::vector<std::string> &row : rows)
@@ -308,6 +309,10 @@ bool NpcDialogTable::loadNewsFromRows(const std::vector<std::vector<std::string>
         }
 
         m_newsTexts[id] = row[1];
+        if (row.size() > 2)
+        {
+            m_newsTopics[id] = row[2];
+        }
     }
 
     return !m_newsTexts.empty();
@@ -691,6 +696,18 @@ std::optional<std::string> NpcDialogTable::getNewsText(uint32_t newsId) const
     }
 
     return newsIt->second;
+}
+
+std::optional<std::string> NpcDialogTable::getNewsTopic(uint32_t newsId) const
+{
+    const std::unordered_map<uint32_t, std::string>::const_iterator topicIt = m_newsTopics.find(newsId);
+
+    if (topicIt == m_newsTopics.end())
+    {
+        return std::nullopt;
+    }
+
+    return topicIt->second;
 }
 
 std::optional<std::string> NpcDialogTable::getNewsDialogText(uint32_t textId) const

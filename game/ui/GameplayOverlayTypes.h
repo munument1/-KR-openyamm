@@ -32,7 +32,8 @@ enum class GameplayHudScreenState
     VideoOptions,
     SaveGame,
     LoadGame,
-    Journal
+    Journal,
+    QuickReference
 };
 
 inline GameplayHudScreenState resolveGameplayHudScreenState(
@@ -48,6 +49,11 @@ inline GameplayHudScreenState resolveGameplayHudScreenState(
     if (uiController.journalScreen().active)
     {
         return GameplayHudScreenState::Journal;
+    }
+
+    if (uiController.quickReferenceScreen().active)
+    {
+        return GameplayHudScreenState::QuickReference;
     }
 
     if (uiController.restScreen().active)
@@ -389,6 +395,7 @@ enum class GameplayHudPointerTargetType
     RestButton,
     BooksButton,
     DimensionDoorButton,
+    QuickReferenceButton,
     MinimapZoomInButton,
     MinimapZoomOutButton,
     FollowerPanelToggleButton,
@@ -427,6 +434,19 @@ enum class GameplayControlsPointerTargetType
     VoiceTrack,
     VoiceRightButton,
     ReturnButton
+};
+
+enum class GameplayQuickReferencePointerTargetType
+{
+    None,
+    ExitButton
+};
+
+struct GameplayQuickReferencePointerTarget
+{
+    GameplayQuickReferencePointerTargetType type = GameplayQuickReferencePointerTargetType::None;
+
+    bool operator==(const GameplayQuickReferencePointerTarget &other) const = default;
 };
 
 struct GameplayControlsPointerTarget
@@ -587,6 +607,9 @@ struct GameplayOverlayInteractionState
     bool journalClickLatch = false;
     GameplayJournalPointerTarget journalPressedTarget = {};
     bool journalMapKeyZoomLatch = false;
+    bool quickReferenceToggleLatch = false;
+    bool quickReferenceClickLatch = false;
+    GameplayQuickReferencePointerTarget quickReferencePressedTarget = {};
     bool dialogueClickLatch = false;
     GameplayDialoguePointerTarget dialoguePressedTarget = {};
     bool houseShopClickLatch = false;

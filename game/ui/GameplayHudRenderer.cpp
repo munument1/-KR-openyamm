@@ -28,7 +28,8 @@ bool isOverlayHudState(GameplayHudScreenState hudScreenState)
         || hudScreenState == GameplayHudScreenState::VideoOptions
         || hudScreenState == GameplayHudScreenState::SaveGame
         || hudScreenState == GameplayHudScreenState::LoadGame
-        || hudScreenState == GameplayHudScreenState::Journal;
+        || hudScreenState == GameplayHudScreenState::Journal
+        || hudScreenState == GameplayHudScreenState::QuickReference;
 }
 
 const char *basebarLayoutIdForHudLayout(ActiveGameplayHudLayout layout)
@@ -123,7 +124,8 @@ void GameplayHudRenderer::renderGameplayHud(GameplayScreenRuntime &context, int 
         && hudScreenState != GameplayHudScreenState::VideoOptions
         && hudScreenState != GameplayHudScreenState::SaveGame
         && hudScreenState != GameplayHudScreenState::LoadGame
-        && hudScreenState != GameplayHudScreenState::Journal;
+        && hudScreenState != GameplayHudScreenState::Journal
+        && hudScreenState != GameplayHudScreenState::QuickReference;
 
     const auto replaceAll =
         [](std::string text, const std::string &from, const std::string &to) -> std::string

@@ -7970,7 +7970,7 @@ void IndoorWorldRuntime::notifyMonsterKilledEventHooks(size_t actorIndex, int16_
         return;
     }
 
-    markRuntimeBountyHuntMonsterKilled(*this, monsterId);
+    markRuntimeBountyHuntMonsterKilled(*this, monsterId, m_pMonsterTable);
 
     EventRuntimeState::ActiveHookContext hookContext = {};
     hookContext.kind = EventRuntimeHookKind::MonsterKilled;
@@ -8744,7 +8744,8 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
             *this,
             m_pParty,
             pStats,
-            m_map.has_value() ? m_map->baseStealingFine : 0);
+            m_map.has_value() ? m_map->baseStealingFine : 0,
+            actor.npcId > 0);
 
         if (pStats != nullptr && pStats->experience > 0 && m_pParty != nullptr)
         {
@@ -10285,7 +10286,8 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
             *this,
             m_pParty,
             pStats,
-            m_map.has_value() ? m_map->baseStealingFine : 0);
+            m_map.has_value() ? m_map->baseStealingFine : 0,
+            actor.npcId > 0);
 
         if (pStats != nullptr && pStats->experience > 0)
         {

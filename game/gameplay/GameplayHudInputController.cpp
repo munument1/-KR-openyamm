@@ -315,6 +315,13 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 {
                     activeGameplayButtonLayoutId(
                         context,
+                        "",
+                        "OutdoorStandardButtonQuickReference"),
+                    GameplayHudPointerTargetType::QuickReferenceButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
                         "OutdoorMinimapZoomIn",
                         "OutdoorStandardMinimapZoomIn"),
                     GameplayHudPointerTargetType::MinimapZoomInButton
@@ -380,6 +387,9 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 break;
             case GameplayHudPointerTargetType::DimensionDoorButton:
                 openDimensionDoorOverlay(context);
+                break;
+            case GameplayHudPointerTargetType::QuickReferenceButton:
+                context.openQuickReferenceOverlay();
                 break;
             case GameplayHudPointerTargetType::MinimapZoomInButton:
                 context.zoomGameplayMinimapIn();

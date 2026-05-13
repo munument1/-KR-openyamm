@@ -344,6 +344,11 @@ public:
         float cachedMapCenterY = 0.0f;
     };
 
+    struct QuickReferenceScreenState
+    {
+        bool active = false;
+    };
+
     struct CharacterScreenState
     {
         bool open = false;
@@ -438,6 +443,7 @@ public:
         SaveGameScreenState saveGameScreen = {};
         LoadGameScreenState loadGameScreen = {};
         JournalScreenState journalScreen = {};
+        QuickReferenceScreenState quickReferenceScreen = {};
         InventoryNestedOverlayState inventoryNestedOverlay = {};
         HouseShopOverlayState houseShopOverlay = {};
         HouseBankState houseBankState = {};
@@ -507,6 +513,9 @@ public:
 
     JournalScreenState &journalScreen();
     const JournalScreenState &journalScreen() const;
+
+    QuickReferenceScreenState &quickReferenceScreen();
+    const QuickReferenceScreenState &quickReferenceScreen() const;
 
     InventoryNestedOverlayState &inventoryNestedOverlay();
     const InventoryNestedOverlayState &inventoryNestedOverlay() const;

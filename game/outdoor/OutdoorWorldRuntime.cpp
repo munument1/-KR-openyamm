@@ -2506,6 +2506,7 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
     OutdoorWorldRuntime::MapActorState state = {};
     state.actorId = actorId;
     state.monsterId = resolveMapActorMonsterId(actor);
+    state.npcId = actor.npcId;
     state.uniqueNameId = static_cast<uint32_t>(std::max(0, actor.uniqueNameIndex));
     state.group = actor.group;
     state.ally = actor.ally;
@@ -11115,7 +11116,7 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
 
             if (pStats != nullptr)
             {
-                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine);
+                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine, actor.npcId > 0);
 
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
@@ -11474,7 +11475,7 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
 
     if (!wasDead && isDead && m_pMonsterTable != nullptr)
     {
-        markRuntimeBountyHuntMonsterKilled(*this, actor.monsterId);
+        markRuntimeBountyHuntMonsterKilled(*this, actor.monsterId, m_pMonsterTable);
         const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId);
 
         if (pStats != nullptr)
@@ -12008,7 +12009,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         {
             if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
             {
-                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine);
+                applyPeasantKillReputationPenalty(*this, m_pParty, pStats, m_map.baseStealingFine, actor.npcId > 0);
 
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {

@@ -88,6 +88,22 @@ OpenYAMM::Game::Party makeInventoryParty()
     return party;
 }
 
+void fillInventory(OpenYAMM::Game::Character &member, uint32_t itemId)
+{
+    member.inventory.clear();
+
+    for (int gridY = 0; gridY < OpenYAMM::Game::Character::InventoryHeight; ++gridY)
+    {
+        for (int gridX = 0; gridX < OpenYAMM::Game::Character::InventoryWidth; ++gridX)
+        {
+            REQUIRE(member.addInventoryItemAt(
+                makeInventoryItem(itemId, 1, 1),
+                static_cast<uint8_t>(gridX),
+                static_cast<uint8_t>(gridY)));
+        }
+    }
+}
+
 bool hasPendingSpeech(
     const OpenYAMM::Game::Party &party,
     size_t memberIndex,
@@ -385,6 +401,53 @@ TEST_CASE("party item ownership queries include the held item")
     party.clearHeldItemForQueries();
     CHECK(party.hasEverOwnedItem(2119));
     CHECK_FALSE(party.hasItemAnywhere(2119));
+}
+
+TEST_CASE("party grants inventory items starting with active member")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    REQUIRE(party.setActiveMemberIndex(2));
+
+    const OpenYAMM::Game::InventoryItem item = makeInventoryItem(2119, 1, 1);
+    size_t recipientMemberIndex = 0;
+    REQUIRE(party.tryGrantInventoryItem(item, &recipientMemberIndex));
+
+    CHECK_EQ(recipientMemberIndex, 2u);
+    CHECK_EQ(party.member(0)->inventoryItemCount(), 0u);
+    CHECK_EQ(party.member(1)->inventoryItemCount(), 0u);
+    CHECK_EQ(party.member(2)->inventoryItemCount(), 1u);
+    CHECK_EQ(party.member(3)->inventoryItemCount(), 0u);
+}
+
+TEST_CASE("party grant falls through from full active inventory to next member")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    REQUIRE(party.setActiveMemberIndex(2));
+    REQUIRE(party.member(2) != nullptr);
+    fillInventory(*party.member(2), 109);
+
+    const OpenYAMM::Game::InventoryItem item = makeInventoryItem(2119, 1, 1);
+    size_t recipientMemberIndex = 0;
+    REQUIRE(party.tryGrantInventoryItem(item, &recipientMemberIndex));
+
+    CHECK_EQ(recipientMemberIndex, 3u);
+    CHECK_EQ(party.member(2)->inventoryItemCount(), party.member(2)->inventoryCapacity());
+    CHECK_EQ(party.member(3)->inventoryItemCount(), 1u);
+}
+
+TEST_CASE("party grant item ids use active member inventory rotation")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    REQUIRE(party.setActiveMemberIndex(1));
+    REQUIRE(party.member(1) != nullptr);
+    fillInventory(*party.member(1), 109);
+
+    REQUIRE(party.tryGrantItem(2119));
+
+    CHECK_EQ(party.member(0)->inventoryItemCount(), 0u);
+    CHECK_EQ(party.member(1)->inventoryItemCount(), party.member(1)->inventoryCapacity());
+    CHECK_EQ(party.member(2)->inventoryItemCount(), 1u);
+    CHECK_EQ(party.member(3)->inventoryItemCount(), 0u);
 }
 
 TEST_CASE("party restore records currently held inventory as ever owned")

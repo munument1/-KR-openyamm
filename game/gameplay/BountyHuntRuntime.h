@@ -51,6 +51,10 @@ BountyHuntClaimResult claimBountyHuntReward(
     uint32_t currentMonth,
     bool awardGold);
 bool markRuntimeBountyHuntMonsterKilled(IGameplayWorldRuntime &worldRuntime, int16_t monsterId);
+bool markRuntimeBountyHuntMonsterKilled(
+    IGameplayWorldRuntime &worldRuntime,
+    int16_t monsterId,
+    const MonsterTable *pMonsterTable);
 std::string bountyHuntTargetText(const MonsterTable::MonsterStatsEntry &stats);
 std::string bountyHuntRewardText(const MonsterTable::MonsterStatsEntry &stats);
 void applyBountyHuntClaimResult(

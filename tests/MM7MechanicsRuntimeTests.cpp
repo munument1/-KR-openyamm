@@ -141,7 +141,7 @@ TEST_CASE("MM7 bounty hunt runtime filters no-bounty monsters and claims monthly
     CHECK(claim.claimed);
     CHECK_EQ(claim.goldReward, 1200u);
     CHECK_EQ(claim.bountyTotalDelta, 1200u);
-    CHECK_EQ(claim.reputationDelta, -1);
+    CHECK_EQ(claim.reputationDelta, 0);
     CHECK(entry.claimed);
 }
 
@@ -238,15 +238,18 @@ TEST_CASE("MMerge stealing runtime resolves success, caught failure, and monster
 
 TEST_CASE("MMerge runtime bounty kill marker persists to named globals")
 {
+    MonsterTable monsterTable = makeBountyMonsterTable();
     OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
     EventRuntimeState state = {};
     worldRuntime.bindEventRuntimeState(&state);
 
     state.namedGlobalVars["MMerge.BountyHunt.spell_test.odm.Month"] = 0;
     state.namedGlobalVars["MMerge.BountyHunt.spell_test.odm.MonsterId"] = 10;
+    worldRuntime.setCurrentLocationReputation(0);
 
-    CHECK(markRuntimeBountyHuntMonsterKilled(worldRuntime, 10));
+    CHECK(markRuntimeBountyHuntMonsterKilled(worldRuntime, 10, &monsterTable));
     CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.spell_test.odm.Done"], 1);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), -1);
 }
 
 TEST_CASE("MMerge town hall fine payment clears party fines")
@@ -296,7 +299,7 @@ TEST_CASE("MMerge terrible reputation and theft bans disable shop service")
     OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
     EventRuntimeState state = {};
     worldRuntime.bindEventRuntimeState(&state);
-    worldRuntime.setCurrentLocationReputation(26);
+    worldRuntime.setCurrentLocationReputation(25);
 
     HouseEntry shop = {};
     shop.id = 1234;
@@ -399,7 +402,7 @@ TEST_CASE("MMerge shop stealing integrates with stock and reputation")
     std::string statusText;
     HouseServiceRuntime::ShopItemServiceResult serviceResult = HouseServiceRuntime::ShopItemServiceResult::None;
 
-    REQUIRE(HouseServiceRuntime::tryStealStockItem(
+    const bool stoleItem = HouseServiceRuntime::tryStealStockItem(
         party,
         worldRuntime,
         gameData.itemTable,
@@ -409,10 +412,14 @@ TEST_CASE("MMerge shop stealing integrates with stock and reputation")
         worldRuntime.gameMinutes(),
         HouseStockMode::ShopStandard,
         slotIndex,
-        1000000u,
+        150u,
         1000000u,
         statusText,
-        &serviceResult));
+        &serviceResult);
+
+    INFO(statusText);
+    INFO(static_cast<int>(serviceResult));
+    REQUIRE(stoleItem);
 
     CHECK(serviceResult == HouseServiceRuntime::ShopItemServiceResult::Stolen);
     CHECK_EQ(party.inventoryItemCount(), initialInventoryCount + 1u);

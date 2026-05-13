@@ -149,6 +149,16 @@ const GameplayScreenState::JournalScreenState &GameplayScreenState::journalScree
     return m_uiState.journalScreen;
 }
 
+GameplayScreenState::QuickReferenceScreenState &GameplayScreenState::quickReferenceScreen()
+{
+    return m_uiState.quickReferenceScreen;
+}
+
+const GameplayScreenState::QuickReferenceScreenState &GameplayScreenState::quickReferenceScreen() const
+{
+    return m_uiState.quickReferenceScreen;
+}
+
 GameplayScreenState::InventoryNestedOverlayState &GameplayScreenState::inventoryNestedOverlay()
 {
     return m_uiState.inventoryNestedOverlay;

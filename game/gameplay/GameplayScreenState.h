@@ -22,6 +22,7 @@ public:
     using SaveGameScreenState = GameplayUiController::SaveGameScreenState;
     using LoadGameScreenState = GameplayUiController::LoadGameScreenState;
     using JournalScreenState = GameplayUiController::JournalScreenState;
+    using QuickReferenceScreenState = GameplayUiController::QuickReferenceScreenState;
     using InventoryNestedOverlayState = GameplayUiController::InventoryNestedOverlayState;
     using HouseShopOverlayState = GameplayUiController::HouseShopOverlayState;
     using HouseBankState = GameplayUiController::HouseBankState;
@@ -115,6 +116,9 @@ public:
 
     JournalScreenState &journalScreen();
     const JournalScreenState &journalScreen() const;
+
+    QuickReferenceScreenState &quickReferenceScreen();
+    const QuickReferenceScreenState &quickReferenceScreen() const;
 
     InventoryNestedOverlayState &inventoryNestedOverlay();
     const InventoryNestedOverlayState &inventoryNestedOverlay() const;

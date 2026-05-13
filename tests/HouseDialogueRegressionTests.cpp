@@ -62,12 +62,32 @@ constexpr uint32_t TessTuckerNpcId = 835;
 constexpr uint32_t BufordAllmanNpcId = 992;
 constexpr uint32_t AbdulaiMahgrebNpcId = 1010;
 constexpr uint32_t KevinWatchPeasantNpcId = 977;
+constexpr uint32_t ChitaniaRetianiNpcId = 1011;
+constexpr uint32_t ChitaniaRetianiHouseId = 1513;
+constexpr uint32_t JoHandlebaumSpellMasterNpcId = 979;
+constexpr uint32_t JoHandlebaumSpellMasterHouseId = 1377;
+constexpr uint32_t GingerAstorTeacherNpcId = 888;
+constexpr uint32_t GingerAstorTeacherHouseId = 1514;
+constexpr uint32_t NoahWhiteInstructorNpcId = 815;
+constexpr uint32_t NoahWhiteInstructorHouseId = 1366;
+constexpr uint32_t KernCarnegieArmsMasterNpcId = 987;
+constexpr uint32_t KernCarnegieArmsMasterHouseId = 1333;
+constexpr uint32_t MiriamBoyerWeaponsMasterNpcId = 1050;
+constexpr uint32_t MiriamBoyerWeaponsMasterHouseId = 1444;
 constexpr uint32_t IrisPoppyfieldNpcId = 971;
 constexpr uint32_t WilmaCookGateMasterNpcId = 1035;
 constexpr uint32_t NaomiWindNpcId = 1051;
 constexpr uint32_t NaomiWindHouseId = 1377;
+constexpr uint32_t TorBrockNpcId = 1150;
+constexpr uint32_t TorBrockHouseId = 1553;
 constexpr uint32_t PaulHapsburgNpcId = 1164;
 constexpr uint32_t BardProfessionId = 36;
+constexpr uint32_t PotterProfessionId = 58;
+constexpr uint32_t TeacherProfessionId = 13;
+constexpr uint32_t InstructorProfessionId = 14;
+constexpr uint32_t ArmsMasterProfessionId = 15;
+constexpr uint32_t WeaponsMasterProfessionId = 16;
+constexpr uint32_t SpellMasterProfessionId = 19;
 constexpr uint32_t WindMasterProfessionId = 39;
 constexpr uint32_t WaterMasterProfessionId = 40;
 constexpr uint32_t GateMasterProfessionId = 41;
@@ -243,6 +263,22 @@ bool dialogHasActionLabel(const OpenYAMM::Game::EventDialogContent &dialog, cons
     return false;
 }
 
+bool dialogHasAction(
+    const OpenYAMM::Game::EventDialogContent &dialog,
+    OpenYAMM::Game::EventDialogActionKind kind,
+    const std::string &label)
+{
+    for (const OpenYAMM::Game::EventDialogAction &action : dialog.actions)
+    {
+        if (action.kind == kind && action.label == label)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool portraitFxContainsMember(
     const OpenYAMM::Game::EventRuntimeState &runtimeState,
     OpenYAMM::Game::PortraitFxEventKind kind,
@@ -335,6 +371,31 @@ std::vector<std::string> collectActionLabels(const OpenYAMM::Game::EventDialogCo
     }
 
     return labels;
+}
+
+void checkJoinableProfessionNewsDialog(
+    OpenYAMM::Tests::HouseDialogueTestHarness &harness,
+    const OpenYAMM::Tests::RegressionGameData &gameData,
+    uint32_t npcId,
+    uint32_t houseId,
+    uint32_t professionId,
+    const std::string &newsLabel)
+{
+    const OpenYAMM::Game::NpcEntry *pNpc = gameData.npcDialogTable.getNpc(npcId);
+    REQUIRE(pNpc != nullptr);
+    CHECK_EQ(pNpc->professionId, professionId);
+    CHECK(pNpc->joins);
+
+    const OpenYAMM::Game::MergedNpcProfessionEntry *pProfession =
+        gameData.mergedNpcProfessionTable.get(professionId);
+    REQUIRE(pProfession != nullptr);
+
+    const OpenYAMM::Game::EventDialogContent dialog = harness.openNpcDialogue(npcId, houseId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, newsLabel));
+    CHECK_FALSE(
+        dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, pProfession->profession));
 }
 
 int firstTreasureLevelForItem(const OpenYAMM::Game::ItemDefinition &itemDefinition)
@@ -711,7 +772,11 @@ TEST_CASE("generated generic actors use merged NPC names, professions, and rarit
     if (pProfession->joins)
     {
         CHECK(std::find(labels.begin(), labels.end(), "Join") != labels.end());
-        CHECK(std::find(labels.begin(), labels.end(), pProfession->profession) == labels.end());
+        CHECK_FALSE(
+            dialogHasAction(
+                dialog,
+                OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction,
+                pProfession->profession));
         CHECK_EQ(
             std::find(labels.begin(), labels.end(), "More Info") != labels.end(),
             pProfession->descriptionTextId != 0);
@@ -1124,7 +1189,8 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(gateMasterHireIndex.has_value());
     REQUIRE(gateMasterInfoIndex.has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Cast Town Portal").has_value());
-    CHECK_FALSE(findActionIndexByLabel(dialog, "Gate Master").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Town Portal"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Gate Master"));
     CHECK_FALSE(findActionIndexByLabel(dialog, "Beg").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Threat").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Bribe").has_value());
@@ -1141,7 +1207,8 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     dialog = harness.openNpcDialogue(IrisPoppyfieldNpcId);
     CHECK(findActionIndexByLabel(dialog, "Join").has_value());
     CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
-    CHECK_FALSE(findActionIndexByLabel(dialog, "Bard").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Free Haven"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Bard"));
 
     const OpenYAMM::Game::NpcEntry *pPaul = gameData.npcDialogTable.getNpc(PaulHapsburgNpcId);
     REQUIRE(pPaul != nullptr);
@@ -1152,7 +1219,8 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(findActionIndexByLabel(dialog, "Join").has_value());
     const std::optional<size_t> paulInfoIndex = findActionIndexByLabel(dialog, "More Info");
     REQUIRE(paulInfoIndex.has_value());
-    CHECK_FALSE(findActionIndexByLabel(dialog, "Master Healer").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Advanced Alchemy"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Master Healer"));
 
     harness.executeAndPresent(*paulInfoIndex);
     REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
@@ -1162,10 +1230,87 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     dialog = harness.openNpcDialogue(KevinWatchPeasantNpcId, 0, 4);
     const std::optional<size_t> peasantHireIndex = findActionIndexByLabel(dialog, "Join");
     REQUIRE(peasantHireIndex.has_value());
-    CHECK_FALSE(findActionIndexByLabel(dialog, "Peasant").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Temple of Baa"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Peasant"));
     CHECK_FALSE(findActionIndexByLabel(dialog, "More Info").has_value());
+
+    const OpenYAMM::Game::NpcEntry *pTor = gameData.npcDialogTable.getNpc(TorBrockNpcId);
+    REQUIRE(pTor != nullptr);
+    CHECK_EQ(pTor->professionId, PotterProfessionId);
+    CHECK(pTor->joins);
+
+    dialog = harness.openNpcDialogue(TorBrockNpcId, TorBrockHouseId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "More Info").has_value());
+    const std::optional<size_t> potterNewsIndex = findActionIndexByLabel(dialog, "Hot Fires");
+    REQUIRE(potterNewsIndex.has_value());
+    CHECK_EQ(dialog.actions[*potterNewsIndex].kind, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews);
+
+    harness.executeAndPresent(*potterNewsIndex);
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(harness.eventRuntimeState().messages.back().find("pottery") != std::string::npos);
+
+    dialog = harness.openNpcDialogue(ChitaniaRetianiNpcId, ChitaniaRetianiHouseId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK_FALSE(findActionIndexByLabel(dialog, "More Info").has_value());
+    const std::optional<size_t> chitaniaNewsIndex = findActionIndexByLabel(dialog, "Hot Fires");
+    REQUIRE(chitaniaNewsIndex.has_value());
+    CHECK_EQ(dialog.actions[*chitaniaNewsIndex].kind, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews);
+
+    harness.worldRuntime().advanceGameMinutes(2.0f * 1440.0f);
+    const OpenYAMM::Game::NpcEntry *pJo = gameData.npcDialogTable.getNpc(JoHandlebaumSpellMasterNpcId);
+    REQUIRE(pJo != nullptr);
+    CHECK_EQ(pJo->professionId, SpellMasterProfessionId);
+    CHECK(pJo->joins);
+
+    dialog = harness.openNpcDialogue(JoHandlebaumSpellMasterNpcId, JoHandlebaumSpellMasterHouseId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
+    const std::optional<size_t> spellMasterNewsIndex = findActionIndexByLabel(dialog, "Terrax's Crystal");
+    REQUIRE(spellMasterNewsIndex.has_value());
+    CHECK_EQ(dialog.actions[*spellMasterNewsIndex].kind, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews);
+    CHECK_FALSE(
+        dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Spell Master"));
+
+    harness.executeAndPresent(*spellMasterNewsIndex);
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(harness.eventRuntimeState().messages.back().find("Corlagon took Terrax's Crystal") != std::string::npos);
+    harness.worldRuntime().advanceGameMinutes(-2.0f * 1440.0f);
+
+    checkJoinableProfessionNewsDialog(
+        harness,
+        gameData,
+        GingerAstorTeacherNpcId,
+        GingerAstorTeacherHouseId,
+        TeacherProfessionId,
+        "Skills");
+    checkJoinableProfessionNewsDialog(
+        harness,
+        gameData,
+        NoahWhiteInstructorNpcId,
+        NoahWhiteInstructorHouseId,
+        InstructorProfessionId,
+        "Kriegspire");
+    checkJoinableProfessionNewsDialog(
+        harness,
+        gameData,
+        KernCarnegieArmsMasterNpcId,
+        KernCarnegieArmsMasterHouseId,
+        ArmsMasterProfessionId,
+        "Battle Tactics");
+    checkJoinableProfessionNewsDialog(
+        harness,
+        gameData,
+        MiriamBoyerWeaponsMasterNpcId,
+        MiriamBoyerWeaponsMasterHouseId,
+        WeaponsMasterProfessionId,
+        "Magic Weapons");
+
+    dialog = harness.openNpcDialogue(KevinWatchPeasantNpcId, 0, 4);
+    const std::optional<size_t> refreshedPeasantHireIndex = findActionIndexByLabel(dialog, "Join");
+    REQUIRE(refreshedPeasantHireIndex.has_value());
     const OpenYAMM::Game::EventDialogContent offerDialog =
-        harness.executeAndPresent(*peasantHireIndex);
+        harness.executeAndPresent(*refreshedPeasantHireIndex);
     const std::optional<size_t> acceptIndex = findActionIndexByLabel(offerDialog, "Yes");
     REQUIRE(acceptIndex.has_value());
 
@@ -1203,7 +1348,9 @@ TEST_CASE("merged in-house plain NPC followers can be hired and leave their hous
         harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
     CHECK(findActionIndexByLabel(naomiDialog, "Join").has_value());
     CHECK(findActionIndexByLabel(naomiDialog, "More Info").has_value());
-    CHECK_FALSE(findActionIndexByLabel(naomiDialog, "Gate Master").has_value());
+    CHECK(dialogHasAction(naomiDialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Town Portal"));
+    CHECK_FALSE(
+        dialogHasAction(naomiDialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Gate Master"));
 
     std::vector<uint32_t> residentIds =
         OpenYAMM::Game::collectSelectableResidentNpcIds(
@@ -1268,7 +1415,8 @@ TEST_CASE("Naomi Wind in-house hire requires start gold and leaves house after h
             harness.openNpcDialogue(NaomiWindNpcId, NaomiWindHouseId);
         const std::optional<size_t> infoIndex = findActionIndexByLabel(dialog, "More Info");
         REQUIRE(infoIndex.has_value());
-        CHECK_FALSE(findActionIndexByLabel(dialog, "Gate Master").has_value());
+        CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Town Portal"));
+        CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Gate Master"));
 
         harness.executeAndPresent(*infoIndex);
         REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
@@ -1649,7 +1797,9 @@ TEST_CASE("merged continent settings gate profession news fallback")
     harness.setCurrentMap(betweenTimeMap);
 
     const OpenYAMM::Game::EventDialogContent betweenTimeDialog = harness.openNpcDialogue(KyleLutvigChildNpcId);
-    CHECK(findActionIndexByLabel(betweenTimeDialog, "Child").has_value());
+    CHECK(dialogHasAction(betweenTimeDialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "School"));
+    CHECK_FALSE(
+        dialogHasAction(betweenTimeDialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Child"));
 }
 
 TEST_CASE("merged continent settings gate NPC follower offers")
@@ -1673,7 +1823,8 @@ TEST_CASE("merged continent settings gate NPC follower offers")
     CHECK_FALSE(findActionIndexByLabel(dialog, "Beg").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Threat").has_value());
     CHECK_FALSE(findActionIndexByLabel(dialog, "Bribe 1 Gold").has_value());
-    CHECK(findActionIndexByLabel(dialog, "Peasant").has_value());
+    CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Temple of Baa"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Peasant"));
 }
 
 TEST_CASE("fredrick initial topics exact")
@@ -3067,6 +3218,48 @@ TEST_CASE("mm6 suffix mastery teacher topic does not show unrelated fallback tex
     CHECK_EQ(offerDialog.actions.front().label, "You are already an expert in this skill.");
     CHECK_FALSE(dialogContainsText(offerDialog, "So"));
     CHECK_FALSE(dialogContainsText(offerDialog, "Carmine traitor"));
+}
+
+TEST_CASE("mm6 free haven armsmaster teachers use mmerge topic data")
+{
+    constexpr uint32_t WinstonHistorianNpcId = 860;
+    constexpr uint32_t WinstonHistorianHouseId = 1281;
+    constexpr uint32_t LawrenceAlemanNpcId = 1114;
+    constexpr uint32_t LawrenceAlemanHouseId = 1540;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::EventDialogContent &lawrenceDialog =
+        harness.openNpcDialogue(LawrenceAlemanNpcId, LawrenceAlemanHouseId);
+
+    const std::optional<size_t> gongsIndex = findActionIndexByLabel(lawrenceDialog, "Gongs");
+    REQUIRE(gongsIndex.has_value());
+    CHECK_EQ(lawrenceDialog.actions[*gongsIndex].kind, OpenYAMM::Game::EventDialogActionKind::NpcTopic);
+
+    const std::optional<size_t> expertIndex = findActionIndexByLabel(lawrenceDialog, "Expert Armsmaster");
+    REQUIRE(expertIndex.has_value());
+    CHECK_EQ(
+        lawrenceDialog.actions[*expertIndex].kind,
+        OpenYAMM::Game::EventDialogActionKind::MasteryTeacherOffer);
+
+    const OpenYAMM::Game::EventDialogContent &winstonDialog =
+        harness.openNpcDialogue(WinstonHistorianNpcId, WinstonHistorianHouseId);
+
+    const std::optional<size_t> guildIndex = findActionIndexByLabel(winstonDialog, "Duelist's Edge Membership");
+    REQUIRE(guildIndex.has_value());
+    CHECK_EQ(winstonDialog.actions[*guildIndex].kind, OpenYAMM::Game::EventDialogActionKind::GuildMembershipOffer);
+
+    const std::optional<size_t> masterIndex = findActionIndexByLabel(winstonDialog, "Master Armsmaster");
+    REQUIRE(masterIndex.has_value());
+    CHECK_EQ(winstonDialog.actions[*masterIndex].kind, OpenYAMM::Game::EventDialogActionKind::MasteryTeacherOffer);
+
+    const std::optional<size_t> grandmasterIndex =
+        findActionIndexByLabel(winstonDialog, "Grand Master Armsmaster");
+    REQUIRE(grandmasterIndex.has_value());
+    CHECK_EQ(
+        winstonDialog.actions[*grandmasterIndex].kind,
+        OpenYAMM::Game::EventDialogActionKind::MasteryTeacherOffer);
 }
 
 TEST_CASE("mastery teacher topics are identified from merged table and vanilla range only")

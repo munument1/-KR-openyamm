@@ -140,6 +140,7 @@ void GameplayInputController::handleStandardUiHotkeys(
     const bool saveGameActive = context.saveGameScreenState().active;
     const bool loadGameActive = context.loadGameScreenState().active;
     const bool journalActive = context.journalScreenState().active;
+    const bool quickReferenceActive = context.quickReferenceScreenState().active;
     const bool houseShopActive = context.houseShopOverlay().active;
     const bool houseBankInputActive = context.houseBankState().inputActive();
     const bool gameplayHudActive = context.currentHudScreenState() == GameplayHudScreenState::Gameplay;
@@ -158,6 +159,7 @@ void GameplayInputController::handleStandardUiHotkeys(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !context.inventoryNestedOverlay().active
         && !context.readableScrollOverlayReadOnly().active
         && !context.utilitySpellOverlayReadOnly().active
@@ -169,6 +171,13 @@ void GameplayInputController::handleStandardUiHotkeys(
         if (spellbookActive)
         {
             context.closeSpellbookOverlay();
+            context.interactionState().menuToggleLatch = true;
+            return;
+        }
+
+        if (quickReferenceActive)
+        {
+            context.closeQuickReferenceOverlay();
             context.interactionState().menuToggleLatch = true;
             return;
         }
@@ -204,6 +213,7 @@ void GameplayInputController::handleStandardUiHotkeys(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !context.inventoryNestedOverlay().active
         && !houseShopActive
         && !houseBankInputActive
@@ -267,6 +277,7 @@ void GameplayInputController::handleStandardUiHotkeys(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !houseShopActive
         && !houseBankInputActive
         && !config.blockSpellbookToggle;
@@ -293,6 +304,7 @@ void GameplayInputController::handleStandardUiHotkeys(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !config.blockInventoryToggle;
 
     if (isActionNewlyPressed(context, KeyboardAction::Quest, config.pInputFrame, config.pKeyboardState)
@@ -325,8 +337,40 @@ void GameplayInputController::handleStandardUiHotkeys(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !houseBankInputActive
         && !config.blockPartyCycle;
+
+    const bool canToggleQuickReference =
+        !activeEventDialog
+        && !hasActiveLootView
+        && !characterScreenOpen
+        && !spellbookActive
+        && !restActive
+        && !menuActive
+        && !controlsActive
+        && !keyboardActive
+        && !videoOptionsActive
+        && !saveGameActive
+        && !loadGameActive
+        && !journalActive
+        && !context.inventoryNestedOverlay().active
+        && !context.readableScrollOverlayReadOnly().active
+        && !context.utilitySpellOverlayReadOnly().active
+        && !houseShopActive
+        && !houseBankInputActive;
+
+    if (isActionNewlyPressed(context, KeyboardAction::QuickRef, config.pInputFrame, config.pKeyboardState))
+    {
+        if (quickReferenceActive)
+        {
+            context.closeQuickReferenceOverlay();
+        }
+        else if (canToggleQuickReference)
+        {
+            context.openQuickReferenceOverlay();
+        }
+    }
 
     if (!canCyclePartyMember
         || !isActionNewlyPressed(context, KeyboardAction::CharCycle, config.pInputFrame, config.pKeyboardState))

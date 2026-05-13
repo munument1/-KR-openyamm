@@ -640,6 +640,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
     const bool saveGameActive = context.saveGameScreenState().active;
     const bool loadGameActive = context.loadGameScreenState().active;
     const bool journalActive = context.journalScreenState().active;
+    const bool quickReferenceActive = context.quickReferenceScreenState().active;
     const bool houseShopActive = context.houseShopOverlay().active;
     const bool houseBankInputActive = context.houseBankState().inputActive();
 
@@ -662,6 +663,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !houseBankInputActive;
 
     if (gameplayReadyForPortraitClicks)
@@ -702,6 +704,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         && !saveGameActive
         && !loadGameActive
         && !journalActive
+        && !quickReferenceActive
         && !houseShopActive
         && !houseBankInputActive;
 
@@ -727,6 +730,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         && !saveGameActive
         && !loadGameActive
         && !context.inventoryNestedOverlay().active
+        && !quickReferenceActive
         && !houseShopActive
         && !houseBankInputActive
         && !config.blockJournalToggle;
@@ -763,6 +767,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
             .keyboardActive = keyboardActive,
             .videoOptionsActive = videoOptionsActive,
             .saveGameActive = saveGameActive,
+            .quickReferenceActive = quickReferenceActive,
             .spellbookActive = spellbookActive,
             .characterScreenOpen = characterScreenOpen,
         });
@@ -848,6 +853,11 @@ GameplayStandardWorldInputGateResult GameplayScreenController::gateStandardWorld
         return {.blocked = true};
     }
 
+    if (config.blockOnQuickReference && context.quickReferenceScreenState().active)
+    {
+        return {.blocked = true};
+    }
+
     if (config.clearCharacterOverlayInputState)
     {
         context.resetCharacterOverlayInteractionState();
@@ -873,6 +883,7 @@ GameplayStandardWorldInteractionFrameState GameplayScreenController::captureStan
         .saveGameActiveBeforeInput = context.saveGameScreenState().active,
         .loadGameActiveBeforeInput = context.loadGameScreenState().active,
         .journalActiveBeforeInput = context.journalScreenState().active,
+        .quickReferenceActiveBeforeInput = context.quickReferenceScreenState().active,
     };
 }
 
@@ -899,7 +910,9 @@ bool GameplayScreenController::isStandardWorldInteractionBlockedForFrame(
         || config.state.loadGameActiveBeforeInput
         || context.loadGameScreenState().active
         || config.state.journalActiveBeforeInput
-        || context.journalScreenState().active;
+        || context.journalScreenState().active
+        || config.state.quickReferenceActiveBeforeInput
+        || context.quickReferenceScreenState().active;
 }
 
 void GameplayScreenController::renderStandardUi(

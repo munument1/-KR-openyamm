@@ -23,6 +23,7 @@ struct GameplayUiOverlayInputConfig
     bool keyboardActive = false;
     bool videoOptionsActive = false;
     bool saveGameActive = false;
+    bool quickReferenceActive = false;
     bool spellbookActive = false;
     bool characterScreenOpen = false;
 };

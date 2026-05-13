@@ -28,6 +28,7 @@ public:
     static void renderSaveGameOverlay(GameplayScreenRuntime &context, int width, int height);
     static void renderLoadGameOverlay(GameplayScreenRuntime &context, int width, int height);
     static void renderJournalOverlay(GameplayScreenRuntime &context, int width, int height);
+    static void renderQuickReferenceOverlay(GameplayScreenRuntime &context, int width, int height);
 
 private:
     static void renderSaveLoadOverlay(

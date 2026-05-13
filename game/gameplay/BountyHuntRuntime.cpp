@@ -14,6 +14,8 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr int MinutesPerDay = 24 * 60;
+constexpr int MMergeBountyHuntLocalReputationLimit = -20;
+constexpr int MMergeBountyHuntContinentReputationLimit = -5;
 
 uint32_t monthFromGameMinutes(float currentGameMinutes)
 {
@@ -39,6 +41,25 @@ void writeRuntimeBountyHuntEntry(EventRuntimeState &state, const std::string &pr
     state.namedGlobalVars[prefix + ".MonsterId"] = static_cast<int32_t>(entry.monsterId);
     state.namedGlobalVars[prefix + ".Done"] = entry.done ? 1 : 0;
     state.namedGlobalVars[prefix + ".Claimed"] = entry.claimed ? 1 : 0;
+}
+
+int32_t bountyHuntReputationDeltaForKilledMonster(
+    const MonsterTable::MonsterStatsEntry &stats,
+    int32_t storedReputation)
+{
+    int32_t reputationDelta = 0;
+
+    if (storedReputation >= MMergeBountyHuntLocalReputationLimit)
+    {
+        reputationDelta -= static_cast<int32_t>(std::max(0, stats.level) / 20);
+    }
+
+    if (storedReputation > MMergeBountyHuntContinentReputationLimit)
+    {
+        reputationDelta -= 1;
+    }
+
+    return reputationDelta;
 }
 }
 
@@ -122,6 +143,14 @@ bool markBountyHuntMonsterKilled(BountyHuntEntry &entry, int16_t monsterId, uint
 
 bool markRuntimeBountyHuntMonsterKilled(IGameplayWorldRuntime &worldRuntime, int16_t monsterId)
 {
+    return markRuntimeBountyHuntMonsterKilled(worldRuntime, monsterId, nullptr);
+}
+
+bool markRuntimeBountyHuntMonsterKilled(
+    IGameplayWorldRuntime &worldRuntime,
+    int16_t monsterId,
+    const MonsterTable *pMonsterTable)
+{
     EventRuntimeState *pEventRuntimeState = worldRuntime.eventRuntimeState();
 
     if (pEventRuntimeState == nullptr || monsterId <= 0)
@@ -143,6 +172,17 @@ bool markRuntimeBountyHuntMonsterKilled(IGameplayWorldRuntime &worldRuntime, int
     }
 
     writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+
+    const MonsterTable::MonsterStatsEntry *pStats =
+        pMonsterTable != nullptr ? pMonsterTable->findStatsById(monsterId) : nullptr;
+
+    if (pStats != nullptr)
+    {
+        addStoredCurrentLocationReputation(
+            worldRuntime,
+            bountyHuntReputationDeltaForKilledMonster(*pStats, worldRuntime.currentLocationReputation()));
+    }
+
     return true;
 }
 
@@ -169,7 +209,7 @@ BountyHuntClaimResult claimBountyHuntReward(
     result.claimed = true;
     result.goldReward = bountyHuntRewardForMonster(*pStats);
     result.bountyTotalDelta = result.goldReward;
-    result.reputationDelta = -static_cast<int32_t>(std::ceil(static_cast<double>(result.goldReward) / 2000.0));
+    result.reputationDelta = 0;
 
     if (!awardGold)
     {

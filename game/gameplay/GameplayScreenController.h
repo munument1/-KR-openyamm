@@ -66,6 +66,7 @@ struct GameplayStandardWorldInputGateConfig
     bool blockOnMenu = true;
     bool blockOnCharacterScreen = true;
     bool blockOnJournal = true;
+    bool blockOnQuickReference = true;
     bool clearCharacterOverlayInputState = true;
     bool closeReadableScrollOverlay = true;
 };
@@ -86,6 +87,7 @@ struct GameplayStandardWorldInteractionFrameState
     bool saveGameActiveBeforeInput = false;
     bool loadGameActiveBeforeInput = false;
     bool journalActiveBeforeInput = false;
+    bool quickReferenceActiveBeforeInput = false;
 };
 
 struct GameplayStandardWorldInteractionFrameGateConfig

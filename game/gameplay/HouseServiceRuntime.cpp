@@ -1433,7 +1433,7 @@ bool HouseServiceRuntime::tryBuyStockItem(
         return false;
     }
 
-    if (!party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item))
+    if (!party.tryGrantInventoryItemStartingAt(party.activeMemberIndex(), item))
     {
         statusText = "Inventory full.";
 
@@ -1523,8 +1523,21 @@ bool HouseServiceRuntime::tryStealStockItem(
     const int itemValue =
         PriceCalculator::itemValue(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable);
     const Party::Snapshot snapshot = party.snapshot();
-    const bool inventoryHasRoom = party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item);
+    const bool inventoryHasRoom = party.tryGrantInventoryItemStartingAt(party.activeMemberIndex(), item);
     party.restoreSnapshot(snapshot);
+    pMember = party.activeMember();
+
+    if (pMember == nullptr)
+    {
+        statusText = "That item is unavailable.";
+
+        if (pResult != nullptr)
+        {
+            *pResult = ShopItemServiceResult::Unavailable;
+        }
+
+        return false;
+    }
 
     StealingAttemptInput input = {};
     input.targetKind = StealingTargetKind::Shop;
@@ -1563,7 +1576,7 @@ bool HouseServiceRuntime::tryStealStockItem(
 
     if (stealResult.outcome == StealingOutcomeKind::Success)
     {
-        if (!party.tryAutoPlaceItemInMemberInventory(party.activeMemberIndex(), item))
+        if (!party.tryGrantInventoryItemStartingAt(party.activeMemberIndex(), item))
         {
             statusText = "Inventory full.";
 

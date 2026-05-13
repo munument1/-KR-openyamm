@@ -238,17 +238,17 @@ elements:
           pressed: butn4d
         notes: Standard options button.
 
-      - id: OutdoorStandardButtonDimensionDoor
+      - id: OutdoorStandardButtonQuickReference
         anchor: center_in
         offset_x: 165
-        width: 22
-        height: 22
+        width: 60
+        height: 24
         interactive: true
         asset:
-          default: butn_dportal_3u
-          highlighted: butn_dportal_3h
-          pressed: butn_dportal_3h
-        notes: Standard dimension door button.
+          default: butn3u
+          highlighted: butn3d
+          pressed: butn3d
+        notes: Standard quick reference button.
 
       - id: OutdoorStandardButtonRest
         anchor: center_in

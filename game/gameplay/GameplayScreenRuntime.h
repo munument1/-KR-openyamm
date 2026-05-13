@@ -134,6 +134,7 @@ public:
     GameplayUiController::VideoOptionsScreenState &videoOptionsScreenState() const;
     GameplayUiController::SaveGameScreenState &saveGameScreenState() const;
     GameplayUiController::LoadGameScreenState &loadGameScreenState() const;
+    GameplayUiController::QuickReferenceScreenState &quickReferenceScreenState() const;
     const GameplayUiController::CharacterScreenState &characterScreenReadOnly() const;
     const GameplayUiController::ItemInspectOverlayState &itemInspectOverlayReadOnly() const;
     const GameplayUiController::CharacterInspectOverlayState &characterInspectOverlayReadOnly() const;
@@ -145,6 +146,7 @@ public:
     const GameplayUiController::SpellbookState &spellbookReadOnly() const;
     const GameplayUiController::UtilitySpellOverlayState &utilitySpellOverlayReadOnly() const;
     const GameplayUiController::JournalScreenState &journalScreenStateReadOnly() const;
+    const GameplayUiController::QuickReferenceScreenState &quickReferenceScreenStateReadOnly() const;
     const JournalQuestTable *journalQuestTable() const;
     const JournalHistoryTable *journalHistoryTable() const;
     uint32_t activeHistoryContinentId() const;
@@ -199,6 +201,8 @@ public:
     void requestOpenLoadGameScreen();
     void openJournalOverlay();
     void closeJournalOverlay();
+    void openQuickReferenceOverlay();
+    void closeQuickReferenceOverlay();
     void closeHouseShopOverlay();
     void openFollowerNpcDialogue(size_t followerSlotIndex);
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);

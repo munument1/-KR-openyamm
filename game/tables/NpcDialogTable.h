@@ -100,6 +100,7 @@ public:
         const std::unordered_map<uint32_t, uint32_t> *pHouseOverrides = nullptr
     ) const;
     std::optional<std::string> getText(uint32_t textId) const;
+    std::optional<std::string> getNewsTopic(uint32_t newsId) const;
     std::optional<std::string> getNewsText(uint32_t newsId) const;
     std::optional<std::string> getNewsDialogText(uint32_t textId) const;
     std::optional<uint32_t> getNewsIdForGroup(uint32_t groupId) const;
@@ -114,6 +115,7 @@ private:
     std::unordered_map<uint32_t, NpcGreetingEntry> m_greetings;
     std::unordered_map<uint32_t, NpcTopicEntry> m_topicsById;
     std::unordered_map<uint32_t, std::string> m_texts;
+    std::unordered_map<uint32_t, std::string> m_newsTopics;
     std::unordered_map<uint32_t, std::string> m_newsTexts;
     std::unordered_map<uint32_t, uint32_t> m_groupNewsIds;
 };

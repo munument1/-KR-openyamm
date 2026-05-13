@@ -73,6 +73,10 @@ GameplayUiOverlayInputResult GameplayUiOverlayOrchestrator::handleStandardOverla
     {
         (void)GameplayOverlayInputController::handleSaveGameOverlayInput(overlayContext, input);
     }
+    else if (config.quickReferenceActive)
+    {
+        (void)GameplayOverlayInputController::handleQuickReferenceOverlayInput(overlayContext, input);
+    }
 
     if (config.spellbookActive)
     {
@@ -163,6 +167,7 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
         GameplayPartyOverlayRenderer::renderSaveGameOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderLoadGameOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderJournalOverlay(overlayContext, width, height);
+        GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderSpellbookOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderHeldInventoryItem(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderItemInspectOverlay(overlayContext, width, height);

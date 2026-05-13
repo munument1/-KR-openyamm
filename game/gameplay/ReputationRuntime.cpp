@@ -16,6 +16,8 @@ constexpr uint32_t GypsyProfessionId = 48;
 constexpr uint32_t DuperProfessionId = 50;
 constexpr uint32_t BurglarProfessionId = 51;
 constexpr uint32_t FallenWizardProfessionId = 52;
+constexpr int MMergePeasantKillReputationLimit = 100;
+constexpr int MMergePeasantKillContinentExtraThreshold = 20;
 
 bool professionHurtsReputation(uint32_t professionId)
 {
@@ -113,17 +115,24 @@ PeasantKillReputationResult applyPeasantKillReputationPenalty(
     IGameplayWorldRuntime &worldRuntime,
     Party *pParty,
     const MonsterTable::MonsterStatsEntry *pStats,
-    int baseStealingFine)
+    int baseStealingFine,
+    bool actorHasNpcId)
 {
     PeasantKillReputationResult result = {};
 
-    if (pStats == nullptr || !pStats->hasKind(MonsterKind::Peasant))
+    if (pStats == nullptr || !actorHasNpcId || !pStats->hasKind(MonsterKind::Peasant))
     {
         return result;
     }
 
     result.applied = true;
-    result.reputationDelta = 1;
+
+    const int storedReputation = worldRuntime.currentLocationReputation();
+
+    if (storedReputation < MMergePeasantKillReputationLimit)
+    {
+        result.reputationDelta = storedReputation < MMergePeasantKillContinentExtraThreshold ? 2 : 1;
+    }
 
     if (pParty != nullptr)
     {
@@ -140,7 +149,11 @@ PeasantKillReputationResult applyPeasantKillReputationPenalty(
         }
     }
 
-    addStoredCurrentLocationReputation(worldRuntime, result.reputationDelta);
+    if (result.reputationDelta != 0)
+    {
+        addStoredCurrentLocationReputation(worldRuntime, result.reputationDelta);
+    }
+
     return result;
 }
 

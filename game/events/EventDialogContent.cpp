@@ -1496,8 +1496,6 @@ EventDialogContent buildEventDialogContent(
                             infoAction.label = "More Info";
                             dialog.actions.push_back(std::move(infoAction));
                         }
-
-                        suppressProfessionNews = true;
                     }
                     else
                     {
@@ -1558,11 +1556,16 @@ EventDialogContent buildEventDialogContent(
 
                     if (pProfessionTopic != nullptr && pProfessionTopic->newsTextId != 0)
                     {
+                        const std::optional<std::string> newsTopic =
+                            pNpcDialogTable->getNewsTopic(pProfessionTopic->topicTextId);
+
                         EventDialogAction action = {};
                         action.kind = EventDialogActionKind::NpcProfessionNews;
                         action.id = pNpc->professionId;
                         action.secondaryId = pProfessionTopic->newsTextId;
-                        action.label = !pProfession->profession.empty() ? pProfession->profession : "Profession";
+                        action.label = newsTopic && !newsTopic->empty()
+                            ? *newsTopic
+                            : (!pProfession->profession.empty() ? pProfession->profession : "Profession");
                         dialog.actions.push_back(std::move(action));
                     }
                 }

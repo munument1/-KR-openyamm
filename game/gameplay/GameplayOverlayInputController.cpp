@@ -4219,4 +4219,96 @@ void GameplayOverlayInputController::handleLootOverlayInput(
         view.interactionState().closeOverlayLatch = false;
     }
 }
+
+bool GameplayOverlayInputController::handleQuickReferenceOverlayInput(
+    GameplayScreenRuntime &view,
+    const GameplayInputFrame &input)
+{
+    if (!view.quickReferenceScreenStateReadOnly().active)
+    {
+        view.interactionState().quickReferenceClickLatch = false;
+        view.interactionState().quickReferencePressedTarget = {};
+        return false;
+    }
+
+    const bool *pKeyboardState = input.keyboardState();
+
+    if (pKeyboardState != nullptr && pKeyboardState[SDL_SCANCODE_ESCAPE])
+    {
+        if (!view.interactionState().closeOverlayLatch)
+        {
+            view.closeQuickReferenceOverlay();
+            view.interactionState().closeOverlayLatch = true;
+            return true;
+        }
+    }
+    else
+    {
+        view.interactionState().closeOverlayLatch = false;
+    }
+
+    if (input.screenWidth <= 0 || input.screenHeight <= 0)
+    {
+        return false;
+    }
+
+    const auto findQuickReferencePointerTarget =
+        [&view, &input](float pointerX, float pointerY) -> GameplayQuickReferencePointerTarget
+        {
+            const GameplayScreenRuntime::HudLayoutElement *pExitLayout =
+                view.findHudLayoutElement("QuickReferenceExitButton");
+
+            if (pExitLayout == nullptr)
+            {
+                return {};
+            }
+
+            const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedExit =
+                view.resolveHudLayoutElement(
+                    "QuickReferenceExitButton",
+                    input.screenWidth,
+                    input.screenHeight,
+                    pExitLayout->width,
+                    pExitLayout->height);
+
+            if (!resolvedExit)
+            {
+                return {};
+            }
+
+            if (pointerX >= resolvedExit->x
+                && pointerX < resolvedExit->x + resolvedExit->width
+                && pointerY >= resolvedExit->y
+                && pointerY < resolvedExit->y + resolvedExit->height)
+            {
+                return {GameplayQuickReferencePointerTargetType::ExitButton};
+            }
+
+            return {};
+        };
+
+    const HudPointerState pointerState = {
+        input.pointerX,
+        input.pointerY,
+        input.leftMouseButton.held
+    };
+
+    bool activated = false;
+    handlePointerClickRelease(
+        pointerState,
+        view.interactionState().quickReferenceClickLatch,
+        view.interactionState().quickReferencePressedTarget,
+        GameplayQuickReferencePointerTarget{},
+        findQuickReferencePointerTarget,
+        [&view, &activated](const GameplayQuickReferencePointerTarget &target)
+        {
+            if (target.type == GameplayQuickReferencePointerTargetType::ExitButton)
+            {
+                view.closeQuickReferenceOverlay();
+                activated = true;
+            }
+        });
+
+    return activated;
+}
 } // namespace OpenYAMM::Game

@@ -30,6 +30,7 @@ constexpr uint32_t LorettaFirstStableBit = 1515;
 constexpr uint32_t LorettaLastStableBit = 1523;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
 constexpr uint32_t BountyHuntGroup = 39;
+constexpr int MMergeBadReputationShopBanThreshold = 25;
 constexpr int ShopTheftBanDays = 336;
 constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
 constexpr uint32_t PrisonTermsAwardId = 87;
@@ -175,7 +176,7 @@ bool houseRefusesServiceForReputation(
     }
 
     return houseHasActiveTheftBan(houseEntry, pWorldRuntime, currentGameMinutes)
-        || effectiveReputationForWorld(pWorldRuntime) > 25;
+        || effectiveReputationForWorld(pWorldRuntime) >= MMergeBadReputationShopBanThreshold;
 }
 
 void disableHouseOptionsForReputation(std::vector<HouseActionOption> &options, const std::string &reason)

@@ -859,7 +859,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 857	Victor Hosen	0400	0	0	0	1422	13	0	0	1563	1598	0	0	0	0	"meditation expert, 2 big houses east (E3)"
 858	Thane Roper	0399	0	0	0	1523	14	0	0	1548	0	0	0	0	0	mind master (D1)
 859	Oliver Wendell	0398	0	0	0	0	0	0	0	1615	0	0	0	0	0	Monk who gives party info in d7
-860	Winston Historian	0397	0	0	400	1281	46	0	0	0	0	1700	0	0	0	Merc Guild Membership (C2)
+860	Winston Historian	0397	0	0	400	1281	46	0	0	0	0	1700	406	407	0	Merc Guild Membership (C2)
 861	Zoltan Phelps	0396	0	0	0	1390	21	0	0	1635	0	0	0	0	0	Gives quest to retrieve lost artifact
 862	Andrew Besper	0395	0	0	0	1348	31	0	0	1616	0	1701	0	0	0	Gives quest to retrieve harp
 863	Ellen Rockway	0394	0	0	0	1507	48	0	1	0	0	0	0	0	0	gypsy
@@ -1113,7 +1113,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 1111	Donald Dorfus	0432	0	0	0	1509	19	0	1	0	0	0	0	0	0	Spell Master
 1112	Richard Harp	0431	0	0	0	1516	20	0	1	0	0	0	0	0	0	Trader
 1113	Stephen Iago	0430	0	0	0	1519	21	0	1	0	0	0	0	0	0	Merchant
-1114	Lawrence Aleman	0429	0	0	0	1540	0	0	0	1426	0	0	0	0	0	Temple Gong buyer (C2)
+1114	Lawrence Aleman	0429	0	0	0	1540	0	0	0	1426	0	0	405	0	0	Temple Gong buyer (C2)
 1115	Terry Ros	0428	0	0	0	1436	19	0	0	1435	0	0	0	0	0	Lich Book Quest (C3)
 1116	Alex Morrow	0427	0	0	0	1445	25	0	1	0	0	0	0	0	0	Barrister
 1117	Castor Lithgow	0426	0	0	0	1346	24	0	1	0	0	0	0	0	0	Tinker

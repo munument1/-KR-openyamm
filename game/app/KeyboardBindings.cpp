@@ -46,7 +46,7 @@ const std::array<KeyboardBindingDefinition, KeyboardActionCount> KeyboardBinding
     {KeyboardAction::Quest, "quest", "Quest", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 6,
         SDL_SCANCODE_I, true},
     {KeyboardAction::QuickRef, "quick_ref", "Quick Ref", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 0,
-        SDL_SCANCODE_Z, false},
+        SDL_SCANCODE_Z, true},
     {KeyboardAction::Rest, "rest", "Rest", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 1,
         SDL_SCANCODE_R, true},
     {KeyboardAction::History, "history", "History", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 2,

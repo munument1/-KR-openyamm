@@ -771,6 +771,11 @@ GameplayUiController::LoadGameScreenState &GameplayScreenRuntime::loadGameScreen
     return m_session.gameplayScreenState().loadGameScreen();
 }
 
+GameplayUiController::QuickReferenceScreenState &GameplayScreenRuntime::quickReferenceScreenState() const
+{
+    return m_session.gameplayScreenState().quickReferenceScreen();
+}
+
 const GameplayUiController::CharacterScreenState &GameplayScreenRuntime::characterScreenReadOnly() const
 {
     return m_session.gameplayScreenState().characterScreen();
@@ -824,6 +829,11 @@ const GameplayUiController::UtilitySpellOverlayState &GameplayScreenRuntime::uti
 const GameplayUiController::JournalScreenState &GameplayScreenRuntime::journalScreenStateReadOnly() const
 {
     return m_session.gameplayScreenState().journalScreen();
+}
+
+const GameplayUiController::QuickReferenceScreenState &GameplayScreenRuntime::quickReferenceScreenStateReadOnly() const
+{
+    return m_session.gameplayScreenState().quickReferenceScreen();
 }
 
 const JournalQuestTable *GameplayScreenRuntime::journalQuestTable() const
@@ -1061,6 +1071,7 @@ void GameplayScreenRuntime::openRestOverlay(bool enforceWorldRestrictions)
     closeMenuOverlay();
     itemService().closeReadableScrollOverlay();
     closeInventoryNestedOverlay();
+    closeQuickReferenceOverlay();
     uiController().characterScreen() = {};
     uiController().restScreen() = {};
     uiController().restScreen().active = true;
@@ -1176,6 +1187,7 @@ void GameplayScreenRuntime::openSpellbookOverlay()
         }
     }
 
+    closeQuickReferenceOverlay();
     uiController().openSpellbook(school);
     uiController().spellbook().selectedSpellId = 0;
     interactionState().spellbookClickLatch = false;
@@ -1202,6 +1214,7 @@ void GameplayScreenRuntime::toggleCharacterInventoryScreen()
 
     if (characterScreen.open)
     {
+        closeQuickReferenceOverlay();
         characterScreen.page = GameplayUiController::CharacterPage::Inventory;
         characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
         characterScreen.sourceIndex = partyReadOnly() != nullptr ? partyReadOnly()->activeMemberIndex() : 0;
@@ -1251,6 +1264,39 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
     if (pEventRuntimeState == nullptr)
     {
         closeActiveEventDialog();
+        interactionState().activateInspectLatch = true;
+        return;
+    }
+
+    if (pEventRuntimeState->pendingInputPrompt
+        && pEventRuntimeState->pendingInputPrompt->kind == EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey
+        && pEventRuntimeState->pendingDialogueContext
+        && pEventRuntimeState->pendingDialogueContext->kind == DialogueContextKind::MapEvent)
+    {
+        IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+        const EventRuntimeState::PendingInputPrompt prompt = *pEventRuntimeState->pendingInputPrompt;
+        pEventRuntimeState->pendingInputPrompt.reset();
+
+        size_t previousMessageCount = pEventRuntimeState->messages.size();
+        const bool executed =
+            pWorldRuntime != nullptr
+            && pWorldRuntime->executeMapEvent(prompt.eventId, previousMessageCount, prompt.continueStep);
+
+        if (executed
+            && (pEventRuntimeState->pendingInputPrompt || pEventRuntimeState->messages.size() > previousMessageCount))
+        {
+            presentPendingEventDialog(previousMessageCount, true);
+            return;
+        }
+
+        closeActiveEventDialog();
+
+        if (pEventRuntimeState->pendingMapMove.has_value())
+        {
+            m_session.setPendingMapMove(std::move(*pEventRuntimeState->pendingMapMove));
+            pEventRuntimeState->pendingMapMove.reset();
+        }
+
         interactionState().activateInspectLatch = true;
         return;
     }
@@ -1379,6 +1425,7 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
 void GameplayScreenRuntime::openMenuOverlay()
 {
     closeSpellbookOverlay();
+    closeQuickReferenceOverlay();
     itemService().closeReadableScrollOverlay();
     closeInventoryNestedOverlay();
     uiController().characterScreen() = {};
@@ -1619,6 +1666,7 @@ void GameplayScreenRuntime::openJournalOverlay()
     closeMenuOverlay();
     itemService().closeReadableScrollOverlay();
     closeInventoryNestedOverlay();
+    closeQuickReferenceOverlay();
     uiController().characterScreen() = {};
     uiController().restScreen() = {};
 
@@ -1677,6 +1725,34 @@ void GameplayScreenRuntime::closeJournalOverlay()
     {
         m_pAudioSystem->playCommonSound(SoundId::CloseBook, GameAudioSystem::PlaybackGroup::Ui);
     }
+}
+
+void GameplayScreenRuntime::openQuickReferenceOverlay()
+{
+    closeSpellbookOverlay();
+    closeMenuOverlay();
+    itemService().closeReadableScrollOverlay();
+    closeInventoryNestedOverlay();
+    closeJournalOverlay();
+    uiController().characterScreen() = {};
+    uiController().restScreen() = {};
+
+    GameplayUiController::QuickReferenceScreenState &quickReferenceScreen = quickReferenceScreenState();
+    quickReferenceScreen = {};
+    quickReferenceScreen.active = true;
+    interactionState().quickReferenceToggleLatch = false;
+    interactionState().quickReferenceClickLatch = false;
+    interactionState().quickReferencePressedTarget = {};
+    interactionState().closeOverlayLatch = false;
+}
+
+void GameplayScreenRuntime::closeQuickReferenceOverlay()
+{
+    quickReferenceScreenState() = {};
+    interactionState().quickReferenceToggleLatch = false;
+    interactionState().quickReferenceClickLatch = false;
+    interactionState().quickReferencePressedTarget = {};
+    interactionState().closeOverlayLatch = false;
 }
 
 void GameplayScreenRuntime::ensurePendingEventDialogPresented(bool allowNpcFallbackContent)
@@ -2847,7 +2923,8 @@ std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> GameplayScreenRun
         || hudScreenState == GameplayHudScreenState::Menu
         || hudScreenState == GameplayHudScreenState::SaveGame
         || hudScreenState == GameplayHudScreenState::LoadGame
-        || hudScreenState == GameplayHudScreenState::Journal;
+        || hudScreenState == GameplayHudScreenState::Journal
+        || hudScreenState == GameplayHudScreenState::QuickReference;
     const bool useGameplayWideHud =
         !isLimitedOverlayHud && settingsSnapshot().gameplayUiLayout == GameplayUiLayout::Widescreen;
     const std::string basebarLayoutId = isLimitedOverlayHud

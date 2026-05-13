@@ -36,6 +36,9 @@ public:
         bool zoomInPressed,
         bool zoomOutPressed,
         float mouseWheelDelta);
+    static bool handleQuickReferenceOverlayInput(
+        GameplayScreenRuntime &view,
+        const GameplayInputFrame &input);
     static void handleDialogueOverlayInput(
         GameplayScreenRuntime &view,
         const GameplayInputFrame &input,

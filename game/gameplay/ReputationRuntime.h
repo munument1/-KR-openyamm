@@ -41,7 +41,8 @@ PeasantKillReputationResult applyPeasantKillReputationPenalty(
     IGameplayWorldRuntime &worldRuntime,
     Party *pParty,
     const MonsterTable::MonsterStatsEntry *pStats,
-    int baseStealingFine);
+    int baseStealingFine,
+    bool actorHasNpcId = true);
 ReputationLevel reputationLevel(int effectiveReputation);
 std::string reputationLabel(int effectiveReputation);
 }

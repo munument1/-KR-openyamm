@@ -2169,6 +2169,56 @@ TEST_CASE("mm6 new sorpigal tree event stores decoration sprite override")
     CHECK_EQ(*overrideIterator->second.textureName, "6tree06");
 }
 
+TEST_CASE("mm6 New Sorpigal obelisk applies autonote on press-any-key continuation")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    const std::optional<std::string> commonLua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/common/mm6_common.lua");
+    const std::optional<std::string> outa1Lua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/maps/outa1.lua");
+
+    REQUIRE(supportLua.has_value());
+    REQUIRE(commonLua.has_value());
+    REQUIRE(outa1Lua.has_value());
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *commonLua + "\n\n" + *outa1Lua,
+            "@events/maps/outa1.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 210, runtimeState, &party, nullptr));
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    CHECK_EQ(
+        runtimeState.pendingInputPrompt->kind,
+        OpenYAMM::Game::EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey);
+    CHECK_EQ(runtimeState.pendingInputPrompt->eventId, 210u);
+    CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 2u);
+    CHECK_FALSE(party.hasQuestBit(1384));
+
+    constexpr uint32_t ObeliskAutonoteVariable = (442u << 16) | 0x00e1u;
+    CHECK(runtimeState.variables.find(ObeliskAutonoteVariable) == runtimeState.variables.end());
+
+    runtimeState.pendingInputPrompt.reset();
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 210, runtimeState, &party, nullptr, 2));
+
+    CHECK(party.hasQuestBit(1384));
+    const auto autonoteIt = runtimeState.variables.find(ObeliskAutonoteVariable);
+    REQUIRE(autonoteIt != runtimeState.variables.end());
+    CHECK_EQ(autonoteIt->second, 442);
+    REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
+    CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
+}
+
 TEST_CASE("map Lua overlays can remove and replace generated events")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

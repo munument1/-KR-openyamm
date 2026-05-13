@@ -5,12 +5,14 @@
 #include "game/gameplay/JournalQuestRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/gameplay/StoryTextFormatter.h"
+#include "game/gameplay/ReputationRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/tables/MonsterTable.h"
 #include "game/tables/RosterTable.h"
+#include "game/tables/SpellTable.h"
 #include "game/ui/GameplayHudCommon.h"
 #include "game/ui/GameplayJournalMapUi.h"
 #include "game/party/SkillData.h"
@@ -1511,6 +1513,159 @@ struct SplitCharacterStatValue
     bool active = false;
 };
 
+struct QuickReferenceRow
+{
+    const char *pLabel = "";
+    float y = 0.0f;
+};
+
+constexpr std::array<QuickReferenceRow, 14> QuickReferenceRows = {{
+    {"Name", 18.0f},
+    {"Level", 47.0f},
+    {"Class", 60.0f},
+    {"HP", 73.0f},
+    {"SP", 86.0f},
+    {"AC", 99.0f},
+    {"Attack", 112.0f},
+    {"Dmg", 125.0f},
+    {"Shoot", 138.0f},
+    {"Dmg", 151.0f},
+    {"Skills", 164.0f},
+    {"Points", 177.0f},
+    {"Cond", 190.0f},
+    {"QSpell", 203.0f},
+}};
+
+std::string formatQuickReferenceSignedValue(int value)
+{
+    char buffer[32] = {};
+    std::snprintf(buffer, sizeof(buffer), "%+d", value);
+    return buffer;
+}
+
+uint32_t quickReferenceComparisonColor(int actualValue, int baseValue)
+{
+    if (actualValue > baseValue)
+    {
+        return makeAbgrColor(0, 255, 0);
+    }
+
+    if (actualValue < baseValue)
+    {
+        return makeAbgrColor(255, 0, 0);
+    }
+
+    return makeAbgrColor(255, 255, 255);
+}
+
+uint32_t quickReferenceResourceColor(int currentValue, int maximumValue)
+{
+    if (currentValue <= 0)
+    {
+        return makeAbgrColor(255, 0, 0);
+    }
+
+    if (maximumValue > 0 && currentValue * 2 < maximumValue)
+    {
+        return makeAbgrColor(255, 255, 0);
+    }
+
+    return makeAbgrColor(255, 255, 255);
+}
+
+uint32_t quickReferenceConditionColor(const std::string &conditionText)
+{
+    const std::string normalizedCondition = toLowerCopy(conditionText);
+
+    if (normalizedCondition == "good" || normalizedCondition == "normal")
+    {
+        return makeAbgrColor(255, 255, 255);
+    }
+
+    return makeAbgrColor(255, 0, 0);
+}
+
+std::string quickReferenceClassName(const Character &character)
+{
+    const std::string className = character.className.empty() ? character.role : character.className;
+    return displayClassName(className);
+}
+
+size_t quickReferenceSkillCount(const Character &character)
+{
+    size_t count = 0;
+
+    for (const auto &[skillName, skill] : character.skills)
+    {
+        (void)skillName;
+
+        if (skill.level > 0 && skill.mastery != SkillMastery::None)
+        {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+std::string quickReferenceSpellName(const Character &character, const SpellTable *pSpellTable)
+{
+    if (character.quickSpellName.empty())
+    {
+        return "None";
+    }
+
+    const SpellEntry *pSpell = pSpellTable != nullptr ? pSpellTable->findByName(character.quickSpellName) : nullptr;
+
+    if (pSpell != nullptr && !pSpell->shortName.empty())
+    {
+        return pSpell->shortName;
+    }
+
+    return character.quickSpellName;
+}
+
+uint32_t quickReferencePartyFame(const Party &party)
+{
+    uint64_t totalExperience = 0;
+
+    for (const Character &character : party.members())
+    {
+        totalExperience += character.experience;
+    }
+
+    return static_cast<uint32_t>(std::min<uint64_t>(
+        totalExperience / 1000u,
+        std::numeric_limits<uint32_t>::max()));
+}
+
+void renderQuickReferenceText(
+    GameplayScreenRuntime &context,
+    const GameplayResolvedHudLayoutElement &rootRect,
+    float x,
+    float y,
+    float textWidth,
+    float textHeight,
+    const std::string &text,
+    uint32_t colorAbgr,
+    UiLayoutManager::TextAlignX alignX = UiLayoutManager::TextAlignX::Left)
+{
+    GameplayScreenRuntime::HudLayoutElement layout = {};
+    layout.fontName = "Arrus";
+    layout.textColorAbgr = colorAbgr;
+    layout.textAlignX = alignX;
+    layout.textAlignY = UiLayoutManager::TextAlignY::Top;
+    layout.textScale = 1.0f;
+
+    GameplayScreenRuntime::ResolvedHudLayoutElement textRect = {};
+    textRect.x = rootRect.x + x * rootRect.scale;
+    textRect.y = rootRect.y + y * rootRect.scale;
+    textRect.width = textWidth * rootRect.scale;
+    textRect.height = textHeight * rootRect.scale;
+    textRect.scale = rootRect.scale;
+    context.renderLayoutLabel(layout, textRect, text);
+}
+
 SplitCharacterStatValue makeSplitCharacterStatValue(const CharacterSheetValue &value)
 {
     SplitCharacterStatValue result = {};
@@ -2538,7 +2693,12 @@ void GameplayPartyOverlayRenderer::renderRestOverlay(GameplayScreenRuntime &cont
 
                 if (resolved)
                 {
-                    context.submitHudTexturedQuad(*texture, resolved->x, resolved->y, resolved->width, resolved->height);
+                    context.submitHudTexturedQuad(
+                        *texture,
+                        resolved->x,
+                        resolved->y,
+                        resolved->width,
+                        resolved->height);
                 }
             }
         }
@@ -2637,7 +2797,12 @@ void GameplayPartyOverlayRenderer::renderMenuOverlay(GameplayScreenRuntime &cont
 
                 if (resolved)
                 {
-                    context.submitHudTexturedQuad(*texture, resolved->x, resolved->y, resolved->width, resolved->height);
+                    context.submitHudTexturedQuad(
+                        *texture,
+                        resolved->x,
+                        resolved->y,
+                        resolved->width,
+                        resolved->height);
                 }
             }
         }
@@ -2660,6 +2825,222 @@ void GameplayPartyOverlayRenderer::renderMenuOverlay(GameplayScreenRuntime &cont
             }
         }
     }
+}
+
+void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRuntime &context, int width, int height)
+{
+    if (!context.quickReferenceScreenStateReadOnly().active || width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    const Party *pParty = context.partyReadOnly();
+
+    if (pParty == nullptr)
+    {
+        return;
+    }
+
+    context.prepareHudView(width, height);
+    const PointerRenderInput pointer = pointerRenderInput(context);
+    const std::vector<std::string> orderedLayoutIds = context.sortedHudLayoutIdsForScreen("QuickReference");
+
+    for (const std::string &layoutId : orderedLayoutIds)
+    {
+        const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+
+        if (pLayout == nullptr || !pLayout->visible)
+        {
+            continue;
+        }
+
+        std::string textureName = pLayout->primaryAsset;
+
+        if (!textureName.empty())
+        {
+            if (pLayout->interactive)
+            {
+                const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> interactiveResolved =
+                    context.resolveHudLayoutElement(layoutId, width, height, pLayout->width, pLayout->height);
+                const std::string *pAssetName =
+                    interactiveResolved
+                        ? context.resolveInteractiveAssetName(
+                            *pLayout,
+                            *interactiveResolved,
+                            pointer.mouseX,
+                            pointer.mouseY,
+                            pointer.isLeftMousePressed)
+                        : nullptr;
+
+                if (pAssetName != nullptr)
+                {
+                    textureName = *pAssetName;
+                }
+            }
+
+            const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
+                context.gameplayUiRuntime().ensureHudTextureLoaded(textureName);
+
+            if (texture)
+            {
+                const float fallbackWidth = pLayout->width > 0.0f
+                    ? pLayout->width
+                    : static_cast<float>(texture->width);
+                const float fallbackHeight = pLayout->height > 0.0f
+                    ? pLayout->height
+                    : static_cast<float>(texture->height);
+                const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved =
+                    context.resolveHudLayoutElement(layoutId, width, height, fallbackWidth, fallbackHeight);
+
+                if (resolved)
+                {
+                    context.submitHudTexturedQuad(
+                        *texture,
+                        resolved->x,
+                        resolved->y,
+                        resolved->width,
+                        resolved->height);
+                }
+            }
+        }
+
+        if (!pLayout->labelText.empty())
+        {
+            const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved =
+                context.resolveHudLayoutElement(layoutId, width, height, pLayout->width, pLayout->height);
+
+            if (resolved)
+            {
+                context.renderLayoutLabel(*pLayout, *resolved, pLayout->labelText);
+            }
+        }
+    }
+
+    const GameplayScreenRuntime::HudLayoutElement *pRootLayout = context.findHudLayoutElement("QuickReferenceRoot");
+    const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> rootRect =
+        pRootLayout != nullptr
+            ? context.resolveHudLayoutElement(
+                "QuickReferenceRoot",
+                width,
+                height,
+                pRootLayout->width,
+                pRootLayout->height)
+            : std::nullopt;
+
+    if (!rootRect)
+    {
+        return;
+    }
+
+    const std::optional<GameplayScreenRuntime::HudFontHandle> font = context.findHudFont("Arrus");
+    const float textHeight = static_cast<float>(font ? font->fontHeight + 1 : 13);
+    const uint32_t defaultColor = makeAbgrColor(255, 255, 255);
+    const uint32_t headerColor = makeAbgrColor(255, 255, 155);
+    const uint32_t bonusColor = makeAbgrColor(0, 255, 0);
+    const uint32_t negativeColor = makeAbgrColor(255, 0, 0);
+    const size_t visibleMemberCount = std::min<size_t>(pParty->members().size(), 5);
+
+    const auto renderMemberRow =
+        [&context, &rootRect, textHeight](size_t memberIndex, size_t rowIndex, const std::string &text, uint32_t color)
+        {
+            const float x = 89.0f + static_cast<float>(memberIndex) * 94.0f;
+            renderQuickReferenceText(
+                context,
+                *rootRect,
+                x,
+                QuickReferenceRows[rowIndex].y,
+                84.0f,
+                textHeight,
+                text,
+                color);
+        };
+
+    for (size_t memberIndex = 0; memberIndex < visibleMemberCount; ++memberIndex)
+    {
+        const Character &character = pParty->members()[memberIndex];
+        const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(
+            character,
+            context.itemTable(),
+            context.standardItemEnchantTable(),
+            context.specialItemEnchantTable(),
+            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr);
+        const std::string rangedAttack =
+            summary.combat.shoot ? formatQuickReferenceSignedValue(*summary.combat.shoot) : "+0";
+        const std::string rangedDamage =
+            summary.combat.rangedDamageText.empty() || summary.combat.rangedDamageText == "N/A"
+                ? "0-0"
+                : summary.combat.rangedDamageText;
+
+        renderMemberRow(memberIndex, 0, character.name, headerColor);
+        renderMemberRow(
+            memberIndex,
+            1,
+            std::to_string(summary.level.actual),
+            quickReferenceComparisonColor(summary.level.actual, summary.level.base));
+        renderMemberRow(memberIndex, 2, quickReferenceClassName(character), defaultColor);
+        renderMemberRow(
+            memberIndex,
+            3,
+            std::to_string(summary.health.current),
+            quickReferenceResourceColor(summary.health.current, summary.health.maximum));
+        renderMemberRow(
+            memberIndex,
+            4,
+            std::to_string(summary.spellPoints.current),
+            quickReferenceResourceColor(summary.spellPoints.current, summary.spellPoints.maximum));
+        renderMemberRow(
+            memberIndex,
+            5,
+            std::to_string(summary.armorClass.actual),
+            quickReferenceComparisonColor(summary.armorClass.actual, summary.armorClass.base));
+        renderMemberRow(memberIndex, 6, formatQuickReferenceSignedValue(summary.combat.attack), defaultColor);
+        renderMemberRow(memberIndex, 7, summary.combat.meleeDamageText, defaultColor);
+        renderMemberRow(memberIndex, 8, rangedAttack, defaultColor);
+        renderMemberRow(memberIndex, 9, rangedDamage, defaultColor);
+        renderMemberRow(memberIndex, 10, std::to_string(quickReferenceSkillCount(character)), defaultColor);
+        renderMemberRow(
+            memberIndex,
+            11,
+            std::to_string(character.skillPoints),
+            character.skillPoints > 0 ? bonusColor : defaultColor);
+        renderMemberRow(
+            memberIndex,
+            12,
+            summary.conditionText,
+            quickReferenceConditionColor(summary.conditionText));
+        renderMemberRow(memberIndex, 13, quickReferenceSpellName(character, context.spellTable()), defaultColor);
+    }
+
+    const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+    const EventRuntimeState *pEventRuntimeState =
+        pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+    const int reputation =
+        pWorldRuntime != nullptr
+            ? effectivePartyReputation(pWorldRuntime->currentLocationReputation(), pEventRuntimeState)
+            : 0;
+    const uint32_t reputationColor =
+        reputation < 0 ? bonusColor : (reputation > 5 ? negativeColor : defaultColor);
+
+    renderQuickReferenceText(context, *rootRect, 22.0f, 323.0f, 100.0f, textHeight, "Reputation:", defaultColor);
+    renderQuickReferenceText(
+        context,
+        *rootRect,
+        96.0f,
+        323.0f,
+        130.0f,
+        textHeight,
+        reputationLabel(reputation),
+        reputationColor);
+    renderQuickReferenceText(
+        context,
+        *rootRect,
+        0.0f,
+        323.0f,
+        261.0f,
+        textHeight,
+        "Fame: " + std::to_string(quickReferencePartyFame(*pParty)),
+        defaultColor,
+        UiLayoutManager::TextAlignX::Right);
 }
 
 void GameplayPartyOverlayRenderer::renderControlsOverlay(GameplayScreenRuntime &context, int width, int height)

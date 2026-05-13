@@ -2935,14 +2935,24 @@ bool Party::tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity)
 
     std::vector<Character> testMembers = m_members;
 
+    if (testMembers.empty())
+    {
+        m_lastStatus = "inventory full";
+        return false;
+    }
+
     for (uint32_t itemCount = 0; itemCount < quantity; ++itemCount)
     {
         InventoryItem item = makeInventoryItem(m_pItemTable, objectDescriptionId);
 
         bool added = false;
 
-        for (Character &member : testMembers)
+        const size_t firstIndex = std::min(activeMemberIndex(), testMembers.size() - 1);
+
+        for (size_t offset = 0; offset < testMembers.size(); ++offset)
         {
+            Character &member = testMembers[(firstIndex + offset) % testMembers.size()];
+
             if (member.addInventoryItem(item))
             {
                 added = true;
@@ -2966,7 +2976,7 @@ bool Party::tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity)
 
 bool Party::tryGrantInventoryItem(const InventoryItem &item, size_t *pRecipientMemberIndex)
 {
-    return tryGrantInventoryItemStartingAt(0, item, pRecipientMemberIndex);
+    return tryGrantInventoryItemStartingAt(activeMemberIndex(), item, pRecipientMemberIndex);
 }
 
 bool Party::tryGrantInventoryItemStartingAt(

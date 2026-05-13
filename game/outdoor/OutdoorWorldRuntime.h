@@ -146,6 +146,7 @@ public:
     {
         uint32_t actorId = 0;
         int16_t monsterId = 0;
+        int16_t npcId = 0;
         std::string displayName;
         uint32_t uniqueNameId = 0;
         bool spawnedAtRuntime = false;

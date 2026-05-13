@@ -9,7 +9,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-const std::array<std::string, 22> GameplayLayoutFiles = {
+const std::array<std::string, 23> GameplayLayoutFiles = {
     "Data/ui/gameplay/gameplay.yml",
     "Data/ui/gameplay/chest.yml",
     "Data/ui/gameplay/dialogue.yml",
@@ -24,6 +24,7 @@ const std::array<std::string, 22> GameplayLayoutFiles = {
     "Data/ui/gameplay/save_game.yml",
     "Data/ui/gameplay/load_game.yml",
     "Data/ui/gameplay/journal.yml",
+    "Data/ui/gameplay/quick_reference.yml",
     "Data/ui/gameplay/town_portal.yml",
     "Data/ui/gameplay/lloyds_beacon.yml",
     "Data/ui/gameplay/item_inspect.yml",
@@ -279,6 +280,16 @@ GameplayUiController::JournalScreenState &GameplayUiController::journalScreen()
 const GameplayUiController::JournalScreenState &GameplayUiController::journalScreen() const
 {
     return resolvedState().journalScreen;
+}
+
+GameplayUiController::QuickReferenceScreenState &GameplayUiController::quickReferenceScreen()
+{
+    return resolvedState().quickReferenceScreen;
+}
+
+const GameplayUiController::QuickReferenceScreenState &GameplayUiController::quickReferenceScreen() const
+{
+    return resolvedState().quickReferenceScreen;
 }
 
 GameplayUiController::InventoryNestedOverlayState &GameplayUiController::inventoryNestedOverlay()

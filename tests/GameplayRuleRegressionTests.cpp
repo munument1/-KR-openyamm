@@ -5298,9 +5298,9 @@ TEST_CASE("peasant kill reputation penalty uses map stealing fine and active rep
         OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
 
     CHECK(result.applied);
-    CHECK_EQ(result.reputationDelta, 1);
+    CHECK_EQ(result.reputationDelta, 2);
     CHECK_EQ(result.fineDelta, 900);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 5);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
     CHECK_EQ(party.fineGold(), 900);
     CHECK_EQ(
         party.eventVariableValue(static_cast<uint16_t>(OpenYAMM::Game::EvtVariable::NumBounties)),
@@ -5311,5 +5311,54 @@ TEST_CASE("peasant kill reputation penalty uses map stealing fine and active rep
     const OpenYAMM::Game::PeasantKillReputationResult ignored =
         OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &monster, 2);
     CHECK_FALSE(ignored.applied);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 5);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
+}
+
+TEST_CASE("MMerge peasant kill reputation penalty changes at murderer thresholds")
+{
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
+    peasant.level = 3;
+    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
+
+    worldRuntime.setCurrentLocationReputation(19);
+    OpenYAMM::Game::PeasantKillReputationResult result =
+        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
+    CHECK_EQ(result.reputationDelta, 2);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 21);
+
+    worldRuntime.setCurrentLocationReputation(20);
+    result = OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
+    CHECK_EQ(result.reputationDelta, 1);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 21);
+
+    worldRuntime.setCurrentLocationReputation(100);
+    result = OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
+    CHECK(result.applied);
+    CHECK_EQ(result.reputationDelta, 0);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 100);
+}
+
+TEST_CASE("MMerge peasant kill reputation ignores non NPC peasants")
+{
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.setCurrentLocationReputation(0);
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
+    peasant.level = 3;
+    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
+
+    const OpenYAMM::Game::PeasantKillReputationResult result =
+        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2, false);
+
+    CHECK_FALSE(result.applied);
+    CHECK_EQ(result.reputationDelta, 0);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 0);
+    CHECK_EQ(party.fineGold(), 0);
 }
