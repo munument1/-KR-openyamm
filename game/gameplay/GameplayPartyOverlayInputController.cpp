@@ -2872,9 +2872,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                         context.mergedPotionSettingTable(),
                         context.mergedReagentSettingTable());
 
-                if (useAction != InventoryItemUseAction::None
-                    && useAction != InventoryItemUseAction::Equip
-                    && useAction != InventoryItemUseAction::ReadMessageScroll)
+                if (useAction != InventoryItemUseAction::None && useAction != InventoryItemUseAction::Equip)
                 {
                     context.itemService().tryUseHeldItemOnPartyMember(context, memberIndex, true);
                     return;
@@ -2951,9 +2949,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                         context.mergedPotionSettingTable(),
                         context.mergedReagentSettingTable());
 
-                if (useAction != InventoryItemUseAction::None
-                    && useAction != InventoryItemUseAction::Equip
-                    && useAction != InventoryItemUseAction::ReadMessageScroll)
+                if (useAction != InventoryItemUseAction::None && useAction != InventoryItemUseAction::Equip)
                 {
                     context.itemService().tryUseHeldItemOnPartyMember(context, memberIndex, true);
                     return;

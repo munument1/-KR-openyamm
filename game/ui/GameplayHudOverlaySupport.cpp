@@ -818,11 +818,42 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
     };
 
     static constexpr PartyBuffInspectTarget BuffTargets[] = {
-        {"OutdoorBuffSkull_Torchlight", "OutdoorStandardBuffSkull_Torchlight", "Torch Light", PartyBuffId::TorchLight, true},
-        {"OutdoorBuffSkull_WizardEye", "OutdoorStandardBuffSkull_WizardEye", "Wizard Eye", PartyBuffId::WizardEye, true},
-        {"OutdoorBuffSkull_Featherfall", "OutdoorStandardBuffSkull_FeatherFall", "Feather Fall", PartyBuffId::FeatherFall, true},
-        {"OutdoorBuffSkull_Stoneskin", "OutdoorStandardBuffSkull_Stoneskin", "Stoneskin", PartyBuffId::Stoneskin, true},
-        {"OutdoorBuffSkull_DayOfGods", "OutdoorStandardBuffSkull_DayOfGods", "Day of the Gods", PartyBuffId::DayOfGods, true},
+        {"OutdoorFlyBuffIcon", "OutdoorStandardFlyBuffIcon", "Fly", PartyBuffId::Fly, true},
+        {
+            "OutdoorBuffSkull_Torchlight",
+            "OutdoorStandardBuffSkull_Torchlight",
+            "Torch Light",
+            PartyBuffId::TorchLight,
+            true
+        },
+        {
+            "OutdoorBuffSkull_WizardEye",
+            "OutdoorStandardBuffSkull_WizardEye",
+            "Wizard Eye",
+            PartyBuffId::WizardEye,
+            true
+        },
+        {
+            "OutdoorBuffSkull_FeatherFall",
+            "OutdoorStandardBuffSkull_FeatherFall",
+            "Feather Fall",
+            PartyBuffId::FeatherFall,
+            true
+        },
+        {
+            "OutdoorBuffSkull_Stoneskin",
+            "OutdoorStandardBuffSkull_Stoneskin",
+            "Stoneskin",
+            PartyBuffId::Stoneskin,
+            true
+        },
+        {
+            "OutdoorBuffSkull_DayOfGods",
+            "OutdoorStandardBuffSkull_DayOfGods",
+            "Day of the Gods",
+            PartyBuffId::DayOfGods,
+            true
+        },
         {
             "OutdoorBuffSkull_ProtectionFromGods",
             "OutdoorStandardBuffSkull_ProtectionFromGods",
@@ -844,7 +875,13 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
             PartyBuffId::WaterResistance,
             false
         },
-        {"OutdoorBuffBody_AirResistance", "OutdoorStandardBuffBody_AirResistance", "Air Resistance", PartyBuffId::AirResistance, false},
+        {
+            "OutdoorBuffBody_AirResistance",
+            "OutdoorStandardBuffBody_AirResistance",
+            "Air Resistance",
+            PartyBuffId::AirResistance,
+            false
+        },
         {
             "OutdoorBuffBody_EarthResistance",
             "OutdoorStandardBuffBody_EarthResistance",
@@ -869,7 +906,13 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
         {"OutdoorBuffBody_Shield", "OutdoorStandardBuffBody_Shield", "Shield", PartyBuffId::Shield, false},
         {"OutdoorBuffBody_Heroism", "OutdoorStandardBuffBody_Heroism", "Heroism", PartyBuffId::Heroism, false},
         {"OutdoorBuffBody_Haste", "OutdoorStandardBuffBody_Haste", "Haste", PartyBuffId::Haste, false},
-        {"OutdoorBuffBody_Immolation", "OutdoorStandardBuffBody_Immolation", "Immolation", PartyBuffId::Immolation, false},
+        {
+            "OutdoorBuffBody_Immolation",
+            "OutdoorStandardBuffBody_Immolation",
+            "Immolation",
+            PartyBuffId::Immolation,
+            false
+        },
     };
 
     const auto populateBuffPanelOverlay =

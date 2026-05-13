@@ -8740,12 +8740,7 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
         m_mapActorAiStates[actorIndex].velocityY = knockback.y;
         m_mapActorAiStates[actorIndex].velocityZ = knockback.z;
 
-        applyPeasantKillReputationPenalty(
-            *this,
-            m_pParty,
-            pStats,
-            m_map.has_value() ? m_map->baseStealingFine : 0,
-            actor.npcId > 0);
+        applyMonsterKillReputationPenalty(*this, pStats, actor.group);
 
         if (pStats != nullptr && pStats->experience > 0 && m_pParty != nullptr)
         {
@@ -10282,12 +10277,7 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
     {
         const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(resolvedMonsterId);
 
-        applyPeasantKillReputationPenalty(
-            *this,
-            m_pParty,
-            pStats,
-            m_map.has_value() ? m_map->baseStealingFine : 0,
-            actor.npcId > 0);
+        applyMonsterKillReputationPenalty(*this, pStats, actor.group);
 
         if (pStats != nullptr && pStats->experience > 0)
         {

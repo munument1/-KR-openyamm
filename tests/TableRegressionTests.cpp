@@ -465,6 +465,10 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
 
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pLizardmanPeasant =
         monsterTable.findStatsById(1);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pTownPeasant =
+        monsterTable.findStatsById(313);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pGoblinPeasant =
+        monsterTable.findStatsById(430);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pVampire =
         monsterTable.findStatsById(52);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pDragon =
@@ -479,8 +483,20 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
         monsterTable.findStatsById(499);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6Demon =
         monsterTable.findStatsById(502);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6MerchantPeasant =
+        monsterTable.findStatsById(577);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6NewSorpigalPeasantFemale =
+        monsterTable.findStatsById(595);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6Cutpurse =
+        monsterTable.findStatsById(601);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6NewSorpigalPeasantMale =
+        monsterTable.findStatsById(607);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6Mage =
+        monsterTable.findStatsById(610);
 
     REQUIRE(pLizardmanPeasant != nullptr);
+    REQUIRE(pTownPeasant != nullptr);
+    REQUIRE(pGoblinPeasant != nullptr);
     REQUIRE(pVampire != nullptr);
     REQUIRE(pDragon != nullptr);
     REQUIRE(pWaterElemental != nullptr);
@@ -488,8 +504,17 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     REQUIRE(pMm7Devil != nullptr);
     REQUIRE(pMm6DemonFly != nullptr);
     REQUIRE(pMm6Demon != nullptr);
+    REQUIRE(pMm6MerchantPeasant != nullptr);
+    REQUIRE(pMm6NewSorpigalPeasantFemale != nullptr);
+    REQUIRE(pMm6Cutpurse != nullptr);
+    REQUIRE(pMm6NewSorpigalPeasantMale != nullptr);
+    REQUIRE(pMm6Mage != nullptr);
     CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
     CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pTownPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pTownPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pGoblinPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pGoblinPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK(pVampire->hasKind(OpenYAMM::Game::MonsterKind::Undead));
     CHECK(pDragon->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
     CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::Swimmer));
@@ -499,6 +524,14 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     CHECK_FALSE(pMm7Devil->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6DemonFly->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6Demon->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
+    CHECK(pMm6MerchantPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pMm6MerchantPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pMm6NewSorpigalPeasantFemale->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pMm6NewSorpigalPeasantFemale->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK_FALSE(pMm6Cutpurse->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pMm6NewSorpigalPeasantMale->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pMm6NewSorpigalPeasantMale->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK_FALSE(pMm6Mage->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
 }
 
 TEST_CASE("monster hostility table follows merged merged party relations")

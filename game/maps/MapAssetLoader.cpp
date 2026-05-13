@@ -3722,13 +3722,24 @@ bool isSceneOverlayFileName(const std::string &entryName, const std::string &sce
     const std::string lowerEntryName = toLowerCopy(entryName);
     const std::string lowerSceneFileName = toLowerCopy(sceneFileName);
 
-    if (!lowerEntryName.ends_with(".scene.yml") || lowerEntryName == lowerSceneFileName)
+    if (!lowerEntryName.ends_with(".yml") || lowerEntryName == lowerSceneFileName)
     {
         return false;
     }
 
-    const std::string overlayPrefix = lowerSceneFileName.substr(0, lowerSceneFileName.size() - 10) + "_";
-    return lowerEntryName.starts_with(overlayPrefix);
+    if (lowerEntryName.ends_with(".scene.yml"))
+    {
+        const std::string underscoreOverlayPrefix =
+            lowerSceneFileName.substr(0, lowerSceneFileName.size() - 10) + "_";
+
+        if (lowerEntryName.starts_with(underscoreOverlayPrefix))
+        {
+            return true;
+        }
+    }
+
+    const std::string numberedOverlayPrefix = lowerSceneFileName.substr(0, lowerSceneFileName.size() - 4) + ".";
+    return lowerEntryName.starts_with(numberedOverlayPrefix);
 }
 
 std::vector<std::string> buildSceneOverlayPathCandidates(

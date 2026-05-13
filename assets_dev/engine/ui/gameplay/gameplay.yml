@@ -307,6 +307,16 @@ elements:
           align_y: middle
         notes: Standard gold counter text.
 
+      - id: OutdoorStandardFlyBuffIcon
+        anchor: top_left
+        offset_x: 6
+        offset_y: 31
+        width: 64
+        height: 64
+        asset:
+          default: sp21a10
+        notes: Standard Fly buff icon.
+
       - id: OutdoorStandardCompassFront
         anchor: center_in
         width: 49
@@ -636,6 +646,21 @@ elements:
           font: SMALLNUM
           align_x: center
           align_y: middle
+
+  - id: OutdoorFlyBuffIcon
+    anchor_space: screen
+    anchor: top_left
+    offset_x: 6
+    offset_y: 31
+    width: 64
+    height: 64
+    z_index: 61
+    scale:
+      min: 1.0
+      max: 3.0
+    asset:
+      default: sp21a10
+    notes: Fly buff icon.
 
   - id: OutdoorFoodRestBar
     anchor_space: screen

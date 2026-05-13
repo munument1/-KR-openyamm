@@ -766,6 +766,7 @@ public:
     float gameplayCameraPitchRadians() const override;
     bool partyIsAirborneForRest() const override;
     bool partyIsFlyingForEventChecks() const override;
+    bool partyIsActivelyFlyingForHud() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     bool specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity) override;
@@ -1298,6 +1299,7 @@ private:
     void applyOutdoorActorFxRequests(const std::vector<ActorFxRequest> &fxRequests);
     bool hasOutdoorActorActiveBehaviorUpdate(const ActorAiUpdate &update, bool activeActor) const;
     void ensureOutdoorActorMovementState(MapActorState &actor, const MonsterTable::MonsterStatsEntry &stats);
+    void applyOeOutdoorActorFloorCorrection(MapActorState &actor, const MonsterTable::MonsterStatsEntry &stats);
     void applyOutdoorActorStateUpdate(
         MapActorState &actor,
         const ActorStateUpdate &state,

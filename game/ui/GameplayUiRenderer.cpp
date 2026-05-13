@@ -397,6 +397,11 @@ bool isBuffLayoutVisible(const Party &party, const std::string &layoutId)
         return party.hasPartyBuff(PartyBuffId::FeatherFall);
     }
 
+    if (normalizedLayoutId == "outdoorflybufficon")
+    {
+        return party.hasPartyBuff(PartyBuffId::Fly);
+    }
+
     if (normalizedLayoutId == "outdoorbuffskull_stoneskin")
     {
         return party.hasPartyBuff(PartyBuffId::Stoneskin);
@@ -537,6 +542,7 @@ bool isGameplayElementVisibleInHudState(
             "outdooroptionsbar",
             "outdoorgoldbar",
             "outdoorfoodrestbar",
+            "outdoorflybufficon",
             "outdoorbuffbodypanel",
             "outdoorbuffskullpanel",
             "outdoorminimapframe",
@@ -1171,14 +1177,31 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
             continue;
         }
 
-        if (pLayout->primaryAsset.empty())
+        std::string primaryAsset = pLayout->primaryAsset;
+
+        const bool flyBuffIcon = normalizedRoleId == "outdoorflybufficon";
+
+        if (flyBuffIcon)
+        {
+            const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+            const bool activelyFlying = pWorldRuntime != nullptr && pWorldRuntime->partyIsActivelyFlyingForHud();
+            const std::optional<std::string> animationFrame =
+                context.gameplayUiRuntime().flyBuffIconAnimationFrameTextureName(activelyFlying, 1);
+
+            if (animationFrame)
+            {
+                primaryAsset = *animationFrame;
+            }
+        }
+
+        if (primaryAsset.empty())
         {
             continue;
         }
 
         const std::optional<GameplayResolvedHudLayoutElement> interactiveResolved =
             resolveLayout(context, layoutId, pLayout->width, pLayout->height, width, height);
-        const std::string *pAssetName = interactiveResolved
+        const std::string *pAssetName = interactiveResolved && !flyBuffIcon
             ? context.resolveInteractiveAssetName(
                 *pLayout,
                 *interactiveResolved,
@@ -1191,7 +1214,7 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
         if (!texture)
         {
-            texture = context.gameplayUiRuntime().ensureHudTextureLoaded(pLayout->primaryAsset);
+            texture = context.gameplayUiRuntime().ensureHudTextureLoaded(primaryAsset);
         }
 
         if (!texture)

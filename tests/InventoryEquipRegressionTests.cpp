@@ -297,6 +297,79 @@ TEST_CASE("inventory item use readable scroll returns text without consuming it"
     CHECK_FALSE(result.readableBody.empty());
 }
 
+TEST_CASE("inventory item use Letter for YOU reads Verdant greeting without consuming it")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+
+    OpenYAMM::Game::InventoryItem letter = {};
+    letter.objectDescriptionId = 770;
+
+    const OpenYAMM::Game::InventoryItemUseResult result = OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+        party,
+        0,
+        letter,
+        gameData.itemTable,
+        &gameData.readableScrollTable);
+
+    REQUIRE(result.handled);
+    CHECK(result.action == OpenYAMM::Game::InventoryItemUseAction::ReadMessageScroll);
+    CHECK_FALSE(result.consumed);
+    CHECK_EQ(result.readableTitle, "Letter for YOU.");
+    CHECK(result.readableBody.find("Hello, caravaneer") != std::string::npos);
+    CHECK_FALSE(result.speechId.has_value());
+}
+
+TEST_CASE("inventory item use Deck of Fate applies MMerge month and week reward")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+
+    OpenYAMM::Game::InventoryItem deck = {};
+    deck.objectDescriptionId = 2067;
+
+    OpenYAMM::Game::InventoryItemUseContext januaryContext = {};
+    januaryContext.gameMinutes = 0.0f;
+
+    const OpenYAMM::Game::InventoryItemUseResult januaryResult =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+            party,
+            0,
+            deck,
+            gameData.itemTable,
+            &gameData.readableScrollTable,
+            nullptr,
+            nullptr,
+            januaryContext);
+
+    REQUIRE(januaryResult.handled);
+    CHECK(januaryResult.action == OpenYAMM::Game::InventoryItemUseAction::UseDeckOfFate);
+    CHECK(januaryResult.consumed);
+    CHECK_EQ(januaryResult.statusText, "+1 Might!");
+    CHECK_EQ(pMember->permanentBonuses.might, 1);
+
+    OpenYAMM::Game::InventoryItemUseContext decemberContext = {};
+    decemberContext.gameMinutes = static_cast<float>(((11 * 28) + (3 * 7)) * 24 * 60);
+
+    const OpenYAMM::Game::InventoryItemUseResult decemberResult =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+            party,
+            0,
+            deck,
+            gameData.itemTable,
+            &gameData.readableScrollTable,
+            nullptr,
+            nullptr,
+            decemberContext);
+
+    REQUIRE(decemberResult.handled);
+    CHECK(decemberResult.consumed);
+    CHECK_EQ(decemberResult.statusText, "+4 Body Resistance!");
+    CHECK_EQ(pMember->permanentBonuses.resistances.body, 4);
+}
+
 TEST_CASE("inventory item use potions and horseshoe apply the expected effects")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

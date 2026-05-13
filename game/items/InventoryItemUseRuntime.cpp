@@ -21,6 +21,7 @@ constexpr uint32_t HorseshoeItemId = 656;
 constexpr uint32_t DimensionDoorScrollItemId = 190;
 constexpr uint32_t ChargedConnectorStoneItemId = 624;
 constexpr uint32_t DischargedConnectorStoneItemId = 625;
+constexpr uint32_t DeckOfFateItemId = 2067;
 constexpr uint32_t ExtraPotionPlayerBitBase = 200000;
 
 std::string lowerAscii(std::string value)
@@ -613,6 +614,55 @@ std::string applyGenieLampReward(Party &party, Character &member, size_t memberI
     return {};
 }
 
+std::string applyDeckOfFateReward(Character &member, float gameMinutes)
+{
+    const int value = monthWeekFromGameMinutes(gameMinutes) + 1;
+
+    switch (monthIndexFromGameMinutes(gameMinutes))
+    {
+        case 0:
+            addPermanentStatBonus(member, &CharacterStatBonuses::might, value);
+            return "+" + std::to_string(value) + " Might!";
+        case 1:
+            addPermanentStatBonus(member, &CharacterStatBonuses::intellect, value);
+            return "+" + std::to_string(value) + " Intellect!";
+        case 2:
+            addPermanentStatBonus(member, &CharacterStatBonuses::personality, value);
+            return "+" + std::to_string(value) + " Personality!";
+        case 3:
+            addPermanentStatBonus(member, &CharacterStatBonuses::endurance, value);
+            return "+" + std::to_string(value) + " Endurance!";
+        case 4:
+            addPermanentStatBonus(member, &CharacterStatBonuses::accuracy, value);
+            return "+" + std::to_string(value) + " Accuracy!";
+        case 5:
+            addPermanentStatBonus(member, &CharacterStatBonuses::speed, value);
+            return "+" + std::to_string(value) + " Speed!";
+        case 6:
+            addPermanentStatBonus(member, &CharacterStatBonuses::luck, value);
+            return "+" + std::to_string(value) + " Luck!";
+        case 7:
+            addPermanentResistanceBonus(member, &CharacterResistanceSet::fire, value);
+            return "+" + std::to_string(value) + " Fire Resistance!";
+        case 8:
+            addPermanentResistanceBonus(member, &CharacterResistanceSet::air, value);
+            return "+" + std::to_string(value) + " Air Resistance!";
+        case 9:
+            addPermanentResistanceBonus(member, &CharacterResistanceSet::water, value);
+            return "+" + std::to_string(value) + " Water Resistance!";
+        case 10:
+            addPermanentResistanceBonus(member, &CharacterResistanceSet::earth, value);
+            return "+" + std::to_string(value) + " Earth Resistance!";
+        case 11:
+            addPermanentResistanceBonus(member, &CharacterResistanceSet::body, value);
+            return "+" + std::to_string(value) + " Body Resistance!";
+        default:
+            break;
+    }
+
+    return {};
+}
+
 SkillMastery requiredMasteryForSpell(uint32_t spellId)
 {
     const std::optional<std::string> skillName = resolveMagicSkillName(spellId);
@@ -730,6 +780,11 @@ InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(
     if (itemNameEquals(*pItemDefinition, "genie lamp"))
     {
         return InventoryItemUseAction::UseGenieLamp;
+    }
+
+    if (item.objectDescriptionId == DeckOfFateItemId || itemNameEquals(*pItemDefinition, "deck of fate"))
+    {
+        return InventoryItemUseAction::UseDeckOfFate;
     }
 
     if (isFoodItem(item, *pItemDefinition))
@@ -1153,6 +1208,14 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
                 result.soundId = SoundId::Gong;
             }
 
+            return result;
+        }
+
+        case InventoryItemUseAction::UseDeckOfFate:
+        {
+            result.handled = true;
+            result.consumed = true;
+            result.statusText = applyDeckOfFateReward(*pTargetMember, context.gameMinutes);
             return result;
         }
 

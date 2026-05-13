@@ -26,6 +26,7 @@ enum class InventoryItemUseAction : uint8_t
     ReadMessageScroll,
     UseHorseshoe,
     UseGenieLamp,
+    UseDeckOfFate,
     EatFoodItem,
     PlayInstrument,
     UseTempleInABottle,

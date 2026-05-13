@@ -41,6 +41,15 @@ struct GameplayPortraitPresentationState
     std::vector<uint32_t> memberCombatSpeechCooldownUntilTicks;
 };
 
+struct GameplayHudLoopingAnimationState
+{
+    bool initialized = false;
+    bool advancing = false;
+    std::string animationName;
+    uint32_t accumulatedSourceTicks = 0;
+    uint32_t lastSourceTicks = 0;
+};
+
 class GameplayUiRuntime
 {
 public:
@@ -111,6 +120,10 @@ public:
         float fallbackHeight) const;
     std::optional<GameplayHudTextureHandle> ensureHudTextureLoaded(const std::string &textureName);
     std::optional<GameplayHudTextureHandle> ensureItemIconTextureLoaded(const std::string &textureName);
+    std::optional<std::string> iconAnimationFrameTextureName(
+        const std::string &animationName,
+        uint32_t elapsedTicks) const;
+    std::optional<std::string> flyBuffIconAnimationFrameTextureName(bool active, uint32_t tickDivisor);
     std::optional<GameplayHudTextureHandle> ensureSolidHudTextureLoaded(
         const std::string &textureName,
         uint32_t abgrColor);
@@ -228,6 +241,7 @@ private:
     GameplayHudRenderBackend m_hudRenderBackend;
     std::vector<GameplayPortraitFxState> m_portraitFxStates;
     GameplayPortraitPresentationState m_portraitPresentationState;
+    GameplayHudLoopingAnimationState m_flyBuffIconAnimationState;
     HouseVideoPlayer m_houseVideoPlayer;
 };
 }

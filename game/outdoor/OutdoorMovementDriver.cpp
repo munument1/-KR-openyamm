@@ -460,6 +460,13 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     {
         m_partyMovementState.flying = false;
     }
+
+    const float requestedMovementSpeedSquared =
+        moveVelocityX * moveVelocityX + moveVelocityY * moveVelocityY + moveVelocityZ * moveVelocityZ;
+    m_partyMovementState.activelyFlying =
+        m_partyMovementState.flying
+        && m_state.airborne
+        && (requestedMovementSpeedSquared > 0.01f || input.flyUp || input.flyDown);
 }
 
 const OutdoorMoveState &OutdoorMovementDriver::state() const

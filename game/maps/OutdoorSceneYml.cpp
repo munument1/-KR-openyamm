@@ -213,6 +213,41 @@ bool parseOutdoorTerrainFootstepSoundOverride(
         && readScalarNode(overrideNode, "run_sound_id", overrideEntry.runSoundId, errorMessage);
 }
 
+bool applyOptionalActorCoordinateOverride(
+    const YAML::Node &positionNode,
+    const char *key,
+    int &targetCoordinate,
+    bool &hasCoordinateOverride,
+    std::string &errorMessage)
+{
+    const YAML::Node coordinateNode = positionNode[key];
+
+    if (!coordinateNode)
+    {
+        return true;
+    }
+
+    if (!coordinateNode.IsScalar())
+    {
+        errorMessage = std::string("actor position override coordinate must be scalar: ") + key;
+        return false;
+    }
+
+    try
+    {
+        targetCoordinate = coordinateNode.as<int>();
+    }
+    catch (const std::exception &exception)
+    {
+        errorMessage = std::string("could not parse actor position override coordinate ") + key + ": "
+            + exception.what();
+        return false;
+    }
+
+    hasCoordinateOverride = true;
+    return true;
+}
+
 bool parseOutdoorInteractiveFace(
     const YAML::Node &interactiveFaceNode,
     OutdoorSceneInteractiveFace &face,
@@ -1446,6 +1481,89 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
                 }
 
                 mergeOutdoorInteractiveFace(sceneData, face);
+            }
+        }
+    }
+
+    const YAML::Node initialStateNode = rootNode["initial_state"];
+
+    if (initialStateNode)
+    {
+        if (!initialStateNode.IsMap())
+        {
+            errorMessage = "initial_state must be a map";
+            return false;
+        }
+
+        const YAML::Node actorPositionOverridesNode = initialStateNode["actor_position_overrides"];
+
+        if (actorPositionOverridesNode)
+        {
+            if (!actorPositionOverridesNode.IsSequence())
+            {
+                errorMessage = "initial_state.actor_position_overrides must be a sequence";
+                return false;
+            }
+
+            for (const YAML::Node &overrideNode : actorPositionOverridesNode)
+            {
+                if (!overrideNode.IsMap())
+                {
+                    errorMessage = "actor position override entry must be a map";
+                    return false;
+                }
+
+                size_t actorIndex = 0;
+
+                if (!readScalarNode(overrideNode, "actor_index", actorIndex, errorMessage))
+                {
+                    return false;
+                }
+
+                if (actorIndex >= sceneData.initialState.actors.size())
+                {
+                    errorMessage = "actor position override actor_index is out of range";
+                    return false;
+                }
+
+                const YAML::Node positionNode = overrideNode["position"];
+
+                if (!positionNode || !positionNode.IsMap())
+                {
+                    errorMessage = "actor position override position must be a map";
+                    return false;
+                }
+
+                bool hasCoordinateOverride = false;
+                MapDeltaActor &actor = sceneData.initialState.actors[actorIndex];
+
+                if (!applyOptionalActorCoordinateOverride(
+                        positionNode,
+                        "x",
+                        actor.x,
+                        hasCoordinateOverride,
+                        errorMessage)
+                    || !applyOptionalActorCoordinateOverride(
+                        positionNode,
+                        "y",
+                        actor.y,
+                        hasCoordinateOverride,
+                        errorMessage)
+                    || !applyOptionalActorCoordinateOverride(
+                        positionNode,
+                        "z",
+                        actor.z,
+                        hasCoordinateOverride,
+                        errorMessage))
+                {
+                    return false;
+                }
+
+                if (!hasCoordinateOverride)
+                {
+                    errorMessage = "actor position override position must include at least one coordinate";
+                    return false;
+                }
             }
         }
     }

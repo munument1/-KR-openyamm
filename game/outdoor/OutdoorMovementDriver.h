@@ -26,6 +26,7 @@ struct OutdoorPartyMovementState
 {
     bool running = true;
     bool flying = false;
+    bool activelyFlying = false;
     bool featherFall = false;
     bool waterWalk = false;
 };

@@ -1712,7 +1712,7 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
     float footZHint,
     float bodyRadius) const
 {
-    return initializeStateForBody(x, y, footZHint, bodyRadius, false);
+    return initializeStateForBody(x, y, footZHint, bodyRadius, false, false);
 }
 
 OutdoorMoveState OutdoorMovementController::initializeActorStateForBody(
@@ -1721,7 +1721,16 @@ OutdoorMoveState OutdoorMovementController::initializeActorStateForBody(
     float footZHint,
     float bodyRadius) const
 {
-    return initializeStateForBody(x, y, footZHint, bodyRadius, true);
+    return initializeStateForBody(x, y, footZHint, bodyRadius, true, false);
+}
+
+OutdoorMoveState OutdoorMovementController::initializeActorStateForBodyPreservingZ(
+    float x,
+    float y,
+    float footZHint,
+    float bodyRadius) const
+{
+    return initializeStateForBody(x, y, footZHint, bodyRadius, true, true);
 }
 
 OutdoorMoveState OutdoorMovementController::initializeStateForBody(
@@ -1729,7 +1738,8 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
     float y,
     float footZHint,
     float bodyRadius,
-    bool actorConditionalBModelSupport) const
+    bool actorConditionalBModelSupport,
+    bool preserveFootZ) const
 {
     clampPositionToBounds(std::max(1.0f, bodyRadius), x, y);
     std::vector<size_t> candidateFaceIndices;
@@ -1756,7 +1766,8 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
     OutdoorMoveState state = {};
     state.x = x;
     state.y = y;
-    state.footZ = floor.height + GroundSnapHeight;
+    const float groundZ = floor.height + GroundSnapHeight;
+    state.footZ = preserveFootZ ? footZHint : groundZ;
     state.verticalVelocity = 0.0f;
     state.supportKind = floor.fromBModel ? OutdoorSupportKind::BModelFace : OutdoorSupportKind::Terrain;
     state.supportBModelIndex = floor.bModelIndex;
@@ -1766,7 +1777,7 @@ OutdoorMoveState OutdoorMovementController::initializeStateForBody(
         || (!floor.fromBModel
             && (isOutdoorTerrainWater(*m_pOutdoorMapData, x, y) || isOutdoorLandMaskWater(m_outdoorLandMask, x, y)));
     state.supportOnBurning = floor.isBurning;
-    state.airborne = false;
+    state.airborne = state.footZ > groundZ + GroundSnapHeight;
     state.landedThisFrame = false;
     state.fallStartZ = state.footZ;
     state.fallDistance = 0.0f;
@@ -2481,7 +2492,9 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
     bool flyingActive,
     float deltaSeconds,
     std::vector<size_t> *pContactedActorIndices,
-    const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider
+    const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider,
+    bx::Vec3 *pResolvedVelocity,
+    bool *pResolvedVelocityUpdatesYaw
 ) const
 {
     const float bodyRadius = std::max(1.0f, body.radius);
@@ -2509,6 +2522,7 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
     bool actorGrounded = state.footZ <= currentGroundLevel + CloseToGroundHeight;
     bx::Vec3 actorPosition = {state.x, state.y, state.footZ};
     bx::Vec3 actorVelocity = {desiredVelocityX, desiredVelocityY, verticalVelocity};
+    bool resolvedVelocityUpdatesYaw = false;
 
     const auto settleActorToGround =
         [&](const FloorSample &floor)
@@ -2752,6 +2766,8 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
                 {
                     actorPosition = vecAdd(actorPosition, vecScale(pGeometry->normal, overshoot));
                 }
+
+                resolvedVelocityUpdatesYaw = true;
             }
         }
 
@@ -2793,6 +2809,17 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
     result.landedThisFrame = false;
     result.fallStartZ = result.footZ;
     result.fallDistance = 0.0f;
+
+    if (pResolvedVelocity != nullptr)
+    {
+        *pResolvedVelocity = actorVelocity;
+    }
+
+    if (pResolvedVelocityUpdatesYaw != nullptr)
+    {
+        *pResolvedVelocityUpdatesYaw = resolvedVelocityUpdatesYaw;
+    }
+
     return result;
 }
 

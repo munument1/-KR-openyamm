@@ -313,6 +313,7 @@ void GameplayUiRuntime::clear()
     m_townPortalDestinations.clear();
     m_townPortalDestinationsLoaded = false;
     m_hudRenderBackend = {};
+    m_flyBuffIconAnimationState = {};
     m_assetLoadCache = {};
     m_pAssetFileSystem = nullptr;
     m_layoutsLoaded = false;
@@ -800,6 +801,63 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureItemIconTexture
     result.height = pTexture->height;
     result.textureHandle = pTexture->textureHandle;
     return result;
+}
+
+std::optional<std::string> GameplayUiRuntime::iconAnimationFrameTextureName(
+    const std::string &animationName,
+    uint32_t elapsedTicks) const
+{
+    if (m_pDataRepository == nullptr || animationName.empty())
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<size_t> animationId = m_pDataRepository->iconFrameTable().findAnimationIdByName(animationName);
+
+    if (!animationId)
+    {
+        return std::nullopt;
+    }
+
+    const IconFrameEntry *pFrame = m_pDataRepository->iconFrameTable().getFrame(*animationId, elapsedTicks);
+
+    if (pFrame == nullptr || pFrame->textureName.empty())
+    {
+        return std::nullopt;
+    }
+
+    return pFrame->textureName;
+}
+
+std::optional<std::string> GameplayUiRuntime::flyBuffIconAnimationFrameTextureName(
+    bool active,
+    uint32_t tickDivisor)
+{
+    constexpr const char *pFlyBuffAnimationName = "spell21";
+    const uint32_t nowTicks = currentAnimationTicks();
+
+    if (!m_flyBuffIconAnimationState.initialized
+        || m_flyBuffIconAnimationState.animationName != pFlyBuffAnimationName)
+    {
+        m_flyBuffIconAnimationState = {};
+        m_flyBuffIconAnimationState.initialized = true;
+        m_flyBuffIconAnimationState.animationName = pFlyBuffAnimationName;
+        m_flyBuffIconAnimationState.lastSourceTicks = nowTicks;
+    }
+
+    if (active && m_flyBuffIconAnimationState.advancing)
+    {
+        m_flyBuffIconAnimationState.accumulatedSourceTicks +=
+            nowTicks - m_flyBuffIconAnimationState.lastSourceTicks;
+    }
+
+    m_flyBuffIconAnimationState.advancing = active;
+    m_flyBuffIconAnimationState.lastSourceTicks = nowTicks;
+
+    const uint32_t safeTickDivisor = std::max<uint32_t>(tickDivisor, 1);
+    return iconAnimationFrameTextureName(
+        m_flyBuffIconAnimationState.animationName,
+        m_flyBuffIconAnimationState.accumulatedSourceTicks / safeTickDivisor);
 }
 
 std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureSolidHudTextureLoaded(

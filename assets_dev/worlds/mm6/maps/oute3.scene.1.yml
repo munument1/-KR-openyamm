@@ -1,0 +1,10 @@
+format_version: 1
+kind: outdoor_scene_overlay
+source:
+  geometry_file: oute3.odm
+initial_state:
+  actor_position_overrides:
+    - actor_index: 37
+      position:
+        x: -8815
+        y: -9070

@@ -10,12 +10,10 @@ namespace OpenYAMM::Game
 struct EventRuntimeState;
 class IGameplayWorldRuntime;
 struct MergedContinentSettingEntry;
-class Party;
 
-struct PeasantKillReputationResult
+struct MonsterKillReputationResult
 {
     bool applied = false;
-    int fineDelta = 0;
     int reputationDelta = 0;
 };
 
@@ -37,12 +35,10 @@ int hiredNpcReputationPenalty(const EventRuntimeState &runtimeState);
 int effectivePartyReputation(int storedReputation, const EventRuntimeState *pRuntimeState);
 void applyReputationGuardHostility(IGameplayWorldRuntime &worldRuntime, int hostileThreshold = 25);
 void addStoredCurrentLocationReputation(IGameplayWorldRuntime &worldRuntime, int delta);
-PeasantKillReputationResult applyPeasantKillReputationPenalty(
+MonsterKillReputationResult applyMonsterKillReputationPenalty(
     IGameplayWorldRuntime &worldRuntime,
-    Party *pParty,
     const MonsterTable::MonsterStatsEntry *pStats,
-    int baseStealingFine,
-    bool actorHasNpcId = true);
+    uint32_t actorGroup);
 ReputationLevel reputationLevel(int effectiveReputation);
 std::string reputationLabel(int effectiveReputation);
 }

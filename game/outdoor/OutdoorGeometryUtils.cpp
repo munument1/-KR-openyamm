@@ -679,11 +679,11 @@ float sampleOutdoorActorPlacementFloorHeight(
         x,
         y,
         z,
-        std::numeric_limits<float>::max(),
+        FloorSelectionHeightTolerance,
         xySlack);
     const float terrainHeight = sampleOutdoorRenderedTerrainHeight(outdoorMapData, x, y);
 
-    if (support.fromBModel && z + GeometryEpsilon >= support.height)
+    if (support.fromBModel)
     {
         return std::max(terrainHeight, support.height);
     }

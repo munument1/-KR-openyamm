@@ -44,6 +44,7 @@
 #include <iostream>
 #include <optional>
 #include <random>
+#include <set>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -659,6 +660,13 @@ TEST_CASE("mm6 outdoor scene overlays restore mmmerge footstep sound overrides")
     REQUIRE(outb3TileSetOverride != outb3Scene.terrainFootstepSoundOverrides.end());
     CHECK_EQ(outb3TileSetOverride->walkSoundId, 91u);
     CHECK_EQ(outb3TileSetOverride->runSoundId, 52u);
+
+    const OpenYAMM::Game::OutdoorSceneData oute3Scene =
+        loadMergedScene("oute3.scene.yml", "oute3.scene.1.yml");
+    REQUIRE_GT(oute3Scene.initialState.actors.size(), 37u);
+    CHECK_EQ(oute3Scene.initialState.actors[37].x, -8815);
+    CHECK_EQ(oute3Scene.initialState.actors[37].y, -9070);
+    CHECK_EQ(oute3Scene.initialState.actors[37].z, 458);
 }
 
 TEST_CASE("mm7 arena map fixups expose runtime restrictions and arena master topic")
@@ -1183,6 +1191,76 @@ TEST_CASE("party melee status text reports applied damage")
             true,
             12),
         "Ariel inflicts 12 points killing Goblin");
+}
+
+TEST_CASE("level one knight melee damage can be reduced by monster level even with zero physical resistance")
+{
+    REQUIRE(OpenYAMM::Tests::regressionGameDataLoaded());
+    const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
+
+    OpenYAMM::Game::Character knight = {};
+    knight.name = "Knight";
+    knight.className = "Knight";
+    knight.level = 1;
+    knight.might = 25;
+    knight.accuracy = 13;
+    knight.speed = 13;
+    knight.equipment.mainHand = 1;
+    knight.skills["Sword"] = OpenYAMM::Game::CharacterSkill{"Sword", 1, OpenYAMM::Game::SkillMastery::Normal};
+    knight.skills["Armsmaster"] =
+        OpenYAMM::Game::CharacterSkill{"Armsmaster", 1, OpenYAMM::Game::SkillMastery::Normal};
+
+    const OpenYAMM::Game::CharacterAttackProfile profile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            knight,
+            &gameData.itemTable,
+            &gameData.spellTable);
+
+    CHECK(profile.meleeMinDamage == 7);
+    CHECK(profile.meleeMaxDamage == 11);
+
+    auto observedHitDamages = [&](int monsterLevel, int physicalResistance)
+    {
+        std::set<int> damages;
+
+        for (uint32_t seed = 1; seed <= 200000 && damages.size() < 12; ++seed)
+        {
+            std::mt19937 rng(seed);
+            const OpenYAMM::Game::CharacterAttackResult attack =
+                OpenYAMM::Game::GameMechanics::resolveCharacterAttackAgainstArmorClass(
+                    knight,
+                    &gameData.itemTable,
+                    &gameData.spellTable,
+                    6,
+                    128.0f,
+                    rng);
+
+            if (!attack.hit)
+            {
+                continue;
+            }
+
+            damages.insert(OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
+                attack.damage,
+                attack.damageType,
+                monsterLevel,
+                physicalResistance,
+                rng));
+        }
+
+        return damages;
+    };
+
+    const std::set<int> levelThreePeasantDamages = observedHitDamages(3, 0);
+    CHECK(levelThreePeasantDamages == std::set<int>{7, 8, 9, 10, 11});
+
+    const std::set<int> levelFourGoblinDamages = observedHitDamages(4, 0);
+    CHECK(levelFourGoblinDamages.contains(3));
+    CHECK(levelFourGoblinDamages.contains(5));
+
+    const std::set<int> levelEightPeasantDamages = observedHitDamages(8, 0);
+    CHECK(levelEightPeasantDamages.contains(3));
+    CHECK(levelEightPeasantDamages.contains(5));
 }
 
 TEST_CASE("monster Attack1 projectile applies special attack condition")
@@ -2591,17 +2669,26 @@ TEST_CASE("event revealed outdoor bmodel collision updates party and actor movem
 
     OpenYAMM::Game::OutdoorMoveState actorStart = movementController.initializeStateForBody(0.0f, 32.0f, 0.0f, 40.0f);
     std::vector<size_t> contactedActorIndices;
+    bx::Vec3 actorResolvedVelocity = {0.0f, 0.0f, 0.0f};
+    bool actorResolvedVelocityUpdatesYaw = false;
     const OpenYAMM::Game::OutdoorMoveState actorResolved = movementController.resolveOutdoorActorMove(
         actorStart,
         OpenYAMM::Game::OutdoorBodyDimensions{40.0f, 128.0f},
         512.0f,
-        0.0f,
+        128.0f,
         0.0f,
         false,
         0.5f,
-        &contactedActorIndices);
+        &contactedActorIndices,
+        std::nullopt,
+        &actorResolvedVelocity,
+        &actorResolvedVelocityUpdatesYaw);
 
     CHECK(actorResolved.x < 128.0f);
+    CHECK(actorResolved.y > actorStart.y);
+    CHECK(actorResolvedVelocity.x == doctest::Approx(0.0f).epsilon(0.01));
+    CHECK(actorResolvedVelocity.y > 0.0f);
+    CHECK(actorResolvedVelocityUpdatesYaw);
 }
 
 TEST_CASE("recovery enchant increases recovery progress")
@@ -5282,83 +5369,47 @@ TEST_CASE("merchant pricing uses effective reputation")
     CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&grandmaster, 50), 100);
 }
 
-TEST_CASE("peasant kill reputation penalty uses map stealing fine and active reputation")
-{
-    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
-    worldRuntime.setCurrentLocationReputation(4);
-
-    OpenYAMM::Game::Party party = {};
-    party.seed(createRegressionPartySeed());
-
-    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
-    peasant.level = 3;
-    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
-
-    const OpenYAMM::Game::PeasantKillReputationResult result =
-        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
-
-    CHECK(result.applied);
-    CHECK_EQ(result.reputationDelta, 2);
-    CHECK_EQ(result.fineDelta, 900);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
-    CHECK_EQ(party.fineGold(), 900);
-    CHECK_EQ(
-        party.eventVariableValue(static_cast<uint16_t>(OpenYAMM::Game::EvtVariable::NumBounties)),
-        0);
-
-    OpenYAMM::Game::MonsterTable::MonsterStatsEntry monster = {};
-    monster.level = 10;
-    const OpenYAMM::Game::PeasantKillReputationResult ignored =
-        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &monster, 2);
-    CHECK_FALSE(ignored.applied);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
-}
-
-TEST_CASE("MMerge peasant kill reputation penalty changes at murderer thresholds")
-{
-    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
-    OpenYAMM::Game::Party party = {};
-    party.seed(createRegressionPartySeed());
-
-    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
-    peasant.level = 3;
-    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
-
-    worldRuntime.setCurrentLocationReputation(19);
-    OpenYAMM::Game::PeasantKillReputationResult result =
-        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
-    CHECK_EQ(result.reputationDelta, 2);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 21);
-
-    worldRuntime.setCurrentLocationReputation(20);
-    result = OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
-    CHECK_EQ(result.reputationDelta, 1);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 21);
-
-    worldRuntime.setCurrentLocationReputation(100);
-    result = OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2);
-    CHECK(result.applied);
-    CHECK_EQ(result.reputationDelta, 0);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 100);
-}
-
-TEST_CASE("MMerge peasant kill reputation ignores non NPC peasants")
+TEST_CASE("MMerge monster kill reputation applies peasant and guard deltas")
 {
     OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
     worldRuntime.setCurrentLocationReputation(0);
 
-    OpenYAMM::Game::Party party = {};
-    party.seed(createRegressionPartySeed());
-
     OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
-    peasant.level = 3;
     peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
 
-    const OpenYAMM::Game::PeasantKillReputationResult result =
-        OpenYAMM::Game::applyPeasantKillReputationPenalty(worldRuntime, &party, &peasant, 2, false);
+    const OpenYAMM::Game::MonsterKillReputationResult peasantResult =
+        OpenYAMM::Game::applyMonsterKillReputationPenalty(worldRuntime, &peasant, 85);
+
+    CHECK(peasantResult.applied);
+    CHECK_EQ(peasantResult.reputationDelta, 1);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 1);
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry guard = {};
+    const OpenYAMM::Game::MonsterKillReputationResult guardResult =
+        OpenYAMM::Game::applyMonsterKillReputationPenalty(worldRuntime, &guard, 55);
+
+    CHECK(guardResult.applied);
+    CHECK_EQ(guardResult.reputationDelta, 2);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 3);
+
+    const OpenYAMM::Game::MonsterKillReputationResult peasantGuardResult =
+        OpenYAMM::Game::applyMonsterKillReputationPenalty(worldRuntime, &peasant, 38);
+
+    CHECK(peasantGuardResult.applied);
+    CHECK_EQ(peasantGuardResult.reputationDelta, 3);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
+}
+
+TEST_CASE("MMerge monster kill reputation ignores ordinary monsters")
+{
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.setCurrentLocationReputation(12);
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry monster = {};
+    const OpenYAMM::Game::MonsterKillReputationResult result =
+        OpenYAMM::Game::applyMonsterKillReputationPenalty(worldRuntime, &monster, 85);
 
     CHECK_FALSE(result.applied);
     CHECK_EQ(result.reputationDelta, 0);
-    CHECK_EQ(worldRuntime.currentLocationReputation(), 0);
-    CHECK_EQ(party.fineGold(), 0);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), 12);
 }

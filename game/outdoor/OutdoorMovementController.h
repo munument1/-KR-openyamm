@@ -82,6 +82,11 @@ public:
         float y,
         float footZHint,
         float bodyRadius) const;
+    OutdoorMoveState initializeActorStateForBodyPreservingZ(
+        float x,
+        float y,
+        float footZHint,
+        float bodyRadius) const;
     OutdoorMoveState resolveMove(
         const OutdoorMoveState &state,
         float desiredVelocityX,
@@ -127,7 +132,9 @@ public:
         bool flyingActive,
         float deltaSeconds,
         std::vector<size_t> *pContactedActorIndices = nullptr,
-        const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider = std::nullopt
+        const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider = std::nullopt,
+        bx::Vec3 *pResolvedVelocity = nullptr,
+        bool *pResolvedVelocityUpdatesYaw = nullptr
     ) const;
     std::optional<MapBoundaryEdge> detectBoundaryBlock(
         const OutdoorMoveState &previousState,
@@ -165,7 +172,8 @@ private:
         float y,
         float footZHint,
         float bodyRadius,
-        bool actorConditionalBModelSupport) const;
+        bool actorConditionalBModelSupport,
+        bool preserveFootZ) const;
     void buildFaceCache();
     void buildFaceSpatialIndex();
     void buildDecorationColliderCache(const std::optional<OutdoorDecorationCollisionSet> &outdoorDecorationCollisionSet);

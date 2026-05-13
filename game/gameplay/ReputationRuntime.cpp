@@ -2,7 +2,6 @@
 
 #include "game/events/EventRuntime.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
-#include "game/party/Party.h"
 #include "game/tables/MergedBaseTables.h"
 
 #include <algorithm>
@@ -16,8 +15,10 @@ constexpr uint32_t GypsyProfessionId = 48;
 constexpr uint32_t DuperProfessionId = 50;
 constexpr uint32_t BurglarProfessionId = 51;
 constexpr uint32_t FallenWizardProfessionId = 52;
-constexpr int MMergePeasantKillReputationLimit = 100;
-constexpr int MMergePeasantKillContinentExtraThreshold = 20;
+constexpr uint32_t MMergeGuardGroup38 = 38;
+constexpr uint32_t MMergeGuardGroup55 = 55;
+constexpr int MMergePeasantKillReputationDelta = 1;
+constexpr int MMergeGuardKillReputationDelta = 2;
 
 bool professionHurtsReputation(uint32_t professionId)
 {
@@ -111,48 +112,30 @@ void addStoredCurrentLocationReputation(IGameplayWorldRuntime &worldRuntime, int
     applyReputationGuardHostility(worldRuntime, delta > 0 ? 20 : 25);
 }
 
-PeasantKillReputationResult applyPeasantKillReputationPenalty(
+MonsterKillReputationResult applyMonsterKillReputationPenalty(
     IGameplayWorldRuntime &worldRuntime,
-    Party *pParty,
     const MonsterTable::MonsterStatsEntry *pStats,
-    int baseStealingFine,
-    bool actorHasNpcId)
+    uint32_t actorGroup)
 {
-    PeasantKillReputationResult result = {};
+    MonsterKillReputationResult result = {};
 
-    if (pStats == nullptr || !actorHasNpcId || !pStats->hasKind(MonsterKind::Peasant))
+    if (pStats != nullptr && pStats->hasKind(MonsterKind::Peasant))
+    {
+        result.reputationDelta += MMergePeasantKillReputationDelta;
+    }
+
+    if (actorGroup == MMergeGuardGroup38 || actorGroup == MMergeGuardGroup55)
+    {
+        result.reputationDelta += MMergeGuardKillReputationDelta;
+    }
+
+    if (result.reputationDelta == 0)
     {
         return result;
     }
 
     result.applied = true;
-
-    const int storedReputation = worldRuntime.currentLocationReputation();
-
-    if (storedReputation < MMergePeasantKillReputationLimit)
-    {
-        result.reputationDelta = storedReputation < MMergePeasantKillContinentExtraThreshold ? 2 : 1;
-    }
-
-    if (pParty != nullptr)
-    {
-        const int effectiveReputation =
-            effectivePartyReputation(worldRuntime.currentLocationReputation(), worldRuntime.eventRuntimeState());
-        result.fineDelta = std::clamp(
-            100 * (std::max(0, baseStealingFine) + std::max(0, pStats->level) + effectiveReputation),
-            0,
-            4000000);
-
-        if (result.fineDelta > 0)
-        {
-            pParty->addFineGold(result.fineDelta);
-        }
-    }
-
-    if (result.reputationDelta != 0)
-    {
-        addStoredCurrentLocationReputation(worldRuntime, result.reputationDelta);
-    }
+    addStoredCurrentLocationReputation(worldRuntime, result.reputationDelta);
 
     return result;
 }

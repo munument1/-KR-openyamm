@@ -1090,6 +1090,8 @@ void writeValue(BinaryWriter &writer, const OutdoorPartyMovementState &value)
 
 bool readValue(BinaryReader &reader, OutdoorPartyMovementState &value)
 {
+    value.activelyFlying = false;
+
     return readValue(reader, value.running)
         && readValue(reader, value.flying)
         && readValue(reader, value.featherFall)

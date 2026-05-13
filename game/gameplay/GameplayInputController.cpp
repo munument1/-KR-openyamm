@@ -530,7 +530,7 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
                                 || context.characterScreenReadOnly().open
                                 || heldInventoryItem.active,
                             .blockSpellbookToggle = hasPendingSpellCast || heldInventoryItem.active,
-                            .blockInventoryToggle = heldInventoryItem.active,
+                            .blockInventoryToggle = false,
                             .blockPartyCycle = hasPendingSpellCast || context.characterScreenReadOnly().open,
                             .requireGameplayReadyForPartySelection = true,
                         },
