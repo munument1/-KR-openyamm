@@ -15,11 +15,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Shrine of Cold", function()
+RegisterEvent(2, "Knight's Paradise", function()
     evt.EnterHouse(35) -- Knight's Paradise
-end, "Shrine of Cold")
+end, "Knight's Paradise")
 
-RegisterEvent(3, "Shrine of Cold", nil, "Shrine of Cold")
+RegisterEvent(3, "Knight's Paradise", nil, "Knight's Paradise")
 
 RegisterEvent(4, "Armorworks ", function()
     evt.EnterHouse(73) -- Armorworks

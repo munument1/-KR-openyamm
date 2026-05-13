@@ -18,10 +18,10 @@ RegisterEvent(75, "Chest", function()
     evt.OpenChest(1)
 end, "Chest")
 
-RegisterEvent(90, " ", function()
+RegisterEvent(90, "The Hive", function()
     if IsQBitSet(QBit(1261)) then return end -- NPC
     evt.MoveToMap(435, 3707, 1, 512, 0, 0, 165, 1, "hive.blv") -- The Hive
-end, " ")
+end, "The Hive")
 
 RegisterEvent(100, "Drink from Well.", function()
     evt.DamagePlayer(Players.Current, const.Damage.Water, 200)
@@ -71,13 +71,13 @@ RegisterEvent(104, "Legacy event 104", function()
     end
 end)
 
-RegisterEvent(204, "Obelisk", function()
+RegisterEvent(204, "House", function()
     evt.EnterHouse(1216) -- House
-end, "Obelisk")
+end, "House")
 
-RegisterEvent(205, " ", function()
+RegisterEvent(205, "House", function()
     evt.EnterHouse(1231) -- House
-end, " ")
+end, "House")
 
 RegisterEvent(210, "Obelisk", function(continueStep)
     if continueStep == 2 then

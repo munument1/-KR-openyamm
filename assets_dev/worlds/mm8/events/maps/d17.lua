@@ -200,17 +200,17 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(131, "Cave Entrance", function()
+RegisterEvent(131, "Ishton's Cave", function()
     evt.EnterHouse(572) -- Ishton's Cave
-end, "Cave Entrance")
+end, "Ishton's Cave")
 
-RegisterEvent(132, "Cave Entrance", function()
+RegisterEvent(132, "Ithilgore's Cave", function()
     evt.EnterHouse(573) -- Ithilgore's Cave
-end, "Cave Entrance")
+end, "Ithilgore's Cave")
 
-RegisterEvent(133, "Cave Entrance", function()
+RegisterEvent(133, "Scarwing's Cave", function()
     evt.EnterHouse(574) -- Scarwing's Cave
-end, "Cave Entrance")
+end, "Scarwing's Cave")
 
 RegisterEvent(201, "Dragon Leader's Cavern ", function()
     evt.EnterHouse(774) -- Dragon Leader's Cavern

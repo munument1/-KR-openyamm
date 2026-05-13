@@ -16,11 +16,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Shrine of Endurance", function()
+RegisterEvent(2, "Mark and Missile", function()
     evt.EnterHouse(33) -- Mark and Missile
-end, "Shrine of Endurance")
+end, "Mark and Missile")
 
-RegisterEvent(3, "Shrine of Endurance", nil, "Shrine of Endurance")
+RegisterEvent(3, "Mark and Missile", nil, "Mark and Missile")
 
 RegisterEvent(4, "Silver Lining Armor & Shield", function()
     evt.EnterHouse(74) -- Silver Lining Armor & Shield
@@ -92,11 +92,11 @@ end, "Protection Services")
 
 RegisterEvent(26, "Protection Services", nil, "Protection Services")
 
-RegisterEvent(27, "+5 Endurance permanent.", function()
+RegisterEvent(27, "Haft and Handle Pole arms", function()
     evt.EnterHouse(30) -- Haft and Handle Pole arms
-end, "+5 Endurance permanent.")
+end, "Haft and Handle Pole arms")
 
-RegisterEvent(28, "+5 Endurance permanent.", nil, "+5 Endurance permanent.")
+RegisterEvent(28, "Haft and Handle Pole arms", nil, "Haft and Handle Pole arms")
 
 RegisterEvent(29, "Quality Armor", function()
     evt.EnterHouse(70) -- Quality Armor
@@ -132,41 +132,41 @@ RegisterEvent(37, "Rockham/Free Haven", function()
     evt.StatusText("Rockham/Free Haven")
 end, "Rockham/Free Haven")
 
-RegisterEvent(50, "Shrine of Endurance", function()
+RegisterEvent(50, "House", function()
     evt.EnterHouse(1220) -- House
-end, "Shrine of Endurance")
+end, "House")
 
-RegisterEvent(51, "You pray at the shrine.", function()
+RegisterEvent(51, "House", function()
     evt.EnterHouse(1235) -- House
-end, "You pray at the shrine.")
+end, "House")
 
-RegisterEvent(52, "+10 Endurance permanent", function()
+RegisterEvent(52, "House", function()
     evt.EnterHouse(1250) -- House
-end, "+10 Endurance permanent")
+end, "House")
 
-RegisterEvent(53, "+3 Endurance permanent", function()
+RegisterEvent(53, "House", function()
     evt.EnterHouse(1265) -- House
-end, "+3 Endurance permanent")
+end, "House")
 
-RegisterEvent(54, "\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _ay,enis_nn_ans.\"", function()
+RegisterEvent(54, "House", function()
     evt.EnterHouse(1280) -- House
-end, "\"The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            _ay,enis_nn_ans.\"")
+end, "House")
 
-RegisterEvent(55, "Obelisk", function()
+RegisterEvent(55, "House", function()
     evt.EnterHouse(1295) -- House
-end, "Obelisk")
+end, "House")
 
-RegisterEvent(56, "Castle Stromgard", function()
+RegisterEvent(56, "House", function()
     evt.EnterHouse(1308) -- House
-end, "Castle Stromgard")
+end, "House")
 
-RegisterEvent(57, "White Cap", function()
+RegisterEvent(57, "House", function()
     evt.EnterHouse(1320) -- House
-end, "White Cap")
+end, "House")
 
-RegisterEvent(58, "Rockham/Free Haven", function()
+RegisterEvent(58, "House", function()
     evt.EnterHouse(1331) -- House
-end, "Rockham/Free Haven")
+end, "House")
 
 RegisterEvent(59, "House", function()
     evt.EnterHouse(1343) -- House
@@ -248,29 +248,29 @@ RegisterEvent(78, "Legacy event 78", function()
     evt.EnterHouse(1500) -- House
 end)
 
-RegisterEvent(79, "Drink from Well.", function()
+RegisterEvent(79, "House", function()
     evt.EnterHouse(1504) -- House
-end, "Drink from Well.")
+end, "House")
 
-RegisterEvent(80, "Look Out!", function()
+RegisterEvent(80, "House", function()
     evt.EnterHouse(1508) -- House
-end, "Look Out!")
+end, "House")
 
-RegisterEvent(81, "Drink from Fountain", function()
+RegisterEvent(81, "House", function()
     evt.EnterHouse(1512) -- House
-end, "Drink from Fountain")
+end, "House")
 
-RegisterEvent(82, "+20 Accuracy and Speed temporary.", function()
+RegisterEvent(82, "House", function()
     evt.EnterHouse(1515) -- House
-end, "+20 Accuracy and Speed temporary.")
+end, "House")
 
-RegisterEvent(83, "+20 Armor class temporary.", function()
+RegisterEvent(83, "House", function()
     evt.EnterHouse(1518) -- House
-end, "+20 Armor class temporary.")
+end, "House")
 
-RegisterEvent(84, "+10 Level temporary.", function()
+RegisterEvent(84, "House", function()
     evt.EnterHouse(1521) -- House
-end, "+10 Level temporary.")
+end, "House")
 
 RegisterEvent(85, "Legacy event 85", function()
     evt.OpenChest(1)
@@ -400,10 +400,7 @@ RegisterEvent(210, "Legacy event 210", function()
 end)
 
 RegisterEvent(211, "Legacy event 211", function()
-    if HasAward(Award(62)) or IsQBitSet(QBit(1199)) then -- Ended Winter
-        evt.SetSnow(0, false)
-        return
-    end
+    if IsQBitSet(QBit(1252)) then return end -- NPC
     evt.SetSnow(0, 1)
 end)
 

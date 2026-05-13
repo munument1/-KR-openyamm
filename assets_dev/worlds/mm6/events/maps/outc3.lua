@@ -16,11 +16,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "No one is here.  The Circus has moved.", function()
+RegisterEvent(2, "Blunt Trauma Weapons", function()
     evt.EnterHouse(27) -- Blunt Trauma Weapons
-end, "No one is here.  The Circus has moved.")
+end, "Blunt Trauma Weapons")
 
-RegisterEvent(3, "No one is here.  The Circus has moved.", nil, "No one is here.  The Circus has moved.")
+RegisterEvent(3, "Blunt Trauma Weapons", nil, "Blunt Trauma Weapons")
 
 RegisterEvent(4, "Mailed fist Armory", function()
     evt.EnterHouse(66) -- Mailed fist Armory

@@ -20,11 +20,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "You pray at the shrine.", function()
+RegisterEvent(2, "Stout Heart Staff and Spear", function()
     evt.EnterHouse(34) -- Stout Heart Staff and Spear
-end, "You pray at the shrine.")
+end, "Stout Heart Staff and Spear")
 
-RegisterEvent(3, "You pray at the shrine.", nil, "You pray at the shrine.")
+RegisterEvent(3, "Stout Heart Staff and Spear", nil, "Stout Heart Staff and Spear")
 
 RegisterEvent(4, "Mail and Greaves", function()
     evt.EnterHouse(71) -- Mail and Greaves
@@ -165,7 +165,7 @@ RegisterEvent(30, "Circus", function()
     end
 end, "Circus")
 
-RegisterEvent(31, "+10 Magic permanent", function()
+RegisterEvent(31, "Tent", function()
     if IsAtLeast(DayOfYear, 84) then
         evt.EnterHouse(1596) -- Tent
     elseif IsAtLeast(DayOfYear, 85) then
@@ -226,7 +226,7 @@ RegisterEvent(31, "+10 Magic permanent", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "+10 Magic permanent")
+end, "Tent")
 
 RegisterEvent(32, "Tent", function()
     if IsAtLeast(DayOfYear, 84) then
@@ -354,7 +354,7 @@ RegisterEvent(33, "Tent", function()
     end
 end, "Tent")
 
-RegisterEvent(34, "+3 Magic permanent", function()
+RegisterEvent(34, "Wagon", function()
     if IsAtLeast(DayOfYear, 84) then
         evt.EnterHouse(1597) -- Wagon
     elseif IsAtLeast(DayOfYear, 85) then
@@ -415,7 +415,7 @@ RegisterEvent(34, "+3 Magic permanent", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "+3 Magic permanent")
+end, "Wagon")
 
 RegisterEvent(35, "Wagon", function()
     if IsAtLeast(DayOfYear, 84) then
@@ -583,17 +583,17 @@ RegisterEvent(59, "Legacy event 59", function()
     evt.EnterHouse(1376) -- House
 end)
 
-RegisterEvent(60, "Drink from Well.", function()
+RegisterEvent(60, "House", function()
     evt.EnterHouse(1387) -- House
-end, "Drink from Well.")
+end, "House")
 
-RegisterEvent(61, "+50 Luck temporary.", function()
+RegisterEvent(61, "House", function()
     evt.EnterHouse(1397) -- House
-end, "+50 Luck temporary.")
+end, "House")
 
-RegisterEvent(62, "+5 Magic resistance permanent.", function()
+RegisterEvent(62, "House", function()
     evt.EnterHouse(1407) -- House
-end, "+5 Magic resistance permanent.")
+end, "House")
 
 RegisterEvent(63, "House", function()
     evt.EnterHouse(1431) -- House

@@ -814,7 +814,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 812	Rich Hamburg	0446	0	0	400	1382	13	0	0	1533	1583	0	0	0	0	"chain expert, 4 buildings south of Ironfist (D3)"
 813	Susan Handlebaum	0445	0	0	0	0	77	0	0	0	0	0	0	0	0	child
 814	Will Ottoman	0444	0	800	0	1511	13	0	0	1558	1602	0	0	0	0	merchant master (D1)
-815	Noah White	0443	0	0	0	1366	14	0	0	0	0	0	0	0	0	instructor
+815	Noah White	0443	0	0	0	1366	14	0	1	0	0	0	0	0	0	instructor
 816	Calvin Black	0442	0	0	200	1302	13	0	0	1513	1573	0	0	0	0	staff expert (E2)
 817	Avinril Smythers 	0441	0	0	0	270	15	0	0	1603	0	0	0	0	0	"Good dwarf who gives defeat Snergal quest, Master axe (C3)"
 818	Harold Hess	0440	0	0	0	1339	55	0	0	0	0	1699	0	0	0	Merc Guild Membership (E3)
@@ -823,7 +823,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 821	Fredrick Piles	0436	0	0	400	1308	46	0	0	0	0	1699	0	0	0	Merc Guild Membership (C1)
 822	Charles D'Sorpigal	0435	0	0	0	210	15	0	0	1605	0	0	0	0	0	Constable in Mist who gives the prove Silver Helms are bad quest
 823	Kent Williams	0434	0	0	0	1435	32	0	0	0	0	0	0	0	0	Person who sells house in Free Haven
-824	Gordon Styles	0433	0	0	0	1429	2	0	0	0	0	0	0	0	0	armorer
+824	Gordon Styles	0433	0	0	0	1429	2	0	1	0	0	0	0	0	0	armorer
 825	Dorf	0432	0	0	0	1413	13	0	0	1513	1573	0	0	0	0	"staff expert, Bottom middle building (E3)"
 826	Twillen	0431	0	0	0	0	41	0	0	1667	0	0	0	0	0	"Young Twillen, after the statuette quest"
 827	Terrance Smith	0430	0	0	0	1325	13	0	0	1517	1575	0	0	0	0	"dagger expert, behind tavern below Ironfist  (D3)"
@@ -831,9 +831,9 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 829	Harper Collins	0428	0	0	400	1287	14	0	0	1542	0	1705	0	0	0	water master (E2)
 830	Arlen Sailor	0427	0	0	0	1280	13	0	0	1532	0	0	0	0	0	leather master (C1)
 831	Bertrand Scrivner	0426	0	0	0	210	23	0	0	1607	0	0	0	0	0	Mayor in Mist Town Hall
-832	Peter Ivanovich	0425	0	0	0	1336	7	0	0	0	0	0	0	0	0	pathfinder
+832	Peter Ivanovich	0425	0	0	0	1336	7	0	1	0	0	0	0	0	0	pathfinder
 833	Michael Ogilvy	0424	0	0	0	1528	46	0	0	1515	1574	0	0	0	0	Sword expert (C2)
-834	Bernice Hatter	0423	0	0	0	1531	3	0	0	0	0	0	0	0	0	alchemist
+834	Bernice Hatter	0423	0	0	0	1531	3	0	1	0	0	0	0	0	0	alchemist
 835	Tess Tucker	0422	0	0	0	1397	51	0	0	0	0	1698	0	0	0	Thief Guild Membership (B2)
 836	Hector Dragged	0421	0	0	0	0	0	0	0	0	0	0	0	0	0	
 837	Guy Hampton	0420	0	0	0	1307	14	0	0	1516	0	0	0	0	0	sword master (B2)
@@ -842,12 +842,12 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 840	Gilbert Hammer	0417	0	0	0	1525	14	0	0	1550	0	0	0	0	0	body master (D1)
 841	Leon Lazaru	0416	0	0	0	1300	13	0	0	1555	1594	0	0	0	0	"identify expert, 2 houses by gate (D3)"
 842	Macro Caligula	0415	0	0	0	1252	14	0	0	1566	0	0	0	0	0	perception master (C3)
-843	Orville Corvair	0414	0	0	0	1372	4	0	0	0	0	0	0	0	0	scholar
+843	Orville Corvair	0414	0	0	0	1372	4	0	1	0	0	0	0	0	0	scholar
 844	Lucky Oster	0413	0	0	0	1298	51	0	0	0	0	1697	0	0	0	Thief Guild Membership (D1)
 845	Gonzalo Ramirez	0412	0	0	200	1315	0	0	0	1521	1577	1700	0	0	0	spear expert (E2)
 846	Marcellus Lutvig	0411	0	0	0	1220	51	0	0	0	0	1697	0	0	0	Thief Guild Membership (C1)
 847	Erik Salzburg	0410	0	0	0	1430	13	0	0	1561	1597	0	0	0	0	"bodybuilding expert, 2 big houses east (E3)"
-848	Ahmed A'sanzi	0409	0	0	0	1292	5	0	0	0	0	0	0	0	0	guide
+848	Ahmed A'sanzi	0409	0	0	0	1292	5	0	1	0	0	0	0	0	0	guide
 849	Sergio Carrington	0408	0	0	0	1266	51	0	0	0	0	1698	0	0	0	Thief Guild Membership (C2)
 850	Saad Shamel	0407	0	0	0	0	0	0	0	0	0	0	0	0	0	
 851	Ghim Hammond	0406	0	0	0	0	0	0	0	1614	0	0	0	0	0	Dwarf prisoner that gives key to d5
@@ -862,7 +862,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 860	Winston Historian	0397	0	0	400	1281	46	0	0	0	0	1700	0	0	0	Merc Guild Membership (C2)
 861	Zoltan Phelps	0396	0	0	0	1390	21	0	0	1635	0	0	0	0	0	Gives quest to retrieve lost artifact
 862	Andrew Besper	0395	0	0	0	1348	31	0	0	1616	0	1701	0	0	0	Gives quest to retrieve harp
-863	Ellen Rockway	0394	0	0	0	1507	48	0	0	0	0	0	0	0	0	gypsy
+863	Ellen Rockway	0394	0	0	0	1507	48	0	1	0	0	0	0	0	0	gypsy
 864	Olaf Berring	0393	0	0	0	1421	13	0	0	1561	1597	0	0	0	0	bodybuilding expert (D3)
 865	Nadine Hayden	0	0	0	0	0	0	0	0	0	0	0	0	0	0	"Guild of light proprietor (npc 61), picture used ?"
 866	Isao Magistrus	0391	0	0	0	1228	13	0	0	1537	1585	0	0	0	0	"fire expert, west 5 poor houses (E3)"
@@ -872,7 +872,7 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 870	Hans Gifford	0387	0	0	0	1251	14	0	0	1556	0	0	0	0	0	identify master (C2)
 871	Isaac Streetman	0386	0	0	0	1268	17	0	0	0	0	1695	0	0	0	Self Guild Membership (D1)
 872	Twillen	0385	0	0	0	1342	41	0	0	1664	1666	0	0	0	0	Statuette Quest
-873	Naomi Highland	0384	0	0	0	1361	10	0	0	0	0	0	0	0	0	healer
+873	Naomi Highland	0384	0	0	0	1361	10	0	1	0	0	0	0	0	0	healer
 874	Errol Ostermann	0383	0	0	0	1330	14	0	0	1526	0	0	0	0	0	mace master (B2)
 875	Gabe Lester	0382	0	0	0	1320	14	0	0	1570	0	0	0	0	0	disarm master (C1)
 876	Dickson Parks	0381	0	0	0	1250	13	0	0	1525	1579	0	0	0	0	mace expert (C1)
@@ -882,26 +882,26 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 880	Elton Astrogate	0377	0	0	0	1225	13	0	0	1571	1602	0	0	0	0	"learning expert, upstairs Ironfist (D3)"
 881	Morton Holovin	0376	0	0	0	1295	13	0	0	1553	1593	0	0	0	0	dark expert (C1)
 882	Newt Headrow	0375	0	0	400	1371	13	0	0	1531	1582	0	0	0	0	"leather expert, 4 buildings south of Ironfist (D3)"
-883	Jasmine Spicer	0374	0	0	0	1520	11	0	0	0	0	0	0	0	0	expert healer
+883	Jasmine Spicer	0374	0	0	0	1520	11	0	1	0	0	0	0	0	0	expert healer
 884	Helen Teal	0373	0	0	0	1403	13	0	0	1523	1578	0	0	0	0	bow expert (D3)
 885	Pat	0372	0	0	0	0	0	0	0	0	0	0	0	0	0	Proprietor picture already used.
 886	Jessica Carson	0371	0	0	0	1309	17	0	0	0	0	1702	0	0	0	Air Guild Membership (C2)
-887	Faith Kellenmoor	0370	0	0	0	1366	21	0	0	0	0	0	0	0	0	merchant
-888	Ginger Astor	0369	0	0	0	1514	13	0	0	0	0	0	0	0	0	teacher
-889	Yvonne D'arcy	0368	0	0	0	1406	33	0	0	0	0	0	0	0	0	cook
+887	Faith Kellenmoor	0370	0	0	0	1366	21	0	1	0	0	0	0	0	0	merchant
+888	Ginger Astor	0369	0	0	0	1514	13	0	1	0	0	0	0	0	0	teacher
+889	Yvonne D'arcy	0368	0	0	0	1406	33	0	1	0	0	0	0	0	0	cook
 890	Jezebel	0367	0	0	400	1227	14	0	0	1538	0	1704	0	0	0	fire master (E2)
 891	Pat Skylark	0366	0	0	0	1286	13	0	0	1527	1580	0	0	0	0	blaster expert (E1)
-892	Doreen Espana	0365	0	0	0	1549	34	0	0	0	0	0	0	0	0	chef
+892	Doreen Espana	0365	0	0	0	1549	34	0	1	0	0	0	0	0	0	chef
 893	Emmanuel Cravitz	0364	0	0	0	0	0	0	0	1634	0	0	0	0	0	Husband needed for t8 find the husband quest
 894	Revee Botania	0363	0	0	0	1507	14	0	0	1544	0	0	0	0	0	earth master (D1)
 895	Deth Macbre	0362	0	0	0	0	0	0	0	0	0	0	0	0	0	weird face…not sure what to do with this one.
-896	Hugger Brother	0361	0	0	0	1427	20	0	0	0	0	0	0	0	0	trader
-897	Hugger Brother	0360	0	0	0	1533	28	0	0	0	0	0	0	0	0	chimney sweep
-898	Hugger Brother	0359	0	0	0	1338	8	0	0	0	0	0	0	0	0	sailor
-899	Hugger Brother	0358	0	0	0	1493	26	0	0	0	0	0	0	0	0	locksmith
-900	Graham Dancey	0357	0	0	0	1539	24	0	0	0	0	0	0	0	0	barrister
-901	Wendy Featherhill	0356	0	0	0	1454	47	0	0	0	0	0	0	0	0	psychic
-902	Dolores Craft	0355	0	0	0	1461	33	0	0	0	0	0	0	0	0	cook
+896	Hugger Brother	0361	0	0	0	1427	20	0	1	0	0	0	0	0	0	trader
+897	Hugger Brother	0360	0	0	0	1533	28	0	1	0	0	0	0	0	0	chimney sweep
+898	Hugger Brother	0359	0	0	0	1338	8	0	1	0	0	0	0	0	0	sailor
+899	Hugger Brother	0358	0	0	0	1493	26	0	1	0	0	0	0	0	0	locksmith
+900	Graham Dancey	0357	0	0	0	1539	24	0	1	0	0	0	0	0	0	barrister
+901	Wendy Featherhill	0356	0	0	0	1454	47	0	1	0	0	0	0	0	0	psychic
+902	Dolores Craft	0355	0	0	0	1461	33	0	1	0	0	0	0	0	0	cook
 903	Joanne Cravitz	0354	0	0	0	1354	52	0	0	1630	0	0	0	0	0	Wife for the t8 find the husband quest
 904	Holly Struthers	0353	0	0	0	1253	17	0	0	0	0	1703	0	0	0	Earth Guild Membership (D1)
 905	Ike Pargrew	0352	0	0	0	1332	17	0	0	0	0	1703	0	0	0	Earth Guild Membership (C2)
@@ -910,157 +910,157 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 908	Tina Sheltan	0349	0	0	800	1473	13	0	0	1551	1592	0	0	0	0	light expert (D1)
 909	Roxanne Sheltan	0348	0	0	0	1473	77	0	0	0	0	0	0	0	0	child
 910	Tara D'Cathay	0347	0	0	0	1448	13	0	0	1565	1599	0	0	0	0	"perception expert, above tavern (E3)"
-911	Vera Grasslin	0346	0	0	0	1468	36	0	0	0	0	0	0	0	0	bard
-912	Emma Terrance	0345	0	0	0	1462	59	0	0	0	0	0	0	0	0	weaver
-913	Olivia Trumpet	0344	0	0	0	1455	58	0	0	0	0	0	0	0	0	potter
+911	Vera Grasslin	0346	0	0	0	1468	36	0	1	0	0	0	0	0	0	bard
+912	Emma Terrance	0345	0	0	0	1462	59	0	1	0	0	0	0	0	0	weaver
+913	Olivia Trumpet	0344	0	0	0	1455	58	0	1	0	0	0	0	0	0	potter
 914	Rebecca Traveler	0343	0	0	0	1236	77	0	0	0	0	0	0	0	0	child
 915	Rexella 	0342	0	0	0	1375	14	0	0	1528	0	0	0	0	0	master blaster (A2)
-916	Miriam Goodwife	0341	0	0	0	1416	32	0	0	0	0	0	0	0	0	banker
+916	Miriam Goodwife	0341	0	0	0	1416	32	0	1	0	0	0	0	0	0	banker
 917	Dominique Juarez	0340	0	0	0	1321	17	0	0	0	0	1705	0	0	0	Water Guild Membership (C2)
-918	Gretchen Fallzen	0339	0	0	0	1437	54	0	0	0	0	0	0	0	0	tailor
-919	Edna Harmenov	0338	0	0	0	1256	55	0	0	0	0	0	0	0	0	laborer
-920	Julie Cooper	0337	0	0	0	1503	56	0	0	0	0	0	0	0	0	farmer
-921	Ethel Armstrong	0336	0	0	0	1410	70	0	0	0	0	0	0	0	0	scribe
+918	Gretchen Fallzen	0339	0	0	0	1437	54	0	1	0	0	0	0	0	0	tailor
+919	Edna Harmenov	0338	0	0	0	1256	55	0	1	0	0	0	0	0	0	laborer
+920	Julie Cooper	0337	0	0	0	1503	56	0	1	0	0	0	0	0	0	farmer
+921	Ethel Armstrong	0336	0	0	0	1410	70	0	1	0	0	0	0	0	0	scribe
 922	Bernice Weaver	0335	0	0	600	1438	17	0	0	0	0	1706	0	0	0	Body Guild Membership (D3)
 923	Bishop Iquisitorio	0334	0	0	600	1255	14	0	0	1546	0	1708	0	0	0	"spirit master, behind Ironfist (D3)"
-924	Eva Semple	0333	0	0	100	1419	14	0	0	0	0	0	0	0	0	instructor
-925	Gail Ashtengard	0332	0	0	0	1271	53	0	0	0	0	0	0	0	0	serf
-926	Daphne Calloway	0331	0	0	0	1357	23	0	0	0	0	0	0	0	0	counselor
+924	Eva Semple	0333	0	0	100	1419	14	0	1	0	0	0	0	0	0	instructor
+925	Gail Ashtengard	0332	0	0	0	1271	53	0	1	0	0	0	0	0	0	serf
+926	Daphne Calloway	0331	0	0	0	1357	23	0	1	0	0	0	0	0	0	counselor
 927	Stephen Biggs	0330	0	0	0	1412	13	0	0	1519	1576	0	0	0	0	"axe expert, 2nd door in training (D3)"
-928	Lilly June	0329	0	0	0	1369	19	0	0	0	0	0	0	0	0	spell master
+928	Lilly June	0329	0	0	0	1369	19	0	1	0	0	0	0	0	0	spell master
 929	Peggy Woods	0328	0	0	0	1368	17	0	0	0	0	1706	0	0	0	Body Guild Membership (C2)
 930	Maria	0327	0	0	0	0	0	0	0	0	0	0	0	0	0	picture already used by maria the gypsy
-931	Alice Ofenhauser	0326	0	0	0	1488	24	0	0	0	0	0	0	0	0	barrister
+931	Alice Ofenhauser	0326	0	0	0	1488	24	0	1	0	0	0	0	0	0	barrister
 932	Cyrus Montebleu	0325	0	0	0	1483	13	0	0	1559	1596	0	0	0	0	repair expert (D1)
 933	Donald Retzer	0324	0	0	0	1469	13	0	0	1571	1602	0	0	0	0	"learning expert, upstairs self guild (E3)"
-934	Cody Ripper	0323	0	0	0	1299	46	0	0	0	0	0	0	0	0	squire
+934	Cody Ripper	0323	0	0	0	1299	46	0	1	0	0	0	0	0	0	squire
 935	Tracy Flauta	0322	0	0	600	1403	17	0	0	0	0	1707	0	0	0	Mind Guild Membership (D3)
-936	Carol Rossini	0321	0	0	0	1498	72	0	0	0	0	0	0	0	0	clerk
-937	Stephanie Pavlov	0320	0	0	0	1269	71	0	0	0	0	0	0	0	0	missionary
-938	Sandra Trudoor	0319	0	0	0	1550	74	0	0	0	0	0	0	0	0	follower of Baa
+936	Carol Rossini	0321	0	0	0	1498	72	0	1	0	0	0	0	0	0	clerk
+937	Stephanie Pavlov	0320	0	0	0	1269	71	0	1	0	0	0	0	0	0	missionary
+938	Sandra Trudoor	0319	0	0	0	1550	74	0	1	0	0	0	0	0	0	follower of Baa
 939	Violet Dawson	0318	0	0	0	1316	58	0	0	1641	0	1695	0	0	0	(Self Guild Membership and Rescue Angela)
 940	Sherell Ivanaveh	0317	0	0	0	0	0	0	0	1646	0	0	0	0	0	Prisoner of the cannibals in the t3 rescue the prisoner quest
 941	Elsie Freedman	0316	0	0	0	1356	17	0	0	0	0	1707	0	0	0	Mind Guild Membership (C2)
-942	Beverly Sweetwater	0315	0	0	0	1317	4	0	0	0	0	0	0	0	0	scholar
-943	Florimel Evylen	0314	0	0	100	1341	75	0	0	0	0	0	0	0	0	noble
-944	Stacy Flanders	0313	0	0	0	1401	74	0	0	0	0	0	0	0	0	follower of baa
-945	Belinda Pikeman	0312	0	0	0	1391	33	0	0	0	0	0	0	0	0	cook
+942	Beverly Sweetwater	0315	0	0	0	1317	4	0	1	0	0	0	0	0	0	scholar
+943	Florimel Evylen	0314	0	0	100	1341	75	0	1	0	0	0	0	0	0	noble
+944	Stacy Flanders	0313	0	0	0	1401	74	0	1	0	0	0	0	0	0	follower of baa
+945	Belinda Pikeman	0312	0	0	0	1391	33	0	1	0	0	0	0	0	0	cook
 946	Connie Lettering	0311	0	0	0	1310	13	0	0	1519	1576	0	0	0	0	axe expert (C3)
-947	Chandra Stripling	0310	0	0	0	1380	52	0	0	0	0	0	0	0	0	peasant
-948	Jean Acton	0309	0	0	0	1284	31	0	0	0	0	0	0	0	0	factor
+947	Chandra Stripling	0310	0	0	0	1380	52	0	1	0	0	0	0	0	0	peasant
+948	Jean Acton	0309	0	0	0	1284	31	0	1	0	0	0	0	0	0	factor
 949	Clyde Dagget	0308	0	0	0	1537	13	0	0	1563	1598	0	0	0	0	meditation expert (D1)
-950	Kathleen Mester	0307	0	0	0	1373	18	0	0	1711	0	0	0	0	0	mystic - allows the use of the teleporter (E2)
+950	Kathleen Mester	0307	0	0	0	1373	18	0	1	1711	0	0	0	0	0	mystic - allows the use of the teleporter (E2)
 951	Mynasia	0306	0	0	0	1526	13	0	0	1547	1590	0	0	0	0	mind expert (C2)
-952	Amber Praetor	0305	0	0	100	1548	36	0	0	0	0	0	0	0	0	bard
-953	Cassandra Timmon	0304	0	0	0	1411	42	0	0	0	0	0	0	0	0	acolyte
+952	Amber Praetor	0305	0	0	100	1548	36	0	1	0	0	0	0	0	0	bard
+953	Cassandra Timmon	0304	0	0	0	1411	42	0	1	0	0	0	0	0	0	acolyte
 954	Michele Blackshire	0303	0	0	0	1522	13	0	0	1545	1589	0	0	0	0	spirit expert (C2)
 955	Carly Rotterdam	0302	0	0	0	1546	77	0	0	0	0	0	0	0	0	child
 956	Gabriel Cartman	0301	0	0	0	1379	3	0	0	1618	0	0	0	0	0	Alchemist who gives retrieve Ethric's skull quest
 957	Casey Ludwig	0300	0	0	0	1282	13	0	0	1557	1595	0	0	0	0	merchant expert (C3)
 958	Sheila Loompus	0299	0	0	0	1439	13	0	0	1555	1594	0	0	0	0	"identify expert, above tavern (E3)"
-959	Judith Shoemaker	0298	0	0	0	1402	60	0	0	0	0	0	0	0	0	cobbler
-960	Selena Stipe	0297	0	0	0	1362	45	0	0	0	0	0	0	0	0	pirate
+959	Judith Shoemaker	0298	0	0	0	1402	60	0	1	0	0	0	0	0	0	cobbler
+960	Selena Stipe	0297	0	0	0	1362	45	0	1	0	0	0	0	0	0	pirate
 961	Wilma Rothwing	0296	0	0	0	1344	17	0	0	0	0	1708	0	0	0	Spirit Guild Membership (C2)
 962	Ivan Magyar	0295	0	0	0	1221	13	0	0	1569	1601	0	0	0	0	disarm expert (C2)
 963	Nicholas Roth	0294	0	999	800	1219	13	0	0	1551	1592	0	0	0	0	light expert (B1)
 964	Bonnie Rotterdam	0293	0	0	100	1546	0	0	0	1429	0	0	0	0	0	Harpy Feather Buyer (C2)
 965	Caao Salem	0292	0	0	400	1272	14	0	0	1540	0	1702	0	0	0	air master (E2)
 966	Bronwyn Meck	0291	0	0	400	1279	14	0	0	1530	0	0	0	0	0	Shield Master (B2)
-967	Randall Norris	0290	0	0	0	1301	9	0	0	0	0	0	0	0	0	navigator
+967	Randall Norris	0290	0	0	0	1301	9	0	1	0	0	0	0	0	0	navigator
 968	Telelocator	0034	0	0	0	0	0	0	0	0	0	0	0	0	0	
-969	Heidi Strumper	0288	0	0	100	1544	75	0	0	0	0	0	0	0	0	noble
+969	Heidi Strumper	0288	0	0	100	1544	75	0	1	0	0	0	0	0	0	noble
 970	Igor	0287	0	0	0	1394	13	0	0	1527	1580	0	0	0	0	"blaster expert, behind goblin camp (E3)"
-971	Iris Poppyfield	0286	0	0	100	1542	36	0	0	0	0	0	0	0	0	bard
+971	Iris Poppyfield	0286	0	0	100	1542	36	0	1	0	0	0	0	0	0	bard
 972	Jason Traveler	0285	0	800	0	1236	14	0	0	1562	0	0	0	0	0	bodybuilding master (C2)
 973	Desmond Weller	0284	0	0	0	1249	14	0	0	1524	0	0	0	0	0	bow master (B1)
 974	Jack Crow	0283	0	0	0	1267	13	0	0	1525	1579	0	0	0	0	mace expert (C3)
-975	Harriet Waters	0282	0	0	0	1392	57	0	0	0	0	0	0	0	0	cooper
-976	Avilia Asheed	0281	0	0	0	1345	22	0	0	0	0	0	0	0	0	scout
+975	Harriet Waters	0282	0	0	0	1392	57	0	1	0	0	0	0	0	0	cooper
+976	Avilia Asheed	0281	0	0	0	1345	22	0	1	0	0	0	0	0	0	scout
 977	Kevin Watch	0280	0	0	0	0	52	0	0	0	0	0	0	0	0	Peasant turned to stone in t8
 978	Sharry Carnegie	0329	0	0	0	0	0	0	0	1640	0	0	0	0	0	"Rescue the Sharry quest, becomes healer in 2D 471 in New Sorpigal"
-979	Jo Handlebaum	0278	0	0	0	1377	19	0	0	0	0	0	0	0	0	spell master
+979	Jo Handlebaum	0278	0	0	0	1377	19	0	1	0	0	0	0	0	0	spell master
 980	Angela Dawson	0277	0	0	0	0	77	0	0	1643	0	0	0	0	0	Child for the d2 rescue the lost child quest
 981	Arthur O'Leery	0276	0	0	0	1257	0	0	0	1531	1582	1696	0	0	0	leather expert (E2)
 982	Ambrose Brusse	0275	0	0	0	1376	13	0	0	1553	1593	0	0	0	0	dark expert (B2)
 983	Fletcher Tormengast	0274	0	0	0	0	52	0	0	0	0	0	0	0	0	Peasant turned to stone in t8
-984	Elijah Skylark	0273	0	0	0	1286	77	0	0	0	0	0	0	0	0	child
+984	Elijah Skylark	0273	0	0	0	1286	77	0	1	0	0	0	0	0	0	child
 985	Carlo Tormini	0272	0	0	0	1400	35	0	0	1644	0	0	0	0	0	Gives the t3 rescue the prisoner quest
 986	Emil Lime	0271	0	0	0	1306	37	0	0	1668	0	0	0	0	0	Jewelled Egg Quest
-987	Kern Carnegie	0270	0	0	0	1333	15	0	0	0	0	0	0	0	0	arms master
+987	Kern Carnegie	0270	0	0	0	1333	15	0	1	0	0	0	0	0	0	arms master
 988	Logan Dasher	0269	0	0	0	1530	13	0	0	1517	1575	0	0	0	0	dagger expert (C2)
-989	Flossie Setering	0268	0	0	0	1322	58	0	0	0	0	0	0	0	0	potter
-990	Dolores Fischer	0267	0	0	0	1381	6	0	0	0	0	0	0	0	0	tracker
+989	Flossie Setering	0268	0	0	0	1322	58	0	1	0	0	0	0	0	0	potter
+990	Dolores Fischer	0267	0	0	0	1381	6	0	1	0	0	0	0	0	0	tracker
 991	Burton Rutherford	0266	0	800	0	1297	14	0	0	1522	0	0	0	0	0	spear master (C3)
 992	Buford T. Allman	0265	0	0	0	1303	24	0	0	1621	0	1694	0	0	0	(Elemental Guild and kill Spider Queen)
 993	Jack Van Imp	0264	0	0	0	1426	13	0	0	1537	1585	0	0	0	0	fire expert (C2)
-994	Rexella Van Imp	0263	0	0	0	1426	42	0	0	0	0	0	0	0	0	acolyte
+994	Rexella Van Imp	0263	0	0	0	1426	42	0	1	0	0	0	0	0	0	acolyte
 995	Jules Miles	0262	0	0	0	1265	14	0	0	1518	0	0	0	0	0	dagger master (C1)
 996	Ryan Treacle	0261	0	0	0	1343	13	0	0	1560	0	0	0	0	0	repair master (C1)
 997	Maria Trepan	0260	0	0	0	1319	33	0	0	1647	0	0	0	0	0	Gives the free Blackshire from the curse quest
 998	Cheryl Duncan	0259	0	0	0	1456	13	0	0	1539	1586	0	0	0	0	"air expert, above bank (E3)"
 999	Woodrow Albright	0258	0	0	0	1409	13	0	0	1535	1584	0	0	0	0	plate expert (C2)
-1000	Droppa MaPantz	0257	0	0	0	1278	27	0	0	0	0	0	0	0	0	fool
+1000	Droppa MaPantz	0257	0	0	0	1278	27	0	1	0	0	0	0	0	0	fool
 1001	Taro	0256	0	0	0	1243	13	0	0	1543	1588	0	0	0	0	"earth expert, west 5 poor houses (E3)"
-1002	Madeleine Towers	0255	0	0	0	1358	21	0	0	0	0	0	0	0	0	merchant
-1003	Fabian Sun	0254	0	0	0	1505	30	0	0	0	0	0	0	0	0	quarter master
+1002	Madeleine Towers	0255	0	0	0	1358	21	0	1	0	0	0	0	0	0	merchant
+1003	Fabian Sun	0254	0	0	0	1505	30	0	1	0	0	0	0	0	0	quarter master
 1004	Bandar Jahrom	0232	0	0	0	1606	0	0	0	1448	0	0	0	0	0	Lamp Trader (B3)
 1005	Thari Mirumoto	0252	0	0	0	1534	77	0	0	0	0	0	0	0	0	child
-1006	Kai Lian	0251	0	0	0	1370	59	0	0	0	0	0	0	0	0	weaver
-1007	Eunbo Kim	0250	0	0	0	1262	23	0	0	0	0	0	0	0	0	counselor
+1006	Kai Lian	0251	0	0	0	1370	59	0	1	0	0	0	0	0	0	weaver
+1007	Eunbo Kim	0250	0	0	0	1262	23	0	1	0	0	0	0	0	0	counselor
 1008	Hitomi Mirumoto	0249	0	0	0	1534	13	0	0	1541	1587	0	0	0	0	water expert (C2)
-1009	Sila Daewon	0248	0	0	100	1248	14	0	0	0	0	0	0	0	0	instructor
+1009	Sila Daewon	0248	0	0	100	1248	14	0	1	0	0	0	0	0	0	instructor
 1010	Abdulai Mahgreb	0247	0	0	0	1288	13	0	0	1549	1591	0	0	0	0	"body expert, west 5 poor houses (E3)"
-1011	Chitania Retiani	0246	0	0	0	1513	58	0	0	0	0	0	0	0	0	potter
+1011	Chitania Retiani	0246	0	0	0	1513	58	0	1	0	0	0	0	0	0	potter
 1012	Sigriv	0245	0	0	0	1478	13	0	0	1521	1577	0	0	0	0	spear expert (D1)
-1013	Myyra Hian	0244	0	0	0	1350	47	0	0	0	0	0	0	0	0	psychic
+1013	Myyra Hian	0244	0	0	0	1350	47	0	1	0	0	0	0	0	0	psychic
 1014	Norio Ariganaka	0243	0	0	600	1242	14	0	0	1564	0	0	0	0	0	meditation master (E2)
 1015	Shoshi Pertoniki	0242	0	0	0	1239	13	0	0	1565	1599	0	0	0	0	perception expert (D2)
 1016	Leah Lu	0241	0	0	0	1543	77	0	0	0	0	0	0	0	0	child
-1017	Rodinia Sidara	0240	0	0	0	1293	43	0	0	0	0	0	0	0	0	piper
-1018	Indihir Vilandi	0239	0	0	0	1467	29	0	0	0	0	0	0	0	0	porter
-1019	Ta Li No Gharma	0238	0	0	0	1396	62	0	0	0	0	0	0	0	0	miller
-1020	Ackbar	0237	0	0	0	1472	30	0	0	0	0	0	0	0	0	quarter master
+1017	Rodinia Sidara	0240	0	0	0	1293	43	0	1	0	0	0	0	0	0	piper
+1018	Indihir Vilandi	0239	0	0	0	1467	29	0	1	0	0	0	0	0	0	porter
+1019	Ta Li No Gharma	0238	0	0	0	1396	62	0	1	0	0	0	0	0	0	miller
+1020	Ackbar	0237	0	0	0	1472	30	0	1	0	0	0	0	0	0	quarter master
 1021	Li Tizare	0236	0	0	0	1536	13	0	0	1543	1588	0	0	0	0	earth expert (C2)
-1022	Soon Lu	0235	0	0	0	1543	40	0	0	0	0	0	0	0	0	water master
+1022	Soon Lu	0235	0	0	0	1543	40	0	1	0	0	0	0	0	0	water master
 1023	Zodahn Delphi	0234	0	0	0	1538	13	0	0	1539	1586	0	0	0	0	air expert (C2)
-1024	Lori Tao	0233	0	0	0	1501	74	0	0	0	0	0	0	0	0	follower of baa
+1024	Lori Tao	0233	0	0	0	1501	74	0	1	0	0	0	0	0	0	follower of baa
 1025	Sri Retiani	0215	0	0	0	1513	77	0	0	0	0	0	0	0	0	child
 1026	Daila Chow	0214	0	0	0	0	77	0	0	0	0	0	0	0	0	child
-1027	Gohei Matsu	0204	0	0	0	1482	43	0	0	0	0	0	0	0	0	piper
-1028	Shileka Toreena	0202	0	0	100	1314	39	0	0	0	0	0	0	0	0	wind master
-1029	Melody Stone	0201	0	0	0	1311	38	0	0	0	0	0	0	0	0	cartographer
+1027	Gohei Matsu	0204	0	0	0	1482	43	0	1	0	0	0	0	0	0	piper
+1028	Shileka Toreena	0202	0	0	100	1314	39	0	1	0	0	0	0	0	0	wind master
+1029	Melody Stone	0201	0	0	0	1311	38	0	1	0	0	0	0	0	0	cartographer
 1030	Rebecca Calaway	0200	0	0	0	1365	17	0	0	0	0	1710	0	0	0	Dark Guild Membership (B2)
 1031	Virginia Standridge	0199	0	0	600	1238	17	0	0	0	0	1709	0	0	0	Light Guild Membership (D1)
 1032	Dana Fenster	0197	0	0	0	0	0	0	0	0	0	0	0	0	0	"proprietor light guild, picture already used"
-1033	Roxina Smolenska	0196	0	0	0	1270	25	0	0	0	0	0	0	0	0	tinker
-1034	Beth Thompson	0195	0	0	100	1487	40	0	0	0	0	0	0	0	0	water master
-1035	Wilma Cook	0194	0	0	100	1476	41	0	0	0	0	0	0	0	0	gate master
-1036	Lesiah Marduk	0193	0	0	0	1384	51	0	0	0	0	0	0	0	0	burglar
-1037	Miro Shinek	0190	0	0	0	1517	35	0	0	0	0	0	0	0	0	horseman
-1038	Anawah	0182	0	0	0	1334	29	0	0	0	0	0	0	0	0	porter
-1039	Mihi Mihi Nanook	0180	0	0	0	1477	55	0	0	0	0	0	0	0	0	laborer
+1033	Roxina Smolenska	0196	0	0	0	1270	25	0	1	0	0	0	0	0	0	tinker
+1034	Beth Thompson	0195	0	0	100	1487	40	0	1	0	0	0	0	0	0	water master
+1035	Wilma Cook	0194	0	0	100	1476	41	0	1	0	0	0	0	0	0	gate master
+1036	Lesiah Marduk	0193	0	0	0	1384	51	0	1	0	0	0	0	0	0	burglar
+1037	Miro Shinek	0190	0	0	0	1517	35	0	1	0	0	0	0	0	0	horseman
+1038	Anawah	0182	0	0	0	1334	29	0	1	0	0	0	0	0	0	porter
+1039	Mihi Mihi Nanook	0180	0	0	0	1477	55	0	1	0	0	0	0	0	0	laborer
 1040	Su Lang Manchu	0179	0	0	0	1291	14	0	0	1554	0	0	0	0	0	dark master (A2)
-1041	Nigan	0175	0	0	0	1323	15	0	0	0	0	0	0	0	0	arms master
-1042	Kachiko Toranaga	0170	0	0	100	1312	36	0	0	0	0	0	0	0	0	bard
+1041	Nigan	0175	0	0	0	1323	15	0	1	0	0	0	0	0	0	arms master
+1042	Kachiko Toranaga	0170	0	0	100	1312	36	0	1	0	0	0	0	0	0	bard
 1043	Jasper Rice	0164	0	0	0	1223	14	0	0	1514	0	0	0	0	0	staff master (D1)
-1044	Isao Tizare	0158	0	0	0	1536	77	0	0	0	0	0	0	0	0	child
-1045	Heather Mitchell	0157	0	0	0	1234	49	0	0	0	0	0	0	0	0	negotiator
-1046	Linda Nichols	0156	0	0	0	1324	17	0	0	0	0	0	0	0	0	apprentice
-1047	Svetlanta Irktusk	0155	0	0	0	1335	19	0	0	0	0	0	0	0	0	spell master
+1044	Isao Tizare	0158	0	0	0	1536	77	0	1	0	0	0	0	0	0	child
+1045	Heather Mitchell	0157	0	0	0	1234	49	0	1	0	0	0	0	0	0	negotiator
+1046	Linda Nichols	0156	0	0	0	1324	17	0	1	0	0	0	0	0	0	apprentice
+1047	Svetlanta Irktusk	0155	0	0	0	1335	19	0	1	0	0	0	0	0	0	spell master
 1048	Rachel Herzl	0154	0	0	0	1367	17	0	0	0	0	1710	0	0	0	Dark Guild Membership (C1)
-1049	Rosemarie Reyjavik	0153	0	0	0	1471	21	0	0	0	0	0	0	0	0	merchant
-1050	Miriam Boyer	0152	0	0	0	1444	16	0	0	0	0	0	0	0	0	weapons master
-1051	Naomi Wind	0151	0	0	0	1377	41	0	0	0	0	0	0	0	0	gate master
+1049	Rosemarie Reyjavik	0153	0	0	0	1471	21	0	1	0	0	0	0	0	0	merchant
+1050	Miriam Boyer	0152	0	0	0	1444	16	0	1	0	0	0	0	0	0	weapons master
+1051	Naomi Wind	0151	0	0	0	1377	41	0	1	0	0	0	0	0	0	gate master
 1052	Eleanor Vanderbilt	0150	0	0	0	1446	7	0	0	1623	0	0	0	0	0	Gives the deface the altar quest
-1053	Gertrude Whaler	0149	0	0	0	1388	39	0	0	0	0	0	0	0	0	wind master
-1054	Amanda Van De Camp	0148	0	0	0	1378	76	0	0	0	0	0	0	0	0	gambler
-1055	Sharla Quinn	0147	0	0	0	1399	12	0	0	0	0	0	0	0	0	master healer
-1056	Deliah Bwana	0146	0	0	0	1388	40	0	0	0	0	0	0	0	0	water master
+1053	Gertrude Whaler	0149	0	0	0	1388	39	0	1	0	0	0	0	0	0	wind master
+1054	Amanda Van De Camp	0148	0	0	0	1378	76	0	1	0	0	0	0	0	0	gambler
+1055	Sharla Quinn	0147	0	0	0	1399	12	0	1	0	0	0	0	0	0	master healer
+1056	Deliah Bwana	0146	0	0	0	1388	40	0	1	0	0	0	0	0	0	water master
 1057	Ki Lo Nee	0078	0	0	999	1226	14	0	0	1552	0	0	0	0	0	Light Master (E1)
-1058	Rosita Alexander	0137	0	0	100	1389	75	0	0	0	0	0	0	0	0	noble
-1059	Ral	0128	0	0	0	1486	63	0	0	0	0	0	0	0	0	carpenter
-1060	Nikobi	0125	0	0	0	1491	22	0	0	0	0	0	0	0	0	scout
-1061	Beauregard Wolf	0095	0	0	0	1496	50	0	0	0	0	0	0	0	0	duper
+1058	Rosita Alexander	0137	0	0	100	1389	75	0	1	0	0	0	0	0	0	noble
+1059	Ral	0128	0	0	0	1486	63	0	1	0	0	0	0	0	0	carpenter
+1060	Nikobi	0125	0	0	0	1491	22	0	1	0	0	0	0	0	0	scout
+1061	Beauregard Wolf	0095	0	0	0	1496	50	0	1	0	0	0	0	0	0	duper
 1062	Lysander Farrel	0072	0	0	0	1453	77	0	0	0	0	0	0	0	0	child
 1063	Becky Holmes	0071	0	0	0	1355	77	0	0	0	0	0	0	0	0	child
 1064	Kim Astrogate	0070	0	0	0	1225	77	0	0	0	0	0	0	0	0	child
@@ -1068,12 +1068,12 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 1066	Dennis Johnson	0068	0	0	0	0	77	0	0	0	0	0	0	0	0	Stable proprietor picture used
 1067	Jennifer Herzl	0067	0	0	0	1367	77	0	0	0	0	0	0	0	0	child
 1068	Christopher Smith	0066	0	0	0	1325	77	0	0	0	0	0	0	0	0	child
-1069	George Almond	0064	0	0	0	1466	64	0	0	0	0	0	0	0	0	stonecutter
+1069	George Almond	0064	0	0	0	1466	64	0	1	0	0	0	0	0	0	stonecutter
 1070	Daniel Carnegie	0063	0	0	0	1333	77	0	0	0	0	0	0	0	0	child
 1071	Carrie Calaway	0062	0	0	0	1365	77	0	0	0	0	0	0	0	0	child
 1072	Dini Mahgreb	0061	0	0	0	1288	77	0	0	0	0	0	0	0	0	child
 1073	Hejaz Mawsil	0108	0	0	0	1328	18	0	0	1625	0	1696	0	0	0	(Thief Guild Membership and Cobra Eggs)
-1074	Barrad Unter	0091	0	0	0	1398	32	0	0	0	0	0	0	0	0	banker
+1074	Barrad Unter	0091	0	0	0	1398	32	0	1	0	0	0	0	0	0	banker
 1075	Winston Schezar	0101	0	0	0	1254	42	0	0	1628	0	0	0	0	0	Gives destroy wicked crystal quest
 1076	Janice	0020	0	0	0	208	72	0	0	1316	0	1712	0	0	0	Gives Goblinwatch and Temple of Baa quest - Monster Hunt
 1077	Earnest	0019	0	0	0	210	72	0	0	0	0	1712	0	0	0	Monster Hunt
@@ -1092,90 +1092,90 @@ NPC Data (Special)			Group			Current	Profession	Greet	Join	Event	Event	Event	Eve
 1090	Loretta Fleise	0029	0	0	0	0	0	0	0	1678	0	0	0	0	0	loretta for the first druid promo
 1091	Loretta Fleise	0029	0	0	0	0	0	0	0	1679	0	0	0	0	0	loretta for the second druid promo
 1092	Runaway Chaos	0980	0	0	0	0	0	0	0	0	0	0	0	0	0	
-1093	Slovang Arcanos	0453	0	0	0	1216	1	0	0	0	0	0	0	0	0	Smith
-1094	Brian Telemere	0452	0	0	0	1231	2	0	0	0	0	0	0	0	0	Armorer
-1095	Ken Chomais	0451	0	0	0	1217	3	0	0	0	0	0	0	0	0	Alchemist
-1096	Christian Vela	0450	0	0	0	1232	4	0	0	0	0	0	0	0	0	Scholar
-1097	Michael Tuck	0449	0	0	0	1247	5	0	0	0	0	0	0	0	0	Guide
-1098	Anthony Hargraine	0447	0	0	0	1276	6	0	0	0	0	0	0	0	0	Tracker
-1099	Miles Loman	0446	0	0	0	1305	7	0	0	0	0	0	0	0	0	Pathfinder
-1100	Zeke Magellan	0444	0	0	0	1329	8	0	0	0	0	0	0	0	0	Sailor
-1101	Tyger Helms	0443	0	0	0	1353	9	0	0	0	0	0	0	0	0	Navigator
-1102	Wolf Armstrong	0442	0	0	0	1364	10	0	0	0	0	0	0	0	0	Healer
-1103	Rockwell Humdring	0441	0	0	0	1277	11	0	0	0	0	0	0	0	0	Expert Healer
-1104	Carl Moramir	0440	0	0	0	1263	12	0	0	0	0	0	0	0	0	Master Healer
-1105	Vance Cornelius	0438	0	0	0	1318	13	0	0	0	0	0	0	0	0	Teacher
-1106	Norris Horton	0437	0	0	0	1398	24	0	0	0	0	0	0	0	0	barrister
-1107	Stile Bloke	0436	0	0	0	1407	15	0	0	0	0	0	0	0	0	Arms Master
+1093	Slovang Arcanos	0453	0	0	0	1216	1	0	1	0	0	0	0	0	0	Smith
+1094	Brian Telemere	0452	0	0	0	1231	2	0	1	0	0	0	0	0	0	Armorer
+1095	Ken Chomais	0451	0	0	0	1217	3	0	1	0	0	0	0	0	0	Alchemist
+1096	Christian Vela	0450	0	0	0	1232	4	0	1	0	0	0	0	0	0	Scholar
+1097	Michael Tuck	0449	0	0	0	1247	5	0	1	0	0	0	0	0	0	Guide
+1098	Anthony Hargraine	0447	0	0	0	1276	6	0	1	0	0	0	0	0	0	Tracker
+1099	Miles Loman	0446	0	0	0	1305	7	0	1	0	0	0	0	0	0	Pathfinder
+1100	Zeke Magellan	0444	0	0	0	1329	8	0	1	0	0	0	0	0	0	Sailor
+1101	Tyger Helms	0443	0	0	0	1353	9	0	1	0	0	0	0	0	0	Navigator
+1102	Wolf Armstrong	0442	0	0	0	1364	10	0	1	0	0	0	0	0	0	Healer
+1103	Rockwell Humdring	0441	0	0	0	1277	11	0	1	0	0	0	0	0	0	Expert Healer
+1104	Carl Moramir	0440	0	0	0	1263	12	0	1	0	0	0	0	0	0	Master Healer
+1105	Vance Cornelius	0438	0	0	0	1318	13	0	1	0	0	0	0	0	0	Teacher
+1106	Norris Horton	0437	0	0	0	1398	24	0	1	0	0	0	0	0	0	barrister
+1107	Stile Bloke	0436	0	0	0	1407	15	0	1	0	0	0	0	0	0	Arms Master
 1108	Abdul	0230	0	0	0	1602	0	0	0	1437	1438	0	0	0	0	Abdul (B3)
 1109	Najat Ramadi	0237	0	0	0	1604	0	0	0	1439	1442	1445	0	0	0	Armor Pyramid (B3)
-1110	Hans Schultz	0433	0	0	0	1481	18	0	0	0	0	0	0	0	0	Mystic
-1111	Donald Dorfus	0432	0	0	0	1509	19	0	0	0	0	0	0	0	0	Spell Master
-1112	Richard Harp	0431	0	0	0	1516	20	0	0	0	0	0	0	0	0	Trader
-1113	Stephen Iago	0430	0	0	0	1519	21	0	0	0	0	0	0	0	0	Merchant
+1110	Hans Schultz	0433	0	0	0	1481	18	0	1	0	0	0	0	0	0	Mystic
+1111	Donald Dorfus	0432	0	0	0	1509	19	0	1	0	0	0	0	0	0	Spell Master
+1112	Richard Harp	0431	0	0	0	1516	20	0	1	0	0	0	0	0	0	Trader
+1113	Stephen Iago	0430	0	0	0	1519	21	0	1	0	0	0	0	0	0	Merchant
 1114	Lawrence Aleman	0429	0	0	0	1540	0	0	0	1426	0	0	0	0	0	Temple Gong buyer (C2)
 1115	Terry Ros	0428	0	0	0	1436	19	0	0	1435	0	0	0	0	0	Lich Book Quest (C3)
-1116	Alex Morrow	0427	0	0	0	1445	25	0	0	0	0	0	0	0	0	Barrister
-1117	Castor Lithgow	0426	0	0	0	1346	24	0	0	0	0	0	0	0	0	Tinker
-1118	Egor Ivanovich	0425	0	0	0	1420	28	0	0	0	0	0	0	0	0	Locksmith
-1119	Jacques Roscomon	0424	0	0	0	1428	27	0	0	0	0	0	0	0	0	Fool
-1120	Shiela Wind	0423	0	0	0	1527	26	0	0	0	0	0	0	0	0	Chimney Sweep
-1121	Bronwyn Blue	0422	0	0	0	1529	29	0	0	0	0	0	0	0	0	Porter
-1122	Daniel Forosmini	0421	0	0	0	1541	30	0	0	0	0	0	0	0	0	Quarter Master
-1123	Bejamin Sotherland	0420	0	0	0	1431	31	0	0	0	0	0	0	0	0	Factor
-1124	Harold Amwen	0419	0	0	0	1440	32	0	0	0	0	0	0	0	0	Banker
-1125	Leo Grant	0418	0	0	0	1449	33	0	0	0	0	0	0	0	0	Cook
-1126	Lorn Hammer	0417	0	0	0	1457	34	0	0	0	0	0	0	0	0	Chef
-1127	David Pike	0416	0	0	0	1464	35	0	0	0	0	0	0	0	0	Horseman
-1128	Barry Shepherd	0415	0	0	0	1414	36	0	0	0	0	0	0	0	0	Bard
-1129	Robin Lang	0414	0	0	0	1423	37	0	0	0	0	0	0	0	0	Enchanter
-1130	Dom Malikto	0413	0	0	0	1432	38	0	0	0	0	0	0	0	0	Cartographer
-1131	Josef Logger	0412	0	0	0	1441	39	0	0	0	0	0	0	0	0	Wind Master
-1132	Jult Bandito	0411	0	0	0	1450	40	0	0	0	0	0	0	0	0	Water Master
-1133	Piter Harkonnen	0410	0	0	0	1458	41	0	0	0	0	0	0	0	0	Gate Master
-1134	Saul Fogg	0409	0	0	0	1465	42	0	0	0	0	0	0	0	0	Acolyte
-1135	Arther Jelnic	0408	0	0	0	1470	43	0	0	0	0	0	0	0	0	Piper
-1136	Abe Markoviac	0407	0	0	0	1475	44	0	0	0	0	0	0	0	0	Explorer
-1137	Shel Stineway	0406	0	0	0	1480	45	0	0	0	0	0	0	0	0	Pirate
-1138	Les Parker	0405	0	0	0	1485	46	0	0	0	0	0	0	0	0	Squire
-1139	Ray Boswell	0404	0	0	0	1490	47	0	0	0	0	0	0	0	0	Psychic
-1140	Sly Silverstone	0403	0	0	0	1495	48	0	0	0	0	0	0	0	0	Gypsy
-1141	Marc Teagan	0402	0	0	0	1500	49	0	0	0	0	0	0	0	0	Negotiator
-1142	Harper Nike	0401	0	0	0	1504	50	0	0	0	0	0	0	0	0	Duper
-1143	Trevor Jones	0400	0	0	0	1508	51	0	0	0	0	0	0	0	0	Burglar
-1144	Gerrold Dane	0399	0	0	0	1512	52	0	0	0	0	0	0	0	0	Peasant
-1145	Peace Stringer	0398	0	0	0	1515	53	0	0	0	0	0	0	0	0	Serf
-1146	Trent Jameson	0397	0	0	0	1518	54	0	0	0	0	0	0	0	0	Tailor
-1147	Yves Meeks	0396	0	0	0	1521	55	0	0	0	0	0	0	0	0	Laborer
-1148	Dean Frimple	0395	0	0	0	1551	56	0	0	0	0	0	0	0	0	Farmer
-1149	Lisa Janway	0394	0	0	0	1552	57	0	0	0	0	0	0	0	0	Cooper
-1150	Tor Brock	0393	0	0	0	1553	58	0	0	0	0	0	0	0	0	Potter
-1151	Cheryl Ahmanson	0392	0	0	0	1554	59	0	0	0	0	0	0	0	0	Weaver
-1152	Lyle Roma	0391	0	0	0	1555	75	0	0	0	0	0	0	0	0	noble
+1116	Alex Morrow	0427	0	0	0	1445	25	0	1	0	0	0	0	0	0	Barrister
+1117	Castor Lithgow	0426	0	0	0	1346	24	0	1	0	0	0	0	0	0	Tinker
+1118	Egor Ivanovich	0425	0	0	0	1420	28	0	1	0	0	0	0	0	0	Locksmith
+1119	Jacques Roscomon	0424	0	0	0	1428	27	0	1	0	0	0	0	0	0	Fool
+1120	Shiela Wind	0423	0	0	0	1527	26	0	1	0	0	0	0	0	0	Chimney Sweep
+1121	Bronwyn Blue	0422	0	0	0	1529	29	0	1	0	0	0	0	0	0	Porter
+1122	Daniel Forosmini	0421	0	0	0	1541	30	0	1	0	0	0	0	0	0	Quarter Master
+1123	Bejamin Sotherland	0420	0	0	0	1431	31	0	1	0	0	0	0	0	0	Factor
+1124	Harold Amwen	0419	0	0	0	1440	32	0	1	0	0	0	0	0	0	Banker
+1125	Leo Grant	0418	0	0	0	1449	33	0	1	0	0	0	0	0	0	Cook
+1126	Lorn Hammer	0417	0	0	0	1457	34	0	1	0	0	0	0	0	0	Chef
+1127	David Pike	0416	0	0	0	1464	35	0	1	0	0	0	0	0	0	Horseman
+1128	Barry Shepherd	0415	0	0	0	1414	36	0	1	0	0	0	0	0	0	Bard
+1129	Robin Lang	0414	0	0	0	1423	37	0	1	0	0	0	0	0	0	Enchanter
+1130	Dom Malikto	0413	0	0	0	1432	38	0	1	0	0	0	0	0	0	Cartographer
+1131	Josef Logger	0412	0	0	0	1441	39	0	1	0	0	0	0	0	0	Wind Master
+1132	Jult Bandito	0411	0	0	0	1450	40	0	1	0	0	0	0	0	0	Water Master
+1133	Piter Harkonnen	0410	0	0	0	1458	41	0	1	0	0	0	0	0	0	Gate Master
+1134	Saul Fogg	0409	0	0	0	1465	42	0	1	0	0	0	0	0	0	Acolyte
+1135	Arther Jelnic	0408	0	0	0	1470	43	0	1	0	0	0	0	0	0	Piper
+1136	Abe Markoviac	0407	0	0	0	1475	44	0	1	0	0	0	0	0	0	Explorer
+1137	Shel Stineway	0406	0	0	0	1480	45	0	1	0	0	0	0	0	0	Pirate
+1138	Les Parker	0405	0	0	0	1485	46	0	1	0	0	0	0	0	0	Squire
+1139	Ray Boswell	0404	0	0	0	1490	47	0	1	0	0	0	0	0	0	Psychic
+1140	Sly Silverstone	0403	0	0	0	1495	48	0	1	0	0	0	0	0	0	Gypsy
+1141	Marc Teagan	0402	0	0	0	1500	49	0	1	0	0	0	0	0	0	Negotiator
+1142	Harper Nike	0401	0	0	0	1504	50	0	1	0	0	0	0	0	0	Duper
+1143	Trevor Jones	0400	0	0	0	1508	51	0	1	0	0	0	0	0	0	Burglar
+1144	Gerrold Dane	0399	0	0	0	1512	52	0	1	0	0	0	0	0	0	Peasant
+1145	Peace Stringer	0398	0	0	0	1515	53	0	1	0	0	0	0	0	0	Serf
+1146	Trent Jameson	0397	0	0	0	1518	54	0	1	0	0	0	0	0	0	Tailor
+1147	Yves Meeks	0396	0	0	0	1521	55	0	1	0	0	0	0	0	0	Laborer
+1148	Dean Frimple	0395	0	0	0	1551	56	0	1	0	0	0	0	0	0	Farmer
+1149	Lisa Janway	0394	0	0	0	1552	57	0	1	0	0	0	0	0	0	Cooper
+1150	Tor Brock	0393	0	0	0	1553	58	0	1	0	0	0	0	0	0	Potter
+1151	Cheryl Ahmanson	0392	0	0	0	1554	59	0	1	0	0	0	0	0	0	Weaver
+1152	Lyle Roma	0391	0	0	0	1555	75	0	1	0	0	0	0	0	0	noble
 1153	Renee Blackburn	0390	0	0	0	1556	0	0	0	1430	0	0	0	0	0	Golden Pyramid Buyer (C2)
 1154	Lon Miller	0389	0	0	0	1557	0	0	0	1427	0	0	0	0	0	Bone Buyer (C2)
 1155	Davis Carp	0388	0	0	0	1558	0	0	0	1428	0	0	0	0	0	Lodestone Buyer (C2)
 1156	Nick Fenster	0387	0	0	0	1559	0	0	0	1431	0	0	0	0	0	Keg of Wine Buyer (C2)
 1157	Sy Roth	0386	0	0	0	1560	0	0	0	1432	0	0	0	0	0	Tooth Buyer (C2)
-1158	Mort Arnosti	0385	0	0	0	1561	66	0	0	0	0	0	0	0	0	Trapper
+1158	Mort Arnosti	0385	0	0	0	1561	66	0	1	0	0	0	0	0	0	Trapper
 1159	Geoff Southy	0383	0	0	0	1562	0	0	0	1433	0	0	0	0	0	Four Leaf Clover Buyer (C2)
 1160	Dillan Robinson	0382	0	0	0	1563	0	0	0	1434	0	0	0	0	0	Amber Buyer (C2)
-1161	Ian Trom	0380	0	0	0	1408	20	0	0	0	0	0	0	0	0	locksmith
-1162	Darth Cartwright	0379	0	0	0	1408	16	0	0	0	0	0	0	0	0	weapons master
-1163	Jason Duster	0378	0	0	0	1417	37	0	0	0	0	0	0	0	0	enchanter
-1164	Paul Hapsburg	0377	0	0	0	1417	12	0	0	0	0	0	0	0	0	master healer
+1161	Ian Trom	0380	0	0	0	1408	20	0	1	0	0	0	0	0	0	locksmith
+1162	Darth Cartwright	0379	0	0	0	1408	16	0	1	0	0	0	0	0	0	weapons master
+1163	Jason Duster	0378	0	0	0	1417	37	0	1	0	0	0	0	0	0	enchanter
+1164	Paul Hapsburg	0377	0	0	0	1417	12	0	1	0	0	0	0	0	0	master healer
 1165	Kerman Murian	0227	0	0	0	1603	0	0	0	1440	1443	1446	0	0	0	Weapon Trader (B3)
 1166	Irbil Baktarian	0075	0	0	0	1605	0	0	0	1441	1444	1447	0	0	0	Misc Trader (B3)
-1167	Tracy Neather	0370	0	0	0	1340	75	0	0	0	0	0	0	0	0	Noble
-1168	Ty Cognac	0364	0	0	0	1352	76	0	0	0	0	0	0	0	0	Gambler
-1169	Joy Brown	0354	0	0	0	1363	1	0	0	0	0	0	0	0	0	Smith
-1170	Larry Dorfmann	0352	0	0	0	1374	2	0	0	0	0	0	0	0	0	Armorer
-1171	Nero Claudius	0351	0	0	0	1385	3	0	0	0	0	0	0	0	0	Alchemist
-1172	Drusis Tiberio	0350	0	0	0	1395	4	0	0	0	0	0	0	0	0	Scholar
-1173	Iris Amble	0347	0	0	0	1405	5	0	0	0	0	0	0	0	0	Guide
-1174	Candice Streep	0341	0	0	0	1415	6	0	0	0	0	0	0	0	0	Tracker
-1175	Rus Hockwoller	0325	0	0	0	1424	7	0	0	0	0	0	0	0	0	Pathfinder
-1176	Jake Green	0308	0	0	0	1433	8	0	0	0	0	0	0	0	0	Sailor
+1167	Tracy Neather	0370	0	0	0	1340	75	0	1	0	0	0	0	0	0	Noble
+1168	Ty Cognac	0364	0	0	0	1352	76	0	1	0	0	0	0	0	0	Gambler
+1169	Joy Brown	0354	0	0	0	1363	1	0	1	0	0	0	0	0	0	Smith
+1170	Larry Dorfmann	0352	0	0	0	1374	2	0	1	0	0	0	0	0	0	Armorer
+1171	Nero Claudius	0351	0	0	0	1385	3	0	1	0	0	0	0	0	0	Alchemist
+1172	Drusis Tiberio	0350	0	0	0	1395	4	0	1	0	0	0	0	0	0	Scholar
+1173	Iris Amble	0347	0	0	0	1405	5	0	1	0	0	0	0	0	0	Guide
+1174	Candice Streep	0341	0	0	0	1415	6	0	1	0	0	0	0	0	0	Tracker
+1175	Rus Hockwoller	0325	0	0	0	1424	7	0	1	0	0	0	0	0	0	Pathfinder
+1176	Jake Green	0308	0	0	0	1433	8	0	1	0	0	0	0	0	0	Sailor
 1177	Blaze the Circus Master	1027	0	0	0	1595	0	0	0	1417	1418	0	0	0	0	Circus Master
 1178	Sir William Tarquin	0994	0	0	0	1596	0	0	0	1419	1420	0	0	0	0	Might Game
 1179	Pip Darkstone	1012	0	0	0	1597	0	0	0	1419	1421	0	0	0	0	Endurance Game

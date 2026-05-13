@@ -44,10 +44,10 @@
 42	7	Armor Shop	13	97	Karr Battlegear	Karr	Armorsmith	1076	0	0	0	4	2		28			6	18	0	0	0	0
 43	8	Armor Shop	62	174	Erik's Armory	Erik	Armorsmith	0537	0	0	0	1.5	1		7			6	18	0	0	0	0
 44	9	Armor Shop	62	174	Castle Deadwood	Placeholder		0537	0	0	0	1.5	1			1		6	18	0	0	0	0
-45	10	Armor Shop	62	330	Placeholder	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
+45	10	Armor Shop	62	324	Nighon tunnels	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
 46	11	Armor Shop	62	174	Placeholder	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
 47	12	Armor Shop	63	174	The Peasant's Smithy	Peter	Armorsmith	0537	0	0	0	1.5	1		14			6	18	0	0	0	0
-48	13	Armor Shop	62	324	Placeholder	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
+48	13	Armor Shop	62	330	Tunnels to Eeofol	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
 49	14	Armor Shop	64	174	Queen Catherine's Smithy	David	Armorsmith	0537	0	0	0	2	1		21			6	18	0	0	0	0
 50	15	Armor Shop	62	174	Placeholder	Placeholder		0537	0	0	0	1.5	1					6	18	0	0	0	0
 51	16	Armor Shop	65	179	Buckskins and Bucklers	Sable	Armorsmith	0541	0	0	0	2	1		21			6	18	0	0	0	0

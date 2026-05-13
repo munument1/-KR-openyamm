@@ -39,9 +39,9 @@ RegisterEvent(2, "Legacy event 2", function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(3, "Oracle", function()
+RegisterEvent(3, "The Oracle", function()
     evt.EnterHouse(451) -- The Oracle
-end, "Oracle")
+end, "The Oracle")
 
 RegisterEvent(4, "Legacy event 4", function()
     evt.SetDoorState(2, DoorAction.Open)

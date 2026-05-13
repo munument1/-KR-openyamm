@@ -16,29 +16,29 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Drink from Trough.", function()
+RegisterEvent(2, "The Sharpening Stone", function()
     evt.EnterHouse(28) -- The Sharpening Stone
-end, "Drink from Trough.")
+end, "The Sharpening Stone")
 
-RegisterEvent(3, "Drink from Trough.", nil, "Drink from Trough.")
+RegisterEvent(3, "The Sharpening Stone", nil, "The Sharpening Stone")
 
-RegisterEvent(4, "Hic…", function()
+RegisterEvent(4, "Feathers and String", function()
     evt.EnterHouse(29) -- Feathers and String
-end, "Hic…")
+end, "Feathers and String")
 
-RegisterEvent(5, "Hic…", nil, "Hic…")
+RegisterEvent(5, "Feathers and String", nil, "Feathers and String")
 
-RegisterEvent(6, "Darkmoor", function()
+RegisterEvent(6, "The Foundry", function()
     evt.EnterHouse(67) -- The Foundry
-end, "Darkmoor")
+end, "The Foundry")
 
-RegisterEvent(7, "Darkmoor", nil, "Darkmoor")
+RegisterEvent(7, "The Foundry", nil, "The Foundry")
 
-RegisterEvent(8, "Whitecap", function()
+RegisterEvent(8, "The Footman's Friend", function()
     evt.EnterHouse(72) -- The Footman's Friend
-end, "Whitecap")
+end, "The Footman's Friend")
 
-RegisterEvent(9, "Whitecap", nil, "Whitecap")
+RegisterEvent(9, "The Footman's Friend", nil, "The Footman's Friend")
 
 RegisterEvent(10, "Alchemy and Incantations", function()
     evt.EnterHouse(107) -- Alchemy and Incantations
@@ -211,21 +211,21 @@ end, "The Sorcerer's Shoppe")
 
 RegisterEvent(55, "The Sorcerer's Shoppe", nil, "The Sorcerer's Shoppe")
 
-RegisterEvent(56, "Blackshire", function()
+RegisterEvent(56, "House", function()
     evt.EnterHouse(1221) -- House
-end, "Blackshire")
+end, "House")
 
-RegisterEvent(57, "Guild of Mind", function()
+RegisterEvent(57, "House", function()
     evt.EnterHouse(1236) -- House
-end, "Guild of Mind")
+end, "House")
 
-RegisterEvent(58, "The stone cutter and carpenter begin rebuilding the temple.", function()
+RegisterEvent(58, "House", function()
     evt.EnterHouse(1251) -- House
-end, "The stone cutter and carpenter begin rebuilding the temple.")
+end, "House")
 
-RegisterEvent(59, "You hand the Sacred Chalice to the monks of the temple who ensconce it in the main altar.", function()
+RegisterEvent(59, "House", function()
     evt.EnterHouse(1266) -- House
-end, "You hand the Sacred Chalice to the monks of the temple who ensconce it in the main altar.")
+end, "House")
 
 RegisterEvent(60, "House", function()
     evt.EnterHouse(1281) -- House
@@ -415,57 +415,57 @@ RegisterEvent(106, "House", function()
     evt.EnterHouse(1550) -- House
 end, "House")
 
-RegisterEvent(107, "Drink from Trough.", function()
+RegisterEvent(107, "House", function()
     evt.EnterHouse(1551) -- House
-end, "Drink from Trough.")
+end, "House")
 
-RegisterEvent(108, "Hic…", function()
+RegisterEvent(108, "House", function()
     evt.EnterHouse(1552) -- House
-end, "Hic…")
+end, "House")
 
-RegisterEvent(109, "Refreshing!", function()
+RegisterEvent(109, "House", function()
     evt.EnterHouse(1553) -- House
-end, "Refreshing!")
+end, "House")
 
-RegisterEvent(110, "Free Haven", function()
+RegisterEvent(110, "House", function()
     evt.EnterHouse(1554) -- House
-end, "Free Haven")
+end, "House")
 
-RegisterEvent(111, "Shrine of Accuracy", function()
+RegisterEvent(111, "House", function()
     evt.EnterHouse(1555) -- House
-end, "Shrine of Accuracy")
+end, "House")
 
-RegisterEvent(112, "You pray at the shrine.", function()
+RegisterEvent(112, "House", function()
     evt.EnterHouse(1556) -- House
-end, "You pray at the shrine.")
+end, "House")
 
-RegisterEvent(113, "+10 Accuracy permanent", function()
+RegisterEvent(113, "House", function()
     evt.EnterHouse(1557) -- House
-end, "+10 Accuracy permanent")
+end, "House")
 
-RegisterEvent(114, "+3 Accuracy permanent", function()
+RegisterEvent(114, "House", function()
     evt.EnterHouse(1558) -- House
-end, "+3 Accuracy permanent")
+end, "House")
 
-RegisterEvent(115, "The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            lg____gtS_cln;__", function()
+RegisterEvent(115, "House", function()
     evt.EnterHouse(1559) -- House
-end, "The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            lg____gtS_cln;__")
+end, "House")
 
-RegisterEvent(116, "Obelisk", function()
+RegisterEvent(116, "House", function()
     evt.EnterHouse(1560) -- House
-end, "Obelisk")
+end, "House")
 
-RegisterEvent(117, "Free Haven", function()
+RegisterEvent(117, "House", function()
     evt.EnterHouse(1561) -- House
-end, "Free Haven")
+end, "House")
 
-RegisterEvent(118, "Castle Temper", function()
+RegisterEvent(118, "House", function()
     evt.EnterHouse(1562) -- House
-end, "Castle Temper")
+end, "House")
 
-RegisterEvent(119, "Temple of Baa", function()
+RegisterEvent(119, "House", function()
     evt.EnterHouse(1563) -- House
-end, "Temple of Baa")
+end, "House")
 
 RegisterEvent(120, "Chest", function()
     evt.OpenChest(1)

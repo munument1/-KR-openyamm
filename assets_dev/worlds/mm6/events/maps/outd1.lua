@@ -17,11 +17,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "+2 Speed permanent.", function()
+RegisterEvent(2, "Abdul's Discount Weapons", function()
     evt.EnterHouse(31) -- Abdul's Discount Weapons
-end, "+2 Speed permanent.")
+end, "Abdul's Discount Weapons")
 
-RegisterEvent(3, "+2 Speed permanent.", nil, "+2 Speed permanent.")
+RegisterEvent(3, "Abdul's Discount Weapons", nil, "Abdul's Discount Weapons")
 
 RegisterEvent(4, "Abdul's Discount Armor", function()
     evt.EnterHouse(69) -- Abdul's Discount Armor

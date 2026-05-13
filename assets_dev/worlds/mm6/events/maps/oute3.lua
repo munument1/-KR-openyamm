@@ -40,11 +40,11 @@ end, "New Sorpigal Temple")
 
 RegisterEvent(4, "New Sorpigal Temple", nil, "New Sorpigal Temple")
 
-RegisterEvent(5, "+5 Spell points restored.", function()
+RegisterEvent(5, "The Common Defense", function()
     evt.EnterHouse(62) -- The Common Defense
-end, "+5 Spell points restored.")
+end, "The Common Defense")
 
-RegisterEvent(6, "+5 Spell points restored.", nil, "+5 Spell points restored.")
+RegisterEvent(6, "The Common Defense", nil, "The Common Defense")
 
 RegisterEvent(7, "Savings House", function()
     evt.EnterHouse(297) -- Savings House
@@ -76,11 +76,11 @@ end, "New Sorpigal Coach Company")
 
 RegisterEvent(16, "New Sorpigal Coach Company", nil, "New Sorpigal Coach Company")
 
-RegisterEvent(17, "New Sorpigal", function()
+RegisterEvent(17, "The Knife Shoppe", function()
     evt.EnterHouse(22) -- The Knife Shoppe
-end, "New Sorpigal")
+end, "The Knife Shoppe")
 
-RegisterEvent(18, "New Sorpigal", nil, "New Sorpigal")
+RegisterEvent(18, "The Knife Shoppe", nil, "The Knife Shoppe")
 
 RegisterEvent(19, "Blades' End", function()
     evt.EnterHouse(197) -- Blades' End

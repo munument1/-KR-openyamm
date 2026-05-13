@@ -737,7 +737,7 @@ Global Text
 734	he									
 735	she									
 736	him									
-737	This copy of Might and Magic VIII is unregistered.  Please call Peter Ryu at New World Computing: 818-889-5600 ext: 219									
+737	You feel high magic presence here.									
 738	Click the Dismiss button again to Dismiss this character...									
 739	"You cannot save a game called 'Empty'
 Please rename this save before continuing…"									

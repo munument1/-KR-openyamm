@@ -385,9 +385,9 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(201, "prison", function()
+RegisterEvent(201, "Escaton's Throne Room", function()
     evt.EnterHouse(775) -- Escaton's Throne Room
-end, "prison")
+end, "Escaton's Throne Room")
 
 RegisterEvent(451, "Take a Drink", function()
     evt.StatusText("Refreshing")

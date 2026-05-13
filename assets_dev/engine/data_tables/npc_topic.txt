@@ -1766,7 +1766,7 @@ its own."		End deliver Fire Resistance Scrolls quest	654. James		James
 1762	Crystals					
 1763	Crystals					
 1764	Crystals					
-1765	Crystals					
+1765	Bribe					
 1766	Beg					
 1767	Threat					
 1768	Bribe					

@@ -20,17 +20,17 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Keep Off!", function()
+RegisterEvent(2, "Fine Blades", function()
     evt.EnterHouse(24) -- Fine Blades
-end, "Keep Off!")
+end, "Fine Blades")
 
-RegisterEvent(3, "Keep Off!", nil, "Keep Off!")
+RegisterEvent(3, "Fine Blades", nil, "Fine Blades")
 
-RegisterEvent(4, "+10 Hit Points restored.", function()
+RegisterEvent(4, "Metalweave Armory", function()
     evt.EnterHouse(64) -- Metalweave Armory
-end, "+10 Hit Points restored.")
+end, "Metalweave Armory")
 
-RegisterEvent(5, "+10 Hit Points restored.", nil, "+10 Hit Points restored.")
+RegisterEvent(5, "Metalweave Armory", nil, "Metalweave Armory")
 
 RegisterEvent(6, "Eye of Newt", function()
     evt.EnterHouse(101) -- Eye of Newt
@@ -139,17 +139,17 @@ RegisterEvent(45, "Queen Catherine", function()
     evt.EnterHouse(498) -- Queen Catherine
 end, "Queen Catherine")
 
-RegisterEvent(46, "Ironfist Castle", function()
+RegisterEvent(46, "The Eagle's Eye", function()
     evt.EnterHouse(25) -- The Eagle's Eye
-end, "Ironfist Castle")
+end, "The Eagle's Eye")
 
-RegisterEvent(47, "Ironfist Castle", nil, "Ironfist Castle")
+RegisterEvent(47, "The Eagle's Eye", nil, "The Eagle's Eye")
 
-RegisterEvent(48, "+3 Electricity resistance permanent", function()
+RegisterEvent(48, "Iron Defense", function()
     evt.EnterHouse(68) -- Iron Defense
-end, "+3 Electricity resistance permanent")
+end, "Iron Defense")
 
-RegisterEvent(49, "+3 Electricity resistance permanent", nil, "+3 Electricity resistance permanent")
+RegisterEvent(49, "Iron Defense", nil, "Iron Defense")
 
 RegisterEvent(50, "The Will o' Wisp", function()
     evt.EnterHouse(265) -- The Will o' Wisp
@@ -276,9 +276,9 @@ RegisterEvent(82, "Berserkers' Fury", function()
     evt.EnterHouse(202) -- Berserkers' Fury
 end, "Berserkers' Fury")
 
-RegisterEvent(83, "Castle Ironfist", function()
+RegisterEvent(83, "House", function()
     evt.EnterHouse(1387) -- House
-end, "Castle Ironfist")
+end, "House")
 
 RegisterEvent(90, "Legacy event 90", function()
     evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 169, 1, "6d03.blv") -- Shadow Guild Hideout

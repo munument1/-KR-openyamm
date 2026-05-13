@@ -18,17 +18,17 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Refreshing!", function()
+RegisterEvent(2, "Hammer and Tongs", function()
     evt.EnterHouse(23) -- Hammer and Tongs
-end, "Refreshing!")
+end, "Hammer and Tongs")
 
-RegisterEvent(3, "Refreshing!", nil, "Refreshing!")
+RegisterEvent(3, "Hammer and Tongs", nil, "Hammer and Tongs")
 
-RegisterEvent(4, "Pedestal", function()
+RegisterEvent(4, "Abraham's Metalworks", function()
     evt.EnterHouse(65) -- Abraham's Metalworks
-end, "Pedestal")
+end, "Abraham's Metalworks")
 
-RegisterEvent(5, "Pedestal", nil, "Pedestal")
+RegisterEvent(5, "Abraham's Metalworks", nil, "Abraham's Metalworks")
 
 RegisterEvent(6, "The Little Magic Shop", function()
     evt.EnterHouse(99) -- The Little Magic Shop
@@ -129,7 +129,7 @@ RegisterEvent(17, "Tsunami", function()
     evt.EnterHouse(505) -- Tsunami
 end, "Tsunami")
 
-RegisterEvent(18, "Obelisk", function()
+RegisterEvent(18, "Tent", function()
     if IsAtLeast(DayOfYear, 308) then
         evt.EnterHouse(1596) -- Tent
     elseif IsAtLeast(DayOfYear, 309) then
@@ -190,9 +190,9 @@ RegisterEvent(18, "Obelisk", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "Obelisk")
+end, "Tent")
 
-RegisterEvent(19, "Freehaven", function()
+RegisterEvent(19, "Tent", function()
     if IsAtLeast(DayOfYear, 308) then
         evt.EnterHouse(1598) -- Tent
     elseif IsAtLeast(DayOfYear, 309) then
@@ -253,7 +253,7 @@ RegisterEvent(19, "Freehaven", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "Freehaven")
+end, "Tent")
 
 RegisterEvent(20, "Tent", function()
     if IsAtLeast(DayOfYear, 308) then
@@ -318,7 +318,7 @@ RegisterEvent(20, "Tent", function()
     end
 end, "Tent")
 
-RegisterEvent(21, "Ironfist Castle", function()
+RegisterEvent(21, "Wagon", function()
     if IsAtLeast(DayOfYear, 308) then
         evt.EnterHouse(1597) -- Wagon
     elseif IsAtLeast(DayOfYear, 309) then
@@ -379,9 +379,9 @@ RegisterEvent(21, "Ironfist Castle", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "Ironfist Castle")
+end, "Wagon")
 
-RegisterEvent(22, "Circus (Winter)", function()
+RegisterEvent(22, "Wagon", function()
     if IsAtLeast(DayOfYear, 308) then
         evt.EnterHouse(1599) -- Wagon
     elseif IsAtLeast(DayOfYear, 309) then
@@ -442,9 +442,9 @@ RegisterEvent(22, "Circus (Winter)", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "Circus (Winter)")
+end, "Wagon")
 
-RegisterEvent(23, "Drink from Fountain", function()
+RegisterEvent(23, "Wagon", function()
     if IsAtLeast(DayOfYear, 308) then
         evt.EnterHouse(1600) -- Wagon
     elseif IsAtLeast(DayOfYear, 309) then
@@ -505,7 +505,7 @@ RegisterEvent(23, "Drink from Fountain", function()
         evt.StatusText("No one is here.  The Circus has moved.")
         return
     end
-end, "Drink from Fountain")
+end, "Wagon")
 
 RegisterEvent(24, "Ironfist Castle", function()
     evt.StatusText("Ironfist Castle")
@@ -583,17 +583,17 @@ RegisterEvent(90, "Legacy event 90", function()
     evt.MoveToMap(-1792, -19, 1, 0, 0, 0, 172, 1, "6d04.blv") -- Hall of the Fire Lord
 end)
 
-RegisterEvent(91, "Drink from Well.", function()
+RegisterEvent(91, "Temple of the Fist", function()
     evt.MoveToMap(0, -2231, 513, 512, 0, 0, 167, 1, "6t2.blv") -- Temple of the Fist
-end, "Drink from Well.")
+end, "Temple of the Fist")
 
-RegisterEvent(92, "Drink from Well.", function()
+RegisterEvent(92, "Temple of the Sun", function()
     evt.MoveToMap(-3258, 483, 49, 0, 0, 0, 173, 1, "6t4.blv") -- Temple of the Sun
-end, "Drink from Well.")
+end, "Temple of the Sun")
 
-RegisterEvent(93, "Drink from Well.", function()
+RegisterEvent(93, "Temple of Tsantsa", function()
     evt.MoveToMap(2817, -4748, -639, 512, 0, 0, 170, 1, "6t3.blv") -- Temple of Tsantsa
-end, "Drink from Well.")
+end, "Temple of Tsantsa")
 
 RegisterEvent(94, "Temple Baa", function()
     evt.EnterHouse(334) -- Temple Baa

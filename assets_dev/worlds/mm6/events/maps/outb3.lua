@@ -21,37 +21,37 @@ SetMapMetadata({
 
 RegisterNoOpEvent(1, "rock", "rock")
 
-RegisterEvent(50, "+50 Hit points temporary.", function()
+RegisterEvent(50, "House", function()
     evt.EnterHouse(1366) -- House
-end, "+50 Hit points temporary.")
+end, "House")
 
-RegisterEvent(51, "Refreshing!", function()
+RegisterEvent(51, "House", function()
     evt.EnterHouse(1377) -- House
-end, "Refreshing!")
+end, "House")
 
-RegisterEvent(52, "Chest", function()
+RegisterEvent(52, "House", function()
     evt.EnterHouse(1388) -- House
-end, "Chest")
+end, "House")
 
-RegisterEvent(53, "+20 to all stats permanent.", function()
+RegisterEvent(53, "House", function()
     evt.EnterHouse(1398) -- House
-end, "+20 to all stats permanent.")
+end, "House")
 
-RegisterEvent(54, "Dragonsand", function()
+RegisterEvent(54, "House", function()
     evt.EnterHouse(1408) -- House
-end, "Dragonsand")
+end, "House")
 
-RegisterEvent(55, "Shrine of Magic", function()
+RegisterEvent(55, "House", function()
     evt.EnterHouse(1417) -- House
-end, "Shrine of Magic")
+end, "House")
 
-RegisterEvent(56, "You pray at the shrine.", function()
+RegisterEvent(56, "Tent", function()
     evt.EnterHouse(1602) -- Tent
-end, "You pray at the shrine.")
+end, "Tent")
 
-RegisterEvent(57, "+10 Magic resistance permanent", function()
+RegisterEvent(57, "Tent", function()
     evt.EnterHouse(1604) -- Tent
-end, "+10 Magic resistance permanent")
+end, "Tent")
 
 RegisterEvent(58, "Tent", function()
     evt.EnterHouse(1603) -- Tent

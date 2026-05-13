@@ -21,17 +21,17 @@ SetMapMetadata({
 
 RegisterNoOpEvent(1, "Tree", "Tree")
 
-RegisterEvent(2, "Drink from Fountain.", function()
+RegisterEvent(2, "Arm's Length Spear Shop", function()
     evt.EnterHouse(26) -- Arm's Length Spear Shop
-end, "Drink from Fountain.")
+end, "Arm's Length Spear Shop")
 
-RegisterEvent(3, "Drink from Fountain.", nil, "Drink from Fountain.")
+RegisterEvent(3, "Arm's Length Spear Shop", nil, "Arm's Length Spear Shop")
 
-RegisterEvent(4, "You pray at the shrine.", function()
+RegisterEvent(4, "Armor Emporium", function()
     evt.EnterHouse(63) -- Armor Emporium
-end, "You pray at the shrine.")
+end, "Armor Emporium")
 
-RegisterEvent(5, "You pray at the shrine.", nil, "You pray at the shrine.")
+RegisterEvent(5, "Armor Emporium", nil, "Armor Emporium")
 
 RegisterEvent(6, "Witch's Brew", function()
     evt.EnterHouse(98) -- Witch's Brew
