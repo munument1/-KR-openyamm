@@ -1124,8 +1124,13 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
             if (pEventRuntimeState != nullptr && pNpcDialogTable != nullptr && pNpcProfessionTable != nullptr)
             {
+                const Party *pParty = context.partyReadOnly();
                 const std::vector<HiredNpcFollowerView> followerViews =
-                    buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable);
+                    buildHiredNpcFollowerViews(
+                        *pEventRuntimeState,
+                        pParty,
+                        *pNpcDialogTable,
+                        *pNpcProfessionTable);
 
                 const size_t followerIndex =
                     context.interactionState().followerPanelScrollOffset + *followerSlotIndex;

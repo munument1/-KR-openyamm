@@ -1167,22 +1167,7 @@ size_t utilityOverlayMaxLloydBeaconSlots(const Character *pCharacter)
 
 std::string formatUtilityDurationText(float remainingSeconds)
 {
-    const int totalSeconds = std::max(0, static_cast<int>(std::ceil(remainingSeconds)));
-    const int totalHours = (totalSeconds + 3599) / 3600;
-    const int days = totalHours / 24;
-    const int hours = totalHours % 24;
-
-    if (days > 0 && hours > 0)
-    {
-        return std::to_string(days) + "d " + std::to_string(hours) + "h";
-    }
-
-    if (days > 0)
-    {
-        return std::to_string(days) + "d";
-    }
-
-    return std::to_string(std::max(1, totalHours)) + "h";
+    return lloydsBeaconRemainingDurationText(remainingSeconds);
 }
 
 void renderHudLines(

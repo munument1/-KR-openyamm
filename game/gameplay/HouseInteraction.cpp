@@ -1812,6 +1812,7 @@ HouseActionResult performHouseAction(
             if (pWorldRuntime != nullptr)
             {
                 pWorldRuntime->advanceGameMinutes(PrisonSentenceMinutes);
+                party.advanceTimedStates(PrisonSentenceMinutes * 60.0f);
             }
 
             result.messages.push_back("You have served one year in prison.");
@@ -2020,7 +2021,9 @@ HouseActionResult performHouseAction(
             const int travelDays =
                 adjustedTransportTravelDays(route, pEventRuntimeState, !isBoatHouse(houseEntry));
             const float beforeGameMinutes = pWorldRuntime->gameMinutes();
-            pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays * MinutesPerDay));
+            const float travelMinutes = static_cast<float>(travelDays * MinutesPerDay);
+            pWorldRuntime->advanceGameMinutes(travelMinutes);
+            party.advanceTimedStates(travelMinutes * 60.0f);
             const float afterGameMinutes = pWorldRuntime->gameMinutes();
 
             EventRuntimeState::PendingMapMove pendingMapMove = {};
@@ -2053,7 +2056,7 @@ HouseActionResult performHouseAction(
                 "game_time_advanced source=\"" + pendingMapMove.traceSourceKind + "\""
                 + " source_id=" + std::to_string(houseEntry.id)
                 + " action_id=" + std::to_string(static_cast<uint32_t>(action.id))
-                + " minutes=" + std::to_string(static_cast<float>(travelDays * MinutesPerDay))
+                + " minutes=" + std::to_string(travelMinutes)
                 + " before_game_minutes=" + std::to_string(beforeGameMinutes)
                 + " after_game_minutes=" + std::to_string(afterGameMinutes)
                 + " game_minutes=" + std::to_string(afterGameMinutes));

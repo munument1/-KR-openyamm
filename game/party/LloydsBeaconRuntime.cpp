@@ -3,6 +3,8 @@
 #include "game/party/Party.h"
 
 #include <algorithm>
+#include <cmath>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -61,5 +63,29 @@ float lloydsBeaconDurationSeconds(uint32_t waterSkillLevel)
 {
     const uint32_t clampedSkillLevel = std::max<uint32_t>(1, waterSkillLevel);
     return static_cast<float>(clampedSkillLevel) * 7.0f * 24.0f * 60.0f * 60.0f;
+}
+
+std::string lloydsBeaconRemainingDurationText(float remainingSeconds)
+{
+    constexpr int SecondsPerMinute = 60;
+    constexpr int SecondsPerHour = 60 * SecondsPerMinute;
+    constexpr int SecondsPerDay = 24 * SecondsPerHour;
+
+    const int totalSeconds = std::max(0, static_cast<int>(std::floor(remainingSeconds)));
+    const int days = totalSeconds / SecondsPerDay;
+
+    if (days > 0)
+    {
+        return std::to_string(days) + "d";
+    }
+
+    const int hours = totalSeconds / SecondsPerHour;
+
+    if (hours > 0)
+    {
+        return std::to_string(hours) + "h";
+    }
+
+    return std::to_string(std::max(1, totalSeconds / SecondsPerMinute)) + "m";
 }
 }

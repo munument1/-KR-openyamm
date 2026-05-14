@@ -69,16 +69,18 @@ void GameMechanics::refreshCharacterBaseResources(
     const ClassMultiplierTable *pClassMultiplierTable)
 {
     (void)pClassMultiplierTable;
+    const int maxHealth = calculateEffectiveCharacterMaxHealth(character, pClassMultiplierTable);
+    const int maxSpellPoints = calculateEffectiveCharacterMaxSpellPoints(character, pClassMultiplierTable);
 
     if (restoreCurrentToMaximum)
     {
-        character.health = std::max(1, character.maxHealth);
-        character.spellPoints = std::max(0, character.maxSpellPoints);
+        character.health = maxHealth;
+        character.spellPoints = maxSpellPoints;
         return;
     }
 
-    character.health = std::clamp(character.health, 0, std::max(1, character.maxHealth));
-    character.spellPoints = std::clamp(character.spellPoints, 0, std::max(0, character.maxSpellPoints));
+    character.health = std::clamp(character.health, 0, maxHealth);
+    character.spellPoints = std::clamp(character.spellPoints, 0, maxSpellPoints);
 }
 
 std::optional<CharacterEquipPlan> GameMechanics::resolveCharacterEquipPlan(

@@ -1502,7 +1502,7 @@ IndoorCeilingSample sampleIndoorCeiling(
 
             const float height = calculateIndoorFaceHeight(*pGeometry, x, y);
 
-            if (height + FloorSlack < z)
+            if (height <= z + GeometryEpsilon)
             {
                 continue;
             }

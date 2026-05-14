@@ -1030,6 +1030,26 @@ TEST_CASE("hired follower views use runtime NPC overrides")
     CHECK_EQ(OpenYAMM::Game::hiredNpcTransportDayReduction(travelState, true), 2);
 }
 
+TEST_CASE("hired follower views include party followers missing from current map runtime")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    party.addHiredNpcFollower({WilmaCookGateMasterNpcId, GateMasterProfessionId, 2000});
+
+    const OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    const std::vector<OpenYAMM::Game::HiredNpcFollowerView> views =
+        OpenYAMM::Game::buildHiredNpcFollowerViews(
+            runtimeState,
+            &party,
+            gameData.npcDialogTable,
+            gameData.mergedNpcProfessionTable);
+
+    REQUIRE_EQ(views.size(), 1u);
+    CHECK_EQ(views.front().npcId, WilmaCookGateMasterNpcId);
+    CHECK_EQ(views.front().professionId, GateMasterProfessionId);
+    CHECK_EQ(views.front().weeklyCost, 2000u);
+}
+
 TEST_CASE("generic actor news uses actor portrait override")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -1561,10 +1581,16 @@ TEST_CASE("gate master town portal uses follower spell power")
     REQUIRE(overlay.active);
     CHECK_EQ(overlay.mode, OpenYAMM::Game::GameplayUiController::UtilitySpellOverlayMode::TownPortal);
     CHECK_EQ(overlay.skillLevelOverride, 10u);
-    CHECK_EQ(overlay.skillMasteryOverride, OpenYAMM::Game::SkillMastery::Master);
+    CHECK_EQ(overlay.skillMasteryOverride, OpenYAMM::Game::SkillMastery::Grandmaster);
     CHECK_FALSE(overlay.spendMana);
     CHECK_FALSE(overlay.applyRecovery);
     CHECK(overlay.bypassGameplayCasterValidation);
+    CHECK(overlay.bypassTownPortalFailureChecks);
+
+    OpenYAMM::Game::GameplayRuntimeActorState hostileActor = {};
+    hostileActor.hostileToParty = true;
+    hostileActor.hasDetectedParty = true;
+    harness.worldRuntime().addActor(hostileActor);
 
     OpenYAMM::Game::PartySpellCastRequest request = {};
     request.casterMemberIndex = overlay.casterMemberIndex;
@@ -1574,6 +1600,7 @@ TEST_CASE("gate master town portal uses follower spell power")
     request.spendMana = overlay.spendMana;
     request.applyRecovery = overlay.applyRecovery;
     request.bypassGameplayCasterValidation = overlay.bypassGameplayCasterValidation;
+    request.bypassTownPortalFailureChecks = overlay.bypassTownPortalFailureChecks;
     request.utilityAction = OpenYAMM::Game::PartySpellUtilityActionKind::TownPortalDestination;
     request.hasUtilityMapMove = true;
     request.utilityMapMoveMapName = "out01.odm";
@@ -4104,6 +4131,80 @@ TEST_CASE("outdoor transition map move applies travel rest food and temporary re
 
     REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
     CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("Out06.odm"));
+}
+
+TEST_CASE("zero day map transition preserves party resources and temporary effects")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    OpenYAMM::Game::MapStatsEntry currentMap = {};
+    currentMap.name = "Ravenshore";
+    currentMap.fileName = "Out02.odm";
+    currentMap.eastTransition.emplace();
+    currentMap.eastTransition->destinationMapFileName = "D18.blv";
+    currentMap.eastTransition->travelDays = 0;
+    harness.setCurrentMap(currentMap);
+
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext pendingContext = {};
+    pendingContext.kind = OpenYAMM::Game::DialogueContextKind::MapTransition;
+    pendingContext.sourceId = static_cast<uint32_t>(OpenYAMM::Game::MapBoundaryEdge::East);
+    harness.eventRuntimeState().pendingDialogueContext = pendingContext;
+
+    harness.party().addFood(10);
+    const int initialFood = harness.party().food();
+    harness.party().applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::TorchLight,
+        600.0f,
+        1,
+        0,
+        0,
+        OpenYAMM::Game::SkillMastery::None,
+        0);
+
+    OpenYAMM::Game::Character *pActiveMember = harness.party().activeMember();
+    REQUIRE(pActiveMember != nullptr);
+    pActiveMember->health = std::max(1, pActiveMember->health - 20);
+    pActiveMember->spellPoints = std::max(0, pActiveMember->spellPoints - 5);
+    pActiveMember->levelModifier = 30;
+    pActiveMember->armorClassModifier = 40;
+    pActiveMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak));
+
+    const int initialHealth = pActiveMember->health;
+    const int initialSpellPoints = pActiveMember->spellPoints;
+    const float initialGameMinutes = harness.worldRuntime().gameMinutes();
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.presentPendingDialog(0, true);
+    std::optional<size_t> confirmIndex;
+
+    for (size_t actionIndex = 0; actionIndex < dialog.actions.size(); ++actionIndex)
+    {
+        if (dialog.actions[actionIndex].kind == OpenYAMM::Game::EventDialogActionKind::MapTransitionConfirm)
+        {
+            confirmIndex = actionIndex;
+            break;
+        }
+    }
+
+    REQUIRE(confirmIndex.has_value());
+    const OpenYAMM::Game::GameplayDialogController::Result result =
+        harness.executeActiveDialogAction(*confirmIndex);
+
+    CHECK(result.shouldCloseActiveDialog);
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(initialGameMinutes));
+    CHECK_EQ(harness.party().food(), initialFood);
+
+    pActiveMember = harness.party().activeMember();
+    REQUIRE(pActiveMember != nullptr);
+    CHECK_EQ(pActiveMember->health, initialHealth);
+    CHECK_EQ(pActiveMember->spellPoints, initialSpellPoints);
+    CHECK_EQ(pActiveMember->levelModifier, 30);
+    CHECK_EQ(pActiveMember->armorClassModifier, 40);
+    CHECK(pActiveMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Weak)));
+    CHECK(harness.party().hasPartyBuff(OpenYAMM::Game::PartyBuffId::TorchLight));
+
+    REQUIRE(harness.eventRuntimeState().pendingMapMove.has_value());
+    CHECK_EQ(harness.eventRuntimeState().pendingMapMove->mapName, std::optional<std::string>("D18.blv"));
 }
 
 TEST_CASE("merged transport tables drive mm8 boat routes")

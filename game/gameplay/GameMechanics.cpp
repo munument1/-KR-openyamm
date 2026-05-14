@@ -2014,30 +2014,33 @@ void GameMechanics::refreshCharacterBaseResources(
     bool restoreCurrentToMaximum,
     const ClassMultiplierTable *pClassMultiplierTable)
 {
-    const int previousMaxHealth = std::max(1, character.maxHealth);
-    const int previousMaxSpellPoints = std::max(0, character.maxSpellPoints);
+    const int previousMaxHealth = calculateEffectiveCharacterMaxHealth(character, pClassMultiplierTable);
+    const int previousMaxSpellPoints = calculateEffectiveCharacterMaxSpellPoints(character, pClassMultiplierTable);
     const bool wasAtMaxHealth = character.health >= previousMaxHealth;
     const bool wasAtMaxSpellPoints = character.spellPoints >= previousMaxSpellPoints;
 
     character.maxHealth = calculateBaseCharacterMaxHealth(character, pClassMultiplierTable);
     character.maxSpellPoints = calculateBaseCharacterMaxSpellPoints(character, pClassMultiplierTable);
 
+    const int currentMaxHealth = calculateEffectiveCharacterMaxHealth(character, pClassMultiplierTable);
+    const int currentMaxSpellPoints = calculateEffectiveCharacterMaxSpellPoints(character, pClassMultiplierTable);
+
     if (restoreCurrentToMaximum || wasAtMaxHealth)
     {
-        character.health = character.maxHealth;
+        character.health = currentMaxHealth;
     }
     else
     {
-        character.health = std::clamp(character.health, 0, std::max(1, character.maxHealth));
+        character.health = std::clamp(character.health, 0, currentMaxHealth);
     }
 
     if (restoreCurrentToMaximum || wasAtMaxSpellPoints)
     {
-        character.spellPoints = character.maxSpellPoints;
+        character.spellPoints = currentMaxSpellPoints;
     }
     else
     {
-        character.spellPoints = std::clamp(character.spellPoints, 0, std::max(0, character.maxSpellPoints));
+        character.spellPoints = std::clamp(character.spellPoints, 0, currentMaxSpellPoints);
     }
 }
 

@@ -1333,10 +1333,10 @@ int resolveCharacterBuffPower(uint32_t spellId, uint32_t skillLevel, SkillMaster
                 : static_cast<int>(skillLevel + 1);
         case SpellId::Regeneration:
             return mastery == SkillMastery::Grandmaster
-                ? 4
+                ? 10
                 : mastery == SkillMastery::Master
                 ? 3
-                : 2;
+                : 1;
         case SpellId::Hammerhands:
         case SpellId::PainReflection:
             return static_cast<int>(skillLevel);
@@ -1688,7 +1688,9 @@ PartySpellCastResult PartySpellSystem::castSpell(
     {
         if (spellId == SpellId::TownPortal)
         {
-            if (skillMastery < SkillMastery::Grandmaster && hasNearbyHostileActor(worldRuntime))
+            if (!request.bypassTownPortalFailureChecks
+                && skillMastery < SkillMastery::Grandmaster
+                && hasNearbyHostileActor(worldRuntime))
             {
                 return makeFailureWithRecovery(
                     PartySpellCastStatus::Failed,
@@ -1699,7 +1701,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
 
             if (request.utilityAction == PartySpellUtilityActionKind::None)
             {
-                if (skillMastery < SkillMastery::Grandmaster)
+                if (!request.bypassTownPortalFailureChecks && skillMastery < SkillMastery::Grandmaster)
                 {
                     static thread_local std::mt19937 rng(std::random_device{}());
                     const int successChancePercent = std::clamp(static_cast<int>(skillLevel) * 10, 0, 100);

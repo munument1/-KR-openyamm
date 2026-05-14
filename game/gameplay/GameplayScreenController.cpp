@@ -550,6 +550,10 @@ void GameplayScreenController::updateRestOverlayProgress(
         pWorldRuntime->advanceGameMinutes(advancedMinutes);
         EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
         Party *pParty = context.party();
+        if (pParty != nullptr)
+        {
+            pParty->advanceTimedStates(advancedMinutes * 60.0f);
+        }
         if (pEventRuntimeState != nullptr && pParty != nullptr)
         {
             context.itemService().updateConnectorStoneRecharge(*pParty, *pEventRuntimeState, pWorldRuntime->gameMinutes());

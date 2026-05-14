@@ -293,6 +293,7 @@ void applyUtilitySpellOverlayCastOverrides(
     request.applyRecovery = overlay.applyRecovery;
     request.bypassRequiredMastery = overlay.bypassRequiredMastery;
     request.bypassGameplayCasterValidation = overlay.bypassGameplayCasterValidation;
+    request.bypassTownPortalFailureChecks = overlay.bypassTownPortalFailureChecks;
 }
 
 std::optional<DimensionDoorLanding> resolveDimensionDoorLanding(

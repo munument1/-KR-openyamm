@@ -619,6 +619,44 @@ TEST_CASE("indoor ceiling sampling ignores runtime untouchable faces")
     CHECK_EQ(sample.height, doctest::Approx(256.0f));
 }
 
+TEST_CASE("indoor ceiling sampling ignores coplanar ceiling at foot height")
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {128, -128, 0},
+        {128, 128, 0},
+        {-128, 128, 0},
+        {-128, -128, 256},
+        {128, -128, 256},
+        {128, 128, 256},
+        {-128, 128, 256}
+    };
+
+    IndoorFace lowerCeiling = {};
+    lowerCeiling.vertexIndices = {0, 3, 2, 1};
+    lowerCeiling.facetType = 5;
+    lowerCeiling.roomNumber = 0;
+
+    IndoorFace upperCeiling = {};
+    upperCeiling.vertexIndices = {4, 7, 6, 5};
+    upperCeiling.facetType = 5;
+    upperCeiling.roomNumber = 0;
+
+    IndoorSector sector = {};
+    sector.ceilingFaceIds = {0, 1};
+    mapData.faces = {lowerCeiling, upperCeiling};
+    mapData.sectors = {sector};
+
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+    const IndoorCeilingSample sample =
+        sampleIndoorCeiling(mapData, mapData.vertices, 0.0f, 0.0f, 0.0f, 0, nullptr, &geometryCache);
+
+    REQUIRE(sample.hasCeiling);
+    CHECK_EQ(sample.faceIndex, 1u);
+    CHECK_EQ(sample.height, doctest::Approx(256.0f));
+}
+
 TEST_CASE("indoor floor sampling keeps steep in-between floor height without making it walkable")
 {
     IndoorMapData mapData = {};

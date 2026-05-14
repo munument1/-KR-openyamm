@@ -1329,6 +1329,7 @@ void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)
     EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
     const NpcDialogTable *pNpcDialogTable = npcDialogTable();
     const MergedNpcProfessionTable *pNpcProfessionTable = mergedNpcProfessionTable();
+    const Party *pParty = partyReadOnly();
 
     if (pEventRuntimeState == nullptr || pNpcDialogTable == nullptr || pNpcProfessionTable == nullptr)
     {
@@ -1336,7 +1337,11 @@ void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)
     }
 
     const std::vector<HiredNpcFollowerView> followerViews =
-        buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable);
+        buildHiredNpcFollowerViews(
+            *pEventRuntimeState,
+            pParty,
+            *pNpcDialogTable,
+            *pNpcProfessionTable);
     const size_t followerIndex = interactionState().followerPanelScrollOffset + followerSlotIndex;
 
     if (followerIndex >= followerViews.size())
@@ -1383,6 +1388,10 @@ void GameplayScreenRuntime::completeRestAction(bool closeRestScreenAfterCompleti
         pWorldRuntime->advanceGameMinutes(remainingMinutes);
         EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
         Party *pParty = party();
+        if (pParty != nullptr)
+        {
+            pParty->advanceTimedStates(remainingMinutes * 60.0f);
+        }
         if (pEventRuntimeState != nullptr && pParty != nullptr)
         {
             itemService().updateConnectorStoneRecharge(*pParty, *pEventRuntimeState, pWorldRuntime->gameMinutes());

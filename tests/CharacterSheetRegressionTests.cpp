@@ -286,6 +286,64 @@ TEST_CASE("temporary level bonus raises displayed level and effective resources"
     CHECK_GT(summary.spellPoints.maximum, baseSpellPoints);
 }
 
+TEST_CASE("resource refresh preserves current hp against temporary effective maximum")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    OpenYAMM::Game::Character character = {};
+    character.className = "Cleric";
+    character.role = "Cleric";
+    character.level = 5;
+    character.endurance = 14;
+    character.personality = 14;
+    character.maxHealth = OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxHealth(
+        character,
+        &gameData.classMultiplierTable);
+    character.maxSpellPoints = OpenYAMM::Game::GameMechanics::calculateBaseCharacterMaxSpellPoints(
+        character,
+        &gameData.classMultiplierTable);
+    character.levelModifier = 30;
+    character.magicalBonuses.endurance = 250;
+    character.magicalBonuses.maxHealth = 40;
+    character.magicalBonuses.maxSpellPoints = 25;
+
+    character.health = OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxHealth(
+        character,
+        &gameData.classMultiplierTable);
+    character.spellPoints = OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxSpellPoints(
+        character,
+        &gameData.classMultiplierTable);
+
+    OpenYAMM::Game::GameMechanics::refreshCharacterBaseResources(
+        character,
+        false,
+        &gameData.classMultiplierTable);
+
+    CHECK_EQ(
+        character.health,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxHealth(
+            character,
+            &gameData.classMultiplierTable));
+    CHECK_EQ(
+        character.spellPoints,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxSpellPoints(
+            character,
+            &gameData.classMultiplierTable));
+
+    character.health -= 12;
+    character.spellPoints -= 7;
+    const int damagedHealth = character.health;
+    const int damagedSpellPoints = character.spellPoints;
+
+    OpenYAMM::Game::GameMechanics::refreshCharacterBaseResources(
+        character,
+        false,
+        &gameData.classMultiplierTable);
+
+    CHECK_EQ(character.health, damagedHealth);
+    CHECK_EQ(character.spellPoints, damagedSpellPoints);
+}
+
 TEST_CASE("character sheet resistance split does not double count equipment bonuses")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

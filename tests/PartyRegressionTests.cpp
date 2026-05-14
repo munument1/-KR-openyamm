@@ -161,6 +161,30 @@ TEST_CASE("event granted inventory items queue loot sound")
     CHECK(hasPendingSound(party, OpenYAMM::Game::SoundId::Gold));
 }
 
+TEST_CASE("party keeps global hired followers when applying a map-local event runtime state")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.addHiredNpcFollower({1001, 10, 300});
+    party.addHiredNpcFollower({1002, 11, 400});
+
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.hiredNpcFollowers.push_back({1003, 12, 500});
+
+    party.applyEventRuntimeState(runtimeState, false);
+
+    OpenYAMM::Game::EventRuntimeState syncedRuntimeState = {};
+    party.applyGlobalNpcStateTo(syncedRuntimeState);
+
+    REQUIRE_EQ(syncedRuntimeState.hiredNpcFollowers.size(), 3u);
+    CHECK_EQ(syncedRuntimeState.hiredNpcFollowers[0].npcId, 1001u);
+    CHECK_EQ(syncedRuntimeState.hiredNpcFollowers[1].npcId, 1002u);
+    CHECK_EQ(syncedRuntimeState.hiredNpcFollowers[2].npcId, 1003u);
+    CHECK(syncedRuntimeState.unavailableNpcIds.contains(1001u));
+    CHECK(syncedRuntimeState.unavailableNpcIds.contains(1002u));
+    CHECK(syncedRuntimeState.unavailableNpcIds.contains(1003u));
+}
+
 TEST_CASE("current quest journal entries come from party qbits and non-empty quest text")
 {
     OpenYAMM::Game::JournalQuestTable questTable = {};

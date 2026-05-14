@@ -86,6 +86,8 @@ struct PartySpellCastRequest
     bool bypassRequiredMastery = false;
     // NPC and scripted casts can use a party member as the UI speaker without requiring that member to be ready.
     bool bypassGameplayCasterValidation = false;
+    // Gate Master opens Town Portal directly from an NPC caster in the original game.
+    bool bypassTownPortalFailureChecks = false;
     bool spendMana = true;
     bool applyRecovery = true;
     bool hasViewTransform = false;

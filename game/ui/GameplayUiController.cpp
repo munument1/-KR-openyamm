@@ -430,6 +430,7 @@ void GameplayUiController::openUtilitySpellOverlay(
     state.utilitySpellOverlay.applyRecovery = true;
     state.utilitySpellOverlay.bypassRequiredMastery = false;
     state.utilitySpellOverlay.bypassGameplayCasterValidation = false;
+    state.utilitySpellOverlay.bypassTownPortalFailureChecks = false;
     state.utilitySpellOverlay.lloydRecallMode = lloydRecallMode;
 }
 

@@ -36,6 +36,7 @@ constexpr uint32_t FirstMm7ArcomageHouseId = 240;
 constexpr uint32_t LastMm7ArcomageHouseId = 252;
 constexpr uint32_t RosterNpcPortraitBaseId = 2901;
 constexpr float OeFiveGameMinuteTickRealSeconds = 10.0f;
+constexpr float OeFiveGameMinuteTickGameSeconds = 5.0f * 60.0f;
 constexpr uint32_t FirstRegularItemId = 1;
 constexpr uint32_t LastRegularItemId = 134;
 
@@ -2545,15 +2546,31 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
         m_lastStatus = "award removed";
     }
 
-    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+    for (const HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)
     {
-        if (follower.npcId != 0)
+        if (follower.npcId == 0)
         {
-            m_unavailableNpcIds.erase(follower.npcId);
+            continue;
+        }
+
+        const auto followerIt = std::find_if(
+            m_hiredNpcFollowers.begin(),
+            m_hiredNpcFollowers.end(),
+            [&follower](const HiredNpcFollower &existingFollower)
+            {
+                return existingFollower.npcId == follower.npcId;
+            });
+
+        if (followerIt == m_hiredNpcFollowers.end())
+        {
+            m_hiredNpcFollowers.push_back(follower);
+        }
+        else
+        {
+            *followerIt = follower;
         }
     }
 
-    m_hiredNpcFollowers = runtimeState.hiredNpcFollowers;
     for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
     {
         if (follower.npcId != 0)
@@ -5313,16 +5330,11 @@ void Party::advanceTimedStates(float deltaSeconds)
             if (isSpellId(buff.spellId, SpellId::Regeneration))
             {
                 buff.periodicAccumulatorSeconds += deltaSeconds;
-                const float tickIntervalSeconds = buff.skillMastery == SkillMastery::Grandmaster
-                    ? 0.5f
-                    : buff.skillMastery == SkillMastery::Master
-                    ? 0.75f
-                    : 1.0f;
-                const int healPerTick = std::max(1, buff.power);
+                const int healPerTick = 5 * std::max(1, buff.power);
 
-                while (buff.periodicAccumulatorSeconds >= tickIntervalSeconds)
+                while (buff.periodicAccumulatorSeconds >= OeFiveGameMinuteTickGameSeconds)
                 {
-                    buff.periodicAccumulatorSeconds -= tickIntervalSeconds;
+                    buff.periodicAccumulatorSeconds -= OeFiveGameMinuteTickGameSeconds;
                     healMember(memberIndex, healPerTick);
                 }
             }

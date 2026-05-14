@@ -5275,6 +5275,103 @@ TEST_CASE("mm6 global mmmerge supplement keeps rescue followers and collector to
         loadMm6GlobalSupplementProgram(OPENYAMM_SOURCE_DIR, error);
     REQUIRE_MESSAGE(globalEventProgram.has_value(), error.c_str());
     REQUIRE(globalEventProgram->hasEvent(1778));
+    REQUIRE(globalEventProgram->hasEvent(65300));
+    REQUIRE(globalEventProgram->hasEvent(65301));
+
+    {
+        const std::vector<uint16_t> &onLoadEventIds = globalEventProgram->onLoadEventIds();
+        CHECK(std::find(onLoadEventIds.begin(), onLoadEventIds.end(), 65300) != onLoadEventIds.end());
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        struct EnrothGrandmasterTopic
+        {
+            uint32_t npcId = 0;
+            uint32_t slot = 0;
+            uint32_t topic = 0;
+            uint32_t requiredQBit = 0;
+        };
+        const std::array<EnrothGrandmasterTopic, 33> expectedTopics = {{
+            {1043, 3, 302, 0},
+            {837, 3, 305, 0},
+            {995, 3, 308, 0},
+            {817, 3, 311, 1051},
+            {991, 3, 314, 0},
+            {973, 3, 317, 0},
+            {874, 3, 320, 0},
+            {830, 3, 329, 0},
+            {811, 3, 332, 0},
+            {808, 3, 335, 0},
+            {890, 4, 338, 0},
+            {965, 4, 341, 0},
+            {829, 4, 344, 0},
+            {894, 3, 347, 0},
+            {923, 4, 350, 0},
+            {858, 3, 353, 0},
+            {840, 4, 356, 0},
+            {1057, 3, 359, 0},
+            {1040, 3, 362, 0},
+            {814, 3, 377, 0},
+            {996, 3, 380, 0},
+            {972, 3, 383, 0},
+            {1014, 3, 386, 0},
+            {842, 3, 389, 0},
+            {875, 3, 395, 0},
+            {1114, 3, 405, 0},
+            {860, 3, 406, 0},
+            {860, 4, 407, 0},
+            {819, 3, 413, 0},
+            {809, 4, 416, 0},
+            {870, 3, 374, 0},
+            {915, 3, 973, 0},
+            {966, 4, 326, 0},
+        }};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 65300, runtimeState, &party));
+        for (const EnrothGrandmasterTopic &expectedTopic : expectedTopics)
+        {
+            REQUIRE(runtimeState.npcTopicOverrides.contains(expectedTopic.npcId));
+            const uint32_t actualTopic = runtimeState.npcTopicOverrides[expectedTopic.npcId][expectedTopic.slot];
+            CHECK_EQ(actualTopic, expectedTopic.requiredQBit == 0 ? expectedTopic.topic : 0u);
+        }
+
+        runtimeState.npcTopicOverrides.clear();
+        runtimeState.activeHookContext = OpenYAMM::Game::EventRuntimeState::ActiveHookContext{};
+        runtimeState.activeHookContext->kind = OpenYAMM::Game::EventRuntimeHookKind::NpcEnter;
+        runtimeState.activeHookContext->npcId = 829;
+        REQUIRE(eventRuntime.executeHooks(
+            std::nullopt,
+            globalEventProgram,
+            OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+            runtimeState,
+            &party));
+        REQUIRE(runtimeState.npcTopicOverrides.contains(829));
+        CHECK_EQ(runtimeState.npcTopicOverrides[829][4], 344u);
+
+        runtimeState.npcTopicOverrides.clear();
+        runtimeState.activeHookContext->npcId = 817;
+        REQUIRE(eventRuntime.executeHooks(
+            std::nullopt,
+            globalEventProgram,
+            OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+            runtimeState,
+            &party));
+        REQUIRE(runtimeState.npcTopicOverrides.contains(817));
+        CHECK_EQ(runtimeState.npcTopicOverrides[817][3], 0u);
+
+        party.setQuestBit(1051, true);
+        REQUIRE(eventRuntime.executeHooks(
+            std::nullopt,
+            globalEventProgram,
+            OpenYAMM::Game::EventRuntimeHookKind::NpcEnter,
+            runtimeState,
+            &party));
+        REQUIRE(runtimeState.npcTopicOverrides.contains(817));
+        CHECK_EQ(runtimeState.npcTopicOverrides[817][3], 311u);
+    }
 
     auto hasFollower = [](const OpenYAMM::Game::EventRuntimeState &runtimeState, uint32_t npcId)
     {
@@ -5333,6 +5430,73 @@ TEST_CASE("mm6 global mmmerge supplement keeps rescue followers and collector to
         CHECK_EQ(
             runtimeState.messages.back(),
             "This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!");
+    }
+
+    {
+        struct PromotionCase
+        {
+            uint16_t eventId = 0;
+            const char *pStartClassName = nullptr;
+            const char *pExpectedClassName = nullptr;
+            std::vector<uint32_t> prerequisiteQBitIds = {};
+            uint32_t itemId = 0;
+            uint32_t receivedPromotionQBitId = 0;
+        };
+
+        const std::vector<PromotionCase> cases = {
+            {1327, "Paladin", "Crusader", {1699}, 0, 1635},
+            {1329, "Crusader", "Hero", {}, 2075, 1637},
+            {1349, "Cleric", "Priest", {1130}, 0, 1647},
+            {1351, "Priest", "PriestLight", {1132}, 0, 1649},
+            {1371, "Sorcerer", "Wizard", {}, 0, 1639},
+            {1373, "Wizard", "ArchMage", {}, 2077, 1641},
+            {1382, "Knight", "Cavalier", {}, 0, 1643},
+            {1384, "Cavalier", "Champion", {}, 2128, 1645},
+            {1405, "Archer", "WarriorMage", {}, 2106, 1655},
+            {1413, "WarriorMage", "MasterArcher", {1180, 1181, 1182, 1183, 1184, 1185}, 0, 1657},
+            {1678, "Druid", "GreatDruid", {}, 0, 1651},
+            {1679, "GreatDruid", "ArchDruid", {}, 0, 1653},
+        };
+
+        for (const PromotionCase &testCase : cases)
+        {
+            OpenYAMM::Game::PartySeed seed = createRegressionPartySeed();
+            seed.members.push_back(makeRegressionPartyMember("Edrin", testCase.pStartClassName, "PC07-01", 7));
+
+            OpenYAMM::Game::Party party = {};
+            party.setClassMultiplierTable(&OpenYAMM::Tests::regressionGameData().classMultiplierTable);
+            party.setClassSkillTable(&OpenYAMM::Tests::regressionGameData().classSkillTable);
+            party.seed(seed);
+
+            const OpenYAMM::Game::Character *pFifthMember = party.member(4);
+            REQUIRE(pFifthMember != nullptr);
+            REQUIRE_EQ(pFifthMember->className, std::string(testCase.pStartClassName));
+
+            for (uint32_t qbitId : testCase.prerequisiteQBitIds)
+            {
+                party.setQuestBit(qbitId, true);
+            }
+
+            if (testCase.itemId != 0)
+            {
+                REQUIRE(party.grantItemToMember(0, testCase.itemId));
+            }
+
+            OpenYAMM::Game::EventRuntime eventRuntime = {};
+            OpenYAMM::Game::EventRuntimeState runtimeState = {};
+            CAPTURE(testCase.eventId);
+            REQUIRE(eventRuntime.executeEventById(
+                std::nullopt,
+                globalEventProgram,
+                testCase.eventId,
+                runtimeState,
+                &party));
+
+            pFifthMember = party.member(4);
+            REQUIRE(pFifthMember != nullptr);
+            CHECK_EQ(pFifthMember->className, std::string(testCase.pExpectedClassName));
+            CHECK(party.hasQuestBit(testCase.receivedPromotionQBitId));
+        }
     }
 
     {

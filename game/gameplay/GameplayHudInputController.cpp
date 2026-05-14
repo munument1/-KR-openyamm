@@ -82,13 +82,18 @@ size_t hiredFollowerCount(const GameplayScreenRuntime &context)
         pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
     const NpcDialogTable *pNpcDialogTable = context.npcDialogTable();
     const MergedNpcProfessionTable *pNpcProfessionTable = context.mergedNpcProfessionTable();
+    const Party *pParty = context.partyReadOnly();
 
     if (pEventRuntimeState == nullptr || pNpcDialogTable == nullptr || pNpcProfessionTable == nullptr)
     {
         return 0;
     }
 
-    return buildHiredNpcFollowerViews(*pEventRuntimeState, *pNpcDialogTable, *pNpcProfessionTable).size();
+    return buildHiredNpcFollowerViews(
+        *pEventRuntimeState,
+        pParty,
+        *pNpcDialogTable,
+        *pNpcProfessionTable).size();
 }
 
 bool pointerInsideHudElement(

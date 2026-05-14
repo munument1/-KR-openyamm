@@ -10,6 +10,7 @@ namespace OpenYAMM::Game
 {
 class MergedNpcProfessionTable;
 class NpcDialogTable;
+class Party;
 
 struct HiredNpcFollowerView
 {
@@ -24,6 +25,13 @@ struct HiredNpcFollowerView
 
 std::vector<HiredNpcFollowerView> buildHiredNpcFollowerViews(
     const EventRuntimeState &eventRuntimeState,
+    const NpcDialogTable &npcDialogTable,
+    const MergedNpcProfessionTable &npcProfessionTable
+);
+
+std::vector<HiredNpcFollowerView> buildHiredNpcFollowerViews(
+    const EventRuntimeState &eventRuntimeState,
+    const Party *pParty,
     const NpcDialogTable &npcDialogTable,
     const MergedNpcProfessionTable &npcProfessionTable
 );

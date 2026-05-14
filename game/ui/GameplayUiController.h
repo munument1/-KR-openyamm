@@ -400,6 +400,7 @@ public:
         bool applyRecovery = true;
         bool bypassRequiredMastery = false;
         bool bypassGameplayCasterValidation = false;
+        bool bypassTownPortalFailureChecks = false;
         bool lloydRecallMode = false;
         bool lloydSetPreviewCapturePending = false;
         bool lloydSetPreviewScreenshotRequested = false;

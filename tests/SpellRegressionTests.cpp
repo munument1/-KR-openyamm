@@ -491,6 +491,50 @@ TEST_CASE("party spell backend bless applies character target buff")
     CHECK_LT(pCaster->spellPoints, initialSpellPoints);
 }
 
+TEST_CASE("regeneration spell heals on OE five-minute ticks")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    OpenYAMM::Game::Character *pTarget = party.member(1);
+    REQUIRE(pCaster != nullptr);
+    REQUIRE(pTarget != nullptr);
+
+    pCaster->skills["BodyMagic"] = {"BodyMagic", 10, OpenYAMM::Game::SkillMastery::Grandmaster};
+    pTarget->maxHealth = 200;
+    pTarget->health = 1;
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Regeneration);
+    request.targetCharacterIndex = 1;
+    request.skillLevelOverride = 10;
+    request.skillMasteryOverride = OpenYAMM::Game::SkillMastery::Grandmaster;
+    request.spendMana = false;
+    request.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    const OpenYAMM::Game::CharacterBuffState *pRegeneration =
+        party.characterBuff(1, OpenYAMM::Game::CharacterBuffId::Regeneration);
+    REQUIRE(pRegeneration != nullptr);
+    CHECK_EQ(pRegeneration->power, 10);
+
+    party.advanceTimedStates(299.0f);
+    CHECK_EQ(pTarget->health, 1);
+
+    party.advanceTimedStates(1.0f);
+    CHECK_EQ(pTarget->health, 51);
+}
+
 TEST_CASE("party spell backend skips character targeting for mastery-wide character buffs")
 {
     struct MasteryWideBuffCase
@@ -1038,6 +1082,23 @@ TEST_CASE("lloyds beacon slots and duration follow water mastery and skill level
     CHECK_EQ(
         OpenYAMM::Game::lloydsBeaconDurationSeconds(2),
         14.0f * 24.0f * 60.0f * 60.0f);
+}
+
+TEST_CASE("lloyds beacon remaining text floors days like original UI")
+{
+    constexpr float SecondsPerMinute = 60.0f;
+    constexpr float SecondsPerHour = 60.0f * SecondsPerMinute;
+    constexpr float SecondsPerDay = 24.0f * SecondsPerHour;
+
+    CHECK_EQ(OpenYAMM::Game::lloydsBeaconRemainingDurationText(7.0f * SecondsPerDay), "7d");
+    CHECK_EQ(OpenYAMM::Game::lloydsBeaconRemainingDurationText(7.0f * SecondsPerDay - 1.0f), "6d");
+    CHECK_EQ(
+        OpenYAMM::Game::lloydsBeaconRemainingDurationText(6.0f * SecondsPerDay + 6.0f * SecondsPerHour),
+        "6d");
+    CHECK_EQ(
+        OpenYAMM::Game::lloydsBeaconRemainingDurationText(23.0f * SecondsPerHour + 59.0f * SecondsPerMinute),
+        "23h");
+    CHECK_EQ(OpenYAMM::Game::lloydsBeaconRemainingDurationText(59.0f * SecondsPerMinute), "59m");
 }
 
 TEST_CASE("lloyds beacon recall mode availability follows active beacons")

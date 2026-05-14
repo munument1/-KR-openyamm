@@ -1177,22 +1177,30 @@ void applyMapTransitionTravelSideEffects(
 
     if (context.pWorldRuntime != nullptr && transition.travelDays > 0)
     {
+        const float travelMinutes = static_cast<float>(transition.travelDays) * MinutesPerDay;
         const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
-        context.pWorldRuntime->advanceGameMinutes(static_cast<float>(transition.travelDays) * MinutesPerDay);
+        context.pWorldRuntime->advanceGameMinutes(travelMinutes);
+        if (context.pParty != nullptr)
+        {
+            context.pParty->advanceTimedStates(travelMinutes * 60.0f);
+        }
         const float afterGameMinutes = context.pWorldRuntime->gameMinutes();
         GAMEPLAY_DEBUG_TRACE(
             "game_time_advanced source=map_transition"
-            " minutes=" + std::to_string(static_cast<float>(transition.travelDays) * MinutesPerDay)
+            " minutes=" + std::to_string(travelMinutes)
             + " before_game_minutes=" + std::to_string(beforeGameMinutes)
             + " after_game_minutes=" + std::to_string(afterGameMinutes)
             + " game_minutes=" + std::to_string(afterGameMinutes));
     }
 
-    if (context.pParty != nullptr)
+    const int foodRequired = mapTransitionTravelFoodRequired(context, transition);
+    const bool appliesTravelRecovery = transition.travelDays > 0 || foodRequired > 0;
+
+    if (context.pParty != nullptr && appliesTravelRecovery)
     {
         context.pParty->restAndHealAll();
         const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
-        applyTravelFoodAndFatigue(*context.pParty, mapTransitionTravelFoodRequired(context, transition), gameMinutes);
+        applyTravelFoodAndFatigue(*context.pParty, foodRequired, gameMinutes);
     }
 }
 
@@ -1214,12 +1222,17 @@ void applyPendingMapMoveTravelSideEffects(
 
     if (context.pWorldRuntime != nullptr)
     {
+        const float travelMinutes = static_cast<float>(travelDays) * MinutesPerDay;
         const float beforeGameMinutes = context.pWorldRuntime->gameMinutes();
-        context.pWorldRuntime->advanceGameMinutes(static_cast<float>(travelDays) * MinutesPerDay);
+        context.pWorldRuntime->advanceGameMinutes(travelMinutes);
+        if (context.pParty != nullptr)
+        {
+            context.pParty->advanceTimedStates(travelMinutes * 60.0f);
+        }
         const float afterGameMinutes = context.pWorldRuntime->gameMinutes();
         GAMEPLAY_DEBUG_TRACE(
             "game_time_advanced source=event_map_transition"
-            " minutes=" + std::to_string(static_cast<float>(travelDays) * MinutesPerDay)
+            " minutes=" + std::to_string(travelMinutes)
             + " before_game_minutes=" + std::to_string(beforeGameMinutes)
             + " after_game_minutes=" + std::to_string(afterGameMinutes)
             + " game_minutes=" + std::to_string(afterGameMinutes));
@@ -1622,10 +1635,11 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
                 GameplayUiController::UtilitySpellOverlayState &overlay =
                     context.uiController.utilitySpellOverlay();
                 overlay.skillLevelOverride = 10;
-                overlay.skillMasteryOverride = SkillMastery::Master;
+                overlay.skillMasteryOverride = SkillMastery::Grandmaster;
                 overlay.spendMana = false;
                 overlay.applyRecovery = false;
                 overlay.bypassGameplayCasterValidation = true;
+                overlay.bypassTownPortalFailureChecks = true;
 
                 execution.closeDialog = true;
                 return execution;

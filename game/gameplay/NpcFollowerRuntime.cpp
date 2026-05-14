@@ -1,5 +1,6 @@
 #include "game/gameplay/NpcFollowerRuntime.h"
 
+#include "game/party/Party.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 
@@ -135,6 +136,23 @@ std::vector<HiredNpcFollowerView> buildHiredNpcFollowerViews(
     }
 
     return views;
+}
+
+std::vector<HiredNpcFollowerView> buildHiredNpcFollowerViews(
+    const EventRuntimeState &eventRuntimeState,
+    const Party *pParty,
+    const NpcDialogTable &npcDialogTable,
+    const MergedNpcProfessionTable &npcProfessionTable
+)
+{
+    if (pParty == nullptr)
+    {
+        return buildHiredNpcFollowerViews(eventRuntimeState, npcDialogTable, npcProfessionTable);
+    }
+
+    EventRuntimeState syncedRuntimeState = eventRuntimeState;
+    pParty->applyGlobalNpcStateTo(syncedRuntimeState);
+    return buildHiredNpcFollowerViews(syncedRuntimeState, npcDialogTable, npcProfessionTable);
 }
 
 uint32_t totalHiredNpcFollowerFeePercent(const EventRuntimeState &eventRuntimeState)
