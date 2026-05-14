@@ -78,6 +78,111 @@ uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
     return nanoseconds / 1000ULL;
 }
 
+uint64_t soundPreloadKey(SoundRef sound)
+{
+    return (static_cast<uint64_t>(sound.scope == SoundScope::World ? 1u : 0u) << 32u) | sound.id;
+}
+
+void preloadSoundOnce(GameAudioSystem &audioSystem, std::unordered_set<uint64_t> &preloadedSounds, SoundRef sound)
+{
+    if (sound.id == 0 || !preloadedSounds.insert(soundPreloadKey(sound)).second)
+    {
+        return;
+    }
+
+    audioSystem.preloadSound(sound);
+}
+
+void preloadMonsterSpellSound(
+    GameAudioSystem &audioSystem,
+    std::unordered_set<uint64_t> &preloadedSounds,
+    const SpellTable &spellTable,
+    const std::string &spellName)
+{
+    if (spellName.empty())
+    {
+        return;
+    }
+
+    const SpellEntry *pSpellEntry = spellTable.findByName(spellName);
+
+    if (pSpellEntry == nullptr || pSpellEntry->effectSoundId <= 0)
+    {
+        return;
+    }
+
+    preloadSoundOnce(audioSystem, preloadedSounds, engineSound(static_cast<uint32_t>(pSpellEntry->effectSoundId)));
+}
+
+void preloadMonsterStatsSounds(
+    GameAudioSystem &audioSystem,
+    std::unordered_set<uint64_t> &preloadedSounds,
+    const SpellTable &spellTable,
+    const MonsterTable::MonsterStatsEntry &stats)
+{
+    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.awareSoundId));
+    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.attackSoundId));
+    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.winceSoundId));
+    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.deathSoundId));
+
+    preloadMonsterSpellSound(audioSystem, preloadedSounds, spellTable, stats.spell1Name);
+    preloadMonsterSpellSound(audioSystem, preloadedSounds, spellTable, stats.spell2Name);
+}
+
+void preloadMapGameplaySounds(
+    GameAudioSystem &audioSystem,
+    const MonsterTable &monsterTable,
+    const SpellTable &spellTable,
+    const MapAssetInfo &map)
+{
+    const MapDeltaData *pMapDeltaData = nullptr;
+
+    if (map.indoorMapDeltaData)
+    {
+        pMapDeltaData = &*map.indoorMapDeltaData;
+    }
+    else if (map.outdoorMapDeltaData)
+    {
+        pMapDeltaData = &*map.outdoorMapDeltaData;
+    }
+
+    if (pMapDeltaData == nullptr)
+    {
+        return;
+    }
+
+    std::unordered_set<uint64_t> preloadedSounds;
+    std::unordered_set<int16_t> preloadedMonsterIds;
+
+    for (const MapDeltaActor &actor : pMapDeltaData->actors)
+    {
+        const std::array<int16_t, 2> candidateMonsterIds = {
+            actor.monsterInfoId > 0 ? actor.monsterInfoId : actor.monsterId,
+            actor.monsterId
+        };
+
+        for (int16_t monsterId : candidateMonsterIds)
+        {
+            if (monsterId <= 0 || !preloadedMonsterIds.insert(monsterId).second)
+            {
+                continue;
+            }
+
+            const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(monsterId);
+
+            if (pStats != nullptr)
+            {
+                preloadMonsterStatsSounds(audioSystem, preloadedSounds, spellTable, *pStats);
+            }
+        }
+    }
+
+    for (const MapDeltaSpriteObject &spriteObject : pMapDeltaData->spriteObjects)
+    {
+        preloadSoundOnce(audioSystem, preloadedSounds, worldSound(spriteObject.soundId));
+    }
+}
+
 bool mapLoadTimingEnabled()
 {
     const char *pValue = std::getenv("OPENYAMM_MAP_LOAD_TIMING");
@@ -4571,6 +4676,13 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         }
         timingLogger.stage("outdoor on-load events applied");
 
+        preloadMapGameplaySounds(
+            m_gameAudioSystem,
+            m_gameDataLoader.getMonsterTable(),
+            m_gameDataLoader.getSpellTable(),
+            *selectedMap);
+        timingLogger.stage("outdoor gameplay sounds preloaded");
+
         m_pMapSceneRuntime = std::make_unique<OutdoorSceneRuntime>(
             selectedMap->map.fileName,
             selectedMap->map,
@@ -4762,6 +4874,13 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             pIndoorSceneRuntime->worldRuntime().applyEventRuntimeState(true);
             pIndoorSceneRuntime->party().applyEventRuntimeState(*pEventRuntimeState, false);
         }
+
+        preloadMapGameplaySounds(
+            m_gameAudioSystem,
+            m_gameDataLoader.getMonsterTable(),
+            m_gameDataLoader.getSpellTable(),
+            *selectedMap);
+        timingLogger.stage("indoor gameplay sounds preloaded");
 
         pIndoorSceneRuntime->partyRuntime().setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
         pIndoorSceneRuntime->partyRuntime().setAlwaysRunEnabled(m_settings.alwaysRun);

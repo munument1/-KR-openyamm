@@ -674,6 +674,20 @@ public:
         float sourceX,
         float sourceY,
         float sourceZ) const override;
+    std::vector<size_t> collectVisibleMapActorIndicesWithinRadius(
+        float centerX,
+        float centerY,
+        float centerZ,
+        float radius,
+        float sourceX,
+        float sourceY,
+        float sourceZ,
+        float viewX,
+        float viewY,
+        float viewZ,
+        float viewYawRadians,
+        float viewPitchRadians,
+        float viewAspectRatio) const override;
     bool notifyPartyContactWithMapActor(size_t actorIndex, float partyX, float partyY, float partyZ);
     float sampleSupportFloorHeight(float x, float y, float z, float maxRise, float xySlack) const;
     size_t spawnPointCount() const;

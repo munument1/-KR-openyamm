@@ -8658,6 +8658,28 @@ bool executeHookScope(
     return executedAny;
 }
 
+bool scriptedProgramHasHook(
+    const std::optional<ScriptedEventProgram> &program,
+    EventRuntimeHookKind kind)
+{
+    if (!program)
+    {
+        return false;
+    }
+
+    switch (kind)
+    {
+        case EventRuntimeHookKind::MonsterKilled:
+            return !program->monsterKilledHookEventIds().empty();
+
+        case EventRuntimeHookKind::MonsterDamage:
+            return !program->monsterDamageHookEventIds().empty();
+
+        default:
+            return true;
+    }
+}
+
 bool EventRuntime::executeHooks(
     const std::optional<ScriptedEventProgram> &localProgram,
     const std::optional<ScriptedEventProgram> &globalProgram,
@@ -8667,6 +8689,11 @@ bool EventRuntime::executeHooks(
     ISceneEventContext *pSceneEventContext) const
 {
     if (!runtimeState.activeHookContext)
+    {
+        return false;
+    }
+
+    if (!scriptedProgramHasHook(localProgram, kind) && !scriptedProgramHasHook(globalProgram, kind))
     {
         return false;
     }

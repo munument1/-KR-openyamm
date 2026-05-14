@@ -97,6 +97,17 @@ struct IndoorCeilingSample
     size_t faceIndex = static_cast<size_t>(-1);
 };
 
+struct IndoorInitialActorPlacement
+{
+    bool hasFloor = false;
+    bool movedHorizontally = false;
+    bool wallOverlapResolved = false;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    int16_t sectorId = -1;
+};
+
 struct IndoorPortalSectorTrace
 {
     bool reachedTargetSector = false;
@@ -148,6 +159,19 @@ bool isIndoorCylinderBlockedByFace(
     float z,
     float radius,
     float height
+);
+IndoorInitialActorPlacement resolveIndoorInitialActorPlacement(
+    const IndoorMapData &indoorMapData,
+    const std::vector<IndoorVertex> &vertices,
+    IndoorFaceGeometryCache &geometryCache,
+    float x,
+    float y,
+    float z,
+    float radius,
+    float height,
+    bool canFly,
+    float maxRise,
+    float maxDrop
 );
 IndoorFloorSample sampleIndoorFloor(
     const IndoorMapData &indoorMapData,

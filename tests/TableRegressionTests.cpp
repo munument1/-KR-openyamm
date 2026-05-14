@@ -198,7 +198,6 @@ TEST_CASE("settings debug startup options round trip")
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
     settings.logIndoorVisibility = true;
-    settings.logIndoorFlyingActorMovement = true;
     settings.fpsTrace = true;
     settings.hitchTrace = true;
     settings.hitchThresholdMilliseconds = 12.5f;
@@ -218,7 +217,6 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->logIndoorVisibility);
-    CHECK(loadedSettings->logIndoorFlyingActorMovement);
     CHECK(loadedSettings->fpsTrace);
     CHECK(loadedSettings->hitchTrace);
     CHECK(loadedSettings->hitchThresholdMilliseconds == doctest::Approx(12.5f));

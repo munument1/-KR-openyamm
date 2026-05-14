@@ -101,7 +101,6 @@ struct GameSettings
     int blasterMinimumRecoveryTicks = 0;
     bool logIndoorVisibility = false;
     bool logIndoorPathfinding = false;
-    bool logIndoorFlyingActorMovement = false;
     bool fpsTrace = false;
     bool performanceTrace = false;
     bool hitchTrace = false;

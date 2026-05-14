@@ -467,10 +467,6 @@ void GameplayUiController::setStatusBarEvent(const std::string &text, float dura
     }
 
     State &state = resolvedState();
-    std::cout << "Status text set previous=\"" << state.statusBar.eventText
-              << "\" current=\"" << text
-              << "\" duration=" << durationSeconds
-              << '\n';
     state.statusBar.eventText = text;
     state.statusBar.eventRemainingSeconds = std::max(0.0f, durationSeconds);
 }

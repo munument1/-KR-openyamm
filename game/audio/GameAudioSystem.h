@@ -91,6 +91,8 @@ public:
         SoundId soundId,
         PlaybackGroup group,
         const std::optional<WorldPosition> &position = std::nullopt);
+    bool preloadSound(SoundRef sound);
+    bool preloadCommonSound(SoundId soundId);
     bool playSpeech(const Character &character, SpeechId speechId, uint32_t seed = 0, uint32_t speakerKey = 0);
     const SpeechReactionEntry *findSpeechReaction(SpeechId speechId) const;
     void stopSoundInstance(uint64_t instanceId);
@@ -106,7 +108,7 @@ private:
     };
 
     static bool isExclusiveGroup(PlaybackGroup group);
-    void preloadSpellBuffSounds(const SpellTable &spellTable);
+    void preloadSpellEffectSounds(const SpellTable &spellTable);
     void preloadArcomageUiSounds();
     bool isBackgroundMusicTrackLoaded(int redbookTrack) const;
     bool queueBackgroundMusicTrackDecode(int redbookTrack);

@@ -608,6 +608,7 @@ void updateOutdoorJournalRevealMask(const OutdoorPartyRuntime &partyRuntime, Map
     }
 }
 constexpr float Pi = 3.14159265358979323846f;
+constexpr float CameraVerticalFovRadians = Pi / 3.0f;
 constexpr float SpecialJumpAngleUnitsPerTurn = 2048.0f;
 constexpr float LegacyOutdoorSpecialJumpGravity = 800.0f;
 constexpr float OutdoorMovementGravity = 1280.0f;
@@ -10953,6 +10954,60 @@ bool OutdoorWorldRuntime::actorInspectState(
     state.currentHp = pActor->currentHp;
     state.maxHp = pActor->maxHp;
     state.armorClass = effectiveMapActorArmorClass(actorIndex);
+    state.attack1Damage.diceRolls = pActor->attack1DamageDiceRolls;
+    state.attack1Damage.diceSides = pActor->attack1DamageDiceSides;
+    state.attack1Damage.bonus = pActor->attack1DamageBonus;
+    state.attack2Damage.diceRolls =
+        pActor->copyAttack1DamageToAttack2 ? pActor->attack1DamageDiceRolls : pActor->attack2DamageDiceRolls;
+    state.attack2Damage.diceSides =
+        pActor->copyAttack1DamageToAttack2 ? pActor->attack1DamageDiceSides : pActor->attack2DamageDiceSides;
+    state.attack2Damage.bonus = pActor->attack2DamageBonus;
+    state.attack2Chance = pActor->generatedAttack2Chance;
+    state.spell1SkillLevel = pActor->spell1SkillLevel;
+    state.spell1SkillMastery = pActor->spell1SkillMastery;
+    state.spell2SkillLevel = pActor->spell2SkillLevel;
+    state.spell2SkillMastery = pActor->spell2SkillMastery;
+
+    if (m_pMonsterTable != nullptr)
+    {
+        const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(pActor->monsterId);
+
+        if (pStats != nullptr)
+        {
+            state.attack2Chance = state.attack2Chance > 0 ? state.attack2Chance : pStats->attack2Chance;
+            state.hasSpell1 = pStats->hasSpell1 || pActor->spell1Id != 0;
+            state.hasSpell2 = pStats->hasSpell2 || pActor->spell2Id != 0;
+            state.spell1Name = pStats->spell1Name;
+            state.spell2Name = pStats->spell2Name;
+
+            if (state.attack1Damage.diceRolls <= 0 || state.attack1Damage.diceSides <= 0)
+            {
+                state.attack1Damage = pStats->attack1Damage;
+            }
+
+            if (state.attack2Damage.diceRolls <= 0 || state.attack2Damage.diceSides <= 0)
+            {
+                state.attack2Damage = pStats->attack2Damage;
+            }
+
+            if (pActor->spell1Id != 0 && !pStats->hasSpell1 && m_pSpellTable != nullptr)
+            {
+                if (const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(pActor->spell1Id)))
+                {
+                    state.spell1Name = pSpellEntry->name;
+                }
+            }
+
+            if (pActor->spell2Id != 0 && !pStats->hasSpell2 && m_pSpellTable != nullptr)
+            {
+                if (const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(pActor->spell2Id)))
+                {
+                    state.spell2Name = pSpellEntry->name;
+                }
+            }
+        }
+    }
+
     state.isDead = pActor->isDead;
     state.slowRemainingSeconds = pActor->slowRemainingSeconds;
     state.stunRemainingSeconds = pActor->stunRemainingSeconds;
@@ -12008,6 +12063,8 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         return false;
     }
 
+    const bool wasHostileOrAggressor = actor.hostileToParty || actor.hasDetectedParty;
+
     if (m_pGameplayActorService != nullptr
         && m_pGameplayActorService->hasPainReflection(buildGameplayActorSpellEffectState(actor))
         && m_pParty != nullptr)
@@ -12127,7 +12184,10 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         }
     }
 
-    aggroNearbyMapActorFaction(actorIndex, partyX, partyY, partyZ);
+    if (!wasHostileOrAggressor)
+    {
+        aggroNearbyMapActorFaction(actorIndex, partyX, partyY, partyZ);
+    }
     return true;
 }
 
@@ -12977,6 +13037,123 @@ std::vector<size_t> OutdoorWorldRuntime::collectMapActorIndicesWithinRadius(
             {
                 continue;
             }
+        }
+
+        result.push_back(actorIndex);
+    }
+
+    return result;
+}
+
+namespace
+{
+bool outdoorPointInsideViewCone(
+    float viewX,
+    float viewY,
+    float viewZ,
+    float viewYawRadians,
+    float viewPitchRadians,
+    float viewAspectRatio,
+    float pointX,
+    float pointY,
+    float pointZ)
+{
+    const float cosPitch = std::cos(viewPitchRadians);
+    const float sinPitch = std::sin(viewPitchRadians);
+    const float cosYaw = std::cos(viewYawRadians);
+    const float sinYaw = std::sin(viewYawRadians);
+    const float forwardX = cosYaw * cosPitch;
+    const float forwardY = sinYaw * cosPitch;
+    const float forwardZ = sinPitch;
+    const float rightX = -sinYaw;
+    const float rightY = cosYaw;
+    const float upX = -cosYaw * sinPitch;
+    const float upY = -sinYaw * sinPitch;
+    const float upZ = cosPitch;
+    const float deltaX = pointX - viewX;
+    const float deltaY = pointY - viewY;
+    const float deltaZ = pointZ - viewZ;
+    const float forwardDistance = deltaX * forwardX + deltaY * forwardY + deltaZ * forwardZ;
+
+    if (forwardDistance <= 0.0f)
+    {
+        return false;
+    }
+
+    const float halfVerticalFovTan = std::tan(CameraVerticalFovRadians * 0.5f);
+    const float halfHorizontalFovTan = halfVerticalFovTan * std::max(0.1f, viewAspectRatio);
+    const float lateralDistance = std::abs(deltaX * rightX + deltaY * rightY);
+    const float verticalDistance = std::abs(deltaX * upX + deltaY * upY + deltaZ * upZ);
+    return lateralDistance <= forwardDistance * halfHorizontalFovTan
+        && verticalDistance <= forwardDistance * halfVerticalFovTan;
+}
+}
+
+std::vector<size_t> OutdoorWorldRuntime::collectVisibleMapActorIndicesWithinRadius(
+    float centerX,
+    float centerY,
+    float centerZ,
+    float radius,
+    float sourceX,
+    float sourceY,
+    float sourceZ,
+    float viewX,
+    float viewY,
+    float viewZ,
+    float viewYawRadians,
+    float viewPitchRadians,
+    float viewAspectRatio) const
+{
+    std::vector<size_t> result;
+
+    if (radius <= 0.0f)
+    {
+        return result;
+    }
+
+    const bx::Vec3 source = {sourceX, sourceY, sourceZ};
+
+    for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
+    {
+        const MapActorState &actor = m_mapActors[actorIndex];
+
+        if (isActorUnavailableForCombat(actor))
+        {
+            continue;
+        }
+
+        const float targetZ = actor.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
+        const float deltaX = actor.preciseX - centerX;
+        const float deltaY = actor.preciseY - centerY;
+        const float deltaZ = targetZ - centerZ;
+        const float edgeDistance =
+            std::max(0.0f, length3d(deltaX, deltaY, deltaZ) - static_cast<float>(actor.radius));
+
+        if (edgeDistance > radius)
+        {
+            continue;
+        }
+
+        const float viewTargetZ = actor.preciseZ + std::max(48.0f, static_cast<float>(actor.height) * 0.6f);
+        if (!outdoorPointInsideViewCone(
+                viewX,
+                viewY,
+                viewZ,
+                viewYawRadians,
+                viewPitchRadians,
+                viewAspectRatio,
+                actor.preciseX,
+                actor.preciseY,
+                viewTargetZ))
+        {
+            continue;
+        }
+
+        const bx::Vec3 target = {actor.preciseX, actor.preciseY, targetZ};
+
+        if (!hasClearOutdoorLineOfSight(source, target))
+        {
+            continue;
         }
 
         result.push_back(actorIndex);

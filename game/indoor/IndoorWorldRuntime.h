@@ -327,6 +327,20 @@ public:
         float sourceX,
         float sourceY,
         float sourceZ) const override;
+    std::vector<size_t> collectVisibleMapActorIndicesWithinRadius(
+        float centerX,
+        float centerY,
+        float centerZ,
+        float radius,
+        float sourceX,
+        float sourceY,
+        float sourceZ,
+        float viewX,
+        float viewY,
+        float viewZ,
+        float viewYawRadians,
+        float viewPitchRadians,
+        float viewAspectRatio) const override;
     bool spawnPartyFireSpikeTrap(
         uint32_t casterMemberIndex,
         uint32_t spellId,
@@ -541,7 +555,6 @@ private:
     std::shared_ptr<const PathMap> indoorPathMap() const;
     bool indoorActorPathfindingEnabled() const;
     bool logIndoorPathfindingEnabled() const;
-    bool logIndoorFlyingActorMovementEnabled() const;
     bool actorAiPerformanceDiagnosticsEnabled() const;
     void logActorAiPerformanceDiagnostics(uint32_t currentTick);
     IndoorMovementController &actorMovementController();
@@ -584,6 +597,10 @@ private:
         float deltaSeconds,
         const std::vector<IndoorVertex> &projectileVertices,
         IndoorFaceGeometryCache &projectileGeometryCache) const;
+    void populateIndoorProjectileAreaImpact(
+        const GameplayProjectileService::ProjectileState &projectile,
+        const GameplayProjectileService::ProjectileFrameFacts &facts,
+        GameplayProjectileService::ProjectileFrameResult &frameResult) const;
     void applyIndoorProjectileFrameResult(
         GameplayProjectileService::ProjectileState &projectile,
         const GameplayProjectileService::ProjectileFrameFacts &facts,

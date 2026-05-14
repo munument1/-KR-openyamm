@@ -2663,18 +2663,39 @@ PartySpellCastResult PartySpellSystem::castSpell(
                     : spellId == SpellId::Armageddon
                     ? 8192.0f
                     : 4096.0f;
-            const std::vector<size_t> actorIndices =
-                effectRadius > 0.0f && spellId != SpellId::Armageddon
-                    ? worldRuntime.collectMapActorIndicesWithinRadius(
+            std::vector<size_t> actorIndices;
+            if (effectRadius > 0.0f && spellId != SpellId::Armageddon)
+            {
+                if (areaSpellAffectsVisibleCreatures(spellId))
+                {
+                    actorIndices = worldRuntime.collectVisibleMapActorIndicesWithinRadius(
                         effectCenterX,
                         effectCenterY,
                         effectCenterZ,
                         effectRadius,
-                        spellId != SpellId::Armageddon,
                         sourceX,
                         sourceY,
-                        sourceZ)
-                    : std::vector<size_t>{};
+                        sourceZ,
+                        request.viewX,
+                        request.viewY,
+                        request.viewZ,
+                        request.viewYawRadians,
+                        request.viewPitchRadians,
+                        request.viewAspectRatio);
+                }
+                else
+                {
+                    actorIndices = worldRuntime.collectMapActorIndicesWithinRadius(
+                        effectCenterX,
+                        effectCenterY,
+                        effectCenterZ,
+                        effectRadius,
+                        true,
+                        sourceX,
+                        sourceY,
+                        sourceZ);
+                }
+            }
 
             int totalSoulDrinkerDrain = 0;
 

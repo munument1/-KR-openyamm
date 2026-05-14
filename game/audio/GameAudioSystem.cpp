@@ -1,7 +1,6 @@
 #include "game/audio/GameAudioSystem.h"
 
 #include "engine/TextTable.h"
-#include "game/party/SpellIds.h"
 
 #include <SDL3/SDL.h>
 
@@ -25,6 +24,7 @@ extern "C"
 #include <iostream>
 #include <memory>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -614,7 +614,7 @@ bool GameAudioSystem::initialize(
     }
 
     m_soundCatalog.initializeVirtualPathIndex(assetFileSystem);
-    preloadSpellBuffSounds(spellTable);
+    preloadSpellEffectSounds(spellTable);
     preloadArcomageUiSounds();
     return true;
 }
@@ -760,52 +760,40 @@ void GameAudioSystem::setVoiceVolume(float volume)
     m_voiceVolume = std::clamp(volume, 0.0f, 1.0f);
 }
 
-void GameAudioSystem::preloadSpellBuffSounds(const SpellTable &spellTable)
+bool GameAudioSystem::preloadSound(SoundRef sound)
 {
-    const std::array<SpellId, 24> preloadSpellIds = {
-        SpellId::TorchLight,
-        SpellId::FireResistance,
-        SpellId::Haste,
-        SpellId::WizardEye,
-        SpellId::FeatherFall,
-        SpellId::AirResistance,
-        SpellId::Shield,
-        SpellId::Invisibility,
-        SpellId::Fly,
-        SpellId::WaterResistance,
-        SpellId::WaterWalk,
-        SpellId::EarthResistance,
-        SpellId::StoneSkin,
-        SpellId::DetectLife,
-        SpellId::Bless,
-        SpellId::Preservation,
-        SpellId::Heroism,
-        SpellId::MindResistance,
-        SpellId::BodyResistance,
-        SpellId::Regeneration,
-        SpellId::ProtectionFromMagic,
-        SpellId::DayOfGods,
-        SpellId::DayOfProtection,
-        SpellId::HourOfPower
-    };
-
-    for (SpellId spellId : preloadSpellIds)
+    if (sound.id == 0)
     {
-        const SpellEntry *pSpellEntry = spellTable.findById(static_cast<int>(spellIdValue(spellId)));
+        return false;
+    }
 
-        if (pSpellEntry == nullptr || pSpellEntry->effectSoundId <= 0)
+    const std::optional<std::string> virtualPath = m_soundCatalog.buildVirtualPath(sound);
+
+    if (!virtualPath)
+    {
+        return false;
+    }
+
+    return m_audioSystem.preloadClip(*virtualPath);
+}
+
+bool GameAudioSystem::preloadCommonSound(SoundId soundId)
+{
+    return preloadSound(engineSound(static_cast<uint32_t>(soundId)));
+}
+
+void GameAudioSystem::preloadSpellEffectSounds(const SpellTable &spellTable)
+{
+    std::unordered_set<int> preloadedSoundIds;
+
+    for (const SpellEntry &spellEntry : spellTable.entries())
+    {
+        if (spellEntry.effectSoundId <= 0 || !preloadedSoundIds.insert(spellEntry.effectSoundId).second)
         {
             continue;
         }
 
-        const std::optional<std::string> virtualPath = m_soundCatalog.buildVirtualPath(pSpellEntry->effectSoundId);
-
-        if (!virtualPath)
-        {
-            continue;
-        }
-
-        m_audioSystem.preloadClip(*virtualPath);
+        preloadSound(engineSound(static_cast<uint32_t>(spellEntry.effectSoundId)));
     }
 }
 

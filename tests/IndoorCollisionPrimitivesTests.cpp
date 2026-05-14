@@ -14,6 +14,7 @@ using OpenYAMM::Game::IndoorFace;
 using OpenYAMM::Game::IndoorFaceGeometryData;
 using OpenYAMM::Game::IndoorFaceGeometryCache;
 using OpenYAMM::Game::IndoorFaceKind;
+using OpenYAMM::Game::IndoorInitialActorPlacement;
 using OpenYAMM::Game::IndoorCeilingSample;
 using OpenYAMM::Game::IndoorFloorSample;
 using OpenYAMM::Game::IndoorFaceSweepOptions;
@@ -37,6 +38,7 @@ using OpenYAMM::Game::faceAttributeBit;
 using OpenYAMM::Game::indoorSweptBodyBoundsTouchFace;
 using OpenYAMM::Game::indoorSweptBodyTouchesPortalFace;
 using OpenYAMM::Game::projectIndoorVelocityAlongPlane;
+using OpenYAMM::Game::resolveIndoorInitialActorPlacement;
 using OpenYAMM::Game::sampleIndoorCeiling;
 using OpenYAMM::Game::sampleIndoorFloor;
 using OpenYAMM::Game::selectNearestIndoorFaceHit;
@@ -110,6 +112,45 @@ IndoorSweptCylinder makeCylinder(float x, float y, float z, float radius, float 
     cylinder.height = height;
     return cylinder;
 }
+
+IndoorMapData makeInitialPlacementRoom()
+{
+    IndoorMapData mapData = {};
+    mapData.vertices = {
+        {0, -128, 0},
+        {256, -128, 0},
+        {256, 128, 0},
+        {0, 128, 0},
+        {0, -128, 200},
+        {0, 128, 200}
+    };
+
+    IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    IndoorFace wall = {};
+    wall.vertexIndices = {0, 4, 5, 3};
+    wall.facetType = 1;
+    wall.roomNumber = 1;
+
+    IndoorSector emptySector = {};
+    IndoorSector roomSector = {};
+    roomSector.minX = 0;
+    roomSector.maxX = 256;
+    roomSector.minY = -128;
+    roomSector.maxY = 128;
+    roomSector.minZ = 0;
+    roomSector.maxZ = 200;
+    roomSector.floorFaceIds = {0};
+    roomSector.wallFaceIds = {1};
+    roomSector.faceIds = {0, 1};
+
+    mapData.faces = {floor, wall};
+    mapData.sectors = {emptySector, roomSector};
+    return mapData;
+}
 }
 
 TEST_CASE("incremental mechanism vertex update matches full adjusted vertex build")
@@ -163,6 +204,62 @@ TEST_CASE("swept indoor sphere misses face outside polygon")
         sweepIndoorSphereAgainstFace(sphere, {1.0f, 0.0f, 0.0f}, 150.0f, wall);
 
     CHECK_FALSE(hit.has_value());
+}
+
+TEST_CASE("initial indoor actor placement snaps to floor without moving clear actor")
+{
+    IndoorMapData mapData = makeInitialPlacementRoom();
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+
+    const IndoorInitialActorPlacement placement =
+        resolveIndoorInitialActorPlacement(
+            mapData,
+            mapData.vertices,
+            geometryCache,
+            80.0f,
+            0.0f,
+            32.0f,
+            16.0f,
+            64.0f,
+            false,
+            128.0f,
+            256.0f);
+
+    CHECK(placement.hasFloor);
+    CHECK_FALSE(placement.movedHorizontally);
+    CHECK_FALSE(placement.wallOverlapResolved);
+    CHECK_EQ(placement.sectorId, 1);
+    CHECK_EQ(placement.x, doctest::Approx(80.0f));
+    CHECK_EQ(placement.y, doctest::Approx(0.0f));
+    CHECK_EQ(placement.z, doctest::Approx(0.0f));
+}
+
+TEST_CASE("initial indoor actor placement clears wall-overlapping actor")
+{
+    IndoorMapData mapData = makeInitialPlacementRoom();
+    IndoorFaceGeometryCache geometryCache(mapData.faces.size());
+
+    const IndoorInitialActorPlacement placement =
+        resolveIndoorInitialActorPlacement(
+            mapData,
+            mapData.vertices,
+            geometryCache,
+            8.0f,
+            0.0f,
+            32.0f,
+            16.0f,
+            64.0f,
+            false,
+            128.0f,
+            256.0f);
+
+    CHECK(placement.hasFloor);
+    CHECK(placement.movedHorizontally);
+    CHECK(placement.wallOverlapResolved);
+    CHECK_EQ(placement.sectorId, 1);
+    CHECK(placement.x > 16.0f);
+    CHECK_EQ(placement.y, doctest::Approx(0.0f));
+    CHECK_EQ(placement.z, doctest::Approx(0.0f));
 }
 
 TEST_CASE("swept indoor sphere hits wall at sphere radius")

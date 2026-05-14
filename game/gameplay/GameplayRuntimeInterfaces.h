@@ -122,6 +122,17 @@ struct GameplayActorInspectState
     int currentHp = 0;
     int maxHp = 0;
     int armorClass = 0;
+    MonsterTable::MonsterStatsEntry::DamageProfile attack1Damage = {};
+    MonsterTable::MonsterStatsEntry::DamageProfile attack2Damage = {};
+    int attack2Chance = 0;
+    bool hasSpell1 = false;
+    bool hasSpell2 = false;
+    std::string spell1Name;
+    std::string spell2Name;
+    uint32_t spell1SkillLevel = 0;
+    SkillMastery spell1SkillMastery = SkillMastery::None;
+    uint32_t spell2SkillLevel = 0;
+    SkillMastery spell2SkillMastery = SkillMastery::None;
     bool isDead = false;
     float slowRemainingSeconds = 0.0f;
     float stunRemainingSeconds = 0.0f;
@@ -527,6 +538,29 @@ public:
         float sourceX,
         float sourceY,
         float sourceZ) const = 0;
+    virtual std::vector<size_t> collectVisibleMapActorIndicesWithinRadius(
+        float centerX,
+        float centerY,
+        float centerZ,
+        float radius,
+        float sourceX,
+        float sourceY,
+        float sourceZ,
+        float viewX,
+        float viewY,
+        float viewZ,
+        float viewYawRadians,
+        float viewPitchRadians,
+        float viewAspectRatio) const
+    {
+        (void)viewX;
+        (void)viewY;
+        (void)viewZ;
+        (void)viewYawRadians;
+        (void)viewPitchRadians;
+        (void)viewAspectRatio;
+        return collectMapActorIndicesWithinRadius(centerX, centerY, centerZ, radius, true, sourceX, sourceY, sourceZ);
+    }
     virtual bool spawnPartyFireSpikeTrap(
         uint32_t casterMemberIndex,
         uint32_t spellId,

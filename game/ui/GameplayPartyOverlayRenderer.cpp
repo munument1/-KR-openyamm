@@ -2377,6 +2377,44 @@ std::string formatMonsterDamageText(const MonsterTable::MonsterStatsEntry::Damag
     return text;
 }
 
+std::string monsterSpellMasteryAbbreviation(SkillMastery mastery)
+{
+    switch (mastery)
+    {
+        case SkillMastery::Grandmaster:
+            return "GM";
+        case SkillMastery::Master:
+            return "M";
+        case SkillMastery::Expert:
+            return "E";
+        case SkillMastery::Normal:
+            return "N";
+        case SkillMastery::None:
+        default:
+            return "";
+    }
+}
+
+std::string formatMonsterInspectSpellText(
+    const std::string &spellName,
+    uint32_t skillLevel,
+    SkillMastery skillMastery)
+{
+    if (spellName.empty() || spellName == "0")
+    {
+        return "";
+    }
+
+    const std::string mastery = monsterSpellMasteryAbbreviation(skillMastery);
+
+    if (skillLevel == 0 || mastery.empty())
+    {
+        return spellName;
+    }
+
+    return spellName + " " + mastery + std::to_string(skillLevel);
+}
+
 std::string joinNonEmptyTexts(const std::vector<std::string> &parts)
 {
     std::string result;
@@ -9583,15 +9621,25 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
 
     const std::string attackText = joinNonEmptyTexts({
         pStats->attack1Type,
-        (pStats->attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()});
+        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()});
     const std::string damageText = joinNonEmptyTexts({
-        formatMonsterDamageText(pStats->attack1Damage),
-        (pStats->attack2Chance > 0 || pStats->attack2Damage.diceRolls > 0)
-            ? formatMonsterDamageText(pStats->attack2Damage)
+        formatMonsterDamageText(actorState.attack1Damage),
+        (actorState.attack2Chance > 0 || actorState.attack2Damage.diceRolls > 0)
+            ? formatMonsterDamageText(actorState.attack2Damage)
             : std::string()});
     const std::string spellText = joinNonEmptyTexts({
-        pStats->hasSpell1 ? pStats->spell1Name : std::string(),
-        pStats->hasSpell2 ? pStats->spell2Name : std::string()});
+        actorState.hasSpell1
+            ? formatMonsterInspectSpellText(
+                actorState.spell1Name,
+                actorState.spell1SkillLevel,
+                actorState.spell1SkillMastery)
+            : std::string(),
+        actorState.hasSpell2
+            ? formatMonsterInspectSpellText(
+                actorState.spell2Name,
+                actorState.spell2SkillLevel,
+                actorState.spell2SkillMastery)
+            : std::string()});
     std::vector<std::string> activeEffects;
 
     if (actorState.isDead)

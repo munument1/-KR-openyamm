@@ -800,16 +800,6 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
-    if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_flying_actor_movement"))
-    {
-        bool parsed = settings.logIndoorFlyingActorMovement;
-
-        if (parseBoolValue(*value, parsed))
-        {
-            settings.logIndoorFlyingActorMovement = parsed;
-        }
-    }
-
     if (const std::optional<std::string> value = getIniValue(document, "logging", "fps_trace"))
     {
         bool parsed = settings.fpsTrace;
@@ -1055,7 +1045,6 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "[logging]\n"
         << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.logIndoorPathfinding ? "true" : "false") << '\n'
-        << "indoor_flying_actor_movement=" << (settings.logIndoorFlyingActorMovement ? "true" : "false") << '\n'
         << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << '\n'
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'

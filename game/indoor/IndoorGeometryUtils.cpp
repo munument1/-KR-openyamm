@@ -5,6 +5,7 @@
 #include "game/indoor/IndoorPortalGraph.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -17,6 +18,8 @@ constexpr float GeometryEpsilon = 0.0001f;
 constexpr float FloorSlack = 8.0f;
 constexpr float FloorContainmentSlack = 3.0f;
 constexpr float WalkableSlopeNormalZ = 0.68664550781f;
+constexpr float InitialActorPlacementWallMinHeight = 50.0f;
+constexpr float InitialActorPlacementFloorSlack = 1024.0f;
 constexpr size_t MaxIndoorFaceVertexCount = 128;
 
 struct ProjectedFacePoint
@@ -190,6 +193,34 @@ bool faceCanDefineCeilingHeight(const IndoorFaceGeometryData &geometry)
 {
     return geometry.kind == IndoorFaceKind::Ceiling
         || (geometry.facetType == 6 && geometry.normal.z < -GeometryEpsilon);
+}
+
+bool faceIsSteepFloorCollisionSurface(const IndoorFaceGeometryData &geometry)
+{
+    if (geometry.normal.z <= 0.0f || geometry.normal.z >= WalkableSlopeNormalZ)
+    {
+        return false;
+    }
+
+    if (geometry.facetType == 4 && hasFaceAttribute(geometry.attributes, FaceAttribute::Invisible))
+    {
+        return false;
+    }
+
+    return geometry.facetType == 3 || geometry.facetType == 4 || geometry.kind == IndoorFaceKind::Floor;
+}
+
+bool faceBlocksInitialActorPlacement(const IndoorFaceGeometryData &geometry, float footZ)
+{
+    if (geometry.kind != IndoorFaceKind::Wall
+        || geometry.isPortal
+        || hasFaceAttribute(geometry.attributes, FaceAttribute::Untouchable)
+        || geometry.maxZ <= footZ + InitialActorPlacementWallMinHeight)
+    {
+        return false;
+    }
+
+    return !faceIsSteepFloorCollisionSurface(geometry);
 }
 
 bool sectorBoundingBoxIntersectsProbe(const IndoorSector &sector, const bx::Vec3 &point)
@@ -1121,6 +1152,184 @@ bool isIndoorCylinderBlockedByFace(
     };
     const ProjectedFacePoint projectedFacePoint = projectFacePoint(geometry.projectionAxis, projectedPoint);
     return isPointInsideProjectedPolygon(projectedFacePoint, geometry.projectedVertices);
+}
+
+bool indoorActorPlacementOverlapsBlockingWall(
+    const IndoorMapData &indoorMapData,
+    const std::vector<IndoorVertex> &vertices,
+    IndoorFaceGeometryCache &geometryCache,
+    float x,
+    float y,
+    float z,
+    float radius,
+    float height,
+    int16_t sectorId)
+{
+    const auto testFace = [&](uint16_t faceId) -> bool
+    {
+        const IndoorFaceGeometryData *pGeometry = geometryCache.geometryForFace(indoorMapData, vertices, faceId);
+
+        if (pGeometry == nullptr || !faceBlocksInitialActorPlacement(*pGeometry, z))
+        {
+            return false;
+        }
+
+        return isIndoorCylinderBlockedByFace(*pGeometry, x, y, z, radius, height);
+    };
+
+    if (sectorId >= 0 && static_cast<size_t>(sectorId) < indoorMapData.sectors.size())
+    {
+        const IndoorSector &sector = indoorMapData.sectors[sectorId];
+
+        for (uint16_t faceId : sector.faceIds)
+        {
+            if (testFace(faceId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    for (size_t faceIndex = 0; faceIndex < indoorMapData.faces.size(); ++faceIndex)
+    {
+        if (faceIndex <= static_cast<size_t>(std::numeric_limits<uint16_t>::max())
+            && testFace(static_cast<uint16_t>(faceIndex)))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+IndoorInitialActorPlacement resolveIndoorInitialActorPlacement(
+    const IndoorMapData &indoorMapData,
+    const std::vector<IndoorVertex> &vertices,
+    IndoorFaceGeometryCache &geometryCache,
+    float x,
+    float y,
+    float z,
+    float radius,
+    float height,
+    bool canFly,
+    float maxRise,
+    float maxDrop)
+{
+    IndoorInitialActorPlacement result = {};
+    result.x = x;
+    result.y = y;
+    result.z = z;
+
+    if (vertices.empty())
+    {
+        return result;
+    }
+
+    const IndoorFloorSample floorSample =
+        sampleIndoorFloor(
+            indoorMapData,
+            vertices,
+            x,
+            y,
+            z + radius,
+            maxRise,
+            maxDrop,
+            std::nullopt,
+            nullptr,
+            &geometryCache);
+
+    if (!floorSample.hasFloor)
+    {
+        return result;
+    }
+
+    result.hasFloor = true;
+    result.sectorId = floorSample.sectorId;
+
+    if (!canFly || z <= floorSample.height + 1.0f)
+    {
+        result.z = floorSample.height;
+    }
+
+    if (!indoorActorPlacementOverlapsBlockingWall(
+            indoorMapData,
+            vertices,
+            geometryCache,
+            result.x,
+            result.y,
+            result.z,
+            radius,
+            height,
+            result.sectorId))
+    {
+        return result;
+    }
+
+    constexpr std::array<float, 6> SearchRadii = {{8.0f, 16.0f, 32.0f, 48.0f, 64.0f, 96.0f}};
+    constexpr int SearchAngles = 16;
+    constexpr float TwoPi = 6.28318530717958647692f;
+
+    for (float searchRadius : SearchRadii)
+    {
+        for (int angleIndex = 0; angleIndex < SearchAngles; ++angleIndex)
+        {
+            const float angle = TwoPi * static_cast<float>(angleIndex) / static_cast<float>(SearchAngles);
+            const float candidateX = x + std::cos(angle) * searchRadius;
+            const float candidateY = y + std::sin(angle) * searchRadius;
+            const IndoorFloorSample candidateFloor =
+                sampleIndoorFloor(
+                    indoorMapData,
+                    vertices,
+                    candidateX,
+                    candidateY,
+                    z + radius,
+                    maxRise,
+                    maxDrop,
+                    result.sectorId,
+                    nullptr,
+                    &geometryCache);
+
+            if (!candidateFloor.hasFloor
+                || candidateFloor.sectorId != result.sectorId
+                || std::fabs(candidateFloor.height - floorSample.height) > InitialActorPlacementFloorSlack)
+            {
+                continue;
+            }
+
+            float candidateZ = z;
+
+            if (!canFly || z <= candidateFloor.height + 1.0f)
+            {
+                candidateZ = candidateFloor.height;
+            }
+
+            if (indoorActorPlacementOverlapsBlockingWall(
+                    indoorMapData,
+                    vertices,
+                    geometryCache,
+                    candidateX,
+                    candidateY,
+                    candidateZ,
+                    radius,
+                    height,
+                    candidateFloor.sectorId))
+            {
+                continue;
+            }
+
+            result.x = candidateX;
+            result.y = candidateY;
+            result.z = candidateZ;
+            result.sectorId = candidateFloor.sectorId;
+            result.movedHorizontally = true;
+            result.wallOverlapResolved = true;
+            return result;
+        }
+    }
+
+    return result;
 }
 
 IndoorFloorSample sampleIndoorFloor(

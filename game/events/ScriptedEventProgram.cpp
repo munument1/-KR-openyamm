@@ -350,6 +350,10 @@ bool ScriptedEventProgram::populateMetadataFromLua(
 
     program.m_onLoadEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLoad", true);
     program.m_onLeaveEventIds = readIntegerArrayFromField<uint16_t>(pLuaState, -1, "onLeave", true);
+    program.m_monsterKilledHookEventIds =
+        readIntegerArrayFromField<uint16_t>(pLuaState, -1, "monsterKilledHooks", true);
+    program.m_monsterDamageHookEventIds =
+        readIntegerArrayFromField<uint16_t>(pLuaState, -1, "monsterDamageHooks", true);
     program.m_hints = readStringMapFromField(pLuaState, -1, "hint");
     program.m_summaries = readStringMapFromField(pLuaState, -1, "title");
 
@@ -445,6 +449,16 @@ const std::vector<uint16_t> &ScriptedEventProgram::onLoadEventIds() const
 const std::vector<uint16_t> &ScriptedEventProgram::onLeaveEventIds() const
 {
     return m_onLeaveEventIds;
+}
+
+const std::vector<uint16_t> &ScriptedEventProgram::monsterKilledHookEventIds() const
+{
+    return m_monsterKilledHookEventIds;
+}
+
+const std::vector<uint16_t> &ScriptedEventProgram::monsterDamageHookEventIds() const
+{
+    return m_monsterDamageHookEventIds;
 }
 
 const std::vector<std::string> &ScriptedEventProgram::textureNames() const
