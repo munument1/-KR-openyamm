@@ -59,6 +59,7 @@ public:
         uint16_t collisionHeight = 128;
         uint16_t projectileHitRadius = 32;
         uint16_t movementSpeed = 0;
+        float bolsterRewardMultiplier = 1.0f;
         GameplayActorAiType aiType = GameplayActorAiType::Normal;
         bool canFly = false;
         CombatDamageType attack1DamageType = CombatDamageType::Physical;
@@ -540,6 +541,7 @@ private:
     std::shared_ptr<const PathMap> indoorPathMap() const;
     bool indoorActorPathfindingEnabled() const;
     bool logIndoorPathfindingEnabled() const;
+    bool logIndoorFlyingActorMovementEnabled() const;
     bool actorAiPerformanceDiagnosticsEnabled() const;
     void logActorAiPerformanceDiagnostics(uint32_t currentTick);
     IndoorMovementController &actorMovementController();

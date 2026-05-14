@@ -3,6 +3,7 @@
 #include "engine/TextTable.h"
 #include "game/app/GameSettings.h"
 #include "game/party/Party.h"
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
 #include "game/tables/SpriteTables.h"
 
@@ -197,6 +198,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
     settings.logIndoorVisibility = true;
+    settings.logIndoorFlyingActorMovement = true;
     settings.fpsTrace = true;
     settings.hitchTrace = true;
     settings.hitchThresholdMilliseconds = 12.5f;
@@ -216,6 +218,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->logIndoorVisibility);
+    CHECK(loadedSettings->logIndoorFlyingActorMovement);
     CHECK(loadedSettings->fpsTrace);
     CHECK(loadedSettings->hitchTrace);
     CHECK(loadedSettings->hitchThresholdMilliseconds == doctest::Approx(12.5f));
@@ -226,6 +229,10 @@ TEST_CASE("settings debug startup options round trip")
 TEST_CASE("settings monster bolster feature defaults off")
 {
     CHECK_FALSE(OpenYAMM::Game::GameSettings::createDefault().bolsterMonsters);
+    CHECK(
+        OpenYAMM::Game::GameSettings::createDefault().blasterSkillScaling
+        == OpenYAMM::Game::BlasterSkillScalingMode::Default);
+    CHECK_EQ(OpenYAMM::Game::GameSettings::createDefault().blasterMinimumRecoveryTicks, 0);
 
     const std::filesystem::path path =
         std::filesystem::temp_directory_path() / "openyamm_default_bolster_settings.ini";
@@ -243,8 +250,39 @@ TEST_CASE("settings monster bolster feature defaults off")
 
     REQUIRE(loadedSettings.has_value());
     CHECK_FALSE(loadedSettings->bolsterMonsters);
+    CHECK(loadedSettings->blasterSkillScaling == OpenYAMM::Game::BlasterSkillScalingMode::Default);
+    CHECK_EQ(loadedSettings->blasterMinimumRecoveryTicks, 0);
     CHECK_FALSE(loadedSettings->logIndoorVisibility);
     CHECK_FALSE(loadedSettings->fpsTrace);
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("settings parse blaster combat feature knobs")
+{
+    const std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "openyamm_blaster_feature_settings.ini";
+
+    {
+        std::ofstream output(path);
+        REQUIRE(output.good());
+        output << "[features]\n";
+        output << "blaster_skill_scaling=scaling_damage\n";
+        output << "blaster_min_recovery=10\n";
+    }
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::GameSettings> loadedSettings =
+        OpenYAMM::Game::loadGameSettings(path, error);
+
+    REQUIRE(loadedSettings.has_value());
+    CHECK(loadedSettings->blasterSkillScaling == OpenYAMM::Game::BlasterSkillScalingMode::ScalingDamage);
+    CHECK_EQ(loadedSettings->blasterMinimumRecoveryTicks, 10);
+
+    const OpenYAMM::Game::CharacterAttackTuning attackTuning =
+        OpenYAMM::Game::characterAttackTuningFromSettings(*loadedSettings);
+    CHECK(attackTuning.blasterSkillScaling == OpenYAMM::Game::BlasterSkillScalingMode::ScalingDamage);
+    CHECK_EQ(attackTuning.blasterMinimumRecoveryTicks, 10);
 
     std::filesystem::remove(path);
 }
@@ -462,6 +500,10 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
 {
     OpenYAMM::Game::MonsterTable monsterTable;
     REQUIRE(monsterTable.loadStatsFromRows(loadAssetTextTableRows("assets_dev/engine/data_tables/monster_data.txt")));
+    OpenYAMM::Game::MergedBolsterMonsterTable bolsterMonsterTable;
+    REQUIRE(
+        bolsterMonsterTable.loadFromRows(loadAssetTextTableRows("assets_dev/engine/data_tables/bolster_monsters.txt")));
+    REQUIRE(monsterTable.applyKindFlagsFromBolsterMonsterTable(bolsterMonsterTable));
 
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pLizardmanPeasant =
         monsterTable.findStatsById(1);
@@ -477,6 +519,10 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
         monsterTable.findStatsById(76);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pTitan =
         monsterTable.findStatsById(640);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pDragonTurtle =
+        monsterTable.findStatsById(136);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pBoulder =
+        monsterTable.findStatsById(142);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm7Devil =
         monsterTable.findStatsById(220);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6DemonFly =
@@ -493,6 +539,8 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
         monsterTable.findStatsById(607);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6Mage =
         monsterTable.findStatsById(610);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pReactor =
+        monsterTable.findStatsById(652);
 
     REQUIRE(pLizardmanPeasant != nullptr);
     REQUIRE(pTownPeasant != nullptr);
@@ -501,6 +549,8 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     REQUIRE(pDragon != nullptr);
     REQUIRE(pWaterElemental != nullptr);
     REQUIRE(pTitan != nullptr);
+    REQUIRE(pDragonTurtle != nullptr);
+    REQUIRE(pBoulder != nullptr);
     REQUIRE(pMm7Devil != nullptr);
     REQUIRE(pMm6DemonFly != nullptr);
     REQUIRE(pMm6Demon != nullptr);
@@ -509,6 +559,7 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     REQUIRE(pMm6Cutpurse != nullptr);
     REQUIRE(pMm6NewSorpigalPeasantMale != nullptr);
     REQUIRE(pMm6Mage != nullptr);
+    REQUIRE(pReactor != nullptr);
     CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
     CHECK(pLizardmanPeasant->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK(pTownPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
@@ -521,6 +572,11 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK(pWaterElemental->hasKind(OpenYAMM::Game::MonsterKind::Elemental));
     CHECK(pTitan->hasKind(OpenYAMM::Game::MonsterKind::Titan));
+    CHECK(pDragonTurtle->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
+    CHECK(pDragonTurtle->hasKind(OpenYAMM::Game::MonsterKind::Swimmer));
+    CHECK(pDragonTurtle->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
+    CHECK(pBoulder->hasKind(OpenYAMM::Game::MonsterKind::Immobile));
+    CHECK(pBoulder->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK_FALSE(pMm7Devil->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6DemonFly->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6Demon->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
@@ -532,6 +588,8 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     CHECK(pMm6NewSorpigalPeasantMale->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
     CHECK(pMm6NewSorpigalPeasantMale->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK_FALSE(pMm6Mage->hasKind(OpenYAMM::Game::MonsterKind::Peasant));
+    CHECK(pReactor->hasKind(OpenYAMM::Game::MonsterKind::Immobile));
+    CHECK(pReactor->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
 }
 
 TEST_CASE("monster hostility table follows merged merged party relations")

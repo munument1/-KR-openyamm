@@ -66,6 +66,38 @@ bool parseBoolValue(const std::string &value, bool &result)
     return false;
 }
 
+bool parseBlasterSkillScalingValue(const std::string &value, BlasterSkillScalingMode &result)
+{
+    const std::string normalized = toLowerCopy(trimCopy(value));
+
+    if (normalized == "default")
+    {
+        result = BlasterSkillScalingMode::Default;
+        return true;
+    }
+
+    if (normalized == "scaling_damage")
+    {
+        result = BlasterSkillScalingMode::ScalingDamage;
+        return true;
+    }
+
+    return false;
+}
+
+std::string blasterSkillScalingValue(BlasterSkillScalingMode mode)
+{
+    switch (mode)
+    {
+        case BlasterSkillScalingMode::ScalingDamage:
+            return "scaling_damage";
+
+        case BlasterSkillScalingMode::Default:
+        default:
+            return "default";
+    }
+}
+
 bool parseIntValue(const std::string &value, int &result)
 {
     const std::string trimmed = trimCopy(value);
@@ -85,6 +117,33 @@ bool parseIntValue(const std::string &value, int &result)
 
     result = static_cast<int>(parsed);
     return true;
+}
+
+bool parseBlasterMinimumRecoveryTicksValue(const std::string &value, int &result)
+{
+    const std::string normalized = toLowerCopy(trimCopy(value));
+
+    if (normalized == "default")
+    {
+        result = 0;
+        return true;
+    }
+
+    int parsed = result;
+
+    if (!parseIntValue(value, parsed))
+    {
+        return false;
+    }
+
+    result = std::clamp(parsed, 0, 300);
+    return true;
+}
+
+std::string blasterMinimumRecoveryTicksValue(int ticks)
+{
+    const int clampedTicks = std::clamp(ticks, 0, 300);
+    return clampedTicks == 0 ? std::string("default") : std::to_string(clampedTicks);
 }
 
 bool parseUInt32Value(const std::string &value, uint32_t &result)
@@ -363,6 +422,14 @@ float resolveViewDistanceSetting(const std::string &value, float defaultDistance
     }
 
     return std::clamp(parsed, MinimumViewDistance, UnlimitedViewDistance);
+}
+
+CharacterAttackTuning characterAttackTuningFromSettings(const GameSettings &settings)
+{
+    CharacterAttackTuning tuning = {};
+    tuning.blasterSkillScaling = settings.blasterSkillScaling;
+    tuning.blasterMinimumRecoveryTicks = std::clamp(settings.blasterMinimumRecoveryTicks, 0, 300);
+    return tuning;
 }
 
 std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, std::string &error)
@@ -693,6 +760,26 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "features", "blaster_skill_scaling"))
+    {
+        BlasterSkillScalingMode parsed = settings.blasterSkillScaling;
+
+        if (parseBlasterSkillScalingValue(*value, parsed))
+        {
+            settings.blasterSkillScaling = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "features", "blaster_min_recovery"))
+    {
+        int parsed = settings.blasterMinimumRecoveryTicks;
+
+        if (parseBlasterMinimumRecoveryTicksValue(*value, parsed))
+        {
+            settings.blasterMinimumRecoveryTicks = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_visibility"))
     {
         bool parsed = settings.logIndoorVisibility;
@@ -710,6 +797,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         if (parseBoolValue(*value, parsed))
         {
             settings.logIndoorPathfinding = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "indoor_flying_actor_movement"))
+    {
+        bool parsed = settings.logIndoorFlyingActorMovement;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.logIndoorFlyingActorMovement = parsed;
         }
     }
 
@@ -952,10 +1049,13 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
         << "[features]\n"
         << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << '\n'
-        << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << "\n\n"
+        << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << '\n'
+        << "blaster_skill_scaling=" << blasterSkillScalingValue(settings.blasterSkillScaling) << '\n'
+        << "blaster_min_recovery=" << blasterMinimumRecoveryTicksValue(settings.blasterMinimumRecoveryTicks) << "\n\n"
         << "[logging]\n"
         << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.logIndoorPathfinding ? "true" : "false") << '\n'
+        << "indoor_flying_actor_movement=" << (settings.logIndoorFlyingActorMovement ? "true" : "false") << '\n'
         << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << '\n'
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'

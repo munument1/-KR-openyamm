@@ -128,7 +128,22 @@ public:
         bool flyingActive = false,
         bool ignoreActorCollisions = false,
         float jumpVelocity = 420.0f,
-        float jumpLift = 1.0f
+        float jumpLift = 1.0f,
+        bool lockVerticalPosition = false,
+        bool preventGroundActorLedgeDrop = false
+    ) const;
+    IndoorMoveState resolveFlyingActorMove(
+        const IndoorMoveState &state,
+        const IndoorBodyDimensions &body,
+        float desiredVelocityX,
+        float desiredVelocityY,
+        float deltaSeconds,
+        std::vector<size_t> *pContactedActorIndices = nullptr,
+        std::optional<size_t> ignoredActorIndex = std::nullopt,
+        bool blockActorSlide = false,
+        IndoorMoveDebugInfo *pHorizontalDebugInfo = nullptr,
+        IndoorMoveDebugInfo *pVerticalDebugInfo = nullptr,
+        bool ignoreActorCollisions = false
     ) const;
     IndoorCollisionTraceInfo traceCollisionIssues(
         const IndoorMoveState &start,
@@ -315,7 +330,9 @@ private:
         bool flyingActive,
         bool ignoreActorCollisions,
         float jumpVelocity,
-        float jumpLift
+        float jumpLift,
+        bool lockVerticalPosition,
+        bool preventGroundActorLedgeDrop
     ) const;
     bool collidesAtPosition(
         const std::vector<IndoorVertex> &vertices,

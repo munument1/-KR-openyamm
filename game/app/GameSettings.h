@@ -2,6 +2,7 @@
 
 #include "engine/AssetScaleTier.h"
 #include "game/app/KeyboardBindings.h"
+#include "game/gameplay/CharacterAttackTuning.h"
 
 #include <SDL3/SDL.h>
 
@@ -96,8 +97,11 @@ struct GameSettings
     bool startInMainMenu = false;
     bool bolsterMonsters = false;
     bool indoorPathfinding = true;
+    BlasterSkillScalingMode blasterSkillScaling = BlasterSkillScalingMode::Default;
+    int blasterMinimumRecoveryTicks = 0;
     bool logIndoorVisibility = false;
     bool logIndoorPathfinding = false;
+    bool logIndoorFlyingActorMovement = false;
     bool fpsTrace = false;
     bool performanceTrace = false;
     bool hitchTrace = false;
@@ -127,5 +131,6 @@ struct GameSettings
 
 std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, std::string &error);
 bool saveGameSettings(const std::filesystem::path &path, const GameSettings &settings, std::string &error);
+CharacterAttackTuning characterAttackTuningFromSettings(const GameSettings &settings);
 float resolveViewDistanceSetting(const std::string &value, float defaultDistance);
 }

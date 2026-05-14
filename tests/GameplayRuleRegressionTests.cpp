@@ -17,6 +17,7 @@
 #include "game/indoor/IndoorMovementController.h"
 #include "game/indoor/IndoorPartyRuntime.h"
 #include "game/items/InventoryItemMixingRuntime.h"
+#include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/maps/IndoorSceneYml.h"
@@ -1405,7 +1406,7 @@ TEST_CASE("dispel magic clears party and character buffs through shared party he
     CHECK_FALSE(party.hasDispellableBuffs());
 }
 
-TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recovery")
+TEST_CASE("main-hand blaster shoots before bow and allows original zero minimum recovery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Game::Character member = makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
@@ -1436,12 +1437,66 @@ TEST_CASE("main-hand blaster shoots before bow and respects MMerge minimum recov
     REQUIRE(profile.rangedAttackBonus.has_value());
     CHECK_EQ(profile.rangedSkillLevel, 10u);
     CHECK_EQ(profile.rangedSkillMastery, static_cast<uint32_t>(OpenYAMM::Game::SkillMastery::Grandmaster));
-    CHECK(profile.rangedRecoverySeconds == doctest::Approx(0.0833333f));
+    CHECK(profile.rangedRecoverySeconds == doctest::Approx(0.0f));
     CHECK(attack.mode == OpenYAMM::Game::CharacterAttackMode::Blaster);
     CHECK(attack.damageType == OpenYAMM::Game::CombatDamageType::Irresistible);
     CHECK(attack.resolvesOnImpact);
-    CHECK(attack.recoverySeconds == doctest::Approx(0.0833333f));
+    CHECK(attack.recoverySeconds == doctest::Approx(0.0f));
     CHECK(attack.attackSoundHook == "blaster_shot");
+}
+
+TEST_CASE("blaster attack tuning can add scaling skill damage and minimum recovery")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Character member = makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
+    member.equipment.mainHand = findFirstItemIdBySkillGroup(gameData.itemTable, "Blaster");
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Master};
+    member.attackRecoveryReductionTicks = 1000;
+    REQUIRE(member.equipment.mainHand != 0);
+
+    const OpenYAMM::Game::CharacterAttackProfile defaultProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable);
+
+    OpenYAMM::Game::CharacterAttackTuning attackTuning = {};
+    attackTuning.blasterSkillScaling = OpenYAMM::Game::BlasterSkillScalingMode::ScalingDamage;
+    attackTuning.blasterMinimumRecoveryTicks = 10;
+
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Expert};
+    const OpenYAMM::Game::CharacterAttackProfile expertProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable,
+            attackTuning);
+
+    CHECK_EQ(expertProfile.rangedMinDamage, defaultProfile.rangedMinDamage);
+    CHECK_EQ(expertProfile.rangedMaxDamage, defaultProfile.rangedMaxDamage);
+
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Master};
+    const OpenYAMM::Game::CharacterAttackProfile scalingProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable,
+            attackTuning);
+
+    CHECK_EQ(scalingProfile.rangedMinDamage, defaultProfile.rangedMinDamage);
+    CHECK_EQ(scalingProfile.rangedMaxDamage, defaultProfile.rangedMaxDamage);
+    CHECK(scalingProfile.rangedRecoverySeconds == doctest::Approx(0.166667f));
+
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Grandmaster};
+    const OpenYAMM::Game::CharacterAttackProfile grandmasterProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable,
+            attackTuning);
+
+    CHECK_EQ(grandmasterProfile.rangedMinDamage, defaultProfile.rangedMinDamage + 10);
+    CHECK_EQ(grandmasterProfile.rangedMaxDamage, defaultProfile.rangedMaxDamage + 10);
 }
 
 TEST_CASE("blaster damage bypasses monster resistance")
@@ -2611,6 +2666,164 @@ TEST_CASE("indoor movement rejects low ceiling even when body top starts above i
     CHECK(resolved.grounded);
 }
 
+TEST_CASE("indoor flying movement can rise below nearby floor surfaces")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -256, 50},
+        {256, -256, 50},
+        {256, 256, 50},
+        {-256, 256, 50},
+        {-256, -256, 200},
+        {-256, 256, 200},
+        {256, 256, 200},
+        {256, -256, 200},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace ceiling = {};
+    ceiling.vertexIndices = {4, 5, 6, 7};
+    ceiling.facetType = 5;
+    ceiling.roomNumber = 1;
+
+    mapData.faces = {floor, ceiling};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.ceilingCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = -256;
+    sector.maxY = 256;
+    sector.minZ = -64;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.ceilingFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = {0, 1};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{4.0f, 20.0f};
+    OpenYAMM::Game::IndoorMoveState state = {};
+    state.x = 0.0f;
+    state.y = 0.0f;
+    state.footZ = 0.0f;
+    state.eyeHeight = body.height;
+    state.verticalVelocity = 16.0f;
+    state.sectorId = 1;
+    state.eyeSectorId = 1;
+    state.supportFaceIndex = static_cast<size_t>(-1);
+    state.grounded = false;
+
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(
+            state,
+            body,
+            0.0f,
+            0.0f,
+            false,
+            0.25f,
+            nullptr,
+            std::nullopt,
+            false,
+            nullptr,
+            true);
+
+    CHECK(resolved.footZ > state.footZ);
+    CHECK_FALSE(resolved.grounded);
+}
+
+TEST_CASE("indoor flying movement is not clamped by portal ceiling samples")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -256, 0},
+        {256, -256, 0},
+        {256, 256, 0},
+        {-256, 256, 0},
+        {-256, -256, 101},
+        {-256, 256, 101},
+        {256, 256, 101},
+        {256, -256, 101},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace portalCeiling = {};
+    portalCeiling.vertexIndices = {4, 5, 6, 7};
+    portalCeiling.facetType = 5;
+    portalCeiling.roomNumber = 1;
+    portalCeiling.roomBehindNumber = 2;
+    portalCeiling.isPortal = true;
+    portalCeiling.attributes = OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::IsPortal);
+
+    mapData.faces = {floor, portalCeiling};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.ceilingCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = -256;
+    sector.maxY = 256;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.ceilingFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = {0, 1};
+    sector.portalFaceIds = {1};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{4.0f, 100.0f};
+    OpenYAMM::Game::IndoorMoveState state = {};
+    state.x = 0.0f;
+    state.y = 0.0f;
+    state.footZ = 0.0f;
+    state.eyeHeight = body.height;
+    state.verticalVelocity = 128.0f;
+    state.sectorId = 1;
+    state.eyeSectorId = 1;
+    state.supportFaceIndex = static_cast<size_t>(-1);
+    state.grounded = false;
+
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(
+            state,
+            body,
+            0.0f,
+            0.0f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            nullptr,
+            true);
+
+    CHECK(resolved.footZ > state.footZ + 0.9f);
+    CHECK_FALSE(resolved.grounded);
+}
+
 TEST_CASE("event revealed outdoor bmodel collision updates party and actor movement caches")
 {
     OpenYAMM::Game::OutdoorMapData mapData = {};
@@ -2840,7 +3053,7 @@ TEST_CASE("haste reduces player attack recovery")
     CHECK(hastedProfile.meleeRecoverySeconds < baseProfile.meleeRecoverySeconds);
 }
 
-TEST_CASE("haste reduces blaster attack recovery down to MMerge minimum")
+TEST_CASE("haste reduces blaster attack recovery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Game::Party party = {};
@@ -4648,6 +4861,85 @@ TEST_CASE("indoor movement steps over floor lip equal to ground snap slack")
     CHECK_EQ(moved.footZ, doctest::Approx(0.0f));
 }
 
+TEST_CASE("indoor actor ledge guard blocks grounded non-flying drops")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, 0, 0},
+        {256, 0, 0},
+        {256, 128, 0},
+        {-256, 128, 0},
+        {-256, 128, -160},
+        {256, 128, -160},
+        {256, 512, -160},
+        {-256, 512, -160},
+    };
+
+    OpenYAMM::Game::IndoorFace upperFloor = {};
+    upperFloor.vertexIndices = {0, 1, 2, 3};
+    upperFloor.facetType = 3;
+
+    OpenYAMM::Game::IndoorFace lowerFloor = {};
+    lowerFloor.vertexIndices = {4, 5, 6, 7};
+    lowerFloor.facetType = 3;
+
+    mapData.faces = {upperFloor, lowerFloor};
+
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 2;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = 0;
+    sector.maxY = 512;
+    sector.minZ = -256;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 64.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+
+    const OpenYAMM::Game::IndoorMoveState unguarded =
+        controller.resolveMove(initial, body, 0.0f, 400.0f, false, 0.5f);
+
+    CHECK_GT(unguarded.y, 128.0f);
+
+    const OpenYAMM::Game::IndoorMoveState guarded =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            400.0f,
+            false,
+            0.5f,
+            nullptr,
+            std::nullopt,
+            false,
+            nullptr,
+            false,
+            false,
+            420.0f,
+            1.0f,
+            false,
+            true);
+
+    CHECK_LT(guarded.y, 128.0f);
+    CHECK(guarded.grounded);
+    CHECK_EQ(guarded.supportFaceIndex, 0u);
+    CHECK_EQ(guarded.footZ, doctest::Approx(0.0f));
+}
+
 TEST_CASE("indoor movement does not collide with current sloped support floor")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
@@ -4826,6 +5118,90 @@ TEST_CASE("indoor airborne movement does not endpoint-collide with steep floor-l
     CHECK(moved.y > initial.y + 1.0f);
     CHECK(moved.footZ < initial.footZ);
     CHECK_NE(debugInfo.hitFaceIndex, 1u);
+}
+
+TEST_CASE("indoor flying actor horizontal pass does not inherit uphill sloped face vertical response")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -72, -45},
+        {128, -72, -45},
+        {128, 0, 0},
+        {-128, 0, 0},
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 48, 96},
+        {-128, 48, 96},
+    };
+
+    OpenYAMM::Game::IndoorFace lowerSlope = {};
+    lowerSlope.vertexIndices = {0, 1, 2, 3};
+    lowerSlope.facetType = 4;
+    lowerSlope.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepBoatSlope = {};
+    steepBoatSlope.vertexIndices = {4, 5, 6, 7};
+    steepBoatSlope.facetType = 4;
+    steepBoatSlope.roomNumber = 1;
+
+    mapData.faces = {lowerSlope, steepBoatSlope};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.wallCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -72;
+    sector.maxY = 48;
+    sector.minZ = -64;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.wallFaceIds = {1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+
+    OpenYAMM::Game::IndoorMoveState initial = {};
+    initial.x = 0.0f;
+    initial.y = -11.65f;
+    initial.footZ = 22.4f;
+    initial.eyeHeight = body.height;
+    initial.verticalVelocity = 120.0f;
+    initial.sectorId = 1;
+    initial.eyeSectorId = 1;
+    initial.supportFaceIndex = static_cast<size_t>(-1);
+    initial.grounded = false;
+
+    OpenYAMM::Game::IndoorMoveDebugInfo horizontalDebugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            768.0f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &horizontalDebugInfo,
+            true,
+            false,
+            420.0f,
+            1.0f,
+            true);
+
+    CHECK(moved.y > initial.y + 1.0f);
+    CHECK_LE(moved.footZ, initial.footZ);
+    CHECK_LE(horizontalDebugInfo.responseStep.z, 0.0f);
 }
 
 TEST_CASE("indoor movement keeps sector while walking onto steep floor-like wall facet")
@@ -5198,6 +5574,75 @@ TEST_CASE("indoor movement rejects positions whose eye point leaves all sectors"
     CHECK_EQ(moved.supportFaceIndex, 0u);
 }
 
+TEST_CASE("indoor flying actor movement keeps horizontal progress when vertical movement is blocked")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {256, -128, 0},
+        {256, 128, 0},
+        {-128, 128, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    mapData.faces = {floor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -128;
+    sector.maxX = 256;
+    sector.minY = -128;
+    sector.maxY = 128;
+    sector.minZ = 0;
+    sector.maxZ = 180;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, 0.0f, body.height, body);
+    initial.verticalVelocity = 128.0f;
+
+    REQUIRE_EQ(initial.eyeSectorId, 1);
+
+    const OpenYAMM::Game::IndoorMoveState combinedMove =
+        controller.resolveMove(
+            initial,
+            body,
+            64.0f,
+            0.0f,
+            false,
+            1.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            nullptr,
+            true);
+
+    const OpenYAMM::Game::IndoorMoveState splitMove =
+        controller.resolveFlyingActorMove(
+            initial,
+            body,
+            64.0f,
+            0.0f,
+            1.0f);
+
+    CHECK_EQ(combinedMove.x, doctest::Approx(initial.x));
+    CHECK(splitMove.x > initial.x + 60.0f);
+    CHECK_EQ(splitMove.footZ, doctest::Approx(initial.footZ));
+}
+
 TEST_CASE("resolve character attack sound id uses shared weapon family mapping")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -5367,6 +5812,27 @@ TEST_CASE("merchant pricing uses effective reputation")
     OpenYAMM::Game::Character grandmaster = {};
     grandmaster.skills["Merchant"] = {"Merchant", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
     CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&grandmaster, 50), 100);
+}
+
+TEST_CASE("item inspect value preserves zero value items")
+{
+    OpenYAMM::Game::InventoryItem item = {};
+    OpenYAMM::Game::ItemDefinition zeroValueDefinition = {};
+    zeroValueDefinition.itemId = 600;
+    zeroValueDefinition.value = 0;
+
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::itemInspectValue(item, zeroValueDefinition, nullptr, nullptr),
+        0);
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemValue(item, zeroValueDefinition, nullptr, nullptr),
+        1);
+
+    OpenYAMM::Game::ItemDefinition missingValueDefinition = {};
+    missingValueDefinition.itemId = 601;
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::itemInspectValue(item, missingValueDefinition, nullptr, nullptr),
+        0);
 }
 
 TEST_CASE("MMerge monster kill reputation applies peasant and guard deltas")

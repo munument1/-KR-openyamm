@@ -2836,6 +2836,12 @@ bool GameDataLoader::applyMergedRuntimeTables()
         return false;
     }
 
+    if (!m_monsterTable.applyKindFlagsFromBolsterMonsterTable(m_mergedBolsterMonsterTable))
+    {
+        std::cerr << "Failed to apply merged bolster monster kind flags.\n";
+        return false;
+    }
+
     if (!m_houseTable.applyHouseRules(
             m_mergedHouseRuleTable,
             m_mergedTransportLocationTable,

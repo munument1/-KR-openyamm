@@ -102,6 +102,7 @@ constexpr double IndoorPathFailedRetrySeconds = 3.0;
 constexpr double IndoorPathDirectCheckIntervalSeconds = 0.25;
 constexpr double IndoorPathMinReplanIntervalSeconds = 1.0;
 constexpr double IndoorPathShortcutCheckIntervalSeconds = 0.5;
+constexpr float IndoorFlyingPathRecoveryNoProgressSeconds = 0.35f;
 constexpr float IndoorPathSpatialGridCellSize = 256.0f;
 constexpr float IndoorPathIgnoreActorCollisionMinTargetDistance = 768.0f;
 constexpr float IndoorPathFacingDeadZoneRadians = Pi / 48.0f;
@@ -694,6 +695,120 @@ bool indoorProjectileDebugEnabled()
             return pValue != nullptr && pValue[0] != '\0' && std::strcmp(pValue, "0") != 0;
         }();
     return enabled;
+}
+
+bool indoorFlyingActorMovementTraceEnvironmentEnabled()
+{
+    static const bool enabled =
+        []()
+        {
+            const char *pValue = std::getenv("OPENYAMM_INDOOR_FLYING_ACTOR_MOVEMENT_TRACE");
+            return pValue != nullptr && pValue[0] != '\0' && std::strcmp(pValue, "0") != 0;
+        }();
+    return enabled;
+}
+
+const char *indoorMoveBlockKindName(IndoorMoveBlockKind kind)
+{
+    switch (kind)
+    {
+        case IndoorMoveBlockKind::None:
+            return "none";
+
+        case IndoorMoveBlockKind::Wall:
+            return "wall";
+
+        case IndoorMoveBlockKind::Actor:
+            return "actor";
+
+        case IndoorMoveBlockKind::Party:
+            return "party";
+
+        case IndoorMoveBlockKind::InvalidPosition:
+            return "invalid_position";
+    }
+
+    return "unknown";
+}
+
+const char *actorAiMotionStateName(ActorAiMotionState state)
+{
+    switch (state)
+    {
+        case ActorAiMotionState::Standing:
+            return "standing";
+
+        case ActorAiMotionState::Wandering:
+            return "wandering";
+
+        case ActorAiMotionState::Pursuing:
+            return "pursuing";
+
+        case ActorAiMotionState::Fleeing:
+            return "fleeing";
+
+        case ActorAiMotionState::Stunned:
+            return "stunned";
+
+        case ActorAiMotionState::Attacking:
+            return "attacking";
+
+        case ActorAiMotionState::Dying:
+            return "dying";
+
+        case ActorAiMotionState::Dead:
+            return "dead";
+    }
+
+    return "unknown";
+}
+
+const char *actorAiMovementActionName(ActorAiMovementAction action)
+{
+    switch (action)
+    {
+        case ActorAiMovementAction::None:
+            return "none";
+
+        case ActorAiMovementAction::Stand:
+            return "stand";
+
+        case ActorAiMovementAction::Move:
+            return "move";
+
+        case ActorAiMovementAction::Pursue:
+            return "pursue";
+
+        case ActorAiMovementAction::Flee:
+            return "flee";
+
+        case ActorAiMovementAction::Wander:
+            return "wander";
+    }
+
+    return "unknown";
+}
+
+void logIndoorFlyingActorMovePass(const char *pPrefix, const IndoorMoveDebugInfo &debugInfo)
+{
+    std::cout
+        << ' ' << pPrefix << "_block=" << indoorMoveBlockKindName(debugInfo.primaryBlockKind)
+        << ' ' << pPrefix << "_wanted_h=" << (debugInfo.wantedHorizontalMove ? 1 : 0)
+        << ' ' << pPrefix << "_full=" << (debugInfo.fullMoveSucceeded ? 1 : 0)
+        << ' ' << pPrefix << "_response_tried=" << (debugInfo.collisionResponseTried ? 1 : 0)
+        << ' ' << pPrefix << "_response_ok=" << (debugInfo.collisionResponseSucceeded ? 1 : 0)
+        << ' ' << pPrefix << "_face=" << logIndexOrMinusOne(debugInfo.hitFaceIndex)
+        << ' ' << pPrefix << "_normal=(" << debugInfo.hitNormal.x << ',' << debugInfo.hitNormal.y
+        << ',' << debugInfo.hitNormal.z << ')'
+        << ' ' << pPrefix << "_hit_point=(" << debugInfo.hitPoint.x << ',' << debugInfo.hitPoint.y
+        << ',' << debugInfo.hitPoint.z << ')'
+        << ' ' << pPrefix << "_move_dist=" << debugInfo.hitMoveDistance
+        << ' ' << pPrefix << "_adjusted_dist=" << debugInfo.hitAdjustedMoveDistance
+        << ' ' << pPrefix << "_height_offset=" << debugInfo.hitHeightOffset
+        << ' ' << pPrefix << "_response=(" << debugInfo.responseStep.x << ',' << debugInfo.responseStep.y
+        << ',' << debugInfo.responseStep.z << ')'
+        << ' ' << pPrefix << "_start_sector=" << debugInfo.startSectorId
+        << ' ' << pPrefix << "_start_eye_sector=" << debugInfo.startEyeSectorId;
 }
 
 const char *indoorProjectileCollisionKindName(GameplayProjectileService::ProjectileFrameCollisionKind kind)
@@ -2703,6 +2818,7 @@ IndoorWorldRuntime::MapActorAiState buildIndoorMapActorAiState(
     state.actorId = static_cast<uint32_t>(actorIndex);
     state.monsterId = resolvedMonsterId;
     state.displayName = pStats != nullptr ? pStats->name : actor.name;
+    state.bolsterRewardMultiplier = std::max(1.0f, actor.bolsterRewardMultiplier);
     state.spriteFrameIndex = pActorSpriteFrameTable != nullptr
         ? resolveRuntimeActorSpriteFrameIndex(*pActorSpriteFrameTable, actor, pMonsterEntry)
         : 0;
@@ -3499,6 +3615,13 @@ bool IndoorWorldRuntime::logIndoorPathfindingEnabled() const
     return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().logIndoorPathfinding;
 }
 
+bool IndoorWorldRuntime::logIndoorFlyingActorMovementEnabled() const
+{
+    return indoorFlyingActorMovementTraceEnvironmentEnabled()
+        || (m_pGameplayView != nullptr
+            && m_pGameplayView->settingsSnapshot().logIndoorFlyingActorMovement);
+}
+
 bool IndoorWorldRuntime::actorAiPerformanceDiagnosticsEnabled() const
 {
     return m_pGameplayView != nullptr && m_pGameplayView->settingsSnapshot().performanceTrace;
@@ -3795,6 +3918,18 @@ void IndoorWorldRuntime::syncMapActorAiStates()
                     *pStats,
                     pMonsterEntry);
             actor.hp = static_cast<int16_t>(std::clamp(bolster.maxHp, 1, 30000));
+            actor.bolsterRewardMultiplier = bolster.rewardMultiplier;
+            IndoorWorldRuntime::MapActorAiState actorState =
+                buildIndoorMapActorAiState(
+                    actor,
+                    actorIndex,
+                    m_pMonsterTable,
+                    m_pSpellTable,
+                    m_pGameplayActorService,
+                    m_pActorSpriteFrameTable);
+            actorState.bolsterRewardMultiplier = bolster.rewardMultiplier;
+            m_mapActorAiStates.push_back(std::move(actorState));
+            continue;
         }
 
         m_mapActorAiStates.push_back(
@@ -6433,13 +6568,19 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         ++pDiagnostics->crowdOverrideActors;
     }
 
+    const bool flyingPathRecoveryActive =
+        actorCanFly
+        && (aiState.crowdNoProgressSeconds >= IndoorFlyingPathRecoveryNoProgressSeconds
+            || aiState.crowdEscapeAttempts > 0
+            || actorPathPlanPending
+            || actorPathActiveBeforeResolve);
     const bool actorPathCanUseIntent =
-        !actorCanFly
-        && movementIntent.action == ActorAiMovementAction::Pursue
+        movementIntent.action == ActorAiMovementAction::Pursue
         && movementIntent.meleePursuitActive
         && movementIntent.applyMovement
         && !movementIntent.inMeleeRange
-        && !crowdOverrideActive;
+        && !crowdOverrideActive
+        && (!actorCanFly || flyingPathRecoveryActive);
     ActorPathResolveResult pathResult = {};
 
     if (pDiagnostics != nullptr)
@@ -6478,7 +6619,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             m_actorPathRuntime.setWorkerCount(IndoorActorPathWorkerCount);
 
             PathObject pathObject = {};
-            pathObject.canFly = false;
+            pathObject.canFly = actorCanFly;
             pathObject.radius = collisionRadius;
             pathObject.stepLength = IndoorGroundPathStepLength;
             pathObject.stepHeight = 40.0f;
@@ -6685,6 +6826,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     const float desiredVelocityY = movementIntent.desiredMoveY * movementIntentSpeed;
     std::vector<size_t> contactedActorIndices;
     IndoorMoveDebugInfo moveDebugInfo = {};
+    IndoorMoveDebugInfo verticalMoveDebugInfo = {};
+    std::vector<size_t> monsterTriggerFaceIndices;
     int16_t partyPathSectorId = -1;
 
     if (m_pPartyRuntime != nullptr)
@@ -6710,7 +6853,20 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     const uint64_t resolveMoveBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     const IndoorMoveState resolvedMoveState =
-        movementController.resolveMove(
+        actorCanFly
+        ? movementController.resolveFlyingActorMove(
+            moveState,
+            body,
+            desiredVelocityX,
+            desiredVelocityY,
+            ActorUpdateStepSeconds,
+            &contactedActorIndices,
+            actorIndex,
+            true,
+            &moveDebugInfo,
+            &verticalMoveDebugInfo,
+            ignoreActorCollisionForMovement)
+        : movementController.resolveMove(
             moveState,
             body,
             desiredVelocityX,
@@ -6722,18 +6878,43 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             true,
             &moveDebugInfo,
             actorCanFly,
-            ignoreActorCollisionForMovement);
+            ignoreActorCollisionForMovement,
+            420.0f,
+            1.0f,
+            false,
+            true);
 
     if (pDiagnostics != nullptr)
     {
         pDiagnostics->resolveMoveNanoseconds += SDL_GetTicksNS() - resolveMoveBeginTickCount;
     }
 
-    if (moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
-        && moveDebugInfo.hitFaceIndex != static_cast<size_t>(-1))
+    const auto appendMonsterTriggerFace = [&monsterTriggerFaceIndices](const IndoorMoveDebugInfo &debugInfo)
+    {
+        if (debugInfo.primaryBlockKind != IndoorMoveBlockKind::Wall
+            || debugInfo.hitFaceIndex == static_cast<size_t>(-1)
+            || std::find(
+                monsterTriggerFaceIndices.begin(),
+                monsterTriggerFaceIndices.end(),
+                debugInfo.hitFaceIndex) != monsterTriggerFaceIndices.end())
+        {
+            return;
+        }
+
+        monsterTriggerFaceIndices.push_back(debugInfo.hitFaceIndex);
+    };
+
+    appendMonsterTriggerFace(moveDebugInfo);
+    appendMonsterTriggerFace(verticalMoveDebugInfo);
+
+    if (!monsterTriggerFaceIndices.empty())
     {
         const uint64_t eventBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
-        executeFaceTriggeredEvent(moveDebugInfo.hitFaceIndex, FaceAttribute::TriggerByMonster, false);
+
+        for (size_t faceIndex : monsterTriggerFaceIndices)
+        {
+            executeFaceTriggeredEvent(faceIndex, FaceAttribute::TriggerByMonster, false);
+        }
 
         if (pDiagnostics != nullptr)
         {
@@ -6755,6 +6936,55 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         std::abs(movementIntent.desiredMoveX) > 0.001f
         || std::abs(movementIntent.desiredMoveY) > 0.001f;
     const bool movedHorizontally = actualMoveDistance > 0.001f;
+    const bool wantedVerticalMove = actorCanFly && std::abs(movementIntent.desiredMoveZ) > 0.001f;
+    const bool movedVertically = std::abs(finalMoveState.footZ - oldZ) > 0.001f;
+    const bool horizontalBlocked = wantedHorizontalMove && !movedHorizontally;
+    const bool verticalBlocked = wantedVerticalMove && !movedVertically;
+    const bool horizontalReportedBlock = moveDebugInfo.primaryBlockKind != IndoorMoveBlockKind::None;
+    const bool verticalReportedBlock = verticalMoveDebugInfo.primaryBlockKind != IndoorMoveBlockKind::None;
+
+    if (actorCanFly
+        && logIndoorFlyingActorMovementEnabled()
+        && (horizontalBlocked || verticalBlocked || horizontalReportedBlock || verticalReportedBlock))
+    {
+        std::cout << "[IndoorFlyingActorMove]"
+            << " map=\"" << m_mapName << '"'
+            << " actor=" << actorIndex
+            << " actor_id=" << aiState.actorId
+            << " monster_id=" << aiState.monsterId
+            << " name=\"" << aiState.displayName << '"'
+            << " motion=" << actorAiMotionStateName(aiState.motionState)
+            << " action=" << actorAiMovementActionName(movementIntent.action)
+            << " start=(" << oldX << ',' << oldY << ',' << oldZ << ')'
+            << " end=(" << finalMoveState.x << ',' << finalMoveState.y << ',' << finalMoveState.footZ << ')'
+            << " delta=(" << deltaX << ',' << deltaY << ',' << (finalMoveState.footZ - oldZ) << ')'
+            << " target=(" << movementIntent.targetPosition.x << ',' << movementIntent.targetPosition.y
+            << ',' << movementIntent.targetPosition.z << ')'
+            << " intent=(" << movementIntent.desiredMoveX << ',' << movementIntent.desiredMoveY
+            << ',' << movementIntent.desiredMoveZ << ')'
+            << " desired_vel=(" << desiredVelocityX << ',' << desiredVelocityY
+            << ',' << moveState.verticalVelocity << ')'
+            << " speed=" << movementIntentSpeed
+            << " wanted_h=" << (wantedHorizontalMove ? 1 : 0)
+            << " moved_h=" << (movedHorizontally ? 1 : 0)
+            << " wanted_z=" << (wantedVerticalMove ? 1 : 0)
+            << " moved_z=" << (movedVertically ? 1 : 0)
+            << " horizontal_blocked=" << (horizontalBlocked ? 1 : 0)
+            << " vertical_blocked=" << (verticalBlocked ? 1 : 0)
+            << " contacts=" << contactedActorCount
+            << " start_sector=" << moveState.sectorId
+            << " start_eye_sector=" << moveState.eyeSectorId
+            << " end_sector=" << finalMoveState.sectorId
+            << " end_eye_sector=" << finalMoveState.eyeSectorId
+            << " start_support=" << logIndexOrMinusOne(moveState.supportFaceIndex)
+            << " end_support=" << logIndexOrMinusOne(finalMoveState.supportFaceIndex)
+            << " path_active=" << (pathResult.pathActive ? 1 : 0)
+            << " path_pending=" << (actorPathPlanPending ? 1 : 0)
+            << " ignore_actor_collision=" << (ignoreActorCollisionForMovement ? 1 : 0);
+        logIndoorFlyingActorMovePass("h", moveDebugInfo);
+        logIndoorFlyingActorMovePass("v", verticalMoveDebugInfo);
+        std::cout << '\n';
+    }
 
     if (pDiagnostics != nullptr)
     {
@@ -7108,13 +7338,13 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
         bolster.generatedSpell2UseChance > 0 ? bolster.generatedSpell2UseChance : pStats->spell2UseChance;
     facts.stats.attack2Chance =
         bolster.generatedAttack2Chance > 0 ? bolster.generatedAttack2Chance : pStats->attack2Chance;
-    facts.stats.attack1Damage.diceRolls = pStats->attack1Damage.diceRolls;
-    facts.stats.attack1Damage.diceSides = pStats->attack1Damage.diceSides;
+    facts.stats.attack1Damage.diceRolls = bolster.attack1DamageDiceRolls;
+    facts.stats.attack1Damage.diceSides = bolster.attack1DamageDiceSides;
     facts.stats.attack1Damage.bonus = bolster.attack1DamageBonus;
     facts.stats.attack2Damage.diceRolls =
-        bolster.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceRolls : pStats->attack2Damage.diceRolls;
+        bolster.copyAttack1DamageToAttack2 ? bolster.attack1DamageDiceRolls : bolster.attack2DamageDiceRolls;
     facts.stats.attack2Damage.diceSides =
-        bolster.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceSides : pStats->attack2Damage.diceSides;
+        bolster.copyAttack1DamageToAttack2 ? bolster.attack1DamageDiceSides : bolster.attack2DamageDiceSides;
     facts.stats.attack2Damage.bonus = bolster.attack2DamageBonus;
     facts.stats.attackConstraints.attack1IsRanged = pStats->attack1HasMissile;
     facts.stats.attackConstraints.attack2IsRanged = pStats->attack2HasMissile || bolster.generatedAttack2IsRanged;
@@ -8342,8 +8572,16 @@ bool IndoorWorldRuntime::tryStealFromActor(size_t actorIndex, uint32_t successRo
         }
 
         const std::string title = actor.name.empty() ? pStats->name : actor.name;
+        const float rewardMultiplier = actorIndex < m_mapActorAiStates.size()
+            ? m_mapActorAiStates[actorIndex].bolsterRewardMultiplier
+            : 1.0f;
         GameplayCorpseViewState corpse =
-            buildMonsterCorpseView(title, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
+            buildMonsterCorpseView(
+                title,
+                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier),
+                m_pItemTable,
+                m_pParty,
+                guaranteedItemIds);
         corpse.fromSummonedMonster = false;
         corpse.sourceIndex = static_cast<uint32_t>(actorIndex);
         m_mapActorCorpseViews[actorIndex] = std::move(corpse);
@@ -8744,7 +8982,11 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
 
         if (pStats != nullptr && pStats->experience > 0 && m_pParty != nullptr)
         {
-            m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
+            m_pParty->grantSharedExperience(
+                gameplayBolsterExperienceReward(
+                    pStats->experience,
+                    pStats->hitPoints,
+                    aiState.bolsterRewardMultiplier));
         }
     }
     else if (previousHp > 0 && nextHp > 0)
@@ -10281,7 +10523,11 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
 
         if (pStats != nullptr && pStats->experience > 0)
         {
-            m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
+            const float rewardMultiplier = actorIndex < m_mapActorAiStates.size()
+                ? m_mapActorAiStates[actorIndex].bolsterRewardMultiplier
+                : 1.0f;
+            m_pParty->grantSharedExperience(
+                gameplayBolsterExperienceReward(pStats->experience, pStats->hitPoints, rewardMultiplier));
         }
     }
 
@@ -11290,8 +11536,16 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         }
 
         const std::string &title = actor.name.empty() ? pStats->name : actor.name;
+        const float rewardMultiplier = actorIndex < m_mapActorAiStates.size()
+            ? m_mapActorAiStates[actorIndex].bolsterRewardMultiplier
+            : 1.0f;
         CorpseViewState corpse =
-            buildMonsterCorpseView(title, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
+            buildMonsterCorpseView(
+                title,
+                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier),
+                m_pItemTable,
+                m_pParty,
+                guaranteedItemIds);
 
         for (const GameplayChestItemState &item : corpse.items)
         {
@@ -12448,6 +12702,8 @@ void IndoorWorldRuntime::applyMapReentryReset()
                 pStats != nullptr ? bolster.maxHp : std::max<int>(1, actor.hp),
                 1,
                 32767));
+            actor.bolsterRewardMultiplier = pStats != nullptr ? bolster.rewardMultiplier : 1.0f;
+            aiState.bolsterRewardMultiplier = pStats != nullptr ? bolster.rewardMultiplier : 1.0f;
             actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Standing);
         }
 

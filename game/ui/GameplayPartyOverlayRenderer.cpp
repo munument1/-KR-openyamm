@@ -2468,6 +2468,13 @@ std::string resolveItemInspectTypeText(const InventoryItem *pItemState, const It
         return "Not identified";
     }
 
+    if (!itemDefinition.unidentifiedName.empty()
+        && itemDefinition.unidentifiedName != "0"
+        && itemDefinition.unidentifiedName != "N / A")
+    {
+        return itemDefinition.unidentifiedName;
+    }
+
     if (!itemDefinition.skillGroup.empty()
         && itemDefinition.skillGroup != "0"
         && itemDefinition.skillGroup != "Misc")
@@ -2513,6 +2520,16 @@ std::string resolveItemInspectDetailText(const InventoryItem *pItemState, const 
     int mod2Value = 0;
     const bool hasMod1Int = tryParseInteger(itemDefinition.mod1, mod1Value);
     const bool hasMod2Int = tryParseInteger(itemDefinition.mod2, mod2Value);
+
+    if (equipStat == "Bottle" && pItemState != nullptr && pItemState->standardEnchantPower > 0)
+    {
+        return "Power: " + std::to_string(pItemState->standardEnchantPower);
+    }
+
+    if (equipStat == "Reagent" && hasMod1Int && mod1Value > 0)
+    {
+        return "Power: " + std::to_string(mod1Value);
+    }
 
     if (equipStat == "Weapon" || equipStat == "Weapon2" || equipStat == "Weapon1or2")
     {
@@ -2585,6 +2602,70 @@ std::string resolveItemInspectDetailText(const InventoryItem *pItemState, const 
     }
 
     return isBroken ? "Broken" : std::string {};
+}
+
+std::string formatItemInspectDuration(float remainingSeconds)
+{
+    int totalMinutes = std::max(0, static_cast<int>(std::floor(remainingSeconds / 60.0f)));
+    int years = totalMinutes / (12 * 28 * 24 * 60);
+    totalMinutes %= 12 * 28 * 24 * 60;
+    int months = totalMinutes / (28 * 24 * 60);
+    totalMinutes %= 28 * 24 * 60;
+    int days = totalMinutes / (24 * 60);
+    totalMinutes %= 24 * 60;
+    int hours = totalMinutes / 60;
+    int minutes = totalMinutes % 60;
+
+    std::string text = "Duration:";
+    bool formatting = false;
+
+    formatting = formatting || years != 0;
+    if (formatting)
+    {
+        text += " " + std::to_string(years) + ":yr";
+    }
+
+    formatting = formatting || months != 0;
+    if (formatting)
+    {
+        text += " " + std::to_string(months) + ":mo";
+    }
+
+    formatting = formatting || days != 0;
+    if (formatting)
+    {
+        text += " " + std::to_string(days) + ":dy";
+    }
+
+    formatting = formatting || hours != 0;
+    if (formatting)
+    {
+        text += " " + std::to_string(hours) + ":hr";
+    }
+
+    formatting = formatting || minutes != 0;
+    if (formatting)
+    {
+        text += " " + std::to_string(minutes) + ":mn";
+    }
+
+    return text;
+}
+
+float resolvedLayoutFontScale(const GameplayScreenRuntime::HudLayoutElement &layout, float scale)
+{
+    float fontScale = scale * std::max(0.1f, layout.textScale);
+
+    if (fontScale >= 1.0f)
+    {
+        fontScale = snappedHudFontScale(fontScale);
+    }
+    else
+    {
+        fontScale = std::max(0.5f, fontScale);
+    }
+
+    return fontScale;
 }
 
 void setupHudProjection(int width, int height)
@@ -2963,7 +3044,8 @@ void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRun
             context.itemTable(),
             context.standardItemEnchantTable(),
             context.specialItemEnchantTable(),
-            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr);
+            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr,
+            characterAttackTuningFromSettings(context.settingsSnapshot()));
         const std::string rangedAttack =
             summary.combat.shoot ? formatQuickReferenceSignedValue(*summary.combat.shoot) : "+0";
         const std::string rangedDamage =
@@ -5590,21 +5672,41 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
         context.standardItemEnchantTable(),
         context.specialItemEnchantTable());
     const std::string itemType =
-        showBrokenOnly || showUnidentifiedOnly ? std::string {} : resolveItemInspectTypeText(pItemState, *pItemDefinition);
+        showBrokenOnly || showUnidentifiedOnly
+            ? std::string {}
+            : resolveItemInspectTypeText(pItemState, *pItemDefinition);
     const std::string itemDetail =
-        showBrokenOnly || showUnidentifiedOnly ? std::string {} : resolveItemInspectDetailText(pItemState, *pItemDefinition);
+        showBrokenOnly || showUnidentifiedOnly
+            ? std::string {}
+            : resolveItemInspectDetailText(pItemState, *pItemDefinition);
     const std::string enchantDescription = ItemEnchantRuntime::buildEnchantDescription(
         resolvedItemState,
         context.standardItemEnchantTable(),
         context.specialItemEnchantTable());
     const std::string itemSpecialDetail =
-        showBrokenOnly || showUnidentifiedOnly || enchantDescription.empty() ? std::string {} : "Special: " + enchantDescription;
+        showBrokenOnly || showUnidentifiedOnly || enchantDescription.empty()
+            ? std::string {}
+            : "Special: " + enchantDescription;
     const std::string itemDescription =
-        showBrokenOnly ? "Broken item" : (showUnidentifiedOnly ? "Not identified" : pItemDefinition->notes);
+        showBrokenOnly || showUnidentifiedOnly ? std::string {} : pItemDefinition->notes;
+    const std::string itemStatusText =
+        showBrokenOnly ? "Broken item" : (showUnidentifiedOnly ? "Not identified" : std::string {});
+    const bool showStatusOnly = !itemStatusText.empty();
+    const bool showDuration =
+        !showStatusOnly
+        && pItemState != nullptr
+        && pItemState->temporaryBonusRemainingSeconds > 0.0f
+        && (pItemState->standardEnchantId != 0 || pItemState->specialEnchantId != 0);
+    const bool showStolen =
+        !showStatusOnly
+        && pItemState != nullptr
+        && pItemState->stolen;
+    const std::string durationText =
+        showDuration ? formatItemInspectDuration(pItemState->temporaryBonusRemainingSeconds) : std::string {};
     const int resolvedItemValue =
         overlay.hasValueOverride
             ? overlay.valueOverride
-            : PriceCalculator::itemValue(
+            : ItemEnchantRuntime::itemInspectValue(
                 resolvedItemState,
                 *pItemDefinition,
                 context.standardItemEnchantTable(),
@@ -5711,8 +5813,16 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
             ? context.wrapHudTextToWidth(*pDetailFont, itemSpecialDetail, detailTextWidth)
             : std::vector<std::string>{itemSpecialDetail};
     const float specialDetailHeight = showSpecialDetail
-        ? std::max(detailRowHeight, detailLineHeight * static_cast<float>(std::max<size_t>(1, specialDetailLines.size())))
+        ? std::max(
+            detailRowHeight,
+            detailLineHeight * static_cast<float>(std::max<size_t>(1, specialDetailLines.size())))
         : 0.0f;
+    const float valueFontScale = resolvedLayoutFontScale(*pValueLayout, popupScale);
+    const std::optional<GameplayScreenRuntime::HudFontHandle> valueFont =
+        context.findHudFont(pValueLayout->fontName);
+    const float valueLineHeight =
+        valueFont ? static_cast<float>(valueFont->fontHeight) * valueFontScale : pValueLayout->height * popupScale;
+    const float durationHeight = showDuration ? valueLineHeight : 0.0f;
     const int detailRowCount = (showDetail ? 1 : 0) + (showSpecialDetail ? 1 : 0);
     static constexpr float ItemInspectTypeToDetailGap = 3.0f;
     static constexpr float ItemInspectDetailToDescriptionGap = 8.0f;
@@ -5727,16 +5837,20 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
     const float descriptionSectionHeight =
         descriptionHeight > 0.0f ? ItemInspectDetailToDescriptionGap * popupScale + descriptionHeight : 0.0f;
     const float previewContentHeight = previewImageHeight + 20.0f * popupScale;
+    const float statusContentHeight = previewImageHeight + 54.0f * popupScale;
     const float textContentHeight =
         typeRectForSizing.y
         + typeRectForSizing.height
         + detailSectionHeight
         + descriptionSectionHeight
         + ItemInspectDescriptionToValueGap * popupScale
+        + durationHeight
         + pValueLayout->height * popupScale
         + ItemInspectBottomPadding * popupScale;
     const float rootWidth = provisionalRoot.width;
-    const float rootHeight = std::max(previewContentHeight, textContentHeight);
+    const float rootHeight = showStatusOnly
+        ? std::max(statusContentHeight, previewContentHeight)
+        : std::max(previewContentHeight, textContentHeight);
     const float popupGap = 12.0f * popupScale;
     float rootX = overlay.sourceX + overlay.sourceWidth + popupGap;
 
@@ -5916,7 +6030,6 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
         };
 
     renderSingleLine("ItemInspectName", itemName);
-    renderSingleLine("ItemInspectType", "Type: " + itemType);
 
     const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> previewRect =
         resolveItemInspectLayout("ItemInspectPreviewImage");
@@ -5925,6 +6038,36 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
     {
         context.submitHudTexturedQuad(*itemTexture, previewRect->x, previewRect->y, previewRect->width, previewRect->height);
     }
+
+    if (showStatusOnly)
+    {
+        GameplayScreenRuntime::HudLayoutElement statusLayout = *pTypeLayout;
+        statusLayout.id = "ItemInspectStatus";
+        statusLayout.fontName = "Arrus";
+        statusLayout.textColorAbgr = 0xff0000ffu;
+        statusLayout.textAlignX = UiLayoutManager::TextAlignX::Center;
+        statusLayout.textAlignY = UiLayoutManager::TextAlignY::Middle;
+
+        const std::optional<GameplayScreenRuntime::HudFontHandle> statusFont =
+            context.findHudFont(statusLayout.fontName);
+        const float statusFontScale = resolvedLayoutFontScale(statusLayout, popupScale);
+        const float statusHeight =
+            statusFont
+                ? static_cast<float>(statusFont->fontHeight) * statusFontScale
+                : pTypeLayout->height * popupScale;
+        const GameplayScreenRuntime::ResolvedHudLayoutElement statusRect = {
+            rootRect.x + 100.0f * popupScale,
+            rootRect.y + (rootRect.height - statusHeight) * 0.5f,
+            rootRect.width - 112.0f * popupScale,
+            statusHeight,
+            popupScale
+        };
+
+        context.renderLayoutLabel(statusLayout, statusRect, itemStatusText);
+        return;
+    }
+
+    renderSingleLine("ItemInspectType", "Type: " + itemType);
 
     const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> typeRect =
         resolveItemInspectLayout("ItemInspectType");
@@ -6062,11 +6205,33 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
     if (valueBaseRect)
     {
         GameplayScreenRuntime::ResolvedHudLayoutElement valueRect = *valueBaseRect;
-        const float minimumValueY = dynamicDescriptionY + descriptionHeight + ItemInspectDescriptionToValueGap * popupScale;
+        const float minimumValueY =
+            dynamicDescriptionY + descriptionHeight + ItemInspectDescriptionToValueGap * popupScale + durationHeight;
         const float anchoredValueY =
             rootRect.y + rootRect.height - ItemInspectBottomPadding * popupScale - valueRect.height;
         valueRect.y = std::round(std::max(minimumValueY, anchoredValueY));
-        context.renderLayoutLabel(*pValueLayout, valueRect, "Value: " + itemValue);
+        if (showDuration)
+        {
+            GameplayScreenRuntime::ResolvedHudLayoutElement durationRect = valueRect;
+            durationRect.y = std::round(valueRect.y - durationHeight);
+            context.renderLayoutLabel(*pValueLayout, durationRect, durationText);
+        }
+
+        const std::string valueText = "Value: " + itemValue;
+        context.renderLayoutLabel(*pValueLayout, valueRect, valueText);
+
+        if (showStolen && valueFont)
+        {
+            const float valueTextWidth =
+                context.measureHudTextWidth(pValueLayout->fontName, valueText) * valueFontScale;
+            const float stolenX =
+                std::round(valueRect.x + pValueLayout->textPadX * popupScale + valueTextWidth + 32.0f * popupScale);
+            const float stolenY = std::round(
+                valueRect.y
+                + (valueRect.height - static_cast<float>(valueFont->fontHeight) * valueFontScale) * 0.5f
+                + pValueLayout->textPadY * popupScale);
+            context.renderHudTextLine(pValueLayout->fontName, 0xff0000ffu, "Stolen", stolenX, stolenY, valueFontScale);
+        }
     }
 }
 
@@ -7822,7 +7987,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             context.itemTable(),
             context.standardItemEnchantTable(),
             context.specialItemEnchantTable(),
-            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr);
+            context.worldRuntime() != nullptr ? context.worldRuntime()->eventRuntimeState() : nullptr,
+            characterAttackTuningFromSettings(context.settingsSnapshot()));
 
         const auto formatPair = [](int actualValue, int baseValue) -> std::string
         {

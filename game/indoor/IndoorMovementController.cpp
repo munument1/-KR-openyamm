@@ -17,6 +17,7 @@ namespace
 {
 constexpr float MaximumRise = 50.0f;
 constexpr float MaximumDrop = 160.0f;
+constexpr float ActorLedgeDropGuardHeight = 100.0f;
 constexpr float MaximumStepUpFromCurrentFootZ = 128.0f;
 constexpr float MaximumUphillSlopeNormalZ = 0.70767211914f;
 constexpr float SlideFactor = 0.89263916f;
@@ -1241,7 +1242,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
     bool flyingActive,
     bool ignoreActorCollisions,
     float jumpVelocity,
-    float jumpLift
+    float jumpLift,
+    bool lockVerticalPosition,
+    bool preventGroundActorLedgeDrop
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1273,7 +1276,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             flyingActive,
             ignoreActorCollisions,
             jumpVelocity,
-            jumpLift);
+            jumpLift,
+            lockVerticalPosition,
+            preventGroundActorLedgeDrop);
     }
 
     const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
@@ -1303,7 +1308,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             flyingActive,
             ignoreActorCollisions,
             jumpVelocity,
-            jumpLift);
+            jumpLift,
+            lockVerticalPosition,
+            preventGroundActorLedgeDrop);
     }
 
     IndoorMoveState currentState = state;
@@ -1327,7 +1334,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             flyingActive,
             ignoreActorCollisions,
             jumpVelocity,
-            jumpLift);
+            jumpLift,
+            lockVerticalPosition,
+            preventGroundActorLedgeDrop);
 
         if (blockActorSlide
             && (stepDebug.primaryBlockKind == IndoorMoveBlockKind::Actor
@@ -1345,6 +1354,68 @@ IndoorMoveState IndoorMovementController::resolveMove(
     return currentState;
 }
 
+IndoorMoveState IndoorMovementController::resolveFlyingActorMove(
+    const IndoorMoveState &state,
+    const IndoorBodyDimensions &body,
+    float desiredVelocityX,
+    float desiredVelocityY,
+    float deltaSeconds,
+    std::vector<size_t> *pContactedActorIndices,
+    std::optional<size_t> ignoredActorIndex,
+    bool blockActorSlide,
+    IndoorMoveDebugInfo *pHorizontalDebugInfo,
+    IndoorMoveDebugInfo *pVerticalDebugInfo,
+    bool ignoreActorCollisions
+) const
+{
+    if (pVerticalDebugInfo != nullptr)
+    {
+        *pVerticalDebugInfo = {};
+    }
+
+    IndoorMoveState horizontalState = state;
+    const float savedVerticalVelocity = state.verticalVelocity;
+    horizontalState.verticalVelocity = 0.0f;
+
+    IndoorMoveState resolvedState =
+        resolveMove(
+            horizontalState,
+            body,
+            desiredVelocityX,
+            desiredVelocityY,
+            false,
+            deltaSeconds,
+            pContactedActorIndices,
+            ignoredActorIndex,
+            blockActorSlide,
+            pHorizontalDebugInfo,
+            true,
+            ignoreActorCollisions,
+            420.0f,
+            1.0f,
+            true);
+
+    if (resolvedState.footZ > state.footZ)
+    {
+        return resolvedState;
+    }
+
+    resolvedState.verticalVelocity = savedVerticalVelocity;
+    return resolveMove(
+        resolvedState,
+        body,
+        0.0f,
+        0.0f,
+        false,
+        deltaSeconds,
+        pContactedActorIndices,
+        ignoredActorIndex,
+        blockActorSlide,
+        pVerticalDebugInfo,
+        true,
+        ignoreActorCollisions);
+}
+
 IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     const IndoorMoveState &state,
     const IndoorBodyDimensions &body,
@@ -1359,7 +1430,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     bool flyingActive,
     bool ignoreActorCollisions,
     float jumpVelocity,
-    float jumpLift
+    float jumpLift,
+    bool lockVerticalPosition,
+    bool preventGroundActorLedgeDrop
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1542,6 +1615,18 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         const float movementY = candidateY - currentY;
         const float movementLength = std::sqrt(movementX * movementX + movementY * movementY);
         IndoorFloorSample leadingFootprintFloor = {};
+        const bool guardGroundActorAgainstLedgeDrop =
+            preventGroundActorLedgeDrop
+            && state.grounded
+            && !flying
+            && !sweptRequest.jumpRequested
+            && movementLength > 0.0001f;
+
+        if (guardGroundActorAgainstLedgeDrop
+            && (!floor.hasFloor || floor.height < state.footZ - ActorLedgeDropGuardHeight))
+        {
+            return false;
+        }
 
         if (state.grounded
             && !flying
@@ -1646,13 +1731,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             &nonBlockingMechanismFaceMask,
             &geometryCache);
 
-        if (ceiling.hasCeiling && resolvedFootZ + body.height > ceiling.height - 1.0f)
+        if (ceiling.hasCeiling && !flying && resolvedFootZ + body.height > ceiling.height - 1.0f)
         {
             resolvedFootZ = ceiling.height - body.height - 1.0f;
             resolvedVerticalVelocity = std::min(resolvedVerticalVelocity, 0.0f);
         }
 
-        if (floor.hasFloor && resolvedFootZ < floor.height)
+        if (floor.hasFloor && !flying && resolvedFootZ < floor.height)
         {
             if (ceiling.hasCeiling)
             {
@@ -2000,9 +2085,30 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         return bestHit;
     };
 
+    if (lockVerticalPosition)
+    {
+        candidateFootZ = state.footZ;
+        candidateVerticalVelocity = 0.0f;
+    }
+
+    const auto lockVerticalStep =
+        [lockVerticalPosition](
+            const bx::Vec3 &step,
+            const IndoorFaceGeometryData *pGeometry = nullptr) -> bx::Vec3
+    {
+        if (!lockVerticalPosition
+            || step.z <= 0.0f
+            || (pGeometry != nullptr && !indoorFaceIsSteepFloorCollisionSurface(*pGeometry)))
+        {
+            return step;
+        }
+
+        return {step.x, step.y, 0.0f};
+    };
+
     const float stepZ = candidateFootZ - state.footZ;
     IndoorMoveState iterativeState = state;
-    bx::Vec3 remainingStep = {stepX, stepY, stepZ};
+    bx::Vec3 remainingStep = lockVerticalStep({stepX, stepY, stepZ});
     float iterativeVerticalVelocity = candidateVerticalVelocity;
     bool sweptFaceHit = false;
     bool sweptFailed = false;
@@ -2017,10 +2123,11 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     {
         if (hit.type != SweptCollisionHitType::Face)
         {
-            return projectIndoorVelocityAlongPlane(
+            const bx::Vec3 responseStep = projectIndoorVelocityAlongPlane(
                 step,
                 hit.normal,
                 hit.type == SweptCollisionHitType::Floor ? 1.0f : SlideFactor);
+            return lockVerticalStep(responseStep);
         }
 
         const bx::Vec3 slidePlaneOrigin = {
@@ -2039,7 +2146,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         if (lengthVec(slidePlaneNormal) <= 0.0001f)
         {
             const bx::Vec3 responseStep = projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
-            return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
+            return lockVerticalStep(
+                applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds),
+                pHitGeometry);
         }
 
         const bx::Vec3 intendedLowSphereCenter = {
@@ -2057,7 +2166,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         if (lengthVec(slideDirection) <= 0.0001f)
         {
             const bx::Vec3 responseStep = projectIndoorVelocityAlongPlane(step, hit.normal, SlideFactor);
-            return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
+            return lockVerticalStep(
+                applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds),
+                pHitGeometry);
         }
 
         if (pHitGeometry != nullptr
@@ -2080,7 +2191,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         }
 
         const bx::Vec3 responseStep = scaleVec(slideDirection, projectedStepDistance * SlideFactor);
-        return applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds);
+        return lockVerticalStep(
+            applySteepFloorCollisionResponse(responseStep, pHitGeometry, deltaSeconds),
+            pHitGeometry);
     };
 
     if (movementDistance(remainingStep.x, remainingStep.y, remainingStep.z) <= 0.0001f)
@@ -2286,8 +2399,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                     geometryCache.geometryForFace(*m_pIndoorMapData, vertices, fullMoveWallCollision.faceIndex);
                 const bx::Vec3 projectedSlideStep =
                     projectIndoorVelocityAlongPlane(remainingStep, fullMoveWallCollision.normal, SlideFactor);
-                const bx::Vec3 slideStep =
-                    applySteepFloorCollisionResponse(projectedSlideStep, pWallGeometry, deltaSeconds);
+                const bx::Vec3 slideStep = lockVerticalStep(
+                    applySteepFloorCollisionResponse(projectedSlideStep, pWallGeometry, deltaSeconds),
+                    pWallGeometry);
 
                 if (movementDistance(slideStep.x, slideStep.y, slideStep.z) > 0.0001f)
                 {
@@ -2383,7 +2497,6 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             && nearestHit->boundaryHit
             && pNearestHitGeometry != nullptr
             && !pNearestHitGeometry->vertices.empty()
-            && !flying
             && !sweptRequest.jumpRequested)
         {
             const float stepFloorZ = pNearestHitGeometry->vertices.front().z;
@@ -2442,7 +2555,10 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         {
             const bx::Vec3 responseStep =
                 projectIndoorVelocityAlongPlane(leftoverStep, nearestHit->normal, responseDamping);
-            remainingStep = applySteepFloorCollisionResponse(responseStep, pNearestHitGeometry, deltaSeconds);
+            remainingStep =
+                lockVerticalStep(
+                    applySteepFloorCollisionResponse(responseStep, pNearestHitGeometry, deltaSeconds),
+                    pNearestHitGeometry);
         }
 
         if (pDebugInfo != nullptr)

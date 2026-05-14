@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cctype>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -15,8 +16,18 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr int MaximumBolsteredHitPoints = 30000;
-constexpr uint32_t SpecialElementalHpFormulaTarget = 76;
+constexpr int MaximumBolsteredHitPoints = 5000;
+constexpr int BolsteredHitPointSoftCapStart = 3000;
+constexpr int BolsterLevelEaseOutStart = 130;
+constexpr double BolsterLevelEaseOutMultiplier = 0.6;
+constexpr double BolsterLevelCatchUpMultiplier = 0.7;
+constexpr float MaximumBolsterRewardMultiplier = 10.0f;
+
+struct BolsteredHitPointResult
+{
+    int combatHitPoints = 1;
+    int effectiveLevel = 1;
+};
 
 std::string lowercaseCopy(const std::string &value)
 {
@@ -57,11 +68,6 @@ bool isStyle(const MergedBolsterMonsterEntry *pMonsterSettings, const char *styl
 uint32_t monsterKindBaseId(uint32_t monsterId)
 {
     return monsterId > 0 ? ((monsterId - 1u) / 3u) * 3u + 1u : 0u;
-}
-
-int monsterPower(uint32_t monsterId)
-{
-    return monsterId > 0 ? static_cast<int>((monsterId - 1u) % 3u) + 1 : 1;
 }
 
 int monsterLevelShift(const MergedBolsterMonsterEntry *pMonsterSettings)
@@ -133,37 +139,163 @@ SkillMastery masteryFromValue(uint32_t value)
     }
 }
 
+int defaultMonsterLevelForHitPoints(int hitPoints)
+{
+    if (hitPoints <= 0)
+    {
+        return 1;
+    }
+
+    const double rawLevel =
+        (-30.0 + std::sqrt(900.0 + 40.0 * static_cast<double>(hitPoints))) / 2.0;
+    return std::max(1, static_cast<int>(std::lround(rawLevel)));
+}
+
+uint32_t defaultMonsterExperienceForHitPoints(int hitPoints)
+{
+    const int level = defaultMonsterLevelForHitPoints(hitPoints);
+    const uint64_t experience =
+        static_cast<uint64_t>(level) * static_cast<uint64_t>(level + 10);
+    return static_cast<uint32_t>(std::min<uint64_t>(
+        experience,
+        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
+}
+
+int defaultMonsterHitPointsForLevel(int level)
+{
+    const int clampedLevel = std::max(1, level);
+    return std::max(1, clampedLevel * (clampedLevel + 30) / 10);
+}
+
+int applyBolsteredHitPointCap(int hitPoints)
+{
+    if (hitPoints <= BolsteredHitPointSoftCapStart)
+    {
+        return std::max(1, hitPoints);
+    }
+
+    const int softenedHitPoints =
+        BolsteredHitPointSoftCapStart + static_cast<int>(
+            std::lround(static_cast<double>(hitPoints - BolsteredHitPointSoftCapStart) * 0.5));
+    return std::clamp(softenedHitPoints, 1, MaximumBolsteredHitPoints);
+}
+
+int monsterBaseBolsterLevel(const MonsterTable::MonsterStatsEntry &stats)
+{
+    return std::max(
+        std::max(1, stats.level),
+        defaultMonsterLevelForHitPoints(stats.hitPoints));
+}
+
+int easedBolsterTargetLevel(int targetLevel)
+{
+    if (targetLevel <= BolsterLevelEaseOutStart)
+    {
+        return std::max(1, targetLevel);
+    }
+
+    return std::max(
+        BolsterLevelEaseOutStart,
+        static_cast<int>(std::lround(
+            static_cast<double>(BolsterLevelEaseOutStart)
+            + static_cast<double>(targetLevel - BolsterLevelEaseOutStart) * BolsterLevelEaseOutMultiplier)));
+}
+
+double monsterBolsterLevelRatio(int baseLevel, int targetLevel)
+{
+    return std::max(1.0, static_cast<double>(std::max(1, targetLevel)) / static_cast<double>(std::max(1, baseLevel)));
+}
+
+int bolsteredMonsterEffectiveLevel(int baseLevel, int targetLevel)
+{
+    if (targetLevel <= baseLevel)
+    {
+        return std::max(1, baseLevel);
+    }
+
+    return std::max(
+        baseLevel,
+        static_cast<int>(std::lround(
+            static_cast<double>(baseLevel)
+            + static_cast<double>(targetLevel - baseLevel) * BolsterLevelCatchUpMultiplier)));
+}
+
+BolsteredHitPointResult bolsteredHitPointsForPseudoLevel(
+    int baseHp,
+    int baseLevel,
+    int targetLevel,
+    bool sizeAffectsHp,
+    uint16_t monsterHeight,
+    const MergedBolsterMonsterEntry *pMonsterSettings)
+{
+    if (baseHp <= 0)
+    {
+        return {};
+    }
+
+    (void)sizeAffectsHp;
+    (void)monsterHeight;
+
+    const int effectiveLevel = bolsteredMonsterEffectiveLevel(baseLevel, targetLevel);
+    const int baseDefaultHp = defaultMonsterHitPointsForLevel(baseLevel);
+    const int targetDefaultHp = defaultMonsterHitPointsForLevel(effectiveLevel);
+    const double customHpRatio =
+        static_cast<double>(std::max(1, baseHp)) / static_cast<double>(std::max(1, baseDefaultHp));
+    int combatHitPoints =
+        std::max(baseHp, static_cast<int>(std::lround(static_cast<double>(targetDefaultHp) * customHpRatio)));
+
+    if (pMonsterSettings != nullptr && pMonsterSettings->maxHpBoostPercent)
+    {
+        const int cap =
+            std::max(1, static_cast<int>(
+                std::lround(static_cast<double>(baseHp) * *pMonsterSettings->maxHpBoostPercent / 100.0)));
+        combatHitPoints = std::min(combatHitPoints, cap);
+    }
+
+    const int finalCombatHitPoints = applyBolsteredHitPointCap(combatHitPoints);
+    return {finalCombatHitPoints, defaultMonsterLevelForHitPoints(finalCombatHitPoints)};
+}
+
+uint32_t spellSkillTargetForPseudoLevel(int pseudoLevel)
+{
+    return static_cast<uint32_t>(std::clamp((std::max(1, pseudoLevel) + 2) / 5, 1, 10));
+}
+
+SkillMastery spellMasteryTargetForPseudoLevel(int pseudoLevel)
+{
+    if (pseudoLevel >= 46)
+    {
+        return SkillMastery::Grandmaster;
+    }
+
+    if (pseudoLevel >= 31)
+    {
+        return SkillMastery::Master;
+    }
+
+    if (pseudoLevel >= 16)
+    {
+        return SkillMastery::Expert;
+    }
+
+    return SkillMastery::Normal;
+}
+
 uint32_t resolveSpellSkillLevel(
     uint32_t baseSkill,
-    bool magicStyle,
-    int monsterPowerValue,
-    double partyToMonsterRatio)
+    int effectivePseudoLevel)
 {
     if (baseSkill == 0)
     {
         return 0;
     }
 
-    if (magicStyle)
-    {
-        return static_cast<uint32_t>(
-            std::clamp<int>(
-                static_cast<int>(std::lround(static_cast<double>(baseSkill) * partyToMonsterRatio)),
-                1,
-                10));
-    }
-
-    return static_cast<uint32_t>(std::clamp<int>(
-        static_cast<int>(baseSkill) * monsterPowerValue,
-        1,
-        7));
+    return std::max(baseSkill, spellSkillTargetForPseudoLevel(effectivePseudoLevel));
 }
 
 SkillMastery resolveSpellMastery(
     SkillMastery baseMastery,
-    bool magicStyle,
-    int monsterPowerValue,
-    double partyToMonsterRatio)
+    int effectivePseudoLevel)
 {
     const uint32_t baseValue = masteryValue(baseMastery);
 
@@ -172,55 +304,59 @@ SkillMastery resolveSpellMastery(
         return SkillMastery::None;
     }
 
-    if (magicStyle)
-    {
-        return masteryFromValue(baseValue + static_cast<uint32_t>(std::floor(partyToMonsterRatio)));
-    }
-
-    return masteryFromValue(std::min<uint32_t>(baseValue + static_cast<uint32_t>(monsterPowerValue), 3));
+    const uint32_t targetValue = masteryValue(spellMasteryTargetForPseudoLevel(effectivePseudoLevel));
+    return masteryFromValue(std::max(baseValue, targetValue));
 }
 
-int cappedBolsteredHitPoints(
-    int baseHp,
-    int monsterFamilyLevelValue,
-    int partyLevel,
-    bool sizeAffectsHp,
-    uint16_t monsterHeight,
-    const MergedBolsterMonsterEntry *pMonsterSettings)
+int bolsteredArmorClass(int armorClass, int baseLevel, int targetLevel)
 {
-    const double heightMultiplier =
-        sizeAffectsHp ? std::max(1.0, static_cast<double>(monsterHeight) / 160.0) : 1.0;
-    const double scaledHp =
-        static_cast<double>(baseHp)
-        + (static_cast<double>(baseHp) / monsterFamilyLevelValue)
-            * static_cast<double>(partyLevel - monsterFamilyLevelValue)
-        + heightMultiplier * static_cast<double>(baseHp);
-
-    int result = std::max(1, static_cast<int>(std::lround(scaledHp)));
-
-    if (pMonsterSettings != nullptr && pMonsterSettings->maxHpBoostPercent)
-    {
-        const int cap =
-            std::max(1, static_cast<int>(
-                std::lround(static_cast<double>(baseHp) * *pMonsterSettings->maxHpBoostPercent / 100.0)));
-        result = std::min(result, cap);
-    }
-
-    return std::min(result, MaximumBolsteredHitPoints);
+    return std::max(
+        0,
+        static_cast<int>(std::lround(static_cast<double>(std::max(0, armorClass))
+            * monsterBolsterLevelRatio(baseLevel, targetLevel))));
 }
 
-int bolsteredAttackDamageBonus(int diceRolls, int diceSides, int baseBonus, int monsterPowerValue)
+MonsterTable::MonsterStatsEntry::DamageProfile bolsteredAttackDamageProfile(
+    const MonsterTable::MonsterStatsEntry::DamageProfile &baseDamage,
+    int baseLevel,
+    int targetLevel)
 {
-    const int maxDamage = std::max(0, diceRolls) * std::max(0, diceSides);
+    MonsterTable::MonsterStatsEntry::DamageProfile result = baseDamage;
+    const double levelRatio = monsterBolsterLevelRatio(baseLevel, targetLevel);
 
-    if (maxDamage == 0)
+    if (levelRatio <= 1.0)
     {
-        return baseBonus;
+        return result;
     }
 
-    const double multiplier = 1.0 + static_cast<double>(monsterPowerValue) / 3.0 - 0.33;
-    const int boost = std::max(0, static_cast<int>(std::lround(static_cast<double>(maxDamage) * multiplier)));
-    return baseBonus + boost;
+    const int rolls = std::max(0, baseDamage.diceRolls);
+    const int sides = std::max(0, baseDamage.diceSides);
+    const double diceAverage = static_cast<double>(rolls) * static_cast<double>(sides + 1) / 2.0;
+    const double baseAverage = diceAverage + static_cast<double>(std::max(0, baseDamage.bonus));
+    const double scaledAverage = baseAverage * levelRatio;
+
+    if (diceAverage <= 0.0)
+    {
+        result.bonus = std::max(baseDamage.bonus, static_cast<int>(std::lround(scaledAverage)));
+        return result;
+    }
+
+    const double diceScale = std::sqrt(levelRatio);
+    result.diceRolls = std::clamp(
+        static_cast<int>(std::lround(static_cast<double>(rolls) * diceScale)),
+        rolls,
+        255);
+    result.diceSides = std::clamp(
+        static_cast<int>(std::lround(static_cast<double>(sides) * diceScale)),
+        sides,
+        255);
+
+    const double scaledDiceAverage =
+        static_cast<double>(result.diceRolls) * static_cast<double>(result.diceSides + 1) / 2.0;
+    result.bonus = std::max(
+        baseDamage.bonus,
+        static_cast<int>(std::lround(scaledAverage - scaledDiceAverage)));
+    return result;
 }
 
 int generatedSpellSkillLevel(bool magicStyle)
@@ -457,6 +593,112 @@ int gameplayBolsterPlayerArmorClass(
     return std::max(0, static_cast<int>(std::lround(static_cast<double>(std::max(0, armorClass)) * levelRatio)));
 }
 
+float gameplayBolsterRewardMultiplier(int baseMaxHp, int bolsteredMaxHp, bool statsEnabled)
+{
+    if (!statsEnabled || baseMaxHp <= 0 || bolsteredMaxHp <= baseMaxHp)
+    {
+        return 1.0f;
+    }
+
+    const float ratio = static_cast<float>(bolsteredMaxHp) / static_cast<float>(baseMaxHp);
+    return std::clamp(ratio, 1.0f, MaximumBolsterRewardMultiplier);
+}
+
+uint32_t gameplayBolsterExperienceReward(int baseExperience, int baseHitPoints, float rewardMultiplier)
+{
+    if (baseExperience <= 0)
+    {
+        return 0;
+    }
+
+    const float multiplier = std::max(1.0f, rewardMultiplier);
+
+    if (baseHitPoints <= 0 || multiplier <= 1.0f)
+    {
+        return static_cast<uint32_t>(baseExperience);
+    }
+
+    const uint32_t baseDefaultExperience = defaultMonsterExperienceForHitPoints(baseHitPoints);
+    const int effectiveHitPoints = std::max(
+        baseHitPoints,
+        static_cast<int>(std::lround(static_cast<float>(baseHitPoints) * multiplier)));
+    const uint32_t effectiveDefaultExperience = defaultMonsterExperienceForHitPoints(effectiveHitPoints);
+
+    if (baseDefaultExperience == 0)
+    {
+        const double scaledExperience =
+            static_cast<double>(baseExperience) * static_cast<double>(multiplier);
+        return static_cast<uint32_t>(std::min<double>(
+            std::lround(scaledExperience),
+            static_cast<double>(std::numeric_limits<uint32_t>::max())));
+    }
+
+    const double scaledExperience =
+        static_cast<double>(baseExperience)
+        * static_cast<double>(effectiveDefaultExperience)
+        / static_cast<double>(baseDefaultExperience);
+    return static_cast<uint32_t>(std::min<double>(
+        std::lround(scaledExperience),
+        static_cast<double>(std::numeric_limits<uint32_t>::max())));
+}
+
+int gameplayBolsterEffectiveHitPoints(int baseHitPoints, float rewardMultiplier)
+{
+    if (baseHitPoints <= 0)
+    {
+        return 0;
+    }
+
+    const float multiplier = std::max(1.0f, rewardMultiplier);
+    return std::max(
+        baseHitPoints,
+        static_cast<int>(std::lround(static_cast<float>(baseHitPoints) * multiplier)));
+}
+
+MonsterTable::LootPrototype gameplayBolsterLootPrototype(
+    const MonsterTable::LootPrototype &loot,
+    int baseHitPoints,
+    float rewardMultiplier)
+{
+    const float multiplier = std::clamp(rewardMultiplier, 1.0f, MaximumBolsterRewardMultiplier);
+
+    if (multiplier <= 1.0f)
+    {
+        return loot;
+    }
+
+    MonsterTable::LootPrototype result = loot;
+    const int baseLevel = defaultMonsterLevelForHitPoints(baseHitPoints);
+    const int effectiveLevel = defaultMonsterLevelForHitPoints(
+        gameplayBolsterEffectiveHitPoints(baseHitPoints, multiplier));
+    const float levelMultiplier =
+        static_cast<float>(std::max(1, effectiveLevel)) / static_cast<float>(std::max(1, baseLevel));
+
+    if (result.goldDiceRolls > 0 && result.goldDiceSides > 0)
+    {
+        result.goldDiceSides = std::max(
+            result.goldDiceSides,
+            static_cast<int>(std::lround(static_cast<float>(result.goldDiceSides) * levelMultiplier)));
+    }
+
+    if (result.itemChance > 0)
+    {
+        const float chanceMultiplier = std::min(multiplier, 3.0f);
+        result.itemChance = std::clamp(
+            static_cast<int>(std::lround(static_cast<float>(result.itemChance) * chanceMultiplier)),
+            1,
+            100);
+    }
+
+    if (result.itemLevel > 0)
+    {
+        const int itemLevelBonus = std::clamp((effectiveLevel - baseLevel) / 10, 0, 3);
+        result.itemLevel = std::clamp(result.itemLevel + itemLevelBonus, 1, 6);
+    }
+
+    return result;
+}
+
 GameplayMonsterBolsterResult resolveGameplayMonsterBolster(
     const GameplayBolsterRuntimeContext &context,
     const MonsterTable::MonsterStatsEntry &stats,
@@ -466,7 +708,11 @@ GameplayMonsterBolsterResult resolveGameplayMonsterBolster(
     result.maxHp = std::max(1, stats.hitPoints);
     result.armorClass = stats.armorClass;
     result.moveSpeed = static_cast<uint16_t>(std::max(0, stats.speed));
+    result.attack1DamageDiceRolls = stats.attack1Damage.diceRolls;
+    result.attack1DamageDiceSides = stats.attack1Damage.diceSides;
     result.attack1DamageBonus = stats.attack1Damage.bonus;
+    result.attack2DamageDiceRolls = stats.attack2Damage.diceRolls;
+    result.attack2DamageDiceSides = stats.attack2Damage.diceSides;
     result.attack2DamageBonus = stats.attack2Damage.bonus;
     result.spell1SkillLevel = stats.spell1SkillLevel;
     result.spell1SkillMastery = stats.spell1SkillMastery;
@@ -499,12 +745,16 @@ GameplayMonsterBolsterResult resolveGameplayMonsterBolster(
     const int basePartyLevel =
         gameplayBolsterAveragePartyLevel(context.pParty) + static_cast<int>(pMapSettings->bolsterExtra);
     const int familyLevel = monsterFamilyLevel(*context.pMonsterTable, context.pBolsterMonsterTable, monsterId);
+    const int baseMonsterLevel = monsterBaseBolsterLevel(stats);
+    const int targetMonsterLevel = std::max(baseMonsterLevel, easedBolsterTargetLevel(basePartyLevel));
     const double partyToMonsterRatio =
         static_cast<double>(std::max(1, basePartyLevel)) / static_cast<double>(std::max(1, familyLevel));
     const bool allToEqual = isAllToEqualBolsterKind(pMapSettings->bolsterKind);
-    const bool shouldBolsterMonster = allToEqual || basePartyLevel > familyLevel;
-    const bool statsEnabled = shouldBolsterMonster && !isOriginalStatsBolsterKind(pMapSettings->bolsterKind);
-    const int power = monsterPower(monsterId);
+    const bool shouldBolsterMonster = allToEqual || basePartyLevel > baseMonsterLevel;
+    const bool statsEnabled =
+        shouldBolsterMonster
+        && targetMonsterLevel > baseMonsterLevel
+        && !isOriginalStatsBolsterKind(pMapSettings->bolsterKind);
     const bool magicStyle = isStyle(pMonsterSettings, "magic");
 
     result.mapEnabled = shouldBolsterMonster;
@@ -547,75 +797,50 @@ GameplayMonsterBolsterResult resolveGameplayMonsterBolster(
         return result;
     }
 
-    if (monsterKindBaseId(monsterId) == SpecialElementalHpFormulaTarget)
-    {
-        const double heightMultiplier =
-            pMonsterSettings != nullptr && pMonsterSettings->sizeAffectsHp
-                ? std::max(1.0, static_cast<double>(monsterHeight) / 160.0)
-                : 1.0;
-        result.maxHp = std::min(
-            MaximumBolsteredHitPoints,
-            std::max(
-                1,
-                static_cast<int>(std::lround(
-                    static_cast<double>(std::max(1, stats.hitPoints))
-                    + heightMultiplier
-                        * (static_cast<double>(std::max(1, stats.hitPoints)) / static_cast<double>(familyLevel))
-                            * static_cast<double>(basePartyLevel - familyLevel)))));
-    }
-    else
-    {
-        result.maxHp = cappedBolsteredHitPoints(
-            std::max(1, stats.hitPoints),
-            familyLevel,
-            basePartyLevel,
-            pMonsterSettings != nullptr && pMonsterSettings->sizeAffectsHp,
-            monsterHeight,
-            pMonsterSettings);
-    }
-    result.armorClass = std::max(0, stats.armorClass * power);
-    result.attack1DamageBonus = bolsteredAttackDamageBonus(
-        stats.attack1Damage.diceRolls,
-        stats.attack1Damage.diceSides,
-        stats.attack1Damage.bonus,
-        power);
-    result.attack2DamageBonus = bolsteredAttackDamageBonus(
-        stats.attack2Damage.diceRolls,
-        stats.attack2Damage.diceSides,
-        stats.attack2Damage.bonus,
-        power);
+    const BolsteredHitPointResult bolsteredHitPoints = bolsteredHitPointsForPseudoLevel(
+        std::max(1, stats.hitPoints),
+        baseMonsterLevel,
+        targetMonsterLevel,
+        pMonsterSettings != nullptr && pMonsterSettings->sizeAffectsHp,
+        monsterHeight,
+        pMonsterSettings);
+
+    result.maxHp = bolsteredHitPoints.combatHitPoints;
+    const int cappedTargetMonsterLevel = std::max(
+        baseMonsterLevel,
+        std::min(targetMonsterLevel, bolsteredHitPoints.effectiveLevel));
+    result.armorClass = bolsteredArmorClass(stats.armorClass, baseMonsterLevel, cappedTargetMonsterLevel);
+    const MonsterTable::MonsterStatsEntry::DamageProfile attack1Damage =
+        bolsteredAttackDamageProfile(stats.attack1Damage, baseMonsterLevel, cappedTargetMonsterLevel);
+    result.attack1DamageDiceRolls = attack1Damage.diceRolls;
+    result.attack1DamageDiceSides = attack1Damage.diceSides;
+    result.attack1DamageBonus = attack1Damage.bonus;
+    const MonsterTable::MonsterStatsEntry::DamageProfile attack2Damage =
+        bolsteredAttackDamageProfile(stats.attack2Damage, baseMonsterLevel, cappedTargetMonsterLevel);
+    result.attack2DamageDiceRolls = attack2Damage.diceRolls;
+    result.attack2DamageDiceSides = attack2Damage.diceSides;
+    result.attack2DamageBonus = attack2Damage.bonus;
 
     if (isStyle(pMonsterSettings, "speed") || isStyle(pMonsterSettings, "strength"))
     {
         const double speedLimit = static_cast<double>(std::max(0, stats.speed))
             * (isStyle(pMonsterSettings, "speed") ? 3.0 : 1.75);
-        const double scaledSpeed = static_cast<double>(std::max(0, stats.speed)) * partyToMonsterRatio;
+        const double scaledSpeed =
+            static_cast<double>(std::max(0, stats.speed))
+            * monsterBolsterLevelRatio(baseMonsterLevel, cappedTargetMonsterLevel);
         result.moveSpeed =
             static_cast<uint16_t>(std::clamp<int>(static_cast<int>(std::lround(
                 std::min(scaledSpeed, speedLimit))), 0, 65535));
     }
 
-    result.spell1SkillLevel = resolveSpellSkillLevel(
-        stats.spell1SkillLevel,
-        magicStyle,
-        power,
-        partyToMonsterRatio);
-    result.spell1SkillMastery = resolveSpellMastery(
-        stats.spell1SkillMastery,
-        magicStyle,
-        power,
-        partyToMonsterRatio);
-    result.spell2SkillLevel = resolveSpellSkillLevel(
-        stats.spell2SkillLevel,
-        magicStyle,
-        power,
-        partyToMonsterRatio);
-    result.spell2SkillMastery = resolveSpellMastery(
-        stats.spell2SkillMastery,
-        magicStyle,
-        power,
-        partyToMonsterRatio);
+    const int effectiveSpellPseudoLevel = bolsteredHitPoints.effectiveLevel;
+    result.spell1SkillLevel = resolveSpellSkillLevel(stats.spell1SkillLevel, effectiveSpellPseudoLevel);
+    result.spell1SkillMastery = resolveSpellMastery(stats.spell1SkillMastery, effectiveSpellPseudoLevel);
+    result.spell2SkillLevel = resolveSpellSkillLevel(stats.spell2SkillLevel, effectiveSpellPseudoLevel);
+    result.spell2SkillMastery = resolveSpellMastery(stats.spell2SkillMastery, effectiveSpellPseudoLevel);
     applyGeneratedAbilities(result, stats, pMonsterSettings, magicStyle);
+    result.rewardMultiplier =
+        gameplayBolsterRewardMultiplier(stats.hitPoints, result.maxHp, result.statsEnabled);
 
     return result;
 }

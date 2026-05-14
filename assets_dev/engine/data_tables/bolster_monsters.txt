@@ -16,17 +16,17 @@
 14	Regnan Arbalester	Human		Neutral	F	Strength	Air	-	-	-	-	-	-			400
 15	Regnan Lieutenant	Human		Neutral	F	Strength	Air	-	-	x	-	-	-			300
 16	Regnan Sorcerer	Human		Dark	M	Magic	Fire	-	x	x	-	-	-			300
-17	Regnan Battlemage	Human		Dark	M	Magic	Fire	-	x	x	-	-	-			200
-18	Regnan Archmage	Human		Dark	M	Magic	Fire	-	x	x	-	-	-			100
+17	Regnan Battlemage	Human		Dark	M	Magic	Fire	-	x	x	-	-	-			300
+18	Regnan Archmage	Human		Dark	M	Magic	Fire	-	x	x	-	-	-			300
 19	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 20	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 21	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 22	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	F	Wimpy	0	x	-	-	-	-	-			100
 23	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	F	Wimpy	0	x	-	-	-	-	-			100
 24	Dark Elf Peasant	DarkElf	Elf,Peasant,NoArena	Peasant	F	Wimpy	0	x	-	-	-	-	-			100
-25	Dark Elven Warrior	DarkElf	Elf	Neutral		Strength	0	-	-	-	-	-	-			100
-26	Dark Elven Defender	DarkElf	Elf	Neutral		Strength	0	-	-	-	-	-	-			100
-27	Dark Elven Crusader	DarkElf	Elf	Neutral		Strength	Self	-	-	x	-	-	-			100
+25	Dark Elven Warrior	DarkElf	Elf	Neutral		Strength	0	-	-	-	-	-	-			300
+26	Dark Elven Defender	DarkElf	Elf	Neutral		Strength	0	-	-	-	-	-	-			300
+27	Dark Elven Crusader	DarkElf	Elf	Neutral		Strength	Self	-	-	x	-	-	-			300
 28	Ogre Peasant	Ogre	Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 29	Ogre Peasant	Ogre	Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 30	Ogre Peasant	Ogre	Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
@@ -70,26 +70,26 @@
 68	Minotaur Peasant	Minotaur	Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 69	Minotaur Peasant	Minotaur	Peasant,NoArena	Peasant	M	Wimpy	0	x	-	-	-	-	-			100
 70	Dragon	Dragon		Neutral		Strength	Fire	-	x	-	x	-	-			300
-71	Dragon Flightleader	Dragon		Neutral		Strength	Fire	-	x	-	x	-	-			200
-72	Great Wyrm	Dragon		Neutral		Strength	Fire	-	x	x	x	-	-			200
-73	Lesser Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	-	-	-	-			100
-74	Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	-	-	-	-			100
-75	Greater Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	x	-	-	-			100
-76	Lesser Water Elemental	Elemental	Swimmer	Neutral		Magic	Water	-	x	-	-	-	-			100
-77	Water Elemental	Elemental	Swimmer	Neutral		Magic	Water	-	x	-	-	-	-			100
-78	Greater Water Elemental	Elemental	Swimmer	Neutral		Magic	Water	-	x	x	-	-	-			100
-79	Lesser Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	-	-	-	-			100
-80	Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	-	-	-	-			100
-81	Greater Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	x	-	-	-			100
-82	Lesser Air Elemental	Elemental		Neutral		Speed	Air	-	x	-	-	-	-			100
-83	Air Elemental	Elemental		Neutral		Speed	Air	-	x	-	-	-	-			100
-84	Greater Air Elemental	Elemental		Neutral		Speed	Air	-	x	x	-	-	-			100
+71	Dragon Flightleader	Dragon		Neutral		Strength	Fire	-	x	-	x	-	-			300
+72	Great Wyrm	Dragon		Neutral		Strength	Fire	-	x	x	x	-	-			300
+73	Lesser Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	-	-	-	-			300
+74	Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	-	-	-	-			300
+75	Greater Fire Elemental	Elemental		Neutral		Strength	Fire	-	x	x	-	-	-			300
+76	Lesser Water Elemental	Elemental	Swimmer,NoArena	Neutral		Magic	Water	-	x	-	-	-	-			300
+77	Water Elemental	Elemental	Swimmer,NoArena	Neutral		Magic	Water	-	x	-	-	-	-			300
+78	Greater Water Elemental	Elemental	Swimmer,NoArena	Neutral		Magic	Water	-	x	x	-	-	-			300
+79	Lesser Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	-	-	-	-			300
+80	Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	-	-	-	-			300
+81	Greater Earth Elemental	Elemental		Neutral		Endurance	Earth	-	x	x	-	-	-			300
+82	Lesser Air Elemental	Elemental		Neutral		Speed	Air	-	x	-	-	-	-			300
+83	Air Elemental	Elemental		Neutral		Speed	Air	-	x	-	-	-	-			300
+84	Greater Air Elemental	Elemental		Neutral		Speed	Air	-	x	x	-	-	-			300
 85	Dire Wolf Yearling	Creature		Neutral		Speed	0	-	-	-	-	-	-			500
 86	Dire Wolf	Creature		Neutral		Speed	0	-	-	-	-	-	-			400
 87	Pack Leader	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
-88	Young Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			200
-89	Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			200
-90	Elder Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			200
+88	Young Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
+89	Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
+90	Elder Basilisk	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
 91	Cyclops	0	Ogre	Neutral		Strength	0	-	-	-	-	-	-			300
 92	Cyclops Hunter	0	Ogre	Neutral		Strength	Earth	-	-	x	-	-	-			300
 93	Cyclops Warrior	0	Ogre	Neutral		Strength	Earth	-	-	x	-	-	-			300
@@ -111,12 +111,12 @@
 109	Unicorn Foal	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 110	Unicorn	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 111	Unicorn Herd Leader	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
-112	Emerald Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			100
-113	Sapphire Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			100
-114	Ruby Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			100
-115	Mist Hawk	Creature	Elemental	Neutral		Speed	0	-	-	-	-	-	-			200
-116	Storm Eagle	Creature	Elemental	Neutral		Speed	0	-	x	-	-	-	-			200
-117	Thunderbird	Creature	Elemental	Neutral		Speed	Air	-	x	x	-	-	-			200
+112	Emerald Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			300
+113	Sapphire Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			300
+114	Ruby Dragon	Construct	Dragon	Neutral		Strength	0	-	-	-	-	-	-			300
+115	Mist Hawk	Creature	Elemental	Neutral		Speed	0	-	-	-	-	-	-			300
+116	Storm Eagle	Creature	Elemental	Neutral		Speed	0	-	x	-	-	-	-			300
+117	Thunderbird	Creature	Elemental	Neutral		Speed	Air	-	x	x	-	-	-			300
 118	Wasp Worker	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 119	Wasp Sentry	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 120	Wasp Warrior	Creature		Neutral		Speed	0	-	x	-	-	-	-			300
@@ -135,15 +135,15 @@
 133	Triton 	Creature		Neutral		Strength	Air	-	x	-	-	-	-			300
 134	Triton Warrior	Creature		Neutral		Strength	Air	-	x	-	-	-	-			300
 135	Triton Crusader	Creature		Neutral		Strength	Air	-	x	x	-	-	-			300
-136	Young Dragon Turtle	Creature	Swimmer	Neutral		Strength	0	-	-	-	x	-	-			300
-137	Dragon Turtle	Creature	Swimmer	Neutral		Strength	0	-	-	-	x	-	-			300
-138	Elder Tortoise	Creature	Swimmer	Neutral		Strength	0	-	-	-	x	-	-			300
+136	Young Dragon Turtle	Creature	Swimmer,Dragon,NoArena	Neutral		Strength	0	-	-	-	x	-	-			300
+137	Dragon Turtle	Creature	Swimmer,Dragon,NoArena	Neutral		Strength	0	-	-	-	x	-	-			300
+138	Elder Tortoise	Creature	Swimmer,Dragon,NoArena	Neutral		Strength	0	-	-	-	x	-	-			300
 139	Rook	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 140	Corbie	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 141	Raven	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
-142	Boulder	Construct	Immobile	Neutral		Endurance	Earth	-	-	-	-	-	-			300
-143	Boulder	Construct	Immobile	Neutral		Endurance	Earth	-	-	-	-	x	-			300
-144	Boulder	Construct	Immobile	Neutral		Endurance	Earth	-	-	x	-	x	-			300
+142	Boulder	Construct	Immobile,NoArena	Neutral		Endurance	Earth	-	-	-	-	-	-			300
+143	Boulder	Construct	Immobile,NoArena	Neutral		Endurance	Earth	-	-	-	-	x	-			300
+144	Boulder	Construct	Immobile,NoArena	Neutral		Endurance	Earth	-	-	x	-	x	-			300
 145	Plane Guardian	0		Neutral		Strength	0	-	-	-	-	-	-			300
 146	Plane Protector	0		Neutral		Strength	0	-	-	-	-	-	-			300
 147	Plane Overlord	0		Neutral		Strength	0	-	-	-	-	-	-			300
@@ -387,9 +387,9 @@
 385	Giant Rat	Creature		Neutral		Speed	0	-	-	-	x	-	-			1000
 386	Lightning Rat	Creature		Neutral		Speed	0	-	-	-	x	-	-			700
 387	Fire Rat	Creature		Neutral		Speed	0	-	-	-	x	-	-			400
-388	Seeker Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			100
-389	Sentinel Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			100
-390	Assassin Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			100
+388	Seeker Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			300
+389	Sentinel Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			300
+390	Assassin Droid	Construct		Neutral		Strength	0	-	-	-	-	-	-			300
 391	Roc	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 392	Greater Roc	Creature		Neutral		Speed	0	-	-	-	-	-	-			300
 393	Thunderbird	Creature		Neutral		Speed	Air	-	x	x	-	-	-			300
@@ -498,12 +498,12 @@
 496	Agar's Pet	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
 497	Agar's Monster	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
 498	Agar's Abomination	Creature		Neutral		Strength	0	-	-	-	-	-	-			300
-499	Devil Captain	Demon		Dark		Strength	0	-	-	-	-	-	-			300
-500	Devil Master	Demon		Dark		Strength	0	-	-	-	-	-	-			300
-501	Devil King	Demon		Dark		Strength	0	-	-	-	-	-	-			300
-502	Devil Spawn	Demon		Dark		Strength	0	-	-	-	-	-	-			300
-503	Devil Worker	Demon		Dark		Strength	0	-	-	-	-	-	-			300
-504	Devil Warrior	Demon		Dark		Strength	0	-	-	-	-	-	-			300
+499	Devil Captain	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
+500	Devil Master	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
+501	Devil King	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
+502	Devil Spawn	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
+503	Devil Worker	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
+504	Devil Warrior	Demon	NoCorpse	Dark		Strength	0	-	-	-	-	-	-			300
 505	Fire Lizard	Creature		Neutral		Strength	0	-	x	-	x	-	-			300
 506	Lightning Lizard	Creature		Neutral		Strength	0	-	x	-	x	-	-			300
 507	Thunder Lizard	Creature		Neutral		Strength	0	-	x	-	x	-	-			300
@@ -651,3 +651,4 @@
 649	Cactus	Demon		Neutral		Speed	0	x	-	-	-	-	-			300
 650	Cactus	Demon		Neutral		Speed	0	x	-	-	-	-	-			300
 651	Cactus	Demon		Neutral		Speed	0	x	-	-	-	-	-			300
+652	Reactor	Immobile	NoArena	Neutral		Endurance	0	x	x	-	-	-	-			300

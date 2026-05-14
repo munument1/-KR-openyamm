@@ -60,6 +60,7 @@ struct MapDeltaActor
     uint32_t group = 0;
     uint32_t ally = 0;
     int32_t uniqueNameIndex = 0;
+    float bolsterRewardMultiplier = 1.0f;
 };
 
 struct MapDeltaSpriteObject

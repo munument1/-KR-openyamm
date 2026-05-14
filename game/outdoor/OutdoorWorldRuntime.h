@@ -158,6 +158,7 @@ public:
         uint32_t specialItemId = 0;
         int currentHp = 0;
         int maxHp = 0;
+        float bolsterRewardMultiplier = 1.0f;
         int x = 0;
         int y = 0;
         int z = 0;
@@ -186,7 +187,11 @@ public:
         CombatDamageType spell2DamageType = CombatDamageType::Physical;
         bool spell2CastSupported = true;
         float wanderRadius = 0.0f;
+        int attack1DamageDiceRolls = 0;
+        int attack1DamageDiceSides = 0;
         int attack1DamageBonus = 0;
+        int attack2DamageDiceRolls = 0;
+        int attack2DamageDiceSides = 0;
         int attack2DamageBonus = 0;
         bool generatedAttack2 = false;
         bool generatedAttack2IsRanged = false;

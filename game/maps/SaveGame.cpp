@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 58;
+constexpr uint32_t SaveVersion = 60;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -55,6 +55,8 @@ constexpr uint32_t SaveVersionOutdoorLocationInfo = 55;
 constexpr uint32_t SaveVersionFullProjectileState = 56;
 constexpr uint32_t SaveVersionCharacterConditionStartTimes = 57;
 constexpr uint32_t SaveVersionHiredNpcFollowerAbilityUseDay = 58;
+constexpr uint32_t SaveVersionMonsterBolsterRewards = 59;
+constexpr uint32_t SaveVersionMonsterBolsterDamageDice = 60;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1230,6 +1232,7 @@ void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::MapActorAiState 
     writeValue(writer, value.collisionRadius);
     writeValue(writer, value.collisionHeight);
     writeValue(writer, value.movementSpeed);
+    writeValue(writer, value.bolsterRewardMultiplier);
     writeValue(writer, value.sectorId);
     writeValue(writer, value.eyeSectorId);
     writeValue(writer, value.supportFaceIndex);
@@ -1287,6 +1290,7 @@ bool readValue(BinaryReader &reader, IndoorWorldRuntime::MapActorAiState &value)
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.collisionRadius))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.collisionHeight))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.movementSpeed))
+        && (reader.version() < SaveVersionMonsterBolsterRewards || readValue(reader, value.bolsterRewardMultiplier))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.sectorId))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.eyeSectorId))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.supportFaceIndex))
@@ -2027,6 +2031,7 @@ void writeValue(BinaryWriter &writer, const MapDeltaActor &value)
     writeValue(writer, value.group);
     writeValue(writer, value.ally);
     writeValue(writer, value.uniqueNameIndex);
+    writeValue(writer, value.bolsterRewardMultiplier);
 }
 
 bool readValue(BinaryReader &reader, MapDeltaActor &value)
@@ -2050,7 +2055,8 @@ bool readValue(BinaryReader &reader, MapDeltaActor &value)
         && (reader.version() < SaveVersionActorCarriedItem || readValue(reader, value.carriedItemId))
         && readValue(reader, value.group)
         && readValue(reader, value.ally)
-        && readValue(reader, value.uniqueNameIndex);
+        && readValue(reader, value.uniqueNameIndex)
+        && (reader.version() < SaveVersionMonsterBolsterRewards || readValue(reader, value.bolsterRewardMultiplier));
 }
 
 void writeValue(BinaryWriter &writer, const MapDeltaSpriteObject &value)
@@ -2260,6 +2266,7 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &
     writeValue(writer, value.specialItemId);
     writeValue(writer, value.currentHp);
     writeValue(writer, value.maxHp);
+    writeValue(writer, value.bolsterRewardMultiplier);
     writeValue(writer, value.x);
     writeValue(writer, value.y);
     writeValue(writer, value.z);
@@ -2277,7 +2284,11 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &
     writeValue(writer, value.moveSpeed);
     writeValue(writer, value.armorClass);
     writeValue(writer, value.immobile);
+    writeValue(writer, value.attack1DamageDiceRolls);
+    writeValue(writer, value.attack1DamageDiceSides);
     writeValue(writer, value.attack1DamageBonus);
+    writeValue(writer, value.attack2DamageDiceRolls);
+    writeValue(writer, value.attack2DamageDiceSides);
     writeValue(writer, value.attack2DamageBonus);
     writeValue(writer, value.spell1SkillLevel);
     writeValue(writer, value.spell1SkillMastery);
@@ -2342,6 +2353,7 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
         && readValue(reader, value.specialItemId)
         && readValue(reader, value.currentHp)
         && readValue(reader, value.maxHp)
+        && (reader.version() < SaveVersionMonsterBolsterRewards || readValue(reader, value.bolsterRewardMultiplier))
         && readValue(reader, value.x)
         && readValue(reader, value.y)
         && readValue(reader, value.z)
@@ -2360,7 +2372,13 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
         && (reader.version() < SaveVersionOutdoorActorBolsterCache
             || (readValue(reader, value.armorClass)
                 && readValue(reader, value.immobile)
+                && (reader.version() < SaveVersionMonsterBolsterDamageDice
+                    || (readValue(reader, value.attack1DamageDiceRolls)
+                        && readValue(reader, value.attack1DamageDiceSides)))
                 && readValue(reader, value.attack1DamageBonus)
+                && (reader.version() < SaveVersionMonsterBolsterDamageDice
+                    || (readValue(reader, value.attack2DamageDiceRolls)
+                        && readValue(reader, value.attack2DamageDiceSides)))
                 && readValue(reader, value.attack2DamageBonus)
                 && readValue(reader, value.spell1SkillLevel)
                 && readValue(reader, value.spell1SkillMastery)

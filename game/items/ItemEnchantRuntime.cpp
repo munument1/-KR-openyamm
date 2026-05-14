@@ -1206,18 +1206,26 @@ std::string ItemEnchantRuntime::displayName(
     return baseName;
 }
 
-int ItemEnchantRuntime::itemValue(
+int calculateItemValue(
     const InventoryItem &item,
     const ItemDefinition &itemDefinition,
     const StandardItemEnchantTable *pStandardTable,
-    const SpecialItemEnchantTable *pSpecialTable)
+    const SpecialItemEnchantTable *pSpecialTable,
+    int minimumValue)
 {
     if (item.broken)
     {
         return 1;
     }
 
-    int value = std::max(1, itemDefinition.value);
+    int value = std::max(minimumValue, itemDefinition.value);
+
+    if (item.temporaryBonusRemainingSeconds > 0.0f
+        || itemDefinition.rarity != ItemRarity::Common
+        || item.rarity != ItemRarity::Common)
+    {
+        return value;
+    }
 
     if (item.standardEnchantId != 0 && pStandardTable != nullptr)
     {
@@ -1242,7 +1250,25 @@ int ItemEnchantRuntime::itemValue(
         }
     }
 
-    return std::max(1, value);
+    return std::max(minimumValue, value);
+}
+
+int ItemEnchantRuntime::itemValue(
+    const InventoryItem &item,
+    const ItemDefinition &itemDefinition,
+    const StandardItemEnchantTable *pStandardTable,
+    const SpecialItemEnchantTable *pSpecialTable)
+{
+    return calculateItemValue(item, itemDefinition, pStandardTable, pSpecialTable, 1);
+}
+
+int ItemEnchantRuntime::itemInspectValue(
+    const InventoryItem &item,
+    const ItemDefinition &itemDefinition,
+    const StandardItemEnchantTable *pStandardTable,
+    const SpecialItemEnchantTable *pSpecialTable)
+{
+    return calculateItemValue(item, itemDefinition, pStandardTable, pSpecialTable, 0);
 }
 
 std::string ItemEnchantRuntime::buildEnchantDescription(

@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
 
 namespace
@@ -127,14 +128,40 @@ TEST_CASE("monster stats parser ignores unsupported missile tokens for attack st
     CHECK(pEmeraldDragon->attackStyle == OpenYAMM::Game::MonsterTable::MonsterAttackStyle::Ranged);
 }
 
-TEST_CASE("monster stats parser promotes comma separated kind flags")
+TEST_CASE("monster stats applies supported kind flags from bolster monster type data")
 {
     OpenYAMM::Game::MonsterTable table = {};
     std::vector<std::string> row = makeMonsterStatsRow(52, "Vampire", true, "", 0, "", 0, "");
-    row.resize(40);
-    row[39] = "undead, peasant, no_arena, titan";
 
     REQUIRE(table.loadStatsFromRows({row}));
+
+    OpenYAMM::Game::MergedBolsterMonsterTable bolsterMonsterTable = {};
+    REQUIRE(bolsterMonsterTable.loadFromRows({
+        {
+            "#",
+            "Note",
+            "Type",
+            "ExtraType",
+            "Creed",
+            "Gender",
+            "Style",
+            "Pref magic",
+            "No bounty hunt",
+            "New ranged attacks",
+            "New spells",
+            "Size affects HP",
+            "Replicate",
+            "New summons",
+            "Summon Id",
+            "Extra points",
+            "Max HP Boost (%)",
+        },
+        {
+            "52", "Vampire", "Undead", "Peasant,NoArena,Titan", "Dark", "", "", "", "-", "-", "-", "-", "-", "-",
+            "", "", "",
+        },
+    }));
+    REQUIRE(table.applyKindFlagsFromBolsterMonsterTable(bolsterMonsterTable));
 
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMonster = table.findStatsById(52);
 
@@ -147,29 +174,42 @@ TEST_CASE("monster stats parser promotes comma separated kind flags")
     CHECK_FALSE(pMonster->hasKind(OpenYAMM::Game::MonsterKind::Dragon));
 }
 
-TEST_CASE("monster stats parser promotes no corpse kind flag")
+TEST_CASE("monster stats applies no corpse kind from bolster monster extra type data")
 {
     OpenYAMM::Game::MonsterTable table = {};
     std::vector<std::string> row = makeMonsterStatsRow(499, "Devil Captain", true, "", 0, "", 0, "");
-    row.resize(40);
-    row[39] = "no_corpse";
 
     REQUIRE(table.loadStatsFromRows({row}));
+
+    OpenYAMM::Game::MergedBolsterMonsterTable bolsterMonsterTable = {};
+    REQUIRE(bolsterMonsterTable.loadFromRows({
+        {
+            "#",
+            "Note",
+            "Type",
+            "ExtraType",
+            "Creed",
+            "Gender",
+            "Style",
+            "Pref magic",
+            "No bounty hunt",
+            "New ranged attacks",
+            "New spells",
+            "Size affects HP",
+            "Replicate",
+            "New summons",
+            "Summon Id",
+            "Extra points",
+            "Max HP Boost (%)",
+        },
+        {"499", "Devil Captain", "Demon", "NoCorpse", "Dark", "", "", "", "-", "-", "-", "-", "-", "-", "", "", ""},
+    }));
+    REQUIRE(table.applyKindFlagsFromBolsterMonsterTable(bolsterMonsterTable));
 
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMonster = table.findStatsById(499);
 
     REQUIRE(pMonster != nullptr);
     CHECK(pMonster->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
-}
-
-TEST_CASE("monster stats parser rejects unknown kind flags")
-{
-    OpenYAMM::Game::MonsterTable table = {};
-    std::vector<std::string> row = makeMonsterStatsRow(52, "Vampire", true, "", 0, "", 0, "");
-    row.resize(40);
-    row[39] = "undead,typo";
-
-    CHECK_FALSE(table.loadStatsFromRows({row}));
 }
 
 TEST_CASE("monster death drop parser maps multiple drops to monster id")

@@ -2517,6 +2517,11 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
     state.displayName = pStats != nullptr ? pStats->name : actor.name;
     state.maxHp = pStats != nullptr ? bolster.maxHp : std::max(0, static_cast<int>(actor.hp));
     state.currentHp = actor.hp > 0 && actor.hp > baseMaxHp ? actor.hp : state.maxHp;
+    state.bolsterRewardMultiplier = pStats != nullptr
+        ? std::max(
+            std::max(1.0f, actor.bolsterRewardMultiplier),
+            gameplayBolsterRewardMultiplier(pStats->hitPoints, state.maxHp, bolster.statsEnabled))
+        : 1.0f;
     state.x = actor.x;
     state.y = actor.y;
     state.z = actor.z;
@@ -2534,7 +2539,11 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
     state.moveSpeed = static_cast<uint16_t>(pStats != nullptr ? bolster.moveSpeed : 0);
     state.armorClass = pStats != nullptr ? bolster.armorClass : 0;
     state.immobile = pStats != nullptr && bolster.immobile;
+    state.attack1DamageDiceRolls = pStats != nullptr ? bolster.attack1DamageDiceRolls : 0;
+    state.attack1DamageDiceSides = pStats != nullptr ? bolster.attack1DamageDiceSides : 0;
     state.attack1DamageBonus = pStats != nullptr ? bolster.attack1DamageBonus : 0;
+    state.attack2DamageDiceRolls = pStats != nullptr ? bolster.attack2DamageDiceRolls : 0;
+    state.attack2DamageDiceSides = pStats != nullptr ? bolster.attack2DamageDiceSides : 0;
     state.attack2DamageBonus = pStats != nullptr ? bolster.attack2DamageBonus : 0;
     state.spell1SkillLevel = pStats != nullptr ? bolster.spell1SkillLevel : 0;
     state.spell1SkillMastery = pStats != nullptr ? bolster.spell1SkillMastery : SkillMastery::None;
@@ -3483,6 +3492,7 @@ OutdoorWorldRuntime::MapActorState buildSpawnedMapActorState(
         resolveGameplayMonsterBolster(bolsterContext, stats, pMonsterEntry);
     state.maxHp = bolster.maxHp;
     state.currentHp = bolster.maxHp;
+    state.bolsterRewardMultiplier = bolster.rewardMultiplier;
     state.x = static_cast<int>(std::lround(x));
     state.y = static_cast<int>(std::lround(y));
     state.z = static_cast<int>(std::lround(z));
@@ -3501,7 +3511,11 @@ OutdoorWorldRuntime::MapActorState buildSpawnedMapActorState(
     state.moveSpeed = bolster.moveSpeed;
     state.armorClass = bolster.armorClass;
     state.immobile = bolster.immobile;
+    state.attack1DamageDiceRolls = bolster.attack1DamageDiceRolls;
+    state.attack1DamageDiceSides = bolster.attack1DamageDiceSides;
     state.attack1DamageBonus = bolster.attack1DamageBonus;
+    state.attack2DamageDiceRolls = bolster.attack2DamageDiceRolls;
+    state.attack2DamageDiceSides = bolster.attack2DamageDiceSides;
     state.attack2DamageBonus = bolster.attack2DamageBonus;
     state.spell1SkillLevel = bolster.spell1SkillLevel;
     state.spell1SkillMastery = bolster.spell1SkillMastery;
@@ -6981,13 +6995,19 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
         actor.generatedSpell2UseChance > 0 ? actor.generatedSpell2UseChance : pStats->spell2UseChance;
     facts.stats.attack2Chance =
         actor.generatedAttack2Chance > 0 ? actor.generatedAttack2Chance : pStats->attack2Chance;
-    facts.stats.attack1Damage.diceRolls = pStats->attack1Damage.diceRolls;
-    facts.stats.attack1Damage.diceSides = pStats->attack1Damage.diceSides;
+    facts.stats.attack1Damage.diceRolls =
+        actor.attack1DamageDiceRolls > 0 ? actor.attack1DamageDiceRolls : pStats->attack1Damage.diceRolls;
+    facts.stats.attack1Damage.diceSides =
+        actor.attack1DamageDiceSides > 0 ? actor.attack1DamageDiceSides : pStats->attack1Damage.diceSides;
     facts.stats.attack1Damage.bonus = actor.attack1DamageBonus;
     facts.stats.attack2Damage.diceRolls =
-        actor.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceRolls : pStats->attack2Damage.diceRolls;
+        actor.copyAttack1DamageToAttack2
+            ? facts.stats.attack1Damage.diceRolls
+            : actor.attack2DamageDiceRolls > 0 ? actor.attack2DamageDiceRolls : pStats->attack2Damage.diceRolls;
     facts.stats.attack2Damage.diceSides =
-        actor.copyAttack1DamageToAttack2 ? pStats->attack1Damage.diceSides : pStats->attack2Damage.diceSides;
+        actor.copyAttack1DamageToAttack2
+            ? facts.stats.attack1Damage.diceSides
+            : actor.attack2DamageDiceSides > 0 ? actor.attack2DamageDiceSides : pStats->attack2Damage.diceSides;
     facts.stats.attack2Damage.bonus = actor.attack2DamageBonus;
     facts.stats.attackConstraints.attack1IsRanged = pStats->attack1HasMissile;
     facts.stats.attackConstraints.attack2IsRanged = pStats->attack2HasMissile || actor.generatedAttack2IsRanged;
@@ -10785,7 +10805,12 @@ bool OutdoorWorldRuntime::tryStealFromActor(size_t actorIndex, uint32_t successR
         }
 
         GameplayCorpseViewState corpse =
-            buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
+            buildMonsterCorpseView(
+                actor.displayName,
+                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, actor.bolsterRewardMultiplier),
+                m_pItemTable,
+                m_pParty,
+                guaranteedItemIds);
         corpse.fromSummonedMonster = false;
         corpse.sourceIndex = static_cast<uint32_t>(actorIndex);
         m_mapActorCorpseViews[actorIndex] = std::move(corpse);
@@ -11153,7 +11178,11 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
 
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
-                    m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
+                    m_pParty->grantSharedExperience(
+                        gameplayBolsterExperienceReward(
+                            pStats->experience,
+                            pStats->hitPoints,
+                            actor.bolsterRewardMultiplier));
                 }
 
                 pushAudioEvent(
@@ -12042,7 +12071,11 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
 
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
-                    m_pParty->grantSharedExperience(static_cast<uint32_t>(pStats->experience));
+                    m_pParty->grantSharedExperience(
+                        gameplayBolsterExperienceReward(
+                            pStats->experience,
+                            pStats->hitPoints,
+                            actor.bolsterRewardMultiplier));
                 }
 
                 pushAudioEvent(
@@ -13182,7 +13215,12 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         }
 
         CorpseViewState corpse =
-            buildMonsterCorpseView(actor.displayName, pStats->loot, m_pItemTable, m_pParty, guaranteedItemIds);
+            buildMonsterCorpseView(
+                actor.displayName,
+                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, actor.bolsterRewardMultiplier),
+                m_pItemTable,
+                m_pParty,
+                guaranteedItemIds);
 
         for (const GameplayChestItemState &item : corpse.items)
         {

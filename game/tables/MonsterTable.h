@@ -11,6 +11,8 @@
 
 namespace OpenYAMM::Game
 {
+class MergedBolsterMonsterTable;
+
 enum class MonsterSpecialAttackKind : uint8_t
 {
     None,
@@ -226,6 +228,7 @@ public:
     bool loadFromBytes(const std::vector<uint8_t> &bytes);
     bool loadDisplayNamesFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadStatsFromRows(const std::vector<std::vector<std::string>> &rows);
+    bool applyKindFlagsFromBolsterMonsterTable(const MergedBolsterMonsterTable &bolsterMonsterTable);
     bool loadDeathDropsFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadRelationsFromRows(const std::vector<std::vector<std::string>> &rows);
     bool loadUniqueNamesFromRows(const std::vector<std::vector<std::string>> &rows);

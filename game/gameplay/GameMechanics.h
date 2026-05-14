@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/gameplay/CharacterAttackTuning.h"
 #include "game/party/Party.h"
 
 #include <optional>
@@ -187,18 +188,21 @@ public:
         const ItemTable *pItemTable,
         const StandardItemEnchantTable *pStandardItemEnchantTable = nullptr,
         const SpecialItemEnchantTable *pSpecialItemEnchantTable = nullptr,
-        const EventRuntimeState *pEventRuntimeState = nullptr);
+        const EventRuntimeState *pEventRuntimeState = nullptr,
+        CharacterAttackTuning attackTuning = {});
     static CharacterAttackProfile buildCharacterAttackProfile(
         const Character &character,
         const ItemTable *pItemTable,
-        const SpellTable *pSpellTable);
+        const SpellTable *pSpellTable,
+        CharacterAttackTuning attackTuning = {});
     static CharacterAttackResult resolveCharacterAttackAgainstArmorClass(
         const Character &character,
         const ItemTable *pItemTable,
         const SpellTable *pSpellTable,
         int targetArmorClass,
         float targetDistance,
-        std::mt19937 &rng);
+        std::mt19937 &rng,
+        CharacterAttackTuning attackTuning = {});
     static SoundId resolveCharacterAttackSoundId(
         const Character &character,
         const ItemTable *pItemTable,

@@ -63,6 +63,11 @@ public:
         const ItemDefinition &itemDefinition,
         const StandardItemEnchantTable *pStandardTable,
         const SpecialItemEnchantTable *pSpecialTable);
+    static int itemInspectValue(
+        const InventoryItem &item,
+        const ItemDefinition &itemDefinition,
+        const StandardItemEnchantTable *pStandardTable,
+        const SpecialItemEnchantTable *pSpecialTable);
     static std::string buildEnchantDescription(
         const InventoryItem &item,
         const StandardItemEnchantTable *pStandardTable,

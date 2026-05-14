@@ -1,4 +1,6 @@
 #include "game/tables/MonsterTable.h"
+
+#include "game/tables/MergedBaseTables.h"
 #include "game/BinaryReader.h"
 #include "game/StringUtils.h"
 
@@ -174,43 +176,25 @@ std::optional<MonsterKind> parseMonsterKindToken(const std::string &value)
     return std::nullopt;
 }
 
-std::optional<uint32_t> parseMonsterKindFlags(const std::string &value)
+uint32_t monsterKindFlagsFromBolsterMonsterEntry(const MergedBolsterMonsterEntry &entry)
 {
-    const std::string trimmedValue = trimCopy(value);
+    uint32_t flags = 0;
 
-    if (trimmedValue.empty() || trimmedValue == "-" || trimmedValue == "0")
+    const std::optional<MonsterKind> typeKind = parseMonsterKindToken(entry.type);
+
+    if (typeKind)
     {
-        return 0;
+        flags |= monsterKindFlag(*typeKind);
     }
 
-    uint32_t flags = 0;
-    size_t tokenBegin = 0;
-
-    while (tokenBegin <= value.size())
+    for (const std::string &extraType : entry.extraTypes)
     {
-        const size_t commaIndex = value.find(',', tokenBegin);
-        const std::string token = trimCopy(value.substr(
-            tokenBegin,
-            commaIndex == std::string::npos ? std::string::npos : commaIndex - tokenBegin));
+        const std::optional<MonsterKind> extraKind = parseMonsterKindToken(extraType);
 
-        if (!token.empty())
+        if (extraKind)
         {
-            const std::optional<MonsterKind> kind = parseMonsterKindToken(token);
-
-            if (!kind)
-            {
-                return std::nullopt;
-            }
-
-            flags |= monsterKindFlag(*kind);
+            flags |= monsterKindFlag(*extraKind);
         }
-
-        if (commaIndex == std::string::npos)
-        {
-            break;
-        }
-
-        tokenBegin = commaIndex + 1;
     }
 
     return flags;
@@ -1001,15 +985,6 @@ bool MonsterTable::loadStatsFromRows(const std::vector<std::vector<std::string>>
         entry.lightResistance = row.size() > 35 ? parseMonsterResistanceValue(row[35]) : 0;
         entry.darkResistance = row.size() > 36 ? parseMonsterResistanceValue(row[36]) : 0;
         entry.physicalResistance = row.size() > 37 ? parseMonsterResistanceValue(row[37]) : 0;
-        const std::optional<uint32_t> kindFlags =
-            row.size() > 39 ? parseMonsterKindFlags(row[39]) : std::optional<uint32_t>(0);
-
-        if (!kindFlags)
-        {
-            return false;
-        }
-
-        entry.kindFlags = *kindFlags;
         entry.attackStyle = classifyAttackStyle(entry);
 
         const MonsterEntry *pEntry = findById(static_cast<int16_t>(entry.id));
@@ -1027,6 +1002,34 @@ bool MonsterTable::loadStatsFromRows(const std::vector<std::vector<std::string>>
     }
 
     return !m_statsById.empty();
+}
+
+bool MonsterTable::applyKindFlagsFromBolsterMonsterTable(const MergedBolsterMonsterTable &bolsterMonsterTable)
+{
+    for (std::pair<const int, MonsterStatsEntry> &entryPair : m_statsById)
+    {
+        entryPair.second.kindFlags = 0;
+    }
+
+    for (const MergedBolsterMonsterEntry &entry : bolsterMonsterTable.entries())
+    {
+        if (entry.id == 0)
+        {
+            continue;
+        }
+
+        std::unordered_map<int, MonsterStatsEntry>::iterator statsIt =
+            m_statsById.find(static_cast<int>(entry.id));
+
+        if (statsIt == m_statsById.end())
+        {
+            continue;
+        }
+
+        statsIt->second.kindFlags = monsterKindFlagsFromBolsterMonsterEntry(entry);
+    }
+
+    return true;
 }
 
 bool MonsterTable::loadDeathDropsFromRows(const std::vector<std::vector<std::string>> &rows)

@@ -606,8 +606,11 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
 
     const float targetDistance = target ? actorDistanceFromParty(*target, config.partyPosition) : 0.0f;
     const bool targetInMeleeRange = target.has_value() && targetDistance <= CharacterMeleeAttackDistance;
+    const CharacterAttackTuning attackTuning = config.pRuntime != nullptr
+        ? characterAttackTuningFromSettings(config.pRuntime->settingsSnapshot())
+        : CharacterAttackTuning{};
     const CharacterAttackProfile attackProfile =
-        GameMechanics::buildCharacterAttackProfile(*pAttacker, config.pItemTable, config.pSpellTable);
+        GameMechanics::buildCharacterAttackProfile(*pAttacker, config.pItemTable, config.pSpellTable, attackTuning);
     const CharacterAttackMode attackMode = choosePartyAttackMode(attackProfile, targetInMeleeRange);
     std::mt19937 rng = buildPartyAttackRng(config, actingMemberIndex, result.targetActorIndex);
     CharacterAttackResult attack = {};
@@ -620,7 +623,8 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             config.pSpellTable,
             target->effectiveArmorClass,
             targetDistance,
-            rng);
+            rng,
+            attackTuning);
     }
     else if (attackMode == CharacterAttackMode::Melee)
     {

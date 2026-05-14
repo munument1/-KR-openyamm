@@ -85,7 +85,8 @@ std::string attackRecoveryInspectSupplement(
     const CharacterAttackProfile profile = GameMechanics::buildCharacterAttackProfile(
         character,
         context.itemTable(),
-        context.spellTable());
+        context.spellTable(),
+        characterAttackTuningFromSettings(context.settingsSnapshot()));
 
     if (statName == "Attack")
     {
@@ -719,27 +720,43 @@ void GameplayHudOverlaySupport::updateCharacterInspectOverlay(
                 overlay.active = true;
                 overlay.title = pEntry->name;
                 overlay.body = pEntry->description;
-                overlay.expert.text = "Expert: " + pEntry->expertDescription;
+                std::string expertDescription = pEntry->expertDescription;
+                std::string masterDescription = pEntry->masterDescription;
+                std::string grandmasterDescription = pEntry->grandmasterDescription;
+
+                if (row.canonicalName == "Blaster"
+                    && context.settingsSnapshot().blasterSkillScaling == BlasterSkillScalingMode::ScalingDamage)
+                {
+                    overlay.body =
+                        "Blaster weapons provide an accurate ranged attack. With scaling damage enabled, only "
+                        "Grandmaster rank adds damage per skill point.";
+                    expertDescription = "Skill added to Attack Bonus (double effect)";
+                    masterDescription = "Skill added to Attack Bonus (triple effect)";
+                    grandmasterDescription =
+                        "Skill added to Attack Bonus (quintuple effect); +1 damage per skill point";
+                }
+
+                overlay.expert.text = "Expert: " + expertDescription;
                 overlay.expert.availability = skillMasteryAvailability(
                     context.classSkillTable(),
                     pCharacter,
                     row.canonicalName,
                     SkillMastery::Expert);
-                overlay.expert.visible = !pEntry->expertDescription.empty();
-                overlay.master.text = "Master: " + pEntry->masterDescription;
+                overlay.expert.visible = !expertDescription.empty();
+                overlay.master.text = "Master: " + masterDescription;
                 overlay.master.availability = skillMasteryAvailability(
                     context.classSkillTable(),
                     pCharacter,
                     row.canonicalName,
                     SkillMastery::Master);
-                overlay.master.visible = !pEntry->masterDescription.empty();
-                overlay.grandmaster.text = "Grandmaster: " + pEntry->grandmasterDescription;
+                overlay.master.visible = !masterDescription.empty();
+                overlay.grandmaster.text = "Grandmaster: " + grandmasterDescription;
                 overlay.grandmaster.availability = skillMasteryAvailability(
                     context.classSkillTable(),
                     pCharacter,
                     row.canonicalName,
                     SkillMastery::Grandmaster);
-                overlay.grandmaster.visible = !pEntry->grandmasterDescription.empty();
+                overlay.grandmaster.visible = !grandmasterDescription.empty();
                 overlay.sourceX = rowRect.x;
                 overlay.sourceY = rowRect.y;
                 overlay.sourceWidth = rowRect.width;
@@ -1088,7 +1105,13 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
         return;
     }
 
-    const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(*pCharacter, context.itemTable());
+    const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(
+        *pCharacter,
+        context.itemTable(),
+        nullptr,
+        nullptr,
+        nullptr,
+        characterAttackTuningFromSettings(context.settingsSnapshot()));
 
     overlay.active = true;
     const std::string characterName = pCharacter->name.empty() ? "Member" : pCharacter->name;
