@@ -4129,78 +4129,21 @@ void OutdoorGameView::updateItemInspectOverlayState(int width, int height, const
         return;
     }
 
-    InspectHit inspectHit = {};
-    bool hasInspectHit = false;
+    const GameplayWorldPickRequest pickRequest =
+        m_pOutdoorWorldRuntime->buildWorldPickRequest(
+            GameplayWorldPickRequestInput{
+                .screenX = input.pointerX,
+                .screenY = input.pointerY,
+                .screenWidth = width,
+                .screenHeight = height,
+                .includeRay = true,
+            });
+    const GameplayWorldHit worldHit = m_pOutdoorWorldRuntime->pickMouseInteractionTarget(pickRequest);
 
-    if (m_cachedHoverInspectHitValid)
-    {
-        inspectHit = m_cachedHoverInspectHit;
-        hasInspectHit = true;
-    }
-    else
-    {
-        const uint16_t viewWidth = static_cast<uint16_t>(std::max(width, 1));
-        const uint16_t viewHeight = static_cast<uint16_t>(std::max(height, 1));
-        const float aspectRatio = static_cast<float>(viewWidth) / static_cast<float>(viewHeight);
-        float viewMatrix[16] = {};
-        float projectionMatrix[16] = {};
-        const float cameraYawRadians = effectiveCameraYawRadians();
-        const float cameraPitchRadians = effectiveCameraPitchRadians();
-        const float cosPitch = std::cos(cameraPitchRadians);
-        const float sinPitch = std::sin(cameraPitchRadians);
-        const float cosYaw = std::cos(cameraYawRadians);
-        const float sinYaw = std::sin(cameraYawRadians);
-        const bx::Vec3 eye = {
-            m_cameraTargetX,
-            m_cameraTargetY,
-            m_cameraTargetZ
-        };
-        const bx::Vec3 at = {
-            m_cameraTargetX + cosYaw * cosPitch,
-            m_cameraTargetY + sinYaw * cosPitch,
-            m_cameraTargetZ + sinPitch
-        };
-        const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
-        bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
-        bx::mtxProj(
-            projectionMatrix,
-            CameraVerticalFovDegrees,
-            aspectRatio,
-            0.1f,
-            200000.0f,
-            bgfx::getCaps()->homogeneousDepth,
-            bx::Handedness::Right
-        );
-
-        const float normalizedMouseX = ((input.pointerX / static_cast<float>(viewWidth)) * 2.0f) - 1.0f;
-        const float normalizedMouseY = 1.0f - ((input.pointerY / static_cast<float>(viewHeight)) * 2.0f);
-        float viewProjectionMatrix[16] = {};
-        float inverseViewProjectionMatrix[16] = {};
-        bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
-        bx::mtxInverse(inverseViewProjectionMatrix, viewProjectionMatrix);
-        const bx::Vec3 rayOrigin =
-            bx::mulH({normalizedMouseX, normalizedMouseY, 0.0f}, inverseViewProjectionMatrix);
-        const bx::Vec3 rayTarget =
-            bx::mulH({normalizedMouseX, normalizedMouseY, 1.0f}, inverseViewProjectionMatrix);
-        const bx::Vec3 rayDirection = vecNormalize(vecSubtract(rayTarget, rayOrigin));
-        inspectHit = OutdoorInteractionController::inspectBModelFace(*this,
-            *m_outdoorMapData,
-            rayOrigin,
-            rayDirection,
-            mouseX,
-            mouseY,
-            width,
-            height,
-            viewMatrix,
-            projectionMatrix,
-            OutdoorGameView::DecorationPickMode::HoverInfo);
-        hasInspectHit = true;
-    }
-
-    if (hasInspectHit && inspectHit.kind == "world_item")
+    if (worldHit.kind == GameplayWorldHitKind::WorldItem && worldHit.worldItem)
     {
         const OutdoorWorldRuntime::WorldItemState *pWorldItem =
-            m_pOutdoorWorldRuntime->worldItemState(inspectHit.bModelIndex);
+            m_pOutdoorWorldRuntime->worldItemState(worldHit.worldItem->worldItemIndex);
 
         if (pWorldItem != nullptr)
         {
@@ -4209,7 +4152,7 @@ void OutdoorGameView::updateItemInspectOverlayState(int width, int height, const
             itemInspectOverlay.hasItemState = !pWorldItem->isGold;
             itemInspectOverlay.itemState = pWorldItem->item;
             itemInspectOverlay.sourceType = ItemInspectSourceType::WorldItem;
-            itemInspectOverlay.sourceWorldItemIndex = inspectHit.bModelIndex;
+            itemInspectOverlay.sourceWorldItemIndex = worldHit.worldItem->worldItemIndex;
             itemInspectOverlay.hasValueOverride = pWorldItem->isGold;
             itemInspectOverlay.valueOverride = static_cast<int>(pWorldItem->goldAmount);
             itemInspectOverlay.sourceX = mouseX;
@@ -4635,91 +4578,50 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         return;
     }
 
-    InspectHit inspectHit = {};
-    bool hasInspectHit = false;
+    const GameplayWorldPickRequest pickRequest =
+        m_pOutdoorWorldRuntime->buildWorldPickRequest(
+            GameplayWorldPickRequestInput{
+                .screenX = input.pointerX,
+                .screenY = input.pointerY,
+                .screenWidth = width,
+                .screenHeight = height,
+                .includeRay = true,
+            });
+    const GameplayWorldHit worldHit = m_pOutdoorWorldRuntime->pickMouseInteractionTarget(pickRequest);
 
-    if (m_cachedHoverInspectHitValid)
-    {
-        inspectHit = m_cachedHoverInspectHit;
-        hasInspectHit = true;
-    }
-    else
-    {
-        const uint16_t viewWidth = static_cast<uint16_t>(std::max(width, 1));
-        const uint16_t viewHeight = static_cast<uint16_t>(std::max(height, 1));
-        const float aspectRatio = static_cast<float>(viewWidth) / static_cast<float>(viewHeight);
-        float viewMatrix[16] = {};
-        float projectionMatrix[16] = {};
-        const float cameraYawRadians = effectiveCameraYawRadians();
-        const float cameraPitchRadians = effectiveCameraPitchRadians();
-        const float cosPitch = std::cos(cameraPitchRadians);
-        const float sinPitch = std::sin(cameraPitchRadians);
-        const float cosYaw = std::cos(cameraYawRadians);
-        const float sinYaw = std::sin(cameraYawRadians);
-        const bx::Vec3 eye = {
-            m_cameraTargetX,
-            m_cameraTargetY,
-            m_cameraTargetZ
-        };
-        const bx::Vec3 at = {
-            m_cameraTargetX + cosYaw * cosPitch,
-            m_cameraTargetY + sinYaw * cosPitch,
-            m_cameraTargetZ + sinPitch
-        };
-        const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
-        bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
-        bx::mtxProj(
-            projectionMatrix,
-            CameraVerticalFovDegrees,
-            aspectRatio,
-            0.1f,
-            200000.0f,
-            bgfx::getCaps()->homogeneousDepth,
-            bx::Handedness::Right
-        );
-
-        const float normalizedMouseX = ((input.pointerX / static_cast<float>(viewWidth)) * 2.0f) - 1.0f;
-        const float normalizedMouseY = 1.0f - ((input.pointerY / static_cast<float>(viewHeight)) * 2.0f);
-        float viewProjectionMatrix[16] = {};
-        float inverseViewProjectionMatrix[16] = {};
-        bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
-        bx::mtxInverse(inverseViewProjectionMatrix, viewProjectionMatrix);
-        const bx::Vec3 rayOrigin = bx::mulH({normalizedMouseX, normalizedMouseY, 0.0f}, inverseViewProjectionMatrix);
-        const bx::Vec3 rayTarget = bx::mulH({normalizedMouseX, normalizedMouseY, 1.0f}, inverseViewProjectionMatrix);
-        const bx::Vec3 rayDirection = vecNormalize(vecSubtract(rayTarget, rayOrigin));
-        inspectHit = OutdoorInteractionController::inspectBModelFace(*this, 
-            *m_outdoorMapData,
-                rayOrigin,
-                rayDirection,
-                input.pointerX,
-                input.pointerY,
-                width,
-                height,
-                viewMatrix,
-            projectionMatrix,
-            OutdoorGameView::DecorationPickMode::HoverInfo);
-        hasInspectHit = true;
-    }
-
-    if (!hasInspectHit || inspectHit.kind != "actor")
+    if (worldHit.kind != GameplayWorldHitKind::Actor || !worldHit.actor)
     {
         return;
     }
 
-    const std::optional<size_t> runtimeActorIndex =
-        OutdoorInteractionController::resolveRuntimeActorIndexForInspectHit(*this, inspectHit);
+    const size_t runtimeActorIndex = worldHit.actor->actorIndex;
 
-    if (!runtimeActorIndex)
+    if (runtimeActorIndex == GameplayInvalidWorldIndex)
     {
         return;
     }
 
-    const OutdoorWorldRuntime::MapActorState *pActorState = m_pOutdoorWorldRuntime->mapActorState(*runtimeActorIndex);
+    const OutdoorWorldRuntime::MapActorState *pActorState = m_pOutdoorWorldRuntime->mapActorState(runtimeActorIndex);
 
     if (pActorState == nullptr)
     {
         return;
     }
+
+    const GameplayActorTargetHit &actorHit = *worldHit.actor;
+    OutdoorGameView::InspectHit inspectHit = {};
+    inspectHit.hasHit = true;
+    inspectHit.kind = "actor";
+    inspectHit.name = actorHit.displayName;
+    inspectHit.isFriendly = actorHit.isFriendly;
+    inspectHit.npcId = actorHit.npcId;
+    inspectHit.actorGroup = actorHit.actorGroup;
+    inspectHit.distance = actorHit.distance;
+    inspectHit.runtimeActorIndex = runtimeActorIndex;
+    inspectHit.bModelIndex = runtimeActorIndex;
+    inspectHit.hitX = actorHit.hitPoint.x;
+    inspectHit.hitY = actorHit.hitPoint.y;
+    inspectHit.hitZ = actorHit.hitPoint.z;
 
     if (input.rightMouseButton.pressed)
     {
@@ -4727,13 +4629,13 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         Party *pParty = m_gameSession.gameplayScreenRuntime().party();
         const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
 
-        if (m_pOutdoorWorldRuntime->actorInspectState(*runtimeActorIndex, 0, inspectState))
+        if (m_pOutdoorWorldRuntime->actorInspectState(runtimeActorIndex, 0, inspectState))
         {
             const OutdoorMoveState *pMoveState =
                 m_pOutdoorPartyRuntime != nullptr ? &m_pOutdoorPartyRuntime->movementState() : nullptr;
             GAMEPLAY_DEBUG_TRACE(
                 "actor_inspect world=outdoor map=\"" + m_pOutdoorWorldRuntime->mapName() + "\""
-                + " actor_index=" + std::to_string(*runtimeActorIndex)
+                + " actor_index=" + std::to_string(runtimeActorIndex)
                 + " name=\"" + inspectState.displayName + "\""
                 + " monster_id=" + std::to_string(inspectState.monsterId)
                 + " current_hp=" + std::to_string(inspectState.currentHp)
@@ -4772,40 +4674,8 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         }
     }
 
-    const uint16_t viewWidth = static_cast<uint16_t>(std::max(width, 1));
-    const uint16_t viewHeight = static_cast<uint16_t>(std::max(height, 1));
-    const float aspectRatio = static_cast<float>(viewWidth) / static_cast<float>(viewHeight);
-    float viewMatrix[16] = {};
-    float projectionMatrix[16] = {};
-    const float cameraYawRadians = effectiveCameraYawRadians();
-    const float cameraPitchRadians = effectiveCameraPitchRadians();
-    const float cosPitch = std::cos(cameraPitchRadians);
-    const float sinPitch = std::sin(cameraPitchRadians);
-    const float cosYaw = std::cos(cameraYawRadians);
-    const float sinYaw = std::sin(cameraYawRadians);
-    const bx::Vec3 eye = {
-        m_cameraTargetX,
-        m_cameraTargetY,
-        m_cameraTargetZ
-    };
-    const bx::Vec3 at = {
-        m_cameraTargetX + cosYaw * cosPitch,
-        m_cameraTargetY + sinYaw * cosPitch,
-        m_cameraTargetZ + sinPitch
-    };
-    const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
-    bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
-    bx::mtxProj(
-        projectionMatrix,
-        CameraVerticalFovDegrees,
-        aspectRatio,
-        0.1f,
-        200000.0f,
-        bgfx::getCaps()->homogeneousDepth,
-        bx::Handedness::Right
-    );
     float viewProjectionMatrix[16] = {};
-    bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
+    bx::mtxMul(viewProjectionMatrix, pickRequest.viewMatrix.data(), pickRequest.projectionMatrix.data());
 
     const float halfExtent = static_cast<float>(std::max<uint16_t>(pActorState->radius, 64));
     const float actorHeight = static_cast<float>(std::max<uint16_t>(pActorState->height, 128));
@@ -4863,7 +4733,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
     }
 
     actorInspectOverlay.active = true;
-    actorInspectOverlay.runtimeActorIndex = *runtimeActorIndex;
+    actorInspectOverlay.runtimeActorIndex = runtimeActorIndex;
     actorInspectOverlay.displayNameOverride =
         OutdoorInteractionController::resolveActorInspectDisplayName(*this, inspectHit);
     actorInspectOverlay.sourceX = rectMinX;

@@ -336,6 +336,11 @@ SkillMastery parseMonsterSpellSkillMastery(const std::string &value)
         return SkillMastery::None;
     }
 
+    if (trimCopy(tokens[1]) == "N")
+    {
+        return SkillMastery::Normal;
+    }
+
     return parseSkillMasteryToken(tokens[1]);
 }
 

@@ -461,6 +461,44 @@ TEST_CASE("shared actor AI emits vertical movement for flying actors pursuing ab
     CHECK_FALSE(update.attackRequest.has_value());
 }
 
+TEST_CASE("shared actor AI uses movement target height for flying pursuit")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(24, 124);
+    actor.world.active = true;
+    actor.world.targetZ = 96.0f;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.aiType = GameplayActorAiType::Normal;
+    actor.stats.canFly = true;
+    actor.stats.moveSpeed = 200;
+    actor.stats.attack1Damage.diceRolls = 1;
+    actor.stats.attack1Damage.diceSides = 4;
+    actor.movement.movementAllowed = true;
+    actor.movement.effectiveMoveSpeed = 200.0f;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {100.0f, 200.0f, 96.0f};
+    actor.target.currentMovementPosition = {100.0f, 200.0f, 400.0f};
+    actor.target.hasCurrentMovementPosition = true;
+    actor.target.currentDistance = 1024.0f;
+    actor.target.currentEdgeDistance = 1024.0f;
+    actor.target.currentCanSense = true;
+    actor.target.currentHasAttackLineOfSight = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    CHECK(update.movementIntent.applyMovement);
+    CHECK(update.movementIntent.targetPosition.z == doctest::Approx(400.0f));
+    CHECK(update.movementIntent.desiredMoveZ > 0.99f);
+    CHECK_FALSE(update.attackRequest.has_value());
+}
+
 TEST_CASE("shared actor AI pursues instead of firing blocked ranged attacks")
 {
     GameplayActorAiSystem system;

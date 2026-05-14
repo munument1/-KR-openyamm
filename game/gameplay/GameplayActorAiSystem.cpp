@@ -1268,6 +1268,13 @@ ActorTargetState buildActorTargetStateFromFacts(const ActorAiFacts &actor)
     return target;
 }
 
+GameplayWorldPoint actorMovementTargetPosition(const ActorAiFacts &actor)
+{
+    return actor.target.hasCurrentMovementPosition
+        ? actor.target.currentMovementPosition
+        : actor.target.currentPosition;
+}
+
 bool friendlyTargetShouldPromoteHostility(
     const GameplayActorService &actorService,
     const GameplayActorTargetPolicyState &actor,
@@ -1883,7 +1890,8 @@ ActorMovementCommit buildActiveMovementCommit(
     bool preserveCrowdSteering)
 {
     ActorMovementCommit result = {};
-    const float verticalTargetDelta = actor.target.currentPosition.z - actor.world.targetZ;
+    const GameplayWorldPoint movementTargetPosition = actorMovementTargetPosition(actor);
+    const float verticalTargetDelta = movementTargetPosition.z - actor.world.targetZ;
     const bool flyingVerticalMove =
         actor.stats.canFly
         && std::abs(verticalTargetDelta) > 8.0f;
@@ -2405,19 +2413,20 @@ void applyActiveMovementCommit(
     update.movementIntent.applyMovement = movementCommit.applyMovement;
     const ActorAiMotionState motionState = update.state.motionState.value_or(actor.runtime.motionState);
     update.movementIntent.moveSpeed = movementSpeedForMotion(actor.movement.effectiveMoveSpeed, motionState);
-    update.movementIntent.targetPosition = actor.target.currentPosition;
+    const GameplayWorldPoint movementTargetPosition = actorMovementTargetPosition(actor);
+    update.movementIntent.targetPosition = movementTargetPosition;
     update.movementIntent.targetEdgeDistance = actor.target.currentEdgeDistance;
     update.movementIntent.inMeleeRange = actor.movement.inMeleeRange;
 
     if (actor.stats.canFly)
     {
-        const float verticalTargetDelta = actor.target.currentPosition.z - actor.world.targetZ;
+        const float verticalTargetDelta = movementTargetPosition.z - actor.world.targetZ;
         const float horizontalDistance =
             std::sqrt(
-                (actor.target.currentPosition.x - actor.movement.position.x)
-                    * (actor.target.currentPosition.x - actor.movement.position.x)
-                + (actor.target.currentPosition.y - actor.movement.position.y)
-                    * (actor.target.currentPosition.y - actor.movement.position.y));
+                (movementTargetPosition.x - actor.movement.position.x)
+                    * (movementTargetPosition.x - actor.movement.position.x)
+                + (movementTargetPosition.y - actor.movement.position.y)
+                    * (movementTargetPosition.y - actor.movement.position.y));
         const float distance =
             std::sqrt(horizontalDistance * horizontalDistance + verticalTargetDelta * verticalTargetDelta);
 
@@ -3131,7 +3140,8 @@ void AI_Pursue(ActorAiCommandContext &ai, PursueActionMode mode, float minimumAc
         return;
     }
 
-    const float verticalTargetDelta = actor.target.currentPosition.z - actor.world.targetZ;
+    const GameplayWorldPoint movementTargetPosition = actorMovementTargetPosition(actor);
+    const float verticalTargetDelta = movementTargetPosition.z - actor.world.targetZ;
     if (actor.stats.canFly
         && std::abs(verticalTargetDelta) > 8.0f
         && actor.movement.effectiveMoveSpeed > 0.0f)

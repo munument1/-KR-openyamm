@@ -206,11 +206,13 @@ struct ActorTargetFacts
     int currentRelationToTarget = 0;
     int currentHp = 0;
     GameplayWorldPoint currentPosition = {};
+    GameplayWorldPoint currentMovementPosition = {};
     GameplayWorldPoint currentAudioPosition = {};
     float currentDistance = 0.0f;
     float currentEdgeDistance = 0.0f;
     bool currentCanSense = false;
     bool currentHasAttackLineOfSight = true;
+    bool hasCurrentMovementPosition = false;
     bool partyCanSenseActor = false;
     std::vector<ActorTargetCandidateFacts> candidates;
 };

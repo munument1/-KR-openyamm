@@ -651,6 +651,11 @@ private:
         float z,
         int16_t sectorId,
         uint32_t seed);
+    void activateIndoorActorCorpsePhysics(size_t actorIndex);
+    void applyIndoorActorCorpsePhysicsSteps(
+        IndoorMovementController &movementController,
+        const std::vector<uint8_t> &actorPhysicsApplied,
+        IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
     bool applyIndoorActorPhysicsStep(IndoorMovementController &movementController, size_t actorIndex);
     std::optional<GameplayWorldPoint> actorImpactPoint(size_t actorIndex) const;
     bool spawnIndoorProjectileImpactVisual(
@@ -704,6 +709,7 @@ private:
     std::vector<std::optional<CorpseViewState>> m_mapActorCorpseViews;
     std::optional<CorpseViewState> m_activeCorpseView;
     std::vector<MapActorAiState> m_mapActorAiStates;
+    std::vector<size_t> m_actorCorpsePhysicsActorIndices;
     mutable ActorInspectPreviewAnimationState m_actorInspectPreviewAnimation = {};
     std::vector<uint8_t> m_activatedIndoorSectorMask;
     std::vector<BloodSplatState> m_bloodSplats;

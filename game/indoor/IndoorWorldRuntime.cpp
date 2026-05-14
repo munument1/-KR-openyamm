@@ -115,6 +115,35 @@ constexpr float IndoorPathIgnoreActorCollisionMinTargetDistance = 768.0f;
 constexpr float IndoorPathFacingDeadZoneRadians = Pi / 48.0f;
 constexpr float IndoorPathFacingMaxStepRadians = Pi / 32.0f;
 
+bool indoorActorIsTerminalCorpse(
+    const MapDeltaActor &actor,
+    const IndoorWorldRuntime::MapActorAiState &aiState)
+{
+    return actor.hp <= 0
+        || aiState.motionState == ActorAiMotionState::Dying
+        || aiState.motionState == ActorAiMotionState::Dead;
+}
+
+bool indoorActorCorpsePhysicsNeedsStep(
+    const MapDeltaActor &actor,
+    const IndoorWorldRuntime::MapActorAiState &aiState)
+{
+    if (!indoorActorIsTerminalCorpse(actor, aiState))
+    {
+        return false;
+    }
+
+    if (aiState.motionState == ActorAiMotionState::Dead
+        && (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+    {
+        return false;
+    }
+
+    return !aiState.grounded
+        || aiState.velocityX * aiState.velocityX + aiState.velocityY * aiState.velocityY >= ActorStopVelocitySquared
+        || aiState.velocityZ * aiState.velocityZ >= ActorStopVelocitySquared;
+}
+
 float normalizeIndoorAngleRadians(float angle)
 {
     while (angle <= -Pi)
@@ -3182,6 +3211,7 @@ void IndoorWorldRuntime::initialize(
     m_mapActorCorpseViews.clear();
     m_activeCorpseView.reset();
     m_mapActorAiStates.clear();
+    m_actorCorpsePhysicsActorIndices.clear();
     m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
@@ -3249,6 +3279,7 @@ void IndoorWorldRuntime::initialize(
     m_mapActorCorpseViews.clear();
     m_activeCorpseView.reset();
     m_mapActorAiStates.clear();
+    m_actorCorpsePhysicsActorIndices.clear();
     m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
     ++m_bloodSplatRevision;
@@ -4376,6 +4407,12 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         pDiagnostics->actorUpdates += result.actorUpdates.size();
     }
 
+    std::vector<uint8_t> actorPhysicsApplied;
+    if (!m_actorCorpsePhysicsActorIndices.empty())
+    {
+        actorPhysicsApplied.assign(actorCount, 0);
+    }
+
     for (const ActorAiUpdate &update : result.actorUpdates)
     {
         if (update.actorIndex >= actorCount || update.actorIndex >= m_mapActorAiStates.size())
@@ -4582,7 +4619,9 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         }
 
         if (update.movementIntent.clearVelocity
+            && !indoorActorIsTerminalCorpse(actor, aiState)
             && aiState.motionState != ActorAiMotionState::Dying
+            && aiState.motionState != ActorAiMotionState::Dead
             && aiState.motionState != ActorAiMotionState::Stunned)
         {
             const MonsterTable::MonsterStatsEntry *pStats =
@@ -4614,6 +4653,11 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
                 ++pDiagnostics->movementIntegrations;
                 pDiagnostics->movementIntegrationNanoseconds += SDL_GetTicksNS() - movementBeginTickCount;
             }
+
+            if (!actorPhysicsApplied.empty())
+            {
+                actorPhysicsApplied[update.actorIndex] = 1;
+            }
         }
         else
         {
@@ -4624,6 +4668,11 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
             {
                 ++pDiagnostics->physicsSteps;
                 pDiagnostics->physicsStepNanoseconds += SDL_GetTicksNS() - physicsBeginTickCount;
+            }
+
+            if (!actorPhysicsApplied.empty())
+            {
+                actorPhysicsApplied[update.actorIndex] = 1;
             }
         }
 
@@ -4648,6 +4697,23 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
             if (!actorShouldLeaveCorpse(m_pMonsterTable, actor))
             {
                 actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+                aiState.velocityX = 0.0f;
+                aiState.velocityY = 0.0f;
+                aiState.velocityZ = 0.0f;
+            }
+            else if (indoorActorCorpsePhysicsNeedsStep(actor, aiState))
+            {
+                activateIndoorActorCorpsePhysics(update.actorIndex);
+            }
+
+            if (actorPhysicsApplied.empty() && !m_actorCorpsePhysicsActorIndices.empty())
+            {
+                actorPhysicsApplied.assign(actorCount, 0);
+            }
+
+            if (!actorPhysicsApplied.empty())
+            {
+                actorPhysicsApplied[update.actorIndex] = 1;
             }
         }
 
@@ -4655,6 +4721,8 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         actor.y = static_cast<int>(std::lround(aiState.preciseY));
         actor.z = static_cast<int>(std::lround(aiState.preciseZ));
     }
+
+    applyIndoorActorCorpsePhysicsSteps(movementController, actorPhysicsApplied, pDiagnostics);
 
     for (const DeferredMeleeAttackRequest &deferredAttackRequest : deferredMeleeAttackRequests)
     {
@@ -7145,7 +7213,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     const uint64_t postApplyBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
 
-    if (movementUpdate.movementIntent.clearVelocity)
+    if (movementUpdate.movementIntent.clearVelocity
+        && !indoorActorIsTerminalCorpse(actor, aiState))
     {
         aiState.velocityX = 0.0f;
         aiState.velocityY = 0.0f;
@@ -9902,10 +9971,8 @@ void IndoorWorldRuntime::beginMapActorDyingState(size_t actorIndex, MapDeltaActo
     aiState.attackImpactTriggered = false;
     aiState.spellEffects.stunRemainingSeconds = 0.0f;
     aiState.spellEffects.paralyzeRemainingSeconds = 0.0f;
-    aiState.velocityX = 0.0f;
-    aiState.velocityY = 0.0f;
-    aiState.velocityZ = 0.0f;
     actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Dying);
+    activateIndoorActorCorpsePhysics(actorIndex);
 
     notifyMonsterKilledEventHooks(actorIndex, resolveIndoorActorStatsId(actor));
     spawnMonsterDeathDropsForActor(actorIndex, actor);
@@ -10289,6 +10356,96 @@ void IndoorWorldRuntime::beginMapActorHitReaction(
     actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::GotHit);
 }
 
+void IndoorWorldRuntime::activateIndoorActorCorpsePhysics(size_t actorIndex)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (pMapDeltaData == nullptr
+        || actorIndex >= pMapDeltaData->actors.size()
+        || actorIndex >= m_mapActorAiStates.size())
+    {
+        return;
+    }
+
+    MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+    const MonsterTable::MonsterStatsEntry *pStats =
+        m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(aiState.monsterId) : nullptr;
+
+    if (pStats != nullptr && pStats->canFly)
+    {
+        aiState.grounded = false;
+    }
+
+    if (std::find(
+            m_actorCorpsePhysicsActorIndices.begin(),
+            m_actorCorpsePhysicsActorIndices.end(),
+            actorIndex)
+        == m_actorCorpsePhysicsActorIndices.end())
+    {
+        m_actorCorpsePhysicsActorIndices.push_back(actorIndex);
+    }
+}
+
+void IndoorWorldRuntime::applyIndoorActorCorpsePhysicsSteps(
+    IndoorMovementController &movementController,
+    const std::vector<uint8_t> &actorPhysicsApplied,
+    IndoorActorAiPerformanceDiagnostics *pDiagnostics)
+{
+    if (m_actorCorpsePhysicsActorIndices.empty())
+    {
+        return;
+    }
+
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (pMapDeltaData == nullptr)
+    {
+        m_actorCorpsePhysicsActorIndices.clear();
+        return;
+    }
+
+    size_t writeIndex = 0;
+
+    for (size_t actorIndex : m_actorCorpsePhysicsActorIndices)
+    {
+        if (actorIndex >= pMapDeltaData->actors.size() || actorIndex >= m_mapActorAiStates.size())
+        {
+            continue;
+        }
+
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+        if (!indoorActorCorpsePhysicsNeedsStep(actor, aiState))
+        {
+            continue;
+        }
+
+        const bool alreadyApplied =
+            actorIndex < actorPhysicsApplied.size() && actorPhysicsApplied[actorIndex] != 0;
+
+        if (!alreadyApplied)
+        {
+            const uint64_t physicsBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
+            applyIndoorActorPhysicsStep(movementController, actorIndex);
+
+            if (pDiagnostics != nullptr)
+            {
+                ++pDiagnostics->physicsSteps;
+                pDiagnostics->physicsStepNanoseconds += SDL_GetTicksNS() - physicsBeginTickCount;
+            }
+        }
+
+        if (indoorActorCorpsePhysicsNeedsStep(actor, aiState))
+        {
+            m_actorCorpsePhysicsActorIndices[writeIndex] = actorIndex;
+            ++writeIndex;
+        }
+    }
+
+    m_actorCorpsePhysicsActorIndices.resize(writeIndex);
+}
+
 bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &movementController, size_t actorIndex)
 {
     MapDeltaData *pMapDeltaData = mapDeltaData();
@@ -10311,14 +10468,15 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
         return false;
     }
 
-    const bool dying = aiState.motionState == ActorAiMotionState::Dying && actor.hp <= 0;
-    const bool airborne = !pStats->canFly && !aiState.grounded;
+    const bool terminalCorpse = indoorActorIsTerminalCorpse(actor, aiState);
+    const bool actorCanFly = pStats->canFly && !terminalCorpse;
+    const bool airborne = !actorCanFly && !aiState.grounded;
     const bool hasVelocity =
         std::abs(aiState.velocityX) > 0.001f
         || std::abs(aiState.velocityY) > 0.001f
         || std::abs(aiState.velocityZ) > 0.001f;
 
-    if (!dying && !airborne && !hasVelocity)
+    if (!airborne && !hasVelocity)
     {
         return false;
     }
@@ -10350,7 +10508,7 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
             actorIndex,
             true,
             nullptr,
-            pStats->canFly);
+            actorCanFly);
 
     const float deltaX = resolvedMoveState.x - aiState.preciseX;
     const float deltaY = resolvedMoveState.y - aiState.preciseY;
@@ -10364,7 +10522,7 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
     aiState.velocityX *= inertiaDecay;
     aiState.velocityY *= inertiaDecay;
 
-    if (pStats->canFly)
+    if (actorCanFly)
     {
         aiState.velocityZ *= inertiaDecay;
     }
@@ -10375,7 +10533,8 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
         aiState.velocityY = 0.0f;
     }
 
-    if (pStats->canFly && aiState.velocityZ * aiState.velocityZ < ActorStopVelocitySquared)
+    if ((actorCanFly || (terminalCorpse && aiState.grounded))
+        && aiState.velocityZ * aiState.velocityZ < ActorStopVelocitySquared)
     {
         aiState.velocityZ = 0.0f;
     }
@@ -12817,6 +12976,7 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     if (pMapDeltaData != nullptr)
     {
         const size_t actorCount = std::min(pMapDeltaData->actors.size(), m_mapActorAiStates.size());
+        m_actorCorpsePhysicsActorIndices.clear();
 
         for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex)
         {
@@ -12828,6 +12988,11 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
                 m_pSpellTable,
                 m_pGameplayActorService,
                 m_pActorSpriteFrameTable);
+
+            if (indoorActorCorpsePhysicsNeedsStep(pMapDeltaData->actors[actorIndex], m_mapActorAiStates[actorIndex]))
+            {
+                activateIndoorActorCorpsePhysics(actorIndex);
+            }
         }
     }
 

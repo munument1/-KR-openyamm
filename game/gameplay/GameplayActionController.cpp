@@ -677,10 +677,6 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
 
                 const std::optional<GameplayPartyAttackActorFacts> afterTarget =
                     config.pWorldRuntime->partyAttackActorFacts(target->actorIndex, false);
-                if (afterTarget)
-                {
-                    appliedMeleeDamage = std::max(0, beforeHp - afterTarget->currentHp);
-                }
                 killed = beforeHp > 0 && afterTarget && afterTarget->currentHp <= 0;
 
                 if (pAttacker->vampiricHealFraction > 0.0f && appliedDamage > 0)

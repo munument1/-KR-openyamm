@@ -1190,8 +1190,8 @@ TEST_CASE("party melee status text reports applied damage")
             "Goblin",
             attack,
             true,
-            12),
-        "Ariel inflicts 12 points killing Goblin");
+            48),
+        "Ariel inflicts 48 points killing Goblin");
 }
 
 TEST_CASE("level one knight melee damage can be reduced by monster level even with zero physical resistance")

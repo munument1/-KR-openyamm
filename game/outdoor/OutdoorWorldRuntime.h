@@ -1276,6 +1276,7 @@ private:
     uint32_t m_nextActorId = 0;
     std::vector<std::optional<CorpseViewState>> m_mapActorCorpseViews;
     std::optional<CorpseViewState> m_activeCorpseView;
+    std::vector<size_t> m_actorCorpsePhysicsActorIndices;
     std::vector<AudioEvent> m_pendingAudioEvents;
     std::vector<WorldItemState> m_worldItems;
     uint32_t m_nextWorldItemId = 1;
@@ -1342,10 +1343,15 @@ private:
     bool outdoorActorCanApplyPartyMeleeImpact(const MapActorState &actor) const;
     void applyOutdoorActorTerminalUpdate(size_t actorIndex, MapActorState &actor, const ActorAiUpdate &update);
     void syncOutdoorActorIntegerPosition(MapActorState &actor) const;
+    void activateOutdoorActorCorpsePhysics(size_t actorIndex);
+    void applyOutdoorActorCorpsePhysicsSteps(
+        const std::vector<bool> &activeActorMask,
+        const std::vector<uint8_t> &actorPhysicsApplied);
     bool applyOutdoorActorPhysicsStep(
         size_t actorIndex,
         const MonsterTable::MonsterStatsEntry &stats,
-        const std::vector<bool> &activeActorMask);
+        const std::vector<bool> &activeActorMask,
+        bool refreshActorColliders = true);
     void applyOutdoorActorPostMovementAiUpdate(
         MapActorState &actor,
         const ActorAiUpdate &movementUpdate,
@@ -1356,6 +1362,7 @@ private:
         const MonsterTable::MonsterStatsEntry *pStats,
         const std::vector<bool> &activeActorMask,
         float moveSpeed,
+        float desiredMoveZ,
         bool meleePursuitActive,
         bool inMeleeRange,
         const GameplayWorldPoint &targetPosition,

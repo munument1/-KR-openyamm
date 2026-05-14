@@ -411,6 +411,27 @@ constexpr float ActorStopVelocitySquared = 400.0f;
 constexpr float ActorKnockbackVelocityStep = 50.0f;
 constexpr int ActorMaxKnockbackSteps = 10;
 
+bool outdoorActorIsTerminalCorpse(const OutdoorWorldRuntime::MapActorState &actor)
+{
+    return actor.isDead
+        || actor.currentHp <= 0
+        || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying
+        || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead;
+}
+
+bool outdoorActorCorpsePhysicsNeedsStep(const OutdoorWorldRuntime::MapActorState &actor)
+{
+    if (!outdoorActorIsTerminalCorpse(actor) || actor.isInvisible)
+    {
+        return false;
+    }
+
+    return !actor.movementStateInitialized
+        || actor.movementState.airborne
+        || actor.velocityX * actor.velocityX + actor.velocityY * actor.velocityY >= ActorStopVelocitySquared
+        || actor.velocityZ * actor.velocityZ >= ActorStopVelocitySquared;
+}
+
 float actorInertiaDecayForStep(float deltaSeconds)
 {
     return std::pow(ActorInertiaVelocityDecay, deltaSeconds * ActorInertiaReferenceFrameRate);
@@ -2746,9 +2767,6 @@ void beginDyingState(
     actor.animationTimeTicks = 0.0f;
     actor.moveDirectionX = 0.0f;
     actor.moveDirectionY = 0.0f;
-    actor.velocityX = 0.0f;
-    actor.velocityY = 0.0f;
-    actor.velocityZ = 0.0f;
     actor.stunRemainingSeconds = 0.0f;
     actor.paralyzeRemainingSeconds = 0.0f;
     actor.actionSeconds = actorAnimationSeconds(
@@ -3876,9 +3894,6 @@ void updateInactiveActorPresentation(
         actor.animation = OutdoorWorldRuntime::ActorAnimation::Dead;
         actor.moveDirectionX = 0.0f;
         actor.moveDirectionY = 0.0f;
-        actor.velocityX = 0.0f;
-        actor.velocityY = 0.0f;
-        actor.velocityZ = 0.0f;
         actor.actionSeconds = 0.0f;
         actor.attackImpactTriggered = false;
         return;
@@ -4419,6 +4434,7 @@ void OutdoorWorldRuntime::initialize(
     m_spawnPoints.clear();
     m_mapActorCorpseViews.clear();
     m_activeCorpseView.reset();
+    m_actorCorpsePhysicsActorIndices.clear();
     m_pendingAudioEvents.clear();
     m_worldItems.clear();
     m_chests = outdoorMapDeltaData ? outdoorMapDeltaData->chests : std::vector<MapDeltaChest>();
@@ -6781,6 +6797,7 @@ void OutdoorWorldRuntime::updateActorFrameGlobalEffects(
     updateArmageddon(deltaSeconds, partyX, partyY, partyZ);
     m_actorUpdateAccumulatorSeconds =
         std::min(m_actorUpdateAccumulatorSeconds + deltaSeconds, MaxAccumulatedActorUpdateSeconds);
+
 }
 
 std::vector<bool> OutdoorWorldRuntime::selectOutdoorActiveActors(float partyX, float partyY, float partyZ) const
@@ -7068,6 +7085,21 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
     facts.target.currentPosition = GameplayWorldPoint{combatTarget.targetX, combatTarget.targetY, combatTarget.targetZ};
     facts.target.currentAudioPosition = facts.target.currentPosition;
 
+    const bool partyFlying =
+        m_pPartyRuntime != nullptr && m_pPartyRuntime->partyMovementState().flying;
+    const bool useOutdoorFlyingRangedPursuitHeight =
+        combatTarget.kind == OutdoorTargetKind::Party
+        && actor.canFly
+        && !partyFlying
+        && (facts.stats.attackConstraints.attack1IsRanged || facts.stats.attackConstraints.attack2IsRanged);
+
+    if (useOutdoorFlyingRangedPursuitHeight)
+    {
+        facts.target.currentMovementPosition = facts.target.currentPosition;
+        facts.target.currentMovementPosition.z = partyZ + static_cast<float>(actor.radius) + 512.0f;
+        facts.target.hasCurrentMovementPosition = true;
+    }
+
     if (combatTarget.kind == OutdoorTargetKind::Actor
         && combatTarget.actorIndex < m_mapActors.size())
     {
@@ -7197,6 +7229,12 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
     const std::vector<bool> &activeActorMask,
     const GameplayActorAiSystem &actorAiSystem)
 {
+    std::vector<uint8_t> actorPhysicsApplied;
+    if (!m_actorCorpsePhysicsActorIndices.empty())
+    {
+        actorPhysicsApplied.assign(m_mapActors.size(), 0);
+    }
+
     for (const ActorAiUpdate &update : result.actorUpdates)
     {
         if (update.actorIndex >= m_mapActors.size())
@@ -7229,6 +7267,11 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
                 update.movementIntent,
                 activeActorMask,
                 actorAiSystem);
+
+            if (!actorPhysicsApplied.empty() && update.movementIntent.applyMovement && pStats != nullptr)
+            {
+                actorPhysicsApplied[update.actorIndex] = 1;
+            }
         }
 
         if (activeActor)
@@ -7239,12 +7282,31 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
 
         applyOutdoorActorTerminalUpdate(update.actorIndex, actor, update);
 
+        if (actorPhysicsApplied.empty() && !m_actorCorpsePhysicsActorIndices.empty())
+        {
+            actorPhysicsApplied.assign(m_mapActors.size(), 0);
+        }
+
+        if (!actorPhysicsApplied.empty()
+            && activeBehavior
+            && update.movementIntent.applyMovement
+            && pStats != nullptr)
+        {
+            actorPhysicsApplied[update.actorIndex] = 1;
+        }
+
         if (activeActor && pStats != nullptr && !update.movementIntent.applyMovement)
         {
             applyOutdoorActorPhysicsStep(update.actorIndex, *pStats, activeActorMask);
+
+            if (!actorPhysicsApplied.empty())
+            {
+                actorPhysicsApplied[update.actorIndex] = 1;
+            }
         }
     }
 
+    applyOutdoorActorCorpsePhysicsSteps(activeActorMask, actorPhysicsApplied);
     applyOutdoorActorRequests(result, activeActorMask);
 }
 
@@ -7674,7 +7736,9 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntent(
     }
 
     if (movementIntent.clearVelocity
+        && !outdoorActorIsTerminalCorpse(actor)
         && actor.aiState != ActorAiState::Dying
+        && actor.aiState != ActorAiState::Dead
         && actor.aiState != ActorAiState::Stunned)
     {
         actor.velocityX = 0.0f;
@@ -7704,6 +7768,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntent(
         pStats,
         activeActorMask,
         movementIntent.moveSpeed,
+        movementIntent.desiredMoveZ,
         movementIntent.meleePursuitActive,
         movementIntent.inMeleeRange,
         movementIntent.targetPosition,
@@ -7803,13 +7868,11 @@ void OutdoorWorldRuntime::applyOutdoorActorTerminalUpdate(
 
     if (update.movementIntent.clearVelocity
         && actor.aiState != ActorAiState::Dying
+        && actor.aiState != ActorAiState::Dead
         && actor.aiState != ActorAiState::Stunned)
     {
         actor.moveDirectionX = 0.0f;
         actor.moveDirectionY = 0.0f;
-        actor.velocityX = 0.0f;
-        actor.velocityY = 0.0f;
-        actor.velocityZ = 0.0f;
     }
 
     if (update.state.attackImpactTriggered)
@@ -7857,10 +7920,94 @@ void OutdoorWorldRuntime::syncOutdoorActorIntegerPosition(MapActorState &actor) 
     actor.z = static_cast<int>(std::lround(actor.preciseZ));
 }
 
+void OutdoorWorldRuntime::activateOutdoorActorCorpsePhysics(size_t actorIndex)
+{
+    if (actorIndex >= m_mapActors.size())
+    {
+        return;
+    }
+
+    MapActorState &actor = m_mapActors[actorIndex];
+    const MonsterTable::MonsterStatsEntry *pStats =
+        m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+
+    if (pStats != nullptr && pStats->canFly && m_outdoorMovementController)
+    {
+        ensureOutdoorActorMovementState(actor, *pStats);
+        actor.movementState.airborne = true;
+    }
+
+    if (std::find(
+            m_actorCorpsePhysicsActorIndices.begin(),
+            m_actorCorpsePhysicsActorIndices.end(),
+            actorIndex)
+        == m_actorCorpsePhysicsActorIndices.end())
+    {
+        m_actorCorpsePhysicsActorIndices.push_back(actorIndex);
+    }
+}
+
+void OutdoorWorldRuntime::applyOutdoorActorCorpsePhysicsSteps(
+    const std::vector<bool> &activeActorMask,
+    const std::vector<uint8_t> &actorPhysicsApplied)
+{
+    if (m_actorCorpsePhysicsActorIndices.empty())
+    {
+        return;
+    }
+
+    if (m_outdoorMovementController && m_pMonsterTable != nullptr)
+    {
+        m_outdoorMovementController->setActorColliders(
+            buildNearbyActorMovementColliders(m_mapActors, activeActorMask, *m_pMonsterTable));
+    }
+
+    size_t writeIndex = 0;
+
+    for (size_t actorIndex : m_actorCorpsePhysicsActorIndices)
+    {
+        if (actorIndex >= m_mapActors.size() || m_pMonsterTable == nullptr)
+        {
+            continue;
+        }
+
+        MapActorState &actor = m_mapActors[actorIndex];
+
+        if (!outdoorActorCorpsePhysicsNeedsStep(actor))
+        {
+            continue;
+        }
+
+        const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId);
+
+        if (pStats == nullptr)
+        {
+            continue;
+        }
+
+        const bool alreadyApplied =
+            actorIndex < actorPhysicsApplied.size() && actorPhysicsApplied[actorIndex] != 0;
+
+        if (!alreadyApplied)
+        {
+            applyOutdoorActorPhysicsStep(actorIndex, *pStats, activeActorMask, false);
+        }
+
+        if (outdoorActorCorpsePhysicsNeedsStep(actor))
+        {
+            m_actorCorpsePhysicsActorIndices[writeIndex] = actorIndex;
+            ++writeIndex;
+        }
+    }
+
+    m_actorCorpsePhysicsActorIndices.resize(writeIndex);
+}
+
 bool OutdoorWorldRuntime::applyOutdoorActorPhysicsStep(
     size_t actorIndex,
     const MonsterTable::MonsterStatsEntry &stats,
-    const std::vector<bool> &activeActorMask)
+    const std::vector<bool> &activeActorMask,
+    bool refreshActorColliders)
 {
     if (actorIndex >= m_mapActors.size() || !m_outdoorMovementController || m_pMonsterTable == nullptr)
     {
@@ -7870,20 +8017,24 @@ bool OutdoorWorldRuntime::applyOutdoorActorPhysicsStep(
     MapActorState &actor = m_mapActors[actorIndex];
     ensureOutdoorActorMovementState(actor, stats);
 
-    const bool dying = actor.aiState == ActorAiState::Dying && actor.currentHp <= 0;
-    const bool airborne = !stats.canFly && actor.movementState.airborne;
+    const bool terminalCorpse = outdoorActorIsTerminalCorpse(actor);
+    const bool actorCanFly = stats.canFly && !terminalCorpse;
+    const bool airborne = !actorCanFly && actor.movementState.airborne;
     const bool hasVelocity =
         std::abs(actor.velocityX) > 0.001f
         || std::abs(actor.velocityY) > 0.001f
         || std::abs(actor.velocityZ) > 0.001f;
 
-    if (!dying && !airborne && !hasVelocity)
+    if (!airborne && !hasVelocity)
     {
         return false;
     }
 
-    m_outdoorMovementController->setActorColliders(
-        buildNearbyActorMovementColliders(m_mapActors, activeActorMask, *m_pMonsterTable));
+    if (refreshActorColliders)
+    {
+        m_outdoorMovementController->setActorColliders(
+            buildNearbyActorMovementColliders(m_mapActors, activeActorMask, *m_pMonsterTable));
+    }
     std::vector<size_t> contactedActorIndices;
     const float collisionRadius = actorCollisionRadius(actor, &stats);
     bx::Vec3 resolvedVelocity = {actor.velocityX, actor.velocityY, actor.velocityZ};
@@ -7893,7 +8044,7 @@ bool OutdoorWorldRuntime::applyOutdoorActorPhysicsStep(
         actor.velocityX,
         actor.velocityY,
         actor.velocityZ,
-        stats.canFly,
+        actorCanFly,
         ActorUpdateStepSeconds,
         &contactedActorIndices,
         OutdoorIgnoredActorCollider{OutdoorActorCollisionSource::MapDelta, actorIndex},
@@ -7905,7 +8056,7 @@ bool OutdoorWorldRuntime::applyOutdoorActorPhysicsStep(
     actor.velocityX *= inertiaDecay;
     actor.velocityY *= inertiaDecay;
 
-    if (stats.canFly)
+    if (actorCanFly)
     {
         actor.velocityZ *= inertiaDecay;
     }
@@ -7916,12 +8067,13 @@ bool OutdoorWorldRuntime::applyOutdoorActorPhysicsStep(
         actor.velocityY = 0.0f;
     }
 
-    if (stats.canFly && actor.velocityZ * actor.velocityZ < ActorStopVelocitySquared)
+    if ((actorCanFly || (terminalCorpse && !actor.movementState.airborne))
+        && actor.velocityZ * actor.velocityZ < ActorStopVelocitySquared)
     {
         actor.velocityZ = 0.0f;
     }
 
-    if (!dying && actor.movementState.airborne)
+    if (!terminalCorpse && actor.movementState.airborne)
     {
         actor.velocityX = 0.0f;
         actor.velocityY = 0.0f;
@@ -8049,6 +8201,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     const MonsterTable::MonsterStatsEntry *pStats,
     const std::vector<bool> &activeActorMask,
     float moveSpeed,
+    float desiredMoveZ,
     bool meleePursuitActive,
     bool inMeleeRange,
     const GameplayWorldPoint &targetPosition,
@@ -8080,9 +8233,30 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
         nextAnimation);
     }
 
+    float effectiveDesiredMoveZ = desiredMoveZ;
+
+    if (pStats->canFly && std::abs(effectiveDesiredMoveZ) <= 0.001f)
+    {
+        const float actorTargetZ =
+            actor.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
+        const float verticalTargetDelta = targetPosition.z - actorTargetZ;
+
+        if (std::abs(verticalTargetDelta) > 8.0f)
+        {
+            const float horizontalDistance =
+                length2d(targetPosition.x - actor.preciseX, targetPosition.y - actor.preciseY);
+            const float distance = length3d(horizontalDistance, 0.0f, verticalTargetDelta);
+
+            if (distance > 0.001f)
+            {
+                effectiveDesiredMoveZ = std::clamp(verticalTargetDelta / distance, -1.0f, 1.0f);
+            }
+        }
+    }
+
     actor.velocityX = desiredMoveX * moveSpeed;
     actor.velocityY = desiredMoveY * moveSpeed;
-    actor.velocityZ = 0.0f;
+    actor.velocityZ = pStats->canFly ? effectiveDesiredMoveZ * moveSpeed : 0.0f;
 
     if (m_pOutdoorMapData != nullptr)
     {
@@ -8249,9 +8423,6 @@ void OutdoorWorldRuntime::updateOutdoorInactiveAndInvalidActors(
                 resetCrowdSteeringState(actor);
                 actor.moveDirectionX = 0.0f;
                 actor.moveDirectionY = 0.0f;
-                actor.velocityX = 0.0f;
-                actor.velocityY = 0.0f;
-                actor.velocityZ = 0.0f;
                 actor.attackImpactTriggered = false;
 
                 if (earlyDeathFrame.action == InactiveActorDeathAction::AdvanceDying)
@@ -8297,9 +8468,6 @@ void OutdoorWorldRuntime::updateOutdoorInactiveAndInvalidActors(
                 actor.animation = ActorAnimation::Dead;
                 actor.moveDirectionX = 0.0f;
                 actor.moveDirectionY = 0.0f;
-                actor.velocityX = 0.0f;
-                actor.velocityY = 0.0f;
-                actor.velocityZ = 0.0f;
                 actor.actionSeconds = 0.0f;
                 actor.attackImpactTriggered = false;
                 continue;
@@ -8311,12 +8479,6 @@ void OutdoorWorldRuntime::updateOutdoorInactiveAndInvalidActors(
                 spawnBloodSplatForActorIfNeeded(actorIndex);
                 actor.moveDirectionX = 0.0f;
                 actor.moveDirectionY = 0.0f;
-                if (inactiveDeathFrame.action == InactiveActorDeathAction::MarkDead)
-                {
-                    actor.velocityX = 0.0f;
-                    actor.velocityY = 0.0f;
-                    actor.velocityZ = 0.0f;
-                }
                 actor.attackImpactTriggered = false;
 
                 if (inactiveDeathFrame.action == InactiveActorDeathAction::AdvanceDying)
@@ -11213,6 +11375,7 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
         if (actor.currentHp <= 0)
         {
             beginDyingState(actor, m_pActorSpriteFrameTable);
+            activateOutdoorActorCorpsePhysics(actorIndex);
             spawnMonsterDeathDropsForActor(actorIndex, actor);
             const bx::Vec3 knockback = actorKnockbackVelocity(
                 actor.preciseX,
@@ -11588,6 +11751,22 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
     if (isDead && !actorShouldLeaveCorpse(m_pMonsterTable, actor))
     {
         actor.isInvisible = true;
+        actor.velocityX = 0.0f;
+        actor.velocityY = 0.0f;
+        actor.velocityZ = 0.0f;
+    }
+    else if (isDead)
+    {
+        activateOutdoorActorCorpsePhysics(actorIndex);
+    }
+    else
+    {
+        m_actorCorpsePhysicsActorIndices.erase(
+            std::remove(
+                m_actorCorpsePhysicsActorIndices.begin(),
+                m_actorCorpsePhysicsActorIndices.end(),
+                actorIndex),
+            m_actorCorpsePhysicsActorIndices.end());
     }
 
     if (!wasDead && isDead && m_pMonsterTable != nullptr)
@@ -11755,6 +11934,7 @@ bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
     if (actor.currentHp <= 0)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
+        activateOutdoorActorCorpsePhysics(actorIndex);
         spawnMonsterDeathDropsForActor(actorIndex, actor);
         const float sourceX = pSourceActor != nullptr ? pSourceActor->preciseX : actor.preciseX;
         const float sourceY = pSourceActor != nullptr ? pSourceActor->preciseY : actor.preciseY;
@@ -12106,6 +12286,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
     if (died)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
+        activateOutdoorActorCorpsePhysics(actorIndex);
         spawnMonsterDeathDropsForActor(actorIndex, actor);
         const bx::Vec3 knockback = actorKnockbackVelocity(
             actor.preciseX,
