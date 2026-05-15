@@ -125,6 +125,8 @@ constexpr uint16_t LevelDecorationInvisible = 0x0020;
 constexpr uint32_t EnvironmentFlagRain = 0x01;
 constexpr uint32_t EnvironmentFlagSnow = 0x02;
 constexpr uint32_t EnvironmentFlagUnderwater = 0x04;
+constexpr uint32_t EnvironmentFlagAlwaysDark = 0x10;
+constexpr uint32_t EnvironmentFlagAlwaysLight = 0x20;
 constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
 constexpr uint32_t EnvironmentFlagRedFog = 0x80;
 constexpr uint32_t MapWeatherFoggy = 0x01;
@@ -177,6 +179,21 @@ OutdoorPrecipitationKind precipitationKindFromFlags(uint32_t mapExtraBitsRaw)
     return OutdoorPrecipitationKind::None;
 }
 
+OutdoorPrecipitationKind precipitationKindFromSceneFlags(const OutdoorSceneEnvironment::Flags &flags)
+{
+    if (flags.snowing)
+    {
+        return OutdoorPrecipitationKind::Snow;
+    }
+
+    if (flags.raining)
+    {
+        return OutdoorPrecipitationKind::Rain;
+    }
+
+    return OutdoorPrecipitationKind::None;
+}
+
 OutdoorWeatherProfile buildOutdoorWeatherProfile(
     const OutdoorSceneEnvironment &environment,
     const MapDeltaLocationTime &locationTime)
@@ -185,12 +202,14 @@ OutdoorWeatherProfile buildOutdoorWeatherProfile(
     profile.fogMode = environment.weather.fogMode;
     profile.defaultPrecipitation = environment.weather.precipitation != OutdoorPrecipitationKind::None
         ? environment.weather.precipitation
-        : precipitationKindFromFlags(environment.mapExtraBitsRaw);
-    profile.alwaysFoggy = (environment.mapExtraBitsRaw & EnvironmentFlagAlwaysFoggy) != 0;
-    profile.redFog = (environment.mapExtraBitsRaw & EnvironmentFlagRedFog) != 0;
+        : precipitationKindFromSceneFlags(environment.flags);
+    profile.alwaysFoggy = environment.flags.alwaysFoggy;
+    profile.alwaysDark = environment.flags.alwaysDark;
+    profile.alwaysLight = environment.flags.alwaysLight;
+    profile.redFog = environment.flags.redFog;
     profile.hasFogTint = environment.weather.hasFogTint;
     profile.fogTintRgb = environment.weather.fogTintRgb;
-    profile.underwater = (environment.mapExtraBitsRaw & EnvironmentFlagUnderwater) != 0;
+    profile.underwater = environment.flags.underwater;
     profile.defaultFog = {environment.fogWeakDistance, environment.fogStrongDistance};
     profile.smallFogChance = environment.weather.smallFogChance;
     profile.averageFogChance = environment.weather.averageFogChance;
@@ -221,6 +240,8 @@ OutdoorWeatherProfile buildOutdoorWeatherProfile(const MapDeltaLocationTime &loc
     OutdoorWeatherProfile profile = {};
     profile.defaultPrecipitation = precipitationKindFromFlags(mapExtraBitsRaw);
     profile.alwaysFoggy = (mapExtraBitsRaw & EnvironmentFlagAlwaysFoggy) != 0;
+    profile.alwaysDark = (mapExtraBitsRaw & EnvironmentFlagAlwaysDark) != 0;
+    profile.alwaysLight = (mapExtraBitsRaw & EnvironmentFlagAlwaysLight) != 0;
     profile.redFog = (mapExtraBitsRaw & EnvironmentFlagRedFog) != 0;
     profile.underwater = (mapExtraBitsRaw & EnvironmentFlagUnderwater) != 0;
     profile.defaultFog = {locationTime.fogWeakDistance, locationTime.fogStrongDistance};

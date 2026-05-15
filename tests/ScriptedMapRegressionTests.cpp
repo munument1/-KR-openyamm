@@ -571,6 +571,18 @@ public:
         return false;
     }
 
+    bool canActivateTelekinesisTarget(const OpenYAMM::Game::GameplayWorldHit &hit) const override
+    {
+        (void)hit;
+        return false;
+    }
+
+    bool activateTelekinesisTarget(const OpenYAMM::Game::GameplayWorldHit &hit) override
+    {
+        (void)hit;
+        return false;
+    }
+
     std::optional<OpenYAMM::Game::GameplayPartyAttackActorFacts> partyAttackActorFacts(
         size_t actorIndex,
         bool visibleForFallback) const override

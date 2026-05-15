@@ -16,6 +16,19 @@ namespace OpenYAMM::Game
 {
 struct OutdoorSceneEnvironment
 {
+    struct Flags
+    {
+        bool foggy = false;
+        bool raining = false;
+        bool snowing = false;
+        bool underwater = false;
+        bool noTerrain = false;
+        bool alwaysDark = false;
+        bool alwaysLight = false;
+        bool alwaysFoggy = false;
+        bool redFog = false;
+    };
+
     struct WeatherConfig
     {
         OutdoorFogMode fogMode = OutdoorFogMode::Static;
@@ -36,6 +49,7 @@ struct OutdoorSceneEnvironment
     std::array<uint16_t, 4> tileSetLookupIndices = {};
     int32_t dayBitsRaw = 0;
     uint32_t mapExtraBitsRaw = 0;
+    Flags flags = {};
     int32_t fogWeakDistance = 0;
     int32_t fogStrongDistance = 0;
     int32_t ceiling = 0;

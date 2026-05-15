@@ -292,6 +292,12 @@ struct EventRuntimeState
         uint8_t gridY = 0;
     };
 
+    struct OpenedChestRequest
+    {
+        uint32_t chestId = 0;
+        bool openedByTelekinesis = false;
+    };
+
     struct PressurePlateTrigger
     {
         std::string world;
@@ -449,6 +455,8 @@ struct EventRuntimeState
     std::vector<std::string> messages;
     std::vector<std::string> statusMessages;
     std::vector<uint32_t> openedChestIds;
+    std::vector<OpenedChestRequest> openedChestRequests;
+    bool activeEventOpenedByTelekinesis = false;
     std::vector<InventoryItem> grantedItems;
     std::vector<uint32_t> grantedItemIds;
     bool clearHeldItemRequest = false;
@@ -490,6 +498,7 @@ struct EventRuntimeBindingReport
 
 void clearTransientEventRuntimeState(EventRuntimeState &runtimeState);
 std::vector<uint32_t> consumeOpenedChestIds(EventRuntimeState &runtimeState);
+std::vector<EventRuntimeState::OpenedChestRequest> consumeOpenedChestRequests(EventRuntimeState &runtimeState);
 uint32_t normalizedHistoryContinentId(uint32_t continentId);
 void setActiveHistoryContinent(EventRuntimeState &runtimeState, uint32_t continentId);
 const std::unordered_map<uint32_t, int32_t> &historyEventTimesForActiveContinent(

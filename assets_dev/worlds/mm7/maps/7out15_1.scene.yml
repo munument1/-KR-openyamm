@@ -1,0 +1,7 @@
+format_version: 1
+kind: "outdoor_scene_overlay"
+source:
+  geometry_file: "7out15.odm"
+environment:
+  flags:
+    underwater: true

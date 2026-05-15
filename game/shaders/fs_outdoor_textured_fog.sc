@@ -100,6 +100,7 @@ void main()
     }
 
     vec4 textureColor = texture2D(s_texColor, texcoord);
+    textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z);
     vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(), textureColor.a);
 
     if (v_texcoord1.x > 0.5 && u_secretPulseParams.x > 0.5)

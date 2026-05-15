@@ -22,6 +22,7 @@ enum class PartySpellCastTargetKind : uint8_t
     ActorOrCharacter,
     GroundPoint,
     InventoryItem,
+    TelekinesisTarget,
     UtilityUi,
 };
 
@@ -37,6 +38,7 @@ enum class PartySpellCastEffectKind : uint8_t
     ActorEffect,
     AreaEffect,
     Jump,
+    Telekinesis,
     UtilityUi,
 };
 
@@ -60,6 +62,7 @@ enum class PartySpellCastStatus : uint8_t
     NeedActorOrCharacterTarget,
     NeedGroundPoint,
     NeedInventoryItemTarget,
+    NeedTelekinesisTarget,
     NeedUtilityUi,
     Unsupported,
     Failed,
@@ -80,6 +83,7 @@ struct PartySpellCastRequest
     float targetX = 0.0f;
     float targetY = 0.0f;
     float targetZ = 0.0f;
+    std::optional<GameplayWorldHit> telekinesisTarget;
     uint32_t skillLevelOverride = 0;
     SkillMastery skillMasteryOverride = SkillMastery::None;
     // Wands provide their own fixed spell power and do not require the caster to know the spell mastery.

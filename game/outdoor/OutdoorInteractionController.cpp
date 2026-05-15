@@ -5504,6 +5504,69 @@ bool OutdoorInteractionController::dispatchWorldActivation(
     return tryActivateInspectEvent(view, inspectHit);
 }
 
+bool OutdoorInteractionController::canActivateTelekinesisTarget(
+    const OutdoorGameView &view,
+    const GameplayWorldHit &worldHit)
+{
+    if (!worldHit.hasHit)
+    {
+        return false;
+    }
+
+    const OutdoorGameView::InspectHit inspectHit = inspectHitFromGameplayWorldHit(worldHit);
+
+    if (worldHit.kind == GameplayWorldHitKind::Actor)
+    {
+        const std::optional<size_t> runtimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
+        const OutdoorWorldRuntime::MapActorState *pActorState =
+            runtimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
+                ? view.m_pOutdoorWorldRuntime->mapActorState(*runtimeActorIndex)
+                : nullptr;
+        return pActorState != nullptr && pActorState->isDead;
+    }
+
+    if (worldHit.kind == GameplayWorldHitKind::WorldItem)
+    {
+        return canActivateWorldItemInspectEvent(view, inspectHit);
+    }
+
+    if (worldHit.kind == GameplayWorldHitKind::EventTarget)
+    {
+        return canActivateEventTargetInspectEvent(view, inspectHit);
+    }
+
+    return false;
+}
+
+bool OutdoorInteractionController::dispatchTelekinesisActivation(
+    OutdoorGameView &view,
+    const GameplayWorldHit &worldHit)
+{
+    if (!canActivateTelekinesisTarget(view, worldHit))
+    {
+        return false;
+    }
+
+    const OutdoorGameView::InspectHit inspectHit = inspectHitFromGameplayWorldHit(worldHit);
+
+    if (worldHit.kind == GameplayWorldHitKind::Actor)
+    {
+        return tryActivateActorInspectEvent(view, inspectHit);
+    }
+
+    if (worldHit.kind == GameplayWorldHitKind::WorldItem)
+    {
+        return tryActivateWorldItemInspectEvent(view, inspectHit);
+    }
+
+    if (worldHit.kind == GameplayWorldHitKind::EventTarget)
+    {
+        return tryActivateEventTargetInspectEvent(view, inspectHit);
+    }
+
+    return false;
+}
+
 bool OutdoorInteractionController::tryTriggerLocalEventById(OutdoorGameView &view, uint16_t eventId)
 {
     EventRuntimeState *pEventRuntimeState =

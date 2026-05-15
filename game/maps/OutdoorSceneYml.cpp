@@ -18,6 +18,15 @@ constexpr size_t FaceAttributeMapVariableCount = 75;
 constexpr size_t FaceAttributeDecorVariableCount = 125;
 constexpr size_t SpriteObjectContainingItemSize = 0x24;
 constexpr size_t ChestItemPayloadSize = 140 * 36;
+constexpr int32_t EnvironmentFlagFoggy = 0x01;
+constexpr uint32_t EnvironmentFlagRain = 0x01;
+constexpr uint32_t EnvironmentFlagSnow = 0x02;
+constexpr uint32_t EnvironmentFlagUnderwater = 0x04;
+constexpr uint32_t EnvironmentFlagNoTerrain = 0x08;
+constexpr uint32_t EnvironmentFlagAlwaysDark = 0x10;
+constexpr uint32_t EnvironmentFlagAlwaysLight = 0x20;
+constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
+constexpr uint32_t EnvironmentFlagRedFog = 0x80;
 
 template <typename ValueType>
 bool readScalarNode(
@@ -78,26 +87,91 @@ bool parsePositionNode(
         && readScalarNode(node, "z", z, errorMessage);
 }
 
-bool parseBoolFlagConsistency(
+bool readOptionalBoolFlag(
     const YAML::Node &flagsNode,
     const char *key,
-    bool expectedValue,
+    bool &value,
     std::string &errorMessage)
 {
-    bool actualValue = false;
+    return readScalarNode(flagsNode, key, value, errorMessage, false);
+}
 
-    if (!readScalarNode(flagsNode, key, actualValue, errorMessage))
+bool parseEnvironmentFlags(
+    const YAML::Node &flagsNode,
+    OutdoorSceneEnvironment::Flags &flags,
+    std::string &errorMessage)
+{
+    return readScalarNode(flagsNode, "foggy", flags.foggy, errorMessage)
+        && readScalarNode(flagsNode, "raining", flags.raining, errorMessage)
+        && readScalarNode(flagsNode, "snowing", flags.snowing, errorMessage)
+        && readScalarNode(flagsNode, "underwater", flags.underwater, errorMessage)
+        && readScalarNode(flagsNode, "no_terrain", flags.noTerrain, errorMessage)
+        && readScalarNode(flagsNode, "always_dark", flags.alwaysDark, errorMessage)
+        && readScalarNode(flagsNode, "always_light", flags.alwaysLight, errorMessage)
+        && readScalarNode(flagsNode, "always_foggy", flags.alwaysFoggy, errorMessage)
+        && readScalarNode(flagsNode, "red_fog", flags.redFog, errorMessage);
+}
+
+bool parseOptionalEnvironmentFlags(
+    const YAML::Node &flagsNode,
+    OutdoorSceneEnvironment::Flags &flags,
+    std::string &errorMessage)
+{
+    return readOptionalBoolFlag(flagsNode, "foggy", flags.foggy, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "raining", flags.raining, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "snowing", flags.snowing, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "underwater", flags.underwater, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "no_terrain", flags.noTerrain, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "always_dark", flags.alwaysDark, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "always_light", flags.alwaysLight, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "always_foggy", flags.alwaysFoggy, errorMessage)
+        && readOptionalBoolFlag(flagsNode, "red_fog", flags.redFog, errorMessage);
+}
+
+void syncEnvironmentRawBits(OutdoorSceneEnvironment &environment)
+{
+    environment.dayBitsRaw = environment.flags.foggy ? EnvironmentFlagFoggy : 0;
+    environment.mapExtraBitsRaw = 0;
+
+    if (environment.flags.raining)
     {
-        return false;
+        environment.mapExtraBitsRaw |= EnvironmentFlagRain;
     }
 
-    if (actualValue != expectedValue)
+    if (environment.flags.snowing)
     {
-        errorMessage = std::string("flag does not match raw legacy bits: ") + key;
-        return false;
+        environment.mapExtraBitsRaw |= EnvironmentFlagSnow;
     }
 
-    return true;
+    if (environment.flags.underwater)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagUnderwater;
+    }
+
+    if (environment.flags.noTerrain)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagNoTerrain;
+    }
+
+    if (environment.flags.alwaysDark)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagAlwaysDark;
+    }
+
+    if (environment.flags.alwaysLight)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagAlwaysLight;
+    }
+
+    if (environment.flags.alwaysFoggy)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagAlwaysFoggy;
+    }
+
+    if (environment.flags.redFog)
+    {
+        environment.mapExtraBitsRaw |= EnvironmentFlagRedFog;
+    }
 }
 
 bool parseFogMode(
@@ -788,50 +862,11 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         return std::nullopt;
     }
 
-    if (!parseBoolFlagConsistency(flagsNode, "foggy", (sceneData.environment.dayBitsRaw & 0x1) != 0, errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "raining",
-            (sceneData.environment.mapExtraBitsRaw & 0x1) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "snowing",
-            (sceneData.environment.mapExtraBitsRaw & 0x2) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "underwater",
-            (sceneData.environment.mapExtraBitsRaw & 0x4) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "no_terrain",
-            (sceneData.environment.mapExtraBitsRaw & 0x8) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "always_dark",
-            (sceneData.environment.mapExtraBitsRaw & 0x10) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "always_light",
-            (sceneData.environment.mapExtraBitsRaw & 0x20) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "always_foggy",
-            (sceneData.environment.mapExtraBitsRaw & 0x40) != 0,
-            errorMessage)
-        || !parseBoolFlagConsistency(
-            flagsNode,
-            "red_fog",
-            (sceneData.environment.mapExtraBitsRaw & 0x80) != 0,
-            errorMessage))
+    if (!parseEnvironmentFlags(flagsNode, sceneData.environment.flags, errorMessage))
     {
         return std::nullopt;
     }
+    syncEnvironmentRawBits(sceneData.environment);
 
     if (!parseWeatherConfig(environmentNode, sceneData.environment.weather, errorMessage))
     {
@@ -1380,6 +1415,110 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
         if (!geometryFile.empty() && toLowerCopy(geometryFile) != toLowerCopy(sceneData.geometryFile))
         {
             errorMessage = "scene overlay geometry_file does not match base scene";
+            return false;
+        }
+    }
+
+    const YAML::Node environmentNode = rootNode["environment"];
+
+    if (environmentNode)
+    {
+        if (!environmentNode.IsMap())
+        {
+            errorMessage = "environment must be a map";
+            return false;
+        }
+
+        if (!readScalarNode(environmentNode, "sky_texture", sceneData.environment.skyTexture, errorMessage, false)
+            || !readScalarNode(
+                environmentNode,
+                "ground_tileset_name",
+                sceneData.environment.groundTilesetName,
+                errorMessage,
+                false)
+            || !readScalarNode(environmentNode, "master_tile", sceneData.environment.masterTile, errorMessage, false)
+            || !readScalarNode(environmentNode, "ceiling", sceneData.environment.ceiling, errorMessage, false))
+        {
+            return false;
+        }
+
+        const YAML::Node lookupIndicesNode = environmentNode["tile_set_lookup_indices"];
+
+        if (lookupIndicesNode)
+        {
+            if (!lookupIndicesNode.IsSequence() || lookupIndicesNode.size() != 4)
+            {
+                errorMessage = "environment.tile_set_lookup_indices must have 4 entries";
+                return false;
+            }
+
+            for (size_t index = 0; index < sceneData.environment.tileSetLookupIndices.size(); ++index)
+            {
+                if (!lookupIndicesNode[index].IsScalar())
+                {
+                    errorMessage = "environment.tile_set_lookup_indices entries must be scalar";
+                    return false;
+                }
+
+                try
+                {
+                    sceneData.environment.tileSetLookupIndices[index] = lookupIndicesNode[index].as<uint16_t>();
+                }
+                catch (const std::exception &exception)
+                {
+                    errorMessage = std::string("could not parse tile_set_lookup_indices: ") + exception.what();
+                    return false;
+                }
+            }
+        }
+
+        const YAML::Node flagsNode = environmentNode["flags"];
+
+        if (flagsNode)
+        {
+            if (!flagsNode.IsMap())
+            {
+                errorMessage = "environment.flags must be a map";
+                return false;
+            }
+
+            if (!parseOptionalEnvironmentFlags(flagsNode, sceneData.environment.flags, errorMessage))
+            {
+                return false;
+            }
+
+            syncEnvironmentRawBits(sceneData.environment);
+        }
+
+        const YAML::Node fogNode = environmentNode["fog"];
+
+        if (fogNode)
+        {
+            if (!fogNode.IsMap())
+            {
+                errorMessage = "environment.fog must be a map";
+                return false;
+            }
+
+            if (!readScalarNode(
+                    fogNode,
+                    "weak_distance",
+                    sceneData.environment.fogWeakDistance,
+                    errorMessage,
+                    false)
+                || !readScalarNode(
+                    fogNode,
+                    "strong_distance",
+                    sceneData.environment.fogStrongDistance,
+                    errorMessage,
+                    false))
+            {
+                return false;
+            }
+        }
+
+        if (!parseWeatherConfig(environmentNode, sceneData.environment.weather, errorMessage))
+        {
             return false;
         }
     }

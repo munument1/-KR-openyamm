@@ -15206,6 +15206,23 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            OutdoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+            snapshot.atmosphere.weatherFlags = 0;
+            snapshot.atmosphere.fogWeakDistance = 0;
+            snapshot.atmosphere.fogStrongDistance = 0;
+            snapshot.atmosphere.redFog = false;
+            scenario.world.restoreSnapshot(snapshot);
+
+            const OutdoorWorldRuntime::AtmosphereState &restoredAtmosphere = scenario.world.atmosphereState();
+
+            if (!restoredAtmosphere.redFog
+                || (restoredAtmosphere.weatherFlags & 0x1) == 0
+                || restoredAtmosphere.fogStrongDistance != 2048)
+            {
+                failure = "always-foggy red fog profile was not restored after snapshot reload";
+                return false;
+            }
+
             return true;
         }
     );

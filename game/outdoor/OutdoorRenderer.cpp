@@ -48,6 +48,10 @@ constexpr float OutdoorFxLightRefreshIntervalSeconds = 1.0f / 60.0f;
 constexpr float OutdoorFxLightingAmbient = 1.0f;
 // OpenYAMM tuning: keep outdoor FX lights visibly readable against the current ambient baseline.
 constexpr float OutdoorFxLightingScale = 1.6f;
+constexpr float OutdoorUnderwaterTintOpacity = 0.28f;
+constexpr uint8_t UnderwaterFogRed = 33;
+constexpr uint8_t UnderwaterFogGreen = 142;
+constexpr uint8_t UnderwaterFogBlue = 90;
 constexpr size_t SpellAreaPreviewGridResolution = 24;
 constexpr float SpellAreaPreviewRefreshIntervalSeconds = 1.0f / 30.0f;
 constexpr float SpellAreaPreviewRetargetDistance = 72.0f;
@@ -154,6 +158,11 @@ uint32_t computeOutdoorSkyTintAbgr(const OutdoorWorldRuntime &worldRuntime)
 
 uint32_t computeOutdoorSkyFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
 {
+    if (atmosphereState.underwater)
+    {
+        return makeAbgr(UnderwaterFogRed, UnderwaterFogGreen, UnderwaterFogBlue);
+    }
+
     if ((atmosphereState.weatherFlags & MapWeatherFoggy) == 0)
     {
         return 0xff000000u;
@@ -983,6 +992,10 @@ OutdoorFogParameters buildOutdoorWorldFogParameters(
             1.0f
         };
         parameters.densities = {fogProfile.nearOpacity, fogProfile.strongOpacity, 0.0f, 0.0f};
+        if (pAtmosphereState->underwater)
+        {
+            parameters.densities[2] = OutdoorUnderwaterTintOpacity;
+        }
         parameters.distances = {
             fogProfile.weakDistance,
             fogProfile.strongDistance,
@@ -1048,6 +1061,10 @@ OutdoorFogParameters buildOutdoorSkyFogParameters(
             1.0f
         };
         parameters.densities = {fogProfile.nearOpacity, fogProfile.strongOpacity, 0.0f, 0.0f};
+        if (pAtmosphereState->underwater)
+        {
+            parameters.densities[2] = OutdoorUnderwaterTintOpacity;
+        }
         parameters.distances = {
             fogProfile.weakDistance,
             fogProfile.strongDistance,

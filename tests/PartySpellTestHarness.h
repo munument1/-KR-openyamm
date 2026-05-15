@@ -625,6 +625,18 @@ public:
         return false;
     }
 
+    bool canActivateTelekinesisTarget(const Game::GameplayWorldHit &hit) const override
+    {
+        (void)hit;
+        return false;
+    }
+
+    bool activateTelekinesisTarget(const Game::GameplayWorldHit &hit) override
+    {
+        (void)hit;
+        return false;
+    }
+
     std::optional<Game::GameplayPartyAttackActorFacts> partyAttackActorFacts(
         size_t actorIndex,
         bool visibleForFallback) const override

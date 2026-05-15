@@ -682,6 +682,9 @@ constexpr int32_t MapWeatherFoggy = 1;
 constexpr int32_t MapWeatherSnowing = 2;
 constexpr int32_t MapWeatherRaining = 4;
 constexpr float DefaultOutdoorVisibilityDistance = 200000.0f;
+constexpr uint8_t UnderwaterFogRed = 33;
+constexpr uint8_t UnderwaterFogGreen = 142;
+constexpr uint8_t UnderwaterFogBlue = 90;
 constexpr float ArmageddonDurationSeconds = 256.0f / TicksPerSecond;
 constexpr uint32_t ArmageddonShakeStepCount = 60;
 constexpr float ArmageddonShakeYawRadians = 0.035f;
@@ -1117,6 +1120,26 @@ OutdoorFogDistances fallbackFogDistancesForProfile(const OutdoorWeatherProfile &
     }
 
     return profile.averageFog.strongDistance > 0 ? profile.averageFog : OutdoorFogDistances{0, 4096};
+}
+
+void applyAlwaysFoggyProfile(
+    OutdoorWorldRuntime::AtmosphereState &atmosphereState,
+    const OutdoorWeatherProfile &profile)
+{
+    if (!profile.alwaysFoggy)
+    {
+        return;
+    }
+
+    const OutdoorFogDistances distances = fallbackFogDistancesForProfile(profile);
+    atmosphereState.weatherFlags |= MapWeatherFoggy;
+    atmosphereState.fogWeakDistance = std::max(distances.weakDistance, 0);
+    atmosphereState.fogStrongDistance = std::max(distances.strongDistance, 0);
+}
+
+uint32_t underwaterFogColor()
+{
+    return makeAbgr(UnderwaterFogRed, UnderwaterFogGreen, UnderwaterFogBlue);
 }
 
 float normalizedAmbientBrightness(float minutesOfDay)
@@ -4236,7 +4259,7 @@ void OutdoorWorldRuntime::setPendingEventSourcePoint(std::optional<GameplayWorld
     m_pendingEventSourcePoint = point;
 }
 
-bool OutdoorWorldRuntime::attemptOpenChest(uint32_t chestId)
+bool OutdoorWorldRuntime::attemptOpenChest(uint32_t chestId, bool openedByTelekinesis)
 {
     if (chestId >= m_chests.size() || m_pParty == nullptr)
     {
@@ -4252,6 +4275,7 @@ bool OutdoorWorldRuntime::attemptOpenChest(uint32_t chestId)
     trapContext.trapZ = visualPoint.z;
     trapContext.partyX = partyX();
     trapContext.partyY = partyY();
+    trapContext.openedByTelekinesis = openedByTelekinesis;
 
     if (m_pPartyRuntime != nullptr)
     {
@@ -6292,10 +6316,20 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
     }
 
     m_atmosphereState.redFog = profile.redFog;
+    m_atmosphereState.alwaysDark = profile.alwaysDark;
+    m_atmosphereState.alwaysLight = profile.alwaysLight;
     m_atmosphereState.hasFogTint = profile.hasFogTint;
     m_atmosphereState.fogTintRed = profile.fogTintRgb[0];
     m_atmosphereState.fogTintGreen = profile.fogTintRgb[1];
     m_atmosphereState.fogTintBlue = profile.fogTintRgb[2];
+    m_atmosphereState.underwater = profile.underwater;
+
+    if (profile.alwaysFoggy)
+    {
+        applyAlwaysFoggyProfile(m_atmosphereState, profile);
+        syncAtmosphereStateToMapDelta();
+        return;
+    }
 
     if (profile.fogMode == OutdoorFogMode::DailyRandom)
     {
@@ -6304,12 +6338,6 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
             applyDailyWeatherRollover(weatherDayIndexForMinutes(m_gameMinutes));
             return;
         }
-    }
-    else if (profile.alwaysFoggy)
-    {
-        const OutdoorFogDistances distances = fallbackFogDistancesForProfile(profile);
-        applyFogDistances(distances, true);
-        return;
     }
 
     syncAtmosphereStateToMapDelta();
@@ -6335,17 +6363,21 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
     }
 
     m_atmosphereState.redFog = profile.redFog;
+    m_atmosphereState.alwaysDark = profile.alwaysDark;
+    m_atmosphereState.alwaysLight = profile.alwaysLight;
     m_atmosphereState.hasFogTint = profile.hasFogTint;
     m_atmosphereState.fogTintRed = profile.fogTintRgb[0];
     m_atmosphereState.fogTintGreen = profile.fogTintRgb[1];
     m_atmosphereState.fogTintBlue = profile.fogTintRgb[2];
+    m_atmosphereState.underwater = profile.underwater;
 
     if (!profile.mergedWeatherEnabled)
     {
         m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
         m_atmosphereState.rainIntensity = 0.0f;
+        applyAlwaysFoggyProfile(m_atmosphereState, profile);
         syncAtmosphereStateToMapDelta();
-        return true;
+        return false;
     }
 
     const int skyCount = static_cast<int>(profile.mergedSkyTextureNames.size());
@@ -6386,6 +6418,7 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
         m_atmosphereState.rainIntensity = 0.0f;
     }
 
+    applyAlwaysFoggyProfile(m_atmosphereState, profile);
     syncAtmosphereStateToMapDelta();
     return true;
 }
@@ -6399,9 +6432,16 @@ void OutdoorWorldRuntime::applyDailyWeatherRollover(int weatherDayIndex)
 
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
 
-    if (profile.mergedWeatherConfigured && profile.mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
+    if (profile.alwaysFoggy)
     {
-        applyMergedWeatherProfile();
+        applyFogDistances(fallbackFogDistancesForProfile(profile), true);
+        return;
+    }
+
+    if (profile.mergedWeatherConfigured
+        && profile.mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0))
+        && applyMergedWeatherProfile())
+    {
         return;
     }
 
@@ -6435,12 +6475,6 @@ void OutdoorWorldRuntime::applyDailyWeatherRollover(int weatherDayIndex)
     if (roll < denseThreshold)
     {
         applyFogDistances(profile.denseFog, true);
-        return;
-    }
-
-    if (profile.alwaysFoggy)
-    {
-        applyFogDistances(fallbackFogDistancesForProfile(profile), true);
         return;
     }
 
@@ -6507,10 +6541,15 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
     if (m_outdoorWeatherProfile.has_value())
     {
         m_atmosphereState.redFog = m_outdoorWeatherProfile->redFog;
+        m_atmosphereState.alwaysDark = m_outdoorWeatherProfile->alwaysDark;
+        m_atmosphereState.alwaysLight = m_outdoorWeatherProfile->alwaysLight;
         m_atmosphereState.hasFogTint = m_outdoorWeatherProfile->hasFogTint;
         m_atmosphereState.fogTintRed = m_outdoorWeatherProfile->fogTintRgb[0];
         m_atmosphereState.fogTintGreen = m_outdoorWeatherProfile->fogTintRgb[1];
         m_atmosphereState.fogTintBlue = m_outdoorWeatherProfile->fogTintRgb[2];
+        m_atmosphereState.underwater = m_outdoorWeatherProfile->underwater;
+
+        applyAlwaysFoggyProfile(m_atmosphereState, *m_outdoorWeatherProfile);
 
         if (m_outdoorWeatherProfile->mergedWeatherConfigured
             && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
@@ -6608,6 +6647,17 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.fogDensity = 1.0f;
     }
 
+    if (m_atmosphereState.alwaysLight)
+    {
+        m_atmosphereState.isNight = false;
+        m_atmosphereState.fogDensity = 0.0f;
+    }
+    else if (m_atmosphereState.alwaysDark)
+    {
+        m_atmosphereState.isNight = true;
+        m_atmosphereState.fogDensity = 1.0f;
+    }
+
     if (m_outdoorWeatherProfile.has_value()
         && m_outdoorWeatherProfile->mergedWeatherConfigured
         && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
@@ -6693,7 +6743,11 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
 
     if ((m_atmosphereState.weatherFlags & MapWeatherFoggy) != 0)
     {
-        if (m_atmosphereState.isNight)
+        if (m_atmosphereState.underwater)
+        {
+            m_atmosphereState.clearColorAbgr = underwaterFogColor();
+        }
+        else if (m_atmosphereState.isNight)
         {
             if (m_atmosphereState.hasFogTint)
             {
@@ -10796,13 +10850,16 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
         }
     }
 
-    const std::vector<uint32_t> openedChestIds = consumeOpenedChestIds(*m_eventRuntimeState);
+    const std::vector<EventRuntimeState::OpenedChestRequest> openedChestRequests =
+        consumeOpenedChestRequests(*m_eventRuntimeState);
 
-    for (uint32_t chestId : openedChestIds)
+    for (const EventRuntimeState::OpenedChestRequest &openedChestRequest : openedChestRequests)
     {
+        const uint32_t chestId = openedChestRequest.chestId;
+
         if (chestId < m_openedChests.size())
         {
-            if (attemptOpenChest(chestId))
+            if (attemptOpenChest(chestId, openedChestRequest.openedByTelekinesis))
             {
                 m_openedChests[chestId] = true;
                 m_chests[chestId].flags |= static_cast<uint16_t>(EvtChestFlag::Opened);
@@ -15191,6 +15248,98 @@ bool OutdoorWorldRuntime::activateWorldHit(const GameplayWorldHit &hit)
     }
 
     return OutdoorInteractionController::dispatchWorldActivation(*m_pInteractionView, hit);
+}
+
+bool OutdoorWorldRuntime::canActivateTelekinesisTarget(const GameplayWorldHit &hit) const
+{
+    if (!hit.hasHit)
+    {
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Chest && hit.container)
+    {
+        return hit.container->sourceKind == GameplayWorldContainerSourceKind::Chest
+            && hit.container->sourceIndex < m_chests.size();
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Corpse && hit.container)
+    {
+        return hit.container->sourceKind == GameplayWorldContainerSourceKind::Corpse;
+    }
+
+    if (m_pInteractionView == nullptr)
+    {
+        return false;
+    }
+
+    return OutdoorInteractionController::canActivateTelekinesisTarget(*m_pInteractionView, hit);
+}
+
+bool OutdoorWorldRuntime::activateTelekinesisTarget(const GameplayWorldHit &hit)
+{
+    if (!canActivateTelekinesisTarget(hit))
+    {
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Chest && hit.container)
+    {
+        const uint32_t chestId = static_cast<uint32_t>(hit.container->sourceIndex);
+
+        if (attemptOpenChest(chestId, true))
+        {
+            if (chestId < m_openedChests.size())
+            {
+                m_openedChests[chestId] = true;
+            }
+
+            if (chestId < m_chests.size())
+            {
+                m_chests[chestId].flags |= static_cast<uint16_t>(EvtChestFlag::Opened);
+            }
+
+            activateChestView(chestId);
+            return true;
+        }
+
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Corpse && hit.container)
+    {
+        if (m_pParty == nullptr || !openMapActorCorpseView(hit.container->sourceIndex))
+        {
+            return false;
+        }
+
+        const GameplayCorpseAutoLootResult lootResult =
+            autoLootActiveCorpseView(*this, *m_pParty, m_pItemTable, nullptr);
+        return lootResult.lootedAny || lootResult.blockedByInventory || lootResult.empty;
+    }
+
+    if (m_pInteractionView == nullptr)
+    {
+        return false;
+    }
+
+    EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+    const bool previousTelekinesisEvent =
+        pEventRuntimeState != nullptr && pEventRuntimeState->activeEventOpenedByTelekinesis;
+
+    if (pEventRuntimeState != nullptr)
+    {
+        pEventRuntimeState->activeEventOpenedByTelekinesis = true;
+    }
+
+    const bool activated = OutdoorInteractionController::dispatchTelekinesisActivation(*m_pInteractionView, hit);
+
+    if (pEventRuntimeState != nullptr)
+    {
+        pEventRuntimeState->activeEventOpenedByTelekinesis = previousTelekinesisEvent;
+    }
+
+    return activated;
 }
 
 GameplayPendingSpellWorldTargetFacts OutdoorWorldRuntime::pickPendingSpellWorldTarget(

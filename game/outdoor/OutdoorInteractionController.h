@@ -205,6 +205,12 @@ private:
     static bool dispatchWorldActivation(
         OutdoorGameView &view,
         const GameplayWorldHit &worldHit);
+    static bool canActivateTelekinesisTarget(
+        const OutdoorGameView &view,
+        const GameplayWorldHit &worldHit);
+    static bool dispatchTelekinesisActivation(
+        OutdoorGameView &view,
+        const GameplayWorldHit &worldHit);
     static bool tryActivateActorInspectEvent(OutdoorGameView &view, const OutdoorGameView::InspectHit &inspectHit);
     static bool tryActivateWorldItemInspectEvent(
         OutdoorGameView &view,

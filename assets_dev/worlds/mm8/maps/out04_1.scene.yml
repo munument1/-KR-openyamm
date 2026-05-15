@@ -2,6 +2,13 @@ format_version: 1
 kind: "outdoor_scene_overlay"
 source:
   geometry_file: "out04.odm"
+environment:
+  flags:
+    foggy: true
+    always_foggy: true
+  fog:
+    weak_distance: 0
+    strong_distance: 4096
 terrain:
   footstep_sound_overrides:
     - tile_id: 90

@@ -3,6 +3,7 @@
 #include "game/app/GameSession.h"
 #include "game/audio/GameAudioSystem.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/party/SpellIds.h"
@@ -364,6 +365,13 @@ GameplaySpellService::SpellRequestResolution GameplaySpellService::resolveSpellR
 
     if (requiresTargetSelection(resolution.castResult))
     {
+        if (isSpellId(request.spellId, SpellId::Telekinesis)
+            && !GameplayHeldItemController::tryDisplaceHeldInventoryItem(runtime))
+        {
+            runtime.setStatusBarEvent("Finish current action");
+            return resolution;
+        }
+
         resolution.disposition = SpellRequestDisposition::NeedsTargetSelection;
         return resolution;
     }
@@ -432,6 +440,8 @@ std::string GameplaySpellService::pendingTargetSelectionPromptText(bool includeC
             ? "Select character for "
             : pendingTargetState.targetKind == PartySpellCastTargetKind::GroundPoint
             ? "Select ground point for "
+            : pendingTargetState.targetKind == PartySpellCastTargetKind::TelekinesisTarget
+            ? "Select target for "
             : "Select target for ";
     prompt += pendingTargetState.spellName;
 
@@ -484,6 +494,10 @@ bool GameplaySpellService::validatePendingTargetSelectionRequest(
 
         case PartySpellCastTargetKind::GroundPoint:
             targetResolved = request.hasTargetPoint;
+            break;
+
+        case PartySpellCastTargetKind::TelekinesisTarget:
+            targetResolved = request.telekinesisTarget.has_value();
             break;
 
         default:
@@ -595,7 +609,8 @@ bool GameplaySpellService::requiresTargetSelection(const PartySpellCastResult &r
     return result.status == PartySpellCastStatus::NeedActorTarget
         || result.status == PartySpellCastStatus::NeedCharacterTarget
         || result.status == PartySpellCastStatus::NeedActorOrCharacterTarget
-        || result.status == PartySpellCastStatus::NeedGroundPoint;
+        || result.status == PartySpellCastStatus::NeedGroundPoint
+        || result.status == PartySpellCastStatus::NeedTelekinesisTarget;
 }
 
 bool GameplaySpellService::tryOpenSelectionUi(

@@ -62,6 +62,10 @@ constexpr const char *ContactShadowTextureName = "__contact_shadow_blob__";
 constexpr float HoveredActorOutlineThicknessPixels = 2.0f;
 constexpr float OutdoorFogNearOpacity = 0.04f;
 constexpr float OutdoorFogStrongOpacity = 176.0f / 255.0f;
+constexpr float OutdoorUnderwaterTintOpacity = 0.28f;
+constexpr uint8_t UnderwaterFogRed = 33;
+constexpr uint8_t UnderwaterFogGreen = 142;
+constexpr uint8_t UnderwaterFogBlue = 90;
 
 uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
 {
@@ -166,6 +170,11 @@ uint32_t computeClearDistanceFogColorAbgr(const OutdoorWorldRuntime &worldRuntim
 
 uint32_t computeBillboardFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
 {
+    if (atmosphereState.underwater)
+    {
+        return makeAbgr(UnderwaterFogRed, UnderwaterFogGreen, UnderwaterFogBlue);
+    }
+
     if (atmosphereState.isNight)
     {
         if (atmosphereState.hasFogTint)
@@ -514,6 +523,10 @@ void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, 
             fogColor[2] = static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f;
             fogDensities[0] = fogProfile.nearOpacity;
             fogDensities[1] = fogProfile.strongOpacity;
+            if (atmosphereState.underwater)
+            {
+                fogDensities[2] = OutdoorUnderwaterTintOpacity;
+            }
             fogDistances[0] = fogProfile.weakDistance;
             fogDistances[1] = fogProfile.strongDistance;
             fogDistances[2] = fogProfile.farDistance;

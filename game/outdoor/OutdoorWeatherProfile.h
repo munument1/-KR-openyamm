@@ -31,6 +31,8 @@ struct OutdoorWeatherProfile
     OutdoorFogMode fogMode = OutdoorFogMode::Static;
     OutdoorPrecipitationKind defaultPrecipitation = OutdoorPrecipitationKind::None;
     bool alwaysFoggy = false;
+    bool alwaysDark = false;
+    bool alwaysLight = false;
     bool redFog = false;
     bool hasFogTint = false;
     std::array<uint8_t, 3> fogTintRgb = {255, 255, 255};

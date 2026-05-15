@@ -93,5 +93,9 @@ private:
         const GameplayWorldHit &worldHit,
         const IGameplayWorldRuntime *pWorldRuntime,
         const std::optional<bx::Vec3> &fallbackGroundTargetPoint);
+    static bool resolvePendingTelekinesisTarget(
+        PartySpellCastRequest &request,
+        const GameplayWorldHit &worldHit,
+        const IGameplayWorldRuntime *pWorldRuntime);
 };
 } // namespace OpenYAMM::Game

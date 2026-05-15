@@ -4339,6 +4339,7 @@ void prepareRuntimeStateForEventExecution(
 {
     runtimeState.lastAffectedMechanismIds.clear();
     runtimeState.openedChestIds.clear();
+    runtimeState.openedChestRequests.clear();
     runtimeState.grantedItems.clear();
     runtimeState.grantedItemIds.clear();
     runtimeState.clearHeldItemRequest = false;
@@ -6216,6 +6217,11 @@ int luaSetChestBit(lua_State *pLuaState)
     if ((flag & static_cast<uint32_t>(EvtChestFlag::Opened)) != 0 && isOn)
     {
         pRuntimeState->openedChestIds.push_back(chestId);
+        pRuntimeState->openedChestRequests.push_back(
+            EventRuntimeState::OpenedChestRequest{
+                .chestId = chestId,
+                .openedByTelekinesis = pRuntimeState->activeEventOpenedByTelekinesis,
+            });
     }
 
     return 0;
@@ -7038,6 +7044,11 @@ int luaOpenChest(lua_State *pLuaState)
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
     const uint32_t chestId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
     pRuntimeState->openedChestIds.push_back(chestId);
+    pRuntimeState->openedChestRequests.push_back(
+        EventRuntimeState::OpenedChestRequest{
+            .chestId = chestId,
+            .openedByTelekinesis = pRuntimeState->activeEventOpenedByTelekinesis,
+        });
     return 0;
 }
 
@@ -8029,6 +8040,8 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.messages.clear();
     runtimeState.statusMessages.clear();
     runtimeState.openedChestIds.clear();
+    runtimeState.openedChestRequests.clear();
+    runtimeState.activeEventOpenedByTelekinesis = false;
     runtimeState.grantedItems.clear();
     runtimeState.grantedItemIds.clear();
     runtimeState.clearHeldItemRequest = false;
@@ -8053,7 +8066,31 @@ std::vector<uint32_t> consumeOpenedChestIds(EventRuntimeState &runtimeState)
 {
     std::vector<uint32_t> openedChestIds = runtimeState.openedChestIds;
     runtimeState.openedChestIds.clear();
+    runtimeState.openedChestRequests.clear();
     return openedChestIds;
+}
+
+std::vector<EventRuntimeState::OpenedChestRequest> consumeOpenedChestRequests(EventRuntimeState &runtimeState)
+{
+    std::vector<EventRuntimeState::OpenedChestRequest> requests = runtimeState.openedChestRequests;
+
+    if (requests.empty())
+    {
+        requests.reserve(runtimeState.openedChestIds.size());
+
+        for (uint32_t chestId : runtimeState.openedChestIds)
+        {
+            requests.push_back(
+                EventRuntimeState::OpenedChestRequest{
+                    .chestId = chestId,
+                    .openedByTelekinesis = false,
+                });
+        }
+    }
+
+    runtimeState.openedChestIds.clear();
+    runtimeState.openedChestRequests.clear();
+    return requests;
 }
 
 uint32_t normalizedHistoryContinentId(uint32_t continentId)

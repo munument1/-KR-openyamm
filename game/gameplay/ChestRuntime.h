@@ -26,6 +26,7 @@ struct ChestTrapOpenContext
     float partyY = 0.0f;
     float partyZ = 0.0f;
     uint32_t seed = 0;
+    bool openedByTelekinesis = false;
 };
 
 struct ChestTrapMemberResult
@@ -41,6 +42,7 @@ struct ChestTrapOpenResult
     bool trapWasPresent = false;
     bool trapDisarmed = false;
     bool trapDischarged = false;
+    bool openedByTelekinesis = false;
     uint16_t trapObjectId = 0;
     CombatDamageType damageType = CombatDamageType::Physical;
     int trapDamage = 0;

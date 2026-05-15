@@ -750,6 +750,7 @@ ChestTrapOpenResult resolveChestTrapOpen(
     const SpecialItemEnchantTable *pSpecialItemEnchantTable)
 {
     ChestTrapOpenResult result = {};
+    result.openedByTelekinesis = context.openedByTelekinesis;
 
     if ((chestFlags & ChestTrapFlag) == 0)
     {
@@ -833,11 +834,11 @@ ChestTrapOpenResult resolveChestTrapOpen(
 
 void applyChestTrapOpenResultToParty(Party &party, const ChestTrapOpenResult &result)
 {
-    if (result.trapDisarmed)
+    if (!result.openedByTelekinesis && result.trapDisarmed)
     {
         party.requestSpeech(party.activeMemberIndex(), SpeechId::DisarmTrap);
     }
-    else if (result.trapDischarged)
+    else if (!result.openedByTelekinesis && result.trapDischarged)
     {
         party.requestSpeech(party.activeMemberIndex(), SpeechId::TrapExploded);
     }

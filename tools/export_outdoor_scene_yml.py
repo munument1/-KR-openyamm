@@ -55,6 +55,15 @@ SPRITE_OBJECT_RECORD_SIZE = 0x70
 CHEST_RECORD_SIZE = 5324
 PERSISTENT_VARIABLES_SIZE = 0xC8
 LOCATION_TIME_SIZE = 0x38
+DAY_FLAG_FOGGY = 0x01
+MAP_EXTRA_FLAG_RAINING = 0x01
+MAP_EXTRA_FLAG_SNOWING = 0x02
+MAP_EXTRA_FLAG_UNDERWATER = 0x04
+MAP_EXTRA_FLAG_NO_TERRAIN = 0x08
+MAP_EXTRA_FLAG_ALWAYS_DARK = 0x10
+MAP_EXTRA_FLAG_ALWAYS_LIGHT = 0x20
+MAP_EXTRA_FLAG_ALWAYS_FOGGY = 0x40
+MAP_EXTRA_FLAG_RED_FOG = 0x80
 ACTOR_NAME_SIZE = 32
 SPRITE_OBJECT_CONTAINING_ITEM_OFFSET = 0x24
 SPRITE_OBJECT_CONTAINING_ITEM_SIZE = 0x24
@@ -874,6 +883,17 @@ def build_scene_model(odm_model: dict[str, object], ddm_model: dict[str, object]
     day_bits_raw = location_time["day_bits_raw"]
     map_extra_bits_raw = location_time["map_extra_bits_raw"]
     sky_texture = location_time["sky_texture_name"] or odm_model["sky_texture"]
+    environment_flags = {
+        "foggy": (day_bits_raw & DAY_FLAG_FOGGY) != 0,
+        "raining": (map_extra_bits_raw & MAP_EXTRA_FLAG_RAINING) != 0,
+        "snowing": (map_extra_bits_raw & MAP_EXTRA_FLAG_SNOWING) != 0,
+        "underwater": (map_extra_bits_raw & MAP_EXTRA_FLAG_UNDERWATER) != 0,
+        "no_terrain": (map_extra_bits_raw & MAP_EXTRA_FLAG_NO_TERRAIN) != 0,
+        "always_dark": (map_extra_bits_raw & MAP_EXTRA_FLAG_ALWAYS_DARK) != 0,
+        "always_light": (map_extra_bits_raw & MAP_EXTRA_FLAG_ALWAYS_LIGHT) != 0,
+        "always_foggy": (map_extra_bits_raw & MAP_EXTRA_FLAG_ALWAYS_FOGGY) != 0,
+        "red_fog": (map_extra_bits_raw & MAP_EXTRA_FLAG_RED_FOG) != 0,
+    }
 
     entities: list[dict[str, object]] = []
 
@@ -933,17 +953,7 @@ def build_scene_model(odm_model: dict[str, object], ddm_model: dict[str, object]
             "tile_set_lookup_indices": list(odm_model["tile_set_lookup_indices"]),
             "day_bits_raw": day_bits_raw,
             "map_extra_bits_raw": map_extra_bits_raw,
-            "flags": {
-                "foggy": (day_bits_raw & 0x1) != 0,
-                "raining": (map_extra_bits_raw & 0x1) != 0,
-                "snowing": (map_extra_bits_raw & 0x2) != 0,
-                "underwater": (map_extra_bits_raw & 0x4) != 0,
-                "no_terrain": (map_extra_bits_raw & 0x8) != 0,
-                "always_dark": (map_extra_bits_raw & 0x10) != 0,
-                "always_light": (map_extra_bits_raw & 0x20) != 0,
-                "always_foggy": (map_extra_bits_raw & 0x40) != 0,
-                "red_fog": (map_extra_bits_raw & 0x80) != 0,
-            },
+            "flags": environment_flags,
             "fog": {
                 "weak_distance": location_time["fog_weak_distance"],
                 "strong_distance": location_time["fog_strong_distance"],

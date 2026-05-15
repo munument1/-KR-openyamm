@@ -528,6 +528,12 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     REQUIRE_MESSAGE(
         sceneLoader.applyOverlayFromText(mergedIronsandScene, ironsandOverlayText.str(), sceneError),
         sceneError.c_str());
+    CHECK(mergedIronsandScene.environment.flags.foggy);
+    CHECK(mergedIronsandScene.environment.flags.alwaysFoggy);
+    CHECK_EQ(mergedIronsandScene.environment.dayBitsRaw, 0x01);
+    CHECK_EQ(mergedIronsandScene.environment.mapExtraBitsRaw, 0x40u);
+    CHECK_EQ(mergedIronsandScene.environment.fogWeakDistance, 0);
+    CHECK_EQ(mergedIronsandScene.environment.fogStrongDistance, 4096);
     REQUIRE_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.size(), 72u);
     CHECK_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.front().tileId, 90);
     CHECK_EQ(mergedIronsandScene.terrainFootstepSoundOverrides.front().walkSoundId, 91u);
@@ -593,6 +599,82 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().tileId, 1);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().walkSoundId, 101u);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().runSoundId, 62u);
+}
+
+TEST_CASE("outdoor scene overlays apply partial environment flags")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+
+    const std::filesystem::path scenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out06.scene.yml";
+    std::ifstream sceneFile(scenePath);
+    REQUIRE(sceneFile.good());
+    std::ostringstream sceneText;
+    sceneText << sceneFile.rdbuf();
+
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+        sceneLoader.loadFromText(sceneText.str(), sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    const std::string overlayText =
+        "format_version: 1\n"
+        "kind: outdoor_scene_overlay\n"
+        "environment:\n"
+        "  flags:\n"
+        "    foggy: true\n"
+        "    underwater: true\n"
+        "    always_foggy: true\n"
+        "    red_fog: true\n"
+        "  fog:\n"
+        "    weak_distance: 128\n"
+        "    strong_distance: 2048\n";
+
+    REQUIRE_MESSAGE(sceneLoader.applyOverlayFromText(mergedScene, overlayText, sceneError), sceneError.c_str());
+    CHECK(mergedScene.environment.flags.foggy);
+    CHECK(mergedScene.environment.flags.underwater);
+    CHECK(mergedScene.environment.flags.alwaysFoggy);
+    CHECK(mergedScene.environment.flags.redFog);
+    CHECK_EQ(mergedScene.environment.dayBitsRaw, 0x01);
+    CHECK_EQ(mergedScene.environment.mapExtraBitsRaw, 0xc4u);
+    CHECK_EQ(mergedScene.environment.fogWeakDistance, 128);
+    CHECK_EQ(mergedScene.environment.fogStrongDistance, 2048);
+}
+
+TEST_CASE("mm7 shoals scene overlay combines always dark fog with underwater tint")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+
+    const std::filesystem::path scenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm7/maps/7out15.scene.yml";
+    std::ifstream sceneFile(scenePath);
+    REQUIRE(sceneFile.good());
+    std::ostringstream sceneText;
+    sceneText << sceneFile.rdbuf();
+
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+        sceneLoader.loadFromText(sceneText.str(), sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+
+    const std::filesystem::path overlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm7/maps/7out15_1.scene.yml";
+    std::ifstream overlayFile(overlayPath);
+    REQUIRE(overlayFile.good());
+    std::ostringstream overlayText;
+    overlayText << overlayFile.rdbuf();
+
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedScene, overlayText.str(), sceneError),
+        sceneError.c_str());
+    CHECK(mergedScene.environment.flags.underwater);
+    CHECK(mergedScene.environment.flags.alwaysDark);
+    CHECK(mergedScene.environment.flags.alwaysFoggy);
+    CHECK_EQ(mergedScene.environment.dayBitsRaw, 0x00);
+    CHECK_EQ(mergedScene.environment.mapExtraBitsRaw, 0x54u);
 }
 
 TEST_CASE("mm6 outdoor scene overlays restore mmmerge footstep sound overrides")

@@ -146,6 +146,11 @@ GameplaySpellActionController::updatePendingTargetSelection(
             input.fallbackGroundTargetPoint);
     }
 
+    if (pendingTargetState.targetKind == PartySpellCastTargetKind::TelekinesisTarget)
+    {
+        resolvePendingTelekinesisTarget(request, input.worldHit, runtime.worldRuntime());
+    }
+
     if (!spellService.validatePendingTargetSelectionRequest(runtime, request))
     {
         return result;
@@ -276,6 +281,20 @@ bool GameplaySpellActionController::resolvePendingGroundTarget(
     request.targetX = groundTargetPoint->x;
     request.targetY = groundTargetPoint->y;
     request.targetZ = groundTargetPoint->z;
+    return true;
+}
+
+bool GameplaySpellActionController::resolvePendingTelekinesisTarget(
+    PartySpellCastRequest &request,
+    const GameplayWorldHit &worldHit,
+    const IGameplayWorldRuntime *pWorldRuntime)
+{
+    if (!worldHit.hasHit || pWorldRuntime == nullptr || !pWorldRuntime->canActivateTelekinesisTarget(worldHit))
+    {
+        return false;
+    }
+
+    request.telekinesisTarget = worldHit;
     return true;
 }
 } // namespace OpenYAMM::Game

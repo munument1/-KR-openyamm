@@ -59,6 +59,9 @@ public:
         int32_t fogWeakDistance = 0;
         int32_t fogStrongDistance = 0;
         bool redFog = false;
+        bool underwater = false;
+        bool alwaysDark = false;
+        bool alwaysLight = false;
         bool hasFogTint = false;
         uint8_t fogTintRed = 255;
         uint8_t fogTintGreen = 255;
@@ -747,6 +750,8 @@ public:
         const GameplayWorldHit &hit,
         GameplayInteractionMethod interactionMethod) const override;
     bool activateWorldHit(const GameplayWorldHit &hit) override;
+    bool canActivateTelekinesisTarget(const GameplayWorldHit &hit) const override;
+    bool activateTelekinesisTarget(const GameplayWorldHit &hit) override;
     GameplayPendingSpellWorldTargetFacts pickPendingSpellWorldTarget(
         const GameplayWorldPickRequest &request) override;
     GameplayWorldHit pickKeyboardInteractionTarget(const GameplayWorldPickRequest &request) override;
@@ -1025,7 +1030,7 @@ private:
     void aggroNearbyMapActorFaction(size_t actorIndex, float partyX, float partyY, float partyZ);
     ChestViewState buildChestView(uint32_t chestId) const;
     void activateChestView(uint32_t chestId);
-    bool attemptOpenChest(uint32_t chestId);
+    bool attemptOpenChest(uint32_t chestId, bool openedByTelekinesis = false);
     GameplayWorldPoint chestTrapSourcePoint() const;
     GameplayWorldPoint chestTrapVisualPoint(const GameplayWorldPoint &sourcePoint) const;
     void applyChestTrapState(uint32_t chestId, const ChestTrapOpenResult &trapResult);

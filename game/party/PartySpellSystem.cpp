@@ -768,7 +768,7 @@ std::optional<BackendSpellRule> resolveBackendSpellRule(uint32_t spellId, SkillM
         case SpellId::RockBlast:
             return makeBackendSpellRule(spellId, PartySpellCastTargetKind::GroundPoint, PartySpellCastEffectKind::Projectile, SkillMastery::Master, {}, {}, PartyBuffId::TorchLight, 10, 10, false);
         case SpellId::Telekinesis:
-            return makeBackendSpellRule(spellId, PartySpellCastTargetKind::UtilityUi, PartySpellCastEffectKind::UtilityUi, SkillMastery::Master, {20, 20, 20, 20}, {150, 150, 150, 150}, PartyBuffId::TorchLight);
+            return makeBackendSpellRule(spellId, PartySpellCastTargetKind::TelekinesisTarget, PartySpellCastEffectKind::Telekinesis, SkillMastery::Master, {20, 20, 20, 20}, {150, 150, 150, 150}, PartyBuffId::TorchLight);
         case SpellId::DeathBlossom:
             return makeBackendSpellRule(spellId, PartySpellCastTargetKind::GroundPoint, PartySpellCastEffectKind::Projectile, SkillMastery::Master, {}, {}, PartyBuffId::TorchLight, 20, 2, true);
         case SpellId::MassDistortion:
@@ -1684,6 +1684,27 @@ PartySpellCastResult PartySpellSystem::castSpell(
                 "Select item target");
         }
     }
+    else if (rule->targetKind == PartySpellCastTargetKind::TelekinesisTarget)
+    {
+        if (!request.telekinesisTarget.has_value())
+        {
+            return makeFailure(
+                request.spellId,
+                PartySpellCastStatus::NeedTelekinesisTarget,
+                rule->targetKind,
+                rule->effectKind,
+                NoValidTargetText);
+        }
+
+        if (!worldRuntime.canActivateTelekinesisTarget(*request.telekinesisTarget))
+        {
+            return makeFailureWithRecovery(
+                PartySpellCastStatus::Failed,
+                rule->targetKind,
+                rule->effectKind,
+                SpellFailedText);
+        }
+    }
     else if (rule->targetKind == PartySpellCastTargetKind::UtilityUi)
     {
         if (spellId == SpellId::TownPortal)
@@ -2410,6 +2431,13 @@ PartySpellCastResult PartySpellSystem::castSpell(
                     castSucceeded = true;
                 }
             }
+        }
+    }
+    else if (rule->effectKind == PartySpellCastEffectKind::Telekinesis)
+    {
+        if (request.telekinesisTarget.has_value())
+        {
+            castSucceeded = worldRuntime.activateTelekinesisTarget(*request.telekinesisTarget);
         }
     }
     else if (rule->effectKind == PartySpellCastEffectKind::Projectile)

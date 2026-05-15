@@ -10730,6 +10730,116 @@ bool IndoorWorldRuntime::activateWorldHit(const GameplayWorldHit &hit)
     return m_pRenderer != nullptr && m_pRenderer->activateGameplayWorldHit(hit);
 }
 
+bool IndoorWorldRuntime::canActivateTelekinesisTarget(const GameplayWorldHit &hit) const
+{
+    if (!hit.hasHit)
+    {
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Actor && hit.actor)
+    {
+        GameplayRuntimeActorState actorState = {};
+        return actorRuntimeState(hit.actor->actorIndex, actorState) && actorState.isDead && !actorState.isInvisible;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
+    {
+        const MapDeltaData *pMapDeltaData = mapDeltaData();
+
+        return pMapDeltaData != nullptr
+            && hit.worldItem->worldItemIndex < pMapDeltaData->spriteObjects.size()
+            && hasContainingItemPayload(pMapDeltaData->spriteObjects[hit.worldItem->worldItemIndex].rawContainingItem);
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Chest && hit.container)
+    {
+        const MapDeltaData *pMapDeltaData = mapDeltaData();
+        return hit.container->sourceKind == GameplayWorldContainerSourceKind::Chest
+            && pMapDeltaData != nullptr
+            && hit.container->sourceIndex < pMapDeltaData->chests.size();
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Corpse && hit.container)
+    {
+        return hit.container->sourceKind == GameplayWorldContainerSourceKind::Corpse;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::EventTarget)
+    {
+        return m_pRenderer != nullptr && m_pRenderer->canActivateGameplayWorldHit(hit);
+    }
+
+    return false;
+}
+
+bool IndoorWorldRuntime::activateTelekinesisTarget(const GameplayWorldHit &hit)
+{
+    if (!canActivateTelekinesisTarget(hit))
+    {
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Chest && hit.container)
+    {
+        const uint32_t chestId = static_cast<uint32_t>(hit.container->sourceIndex);
+
+        if (attemptOpenChest(chestId, true))
+        {
+            MapDeltaData *pMapDeltaData = mapDeltaData();
+
+            if (pMapDeltaData != nullptr && chestId < pMapDeltaData->chests.size())
+            {
+                pMapDeltaData->chests[chestId].flags |= static_cast<uint16_t>(EvtChestFlag::Opened);
+            }
+
+            activateChestView(chestId);
+            return true;
+        }
+
+        return false;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::Corpse && hit.container)
+    {
+        return autoLootMapActorCorpse(hit.container->sourceIndex);
+    }
+
+    if (hit.kind != GameplayWorldHitKind::EventTarget)
+    {
+        return activateWorldHit(hit);
+    }
+
+    EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+    const bool previousTelekinesisEvent =
+        pEventRuntimeState != nullptr && pEventRuntimeState->activeEventOpenedByTelekinesis;
+    const std::optional<GameplayWorldPoint> previousEventSourcePoint = m_pendingEventSourcePoint;
+
+    if (pEventRuntimeState != nullptr)
+    {
+        pEventRuntimeState->activeEventOpenedByTelekinesis = true;
+    }
+
+    if (hit.eventTarget)
+    {
+        m_pendingEventSourcePoint = GameplayWorldPoint{
+            .x = hit.eventTarget->hitPoint.x,
+            .y = hit.eventTarget->hitPoint.y,
+            .z = hit.eventTarget->hitPoint.z,
+        };
+    }
+
+    const bool activated = activateWorldHit(hit);
+
+    m_pendingEventSourcePoint = previousEventSourcePoint;
+    if (pEventRuntimeState != nullptr)
+    {
+        pEventRuntimeState->activeEventOpenedByTelekinesis = previousTelekinesisEvent;
+    }
+
+    return activated;
+}
+
 std::optional<GameplayPartyAttackActorFacts> IndoorWorldRuntime::partyAttackActorFacts(
     size_t actorIndex,
     bool visibleForFallback) const
@@ -12588,13 +12698,16 @@ void IndoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMask
         }
     }
 
-    const std::vector<uint32_t> openedChestIds = consumeOpenedChestIds(*pEventRuntimeState);
+    const std::vector<EventRuntimeState::OpenedChestRequest> openedChestRequests =
+        consumeOpenedChestRequests(*pEventRuntimeState);
 
-    for (uint32_t openedChestId : openedChestIds)
+    for (const EventRuntimeState::OpenedChestRequest &openedChestRequest : openedChestRequests)
     {
+        const uint32_t openedChestId = openedChestRequest.chestId;
+
         if (openedChestId < pMapDeltaData->chests.size())
         {
-            if (attemptOpenChest(openedChestId))
+            if (attemptOpenChest(openedChestId, openedChestRequest.openedByTelekinesis))
             {
                 pMapDeltaData->chests[openedChestId].flags |= static_cast<uint16_t>(EvtChestFlag::Opened);
                 activateChestView(openedChestId);
@@ -13247,7 +13360,7 @@ void IndoorWorldRuntime::activateChestView(uint32_t chestId)
     }
 }
 
-bool IndoorWorldRuntime::attemptOpenChest(uint32_t chestId)
+bool IndoorWorldRuntime::attemptOpenChest(uint32_t chestId, bool openedByTelekinesis)
 {
     MapDeltaData *pMapDeltaData = mapDeltaData();
 
@@ -13265,6 +13378,7 @@ bool IndoorWorldRuntime::attemptOpenChest(uint32_t chestId)
     trapContext.trapZ = visualPoint.z;
     trapContext.partyX = partyX();
     trapContext.partyY = partyY();
+    trapContext.openedByTelekinesis = openedByTelekinesis;
 
     if (m_pPartyRuntime != nullptr)
     {
