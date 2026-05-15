@@ -176,39 +176,19 @@ RegisterEvent(24, "Evil Altar", function()
     evt.SetTexture(943, "d6flora")
     evt.SetTexture(942, "d6flora")
     evt.StatusText("+5 Personality permanent to Druids and Clerics.")
-    evt.ForPlayer(Players.Member0)
-    if IsAtLeast(ClassId, 4) then
-        AddValue(BasePersonality, 5)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if IsAtLeast(ClassId, 4) then
+            AddValue(BasePersonality, 5)
+        end
     end
-    evt.ForPlayer(Players.Member1)
-    if IsAtLeast(ClassId, 4) then
-        AddValue(BasePersonality, 5)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if IsAtLeast(ClassId, 12) then
+            AddValue(BasePersonality, 5)
+        end
     end
-    evt.ForPlayer(Players.Member2)
-    if IsAtLeast(ClassId, 4) then
-        AddValue(BasePersonality, 5)
-    end
-    evt.ForPlayer(Players.Member3)
-    if IsAtLeast(ClassId, 4) then
-        AddValue(BasePersonality, 5)
-    end
-    evt.ForPlayer(Players.Member0)
-    if IsAtLeast(ClassId, 12) then
-        AddValue(BasePersonality, 5)
-    end
-    evt.ForPlayer(Players.Member1)
-    if IsAtLeast(ClassId, 12) then
-        AddValue(BasePersonality, 5)
-    end
-    evt.ForPlayer(Players.Member2)
-    if IsAtLeast(ClassId, 12) then
-        AddValue(BasePersonality, 5)
-    end
-    evt.ForPlayer(Players.Member3)
-    if IsAtLeast(ClassId, 12) then
-        AddValue(BasePersonality, 5)
-        evt.ForPlayer(Players.All)
-    end
+    evt.ForPlayer(Players.All)
     SetQBit(QBit(1047)) -- 23 D13, Given when Altar is desecrated
 end, "Evil Altar")
 

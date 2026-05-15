@@ -175,7 +175,7 @@ RegisterEvent(25, "Legacy event 25", function()
 end)
 
 RegisterEvent(27, "Stone Face", function()
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
             evt.DamagePlayer(player, const.Damage.Physical, 50)
@@ -289,7 +289,7 @@ RegisterEvent(53, "Chest", function()
 end, "Chest")
 
 RegisterEvent(54, "Stone Face", function()
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
             evt.DamagePlayer(player, const.Damage.Physical, 50)
@@ -319,7 +319,7 @@ RegisterEvent(57, "Legacy event 57", function()
 end)
 
 RegisterEvent(58, "Stone Face", function()
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if not HasItem(2102) then -- Amber
             evt.DamagePlayer(player, const.Damage.Physical, 50)

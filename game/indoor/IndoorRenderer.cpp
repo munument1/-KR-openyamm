@@ -1329,6 +1329,39 @@ std::optional<std::string> resolveIndoorEventHintText(
     return std::nullopt;
 }
 
+std::optional<std::string> resolveIndoorGlobalEventHintText(
+    const IndoorSceneRuntime *pSceneRuntime,
+    uint16_t eventId)
+{
+    if (pSceneRuntime == nullptr || eventId == 0)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+
+    if (!globalEventProgram)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<std::string> hint = globalEventProgram->getHint(eventId);
+
+    if (hint && !hint->empty())
+    {
+        return hint;
+    }
+
+    const std::optional<std::string> summary = globalEventProgram->summarizeEvent(eventId);
+
+    if (summary && !summary->empty())
+    {
+        return summary;
+    }
+
+    return std::nullopt;
+}
+
 bool indoorFaceIsInteractionActivatable(uint32_t attributes, uint16_t eventId)
 {
     return eventId != 0
@@ -4067,12 +4100,34 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
 {
     if (inspectHit.kind == "entity")
     {
-        const std::optional<std::string> decorationHint =
-            resolveEntityDecorationHoverStatusText(inspectHit);
+        const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
-        if (decorationHint && !decorationHint->empty())
+        if (pEventRuntimeState != nullptr)
         {
-            return decorationHint;
+            const std::optional<IndoorInteractiveDecorationBinding> binding =
+                resolveIndoorInteractiveDecorationBinding(
+                    m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                    m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                    m_indoorInteractiveDecorationEventCountsByEntity,
+                    m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    inspectHit.index);
+
+            if (binding)
+            {
+                const std::optional<uint16_t> eventId =
+                    resolveIndoorInteractiveDecorationEventId(*pEventRuntimeState, *binding);
+
+                if (eventId)
+                {
+                    const std::optional<std::string> eventHint =
+                        resolveIndoorGlobalEventHintText(m_pSceneRuntime, *eventId);
+
+                    if (eventHint && !eventHint->empty())
+                    {
+                        return eventHint;
+                    }
+                }
+            }
         }
 
         const uint16_t directEventId = resolveIndoorEntityScriptEventId(inspectHit.eventIdSecondary);
@@ -4086,6 +4141,14 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
             {
                 return directHint;
             }
+        }
+
+        const std::optional<std::string> decorationHint =
+            resolveEntityDecorationHoverStatusText(inspectHit);
+
+        if (decorationHint && !decorationHint->empty())
+        {
+            return decorationHint;
         }
     }
 

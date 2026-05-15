@@ -11,6 +11,7 @@
 #include "game/gameplay/CorpseLootRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
+#include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/gameplay/SavePreviewImage.h"
 #include "game/indoor/IndoorMapData.h"
@@ -3484,6 +3485,123 @@ TEST_CASE("level decoration script event id comes from legacy uEventID field")
 
     outdoorEntity.eventIdPrimary = 0;
     CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);
+}
+
+TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decorations")
+{
+    auto makeDecoration = [](const std::string &internalName, const std::string &hint)
+    {
+        OpenYAMM::Game::DecorationEntry decoration = {};
+        decoration.internalName = internalName;
+        decoration.hint = hint;
+        return decoration;
+    };
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> mm6BarrelSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("bigbarel", "barrel"), "bigbarel");
+    REQUIRE(mm6BarrelSpec.has_value());
+    CHECK_EQ(mm6BarrelSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::Barrel);
+    CHECK_EQ(mm6BarrelSpec->baseEventId, 268u);
+    CHECK_EQ(mm6BarrelSpec->eventCount, 8u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> mm7BarrelSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("dec32", "barrel"), "dec32");
+    REQUIRE(mm7BarrelSpec.has_value());
+    CHECK_EQ(mm7BarrelSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::Barrel);
+    CHECK_EQ(mm7BarrelSpec->baseEventId, 268u);
+    CHECK_EQ(mm7BarrelSpec->eventCount, 8u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> flourSackSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("floursac", "sack"), "floursac");
+    REQUIRE(flourSackSpec.has_value());
+    CHECK_EQ(flourSackSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::FlourSack);
+    CHECK_EQ(flourSackSpec->baseEventId, 1741u);
+    CHECK_EQ(flourSackSpec->eventCount, 2u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(flourSackSpec->family, 13u), 1u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> largeBagSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("bag01", "bag"), "bag01");
+    REQUIRE(largeBagSpec.has_value());
+    CHECK_EQ(largeBagSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::LargeBag);
+    CHECK_EQ(largeBagSpec->baseEventId, 1743u);
+    CHECK_EQ(largeBagSpec->eventCount, 5u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(largeBagSpec->family, 0u), 1u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(largeBagSpec->family, 3u), 4u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> smallBagSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("bag_A", "bag"), "bag_A");
+    REQUIRE(smallBagSpec.has_value());
+    CHECK_EQ(smallBagSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::LargeBag);
+    CHECK_EQ(smallBagSpec->baseEventId, 1743u);
+    CHECK_EQ(smallBagSpec->eventCount, 5u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> bucketSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("Bucket", "bucket"), "Bucket");
+    REQUIRE(bucketSpec.has_value());
+    CHECK_EQ(bucketSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::Bucket);
+    CHECK_EQ(bucketSpec->baseEventId, 1755u);
+    CHECK_EQ(bucketSpec->eventCount, 4u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(bucketSpec->family, 0u), 1u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(bucketSpec->family, 2u), 3u);
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> mm6TrashHeapSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("trasheap", "trash heap"), "trasheap");
+    REQUIRE(mm6TrashHeapSpec.has_value());
+    CHECK_EQ(mm6TrashHeapSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::MightAndMagicSixTrashHeap);
+    CHECK_EQ(mm6TrashHeapSpec->baseEventId, 1748u);
+    CHECK_EQ(mm6TrashHeapSpec->eventCount, 2u);
+    CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(mm6TrashHeapSpec->family, 27u), 1u);
+
+    CHECK_FALSE(OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("", "bag"), "").has_value());
+}
+
+TEST_CASE("indoor decoration activation can use global events without local id collisions")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localProgram = loadSyntheticScriptedProgram(
+        "evt.map[269] = function()\n"
+        "    evt._BeginEvent(269)\n"
+        "    evt.StatusText(\"local collision\")\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticIndoorDecorationLocalCollision.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram = loadSyntheticScriptedProgram(
+        "evt.global[268] = function()\n"
+        "    evt._BeginEvent(268)\n"
+        "    evt.StatusText(\"empty barrel\")\n"
+        "    return\n"
+        "end\n"
+        "evt.global[269] = function()\n"
+        "    evt._BeginEvent(269)\n"
+        "    evt.StatusText(\"global barrel\")\n"
+        "    evt.ChangeEvent(268)\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticIndoorDecorationGlobal.lua",
+        OpenYAMM::Game::ScriptedEventScope::Global);
+    REQUIRE(localProgram.has_value());
+    REQUIRE(globalProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState localState = {};
+
+    REQUIRE(eventRuntime.executeEventById(localProgram, globalProgram, 269, localState, nullptr, nullptr));
+    REQUIRE_FALSE(localState.statusMessages.empty());
+    CHECK_EQ(localState.statusMessages.back(), "local collision");
+
+    OpenYAMM::Game::EventRuntimeState decorationState = {};
+    decorationState.decorVars[0] = 1;
+    OpenYAMM::Game::EventRuntimeState::ActiveDecorationContext context = {};
+    context.decorVarIndex = 0;
+    context.baseEventId = 268;
+    context.currentEventId = 269;
+    context.eventCount = 8;
+    decorationState.activeDecorationContext = context;
+
+    REQUIRE(eventRuntime.executeEventById(std::nullopt, globalProgram, 269, decorationState, nullptr, nullptr));
+    REQUIRE_FALSE(decorationState.statusMessages.empty());
+    CHECK_EQ(decorationState.statusMessages.back(), "global barrel");
+    CHECK_EQ(decorationState.decorVars[0], 0u);
 }
 
 TEST_CASE("lua event runtime stores question answer metadata and resumes continuation step")

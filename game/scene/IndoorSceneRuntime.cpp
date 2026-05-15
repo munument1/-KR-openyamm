@@ -1020,15 +1020,20 @@ bool IndoorSceneRuntime::activateEvent(
 
     m_eventRuntimeState->activeDecorationContext = activeDecorationContext;
 
+    const bool allowGlobalFallback = activeDecorationContext.has_value();
+    const std::optional<ScriptedEventProgram> emptyLocalProgram;
+    const std::optional<ScriptedEventProgram> &effectiveLocalEventProgram =
+        allowGlobalFallback ? emptyLocalProgram : m_localEventProgram;
+
     const bool executed = m_eventRuntime.executeEventById(
-        m_localEventProgram,
+        effectiveLocalEventProgram,
         m_globalEventProgram,
         eventId,
         *m_eventRuntimeState,
         &m_partyRuntime.party(),
         &m_worldRuntime,
         std::nullopt,
-        false
+        allowGlobalFallback
     );
     m_eventRuntimeState->activeDecorationContext.reset();
 

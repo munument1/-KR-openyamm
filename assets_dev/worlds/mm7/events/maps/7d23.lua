@@ -738,22 +738,17 @@ RegisterEvent(477, "Legacy event 477", function()
 end)
 
 RegisterEvent(501, "Leave the Lincoln", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(1406) then -- Wetsuit
-        evt.ForPlayer(Players.Member1)
-        if HasItem(1406) then -- Wetsuit
-            evt.ForPlayer(Players.Member2)
-            if HasItem(1406) then -- Wetsuit
-                evt.ForPlayer(Players.Member3)
-                if HasItem(1406) then -- Wetsuit
-                    evt.ForPlayer(Players.Current)
-                    if HasItem(1406) then -- Wetsuit
-                        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, "7out15.odm") -- Shoals
-                        return
-                    end
-                end
-            end
+    local hasAllWetsuits = true
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if not HasItem(1406) then -- Wetsuit
+            hasAllWetsuits = false
+            break
         end
+    end
+    if hasAllWetsuits then
+        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, "7out15.odm") -- Shoals
+        return
     end
     evt.StatusText("You must all be wearing your wetsuits to exit the ship")
 end, "Leave the Lincoln")

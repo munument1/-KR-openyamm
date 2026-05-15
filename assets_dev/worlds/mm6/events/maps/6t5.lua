@@ -85,16 +85,10 @@ RegisterEvent(16, "Altar of Might", function()
     elseif IsAtLeast(MapVar(2), 1) then
         SetValue(MapVar(5), 1)
         AddValue(MapVar(8), 3)
-        evt.ForPlayer(Players.Member0)
-        AddValue(BaseMight, 5)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BaseMight, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BaseMight, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BaseMight, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BaseMight, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(BaseMight, 5)
+        end
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
     else
         evt.DamagePlayer(Players.All, const.Damage.Physical, 10)
@@ -118,16 +112,10 @@ RegisterEvent(17, "Altar of Life", function()
     else
         SetValue(MapVar(7), 1)
         AddValue(MapVar(8), 1)
-        evt.ForPlayer(Players.Member0)
-        AddValue(BasePersonality, 5)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BasePersonality, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BasePersonality, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BasePersonality, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BasePersonality, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(BasePersonality, 5)
+        end
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
         return
     end
@@ -147,16 +135,10 @@ RegisterEvent(18, "Altar of Endurance", function()
     elseif IsAtLeast(MapVar(5), 1) then
         SetValue(MapVar(3), 1)
         AddValue(MapVar(8), 4)
-        evt.ForPlayer(Players.Member0)
-        AddValue(BaseEndurance, 5)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BaseEndurance, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BaseEndurance, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BaseEndurance, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BaseEndurance, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(BaseEndurance, 5)
+        end
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
     else
         evt.DamagePlayer(Players.All, const.Damage.Physical, 10)
@@ -181,16 +163,10 @@ RegisterEvent(19, "Altar of Accuracy", function()
     elseif IsAtLeast(MapVar(7), 1) then
         SetValue(MapVar(2), 1)
         AddValue(MapVar(8), 2)
-        evt.ForPlayer(Players.Member0)
-        AddValue(BaseAccuracy, 5)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BaseAccuracy, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BaseAccuracy, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BaseAccuracy, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BaseAccuracy, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(BaseAccuracy, 5)
+        end
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
     else
         evt.DamagePlayer(Players.All, const.Damage.Physical, 10)
@@ -215,16 +191,10 @@ RegisterEvent(20, "Altar of Speed", function()
     elseif IsAtLeast(MapVar(3), 1) then
         SetValue(MapVar(6), 1)
         AddValue(MapVar(8), 5)
-        evt.ForPlayer(Players.Member0)
-        AddValue(BaseSpeed, 5)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BaseSpeed, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BaseSpeed, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BaseSpeed, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BaseSpeed, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(BaseSpeed, 5)
+        end
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
     else
         SetValue(MapVar(6), 1)
@@ -247,16 +217,14 @@ RegisterEvent(21, "Altar of Luck", function()
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")
         return
     elseif IsAtLeast(MapVar(6), 1) then
-        evt.ForPlayer(Players.Member0)
-        AddValue(BaseLuck, 2)
-        evt.ForPlayer(Players.Member1)
-        AddValue(BaseLuck, 5)
-        evt.ForPlayer(Players.Member2)
-        AddValue(BaseLuck, 5)
-        evt.ForPlayer(Players.Member3)
-        AddValue(BaseLuck, 5)
-        evt.ForPlayer(Players.Current)
-        AddValue(BaseLuck, 5)
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            if player == Players.Member0 then
+                AddValue(BaseLuck, 2)
+            else
+                AddValue(BaseLuck, 5)
+            end
+        end
         SetValue(MapVar(4), 1)
         AddValue(MapVar(8), 6)
         evt.StatusText("You kneel at the altar for a moment of silent prayer.")

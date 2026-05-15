@@ -81,7 +81,8 @@ bool parseArguments(
     std::optional<std::string> &mapFilter,
     std::optional<std::filesystem::path> &luaExportConfigPath,
     std::optional<std::string> &legacyEventsDir,
-    std::optional<LegacyEventVersion> &legacyEventVersion)
+    std::optional<LegacyEventVersion> &legacyEventVersion,
+    bool &skipGlobal)
 {
     bool hasAssetScaleArgument = false;
 
@@ -184,6 +185,12 @@ bool parseArguments(
 
             config.activeWorldId = argv[argumentIndex + 1];
             ++argumentIndex;
+            continue;
+        }
+
+        if (argument == "--skip-global" || argument == "--maps-only")
+        {
+            skipGlobal = true;
             continue;
         }
 
@@ -2137,6 +2144,7 @@ int main(int argc, char **argv)
     std::optional<std::filesystem::path> luaExportConfigPath;
     std::optional<std::string> legacyEventsDirOverride;
     std::optional<LegacyEventVersion> legacyEventVersionOverride;
+    bool skipGlobal = false;
 
     if (!parseArguments(
             argc,
@@ -2145,7 +2153,8 @@ int main(int argc, char **argv)
             mapFilter,
             luaExportConfigPath,
             legacyEventsDirOverride,
-            legacyEventVersionOverride))
+            legacyEventVersionOverride,
+            skipGlobal))
     {
         return 2;
     }
@@ -2240,19 +2249,20 @@ int main(int argc, char **argv)
         assetFileSystem.getDevelopmentRoot() / "worlds" / assetFileSystem.getActiveWorldId();
     const std::filesystem::path dumpsRoot = std::filesystem::current_path() / "script_dumps";
 
-    if (!exportLegacyProgram(
-            assetFileSystem,
-            globalScriptsRoot,
-            dumpsRoot,
-            tablePaths.legacyEventsDir,
-            "Global",
-            "Global",
-            lookups,
-            decompiledEventTitles,
-            decompiledSummonObjectTypes,
-            nullptr,
-            true,
-            tablePaths.legacyEventVersion))
+    if (!skipGlobal
+        && !exportLegacyProgram(
+                assetFileSystem,
+                globalScriptsRoot,
+                dumpsRoot,
+                tablePaths.legacyEventsDir,
+                "Global",
+                "Global",
+                lookups,
+                decompiledEventTitles,
+                decompiledSummonObjectTypes,
+                nullptr,
+                true,
+                tablePaths.legacyEventVersion))
     {
         return 1;
     }
@@ -2319,7 +2329,7 @@ int main(int argc, char **argv)
     }
 
     std::cout << "Exported legacy event assets:\n";
-    std::cout << "  global=yes\n";
+    std::cout << "  global=" << (skipGlobal ? "skipped" : "yes") << '\n';
     std::cout << "  map_count=" << exportedMapCount << '\n';
     std::cout << "  skipped_foreign_map_count=" << skippedForeignMapCount << '\n';
     std::cout << "  legacy_event_version=" << static_cast<int>(tablePaths.legacyEventVersion) << '\n';

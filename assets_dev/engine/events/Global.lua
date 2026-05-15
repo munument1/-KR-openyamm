@@ -255,32 +255,20 @@ end)
 RegisterGlobalEvent(27, "Cauri Blackthorne", function()
     if IsQBitSet(QBit(39)) then -- Find Cauri Blackthorne then return to Dantillion in Murmurwoods with information of her location. - Dark Elf Promotion to Patriarch
         evt.SetMessage("Cauri Blackthorne was here well over a week ago, maybe longer.\nShe had asked us many questions about the elemental incursions.\nWe provided her with what information we had here.\nShe said she would return to Alvar with the information.\nBefore she left, we asked her if she could do a favor for us.\nWe asked her if she could check on a group of pilgrims that were traveling to the old Druid Circle of Stone to the northeast of here.\nShe assured us that she would check in on them on her way back to Alvar.")
-        evt.ForPlayer(Players.Member0)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member1)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member2)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member3)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member4)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(InventoryItem(339), 339) -- Stone to Flesh
+        end
         evt.SetNPCTopic(41, 0, 26) -- Dantillion  topic 0: Circle of Stone
         return
     elseif IsQBitSet(QBit(40)) then -- Found and Rescued Cauri Blackthorne
         ClearQBit(QBit(39)) -- Find Cauri Blackthorne then return to Dantillion in Murmurwoods with information of her location. - Dark Elf Promotion to Patriarch
     else
         evt.SetMessage("Cauri Blackthorne was here well over a week ago, maybe longer.\nShe had asked us many questions about the elemental incursions.\nWe provided her with what information we had here.\nShe said she would return to Alvar with the information.\nBefore she left, we asked her if she could do a favor for us.\nWe asked her if she could check on a group of pilgrims that were traveling to the old Druid Circle of Stone to the northeast of here.\nShe assured us that she would check in on them on her way back to Alvar.")
-        evt.ForPlayer(Players.Member0)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member1)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member2)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member3)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
-        evt.ForPlayer(Players.Member4)
-        AddValue(InventoryItem(339), 339) -- Stone to Flesh
+        for _, player in ipairs(PartyMembers()) do
+            evt.ForPlayer(player)
+            AddValue(InventoryItem(339), 339) -- Stone to Flesh
+        end
     end
 evt.SetNPCTopic(41, 0, 26) -- Dantillion  topic 0: Circle of Stone
 return
@@ -7544,7 +7532,7 @@ RegisterGlobalEvent(795, "Legacy event 795", function()
         return
     end
     evt.SetMessage("Well done.\nStealing that vase took guts and skill.\nI grant you the title of Rogue, and a small payment for your services. ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 34) then
             SetValue(ClassId, 35)
@@ -7581,7 +7569,7 @@ RegisterGlobalEvent(797, "Legacy event 797", function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(532)) then -- Watchtower 6. Weight in the appropriate box. Important for Global event 47 (Spy promotion)
         evt.SetMessage("Good work!\nSome day, your sabotage of that watchtower will save hundreds of lives.\nFor your services, I hereby promote the Rogues among you to the status of Spy, and the Honorary Rogues to Honorary Spies! Oh, and here’s some gold as payment. ")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 35) then
                 SetValue(ClassId, 37)
@@ -7647,7 +7635,7 @@ RegisterGlobalEvent(800, "Legacy event 800", function()
         return
     end
     evt.SetMessage("So, the job is done. [He examines the dagger slowly, then sighs.] She was very dear to me, but emotion is the enemy of reason.\nI could not have done the job myself.\nThank you.\nTruly now, you are Assassins.\nThe rogues among you, I will give special training to.\nHere is a small payment to help cover the expenses you incurred on the job. ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 35) then
             SetValue(ClassId, 36)
@@ -7683,7 +7671,7 @@ RegisterGlobalEvent(802, "Legacy event 802", function()
         return
     end
     evt.SetMessage("Hurrah!\nThe Dragon has fallen!\nTruly thou art grand Crusaders in good standing, with a fine deed behind thee.\nI would stay and sing songs of thy bravery with thee, but duty calls.\nSurely we will meet again, Crusaders!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 26) then
             SetValue(ClassId, 27)
@@ -7723,7 +7711,7 @@ RegisterGlobalEvent(804, "Legacy event 804", function()
         return
     end
     evt.SetMessage("Thee’ve done it! I knew thee could do it!\nI’m so proud of thee!\nAlice has been freed of the clutches of the wicked William Setag, evil has been vanquished, and good upheld.\nWhere once there was wrong, now there is right! [Charles sighs and smiles broadly] Well.\nMy work here is done!\nThee have passed the tests and deserve thy reward.\nTherefore do I solemnly declare thee Heroes! ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 27) then
             SetValue(ClassId, 28)
@@ -7796,7 +7784,7 @@ RegisterGlobalEvent(807, "Legacy event 807", function()
         return
     end
     evt.SetMessage("Capital!\nYou have shown dedication, daring, and the power of raw force.\nCertainly the imprisonment of such a fair and noble creature in this wicked place earns you the right to be called a Villain-- or Honorary Villain.\nGo now upon the world and make all fear your name.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 27) then
             SetValue(ClassId, 29)
@@ -7828,7 +7816,7 @@ end)
 
 RegisterGlobalEvent(810, "Legacy event 810", function()
     evt.SetMessage("[Bartholomew Hume contacts you mentally] Congratulations, young ones.\nMy final lesson given to you as Monks is this:\nenlightenment is gained by the journey, not the destination.\nIn this case, the destination was critical to prove that you were capable of the journey.\nI shall now promote all Monks to Initiates and everyone else to Honorary Initiates-- congratulations.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 22) then
             SetValue(ClassId, 23)
@@ -7866,7 +7854,7 @@ RegisterGlobalEvent(812, "Legacy event 812", function()
         return
     end
     evt.SetMessage("Good work.\nNo longer shall the Order of Baa stain the lands of Erathia.\nNow, allow me to promote all Initiates to Masters, and all Honorary Initiates to Honorary Masters.\nKeep in mind that this is but a stop along the path of enlightenment.\nYour journey only ends with your eventual death-- never close your mind.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 23) then
             SetValue(ClassId, 24)
@@ -7924,7 +7912,7 @@ RegisterGlobalEvent(814, "Legacy event 814", function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(754)) then -- Opened chest with shadow mask
         evt.SetMessage("Well done.\nNo one can argue with success except apologists for the weak and the cowardly.\nI hereby promote all Initiates to Ninjas, and all non-Initiates to Honorary Ninjas.\nOh yeah, go ahead and keep that little trinket you stole from the tomb.\nThis was just a training exercise, after all.")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 23) then
                 SetValue(ClassId, 25)
@@ -7981,7 +7969,7 @@ RegisterGlobalEvent(816, "Legacy event 816", function()
         return
     end
     evt.SetMessage("You found the bow!\nLet me take some measurements and adjust it to your specific style of archery. Once I have finished you should keep it, and use it in defense the of the land and the people.\nI am happy to promote all Warrior Mages to Master Archers, and all Honorary Warrior Mages to Honorary Master Archers.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 1) then
             SetValue(ClassId, 2)
@@ -8017,7 +8005,7 @@ RegisterGlobalEvent(818, "Legacy event 818", function()
         return
     end
     evt.SetMessage("Very Good.\nYou have passed the test.\nNow the creatures are sealed away and won't be able to prey on the dwarves any longer, and you have proven your ability in both sorcery and steel.\nI am proud to declare all Archers amongst you Warrior Mages, and everyone else Honorary Warrior Mages.\nCongratulations!\nNow get out.\nI already weary of your company.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 0) then
             SetValue(ClassId, 1)
@@ -8054,7 +8042,7 @@ RegisterGlobalEvent(820, "Legacy event 820", function()
         return
     end
     evt.SetMessage("You have the bow?!\nExcellent!\nIt's been centuries since someone was brave enough to take on the Titans and try to get that bow back!\nLet me take some measurements and adjust it to your specific style of archery.\nI am proud to be the one to first call all Warrior Mages amongst you Snipers, and to say that all Honorary Warrior Mages are Honorary Snipers!\nI must admit I didn't think you had it in you to succeed.\nI am happy that I was wrong.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 1) then
             SetValue(ClassId, 3)
@@ -8113,7 +8101,7 @@ RegisterGlobalEvent(822, "Legacy event 822", function()
         return
     end
     evt.SetMessage("Congratulations for you recent tourney victories, my friends!\nI gladly name the Cavaliers among you Champions, and the Honorary Cavaliers I name Honorary Champions!\nAlways fight for the Light, Champions!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 17) then
             SetValue(ClassId, 19)
@@ -8144,7 +8132,7 @@ RegisterGlobalEvent(824, "Legacy event 824", function()
         return
     end
     evt.SetMessage("So you're back!\nAnd from the look on your faces I see you have finished the job.\nWell done!\nI hereby officially promote all Knights amongst you to Cavaliers, and everyone else to honorary Cavaliers.\nCarry your title with pride!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 16) then
             SetValue(ClassId, 17)
@@ -8179,7 +8167,7 @@ RegisterGlobalEvent(826, "Legacy event 826", function()
         return
     end
     evt.SetMessage("All RIGHT!\nThat robbery was brilliant!\nI am very proud of you.\nKeep the loot--it's your reward for a job well done.\nI can safely say the Cavaliers among you have become Black Knights today, and I'll throw in an Honorary Black Knight title for the rest of you.\nYou've done well, my students!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 17) then
             SetValue(ClassId, 18)
@@ -8227,7 +8215,7 @@ end)
 RegisterGlobalEvent(828, "Legacy event 828", function()
     if IsQBitSet(QBit(553)) then -- Solved Tree quest
         evt.SetMessage("You've done a good thing, returning the Heart.\nThe forest is quieter now, and no longer attacks travelers.\nYou've probably saved many lives.\nFor service to the Land and the Light, I hereby promote all Hunters among you to Ranger Lords, and all honorary Hunters to honorary Ranger Lords!")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 31) then
                 SetValue(ClassId, 33)
@@ -8280,7 +8268,7 @@ RegisterGlobalEvent(832, "Legacy event 832", function()
         return
     end
     evt.SetMessage("So, how did if feel?\nAll that killing?\nMmmmm.\nHeh.\nYou qualify, my friends.\nYou definitely qualify.\nAll Hunters amongst you are now Bounty Hunters, and all Honorary hunters and Honorary Bounty Hunters!\nGood job.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 31) then
             SetValue(ClassId, 32)
@@ -8300,7 +8288,7 @@ end)
 
 RegisterGlobalEvent(833, "Legacy event 833", function()
     evt.SetMessage("Come to my door looking for magic?\nThee've always had it, if thee knew where to look.\nSome I tell this to, and they still can't see it, though it be plain as the nose on their face.\nThose amongst thee that are simple Rangers are now Hunters, and those who aren't are but Honorary Hunters.\nClever the ones who can knock on my door!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 30) then
             SetValue(ClassId, 31)
@@ -8396,7 +8384,7 @@ RegisterGlobalEvent(837, "Legacy event 837", function()
         return
     end
     evt.SetMessage("Your bravery has advanced our faith tremendously, Priests.\nIt's with a glad heart that I can hereby promote all Priests to Priests of the Light, and all honorary Priests to Honorary Priests of the Light.\nThank you so much for your help!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 5) then
             SetValue(ClassId, 6)
@@ -8428,7 +8416,7 @@ RegisterGlobalEvent(839, "Legacy event 839", function()
         return
     end
     evt.SetMessage("The Map!\nYou found it!\n[Falk looks at the map, and points at the island] There it is.\nThe island has been shrouded in mist since the Churches of the Sun and Moon began fighting over a century ago.\nKeep the map--I have the coordinates now, and will have no trouble finding the place when I need to.\nI am proud to declare the Clerics amongst you to be Priests, and the rest to be honorary Priests.\nThank you so much for your good work!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 4) then
             SetValue(ClassId, 5)
@@ -8469,7 +8457,7 @@ RegisterGlobalEvent(841, "Legacy event 841", function()
         return
     end
     evt.SetMessage("Your bravery has advanced our faith tremendously, Priests.\nIt's with pleasure that I can hereby promote all Priests to Priests of the Dark, and all honorary Priests to Honorary Priests of the Dark.\nThank you so much for your help!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 5) then
             SetValue(ClassId, 7)
@@ -8498,7 +8486,7 @@ end)
 RegisterGlobalEvent(843, "Legacy event 843", function()
     if IsQBitSet(QBit(586)) then -- Finished constructing Golem with normal head
         evt.SetMessage("[You proudly display your assembled golem to Master Grey, and he nods approvingly] Well done.\nHead looks alright, but you can never be sure…Well, good work!\nClearly, you qualify for Wizard status.\nAll Sorcerers amongst you are now Wizards, and all non Sorcerers are now honorary Wizards!\n[Master Grey spends awhile casting the spell that animates your golem] He's all yours!\nTake him back to your castle and put him where you want.\nHe'll attack intruders relentlessly.\n")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 42) then
                 SetValue(ClassId, 43)
@@ -8518,7 +8506,7 @@ RegisterGlobalEvent(843, "Legacy event 843", function()
         ClearQBit(QBit(732)) -- Abby normal head - I lost it
     elseif IsQBitSet(QBit(585)) then -- Finished constructing Golem with Abbey normal head
         evt.SetMessage("[You proudly display your assembled golem to Master Grey, and he nods approvingly] Well done.\nHead looks alright, but you can never be sure…Well, good work!\nClearly, you qualify for Wizard status.\nAll Sorcerers amongst you are now Wizards, and all non Sorcerers are now honorary Wizards!\n[Master Grey spends awhile casting the spell that animates your golem] He's all yours!\nTake him back to your castle and put him where you want.\nHe'll attack intruders relentlessly.\n")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 42) then
                 SetValue(ClassId, 43)
@@ -8561,7 +8549,7 @@ RegisterGlobalEvent(845, "Legacy event 845", function()
         return
     end
     evt.SetMessage("The book!\nThe book!\n[Master Grey clutches his ears and spins around in joy] You did it!\nOh, what a wonderful day!\nI am so proud of you!\nYou're all Archmages!\nOf course, if you weren't Wizards to begin with, it's only an honorary title, but who cares?\nYou found the book!\n[The Master sets the book down on a table next to a blank book.\nBoth open simultaneously, and quill arises from the desk to begin copying the text in the new book] You may keep the copy, and you should start seeing more copies in the Light guilds of Bracada and Celeste.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 43) then
             SetValue(ClassId, 46)
@@ -8608,344 +8596,41 @@ RegisterGlobalEvent(846, "Legacy event 846", function()
 end)
 
 RegisterGlobalEvent(847, "Legacy event 847", function()
-    local function Step_0()
-        evt.ForPlayer(Players.Member0)
-        return 1
-    end
-    local function Step_1()
-        if HasItem(1417) then return 3 end -- Lich Jar
-        return 2
-    end
-    local function Step_2()
-        return 11
-    end
-    local function Step_3()
-        evt.ForPlayer(Players.Member1)
-        return 4
-    end
-    local function Step_4()
-        if HasItem(1417) then return 6 end -- Lich Jar
-        return 5
-    end
-    local function Step_5()
-        return 11
-    end
-    local function Step_6()
-        evt.ForPlayer(Players.Member2)
-        return 7
-    end
-    local function Step_7()
-        if HasItem(1417) then return 9 end -- Lich Jar
-        return 8
-    end
-    local function Step_8()
-        return 11
-    end
-    local function Step_9()
-        evt.ForPlayer(Players.Member3)
-        return 10
-    end
-    local function Step_10()
-        if HasItem(1417) then return 13 end -- Lich Jar
-        return 11
-    end
-    local function Step_11()
-        evt.SetMessage("I have no spare Jars with which to perform the Ritual.\nIt is impossible for me to promote you until you return with the Jars.\nRemember, each one of you must have a Jar to be Promoted.")
-        return 12
-    end
-    local function Step_12()
-        return nil
-    end
-    local function Step_13()
-        evt.SetMessage("Jars.\nYessss.\nYou have helped us greatly.\nNow for the Ritual.\n[The Lich draws a knife, and approaches you]\nThis won't hurt a bit!\n[The ritual actually hurts quite a bit, and takes several hours to complete.\nWhen it is over, the Lich speaks again]\nSo, now it is done.\nThose among you who were Wizards are now most certainly Liches.\nThose who were not, have my gratitude for returning the jars, and I will call you \"Honorary Liches\".\nRemember, Liches must keep their Soul Jars with them at all times while they travel.\nYou cannot be separated from your Jar for long, or you will die a real death.")
-        return 14
-    end
-    local function Step_14()
-        evt.ForPlayer(Players.Member0)
-        return 15
-    end
-    local function Step_15()
-        if IsAtLeast(ClassId, 43) then return 19 end
-        return 16
-    end
-    local function Step_16()
-        SetQBit(QBit(1624)) -- Promoted to Honorary Lich
-        return 17
-    end
-    local function Step_17()
-        AddValue(Experience, 40000)
-        return 18
-    end
-    local function Step_18()
-        return 22
-    end
-    local function Step_19()
-        SetValue(ClassId, 45)
-        return 20
-    end
-    local function Step_20()
-        SetQBit(QBit(1623)) -- Promoted to Lich
-        return 21
-    end
-    local function Step_21()
-        AddValue(Experience, 80000)
-        return 22
-    end
-    local function Step_22()
-        evt.ForPlayer(Players.Member1)
-        return 23
-    end
-    local function Step_23()
-        if IsAtLeast(ClassId, 43) then return 27 end
-        return 24
-    end
-    local function Step_24()
-        SetQBit(QBit(1624)) -- Promoted to Honorary Lich
-        return 25
-    end
-    local function Step_25()
-        AddValue(Experience, 40000)
-        return 26
-    end
-    local function Step_26()
-        return 30
-    end
-    local function Step_27()
-        SetValue(ClassId, 45)
-        return 28
-    end
-    local function Step_28()
-        SetQBit(QBit(1623)) -- Promoted to Lich
-        return 29
-    end
-    local function Step_29()
-        AddValue(Experience, 80000)
-        return 30
-    end
-    local function Step_30()
-        evt.ForPlayer(Players.Member2)
-        return 31
-    end
-    local function Step_31()
-        if IsAtLeast(ClassId, 43) then return 35 end
-        return 32
-    end
-    local function Step_32()
-        SetQBit(QBit(1624)) -- Promoted to Honorary Lich
-        return 33
-    end
-    local function Step_33()
-        AddValue(Experience, 40000)
-        return 34
-    end
-    local function Step_34()
-        return 38
-    end
-    local function Step_35()
-        SetValue(ClassId, 45)
-        return 36
-    end
-    local function Step_36()
-        SetQBit(QBit(1623)) -- Promoted to Lich
-        return 37
-    end
-    local function Step_37()
-        AddValue(Experience, 80000)
-        return 38
-    end
-    local function Step_38()
-        evt.ForPlayer(Players.Member3)
-        return 39
-    end
-    local function Step_39()
-        if IsAtLeast(ClassId, 43) then return 43 end
-        return 40
-    end
-    local function Step_40()
-        SetQBit(QBit(1624)) -- Promoted to Honorary Lich
-        return 41
-    end
-    local function Step_41()
-        AddValue(Experience, 40000)
-        return 42
-    end
-    local function Step_42()
-        return 46
-    end
-    local function Step_43()
-        SetValue(ClassId, 45)
-        return 44
-    end
-    local function Step_44()
-        SetQBit(QBit(1623)) -- Promoted to Lich
-        return 45
-    end
-    local function Step_45()
-        AddValue(Experience, 80000)
-        return 46
-    end
-    local function Step_46()
-        ClearQBit(QBit(560)) -- Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to Halfgild Wynac in the Pit.
-        return 47
-    end
-    local function Step_47()
-        ClearQBit(QBit(741)) -- Lich Jar (Empty) - I lost it
-        return 48
-    end
-    local function Step_48()
-        AddValue(Gold, 7500)
-        return 49
-    end
-    local function Step_49()
-        SubtractValue(ReputationInCurrentLocation, 10)
-        return 50
-    end
-    local function Step_50()
-        evt.ForPlayer(Players.All)
-        return 51
-    end
-    local function Step_51()
-        if HasItem(1417) then return 53 end -- Lich Jar
-        return 52
-    end
-    local function Step_52()
-        return 55
-    end
-    local function Step_53()
-        RemoveItem(1417) -- Lich Jar
-        return 54
-    end
-    local function Step_54()
-        return 51
-    end
-    local function Step_55()
-        evt.SetNPCTopic(388, 0, 0) -- Halfgild Wynac topic 0 cleared
-        return 56
-    end
-    local function Step_56()
-        evt.SetNPCGreeting(388, 194) -- Halfgild Wynac greeting 194
-        return nil
-    end
-    local step = 0
-    while step ~= nil do
-        if step == 0 then
-            step = Step_0()
-        elseif step == 1 then
-            step = Step_1()
-        elseif step == 2 then
-            step = Step_2()
-        elseif step == 3 then
-            step = Step_3()
-        elseif step == 4 then
-            step = Step_4()
-        elseif step == 5 then
-            step = Step_5()
-        elseif step == 6 then
-            step = Step_6()
-        elseif step == 7 then
-            step = Step_7()
-        elseif step == 8 then
-            step = Step_8()
-        elseif step == 9 then
-            step = Step_9()
-        elseif step == 10 then
-            step = Step_10()
-        elseif step == 11 then
-            step = Step_11()
-        elseif step == 12 then
-            step = Step_12()
-        elseif step == 13 then
-            step = Step_13()
-        elseif step == 14 then
-            step = Step_14()
-        elseif step == 15 then
-            step = Step_15()
-        elseif step == 16 then
-            step = Step_16()
-        elseif step == 17 then
-            step = Step_17()
-        elseif step == 18 then
-            step = Step_18()
-        elseif step == 19 then
-            step = Step_19()
-        elseif step == 20 then
-            step = Step_20()
-        elseif step == 21 then
-            step = Step_21()
-        elseif step == 22 then
-            step = Step_22()
-        elseif step == 23 then
-            step = Step_23()
-        elseif step == 24 then
-            step = Step_24()
-        elseif step == 25 then
-            step = Step_25()
-        elseif step == 26 then
-            step = Step_26()
-        elseif step == 27 then
-            step = Step_27()
-        elseif step == 28 then
-            step = Step_28()
-        elseif step == 29 then
-            step = Step_29()
-        elseif step == 30 then
-            step = Step_30()
-        elseif step == 31 then
-            step = Step_31()
-        elseif step == 32 then
-            step = Step_32()
-        elseif step == 33 then
-            step = Step_33()
-        elseif step == 34 then
-            step = Step_34()
-        elseif step == 35 then
-            step = Step_35()
-        elseif step == 36 then
-            step = Step_36()
-        elseif step == 37 then
-            step = Step_37()
-        elseif step == 38 then
-            step = Step_38()
-        elseif step == 39 then
-            step = Step_39()
-        elseif step == 40 then
-            step = Step_40()
-        elseif step == 41 then
-            step = Step_41()
-        elseif step == 42 then
-            step = Step_42()
-        elseif step == 43 then
-            step = Step_43()
-        elseif step == 44 then
-            step = Step_44()
-        elseif step == 45 then
-            step = Step_45()
-        elseif step == 46 then
-            step = Step_46()
-        elseif step == 47 then
-            step = Step_47()
-        elseif step == 48 then
-            step = Step_48()
-        elseif step == 49 then
-            step = Step_49()
-        elseif step == 50 then
-            step = Step_50()
-        elseif step == 51 then
-            step = Step_51()
-        elseif step == 52 then
-            step = Step_52()
-        elseif step == 53 then
-            step = Step_53()
-        elseif step == 54 then
-            step = Step_54()
-        elseif step == 55 then
-            step = Step_55()
-        elseif step == 56 then
-            step = Step_56()
-        else
-            step = nil
+    local hasAllLichJars = true
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if not HasItem(1417) then -- Lich Jar
+            hasAllLichJars = false
+            break
         end
     end
+    if not hasAllLichJars then
+        evt.SetMessage("I have no spare Jars with which to perform the Ritual.\nIt is impossible for me to promote you until you return with the Jars.\nRemember, each one of you must have a Jar to be Promoted.")
+        return
+    end
+    evt.SetMessage("Jars.\nYessss.\nYou have helped us greatly.\nNow for the Ritual.\n[The Lich draws a knife, and approaches you]\nThis won't hurt a bit!\n[The ritual actually hurts quite a bit, and takes several hours to complete.\nWhen it is over, the Lich speaks again]\nSo, now it is done.\nThose among you who were Wizards are now most certainly Liches.\nThose who were not, have my gratitude for returning the jars, and I will call you \"Honorary Liches\".\nRemember, Liches must keep their Soul Jars with them at all times while they travel.\nYou cannot be separated from your Jar for long, or you will die a real death.")
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if IsAtLeast(ClassId, 43) then
+            SetValue(ClassId, 45)
+            SetQBit(QBit(1623)) -- Promoted to Lich
+            AddValue(Experience, 80000)
+        else
+            SetQBit(QBit(1624)) -- Promoted to Honorary Lich
+            AddValue(Experience, 40000)
+        end
+    end
+    ClearQBit(QBit(560)) -- Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to Halfgild Wynac in the Pit.
+    ClearQBit(QBit(741)) -- Lich Jar (Empty) - I lost it
+    AddValue(Gold, 7500)
+    SubtractValue(ReputationInCurrentLocation, 10)
+    evt.ForPlayer(Players.All)
+    while HasItem(1417) do -- Lich Jar
+        RemoveItem(1417) -- Lich Jar
+    end
+    evt.SetNPCTopic(388, 0, 0) -- Halfgild Wynac topic 0 cleared
+    evt.SetNPCGreeting(388, 194) -- Halfgild Wynac greeting 194
+
 end)
 
 RegisterGlobalEvent(848, "Legacy event 848", function()
@@ -8957,7 +8642,7 @@ end)
 RegisterGlobalEvent(849, "Legacy event 849", function()
     if IsQBitSet(QBit(562)) then -- Visited all stonehenges
         evt.SetMessage("I have only to look into your eyes to see where you've been.\nYou have seen the circles, and they have left their imprint upon you.\nTelling you that all Druids amongst you are now Great Druids is but a formality.\nTelling the rest of you that you're now honorary Druids is showing you respect for the respect you have shown me and my faith.\n")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 12) then
                 SetValue(ClassId, 13)
@@ -9003,7 +8688,7 @@ RegisterGlobalEvent(851, "Legacy event 851", function()
         return
     end
     evt.SetMessage("[Master Green seems beside himself with joy at your accomplishment] I felt the King's soul return to the land of the dead when you returned his bones.\nThe land breathed a sigh of relief--did you feel it?\nThe Ceremony of Ascension is complete.\nI'm happy to promote all Great Druids amongst you to Arch Druids, and all honorary Great Druids to Honorary Arch Druids.\nThis is a very happy day!\nYour service will be remembered!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 13) then
             SetValue(ClassId, 15)
@@ -9055,7 +8740,7 @@ RegisterGlobalEvent(853, "Legacy event 853", function()
         return
     end
     evt.SetMessage("[Tor looks at you in astonishment] You really found a dragon egg!\nIt's been more than a century since any Warlock has both needed and found a dragon familiar!\nThis will go down in the history books, that's for sure!\nMy spell book!\nI need my book!\nAh, here it is.\n[Tor chants a spell from the book, then taps the egg three times.\nThe egg hatches, and a baby dragon crawls out of the shell]\nThere you are!\nAwww, isn't he cute?\nCongratulations!\nNo longer are you simple Great Druids, but Warlocks!\nOf course, that's just an honorary title if you weren't a natural Great Druid to begin with, but nonetheless, something to be proud of.\n")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 13) then
             SetValue(ClassId, 14)
@@ -9662,14 +9347,10 @@ RegisterGlobalEvent(876, "Legacy event 876", function()
     SetQBit(QBit(602)) -- Told Catherine about fake prisoner
     evt.SetNPCTopic(408, 0, 0) -- Queen Catherine topic 0 cleared
     evt.SetNPCTopic(408, 1, 0) -- Queen Catherine topic 1 cleared
-    evt.ForPlayer(Players.Member0)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member1)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member2)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member3)
-    SetValue(Eradicated, 1)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        SetValue(Eradicated, 1)
+    end
 end)
 RegisterCanShowTopic(876, function()
     evt._BeginCanShowTopic(876)
@@ -9755,14 +9436,10 @@ RegisterGlobalEvent(879, "Legacy event 879", function()
     ClearQBit(QBit(606)) -- Give false Riverstride plans to Eldrich Parson in Castle Navan in the Tularean Forest.
     evt.SetNPCTopic(408, 2, 0) -- Queen Catherine topic 2 cleared
     evt.SetNPCTopic(408, 3, 0) -- Queen Catherine topic 3 cleared
-    evt.ForPlayer(Players.Member0)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member1)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member2)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member3)
-    SetValue(Eradicated, 1)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        SetValue(Eradicated, 1)
+    end
 end)
 RegisterCanShowTopic(879, function()
     evt._BeginCanShowTopic(879)
@@ -9876,14 +9553,10 @@ RegisterGlobalEvent(883, "Legacy event 883", function()
     SetQBit(QBit(603)) -- Told Elfking about fake plans
     evt.SetNPCTopic(409, 0, 0) -- ElfKing topic 0 cleared
     evt.SetNPCTopic(409, 1, 0) -- ElfKing topic 1 cleared
-    evt.ForPlayer(Players.Member0)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member1)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member2)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member3)
-    SetValue(Eradicated, 1)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        SetValue(Eradicated, 1)
+    end
 end)
 RegisterCanShowTopic(883, function()
     evt._BeginCanShowTopic(883)
@@ -9967,14 +9640,10 @@ RegisterGlobalEvent(886, "Legacy event 886", function()
     ClearQBit(QBit(607)) -- Return the Loren imposter to Queen Catherine in Castle Gryphonheart in Erathia.
     evt.SetNPCTopic(409, 2, 0) -- ElfKing topic 2 cleared
     evt.SetNPCTopic(409, 3, 0) -- ElfKing topic 3 cleared
-    evt.ForPlayer(Players.Member0)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member1)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member2)
-    SetValue(Eradicated, 1)
-    evt.ForPlayer(Players.Member3)
-    SetValue(Eradicated, 1)
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        SetValue(Eradicated, 1)
+    end
 end)
 RegisterCanShowTopic(886, function()
     evt._BeginCanShowTopic(886)
@@ -13386,7 +13055,7 @@ RegisterGlobalEvent(1327, "Legacy event 1327", function()
         return
     end
     evt.SetMessage("I have heard stories of the daring rescue, and I am delighted that you have returned with Miss Silver.\nI shall arrange to have her returned to her family at once.\nExemplary work!\nI hereby officially promote all paladins to the status of crusader, and all non-paladins to honorary crusaders!")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 26) then
             SetValue(ClassId, 27)
@@ -13420,7 +13089,7 @@ RegisterGlobalEvent(1329, "Legacy event 1329", function()
     AddValue(Experience, 30000)
     RemoveItem(2075) -- Dragon Claw
     ClearQBit(QBit(1209)) -- Quest item bits for seer
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 27) then
             SetValue(ClassId, 28)
@@ -13582,7 +13251,7 @@ RegisterGlobalEvent(1349, "Legacy event 1349", function()
     AddValue(131307, 2)
     evt.ForPlayer(Players.All)
     AddValue(Experience, 15000)
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 4) then
             SetValue(ClassId, 5)
@@ -13603,7 +13272,7 @@ RegisterGlobalEvent(1351, "Legacy event 1351", function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1132)) then -- NPC
         evt.SetMessage("You are successful!\nIt looks like I will have to keep my promise and make more irregular, early promotions.\nI do so with pleasure.\nI hereby promote all priests to high priests, and all honorary priests to honorary high priests.")
-        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+        for _, player in ipairs(PartyMembers()) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 5) then
                 SetValue(ClassId, 6)
@@ -13798,7 +13467,7 @@ RegisterGlobalEvent(1371, "Legacy event 1371", function()
     evt.SetMessage("You have done well in finding the Fountain.\nIt’s location and powers are a secret, do not spread its location around.\nNow, let me show you the secrets of the wizard.")
     evt.ForPlayer(Players.All)
     AddValue(Experience, 15000)
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 42) then
             SetValue(ClassId, 43)
@@ -13826,7 +13495,7 @@ RegisterGlobalEvent(1373, "Legacy event 1373", function()
     end
     evt.SetMessage("Great news!\nI remember what you need to find!\nThe Crystal of Terrax!\nOh, you seem to have found it already.\nWell, perfect!\nI can train you to master wizards, then.\nThe first arch mage, Terrax, used this Crystal to master the elements.\nFire, earth, water, and air all formed together to make it, and from analyzing it he learned a great deal about elemental magic.\nIn addition, its effect on light led him to his discoveries of light and dark magic.\nSince that time, the study of this crystal has guided every new master wizard.\nLet me show you the secrets of the crystal. ")
     AddValue(Experience, 30000)
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 43) then
             SetValue(ClassId, 46)
@@ -13913,7 +13582,7 @@ RegisterGlobalEvent(1382, "Legacy event 1382", function()
     AddValue(131307, 2)
     evt.ForPlayer(Players.All)
     AddValue(Experience, 15000)
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 16) then
             SetValue(ClassId, 17)
@@ -13939,7 +13608,7 @@ RegisterGlobalEvent(1384, "Legacy event 1384", function()
         return
     end
     evt.SetMessage("Good job!\nExcellent!\nI wasn’t sure you’d make it back alive.\nKergmond had more potential than I realized, but you’re certainly more than a match for an army of Kergmonds.\nYou’ve proven yourselves worthy of the rank of champion. You must not be afraid to take up arms to defend what is right.\nMay your enemies fear your approach and your allies rally behind your courage. And now, I promote you to the rank of champion! ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 17) then
             SetValue(ClassId, 19)
@@ -14146,7 +13815,7 @@ RegisterGlobalEvent(1405, "Legacy event 1405", function()
         return
     end
     evt.SetMessage("Very good!\nYou got the key, and hopefully slew a large number of those loathsome beasts.\nI hereby promote all archers to the status of warrior mage, and all non-archers to honorary warrior mage.")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 0) then
             SetValue(ClassId, 1)
@@ -14206,7 +13875,7 @@ RegisterGlobalEvent(1413, "Legacy event 1413", function()
                         ClearQBit(QBit(1146)) -- Reset all of the Dragon Towers at each town and return to Lord Stromgard in Castle Stromgard. - NPC
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 40000)
-                        for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+                        for _, player in ipairs(PartyMembers()) do
                             evt.ForPlayer(player)
                             if IsAtLeast(ClassId, 1) then
                                 SetValue(ClassId, 2)
@@ -15364,301 +15033,127 @@ end)
 
 RegisterGlobalEvent(1426, "Legacy event 1426", function()
     SetAutonote(461) -- Lawrence Aleman will buy temple gongs for 2000 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2082) then -- Temple Gong
-        RemoveItem(2082) -- Temple Gong
-        AddValue(Gold, 2000)
-        evt.SetMessage("This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2082) then -- Temple Gong
-        RemoveItem(2082) -- Temple Gong
-        AddValue(Gold, 2000)
-        evt.SetMessage("This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2082) then -- Temple Gong
-        RemoveItem(2082) -- Temple Gong
-        AddValue(Gold, 2000)
-        evt.SetMessage("This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2082) then -- Temple Gong
-        RemoveItem(2082) -- Temple Gong
-        AddValue(Gold, 2000)
-        evt.SetMessage("This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2082) then -- Temple Gong
+            RemoveItem(2082) -- Temple Gong
+            AddValue(Gold, 2000)
+            evt.SetMessage("This one's a little dirty, but I suppose it will do.\nHere is the gold I promised you for it.\nThanks for your help!")
+            return
+        end
     end
     evt.SetMessage("As part of the effort to rebuild the Temple here in Free Haven, I'm collecting temple gongs.\nIf you have any gongs, I'll pay you 2000 gold for each of them.")
 end)
 
 RegisterGlobalEvent(1427, "Legacy event 1427", function()
     SetAutonote(462) -- Lon Miller will buy bones for 1000 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2085) then -- Bone
-        RemoveItem(2085) -- Bone
-        AddValue(Gold, 1000)
-        SubtractValue(131307, 2)
-        evt.SetMessage("Hmm...")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2085) then -- Bone
-        RemoveItem(2085) -- Bone
-        AddValue(Gold, 1000)
-        SubtractValue(131307, 2)
-        evt.SetMessage("Hmm...")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2085) then -- Bone
-        RemoveItem(2085) -- Bone
-        AddValue(Gold, 1000)
-        SubtractValue(131307, 2)
-        evt.SetMessage("Hmm...")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2085) then -- Bone
-        RemoveItem(2085) -- Bone
-        AddValue(Gold, 1000)
-        SubtractValue(131307, 2)
-        evt.SetMessage("Hmm...")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2085) then -- Bone
+            RemoveItem(2085) -- Bone
+            AddValue(Gold, 1000)
+            SubtractValue(131307, 2)
+            evt.SetMessage("Hmm...")
+            return
+        end
     end
     evt.SetMessage("I'm looking for bones to use in my rituals.\nI prefer bones from humans or humanoids, but I suppose I can make do with whatever you find.\nI'm willing to pay up to 1000 gold for bones that I can use.")
 end)
 
 RegisterGlobalEvent(1428, "Legacy event 1428", function()
     SetAutonote(463) -- Davis Carp will buy lodestones for 5 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2090) then -- Lodestone
-        RemoveItem(2090) -- Lodestone
-        AddValue(Gold, 5)
-        evt.SetMessage("Thank you!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2090) then -- Lodestone
-        RemoveItem(2090) -- Lodestone
-        AddValue(Gold, 5)
-        evt.SetMessage("Thank you!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2090) then -- Lodestone
-        RemoveItem(2090) -- Lodestone
-        AddValue(Gold, 5)
-        evt.SetMessage("Thank you!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2090) then -- Lodestone
-        RemoveItem(2090) -- Lodestone
-        AddValue(Gold, 5)
-        evt.SetMessage("Thank you!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2090) then -- Lodestone
+            RemoveItem(2090) -- Lodestone
+            AddValue(Gold, 5)
+            evt.SetMessage("Thank you!")
+            return
+        end
     end
     evt.SetMessage("Many people aren't able to visit the circus, so I'm collecting circus prizes to give away to those not able to visit it themselves.\nI'll buy lodestones for 5 gold each if you want to part with them.")
 end)
 
 RegisterGlobalEvent(1429, "Legacy event 1429", function()
     SetAutonote(464) -- Bonnie Rotterdam will buy feathers for 10 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2091) then -- Harpy Feather
-        RemoveItem(2091) -- Harpy Feather
-        AddValue(Gold, 10)
-        evt.SetMessage("Thanks!\nDon't tell my daughter about this, I want to surprise her.\nHere's the 10 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2091) then -- Harpy Feather
-        RemoveItem(2091) -- Harpy Feather
-        AddValue(Gold, 10)
-        evt.SetMessage("Thanks!\nDon't tell my daughter about this, I want to surprise her.\nHere's the 10 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2091) then -- Harpy Feather
-        RemoveItem(2091) -- Harpy Feather
-        AddValue(Gold, 10)
-        evt.SetMessage("Thanks!\nDon't tell my daughter about this, I want to surprise her.\nHere's the 10 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2091) then -- Harpy Feather
-        RemoveItem(2091) -- Harpy Feather
-        AddValue(Gold, 10)
-        evt.SetMessage("Thanks!\nDon't tell my daughter about this, I want to surprise her.\nHere's the 10 gold.")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2091) then -- Harpy Feather
+            RemoveItem(2091) -- Harpy Feather
+            AddValue(Gold, 10)
+            evt.SetMessage("Thanks!\nDon't tell my daughter about this, I want to surprise her.\nHere's the 10 gold.")
+            return
+        end
     end
     evt.SetMessage("My daughter wants to go to the circus, but we never have the time when the circus is near here.\nI'd love to give her a bunch of the pretty harpy feathers for her.\nI'll take any harpy feathers you have for 10 gold each.")
 end)
 
 RegisterGlobalEvent(1430, "Legacy event 1430", function()
     SetAutonote(465) -- Renee Blackburn will buy pyramids for 1000 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        AddValue(Gold, 1000)
-        evt.SetMessage("Thanks!\nI can't wait to take this to Abdul's Desert Resort and see what I get!\nOh, here's the money I owe you.")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        AddValue(Gold, 1000)
-        evt.SetMessage("Thanks!\nI can't wait to take this to Abdul's Desert Resort and see what I get!\nOh, here's the money I owe you.")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        AddValue(Gold, 1000)
-        evt.SetMessage("Thanks!\nI can't wait to take this to Abdul's Desert Resort and see what I get!\nOh, here's the money I owe you.")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        AddValue(Gold, 1000)
-        evt.SetMessage("Thanks!\nI can't wait to take this to Abdul's Desert Resort and see what I get!\nOh, here's the money I owe you.")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2092) then -- Golden Pyramid
+            RemoveItem(2092) -- Golden Pyramid
+            AddValue(Gold, 1000)
+            evt.SetMessage("Thanks!\nI can't wait to take this to Abdul's Desert Resort and see what I get!\nOh, here's the money I owe you.")
+            return
+        end
     end
     evt.SetMessage("I've heard that you can get really nifty things from Abdul's Desert Resort if you pay with golden pyramids.\nI'm hoping to go there one day, and I want to stock up on the pyramids now.\nI'll take any golden pyramids you have for 1000 gold.")
 end)
 
 RegisterGlobalEvent(1431, "Legacy event 1431", function()
     SetAutonote(466) -- Nick Fenstar will buy kegs of wine for 300 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        AddValue(Gold, 300)
-        evt.SetMessage("My favorite!\nThanks for the wine!\nHere's 300 gold, it's well worth the price.")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        AddValue(Gold, 300)
-        evt.SetMessage("My favorite!\nThanks for the wine!\nHere's 300 gold, it's well worth the price.")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        AddValue(Gold, 300)
-        evt.SetMessage("My favorite!\nThanks for the wine!\nHere's 300 gold, it's well worth the price.")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        AddValue(Gold, 300)
-        evt.SetMessage("My favorite!\nThanks for the wine!\nHere's 300 gold, it's well worth the price.")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2093) then -- Keg of Wine
+            RemoveItem(2093) -- Keg of Wine
+            AddValue(Gold, 300)
+            evt.SetMessage("My favorite!\nThanks for the wine!\nHere's 300 gold, it's well worth the price.")
+            return
+        end
     end
     evt.SetMessage("My favorite wine is the stuff they give you for winning at the circus.")
 end)
 
 RegisterGlobalEvent(1432, "Legacy event 1432", function()
     SetAutonote(467) -- Sy Roth will buy teeth for 500 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2096) then -- Tooth
-        RemoveItem(2096) -- Tooth
-        AddValue(Gold, 500)
-        evt.SetMessage("I don't believe I have a tooth like this one yet, here's 500 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2096) then -- Tooth
-        RemoveItem(2096) -- Tooth
-        AddValue(Gold, 500)
-        evt.SetMessage("I don't believe I have a tooth like this one yet, here's 500 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2096) then -- Tooth
-        RemoveItem(2096) -- Tooth
-        AddValue(Gold, 500)
-        evt.SetMessage("I don't believe I have a tooth like this one yet, here's 500 gold.")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2096) then -- Tooth
-        RemoveItem(2096) -- Tooth
-        AddValue(Gold, 500)
-        evt.SetMessage("I don't believe I have a tooth like this one yet, here's 500 gold.")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2096) then -- Tooth
+            RemoveItem(2096) -- Tooth
+            AddValue(Gold, 500)
+            evt.SetMessage("I don't believe I have a tooth like this one yet, here's 500 gold.")
+            return
+        end
     end
     evt.SetMessage("I have an incredible teeth collection, but I'm always looking for more.\nIf you find a tooth I don't have in my collection, I'll pay you 500 gold for it.")
 end)
 
 RegisterGlobalEvent(1433, "Legacy event 1433", function()
     SetAutonote(468) -- Geoff Southy will buy clovers for 25 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2097) then -- Four Leaf Clover
-        RemoveItem(2097) -- Four Leaf Clover
-        AddValue(Gold, 25)
-        evt.SetMessage("Hurray!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2097) then -- Four Leaf Clover
-        RemoveItem(2097) -- Four Leaf Clover
-        AddValue(Gold, 25)
-        evt.SetMessage("Hurray!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2097) then -- Four Leaf Clover
-        RemoveItem(2097) -- Four Leaf Clover
-        AddValue(Gold, 25)
-        evt.SetMessage("Hurray!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2097) then -- Four Leaf Clover
-        RemoveItem(2097) -- Four Leaf Clover
-        AddValue(Gold, 25)
-        evt.SetMessage("Hurray!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2097) then -- Four Leaf Clover
+            RemoveItem(2097) -- Four Leaf Clover
+            AddValue(Gold, 25)
+            evt.SetMessage("Hurray!")
+            return
+        end
     end
     evt.SetMessage("I have been to the circus three times, and I can't win anything.\nAll I really want are the nifty four leaf clovers they use as prizes there.\nI'll pay 25 gold for any four leaf clover you bring me.")
 end)
 
 RegisterGlobalEvent(1434, "Legacy event 1434", function()
     SetAutonote(469) -- Dillan Robinson will buy amber for 500 gold each in Free Haven.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2102) then -- Amber
-        RemoveItem(2102) -- Amber
-        AddValue(Gold, 500)
-        evt.SetMessage("This will do nicely!\nThank you for the amber, here is the 500 gold I promised you.")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2102) then -- Amber
-        RemoveItem(2102) -- Amber
-        AddValue(Gold, 500)
-        evt.SetMessage("This will do nicely!\nThank you for the amber, here is the 500 gold I promised you.")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2102) then -- Amber
-        RemoveItem(2102) -- Amber
-        AddValue(Gold, 500)
-        evt.SetMessage("This will do nicely!\nThank you for the amber, here is the 500 gold I promised you.")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2102) then -- Amber
-        RemoveItem(2102) -- Amber
-        AddValue(Gold, 500)
-        evt.SetMessage("This will do nicely!\nThank you for the amber, here is the 500 gold I promised you.")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2102) then -- Amber
+            RemoveItem(2102) -- Amber
+            AddValue(Gold, 500)
+            evt.SetMessage("This will do nicely!\nThank you for the amber, here is the 500 gold I promised you.")
+            return
+        end
     end
     evt.SetMessage("I've heard it's possible to find large chunks of amber in a series of caves north of Castle Ironfist.\nI never have the time to leave Free Haven, but I'd love to get my hands on some of that amber.\nI'll pay 500 gold for any piece of amber.")
 end)
@@ -15707,322 +15202,117 @@ RegisterGlobalEvent(1441, "Legacy event 1441", function()
 end)
 
 RegisterGlobalEvent(1442, "Legacy event 1442", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2092) then -- Golden Pyramid
+            RemoveItem(2092) -- Golden Pyramid
+            evt.GiveItem(6, ItemType.Armor_)
+            evt.SetMessage("Great to do business with you, here's your armor!")
+            return
+        end
     end
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
 RegisterGlobalEvent(1443, "Legacy event 1443", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2092) then -- Golden Pyramid
+            RemoveItem(2092) -- Golden Pyramid
+            evt.GiveItem(6, ItemType.Weapon_)
+            evt.SetMessage("Great to do business with you, here's your weapon!")
+            return
+        end
     end
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
 RegisterGlobalEvent(1444, "Legacy event 1444", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2092) then -- Golden Pyramid
-        RemoveItem(2092) -- Golden Pyramid
-        evt.GiveItem(6, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2092) then -- Golden Pyramid
+            RemoveItem(2092) -- Golden Pyramid
+            evt.GiveItem(6, ItemType.Misc)
+            evt.SetMessage("Great to do business with you, here's your accessory!")
+            return
+        end
     end
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
 RegisterGlobalEvent(1445, "Legacy event 1445", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Armor_)
-        evt.SetMessage("Great to do business with you, here's your armor!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2093) then -- Keg of Wine
+            RemoveItem(2093) -- Keg of Wine
+            evt.GiveItem(4, ItemType.Armor_)
+            evt.SetMessage("Great to do business with you, here's your armor!")
+            return
+        end
     end
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
 RegisterGlobalEvent(1446, "Legacy event 1446", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Weapon_)
-        evt.SetMessage("Great to do business with you, here's your weapon!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2093) then -- Keg of Wine
+            RemoveItem(2093) -- Keg of Wine
+            evt.GiveItem(4, ItemType.Weapon_)
+            evt.SetMessage("Great to do business with you, here's your weapon!")
+            return
+        end
     end
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
 RegisterGlobalEvent(1447, "Legacy event 1447", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2093) then -- Keg of Wine
-        RemoveItem(2093) -- Keg of Wine
-        evt.GiveItem(4, ItemType.Misc)
-        evt.SetMessage("Great to do business with you, here's your accessory!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2093) then -- Keg of Wine
+            RemoveItem(2093) -- Keg of Wine
+            evt.GiveItem(4, ItemType.Misc)
+            evt.SetMessage("Great to do business with you, here's your accessory!")
+            return
+        end
     end
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
 RegisterGlobalEvent(1448, "Legacy event 1448", function()
     SetAutonote(470) -- Bandar Jahrom will trade gems for lamps in Abul's Desert Resort in Dragonsand.
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2103) then -- Magic Lamp
-        RemoveItem(2103) -- Magic Lamp
-        local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
-        if randomStep == 24 then
-            AddValue(InventoryItem(2056), 2056) -- Diamond
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 27 then
-            AddValue(InventoryItem(2065), 2065) -- Sapphire
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 30 then
-            AddValue(InventoryItem(2064), 2064) -- Emerald
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 33 then
-            AddValue(InventoryItem(2063), 2063) -- Sunstone
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 36 then
-            AddValue(InventoryItem(2059), 2059) -- Ruby
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 39 then
-            AddValue(InventoryItem(2062), 2062) -- Purple Topaz
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        end
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2103) then -- Magic Lamp
-        RemoveItem(2103) -- Magic Lamp
-        local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
-        if randomStep == 24 then
-            AddValue(InventoryItem(2056), 2056) -- Diamond
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 27 then
-            AddValue(InventoryItem(2065), 2065) -- Sapphire
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 30 then
-            AddValue(InventoryItem(2064), 2064) -- Emerald
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 33 then
-            AddValue(InventoryItem(2063), 2063) -- Sunstone
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 36 then
-            AddValue(InventoryItem(2059), 2059) -- Ruby
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 39 then
-            AddValue(InventoryItem(2062), 2062) -- Purple Topaz
-            evt.SetMessage("Thanks for the lamp!")
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2103) then -- Magic Lamp
+            RemoveItem(2103) -- Magic Lamp
+            local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
+            if randomStep == 24 then
+                AddValue(InventoryItem(2056), 2056) -- Diamond
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            elseif randomStep == 27 then
+                AddValue(InventoryItem(2065), 2065) -- Sapphire
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            elseif randomStep == 30 then
+                AddValue(InventoryItem(2064), 2064) -- Emerald
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            elseif randomStep == 33 then
+                AddValue(InventoryItem(2063), 2063) -- Sunstone
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            elseif randomStep == 36 then
+                AddValue(InventoryItem(2059), 2059) -- Ruby
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            elseif randomStep == 39 then
+                AddValue(InventoryItem(2062), 2062) -- Purple Topaz
+                evt.SetMessage("Thanks for the lamp!")
+                return
+            end
             return
         end
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2103) then -- Magic Lamp
-        RemoveItem(2103) -- Magic Lamp
-        local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
-        if randomStep == 24 then
-            AddValue(InventoryItem(2056), 2056) -- Diamond
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 27 then
-            AddValue(InventoryItem(2065), 2065) -- Sapphire
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 30 then
-            AddValue(InventoryItem(2064), 2064) -- Emerald
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 33 then
-            AddValue(InventoryItem(2063), 2063) -- Sunstone
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 36 then
-            AddValue(InventoryItem(2059), 2059) -- Ruby
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 39 then
-            AddValue(InventoryItem(2062), 2062) -- Purple Topaz
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        end
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2103) then -- Magic Lamp
-        RemoveItem(2103) -- Magic Lamp
-        local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
-        if randomStep == 24 then
-            AddValue(InventoryItem(2056), 2056) -- Diamond
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 27 then
-            AddValue(InventoryItem(2065), 2065) -- Sapphire
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 30 then
-            AddValue(InventoryItem(2064), 2064) -- Emerald
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 33 then
-            AddValue(InventoryItem(2063), 2063) -- Sunstone
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 36 then
-            AddValue(InventoryItem(2059), 2059) -- Ruby
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        elseif randomStep == 39 then
-            AddValue(InventoryItem(2062), 2062) -- Purple Topaz
-            evt.SetMessage("Thanks for the lamp!")
-            return
-        end
-        return
     end
     evt.SetMessage("I'm collecting used magic lamps, but I don't have any money.\nI'll trade you some of these pretty stones for the lamps, though.")
 end)
@@ -16358,33 +15648,14 @@ RegisterGlobalEvent(1624, "Legacy event 1624", function()
 end)
 
 RegisterGlobalEvent(1625, "Legacy event 1625", function()
-    evt.ForPlayer(Players.Member0)
-    if HasItem(2094) then -- Cobra Egg
-        RemoveItem(2094) -- Cobra Egg
-        AddValue(Gold, 300)
-        evt.SetMessage("Excellent specimen!")
-        return
-    end
-    evt.ForPlayer(Players.Member1)
-    if HasItem(2094) then -- Cobra Egg
-        RemoveItem(2094) -- Cobra Egg
-        AddValue(Gold, 300)
-        evt.SetMessage("Excellent specimen!")
-        return
-    end
-    evt.ForPlayer(Players.Member2)
-    if HasItem(2094) then -- Cobra Egg
-        RemoveItem(2094) -- Cobra Egg
-        AddValue(Gold, 300)
-        evt.SetMessage("Excellent specimen!")
-        return
-    end
-    evt.ForPlayer(Players.Member3)
-    if HasItem(2094) then -- Cobra Egg
-        RemoveItem(2094) -- Cobra Egg
-        AddValue(Gold, 300)
-        evt.SetMessage("Excellent specimen!")
-        return
+    for _, player in ipairs(PartyMembers()) do
+        evt.ForPlayer(player)
+        if HasItem(2094) then -- Cobra Egg
+            RemoveItem(2094) -- Cobra Egg
+            AddValue(Gold, 300)
+            evt.SetMessage("Excellent specimen!")
+            return
+        end
     end
     evt.SetMessage("I am a collector of rare and exotic creatures, and I make a living by selling some of these creatures as pets.\nCurrently, cobras are in great demand, and I don’t have many cobras left to sell.\nTherefore, I’m willing to pay handsomely for any cobra eggs you might have.\nRemember, if you find any cobra eggs, I’ll give you the best prices.")
 end)
@@ -16771,7 +16042,7 @@ end)
 
 RegisterGlobalEvent(1678, "Legacy event 1678", function()
     evt.SetMessage("<Loretta Fleise contacts you via a telepathy spell> Welcome to the Ceremony of the Sun.\nStand ye in the circle of life and face the north while no shadows stretch before thee.\nMeditate upon this truth:\n“Money is everything.\nI have no truer a friend than money…” <grinning> Just kidding.\nNow, close your eyes, and meditate as you stand at the center of the world and time for just this one, sublime moment… <long, silent pause>\nOpen your eyes.\nI hereby promote all druids to great druids and all non-druids to honorary druids. <Loretta fades away> ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 12) then
             SetValue(ClassId, 13)
@@ -16791,7 +16062,7 @@ end)
 
 RegisterGlobalEvent(1679, "Legacy event 1679", function()
     evt.SetMessage("<Loretta Fleise contacts you via a telepathy spell> Welcome to the Ceremony of the Moon.\nStand ye before the altar of the Moon facing south.\nClose your eyes and meditate upon the Circle of Seasons and the Wheel of Life.\n<long, silent pause>\nOpen your eyes, my friends.\nI hereby promote all great druids to arch druids, and all honorary great druids to honorary arch druids.\n<Loretta fades away> ")
-    for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3}) do
+    for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 13) then
             SetValue(ClassId, 15)

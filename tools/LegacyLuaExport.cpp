@@ -4593,6 +4593,570 @@ std::string normalizePartyMemberLoopBody(std::string body)
     return body;
 }
 
+struct LuaForPlayerLine
+{
+    std::string indent;
+    std::optional<uint32_t> member;
+    bool current = false;
+};
+
+std::vector<std::string> splitLuaLines(std::string_view luaText)
+{
+    std::vector<std::string> lines;
+    size_t lineStart = 0;
+
+    while (lineStart < luaText.size())
+    {
+        const size_t lineEnd = luaText.find('\n', lineStart);
+
+        if (lineEnd == std::string_view::npos)
+        {
+            lines.emplace_back(luaText.substr(lineStart));
+            break;
+        }
+
+        lines.emplace_back(luaText.substr(lineStart, lineEnd - lineStart));
+        lineStart = lineEnd + 1;
+    }
+
+    return lines;
+}
+
+std::string joinLuaLines(const std::vector<std::string> &lines)
+{
+    std::ostringstream stream;
+
+    for (const std::string &line : lines)
+    {
+        stream << line << '\n';
+    }
+
+    return stream.str();
+}
+
+std::optional<LuaForPlayerLine> parseLuaForPlayerLine(const std::string &line)
+{
+    size_t indentSize = 0;
+
+    while (indentSize < line.size() && line[indentSize] == ' ')
+    {
+        ++indentSize;
+    }
+
+    const std::string_view rest(line.data() + indentSize, line.size() - indentSize);
+    constexpr std::string_view memberPrefix = "evt.ForPlayer(Players.Member";
+    constexpr std::string_view currentLine = "evt.ForPlayer(Players.Current)";
+
+    if (rest == currentLine)
+    {
+        LuaForPlayerLine parsed = {};
+        parsed.indent = line.substr(0, indentSize);
+        parsed.current = true;
+        return parsed;
+    }
+
+    if (rest.size() != memberPrefix.size() + 2 || rest.substr(0, memberPrefix.size()) != memberPrefix)
+    {
+        return std::nullopt;
+    }
+
+    const char memberDigit = rest[memberPrefix.size()];
+
+    if (memberDigit < '0' || memberDigit > '4' || rest[memberPrefix.size() + 1] != ')')
+    {
+        return std::nullopt;
+    }
+
+    LuaForPlayerLine parsed = {};
+    parsed.indent = line.substr(0, indentSize);
+    parsed.member = static_cast<uint32_t>(memberDigit - '0');
+    return parsed;
+}
+
+std::optional<size_t> findNextLuaForPlayerMemberLine(
+    const std::vector<std::string> &lines,
+    size_t searchStart,
+    const std::string &indent,
+    uint32_t expectedMember)
+{
+    for (size_t lineIndex = searchStart; lineIndex < lines.size(); ++lineIndex)
+    {
+        const std::optional<LuaForPlayerLine> playerLine = parseLuaForPlayerLine(lines[lineIndex]);
+
+        if (!playerLine || playerLine->indent != indent)
+        {
+            continue;
+        }
+
+        if (playerLine->member && *playerLine->member == expectedMember)
+        {
+            return lineIndex;
+        }
+
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+bool luaLinesEqualAt(
+    const std::vector<std::string> &lines,
+    size_t lineIndex,
+    const std::vector<std::string> &expectedLines)
+{
+    if (lineIndex + expectedLines.size() > lines.size())
+    {
+        return false;
+    }
+
+    for (size_t expectedIndex = 0; expectedIndex < expectedLines.size(); ++expectedIndex)
+    {
+        if (lines[lineIndex + expectedIndex] != expectedLines[expectedIndex])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool luaLinesEqualWithInsertedLineBeforeLastLineAt(
+    const std::vector<std::string> &lines,
+    size_t lineIndex,
+    const std::vector<std::string> &expectedLines,
+    const std::string &insertedLine)
+{
+    if (expectedLines.empty() || lineIndex + expectedLines.size() + 1 > lines.size())
+    {
+        return false;
+    }
+
+    const size_t lastExpectedIndex = expectedLines.size() - 1;
+
+    for (size_t expectedIndex = 0; expectedIndex < lastExpectedIndex; ++expectedIndex)
+    {
+        if (lines[lineIndex + expectedIndex] != expectedLines[expectedIndex])
+        {
+            return false;
+        }
+    }
+
+    return lines[lineIndex + lastExpectedIndex] == insertedLine
+        && lines[lineIndex + lastExpectedIndex + 1] == expectedLines.back();
+}
+
+bool parseSingleAddValueLine(const std::string &line, std::string &variableName, int32_t &value)
+{
+    size_t textStart = 0;
+
+    while (textStart < line.size() && line[textStart] == ' ')
+    {
+        ++textStart;
+    }
+
+    constexpr std::string_view prefix = "AddValue(";
+    const std::string_view text(line.data() + textStart, line.size() - textStart);
+
+    if (text.size() <= prefix.size() || text.substr(0, prefix.size()) != prefix)
+    {
+        return false;
+    }
+
+    const size_t commaOffset = text.find(", ", prefix.size());
+    const size_t closeOffset = text.find(')', commaOffset == std::string_view::npos ? prefix.size() : commaOffset);
+
+    if (commaOffset == std::string_view::npos || closeOffset == std::string_view::npos)
+    {
+        return false;
+    }
+
+    variableName = std::string(text.substr(prefix.size(), commaOffset - prefix.size()));
+    const std::string valueText = std::string(text.substr(commaOffset + 2, closeOffset - commaOffset - 2));
+    char *pParseEnd = nullptr;
+    const long parsedValue = std::strtol(valueText.c_str(), &pParseEnd, 10);
+
+    if (pParseEnd == nullptr || *pParseEnd != '\0')
+    {
+        return false;
+    }
+
+    value = static_cast<int32_t>(parsedValue);
+    return true;
+}
+
+bool tryRewriteSingleLineCurrentPartyMemberReward(
+    const std::vector<std::string> &lines,
+    size_t startLine,
+    std::vector<std::string> &replacementLines,
+    size_t &nextLine)
+{
+    const std::optional<LuaForPlayerLine> firstPlayerLine = parseLuaForPlayerLine(lines[startLine]);
+
+    if (!firstPlayerLine || !firstPlayerLine->member || *firstPlayerLine->member != 0)
+    {
+        return false;
+    }
+
+    const std::string &indent = firstPlayerLine->indent;
+    const size_t member0ValueLine = startLine + 1;
+    const size_t member1Line = startLine + 2;
+    const size_t member1ValueLine = startLine + 3;
+    const size_t member2Line = startLine + 4;
+    const size_t member2ValueLine = startLine + 5;
+    const size_t member3Line = startLine + 6;
+    const size_t member3ValueLine = startLine + 7;
+    const size_t currentLine = startLine + 8;
+    const size_t currentValueLine = startLine + 9;
+
+    if (currentValueLine >= lines.size())
+    {
+        return false;
+    }
+
+    const std::optional<LuaForPlayerLine> member1 = parseLuaForPlayerLine(lines[member1Line]);
+    const std::optional<LuaForPlayerLine> member2 = parseLuaForPlayerLine(lines[member2Line]);
+    const std::optional<LuaForPlayerLine> member3 = parseLuaForPlayerLine(lines[member3Line]);
+    const std::optional<LuaForPlayerLine> current = parseLuaForPlayerLine(lines[currentLine]);
+
+    if (!member1 || !member1->member || *member1->member != 1 || member1->indent != indent
+        || !member2 || !member2->member || *member2->member != 2 || member2->indent != indent
+        || !member3 || !member3->member || *member3->member != 3 || member3->indent != indent
+        || !current || !current->current || current->indent != indent)
+    {
+        return false;
+    }
+
+    if (lines[member1ValueLine] != lines[member2ValueLine]
+        || lines[member1ValueLine] != lines[member3ValueLine]
+        || lines[member1ValueLine] != lines[currentValueLine])
+    {
+        return false;
+    }
+
+    std::string member0Variable;
+    std::string repeatedVariable;
+    int32_t member0Value = 0;
+    int32_t repeatedValue = 0;
+
+    if (!parseSingleAddValueLine(lines[member0ValueLine], member0Variable, member0Value)
+        || !parseSingleAddValueLine(lines[member1ValueLine], repeatedVariable, repeatedValue)
+        || member0Variable != repeatedVariable
+        || member0Value == repeatedValue)
+    {
+        return false;
+    }
+
+    replacementLines.push_back(indent + "for _, player in ipairs(PartyMembers()) do");
+    replacementLines.push_back(indent + "    evt.ForPlayer(player)");
+    replacementLines.push_back(indent + "    if player == Players.Member0 then");
+    replacementLines.push_back(
+        indent + "        AddValue(" + member0Variable + ", " + std::to_string(member0Value) + ")");
+    replacementLines.push_back(indent + "    else");
+    replacementLines.push_back(
+        indent + "        AddValue(" + repeatedVariable + ", " + std::to_string(repeatedValue) + ")");
+    replacementLines.push_back(indent + "    end");
+    replacementLines.push_back(indent + "end");
+    nextLine = currentValueLine + 1;
+    return true;
+}
+
+bool tryRewriteSequentialPartyMemberBlocks(
+    const std::vector<std::string> &lines,
+    size_t startLine,
+    std::vector<std::string> &replacementLines,
+    size_t &nextLine)
+{
+    const std::optional<LuaForPlayerLine> firstPlayerLine = parseLuaForPlayerLine(lines[startLine]);
+
+    if (!firstPlayerLine || !firstPlayerLine->member || *firstPlayerLine->member != 0)
+    {
+        return false;
+    }
+
+    const std::string &indent = firstPlayerLine->indent;
+    const std::optional<size_t> member1Line =
+        findNextLuaForPlayerMemberLine(lines, startLine + 1, indent, 1);
+
+    if (!member1Line || *member1Line == startLine + 1)
+    {
+        return false;
+    }
+
+    const std::vector<std::string> memberBody(lines.begin() + startLine + 1, lines.begin() + *member1Line);
+    size_t currentMemberLine = *member1Line;
+
+    for (uint32_t expectedMember = 1; expectedMember < 3; ++expectedMember)
+    {
+        const std::optional<LuaForPlayerLine> playerLine = parseLuaForPlayerLine(lines[currentMemberLine]);
+
+        if (!playerLine || !playerLine->member || *playerLine->member != expectedMember
+            || playerLine->indent != indent)
+        {
+            return false;
+        }
+
+        const std::optional<size_t> nextMemberLine =
+            findNextLuaForPlayerMemberLine(lines, currentMemberLine + 1, indent, expectedMember + 1);
+
+        if (!nextMemberLine
+            || !luaLinesEqualAt(lines, currentMemberLine + 1, memberBody)
+            || currentMemberLine + 1 + memberBody.size() != *nextMemberLine)
+        {
+            return false;
+        }
+
+        currentMemberLine = *nextMemberLine;
+    }
+
+    const std::optional<LuaForPlayerLine> member3Line = parseLuaForPlayerLine(lines[currentMemberLine]);
+
+    if (!member3Line || !member3Line->member || *member3Line->member != 3 || member3Line->indent != indent)
+    {
+        return false;
+    }
+
+    std::vector<std::string> postLoopLines;
+    size_t blockEndLine = currentMemberLine + 1 + memberBody.size();
+
+    if (!luaLinesEqualAt(lines, currentMemberLine + 1, memberBody))
+    {
+        const std::string allPlayerResetLine = indent + "    evt.ForPlayer(Players.All)";
+
+        if (!luaLinesEqualWithInsertedLineBeforeLastLineAt(
+                lines,
+                currentMemberLine + 1,
+                memberBody,
+                allPlayerResetLine))
+        {
+            return false;
+        }
+
+        postLoopLines.push_back(indent + "evt.ForPlayer(Players.All)");
+        blockEndLine += 1;
+    }
+
+    if (blockEndLine < lines.size() && lines[blockEndLine] == indent + "evt.ForPlayer(Players.All)")
+    {
+        postLoopLines.push_back(lines[blockEndLine]);
+        ++blockEndLine;
+    }
+
+    bool consumedMember4 = false;
+    bool consumedCurrent = false;
+
+    while (blockEndLine < lines.size())
+    {
+        const std::optional<LuaForPlayerLine> optionalPlayerLine = parseLuaForPlayerLine(lines[blockEndLine]);
+        const bool canConsumeMember4 = optionalPlayerLine
+            && optionalPlayerLine->indent == indent
+            && optionalPlayerLine->member
+            && *optionalPlayerLine->member == 4
+            && !consumedMember4;
+        const bool canConsumeCurrent = optionalPlayerLine
+            && optionalPlayerLine->indent == indent
+            && optionalPlayerLine->current
+            && !consumedCurrent;
+
+        if (!canConsumeMember4 && !canConsumeCurrent)
+        {
+            break;
+        }
+
+        if (!luaLinesEqualAt(lines, blockEndLine + 1, memberBody))
+        {
+            return false;
+        }
+
+        consumedMember4 = consumedMember4 || canConsumeMember4;
+        consumedCurrent = consumedCurrent || canConsumeCurrent;
+        blockEndLine += 1 + memberBody.size();
+    }
+
+    replacementLines.push_back(indent + "for _, player in ipairs(PartyMembers()) do");
+    replacementLines.push_back(indent + "    evt.ForPlayer(player)");
+
+    for (const std::string &bodyLine : memberBody)
+    {
+        replacementLines.push_back("    " + bodyLine);
+    }
+
+    replacementLines.push_back(indent + "end");
+
+    for (const std::string &postLoopLine : postLoopLines)
+    {
+        replacementLines.push_back(postLoopLine);
+    }
+
+    nextLine = blockEndLine;
+    return true;
+}
+
+void replaceAllLuaText(std::string &luaText, const std::string &from, const std::string &to)
+{
+    size_t offset = 0;
+
+    while ((offset = luaText.find(from, offset)) != std::string::npos)
+    {
+        luaText.replace(offset, from.size(), to);
+        offset += to.size();
+    }
+}
+
+std::string rewriteLincolnWetsuitCheck(std::string luaText)
+{
+    const std::string nestedCheck =
+        "    evt.ForPlayer(Players.Member0)\n"
+        "    if HasItem(1406) then -- Wetsuit\n"
+        "        evt.ForPlayer(Players.Member1)\n"
+        "        if HasItem(1406) then -- Wetsuit\n"
+        "            evt.ForPlayer(Players.Member2)\n"
+        "            if HasItem(1406) then -- Wetsuit\n"
+        "                evt.ForPlayer(Players.Member3)\n"
+        "                if HasItem(1406) then -- Wetsuit\n"
+        "                    evt.ForPlayer(Players.Current)\n"
+        "                    if HasItem(1406) then -- Wetsuit\n"
+        "                        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, \"7out15.odm\") -- Shoals\n"
+        "                        return\n"
+        "                    end\n"
+        "                end\n"
+        "            end\n"
+        "        end\n"
+        "    end\n";
+    const std::string loopCheck =
+        "    local hasAllWetsuits = true\n"
+        "    for _, player in ipairs(PartyMembers()) do\n"
+        "        evt.ForPlayer(player)\n"
+        "        if not HasItem(1406) then -- Wetsuit\n"
+        "            hasAllWetsuits = false\n"
+        "            break\n"
+        "        end\n"
+        "    end\n"
+        "    if hasAllWetsuits then\n"
+        "        evt.MoveToMap(-7005, 7856, 225, 128, 0, 0, 0, 0, \"7out15.odm\") -- Shoals\n"
+        "        return\n"
+        "    end\n";
+
+    replaceAllLuaText(luaText, nestedCheck, loopCheck);
+    return luaText;
+}
+
+std::string rewriteMm7LichRitualEvent(std::string luaText)
+{
+    constexpr std::string_view eventPrefix = "RegisterGlobalEvent(847,";
+    constexpr std::string_view functionPrefix = "function()\n";
+    const size_t eventStart = luaText.find(eventPrefix);
+
+    if (eventStart == std::string::npos)
+    {
+        return luaText;
+    }
+
+    size_t bodyStart = luaText.find(functionPrefix, eventStart);
+
+    if (bodyStart == std::string::npos)
+    {
+        return luaText;
+    }
+
+    bodyStart += functionPrefix.size();
+    const size_t bodyEnd = luaText.find("\nend)\n\nRegisterGlobalEvent(848", bodyStart);
+
+    if (bodyEnd == std::string::npos)
+    {
+        return luaText;
+    }
+
+    const std::string body = luaText.substr(bodyStart, bodyEnd - bodyStart);
+
+    if (body.find("local function Step_0()") == std::string::npos
+        || body.find("evt.ForPlayer(Players.Member3)") == std::string::npos
+        || body.find("HasItem(1417)") == std::string::npos
+        || body.find("SetValue(ClassId, 45)") == std::string::npos)
+    {
+        return luaText;
+    }
+
+    const std::string replacement =
+        "    local hasAllLichJars = true\n"
+        "    for _, player in ipairs(PartyMembers()) do\n"
+        "        evt.ForPlayer(player)\n"
+        "        if not HasItem(1417) then -- Lich Jar\n"
+        "            hasAllLichJars = false\n"
+        "            break\n"
+        "        end\n"
+        "    end\n"
+        "    if not hasAllLichJars then\n"
+        "        evt.SetMessage(\"I have no spare Jars with which to perform the Ritual.\\n"
+        "It is impossible for me to promote you until you return with the Jars.\\n"
+        "Remember, each one of you must have a Jar to be Promoted.\")\n"
+        "        return\n"
+        "    end\n"
+        "    evt.SetMessage(\"Jars.\\n"
+        "Yessss.\\n"
+        "You have helped us greatly.\\n"
+        "Now for the Ritual.\\n"
+        "[The Lich draws a knife, and approaches you]\\n"
+        "This won't hurt a bit!\\n"
+        "[The ritual actually hurts quite a bit, and takes several hours to complete.\\n"
+        "When it is over, the Lich speaks again]\\n"
+        "So, now it is done.\\n"
+        "Those among you who were Wizards are now most certainly Liches.\\n"
+        "Those who were not, have my gratitude for returning the jars, and I will call you "
+        "\\\"Honorary Liches\\\".\\n"
+        "Remember, Liches must keep their Soul Jars with them at all times while they travel.\\n"
+        "You cannot be separated from your Jar for long, or you will die a real death.\")\n"
+        "    for _, player in ipairs(PartyMembers()) do\n"
+        "        evt.ForPlayer(player)\n"
+        "        if IsAtLeast(ClassId, 43) then\n"
+        "            SetValue(ClassId, 45)\n"
+        "            SetQBit(QBit(1623)) -- Promoted to Lich\n"
+        "            AddValue(Experience, 80000)\n"
+        "        else\n"
+        "            SetQBit(QBit(1624)) -- Promoted to Honorary Lich\n"
+        "            AddValue(Experience, 40000)\n"
+        "        end\n"
+        "    end\n"
+        "    ClearQBit(QBit(560)) -- Retrieve the lich jars from the Proving Grounds in Celeste and bring them "
+        "back to Halfgild Wynac in the Pit.\n"
+        "    ClearQBit(QBit(741)) -- Lich Jar (Empty) - I lost it\n"
+        "    AddValue(Gold, 7500)\n"
+        "    SubtractValue(ReputationInCurrentLocation, 10)\n"
+        "    evt.ForPlayer(Players.All)\n"
+        "    while HasItem(1417) do -- Lich Jar\n"
+        "        RemoveItem(1417) -- Lich Jar\n"
+        "    end\n"
+        "    evt.SetNPCTopic(388, 0, 0) -- Halfgild Wynac topic 0 cleared\n"
+        "    evt.SetNPCGreeting(388, 194) -- Halfgild Wynac greeting 194\n";
+
+    luaText.replace(bodyStart, bodyEnd - bodyStart, replacement);
+    return luaText;
+}
+
+std::string applyPartyMemberCompatibilityRewrites(std::string luaText)
+{
+    const std::vector<std::string> inputLines = splitLuaLines(luaText);
+    std::vector<std::string> outputLines;
+
+    for (size_t lineIndex = 0; lineIndex < inputLines.size();)
+    {
+        std::vector<std::string> replacementLines;
+        size_t nextLine = lineIndex;
+
+        if (tryRewriteSingleLineCurrentPartyMemberReward(inputLines, lineIndex, replacementLines, nextLine)
+            || tryRewriteSequentialPartyMemberBlocks(inputLines, lineIndex, replacementLines, nextLine))
+        {
+            outputLines.insert(outputLines.end(), replacementLines.begin(), replacementLines.end());
+            lineIndex = nextLine;
+            continue;
+        }
+
+        outputLines.push_back(inputLines[lineIndex]);
+        ++lineIndex;
+    }
+
+    return rewriteMm7LichRitualEvent(rewriteLincolnWetsuitCheck(joinLuaLines(outputLines)));
+}
+
 bool tryEmitReadablePartyMemberLoop(
     std::ostringstream &stream,
     const LegacyLuaEvent &event,
@@ -4660,12 +5224,14 @@ bool tryEmitReadablePartyMemberLoop(
 
     auto formatPlayerList = [&]() -> std::string
     {
+        std::vector<uint32_t> members;
         std::ostringstream listStream;
         listStream << "{";
         bool wroteMember = false;
 
         if (includePrimaryMemberInRepeatedPromotion)
         {
+            members.push_back(0);
             listStream << "Players.Member0";
             wroteMember = true;
         }
@@ -4684,8 +5250,14 @@ bool tryEmitReadablePartyMemberLoop(
                 listStream << ", ";
             }
 
+            members.push_back(*member);
             listStream << "Players.Member" << *member;
             wroteMember = true;
+        }
+
+        if (members == std::vector<uint32_t>{0, 1, 2, 3})
+        {
+            return "PartyMembers()";
         }
 
         listStream << "}";
@@ -11458,6 +12030,6 @@ std::string generateLegacyEventLuaChunk(
 
     emitSyntheticTriggerEventFunctions(stream, scopeTableName, decodedEvents, lookups, syntheticTriggerEvents);
 
-    return stream.str();
+    return applyPartyMemberCompatibilityRewrites(stream.str());
 }
 }

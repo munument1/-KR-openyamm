@@ -1336,6 +1336,17 @@ function support.applyPlayerRewards(playerIndex, rewards)
     evt.ForPlayer(support.players.Current)
 end
 
+function support.partyMembers()
+    local players = {}
+    local memberCount = evt.GetPartyMemberCount()
+
+    for playerIndex = 0, memberCount - 1 do
+        table.insert(players, playerIndex)
+    end
+
+    return players
+end
+
 function support.promotePlayers(promotion)
     local result = {
         promotedCount = 0,
@@ -1492,6 +1503,7 @@ SetValue = support.setValue
 SubtractValue = support.subtractValue
 AddToCounter = support.addToCounter
 SetCounter = support.setCounter
+PartyMembers = support.partyMembers
 RegisterEvent = support.registerEvent
 RegisterGlobalEvent = support.registerGlobalEvent
 RegisterNoOpEvent = support.registerNoOpEvent

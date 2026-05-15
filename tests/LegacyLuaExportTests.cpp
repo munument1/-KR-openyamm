@@ -19,6 +19,21 @@ std::vector<uint8_t> readBinaryFixture(const std::filesystem::path &path)
         std::istreambuf_iterator<char>(stream),
         std::istreambuf_iterator<char>());
 }
+
+std::string extractLuaEvent(const std::string &lua, const std::string &eventRegistration)
+{
+    const size_t eventStart = lua.find(eventRegistration);
+    REQUIRE(eventStart != std::string::npos);
+
+    size_t eventEnd = lua.find("\n\nRegister", eventStart + eventRegistration.size());
+
+    if (eventEnd == std::string::npos)
+    {
+        eventEnd = lua.size();
+    }
+
+    return lua.substr(eventStart, eventEnd - eventStart);
+}
 }
 
 TEST_CASE("legacy lua exporter preserves return for castle gloaming soul jar chest")
@@ -167,4 +182,170 @@ TEST_CASE("legacy lua exporter prefers house names over stale mouseover hints fo
     CHECK(eventLua.find("RegisterEvent(2, \"Stout Heart Staff and Spear\"") != std::string::npos);
     CHECK(eventLua.find("end, \"Stout Heart Staff and Spear\")") != std::string::npos);
     CHECK(eventLua.find("You pray at the shrine") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter rewrites unrolled party member rewards to dynamic party loops")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T5.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T5.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Temple of Baa";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const std::string mightAltarLua = extractLuaEvent(lua, "RegisterEvent(16");
+    INFO(mightAltarLua);
+    CHECK(mightAltarLua.find("for _, player in ipairs(PartyMembers()) do") != std::string::npos);
+    CHECK(mightAltarLua.find("evt.ForPlayer(player)") != std::string::npos);
+    CHECK(mightAltarLua.find("evt.ForPlayer(Players.Member0)") == std::string::npos);
+    CHECK(mightAltarLua.find("evt.ForPlayer(Players.Current)") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter keeps the first-member luck altar exception in dynamic party loops")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T5.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T5.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Temple of Baa";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const std::string luckAltarLua = extractLuaEvent(lua, "RegisterEvent(21");
+    INFO(luckAltarLua);
+    CHECK(luckAltarLua.find("for _, player in ipairs(PartyMembers()) do") != std::string::npos);
+    CHECK(luckAltarLua.find("if player == Players.Member0 then") != std::string::npos);
+    CHECK(luckAltarLua.find("AddValue(BaseLuck, 2)") != std::string::npos);
+    CHECK(luckAltarLua.find("AddValue(BaseLuck, 5)") != std::string::npos);
+    CHECK(luckAltarLua.find("evt.ForPlayer(Players.Current)") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter rewrites party loops that reset the selected player afterward")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6D13.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6D13.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "The Monolith";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const std::string altarLua = extractLuaEvent(lua, "RegisterEvent(24");
+    INFO(altarLua);
+    CHECK(altarLua.find("for _, player in ipairs(PartyMembers()) do") != std::string::npos);
+    CHECK(altarLua.find("evt.ForPlayer(Players.All)") != std::string::npos);
+    CHECK(altarLua.find("evt.ForPlayer(Players.Member0)") == std::string::npos);
+    CHECK(altarLua.find("evt.ForPlayer(Players.Member3)") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter rewrites lincoln wetsuit checks to all active party members")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d23.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d23.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "The Lincoln";
+    lookups.itemNames[1406] = "Wetsuit";
+    lookups.mapNamesByFile["7out15.odm"] = "Shoals";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const std::string leaveLincolnLua = extractLuaEvent(lua, "RegisterEvent(501");
+    INFO(leaveLincolnLua);
+    CHECK(leaveLincolnLua.find("local hasAllWetsuits = true") != std::string::npos);
+    CHECK(leaveLincolnLua.find("for _, player in ipairs(PartyMembers()) do") != std::string::npos);
+    CHECK(leaveLincolnLua.find("if not HasItem(1406) then -- Wetsuit") != std::string::npos);
+    CHECK(leaveLincolnLua.find("evt.MoveToMap(-7005, 7856, 225, 128") != std::string::npos);
+    CHECK(leaveLincolnLua.find("evt.ForPlayer(Players.Member0)") == std::string::npos);
+    CHECK(leaveLincolnLua.find("evt.ForPlayer(Players.Current)") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter rewrites lich ritual checks and promotions to all active party members")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/Global.EVT");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Global,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const std::string ritualLua = extractLuaEvent(lua, "RegisterGlobalEvent(847");
+    INFO(ritualLua);
+    CHECK(ritualLua.find("local hasAllLichJars = true") != std::string::npos);
+    CHECK(ritualLua.find("for _, player in ipairs(PartyMembers()) do") != std::string::npos);
+    CHECK(ritualLua.find("if not HasItem(1417) then -- Lich Jar") != std::string::npos);
+    CHECK(ritualLua.find("SetValue(ClassId, 45)") != std::string::npos);
+    CHECK(ritualLua.find("while HasItem(1417) do -- Lich Jar") != std::string::npos);
+    CHECK(ritualLua.find("evt.SetNPCGreeting(388, 194)") != std::string::npos);
+    CHECK(ritualLua.find("local function Step_0()") == std::string::npos);
+    CHECK(ritualLua.find("evt.ForPlayer(Players.Member0)") == std::string::npos);
+    CHECK(ritualLua.find("evt.ForPlayer(Players.Member3)") == std::string::npos);
 }

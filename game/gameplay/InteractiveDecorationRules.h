@@ -17,6 +17,10 @@ enum class InteractiveDecorationFamily : uint8_t
     TrashHeap,
     CampFire,
     Cask,
+    FlourSack,
+    LargeBag,
+    Bucket,
+    MightAndMagicSixTrashHeap,
 };
 
 struct InteractiveDecorationBindingSpec

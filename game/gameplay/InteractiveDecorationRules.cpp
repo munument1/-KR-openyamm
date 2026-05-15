@@ -107,6 +107,18 @@ uint16_t interactiveDecorationBaseEventId(InteractiveDecorationFamily family)
         case InteractiveDecorationFamily::Cask:
             return 288;
 
+        case InteractiveDecorationFamily::FlourSack:
+            return 1741;
+
+        case InteractiveDecorationFamily::LargeBag:
+            return 1743;
+
+        case InteractiveDecorationFamily::Bucket:
+            return 1755;
+
+        case InteractiveDecorationFamily::MightAndMagicSixTrashHeap:
+            return 1748;
+
         case InteractiveDecorationFamily::None:
             break;
     }
@@ -131,6 +143,18 @@ uint8_t interactiveDecorationEventCount(InteractiveDecorationFamily family)
             return 2;
 
         case InteractiveDecorationFamily::Cask:
+            return 2;
+
+        case InteractiveDecorationFamily::FlourSack:
+            return 2;
+
+        case InteractiveDecorationFamily::LargeBag:
+            return 5;
+
+        case InteractiveDecorationFamily::Bucket:
+            return 4;
+
+        case InteractiveDecorationFamily::MightAndMagicSixTrashHeap:
             return 2;
 
         case InteractiveDecorationFamily::None:
@@ -183,6 +207,11 @@ std::optional<InteractiveDecorationFamily> classifyInteractiveDecorationFamily(
         return InteractiveDecorationFamily::Cauldron;
     }
 
+    if (decorationMatchesAnyKey(keys, {"trasheap"}))
+    {
+        return InteractiveDecorationFamily::MightAndMagicSixTrashHeap;
+    }
+
     if (decorationMatchesAnyKey(keys, {"trash heap", "trash pile", "dec01", "dec10", "dec23"}))
     {
         return InteractiveDecorationFamily::TrashHeap;
@@ -196,6 +225,21 @@ std::optional<InteractiveDecorationFamily> classifyInteractiveDecorationFamily(
     if (decorationMatchesAnyKey(keys, {"keg", "cask", "dec21"}))
     {
         return InteractiveDecorationFamily::Cask;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"floursac"}))
+    {
+        return InteractiveDecorationFamily::FlourSack;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"bag01", "bag_a"}))
+    {
+        return InteractiveDecorationFamily::LargeBag;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"bucket"}))
+    {
+        return InteractiveDecorationFamily::Bucket;
     }
 
     return std::nullopt;
@@ -280,6 +324,18 @@ uint8_t initialInteractiveDecorationState(InteractiveDecorationFamily family, ui
             return static_cast<uint8_t>(1u + seed % 4u);
 
         case InteractiveDecorationFamily::Cask:
+            return 1;
+
+        case InteractiveDecorationFamily::FlourSack:
+            return 1;
+
+        case InteractiveDecorationFamily::LargeBag:
+            return static_cast<uint8_t>(1u + seed % 4u);
+
+        case InteractiveDecorationFamily::Bucket:
+            return static_cast<uint8_t>(1u + seed % 3u);
+
+        case InteractiveDecorationFamily::MightAndMagicSixTrashHeap:
             return 1;
 
         case InteractiveDecorationFamily::TrashHeap:
