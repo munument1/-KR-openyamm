@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         if IsQBitSet(QBit(782)) then -- Your friends are mad at you
             if IsAtLeast(Counter(10), 720) then
@@ -73,15 +73,15 @@ RegisterEvent(5, "Throne Room", function()
     evt.StatusText("The Door is Locked")
 end, "Throne Room")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.MoveToMap(-8684, -15996, -2327, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.MoveToMap(-902, 1001, -191, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     evt.MoveToMap(-9244, 2123, -1943, 0, 0, 0, 0, 0)
 end)
 
@@ -459,7 +459,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsQBitSet(QBit(711)) then return end -- Take the Associate's Tapestry
     if IsQBitSet(QBit(612)) and IsQBitSet(QBit(694)) then -- Chose the path of Dark
         evt.SetTexture(10, "cnb")
@@ -472,20 +472,20 @@ RegisterEvent(376, "Legacy event 376", function()
     end
 end)
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     if IsQBitSet(QBit(711)) then -- Take the Associate's Tapestry
         evt.SetTexture(15, "cnb")
     end
 end)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(619) -- Castle Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Lich A, spawn Necromancer A, spawn Vampire A
@@ -495,12 +495,12 @@ RegisterEvent(452, "Legacy event 452", function()
     SetQBit(QBit(782)) -- Your friends are mad at you
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if not IsAtLeast(FireResistanceBonus, 50) then
         if not IsAtLeast(FireResistance, 50) then
             evt.ForPlayer(Players.All)
@@ -515,11 +515,11 @@ RegisterEvent(454, "Legacy event 454", function()
     end
 end)
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(-11435, -20277, 1, 0, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 
-RegisterEvent(502, "Legacy event 502", function()
+RegisterEvent(502, nil, function()
     evt.MoveToMap(-10656, -23968, -384, 0, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 

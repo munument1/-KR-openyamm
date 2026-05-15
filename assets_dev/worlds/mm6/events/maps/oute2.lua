@@ -37,7 +37,7 @@ RegisterEvent(6, "Witch's Brew", function()
     evt.EnterHouse(98) -- Witch's Brew
 end, "Witch's Brew")
 
-RegisterEvent(7, "Legacy event 7", nil)
+RegisterEvent(7, nil, nil)
 
 RegisterEvent(8, "Lock, Stock, and Barrel", function()
     evt.EnterHouse(1229) -- Lock, Stock, and Barrel
@@ -188,17 +188,17 @@ RegisterEvent(79, "Chest", function()
     evt.OpenChest(5)
 end, "Chest")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(4427, 3061, 769, 1024, 0, 0, 178, 1, "6d07.blv") -- Silver Helm Outpost
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     if IsQBitSet(QBit(1325)) then -- NPC
         evt.MoveToMap(-18176, -1072, 96, 512, 0, 0, 0, 0)
     end
 end)
 
-RegisterEvent(92, "Legacy event 92", function()
+RegisterEvent(92, nil, function()
     evt.MoveToMap(4688, -2944, 96, 1400, 0, 0, 0, 0)
 end)
 
@@ -345,7 +345,7 @@ RegisterEvent(114, "Drink from Trough.", function()
     evt.StatusText("Refreshing!")
 end, "Drink from Trough.")
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     if IsQBitSet(QBit(1181)) then -- NPC
         return
     elseif IsAtLeast(IsFlying, 0) then
@@ -355,7 +355,7 @@ RegisterEvent(210, "Legacy event 210", function()
     end
 end)
 
-RegisterEvent(211, "Legacy event 211", function()
+RegisterEvent(211, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1181)) then -- NPC
         return
@@ -377,7 +377,7 @@ RegisterEvent(212, "Obelisk", function(continueStep)
     evt._PressAnyKey(212, 2)
 end, "Obelisk")
 
-RegisterEvent(213, "Legacy event 213", function()
+RegisterEvent(213, nil, function()
     if IsQBitSet(QBit(1181)) then -- NPC
     end
 end)

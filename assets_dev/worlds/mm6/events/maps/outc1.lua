@@ -244,7 +244,7 @@ RegisterEvent(77, "House", function()
     evt.EnterHouse(1495) -- House
 end, "House")
 
-RegisterEvent(78, "Legacy event 78", function()
+RegisterEvent(78, nil, function()
     evt.EnterHouse(1500) -- House
 end)
 
@@ -272,19 +272,19 @@ RegisterEvent(84, "House", function()
     evt.EnterHouse(1521) -- House
 end, "House")
 
-RegisterEvent(85, "Legacy event 85", function()
+RegisterEvent(85, nil, function()
     evt.OpenChest(1)
 end)
 
-RegisterEvent(86, "Legacy event 86", function()
+RegisterEvent(86, nil, function()
     evt.OpenChest(2)
 end)
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(1408, -1664, 1, 1024, 0, 0, 180, 1, "6d08.blv") -- Shadow Guild
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.MoveToMap(-495, -219, 1, 512, 0, 0, 188, 1, "6d15.blv") -- Icewind Keep
 end)
 
@@ -377,7 +377,7 @@ RegisterEvent(107, "Drink from Fountain", function()
     SetValue(Eradicated, 0)
 end, "Drink from Fountain")
 
-RegisterEvent(209, "Legacy event 209", function()
+RegisterEvent(209, nil, function()
     if IsQBitSet(QBit(1185)) then -- NPC
         return
     elseif IsAtLeast(IsFlying, 0) then
@@ -387,7 +387,7 @@ RegisterEvent(209, "Legacy event 209", function()
     end
 end)
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1185)) then -- NPC
         return
@@ -399,7 +399,7 @@ RegisterEvent(210, "Legacy event 210", function()
     end
 end)
 
-RegisterEvent(211, "Legacy event 211", function()
+RegisterEvent(211, nil, function()
     if IsQBitSet(QBit(1252)) then return end -- NPC
     evt.SetSnow(0, 1)
 end)
@@ -414,7 +414,7 @@ RegisterEvent(213, "Obelisk", function(continueStep)
     evt._PressAnyKey(213, 2)
 end, "Obelisk")
 
-RegisterEvent(214, "Legacy event 214", function()
+RegisterEvent(214, nil, function()
     if IsQBitSet(QBit(1185)) then -- NPC
     end
 end)

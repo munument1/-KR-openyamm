@@ -34,15 +34,15 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if IsQBitSet(QBit(19)) then -- Allied with Necromancers Guild. Steal Nightshade Brazier done.
         evt.SetMonGroupBit(39, MonsterBits.Hostile, 1) -- actor group 39: spawn Cleric (human male) A
         evt.SetMonGroupBit(40, MonsterBits.Hostile, 1) -- actor group 40: spawn Cleric (human male) A
@@ -105,14 +105,14 @@ RegisterEvent(5, "Legacy event 5", function()
     end
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(20)) then -- Allied with Temple of the Sun. Destroy the Skeleton Transformer done.
         evt.MoveNPC(33, 0) -- Oskar Tyre -> removed
         evt.MoveNPC(54, 751) -- Oskar Tyre -> Council Chamber Door
     end
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(604) then return end -- Nightshade Brazier
     evt.SetDoorState(1, DoorAction.Close)
@@ -127,11 +127,11 @@ RegisterEvent(7, "Legacy event 7", function()
     SetQBit(QBit(203)) -- Nightshade Brazier - I lost it
 end)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -413,7 +413,7 @@ RegisterEvent(201, "Temple of the Sun Leader Room", function()
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Temple of the Sun Leader Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(604) then return end -- Nightshade Brazier
     evt.SetDoorState(1, DoorAction.Close)
@@ -428,7 +428,7 @@ RegisterEvent(451, "Legacy event 451", function()
     SetQBit(QBit(203)) -- Nightshade Brazier - I lost it
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if not IsQBitSet(QBit(28)) then return end -- Bring the Nightshade Brazier to the Necromancers' Guild leader, Sandro. The Brazier is in the Temple of the Sun. - Given and taken by Sandro (area 6). Taken when Qbit 27 set.
     if HasPlayer(34) then -- Dyson Leyland
         evt.SetDoorState(1, DoorAction.Open)

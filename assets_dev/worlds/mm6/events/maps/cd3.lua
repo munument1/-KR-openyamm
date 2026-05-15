@@ -90,7 +90,7 @@ RegisterEvent(13, "Guardian of Kriegspire", function(continueStep)
     evt.MoveToMap(13487, 3117, 673, 0, 0, 0, 0, 0)
 end, "Guardian of Kriegspire")
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.MoveToMap(5773, 5678, -848, 0, 0, 0, 0, 0)
 end)
 
@@ -98,15 +98,15 @@ RegisterEvent(17, "Door", function()
     evt.SetDoorState(17, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     evt.SetDoorState(18, DoorAction.Close)
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     evt.MoveToMap(-11534, -9562, 97, 1536, 0, 0, 0, 0, "outb1.odm") -- Kriegspire
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.SummonMonsters(1, 1, 1, 13458, 3830, 673, 0, 0) -- encounter slot 1 "BMinotaur" tier A, count 1, pos=(13458, 3830, 673), actor group 0, no unique actor name
     evt.SummonMonsters(1, 1, 1, 13458, 4084, 673, 0, 0) -- encounter slot 1 "BMinotaur" tier A, count 1, pos=(13458, 4084, 673), actor group 0, no unique actor name
@@ -123,7 +123,7 @@ RegisterEvent(20, "Legacy event 20", function()
     SetValue(MapVar(3), 1)
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     if IsAtLeast(MapVar(4), 1) then return end
     evt.SummonMonsters(2, 1, 1, 14033, 4539, 673, 0, 0) -- encounter slot 2 "Cockatrice" tier A, count 1, pos=(14033, 4539, 673), actor group 0, no unique actor name
     evt.SummonMonsters(2, 1, 1, 14033, 4131, 673, 0, 0) -- encounter slot 2 "Cockatrice" tier A, count 1, pos=(14033, 4131, 673), actor group 0, no unique actor name
@@ -140,7 +140,7 @@ RegisterEvent(21, "Legacy event 21", function()
     SetValue(MapVar(4), 1)
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.SummonMonsters(1, 1, 1, 12990, 1356, 673, 0, 0) -- encounter slot 1 "BMinotaur" tier A, count 1, pos=(12990, 1356, 673), actor group 0, no unique actor name
     evt.SummonMonsters(1, 1, 1, 12454, 1356, 673, 0, 0) -- encounter slot 1 "BMinotaur" tier A, count 1, pos=(12454, 1356, 673), actor group 0, no unique actor name
@@ -157,7 +157,7 @@ RegisterEvent(22, "Legacy event 22", function()
     SetValue(MapVar(5), 1)
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SummonMonsters(3, 1, 1, 14373, 2407, 256, 0, 0) -- encounter slot 3 "BDragonFly" tier A, count 1, pos=(14373, 2407, 256), actor group 0, no unique actor name
     evt.SummonMonsters(3, 1, 1, 14373, 1670, 256, 0, 0) -- encounter slot 3 "BDragonFly" tier A, count 1, pos=(14373, 1670, 256), actor group 0, no unique actor name
@@ -166,13 +166,13 @@ RegisterEvent(23, "Legacy event 23", function()
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     if IsAtLeast(MapVar(7), 1) then return end
     SetValue(MapVar(7), 1)
     AddValue(Gold, 15000)
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     if IsAtLeast(MapVar(8), 1) then return end
     SetValue(MapVar(8), 1)
     AddValue(Gold, 15000)
@@ -244,7 +244,7 @@ RegisterEvent(45, "Chest", function()
     evt.OpenChest(5)
 end, "Chest")
 
-RegisterEvent(46, "Legacy event 46", function()
+RegisterEvent(46, nil, function()
     evt.MoveToMap(6383, 4644, 222, 315, 0, 0, 0, 0)
 end)
 
@@ -260,23 +260,23 @@ RegisterEvent(58, "Door", function()
     evt.StatusText("The door won't budge")
 end, "Door")
 
-RegisterEvent(59, "Legacy event 59", function()
+RegisterEvent(59, nil, function()
     SetValue(MapVar(9), 1)
     evt.SetDoorState(19, DoorAction.Close)
 end)
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     if IsAtLeast(MapVar(9), 1) then
         evt.SetDoorState(33, DoorAction.Close)
         evt.SetDoorState(34, DoorAction.Close)
     end
 end)
 
-RegisterEvent(61, "Legacy event 61", function()
+RegisterEvent(61, nil, function()
     evt.MoveToMap(9111, 2540, 121, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(62, "Legacy event 62", function()
+RegisterEvent(62, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1128)) then -- CD3
         return
@@ -292,7 +292,7 @@ RegisterEvent(62, "Legacy event 62", function()
     end
 end)
 
-RegisterEvent(63, "Legacy event 63", function()
+RegisterEvent(63, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1128)) or HasItem(2173) then -- CD3
         evt.SetSprite(290, 1, "crysdisc")

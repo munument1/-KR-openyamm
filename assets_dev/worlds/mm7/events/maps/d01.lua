@@ -98,25 +98,25 @@ RegisterEvent(21, "Door", function()
     SetValue(MapVar(3), 0)
 end, "Door")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetFacetBit(2, FacetBits.Invisible, 0)
     evt.SetFacetBit(2, FacetBits.Untouchable, 0)
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetFacetBit(1, FacetBits.Invisible, 0)
     evt.SetFacetBit(1, FacetBits.Untouchable, 0)
     evt.SetDoorState(3, DoorAction.Trigger)
     evt.SetDoorState(4, DoorAction.Open)
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     evt.MoveToMap(768, 10880, 1, -1, 0, 0, 0, 0)
 end)
 
-RegisterEvent(154, "Legacy event 154", function()
+RegisterEvent(154, nil, function()
     evt.MoveToMap(768, 10400, 0, -1, 0, 0, 0, 0)
 end)
 
@@ -204,20 +204,20 @@ RegisterEvent(376, "Master Thief", function()
     evt.EnterHouse(1162) -- Master Thief
 end, "Master Thief")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.SetDoorState(24, DoorAction.Trigger)
     evt.SetDoorState(30, DoorAction.Trigger)
     evt.SetDoorState(31, DoorAction.Trigger)
     evt.SetDoorState(34, DoorAction.Trigger)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.SetDoorState(25, DoorAction.Trigger)
     evt.SetDoorState(34, DoorAction.Trigger)
     evt.SetDoorState(31, DoorAction.Trigger)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.SetDoorState(26, DoorAction.Trigger)
     evt.SetDoorState(30, DoorAction.Open)
     evt.SetDoorState(31, DoorAction.Open)
@@ -231,35 +231,35 @@ RegisterEvent(453, "Legacy event 453", function()
     evt.SetDoorState(29, DoorAction.Open)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.SetDoorState(27, DoorAction.Trigger)
     evt.SetDoorState(32, DoorAction.Trigger)
     evt.SetDoorState(33, DoorAction.Trigger)
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.SetDoorState(28, DoorAction.Trigger)
     evt.SetDoorState(34, DoorAction.Trigger)
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.SetDoorState(29, DoorAction.Trigger)
     evt.SetDoorState(32, DoorAction.Trigger)
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         evt.CastSpell(39, 10, 4, 5632, 4736, 542, 5632, 12352, 542) -- Blades
     end
 end)
 
-RegisterEvent(458, "Legacy event 458", function()
+RegisterEvent(458, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         evt.CastSpell(39, 10, 4, -5632, 4736, 542, -5632, 12352, 542) -- Blades
     end
 end)
 
-RegisterEvent(459, "Legacy event 459", function()
+RegisterEvent(459, nil, function()
     evt.CastSpell(24, 10, 4, 0, 4736, 368, 0, 5632, 64) -- Poison Spray
     evt.CastSpell(24, 10, 4, 0, 6528, 368, 0, 5632, 64) -- Poison Spray
 end)

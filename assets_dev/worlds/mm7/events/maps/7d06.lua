@@ -166,7 +166,7 @@ RegisterEvent(43, "Bookcase", function()
     AddValue(InventoryItem(1113), 1113) -- Wizard Eye
 end, "Bookcase")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     evt.CastSpell(2, 2, 1, -2619, 7850, -95, -2619, 4008, -95) -- Fire Bolt
     evt.CastSpell(2, 2, 1, -2619, 4050, -95, -2619, 7896, -95) -- Fire Bolt
 end)

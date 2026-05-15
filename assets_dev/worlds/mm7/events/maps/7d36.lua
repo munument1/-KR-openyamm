@@ -171,11 +171,11 @@ RegisterEvent(198, "Ore Vein", function()
     evt.SetTexture(4, "cwb1")
 end, "Ore Vein")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(1664, 6336, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(992, 8544, -320, 0, 0, 0, 0, 0)
 end)
 

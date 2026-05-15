@@ -280,23 +280,23 @@ RegisterEvent(83, "House", function()
     evt.EnterHouse(1387) -- House
 end, "House")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 169, 1, "6d03.blv") -- Shadow Guild Hideout
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.MoveToMap(1664, -1896, 1, 1024, 0, 0, 174, 1, "6d05.blv") -- Snergle's Caverns
 end)
 
-RegisterEvent(92, "Legacy event 92", function()
+RegisterEvent(92, nil, function()
     evt.MoveToMap(2716, -256, 1, 1024, 0, 0, 176, 1, "6d06.blv") -- Dragoons' Caverns
 end)
 
-RegisterEvent(93, "Legacy event 93", function()
+RegisterEvent(93, nil, function()
     evt.MoveToMap(128, -151, 1, 512, 0, 0, 184, 1, "6d11.blv") -- Corlagon's Estate
 end)
 
-RegisterEvent(94, "Legacy event 94", function()
+RegisterEvent(94, nil, function()
     evt.MoveToMap(-15592, 120, -191, 0, 0, 0, 162, 1, "6t1.blv") -- Temple of Baa
 end)
 
@@ -333,7 +333,7 @@ RegisterEvent(102, "Drink from Fountain", function()
     SetAutonote(409) -- 10 Hit points restored from the fountain in the Arena.
 end, "Drink from Fountain")
 
-RegisterEvent(200, "Legacy event 200", function()
+RegisterEvent(200, nil, function()
     if IsAtLeast(MapVar(3), 8) then
         return
     elseif IsAtLeast(MapVar(2), 1) then
@@ -364,7 +364,7 @@ RegisterEvent(203, "Keep Off!", function()
     evt.MoveToMap(17920, 14344, 2080, 1024, 0, 0, 0, 0)
 end, "Keep Off!")
 
-RegisterEvent(210, "Legacy event 210", function(continueStep)
+RegisterEvent(210, nil, function(continueStep)
     if continueStep == 5 then
         evt.SetMessage("Chest")
         evt._PressAnyKey(210, 7)
@@ -411,7 +411,7 @@ RegisterEvent(210, "Legacy event 210", function(continueStep)
     evt._PressAnyKey(210, 5)
 end)
 
-RegisterEvent(220, "Legacy event 220", function()
+RegisterEvent(220, nil, function()
     if not IsAtLeast(MapVar(11), 1) then
         SetValue(MapVar(11), 1)
         evt.SetFacetBit(1, FacetBits.Invisible, 1)
@@ -421,7 +421,7 @@ RegisterEvent(220, "Legacy event 220", function()
     evt.SetFacetBit(1, FacetBits.Invisible, 0)
 end)
 
-RegisterEvent(221, "Legacy event 221", function()
+RegisterEvent(221, nil, function()
     if not IsAtLeast(MapVar(16), 1) then
         SetValue(MapVar(16), 1)
         evt.SetFacetBit(1, FacetBits.Untouchable, 1)
@@ -431,7 +431,7 @@ RegisterEvent(221, "Legacy event 221", function()
     evt.SetFacetBit(1, FacetBits.Untouchable, 0)
 end)
 
-RegisterEvent(225, "Legacy event 225", function()
+RegisterEvent(225, nil, function()
     if IsQBitSet(QBit(1327)) then -- NPC
         return
     end
@@ -445,7 +445,7 @@ RegisterEvent(225, "Legacy event 225", function()
     evt.SetSprite(232, 1, "swrdstx")
 end)
 
-RegisterEvent(230, "Legacy event 230", function()
+RegisterEvent(230, nil, function()
     if IsAtLeast(MapVar(21), 1) then return end
     AddValue(InventoryItem(1810), 1810) -- Meteor Shower
     SetValue(MapVar(21), 1)

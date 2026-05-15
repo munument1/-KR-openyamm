@@ -34,7 +34,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(535)) then -- Killed dragon when on Crusader quest
         return
     elseif IsQBitSet(QBit(1684)) then -- Replacement for NPCs ¹17 ver. 7
@@ -125,7 +125,7 @@ RegisterEvent(195, "Door", function()
     evt.OpenChest(0)
 end, "Door")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if not IsQBitSet(QBit(534)) then return end -- Kill Wromthrax the Heartless in his cave in Tatalia, then talk to Sir Charles Quixote.
     if IsQBitSet(QBit(535)) then return end -- Killed dragon when on Crusader quest
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56: Blue Dragon; at least 1 matching actor defeated

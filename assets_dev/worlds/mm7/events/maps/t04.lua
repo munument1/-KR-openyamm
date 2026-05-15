@@ -32,7 +32,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(612)) then return end -- Chose the path of Dark
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Gargoyle A, spawn Harpy A, spawn Zombie A
 end)
@@ -42,7 +42,7 @@ RegisterEvent(3, "Door", function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
@@ -130,15 +130,15 @@ RegisterEvent(194, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(2304, 1152, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(576, 11200, 64, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.MoveToMap(512, 7680, -1488, 0, 0, 0, 0, 0)
 end)
 

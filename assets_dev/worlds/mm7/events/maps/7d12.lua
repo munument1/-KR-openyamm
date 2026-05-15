@@ -33,11 +33,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Beholder A, spawn Golem A
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(17, DoorAction.Close)
     evt.SetDoorState(3, DoorAction.Open)
 end)
@@ -48,7 +48,7 @@ RegisterEvent(4, "Button", function()
     evt.SetDoorState(20, DoorAction.Open)
 end, "Button")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if IsAtLeast(MapVar(2), 1) then
         evt.SetDoorState(5, DoorAction.Open)
         evt.SetDoorState(4, DoorAction.Open)
@@ -80,7 +80,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(16, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(21, DoorAction.Open)
     evt.SetDoorState(22, DoorAction.Open)
 end)
@@ -292,7 +292,7 @@ end, "Bookcase")
 RegisterEvent(200, "Bookcase", function()
 end, "Bookcase")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsQBitSet(QBit(637)) then -- Destroy the magical defenses inside Clanker's Laboratory and return to Dark Shade in the Pit.
         evt.SetTexture(1, "7solid01")
         evt.ForPlayer(Players.All)
@@ -311,7 +311,7 @@ RegisterEvent(451, "Take a Drink", function()
     evt.StatusText("Refreshing")
 end, "Take a Drink")
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.CastSpell(39, 15, 4, 1591, 2837, 400, -1595, 2837, 400) -- Blades
     evt.CastSpell(39, 15, 4, -1595, 2837, 400, 1591, 2837, 400) -- Blades
 end)

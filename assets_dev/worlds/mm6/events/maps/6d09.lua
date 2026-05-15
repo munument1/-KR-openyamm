@@ -125,7 +125,7 @@ RegisterEvent(21, "Door", function()
     evt.SetDoorState(21, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     evt.SetDoorState(22, DoorAction.Close)
 end)
 
@@ -200,7 +200,7 @@ RegisterEvent(40, "Bookshelves", function()
     evt.FaceExpression(39)
 end, "Bookshelves")
 
-RegisterEvent(41, "Legacy event 41", function()
+RegisterEvent(41, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(2108) then return end -- Key to Snergle's Chambers
     SetQBit(QBit(1025)) -- 1 D09, key to open D05
@@ -211,7 +211,7 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(20212, 13238, 97, 1408, 0, 0, 0, 0, "outc3.odm") -- Mire of the Damned
 end, "Exit")
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     SetValue(MapVar(51), 20)
     SetValue(MapVar(52), 20)
 end)
@@ -240,7 +240,7 @@ RegisterEvent(62, "Pool", function()
     SetAutonote(458) -- 10 Spell points restored by the left side pool in Snergle's Iron Mines.
 end, "Pool")
 
-RegisterEvent(63, "Legacy event 63", function()
+RegisterEvent(63, nil, function()
     evt.SetDoorState(27, DoorAction.Close)
 end)
 

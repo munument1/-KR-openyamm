@@ -35,7 +35,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AMinotaur A, spawn Beholder A, spawn Warlock A
 end)
 
@@ -59,16 +59,16 @@ RegisterEvent(6, "Door", function()
     evt.SetDoorState(8, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(9, DoorAction.Open)
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(10, DoorAction.Close)
     evt.SetDoorState(11, DoorAction.Close)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetDoorState(10, DoorAction.Open)
     evt.SetDoorState(11, DoorAction.Open)
 end)
@@ -224,12 +224,12 @@ end, "Bookcase")
 RegisterEvent(198, "Bookcase", function()
 end, "Bookcase")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.ForPlayer(Players.All)
     SetValue(Eradicated, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if not IsAtLeast(FireResistanceBonus, 50) then
         if not IsAtLeast(FireResistance, 50) then
             evt.ForPlayer(Players.All)
@@ -244,7 +244,7 @@ RegisterEvent(452, "Legacy event 452", function()
     end
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     local randomStep = PickRandomOption(453, 2, {2, 3, 6, 7, 2, 7})
     if randomStep == 2 then
         evt.CastSpell(41, 15, 4, -1536, -896, 0, -1536, -896, 5376) -- Rock Blast
@@ -270,7 +270,7 @@ RegisterEvent(453, "Legacy event 453", function()
     end
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     SetValue(MapVar(3), 1)
     local randomStep = PickRandomOption(454, 3, {4, 6, 8, 10, 10, 10})
     if randomStep == 4 then

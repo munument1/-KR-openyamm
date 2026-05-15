@@ -170,7 +170,7 @@ RegisterEvent(23, "Door", function()
     evt.SetDoorState(23, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.SetDoorState(25, DoorAction.Trigger)
 end)
 
@@ -192,11 +192,11 @@ RegisterEvent(27, "Stone Face", function()
     evt.MoveToMap(-1792, -19, 1, 1, 0, 0, 0, 0)
 end, "Stone Face")
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     evt.MoveToMap(-2853, 1600, -2655, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     evt.MoveToMap(2823, 1534, -2655, 45, 0, 0, 0, 0)
 end)
 
@@ -204,16 +204,16 @@ RegisterEvent(30, "Door", function()
     evt.SetDoorState(30, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(31, "Legacy event 31", function()
+RegisterEvent(31, nil, function()
     evt.SetDoorState(30, DoorAction.Open)
 end)
 
-RegisterEvent(32, "Legacy event 32", function()
+RegisterEvent(32, nil, function()
     evt.SetDoorState(45, DoorAction.Close)
     evt.SetDoorState(46, DoorAction.Close)
 end)
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     evt.SetDoorState(18, DoorAction.Open)
 end)
 
@@ -266,7 +266,7 @@ RegisterEvent(49, "Chest", function()
     evt.OpenChest(9)
 end, "Chest")
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.CastSpell(83, 4, 1, 0, 0, 0, 0, 0, 0) -- Day of the Gods
     SetValue(MapVar(3), 1)
@@ -310,11 +310,11 @@ RegisterEvent(55, "Door", function()
     evt.SetDoorState(55, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     SetValue(MapVar(3), 0)
 end)
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     SetValue(MapVar(3), 0)
 end)
 

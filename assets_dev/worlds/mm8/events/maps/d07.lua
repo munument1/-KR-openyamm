@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(10)) then -- Letter from Q Bit 9 delivered.
         if not IsQBitSet(QBit(231)) then return end -- The were-rats are mad at you
         if not IsAtLeast(Counter(6), 1344) then
@@ -59,15 +59,15 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(11, MonsterBits.Invisible, 1) -- actor group 11: Shapeshifter
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(231)) then -- The were-rats are mad at you
         return
     end
@@ -79,13 +79,13 @@ RegisterEvent(6, "Legacy event 6", function()
     SetValue(Counter(6), 0)
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -377,39 +377,39 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.CastSpell(41, 2, 3, 9450, -13428, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.CastSpell(41, 2, 3, 9735, -12749, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     evt.CastSpell(41, 2, 3, 10321, -12444, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(105, "Legacy event 105", function()
+RegisterEvent(105, nil, function()
     evt.CastSpell(41, 2, 3, 10970, -12100, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(106, "Legacy event 106", function()
+RegisterEvent(106, nil, function()
     evt.CastSpell(41, 2, 3, 10626, -11544, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(107, "Legacy event 107", function()
+RegisterEvent(107, nil, function()
     evt.CastSpell(41, 2, 3, 10835, -10496, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(108, "Legacy event 108", function()
+RegisterEvent(108, nil, function()
     evt.CastSpell(41, 2, 3, 10775, -9791, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(109, "Legacy event 109", function()
+RegisterEvent(109, nil, function()
     evt.CastSpell(41, 2, 3, 9986, -9446, 832, 0, 0, 0) -- Rock Blast
 end)
 
-RegisterEvent(110, "Legacy event 110", function()
+RegisterEvent(110, nil, function()
     evt.CastSpell(41, 2, 3, 11194, -9332, 832, 0, 0, 0) -- Rock Blast
 end)
 
@@ -421,19 +421,19 @@ RegisterEvent(201, "Wererat Smuggler Leader", function()
     evt.SetMonGroupBit(8, MonsterBits.Invisible, 1) -- actor group 8: spawn Wererat Human Form Male A, spawn Wererat Rat Form Male A
 end, "Wererat Smuggler Leader")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(11), 1) then return end
     SetValue(MapVar(11), 1)
     evt.SpeakNPC(37) -- Guard
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     SetValue(MapVar(11), 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     evt.SetMonGroupBit(8, MonsterBits.Hostile, 1) -- actor group 8: spawn Wererat Human Form Male A, spawn Wererat Rat Form Male A
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: spawn Wererat Ratman Form Male A

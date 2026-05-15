@@ -25,7 +25,7 @@ RegisterEvent(76, "Chest", function()
     evt.OpenChest(2)
 end, "Chest")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-2048, 3453, 2049, 1536, 0, 0, 177, 1, "6t6.blv") -- Supreme Temple of Baa
 end)
 

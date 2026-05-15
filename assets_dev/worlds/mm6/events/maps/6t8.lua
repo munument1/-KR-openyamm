@@ -30,7 +30,7 @@ RegisterEvent(1, "Switch", function()
     SetValue(MapVar(4), 1)
 end, "Switch")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.SetDoorState(2, DoorAction.Close)
 end)
 
@@ -47,7 +47,7 @@ RegisterEvent(4, "Switch", function()
     SetValue(MapVar(5), 1)
 end, "Switch")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetTexture(635, "t1swbd")
     SetValue(MapVar(6), 1)
@@ -101,39 +101,39 @@ RegisterEvent(14, "Chest", function()
     evt.OpenChest(9)
 end, "Chest")
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.DamagePlayer(6, const.Damage.Fire, 40)
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.DamagePlayer(6, const.Damage.Magic, 40)
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     evt.DamagePlayer(6, const.Damage.Magic, 50)
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     evt.DamagePlayer(6, const.Damage.Air, 50)
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     evt.DamagePlayer(6, const.Damage.Fire, 50)
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     evt.StatusText("A teleporter!")
     evt.MoveToMap(3264, -1336, 513, 192, 0, 0, 0, 0)
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         evt.SetTexture(643, "t1swbd")
         evt.SetTexture(639, "t1swbd")
     end
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetTexture(635, "t1swbu")
     end
@@ -145,7 +145,7 @@ RegisterEvent(23, "Legacy event 23", function()
     end
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.CastSpell(32, 7, 1, -3306, -1285, 640, -2000, -1285, 640) -- Ice Blast
 end)

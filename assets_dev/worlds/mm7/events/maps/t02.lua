@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Cleric Moon A, spawn Vampire A
         return
@@ -528,45 +528,45 @@ end, "Bookcase")
 RegisterEvent(200, "Bookcase", function()
 end, "Bookcase")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(615) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Cleric Moon A, spawn Vampire A
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.CastSpell(24, 10, 4, -1536, 4353, 0, -1216, 4653, -383) -- Poison Spray
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.CastSpell(24, 10, 4, 1536, 4352, 0, 1216, 4352, -383) -- Poison Spray
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.CastSpell(24, 10, 4, 1536, 6656, 0, 1216, 6656, -383) -- Poison Spray
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     evt.CastSpell(24, 10, 4, -1536, 6656, 0, -1216, 6656, -383) -- Poison Spray
 end)
 
-RegisterEvent(458, "Legacy event 458", function()
+RegisterEvent(458, nil, function()
     if IsAtLeast(Unknown1, 0) then return end
     evt.SetFacetBit(1, FacetBits.Untouchable, 1)
 end)
 
-RegisterEvent(459, "Legacy event 459", function()
+RegisterEvent(459, nil, function()
     evt.SetFacetBit(1, FacetBits.Untouchable, 0)
 end)
 

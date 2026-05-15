@@ -33,17 +33,17 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(244)) then return end -- Got the heart of earth
     evt.ForPlayer(Players.All)
     if HasItem(609) then -- Heart of Earth
@@ -53,13 +53,13 @@ RegisterEvent(6, "Legacy event 6", function()
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -271,7 +271,7 @@ RegisterEvent(62, "Door", function()
     evt.SetDoorState(54, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
 end)
 

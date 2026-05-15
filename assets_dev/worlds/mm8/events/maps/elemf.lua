@@ -33,17 +33,17 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(242)) then return end -- Got the heart of fire
     evt.ForPlayer(Players.All)
     if HasItem(606) then -- Heart of Fire
@@ -53,13 +53,13 @@ RegisterEvent(6, "Legacy event 6", function()
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Ember's House", function()
     evt.EnterHouse(686) -- Ember's House
@@ -97,83 +97,83 @@ end, "Burn's House")
 
 RegisterEvent(22, "Burn's House", nil, "Burn's House")
 
-RegisterEvent(81, "Legacy event 81", function()
+RegisterEvent(81, nil, function()
     evt.OpenChest(0)
 end)
 
-RegisterEvent(82, "Legacy event 82", function()
+RegisterEvent(82, nil, function()
     evt.OpenChest(1)
 end)
 
-RegisterEvent(83, "Legacy event 83", function()
+RegisterEvent(83, nil, function()
     evt.OpenChest(2)
 end)
 
-RegisterEvent(84, "Legacy event 84", function()
+RegisterEvent(84, nil, function()
     evt.OpenChest(3)
 end)
 
-RegisterEvent(85, "Legacy event 85", function()
+RegisterEvent(85, nil, function()
     evt.OpenChest(4)
 end)
 
-RegisterEvent(86, "Legacy event 86", function()
+RegisterEvent(86, nil, function()
     evt.OpenChest(5)
 end)
 
-RegisterEvent(87, "Legacy event 87", function()
+RegisterEvent(87, nil, function()
     evt.OpenChest(6)
 end)
 
-RegisterEvent(88, "Legacy event 88", function()
+RegisterEvent(88, nil, function()
     evt.OpenChest(7)
 end)
 
-RegisterEvent(89, "Legacy event 89", function()
+RegisterEvent(89, nil, function()
     evt.OpenChest(8)
 end)
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.OpenChest(9)
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.OpenChest(10)
 end)
 
-RegisterEvent(92, "Legacy event 92", function()
+RegisterEvent(92, nil, function()
     evt.OpenChest(11)
 end)
 
-RegisterEvent(93, "Legacy event 93", function()
+RegisterEvent(93, nil, function()
     evt.OpenChest(12)
 end)
 
-RegisterEvent(94, "Legacy event 94", function()
+RegisterEvent(94, nil, function()
     evt.OpenChest(13)
 end)
 
-RegisterEvent(95, "Legacy event 95", function()
+RegisterEvent(95, nil, function()
     evt.OpenChest(14)
 end)
 
-RegisterEvent(96, "Legacy event 96", function()
+RegisterEvent(96, nil, function()
     evt.OpenChest(15)
 end)
 
-RegisterEvent(97, "Legacy event 97", function()
+RegisterEvent(97, nil, function()
     evt.OpenChest(16)
 end)
 
-RegisterEvent(98, "Legacy event 98", function()
+RegisterEvent(98, nil, function()
     evt.OpenChest(17)
 end)
 
-RegisterEvent(99, "Legacy event 99", function()
+RegisterEvent(99, nil, function()
     evt.OpenChest(18)
 end)
 
-RegisterEvent(100, "Legacy event 100", function()
+RegisterEvent(100, nil, function()
     evt.OpenChest(19)
 end)
 
@@ -193,15 +193,15 @@ RegisterEvent(451, "Take a Drink", function()
     evt.StatusText("Refreshing")
 end, "Take a Drink")
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt._SpecialJump(33555456, 220)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt._SpecialJump(33555968, 220)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt._SpecialJump(33554432, 220)
 end)
 

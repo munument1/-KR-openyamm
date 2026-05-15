@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(759)) then return end -- Control Cube only once
     evt.SetMonsterItem(0, 1477, 1)
     evt.SetMonsterItem(0, 866, 1)
@@ -42,7 +42,7 @@ RegisterEvent(1, "Legacy event 1", function()
     SetQBit(QBit(759)) -- Control Cube only once
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not evt.CheckMonstersKilled(ActorKillCheck.ActorIdOe, 0, 0, false) then -- OE actor 0; all matching actors defeated
         if evt.CheckMonstersKilled(ActorKillCheck.ActorIdOe, 1, 0, false) then -- OE actor 1; all matching actors defeated
             SetQBit(QBit(631)) -- Killed Evil MM3 Person
@@ -134,11 +134,11 @@ RegisterEvent(195, "Door", function()
     evt.OpenChest(0)
 end, "Door")
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(5648, 12374, 33, 0, 0, 0, 0, 0, "7d25.blv") -- Celeste
 end)
 
-RegisterEvent(502, "Legacy event 502", function()
+RegisterEvent(502, nil, function()
     evt.MoveToMap(-7745, -6673, 65, 1024, 0, 0, 0, 0, "7d26.blv") -- The Pit
 end)
 

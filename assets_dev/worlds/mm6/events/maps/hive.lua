@@ -89,7 +89,7 @@ RegisterEvent(16, "Switch", function()
     evt.StatusText("Flush system deactivated")
 end, "Switch")
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     if IsAtLeast(MapVar(23), 1) then
         return
     elseif IsAtLeast(MapVar(2), 1) then
@@ -101,7 +101,7 @@ RegisterEvent(17, "Legacy event 17", function()
     end
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     if IsAtLeast(MapVar(23), 1) then
         return
     elseif IsAtLeast(MapVar(2), 1) then
@@ -116,7 +116,7 @@ RegisterEvent(21, "Door", function()
     evt.StatusText("The Door Won't Budge")
 end, "Door")
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     SetValue(MapVar(5), 0)
 end)
 
@@ -125,7 +125,7 @@ RegisterEvent(23, "Keg", function()
     AddValue(CurrentHealth, 20)
 end, "Keg")
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.SetDoorState(43, DoorAction.Close)
 end)
 
@@ -133,7 +133,7 @@ RegisterEvent(28, "Door", function()
     evt.SetDoorState(28, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     SetValue(MapVar(2), 0)
 end)
 
@@ -142,7 +142,7 @@ RegisterEvent(31, "Switch", function()
     evt.SetDoorState(32, DoorAction.Close)
 end, "Switch")
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     evt.SetDoorState(35, DoorAction.Trigger)
     evt.SetDoorState(36, DoorAction.Trigger)
 end)
@@ -157,11 +157,11 @@ RegisterEvent(36, "Switch", function()
     evt.SetDoorState(43, DoorAction.Trigger)
 end, "Switch")
 
-RegisterEvent(38, "Legacy event 38", function()
+RegisterEvent(38, nil, function()
     evt.SetDoorState(42, DoorAction.Close)
 end)
 
-RegisterEvent(39, "Legacy event 39", function()
+RegisterEvent(39, nil, function()
     evt.SetDoorState(45, DoorAction.Close)
     evt.SetDoorState(46, DoorAction.Close)
 end)
@@ -196,14 +196,14 @@ RegisterEvent(50, "Switch", function()
     SetValue(MapVar(23), 1)
 end, "Switch")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(MapVar(22), 1) then
         evt.StatusText("Flush sequence complete.")
         SetValue(MapVar(22), 0)
     end
 end)
 
-RegisterEvent(54, "Legacy event 54", function()
+RegisterEvent(54, nil, function()
     if not IsAtLeast(MapVar(21), 1) then return end
     evt.StatusText("Flush sequence in progress.")
     if not IsAtLeast(MapVar(3), 1) then
@@ -217,14 +217,14 @@ RegisterEvent(56, "Protected", function()
     SetValue(MapVar(3), 1)
 end, "Protected")
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     if IsAtLeast(MapVar(2), 1) then
         evt.StatusText("Warning!  Flush system activated!")
         SetValue(MapVar(21), 1)
     end
 end)
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     SetValue(MapVar(3), 0)
 end)
 
@@ -245,7 +245,7 @@ RegisterEvent(60, "Exit", function()
     evt.EnterHouse(0)
 end, "Exit")
 
-RegisterEvent(100, "Legacy event 100", function()
+RegisterEvent(100, nil, function()
     if IsQBitSet(QBit(1204)) then -- NPC
         evt.SetDoorState(28, DoorAction.Open)
         evt.SetDoorState(30, DoorAction.Close)

@@ -31,7 +31,7 @@ RegisterEvent(1, "Door", function()
     evt.SetDoorState(2, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
     evt.SetDoorState(2, DoorAction.Close)
 end)
@@ -305,19 +305,19 @@ RegisterEvent(50, "Chest", function()
     evt.OpenChest(7)
 end, "Chest")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     SetValue(MapVar(2), 1)
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     SetValue(MapVar(2), 0)
 end)
 
-RegisterEvent(53, "Legacy event 53", function()
+RegisterEvent(53, nil, function()
     SetValue(MapVar(2), 0)
 end)
 
-RegisterEvent(54, "Legacy event 54", function()
+RegisterEvent(54, nil, function()
     if IsAtLeast(MapVar(2), 1) then
         evt.DamagePlayer(Players.All, const.Damage.Magic, 25)
     end
@@ -327,7 +327,7 @@ RegisterEvent(55, "Door", function()
     evt.StatusText("The Door won't budge.")
 end, "Door")
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     local randomStep = PickRandomOption(56, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.SummonObject(1000, -1792, 1536, -508, 1000, 2, false) -- Gold
@@ -349,7 +349,7 @@ RegisterEvent(56, "Legacy event 56", function()
     end
 end)
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     local randomStep = PickRandomOption(57, 2, {2, 4, 6, 8, 10})
     if randomStep == 2 then
         evt.SummonObject(1000, 2688, 6016, -765, 1000, 2, true) -- Gold
@@ -368,7 +368,7 @@ RegisterEvent(57, "Legacy event 57", function()
     end
 end)
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     local randomStep = PickRandomOption(58, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.SummonObject(1000, 4608, 256, -2044, 1000, 2, true) -- Gold
@@ -390,7 +390,7 @@ RegisterEvent(58, "Legacy event 58", function()
     end
 end)
 
-RegisterEvent(59, "Legacy event 59", function()
+RegisterEvent(59, nil, function()
     local randomStep = PickRandomOption(59, 2, {2, 4, 6, 8})
     if randomStep == 2 then
         evt.SummonObject(1050, -2432, -2304, -2044, 1000, 2, true) -- Fireball
@@ -406,7 +406,7 @@ RegisterEvent(59, "Legacy event 59", function()
     end
 end)
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     local randomStep = PickRandomOption(60, 2, {2, 4, 6, 8})
     if randomStep == 2 then
         evt.SummonObject(1050, 2560, 2304, -1404, 1000, 2, false) -- Fireball
@@ -422,7 +422,7 @@ RegisterEvent(60, "Legacy event 60", function()
     end
 end)
 
-RegisterEvent(61, "Legacy event 61", function()
+RegisterEvent(61, nil, function()
     local randomStep = PickRandomOption(61, 2, {2, 4, 6, 8, 10})
     if randomStep == 2 then
         evt.SummonObject(1000, 896, 2816, -765, 1000, 2, true) -- Gold
@@ -471,7 +471,7 @@ RegisterEvent(90, "Exit", function()
     evt.MoveToMap(15585, 11125, 97, 512, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end, "Exit")
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     if IsAtLeast(MapVar(46), 1) then
         return
     elseif IsPlayerBitSet(PlayerBit(59)) then

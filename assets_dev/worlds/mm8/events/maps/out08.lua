@@ -34,13 +34,13 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if IsQBitSet(QBit(23)) then -- Allied with Minotaurs. Rescue the Minotaurs done.
         evt.SetFacetBit(10, FacetBits.Invisible, 0)
         evt.SetFacetBit(10, FacetBits.Untouchable, 0)
@@ -49,15 +49,15 @@ RegisterEvent(4, "Legacy event 4", function()
     end
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Xevius's Residence", function()
     evt.EnterHouse(619) -- Xevius's Residence
@@ -241,9 +241,9 @@ RegisterEvent(405, "Gate to the Plane of Water", nil, "Gate to the Plane of Wate
 
 RegisterEvent(406, "Sealed Crate", nil, "Sealed Crate")
 
-RegisterEvent(450, "Legacy event 450", nil)
+RegisterEvent(450, nil, nil)
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     local randomStep = PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.PlaySound(322, 7296, -5280)

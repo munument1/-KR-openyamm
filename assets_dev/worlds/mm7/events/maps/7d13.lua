@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghoul A, spawn Wight A
 end)
 
@@ -53,93 +53,93 @@ RegisterEvent(6, "Door", function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(176, "Legacy event 176", function()
+RegisterEvent(176, nil, function()
     evt.OpenChest(1)
 end)
 
-RegisterEvent(177, "Legacy event 177", function()
+RegisterEvent(177, nil, function()
     evt.OpenChest(2)
 end)
 
-RegisterEvent(178, "Legacy event 178", function()
+RegisterEvent(178, nil, function()
     evt.OpenChest(3)
 end)
 
-RegisterEvent(179, "Legacy event 179", function()
+RegisterEvent(179, nil, function()
     evt.OpenChest(4)
 end)
 
-RegisterEvent(180, "Legacy event 180", function()
+RegisterEvent(180, nil, function()
     evt.OpenChest(5)
 end)
 
-RegisterEvent(181, "Legacy event 181", function()
+RegisterEvent(181, nil, function()
     evt.OpenChest(6)
 end)
 
-RegisterEvent(182, "Legacy event 182", function()
+RegisterEvent(182, nil, function()
     evt.OpenChest(7)
 end)
 
-RegisterEvent(183, "Legacy event 183", function()
+RegisterEvent(183, nil, function()
     evt.OpenChest(8)
 end)
 
-RegisterEvent(184, "Legacy event 184", function()
+RegisterEvent(184, nil, function()
     evt.OpenChest(9)
 end)
 
-RegisterEvent(185, "Legacy event 185", function()
+RegisterEvent(185, nil, function()
     evt.OpenChest(10)
 end)
 
-RegisterEvent(186, "Legacy event 186", function()
+RegisterEvent(186, nil, function()
     evt.OpenChest(11)
 end)
 
-RegisterEvent(187, "Legacy event 187", function()
+RegisterEvent(187, nil, function()
     evt.OpenChest(12)
 end)
 
-RegisterEvent(188, "Legacy event 188", function()
+RegisterEvent(188, nil, function()
     evt.OpenChest(13)
 end)
 
-RegisterEvent(189, "Legacy event 189", function()
+RegisterEvent(189, nil, function()
     evt.OpenChest(14)
 end)
 
-RegisterEvent(190, "Legacy event 190", function()
+RegisterEvent(190, nil, function()
     evt.OpenChest(15)
 end)
 
-RegisterEvent(191, "Legacy event 191", function()
+RegisterEvent(191, nil, function()
     evt.OpenChest(16)
 end)
 
-RegisterEvent(192, "Legacy event 192", function()
+RegisterEvent(192, nil, function()
     evt.OpenChest(17)
 end)
 
-RegisterEvent(193, "Legacy event 193", function()
+RegisterEvent(193, nil, function()
     evt.OpenChest(18)
 end)
 
-RegisterEvent(194, "Legacy event 194", function()
+RegisterEvent(194, nil, function()
     evt.OpenChest(19)
 end)
 
-RegisterEvent(195, "Legacy event 195", function()
+RegisterEvent(195, nil, function()
     evt.OpenChest(0)
 end)
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsQBitSet(QBit(539)) then -- Find the lost meditation spot in the Dwarven Barrows.
         evt.SpeakNPC(394) -- Bartholomew Hume
     end
 end)
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(577)) then -- Barrow downs. Returned the bones of the Dwarf King. Arch Druid promo quest.
         return
@@ -178,12 +178,12 @@ RegisterEvent(455, "Door", function()
     evt.SetDoorState(5, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.SetDoorState(7, DoorAction.Open)
     evt.SetDoorState(6, DoorAction.Open)
 end)
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     local randomStep = PickRandomOption(501, 1, {1, 1, 1, 3, 3, 3})
     if randomStep == 1 then
         evt.MoveToMap(335, -1064, 1, 768, 0, 0, 0, 0, "mdk02.blv") -- Barrow IV

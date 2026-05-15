@@ -233,7 +233,8 @@ TEST_CASE("AssetFileSystem mounts generated runtime zip package sets")
         assetRoot / "engine.zip",
         {
             {"ui/layout.yml", "engine-ui"},
-            {"data_tables/english/Global.txt", "engine-global"}
+            {"data_tables/english/Global.txt", "engine-global"},
+            {"data_tables/map_stats.txt", "engine-map-stats"}
         });
     writeZipFile(
         assetRoot / "worlds" / "mm6.zip",
@@ -259,6 +260,11 @@ TEST_CASE("AssetFileSystem mounts generated runtime zip package sets")
         const std::optional<std::string> uiText = assetFileSystem.readTextFile("Data/ui/layout.yml");
         REQUIRE(uiText.has_value());
         CHECK_EQ(*uiText, "engine-ui");
+
+        const std::optional<std::string> devStyleTableText =
+            assetFileSystem.readTextFile("engine/data_tables/map_stats.txt");
+        REQUIRE(devStyleTableText.has_value());
+        CHECK_EQ(*devStyleTableText, "engine-map-stats");
 
         const std::optional<std::string> sharedMapText = assetFileSystem.readTextFile("Data/games/shared.odm");
         REQUIRE(sharedMapText.has_value());

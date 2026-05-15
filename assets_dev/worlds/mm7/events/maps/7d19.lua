@@ -33,12 +33,12 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetValue(MapVar(2), 1)
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Cleric Moon A, spawn Wight A
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     local function Step_1()
         evt.ForPlayer(Players.All)
         return 2
@@ -75,7 +75,7 @@ RegisterEvent(2, "Legacy event 2", function()
     end
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(6, DoorAction.Open)
 end)
 
@@ -87,7 +87,7 @@ RegisterEvent(5, "Door", function()
     evt.SetDoorState(7, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsAtLeast(MapVar(2), 2) then return end
     evt.SetDoorState(8, DoorAction.Open)
     evt.SetDoorState(9, DoorAction.Open)
@@ -98,7 +98,7 @@ RegisterEvent(7, "Door", function()
     evt.SetDoorState(11, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     evt.SetDoorState(8, DoorAction.Close)
     evt.SetDoorState(9, DoorAction.Close)
 end)
@@ -108,7 +108,7 @@ RegisterEvent(9, "Door", function()
     evt.SetDoorState(13, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.SetDoorState(14, DoorAction.Open)
 end)
 
@@ -136,7 +136,7 @@ RegisterEvent(15, "Door", function()
     evt.SetDoorState(23, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetDoorState(24, DoorAction.Open)
     evt.SetDoorState(25, DoorAction.Open)
 end)
@@ -155,7 +155,7 @@ RegisterEvent(19, "Button", function()
     evt.SetDoorState(15, DoorAction.Open)
 end, "Button")
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     AddValue(InventoryItem(1143), 1143) -- Telekinesis
     evt.SetDoorState(29, DoorAction.Open)
 end)
@@ -164,12 +164,12 @@ RegisterEvent(21, "Door", function()
     evt.SetDoorState(31, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     evt.SetDoorState(4, DoorAction.Open)
     evt.SetDoorState(5, DoorAction.Open)
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetDoorState(2, DoorAction.Open)
 end)
@@ -179,7 +179,7 @@ RegisterEvent(24, "Door", function()
     evt.SetDoorState(50, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.SetDoorState(52, DoorAction.Open)
 end)
 
@@ -305,7 +305,7 @@ RegisterEvent(376, "Altar", function()
     end
 end, "Altar")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if not IsAtLeast(MapVar(2), 2) then
         SetValue(MapVar(2), 2)
         evt.SetFacetBit(1, FacetBits.Untouchable, 1)

@@ -33,11 +33,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Fighter Leather A, spawn Thief A
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.Any, 0, 0, false) then -- any actor; all matching actors defeated
         SetQBit(QBit(655)) -- Killed all monsters in Bandit cave
     end
@@ -137,7 +137,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(18005, 7107, 2913, 1728, 0, 0, 0, 0, "7out03.odm") -- Erathia
 end)
 

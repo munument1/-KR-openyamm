@@ -33,15 +33,15 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
         evt.SetMonGroupBit(22, MonsterBits.Hostile, 1) -- actor group 22: spawn Dragon Hunter A
         evt.SetMonGroupBit(23, MonsterBits.Hostile, 1) -- actor group 23: Crusader, Dragonslayer, spawn Dragon Hunter A
@@ -66,13 +66,13 @@ RegisterEvent(5, "Legacy event 5", function()
     end
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if IsQBitSet(QBit(21)) then -- Allied with Charles Quioxte's Dragon Hunters. Return Dragon Egg to Quixote done.
         return
     elseif IsQBitSet(QBit(158)) then -- Killed all Dragon Hunters in Garrote Gorge wilderness area
@@ -95,7 +95,7 @@ RegisterEvent(9, "Legacy event 9", function()
     end
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(21)) then -- Allied with Charles Quioxte's Dragon Hunters. Return Dragon Egg to Quixote done.
         evt.MoveNPC(15, 0) -- Sir Charles Quixote -> removed
         evt.MoveNPC(52, 751) -- Sir Charles Quixote -> Council Chamber Door
@@ -399,19 +399,19 @@ RegisterEvent(401, "Crate", nil, "Crate")
 
 RegisterEvent(402, "Bookshelf", nil, "Bookshelf")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(11), 1) then return end
     SetValue(MapVar(11), 1)
     evt.SpeakNPC(36) -- Guard
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     SetValue(MapVar(11), 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     evt.SetMonGroupBit(22, MonsterBits.Hostile, 1) -- actor group 22: spawn Dragon Hunter A
     evt.SetMonGroupBit(23, MonsterBits.Hostile, 1) -- actor group 23: Crusader, Dragonslayer, spawn Dragon Hunter A

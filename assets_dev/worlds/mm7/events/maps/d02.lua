@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Warlock A
 end)
 

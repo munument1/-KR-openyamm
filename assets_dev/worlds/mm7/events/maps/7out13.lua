@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Bowman, spawn ATroll A, spawn Archer A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Bowman
@@ -410,7 +410,7 @@ RegisterEvent(453, "Obelisk", function()
     SetQBit(QBit(687)) -- Visited Obelisk in Area 13
 end, "Obelisk")
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if not IsQBitSet(QBit(526)) then return end -- Accepted Fireball wand from Malwick
     if IsQBitSet(QBit(702)) then -- Finished with Malwick & Assc.
         return
@@ -435,9 +435,9 @@ RegisterEvent(454, "Legacy event 454", function()
     end
 end)
 
-RegisterEvent(455, "Legacy event 455", nil)
+RegisterEvent(455, nil, nil)
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(3) then return end
     if evt.CheckSeason(2) then return end
     if evt.CheckSeason(1) then return end

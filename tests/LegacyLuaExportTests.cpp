@@ -184,6 +184,36 @@ TEST_CASE("legacy lua exporter prefers house names over stale mouseover hints fo
     CHECK(eventLua.find("You pray at the shrine") == std::string::npos);
 }
 
+TEST_CASE("legacy lua exporter omits generated fallback titles")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T1.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T1.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Temple of Baa";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const std::string eventLua = extractLuaEvent(lua, "RegisterEvent(26");
+    INFO(eventLua);
+    CHECK(eventLua.find("RegisterEvent(26, nil, function()") != std::string::npos);
+    CHECK(eventLua.find("Legacy event 26") == std::string::npos);
+}
+
 TEST_CASE("legacy lua exporter rewrites unrolled party member rewards to dynamic party loops")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

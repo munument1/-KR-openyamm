@@ -143,7 +143,7 @@ RegisterEvent(76, "Chest", function()
     evt.OpenChest(2)
 end, "Chest")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2105) then -- Cloak of Baa
         evt.StatusText("You are not a follower of Baa.  Begone!")
@@ -152,15 +152,15 @@ RegisterEvent(90, "Legacy event 90", function()
     evt.MoveToMap(2094, -19, 177, 337, 0, 0, 179, 1, "6t7.blv") -- Superior Temple of Baa
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.MoveToMap(2702, -2926, 1, 1024, 0, 0, 192, 1, "6d19.blv") -- Agar's Laboratory
 end)
 
-RegisterEvent(92, "Legacy event 92", function()
+RegisterEvent(92, nil, function()
     evt.MoveToMap(-49, -42, -2, 512, 0, 0, 193, 1, "6d20.blv") -- Caves of the Dragon Riders
 end)
 
-RegisterEvent(93, "Legacy event 93", function()
+RegisterEvent(93, nil, function()
     evt.MoveToMap(5861, 2720, 169, 0, 0, 0, 171, 1, "cd3.blv") -- Castle Kriegspire
 end)
 
@@ -254,7 +254,7 @@ RegisterEvent(150, "Pedestal", function()
     end
 end, "Pedestal")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     if IsQBitSet(QBit(1247)) then -- NPC
         evt.SetSprite(141, 1, "ped01")
     end

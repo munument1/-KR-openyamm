@@ -21,7 +21,7 @@ RegisterEvent(1, "Panel", function()
     end
 end, "Panel")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not IsAtLeast(MapVar(7), 1) then
         evt.SetDoorState(2, DoorAction.Trigger)
         evt.SetLight(48, 1)
@@ -43,11 +43,11 @@ RegisterEvent(3, "The Oracle", function()
     evt.EnterHouse(451) -- The Oracle
 end, "The Oracle")
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(2, DoorAction.Open)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     local function RestoreMemoryModule()
         evt.SetSprite(4, 1, "mcryst01")
         evt.SetLight(63, 1)
@@ -112,14 +112,14 @@ RegisterEvent(5, "Legacy event 5", function()
     evt.StatusText("Insert Memory module to activate Melian.")
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsAtLeast(MapVar(8), 1) then
         evt.SetTexture(436, "trekscon")
         SetValue(MapVar(2), 1)
     end
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     if not IsAtLeast(MapVar(8), 1) then return end
     if IsAtLeast(MapVar(2), 1) then
         evt.SetTexture(436, "trekscrn")
@@ -127,7 +127,7 @@ RegisterEvent(7, "Legacy event 7", function()
     end
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if IsAtLeast(MapVar(8), 1) then
         evt.SetLight(1, 1)
         evt.SetLight(2, 1)
@@ -147,7 +147,7 @@ RegisterEvent(8, "Legacy event 8", function()
     end
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if IsAtLeast(MapVar(8), 1) then
         evt.SetLight(1, 0)
         evt.SetLight(2, 0)
@@ -167,7 +167,7 @@ RegisterEvent(9, "Legacy event 9", function()
     end
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if not IsAtLeast(MapVar(8), 1) then return end
     if not IsAtLeast(MapVar(3), 1) then
         evt.SetLight(17, 1)
@@ -192,7 +192,7 @@ RegisterEvent(10, "Legacy event 10", function()
     SetValue(MapVar(3), 0)
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     if not IsAtLeast(MapVar(8), 1) then return end
     if not IsAtLeast(MapVar(4), 1) then
         evt.SetLight(25, 1)
@@ -217,7 +217,7 @@ RegisterEvent(11, "Legacy event 11", function()
     SetValue(MapVar(4), 0)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     if not IsAtLeast(MapVar(8), 1) then return end
     if not IsAtLeast(MapVar(5), 1) then
         evt.SetLight(33, 1)
@@ -242,7 +242,7 @@ RegisterEvent(12, "Legacy event 12", function()
     SetValue(MapVar(5), 0)
 end)
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     if not IsAtLeast(MapVar(8), 1) then return end
     if not IsAtLeast(MapVar(6), 1) then
         evt.SetLight(41, 1)
@@ -295,7 +295,7 @@ RegisterEvent(14, "Panel", function()
     SetValue(MapVar(8), 0)
 end, "Panel")
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     local function RestoreMemoryModule()
         evt.SetSprite(3, 1, "mcryst01")
         evt.SetLight(64, 1)
@@ -360,7 +360,7 @@ RegisterEvent(15, "Legacy event 15", function()
     evt.StatusText("Insert Memory module to activate Melian.")
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     local function RestoreMemoryModule()
         evt.SetSprite(2, 1, "mcryst01")
         evt.SetLight(65, 1)
@@ -425,7 +425,7 @@ RegisterEvent(16, "Legacy event 16", function()
     evt.StatusText("Insert Memory module to activate Melian.")
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     local function RestoreMemoryModule()
         evt.SetSprite(1, 1, "mcryst01")
         evt.SetLight(66, 1)
@@ -494,7 +494,7 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(12182, 5379, 320, 1024, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsQBitSet(QBit(1304)) then -- NPC
         evt.SetSprite(4, 1, "mcryst01")
         if IsQBitSet(QBit(1305)) then -- NPC

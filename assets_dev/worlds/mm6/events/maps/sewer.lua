@@ -41,15 +41,15 @@ RegisterEvent(5, "Door", function()
     evt.SetDoorState(5, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.SetDoorState(6, DoorAction.Close)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(7, DoorAction.Close)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if IsQBitSet(QBit(1194)) then -- NPC
         return
     elseif IsQBitSet(QBit(1122)) then -- Capture the Prince of Thieves and bring him to Lord Anthony Stone at Castle Stone. - NPC
@@ -190,7 +190,7 @@ RegisterEvent(27, "Cylinder", function()
     end
 end, "Cylinder")
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     if IsQBitSet(QBit(1200)) then -- NPC
         evt.MoveToMap(-3078, 2819, 2049, 1536, 0, 0, 0, 0, "6t6.blv") -- Supreme Temple of Baa
     end
@@ -220,7 +220,7 @@ RegisterEvent(33, "Sewer Grate", function()
     AddValue(InventoryItem(223), 223) -- Magic Potion
 end, "Sewer Grate")
 
-RegisterEvent(34, "Legacy event 34", function()
+RegisterEvent(34, nil, function()
     evt.CastSpell(90, 6, 1, -4864, 3904, 200, -4000, 3904, 200) -- Toxic Cloud
     evt.CastSpell(90, 6, 1, -1280, 1152, 142, -1280, 3000, 142) -- Toxic Cloud
     evt.CastSpell(90, 6, 1, 2688, 5760, 142, 2000, 5760, 142) -- Toxic Cloud

@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Wizard
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Archmage, spawn Golem A, spawn Mage A
@@ -63,7 +63,7 @@ RegisterEvent(6, "Lever", function()
     evt.SetDoorState(9, DoorAction.Trigger)
 end, "Lever")
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(10, DoorAction.Trigger)
     evt.SetDoorState(11, DoorAction.Trigger)
 end)
@@ -85,11 +85,11 @@ RegisterEvent(10, "Switch", function()
     evt.SetDoorState(21, DoorAction.Open)
 end, "Switch")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(22, DoorAction.Open)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(23, DoorAction.Open)
 end)
 
@@ -220,24 +220,24 @@ RegisterEvent(416, "Door", function()
     evt.SpeakNPC(387) -- Thomas Grey
 end, "Door")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(621) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Archmage, spawn Golem A, spawn Mage A
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if IsAtLeast(Unknown1, 0) then
         evt.CastSpell(18, 15, 4, 1074, 1870, 1, 1074, 293, 1) -- Lightning Bolt
         evt.CastSpell(18, 15, 4, -1106, 1882, 1, -1106, 293, 1) -- Lightning Bolt

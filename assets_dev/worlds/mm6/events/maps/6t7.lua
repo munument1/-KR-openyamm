@@ -291,54 +291,54 @@ RegisterEvent(45, "Chest", function()
     evt.OpenChest(4)
 end, "Chest")
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     evt.MoveToMap(17078, -6601, 161, 1280, 0, 0, 0, 0, "outb1.odm") -- Kriegspire
 end)
 
-RegisterEvent(61, "Legacy event 61", function()
+RegisterEvent(61, nil, function()
     evt.CastSpell(15, 3, 3, -6272, 6272, 250, -6272, 6272, 100) -- Sparks
 end)
 
-RegisterEvent(62, "Legacy event 62", function()
+RegisterEvent(62, nil, function()
     evt.CastSpell(15, 3, 3, -6272, 6272, 250, -6272, 6272, 100) -- Sparks
     evt.CastSpell(15, 3, 3, -9984, 5792, -50, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(63, "Legacy event 63", function()
+RegisterEvent(63, nil, function()
     evt.CastSpell(15, 3, 3, -8768, 6176, -50, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -11552, 3904, -50, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(64, "Legacy event 64", function()
+RegisterEvent(64, nil, function()
     evt.CastSpell(6, 5, 3, -11552, -3648, -125, -11712, 2656, -126) -- Fireball
 end)
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     evt.CastSpell(15, 3, 3, -11488, -3616, -50, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -11904, -7360, -50, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(66, "Legacy event 66", function()
+RegisterEvent(66, nil, function()
     evt.CastSpell(15, 3, 3, -11680, -6140, -20, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -11776, -9824, -400, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(67, "Legacy event 67", function()
+RegisterEvent(67, nil, function()
     evt.CastSpell(15, 3, 3, -10560, -11872, -520, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -8160, -11424, -540, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(68, "Legacy event 68", function()
+RegisterEvent(68, nil, function()
     evt.CastSpell(15, 3, 3, -7744, -8320, -100, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -10496, -9760, 200, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(69, "Legacy event 69", function()
+RegisterEvent(69, nil, function()
     evt.CastSpell(15, 3, 3, -8800, -12864, 250, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -5504, -11520, 220, 0, 0, 0) -- Sparks
 end)
 
-RegisterEvent(70, "Legacy event 70", function()
+RegisterEvent(70, nil, function()
     evt.CastSpell(15, 3, 3, -5344, -10240, 250, 0, 0, 0) -- Sparks
     evt.CastSpell(15, 3, 3, -7232, -7008, 230, 0, 0, 0) -- Sparks
 end)

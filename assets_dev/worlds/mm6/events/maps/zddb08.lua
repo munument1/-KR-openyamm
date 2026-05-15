@@ -710,7 +710,7 @@ RegisterEvent(15, "Crystal.", function()
     evt.DamagePlayer(Players.Current, const.Damage.Physical, 2)
 end, "Crystal.")
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     if IsAtLeast(MapVar(27), 1) then return end
     evt.StatusText("Someone has gone to a lot of trouble carving all these murals")
     AddValue(MapVar(27), 1)

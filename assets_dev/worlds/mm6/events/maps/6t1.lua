@@ -284,7 +284,7 @@ RegisterEvent(24, "Sign", function(continueStep)
     evt._PressAnyKey(24, 2)
 end, "Sign")
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     evt.ForPlayer(Players.All)
     if IsAtLeast(ThieverySkill, 1) then
         return
@@ -338,11 +338,11 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(4885, -7698, 96, 1536, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     evt.CastSpell(6, 4, 1, -1590, 133, -100, -2200, 133, -100) -- Fireball
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     if IsAtLeast(MapVar(31), 1) then return end
     evt.PlaySound(42682, 0, 0)
     evt.SummonMonsters(3, 3, 1, 3702, 3216, 577, 0, 0) -- encounter slot 3 "Skeleton" tier C, count 1, pos=(3702, 3216, 577), actor group 0, no unique actor name
@@ -448,13 +448,13 @@ RegisterEvent(52, "Legacy event 52", function()
     SetValue(MapVar(31), 1)
 end)
 
-RegisterEvent(53, "Legacy event 53", function()
+RegisterEvent(53, nil, function()
     if IsAtLeast(MapVar(26), 1) then return end
     AddValue(Gold, 5000)
     SetValue(MapVar(26), 1)
 end)
 
-RegisterEvent(70, "Legacy event 70", function()
+RegisterEvent(70, nil, function()
     SetValue(MapVar(4), 0)
     SetValue(MapVar(5), 0)
     SetValue(MapVar(6), 0)

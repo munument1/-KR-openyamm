@@ -34,12 +34,12 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(403)) then return end -- Roster Character In Party 4
     evt.SpeakNPC(264) -- Simon Templar
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not IsAtLeast(MapVar(12), 15) then
         evt.SetDoorState(108, DoorAction.Close)
         evt.SetDoorState(109, DoorAction.Close)
@@ -66,26 +66,26 @@ RegisterEvent(2, "Legacy event 2", function()
     evt.SetDoorState(113, DoorAction.Close)
 end)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(626) then -- Prophecies of the Sun
         SetQBit(QBit(218)) -- Prophesies of the Sun - I lost it
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(136)) then -- Found Prophiecies of the Snake
         return
     elseif HasItem(652) then -- Prophecies of the Snake
@@ -103,7 +103,7 @@ RegisterEvent(11, "Door", function()
     evt.SetTexture(11, "t65a05br")
 end, "Door")
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(2, DoorAction.Open)
 end)
 
@@ -871,7 +871,7 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.ForPlayer(Players.All)
     SetValue(Eradicated, 0)
 end)
@@ -1004,7 +1004,7 @@ RegisterEvent(109, "Button", function()
     evt.SetLight(8, 1)
 end, "Button")
 
-RegisterEvent(110, "Legacy event 110", function()
+RegisterEvent(110, nil, function()
     if IsAtLeast(MapVar(12), 15) then
         return
     elseif IsAtLeast(MapVar(12), 9) then
@@ -1021,44 +1021,44 @@ RegisterEvent(110, "Legacy event 110", function()
     end
 end)
 
-RegisterEvent(111, "Legacy event 111", function()
+RegisterEvent(111, nil, function()
     evt.CastSpell(24, 10, 1, 13184, 2848, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13088, 2944, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13184, 3040, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13280, 2944, -464, 0, 0, 0) -- Poison Spray
 end)
 
-RegisterEvent(112, "Legacy event 112", function()
+RegisterEvent(112, nil, function()
     evt.CastSpell(24, 10, 1, 13184, 1824, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13088, 1920, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13184, 2016, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 13280, 1920, -464, 0, 0, 0) -- Poison Spray
 end)
 
-RegisterEvent(113, "Legacy event 113", function()
+RegisterEvent(113, nil, function()
     evt.CastSpell(24, 10, 1, 10368, 2016, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10464, 1920, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10368, 1824, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10272, 1920, -464, 0, 0, 0) -- Poison Spray
 end)
 
-RegisterEvent(114, "Legacy event 114", function()
+RegisterEvent(114, nil, function()
     evt.CastSpell(24, 10, 1, 10368, 3040, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10464, 2944, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10368, 2848, -464, 0, 0, 0) -- Poison Spray
     evt.CastSpell(24, 10, 1, 10272, 2944, -464, 0, 0, 0) -- Poison Spray
 end)
 
-RegisterEvent(115, "Legacy event 115", function()
+RegisterEvent(115, nil, function()
     evt.CastSpell(2, 10, 1, 11840, 2496, -448, 0, 0, 0) -- Fire Bolt
     evt.CastSpell(2, 10, 1, 11840, 2368, -448, 0, 0, 0) -- Fire Bolt
     evt.CastSpell(2, 10, 1, 11712, 2368, -448, 0, 0, 0) -- Fire Bolt
     evt.CastSpell(2, 10, 1, 11712, 2496, -448, 0, 0, 0) -- Fire Bolt
 end)
 
-RegisterEvent(402, "Legacy event 402", nil)
+RegisterEvent(402, nil, nil)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(14), 1) then
         return
     end
@@ -1074,13 +1074,13 @@ RegisterEvent(451, "Legacy event 451", function()
     AddValue(MapVar(13), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(14), 1) then
         SetValue(MapVar(14), 0)
     end
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.SetDoorState(115, DoorAction.Open)
 end)
 
@@ -1092,31 +1092,31 @@ RegisterEvent(502, "Leave the Abandoned Temple", function()
     evt.MoveToMap(21519, 21106, 97, 1024, 0, 0, 0, 1, "out01.odm") -- Dagger Wound Island
 end, "Leave the Abandoned Temple")
 
-RegisterEvent(506, "Legacy event 506", function()
+RegisterEvent(506, nil, function()
     evt.SetDoorState(94, DoorAction.Open)
 end)
 
-RegisterEvent(507, "Legacy event 507", function()
+RegisterEvent(507, nil, function()
     evt.SetDoorState(95, DoorAction.Open)
 end)
 
-RegisterEvent(508, "Legacy event 508", function()
+RegisterEvent(508, nil, function()
     evt.SetDoorState(96, DoorAction.Open)
 end)
 
-RegisterEvent(509, "Legacy event 509", function()
+RegisterEvent(509, nil, function()
     evt.SetDoorState(97, DoorAction.Open)
 end)
 
-RegisterEvent(510, "Legacy event 510", function()
+RegisterEvent(510, nil, function()
     evt.SetDoorState(98, DoorAction.Open)
 end)
 
-RegisterEvent(511, "Legacy event 511", function()
+RegisterEvent(511, nil, function()
     evt.SetDoorState(99, DoorAction.Open)
 end)
 
-RegisterEvent(512, "Legacy event 512", function()
+RegisterEvent(512, nil, function()
     evt.SetDoorState(94, DoorAction.Close)
     evt.SetDoorState(95, DoorAction.Close)
     evt.SetDoorState(96, DoorAction.Close)
@@ -1181,7 +1181,7 @@ RegisterEvent(516, "Button", function()
     SetValue(MapVar(31), 4)
 end, "Button")
 
-RegisterEvent(517, "Legacy event 517", function()
+RegisterEvent(517, nil, function()
     evt.SetDoorState(114, DoorAction.Open)
 end)
 

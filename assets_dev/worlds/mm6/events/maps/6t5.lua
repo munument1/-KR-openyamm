@@ -273,37 +273,37 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(-18178, 19695, 161, 512, 0, 0, 0, 0, "outc2.odm") -- Free Haven
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(MapVar(21), 1) then return end
     SetValue(MapVar(21), 1)
     evt.GiveItem(6, 37)
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     if IsAtLeast(MapVar(22), 1) then return end
     SetValue(MapVar(22), 1)
     AddValue(InventoryItem(1841), 1841) -- Stone to Flesh
 end)
 
-RegisterEvent(53, "Legacy event 53", function()
+RegisterEvent(53, nil, function()
     if IsAtLeast(MapVar(23), 1) then return end
     SetValue(MapVar(23), 1)
     AddValue(InventoryItem(1841), 1841) -- Stone to Flesh
 end)
 
-RegisterEvent(54, "Legacy event 54", function()
+RegisterEvent(54, nil, function()
     if IsAtLeast(MapVar(24), 1) then return end
     SetValue(MapVar(24), 1)
     AddValue(InventoryItem(1841), 1841) -- Stone to Flesh
 end)
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(25), 1) then return end
     SetValue(MapVar(25), 1)
     AddValue(InventoryItem(1841), 1841) -- Stone to Flesh
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     if IsAtLeast(MapVar(26), 1) then return end
     SetValue(MapVar(26), 1)
     AddValue(InventoryItem(1841), 1841) -- Stone to Flesh

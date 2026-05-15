@@ -78,15 +78,15 @@ RegisterEvent(12, "Door", function()
     evt.SetDoorState(12, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     evt.MoveToMap(-2112, 14240, 40, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     evt.MoveToMap(4480, 8064, -340, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     if IsAtLeast(MapVar(2), 5) then return end
     evt.SummonMonsters(3, 3, 5, -2194, 4048, 225, 0, 0) -- encounter slot 3 "ElemAir" tier C, count 5, pos=(-2194, 4048, 225), actor group 0, no unique actor name
     AddValue(MapVar(2), 1)
@@ -105,7 +105,7 @@ RegisterEvent(33, "Door", function()
     evt.StatusText("The door won't budge.")
 end, "Door")
 
-RegisterEvent(35, "Legacy event 35", function()
+RegisterEvent(35, nil, function()
     evt.SetDoorState(35, DoorAction.Trigger)
 end)
 
@@ -175,7 +175,7 @@ RegisterEvent(59, "Exit", function()
     SetQBit(QBit(1216)) -- Quest item bits for seer
 end, "Exit")
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     if IsQBitSet(QBit(1078)) then -- Chris
         evt.SetSprite(394, 1, "crysdisc")
     end
@@ -238,7 +238,7 @@ RegisterEvent(68, "Tree", function(continueStep)
     evt._PressAnyKey(68, 3)
 end, "Tree")
 
-RegisterEvent(69, "Legacy event 69", function(continueStep)
+RegisterEvent(69, nil, function(continueStep)
     if continueStep == 4 then
         evt.StatusText("Wrong!")
         evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
@@ -283,7 +283,7 @@ RegisterEvent(69, "Legacy event 69", function(continueStep)
     end
 end)
 
-RegisterEvent(70, "Legacy event 70", function()
+RegisterEvent(70, nil, function()
     evt.CastSpell(6, 10, 1, 2995, 9373, -840, 2000, 9373, -840) -- Fireball
 end)
 

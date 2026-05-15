@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(775)) then -- Area 12 Archibald only once
         return
     elseif IsQBitSet(QBit(616)) then -- Go to Colony Zod in the Land of the Giants and slay Xenofex then return to Resurectra in Castle Lambent in Celeste.
@@ -212,7 +212,7 @@ RegisterEvent(453, "Obelisk", function()
     SetQBit(QBit(686)) -- Visited Obelisk in Area 12
 end, "Obelisk")
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(3) then return end
     if evt.CheckSeason(2) then return end
     if evt.CheckSeason(1) then return end

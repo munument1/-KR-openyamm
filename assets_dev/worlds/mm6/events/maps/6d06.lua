@@ -161,7 +161,7 @@ RegisterEvent(34, "Double Door", function()
     evt.SetDoorState(35, DoorAction.Close)
 end, "Double Door")
 
-RegisterEvent(36, "Legacy event 36", function()
+RegisterEvent(36, nil, function()
     evt.SetDoorState(36, DoorAction.Close)
 end)
 
@@ -270,7 +270,7 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(16495, -14570, 96, 1536, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsQBitSet(QBit(1330)) then return end -- NPC
     SetQBit(QBit(1330)) -- NPC
     AddValue(BaseLuck, 10)

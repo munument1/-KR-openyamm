@@ -107,7 +107,7 @@ RegisterEvent(11, "Water Temple", function()
     evt.SetDoorState(11, DoorAction.Close)
 end, "Water Temple")
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     if not IsAtLeast(MapVar(2), 1) then return end
     evt.ForPlayer(6)
     if not HasItem(2086) then -- Crystal Skull
@@ -146,7 +146,7 @@ RegisterEvent(13, "Cleansing Pool", function()
     SetValue(MapVar(2), 0)
 end, "Cleansing Pool")
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         SetValue(MapVar(4), 1)
         if IsAtLeast(MapVar(5), 1) then
@@ -186,7 +186,7 @@ RegisterEvent(14, "Legacy event 14", function()
     end
 end)
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.SetDoorState(15, DoorAction.Close)
 end)
 
@@ -208,7 +208,7 @@ end, "Exit")
 
 RegisterEvent(19, "Picture", nil, "Picture")
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     evt.SetDoorState(16, DoorAction.Open)
 end)
 
@@ -351,7 +351,7 @@ RegisterEvent(27, "Books", function()
     SetValue(MapVar(28), 1)
 end, "Books")
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     SetValue(MapVar(5), 1)
 end)
 
@@ -388,7 +388,7 @@ RegisterEvent(32, "Switch", function()
     evt.SetDoorState(34, DoorAction.Trigger)
 end, "Switch")
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     evt.MoveToMap(-9344, -192, 8034, 1, 0, 0, 0, 0)
     evt.SetDoorState(33, DoorAction.Open)
 end)
@@ -476,7 +476,7 @@ RegisterEvent(49, "Chest", function()
     evt.OpenChest(6)
 end, "Chest")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     SetValue(MapVar(2), 1)
 end)
 
@@ -512,11 +512,11 @@ RegisterEvent(55, "Plaque", function(continueStep)
     evt._PressAnyKey(55, 2)
 end, "Plaque")
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     SetValue(MapVar(2), 0)
 end)
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     SetValue(MapVar(5), 0)
 end)
 

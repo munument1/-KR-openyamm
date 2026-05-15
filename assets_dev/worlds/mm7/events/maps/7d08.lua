@@ -39,7 +39,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Elf Spearman A
     if IsAtLeast(MapVar(3), 1) then
         evt.SetFacetBit(1, FacetBits.Untouchable, 1)
@@ -56,47 +56,47 @@ RegisterEvent(4, "Door", function()
     evt.SetDoorState(4, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(9, DoorAction.Trigger)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetDoorState(10, DoorAction.Trigger)
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     evt.SetDoorState(11, DoorAction.Trigger)
 end)
 
-RegisterEvent(154, "Legacy event 154", function()
+RegisterEvent(154, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
 end)
 
-RegisterEvent(155, "Legacy event 155", function()
+RegisterEvent(155, nil, function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(156, "Legacy event 156", function()
+RegisterEvent(156, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(157, "Legacy event 157", function()
+RegisterEvent(157, nil, function()
     evt.MoveToMap(-5248, -7552, 768, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(158, "Legacy event 158", function()
+RegisterEvent(158, nil, function()
     evt.MoveToMap(-4640, -7901, 768, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(159, "Legacy event 159", function()
+RegisterEvent(159, nil, function()
     evt.MoveToMap(-5248, -8320, 768, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(160, "Legacy event 160", function()
+RegisterEvent(160, nil, function()
     evt.MoveToMap(-6912, 14592, -576, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(161, "Legacy event 161", function()
+RegisterEvent(161, nil, function()
     evt.SetDoorState(8, DoorAction.Trigger)
     SetValue(MapVar(3), 1)
     AddValue(MapVar(4), 1)
@@ -105,7 +105,7 @@ RegisterEvent(161, "Legacy event 161", function()
     evt.SetTexture(1, "trim11_16")
 end)
 
-RegisterEvent(162, "Legacy event 162", function()
+RegisterEvent(162, nil, function()
     if not IsAtLeast(MapVar(3), 1) then return end
     local randomStep = PickRandomOption(162, 3, {4, 6, 8})
     if randomStep == 4 then
@@ -120,7 +120,7 @@ RegisterEvent(162, "Legacy event 162", function()
     end
 end)
 
-RegisterEvent(163, "Legacy event 163", function()
+RegisterEvent(163, nil, function()
     if not IsAtLeast(MapVar(3), 1) then return end
     local randomStep = PickRandomOption(163, 3, {4, 6, 8})
     if randomStep == 4 then
@@ -135,13 +135,13 @@ RegisterEvent(163, "Legacy event 163", function()
     end
 end)
 
-RegisterEvent(164, "Legacy event 164", function()
+RegisterEvent(164, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         evt.MoveToMap(6016, 6528, 1528, 0, 0, 0, 0, 0)
     end
 end)
 
-RegisterEvent(165, "Legacy event 165", function()
+RegisterEvent(165, nil, function()
     evt.MoveToMap(2816, 7552, 288, 0, 0, 0, 0, 0)
 end)
 

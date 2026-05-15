@@ -99,7 +99,7 @@ RegisterEvent(27, "Adept Guild of the Self", function()
     evt.EnterHouse(190) -- Adept Guild of the Self
 end, "Adept Guild of the Self")
 
-RegisterEvent(28, "Legacy event 28", nil)
+RegisterEvent(28, nil, nil)
 
 RegisterEvent(29, "Berserkers' Fury", function()
     evt.EnterHouse(199) -- Berserkers' Fury
@@ -328,15 +328,15 @@ RegisterEvent(102, "Chest", function()
     evt.OpenChest(3)
 end, "Chest")
 
-RegisterEvent(150, "Legacy event 150", function()
+RegisterEvent(150, nil, function()
     evt.MoveToMap(-127, 4190, 1, 1536, 0, 0, 185, 1, "6d12.blv") -- Silver Helm Stronghold
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.MoveToMap(-128, -3968, 1, 512, 0, 0, 186, 1, "6d13.blv") -- The Monolith
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.MoveToMap(-4724, 1494, 127, 1920, 0, 0, 189, 1, "6d16.blv") -- Warlord's Fortress
 end)
 
@@ -398,7 +398,7 @@ RegisterEvent(165, "Drink from Fountain", function()
     evt.StatusText("Refreshing!")
 end, "Drink from Fountain")
 
-RegisterEvent(209, "Legacy event 209", function()
+RegisterEvent(209, nil, function()
     if IsQBitSet(QBit(1182)) then -- NPC
         return
     elseif IsAtLeast(IsFlying, 0) then
@@ -408,7 +408,7 @@ RegisterEvent(209, "Legacy event 209", function()
     end
 end)
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1182)) then -- NPC
         return
@@ -443,23 +443,23 @@ RegisterEvent(211, "Circle of Stones", function()
     end
 end, "Circle of Stones")
 
-RegisterEvent(212, "Legacy event 212", function()
+RegisterEvent(212, nil, function()
     evt.MoveToMap(-12344, 17112, 1, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(213, "Legacy event 213", function()
+RegisterEvent(213, nil, function()
     evt.MoveToMap(-9400, 17184, 1, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(214, "Legacy event 214", function()
+RegisterEvent(214, nil, function()
     evt.MoveToMap(-11512, 19368, 1, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(215, "Legacy event 215", function()
+RegisterEvent(215, nil, function()
     evt.MoveToMap(-9192, 21936, 160, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(220, "Legacy event 220", function()
+RegisterEvent(220, nil, function()
     if IsQBitSet(QBit(1334)) then -- NPC
         return
     end
@@ -473,7 +473,7 @@ RegisterEvent(220, "Legacy event 220", function()
     evt.SetSprite(359, 1, "swrdstx")
 end)
 
-RegisterEvent(221, "Legacy event 221", function()
+RegisterEvent(221, nil, function()
     if IsQBitSet(QBit(1335)) then -- NPC
         return
     end
@@ -487,7 +487,7 @@ RegisterEvent(221, "Legacy event 221", function()
     evt.SetSprite(360, 1, "swrdstx")
 end)
 
-RegisterEvent(222, "Legacy event 222", function()
+RegisterEvent(222, nil, function()
     if IsQBitSet(QBit(1336)) then -- NPC
         return
     end
@@ -501,7 +501,7 @@ RegisterEvent(222, "Legacy event 222", function()
     evt.SetSprite(361, 1, "swrdstx")
 end)
 
-RegisterEvent(223, "Legacy event 223", function()
+RegisterEvent(223, nil, function()
     if IsQBitSet(QBit(1203)) then return end -- NPC
     SetQBit(QBit(1203)) -- NPC
 end)
@@ -516,7 +516,7 @@ RegisterEvent(224, "Obelisk", function(continueStep)
     evt._PressAnyKey(224, 2)
 end, "Obelisk")
 
-RegisterEvent(226, "Legacy event 226", function()
+RegisterEvent(226, nil, function()
     if IsQBitSet(QBit(1182)) then -- NPC
     end
 end)

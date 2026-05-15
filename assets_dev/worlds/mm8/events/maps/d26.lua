@@ -33,30 +33,30 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if IsAtLeast(MapVar(11), 1) then
         evt.SetFacetBit(10, FacetBits.Invisible, 1)
         evt.SetFacetBit(10, FacetBits.Untouchable, 1)
     end
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(81)) then return end -- Found the Sarcophagus of Korbu
     evt.ForPlayer(Players.All)
     if HasItem(612) and HasItem(627) then -- Sarcophagus of Korbu
@@ -360,7 +360,7 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.CastSpell(15, 10, 4, -5032, -4232, 348, -1, -1, -1) -- Sparks
     evt.CastSpell(15, 10, 4, -4836, -4232, 348, -1, -1, -1) -- Sparks
     evt.CastSpell(15, 10, 4, -4460, -4232, 348, -1, -1, -1) -- Sparks
@@ -373,7 +373,7 @@ RegisterEvent(101, "Legacy event 101", function()
     evt.CastSpell(15, 10, 4, -3876, -4536, 348, -1, -1, -1) -- Sparks
 end)
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(81)) then return end -- Found the Sarcophagus of Korbu
     evt.SetFacetBit(10, FacetBits.Invisible, 1)
     evt.SetFacetBit(10, FacetBits.Untouchable, 1)

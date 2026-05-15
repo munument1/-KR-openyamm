@@ -34,7 +34,7 @@ RegisterEvent(1, "Door", function()
     evt.SetDoorState(2, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     SetValue(MapVar(2), 0)
     SetValue(MapVar(3), 0)
     SetValue(MapVar(4), 0)
@@ -77,7 +77,7 @@ RegisterEvent(3, "Switch", function()
     evt.SetDoorState(4, DoorAction.Close)
 end, "Switch")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(5, DoorAction.Close)
 end)
 
@@ -110,7 +110,7 @@ RegisterEvent(11, "Door", function()
     evt.SetDoorState(11, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(12, DoorAction.Close)
 end)
 
@@ -252,7 +252,7 @@ RegisterEvent(25, "Suspicious Floor", function()
     SetValue(MapVar(17), 0)
 end, "Suspicious Floor")
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     if IsAtLeast(MapVar(18), 1) then
         evt.MoveToMap(8832, -4992, 87, 1, 0, 0, 0, 0)
     end
@@ -302,25 +302,25 @@ RegisterEvent(42, "Suspicious Floor", function()
     evt.StatusText("Trap!")
 end, "Suspicious Floor")
 
-RegisterEvent(43, "Legacy event 43", function()
+RegisterEvent(43, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.CastSpell(2, 2, 1, -1776, 3072, 190, -400, 3072, 120) -- Fire Bolt
     evt.CastSpell(2, 2, 1, -400, 3072, 190, -1648, 3072, 120) -- Fire Bolt
 end)
 
-RegisterEvent(44, "Legacy event 44", function()
+RegisterEvent(44, nil, function()
     if IsAtLeast(MapVar(8), 1) then return end
     evt.CastSpell(15, 2, 1, -2040, 3456, 120, -8, 3456, 120) -- Sparks
     evt.CastSpell(15, 2, 1, -8, 3456, 120, -2040, 3456, 120) -- Sparks
 end)
 
-RegisterEvent(45, "Legacy event 45", function()
+RegisterEvent(45, nil, function()
     if IsAtLeast(MapVar(11), 1) then return end
     evt.CastSpell(26, 2, 1, -2040, 3840, 120, -8, 3840, 120) -- Ice Bolt
     evt.CastSpell(26, 2, 1, -8, 3840, 120, -2040, 3840, 120) -- Ice Bolt
 end)
 
-RegisterEvent(46, "Legacy event 46", function()
+RegisterEvent(46, nil, function()
     if IsAtLeast(MapVar(14), 1) then return end
     evt.CastSpell(34, 2, 1, -2040, 4096, 120, -8, 4096, 120) -- Stun
     evt.CastSpell(34, 2, 1, -8, 4096, 120, -2040, 4096, 120) -- Stun
@@ -406,21 +406,21 @@ RegisterEvent(64, "Magic Door", function(continueStep)
     return nil
 end, "Magic Door")
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "6d03.blv") -- Shadow Guild Hideout
     SubtractValue(Food, 5)
 end)
 
-RegisterEvent(66, "Legacy event 66", function()
+RegisterEvent(66, nil, function()
     evt.MoveToMap(1408, -1664, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(67, "Legacy event 67", function()
+RegisterEvent(67, nil, function()
     evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "6d06.blv") -- Dragoons' Caverns
     SubtractValue(Food, 5)
 end)
 
-RegisterEvent(68, "Legacy event 68", function()
+RegisterEvent(68, nil, function()
     evt.MoveToMap(11407, 18074, 1, 0, 0, 0, 0, 0, "outc2.odm") -- Free Haven
     SubtractValue(Food, 5)
 end)

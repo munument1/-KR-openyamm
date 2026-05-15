@@ -297,13 +297,13 @@ RegisterEvent(54, "Burial niche", function()
     evt.GiveItem(4, 38)
 end, "Burial niche")
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(35), 1) then return end
     SetValue(MapVar(35), 1)
     AddValue(InventoryItem(1757), 1757) -- Dragon Wand of Implosion
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     evt.CastSpell(6, 7, 1, -1088, 1984, 896, 960, 3456, 896) -- Fireball
     evt.CastSpell(6, 7, 1, -1088, 4160, 896, 960, 2624, 896) -- Fireball
     evt.CastSpell(6, 7, 1, 832, 4160, 896, -1280, 2688, 896) -- Fireball

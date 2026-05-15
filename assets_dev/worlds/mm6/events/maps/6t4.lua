@@ -26,11 +26,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.SetDoorState(2, DoorAction.Close)
 end)
 
@@ -92,31 +92,31 @@ RegisterEvent(14, "Exit", function()
     evt.MoveToMap(-7537, 4032, 97, 0, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end, "Exit")
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.SetLight(0, 0)
     evt.SetLight(1, 0)
     evt.SetTexture(79, "sky_nit1")
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetLight(0, 1)
     evt.SetLight(1, 1)
     evt.SetTexture(79, "orair256")
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.SetLight(0, 1)
     evt.SetLight(1, 0)
     evt.SetTexture(79, "sky_sns1")
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     evt.SetLight(0, 1)
     evt.SetLight(1, 0)
     evt.SetTexture(79, "sky_sns1")
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     if IsAtLeast(Hour, 2100) then
         evt.SetLight(0, 0)
         evt.SetLight(1, 0)
@@ -140,25 +140,25 @@ RegisterEvent(19, "Legacy event 19", function()
     end
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     SetValue(MapVar(2), 1)
     AddValue(InventoryItem(1888), 1888) -- Sunray
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     SetValue(MapVar(3), 1)
     AddValue(InventoryItem(1888), 1888) -- Sunray
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsAtLeast(MapVar(4), 1) then return end
     SetValue(MapVar(4), 1)
     AddValue(InventoryItem(1888), 1888) -- Sunray
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     SetValue(MapVar(5), 1)
     AddValue(InventoryItem(1888), 1888) -- Sunray

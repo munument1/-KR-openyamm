@@ -278,14 +278,14 @@ RegisterEvent(92, "Crate", function()
     evt.OpenChest(18)
 end, "Crate")
 
-RegisterEvent(100, "Legacy event 100", function()
+RegisterEvent(100, nil, function()
     if IsQBitSet(QBit(1104)) then return end -- Lisa
     SetQBit(QBit(1104)) -- Lisa
     SetQBit(QBit(1105)) -- Show Sulman's letter to Andover Potbello in New Sorpigal. - Set when the party starts
     AddValue(InventoryItem(2125), 2125) -- The Letter
 end)
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     if not IsQBitSet(QBit(1324)) then -- Peter
         evt.ForPlayer(Players.All)
         if not HasItem(2109) then -- Key to Goblinwatch
@@ -298,15 +298,15 @@ RegisterEvent(101, "Legacy event 101", function()
     evt.MoveToMap(601, 6871, 177, 1400, 0, 0, 161, 1, "6d01.blv") -- Goblinwatch
 end)
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.MoveToMap(16406, -19669, 865, 500, 0, 0, 166, 1, "6d02.blv") -- Abandoned Temple
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.MoveToMap(-2688, 1216, 1153, 1536, 0, 0, 191, 1, "6d18.blv") -- Gharik's Forge
 end)
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     evt.MoveToMap(12808, 6832, 64, 512, 0, 0, 0, 0, "outb3.odm") -- Dragonsand
 end)
 
@@ -434,7 +434,7 @@ RegisterEvent(119, "Tree", function()
     evt.StatusText("Tree")
 end, "Tree")
 
-RegisterEvent(130, "Legacy event 130", function()
+RegisterEvent(130, nil, function()
     SetValue(MapVar(51), 30)
     SetValue(MapVar(52), 30)
 end)
@@ -525,7 +525,7 @@ RegisterEvent(210, "Well", function(continueStep)
     end
 end, "Well")
 
-RegisterEvent(220, "Legacy event 220", function()
+RegisterEvent(220, nil, function()
     evt.PlaySound(42607, -14600, 13500)
     evt.SummonObject(1050, -14320, 16272, 100, 1000, 15, true) -- Fireball
     evt.SummonObject(1050, -14096, 15648, 100, 600, 15, true) -- Fireball
@@ -535,13 +535,13 @@ RegisterEvent(220, "Legacy event 220", function()
     evt.SummonObject(4070, -14496, 15536, 100, 1500, 15, true) -- Rock Blast
 end)
 
-RegisterEvent(221, "Legacy event 221", function()
+RegisterEvent(221, nil, function()
     if IsAtLeast(MapVar(53), 1) then return end
     SetValue(MapVar(53), 1)
     evt.SummonMonsters(1, 1, 4, -16130, -4711, 258, 0, 0) -- encounter slot 1 "BGoblin" tier A, count 4, pos=(-16130, -4711, 258), actor group 0, no unique actor name
 end)
 
-RegisterEvent(222, "Legacy event 222", function()
+RegisterEvent(222, nil, function()
     if IsAtLeast(MapVar(54), 1) then return end
     SetValue(MapVar(54), 1)
     evt.SummonMonsters(2, 3, 5, 6864, 17056, 452, 0, 0) -- encounter slot 2 "PeasantM2" tier C, count 5, pos=(6864, 17056, 452), actor group 0, no unique actor name
@@ -554,13 +554,13 @@ RegisterEvent(222, "Legacy event 222", function()
     evt.SummonMonsters(1, 3, 5, 4976, 16528, 97, 0, 0) -- encounter slot 1 "BGoblin" tier C, count 5, pos=(4976, 16528, 97), actor group 0, no unique actor name
 end)
 
-RegisterEvent(225, "Legacy event 225", function()
+RegisterEvent(225, nil, function()
     if IsAtLeast(MapVar(61), 1) then return end
     AddValue(InventoryItem(1822), 1822) -- Fly
     SetValue(MapVar(61), 1)
 end)
 
-RegisterEvent(226, "Legacy event 226", function()
+RegisterEvent(226, nil, function()
     if IsQBitSet(QBit(1326)) then -- NPC
         return
     end
@@ -574,7 +574,7 @@ RegisterEvent(226, "Legacy event 226", function()
     evt.SetSprite(339, 1, "swrdstx")
 end)
 
-RegisterEvent(230, "Legacy event 230", function()
+RegisterEvent(230, nil, function()
     if IsQBitSet(QBit(1180)) then -- NPC
         return
     elseif IsAtLeast(IsFlying, 0) then
@@ -584,7 +584,7 @@ RegisterEvent(230, "Legacy event 230", function()
     end
 end)
 
-RegisterEvent(231, "Legacy event 231", function()
+RegisterEvent(231, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1180)) then -- NPC
         return
@@ -596,7 +596,7 @@ RegisterEvent(231, "Legacy event 231", function()
     end
 end)
 
-RegisterEvent(232, "Legacy event 232", function()
+RegisterEvent(232, nil, function()
     if IsQBitSet(QBit(1180)) then -- NPC
     end
 end)

@@ -15,17 +15,17 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetDoorState(3, DoorAction.Close)
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.SetDoorState(2, DoorAction.Open)
     evt.SetDoorState(4, DoorAction.Close)
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
     evt.SetDoorState(3, DoorAction.Open)
 end)

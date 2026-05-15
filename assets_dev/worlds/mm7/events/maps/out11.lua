@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Gargoyle A, spawn Ghost A
 end)
 
@@ -158,7 +158,7 @@ RegisterEvent(220, "Chest ", function()
     end
 end, "Chest ")
 
-RegisterEvent(250, "Legacy event 250", function()
+RegisterEvent(250, nil, function()
     if evt.CheckSeason(2) then
         goto step_16
     end

@@ -35,25 +35,25 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: spawn Skeletons Archer A, spawn Vampire (monster) A, spawn type 2 index 2
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(13, "Taleshire Hall", function()
     evt.EnterHouse(577) -- Taleshire Hall
@@ -460,7 +460,7 @@ RegisterEvent(404, "A Cave", nil, "A Cave")
 
 RegisterEvent(449, "Fountain", nil, "Fountain")
 
-RegisterEvent(450, "Legacy event 450", nil)
+RegisterEvent(450, nil, nil)
 
 RegisterEvent(454, "Wolves' Bane", function()
     if IsQBitSet(QBit(239)) then return end -- for riki
@@ -468,7 +468,7 @@ RegisterEvent(454, "Wolves' Bane", function()
     SetQBit(QBit(239)) -- for riki
 end, "Wolves' Bane")
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     local randomStep = PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.PlaySound(347, -6976, -15104)
@@ -483,7 +483,7 @@ RegisterEvent(479, "Legacy event 479", function()
     end
 end)
 
-RegisterEvent(490, "Legacy event 490", function()
+RegisterEvent(490, nil, function()
     local randomStep = PickRandomOption(490, 2, {2, 2, 3, 3, 3, 3})
     if randomStep == 2 then
         evt.PlaySound(325, 864, -13024)

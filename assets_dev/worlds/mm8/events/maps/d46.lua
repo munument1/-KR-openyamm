@@ -33,27 +33,27 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: spawn Wererat Human Form Male A, spawn Wererat Rat Form Male A, spawn Wererat Ratman Form Male A
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -283,7 +283,7 @@ RegisterEvent(64, "Door", function()
     evt.SetFacetBit(8, FacetBits.Untouchable, 1)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
     evt.SetDoorState(55, DoorAction.Open)
     evt.SetDoorState(56, DoorAction.Open)
@@ -371,11 +371,11 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(1152, -768, -576, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.SetDoorState(51, DoorAction.Close)
     evt.SetDoorState(52, DoorAction.Close)
     evt.SetDoorState(53, DoorAction.Close)
@@ -394,7 +394,7 @@ RegisterEvent(452, "Legacy event 452", function()
     evt.SetFacetBit(8, FacetBits.Untouchable, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.SetDoorState(53, DoorAction.Open)
     evt.SetDoorState(54, DoorAction.Open)
     evt.SetFacetBit(3, FacetBits.Untouchable, 1)

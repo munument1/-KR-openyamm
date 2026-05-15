@@ -45,7 +45,7 @@ RegisterEvent(7, "Skull Door", function()
     evt.SetDoorState(7, DoorAction.Close)
 end, "Skull Door")
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     evt.SetDoorState(8, DoorAction.Close)
 end)
 
@@ -53,7 +53,7 @@ RegisterEvent(9, "Skull Door", function()
     evt.SetDoorState(9, DoorAction.Close)
 end, "Skull Door")
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.SetDoorState(10, DoorAction.Close)
 end)
 
@@ -96,7 +96,7 @@ RegisterEvent(19, "Chest", function()
     evt.OpenChest(4)
 end, "Chest")
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     evt.SetDoorState(8, DoorAction.Open)
     evt.SetDoorState(10, DoorAction.Open)
 end)
@@ -105,13 +105,13 @@ RegisterEvent(21, "Exit", function()
     evt.MoveToMap(-533, -2681, 944, 1536, 0, 0, 0, 0, "outd1.odm") -- Silver Cove
 end, "Exit")
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsQBitSet(QBit(1115)) then return end -- 91 D12 John Silver only talks to you once.
     evt.SetFacetBit(1420, 16384, 1)
     evt.SetTexture(1420, "john01")
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsQBitSet(QBit(1115)) then return end -- 91 D12 John Silver only talks to you once.
     SetQBit(QBit(1115)) -- 91 D12 John Silver only talks to you once.
     evt.SetFacetBit(1420, 16384, 0)
@@ -119,7 +119,7 @@ RegisterEvent(23, "Legacy event 23", function()
     evt.SpeakNPC(1079) -- Ghost of John Silver
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     if IsAtLeast(MapVar(11), 1) then return end
     SetValue(MapVar(11), 1)
     evt.GiveItem(6, 30)

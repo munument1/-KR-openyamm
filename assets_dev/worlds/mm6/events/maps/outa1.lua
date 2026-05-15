@@ -65,7 +65,7 @@ RegisterEvent(103, "Pedestal", function()
     end
 end, "Pedestal")
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     if IsQBitSet(QBit(1246)) then -- NPC
         evt.SetSprite(606, 1, "ped02")
     end

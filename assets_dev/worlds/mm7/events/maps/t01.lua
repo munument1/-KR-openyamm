@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
         return
@@ -46,7 +46,7 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     if not IsAtLeast(MapVar(5), 1) then
         AddValue(MapVar(5), 1)
         evt.SetDoorState(5, DoorAction.Close)
@@ -56,12 +56,12 @@ RegisterEvent(3, "Legacy event 3", function()
     evt.SetDoorState(5, DoorAction.Open)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(6, DoorAction.Trigger)
     SetValue(MapVar(2), 1)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if not IsAtLeast(MapVar(11), 1) then
         AddValue(MapVar(11), 1)
         evt.SetDoorState(7, DoorAction.Close)
@@ -71,12 +71,12 @@ RegisterEvent(5, "Legacy event 5", function()
     evt.SetDoorState(7, DoorAction.Open)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.SetDoorState(8, DoorAction.Trigger)
     SetValue(MapVar(3), 1)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     if not IsAtLeast(MapVar(7), 1) then
         evt.SetDoorState(9, DoorAction.Close)
         AddValue(MapVar(7), 1)
@@ -86,7 +86,7 @@ RegisterEvent(7, "Legacy event 7", function()
     evt.SetDoorState(9, DoorAction.Open)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if not IsAtLeast(MapVar(8), 1) then
         evt.SetDoorState(10, DoorAction.Close)
         AddValue(MapVar(8), 1)
@@ -96,7 +96,7 @@ RegisterEvent(8, "Legacy event 8", function()
     evt.SetDoorState(10, DoorAction.Open)
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if not IsAtLeast(MapVar(9), 1) then
         evt.SetDoorState(11, DoorAction.Close)
         AddValue(MapVar(9), 1)
@@ -106,7 +106,7 @@ RegisterEvent(9, "Legacy event 9", function()
     evt.SetDoorState(11, DoorAction.Open)
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if not IsAtLeast(MapVar(10), 1) then
         evt.SetDoorState(12, DoorAction.Close)
         AddValue(MapVar(10), 1)
@@ -116,7 +116,7 @@ RegisterEvent(10, "Legacy event 10", function()
     evt.SetDoorState(12, DoorAction.Open)
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(13, DoorAction.Trigger)
     SetValue(MapVar(4), 1)
 end)
@@ -404,24 +404,24 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(20)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(614) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Cleric Sun A, spawn Monk A
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetDoorState(2, DoorAction.Open)
     evt.SetDoorState(3, DoorAction.Open)

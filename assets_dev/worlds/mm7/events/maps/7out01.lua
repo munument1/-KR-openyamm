@@ -166,7 +166,7 @@ RegisterEvent(69, "Shops", nil, "Shops")
 
 RegisterEvent(70, "Lord Markham", nil, "Lord Markham")
 
-RegisterEvent(100, "Legacy event 100", function()
+RegisterEvent(100, nil, function()
     if IsQBitSet(QBit(519)) then -- Finished Scavenger Hunt
         return
     elseif IsQBitSet(QBit(518)) then -- Return a wealthy hat to the Judge on Emerald Island.
@@ -213,7 +213,7 @@ RegisterEvent(110, "Drink from the Well", function()
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
 
-RegisterEvent(111, "Legacy event 111", function()
+RegisterEvent(111, nil, function()
     SetValue(MapVar(2), 30)
     SetValue(MapVar(3), 30)
 end)
@@ -303,97 +303,97 @@ RegisterEvent(124, "Chest", function()
     evt.OpenChest(7)
 end, "Chest")
 
-RegisterEvent(200, "Legacy event 200", function()
+RegisterEvent(200, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(358) -- Margaret the Docent
 end)
 
-RegisterEvent(201, "Legacy event 201", function()
+RegisterEvent(201, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(359) -- Margaret the Docent
 end)
 
-RegisterEvent(202, "Legacy event 202", function()
+RegisterEvent(202, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(360) -- Margaret the Docent
 end)
 
-RegisterEvent(203, "Legacy event 203", function()
+RegisterEvent(203, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(361) -- Margaret the Docent
 end)
 
-RegisterEvent(204, "Legacy event 204", function()
+RegisterEvent(204, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(362) -- Margaret the Docent
 end)
 
-RegisterEvent(205, "Legacy event 205", function()
+RegisterEvent(205, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(363) -- Margaret the Docent
 end)
 
-RegisterEvent(206, "Legacy event 206", function()
+RegisterEvent(206, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(364) -- Margaret the Docent
 end)
 
-RegisterEvent(207, "Legacy event 207", function()
+RegisterEvent(207, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(365) -- Margaret the Docent
 end)
 
-RegisterEvent(208, "Legacy event 208", function()
+RegisterEvent(208, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(366) -- Margaret the Docent
 end)
 
-RegisterEvent(209, "Legacy event 209", function()
+RegisterEvent(209, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(367) -- Margaret the Docent
 end)
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(368) -- Margaret the Docent
 end)
 
-RegisterEvent(211, "Legacy event 211", function()
+RegisterEvent(211, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(369) -- Margaret the Docent
 end)
 
-RegisterEvent(212, "Legacy event 212", function()
+RegisterEvent(212, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(370) -- Margaret the Docent
 end)
 
-RegisterEvent(213, "Legacy event 213", function()
+RegisterEvent(213, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(371) -- Margaret the Docent
 end)
 
-RegisterEvent(214, "Legacy event 214", function()
+RegisterEvent(214, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(372) -- Margaret the Docent
 end)
 
-RegisterEvent(215, "Legacy event 215", function()
+RegisterEvent(215, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(373) -- Margaret the Docent
 end)
 
-RegisterEvent(216, "Legacy event 216", function()
+RegisterEvent(216, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(374) -- Margaret the Docent
 end)
 
-RegisterEvent(217, "Legacy event 217", function()
+RegisterEvent(217, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(375) -- Margaret the Docent
 end)
 
-RegisterEvent(218, "Legacy event 218", function()
+RegisterEvent(218, nil, function()
     if IsQBitSet(QBit(529)) then return end -- No more docent babble
     evt.SpeakNPC(376) -- Margaret the Docent
 end)
@@ -402,7 +402,7 @@ RegisterEvent(219, "Button", function()
     evt.CastSpell(43, 10, 4, 10495, 17724, 2370, 10495, 24144, 4500) -- Death Blossom
 end, "Button")
 
-RegisterEvent(220, "Legacy event 220", function()
+RegisterEvent(220, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 71, 0, false) then -- actor group 71; all matching actors defeated
         evt.SummonMonsters(1, 1, 10, -336, 14512, 0, 71, 0) -- encounter slot 1 "Dragonfly" tier A, count 10, pos=(-336, 14512, 0), actor group 71, no unique actor name
         evt.SummonMonsters(1, 2, 5, 16, 16352, 90, 71, 0) -- encounter slot 1 "Dragonfly" tier B, count 5, pos=(16, 16352, 90), actor group 71, no unique actor name

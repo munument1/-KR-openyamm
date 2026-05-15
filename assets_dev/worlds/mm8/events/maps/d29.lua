@@ -33,17 +33,17 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(242)) then return end -- Got the heart of fire
     evt.ForPlayer(Players.All)
     if HasItem(606) then -- Heart of Fire
@@ -53,13 +53,13 @@ RegisterEvent(6, "Legacy event 6", function()
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Button", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -266,12 +266,12 @@ RegisterEvent(60, "Door", function()
     evt.SetDoorState(50, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
-RegisterEvent(72, "Legacy event 72", function()
+RegisterEvent(72, nil, function()
     evt.SetDoorState(72, DoorAction.Trigger)
 end)
 
@@ -355,19 +355,19 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(-2016, 3840, 1056, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(544, 3296, 2336, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.MoveToMap(2784, 3840, -244, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.MoveToMap(2784, 3840, 1056, 1024, 0, 0, 0, 0)
 end)
 

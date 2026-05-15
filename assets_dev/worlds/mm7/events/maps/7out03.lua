@@ -32,7 +32,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(720)) then -- TP Buff City of Steadwick
         SetQBit(QBit(720)) -- TP Buff City of Steadwick
         evt.SetMonGroupBit(57, MonsterBits.Hostile, 1) -- actor group 57: spawn Fighter Leather A
@@ -43,7 +43,7 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(58, MonsterBits.Hostile, 1) -- actor group 58: spawn Griffin A, spawn Griffin B, spawn Griffin C
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if IsQBitSet(QBit(700)) then return end -- Killed all Erathian Griffins
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 279, 0, false) then return end -- monster 279 "Griffin"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 280, 0, false) then return end -- monster 280 "Hunting Griffin"; all matching actors defeated
@@ -550,7 +550,7 @@ RegisterEvent(258, "Fruit Tree", function()
     evt.SetSprite(58, 1, "tree37")
 end, "Fruit Tree")
 
-RegisterEvent(401, "Legacy event 401", function()
+RegisterEvent(401, nil, function()
     if IsQBitSet(QBit(541)) then -- Crack the code in the School of Sorcery in the Bracada Desert to reveal the location of the Tomb of Ashwar Nog'Nogoth. Discover the tomb's location, enter it, and then return it to Stephan Sand in the Pit.
         evt.SetFacetBit(10, FacetBits.Untouchable, 1)
         evt.SetFacetBit(10, FacetBits.Invisible, 1)
@@ -666,7 +666,7 @@ RegisterEvent(496, "Wain Manor", function()
     evt.EnterHouse(1132) -- Wain Manor
 end, "Wain Manor")
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(2) then
         goto step_16
     end

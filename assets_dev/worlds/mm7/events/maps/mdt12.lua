@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if IsQBitSet(QBit(739)) then -- Dragon Egg - I lost it
         return
     elseif HasItem(1449) then -- Dragon Egg

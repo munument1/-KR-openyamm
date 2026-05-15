@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(611)) then return end -- Chose the path of Light
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
 end)
@@ -315,14 +315,14 @@ end, "Throne Room")
 
 RegisterEvent(444, "House", nil, "House")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(780) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
@@ -330,7 +330,7 @@ RegisterEvent(452, "Legacy event 452", function()
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)

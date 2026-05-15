@@ -168,12 +168,12 @@ RegisterEvent(195, "Chest", function()
     SetValue(MapVar(2), 1)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.CastSpell(39, 7, 4, -4686, 3674, -447, -4686, 1445, -447) -- Blades
     evt.CastSpell(39, 7, 4, -4686, 1445, -447, -4686, 3674, -447) -- Blades
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.CastSpell(6, 8, 4, -768, 2432, 257, 1664, 2432, 257) -- Fireball
 end)
 

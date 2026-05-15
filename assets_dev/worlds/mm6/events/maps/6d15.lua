@@ -20,7 +20,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
@@ -224,13 +224,13 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(-18638, -5133, 64, 0, 0, 0, 0, 0, "outc1.odm") -- Frozen Highlands
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(MapVar(21), 1) then return end
     SetValue(MapVar(21), 1)
     evt.GiveItem(6, 35)
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     if IsAtLeast(MapVar(21), 1) then return end
     SetValue(MapVar(21), 1)
     evt.GiveItem(6, 35)

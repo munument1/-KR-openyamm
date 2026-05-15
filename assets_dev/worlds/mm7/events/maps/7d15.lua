@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(532)) then -- Watchtower 6. Weight in the appropriate box. Important for Global event 47 (Spy promotion)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
         return
@@ -43,20 +43,20 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(11, DoorAction.Open)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(10, DoorAction.Open)
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetDoorState(5, DoorAction.Open)
     evt.SetDoorState(6, DoorAction.Open)
     evt.SetDoorState(7, DoorAction.Open)
@@ -145,14 +145,14 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     evt.ForPlayer(Players.All)
     SetQBit(QBit(532)) -- Watchtower 6. Weight in the appropriate box. Important for Global event 47 (Spy promotion)
     evt.SetDoorState(13, DoorAction.Close)
     evt.SetDoorState(12, DoorAction.Close)
 end)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     local randomStep = PickRandomOption(451, 1, {2, 5, 8, 11, 14, 20})
     if randomStep == 2 then
         evt.SetDoorState(5, DoorAction.Trigger)
@@ -201,23 +201,23 @@ RegisterEvent(451, "Legacy event 451", function()
     end
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(613) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Shade, spawn Elemental Earth A, spawn Lich A, spawn Necromancer A
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark

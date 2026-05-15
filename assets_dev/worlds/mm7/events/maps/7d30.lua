@@ -31,7 +31,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         if IsQBitSet(QBit(782)) then -- Your friends are mad at you
             if IsAtLeast(Counter(10), 720) then
@@ -59,19 +59,19 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Wizard
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(3, DoorAction.Open)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(4, DoorAction.Open)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(5, DoorAction.Open)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.SetDoorState(6, DoorAction.Trigger)
         evt.SetDoorState(7, DoorAction.Trigger)
@@ -89,11 +89,11 @@ RegisterEvent(6, "Legacy event 6", function()
     SetValue(MapVar(2), 0)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(8, DoorAction.Trigger)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     evt.SetDoorState(9, DoorAction.Trigger)
 end)
 
@@ -106,7 +106,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(2, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(14, DoorAction.Trigger)
     if IsAtLeast(MapVar(2), 1) then return end
     evt.SetDoorState(12, DoorAction.Trigger)
@@ -473,7 +473,7 @@ RegisterEvent(193, "Chest", function()
     evt.OpenChest(18)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsQBitSet(QBit(711)) then return end -- Take the Associate's Tapestry
     if IsQBitSet(QBit(611)) and IsQBitSet(QBit(694)) then -- Chose the path of Light
         evt.SetTexture(10, "cwb")
@@ -486,7 +486,7 @@ RegisterEvent(376, "Legacy event 376", function()
     end
 end)
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     if IsQBitSet(QBit(711)) then -- Take the Associate's Tapestry
         evt.SetTexture(15, "cwb")
     end
@@ -500,14 +500,14 @@ RegisterEvent(416, "Throne Room", function()
     evt.StatusText("The Door is Locked")
 end, "Throne Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(618) -- Castle Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Angel A, spawn Golem A, spawn Mage A
@@ -517,7 +517,7 @@ RegisterEvent(452, "Legacy event 452", function()
     SetQBit(QBit(782)) -- Your friends are mad at you
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)

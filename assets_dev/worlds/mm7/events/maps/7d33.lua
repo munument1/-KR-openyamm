@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Champion of the Sword, spawn Archer A, spawn Fighter Chain A, spawn Fighter Plate A
@@ -46,7 +46,7 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) or evt.CheckMonstersKilled(ActorKillCheck.Group, 55, 1, false) then -- actor group 56; at least 1 matching actor defeated
         SetValue(MapVar(6), 2)
     end
@@ -57,7 +57,7 @@ RegisterEvent(3, "Door", function()
     evt.SetDoorState(5, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(6, DoorAction.Open)
 end)
 
@@ -77,7 +77,7 @@ RegisterEvent(8, "Door", function()
     evt.SetDoorState(10, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     evt.SetDoorState(11, DoorAction.Open)
 end)
 
@@ -85,7 +85,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(12, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
 end)
 
@@ -422,14 +422,14 @@ RegisterEvent(416, "Throne Room", function()
     evt.StatusText("The Door is Locked")
 end, "Throne Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(616) -- Castle Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
@@ -437,13 +437,13 @@ RegisterEvent(452, "Legacy event 452", function()
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     SetValue(MapVar(6), 0)
 end)
 

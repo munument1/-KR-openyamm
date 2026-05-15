@@ -314,6 +314,16 @@ std::string luaQuoted(std::string_view text)
     return "\"" + escapeLuaString(text) + "\"";
 }
 
+std::string luaOptionalTitle(std::string_view title)
+{
+    if (title.empty())
+    {
+        return "nil";
+    }
+
+    return luaQuoted(title);
+}
+
 std::string toLowerCopy(std::string_view text)
 {
     std::string lowered(text);
@@ -2534,7 +2544,7 @@ std::string buildGeneratedEventTitle(
         return *hint;
     }
 
-    return "Legacy event " + std::to_string(event.eventId);
+    return "";
 }
 
 void emitIndentedLineWithComment(
@@ -8148,7 +8158,7 @@ bool tryEmitReadablePromptEventFunction(
         }
     }
 
-    stream << registerFunction << "(" << eventId << ", " << luaQuoted(title) << ", function(continueStep)\n";
+    stream << registerFunction << "(" << eventId << ", " << luaOptionalTitle(title) << ", function(continueStep)\n";
 
     for (const PromptContinuation &continuation : continuations)
     {
@@ -8999,7 +9009,7 @@ void emitEventRegistrationHeader(
     const std::string &title,
     const std::optional<std::string> &hint)
 {
-    stream << registerFunction << "(" << eventId << ", " << luaQuoted(title);
+    stream << registerFunction << "(" << eventId << ", " << luaOptionalTitle(title);
 
     if (registerFunction == "RegisterNoOpEvent" || registerFunction == "RegisterGlobalNoOpEvent")
     {
@@ -9029,7 +9039,7 @@ void emitHintOnlyEventRegistration(
     const std::string &title,
     const std::optional<std::string> &hint)
 {
-    stream << registerFunction << "(" << eventId << ", " << luaQuoted(title) << ", nil";
+    stream << registerFunction << "(" << eventId << ", " << luaOptionalTitle(title) << ", nil";
 
     if (hint && !hint->empty())
     {
@@ -11030,7 +11040,7 @@ void emitNormalEventFunction(
 
     if (usesPromptContinuation)
     {
-        stream << registerFunction << "(" << directEvent.eventId << ", " << luaQuoted(title)
+        stream << registerFunction << "(" << directEvent.eventId << ", " << luaOptionalTitle(title)
                << ", function(continueStep)\n";
     }
     else

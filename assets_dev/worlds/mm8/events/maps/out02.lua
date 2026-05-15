@@ -37,14 +37,14 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(93)) then return end -- You have entered out02.odm, this is your new starting place
     SetQBit(QBit(93)) -- You have entered out02.odm, this is your new starting place
     ClearQBit(QBit(212)) -- Power Stone - I lost it
     ClearQBit(QBit(213)) -- Power Stone - I lost it
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not IsQBitSet(QBit(10)) then -- Letter from Q Bit 9 delivered.
         evt.SetFacetBit(10, FacetBits.Invisible, 1)
         evt.SetFacetBit(10, FacetBits.Untouchable, 1)
@@ -56,7 +56,7 @@ RegisterEvent(2, "Legacy event 2", function()
     evt.SetFacetBit(12, FacetBits.Untouchable, 0)
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     if IsQBitSet(QBit(228)) then -- You have seen the Endgame movie
         evt.SetFacetBit(30, FacetBits.Untouchable, 1)
         evt.SetFacetBit(30, FacetBits.Invisible, 1)
@@ -234,7 +234,7 @@ RegisterEvent(3, "Legacy event 3", function()
     end
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if not IsQBitSet(QBit(58)) then -- The Pirates that invaded Ravenshore are all dead now )
         if IsQBitSet(QBit(6)) then -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
             if IsQBitSet(QBit(37)) then -- Regnan Pirate Fleet is sunk.
@@ -253,15 +253,15 @@ RegisterEvent(4, "Legacy event 4", function()
     evt.SetMonGroupBit(10, MonsterBits.Invisible, 1) -- actor group 10: Regnan Bandit, Regnan Brigadier, Regnan Pirate
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Wilburt's Hovel", function()
     if not IsQBitSet(QBit(57)) then -- The Pirates invaded Ravenshore
@@ -791,7 +791,7 @@ RegisterEvent(104, "Drink from the fountain", function()
 return
 end, "Drink from the fountain")
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(58)) then -- The Pirates that invaded Ravenshore are all dead now )
         return
     elseif IsQBitSet(QBit(57)) then -- The Pirates invaded Ravenshore
@@ -808,7 +808,7 @@ RegisterEvent(131, "Legacy event 131", function()
     end
 end)
 
-RegisterEvent(132, "Legacy event 132", function()
+RegisterEvent(132, nil, function()
     if IsQBitSet(QBit(140)) then return end -- Killed all Dire Wolves in Ravenshore
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 84, 0, false) then return end -- monster 84 "Dire Wolf Yearling"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 85, 0, false) then return end -- monster 85 "Dire Wolf"; all matching actors defeated
@@ -1108,14 +1108,14 @@ end, "House Understone")
 
 RegisterEvent(468, "House Understone", nil, "House Understone")
 
-RegisterEvent(478, "Legacy event 478", function()
+RegisterEvent(478, nil, function()
     local randomStep = PickRandomOption(478, 2, {2, 2, 3, 3, 3, 3})
     if randomStep == 2 then
         evt.PlaySound(325, 17056, -12512)
     end
 end)
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
 end)
 
@@ -1126,15 +1126,15 @@ RegisterEvent(490, "Tree", function()
     end
 end, "Tree")
 
-RegisterEvent(491, "Legacy event 491", function()
+RegisterEvent(491, nil, function()
     evt._SpecialJump(19661824, 220)
 end)
 
-RegisterEvent(492, "Legacy event 492", function()
+RegisterEvent(492, nil, function()
     evt._SpecialJump(19662336, 220)
 end)
 
-RegisterEvent(493, "Legacy event 493", function()
+RegisterEvent(493, nil, function()
     evt._SpecialJump(19660800, 220)
 end)
 

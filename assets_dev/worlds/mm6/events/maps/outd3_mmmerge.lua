@@ -27,7 +27,7 @@ ReplaceMapEvent(43, "Throne Room", function()
     MM6.ReturnNicolai()
 end, "Throne Room")
 
-ReplaceMapEvent(210, "Legacy event 210", function(continueStep)
+ReplaceMapEvent(210, nil, function(continueStep)
     if continueStep == 9 then
         if not IsAtLeast(Gold, 100) then
             evt.SimpleMessage("Well")

@@ -33,16 +33,16 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetValue(MapVar(20), 0)
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Lesser Light Elemental, spawn Elemental Air A, spawn Genie A, spawn Mage A
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(28, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if not IsAtLeast(MapVar(6), 1) then
         evt.SetDoorState(5, DoorAction.Trigger)
         SetValue(MapVar(3), 0)
@@ -54,7 +54,7 @@ RegisterEvent(4, "Legacy event 4", function()
     evt.SetDoorState(5, DoorAction.Trigger)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if not IsAtLeast(MapVar(7), 1) then
         evt.SetDoorState(6, DoorAction.Trigger)
         AddValue(MapVar(2), 1)
@@ -66,7 +66,7 @@ RegisterEvent(5, "Legacy event 5", function()
     evt.SetDoorState(6, DoorAction.Trigger)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if not IsAtLeast(MapVar(8), 1) then
         evt.SetDoorState(7, DoorAction.Trigger)
         SetValue(MapVar(3), 0)
@@ -78,7 +78,7 @@ RegisterEvent(6, "Legacy event 6", function()
     evt.SetDoorState(7, DoorAction.Trigger)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     if not IsAtLeast(MapVar(9), 1) then
         evt.SetDoorState(8, DoorAction.Trigger)
         SetValue(MapVar(3), 0)
@@ -90,7 +90,7 @@ RegisterEvent(7, "Legacy event 7", function()
     evt.SetDoorState(8, DoorAction.Trigger)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if not IsAtLeast(MapVar(10), 1) then
         evt.SetDoorState(9, DoorAction.Trigger)
         AddValue(MapVar(2), 1)
@@ -102,7 +102,7 @@ RegisterEvent(8, "Legacy event 8", function()
     evt.SetDoorState(9, DoorAction.Trigger)
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if not IsAtLeast(MapVar(11), 1) then
         evt.SetDoorState(10, DoorAction.Trigger)
         SetValue(MapVar(3), 0)
@@ -114,7 +114,7 @@ RegisterEvent(9, "Legacy event 9", function()
     evt.SetDoorState(10, DoorAction.Trigger)
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         if IsAtLeast(MapVar(2), 2) then
             evt.SetDoorState(3, DoorAction.Trigger)
@@ -143,19 +143,19 @@ RegisterEvent(10, "Legacy event 10", function()
     end
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(29, DoorAction.Trigger)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(30, DoorAction.Trigger)
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(12, DoorAction.Trigger)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetDoorState(13, DoorAction.Trigger)
     evt.SetDoorState(14, DoorAction.Trigger)
     evt.SetDoorState(15, DoorAction.Trigger)
@@ -244,7 +244,7 @@ RegisterEvent(195, "Chest", function()
     ClearQBit(QBit(741)) -- Lich Jar (Empty) - I lost it
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsAtLeast(MapVar(17), 1) then
         return
     elseif HasItem(1454) then -- West Pillar Key
@@ -265,7 +265,7 @@ RegisterEvent(376, "Legacy event 376", function()
     end
 end)
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     if IsAtLeast(MapVar(18), 1) then
         return
     elseif HasItem(1455) then -- Central Pillar Key
@@ -286,7 +286,7 @@ RegisterEvent(377, "Legacy event 377", function()
     end
 end)
 
-RegisterEvent(378, "Legacy event 378", function()
+RegisterEvent(378, nil, function()
     if IsAtLeast(MapVar(19), 1) then
         return
     elseif HasItem(1456) then -- East Pillar Key
@@ -307,63 +307,63 @@ RegisterEvent(378, "Legacy event 378", function()
     end
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(-10880, 7424, 96, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.MoveToMap(-1792, -128, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.MoveToMap(-896, -128, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.MoveToMap(8448, -21120, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.MoveToMap(13568, -6528, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     evt.MoveToMap(1, -128, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(458, "Legacy event 458", function()
+RegisterEvent(458, nil, function()
     evt.MoveToMap(13280, 1152, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(459, "Legacy event 459", function()
+RegisterEvent(459, nil, function()
     evt.MoveToMap(13312, 704, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(460, "Legacy event 460", function()
+RegisterEvent(460, nil, function()
     evt.MoveToMap(13248, 2976, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(461, "Legacy event 461", function()
+RegisterEvent(461, nil, function()
     evt.MoveToMap(13248, 3456, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(462, "Legacy event 462", function()
+RegisterEvent(462, nil, function()
     evt.MoveToMap(12384, 2144, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(463, "Legacy event 463", function()
+RegisterEvent(463, nil, function()
     evt.MoveToMap(11936, 2144, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(464, "Legacy event 464", function()
+RegisterEvent(464, nil, function()
     evt.MoveToMap(14240, 2048, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(465, "Legacy event 465", function()
+RegisterEvent(465, nil, function()
     evt.MoveToMap(14944, 2080, 160, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(466, "Legacy event 466", function()
+RegisterEvent(466, nil, function()
     if IsAtLeast(MapVar(13), 1) then return end
     evt.SetDoorState(16, DoorAction.Trigger)
     evt.SetFacetBit(1, FacetBits.Fluid, 1)
@@ -390,7 +390,7 @@ RegisterEvent(466, "Legacy event 466", function()
     evt.SetDoorState(27, DoorAction.Trigger)
 end)
 
-RegisterEvent(467, "Legacy event 467", function()
+RegisterEvent(467, nil, function()
     if IsAtLeast(MapVar(14), 1) then return end
     evt.SetDoorState(18, DoorAction.Trigger)
     evt.SetFacetBit(2, FacetBits.Fluid, 1)
@@ -417,7 +417,7 @@ RegisterEvent(467, "Legacy event 467", function()
     evt.SetDoorState(27, DoorAction.Trigger)
 end)
 
-RegisterEvent(468, "Legacy event 468", function()
+RegisterEvent(468, nil, function()
     if IsAtLeast(MapVar(15), 1) then return end
     evt.SetDoorState(20, DoorAction.Trigger)
     evt.SetFacetBit(3, FacetBits.Fluid, 1)
@@ -444,7 +444,7 @@ RegisterEvent(468, "Legacy event 468", function()
     evt.SetDoorState(27, DoorAction.Trigger)
 end)
 
-RegisterEvent(469, "Legacy event 469", function()
+RegisterEvent(469, nil, function()
     if IsAtLeast(MapVar(16), 1) then return end
     evt.SetDoorState(22, DoorAction.Trigger)
     evt.SetFacetBit(4, FacetBits.Fluid, 1)

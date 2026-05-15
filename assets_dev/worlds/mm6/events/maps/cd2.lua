@@ -18,11 +18,11 @@ RegisterEvent(1, "Door", function()
     evt.SetDoorState(1, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.CastSpell(90, 10, 1, 13819, -866, -180, 0, 0, 0) -- Toxic Cloud
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.CastSpell(32, 8, 1, 11136, 3712, -80, 0, 0, 0) -- Ice Blast
 end)
 
@@ -54,7 +54,7 @@ RegisterEvent(10, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     evt.CastSpell(6, 10, 1, 10417, 4800, 100, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 10, 1, 10706, 2258, 150, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 10, 1, 10706, 1628, 150, 0, 0, 0) -- Fireball
@@ -65,27 +65,27 @@ RegisterEvent(20, "Door ", function()
     evt.CastSpell(90, 1, 1, 14925, 2518, -689, 0, 0, 0) -- Toxic Cloud
 end, "Door ")
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     evt.CastSpell(26, 1, 1, 15217, 576, 528, 0, 0, 0) -- Ice Bolt
     evt.CastSpell(26, 1, 1, 15112, 171, 529, 0, 0, 0) -- Ice Bolt
     evt.CastSpell(26, 1, 1, 15123, 405, 529, 0, 0, 0) -- Ice Bolt
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     evt.CastSpell(26, 1, 1, 15217, 576, 528, 0, 0, 0) -- Ice Bolt
     evt.CastSpell(26, 1, 1, 15112, 171, 529, 0, 0, 0) -- Ice Bolt
     evt.CastSpell(26, 1, 1, 15123, 405, 529, 0, 0, 0) -- Ice Bolt
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     evt.CastSpell(6, 1, 1, 14718, 2456, 541, 0, 0, 0) -- Fireball
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     evt.CastSpell(6, 1, 1, 18915, 2035, 541, 0, 0, 0) -- Fireball
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.CastSpell(6, 1, 1, 18111, 10127, 386, 18111, 4782, 386) -- Fireball
     evt.CastSpell(6, 1, 1, 18131, 10127, 386, 18131, 4782, 386) -- Fireball
     evt.CastSpell(6, 1, 1, 18151, 10127, 386, 18151, 4782, 386) -- Fireball
@@ -94,12 +94,12 @@ RegisterEvent(25, "Legacy event 25", function()
     evt.CastSpell(6, 1, 1, 18201, 10127, 386, 18201, 4782, 386) -- Fireball
 end)
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -7522, 14848, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-7522, 14848, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.CastSpell(6, 1, 1, -2904, 16512, 100, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 1, 1, -2432, 16512, 100, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 1, 1, -1960, 16512, 100, 0, 0, 0) -- Fireball
@@ -114,7 +114,7 @@ RegisterEvent(27, "Legacy event 27", function()
     evt.CastSpell(6, 1, 1, 2642, 16512, 100, 0, 0, 0) -- Fireball
 end)
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
@@ -123,7 +123,7 @@ RegisterEvent(28, "Legacy event 28", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.MoveToMap(10384, 2224, 0, 0, 0, 0, 0, 0)
         return
@@ -132,7 +132,7 @@ RegisterEvent(29, "Legacy event 29", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
@@ -141,7 +141,7 @@ RegisterEvent(30, "Legacy event 30", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(31, "Legacy event 31", function()
+RegisterEvent(31, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.MoveToMap(8608, 128, 630, 0, 0, 0, 0, 0)
         return
@@ -150,7 +150,7 @@ RegisterEvent(31, "Legacy event 31", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(32, "Legacy event 32", function()
+RegisterEvent(32, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.MoveToMap(22768, 7504, 1170, 0, 0, 0, 0, 0)
         return
@@ -159,7 +159,7 @@ RegisterEvent(32, "Legacy event 32", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     if not IsAtLeast(MapVar(3), 1) then
         evt.MoveToMap(2560, 3856, -636, 0, 0, 0, 0, 0)
         return
@@ -184,7 +184,7 @@ RegisterEvent(34, "Podium", function()
     evt.StatusText("The Book is destroyed")
 end, "Podium")
 
-RegisterEvent(35, "Legacy event 35", function()
+RegisterEvent(35, nil, function()
     if not IsAtLeast(MapVar(3), 1) then
         evt.SummonObject(2081, 317, 14144, 191, 1000, 1, false) -- explosion
         evt.SummonObject(1, 317, 14144, 320, 10, 1, false) -- longsword
@@ -197,7 +197,7 @@ RegisterEvent(35, "Legacy event 35", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(36, "Legacy event 36", function()
+RegisterEvent(36, nil, function()
     if not IsAtLeast(MapVar(3), 1) then
         evt.SummonObject(2081, 551, 14144, 191, 1000, 1, false) -- explosion
         evt.SummonObject(1, 551, 14144, 320, 10, 1, false) -- longsword
@@ -210,7 +210,7 @@ RegisterEvent(36, "Legacy event 36", function()
     evt.StatusText("The way has been cleared")
 end)
 
-RegisterEvent(37, "Legacy event 37", function()
+RegisterEvent(37, nil, function()
     if not IsAtLeast(MapVar(3), 1) then
         evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
         return
@@ -225,7 +225,7 @@ RegisterEvent(37, "Legacy event 37", function()
     evt.MoveToMap(16080, 9072, -180, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(38, "Legacy event 38", function()
+RegisterEvent(38, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
@@ -233,7 +233,7 @@ RegisterEvent(38, "Legacy event 38", function()
     evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(39, "Legacy event 39", function()
+RegisterEvent(39, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(-7328, 10496, 600, 0, 0, 0, 0, 0)
         return
@@ -241,7 +241,7 @@ RegisterEvent(39, "Legacy event 39", function()
     evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(40, "Legacy event 40", function()
+RegisterEvent(40, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(-6112, 10912, 600, 0, 0, 0, 0, 0)
         return
@@ -249,7 +249,7 @@ RegisterEvent(40, "Legacy event 40", function()
     evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(41, "Legacy event 41", function()
+RegisterEvent(41, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
@@ -257,7 +257,7 @@ RegisterEvent(41, "Legacy event 41", function()
     evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(42, "Legacy event 42", function()
+RegisterEvent(42, nil, function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(-10240, 12144, -240, 0, 0, 0, 0, 0)
         return
@@ -265,11 +265,11 @@ RegisterEvent(42, "Legacy event 42", function()
     evt.MoveToMap(22080, -2192, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(43, "Legacy event 43", function()
+RegisterEvent(43, nil, function()
     evt.MoveToMap(13744, 640, -180, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(44, "Legacy event 44", function()
+RegisterEvent(44, nil, function()
     evt.MoveToMap(2528, 3568, -635, 0, 0, 0, 0, 0)
 end)
 
@@ -302,7 +302,7 @@ RegisterEvent(45, "Sign", function(continueStep)
     evt.SetTexture(4302, "orwtrtyl")
 end, "Sign")
 
-RegisterEvent(46, "Legacy event 46", function()
+RegisterEvent(46, nil, function()
     evt.CastSpell(6, 1, 1, -2904, 11904, 100, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 1, 1, -2432, 11904, 100, 0, 0, 0) -- Fireball
     evt.CastSpell(6, 1, 1, -1960, 11904, 100, 0, 0, 0) -- Fireball
@@ -317,32 +317,32 @@ RegisterEvent(46, "Legacy event 46", function()
     evt.CastSpell(6, 1, 1, 2642, 11904, 100, 0, 0, 0) -- Fireball
 end)
 
-RegisterEvent(47, "Legacy event 47", function()
+RegisterEvent(47, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -6144, 14720, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-6144, 14720, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(48, "Legacy event 48", function()
+RegisterEvent(48, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -5120, 14208, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-5120, 14208, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(49, "Legacy event 49", function()
+RegisterEvent(49, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -5760, 12800, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-5760, 12800, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -7552, 12800, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-7552, 12800, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -7808, 13056, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-7808, 13056, -240), actor group 0, no unique actor name
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     if IsQBitSet(QBit(1033)) then return end -- 9, CD2, given when you destroy Lich book
     evt.SummonMonsters(1, 2, 3, -5376, 11904, -240, 0, 0) -- encounter slot 1 "BLich" tier B, count 3, pos=(-5376, 11904, -240), actor group 0, no unique actor name
 end)
@@ -430,7 +430,7 @@ RegisterEvent(57, "Crystal", function()
     end
 end, "Crystal")
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1126)) or HasItem(2172) then -- Oracle
         evt.SetSprite(329, 1, "crysdisc")
@@ -469,7 +469,7 @@ RegisterEvent(59, "Forcefield", function()
     evt.StatusText("Your way is blocked.")
 end, "Forcefield")
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     evt.MoveToMap(-17281, 17465, 2081, 0, 0, 0, 0, 0, "outc3.odm") -- Mire of the Damned
 end)
 
@@ -521,7 +521,7 @@ RegisterEvent(63, "Sarcophagus", function(continueStep)
     return nil
 end, "Sarcophagus")
 
-RegisterEvent(64, "Legacy event 64", function()
+RegisterEvent(64, nil, function()
     if IsAtLeast(MapVar(14), 1) then return end
     evt.ForPlayer(Players.Current)
     SetValue(MapVar(14), 1)

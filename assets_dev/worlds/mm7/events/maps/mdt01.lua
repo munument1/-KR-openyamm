@@ -32,7 +32,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(703)) then -- Turn on map in mdtXX(Dwarven Barrow)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Bat A
         return
@@ -42,11 +42,11 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn AGog A, spawn Bat A
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(2, DoorAction.Open)
 end)
 

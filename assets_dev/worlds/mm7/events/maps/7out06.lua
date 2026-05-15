@@ -35,7 +35,7 @@ SetMapMetadata({
 
 RegisterEvent(1, "Chest ", nil, "Chest ")
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if IsQBitSet(QBit(701)) then return end -- Killed all Bracada Desert Griffins
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 279, 0, false) then return end -- monster 279 "Griffin"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 280, 0, false) then return end -- monster 280 "Hunting Griffin"; all matching actors defeated
@@ -45,7 +45,7 @@ RegisterEvent(2, "Legacy event 2", function()
     end
 end)
 
-RegisterEvent(50, "Legacy event 50", nil)
+RegisterEvent(50, nil, nil)
 
 RegisterEvent(98, "Dock", nil, "Dock")
 
@@ -255,7 +255,7 @@ RegisterEvent(220, "Chest ", function()
     end
 end, "Chest ")
 
-RegisterEvent(222, "Legacy event 222", function()
+RegisterEvent(222, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         SetValue(MapVar(6), 2)
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Golem A
@@ -283,56 +283,56 @@ RegisterEvent(222, "Legacy event 222", function()
     end
 end)
 
-RegisterEvent(301, "Legacy event 301", function()
+RegisterEvent(301, nil, function()
     evt.MoveToMap(-9711, 8872, 2400, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(302, "Legacy event 302", function()
+RegisterEvent(302, nil, function()
     evt.MoveToMap(-5648, 15992, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(303, "Legacy event 303", function()
+RegisterEvent(303, nil, function()
     evt.MoveToMap(3000, 17248, 1600, 512, 0, 0, 0, 0)
     evt.MoveToMap(-14208, -6992, 1344, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(304, "Legacy event 304", function()
+RegisterEvent(304, nil, function()
     evt.MoveToMap(-4608, 16032, 1, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(305, "Legacy event 305", function()
+RegisterEvent(305, nil, function()
     evt.MoveToMap(-6664, 15040, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(306, "Legacy event 306", function()
+RegisterEvent(306, nil, function()
     evt.MoveToMap(-17624, 20360, 800, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(307, "Legacy event 307", function()
+RegisterEvent(307, nil, function()
     evt.MoveToMap(-5616, 14992, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(308, "Legacy event 308", function()
+RegisterEvent(308, nil, function()
     evt.MoveToMap(-16064, 8944, 800, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(309, "Legacy event 309", function()
+RegisterEvent(309, nil, function()
     evt.MoveToMap(-4592, 15000, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(310, "Legacy event 310", function()
+RegisterEvent(310, nil, function()
     evt.MoveToMap(6464, -19280, 1376, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(311, "Legacy event 311", function()
+RegisterEvent(311, nil, function()
     evt.MoveToMap(-7160, 13976, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(312, "Legacy event 312", function()
+RegisterEvent(312, nil, function()
     evt.MoveToMap(17656, -20704, 800, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(313, "Legacy event 313", function()
+RegisterEvent(313, nil, function()
     local randomStep = PickRandomOption(313, 1, {1, 3, 5, 7, 9, 11})
     if randomStep == 1 then
         evt.MoveToMap(-3040, 992, 1120, 0, 0, 0, 0, 0)
@@ -355,19 +355,19 @@ RegisterEvent(313, "Legacy event 313", function()
     end
 end)
 
-RegisterEvent(314, "Legacy event 314", function()
+RegisterEvent(314, nil, function()
     evt.MoveToMap(-7360, 13504, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(315, "Legacy event 315", function()
+RegisterEvent(315, nil, function()
     evt.MoveToMap(9208, 18608, 0, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(316, "Legacy event 316", function()
+RegisterEvent(316, nil, function()
     evt.MoveToMap(-4800, 14552, 0, 1024, 0, 0, 0, 0)
 end)
 
-RegisterEvent(317, "Legacy event 317", function()
+RegisterEvent(317, nil, function()
     evt.MoveToMap(-6192, 12744, 0, 0, 0, 0, 0, 0)
 end)
 
@@ -527,7 +527,7 @@ RegisterEvent(468, "Stables", nil, "Stables")
 
 RegisterEvent(469, "To Main Square", nil, "To Main Square")
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(3) then return end
     if evt.CheckSeason(2) then return end
     if evt.CheckSeason(1) then return end
@@ -543,7 +543,7 @@ RegisterEvent(502, "Enter the Red Dwarf Mines", function()
     evt.MoveToMap(26, 6, 1, 512, 0, 0, 143, 1, "7d34.blv") -- The Red Dwarf Mines
 end, "Enter the Red Dwarf Mines")
 
-RegisterEvent(503, "Legacy event 503", function()
+RegisterEvent(503, nil, function()
     if IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)) then -- Chose the path of Light
         evt.MoveToMap(-6790, 1095, 33, 0, 0, 0, 0, 0, "7d25.blv") -- Celeste
     end

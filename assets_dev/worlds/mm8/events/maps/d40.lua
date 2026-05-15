@@ -33,30 +33,30 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(611) then -- Lost Book of Kehl
         SetQBit(QBit(210)) -- Lost Book of Kehl - I lost it
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -258,43 +258,43 @@ RegisterEvent(60, "Door", function()
     evt.SetDoorState(50, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
 end)
 
-RegisterEvent(72, "Legacy event 72", function()
+RegisterEvent(72, nil, function()
     evt.SetDoorState(72, DoorAction.Trigger)
 end)
 
-RegisterEvent(73, "Legacy event 73", function()
+RegisterEvent(73, nil, function()
     evt.SetDoorState(73, DoorAction.Trigger)
 end)
 
-RegisterEvent(74, "Legacy event 74", function()
+RegisterEvent(74, nil, function()
     evt.SetDoorState(74, DoorAction.Trigger)
 end)
 
-RegisterEvent(75, "Legacy event 75", function()
+RegisterEvent(75, nil, function()
     evt.SetDoorState(75, DoorAction.Trigger)
 end)
 
-RegisterEvent(76, "Legacy event 76", function()
+RegisterEvent(76, nil, function()
     evt.SetDoorState(76, DoorAction.Trigger)
 end)
 
-RegisterEvent(77, "Legacy event 77", function()
+RegisterEvent(77, nil, function()
     evt.SetDoorState(77, DoorAction.Trigger)
 end)
 
-RegisterEvent(78, "Legacy event 78", function()
+RegisterEvent(78, nil, function()
     evt.SetDoorState(78, DoorAction.Trigger)
 end)
 
-RegisterEvent(79, "Legacy event 79", function()
+RegisterEvent(79, nil, function()
     evt.SetDoorState(79, DoorAction.Trigger)
 end)
 
-RegisterEvent(80, "Legacy event 80", function()
+RegisterEvent(80, nil, function()
     evt.SetDoorState(80, DoorAction.Trigger)
 end)
 

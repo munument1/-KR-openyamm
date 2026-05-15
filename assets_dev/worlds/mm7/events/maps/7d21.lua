@@ -117,7 +117,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(196, "Legacy event 196", function()
+RegisterEvent(196, nil, function()
     if IsAtLeast(MapVar(16), 1) then return end
     local randomStep = PickRandomOption(196, 2, {2, 4, 6, 7, 2, 2})
     if randomStep == 2 then
@@ -134,7 +134,7 @@ RegisterEvent(196, "Legacy event 196", function()
     evt.SetTexture(2, "cwb1")
 end)
 
-RegisterEvent(197, "Legacy event 197", function()
+RegisterEvent(197, nil, function()
     if IsAtLeast(MapVar(17), 1) then return end
     local randomStep = PickRandomOption(197, 2, {2, 4, 6, 7, 2, 2})
     if randomStep == 2 then
@@ -151,7 +151,7 @@ RegisterEvent(197, "Legacy event 197", function()
     evt.SetTexture(3, "cwb1")
 end)
 
-RegisterEvent(198, "Legacy event 198", function()
+RegisterEvent(198, nil, function()
     if IsAtLeast(MapVar(18), 1) then return end
     local randomStep = PickRandomOption(198, 2, {2, 4, 6, 7, 2, 2})
     if randomStep == 2 then

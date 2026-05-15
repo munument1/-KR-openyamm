@@ -531,7 +531,7 @@ RegisterEvent(135, "Guild of Mind", function()
     evt.StatusText("Guild of Mind")
 end, "Guild of Mind")
 
-RegisterEvent(136, "Legacy event 136", function()
+RegisterEvent(136, nil, function()
     evt.StatusText(" ")
 end)
 
@@ -547,19 +547,19 @@ RegisterEvent(139, "Castle Stone", function()
     evt.StatusText("Castle Stone")
 end, "Castle Stone")
 
-RegisterEvent(150, "Legacy event 150", function()
+RegisterEvent(150, nil, function()
     evt.MoveToMap(-2, -128, 1, 512, 0, 0, 183, 1, "6d10.blv") -- Dragoons' Keep
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.MoveToMap(-118, -1640, 1, 512, 0, 0, 187, 1, "6d14.blv") -- Tomb of Ethric the Mad
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.MoveToMap(0, -2135, 125, 512, 0, 0, 175, 1, "6t5.blv") -- Temple of the Moon
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     evt.MoveToMap(7059, -6153, 1, 128, 0, 0, 195, 1, "oracle.blv") -- Oracle of Enroth
 end)
 
@@ -608,7 +608,7 @@ RegisterEvent(164, "Drink from Trough.", function()
     evt.StatusText("Hic…")
 end, "Drink from Trough.")
 
-RegisterEvent(209, "Legacy event 209", function()
+RegisterEvent(209, nil, function()
     if IsQBitSet(QBit(1183)) then -- NPC
         return
     elseif IsAtLeast(IsFlying, 0) then
@@ -618,7 +618,7 @@ RegisterEvent(209, "Legacy event 209", function()
     end
 end)
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1183)) then -- NPC
         return
@@ -635,7 +635,7 @@ RegisterEvent(211, "Throne Room", function()
     evt.EnterHouse(224) -- Throne Room
 end, "Throne Room")
 
-RegisterEvent(212, "Legacy event 212", function()
+RegisterEvent(212, nil, function()
     if IsQBitSet(QBit(1202)) then return end -- NPC
     SetQBit(QBit(1202)) -- NPC
 end)
@@ -650,7 +650,7 @@ RegisterEvent(213, "Obelisk", function(continueStep)
     evt._PressAnyKey(213, 2)
 end, "Obelisk")
 
-RegisterEvent(214, "Legacy event 214", function()
+RegisterEvent(214, nil, function()
     if IsQBitSet(QBit(1183)) then -- NPC
     end
 end)

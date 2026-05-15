@@ -33,19 +33,19 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
 
@@ -151,7 +151,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(18754, -17550, 929, 768, 0, 0, 0, 0, "out14.odm") -- Avlee
 end)
 

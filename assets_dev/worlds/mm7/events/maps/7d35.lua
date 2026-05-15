@@ -36,7 +36,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
 end)
 
@@ -120,13 +120,13 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(196, "Legacy event 196", function()
+RegisterEvent(196, nil, function()
     if IsQBitSet(QBit(740)) then return end -- Dwarf Bones - I lost it
     AddValue(InventoryItem(1428), 1428) -- Zokarr IV's Skull
     SetQBit(QBit(740)) -- Dwarf Bones - I lost it
 end)
 
-RegisterEvent(197, "Legacy event 197", function()
+RegisterEvent(197, nil, function()
     if IsAtLeast(MapVar(16), 1) then return end
     local randomStep = PickRandomOption(197, 2, {2, 4, 6, 8, 2, 2})
     if randomStep == 2 then
@@ -143,7 +143,7 @@ RegisterEvent(197, "Legacy event 197", function()
     evt.SetTexture(2, "cwb1")
 end)
 
-RegisterEvent(198, "Legacy event 198", function()
+RegisterEvent(198, nil, function()
     if IsAtLeast(MapVar(17), 1) then return end
     local randomStep = PickRandomOption(198, 2, {2, 4, 6, 8, 2, 2})
     if randomStep == 2 then
@@ -160,7 +160,7 @@ RegisterEvent(198, "Legacy event 198", function()
     evt.SetTexture(3, "cwb1")
 end)
 
-RegisterEvent(199, "Legacy event 199", function()
+RegisterEvent(199, nil, function()
     if IsAtLeast(MapVar(18), 1) then return end
     local randomStep = PickRandomOption(199, 2, {2, 4, 6, 8, 2, 2})
     if randomStep == 2 then
@@ -177,23 +177,23 @@ RegisterEvent(199, "Legacy event 199", function()
     evt.SetTexture(4, "cwb1")
 end)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(1168, 9584, -143, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(1232, 6896, -384, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.CastSpell(18, 8, 4, -9861, -3949, -479, -9861, -106, -479) -- Lightning Bolt
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.CastSpell(15, 4, 4, -10624, 3456, -639, -10624, 3456, -639) -- Sparks
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     if evt.CheckSkill(const.Skills.DisarmTraps, const.SkillCheck.Grandmaster, 40) then return end
     evt.CastSpell(24, 5, 4, 12023, 15154, -639, 11704, 15854, -479) -- Poison Spray
     evt.CastSpell(24, 5, 4, 11398, 15726, -639, 11673, 15051, -479) -- Poison Spray

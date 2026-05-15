@@ -39,14 +39,14 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(2)) then -- Activate Area 1 teleporters 5 and 6.
         evt.SetFacetBit(10, FacetBits.Invisible, 0)
         evt.SetFacetBit(10, FacetBits.Untouchable, 0)
     end
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not IsQBitSet(QBit(6)) then -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
         evt.SetNPCGroupNews(12, 12) -- NPC group 12 "Misc Group for Riki(M2)" -> news 12: "Help us!  If we do not push the pirates off the island all will be lost!"
         evt.SetNPCGroupNews(13, 12) -- NPC group 13 "Misc Group for Riki(M3)" -> news 12: "Help us!  If we do not push the pirates off the island all will be lost!"
@@ -78,7 +78,7 @@ RegisterEvent(2, "Legacy event 2", function()
     evt.SetFacetBit(26, FacetBits.Untouchable, 1)
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     if IsQBitSet(QBit(226)) then return end -- game Init stuff in area one
     SetQBit(QBit(226)) -- game Init stuff in area one
     SetQBit(QBit(306)) -- TP Buff Daggerwound islands
@@ -86,17 +86,17 @@ RegisterEvent(3, "Legacy event 3", function()
     SetQBit(QBit(407)) -- Roster Character In Party 8
 end)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Hiss' Hut", function()
     evt.EnterHouse(761) -- Hiss' Hut
@@ -447,15 +447,15 @@ RegisterEvent(449, "Fountain", nil, "Fountain")
 
 RegisterEvent(450, "Well", nil, "Well")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(-480, 5432, 384, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(10123, 4488, 736, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if not IsQBitSet(QBit(1)) then -- Activate Area 1 teleporters 3 and 4.
         evt.ForPlayer(Players.All)
         if not HasItem(617) then -- Power Stone
@@ -476,12 +476,12 @@ RegisterEvent(454, "Abandoned Temple", function()
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Abandoned Temple")
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.ForPlayer(Players.All)
     SetValue(Eradicated, 0)
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     local randomStep = PickRandomOption(456, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.CastSpell(9, 3, 11, 19872, -19824, 5084, -9216, -12848, 3000) -- Meteor Shower
@@ -541,7 +541,7 @@ RegisterEvent(459, "Fire the Cannon !", function()
     evt.CastSpell(136, 1, 2, 18522, 3584, 652, 22880, 3584, 100)
 end, "Fire the Cannon !")
 
-RegisterEvent(460, "Legacy event 460", function()
+RegisterEvent(460, nil, function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     if not evt.CheckMonstersKilled(ActorKillCheck.UniqueNameId, 8, 1, true) then -- unique actor 8 "Lizardman Lookout"; at least 1 matching actor defeated
         evt.CastSpell(6, 1, 2, 15872, 1500, 686, 15872, -1000, 686) -- Fireball
@@ -562,7 +562,7 @@ RegisterEvent(462, "Fire the Cannon !", function()
     evt.CastSpell(136, 1, 2, -610, 15360, 682, -6320, 15360, 100)
 end, "Fire the Cannon !")
 
-RegisterEvent(463, "Legacy event 463", function()
+RegisterEvent(463, nil, function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     if not evt.CheckMonstersKilled(ActorKillCheck.Group, 10, 0, true) then -- actor group 10: spawn Wimpy Pirate Warrior Male A; all matching actors defeated
         if not evt.CheckMonstersKilled(ActorKillCheck.Group, 11, 0, true) then -- actor group 11: spawn Wimpy Pirate Warrior Male A; all matching actors defeated
@@ -665,7 +665,7 @@ end)
 
 RegisterEvent(464, "Sealed Crate", nil, "Sealed Crate")
 
-RegisterEvent(465, "Legacy event 465", function()
+RegisterEvent(465, nil, function()
     if not IsQBitSet(QBit(1)) then -- Activate Area 1 teleporters 3 and 4.
         evt.ForPlayer(Players.All)
         if not HasItem(617) then -- Power Stone
@@ -682,7 +682,7 @@ RegisterEvent(465, "Legacy event 465", function()
     evt.MoveToMap(-12496, -9728, 160, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(466, "Legacy event 466", function()
+RegisterEvent(466, nil, function()
     if not IsQBitSet(QBit(2)) then -- Activate Area 1 teleporters 5 and 6.
         evt.ForPlayer(Players.All)
         if not HasItem(618) then -- Power Stone
@@ -695,7 +695,7 @@ RegisterEvent(466, "Legacy event 466", function()
     evt.MoveToMap(-13912, 14096, 0, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(467, "Legacy event 467", function()
+RegisterEvent(467, nil, function()
     if not IsQBitSet(QBit(2)) then -- Activate Area 1 teleporters 5 and 6.
         evt.ForPlayer(Players.All)
         if not HasItem(618) then -- Power Stone
@@ -708,7 +708,7 @@ RegisterEvent(467, "Legacy event 467", function()
     evt.MoveToMap(-18952, 8608, 96, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(468, "Legacy event 468", function()
+RegisterEvent(468, nil, function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     local randomStep = PickRandomOption(468, 3, {3, 5, 7, 9, 11})
     if randomStep == 3 then
@@ -722,7 +722,7 @@ RegisterEvent(468, "Legacy event 468", function()
     end
 end)
 
-RegisterEvent(469, "Legacy event 469", function()
+RegisterEvent(469, nil, function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     local randomStep = PickRandomOption(469, 3, {3, 5, 7, 9, 11})
     if randomStep == 3 then
@@ -736,21 +736,21 @@ RegisterEvent(469, "Legacy event 469", function()
     end
 end)
 
-RegisterEvent(470, "Legacy event 470", nil)
+RegisterEvent(470, nil, nil)
 
-RegisterEvent(471, "Legacy event 471", function()
+RegisterEvent(471, nil, function()
     evt.MoveToMap(8760, 4408, 736, 1536, 0, 0, 0, 0)
     if IsQBitSet(QBit(227)) then return end -- Turn on Temple Bypass tele in area one
     SetQBit(QBit(227)) -- Turn on Temple Bypass tele in area one
 end)
 
-RegisterEvent(472, "Legacy event 472", function()
+RegisterEvent(472, nil, function()
     if IsQBitSet(QBit(227)) then -- Turn on Temple Bypass tele in area one
         evt.MoveToMap(21216, 18680, 0, 1024, 0, 0, 0, 0)
     end
 end)
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
 end)
 
@@ -809,7 +809,7 @@ RegisterEvent(498, "Buoy", function()
     end
 end, "Buoy")
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if IsQBitSet(QBit(232)) then return end -- Set when you talk to S'ton
     SetQBit(QBit(232)) -- Set when you talk to S'ton
     evt.SpeakNPC(27) -- S'ton

@@ -36,7 +36,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
         evt.SetMonGroupBit(22, MonsterBits.Hostile, 1) -- actor group 22: spawn Dragon Hunter A
         evt.SetMonGroupBit(23, MonsterBits.Hostile, 1) -- actor group 23: spawn Dragon Hunter A
@@ -51,21 +51,21 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Stormlance Residence", function()
     evt.EnterHouse(538) -- Stormlance Residence
@@ -286,7 +286,7 @@ RegisterEvent(103, "Drink from the well", function()
     evt.StatusText("Refreshing")
 end, "Drink from the well")
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
         goto step_18
     end
@@ -460,11 +460,11 @@ RegisterEvent(405, "Tent", nil, "Tent")
 
 RegisterEvent(450, "Well", nil, "Well")
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
 end)
 
-RegisterEvent(490, "Legacy event 490", function()
+RegisterEvent(490, nil, function()
     local randomStep = PickRandomOption(490, 2, {2, 2, 3, 3, 3, 3})
     if randomStep == 2 then
         evt.PlaySound(325, 11520, -13664)

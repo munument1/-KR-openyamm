@@ -27,7 +27,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", nil)
+RegisterEvent(1, nil, nil)
 
 RegisterEvent(2, "Castle Harmondale", nil, "Castle Harmondale")
 
@@ -371,7 +371,7 @@ RegisterEvent(37, "Arbiter", function()
     evt.EnterHouse(1166) -- Arbiter
 end, "Arbiter")
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     if IsQBitSet(QBit(526)) then -- Accepted Fireball wand from Malwick
         if IsQBitSet(QBit(702)) then -- Finished with Malwick & Assc.
             if not IsQBitSet(QBit(519)) then return end -- Finished Scavenger Hunt
@@ -448,7 +448,7 @@ RegisterEvent(50, "Legacy event 50", function()
     end
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if not IsQBitSet(QBit(695)) then return end -- Failed either goto or do guild quest
     if IsQBitSet(QBit(697)) then return end -- Killed all outdoor monsters
     if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more; all matching actors defeated
@@ -461,7 +461,7 @@ RegisterEvent(51, "Legacy event 51", function()
     end
 end)
 
-RegisterEvent(110, "Legacy event 110", function()
+RegisterEvent(110, nil, function()
     if not IsQBitSet(QBit(645)) then -- Player castle timer only happens once
         SetValue(Counter(3), 0)
         SetQBit(QBit(645)) -- Player castle timer only happens once
@@ -486,7 +486,7 @@ RegisterEvent(110, "Legacy event 110", function()
     AddValue(History(7), 0)
 end)
 
-RegisterEvent(111, "Legacy event 111", function()
+RegisterEvent(111, nil, function()
     evt.SetFacetBit(20, FacetBits.Untouchable, 0)
     evt.SetFacetBit(20, FacetBits.Invisible, 0)
     evt.SetFacetBit(15, FacetBits.Invisible, 1)
@@ -626,7 +626,7 @@ RegisterEvent(157, "Fruit Tree", function()
     evt.SetSprite(58, 1, "tree37")
 end, "Fruit Tree")
 
-RegisterEvent(211, "Legacy event 211", function()
+RegisterEvent(211, nil, function()
     if IsQBitSet(QBit(646)) then -- Arbiter Messenger only happens once
         return
     elseif IsQBitSet(QBit(659)) then -- Gave artifact to arbiter
@@ -765,7 +765,7 @@ RegisterEvent(228, "Drink from the Well", function()
     evt.StatusText("Refreshing!")
 end, "Drink from the Well")
 
-RegisterEvent(229, "Legacy event 229", function()
+RegisterEvent(229, nil, function()
     if IsQBitSet(QBit(760)) then return end -- Took area 2 hill fort
     local randomStep = PickRandomOption(229, 3, {3, 14, 25, 36})
     if randomStep == 3 then
@@ -887,7 +887,7 @@ RegisterEvent(235, "Hatch", function()
     evt.SetFacetBit(50, FacetBits.Invisible, 1)
 end, "Hatch")
 
-RegisterEvent(236, "Legacy event 236", function()
+RegisterEvent(236, nil, function()
     if IsQBitSet(QBit(760)) then return end -- Took area 2 hill fort
     SetQBit(QBit(760)) -- Took area 2 hill fort
     evt.CastSpell(2, 10, 4, 6545, 10984, 4000, 6545, 5678, 111) -- Fire Bolt
@@ -930,18 +930,18 @@ RegisterEvent(239, "Signal Fire Pit", function()
     end
 end, "Signal Fire Pit")
 
-RegisterEvent(240, "Legacy event 240", function()
+RegisterEvent(240, nil, function()
     if IsQBitSet(QBit(774)) then -- Time for Gobs to appear in area 2(raiding camp)
         evt.SetMonGroupBit(71, MonsterBits.Invisible, 0) -- actor group 71: Goblin, Goblin Lord, Hobgoblin
     end
 end)
 
-RegisterEvent(249, "Legacy event 249", function()
+RegisterEvent(249, nil, function()
     if IsQBitSet(QBit(611)) then return end -- Chose the path of Light
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
 end)
 
-RegisterEvent(250, "Legacy event 250", function()
+RegisterEvent(250, nil, function()
     if evt.CheckSeason(2) then
         goto step_13
     end

@@ -33,32 +33,32 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: spawn Bone Dragon A, spawn Necromancer (monster) A, spawn Skeletons Archer A
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(539) then -- Ebonest
         SetQBit(QBit(199)) -- Ebonest - I lost it
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(71)) then -- Found Blazen Stormlance and recovered Ebonest
         evt.SetMonGroupBit(10, MonsterBits.Invisible, 1) -- actor group 10: spawn Bone Dragon A, spawn Necromancer (monster) A, spawn Skeletons Archer A
     end
@@ -376,25 +376,25 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", nil)
+RegisterEvent(101, nil, nil)
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.CastSpell(39, 20, 4, -1018, 3344, -862, 890, 3344, -862) -- Blades
     evt.CastSpell(39, 20, 4, 890, 3344, -862, -1018, 3344, -862) -- Blades
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.CastSpell(6, 20, 4, 1498, 2195, -560, 1498, 2195, -1024) -- Fireball
     evt.CastSpell(6, 20, 4, 2552, 2195, -560, 2552, 2195, -1024) -- Fireball
 end)
 
-RegisterEvent(104, "Legacy event 104", nil)
+RegisterEvent(104, nil, nil)
 
-RegisterEvent(105, "Legacy event 105", nil)
+RegisterEvent(105, nil, nil)
 
-RegisterEvent(106, "Legacy event 106", nil)
+RegisterEvent(106, nil, nil)
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if not IsQBitSet(QBit(435)) then -- Roster Character In Party 36
         evt.SpeakNPC(107) -- Blazen Stormlance
         return

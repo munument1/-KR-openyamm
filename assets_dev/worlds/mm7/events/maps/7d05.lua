@@ -123,31 +123,31 @@ RegisterEvent(376, "Door", function()
     evt.SpeakNPC(639) -- Arena Master
 end, "Door")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.SetDoorState(5, DoorAction.Trigger)
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.SetDoorState(6, DoorAction.Trigger)
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
     evt.SetDoorState(3, DoorAction.Trigger)

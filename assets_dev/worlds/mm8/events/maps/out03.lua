@@ -36,21 +36,21 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Withersmythe Estate", function()
     evt.EnterHouse(509) -- Withersmythe Estate
@@ -302,7 +302,7 @@ RegisterEvent(90, "Chest", function()
     evt.OpenChest(9)
 end, "Chest")
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.OpenChest(10)
 end)
 
@@ -379,7 +379,7 @@ RegisterEvent(104, "Drink from the fountain", function()
     evt.StatusText("Refreshing")
 end, "Drink from the fountain")
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(130)) then return end -- Killed all Ogres in Alvar canyon area and in Ogre Fortress
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 30, 0, false) then return end -- monster 30 "Ogre Brawler"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 31, 0, false) then return end -- monster 31 "Ogre Warrior"; all matching actors defeated
@@ -576,23 +576,23 @@ end, "Dervish's Cottage")
 
 RegisterEvent(466, "Dervish's Cottage", nil, "Dervish's Cottage")
 
-RegisterEvent(467, "Legacy event 467", nil)
+RegisterEvent(467, nil, nil)
 
-RegisterEvent(468, "Legacy event 468", nil)
+RegisterEvent(468, nil, nil)
 
-RegisterEvent(469, "Legacy event 469", nil)
+RegisterEvent(469, nil, nil)
 
-RegisterEvent(470, "Legacy event 470", nil)
+RegisterEvent(470, nil, nil)
 
-RegisterEvent(471, "Legacy event 471", nil)
+RegisterEvent(471, nil, nil)
 
-RegisterEvent(472, "Legacy event 472", nil)
+RegisterEvent(472, nil, nil)
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
 end)
 
-RegisterEvent(490, "Legacy event 490", function()
+RegisterEvent(490, nil, function()
     local randomStep = PickRandomOption(490, 2, {2, 2, 3, 3, 3, 3})
     if randomStep == 2 then
         evt.PlaySound(325, 4544, 13872)

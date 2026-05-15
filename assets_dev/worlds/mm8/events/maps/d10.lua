@@ -34,15 +34,15 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if not IsAtLeast(MapVar(12), 10) then
         evt.SetTexture(10, "gcryswal")
         evt.SetLight(10, 0)
@@ -58,15 +58,15 @@ RegisterEvent(5, "Legacy event 5", function()
     evt.SetLight(16, 0)
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -348,7 +348,7 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     if IsAtLeast(MapVar(11), 10) then
         SetValue(MapVar(11), 0)
         evt.SetTexture(11, "gcryswal")
@@ -427,14 +427,14 @@ RegisterEvent(151, "Legacy event 151", function()
     end
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     if IsAtLeast(MapVar(12), 10) then return end
     if IsAtLeast(MapVar(11), 1) then return end
     SetValue(MapVar(11), 1)
     SetValue(MapVar(12), 1)
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     if IsAtLeast(MapVar(12), 10) then
         return
     elseif IsAtLeast(MapVar(12), 9) then
@@ -576,7 +576,7 @@ RegisterEvent(153, "Legacy event 153", function()
     end
 end)
 
-RegisterEvent(154, "Legacy event 154", function()
+RegisterEvent(154, nil, function()
     if IsAtLeast(MapVar(12), 10) then
         return
     elseif IsAtLeast(MapVar(12), 9) then
@@ -707,7 +707,7 @@ RegisterEvent(154, "Legacy event 154", function()
     end
 end)
 
-RegisterEvent(155, "Legacy event 155", function()
+RegisterEvent(155, nil, function()
     if IsAtLeast(MapVar(12), 10) then
         return
     elseif IsAtLeast(MapVar(12), 9) then

@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
@@ -45,7 +45,7 @@ RegisterEvent(3, "Door", function()
     evt.SetDoorState(3, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(4, DoorAction.Close)
 end)
 
@@ -108,7 +108,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(10, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(11, DoorAction.Close)
 end)
 
@@ -132,7 +132,7 @@ RegisterEvent(16, "Door", function()
     evt.SetDoorState(16, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.SetDoorState(17, DoorAction.Close)
 end)
 
@@ -329,7 +329,7 @@ RegisterEvent(47, "Door", function()
     evt.StatusText("This door won't open.")
 end, "Door")
 
-RegisterEvent(48, "Legacy event 48", function()
+RegisterEvent(48, nil, function()
     if IsAtLeast(MapVar(21), 1) then
         evt.SetTexture(960, "d8s2on")
     end
@@ -339,7 +339,7 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(-18606, 9831, 160, 1536, 0, 0, 0, 0, "outd1.odm") -- Silver Cove
 end, "Exit")
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(MapVar(51), 1) then return end
     SetValue(MapVar(51), 1)
     evt.GiveItem(6, 25)

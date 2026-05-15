@@ -610,11 +610,11 @@ RegisterEvent(79, "Crate", function()
     evt.OpenChest(3)
 end, "Crate")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-3714, 1250, 1, 0, 0, 0, 182, 1, "6d09.blv") -- Snergle's Iron Mines
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.MoveToMap(21169, 1920, -689, 1024, 0, 0, 168, 1, "cd2.blv") -- Castle Darkmoor
 end)
 
@@ -641,7 +641,7 @@ RegisterEvent(100, "Drink from Fountain", function()
     evt.StatusText("Refreshing!")
 end, "Drink from Fountain")
 
-RegisterEvent(210, "Legacy event 210", function()
+RegisterEvent(210, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     SetValue(MapVar(2), 1)
     evt.SummonMonsters(2, 3, 4, -304, 9904, 3000, 0, 0) -- encounter slot 2 "BHarpy" tier C, count 4, pos=(-304, 9904, 3000), actor group 0, no unique actor name
@@ -651,7 +651,7 @@ RegisterEvent(210, "Legacy event 210", function()
     evt.SummonMonsters(2, 3, 4, -2784, 10000, 1945, 0, 0) -- encounter slot 2 "BHarpy" tier C, count 4, pos=(-2784, 10000, 1945), actor group 0, no unique actor name
 end)
 
-RegisterEvent(220, "Legacy event 220", function()
+RegisterEvent(220, nil, function()
     if not IsAtLeast(MapVar(11), 1) then
         SetValue(MapVar(11), 1)
         evt.SetFacetBit(4, FacetBits.Invisible, 0)
@@ -692,7 +692,7 @@ RegisterEvent(221, "Pedestal", function()
     end
 end, "Pedestal")
 
-RegisterEvent(222, "Legacy event 222", function()
+RegisterEvent(222, nil, function()
     if IsQBitSet(QBit(1249)) then -- NPC
         evt.SetSprite(394, 1, "ped04")
     end

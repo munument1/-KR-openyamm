@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(23)) then -- Allied with Minotaurs. Rescue the Minotaurs done.
         evt.SetMonGroupBit(35, MonsterBits.Invisible, 0) -- actor group 35: Minotaur Peasant
         evt.SetMonGroupBit(36, MonsterBits.Invisible, 0) -- actor group 36: Minotaur Peasant
@@ -102,26 +102,26 @@ RegisterEvent(1, "Legacy event 1", function()
 return
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(23)) then -- Allied with Minotaurs. Rescue the Minotaurs done.
         evt.MoveNPC(13, 0) -- Masul -> removed
         evt.MoveNPC(55, 751) -- Masul -> Council Chamber Door
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Lever", function()
     if IsAtLeast(MapVar(11), 1) then

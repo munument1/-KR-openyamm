@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetValue(MapVar(31), 5)
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         SetValue(MapVar(6), 2)
@@ -399,7 +399,7 @@ RegisterEvent(453, "Obelisk", function()
     SetQBit(QBit(679)) -- Visited Obelisk in Area 5
 end, "Obelisk")
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if IsQBitSet(QBit(761)) then return end -- Don't get ambushed
     local randomStep = PickRandomOption(454, 2, {2, 4})
     if randomStep == 2 then
@@ -410,7 +410,7 @@ RegisterEvent(454, "Legacy event 454", function()
     end
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     if not IsAtLeast(MapVar(31), 5) then
         if not IsQBitSet(QBit(761)) then -- Don't get ambushed
             SetQBit(QBit(761)) -- Don't get ambushed
@@ -428,7 +428,7 @@ RegisterEvent(455, "Legacy event 455", function()
     evt.SetNPCTopic(461, 1, 514) -- Lunius Shador topic 1: Don't Pay
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     if not IsAtLeast(MapVar(31), 5) then
         if not IsQBitSet(QBit(761)) then -- Don't get ambushed
             SetQBit(QBit(761)) -- Don't get ambushed
@@ -446,7 +446,7 @@ RegisterEvent(456, "Legacy event 456", function()
     evt.SetNPCTopic(461, 1, 514) -- Lunius Shador topic 1: Don't Pay
 end)
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(3) then return end
     if evt.CheckSeason(2) then return end
     if evt.CheckSeason(1) then return end
@@ -462,7 +462,7 @@ RegisterEvent(502, "Enter Watchtower 6", function()
     evt.MoveToMap(-416, -1033, 1, 512, 0, 0, 141, 1, "7d15.blv") -- Watchtower 6
 end, "Enter Watchtower 6")
 
-RegisterEvent(503, "Legacy event 503", function()
+RegisterEvent(503, nil, function()
     if not IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SpeakNPC(357) -- William Setag
         return

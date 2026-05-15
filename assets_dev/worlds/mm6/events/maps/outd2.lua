@@ -579,7 +579,7 @@ RegisterEvent(64, "Chest", function()
     evt.OpenChest(5)
 end, "Chest")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-1792, -19, 1, 0, 0, 0, 172, 1, "6d04.blv") -- Hall of the Fire Lord
 end)
 
@@ -642,18 +642,18 @@ RegisterEvent(103, "Drink from Fountain", function()
     evt.StatusText("Refreshing!")
 end, "Drink from Fountain")
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     SetValue(MapVar(3), 8)
     SetValue(MapVar(4), 8)
 end)
 
-RegisterEvent(122, "Legacy event 122", function()
+RegisterEvent(122, nil, function()
     if IsQBitSet(QBit(1250)) then -- NPC
         evt.SetSprite(347, 1, "ped05")
     end
 end)
 
-RegisterEvent(219, "Legacy event 219", function()
+RegisterEvent(219, nil, function()
     SetValue(MapVar(11), 0)
 end)
 

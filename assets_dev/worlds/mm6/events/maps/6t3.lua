@@ -89,7 +89,7 @@ RegisterEvent(17, "Lever", function()
     evt.SetDoorState(13, DoorAction.Trigger)
 end, "Lever")
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     SetValue(MapVar(4), 1)
 end)
 
@@ -128,7 +128,7 @@ RegisterEvent(24, "Lever", function()
     evt.SetDoorState(21, DoorAction.Trigger)
 end, "Lever")
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.SetDoorState(17, DoorAction.Close)
 end)
 
@@ -137,11 +137,11 @@ RegisterEvent(26, "Lever", function()
     evt.SetDoorState(23, DoorAction.Trigger)
 end, "Lever")
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     SetValue(MapVar(4), 0)
 end)
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.DamagePlayer(Players.All, const.Damage.Magic, 5)
     end
@@ -151,7 +151,7 @@ RegisterEvent(29, "Door", function()
     evt.SetDoorState(24, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     if IsQBitSet(QBit(1030)) then return end -- 6 T3, given when you rescue prisoner
     evt.SpeakNPC(940) -- Sherell Ivanaveh
     SetQBit(QBit(1705)) -- Replacement for NPCs ¹155 ver. 6
@@ -162,11 +162,11 @@ RegisterEvent(31, "Chest", function()
     evt.OpenChest(3)
 end, "Chest")
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     evt.MoveToMap(7474, 17670, 97, 1024, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end)
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     SetValue(MapVar(2), 1)
     evt.GiveItem(5, 26)

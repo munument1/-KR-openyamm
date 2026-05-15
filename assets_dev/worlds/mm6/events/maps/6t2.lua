@@ -44,7 +44,7 @@ RegisterEvent(7, "Full sack", function()
     evt.OpenChest(2)
 end, "Full sack")
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     evt.ForPlayer(Players.All)
     SubtractValue(MightBonus, 10)
     evt.StatusText("The skulls seem to sap your might")
@@ -61,7 +61,7 @@ RegisterEvent(10, "Door", function()
     evt.StatusText("The door won't budge")
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     if IsQBitSet(QBit(1045)) then -- 21 T2, Given when evil crystal is destroyed
         evt.SetSprite(25, 0, "0")
     end
@@ -71,25 +71,25 @@ RegisterEvent(50, "Exit", function()
     evt.MoveToMap(-21001, -4653, 257, 1536, 0, 0, 0, 0, "outd2.odm") -- Bootleg Bay
 end, "Exit")
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     SetValue(MapVar(2), 1)
     AddValue(InventoryItem(1877), 1877) -- Flying Fist
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     SetValue(MapVar(3), 1)
     AddValue(InventoryItem(1877), 1877) -- Flying Fist
 end)
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     if IsAtLeast(MapVar(4), 1) then return end
     SetValue(MapVar(4), 1)
     AddValue(InventoryItem(1877), 1877) -- Flying Fist
 end)
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     SetValue(MapVar(5), 1)
     AddValue(InventoryItem(1877), 1877) -- Flying Fist

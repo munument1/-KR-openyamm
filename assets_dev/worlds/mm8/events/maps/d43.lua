@@ -33,25 +33,25 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(69)) then return end -- Ancient Troll Homeland Found
     if evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 87, 0, true) and evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 88, 0, true) and evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 89, 0, true) then -- monster 87 "Young Basilisk"; all matching actors defeated
         SetQBit(QBit(69)) -- Ancient Troll Homeland Found

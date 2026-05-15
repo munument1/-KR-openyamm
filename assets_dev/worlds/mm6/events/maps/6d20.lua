@@ -58,7 +58,7 @@ RegisterEvent(9, "Chest", function()
     evt.OpenChest(8)
 end, "Chest")
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.OpenChest(9)
 end)
 

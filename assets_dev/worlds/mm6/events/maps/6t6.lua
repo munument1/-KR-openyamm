@@ -37,7 +37,7 @@ RegisterEvent(4, "Door", function()
     evt.SetDoorState(4, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(5, DoorAction.Close)
 end)
 
@@ -53,7 +53,7 @@ RegisterEvent(8, "Door", function()
     evt.SetDoorState(8, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     evt.SetDoorState(9, DoorAction.Close)
 end)
 
@@ -61,7 +61,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(10, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(11, DoorAction.Close)
 end)
 
@@ -89,7 +89,7 @@ RegisterEvent(15, "Switch", function()
     evt.SetDoorState(14, DoorAction.Trigger)
 end, "Switch")
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetDoorState(20, DoorAction.Close)
 end)
 
@@ -126,7 +126,7 @@ RegisterEvent(24, "Chest", function()
     evt.OpenChest(8)
 end, "Chest")
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     evt.SetDoorState(21, DoorAction.Open)
 end)
 
@@ -144,13 +144,13 @@ RegisterEvent(32, "Oracle Memory Crystal", function()
     SetQBit(QBit(1215)) -- Quest item bits for seer
 end, "Oracle Memory Crystal")
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     if IsQBitSet(QBit(1077)) then -- 53 T6, Given when characters take the Oracle Crystal from the altar.
         evt.SetSprite(132, 1, "crysdisc")
     end
 end)
 
-RegisterEvent(34, "Legacy event 34", function()
+RegisterEvent(34, nil, function()
     evt.DamagePlayer(Players.All, const.Damage.Magic, 1000)
 end)
 
@@ -158,13 +158,13 @@ RegisterEvent(35, "Exit", function()
     evt.MoveToMap(-19914, -18118, 65, 1536, 0, 0, 0, 0, "outa3.odm") -- Hermit's Isle
 end, "Exit")
 
-RegisterEvent(36, "Legacy event 36", function()
+RegisterEvent(36, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     SetValue(MapVar(2), 1)
     AddValue(InventoryItem(1656), 1656) -- Death Mace
 end)
 
-RegisterEvent(37, "Legacy event 37", function()
+RegisterEvent(37, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.SummonMonsters(3, 1, 1, -416, 416, -1016, 0, 0) -- encounter slot 3 "ElemFire" tier A, count 1, pos=(-416, 416, -1016), actor group 0, no unique actor name
     evt.SummonMonsters(3, 1, 1, -576, 0, -1016, 0, 0) -- encounter slot 3 "ElemFire" tier A, count 1, pos=(-576, 0, -1016), actor group 0, no unique actor name

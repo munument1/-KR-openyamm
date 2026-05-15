@@ -85,15 +85,15 @@ RegisterEvent(79, "Chest", function()
     evt.OpenChest(5)
 end, "Chest")
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-9734, -19201, 772, 512, 0, 0, 164, 1, "pyramid.blv") -- Tomb of VARN
 end)
 
-RegisterEvent(91, "Legacy event 91", function()
+RegisterEvent(91, nil, function()
     evt.MoveToMap(0, 0, 0, 0, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end)
 
-RegisterEvent(92, "Legacy event 92", function()
+RegisterEvent(92, nil, function()
     evt.MoveToMap(-640, 512, -416, 512, 0, 0, 0, 0, "znwc.blv") -- New World Computing
 end)
 
@@ -196,7 +196,7 @@ RegisterEvent(105, "Pedestal", function()
     end
 end, "Pedestal")
 
-RegisterEvent(106, "Legacy event 106", function()
+RegisterEvent(106, nil, function()
     if IsQBitSet(QBit(1248)) then -- NPC
         evt.SetSprite(321, 1, "ped03")
     end

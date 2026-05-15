@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(616)) then -- Go to Colony Zod in the Land of the Giants and slay Xenofex then return to Resurectra in Castle Lambent in Celeste.
         evt.SetSprite(2, 0, "0")
     end
@@ -42,7 +42,7 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 1, false) then -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A; at least 1 matching actor defeated
         SetValue(MapVar(6), 2)
     end
@@ -69,7 +69,7 @@ RegisterEvent(5, "Door", function()
     evt.SetDoorState(6, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.PlaySound(42317, 3, 227)
 end)
 
@@ -273,7 +273,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if not IsQBitSet(QBit(724)) then -- Vase - I lost it
         SetQBit(QBit(724)) -- Vase - I lost it
     end
@@ -293,19 +293,19 @@ RegisterEvent(416, "Lord Markham's Chamber", function()
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Lord Markham's Chamber")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(622) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Initiate of the Sword, spawn Fighter Plate A, spawn Swordsman A
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)

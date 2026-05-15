@@ -44,7 +44,7 @@ RegisterEvent(6, "Door", function()
     evt.SetDoorState(6, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(7, DoorAction.Close)
 end)
 
@@ -108,7 +108,7 @@ RegisterEvent(23, "Wall", function()
     evt.SetDoorState(23, DoorAction.Close)
 end, "Wall")
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     evt.SetDoorState(24, DoorAction.Close)
 end)
 
@@ -217,23 +217,23 @@ RegisterEvent(60, "Exit", function()
     evt.MoveToMap(-19677, -17439, 96, 0, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     evt.MoveToMap(-5768, 656, -1296, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(66, "Legacy event 66", function()
+RegisterEvent(66, nil, function()
     evt.MoveToMap(-6416, 7560, -1296, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(69, "Legacy event 69", function()
+RegisterEvent(69, nil, function()
     evt.MoveToMap(6538, 114, -255, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(70, "Legacy event 70", function()
+RegisterEvent(70, nil, function()
     evt.MoveToMap(6537, 5945, -255, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     if IsAtLeast(MapVar(3), 1) then
         evt.MoveToMap(3584, -5248, -832, 512, 0, 0, 0, 0)
         SubtractValue(MapVar(3), 1)
@@ -243,7 +243,7 @@ RegisterEvent(71, "Legacy event 71", function()
     end
 end)
 
-RegisterEvent(75, "Legacy event 75", function()
+RegisterEvent(75, nil, function()
     evt.OpenChest(0)
 end)
 

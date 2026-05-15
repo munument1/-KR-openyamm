@@ -35,23 +35,23 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Dragontracker Hall", function()
     evt.EnterHouse(645) -- Dragontracker Hall
@@ -342,7 +342,7 @@ RegisterEvent(451, "Fire the cannon !", function()
     evt.StatusText("You do not see the right kind of ammunition anywhere")
 end, "Fire the cannon !")
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsQBitSet(QBit(37)) then -- Regnan Pirate Fleet is sunk.
         return
     elseif IsAtLeast(MapVar(41), 3) then
@@ -400,7 +400,7 @@ RegisterEvent(452, "Legacy event 452", function()
     end
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.CastSpell(6, 3, 4, -13312, 12864, 2432, -13371, 13740, 2793) -- Fireball
 end)
 
@@ -410,7 +410,7 @@ RegisterEvent(454, "Tree", function()
     SetQBit(QBit(285)) -- Got the Tele scroll in area 13
 end, "Tree")
 
-RegisterEvent(479, "Legacy event 479", function()
+RegisterEvent(479, nil, function()
     local randomStep = PickRandomOption(479, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.PlaySound(351, -11712, -10784)

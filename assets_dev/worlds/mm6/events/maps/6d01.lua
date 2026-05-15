@@ -331,7 +331,7 @@ RegisterEvent(51, "Exit Door", function()
     evt.MoveToMap(-18400, -14982, 1600, 512, 0, 0, 0, 0, "oute3.odm") -- New Sorpigal
 end, "Exit Door")
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(26), 1) then return end
     SetValue(MapVar(26), 1)
     evt.GiveItem(4, ItemType.Armor_)
@@ -351,21 +351,21 @@ RegisterEvent(62, "Switch", function()
     evt.SetDoorState(32, DoorAction.Close)
 end, "Switch")
 
-RegisterEvent(63, "Legacy event 63", function()
+RegisterEvent(63, nil, function()
     evt.SetDoorState(30, DoorAction.Close)
 end)
 
-RegisterEvent(64, "Legacy event 64", function()
+RegisterEvent(64, nil, function()
     if IsAtLeast(MapVar(15), 1) then return end
     evt.CastSpell(12, 15, 1, 0, 0, 0, 0, 0, 0) -- Wizard Eye
     SetValue(MapVar(15), 1)
 end)
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     SetValue(MapVar(15), 0)
 end)
 
-RegisterEvent(66, "Legacy event 66", function()
+RegisterEvent(66, nil, function()
     if IsAtLeast(MapVar(2), 1) then
         evt.SetTexture(2011, "t1swdu")
     end

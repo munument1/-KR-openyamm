@@ -33,11 +33,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn 0 A, spawn Lich A, spawn Vampire A
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
 RegisterEvent(176, "Sarcophagus", function()
     evt.OpenChest(1)

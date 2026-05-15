@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(20)) then -- Allied with Temple of the Sun. Destroy the Skeleton Transformer done.
         evt.SetMonGroupBit(41, MonsterBits.Hostile, 1) -- actor group 41: Necromancer, spawn Necromancer (monster) A
         evt.SetMonGroupBit(42, MonsterBits.Hostile, 1) -- actor group 42: spawn Necromancer (monster) A
@@ -66,7 +66,7 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.SetDoorState(8, DoorAction.Close)
     evt.SetDoorState(9, DoorAction.Open)
     evt.SetDoorState(10, DoorAction.Close)
@@ -79,13 +79,13 @@ RegisterEvent(2, "Legacy event 2", function()
     SetValue(MapVar(21), 0)
 end)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(19)) then -- Allied with Necromancers Guild. Steal Nightshade Brazier done.
         evt.MoveNPC(9, 0) -- Sandro -> removed
         evt.MoveNPC(56, 751) -- Sandro -> Council Chamber Door
@@ -101,13 +101,13 @@ RegisterEvent(6, "Legacy event 6", function()
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -748,7 +748,7 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(27)) then return end -- Skeleton Transformer Destroyed.
     if not IsQBitSet(QBit(26)) then return end -- Find the skeleton transformer in the Shadowspire Necromancers' Guild. Destroy it and return to Oskar Tyre. - Given and taken by Oskar Tyre (area 7). Taken when Qbit 29 set.
     if not HasPlayer(34) then return end -- Dyson Leyland
@@ -851,7 +851,7 @@ RegisterEvent(203, "Dyson Leland's Room", function()
     end
 end, "Dyson Leland's Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     SetValue(MapVar(11), 0)
 end)
@@ -860,14 +860,14 @@ RegisterEvent(452, "Door", function()
     evt.SetDoorState(5, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(11), 1) then return end
     evt.SpeakNPC(34) -- Guard
     SetValue(MapVar(11), 1)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     if IsAtLeast(Invisible, 0) then return end
     evt.SetMonGroupBit(41, MonsterBits.Hostile, 1) -- actor group 41: Necromancer, spawn Necromancer (monster) A

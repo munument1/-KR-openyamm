@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetQBit(QBit(722)) -- TP Buff Celeste
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         if IsQBitSet(QBit(782)) then -- Your friends are mad at you
@@ -62,16 +62,16 @@ RegisterEvent(1, "Legacy event 1", function()
     evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Angel Lord, Wizard
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(5, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
@@ -188,7 +188,7 @@ RegisterEvent(376, "Hostel", function()
     end
 end, "Hostel")
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     if IsQBitSet(QBit(533)) then -- Go to the Celestial Court in Celeste and kill Lady Eleanor Carmine. Return with proof to Seknit Undershadow in the Deyja Moors.
         evt.SetMonGroupBit(52, MonsterBits.Invisible, 0)
         evt.SetMonGroupBit(52, MonsterBits.Hostile, 1)
@@ -196,7 +196,7 @@ RegisterEvent(377, "Legacy event 377", function()
     end
 end)
 
-RegisterEvent(378, "Legacy event 378", function()
+RegisterEvent(378, nil, function()
     if not IsAtLeast(MapVar(2), 1) then return end
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 52, 0, false) then -- actor group 52; all matching actors defeated
         SetQBit(QBit(725)) -- Dagger - I lost it
@@ -317,7 +317,7 @@ RegisterEvent(447, "Hall of Dawn", function()
     evt.EnterHouse(206) -- Hall of Dawn
 end, "Hall of Dawn")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     local randomStep = PickRandomOption(451, 1, {1, 2, 3, 4, 5, 6})
     if randomStep == 1 then
         evt.MoveToMap(8146, 4379, 3700, 0, 0, 0, 0, 0)

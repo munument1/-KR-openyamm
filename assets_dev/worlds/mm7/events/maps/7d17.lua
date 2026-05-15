@@ -33,16 +33,16 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetValue(MapVar(2), 1)
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghost A, spawn Skeleton Warrior A, spawn Thief A
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     evt.SetDoorState(4, DoorAction.Trigger)
     if evt.CheckSkill(const.Skills.Perception, const.SkillCheck.Grandmaster, 40) then
@@ -64,12 +64,12 @@ RegisterEvent(6, "Door", function()
     evt.SetDoorState(2, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(5, DoorAction.Open)
     SetValue(MapVar(2), 0)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     SetValue(MapVar(2), 1)
     evt.SetDoorState(5, DoorAction.Close)
 end)
@@ -215,7 +215,7 @@ RegisterEvent(198, "Ore Vein", function()
     evt.SetTexture(4, "c2b")
 end, "Ore Vein")
 
-RegisterEvent(416, "Legacy event 416", function()
+RegisterEvent(416, nil, function()
     evt.CastSpell(15, 4, 3, -7008, 4352, 850, 0, 0, 0) -- Sparks
 end)
 

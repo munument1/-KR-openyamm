@@ -34,7 +34,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(719)) then -- TP Buff Tularean Forest
         SetQBit(QBit(719)) -- TP Buff Tularean Forest
     end
@@ -459,7 +459,7 @@ RegisterEvent(261, "Fruit Tree", function()
     evt.SetSprite(61, 1, "tree37")
 end, "Fruit Tree")
 
-RegisterEvent(401, "Legacy event 401", function()
+RegisterEvent(401, nil, function()
     if IsQBitSet(QBit(649)) then -- Artifact Messenger only happens once
         if not IsQBitSet(QBit(591)) then return end -- Retrieve Gryphonheart's Trumpet from the battle in the Tularean Forest and return it to whichever side you choose.
         if IsAtLeast(MapVar(13), 1) then return end
@@ -502,11 +502,11 @@ RegisterEvent(401, "Legacy event 401", function()
     end
 end)
 
-RegisterEvent(402, "Legacy event 402", function()
+RegisterEvent(402, nil, function()
     evt.SpeakNPC(392) -- The Oldest Tree
 end)
 
-RegisterEvent(403, "Legacy event 403", function()
+RegisterEvent(403, nil, function()
     if IsQBitSet(QBit(553)) then -- Solved Tree quest
         evt.SetMonGroupBit(61, MonsterBits.Hostile, 0) -- actor group 61: spawn Treant A
     end
@@ -534,7 +534,7 @@ RegisterEvent(453, "Obelisk", function()
     SetQBit(QBit(678)) -- Visited Obelisk in Area 4
 end, "Obelisk")
 
-RegisterEvent(500, "Legacy event 500", function()
+RegisterEvent(500, nil, function()
     if evt.CheckSeason(2) then
         goto step_16
     end

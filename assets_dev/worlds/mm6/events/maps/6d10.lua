@@ -74,7 +74,7 @@ RegisterEvent(12, "Door", function()
     evt.SetDoorState(12, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     evt.SetDoorState(13, DoorAction.Close)
 end)
 
@@ -194,7 +194,7 @@ RegisterEvent(39, "Cabinet", function()
     evt.OpenChest(9)
 end, "Cabinet")
 
-RegisterEvent(40, "Legacy event 40", function()
+RegisterEvent(40, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.SetDoorState(17, DoorAction.Open)
     evt.FaceExpression(5)
@@ -204,7 +204,7 @@ RegisterEvent(40, "Legacy event 40", function()
     SetValue(MapVar(4), 1)
 end)
 
-RegisterEvent(41, "Legacy event 41", function()
+RegisterEvent(41, nil, function()
     if IsAtLeast(MapVar(6), 1) then
         return
     elseif IsAtLeast(MapVar(4), 1) then
@@ -223,13 +223,13 @@ RegisterEvent(41, "Legacy event 41", function()
     end
 end)
 
-RegisterEvent(42, "Legacy event 42", function()
+RegisterEvent(42, nil, function()
     if IsQBitSet(QBit(1028)) then -- 4 D10, given when you retreive artifact from chest
         SetValue(MapVar(5), 1)
     end
 end)
 
-RegisterEvent(43, "Legacy event 43", function()
+RegisterEvent(43, nil, function()
     if IsAtLeast(MapVar(7), 1) then return end
     evt.GiveItem(5, 23)
     SetValue(MapVar(7), 1)

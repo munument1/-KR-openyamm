@@ -33,19 +33,19 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: Greater Wererat, spawn Wererat Ratman Form Male A
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(140)) then return end -- Killed all Dire Wolves in Ravenshore
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 84, 0, false) then return end -- monster 84 "Dire Wolf Yearling"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 85, 0, false) then return end -- monster 85 "Dire Wolf"; all matching actors defeated
@@ -62,13 +62,13 @@ RegisterEvent(6, "Legacy event 6", function()
     ClearQBit(QBit(225)) -- dead questbit for internal use(bling)
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)

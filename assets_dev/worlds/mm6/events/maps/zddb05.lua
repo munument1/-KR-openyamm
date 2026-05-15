@@ -14,13 +14,13 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(2), 1) then return end
     evt.StatusText("The air smells stale and makes you cough.")
     AddValue(MapVar(2), 1)
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     evt.StatusText("Poisonous spores force you back.")
     evt.DamagePlayer(Players.All, const.Damage.Water, 8)
@@ -46,7 +46,7 @@ RegisterEvent(5, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(6, "Legacy event 6", function(continueStep)
+RegisterEvent(6, nil, function(continueStep)
     if continueStep == 5 then
         evt.ForPlayer(Players.All)
         AddValue(Experience, 500)

@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Archer A, spawn Fighter Chain A, spawn Swordsman A
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
@@ -280,14 +280,14 @@ RegisterEvent(196, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(612) -- Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Archer A, spawn Fighter Chain A, spawn Swordsman A
@@ -296,7 +296,7 @@ RegisterEvent(452, "Legacy event 452", function()
     evt.PlaySound(42317, 256, 256)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
@@ -308,7 +308,7 @@ RegisterEvent(454, "Lever", function()
     evt.CastSpell(24, 10, 4, -448, 400, -208, -448, 586, -527) -- Poison Spray
 end, "Lever")
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.CastSpell(6, 10, 4, -1152, 1344, -288, 1152, 1472, -288) -- Fireball
     evt.CastSpell(6, 10, 4, 1152, 1344, -288, -1152, 1472, -288) -- Fireball
 end)

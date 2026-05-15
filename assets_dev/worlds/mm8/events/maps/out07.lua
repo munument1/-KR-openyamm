@@ -35,7 +35,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(40)) then -- Found and Rescued Cauri Blackthorne
         evt.SetSprite(20, 0, "0")
         evt.SetSprite(21, 0, "0")
@@ -49,21 +49,21 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Ravensight Residence", function()
     evt.EnterHouse(610) -- Ravensight Residence
@@ -226,7 +226,7 @@ RegisterEvent(103, "Drink from the well", function()
     evt.StatusText("Refreshing")
 end, "Drink from the well")
 
-RegisterEvent(131, "Legacy event 131", function()
+RegisterEvent(131, nil, function()
     if IsQBitSet(QBit(69)) then return end -- Ancient Troll Homeland Found
     if not IsQBitSet(QBit(68)) then return end -- Find the Ancient Troll Homeland and return to Volog Sandwind in the Ironsand Desert. - Given By ? In area 4
     evt.ForPlayer(Players.All)
@@ -312,7 +312,7 @@ RegisterEvent(404, "Gate to the Plane of Air", nil, "Gate to the Plane of Air")
 
 RegisterEvent(450, "Well", nil, "Well")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     local randomStep = PickRandomOption(451, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.PlaySound(351, 14784, 10304)
@@ -343,7 +343,7 @@ RegisterEvent(451, "Legacy event 451", function()
     end
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     local randomStep = PickRandomOption(452, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
         evt.PlaySound(343, -11392, 13248)
@@ -374,7 +374,7 @@ RegisterEvent(452, "Legacy event 452", function()
     end
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if IsQBitSet(QBit(240)) then return end -- for riki
     AddValue(InventoryItem(332), 332) -- Lloyd's Beacon
     SetQBit(QBit(240)) -- for riki

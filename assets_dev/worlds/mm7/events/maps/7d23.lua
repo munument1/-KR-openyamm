@@ -35,107 +35,107 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     SetValue(MapVar(2), 2)
     SetValue(MapVar(3), 2)
     evt.SetLight(1, 0)
     evt.SetLight(2, 0)
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(10, DoorAction.Open)
         evt.SetDoorState(11, DoorAction.Open)
     end
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(10, DoorAction.Close)
         evt.SetDoorState(11, DoorAction.Close)
     end
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(12, DoorAction.Open)
         evt.SetDoorState(13, DoorAction.Open)
     end
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(12, DoorAction.Close)
         evt.SetDoorState(13, DoorAction.Close)
     end
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(15, DoorAction.Trigger)
         evt.SetDoorState(16, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(15, DoorAction.Close)
         evt.SetDoorState(16, DoorAction.Close)
     end
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(19, DoorAction.Open)
         evt.SetDoorState(20, DoorAction.Open)
     end
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(23, DoorAction.Open)
     end
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(23, DoorAction.Close)
     end
 end)
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(24, DoorAction.Open)
         evt.SetDoorState(25, DoorAction.Open)
     end
 end)
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(24, DoorAction.Close)
         evt.SetDoorState(25, DoorAction.Close)
     end
 end)
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(26, DoorAction.Open)
     end
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(26, DoorAction.Close)
     end
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(27, DoorAction.Open)
     end
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(28, DoorAction.Close)
         evt.SetDoorState(37, DoorAction.Close)
@@ -143,13 +143,13 @@ RegisterEvent(18, "Legacy event 18", function()
     end
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(28, DoorAction.Open)
     end
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(27, DoorAction.Close)
         evt.SetDoorState(37, DoorAction.Open)
@@ -157,95 +157,95 @@ RegisterEvent(20, "Legacy event 20", function()
     end
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(29, DoorAction.Open)
         evt.SetDoorState(30, DoorAction.Open)
     end
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(29, DoorAction.Close)
         evt.SetDoorState(30, DoorAction.Close)
     end
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(31, DoorAction.Open)
         evt.SetDoorState(32, DoorAction.Open)
     end
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(31, DoorAction.Close)
         evt.SetDoorState(32, DoorAction.Close)
     end
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(33, DoorAction.Open)
         evt.SetDoorState(34, DoorAction.Open)
     end
 end)
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(33, DoorAction.Close)
         evt.SetDoorState(34, DoorAction.Close)
     end
 end)
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.SetDoorState(35, DoorAction.Open)
     evt.SetDoorState(36, DoorAction.Open)
 end)
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(35, DoorAction.Close)
         evt.SetDoorState(36, DoorAction.Close)
     end
 end)
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(37, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(39, DoorAction.Open)
         evt.SetDoorState(40, DoorAction.Open)
     end
 end)
 
-RegisterEvent(31, "Legacy event 31", function()
+RegisterEvent(31, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(39, DoorAction.Close)
         evt.SetDoorState(40, DoorAction.Close)
     end
 end)
 
-RegisterEvent(32, "Legacy event 32", function()
+RegisterEvent(32, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(45, DoorAction.Open)
         evt.SetDoorState(46, DoorAction.Open)
     end
 end)
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(45, DoorAction.Close)
         evt.SetDoorState(46, DoorAction.Close)
     end
 end)
 
-RegisterEvent(34, "Legacy event 34", function()
+RegisterEvent(34, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(48, DoorAction.Open)
         evt.SetDoorState(49, DoorAction.Open)
@@ -253,134 +253,134 @@ RegisterEvent(34, "Legacy event 34", function()
     end
 end)
 
-RegisterEvent(35, "Legacy event 35", function()
+RegisterEvent(35, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(48, DoorAction.Close)
         evt.SetDoorState(49, DoorAction.Close)
     end
 end)
 
-RegisterEvent(36, "Legacy event 36", function()
+RegisterEvent(36, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(51, DoorAction.Open)
     end
 end)
 
-RegisterEvent(37, "Legacy event 37", function()
+RegisterEvent(37, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(51, DoorAction.Open)
     end
 end)
 
-RegisterEvent(38, "Legacy event 38", function()
+RegisterEvent(38, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(59, DoorAction.Open)
     end
 end)
 
-RegisterEvent(39, "Legacy event 39", function()
+RegisterEvent(39, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(59, DoorAction.Close)
     end
 end)
 
-RegisterEvent(40, "Legacy event 40", function()
+RegisterEvent(40, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(60, DoorAction.Open)
     end
 end)
 
-RegisterEvent(41, "Legacy event 41", function()
+RegisterEvent(41, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(60, DoorAction.Close)
     end
 end)
 
-RegisterEvent(42, "Legacy event 42", function()
+RegisterEvent(42, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(61, DoorAction.Open)
         evt.SetDoorState(62, DoorAction.Open)
     end
 end)
 
-RegisterEvent(43, "Legacy event 43", function()
+RegisterEvent(43, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(61, DoorAction.Close)
         evt.SetDoorState(62, DoorAction.Close)
     end
 end)
 
-RegisterEvent(44, "Legacy event 44", function()
+RegisterEvent(44, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(63, DoorAction.Open)
         evt.SetDoorState(64, DoorAction.Open)
     end
 end)
 
-RegisterEvent(45, "Legacy event 45", function()
+RegisterEvent(45, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(63, DoorAction.Close)
         evt.SetDoorState(64, DoorAction.Close)
     end
 end)
 
-RegisterEvent(46, "Legacy event 46", function()
+RegisterEvent(46, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(65, DoorAction.Open)
         evt.SetDoorState(66, DoorAction.Open)
     end
 end)
 
-RegisterEvent(47, "Legacy event 47", function()
+RegisterEvent(47, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(65, DoorAction.Close)
         evt.SetDoorState(66, DoorAction.Close)
     end
 end)
 
-RegisterEvent(49, "Legacy event 49", function()
+RegisterEvent(49, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(67, DoorAction.Open)
         evt.SetDoorState(68, DoorAction.Open)
     end
 end)
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(67, DoorAction.Close)
         evt.SetDoorState(68, DoorAction.Close)
     end
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(73, DoorAction.Open)
         evt.SetDoorState(74, DoorAction.Open)
     end
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(75, DoorAction.Open)
         evt.SetDoorState(76, DoorAction.Open)
     end
 end)
 
-RegisterEvent(53, "Legacy event 53", function()
+RegisterEvent(53, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(69, DoorAction.Open)
         evt.SetDoorState(70, DoorAction.Open)
     end
 end)
 
-RegisterEvent(54, "Legacy event 54", function()
+RegisterEvent(54, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(71, DoorAction.Open)
         evt.SetDoorState(72, DoorAction.Open)
     end
 end)
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(69, DoorAction.Close)
         evt.SetDoorState(70, DoorAction.Close)
@@ -389,7 +389,7 @@ RegisterEvent(55, "Legacy event 55", function()
     end
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(71, DoorAction.Close)
         evt.SetDoorState(72, DoorAction.Close)
@@ -398,7 +398,7 @@ RegisterEvent(56, "Legacy event 56", function()
     end
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     if not IsAtLeast(MapVar(4), 1) then return end
     if not IsAtLeast(MapVar(2), 2) then
         evt.SetDoorState(9, DoorAction.Open)
@@ -411,18 +411,18 @@ RegisterEvent(151, "Legacy event 151", function()
     SetValue(MapVar(2), 1)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.SetDoorState(17, DoorAction.Trigger)
 end)
 
-RegisterEvent(153, "Legacy event 153", function()
+RegisterEvent(153, nil, function()
     evt.SetDoorState(18, DoorAction.Trigger)
     if not IsAtLeast(MapVar(4), 1) then return end
     evt.SetDoorState(47, DoorAction.Close)
     evt.SetDoorState(26, DoorAction.Close)
 end)
 
-RegisterEvent(154, "Legacy event 154", function()
+RegisterEvent(154, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(47, DoorAction.Open)
         evt.SetDoorState(48, DoorAction.Close)
@@ -430,33 +430,33 @@ RegisterEvent(154, "Legacy event 154", function()
     end
 end)
 
-RegisterEvent(155, "Legacy event 155", function()
+RegisterEvent(155, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(50, DoorAction.Close)
         evt.SetDoorState(51, DoorAction.Close)
     end
 end)
 
-RegisterEvent(156, "Legacy event 156", function()
+RegisterEvent(156, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(50, DoorAction.Open)
         evt.SetDoorState(26, DoorAction.Close)
     end
 end)
 
-RegisterEvent(157, "Legacy event 157", function()
+RegisterEvent(157, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(77, DoorAction.Open)
     end
 end)
 
-RegisterEvent(158, "Legacy event 158", function()
+RegisterEvent(158, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(78, DoorAction.Open)
     end
 end)
 
-RegisterEvent(159, "Legacy event 159", function()
+RegisterEvent(159, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(79, DoorAction.Open)
     end
@@ -542,7 +542,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if not IsQBitSet(QBit(633)) then -- Got the sci-fi part
         if not IsAtLeast(MapVar(4), 1) then return end
         if not HasItem(1407) then -- Oscillation Overthruster
@@ -557,143 +557,143 @@ RegisterEvent(376, "Legacy event 376", function()
     evt.SetLight(2, 1)
 end)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(1, DoorAction.Trigger)
         evt.SetDoorState(5, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(2, DoorAction.Trigger)
         evt.SetDoorState(6, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(3, DoorAction.Trigger)
         evt.SetDoorState(7, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(4, DoorAction.Trigger)
         evt.SetDoorState(8, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(14, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(44, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(7165, -1629, 1037, 1536, 0, 0, 0, 0)
     end
 end)
 
-RegisterEvent(458, "Legacy event 458", function()
+RegisterEvent(458, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.MoveToMap(1536, -1909, 1037, 1536, 0, 0, 0, 0)
     end
 end)
 
-RegisterEvent(459, "Legacy event 459", function()
+RegisterEvent(459, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(52, DoorAction.Open)
     end
 end)
 
-RegisterEvent(460, "Legacy event 460", function()
+RegisterEvent(460, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(52, DoorAction.Close)
     end
 end)
 
-RegisterEvent(461, "Legacy event 461", function()
+RegisterEvent(461, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(53, DoorAction.Open)
     end
 end)
 
-RegisterEvent(462, "Legacy event 462", function()
+RegisterEvent(462, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(53, DoorAction.Close)
     end
 end)
 
-RegisterEvent(463, "Legacy event 463", function()
+RegisterEvent(463, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(54, DoorAction.Open)
     end
 end)
 
-RegisterEvent(464, "Legacy event 464", function()
+RegisterEvent(464, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(54, DoorAction.Close)
     end
 end)
 
-RegisterEvent(465, "Legacy event 465", function()
+RegisterEvent(465, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(55, DoorAction.Open)
     end
 end)
 
-RegisterEvent(466, "Legacy event 466", function()
+RegisterEvent(466, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(55, DoorAction.Close)
     end
 end)
 
-RegisterEvent(467, "Legacy event 467", function()
+RegisterEvent(467, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(56, DoorAction.Open)
     end
 end)
 
-RegisterEvent(468, "Legacy event 468", function()
+RegisterEvent(468, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(56, DoorAction.Close)
     end
 end)
 
-RegisterEvent(469, "Legacy event 469", function()
+RegisterEvent(469, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(57, DoorAction.Open)
     end
 end)
 
-RegisterEvent(470, "Legacy event 470", function()
+RegisterEvent(470, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(57, DoorAction.Close)
     end
 end)
 
-RegisterEvent(471, "Legacy event 471", function()
+RegisterEvent(471, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(58, DoorAction.Open)
     end
 end)
 
-RegisterEvent(472, "Legacy event 472", function()
+RegisterEvent(472, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(58, DoorAction.Close)
     end
 end)
 
-RegisterEvent(473, "Legacy event 473", function()
+RegisterEvent(473, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(50, DoorAction.Close)
         evt.SetDoorState(47, DoorAction.Open)
@@ -701,14 +701,14 @@ RegisterEvent(473, "Legacy event 473", function()
     end
 end)
 
-RegisterEvent(474, "Legacy event 474", function()
+RegisterEvent(474, nil, function()
     if IsAtLeast(MapVar(4), 1) then
         evt.SetDoorState(50, DoorAction.Open)
         evt.SetDoorState(51, DoorAction.Open)
     end
 end)
 
-RegisterEvent(475, "Legacy event 475", function()
+RegisterEvent(475, nil, function()
     if IsAtLeast(MapVar(4), 1) then return end
     SetValue(MapVar(4), 1)
     evt.SetLight(1, 1)
@@ -716,7 +716,7 @@ RegisterEvent(475, "Legacy event 475", function()
     evt.StatusText("Power Restored")
 end)
 
-RegisterEvent(476, "Legacy event 476", function()
+RegisterEvent(476, nil, function()
     if IsAtLeast(MapVar(5), 1) then
         evt.CastSpell(15, 20, 3, 4448, -9376, 2272, 0, 0, 0) -- Sparks
         evt.CastSpell(15, 20, 3, 2816, -8480, 1792, 0, 0, 0) -- Sparks
@@ -725,7 +725,7 @@ RegisterEvent(476, "Legacy event 476", function()
     end
 end)
 
-RegisterEvent(477, "Legacy event 477", function()
+RegisterEvent(477, nil, function()
     if IsAtLeast(MapVar(5), 1) then
         evt.CastSpell(15, 20, 3, 224, 1376, 992, 0, 0, 0) -- Sparks
         evt.CastSpell(15, 20, 3, 5856, -8512, 1792, 0, 0, 0) -- Sparks

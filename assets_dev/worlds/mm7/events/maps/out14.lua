@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(611)) then return end -- Chose the path of Light
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1)
 end)
@@ -304,9 +304,9 @@ RegisterEvent(207, "Titan Stronghold", nil, "Titan Stronghold")
 
 RegisterEvent(208, "Hall under the Hill", nil, "Hall under the Hill")
 
-RegisterEvent(209, "Legacy event 209", nil)
+RegisterEvent(209, nil, nil)
 
-RegisterEvent(250, "Legacy event 250", function()
+RegisterEvent(250, nil, function()
     if evt.CheckSeason(2) then
         goto step_16
     end

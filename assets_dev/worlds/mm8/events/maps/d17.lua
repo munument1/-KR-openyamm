@@ -34,15 +34,15 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     if IsQBitSet(QBit(21)) then -- Allied with Charles Quioxte's Dragon Hunters. Return Dragon Egg to Quixote done.
         evt.SetMonGroupBit(44, MonsterBits.Hostile, 1) -- actor group 44: Dragon Flightleader, Great Wyrm, spawn Dragon A, spawn Wimpy Dragon A
         evt.SetMonGroupBit(11, MonsterBits.Invisible, 0) -- actor group 11: spawn Dragon A, spawn Wimpy Dragon A
@@ -71,11 +71,11 @@ RegisterEvent(5, "Legacy event 5", function()
     end
 end)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if IsQBitSet(QBit(233)) then -- You have Pissed of the Dragons
         return
     end
@@ -87,7 +87,7 @@ RegisterEvent(8, "Legacy event 8", function()
     SetValue(Counter(10), 0)
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
         return
     elseif IsQBitSet(QBit(155)) then -- Killed all Dragons in Garrote Gorge Area
@@ -113,7 +113,7 @@ RegisterEvent(9, "Legacy event 9", function()
     end
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
         evt.MoveNPC(17, 0) -- Deftclaw Redreaver -> removed
         evt.MoveNPC(53, 751) -- Deftclaw Redreaver -> Council Chamber Door
@@ -216,19 +216,19 @@ RegisterEvent(201, "Dragon Leader's Cavern ", function()
     evt.EnterHouse(774) -- Dragon Leader's Cavern
 end, "Dragon Leader's Cavern ")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(11), 1) then return end
     evt.SpeakNPC(35) -- Guard
     SetValue(MapVar(11), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     SetValue(MapVar(11), 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(MapVar(11), 2) then return end
     evt.SetMonGroupBit(44, MonsterBits.Hostile, 1) -- actor group 44: Dragon Flightleader, Great Wyrm, spawn Dragon A, spawn Wimpy Dragon A
     evt.SetMonGroupBit(11, MonsterBits.Invisible, 0) -- actor group 11: spawn Dragon A, spawn Wimpy Dragon A

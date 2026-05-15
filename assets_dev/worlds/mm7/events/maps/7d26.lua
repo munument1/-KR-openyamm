@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(723)) then -- TP Buff The Pit
         SetQBit(QBit(723)) -- TP Buff The Pit
     end
@@ -295,31 +295,31 @@ RegisterEvent(447, "Hostel", function()
     evt.EnterHouse(1076) -- Hostel
 end, "Hostel")
 
-RegisterEvent(448, "Legacy event 448", function()
+RegisterEvent(448, nil, function()
     evt.EnterHouse(1077)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(-1873, -8516, 64, 1536, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.MoveToMap(-1824, -7136, 33, 512, 0, 0, 0, 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.MoveToMap(-26354, -10440, 689, 1664, 0, 0, 0, 0)
 end)
 
-RegisterEvent(455, "Legacy event 455", function()
+RegisterEvent(455, nil, function()
     evt.MoveToMap(-2854, -23128, 625, 541, 0, 0, 0, 0)
 end)
 
-RegisterEvent(456, "Legacy event 456", function()
+RegisterEvent(456, nil, function()
     evt.MoveToMap(6196, -10401, -362, 832, 0, 0, 0, 0)
 end)
 
-RegisterEvent(457, "Legacy event 457", function()
+RegisterEvent(457, nil, function()
     evt.MoveToMap(9683, -5602, -19, 1600, 0, 0, 0, 0)
 end)
 

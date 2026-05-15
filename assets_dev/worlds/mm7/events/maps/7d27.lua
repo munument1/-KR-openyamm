@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if not evt.CheckMonstersKilled(ActorKillCheck.ActorIdOe, 0, 0, false) then return end -- OE actor 0; all matching actors defeated
     if IsQBitSet(QBit(617)) then return end -- Slayed Xenofex
     SetQBit(QBit(617)) -- Slayed Xenofex
@@ -41,35 +41,35 @@ RegisterEvent(2, "Legacy event 2", function()
     AddValue(History(27), 0)
 end)
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(5, DoorAction.Trigger)
     evt.SetDoorState(6, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetFacetBit(1, FacetBits.Untouchable, 1)
     evt.SetFacetBit(1, FacetBits.Invisible, 1)
     evt.SetFacetBit(2, FacetBits.Untouchable, 0)
     evt.SetFacetBit(2, FacetBits.Invisible, 0)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(7, DoorAction.Trigger)
     evt.SetDoorState(8, DoorAction.Trigger)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.SetDoorState(9, DoorAction.Trigger)
     evt.SetDoorState(10, DoorAction.Trigger)
     evt.SetDoorState(11, DoorAction.Trigger)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(12, DoorAction.Trigger)
     evt.SetDoorState(13, DoorAction.Trigger)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     if not IsAtLeast(MapVar(2), 3) then
         evt.SetDoorState(14, DoorAction.Trigger)
         AddValue(MapVar(2), 1)
@@ -80,13 +80,13 @@ RegisterEvent(8, "Legacy event 8", function()
     evt.SetFacetBit(3, FacetBits.Untouchable, 1)
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     if IsAtLeast(MapVar(2), 3) then return end
     evt.SetDoorState(15, DoorAction.Trigger)
     AddValue(MapVar(2), 1)
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if not IsAtLeast(MapVar(2), 3) then
         evt.SetDoorState(16, DoorAction.Trigger)
         AddValue(MapVar(2), 1)
@@ -97,7 +97,7 @@ RegisterEvent(10, "Legacy event 10", function()
     evt.SetFacetBit(3, FacetBits.Untouchable, 1)
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     if not IsAtLeast(MapVar(2), 3) then
         evt.SetDoorState(17, DoorAction.Trigger)
         AddValue(MapVar(2), 1)
@@ -108,44 +108,44 @@ RegisterEvent(11, "Legacy event 11", function()
     evt.SetFacetBit(3, FacetBits.Untouchable, 1)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(18, DoorAction.Trigger)
     evt.SetDoorState(19, DoorAction.Trigger)
 end)
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     evt.SetDoorState(20, DoorAction.Trigger)
     evt.SetDoorState(21, DoorAction.Trigger)
 end)
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     evt.SetDoorState(22, DoorAction.Trigger)
     evt.SetDoorState(23, DoorAction.Trigger)
 end)
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.SetDoorState(24, DoorAction.Open)
     evt.SetDoorState(25, DoorAction.Open)
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetDoorState(26, DoorAction.Trigger)
     evt.SetDoorState(27, DoorAction.Trigger)
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.SetDoorState(28, DoorAction.Trigger)
     evt.SetDoorState(29, DoorAction.Trigger)
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     if IsAtLeast(MapVar(3), 2) then
         evt.SetDoorState(30, DoorAction.Trigger)
         evt.SetDoorState(31, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     evt.SetDoorState(34, DoorAction.Trigger)
     evt.SetDoorState(35, DoorAction.Trigger)
     evt.SetDoorState(36, DoorAction.Trigger)
@@ -153,7 +153,7 @@ RegisterEvent(19, "Legacy event 19", function()
     evt.SetDoorState(27, DoorAction.Close)
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     evt.SetDoorState(37, DoorAction.Trigger)
     evt.SetDoorState(38, DoorAction.Trigger)
     evt.SetDoorState(39, DoorAction.Trigger)
@@ -161,38 +161,38 @@ RegisterEvent(20, "Legacy event 20", function()
     evt.SetDoorState(31, DoorAction.Close)
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     if HasItem(1089) then -- _potion/reagent
         evt.SetDoorState(32, DoorAction.Trigger)
         evt.SetDoorState(33, DoorAction.Trigger)
     end
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     if IsAtLeast(MapVar(4), 1) then return end
     evt.SetDoorState(40, DoorAction.Trigger)
     AddValue(MapVar(3), 1)
     AddValue(MapVar(4), 1)
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     if IsAtLeast(MapVar(5), 1) then return end
     evt.SetDoorState(41, DoorAction.Trigger)
     AddValue(MapVar(3), 1)
     AddValue(MapVar(5), 1)
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.SetDoorState(42, DoorAction.Trigger)
 end)
 
@@ -276,7 +276,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     evt.SpeakNPC(626) -- Roland Ironfist
     evt.SetSprite(20, 1, "0")
     AddValue(InventoryItem(1463), 1463) -- Colony Zod Key

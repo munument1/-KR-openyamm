@@ -34,7 +34,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(570)) then -- Destroyed critter generator in dungeon. Warrior Mage promo quest.
         SetValue(MapVar(2), 1)
     end
@@ -49,13 +49,13 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     if IsAtLeast(Counter(4), 1) then return end
     evt.SetDoorState(3, DoorAction.Trigger)
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     if IsAtLeast(Counter(4), 1) then return end
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
@@ -258,7 +258,7 @@ RegisterEvent(382, "Statue", function()
     end
 end, "Statue")
 
-RegisterEvent(383, "Legacy event 383", function()
+RegisterEvent(383, nil, function()
     if not IsQBitSet(QBit(543)) then return end -- Sabotage the lift in the Red Dwarf Mines in the Bracada Desert then return to Steagal Snick in Avlee.
     if IsQBitSet(QBit(570)) then return end -- Destroyed critter generator in dungeon. Warrior Mage promo quest.
     evt.ForPlayer(Players.All)

@@ -56,7 +56,7 @@ RegisterEvent(10, "Switch", function()
     evt.FaceExpression(48)
 end, "Switch")
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     if IsAtLeast(MapVar(21), 1) then return end
     evt.StatusText("Uh oh....")
     evt.SetDoorState(13, DoorAction.Close)
@@ -72,11 +72,11 @@ RegisterEvent(15, "Switch", function()
     evt.SetDoorState(3, DoorAction.Close)
 end, "Switch")
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetDoorState(16, DoorAction.Close)
 end)
 
-RegisterNoOpEvent(17, "Legacy event 17")
+RegisterNoOpEvent(17, nil)
 
 RegisterEvent(18, "Chest", function()
     evt.OpenChest(0)
@@ -90,7 +90,7 @@ RegisterEvent(20, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     evt.CastSpell(32, 7, 3, -2048, 9712, -2282, -2048, 9050, -2282) -- Ice Blast
 end)
 
@@ -112,7 +112,7 @@ RegisterEvent(27, "Chandelier", function()
     AddValue(InventoryItem(2056), 2056) -- Diamond
 end, "Chandelier")
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     evt.SetDoorState(16, DoorAction.Open)
     evt.SetDoorState(2, DoorAction.Open)
 end)

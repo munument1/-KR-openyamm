@@ -33,24 +33,24 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsQBitSet(QBit(536)) then -- Rescue Alice Hargreaves from William's Tower in the Deyja Moors then talk to Sir Charles Quixote.
         evt.SetMonGroupBit(57, MonsterBits.Invisible, 0) -- actor group 57: Master of the Sword, spawn Fighter Plate A
         evt.SetMonGroupBit(57, MonsterBits.Hostile, 1) -- actor group 57: Master of the Sword, spawn Fighter Plate A
     end
 end)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
 RegisterEvent(4, "Door", function()
     evt.SetDoorState(4, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)

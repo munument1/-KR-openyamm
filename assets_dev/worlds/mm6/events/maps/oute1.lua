@@ -77,15 +77,15 @@ RegisterEvent(57, "House", function()
     evt.EnterHouse(1326) -- House
 end, "House")
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     evt.OpenChest(1)
 end)
 
-RegisterEvent(59, "Legacy event 59", function()
+RegisterEvent(59, nil, function()
     evt.OpenChest(2)
 end)
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     evt.MoveToMap(-2921, 13139, 225, 1536, 0, 0, 163, 1, "cd1.blv") -- Castle Alamos
 end)
 
@@ -112,7 +112,7 @@ RegisterEvent(101, "Drink from Fountain.", function()
     evt.StatusText("Refreshing")
 end, "Drink from Fountain.")
 
-RegisterEvent(226, "Legacy event 226", function()
+RegisterEvent(226, nil, function()
     if IsQBitSet(QBit(1337)) then -- NPC
         return
     end

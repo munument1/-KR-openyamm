@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if IsAtLeast(MapVar(6), 2) then
         evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
         evt.SetMonGroupBit(55, MonsterBits.Hostile, 1) -- actor group 55: Elven Scout
@@ -51,7 +51,7 @@ RegisterEvent(3, "Door", function()
     evt.SetDoorState(6, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     if IsQBitSet(QBit(547)) then -- Raid the Elven Treasury at Castle Navan in the Tularean Forest and return to Frederick Org in Erathia.
         evt.SetDoorState(7, DoorAction.Open)
     end
@@ -100,7 +100,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(18, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(18, DoorAction.Trigger)
     evt.SetDoorState(19, DoorAction.Trigger)
 end)
@@ -110,7 +110,7 @@ RegisterEvent(12, "Door", function()
     evt.SetDoorState(4, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
@@ -431,7 +431,7 @@ end, "Bookcase")
 RegisterEvent(199, "Bookcase", function()
 end, "Bookcase")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     if IsQBitSet(QBit(572)) then return end -- Robbed Elven treasury. Black Knight promo quest.
     evt.ForPlayer(Players.All)
     SetQBit(QBit(572)) -- Robbed Elven treasury. Black Knight promo quest.
@@ -448,14 +448,14 @@ RegisterEvent(416, "Throne Room", function()
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Throne Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 1) then return end
     evt.SpeakNPC(617) -- Castle Guard
     SetValue(MapVar(6), 1)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Peasant, spawn Dragonfly A, spawn Elf Archer A, spawn Elf Spearman A
@@ -463,13 +463,13 @@ RegisterEvent(452, "Legacy event 452", function()
     SetValue(MapVar(6), 2)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(Invisible, 0) then return end
     if IsAtLeast(MapVar(6), 2) then return end
     SetValue(MapVar(6), 0)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     SetValue(MapVar(6), 0)
 end)
 

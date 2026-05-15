@@ -33,25 +33,25 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -253,7 +253,7 @@ RegisterEvent(60, "Door", function()
     evt.SetDoorState(50, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
 end)
 
@@ -337,23 +337,23 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.CastSpell(32, 20, 4, 1334, 1354, 203, 0, 0, 0) -- Ice Blast
 end)
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.CastSpell(32, 20, 4, -886, 1354, 203, 0, 0, 0) -- Ice Blast
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.CastSpell(32, 20, 4, -886, 3574, 203, 0, 0, 0) -- Ice Blast
 end)
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     evt.CastSpell(32, 20, 4, 1334, 3574, 203, 0, 0, 0) -- Ice Blast
 end)
 
-RegisterEvent(105, "Legacy event 105", function()
+RegisterEvent(105, nil, function()
     evt.CastSpell(32, 20, 4, 1334, 3574, 203, 0, 0, 0) -- Ice Blast
     evt.CastSpell(32, 20, 4, -886, 3574, 203, 0, 0, 0) -- Ice Blast
     evt.CastSpell(32, 20, 4, -886, 1354, 203, 0, 0, 0) -- Ice Blast

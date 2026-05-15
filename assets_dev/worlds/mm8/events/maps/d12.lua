@@ -33,19 +33,19 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetMonGroupBit(10, MonsterBits.Hostile, 1) -- actor group 10: Ogre Warleader, spawn Human Mercenary A, spawn Ogre Mage A, spawn Ogre Warrior A
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(130)) then return end -- Killed all Ogres in Alvar canyon area and in Ogre Fortress
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 30, 0, false) then return end -- monster 30 "Ogre Brawler"; all matching actors defeated
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 31, 0, false) then return end -- monster 31 "Ogre Warrior"; all matching actors defeated
@@ -65,17 +65,17 @@ RegisterEvent(6, "Legacy event 6", function()
     evt.StatusText("You have Killed all of the Ogres")
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     if IsQBitSet(QBit(120)) then -- Rescued Smuggler Leader's Familly
         evt.SetMonGroupBit(5, MonsterBits.Invisible, 1) -- actor group 5: Greater Wererat
     end
 end)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Key Hole", function()
     evt.ForPlayer(Players.All)
@@ -368,43 +368,43 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.CastSpell(15, 10, 2, -5536, -3216, 1168, -5536, -3216, 544) -- Sparks
 end)
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.CastSpell(15, 10, 2, -7472, -1280, 1168, -7472, -1280, 544) -- Sparks
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.CastSpell(15, 10, 2, -6784, -592, 1168, -6784, -592, 352) -- Sparks
 end)
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     evt.CastSpell(15, 10, 2, -4848, -2528, 1168, -4848, -2528, 352) -- Sparks
 end)
 
-RegisterEvent(105, "Legacy event 105", function()
+RegisterEvent(105, nil, function()
     evt.CastSpell(15, 10, 2, -7472, 1184, 1168, -7472, 1184, 544) -- Sparks
 end)
 
-RegisterEvent(106, "Legacy event 106", function()
+RegisterEvent(106, nil, function()
     evt.CastSpell(15, 10, 2, -5536, 3120, 1168, -5536, 3120, 544) -- Sparks
 end)
 
-RegisterEvent(107, "Legacy event 107", function()
+RegisterEvent(107, nil, function()
     evt.CastSpell(15, 10, 2, -4848, 2432, 1168, -4848, 2432, 352) -- Sparks
 end)
 
-RegisterEvent(108, "Legacy event 108", function()
+RegisterEvent(108, nil, function()
     evt.CastSpell(15, 10, 2, -6784, 496, 1168, -6784, 496, 352) -- Sparks
 end)
 
-RegisterEvent(109, "Legacy event 109", nil)
+RegisterEvent(109, nil, nil)
 
-RegisterEvent(110, "Legacy event 110", nil)
+RegisterEvent(110, nil, nil)
 
-RegisterEvent(111, "Legacy event 111", nil)
+RegisterEvent(111, nil, nil)
 
 RegisterEvent(501, "Leave the Ogre Raiding Fortress", function()
     evt.MoveToMap(-20450, 1451, 1056, 1536, 0, 0, 0, 1, "out03.odm") -- Alvar

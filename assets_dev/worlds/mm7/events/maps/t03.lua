@@ -33,7 +33,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Priest of the Sun, spawn Cleric Sun A, spawn Monk A
 end)
 
@@ -203,7 +203,7 @@ RegisterEvent(376, "Altar", function()
     end
 end, "Altar")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.CastSpell(6, 10, 4, -5, 3919, 288, 0, 1044, 289) -- Fireball
 end)
 

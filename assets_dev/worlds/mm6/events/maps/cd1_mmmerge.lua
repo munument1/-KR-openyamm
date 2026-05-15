@@ -1,6 +1,6 @@
 -- MMMerge map supplement: Castle Alamos password plate.
 
-ReplaceMapEvent(69, "Legacy event 69", function(continueStep)
+ReplaceMapEvent(69, nil, function(continueStep)
     if continueStep == 4 then
         evt.MoveToMap(-3136, 2240, 224, 1024, 0, 0, 0, 0)
         evt.StatusText("Wrong!")

@@ -1,6 +1,6 @@
 -- MMMerge map supplement: Shadow Guild Hideout rescue follower state.
 
-ReplaceMapEvent(22, "Legacy event 22", function()
+ReplaceMapEvent(22, nil, function()
     if IsQBitSet(QBit(1036)) then -- 12 D3, given when you save Mom.
         return
     end

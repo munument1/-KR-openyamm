@@ -33,30 +33,30 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(541) then -- Axe of Balthazar
         SetQBit(QBit(201)) -- Axe of Baltahzar - I lost it
     end
 end)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(28, "Door", function()
     evt.SetDoorState(18, DoorAction.Open)
@@ -237,22 +237,22 @@ RegisterEvent(70, "Door", function()
     evt.SetDoorState(70, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SetDoorState(2, DoorAction.Open)
 end)
 
-RegisterEvent(72, "Legacy event 72", function()
+RegisterEvent(72, nil, function()
     evt.SetDoorState(3, DoorAction.Open)
     evt.SetDoorState(4, DoorAction.Open)
 end)
 
-RegisterEvent(73, "Legacy event 73", function()
+RegisterEvent(73, nil, function()
     evt.SetDoorState(5, DoorAction.Open)
     evt.SetDoorState(6, DoorAction.Open)
 end)
 
-RegisterEvent(74, "Legacy event 74", function()
+RegisterEvent(74, nil, function()
     evt.SetDoorState(7, DoorAction.Open)
     evt.SetDoorState(8, DoorAction.Open)
 end)
@@ -337,7 +337,7 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.CastSpell(41, 20, 4, -1912, -2300, -1272, -1912, 1732, -1272) -- Rock Blast
 end)
 

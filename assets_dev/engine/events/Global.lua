@@ -4842,7 +4842,7 @@ RegisterGlobalEvent(500, "Gareth Lifter", function()
     SetAutonote(184) -- Gareth Lifter, Grand Master of Disarming Traps, teaches from his home on the island of Regna.
 end)
 
-RegisterGlobalEvent(501, "Legacy event 501", function()
+RegisterGlobalEvent(501, nil, function()
     if HasItem(1493) then -- Stalt-laced ore
         RemoveItem(1493) -- Stalt-laced ore
         evt.GiveItem(6, ItemType.Weapon_)
@@ -4877,7 +4877,7 @@ RegisterGlobalEvent(501, "Legacy event 501", function()
     end
 end)
 
-RegisterGlobalEvent(502, "Legacy event 502", function()
+RegisterGlobalEvent(502, nil, function()
     if HasItem(1493) then -- Stalt-laced ore
         RemoveItem(1493) -- Stalt-laced ore
         evt.GiveItem(6, ItemType.Armor_)
@@ -4912,7 +4912,7 @@ RegisterGlobalEvent(502, "Legacy event 502", function()
     end
 end)
 
-RegisterGlobalEvent(503, "Legacy event 503", function()
+RegisterGlobalEvent(503, nil, function()
     if HasItem(1493) then -- Stalt-laced ore
         RemoveItem(1493) -- Stalt-laced ore
         evt.GiveItem(6, ItemType.Misc)
@@ -4947,15 +4947,15 @@ RegisterGlobalEvent(503, "Legacy event 503", function()
     end
 end)
 
-RegisterGlobalEvent(504, "Legacy event 504", function()
+RegisterGlobalEvent(504, nil, function()
     evt.SetMessage("The signal rocket on the west side of the island should be set of to warn ships off from approaching to close to that side of the island.")
 end)
 
-RegisterGlobalEvent(505, "Legacy event 505", function()
+RegisterGlobalEvent(505, nil, function()
     evt.SetMessage("Beware the marshes of the southern tip of the island.")
 end)
 
-RegisterGlobalEvent(506, "Legacy event 506", function()
+RegisterGlobalEvent(506, nil, function()
     evt.SetMessage("Fallen or dead trees can sometimes be the hiding place of some treasure or trinket.\nHowever, it can also be home to insects or worse!")
 end)
 
@@ -4989,7 +4989,7 @@ RegisterGlobalEvent(512, "Jasper Steelcoif", function()
     SetAutonote(196) -- Jasper Steelcoif, Grand Master teacher of the Armsmaster skill, can be found on Regna Island.
 end)
 
-RegisterGlobalEvent(513, "Legacy event 513", function()
+RegisterGlobalEvent(513, nil, function()
     if not IsAtLeast(Gold, 1000) then
         evt.SetMessage("I can see your heart is in the right place, but your purse obviously isn't.\nIf you don't have the money, just say so.\nIn any event, good luck dealing with the zombies.\nTa-ta!")
         evt.SetNPCTopic(461, 0, 0) -- Lunius Shador topic 0 cleared
@@ -5003,13 +5003,13 @@ RegisterGlobalEvent(513, "Legacy event 513", function()
     evt.SetNPCTopic(461, 1, 0) -- Lunius Shador topic 1 cleared
 end)
 
-RegisterGlobalEvent(514, "Legacy event 514", function()
+RegisterGlobalEvent(514, nil, function()
     evt.SetMessage("That's a shame.\nWhat a coincidence, I think I see some zombies on the roads.\nPerhaps next time you'll be more inclined to contribute.")
     evt.SetNPCTopic(461, 0, 0) -- Lunius Shador topic 0 cleared
     evt.SetNPCTopic(461, 1, 0) -- Lunius Shador topic 1 cleared
 end)
 
-RegisterGlobalEvent(515, "Legacy event 515", function()
+RegisterGlobalEvent(515, nil, function()
     evt.SetMessage("Excellent!")
     ClearQBit(QBit(764)) -- Bought Item 3
     if IsAtLeast(Gold, 200) then
@@ -6993,7 +6993,7 @@ RegisterGlobalEvent(744, "Rescue", function()
     evt.SetNPCTopic(57, 2, 0) -- Thanys topic 2 cleared
 end)
 
-RegisterGlobalEvent(751, "Legacy event 751", function()
+RegisterGlobalEvent(751, nil, function()
     evt.SetMessage("If you win, you'll be in charge of one of the most scenic areas in all Erathia!\nHarmondale is just outside of the Tularean Forest, right on the edge of the Elf-Human border.\nAnd I'm sure you'll love the castle.\nIt's a bit of a fixer-upper, but it's quite roomy and has excellent ventilation.\nIt breaks my heart to part with this property, but I feel that the time has come for me to give something back to the people.")
 end)
 RegisterCanShowTopic(751, function()
@@ -7008,7 +7008,7 @@ RegisterCanShowTopic(751, function()
     end
 end)
 
-RegisterGlobalEvent(752, "Legacy event 752", function()
+RegisterGlobalEvent(752, nil, function()
     evt.SetMessage("Isn't this hunt exciting?\nI really am grateful you came to my little event, and I hope you have fun, even if you don't win.\nI think it's great that everyone is competing in a spirit of good sportsmanship and camaraderie.")
 end)
 RegisterCanShowTopic(752, function()
@@ -7023,7 +7023,7 @@ RegisterCanShowTopic(752, function()
     end
 end)
 
-RegisterGlobalEvent(753, "Legacy event 753", function()
+RegisterGlobalEvent(753, nil, function()
     evt.SetMessage("Congratulations!\nYou are the new Lords of Harmondale!\nIsn't it thrilling?\nYou can't imagine how good it feels for me to give this property away to you!\nAll of the benefits and rewards, and of course, the responsibilities of governing the town of Harmondale are now yours.\n(Lord Markham produces a deed and contract) Just sign here...And here... And if I could just get your initials here... Yes!\nWell, that's that!\nYou're all set.\nAnd once again, congratulations!!!")
     evt.SetNPCTopic(340, 2, 754) -- Lord Markham topic 2: Your ship…
     ClearQBit(QBit(1683)) -- Replacement for NPCs ¹3 ver. 7
@@ -7045,7 +7045,7 @@ RegisterCanShowTopic(753, function()
     end
 end)
 
-RegisterGlobalEvent(754, "Legacy event 754", function()
+RegisterGlobalEvent(754, nil, function()
     evt.SetMessage("Well, the ship that will take you to your fiefdom awaits you in the harbor.\nMy entourage and I will be taking a different ship out.\nJust board whenever you're ready.")
     SetQBit(QBit(527)) -- Able to use boat to get off Emerald Island
     evt.SetNPCTopic(350, 0, 783) -- William Darvees topic 0: Cast off!
@@ -7053,11 +7053,11 @@ RegisterGlobalEvent(754, "Legacy event 754", function()
     evt.SetNPCGreeting(340, 0) -- Lord Markham greeting cleared
 end)
 
-RegisterGlobalEvent(755, "Legacy event 755", function()
+RegisterGlobalEvent(755, nil, function()
     evt.SetMessage("Good afternoon.\nMy duty is to verify that you have all the items necessary to win the contest.\nYou are required to bring a red potion, a longbow, a floor tile from the Temple of the Moon, a wealthy hat, seashell, and an instrument to me.\nYou can bring them in any order, just show them to me one at a time so that I may verify them.")
 end)
 
-RegisterGlobalEvent(756, "Legacy event 756", function()
+RegisterGlobalEvent(756, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(520)) then -- Brought red potion
         goto step_10
@@ -7170,16 +7170,16 @@ RegisterGlobalEvent(756, "Legacy event 756", function()
     evt.SetMessage("I'm sorry, but nothing you have is necessary for the hunt.\nI don't mean to belittle what you have, but I'm not looking for any of it.")
 end)
 
-RegisterGlobalEvent(757, "Legacy event 757", function()
+RegisterGlobalEvent(757, nil, function()
     evt.SetMessage("Welcome to Emerald Island!")
     evt.SetNPCTopic(342, 0, 758) -- Margaret the Docent topic 0: Emerald Island
 end)
 
-RegisterGlobalEvent(758, "Legacy event 758", function()
+RegisterGlobalEvent(758, nil, function()
     evt.SetMessage("Emerald Island is southeast of Erathia, and far away from pirates and other ruffians.\nIt would be ideal, if not for the constant swarms of dragonflies that infest the island.\nFortunately, the large number of armed and skilled people this contest has attracted should thin their numbers a bit.Lord Markham has supplemented the normally sparse village with a weapon, armor, and alchemist shop for your convenience during the contest.\nA temple and basic magical guilds are also available.\nI would suggest making sure that you are completely ready before you start off on the contest.")
 end)
 
-RegisterGlobalEvent(759, "Legacy event 759", function()
+RegisterGlobalEvent(759, nil, function()
     evt.SetMessage("The rules of the contest are simple:\nThe first person to return with the items is the winner.\nAll you need to do is collect a wealthy hat, a red potion, a longbow, a seashell, a musical instrument, and a floor tile from the Temple of the Moon and bring them to the judge to win.")
 end)
 RegisterCanShowTopic(759, function()
@@ -7194,15 +7194,15 @@ RegisterCanShowTopic(759, function()
     end
 end)
 
-RegisterGlobalEvent(760, "Legacy event 760", function()
+RegisterGlobalEvent(760, nil, function()
     evt.SetMessage("Are you contestants in Lord Markham's Scavenger Hunt?\nHow neat!\nI'm here to provide entertainment to Lord Markham's entourage, the contestants, and to anyone else that would like to hear a song.")
 end)
 
-RegisterGlobalEvent(761, "Legacy event 761", function()
+RegisterGlobalEvent(761, nil, function()
     evt.SetMessage("I own a few instruments, but I only brought my lute with me.\nIts old and not quite as well kept as some of the others, but I didn't want one of my good instruments stolen by pirates or damaged from exposure to the humid, salty air.")
 end)
 
-RegisterGlobalEvent(762, "Legacy event 762", function()
+RegisterGlobalEvent(762, nil, function()
     evt.ForPlayer(Players.All)
     evt.SetMessage("You say you need an instrument for the Scavenger Hunt?\nI suppose you could buy my lute, but I've had it for such a long time.\nI guess I'd part with it for 500 gold.\nInterested?")
     evt.SetNPCTopic(343, 2, 763) -- Ailyssa the Bard topic 2: Buy Lute for 500 gold
@@ -7225,7 +7225,7 @@ RegisterCanShowTopic(762, function()
     end
 end)
 
-RegisterGlobalEvent(763, "Legacy event 763", function()
+RegisterGlobalEvent(763, nil, function()
     if not IsAtLeast(Gold, 500) then
         evt.SetMessage("It would help if you had the 500 gold pieces.")
         return
@@ -7238,16 +7238,16 @@ RegisterGlobalEvent(763, "Legacy event 763", function()
     evt.SetNPCTopic(343, 1, 0) -- Ailyssa the Bard topic 1 cleared
 end)
 
-RegisterGlobalEvent(764, "Legacy event 764", function()
+RegisterGlobalEvent(764, nil, function()
     evt.SetMessage("I love being out on this side of the island, the view of the ocean is much better than from town, don't you agree?")
 end)
 
-RegisterGlobalEvent(765, "Legacy event 765", function()
+RegisterGlobalEvent(765, nil, function()
     evt.SetMessage("I have some nice sea shells for sale, shells that you can only find on Emerald Island.\nCan I sell one to you?\nThey're only a hundred gold pieces each.")
     evt.SetNPCTopic(344, 1, 766) -- Sally topic 1: Buy Seashell for 100 gold
 end)
 
-RegisterGlobalEvent(766, "Legacy event 766", function()
+RegisterGlobalEvent(766, nil, function()
     if not IsAtLeast(Gold, 100) then
         evt.SetMessage("I really can't go any less than 100 gold; I need to make a living, too.")
         return
@@ -7257,7 +7257,7 @@ RegisterGlobalEvent(766, "Legacy event 766", function()
     evt.SetMessage("Here you go, I hope it reminds you of your trip to Emerald Island.")
 end)
 
-RegisterGlobalEvent(767, "Legacy event 767", function()
+RegisterGlobalEvent(767, nil, function()
     evt.SetMessage("We have reason to believe that whoever is in charge of Harmondale in the next few months will have an unprecedented opportunity to shape the future.")
 end)
 RegisterCanShowTopic(767, function()
@@ -7272,7 +7272,7 @@ RegisterCanShowTopic(767, function()
     end
 end)
 
-RegisterGlobalEvent(768, "Legacy event 768", function()
+RegisterGlobalEvent(768, nil, function()
     evt.SetMessage("Allow me to introduce myself.\nMy name is Mr. Malwick.\nI represent a group of, shall we say, \"investors in the future\".\nI have been observing you since you arrived on this island, and I believe your values and goals have much in common with ours.\nI am empowered to grant you a fireball wand to help you win the Hunt today, in exchange for a favor in the future.\nWhat do you say?")
     evt.SetNPCTopic(345, 0, 769) -- Mr. Malwick topic 0: Accept Wand
     evt.SetNPCTopic(345, 1, 770) -- Mr. Malwick topic 1: Decline Wand
@@ -7294,7 +7294,7 @@ RegisterCanShowTopic(768, function()
     end
 end)
 
-RegisterGlobalEvent(769, "Legacy event 769", function()
+RegisterGlobalEvent(769, nil, function()
     evt.SetMessage("Excellent.\nSometime in the future, I or a representative of my group will call on you to return the favor.\nI hope you won't disappoint us.\nHere is your fireball wand.\nWe should not be seen talking again, the others might get suspicious.")
     SetQBit(QBit(526)) -- Accepted Fireball wand from Malwick
     SetAutonote(257) -- Accepted fireball wand from Mr. Malwick on Emerald Island.
@@ -7315,7 +7315,7 @@ RegisterCanShowTopic(769, function()
     end
 end)
 
-RegisterGlobalEvent(770, "Legacy event 770", function()
+RegisterGlobalEvent(770, nil, function()
     evt.SetMessage("I respect your decision.\nI am, however, a patient man, and will offer you this chance until a winner in the contest is proclaimed.")
     evt.SetNPCTopic(345, 0, 767) -- Mr. Malwick topic 0: Harmondale
     evt.SetNPCTopic(345, 1, 768) -- Mr. Malwick topic 1: Proposal
@@ -7332,7 +7332,7 @@ RegisterCanShowTopic(770, function()
     end
 end)
 
-RegisterGlobalEvent(771, "Legacy event 771", function()
+RegisterGlobalEvent(771, nil, function()
     evt.SetMessage("I see you have a fine hat, there.\nHow about a deal:\nYou give me your hat, and we let you keep your lives?")
     evt.SetNPCTopic(346, 0, 773) -- Sal Sharktooth topic 0: Give Hat to Sal
     evt.SetNPCTopic(346, 1, 774) -- Sal Sharktooth topic 1: Keep Hat
@@ -7349,11 +7349,11 @@ RegisterCanShowTopic(771, function()
     end
 end)
 
-RegisterGlobalEvent(772, "Legacy event 772", function()
+RegisterGlobalEvent(772, nil, function()
     evt.SetMessage("This Temple is a pretty nasty place.")
 end)
 
-RegisterGlobalEvent(773, "Legacy event 773", function()
+RegisterGlobalEvent(773, nil, function()
     evt.SetMessage("Thanks for the hat, friend!")
     evt.ForPlayer(Players.All)
     RemoveItem(1433) -- Wealthy Hat
@@ -7362,18 +7362,18 @@ RegisterGlobalEvent(773, "Legacy event 773", function()
     evt.SetNPCItem(346, 1433, 1)
 end)
 
-RegisterGlobalEvent(774, "Legacy event 774", function()
+RegisterGlobalEvent(774, nil, function()
     evt.SetMessage("You should have accepted my offer…")
     evt.SetNPCTopic(346, 0, 0) -- Sal Sharktooth topic 0 cleared
     evt.SetNPCTopic(346, 1, 0) -- Sal Sharktooth topic 1 cleared
     evt.SetMonGroupBit(54, MonsterBits.Hostile, 1)
 end)
 
-RegisterGlobalEvent(775, "Legacy event 775", function()
+RegisterGlobalEvent(775, nil, function()
     evt.SetMessage("You should have listened to me; I warned you this was a nasty place.")
 end)
 
-RegisterGlobalEvent(776, "Legacy event 776", function()
+RegisterGlobalEvent(776, nil, function()
     evt.SetMessage("I take this to mean you don't wish to accept my proposal.")
     evt.SetNPCTopic(345, 2, 0) -- Mr. Malwick topic 2 cleared
 end)
@@ -7389,7 +7389,7 @@ RegisterCanShowTopic(776, function()
     end
 end)
 
-RegisterGlobalEvent(777, "Legacy event 777", function()
+RegisterGlobalEvent(777, nil, function()
     evt.SetMessage("Hello there!\nI suppose you're part of the contest?\nGood to hear.\nWe were wondering if you would want to trade a red potion, assuming you have one, for a hat.\nWe could help each other along a little.")
     evt.SetNPCTopic(347, 0, 780) -- Brent Filiant topic 0: Trade Potion for Hat
     evt.SetNPCTopic(347, 1, 781) -- Brent Filiant topic 1: Keep Potion
@@ -7407,15 +7407,15 @@ RegisterCanShowTopic(777, function()
     end
 end)
 
-RegisterGlobalEvent(778, "Legacy event 778", function()
+RegisterGlobalEvent(778, nil, function()
     evt.SetMessage("The toughest band of contestants have apparently hid out in the Temple of the Moon.")
 end)
 
-RegisterGlobalEvent(779, "Legacy event 779", function()
+RegisterGlobalEvent(779, nil, function()
     evt.SetMessage("I know how to make a blue potion, but not red ones…Just about any blue herb will do.\nJust mix it with an empty bottle and voila!\nInstant blue potion.\nI guess that making a red potion is similar, but I'm not sure.\nThey say mixing potions improperly can have really bad effects.")
 end)
 
-RegisterGlobalEvent(780, "Legacy event 780", function()
+RegisterGlobalEvent(780, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(222) then -- Cure Wounds
         evt.SetMessage("Is this some sort of trick?\nYou don't even have a red potion.\nYou don't think I'll just give you the hat, do you?")
@@ -7436,18 +7436,18 @@ RegisterGlobalEvent(780, "Legacy event 780", function()
     evt.SetNPCTopic(347, 2, 779) -- Brent Filiant topic 2: Blue Potions
 end)
 
-RegisterGlobalEvent(781, "Legacy event 781", function()
+RegisterGlobalEvent(781, nil, function()
     evt.SetMessage("What's the matter?\nYou don't like to work with others?\nFine then, you'll get no help from us.")
     evt.SetNPCTopic(347, 0, 777) -- Brent Filiant topic 0: Potion for a Hat?
     evt.SetNPCTopic(347, 1, 778) -- Brent Filiant topic 1: Brigands
     evt.SetNPCTopic(347, 2, 779) -- Brent Filiant topic 2: Blue Potions
 end)
 
-RegisterGlobalEvent(782, "Legacy event 782", function()
+RegisterGlobalEvent(782, nil, function()
     evt.SetMessage("Sorry mates, this vessel's moored until a winner has been declared in the contest.")
 end)
 
-RegisterGlobalEvent(783, "Legacy event 783", function()
+RegisterGlobalEvent(783, nil, function()
     evt.SetMessage("Good job, mates!\nWe'll be heading off for Harmondale right now.\nCongratulations.")
     ClearQBit(QBit(528)) -- Find the missing contestants on Emerald Island and bring back proof to Lord Markham.
     evt.SetNPCTopic(340, 3, 0) -- Lord Markham topic 3 cleared
@@ -7458,13 +7458,13 @@ RegisterGlobalEvent(783, "Legacy event 783", function()
     evt.MoveToMap(-17331, 12547, 465, 1024, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end)
 
-RegisterGlobalEvent(784, "Legacy event 784", function()
+RegisterGlobalEvent(784, nil, function()
     evt.SetMessage("Keep in mind I have a 1000 gold reward for the group to bring back information on the contestants that have disappeared.")
     evt.SetNPCTopic(340, 3, 785) -- Lord Markham topic 3: Missing Contestants
     SetQBit(QBit(528)) -- Find the missing contestants on Emerald Island and bring back proof to Lord Markham.
 end)
 
-RegisterGlobalEvent(785, "Legacy event 785", function()
+RegisterGlobalEvent(785, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1460) then -- Contestant's Shield
         evt.SetMessage("No news on the missing people yet?")
@@ -7481,51 +7481,51 @@ RegisterGlobalEvent(785, "Legacy event 785", function()
     evt.SetNPCTopic(340, 3, 0) -- Lord Markham topic 3 cleared
 end)
 
-RegisterGlobalEvent(786, "Legacy event 786", function()
+RegisterGlobalEvent(786, nil, function()
     evt.SetMessage("Hmm… I recall a few strangers poking around the entrance to the Dragon's Cave recently.\nI didn't notice if they went inside, but I haven't seen them around since.\nThey must have realized how dangerous that place is and headed back to town.")
 end)
 
-RegisterGlobalEvent(787, "Legacy event 787", function()
+RegisterGlobalEvent(787, nil, function()
     evt.SetMessage("The cave right behind my house is not the Abandoned Temple.\nIt belongs to Morcarack the Pitiless, the Dragon of Emerald Island.\nHe doesn't appreciate visitors, so I wouldn't advise going there.\nThe Abandoned Temple is buried in the hill south of my house.\nYou can get to it by entering the caves at the top of the hill.")
 end)
 
-RegisterGlobalEvent(788, "Legacy event 788", function()
+RegisterGlobalEvent(788, nil, function()
     evt.SetMessage("Wild Dragonflies have infested the northwestern side of Emerald Island recently, making it dangerous to store things in our shed out there.\nDragonflies aren't terribly powerful, but they are fast and can even occasionally shoot fire at you.\nDon't take them too lightly!")
 end)
 
-RegisterGlobalEvent(789, "Legacy event 789", function()
+RegisterGlobalEvent(789, nil, function()
     evt.SetMessage("The Dragon of Emerald Island lives in a cave in the northeast.\nI wouldn't go there, though, he doesn't like visitors.\nHe spares our town so that we may pay him tribute, and in return he keeps pirates and undesirables out.")
 end)
 
-RegisterGlobalEvent(790, "Legacy event 790", function()
+RegisterGlobalEvent(790, nil, function()
     evt.SetMessage("You're contestants in the Scavenger Hunt?\nIf so, I wouldn't wander off to the Dragon Cave, then.\nMorcarack doesn't tolerate strangers very well.\nI bet the missing people went there thinking his cave was the Abandoned Temple--they're probably long dead.")
 end)
 
-RegisterGlobalEvent(791, "Legacy event 791", function()
+RegisterGlobalEvent(791, nil, function()
     evt.SetMessage("I'd watch those other contestants-- some of them seem ruthless.\nOne particularly nasty group headed to the north side of the island, and I haven't seen them since.\nI'm surprised at the attention this contest has received, apparently people are hoping to get on the good side of the contestants for future favors if they win.")
 end)
 
-RegisterGlobalEvent(792, "Legacy event 792", function()
+RegisterGlobalEvent(792, nil, function()
     evt.SetMessage("You have decided that you no longer desire my information about the places on Emerald Island.\nIf you later decide that you'd like to hear what I have to say, find me in the Two Palms tavern and then select Tour On.")
     SetQBit(QBit(529)) -- No more docent babble
     evt.SetNPCTopic(342, 2, 793) -- Margaret the Docent topic 2: Tour On
     evt.MoveNPC(342, 239) -- Margaret the Docent -> Two Palms Tavern
 end)
 
-RegisterGlobalEvent(793, "Legacy event 793", function()
+RegisterGlobalEvent(793, nil, function()
     evt.SetMessage("You have decided to listen to my tour about the points of interest on Emerald Island.")
     ClearQBit(QBit(529)) -- No more docent babble
     evt.SetNPCTopic(342, 2, 792) -- Margaret the Docent topic 2: Tour Off
     evt.MoveNPC(342, 0) -- Margaret the Docent -> removed
 end)
 
-RegisterGlobalEvent(794, "Legacy event 794", function()
+RegisterGlobalEvent(794, nil, function()
     evt.SetMessage("Though the law may decide who is guilty and who is not, I decide who is called Thief, and who is just a criminal.\nBring me that lovely vase I saw on the mantle in Lord Markham’s manor, and I shall call you Rogue.")
     SetQBit(QBit(530)) -- Go to Lord Markham's estate in Tatalia, steal the vase there, and return it to William Lasker in the Erathian Sewers.
     evt.SetNPCTopic(354, 0, 795) -- William Lasker topic 0: Rogue
 end)
 
-RegisterGlobalEvent(795, "Legacy event 795", function()
+RegisterGlobalEvent(795, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1426) then -- Vase
         evt.SetMessage("Common criminals steal whatever catches their eye; Rogues steal what I tell them to steal.\nI shall not grant titles to failures.\nReturn with Lord Markham’s Vase and I will promote all Thieves to Rogues, and all non-thieves to Honorary Rogues.")
@@ -7552,7 +7552,7 @@ RegisterGlobalEvent(795, "Legacy event 795", function()
     evt.SetNPCTopic(354, 0, 796) -- William Lasker topic 0: Spy
 end)
 
-RegisterGlobalEvent(796, "Legacy event 796", function()
+RegisterGlobalEvent(796, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("Your next task is somewhat more difficult…more suited for Spies than Rogues.\nI have been asked to ensure that Watchtower 6, the only tower to survive the recent wars against the Necromancers, be unable to defend itself the next time it is attacked.\nKilling the guards inside won’t help—the Necromancers will just fill it again with more troops.\nThe tower is on the southern edge of the Necromancers’ land.\nI want you to slip inside and move the counterweight in the gatehouse at the top of the tower to the gatehouse at the bottom of the tower.\nIt is a heavy weight that can be found in a slot against the wall with a rope tied to it.\nWhen the time comes for an attack, the misplaced weights will be noticed too late, and the gate will not close.\nIf you can do this, you will have proven your status as a Spy.")
@@ -7565,7 +7565,7 @@ RegisterGlobalEvent(796, "Legacy event 796", function()
     end
 end)
 
-RegisterGlobalEvent(797, "Legacy event 797", function()
+RegisterGlobalEvent(797, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(532)) then -- Watchtower 6. Weight in the appropriate box. Important for Global event 47 (Spy promotion)
         evt.SetMessage("Good work!\nSome day, your sabotage of that watchtower will save hundreds of lives.\nFor your services, I hereby promote the Rogues among you to the status of Spy, and the Honorary Rogues to Honorary Spies! Oh, and here’s some gold as payment. ")
@@ -7595,13 +7595,13 @@ RegisterGlobalEvent(797, "Legacy event 797", function()
     end
 end)
 
-RegisterGlobalEvent(798, "Legacy event 798", function()
+RegisterGlobalEvent(798, nil, function()
     if IsAtLeast(EnduranceBonus, 50) then return end
     SetValue(EnduranceBonus, 50)
     evt.StatusText("Refreshing! (+50 Endurance temporary)")
 end)
 
-RegisterGlobalEvent(799, "Legacy event 799", function()
+RegisterGlobalEvent(799, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("You have chosen the path of Light, and therefore can never become an effective Assassin.\nI cannot train you.\nPerhaps you should continue a softer hearted training with the Spy.")
@@ -7628,7 +7628,7 @@ RegisterGlobalEvent(799, "Legacy event 799", function()
     end
 end)
 
-RegisterGlobalEvent(800, "Legacy event 800", function()
+RegisterGlobalEvent(800, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1342) then -- Lady Carmine's Dagger
         evt.SetMessage("Without proof, I cannot assume Lady Carmine is dead.\nBring me proof, and I will honor you with the title of Assassin.")
@@ -7655,7 +7655,7 @@ RegisterGlobalEvent(800, "Legacy event 800", function()
     evt.SetNPCGreeting(355, 157) -- Seknit Undershadow greeting: Hello again, fellow Assassins. My tea and company are always yours.
 end)
 
-RegisterGlobalEvent(801, "Legacy event 801", function()
+RegisterGlobalEvent(801, nil, function()
     evt.SetMessage("Ha! So, thee wishes to take the test to be a crusader?\nI cannot blame thee—the sense of pride one feels when one has accomplished a heroic deed is sublime!\nThe test is simple.\nA dragon must be slain.\nI know just the one—Wromthrax the Heartless!\nHe lives in a cave in Tatalia, and terrorizes the peasants who live near him when he’s home.\nHe should be in the cave this time of year.\nBecause this is probably thine first dragon, I will travel with thee to give thee pointers.\nSo, let us go forthwith, and spill this monster’s black blood!")
     evt.SetNPCTopic(356, 0, 802) -- Sir Charles Quixote topic 0: Crusader
     evt.MoveNPC(356, 0) -- Sir Charles Quixote -> removed
@@ -7664,7 +7664,7 @@ RegisterGlobalEvent(801, "Legacy event 801", function()
     SetQBit(QBit(1684)) -- Replacement for NPCs ¹17 ver. 7
 end)
 
-RegisterGlobalEvent(802, "Legacy event 802", function()
+RegisterGlobalEvent(802, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(535)) then -- Killed dragon when on Crusader quest
         evt.SetMessage("We must finish our quest before I can name thee Crusaders, friends.")
@@ -7691,7 +7691,7 @@ RegisterGlobalEvent(802, "Legacy event 802", function()
     evt.SetNPCGreeting(356, 158) -- Sir Charles Quixote greeting: Hail. I am Sir Charles Quixote. I am the humble champion of the people, and I am at thy service.
 end)
 
-RegisterGlobalEvent(803, "Legacy event 803", function()
+RegisterGlobalEvent(803, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("I am pleased to see thee chose the path of Light, Crusaders!\nA wrong has been committed, friends, and who else but us can put it right?\nA wicked villain has kidnapped a fair maiden by the name of Alice Hargreaves.\nHis name is William Setag, and he has imprisoned her in his tower.\nYou must ride forthwith to put this villain to the sword and rescue sweet Alice!\nIf you succeed, you will truly be Heroes of the Land!")
         evt.SetNPCTopic(356, 0, 804) -- Sir Charles Quixote topic 0: Hero
@@ -7705,7 +7705,7 @@ RegisterGlobalEvent(803, "Legacy event 803", function()
     end
 end)
 
-RegisterGlobalEvent(804, "Legacy event 804", function()
+RegisterGlobalEvent(804, nil, function()
     if not IsQBitSet(QBit(1685)) then -- Replacement for NPCs ¹54 ver. 7
         evt.SetMessage("Though thy deeds remain impressive indeed, crusaders, I cannot declare thee Heroes until you have rescued the girl!")
         return
@@ -7731,7 +7731,7 @@ RegisterGlobalEvent(804, "Legacy event 804", function()
     evt.SetNPCTopic(356, 0, 0) -- Sir Charles Quixote topic 0 cleared
 end)
 
-RegisterGlobalEvent(805, "Legacy event 805", function()
+RegisterGlobalEvent(805, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         if not IsQBitSet(QBit(537)) then -- Mini-dungeon Area 5. Rescued/Captured Alice Hargreaves.
             evt.SetMessage("Help!\nWilliam has captured me and imprisoned me in this tower.\nPlease get me out of here as quickly as possible, I don't want to die.")
@@ -7754,7 +7754,7 @@ RegisterGlobalEvent(805, "Legacy event 805", function()
     end
 end)
 
-RegisterGlobalEvent(806, "Legacy event 806", function()
+RegisterGlobalEvent(806, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("I'd certainly love nothing more than to corrupt your obviously pious soul, but I'm afraid you wouldn't have the stomach to follow through with my teachings.\nYou have chosen the Path of Light, you will garner no assistance from me.")
         return
@@ -7778,7 +7778,7 @@ RegisterGlobalEvent(806, "Legacy event 806", function()
     end
 end)
 
-RegisterGlobalEvent(807, "Legacy event 807", function()
+RegisterGlobalEvent(807, nil, function()
     if not IsQBitSet(QBit(1685)) then -- Replacement for NPCs ¹54 ver. 7
         evt.SetMessage("Where's Alice?\nI'm not asking for much, just a simple kidnapping.\nIs it really that difficult?\nI suggest you speed up your efforts.")
         return
@@ -7804,17 +7804,17 @@ RegisterGlobalEvent(807, "Legacy event 807", function()
     ClearQBit(QBit(1685)) -- Replacement for NPCs ¹54 ver. 7
 end)
 
-RegisterGlobalEvent(808, "Legacy event 808", function()
+RegisterGlobalEvent(808, nil, function()
     evt.SetMessage("Ah, it is normal for novice Monks to ask for the path of enlightenment.\nI shall tell you of the path, though the journey is yours to make.\nIn the Barrow Downs is a series of tombs-- one of which was constructed on a site of great natural power.\nYou will know the right barrow because it is different from the rest.\nReach this barrow and meditate by the water, and your promotion to Initiate will be complete.")
     SetQBit(QBit(539)) -- Find the lost meditation spot in the Dwarven Barrows.
     evt.SetNPCTopic(377, 0, 809) -- Bartholomew Hume topic 0: Initiate
 end)
 
-RegisterGlobalEvent(809, "Legacy event 809", function()
+RegisterGlobalEvent(809, nil, function()
     evt.SetMessage("You have not finished your journey.")
 end)
 
-RegisterGlobalEvent(810, "Legacy event 810", function()
+RegisterGlobalEvent(810, nil, function()
     evt.SetMessage("[Bartholomew Hume contacts you mentally] Congratulations, young ones.\nMy final lesson given to you as Monks is this:\nenlightenment is gained by the journey, not the destination.\nIn this case, the destination was critical to prove that you were capable of the journey.\nI shall now promote all Monks to Initiates and everyone else to Honorary Initiates-- congratulations.")
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -7833,7 +7833,7 @@ RegisterGlobalEvent(810, "Legacy event 810", function()
     evt.SetNPCTopic(394, 0, 0) -- Bartholomew Hume topic 0 cleared
 end)
 
-RegisterGlobalEvent(811, "Legacy event 811", function()
+RegisterGlobalEvent(811, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         evt.SetMessage("I am sorry, but I am permitted to train you no longer.\nYou will need to find a new Master to learn from.")
         return
@@ -7847,7 +7847,7 @@ RegisterGlobalEvent(811, "Legacy event 811", function()
     end
 end)
 
-RegisterGlobalEvent(812, "Legacy event 812", function()
+RegisterGlobalEvent(812, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(755)) then -- Killed High Preist of Baa
         evt.SetMessage("The Temple of Baa still stands, their High Priest still lives.\nUntil this is completed, you are not ready for the title of Master.\nGo now and do not fail.")
@@ -7873,7 +7873,7 @@ RegisterGlobalEvent(812, "Legacy event 812", function()
     evt.SetNPCGreeting(377, 167) -- Bartholomew Hume greeting: Fellow Masters! It is good to see you, how may I do you service?
 end)
 
-RegisterGlobalEvent(813, "Legacy event 813", function()
+RegisterGlobalEvent(813, nil, function()
     if IsQBitSet(QBit(1572)) then -- Promoted to Initiate
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("[Stephan Sand sneers] YOU want ME to teach you something?")
@@ -7908,7 +7908,7 @@ RegisterGlobalEvent(813, "Legacy event 813", function()
     end
 end)
 
-RegisterGlobalEvent(814, "Legacy event 814", function()
+RegisterGlobalEvent(814, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(754)) then -- Opened chest with shadow mask
         evt.SetMessage("Well done.\nNo one can argue with success except apologists for the weak and the cowardly.\nI hereby promote all Initiates to Ninjas, and all non-Initiates to Honorary Ninjas.\nOh yeah, go ahead and keep that little trinket you stole from the tomb.\nThis was just a training exercise, after all.")
@@ -7935,7 +7935,7 @@ RegisterGlobalEvent(814, "Legacy event 814", function()
     end
 end)
 
-RegisterGlobalEvent(815, "Legacy event 815", function()
+RegisterGlobalEvent(815, nil, function()
     if IsQBitSet(QBit(1584)) then -- Promoted to Warrior Mage
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("A few generations ago, an enchanted bow was created by alchemists in the Tularean Forest to seal another peace treaty between the elves and the humans.\nWhile en route to Erathia, the bow was taken from the couriers by the Titans in Avlee.\nThey have no use for the thing, so it's probably in their stronghold still.\nStrike a blow for our profession, and get that bow back.\nIt is absolutely the finest thing of its kind ever made.\nOh, and while you're there, feel free to cut some of those bullies down to size--They stole it out of cruelty, not need!\nIf you are successful, I will promote all Warrior Mages to Master Archers, or honorary Master Archers, as the case may be.")
@@ -7962,7 +7962,7 @@ RegisterGlobalEvent(815, "Legacy event 815", function()
     end
 end)
 
-RegisterGlobalEvent(816, "Legacy event 816", function()
+RegisterGlobalEvent(816, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1344) then -- The Perfect Bow
         evt.SetMessage("No luck getting the bow?\nWell, take your time, and plan your assault against the Titans carefully.\nAgainst such powerful opponents, there is no shame in striking and retreating.\nDo what you must to defeat these monsters.")
@@ -7991,7 +7991,7 @@ RegisterGlobalEvent(816, "Legacy event 816", function()
     evt.SetNPCGreeting(379, 172) -- Lawrence Mark greeting: Welcome my friends! That's a fine weapon you have there, but don't think for a moment you'll best me in this year's Tourney--I'm still the Master!
 end)
 
-RegisterGlobalEvent(817, "Legacy event 817", function()
+RegisterGlobalEvent(817, nil, function()
     evt.SetMessage("[Wheeze] So you think you can become Warrior Mages, do you?\nIt isn't easy.\nYou must be equally proficient in magical skills and physical skills.\nThere is a test of this.\nVisit the Red Dwarf Mines.\nInside you will find two kinds of beasts--one that can be harmed only with magic, and one that can be harmed only with steel.\nIn the back of the lower section of the mines you will find a machine created by the Dwarves that powers the lift-- the only access between the upper and lower sections of the mines.\nTo keep the creatures trapped in the lower section, you will have to replace the belt in the machine with this one, a worn belt that will only last about an hour before breaking.\nThis should give you enough time to get to the lift and get out before you are trapped down there.\nSeal away these creatures and return to me-- only then will I call you Warrior Mages.")
     AddValue(InventoryItem(1451), 1451) -- Worn Belt
     SetQBit(QBit(543)) -- Sabotage the lift in the Red Dwarf Mines in the Bracada Desert then return to Steagal Snick in Avlee.
@@ -7999,7 +7999,7 @@ RegisterGlobalEvent(817, "Legacy event 817", function()
     evt.SetNPCTopic(380, 0, 818) -- Steagal Snick topic 0: Warrior Mage
 end)
 
-RegisterGlobalEvent(818, "Legacy event 818", function()
+RegisterGlobalEvent(818, nil, function()
     if not IsQBitSet(QBit(570)) then -- Destroyed critter generator in dungeon. Warrior Mage promo quest.
         evt.SetMessage("You haven't sabotaged the machine yet.")
         return
@@ -8023,7 +8023,7 @@ RegisterGlobalEvent(818, "Legacy event 818", function()
     evt.SetNPCTopic(380, 0, 819) -- Steagal Snick topic 0: Sniper
 end)
 
-RegisterGlobalEvent(819, "Legacy event 819", function()
+RegisterGlobalEvent(819, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         evt.SetMessage("Getting ambitious, are we?\nThink you can earn the title of sniper?\nPerhaps you can.\nHere is what you must do:\nIn the stronghold of the Titans is a very special bow that was meant as a peace offering from the elves to the humans to quell a conflict long since forgotten.\n[Master Snick shakes his head] Gads! This peace stuff makes me nauseous!\nIn any case, fetch the bow for the good of our profession, and I'll promote you to Sniper.\n[Heh] you better act like snipers if you expect to defeat the Titans.\nA toe to toe...or should I say head to knee fight won't go well for you.")
         SetQBit(QBit(544)) -- Retrieve the Perfect Bow from the Titans' Stronghold in Avlee and return it to Steagal Snick in Avlee.
@@ -8035,7 +8035,7 @@ RegisterGlobalEvent(819, "Legacy event 819", function()
     end
 end)
 
-RegisterGlobalEvent(820, "Legacy event 820", function()
+RegisterGlobalEvent(820, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1344) then -- The Perfect Bow
         evt.SetMessage("More failure? [Master Snick yawns]\nHow surprising.\nI'll make it simple--no bow, no title.")
@@ -8064,7 +8064,7 @@ RegisterGlobalEvent(820, "Legacy event 820", function()
     evt.SetNPCGreeting(380, 174) -- Steagal Snick greeting: Students…[Mr. Snick rasps the word, then smiles] no longer. I am proud to have helped you on your way. Use your new weapon…[wheeze] wisely.
 end)
 
-RegisterGlobalEvent(821, "Legacy event 821", function()
+RegisterGlobalEvent(821, nil, function()
     if IsQBitSet(QBit(1566)) then -- Promoted to Cavalier
         if IsQBitSet(QBit(612)) then -- Chose the path of Dark
             evt.SetMessage("Call you Champions?\nNever!\nThe only reason I'm not hacking you evil doers to bits is that you came here peacefully.\nLeave now, before I change my mind and rid the world of another problem.")
@@ -8095,7 +8095,7 @@ RegisterGlobalEvent(821, "Legacy event 821", function()
     end
 end)
 
-RegisterGlobalEvent(822, "Legacy event 822", function()
+RegisterGlobalEvent(822, nil, function()
     if not IsAtLeast(ArenaWinsKnight, 5) then
         evt.SetMessage("You have not yet won 5 championship tournaments in the Arena.\nReturn to me when you have won five, and I will promote you.\nRemember, these battles MUST be at the Knight difficulty level.")
         return
@@ -8119,13 +8119,13 @@ RegisterGlobalEvent(822, "Legacy event 822", function()
     evt.SetNPCGreeting(381, 176) -- Leda Rowan greeting: Hail, champions! Your courage and skill has all the tongues in the Kingdom wagging! I am very proud of you!
 end)
 
-RegisterGlobalEvent(823, "Legacy event 823", function()
+RegisterGlobalEvent(823, nil, function()
     evt.SetMessage("The hallmark of the Cavalier is courage.\nI can promote you to Cavalier status, but before I'll do that, you'll have to prove to me your bravery in battle.\nSince most people are yellow bellied cowards at heart, I doubt you'll succeed.\nBut if you want to try, here is what you must do: Destroy all the undead in the haunted mansion in the Barrow Downs.")
     SetQBit(QBit(546)) -- Destroy all the undead in the Haunted House in the Barrow Downs and return to Frederick Org in Erathia.
     evt.SetNPCTopic(382, 0, 824) -- Frederick Org topic 0: Cavalier
 end)
 
-RegisterGlobalEvent(824, "Legacy event 824", function()
+RegisterGlobalEvent(824, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(652)) then -- Cleaned out the haunted mansion (Cavalier promo)
         evt.SetMessage("Did one little haunted house send you packing in fear?\nI've seen chocolate eclairs with more backbone than you!\nGet you gone, and don't come back 'til you've stiffened your spine!")
@@ -8149,7 +8149,7 @@ RegisterGlobalEvent(824, "Legacy event 824", function()
     evt.SetNPCTopic(382, 0, 825) -- Frederick Org topic 0: Black Knight
 end)
 
-RegisterGlobalEvent(825, "Legacy event 825", function()
+RegisterGlobalEvent(825, nil, function()
     if IsQBitSet(QBit(612)) then -- Chose the path of Dark
         evt.SetMessage("So you think you can become Black Knights, do you?\nVery well.\nYou know, I've heard many people say that criminals are cowards.\nThat just isn't true.\nIt takes a lot of courage to risk your life in a robbery, or in battle.\nYou've already proven you are courageous, and now it's time to put that courage and your skills to use.\nI want you to rob the Elvish Treasury.\nIt's one of the biggest hoards of treasure in the land, and it is very well guarded.\nDo the deed and abscond with the wealth.\nReturn to me when you've finished.\nThen I will promote you to Black Knights.")
         SetQBit(QBit(547)) -- Raid the Elven Treasury at Castle Navan in the Tularean Forest and return to Frederick Org in Erathia.
@@ -8161,7 +8161,7 @@ RegisterGlobalEvent(825, "Legacy event 825", function()
     end
 end)
 
-RegisterGlobalEvent(826, "Legacy event 826", function()
+RegisterGlobalEvent(826, nil, function()
     if not IsQBitSet(QBit(572)) then -- Robbed Elven treasury. Black Knight promo quest.
         evt.SetMessage("Robbery not complete?")
         return
@@ -8185,7 +8185,7 @@ RegisterGlobalEvent(826, "Legacy event 826", function()
     evt.SetNPCGreeting(382, 178) -- Frederick Org greeting: [Frederick rises hastily to his feet] None shall pass! [he blinks and rubs his eyes] Oh. It's you. Sorry, I thought you were someone else. How goes the villainy?
 end)
 
-RegisterGlobalEvent(827, "Legacy event 827", function()
+RegisterGlobalEvent(827, nil, function()
     if IsQBitSet(QBit(1578)) then -- Promoted to Hunter
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("Well, it looks like you might be able to do the job I have in mind.\nThe fundamental task a Ranger Lord faces is caring for the land.\nRecently, poachers removed a magical gemstone called the \"heart of the forest\" from the Tularean Forest.\nThe forest has become restless, and attacks travelers who come too close.\nThe forest blames all 'Walkers' for the theft, and won't calm down until the stone is returned.\nFind the stone and return it to the oldest tree in the Forest.\nCome back to me when you've done this.")
@@ -8212,7 +8212,7 @@ RegisterGlobalEvent(827, "Legacy event 827", function()
     end
 end)
 
-RegisterGlobalEvent(828, "Legacy event 828", function()
+RegisterGlobalEvent(828, nil, function()
     if IsQBitSet(QBit(553)) then -- Solved Tree quest
         evt.SetMessage("You've done a good thing, returning the Heart.\nThe forest is quieter now, and no longer attacks travelers.\nYou've probably saved many lives.\nFor service to the Land and the Light, I hereby promote all Hunters among you to Ranger Lords, and all honorary Hunters to honorary Ranger Lords!")
         for _, player in ipairs(PartyMembers()) do
@@ -8238,17 +8238,17 @@ RegisterGlobalEvent(828, "Legacy event 828", function()
     end
 end)
 
-RegisterGlobalEvent(829, "Legacy event 829", function()
+RegisterGlobalEvent(829, nil, function()
     evt.SetMessage("Think you can improve?\nI have a test for you.\nA hunter needs to understand the woods, and a hunter needs to be as skilled with magic as with a blade.\nThe best teachers for that are the faeries.\nThere's a faerie mound in Northern Avlee.\nFigure out how to get in, and the Faeries will grant magic to the genuine rangers among you, meaning that they will be promoted to Hunter status.\nThe rest of you will be honorary hunters. ")
     SetQBit(QBit(549)) -- Solve the secret to the entrance of the Faerie Mound in Avlee and speak to the Faerie King.
     evt.SetNPCTopic(384, 0, 830) -- Ebednezer Sower topic 0: Hunter
 end)
 
-RegisterGlobalEvent(830, "Legacy event 830", function()
+RegisterGlobalEvent(830, nil, function()
     evt.SetMessage("Foxed by the Faeries? [Ebednezer snickers, then begins to laugh uproariously at his own wit] Foxed?\nFaeries?\nHahahah!\nGet it?\nFoxed… you know…ah ahahah.\nMaybe not.\nWell, I've already told you how to become Hunters.\nGet inside the Faerie Mound in Avlee.\nNow, stop bothering me!\n")
 end)
 
-RegisterGlobalEvent(831, "Legacy event 831", function()
+RegisterGlobalEvent(831, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("Gahhh!\nI can smell the stink of self righteousness on you!\nGet away from me!\nG'won, get!")
         return
@@ -8262,7 +8262,7 @@ RegisterGlobalEvent(831, "Legacy event 831", function()
     end
 end)
 
-RegisterGlobalEvent(832, "Legacy event 832", function()
+RegisterGlobalEvent(832, nil, function()
     if not IsAtLeast(NumBounties, 10000) then
         evt.SetMessage("Not yet, not good enough!\nYou need to collect more bounties, and more importantly, kill more creatures.\nThere's some good clean fun in that.\nKilling, don't you know.")
         return
@@ -8286,7 +8286,7 @@ RegisterGlobalEvent(832, "Legacy event 832", function()
     evt.SetNPCGreeting(384, 182) -- Ebednezer Sower greeting: Bounty Hunters. [Ebednezer smiles slowly and evilly] Now THERE'S a job! Yes sir. Get things done righteo quick, I'll venture. Heh.
 end)
 
-RegisterGlobalEvent(833, "Legacy event 833", function()
+RegisterGlobalEvent(833, nil, function()
     evt.SetMessage("Come to my door looking for magic?\nThee've always had it, if thee knew where to look.\nSome I tell this to, and they still can't see it, though it be plain as the nose on their face.\nThose amongst thee that are simple Rangers are now Hunters, and those who aren't are but Honorary Hunters.\nClever the ones who can knock on my door!")
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -8316,7 +8316,7 @@ RegisterCanShowTopic(833, function()
     end
 end)
 
-RegisterGlobalEvent(834, "Legacy event 834", function()
+RegisterGlobalEvent(834, nil, function()
     evt.SetMessage("The thieves reached deep inside me to take my Heart.\nThe grapevines say they are hiding in the Mercenary Guild in Tatalia.\nWe would squeeze them, but they aren't close enough to reach.\nWalkers are needed to catch walkers.\nCatch the thieves for us.\nOk?")
     SetQBit(QBit(551)) -- Find the Heart of the Forest in the Mercenary Guild in Tatalia and return it to the Oldest Tree in the Tularean Forest.
     evt.SetNPCTopic(392, 0, 835) -- The Oldest Tree topic 0: Heart of the Wood
@@ -8333,7 +8333,7 @@ RegisterCanShowTopic(834, function()
     end
 end)
 
-RegisterGlobalEvent(835, "Legacy event 835", function()
+RegisterGlobalEvent(835, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1402) then -- Heart of the Wood
         evt.SetMessage("Oh, the forest is still very angry.\nThe grapevines say the thieves have not left their hiding place.\nYou will catch the thieves for us, won't you?")
@@ -8351,7 +8351,7 @@ RegisterGlobalEvent(835, "Legacy event 835", function()
     evt.SetMonGroupBit(61, MonsterBits.Hostile, 0)
 end)
 
-RegisterGlobalEvent(836, "Legacy event 836", function()
+RegisterGlobalEvent(836, nil, function()
     if IsQBitSet(QBit(1607)) then -- Promoted to Priest
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("Priests.\nYou have come to me seeking that I be your guide on the Path of Light.\nBut be warned, to learn its ways, you must learn the ways of your own soul.\nI would suggest that we meditate on this for awhile, but you look like you're in a hurry.\nSouth of Bracada is an island called Evenmorn, and upon that island are the old temples of the Sun and the Moon.\nBoth are inhabited by the remnants of the two religions, their once proud churches reduced to two old temples fighting for a small island.The Church of the Sun was the founding religion for our current faith, the Path of Light.\nI propose we help them out and tip the balance in favor of the Church of the Sun.\nUsing the map that Daedalus Falk sent you to find in order to become priests, convince a sea captain to bring you to the island.\nThere, bring aid and comfort to the Church of the Sun by purifying the altar in the Church of the Moon.\nThis will so weaken the Moon cult that the Church of the Sun will be able to overcome them in battle.\nReturn to me when you have done this.\n ")
@@ -8378,7 +8378,7 @@ RegisterGlobalEvent(836, "Legacy event 836", function()
     end
 end)
 
-RegisterGlobalEvent(837, "Legacy event 837", function()
+RegisterGlobalEvent(837, nil, function()
     if not IsQBitSet(QBit(574)) then -- Purified the Altar of Evil. Priest of Light promo quest.
         evt.SetMessage("You must visit Evenmorn island and purify the Altar of Darkness in the Church of the Moon.")
         return
@@ -8403,13 +8403,13 @@ RegisterGlobalEvent(837, "Legacy event 837", function()
     evt.SetNPCGreeting(385, 188) -- Rebecca Devine greeting: Sunlight Reveal, my fellow Priests. I am so proud to have you as members of our faith!
 end)
 
-RegisterGlobalEvent(838, "Legacy event 838", function()
+RegisterGlobalEvent(838, nil, function()
     evt.SetMessage("[Falk gives you a grandfatherly smile] You have, perhaps, an ambition to be priests?\nI can help you, if you'll help me.\nThere is an island south of Bracada where stands an old temple that I need to find again.\nI think the pirates west of Erathia must know where the island is.\nThe Erathian navy is rather feeble, and hasn't been able to root them out of their hiding places amongst the Tidewater Caverns.\nPerhaps the pirates have a map.\nIf you can bring me that map, I would promote you to Priest status immediately.")
     SetQBit(QBit(555)) -- Find the lost pirate map in the Tidewater Caverns in Tatalia and return to Daedalus Falk in the Deyja Moors.
     evt.SetNPCTopic(386, 0, 839) -- Daedalus Falk topic 0: Priest
 end)
 
-RegisterGlobalEvent(839, "Legacy event 839", function()
+RegisterGlobalEvent(839, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1485) then -- Map to Evenmorn Island
         evt.SetMessage("If there is a map that says where that island is, the map would be in the Tidewater Caverns of western Erathia.\nWhen you bring me that map, then I will be happy to promote you all to Priests.")
@@ -8437,7 +8437,7 @@ RegisterGlobalEvent(839, "Legacy event 839", function()
     SetQBit(QBit(576)) -- Activate boat to area 9. Priest promo quest
 end)
 
-RegisterGlobalEvent(840, "Legacy event 840", function()
+RegisterGlobalEvent(840, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("How dare you insult me with your presence?\nYou have chosen the Path of the Light, and have forever renounced me as your teacher.\nGo now, and wallow in your weakness somewhere else.")
         return
@@ -8451,7 +8451,7 @@ RegisterGlobalEvent(840, "Legacy event 840", function()
     end
 end)
 
-RegisterGlobalEvent(841, "Legacy event 841", function()
+RegisterGlobalEvent(841, nil, function()
     if not IsQBitSet(QBit(575)) then -- Defaced the Altar of Good. Priest of Dark promo quest.
         evt.SetMessage("You must visit Evenmorn island and defile the Altar of Light in the Church of the Sun.")
         return
@@ -8476,14 +8476,14 @@ RegisterGlobalEvent(841, "Legacy event 841", function()
     evt.SetNPCGreeting(386, 190) -- Daedalus Falk greeting: Shadow Conceal, Brethren. Congratulations on your promotion to Priests of the Dark.
 end)
 
-RegisterGlobalEvent(842, "Legacy event 842", function()
+RegisterGlobalEvent(842, nil, function()
     evt.SetMessage("I am indeed the one to speak to if you wish to become Wizards.\nEvery student of mine must complete a project before I name them Wizards.\nThis year's project is to build a golem.\nThere are spare parts scattered about the lands from here to Avlee.\nYou'll need all four limbs plus the torso and the head.\nPay special attention to where you get the head--one of my students made a mistake while making a head last summer and gave the defective head away as a joke.\nWhen you have all the parts, come talk to me.\nI'll promote you to Wizards then, and I'll animate your Golem.\nWell, on your way, and have fun!")
     SetQBit(QBit(557)) -- Collect the six golem pieces and construct a complete golem, then return to Thomas Grey in the School of Sorcery.
     SetQBit(QBit(1686)) -- Replacement for NPCs ¹56 ver. 7
     evt.SetNPCTopic(387, 0, 843) -- Thomas Grey topic 0: Wizard
 end)
 
-RegisterGlobalEvent(843, "Legacy event 843", function()
+RegisterGlobalEvent(843, nil, function()
     if IsQBitSet(QBit(586)) then -- Finished constructing Golem with normal head
         evt.SetMessage("[You proudly display your assembled golem to Master Grey, and he nods approvingly] Well done.\nHead looks alright, but you can never be sure…Well, good work!\nClearly, you qualify for Wizard status.\nAll Sorcerers amongst you are now Wizards, and all non Sorcerers are now honorary Wizards!\n[Master Grey spends awhile casting the spell that animates your golem] He's all yours!\nTake him back to your castle and put him where you want.\nHe'll attack intruders relentlessly.\n")
         for _, player in ipairs(PartyMembers()) do
@@ -8530,7 +8530,7 @@ RegisterGlobalEvent(843, "Legacy event 843", function()
     end
 end)
 
-RegisterGlobalEvent(844, "Legacy event 844", function()
+RegisterGlobalEvent(844, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("Welcome back, students.\nThe golem lesson was just an exercise, but to advance to Archmage, you really have to do something for the profession.\nCopies of the fabled Divine Intervention spell are very rare, and unfortunately the School doesn't have one.\nThere's been a history of bad luck regarding the spell.It has been around for time immemorial, but the spell has never found its way into our hands.\nAlways just out of reach, we often send guild members to find it, but every one has failed.\nSometimes they have it in their hands, but lose it on the way back, other times, the book seems to vanish, only to resurface 20 years later in some old dungeon, or on a deserted island.\nRight now, we think it's in the Breeding Zone in the Pit.\nFind the spell, and return with it.\nBreak the curse!")
         SetQBit(QBit(559)) -- Find the Book of Divine Intervention in the Breeding Zone in the Pit and return it to Thomas Grey in the School of Sorcery.
@@ -8542,7 +8542,7 @@ RegisterGlobalEvent(844, "Legacy event 844", function()
     end
 end)
 
-RegisterGlobalEvent(845, "Legacy event 845", function()
+RegisterGlobalEvent(845, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1289) then -- Divine Intervention
         evt.SetMessage("I expect trouble finding the book, which is why I'm sending you to find it.\nI know you can succeed in this mission.\nKeep trying!")
@@ -8568,7 +8568,7 @@ RegisterGlobalEvent(845, "Legacy event 845", function()
     evt.SetNPCGreeting(387, 192) -- Thomas Grey greeting 192
 end)
 
-RegisterGlobalEvent(846, "Legacy event 846", function()
+RegisterGlobalEvent(846, nil, function()
     if IsQBitSet(QBit(1619)) then -- Promoted to Wizard
         if IsQBitSet(QBit(612)) then -- Chose the path of Dark
             evt.SetMessage("Fear not death?\nI can perform the Ritual on any Wizard.\nYou need a Soul Jar.\nYears ago the Wizards stole a shipment of Jars en route from Nighon to Deyja.\nThe jars are very hard to destroy, so they hid them, thinking we would never be able to find them.Fortunately for us, dead men do indeed tell tales.\nBetter, in fact, than living ones--dead men never forget, never refuse to talk, and never lie.\nSo, we found the one who buried the Jars, and made him die.\nHe was very cooperative after his death, and said he hid them somewhere in the Walls of Mist for the Wizards in Celeste. Retrieve these jars and I will perform the Ritual on all Wizards amongst you.\nThe rest may become Honorary Liches, for what that's worth, in thanks for finding the extra Jars for us.")
@@ -8595,7 +8595,7 @@ RegisterGlobalEvent(846, "Legacy event 846", function()
     end
 end)
 
-RegisterGlobalEvent(847, "Legacy event 847", function()
+RegisterGlobalEvent(847, nil, function()
     local hasAllLichJars = true
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -8633,13 +8633,13 @@ RegisterGlobalEvent(847, "Legacy event 847", function()
 
 end)
 
-RegisterGlobalEvent(848, "Legacy event 848", function()
+RegisterGlobalEvent(848, nil, function()
     evt.SetMessage("Advancement as a Druid is simple.\nYou must visit the three ancient temples to nature we erected centuries ago and pray at their centers.\nThey are in Tatalia, Evenmorn Isle, and Avlee, and look like circles of stone with an altar of water in their centers.\nWhere exactly I will not say, but exploring the land about them is part of the process.\nWhen you have visited all three Circles, return to me to detail your experience.")
     SetQBit(QBit(561)) -- Visit the three stonehenge monoliths in Tatalia, the Evenmorn Islands, and Avlee, then return to Anthony Green in the Tularean Forest.
     evt.SetNPCTopic(389, 0, 849) -- Anthony Green topic 0: Great Druid
 end)
 
-RegisterGlobalEvent(849, "Legacy event 849", function()
+RegisterGlobalEvent(849, nil, function()
     if IsQBitSet(QBit(562)) then -- Visited all stonehenges
         evt.SetMessage("I have only to look into your eyes to see where you've been.\nYou have seen the circles, and they have left their imprint upon you.\nTelling you that all Druids amongst you are now Great Druids is but a formality.\nTelling the rest of you that you're now honorary Druids is showing you respect for the respect you have shown me and my faith.\n")
         for _, player in ipairs(PartyMembers()) do
@@ -8670,7 +8670,7 @@ RegisterGlobalEvent(849, "Legacy event 849", function()
     end
 end)
 
-RegisterGlobalEvent(850, "Legacy event 850", function()
+RegisterGlobalEvent(850, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("To be named an Arch Druid, you must serve the land.\nI know of a service you could perform.\nIn the land above Stone City, where the Dwarves bury their dead, is the barrow of King Zokarr IV.\nHe died fighting in defense of Stone City during the invasion of Erathia by Nighon.\nHis remains were never recovered and still lie in those tunnels.\n\nRetrieve his bones and place them in his coffin in his barrow.\nWhen you have done this, the King will rest, and so will the land.\nReturn to me when you've performed this service, and I will perform the Ceremony of Ascension and name you Arch Druids.")
         SetQBit(QBit(566)) -- Retrieve the bones of the Dwarf King from the tunnels between Stone City and Nighon and place them in their proper resting place in the Barrow Downs, then return to Anthony Green in the Tularean Forest.
@@ -8682,7 +8682,7 @@ RegisterGlobalEvent(850, "Legacy event 850", function()
     end
 end)
 
-RegisterGlobalEvent(851, "Legacy event 851", function()
+RegisterGlobalEvent(851, nil, function()
     if not IsQBitSet(QBit(577)) then -- Barrow downs. Returned the bones of the Dwarf King. Arch Druid promo quest.
         evt.SetMessage("The Service is not easy, but it needs to be done.\nRemember, you must bring the bones of King Zokarr IV from where they lie in the tunnels between Stone City and Nighon to Zokarr's coffin in a secret dwarven barrow.\nOnly then can I perform the Ceremony of Ascension and promote you.")
         return
@@ -8706,7 +8706,7 @@ RegisterGlobalEvent(851, "Legacy event 851", function()
     evt.SetNPCGreeting(389, 196) -- Anthony Green greeting 196
 end)
 
-RegisterGlobalEvent(852, "Legacy event 852", function()
+RegisterGlobalEvent(852, nil, function()
     if IsQBitSet(QBit(1613)) then -- Promoted to Great Druid
         if IsQBitSet(QBit(612)) then -- Chose the path of Dark
             evt.SetMessage("Becoming a Warlock for some is a simple process, and for others it is nearly impossible.\nYou need to find a familiar suited to your personality.\nThe familiar will help to focus your magical abilities and sharpen your concentration.\nSometimes a single familiar can be shared, other times not.\nThe magical effects will not be noticed by anyone but a Great Druid--someone who is already attuned to nature.\nNow, let me see what kind of familiar you will need...[Tor picks up an elaborately carved gem and peers at you through it.\nHe frowns.]\nHmm.\nWell, the good news is that you all need the same familiar, and when you find it, you will be very powerful.\nThe bad news is that you need to find a dragon familiar.\nYou must find a dragon egg.\nBring them back here and I will hatch it, and cast the familiar spell.\nThe baby dragon will imprint to you all, and you to it.\nYou may be able to find an egg in a dragon cave in the Land of the Giants.\n'Ware the mother, though.")
@@ -8733,7 +8733,7 @@ RegisterGlobalEvent(852, "Legacy event 852", function()
     end
 end)
 
-RegisterGlobalEvent(853, "Legacy event 853", function()
+RegisterGlobalEvent(853, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1449) then -- Dragon Egg
         evt.SetMessage("You need to bring me a dragon's egg so you I can hatch your familiar.")
@@ -8761,7 +8761,7 @@ RegisterGlobalEvent(853, "Legacy event 853", function()
     SetQBit(QBit(1687)) -- Replacement for NPCs ¹57 ver. 7
 end)
 
-RegisterGlobalEvent(854, "Legacy event 854", function()
+RegisterGlobalEvent(854, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(578)) then -- Placed Golem torso
         goto step_15
@@ -8912,7 +8912,7 @@ RegisterCanShowTopic(854, function()
     end
 end)
 
-RegisterGlobalEvent(855, "Legacy event 855", function()
+RegisterGlobalEvent(855, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1442) then -- Abbey Normal Golem Head
         RemoveItem(1442) -- Abbey Normal Golem Head
@@ -8965,7 +8965,7 @@ RegisterCanShowTopic(855, function()
     end
 end)
 
-RegisterGlobalEvent(856, "Legacy event 856", function()
+RegisterGlobalEvent(856, nil, function()
     if not IsQBitSet(QBit(647)) then -- Player castle goblins are all dead
         evt.SetMessage("I fear that talking will fail with these goblins, my lords.\nMay I suggest violence?")
         return
@@ -8981,7 +8981,7 @@ RegisterGlobalEvent(856, "Legacy event 856", function()
     SetQBit(QBit(658)) -- Talk to the Dwarves in Stone City in the Barrow Downs to find a way to repair Castle Harmondale.
 end)
 
-RegisterGlobalEvent(857, "Legacy event 857", function()
+RegisterGlobalEvent(857, nil, function()
     evt.SetMessage("So…The new lords of Harmondale I have before me.\nNot impressed.\nDoubt other kings think much of you either.\nHrmph.\nProbably get yourselves killed soon.\nBut maybe there's more than meets the eye here.\nYes.\nMaybe you can do something for me, and I for you.\nMedusas have taken my mines in eastern Bracada.\nTurned a few of my people to stone.\nDangerous monsters, don't want to lose more lives on a rescue.\nOk to lose yours though.\nTake this elixir and pour it on the statues.\nWake them up.\nThen I will fix up your castle.\nGive you respect.\nGo now, and beware the griffins in Bracada.\n")
     SetQBit(QBit(588)) -- Rescue the dwarves from the Red Dwarf Mines and return to the Dwarf King in Stone City in the Barrow Downs.
     ClearQBit(QBit(658)) -- Talk to the Dwarves in Stone City in the Barrow Downs to find a way to repair Castle Harmondale.
@@ -8990,7 +8990,7 @@ RegisterGlobalEvent(857, "Legacy event 857", function()
     evt.SetNPCTopic(398, 0, 858) -- Hothfarr IX topic 0: Rescue Dwarves
 end)
 
-RegisterGlobalEvent(858, "Legacy event 858", function()
+RegisterGlobalEvent(858, nil, function()
     if IsQBitSet(QBit(1688)) then -- Replacement for NPCs ¹60 ver. 7
         if IsQBitSet(QBit(1689)) then -- Replacement for NPCs ¹61 ver. 7
             if IsQBitSet(QBit(1690)) then -- Replacement for NPCs ¹62 ver. 7
@@ -9034,7 +9034,7 @@ RegisterGlobalEvent(858, "Legacy event 858", function()
     evt.SetMessage("Back again, eh?\nYour part of the bargain isn't finished.\nNo help 'til you're done.\n")
 end)
 
-RegisterGlobalEvent(859, "Legacy event 859", function()
+RegisterGlobalEvent(859, nil, function()
     SetQBit(QBit(1688)) -- Replacement for NPCs ¹60 ver. 7
     evt.SetNPCGreeting(399, 204) -- Drathen Keldin greeting 204
 end)
@@ -9050,7 +9050,7 @@ RegisterCanShowTopic(859, function()
     end
 end)
 
-RegisterGlobalEvent(860, "Legacy event 860", function()
+RegisterGlobalEvent(860, nil, function()
     SetQBit(QBit(1689)) -- Replacement for NPCs ¹61 ver. 7
     evt.SetNPCGreeting(400, 205) -- Jaycen Keldin greeting 205
 end)
@@ -9066,7 +9066,7 @@ RegisterCanShowTopic(860, function()
     end
 end)
 
-RegisterGlobalEvent(861, "Legacy event 861", function()
+RegisterGlobalEvent(861, nil, function()
     SetQBit(QBit(1690)) -- Replacement for NPCs ¹62 ver. 7
     evt.SetNPCGreeting(401, 205) -- Yarrow Keldin greeting 205
 end)
@@ -9082,7 +9082,7 @@ RegisterCanShowTopic(861, function()
     end
 end)
 
-RegisterGlobalEvent(862, "Legacy event 862", function()
+RegisterGlobalEvent(862, nil, function()
     SetQBit(QBit(1691)) -- Replacement for NPCs ¹63 ver. 7
     evt.SetNPCGreeting(402, 205) -- Fausil Keldin greeting 205
 end)
@@ -9098,7 +9098,7 @@ RegisterCanShowTopic(862, function()
     end
 end)
 
-RegisterGlobalEvent(863, "Legacy event 863", function()
+RegisterGlobalEvent(863, nil, function()
     SetQBit(QBit(1692)) -- Replacement for NPCs ¹64 ver. 7
     evt.SetNPCGreeting(403, 205) -- Red Keldin greeting 205
 end)
@@ -9114,7 +9114,7 @@ RegisterCanShowTopic(863, function()
     end
 end)
 
-RegisterGlobalEvent(864, "Legacy event 864", function()
+RegisterGlobalEvent(864, nil, function()
     SetQBit(QBit(1693)) -- Replacement for NPCs ¹65 ver. 7
     evt.SetNPCGreeting(404, 205) -- Thom Keldin greeting 205
 end)
@@ -9130,7 +9130,7 @@ RegisterCanShowTopic(864, function()
     end
 end)
 
-RegisterGlobalEvent(865, "Legacy event 865", function()
+RegisterGlobalEvent(865, nil, function()
     SetQBit(QBit(1694)) -- Replacement for NPCs ¹66 ver. 7
     evt.SetNPCGreeting(405, 205) -- Arvin Keldin greeting 205
 end)
@@ -9146,7 +9146,7 @@ RegisterCanShowTopic(865, function()
     end
 end)
 
-RegisterGlobalEvent(866, "Legacy event 866", function()
+RegisterGlobalEvent(866, nil, function()
     if not IsQBitSet(QBit(600)) then -- Talked to Catherine
         evt.SetMessage("Your Queen wishes to speak with you as soon as possible.\nSince the War, she has taken up residence at Gryphonheart Castle in Steadwick.\nThis is strictly business--whenever new lords assume their office she meets with them to make sure there are no misunderstandings.\nQueen Catherine is particularly interested in you, and has told me she wishes to employ your services.")
         return
@@ -9158,7 +9158,7 @@ RegisterGlobalEvent(866, "Legacy event 866", function()
     evt.SetMessage("The queen is very pleased with you!\nThe rescue operation went well, and Loren can no longer be held as a bargaining chip for that wicked King Parson!\nWhen the current Harmondale conflict is over, I'm sure the Queen will reward you for your aid.")
 end)
 
-RegisterGlobalEvent(867, "Legacy event 867", function()
+RegisterGlobalEvent(867, nil, function()
     evt.SetMessage("The Queen tells me your loyalty is very strong.\nYou did the right thing when you informed the Queen of the treachery King Parson was plotting.\nAnd I'll tell you this:\nYour loyalty is not only strong, but it is well placed.\nHarmondale is the rightful province of Erathia, despite Elvish claims to the contrary.\nYour work for us helps to ensure that Harmondale will forever be in the hands of Humans.")
 end)
 RegisterCanShowTopic(867, function()
@@ -9173,7 +9173,7 @@ RegisterCanShowTopic(867, function()
     end
 end)
 
-RegisterGlobalEvent(868, "Legacy event 868", function()
+RegisterGlobalEvent(868, nil, function()
     evt.SetMessage("[Lady Ellen gasps in delight] You have Gryphonheart's Trumpet!\nThis is wonderful!\nWhen it disappeared from the strongbox, we thought it had been stolen by the enemy!\nThank you for bringing it back to us!")
     AddValue(Gold, 5000)
     evt.ForPlayer(Players.All)
@@ -9195,7 +9195,7 @@ RegisterCanShowTopic(868, function()
     end
 end)
 
-RegisterGlobalEvent(869, "Legacy event 869", function()
+RegisterGlobalEvent(869, nil, function()
     evt.SetMessage("I've learned from Queen Catherine that you betrayed us with the old false prisoner trick.")
 end)
 RegisterCanShowTopic(869, function()
@@ -9210,7 +9210,7 @@ RegisterCanShowTopic(869, function()
     end
 end)
 
-RegisterGlobalEvent(870, "Legacy event 870", function()
+RegisterGlobalEvent(870, nil, function()
     if not IsQBitSet(QBit(601)) then -- Talked to elfking
         evt.SetMessage("Though Avlee is not currently in charge of Harmondale, my King, Eldrich Parson of Avlee, lays claim to this territory as our rightful domain.\nThe reasons are complicated, but boil down to the simple fact that Erathia stole our land in the Timber Wars many years ago, and we will not give up until we have it back.\nMy King wishes to speak with you.\nPlease travel to Pierpont in the Tularean Forest and meet with him.\nWe will make it worth your while.")
         return
@@ -9222,7 +9222,7 @@ RegisterGlobalEvent(870, "Legacy event 870", function()
     evt.SetMessage("I've heard of your daring infiltration of Fort Riverstride, and I am impressed!\nOur strategists are analyzing the plans now, and they say the information will be very useful in any assault they mount against the Fort.\nYou have Avlee's gratitude!")
 end)
 
-RegisterGlobalEvent(871, "Legacy event 871", function()
+RegisterGlobalEvent(871, nil, function()
     evt.SetMessage("Word from Court is that you rejected a request from Erathia to break that spy Loren Steel out of prison.\nNot only that, you helped us plant a false prisoner who has been feeding them misinformation ever since he got there.\nAvlee is in your debt!")
 end)
 RegisterCanShowTopic(871, function()
@@ -9237,7 +9237,7 @@ RegisterCanShowTopic(871, function()
     end
 end)
 
-RegisterGlobalEvent(872, "Legacy event 872", function()
+RegisterGlobalEvent(872, nil, function()
     evt.SetMessage("You have Gryphonheart's Trumpet!\nExcellent!\nWe lost track of it during the raid, and were afraid that one of the Erathians got away with it.\nThank you very much for your help!")
     AddValue(Gold, 5000)
     evt.ForPlayer(Players.All)
@@ -9259,7 +9259,7 @@ RegisterCanShowTopic(872, function()
     end
 end)
 
-RegisterGlobalEvent(873, "Legacy event 873", function()
+RegisterGlobalEvent(873, nil, function()
     evt.SetMessage("I've received a warning from my superiors regarding your delivery of falsified plans from Erathia.\nThe King is not amused. And there was some concern that you had more treachery in store for us.\n[Alain smiles, true to his profession] All's fair in love and war, so it's all water under the bridge, eh?\nYes, all is forgotten.\n[The ambassador chuckles heartily].\n")
 end)
 RegisterCanShowTopic(873, function()
@@ -9274,7 +9274,7 @@ RegisterCanShowTopic(873, function()
     end
 end)
 
-RegisterGlobalEvent(874, "Legacy event 874", function()
+RegisterGlobalEvent(874, nil, function()
     evt.SetMessage("[Queen Catherine inclines her head regally] You are the lot that won Lord Markham's silly contest, I see.\nI must admit I had little faith until the Dwarf King recognized you as the rightful rulers of Harmondale.\nYou must have done something to win his respect, or he would have nothing to do with you.\nI'm still not sure what he saw in you, but perhaps there really is something of substance here.\nWe shall see.Maybe you can do something for me that would make me think I should let you keep your new titles.\nRecently, a valuable...agent of mine was arrested in the Tularean Forest for merely doing his job.\nThey're keeping him in a cave somewhere outside of Pierpont.\nHis name is Loren Steel, and they are threatening to execute him if certain unacceptable conditions are not met in 28 days.\nReturn with him before then and you will win respect, gold, and gratitude.")
     evt.SetNPCTopic(408, 0, 875) -- Queen Catherine topic 0: Prisoner of War
     SetQBit(QBit(590)) -- Rescue Loren Steel from the Tularean Caves in the Tularean Forest and return him to Queen Catherine.
@@ -9282,7 +9282,7 @@ RegisterGlobalEvent(874, "Legacy event 874", function()
     SetValue(Counter(1), 0)
 end)
 
-RegisterGlobalEvent(875, "Legacy event 875", function()
+RegisterGlobalEvent(875, nil, function()
     if IsAtLeast(Counter(1), 672) then
         evt.SetMessage("Well, time ran out for poor Loren.\nHe was executed for espionage by Avlee on schedule.\nDon't bother with the rescue.\nHe's gone.")
         evt.SetNPCTopic(408, 0, 0) -- Queen Catherine topic 0 cleared
@@ -9338,7 +9338,7 @@ RegisterGlobalEvent(875, "Legacy event 875", function()
     end
 end)
 
-RegisterGlobalEvent(876, "Legacy event 876", function()
+RegisterGlobalEvent(876, nil, function()
     evt.SetMessage("[The Queen's eyes narrow] What's this?")
     ClearQBit(QBit(1695)) -- Replacement for NPCs ¹71 ver. 7
     ClearQBit(QBit(1696)) -- Replacement for NPCs ¹72 ver. 7
@@ -9364,7 +9364,7 @@ RegisterCanShowTopic(876, function()
     end
 end)
 
-RegisterGlobalEvent(877, "Legacy event 877", function()
+RegisterGlobalEvent(877, nil, function()
     evt.SetMessage("King Parson asked you to steal the floor plan to Fort Riverstride?\nHmmm.\n[Catherine turns to one of her advisors] Have some false plans of Fort Riverstride drawn up.\nMake it painful.\n[She turns back to you] If it's plans he wants, it's plans he'll get.\nGive these plans to the King.\nI'm sure he'll be grateful.\nMake sure you don't let him know they're fake.\n[After awhile the advisor returns with the plans and gives them to you]\nYou'll need to get the plans back to him on time, of course.\nI'm sure he plans to attack us soon.")
     evt.SetNPCTopic(408, 2, 878) -- Queen Catherine topic 2: Riverstride plans
     SetQBit(QBit(606)) -- Give false Riverstride plans to Eldrich Parson in Castle Navan in the Tularean Forest.
@@ -9393,7 +9393,7 @@ RegisterCanShowTopic(877, function()
     end
 end)
 
-RegisterGlobalEvent(878, "Legacy event 878", function()
+RegisterGlobalEvent(878, nil, function()
     if IsQBitSet(QBit(594)) then -- Gave false plans to elfking (betray)
         evt.SetMessage("He took the plans?\nExcellent!\nI'll have the Riverstride commander roll out the red carpet for them.\nAs for you, I've instructed my purser to deposit 5,000 gold pieces in your account.")
         SubtractValue(ReputationInCurrentLocation, 5)
@@ -9428,7 +9428,7 @@ RegisterGlobalEvent(878, "Legacy event 878", function()
     end
 end)
 
-RegisterGlobalEvent(879, "Legacy event 879", function()
+RegisterGlobalEvent(879, nil, function()
     evt.SetMessage("[The Queen raises her eyebrows with interest as you tell her how you infiltrated her fort, stole secret plans, and killed many of her guards while in the service of a foreign king] I wish I could truthfully say this is the most shocking treason I have ever witnessed, but unfortunately, it's not.\nNonetheless...Guards!\nOff with their heads!")
     RemoveItem(1507) -- Riverstride Plans
     RemoveItem(1508) -- False Riverstride Plans
@@ -9453,7 +9453,7 @@ RegisterCanShowTopic(879, function()
     end
 end)
 
-RegisterGlobalEvent(880, "Legacy event 880", function()
+RegisterGlobalEvent(880, nil, function()
     evt.SetMessage("My loyal subjects!\nYou were the ones who took the Trumpet!\nGood work.\nWe thought it lost forever.\nOnce again, my purser will deposit gold in your account.\n5,000 gold, to be exact.")
     AddValue(BankGold, 5000)
     SubtractValue(ReputationInCurrentLocation, 5)
@@ -9476,7 +9476,7 @@ RegisterCanShowTopic(880, function()
     end
 end)
 
-RegisterGlobalEvent(881, "Legacy event 881", function()
+RegisterGlobalEvent(881, nil, function()
     evt.SetMessage("Welcome.\nI understand you've been appointed Lords of Harmondale by that idiot Markham.\nYou know, I WILL restore Avlee's rule over Harmondale--the only question is whether you are with me, or against me.\nIf you're with me, I will ensure that you retain your post.\nAgainst me, and I will have done with you once my armies occupy your lands.\n[King Parson smiles affably] So, of course you're with me!\nYou just need to prove it.\nLike a famous leader once said:\nTrust, but verify!\nWords to live by.\nWhat I want right now is the plans to Fort Riverstride.\nIt's a huge fort that stands between your lands and Erathia proper.\nYou can't miss the thing.\nSneak in there and get me those plans.\nIf you can do this, I will be in your debt.\nNot only that, there's a substantial gold reward as well.\nIf the plans are to be any use to me at all, though, I need them delivered to me within a month.")
     evt.SetNPCTopic(409, 0, 882) -- ElfKing topic 0: Riverstride plans
     SetQBit(QBit(589)) -- Retrieve plans from Fort Riverstride and return them to Eldrich Parson in Castle Navan in the Tularean Forest.
@@ -9484,7 +9484,7 @@ RegisterGlobalEvent(881, "Legacy event 881", function()
     SetValue(Counter(2), 0)
 end)
 
-RegisterGlobalEvent(882, "Legacy event 882", function()
+RegisterGlobalEvent(882, nil, function()
     if not IsAtLeast(Counter(2), 672) then
         evt.ForPlayer(Players.All)
         if HasItem(1507) then -- Riverstride Plans
@@ -9544,7 +9544,7 @@ RegisterGlobalEvent(882, "Legacy event 882", function()
     RemoveItem(1508) -- False Riverstride Plans
 end)
 
-RegisterGlobalEvent(883, "Legacy event 883", function()
+RegisterGlobalEvent(883, nil, function()
     evt.SetMessage("What do you mean, these plans are false?\nSo you admit to plotting against me?\n[The King throws up his hands in disgust] Guards!\nTake these traitors to the courtyard and execute them!")
     RemoveItem(1508) -- False Riverstride Plans
     RemoveItem(1507) -- Riverstride Plans
@@ -9570,7 +9570,7 @@ RegisterCanShowTopic(883, function()
     end
 end)
 
-RegisterGlobalEvent(884, "Legacy event 884", function()
+RegisterGlobalEvent(884, nil, function()
     evt.SetMessage("The wily queen moves against me, eh?\n[The King frowns in thought, then brightens] I have an idea!\nI know someone who looks just like that spy she wants you to rescue.\nBring my man with you and deliver him to the Queen.\nShe's never met him, and won't know the difference.\nHis 'inside information' will encourage her to make mistakes.\n[The King takes a moment to summon the imposter]\nBe careful not to tip your hand.\nIt wouldn't do for her to discover our little plan.\n")
     evt.SetNPCTopic(409, 2, 885) -- ElfKing topic 2: Prison Break
     SetQBit(QBit(607)) -- Return the Loren imposter to Queen Catherine in Castle Gryphonheart in Erathia.
@@ -9599,7 +9599,7 @@ RegisterCanShowTopic(884, function()
     end
 end)
 
-RegisterGlobalEvent(885, "Legacy event 885", function()
+RegisterGlobalEvent(885, nil, function()
     if IsQBitSet(QBit(595)) then -- Gave false Loren to Catherine (betray)
         evt.SetMessage("The imposter has infiltrated her military and diplomatic advisors' ranks, and will cause plenty of damage before he's discovered, I'm sure.\nThank you for your help! My factor will deposit 5000 gold into your account at the bank.")
         ClearQBit(QBit(607)) -- Return the Loren imposter to Queen Catherine in Castle Gryphonheart in Erathia.
@@ -9632,7 +9632,7 @@ RegisterGlobalEvent(885, "Legacy event 885", function()
     end
 end)
 
-RegisterGlobalEvent(886, "Legacy event 886", function()
+RegisterGlobalEvent(886, nil, function()
     evt.SetMessage("[The king is silent while you detail your crimes against Avlee, then smiles and spreads his hands once you've finished] Well!\nI suppose that story speaks for itself, doesn't it?\nGuards!\nTake these traitors to the courtyard and execute them!")
     ClearQBit(QBit(1695)) -- Replacement for NPCs ¹71 ver. 7
     ClearQBit(QBit(1696)) -- Replacement for NPCs ¹72 ver. 7
@@ -9657,7 +9657,7 @@ RegisterCanShowTopic(886, function()
     end
 end)
 
-RegisterGlobalEvent(887, "Legacy event 887", function()
+RegisterGlobalEvent(887, nil, function()
     evt.SetMessage("Ah, the Trumpet!\nYou captured it!\nWe weren't sure how things turned out when news of the human raid reached us.\nThank you again, my friends.\nMy factor will deposit 5,000 gold in your account for your services.")
     AddValue(BankGold, 5000)
     SubtractValue(ReputationInCurrentLocation, 5)
@@ -9680,7 +9680,7 @@ RegisterCanShowTopic(887, function()
     end
 end)
 
-RegisterGlobalEvent(888, "Legacy event 888", function()
+RegisterGlobalEvent(888, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetMessage("If there is one piece of advice I could give you, it would be to fix your castle.\nI don't know how you're going to find the gold and workers to do it, as only wealthy nobles and kings can afford such large scale projects.\nI suppose it's the old chicken and egg question...you must appear noble to gain wealth and respect, but you must have wealth and respect in order to appear noble.\nIn any event, if you expect to be lords of Harmondale for more than a few months, you need to find a way to prove you're not just lucky peasants.\nYou must prove that you're fit to rule.")
         return
@@ -9688,7 +9688,7 @@ RegisterGlobalEvent(888, "Legacy event 888", function()
     evt.SetMessage("Once again, the Human kingdom of Erathia and the Elvish kingdom of Harmondale are fighting.\nAs the local Judge, it has fallen to me to patch up their differences and bring the two sides to the negotiating table.\nThe two sides are so evenly matched that either could prevail.\n[The judge leans closer to you, lowering his voice] And I'll tell you something else--I don't much care anymore who wins.\nThey are like children fighting over a toy.\nNeither really wants Harmondale--they just want to deny it to the other.\nSo, you're on your own.\nWhatever actions you take now in support of one side or another could really make a difference.\nJust remember that they couldn't possibly care less what happens to you or who rules in Harmondale.\nProtect yourselves and your people first.\nWe didn't have this conversation.")
 end)
 
-RegisterGlobalEvent(890, "Legacy event 890", function()
+RegisterGlobalEvent(890, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1436) then -- Gryphonheart's Trumpet
         evt.SetMessage("You were wise to return the Trumpet to me.")
@@ -9711,7 +9711,7 @@ RegisterCanShowTopic(890, function()
     end
 end)
 
-RegisterGlobalEvent(891, "Legacy event 891", function()
+RegisterGlobalEvent(891, nil, function()
     ClearQBit(QBit(1697)) -- Replacement for NPCs ¹77 ver. 7
     evt.MoveNPC(416, 244) -- Judge Fairweather -> Familiar Place
     evt.MoveNPC(417, 0) -- Judge Sleen -> removed
@@ -9723,7 +9723,7 @@ RegisterGlobalEvent(891, "Legacy event 891", function()
     evt.SetNPCTopic(416, 0, 893) -- Judge Fairweather topic 0: I choose you!
 end)
 
-RegisterGlobalEvent(892, "Legacy event 892", function()
+RegisterGlobalEvent(892, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(622)) then -- Finished Necro Proving Grounds
         evt.SetMessage("Your first order of business is to talk to Lord Ironfist and complete his 'mission.'\nOnce your ability and loyalty are proven, you will be allowed to help in more…interesting… ways.")
@@ -9756,7 +9756,7 @@ RegisterGlobalEvent(892, "Legacy event 892", function()
     evt.SetMessage("Bring the Oscillation Overthruster back to Kastore with all possible speed!")
 end)
 
-RegisterGlobalEvent(893, "Legacy event 893", function()
+RegisterGlobalEvent(893, nil, function()
     ClearQBit(QBit(1698)) -- Replacement for NPCs ¹78 ver. 7
     evt.MoveNPC(417, 243) -- Judge Sleen -> The Snobbish Goblin
     evt.MoveNPC(416, 0) -- Judge Fairweather -> removed
@@ -9768,7 +9768,7 @@ RegisterGlobalEvent(893, "Legacy event 893", function()
     evt.SetNPCTopic(417, 0, 891) -- Judge Sleen topic 0: I choose you!
 end)
 
-RegisterGlobalEvent(894, "Legacy event 894", function()
+RegisterGlobalEvent(894, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(626)) then -- Finished Wizard Proving Grounds
         evt.SetMessage("First, you need to speak to Gavin Magnus in Celeste and complete his training.\nAfter you have proven your ability and loyalty you will learn more about your role in the future of Erathia.")
@@ -9801,14 +9801,14 @@ RegisterGlobalEvent(894, "Legacy event 894", function()
     evt.SetMessage("Bring the Oscillation Overthruster back to Resurectra immediately!")
 end)
 
-RegisterGlobalEvent(895, "Legacy event 895", function()
+RegisterGlobalEvent(895, nil, function()
     evt.SetMessage("The Test involves entering the 'front door' of the Walls of Mist, and exiting through the 'back door'.\nI use the word 'door' loosely--you'll see when you get there.\nYou will not need your weapons.\nYou will fail the test if you kill any creature in the Walls of Mist.\nIf you can complete this task, you will be given membership in the Guild of Light. Good luck.")
     SetQBit(QBit(613)) -- Complete the Walls of Mist without killing a single opponent and return to Gavin Magnus in Castle Lambent in Celeste.
     ClearQBit(QBit(664)) -- Enter Celeste from the grand teleporter in the Bracada Desert, then talk to Gavin Magnus in Castle Lambent in Celeste.
     evt.SetNPCTopic(418, 0, 896) -- Gavin Magnus topic 0: Proving Grounds
 end)
 
-RegisterGlobalEvent(896, "Legacy event 896", function()
+RegisterGlobalEvent(896, nil, function()
     if not IsQBitSet(QBit(614)) then -- Completed Proving Grounds without killing a single creature
         evt.SetMessage("Remember, you must enter through the front door of the Walls of Mist, and exit through the back door.\nYou must not kill any creatures in the Walls of Mist.\nWhen you have done this, return to me.")
         return
@@ -9833,7 +9833,7 @@ RegisterGlobalEvent(896, "Legacy event 896", function()
     SetQBit(QBit(1605)) -- Joined the Light Guild
 end)
 
-RegisterGlobalEvent(897, "Legacy event 897", function()
+RegisterGlobalEvent(897, nil, function()
     evt.SetMessage("We need your help retrieving half of a key to a very important place from our enemies, the Necromancers.\nLike us, they have enshrined their half of the key in their highest temple--The Temple of the Dark.\nI'm under no illusions this will be easy.\nTake your time and act when you're prepared.\nAlso, bring our half of the key to us, as well.\nIt is enshrined in the Temple of the Light.\nSince you're our ally, no one should trouble you when you go there to fetch the key.\nBy the same token, please don't harm any of them, either.")
     SetQBit(QBit(615)) -- Retrieve the altar piece from the Temple of Light in Celeste and the Temple of Dark in the Pit and return them to Resurectra in Castle Lambent in Celeste.
     evt.SetNPCTopic(419, 0, 898) -- Resurectra topic 0: Temple of the Dark
@@ -9850,7 +9850,7 @@ RegisterCanShowTopic(897, function()
     end
 end)
 
-RegisterGlobalEvent(898, "Legacy event 898", function()
+RegisterGlobalEvent(898, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1478) then -- Altar Piece
         if not HasItem(1479) then -- Altar Piece
@@ -9878,7 +9878,7 @@ RegisterGlobalEvent(898, "Legacy event 898", function()
     end
 end)
 
-RegisterGlobalEvent(899, "Legacy event 899", function()
+RegisterGlobalEvent(899, nil, function()
     evt.SetMessage("Our plans rapidly approach their conclusion, but there is a hitch.\nThe Kreegan--also known as the Devils, or the Demons, must be destroyed before we finish our plans.\nThey represent a terrible threat, and though they do little but lick their wounds today, will one day regain their strength and devastate the world.\nIf anything we do is to have lasting effect, we must first destroy these monsters for once and for all.You are strong, but not strong enough to defeat the devils on your own.\nThey are vulnerable to the brand of magic most commonly wielded by the Necromancers, and less so by our own Wizards.\nIt is imperative that you infiltrate the Devil's base and kill their leader Xenofex.\nThat should end their threat to this world for some time.\nThe Warlocks have dug a tunnel from their volcano to the Land of the Giants-- the land the Devils claim as their own.\nPerhaps you can use that.")
     SetQBit(QBit(616)) -- Go to Colony Zod in the Land of the Giants and slay Xenofex then return to Resurectra in Castle Lambent in Celeste.
     evt.SetNPCTopic(419, 1, 900) -- Resurectra topic 1: Strike the Devils
@@ -9895,7 +9895,7 @@ RegisterCanShowTopic(899, function()
     end
 end)
 
-RegisterGlobalEvent(900, "Legacy event 900", function()
+RegisterGlobalEvent(900, nil, function()
     if not IsQBitSet(QBit(617)) then -- Slayed Xenofex
         evt.SetMessage("I guess there's no hurry getting this job done, but we don't want the Necromancers to grow bored waiting for us to do our part and destroy the blocker.\nSo, please, as soon as you feel ready you must attack the Devils.\nRemember that the Warlocks have dug a tunnel from their volcano to the land of the Devils.\nYou should be able to use that to get yourselves there.")
         return
@@ -9912,7 +9912,7 @@ RegisterGlobalEvent(900, "Legacy event 900", function()
     SetAward(Award(21)) -- Slayed Xenofex
 end)
 
-RegisterGlobalEvent(901, "Legacy event 901", function()
+RegisterGlobalEvent(901, nil, function()
     evt.SetMessage("Our allies in Tatalia have been complaining for some time of a mysterious presence.\nThere have been numerous deaths and disappearances for the last few months, and they've asked us if we knew anything about it.\nI think I do.\nI suspect a vampire is preying on Tatalia.\nI don't have time to pursue the question myself, but to keep our allies happy, I'm asking you to please look into it.\nIt's possible the monster's presence has deeper implications than just bad luck for Tatalia.")
     SetQBit(QBit(618)) -- Investigate the Wine Cellar in Tatalia and return to Crag Hack in Castle Lambent in Celeste.
     evt.SetNPCTopic(420, 0, 902) -- Crag Hack topic 0: Vampires
@@ -9929,7 +9929,7 @@ RegisterCanShowTopic(901, function()
     end
 end)
 
-RegisterGlobalEvent(902, "Legacy event 902", function()
+RegisterGlobalEvent(902, nil, function()
     if not IsQBitSet(QBit(619)) then -- Slayed the vampire
         evt.SetMessage("Keep looking for that Vampire.\nI'm sure that's our problem, and he must be somewhere in or near Tatalia.\n")
         return
@@ -9947,7 +9947,7 @@ RegisterGlobalEvent(902, "Legacy event 902", function()
     SetQBit(QBit(628)) -- Finished Wizard Task 3 - Wine Cellar
 end)
 
-RegisterGlobalEvent(903, "Legacy event 903", function()
+RegisterGlobalEvent(903, nil, function()
     evt.SetMessage("The plan involves stealing the soul jars the Necromancers rely on to prolong their miserable lives.\nThey have them hidden somewhere in their Guild Castle, and are probably not prepared for the kind of small scale assault you people are so good at.\nA quick strike--in and out--should do the trick.\nDon't hang around the castle too long, or reinforcements will arrive, and try to get it right the first time, or they will permanently double their patrols.\nOnce you have the soul jars, bring them back here so we can dispose of them properly.")
     SetQBit(QBit(620)) -- Retrieve the Case of Soul Jars from Castle Gloaming in the Pit and return to Sir Caneghem in Celeste.
     evt.SetNPCTopic(421, 0, 904) -- Sir Caneghem topic 0: Soul Jars
@@ -9964,7 +9964,7 @@ RegisterCanShowTopic(903, function()
     end
 end)
 
-RegisterGlobalEvent(904, "Legacy event 904", function()
+RegisterGlobalEvent(904, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1404) then -- Case of Soul Jars
         evt.SetMessage("Be well prepared when you go for the jars.")
@@ -9987,7 +9987,7 @@ RegisterGlobalEvent(904, "Legacy event 904", function()
     evt.SetNPCTopic(427, 1, 0) -- Archibald Ironfist topic 1 cleared
 end)
 
-RegisterGlobalEvent(905, "Legacy event 905", function()
+RegisterGlobalEvent(905, nil, function()
     evt.SetMessage("Our counterparts, the former advisors to Archibald, each carry a token called a command cube on their person that we absolutely must acquire to complete the Goal.\nThere is no way any of them will part with their cube willingly, which means that we must get it some other way.\nYou will have to take it from one of them, and we think the easiest would be Tolberti.\nUnlike the rest of them, he disdains proper security and has taken up residence in one of the apartments in the Pit.\nI need you to infiltrate the pit again and get the cube from him.\nBe careful--he is well armed and much tougher than he appears.\nWhen you have the Cube, return to me.\nWe have but a short distance to the Goal, and all will be revealed very soon.")
     SetQBit(QBit(621)) -- Assassinate Tolberti in his house in the Pit and return his control cube to Robert the Wise in Celeste.
     evt.SetNPCTopic(422, 0, 906) -- Robert the Wise topic 0: Tolberti
@@ -10019,7 +10019,7 @@ RegisterCanShowTopic(905, function()
     end
 end)
 
-RegisterGlobalEvent(906, "Legacy event 906", function()
+RegisterGlobalEvent(906, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1477) then -- Control Cube
         evt.SetMessage("Keep trying to find his apartment.\nTolberti has never really believed anything bad could happen to him, and so far he's been right.\nWe need to prove him wrong.\nTake the cube any way you can.\nIf you can do it without violence, fine.\nIf you must kill him, well, that's O.K. too.\nJust get the cube.")
@@ -10041,7 +10041,7 @@ RegisterGlobalEvent(906, "Legacy event 906", function()
     evt.SetNPCTopic(422, 0, 950) -- Robert the Wise topic 0: Ancient Weapon
 end)
 
-RegisterGlobalEvent(907, "Legacy event 907", function()
+RegisterGlobalEvent(907, nil, function()
     evt.SetMessage("We need your help retrieving half of a key to a very important place from our enemies, the Wizards.\nLike us, they have enshrined their half of the key in their highest temple--The Temple of the Light.\nIt'll be a snap.\nMost so called good people spend more time defending and healing themselves than delivering damage.\nHow can you win if you don't fight?\nAnyway, take your time and act when you're prepared.\nAlso, bring our half of the key to us, as well.\nIt is enshrined in the Temple of the Darkness.\nSince you're our ally, no one should trouble you when you go there to fetch the key.\nBut if you feel like you need the practice, go ahead a take a whack at some of them.\nThey're not very important, and most of them can regenerate from even the most severe injuries.\nTry it--it's alot of fun!")
     SetQBit(QBit(634)) -- Retrieve the altar piece from the Temple of Light in Celeste and the Temple of Dark in the Pit and return them to Kastore in the Pit.
     evt.SetNPCTopic(423, 0, 908) -- Kastore topic 0: Temple of the Light
@@ -10058,7 +10058,7 @@ RegisterCanShowTopic(907, function()
     end
 end)
 
-RegisterGlobalEvent(908, "Legacy event 908", function()
+RegisterGlobalEvent(908, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1478) then -- Altar Piece
         if not HasItem(1479) then -- Altar Piece
@@ -10084,7 +10084,7 @@ RegisterGlobalEvent(908, "Legacy event 908", function()
     end
 end)
 
-RegisterGlobalEvent(909, "Legacy event 909", function()
+RegisterGlobalEvent(909, nil, function()
     evt.SetMessage("Soon our plans will bear fruit, but there are a few details that must be handled before we are ready.\nThe Kreegan, also known as the Devils, share this world with us.\nThe only reason we're sharing is because they are weak right now.\nIf they ever get strong, they will try to kill every person in the world.Anyway, it's no fun to rule a world full of dead people, so we have to kill the Devils before they kill us.\nOur plan is for you to infiltrate the Devils lair and destroy their leader, Xenofex.\nThe warlocks of Nighon have dug a tunnel from their volcano to the Land of the Giants-- the land of the Devils.\nYou can probably use that tunnel to get there.")
     SetQBit(QBit(635)) -- Go to Colony Zod in the Land of the Giants and slay Xenofex then return to Kastore in the Pit.
     evt.SetNPCTopic(423, 1, 910) -- Kastore topic 1: Strike the Devils
@@ -10101,7 +10101,7 @@ RegisterCanShowTopic(909, function()
     end
 end)
 
-RegisterGlobalEvent(910, "Legacy event 910", function()
+RegisterGlobalEvent(910, nil, function()
     if not IsQBitSet(QBit(617)) then -- Slayed Xenofex
         evt.SetMessage("Could you please hurry up with this raid against the Devils?\nArchibald has promised forces, but they won't be available forever.\nWhat's worse, the devils breed faster than rabbits.\nThe longer you wait, the more you'll have to fight.")
         return
@@ -10118,7 +10118,7 @@ RegisterGlobalEvent(910, "Legacy event 910", function()
     SetAward(Award(21)) -- Slayed Xenofex
 end)
 
-RegisterGlobalEvent(911, "Legacy event 911", function()
+RegisterGlobalEvent(911, nil, function()
     evt.SetMessage("Archibald has asked us to find a source of soul jars for his necromancers.\nThese are the jars that are needed to complete the Ritual that gives them eternal life, and we're almost out.\nThere are far more candidates for Lichdom than we have jars, so some of our necromancers are facing the grim possibility of real death.\nThe makers of the jars are the Warlocks.\nGo to them and convince them to give us the jars.\nIf they won't hand them over, take the jars by force-- I'm done negotiating prices with them.")
     SetQBit(QBit(636)) -- Retrieve the Case of Soul Jars from the Warlocks in Thunderfist Mountain and bring them to Maximus in the Pit.
     evt.SetNPCTopic(424, 0, 912) -- Maximus topic 0: Soul Jars
@@ -10135,7 +10135,7 @@ RegisterCanShowTopic(911, function()
     end
 end)
 
-RegisterGlobalEvent(912, "Legacy event 912", function()
+RegisterGlobalEvent(912, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1404) then -- Case of Soul Jars
         evt.SetMessage("You don't have to be nice about getting the jars from them--just get the jars any way you can.\nWe can renegotiate peace with them if we must, just like we renegotiate the price for each purchase of soul jars.")
@@ -10155,7 +10155,7 @@ RegisterGlobalEvent(912, "Legacy event 912", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(913, "Legacy event 913", function()
+RegisterGlobalEvent(913, nil, function()
     evt.SetMessage("Lord Archibald has another request--the creatures that have inhabited Clanker's laboratory must be evicted--and the teleport shield brought down.\nThe laboratory is on an island east of Pierpont in the Tularean Forest.\nBe careful--the monsters in that lab were created by Clanker himself, and some of them are much more powerful than their more common fellows elsewhere in the world.\nTake whatever you like from the place.\nLord Archibald is only interested in the real estate and the laboratory equipment.\nOnce the shield is down, Lord Archibald will be able to begin moving necromancers and equipment inside via Lloyd's Beacon. ")
     SetQBit(QBit(637)) -- Destroy the magical defenses inside Clanker's Laboratory and return to Dark Shade in the Pit.
     evt.SetNPCTopic(425, 0, 914) -- Dark Shade topic 0: Clanker's Laboratory
@@ -10172,7 +10172,7 @@ RegisterCanShowTopic(913, function()
     end
 end)
 
-RegisterGlobalEvent(914, "Legacy event 914", function()
+RegisterGlobalEvent(914, nil, function()
     if not IsQBitSet(QBit(638)) then -- Destroyed the magical defenses in Clanker's Lab
         evt.SetMessage("This is a simple task--get a move on!\nOnce again, the laboratory on an island east of Pierpont in the Tularean Forest.\nGet the shield lowered, and your part of the job is done.")
         return
@@ -10189,7 +10189,7 @@ RegisterGlobalEvent(914, "Legacy event 914", function()
     SetAward(Award(26)) -- Cleaned out Clanker's Laboratory
 end)
 
-RegisterGlobalEvent(915, "Legacy event 915", function()
+RegisterGlobalEvent(915, nil, function()
     evt.SetMessage("Just as Archibald has us, King Magnus of Bracada has his advisors.\nAnd, just like us, each of them wears a small token called a command cube.\nWe need one of their cubes, and they're not going to just hand one over to us.\nWe must take one of their cubes, and we have decided it should be Robert the Wise who suffers.\nOne of our spies in their castle has damaged the lock to his room.\nThey have been lax about replacing it, so you should have no trouble going through the door.\nI don't care if you kill him or not--just get the cube and return to me at once.")
     SetQBit(QBit(639)) -- Assassinate Robert the Wise in his house in Celeste and return to Tolberti in the Pit.
     evt.SetNPCTopic(426, 0, 916) -- Tolberti topic 0: Robert the Wise
@@ -10221,7 +10221,7 @@ RegisterCanShowTopic(915, function()
     end
 end)
 
-RegisterGlobalEvent(916, "Legacy event 916", function()
+RegisterGlobalEvent(916, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1477) then -- Control Cube
         evt.SetMessage("What's wrong?\nDon't tell me you're losing your nerve?\nHe's tough, but not immortal.\nYou can take him!\nI wouldn't have sent you on this mission if I didn't think you could handle it.")
@@ -10242,7 +10242,7 @@ RegisterGlobalEvent(916, "Legacy event 916", function()
     evt.SetNPCTopic(426, 0, 950) -- Tolberti topic 0: Ancient Weapon
 end)
 
-RegisterGlobalEvent(917, "Legacy event 917", function()
+RegisterGlobalEvent(917, nil, function()
     evt.SetMessage("Yes, the test.\nIt's simple.\nNear the center of the city is a place we call the Breeding Zone.\nThere's a lot of foul monsters in the pit, and they regenerate constantly.\nIt makes for a good source of slaves, spare parts, and target practice.\nAll of our necromancers are tested there when they want to rise above the level of initiate.\nI'm sure you'll pass the test.\nJust jump in the pit and find a way out.\nKill anything you want down there.\nShow no mercy.\nWhen you escape, crawl out of the pit and come see me again.\nIf you complete this, I will give you membership in the Guild of Dark. *If* you complete this...")
     SetQBit(QBit(640)) -- Complete the Breeding Zone and return to Archibald in the Pit.
     ClearQBit(QBit(663)) -- Enter the Pit from the Hall of the Pit in the Deyja Moors, then talk to Archibald in Castle Gloaming in the Pit.
@@ -10260,7 +10260,7 @@ RegisterCanShowTopic(917, function()
     end
 end)
 
-RegisterGlobalEvent(918, "Legacy event 918", function()
+RegisterGlobalEvent(918, nil, function()
     if not IsQBitSet(QBit(641)) then -- Completed Breeding Pit.
         evt.SetMessage("I am beginning to suspect my allies were right about you.\nCan't you pass this simple test?\nAre you too afraid, or too feeble to succeed?\nPerhaps we need new allies?")
         return
@@ -10285,13 +10285,13 @@ RegisterGlobalEvent(918, "Legacy event 918", function()
     SetQBit(QBit(1606)) -- Joined the Dark Guild
 end)
 
-RegisterGlobalEvent(919, "Legacy event 919", function()
+RegisterGlobalEvent(919, nil, function()
     evt.SetMessage("The time has come to achieve our Goal.\nThe reason we have sent you on all these missions is simple:\nwe have been busy gathering the parts needed to open a gate to the Ancients--the ones who colonized this world ages ago.\nUnfortunately, our former compatriots also seek those parts for their own dark dreams.\nThey wish to rebuild the Heavenly Forge from the times before the Silence, and use it to duplicate the weapons we brought with us to your world.\nWe have been competing with them for these parts, but at last we have what we need.\nExcept for one thing.\nWe have been unable to find the Oscillation Overthruster on your world.\nAll would be lost, but there is one such device aboard the Lincoln--the vehicle that brought us to your world.\nIt is in the sea west of Avlee and secured against entry, even from ourselves.\nNow you must wear our environment suits, enter the ship, and return with the Overthruster; you will find these suits in the chest outside this throne room.\nFor the suit to function properly you must not be wearing any equipment.\nAs for us, we must stand watch at the gate, and battle our former comrades.\n")
     SetQBit(QBit(642)) -- Go to the Lincoln in the sea west of Avlee and retrieve the Oscillation Overthruster and return it to Resurectra in Celeste.
     evt.SetNPCTopic(419, 1, 920) -- Resurectra topic 1: Final Task
 end)
 
-RegisterGlobalEvent(920, "Legacy event 920", function()
+RegisterGlobalEvent(920, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(783)) then -- Finished MM7 Story
         evt.SetMessage("You have returned!\nAt last!\nWe have the Overthruster.\nNow, come with us as we open the way to the Ancients!")
@@ -10331,14 +10331,14 @@ RegisterGlobalEvent(920, "Legacy event 920", function()
     end
 end)
 
-RegisterGlobalEvent(921, "Legacy event 921", function()
+RegisterGlobalEvent(921, nil, function()
     evt.SetMessage("Our finest hour is upon us.\nWhile you have been taking care of all those important tasks, my compatriots and I have been struggling with our former friends for the parts we need to rebuild the Heavenly Forge of legend.\nBy former friends, I mean the four chief advisors to King Magnus of the Wizards.\nThey have a plan to build a gate to the Ancients.\nThey could have stood with us, but threw it all away on some vague hope of a 'better future'.\nBut you!\nYou have stood with us all this time.Only one task remains--we need the Oscillation Overthruster from our old vehicle, the Lincoln.\nWe have been unable to find one on your world.\nThe ship is in the sea west of Avlee and secured against entry, even from ourselves.\nNow you must wear our environment suits, enter the ship, and return with the Overthruster.\nOur old environments suits have been prepared for you in the chest outside this throne room.\nFor the suit to function properly you must not be wearing any equipment.We will stand watch over the Forge, and defend it against our enemies.\nBring us the Overthruster, my friends, and together, we shall rule the world!")
     AddValue(History(29), 0)
     SetQBit(QBit(643)) -- Go to the Lincoln in the sea west of Avlee and retrieve the Oscillation Overthruster and return it to Kastore in the Pit.
     evt.SetNPCTopic(423, 1, 922) -- Kastore topic 1: Final Task
 end)
 
-RegisterGlobalEvent(922, "Legacy event 922", function()
+RegisterGlobalEvent(922, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1407) then -- Oscillation Overthruster
         evt.SetMessage("Don't forget you'll need the environmental suits to get to the Lincoln.\nThese suits are in the chest outside the throne room, and the Lincoln is in the sea west of Avlee.\nWhat else do you need to know?")
@@ -10375,19 +10375,19 @@ RegisterGlobalEvent(922, "Legacy event 922", function()
     evt.SetNPCGroupNews(83, 85) -- NPC group 83 "Peasents in the Dock area" -> news 85: "I've heard rumors of goblins and undead armed with ancient weapons threatening to conquer Erathia!  How dreadful!"
 end)
 
-RegisterGlobalEvent(923, "Legacy event 923", function()
+RegisterGlobalEvent(923, nil, function()
     evt.MoveToMap(-6784, -2832, 1649, 512, 0, 0, 0, 0, "t01.blv") -- Temple of the Light
 end)
 
-RegisterGlobalEvent(924, "Legacy event 924", function()
+RegisterGlobalEvent(924, nil, function()
     evt.MoveToMap(0, -4059, 513, 512, 0, 0, 0, 0, "t02.blv") -- Temple of the Dark
 end)
 
-RegisterGlobalEvent(925, "Legacy event 925", function()
+RegisterGlobalEvent(925, nil, function()
     evt.SetMessage("Thomas Grey runs the School of Sorcery.\nIf you're looking for promotion to Wizard or Honorary Wizard, he's your man.\nHis room is right through the door behind me.")
 end)
 
-RegisterGlobalEvent(926, "Legacy event 926", function()
+RegisterGlobalEvent(926, nil, function()
     evt.SetMessage("Would you like a membership to the School of Sorcery Scroll Shop?\nA membership allows you free access to the scrolls available in our library.\nIt costs 5000 gold for a six month membership, but the shop stocks once per week.")
     evt.SetNPCTopic(620, 1, 927) -- Eric Swarrel topic 1: Book Shop
 end)
@@ -10403,7 +10403,7 @@ RegisterCanShowTopic(926, function()
     end
 end)
 
-RegisterGlobalEvent(927, "Legacy event 927", function()
+RegisterGlobalEvent(927, nil, function()
     if not IsAtLeast(Gold, 5000) then
         evt.SetMessage("You don't have enough gold-- it's no use trying to fool a Wizard.")
         return
@@ -10414,7 +10414,7 @@ RegisterGlobalEvent(927, "Legacy event 927", function()
     evt.SetNPCTopic(620, 1, 0) -- Eric Swarrel topic 1 cleared
 end)
 
-RegisterGlobalEvent(928, "Legacy event 928", function()
+RegisterGlobalEvent(928, nil, function()
     evt.SetMessage("You want to bury the bones of Zokarr IV in our old barrows?\nNo dwarf here will brave the dangers, but Zokarr deserves to be laid to rest in the right place.\nLook for the secret barrow, the one with only one entrance.\nIn there is a coffin waiting for Zokarr's bones.")
     AddValue(InventoryItem(1428), 1428) -- Zokarr IV's Skull
     SetQBit(QBit(740)) -- Dwarf Bones - I lost it
@@ -10432,13 +10432,13 @@ RegisterCanShowTopic(928, function()
     end
 end)
 
-RegisterGlobalEvent(929, "Legacy event 929", function()
+RegisterGlobalEvent(929, nil, function()
     evt.SetMessage("We have no one to turn to but you, the new Lords of Harmondale. The Lantern of Light is a treasured holy relic, used by the temples of Erathia.\nIts value is more symbolic than of power-- without it the temples servants lose faith.\nThis Lantern disappeared while being brought to this temple from the temple in Stone City.\nWe believe it was lost somewhere in the maze-like Barrows.\nPlease find it and return it to us.")
     evt.SetNPCTopic(432, 0, 930) -- Tarin Withern topic 0: Quest
     SetQBit(QBit(667)) -- Retrieve the Lantern of Light from the Barrow Downs and return it to Tarin Withern in Harmondale. - Barrow Lantern Quest
 end)
 
-RegisterGlobalEvent(930, "Legacy event 930", function()
+RegisterGlobalEvent(930, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1450) then -- Lantern of Light
         evt.SetMessage("Have you found the Lantern of Light?")
@@ -10456,13 +10456,13 @@ RegisterGlobalEvent(930, "Legacy event 930", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(931, "Legacy event 931", function()
+RegisterGlobalEvent(931, nil, function()
     evt.SetMessage("My, brother, Haldar passed away last month.\nThe family was sending his remains to me to be put to final rest.\nSomething happened to those delivering these remains to me; they disappeared in Nighon and not been heard from since. I fear my brothers soul will never rest unless they are found!\nPlease return Haldar to me if you find him? I will reward you well for this!")
     evt.SetNPCTopic(433, 0, 932) -- Mazim Dusk topic 0: Quest
     SetQBit(QBit(668)) -- Retrieve Haldar's Remains from the Maze in Nighon and return them to Mazim Dusk in Nighon. - Haldar's Remains Quest
 end)
 
-RegisterGlobalEvent(932, "Legacy event 932", function()
+RegisterGlobalEvent(932, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1430) then -- Haldar's Remains
         evt.SetMessage("Did you find Haldar's Remains?")
@@ -10480,13 +10480,13 @@ RegisterGlobalEvent(932, "Legacy event 932", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(933, "Legacy event 933", function()
+RegisterGlobalEvent(933, nil, function()
     evt.SetMessage("My lords, I was beset by foul bandits when I returned from Avlee and they took everything I had brought with me from the Elves.\nThey even took my signet ring!\nWithout it I cannot continue my business because I cannot seal contracts between myself and other merchants.\nI've heard the bandits base themselves out of a camp in Erathia, but I'm no warrior-- I'd not last a minute against them.\nPlease go to Erathia and see this justice done!")
     evt.SetNPCTopic(434, 0, 934) -- Davrik Peladium topic 0: Quest
     SetQBit(QBit(669)) -- Retrieve Davrik's Signet ring from the Bandit Caves in the northeast of Erathia and return it to Davrik Peladium in Harmondale. - Davrik's Ring Quest
 end)
 
-RegisterGlobalEvent(934, "Legacy event 934", function()
+RegisterGlobalEvent(934, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1408) then -- Signet Ring
         evt.SetMessage("You don't have my ring yet?\nThe bandits are south of Castle Gryphonheart in Erathia.\nPlease help me, I don't have anyone else to turn to.")
@@ -10504,14 +10504,14 @@ RegisterGlobalEvent(934, "Legacy event 934", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(935, "Legacy event 935", function()
+RegisterGlobalEvent(935, nil, function()
     evt.SetMessage("So you are the Lords of Harmondale, eh?\nYou don’t look like much; we shall see how history judges you!\nI myself am a historian and collector of rare historical items.\nLord Markham also collects such items of interest and there is one item in particular that would complete my collection, Parson's Quill-- the Quill used to sign the Treaty of Pierpont ending the first Timber War.\nI know you have dealt with Lord Markham before, it's how you became Lords of this land after all, and if you would take this letter to Lord Markham in Tatalia, I'm sure he would respond favorably.\nI would be even more in your debt if Lord Markham sends this item back with you!\nI would be sure to favorably record your heroic acts and deeds!")
     evt.SetNPCTopic(435, 0, 936) -- Norbert Thrush topic 0: Thrush's Letter
     SetQBit(QBit(670)) -- Take Sealed Letter to Lord Markham in Lord Markham's Manor in Tatalia for collector Norbert Thrush.
     AddValue(InventoryItem(1416), 1416) -- Letter from Norbert Thrush to Lord Markham
 end)
 
-RegisterGlobalEvent(936, "Legacy event 936", function()
+RegisterGlobalEvent(936, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1405) then -- Parson's Quill
         evt.SetMessage("Did Lord Markham refuse to give you the Quill, or have you not even visited him yet?\nHis Manor is in Tatalia, please don't forget to help me.")
@@ -10529,7 +10529,7 @@ RegisterGlobalEvent(936, "Legacy event 936", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(937, "Legacy event 937", function()
+RegisterGlobalEvent(937, nil, function()
     evt.ForPlayer(Players.All)
     evt.SetMessage("A letter from Norbert Thrush the Historian? Let me see it.\n[Lord Markham scans the letter briefly] Hmmmmm…he wants the Peacock feather that was used to sign the Treaty of Pierpont, does he.\nWell, seeing as though he has a supposed original of the Treaty, I guess the feather should go to him.\nHe has promised me anything else in his collection.\nTake this to him and tell him that I will come collect from him shortly!")
     RemoveItem(1416) -- Letter from Norbert Thrush to Lord Markham
@@ -10552,14 +10552,14 @@ RegisterCanShowTopic(937, function()
     end
 end)
 
-RegisterGlobalEvent(938, "Legacy event 938", function()
+RegisterGlobalEvent(938, nil, function()
     evt.SetMessage("I hear you folk are the new Lords of Harmondale, eh?\nPerhaps you could do me a large favor, and help yourselves in the process.\nTo the north, in Avlee, lies the Hall under the Hill, the domain of the Faerie King.\nHe owes me a debt from a previous service of mine, and I would like to collect it.\nUnfortunately, the faeries in the Hall and the tricks they play frighten me to death.\nIf you would deliver this letter to the Faerie King, and return what he gives you to me, I'd be very grateful.\nYou would also have the chance to meet the Faerie King for yourselves.")
     SetQBit(QBit(691)) -- Take the sealed letter to the Faerie King in the Hall under the Hill in Avlee.
     AddValue(InventoryItem(1409), 1409) -- Letter from Johann Kerrid to the Faerie King
     evt.SetNPCTopic(436, 0, 940) -- Johann Kerrid topic 0: Quest
 end)
 
-RegisterGlobalEvent(939, "Legacy event 939", function()
+RegisterGlobalEvent(939, nil, function()
     evt.ForPlayer(Players.All)
     evt.SetMessage("So, Johann be wanting the Faerie Pipes, eh?\nI can't say I'm surprised--he wouldn't come here himself, the coward.\nThe Pipes will cost you, though… all your food.\nOf course, I've got some delightful food down below, should thee be wanting to restock your packs.")
     RemoveItem(1409) -- Letter from Johann Kerrid to the Faerie King
@@ -10584,7 +10584,7 @@ RegisterCanShowTopic(939, function()
     end
 end)
 
-RegisterGlobalEvent(940, "Legacy event 940", function()
+RegisterGlobalEvent(940, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1435) then -- Faerie Pipes
         evt.SetMessage("Don't forget to give the letter to the Faerie King.\nWithout it, he probably won't even want to talk to you.")
@@ -10602,7 +10602,7 @@ RegisterGlobalEvent(940, "Legacy event 940", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(941, "Legacy event 941", function()
+RegisterGlobalEvent(941, nil, function()
     evt.SetMessage("We request your services for only one small task.\nIn Castle Lambent rests a valuable tapestry taken from an attack on Watchtower 3 years ago.\nI would like you to get the tapestry for me, as you must have *some* access to the Castle-- my normal associates can't even come near the place.\nI hear a large band of goblins and renegade swordsmen are about... it would be a shame if they happened to find a way to Harmondale.\nYou have one month to get the tapestry.\nDon't be late.")
     SetQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
     SetValue(Counter(5), 0)
@@ -10625,7 +10625,7 @@ RegisterCanShowTopic(941, function()
     end
 end)
 
-RegisterGlobalEvent(942, "Legacy event 942", function()
+RegisterGlobalEvent(942, nil, function()
     evt.SetMessage("We request your services for one task.\nA rare and valuable tapestry rests in Castle Gloaming, an antique from near the Silence stolen from the wizards some time ago.\nI would like you to get the tapestry for me, as my normal associates don't have access to Castle Gloaming.\nIn return, I'll make sure that the large band of renegade swordsmen and goblins near Harmondale don't accidentally stumble upon your quiet, little village.\nYou have one month; don't be late.")
     SetQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
     SetValue(Counter(5), 0)
@@ -10648,7 +10648,7 @@ RegisterCanShowTopic(942, function()
     end
 end)
 
-RegisterGlobalEvent(943, "Legacy event 943", function()
+RegisterGlobalEvent(943, nil, function()
     evt.ForPlayer(Players.All)
     if IsAtLeast(Counter(5), 672) then
         evt.SetMessage("I see.\nWell, it would appear that the band of renegades has indeed discovered your little town, and has begun looting.\nYou may find your bank account a little, well, pinched.\nConsider this a lesson in punctuality.\nGo now and have a pleasant, pleasant day.")
@@ -10669,13 +10669,13 @@ RegisterGlobalEvent(943, "Legacy event 943", function()
     end
 end)
 
-RegisterGlobalEvent(944, "Legacy event 944", function()
+RegisterGlobalEvent(944, nil, function()
     evt.SetMessage("A few years back, while mining underneath Stone City, we came upon quite a shock.\nIt seems that the Warlocks from Nighon had burrowed under the sea to make a sneak attack upon the shores of Erathia.\nTheir careless tunneling has sunken the earth around here until now the areas around the old dwarven barrows and, of course, Stone City, rest far above the terrain.\nWe discovered a force of troglodytes in our mining areas, with a tunnel leading back to Nighon.\nIf you could help us by ridding the tunnels of the troglodytes, we could get back to mining.\nCan you help us?")
     SetQBit(QBit(698)) -- Kill all the Troglodytes underneath Stone City and return to Spark Burnkindle in Stone City.
     evt.SetNPCTopic(439, 0, 945) -- Spark Burnkindle topic 0: Quest
 end)
 
-RegisterGlobalEvent(945, "Legacy event 945", function()
+RegisterGlobalEvent(945, nil, function()
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 411, 0, false) then -- monster 411 "Troglodyte Drone"; all matching actors defeated
         evt.SetMessage("There are still troglodytes roaming the lower mine levels.")
         return
@@ -10699,7 +10699,7 @@ RegisterGlobalEvent(945, "Legacy event 945", function()
     evt.SetNPCGreeting(439, 279) -- Spark Burnkindle greeting: Thank you for helping us by getting rid of those nasty Troglodytes!
 end)
 
-RegisterGlobalEvent(946, "Legacy event 946", function()
+RegisterGlobalEvent(946, nil, function()
     evt.SetMessage("I have recently gained information that the forces of Queen Catherine, in Erathia, have begun to build a force to attack Deyja.\nBecause of the difficult terrain, they have begun to breed and train griffins to assist in their attack.\nThese griffins are being raised in both Erathia and the Bracada Desert.\nI need you to kill off all the griffins in those two areas so that the Erathians will be forced to drastically delay their plans of attack.")
     SetQBit(QBit(699)) -- Kill all the Griffins in Erathia and the Bracada Desert and return to Seth Drakkson in the Deyja Moors.
     evt.SetNPCTopic(623, 0, 947) -- Seth Drakkson topic 0: Quest
@@ -10716,7 +10716,7 @@ RegisterCanShowTopic(946, function()
     end
 end)
 
-RegisterGlobalEvent(947, "Legacy event 947", function()
+RegisterGlobalEvent(947, nil, function()
     if IsQBitSet(QBit(700)) then -- Killed all Erathian Griffins
         if not IsQBitSet(QBit(701)) then -- Killed all Bracada Desert Griffins
             evt.SetMessage("You've killed the griffins near Steadwick, but you haven't dealt with the griffins in the Bracada Desert yet.\nFinish them both off and return to me.")
@@ -10751,13 +10751,13 @@ RegisterGlobalEvent(947, "Legacy event 947", function()
     end
 end)
 
-RegisterGlobalEvent(948, "Legacy event 948", function()
+RegisterGlobalEvent(948, nil, function()
     evt.SetMessage("My brother, Elron, was an avid Arcomage player.\nHave you played Arcomage yet?\nHorribly addicting game, if I do say so.\nIn any rate, you can only play if you have a deck, and decks are hard to come by… so I guess you probably haven't.\nIn any case, Elron wanted to go over some strategies to help him win more games.\nUnfortunately, he didn't want to be in town because he didn't want anyone else to spy on him learn his tricks so he went to the White Cliff Caves southeast a bit from town.Elron hasn't been back in almost a week.\nI'm certain something horrible has happened to him, but if he's alive I'd like to know that too.\nWould you do me the service of locating him?\nI don't have a lot of money to pay you back with, but I'd be greatly in your debt.")
     SetQBit(QBit(706)) -- Find the fate of Darron's brother in the White Cliff Caves, then return to Darron Temper in Harmondale.
     evt.SetNPCTopic(624, 0, 949) -- Darron Temper topic 0: Quest
 end)
 
-RegisterGlobalEvent(949, "Legacy event 949", function()
+RegisterGlobalEvent(949, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1453) then -- Arcomage Deck
         evt.SetMessage("Still no sign of him?\nI understand.\nIf you do happen to find out what happened to him, please let me know.")
@@ -10772,7 +10772,7 @@ RegisterGlobalEvent(949, "Legacy event 949", function()
     SubtractValue(ReputationInCurrentLocation, 5)
 end)
 
-RegisterGlobalEvent(1063, "Legacy event 1063", function()
+RegisterGlobalEvent(1063, nil, function()
     evt.SetMessage("The School of Sorcery here in the Bracada Desert collects a number of odd magical paraphernalia.\nA few years ago an item of particular interest was stolen from the School by raiders from Deyja.\nThis item, the Seasons' Stole, was worn by Priests of the Sun during religious ceremonies at the turn of the seasons.\nAs a representative of the School of Sorcery, I'm authorized to reward you for its return.\nOur last information placed the stolen Stole in the Hall of the Pit; I would suggest checking there first.")
     SetQBit(QBit(707)) -- Retrieve the Seasons' Stole from the Hall of the Pit and return it to Gary Zimm in the Bracada Desert.
     evt.SetNPCTopic(625, 0, 1064) -- Gary Zimm topic 0: Quest
@@ -10789,7 +10789,7 @@ RegisterCanShowTopic(1063, function()
     end
 end)
 
-RegisterGlobalEvent(1064, "Legacy event 1064", function()
+RegisterGlobalEvent(1064, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1440) then -- Season's Stole
         evt.SetMessage("Don't forget there is a reward for the Seasons' Stole if you are able to find it and return it to me.")
@@ -10806,432 +10806,432 @@ RegisterGlobalEvent(1064, "Legacy event 1064", function()
     evt.SetNPCTopic(625, 0, 0) -- Gary Zimm topic 0 cleared
 end)
 
-RegisterGlobalEvent(1065, "Legacy event 1065", function()
+RegisterGlobalEvent(1065, nil, function()
     evt.SetMessage("The Master instructor of the Staff, Elsie Pederton, can be found in the Bracada Desert, on a ridge in the southwest region.")
     SetAutonote(323) -- The Master instructor of the Staff, Elsie Pederton, can be found in the Bracada Desert, on a ridge in the southwest region.
 end)
 
-RegisterGlobalEvent(1066, "Legacy event 1066", function()
+RegisterGlobalEvent(1066, nil, function()
     evt.SetMessage("The ultimate teacher in the ways of the Staff, Jillian Mithrit, can be found in the elven territory of Avlee.\nHer home is in the city in the northeast.")
     SetAutonote(324) -- The ultimate teacher in the ways of the Staff, Jillian Mithrit, can be found in the elven territory of Avlee. Her home is in the city in the northeast.
 end)
 
-RegisterGlobalEvent(1067, "Legacy event 1067", function()
+RegisterGlobalEvent(1067, nil, function()
     evt.SetMessage("The Master instructor of the Sword, Tugor Slicer, maintains his residence in a small village in the western region of the Deyja.")
     SetAutonote(325) -- The Master instructor of the Sword, Tugor Slicer, maintains his residence in a small village in the western region of Deyja.
 end)
 
-RegisterGlobalEvent(1068, "Legacy event 1068", function()
+RegisterGlobalEvent(1068, nil, function()
     evt.SetMessage("The Grandmaster of the Sword, Chadric Townsaver, can be found in a small village in Welnin, just south of the city of Harmondale.")
     SetAutonote(326) -- The Grandmaster of the Sword, Chadric Townsaver, can be found in a small village in Welnin, just south of the city of Harmondale.
 end)
 
-RegisterGlobalEvent(1069, "Legacy event 1069", function()
+RegisterGlobalEvent(1069, nil, function()
     evt.SetMessage("The Master tutor of the Dagger, Aznog Slasher, can be found in the northern region of Nighon.")
     SetAutonote(327) -- The Master tutor of the Dagger, Aznog Slasher, can be found in the northern region of Nighon.
 end)
 
-RegisterGlobalEvent(1070, "Legacy event 1070", function()
+RegisterGlobalEvent(1070, nil, function()
     evt.SetMessage("The Grandmaster of the Dagger, Token Fist, can be found in city of Tidewater in Tatalia.\nRumor has it that the Master Thief in the depths of the Erathian Sewers beneath the capitol city of Steadwick can also instruct at this level.")
     SetAutonote(328) -- The Grandmaster of the Dagger, Token Fist, can be found in city of Tidewater in Tatalia. Rumor has it that the Master Thief in the depths of the Erathian Sewers beneath the capitol city of Steadwick can also instruct at this level.
 end)
 
-RegisterGlobalEvent(1071, "Legacy event 1071", function()
+RegisterGlobalEvent(1071, nil, function()
     evt.SetMessage("The Master Instructor of all that is the Axe, Dalin Keenedge, can be found in the northeast corner of Stone City.")
     SetAutonote(329) -- The Master Instructor of all that is the Axe, Dalin Keenedge, can be found in the northeast corner of Stone City.
 end)
 
-RegisterGlobalEvent(1072, "Legacy event 1072", function()
+RegisterGlobalEvent(1072, nil, function()
     evt.SetMessage("The ultimate teacher of the uses of the Axe, Karn Stonecleaver, can be found in the snowy heights of the northeast region of Tatalia.")
     SetAutonote(330) -- The ultimate teacher of the uses of the Axe, Karn Stonecleaver, can be found in the snowy heights of the northeast region of Tatalia.
 end)
 
-RegisterGlobalEvent(1073, "Legacy event 1073", function()
+RegisterGlobalEvent(1073, nil, function()
     evt.SetMessage("The Master teacher, Claderin Silverpoint, can be found in the northeast section of the city of Pierpont in the elven region of the Tularean Forest. There he will further you knowledge of the Spear.")
     SetAutonote(331) -- The Master teacher, Claderin Silverpoint, can be found in the northeast section of the city of Pierpont in the elven region of the Tularean Forest. There he will further you knowledge of the Spear.
 end)
 
-RegisterGlobalEvent(1074, "Legacy event 1074", function()
+RegisterGlobalEvent(1074, nil, function()
     evt.SetMessage("The Grandmaster of the Spear, Selene Falconeye, makes her home in the northeast corner of Stone City.")
     SetAutonote(332) -- The Grandmaster of the Spear, Selene Falconeye, makes her home in the northeast corner of Stone City.
 end)
 
-RegisterGlobalEvent(1075, "Legacy event 1075", function()
+RegisterGlobalEvent(1075, nil, function()
     evt.SetMessage("The Master tutor of the Bow, Lanshee Ravensight, lives in the northern regions of Nighon.")
     SetAutonote(333) -- The Master tutor of the Bow, Lanshee Ravensight, lives in the northern regions of Nighon.
 end)
 
-RegisterGlobalEvent(1076, "Legacy event 1076", function()
+RegisterGlobalEvent(1076, nil, function()
     evt.SetMessage("The Grandmaster of the Bow, Cardric the Steady, can be found just to the southeast of the castle in the city of Harmondale.")
     SetAutonote(334) -- The Grandmaster of the Bow, Cardric the Steady, can be found just to the southeast of the castle in the city of Harmondale.
 end)
 
-RegisterGlobalEvent(1077, "Legacy event 1077", function()
+RegisterGlobalEvent(1077, nil, function()
     evt.SetMessage("The Master instructor of the Mace, Brother Rothham, can be found in the southern region of the swamps of Tatalia.")
     SetAutonote(335) -- The Master instructor of the Mace, Brother Rothham, can be found in the southern region of the swamps of Tatalia.
 end)
 
-RegisterGlobalEvent(1078, "Legacy event 1078", function()
+RegisterGlobalEvent(1078, nil, function()
     evt.SetMessage("The Grandmaster of the Mace, Patwin Felburn, teaches from his home in the goblin village found in the eastern area of the Deyja. ")
     SetAutonote(336) -- The Grandmaster of the Mace, Patwin Felburn, teaches from his home in the goblin village found in the eastern area of Deyja.
 end)
 
-RegisterGlobalEvent(1079, "Legacy event 1079", function()
+RegisterGlobalEvent(1079, nil, function()
     evt.SetMessage("My Master, Isram Gallowswell, can be found in the snowy heights of the northeast area of Tatalia. You will gain further instruction in the Shield there.")
     SetAutonote(337) -- My Master, Isram Gallowswell, can be found in the snowy heights of the northeast area of Tatalia. You will gain further instruction in the Shield there.
 end)
 
-RegisterGlobalEvent(1080, "Legacy event 1080", function()
+RegisterGlobalEvent(1080, nil, function()
     evt.SetMessage("The Grandmaster of the Shield, Fedwin Smithson, can be found on the eastern island of the Evenmorn Islands.")
     SetAutonote(338) -- The Grandmaster of the Shield, Fedwin Smithson, can be found on the eastern island of the Evenmorn Islands.
 end)
 
-RegisterGlobalEvent(1081, "Legacy event 1081", function()
+RegisterGlobalEvent(1081, nil, function()
     evt.SetMessage("The Master tutor of Leather Armor, Rabisa Neldon, lives in the northern regions of Nighon.")
     SetAutonote(339) -- The Master tutor of Leather Armor, Rabisa Neldon, lives in the northern regions of Nighon.
 end)
 
-RegisterGlobalEvent(1082, "Legacy event 1082", function()
+RegisterGlobalEvent(1082, nil, function()
     evt.SetMessage("The Grandmaster of Leather Armor, Miyon the Quick, can be found in the eastern section of the city of Pierpont in the elven region of the Tularean Forest.")
     SetAutonote(340) -- The Grandmaster of Leather Armor, Miyon the Quick, can be found in the eastern section of the city of Pierpont in the elven region of the Tularean Forest.
 end)
 
-RegisterGlobalEvent(1083, "Legacy event 1083", function()
+RegisterGlobalEvent(1083, nil, function()
     evt.SetMessage("The Master instructor of uses of Chain Armor, Medwari Dragontracker, can be found in the elven territory of Avlee.\nHis home is in the city in the northeast.")
     SetAutonote(341) -- The Master instructor of uses of Chain Armor, Medwari Dragontracker, can be found in the elven territory of Avlee. His home is in the city in the northeast.
 end)
 
-RegisterGlobalEvent(1084, "Legacy event 1084", function()
+RegisterGlobalEvent(1084, nil, function()
     evt.SetMessage("The Grandmaster instructor of Chain Armor, Halian Nevermore, maintains his residence in a large city in the northwest region of Deyja.")
     SetAutonote(342) -- The Grandmaster instructor of Chain Armor, Halian Nevermore, maintains his residence in a large city in the northwest region of Deyja.
 end)
 
-RegisterGlobalEvent(1085, "Legacy event 1085", function()
+RegisterGlobalEvent(1085, nil, function()
     evt.SetMessage("My Master, Dekian Forgewright, makes his home in Erathia in the capitol city of Steadwick. He can provide further instruction in the uses of Plate Armor.")
     SetAutonote(343) -- My Master, Dekian Forgewright, makes his home in Erathia in the capitol city of Steadwick. He can provide further instruction in the uses of Plate Armor.
 end)
 
-RegisterGlobalEvent(1086, "Legacy event 1086", function()
+RegisterGlobalEvent(1086, nil, function()
     evt.SetMessage("The Grandmaster of Plate Armor, Brand the Maker, can be found in the Bracada desert, on a ridge in the central region.")
     SetAutonote(344) -- The Grandmaster of Plate Armor, Brand the Maker, can be found in the Bracada desert, on a ridge in the central region.
 end)
 
-RegisterGlobalEvent(1087, "Legacy event 1087", function()
+RegisterGlobalEvent(1087, nil, function()
     evt.SetMessage("The Master tutor of Fire Magic, Ashen Temper, can be found in the city of Harmondale near the stables.")
     SetAutonote(345) -- The Master tutor of Fire Magic, Ashen Temper, can be found in the city of Harmondale near the stables.
 end)
 
-RegisterGlobalEvent(1088, "Legacy event 1088", function()
+RegisterGlobalEvent(1088, nil, function()
     evt.SetMessage("The Grandmaster of Fire Magic, Blayze, makes his home in Erathia in the capitol city of Steadwick.")
     SetAutonote(346) -- The Grandmaster of Fire Magic, Blayze, makes his home in Erathia in the capitol city of Steadwick.
 end)
 
-RegisterGlobalEvent(1089, "Legacy event 1089", function()
+RegisterGlobalEvent(1089, nil, function()
     evt.SetMessage("The Master tutor of Air Magic, Rislyn Greenstorm, lives in the elven territory of Avlee.\nHis home is in the city in the northeast.")
     SetAutonote(347) -- The Master tutor of Air Magic, Rislyn Greenstorm, lives in the elven territory of Avlee. His home is in the city in the northeast.
 end)
 
-RegisterGlobalEvent(1090, "Legacy event 1090", function()
+RegisterGlobalEvent(1090, nil, function()
     evt.SetMessage("The Grandmaster of Air Magic, Gayle, can be found in a tower in the Bracada desert, on a ridge in the northern region.")
     SetAutonote(348) -- The Grandmaster of Air Magic, Gayle, can be found in a tower in the Bracada desert, on a ridge in the northern region.
 end)
 
-RegisterGlobalEvent(1091, "Legacy event 1091", function()
+RegisterGlobalEvent(1091, nil, function()
     evt.SetMessage("The Master tutor of the uses of Water Magic, Tobren Rainshield, lives in the southwest region of Nighon.")
     SetAutonote(349) -- The Master tutor of the uses of Water Magic, Tobren Rainshield, lives in the southwest region of Nighon.
 end)
 
-RegisterGlobalEvent(1092, "Legacy event 1092", function()
+RegisterGlobalEvent(1092, nil, function()
     evt.SetMessage("The Grandmaster of Water Magic, Torrent, lives on a ridge, south of Harmondale, overlooking the city.")
     SetAutonote(350) -- The Grandmaster of Water Magic, Torrent, lives on a ridge, south of Harmondale, overlooking the city.
 end)
 
-RegisterGlobalEvent(1093, "Legacy event 1093", function()
+RegisterGlobalEvent(1093, nil, function()
     evt.SetMessage("The Master tutor of Earth Magic, Lara Stonewright, makes her home in the elven territory of the Tularean Forest.\nHer residence is in the city of Pierpont.")
     SetAutonote(351) -- The Master tutor of Earth Magic, Lara Stonewright, makes her home in the elven territory of the Tularean Forest. Her residence is in the city of Pierpont.
 end)
 
-RegisterGlobalEvent(1094, "Legacy event 1094", function()
+RegisterGlobalEvent(1094, nil, function()
     evt.SetMessage("The Grandmaster instructor of Earth Magic, Avalanche, maintains his residence in the western region of the Deyja.")
     SetAutonote(352) -- The Grandmaster instructor of Earth Magic, Avalanche, maintains his residence in the western region of the Deyja.
 end)
 
-RegisterGlobalEvent(1095, "Legacy event 1095", function()
+RegisterGlobalEvent(1095, nil, function()
     evt.SetMessage("The Master who taught me, Heather Dreamwright, makes her home in Erathia, somewhere in the capitol city of Steadwick.\nFurther knowledge of Spirit Magic can be gained there.")
     SetAutonote(353) -- The Master who taught me, Heather Dreamwright, makes her home in Erathia, somewhere in the capitol city of Steadwick. Further knowledge of Spirit Magic can be gained there.
 end)
 
-RegisterGlobalEvent(1096, "Legacy event 1096", function()
+RegisterGlobalEvent(1096, nil, function()
     evt.SetMessage("The ultimate teacher in the ways of Spirit Magic, Benjamin the Balanced, can be found in the elven territory of the Tularean Forest.\nHis home is in the city of Pierpont.")
     SetAutonote(354) -- The ultimate teacher in the ways of Spirit Magic, Benjamin the Balanced, can be found in the elven territory of the Tularean Forest. His home is in the city of Pierpont.
 end)
 
-RegisterGlobalEvent(1097, "Legacy event 1097", function()
+RegisterGlobalEvent(1097, nil, function()
     evt.SetMessage("The Master teacher in the ways of Mind Magic, Myles Featherwind, can be found in the elven territory of Avlee.\nHis home is in the city to the northeast.")
     SetAutonote(355) -- The Master teacher in the ways of Mind Magic, Myles Featherwind, can be found in the elven territory of Avlee. His home is in the city to the northeast.
 end)
 
-RegisterGlobalEvent(1098, "Legacy event 1098", function()
+RegisterGlobalEvent(1098, nil, function()
     evt.SetMessage("The Grandmaster of Mind Magic, Xavier Bremen, can be found in the snowy heights of the northeast area of Tatalia. ")
     SetAutonote(356) -- The Grandmaster of Mind Magic, Xavier Bremen, can be found in the snowy heights of the northeast area of Tatalia.
 end)
 
-RegisterGlobalEvent(1099, "Legacy event 1099", function()
+RegisterGlobalEvent(1099, nil, function()
     evt.SetMessage("The Master teacher in the ways of Body Magic, Brother Bombah, can be found in the swampy regions of Tatalia.\nHis home is somewhere in the southern region.")
     SetAutonote(357) -- The Master teacher in the ways of Body Magic, Brother Bombah, can be found in the swampy regions of Tatalia. His home is somewhere in the southern region.
 end)
 
-RegisterGlobalEvent(1100, "Legacy event 1100", function()
+RegisterGlobalEvent(1100, nil, function()
     evt.SetMessage("The Grandmaster teacher in the ways of Body Magic, Tempus, can be found in the elven territory of Avlee.\nHis home is on an island somewhere in the central bay.")
     SetAutonote(358) -- The Grandmaster teacher in the ways of Body Magic, Tempus, can be found in the elven territory of Avlee. His home is on an island somewhere in the central bay.
 end)
 
-RegisterGlobalEvent(1101, "Legacy event 1101", function()
+RegisterGlobalEvent(1101, nil, function()
     evt.SetMessage("The Master of the Identify Item skill, Samuel Benson, can be found on a ridge in the central region of the Bracada desert.")
     SetAutonote(359) -- The Master of the Identify Item skill, Samuel Benson, can be found on a ridge in the central region of the Bracada desert.
 end)
 
-RegisterGlobalEvent(1102, "Legacy event 1102", function()
+RegisterGlobalEvent(1102, nil, function()
     evt.SetMessage("The Grandmaster of the Identify Item skill, Payge Blueswan, can be found in the elven territory of Avlee.\nHis home is just northwest of the elven city of Spaward.")
     SetAutonote(360) -- The Grandmaster of the Identify Item skill, Payge Blueswan, can be found in the elven territory of Avlee. His home is just northwest of the elven city of Spaward.
 end)
 
-RegisterGlobalEvent(1103, "Legacy event 1103", function()
+RegisterGlobalEvent(1103, nil, function()
     evt.SetMessage("The Master of the Merchant skill, Berthold Caverhill, can be found on the eastern most island of the Evenmorn Islands.")
     SetAutonote(361) -- The Master of the Merchant skill, Berthold Caverhill, can be found on the eastern most island of the Evenmorn Islands.
 end)
 
-RegisterGlobalEvent(1104, "Legacy event 1104", function()
+RegisterGlobalEvent(1104, nil, function()
     evt.SetMessage("The Grandmaster of the Merchant skill, Brigham the Frugal, can be found in a tower in the Bracada desert, on a ridge in the northern region.")
     SetAutonote(362) -- The Grandmaster of the Merchant skill, Brigham the Frugal, can be found in a tower in the Bracada desert, on a ridge in the northern region.
 end)
 
-RegisterGlobalEvent(1105, "Legacy event 1105", function()
+RegisterGlobalEvent(1105, nil, function()
     evt.SetMessage("The Master teacher of the Repair Item Skill, Thomas Moore, can be found in the swampy delta of the southern region of Tatalia.")
     SetAutonote(363) -- The Grandmaster of the Merchant skill, Brigham the Frugal, can be found in a tower in the Bracada desert, on a ridge in the northern region.
 end)
 
-RegisterGlobalEvent(1106, "Legacy event 1106", function()
+RegisterGlobalEvent(1106, nil, function()
     evt.SetMessage("The Grandmaster of the Repair Item Skill, Gareth the Fixer, teaches from his home in the capitol city of Steadwick in Erathia.")
     SetAutonote(364) -- The Grandmaster of the Repair Item Skill, Gareth the Fixer, teaches from his home in the capitol city of Steadwick in Erathia.
 end)
 
-RegisterGlobalEvent(1107, "Legacy event 1107", function()
+RegisterGlobalEvent(1107, nil, function()
     evt.SetMessage("The Master of the of the art of Body Building, Wanda Foestryke, can be found in the goblin village in eastern DeyJa Moor.")
     SetAutonote(365) -- The Master of the of the art of Body Building, Wanda Foestryke, can be found in the goblin village in eastern Deyja.
 end)
 
-RegisterGlobalEvent(1108, "Legacy event 1108", function()
+RegisterGlobalEvent(1108, nil, function()
     evt.SetMessage("The Grandmaster of the Body Building skill, Evander Thomas, makes his home in the eastern regions of Nighon.")
     SetAutonote(366) -- The Grandmaster of the Body Building skill, Evander Thomas, makes his home in the eastern regions of Nighon.
 end)
 
-RegisterGlobalEvent(1109, "Legacy event 1109", function()
+RegisterGlobalEvent(1109, nil, function()
     evt.SetMessage("The Master of Meditation, Tessa Greensward, can be found on a ridge in the southeast region of the Bracada desert.")
     SetAutonote(367) -- The Master of Meditation, Tessa Greensward, can be found on a ridge in the southeast region of the Bracada desert.
 end)
 
-RegisterGlobalEvent(1110, "Legacy event 1110", function()
+RegisterGlobalEvent(1110, nil, function()
     evt.SetMessage("The Grandmaster of Meditation, Kaine, can be found in the elven territory of Avlee.\nHis home is on an island somewhere in the central bay.")
     SetAutonote(368) -- The Grandmaster of Meditation, Kaine, can be found in the elven territory of Avlee. His home is on an island somewhere in the central bay.
 end)
 
-RegisterGlobalEvent(1111, "Legacy event 1111", function()
+RegisterGlobalEvent(1111, nil, function()
     evt.SetMessage("The Master of the Perception Skill, Garret Dotes, can be found in the elven area of the Tularean Forest.\nHis home is in the Elven city of Pierpont.")
     SetAutonote(369) -- The Master of the Perception Skill, Garret Dotes, can be found in the elven area of the Tularean Forest. His home is in the Elven city of Pierpont.
 end)
 
-RegisterGlobalEvent(1112, "Legacy event 1112", function()
+RegisterGlobalEvent(1112, nil, function()
     evt.SetMessage("The Grandmaster of the Skill of Perception, Petra Cleareye, can be found in the city in the northwest region of the Deyja.")
     SetAutonote(370) -- The Grandmaster of the Skill of Perception, Petra Cleareye, can be found in the city in the northwest region of Deyja.
 end)
 
-RegisterGlobalEvent(1113, "Legacy event 1113", function()
+RegisterGlobalEvent(1113, nil, function()
     evt.SetMessage("The Master of Disarm Trap Skill, Lenord Skinner, lives on a ridge, south of Harmondale, overlooking the city.")
     SetAutonote(371) -- The Master of Disarm Trap Skill, Lenord Skinner, lives on a ridge, south of Harmondale, overlooking the city.
 end)
 
-RegisterGlobalEvent(1114, "Legacy event 1114", function()
+RegisterGlobalEvent(1114, nil, function()
     evt.SetMessage("The Grandmaster of the Disarm Trap Skill, Silk Quicktoungue, makes his home in the southern region of Nighon.")
     SetAutonote(372) -- The Grandmaster of the Disarm Trap Skill, Silk Quicktoungue, makes his home in the southern region of Nighon.
 end)
 
-RegisterGlobalEvent(1115, "Legacy event 1115", function()
+RegisterGlobalEvent(1115, nil, function()
     evt.SetMessage("The Master of the Dodging Skill, Oberic Crane, can be found on the eastern most island of the Evenmorn Islands")
     SetAutonote(373) -- The Master of the Dodging Skill, Oberic Crane, can be found on the eastern most island of the Evenmorn Islands
 end)
 
-RegisterGlobalEvent(1116, "Legacy event 1116", function()
+RegisterGlobalEvent(1116, nil, function()
     evt.SetMessage("The Grandmaster of the Dodging Skill, Kenneth Wain, can be found in the capitol city of Steadwick, in Erathia.")
     SetAutonote(374) -- The Grandmaster of the Dodging Skill, Kenneth Wain, can be found in the capitol city of Steadwick, in Erathia.
 end)
 
-RegisterGlobalEvent(1117, "Legacy event 1117", function()
+RegisterGlobalEvent(1117, nil, function()
     evt.SetMessage("The Master of Unarmed Combat, Ulbrecht the Brawler, can be found on the eastern most island of the Evenmorn Islands.")
     SetAutonote(375) -- The Master of Unarmed Combat, Ulbrecht the Brawler, can be found on the eastern most island of the Evenmorn Islands.
 end)
 
-RegisterGlobalEvent(1118, "Legacy event 1118", function()
+RegisterGlobalEvent(1118, nil, function()
     evt.SetMessage("The Grandmaster of Unarmed Combat, Norris, can be found in the capitol city of Steadwick, in Erathia.")
     SetAutonote(376) -- The Grandmaster of Unarmed Combat, Norris, can be found in the capitol city of Steadwick, in Erathia.
 end)
 
-RegisterGlobalEvent(1119, "Legacy event 1119", function()
+RegisterGlobalEvent(1119, nil, function()
     evt.SetMessage("The Master instructor of the Identify Monster Skill, Jeni Swiftfoot, lives in the elven territory of Avlee.\nHer home is in the city in the northeast.")
     SetAutonote(377) -- The Master instructor of the Identify Monster Skill, Jeni Swiftfoot, lives in the elven territory of Avlee. Her home is in the city in the northeast.
 end)
 
-RegisterGlobalEvent(1120, "Legacy event 1120", function()
+RegisterGlobalEvent(1120, nil, function()
     evt.SetMessage("The Grandmaster of the Identify Monster Skill, Raven the Hunter, can be found in a small village to the south of Harmondale.")
     SetAutonote(378) -- The Grandmaster of the Identify Monster Skill, Raven the Hunter, can be found in a small village to the south of Harmondale.
 end)
 
-RegisterGlobalEvent(1121, "Legacy event 1121", function()
+RegisterGlobalEvent(1121, nil, function()
     evt.SetMessage("The Master tutor of the Armsmaster Skill, Paula Brightspear, lives in the elven territory of Avlee.\nHer home is in the city in the northeast.")
     SetAutonote(379) -- The Master tutor of the Armsmaster Skill, Paula Brightspear, lives in the elven territory of Avlee. Her home is in the city in the northeast.
 end)
 
-RegisterGlobalEvent(1122, "Legacy event 1122", function()
+RegisterGlobalEvent(1122, nil, function()
     evt.SetMessage("The Grandmaster of the Armsmaster Skill, Lasiter the Slayer, makes his home in the eastern region of Eeofol.")
     SetAutonote(380) -- The Grandmaster of the Armsmaster Skill, Lasiter the Slayer, makes his home in the eastern region of Eeofol.
 end)
 
-RegisterGlobalEvent(1123, "Legacy event 1123", function()
+RegisterGlobalEvent(1123, nil, function()
     evt.SetMessage("The Master tutor of the Stealing Skill, Leane Shadowrunner, makes her home in the goblin village in the eastern region of the Deyja.")
     SetAutonote(381) -- The Master tutor of the Stealing Skill, Leane Shadowrunner, makes her home in the goblin village in the eastern region of the Deyja.
 end)
 
-RegisterGlobalEvent(1124, "Legacy event 1124", function()
+RegisterGlobalEvent(1124, nil, function()
     evt.SetMessage("The Grandmaster teacher of the art of Stealing, Everil Nightwalker, can be found in the swampy delta of the southern region of Tatalia.")
     SetAutonote(382) -- The Grandmaster teacher of the art of Stealing, Everil Nightwalker, can be found in the swampy delta of the southern region of Tatalia.
 end)
 
-RegisterGlobalEvent(1125, "Legacy event 1125", function()
+RegisterGlobalEvent(1125, nil, function()
     evt.SetMessage("The Master of Alchemy, Elzbet Winterspoon, can be found in the western region of Nighon.")
     SetAutonote(383) -- The Master of Alchemy, Elzbet Winterspoon, can be found in the western region of Nighon.
 end)
 
-RegisterGlobalEvent(1126, "Legacy event 1126", function()
+RegisterGlobalEvent(1126, nil, function()
     evt.SetMessage("The Grandmaster instructor of Alchemy, Lucid Apple, can be found in the elven territory of Avlee.\nHis home is on an island somewhere in the central bay.")
     SetAutonote(384) -- The Grandmaster instructor of Alchemy, Lucid Apple, can be found in the elven territory of Avlee. His home is on an island somewhere in the central bay.
 end)
 
-RegisterGlobalEvent(1127, "Legacy event 1127", function()
+RegisterGlobalEvent(1127, nil, function()
     evt.SetMessage("The Master of Learning, Dorothy Senjac, can be found in the southeast region of Nighon.")
     SetAutonote(385) -- The Master of Learning, Dorothy Senjac, can be found in the southeast region of Nighon.
 end)
 
-RegisterGlobalEvent(1128, "Legacy event 1128", function()
+RegisterGlobalEvent(1128, nil, function()
     evt.SetMessage("The Grandmaster of Learning, William Smithson, instructs from his home on the eastern island of the Evenmorn Islands.")
     SetAutonote(386) -- The Grandmaster of Learning, William Smithson, instructs from his home on the eastern island of the Evenmorn Islands.
 end)
 
-RegisterGlobalEvent(1129, "Legacy event 1129", function()
+RegisterGlobalEvent(1129, nil, function()
     evt.SetMessage("The Master of Light Magic, Helena Mornigstar, can be found in the cloud city of Celeste!")
     SetAutonote(387) -- The Master of Light Magic, Helena Mornigstar, can be found in the cloud city of Celeste!
 end)
 
-RegisterGlobalEvent(1130, "Legacy event 1130", function()
+RegisterGlobalEvent(1130, nil, function()
     evt.SetMessage("The Grand Master of Light Magic can be found in the wizards castle, Castle Lambent.")
     SetAutonote(388) -- The Grand Master of Light Magic can be found in the wizards castle, Castle Lambent.
 end)
 
-RegisterGlobalEvent(1131, "Legacy event 1131", function()
+RegisterGlobalEvent(1131, nil, function()
     evt.SetMessage("The Master of Dark, Seth Darkenmore, can be found in The Pit beneath Deyja!")
     SetAutonote(389) -- The Master of Dark, Seth Darkenmore, can be found in The Pit beneath Deyja!
 end)
 
-RegisterGlobalEvent(1132, "Legacy event 1132", function()
+RegisterGlobalEvent(1132, nil, function()
     evt.SetMessage("The Grand Master of Dark Magic can be found in the necromancer castle, Castle Gloaming.\nAt times Archibald has been know to take the journey to Clankers Lab.")
     SetAutonote(390) -- The Grand Master of Dark Magic can be found in the necromancer castle, Castle Gloaming. At times Archibald has been know to take the journey to Clankers Lab.
 end)
 
-RegisterGlobalEvent(1133, "Legacy event 1133", function()
+RegisterGlobalEvent(1133, nil, function()
     evt.StatusText("Empty Barrel")
 end)
 
-RegisterGlobalEvent(1134, "Legacy event 1134", function()
+RegisterGlobalEvent(1134, nil, function()
     evt.StatusText("+2 Might permanent")
     AddValue(BaseMight, 2)
     SetAutonote(289) -- Red liquid grants Might.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1135, "Legacy event 1135", function()
+RegisterGlobalEvent(1135, nil, function()
     evt.StatusText("+2 Accuracy permanent")
     AddValue(BaseAccuracy, 2)
     SetAutonote(293) -- Yellow liquid grants Accuracy.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1136, "Legacy event 1136", function()
+RegisterGlobalEvent(1136, nil, function()
     evt.StatusText("+2 Personality permanent")
     AddValue(BasePersonality, 2)
     SetAutonote(291) -- Blue liquid grants Personality.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1137, "Legacy event 1137", function()
+RegisterGlobalEvent(1137, nil, function()
     evt.StatusText("+2 Intellect permanent")
     AddValue(BaseIntellect, 2)
     SetAutonote(290) -- Orange liquid grants Intellect.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1138, "Legacy event 1138", function()
+RegisterGlobalEvent(1138, nil, function()
     evt.StatusText("+2 Endurance permanent")
     AddValue(BaseEndurance, 2)
     SetAutonote(292) -- Green liquid grants Endurance.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1139, "Legacy event 1139", function()
+RegisterGlobalEvent(1139, nil, function()
     evt.StatusText("+2 Speed permanent")
     AddValue(BaseSpeed, 2)
     SetAutonote(294) -- Purple liquid grants Speed.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1140, "Legacy event 1140", function()
+RegisterGlobalEvent(1140, nil, function()
     evt.StatusText("+2 Luck permanent")
     AddValue(BaseLuck, 2)
     SetAutonote(295) -- White liquid grants Luck.
     evt.ChangeEvent(1133)
 end)
 
-RegisterGlobalEvent(1141, "Legacy event 1141", function()
+RegisterGlobalEvent(1141, nil, function()
     evt.StatusText("Empty Cauldron")
 end)
 
-RegisterGlobalEvent(1142, "Legacy event 1142", function()
+RegisterGlobalEvent(1142, nil, function()
     evt.StatusText("+2 Fire Resistance permanent")
     AddValue(FireResistance, 2)
     SetAutonote(296) -- Steaming liquid grants Fire Resistance.
     evt.ChangeEvent(1141)
 end)
 
-RegisterGlobalEvent(1143, "Legacy event 1143", function()
+RegisterGlobalEvent(1143, nil, function()
     evt.StatusText("+2 Water Resistance permanent")
     AddValue(WaterResistance, 2)
     SetAutonote(297) -- Frosty liquid grants Water Resistance.
     evt.ChangeEvent(1141)
 end)
 
-RegisterGlobalEvent(1144, "Legacy event 1144", function()
+RegisterGlobalEvent(1144, nil, function()
     evt.StatusText("+2 Air Resistance permanent")
     AddValue(AirResistance, 2)
     SetAutonote(298) -- Shocking liquid grants Air Resistance.
     evt.ChangeEvent(1141)
 end)
 
-RegisterGlobalEvent(1145, "Legacy event 1145", function()
+RegisterGlobalEvent(1145, nil, function()
     evt.StatusText("+2 Earth Resistance permanent")
     AddValue(EarthResistance, 2)
     SetAutonote(299) -- Dirty liquid grants Earth Resistance.
     evt.ChangeEvent(1141)
 end)
 
-RegisterGlobalEvent(1146, "Legacy event 1146", function()
+RegisterGlobalEvent(1146, nil, function()
     local randomStep = PickRandomOption(1146, 1, {1, 6, 11})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -11255,7 +11255,7 @@ RegisterGlobalEvent(1146, "Legacy event 1146", function()
     evt.ChangeEvent(1161)
 end)
 
-RegisterGlobalEvent(1147, "Legacy event 1147", function()
+RegisterGlobalEvent(1147, nil, function()
     local randomStep = PickRandomOption(1147, 1, {1, 6, 11})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -11279,7 +11279,7 @@ RegisterGlobalEvent(1147, "Legacy event 1147", function()
     evt.ChangeEvent(1161)
 end)
 
-RegisterGlobalEvent(1148, "Legacy event 1148", function()
+RegisterGlobalEvent(1148, nil, function()
     local randomStep = PickRandomOption(1148, 1, {1, 6, 11})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -11303,7 +11303,7 @@ RegisterGlobalEvent(1148, "Legacy event 1148", function()
     evt.ChangeEvent(1161)
 end)
 
-RegisterGlobalEvent(1161, "Legacy event 1161", function()
+RegisterGlobalEvent(1161, nil, function()
     local randomStep = PickRandomOption(1161, 1, {1, 5})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -11317,7 +11317,7 @@ RegisterGlobalEvent(1161, "Legacy event 1161", function()
     end
 end)
 
-RegisterGlobalEvent(1162, "Legacy event 1162", function()
+RegisterGlobalEvent(1162, nil, function()
     AddValue(Food, 2)
     if not IsAtLeast(DisarmTrapSkill, 1) then
         evt.ChangeEvent(0)
@@ -11327,7 +11327,7 @@ RegisterGlobalEvent(1162, "Legacy event 1162", function()
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1163, "Legacy event 1163", function()
+RegisterGlobalEvent(1163, nil, function()
     AddValue(Food, 1)
     if not IsAtLeast(DisarmTrapSkill, 1) then
         evt.ChangeEvent(0)
@@ -11337,16 +11337,16 @@ RegisterGlobalEvent(1163, "Legacy event 1163", function()
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1164, "Legacy event 1164", function()
+RegisterGlobalEvent(1164, nil, function()
     AddValue(InventoryItem(1432), 1432) -- Red Apple
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1165, "Legacy event 1165", function()
+RegisterGlobalEvent(1165, nil, function()
     evt.StatusText("Empty Cask")
 end)
 
-RegisterGlobalEvent(1166, "Legacy event 1166", function()
+RegisterGlobalEvent(1166, nil, function()
     local randomStep = PickRandomOption(1166, 1, {1, 1, 1, 8, 8, 8})
     if randomStep == 1 then
         local randomStep = PickRandomOption(1166, 2, {2, 2, 2, 5, 5, 5})
@@ -11372,20 +11372,20 @@ RegisterGlobalEvent(1166, "Legacy event 1166", function()
     evt.ChangeEvent(1165)
 end)
 
-RegisterGlobalEvent(1167, "Legacy event 1167", function()
+RegisterGlobalEvent(1167, nil, function()
     AddValue(InventoryItem(1017), 1017) -- Mushroom
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1168, "Legacy event 1168", function()
+RegisterGlobalEvent(1168, nil, function()
     evt.SetMessage("So YOU'RE the ones that won Lord Markham's contest!\nHow do you like your winnings so far?\nHad enough winning?\nIf I were you, I'd give him a piece of my mind!\nHis mansion is in Tatalia, near the wharf.")
 end)
 
-RegisterGlobalEvent(1169, "Legacy event 1169", function()
+RegisterGlobalEvent(1169, nil, function()
     evt.SetMessage("Watch your wallet while you're here, my friends--Steadwick abounds in thieves.\nAs a matter of fact, we are the world capital of thieves!\nIt's common knowledge that Bill Lasker, the Master Thief, lives in the sewers beneath Steadwick.")
 end)
 
-RegisterGlobalEvent(1170, "Legacy event 1170", function()
+RegisterGlobalEvent(1170, nil, function()
     if not IsQBitSet(QBit(708)) then -- Find second entrance to Watchtower6
         evt.SetMessage("Back when I was in the army, I was assigned to scout out the watchtowers in Deyja.\n<chuckling> It's no good trying to go through the front door, so I usually looked around for another way in.\nThose Necromancers are so cowardly, they always have an escape route.\nAnd a way out is also a way in...")
         return
@@ -11409,11 +11409,11 @@ RegisterCanShowTopic(1170, function()
     end
 end)
 
-RegisterGlobalEvent(1171, "Legacy event 1171", function()
+RegisterGlobalEvent(1171, nil, function()
     evt.SetMessage("Bill Lasker may be a criminal, but he has worked for the Crown from time to time.\nSpecial missions, official denials of involvement, spying…that sort of stuff.\nQuite a few unusual events can be tied to Bill, but none to the Crown.\nSeriously, don't you think the Queen's men could find and arrest one man, even if he was hiding in the sewer?")
 end)
 
-RegisterGlobalEvent(1172, "Legacy event 1172", function()
+RegisterGlobalEvent(1172, nil, function()
     if HasItem(1342) then -- Lady Carmine's Dagger
         evt.SetMessage("So…what goes around comes around, eh?\nGood job with that Carmine traitor!")
     elseif IsQBitSet(QBit(1564)) then -- Promoted to Assassin
@@ -11447,11 +11447,11 @@ RegisterCanShowTopic(1172, function()
     end
 end)
 
-RegisterGlobalEvent(1173, "Legacy event 1173", function()
+RegisterGlobalEvent(1173, nil, function()
     evt.SetMessage("Looking for \"work\"?\nYou can find the Master Assassin somewhere in the Pit.\nHe'll have something for you.\nThere's always someone or something that needs killing, that's for certain.")
 end)
 
-RegisterGlobalEvent(1174, "Legacy event 1174", function()
+RegisterGlobalEvent(1174, nil, function()
     if IsQBitSet(QBit(1564)) then -- Promoted to Assassin
         evt.SetMessage("The dragon is fallen--and at your hands!")
     elseif IsQBitSet(QBit(1565)) then -- Promoted to Honorary Assassin
@@ -11483,27 +11483,27 @@ RegisterCanShowTopic(1174, function()
     end
 end)
 
-RegisterGlobalEvent(1175, "Legacy event 1175", function()
+RegisterGlobalEvent(1175, nil, function()
     evt.SetMessage("What, you wanna be a crusader too?\nThis town is filling up with them, I swear!\nWell, there's a crazy man living in the back of a building near the center of town.\nPeople keep trying to sign up with him, and he keeps rejecting them.\nGood luck.")
 end)
 
-RegisterGlobalEvent(1176, "Legacy event 1176", function()
+RegisterGlobalEvent(1176, nil, function()
     evt.SetMessage("Just a minute, let me check.\nMirror, mirror, on the wall… <the witch peers into her mirror for a few minutes, then sighs> It's still Alice Hargreaves.\nShe lives in Castle Gryphonheart.\nShe's quite a noble beauty, that girl is!\nTakes me back to my youth, this one does.")
 end)
 
-RegisterGlobalEvent(1177, "Legacy event 1177", function()
+RegisterGlobalEvent(1177, nil, function()
     evt.SetMessage("One of our finest, most upstanding citizens is William Setag, considered by some to be the most black hearted villain alive.\nAs a matter of fact, he's one of our best agents.\nWizards and their ilk complain because they've been on the receiving end of his schemes too many times-- but he's about the best there is in his profession.\nIf you're looking for employment, go see him.\nHis tower is on the north shore of Deyja at a rather inaccessible point.\nHe doesn't like visitors, but he should be glad to see more students turn up at his door.")
 end)
 
-RegisterGlobalEvent(1178, "Legacy event 1178", function()
+RegisterGlobalEvent(1178, nil, function()
     evt.SetMessage("If you're looking for a teacher to begin serious monk training, speak with Bartholomew Hume--you can find him in the village south of the town of Harmondale.")
 end)
 
-RegisterGlobalEvent(1179, "Legacy event 1179", function()
+RegisterGlobalEvent(1179, nil, function()
     evt.SetMessage("There is a breed of Medusa infesting the Red Dwarf Mines that is immune to magic.\nThese monsters are a real terror!\nI can only thank the Gods that these creatures haven't escaped the mine.\nWhat would we do then, beat them to death with our staves?")
 end)
 
-RegisterGlobalEvent(1180, "Legacy event 1180", function()
+RegisterGlobalEvent(1180, nil, function()
     if HasItem(1332) then -- Cloak of the Sheep
         evt.SetMessage("The Baa cult is gone?\nWell that IS good news!\nEveryone is in your debt, whether they know it or not.\n")
     elseif IsQBitSet(QBit(1574)) then -- Promoted to Master
@@ -11537,7 +11537,7 @@ RegisterCanShowTopic(1180, function()
     end
 end)
 
-RegisterGlobalEvent(1181, "Legacy event 1181", function()
+RegisterGlobalEvent(1181, nil, function()
     if HasItem(1332) then -- Cloak of the Sheep
         evt.SetMessage("Glad to hear the Baa cult has gone missing, instead of my sheep!\nGood job!")
     elseif IsQBitSet(QBit(1574)) then -- Promoted to Master
@@ -11571,43 +11571,43 @@ RegisterCanShowTopic(1181, function()
     end
 end)
 
-RegisterGlobalEvent(1182, "Legacy event 1182", function()
+RegisterGlobalEvent(1182, nil, function()
     evt.SetMessage("Ssspies abound in places like this, my friendsss.\nIf you wish your letters and communiqués to remain sssecret, you should use a cipher when you write.\nThere is a book in the Castle library that will explain everything, my friendsss.")
 end)
 
-RegisterGlobalEvent(1183, "Legacy event 1183", function()
+RegisterGlobalEvent(1183, nil, function()
     evt.SetMessage("Eight years ago, we sent a team of scholars to what is now the Red Dwarf Mine to study the strange creatures that would occasionally show up there.\nThe first thing we noticed was that Ooze ectoplasm makes an excellent potion catalyst.\nThe second was that ooze just can't be physically damaged--they split apart or squish, then run back together. If you want to kill one, you'll have to do it with magic.")
 end)
 
-RegisterGlobalEvent(1184, "Legacy event 1184", function()
+RegisterGlobalEvent(1184, nil, function()
     evt.SetMessage("There is a breed of Medusa infesting the Red Dwarf Mines that is immune to magic.\nThese monsters are a real terror!\nI can only thank the Gods that these creatures haven't escaped the mine.\nWhat would we do then, beat them to death with our staves?")
 end)
 
-RegisterGlobalEvent(1185, "Legacy event 1185", function()
+RegisterGlobalEvent(1185, nil, function()
     evt.SetMessage("If you head south past the Wyvern Plains, don't go knocking at the door of that huge fortress you'll see standing in the middle of the water.\nIt's the Titan's Stronghold, and they don't much like visitors.")
 end)
 
-RegisterGlobalEvent(1186, "Legacy event 1186", function()
+RegisterGlobalEvent(1186, nil, function()
     evt.SetMessage("Arena fighting is available to anyone who wants to practice against any kind of opponent.")
 end)
 
-RegisterGlobalEvent(1187, "Legacy event 1187", function()
+RegisterGlobalEvent(1187, nil, function()
     evt.SetMessage("Arena Champships are held on each Sunday.\nThey are open to all--but be careful!\nYour opponents are chosen by the Arena management, not you!")
 end)
 
-RegisterGlobalEvent(1188, "Legacy event 1188", function()
+RegisterGlobalEvent(1188, nil, function()
     evt.SetMessage("Every graveyard or ancestral burial place seems to have a haunted house nearby--and ours is no exception.")
 end)
 
-RegisterGlobalEvent(1189, "Legacy event 1189", function()
+RegisterGlobalEvent(1189, nil, function()
     evt.SetMessage("Fear the touch of the Ghost as you fear the loss of your life.")
 end)
 
-RegisterGlobalEvent(1190, "Legacy event 1190", function()
+RegisterGlobalEvent(1190, nil, function()
     evt.SetMessage("A few wars ago, my great grandfather worked on an escape tunnel from the Elvish castle to the Tularean Caves.\nI don't think it's ever been used--no attack on the castle has ever brought it down--but it sure is an interesting piece of history, don't you think?")
 end)
 
-RegisterGlobalEvent(1191, "Legacy event 1191", function()
+RegisterGlobalEvent(1191, nil, function()
     if not IsQBitSet(QBit(709)) then -- Entered Faerie Mound
         evt.SetMessage("They say that elves are faeries, but in truth we are only distantly related.\nThe true faeries don't live in civilization, and they're just like the stories say--playful, cruel, magical, and dangerous.\nBut if you really want to meet them, you could visit them in their Hall under the Hill, as they call it.\nIt is just outside of the village, to the North and West.\nIt will be challenging to get to the front door... ")
         return
@@ -11615,7 +11615,7 @@ RegisterGlobalEvent(1191, "Legacy event 1191", function()
     evt.SetMessage("I'm impressed--very few actually make it inside the fairy mound, or get very far.")
 end)
 
-RegisterGlobalEvent(1192, "Legacy event 1192", function()
+RegisterGlobalEvent(1192, nil, function()
     if HasItem(1402) then -- Heart of the Wood
         evt.SetMessage("The forest is much safer now, thanks you to!\nThe oldest tree is very happy with you, and has included you in its history recitals.")
     elseif IsQBitSet(QBit(1580)) then -- Promoted to Ranger Lord
@@ -11630,23 +11630,23 @@ RegisterGlobalEvent(1192, "Legacy event 1192", function()
     end
 end)
 
-RegisterGlobalEvent(1193, "Legacy event 1193", function()
+RegisterGlobalEvent(1193, nil, function()
     evt.SetMessage("The Tularean Forest is so old that it has developed a mind…sort of.\nThe forest is vaguely aware of who walks through it, but only one part of the forest can communicate with people.\nThat's the oldest tree.\nIf you want to have a very long and slow conversation, it will be happy to oblige.\nLook for it on an island to the south east of the forest.\nIt's larger than the rest of the trees.\nYou can't miss it.")
 end)
 
-RegisterGlobalEvent(1194, "Legacy event 1194", function()
+RegisterGlobalEvent(1194, nil, function()
     evt.SetMessage("Anyone needing to earn some spare cash can visit a town hall in any major city to pick up a bounty hunting assignment.\nCity councils are always fearful of the latest man eating monster or bandit or mad wizard, and set bounties on the creature that is bothering them most this month.\nThere's no rhyme or reason to their choices, so don't try to figure it out.\nThey often pay quite well.")
 end)
 
-RegisterGlobalEvent(1195, "Legacy event 1195", function()
+RegisterGlobalEvent(1195, nil, function()
     evt.SetMessage("If you ever get tired of amateur bounty hunts, and want to advance your career, speak with Ebednezer Sower in Avlee.\nHe only teaches followers of the shadow path, though.")
 end)
 
-RegisterGlobalEvent(1196, "Legacy event 1196", function()
+RegisterGlobalEvent(1196, nil, function()
     evt.SetMessage("Pirates been operating out of the tidewater caverns for twenty years.\nThey're not Regnans, and they aren't part of Bill Lasker's men, but they're still pretty mean.\nYou want to get in there, just get yourself out to the islands to the west.")
 end)
 
-RegisterGlobalEvent(1197, "Legacy event 1197", function()
+RegisterGlobalEvent(1197, nil, function()
     if HasItem(1485) then -- Map to Evenmorn Island
         evt.SetMessage("Oh, so the map is found?\nWhat will you do with your newfound treasure?\nShare it, I hope!")
     elseif IsQBitSet(QBit(1607)) then -- Promoted to Priest
@@ -11659,7 +11659,7 @@ RegisterGlobalEvent(1197, "Legacy event 1197", function()
     end
 end)
 
-RegisterGlobalEvent(1198, "Legacy event 1198", function()
+RegisterGlobalEvent(1198, nil, function()
     if HasItem(1485) then -- Map to Evenmorn Island
         evt.SetMessage("Now that you have the map, I guess you'll be going there soon.\nBe careful--they say the island is cursed!")
     elseif IsQBitSet(QBit(1607)) then -- Promoted to Priest
@@ -11672,19 +11672,19 @@ RegisterGlobalEvent(1198, "Legacy event 1198", function()
     end
 end)
 
-RegisterGlobalEvent(1199, "Legacy event 1199", function()
+RegisterGlobalEvent(1199, nil, function()
     evt.SetMessage("If you don't mind the swamp and fog, Evenmorn Island is a great place to live.\nOf course, the Curse doesn't help--ghosts and skeletons roam the island freely--but other than that, the neighbors keep to themselves.\nThe Churches of the Sun and the Moon don't even fight each other very much anymore.\n<Heh!> probably means they're running out of adherents...")
 end)
 
-RegisterGlobalEvent(1200, "Legacy event 1200", function()
+RegisterGlobalEvent(1200, nil, function()
     evt.SetMessage("Well, I don't have any golem parts--I never took that class--but there are students all over Bracada who have spare golem parts lying around.\nThey aren't worth anything unless you have them all, so they'll probably just give them to you for free.")
 end)
 
-RegisterGlobalEvent(1201, "Legacy event 1201", function()
+RegisterGlobalEvent(1201, nil, function()
     evt.SetMessage("You see all those golems walking around Bracada?\nEvery single one of them was made by the School.\nNot bad for students, eh?\nThey don't have much to say, but they're tough guardians and can tell when a follower of Darkness is near.\nYou should see them go into action when one of those Necromancers or Warlocks wanders into our lands.\nZowwwwwieeee!")
 end)
 
-RegisterGlobalEvent(1202, "Legacy event 1202", function()
+RegisterGlobalEvent(1202, nil, function()
     if HasItem(1289) then -- Divine Intervention
         evt.SetMessage("Divine intervention has been found and copied?")
     elseif IsQBitSet(QBit(1621)) then -- Promoted to Archmage
@@ -11697,7 +11697,7 @@ RegisterGlobalEvent(1202, "Legacy event 1202", function()
     end
 end)
 
-RegisterGlobalEvent(1203, "Legacy event 1203", function()
+RegisterGlobalEvent(1203, nil, function()
     if HasItem(1289) then -- Divine Intervention
         evt.SetMessage("All the grandmasters are very pleased with you.")
     elseif IsQBitSet(QBit(1621)) then -- Promoted to Archmage
@@ -11710,15 +11710,15 @@ RegisterGlobalEvent(1203, "Legacy event 1203", function()
     end
 end)
 
-RegisterGlobalEvent(1204, "Legacy event 1204", function()
+RegisterGlobalEvent(1204, nil, function()
     evt.SetMessage("The only people in the world who make soul jars are the Warlocks of Nighon.\nIt is a secret of their profession--which is strange, since they have absolutely no use for them.\nStill, we are forced to bargain for the jars in order to advance our craft.\nOf course, we have wrested the jars from them, from time to time...but then they raise their prices in revenge.\nIt must be our fate to suffer so.")
 end)
 
-RegisterGlobalEvent(1205, "Legacy event 1205", function()
+RegisterGlobalEvent(1205, nil, function()
     evt.SetMessage("Every Necromancer aspires to be a Lich one day.\nAll you need is a Soul Jar, knowledge of the Ritual, and the magical skill to survive the journey to the Land of the Dead and return.\nThe body withers while the soul lives on in a glorious state free from hunger, disease, and injury.\nOnly shallow and superficial people would mind what the Ritual does to one's appearance.\nTrue practitioners hardly notice.")
 end)
 
-RegisterGlobalEvent(1206, "Legacy event 1206", function()
+RegisterGlobalEvent(1206, nil, function()
     if IsQBitSet(QBit(1613)) then -- Promoted to Great Druid
         evt.SetMessage("Since you've discovered the circles on your own they have worked their magic on you.\nI hope you will refrain from telling others of their whereabouts, as I have done for you.")
     elseif IsQBitSet(QBit(1614)) then -- Promoted to Honorary Great Druid
@@ -11729,33 +11729,33 @@ RegisterGlobalEvent(1206, "Legacy event 1206", function()
     end
 end)
 
-RegisterGlobalEvent(1207, "Legacy event 1207", function()
+RegisterGlobalEvent(1207, nil, function()
     evt.SetMessage("Originally, there were four Circles of Stone, one for each Cardinal direction and season, but the Eastern Circle was destroyed somewhere in Nighon during the wars between the Churches of the Sun and the Moon.")
 end)
 
-RegisterGlobalEvent(1208, "Legacy event 1208", function()
+RegisterGlobalEvent(1208, nil, function()
     evt.SetMessage("The graveyard does indeed hold the bones of the ancient King, but the hallowed land will curse any who disturb it.\nI don't envy you this task.\nEach grave you open will unleash its curse, and possibly some other trap.\nBest be sure you're opening the correct grave when you begin to dig.")
 end)
 
-RegisterGlobalEvent(1209, "Legacy event 1209", function()
+RegisterGlobalEvent(1209, nil, function()
     evt.SetMessage("Though the barrows were built to deter thieves, a way was needed to navigate them during burials and ceremonies.\nNear each of the gates you'll find a plaque.\nThese plaques are cryptic, but they will keep you from losing your way, as long as you use them.\nNo thief yet has realized their significance, so once they enter the barrows, they never leave.")
 end)
 
-RegisterGlobalEvent(1210, "Legacy event 1210", function()
+RegisterGlobalEvent(1210, nil, function()
     evt.SetMessage("We built a tunnel leading from our Thunderfist Mountain to the Land of the Giants during the War.\nIt was there we discovered the Kreegan, and more titans and dragons then you can imagine.\nI suppose one who's familiar is to be a dragon could find eggs in one of the dragon caves of that terrible land.\n'Ware the mother...")
 end)
 
-RegisterGlobalEvent(1211, "Legacy event 1211", function()
+RegisterGlobalEvent(1211, nil, function()
     evt.SetMessage("I've heard legends that there is a dragon in the Land of the Titans greater than any that have come before.\nLesser dragons and titans do battle on the slopes of the mountain in which its cave resides.\nThis dragon is so huge, and so mighty that the other dragons feed it for fear it will one day leave its cave and devour them all in its fury.\nThe dragons believe it is a god.\nIf that is so, imagine its treasure...")
 end)
 
-RegisterGlobalEvent(1212, "Legacy event 1212", function()
+RegisterGlobalEvent(1212, nil, function()
     evt.SetMessage("During the wars between the Temples of the Sun and Moon, three statuettes were stolen from the shrines in the Bracada Desert, Tatalia, and Avlee.\nI represent a group of Druids that want these shrines back to their original form-- it is critical for their worship.\nTo this end, I am offering a substantial reward for anyone that will find the statuettes and place them on the shrines.")
     SetQBit(QBit(712)) -- Retrieve the three statuettes and place them on the shrines in the Bracada Desert, Tatalia, and Avlee, then return to Thom Lumbra in the Tularean Forest.
     evt.SetNPCTopic(627, 0, 1213) -- Thom Lumbra topic 0: Quest
 end)
 
-RegisterGlobalEvent(1213, "Legacy event 1213", function()
+RegisterGlobalEvent(1213, nil, function()
     if IsQBitSet(QBit(713)) then -- Placed item 617 in out14(statue)
         if IsQBitSet(QBit(714)) then -- Place item 618 in out13(statue)
             if not IsQBitSet(QBit(715)) then -- Place item 619 in out06(statue)
@@ -11777,13 +11777,13 @@ RegisterGlobalEvent(1213, "Legacy event 1213", function()
     evt.SetMessage("All three statuettes are not placed.")
 end)
 
-RegisterGlobalEvent(1214, "Legacy event 1214", function()
+RegisterGlobalEvent(1214, nil, function()
     evt.SetMessage("As you may have already guessed, I'm a collector of fine art.\nCurrently, I am looking for a set of paintings, one of King Roland, one of his brother Archibald, and one of the angel statue in the courtyard of Castle Ironfist.\nThis set is of great value, and, as a collector, I'm willing to pay quite handsomely for it.\nIf you should gather the entire set of paintings bring them back to me and I'll be sure to compensate you well for your effort.")
     SetQBit(QBit(716)) -- Retrieve the three paintings and return them to Ferdinand Visconti in Tatalia.
     evt.SetNPCTopic(628, 0, 1215) -- Ferdinand Visconti topic 0: Quest
 end)
 
-RegisterGlobalEvent(1215, "Legacy event 1215", function()
+RegisterGlobalEvent(1215, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1423) then -- Angel Statue Painting
         if HasItem(1424) then -- Archibald Ironfist Painting
@@ -11810,13 +11810,13 @@ RegisterGlobalEvent(1215, "Legacy event 1215", function()
     evt.SetMessage("Remember, I need the complete set of paintings-- they aren't worth much by themselves.\nWhen you have the rest, bring them all to me.")
 end)
 
-RegisterGlobalEvent(1216, "Legacy event 1216", function()
+RegisterGlobalEvent(1216, nil, function()
     evt.SetMessage("To be declared ArcoMage Champion, you must win a game of ArcoMage in every tavern on, in, and under the continent of Erathia.\nThere are 13 such taverns sponsoring ArcoMage events.\nWhen you have accomplished this, return to me to claim the prize.")
     SetQBit(QBit(717)) -- Win a game of Arcomage in all thirteen taverns, then return to Gina Barnes in Erathia.
     evt.SetNPCTopic(629, 0, 1217) -- Gina Barnes topic 0: Quest
 end)
 
-RegisterGlobalEvent(1217, "Legacy event 1217", function()
+RegisterGlobalEvent(1217, nil, function()
     if not IsQBitSet(QBit(750)) then -- Won all Arcomage games
         evt.SetMessage("You must claim a victory at ALL 13 taverns.\nUntil you do, you cannot be declared ArcoMage Champion.")
         return
@@ -11833,27 +11833,27 @@ RegisterGlobalEvent(1217, "Legacy event 1217", function()
     evt.SetNPCTopic(629, 0, 0) -- Gina Barnes topic 0 cleared
 end)
 
-RegisterGlobalEvent(1218, "Legacy event 1218", function()
+RegisterGlobalEvent(1218, nil, function()
     evt.SetMessage("People say the Dwarves live in the barren lands south of Harmondale, but that's not exactly true--They live UNDER them.\nLook for their front gate in the center of the Barrow Downs where three bridges meet.")
 end)
 
-RegisterGlobalEvent(1219, "Legacy event 1219", function()
+RegisterGlobalEvent(1219, nil, function()
     evt.SetMessage("Ever since the Warlocks of Nighon tunneled through Stone City from their island, travelers have been asking to pass through the city to get to Nighon.\nThe Dwarf King hates this, and would like to charge a hefty fee for people seeking to enter Stone City.\nHe has not started charging however, fearing political and possible violent repercussions with the Warlocks of Nighon.")
 end)
 
-RegisterGlobalEvent(1220, "Legacy event 1220", function()
+RegisterGlobalEvent(1220, nil, function()
     evt.SetMessage("The Warlocks of Nighon live in Thunderfist Mountain--an extinct volcano on a large island a few miles from the mainland.\nDuring the recent wars, the Warlocks tunneled through Stone City to transport their forces across the channel.\nThose tunnels are still open and can be traversed.")
 end)
 
-RegisterGlobalEvent(1221, "Legacy event 1221", function()
+RegisterGlobalEvent(1221, nil, function()
     evt.SetMessage("During the War, the Warlocks tunneled from Nighon through Stone City to get to the mainland and seize territory.\nEven though they were pushed back to their island by Erathia, the tunnels remain.")
 end)
 
-RegisterGlobalEvent(1222, "Legacy event 1222", function()
+RegisterGlobalEvent(1222, nil, function()
     evt.SetMessage("Dwarves live under the ground of the Barrow Downs--a barren collection of ancient gravesites built by their race centuries ago to honor fallen kings and heroes.")
 end)
 
-RegisterGlobalEvent(1223, "Legacy event 1223", function()
+RegisterGlobalEvent(1223, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetMessage("We were making a fortune in the Red Dwarf Mines until the Medusas came!\nWe had to run before they turned everyone to stone.\nWithout our mining, we have almost no way to make a living.\nNot the way for a proper Dwarf to live, I say!")
         return
@@ -11861,7 +11861,7 @@ RegisterGlobalEvent(1223, "Legacy event 1223", function()
     evt.SetMessage("The Lords of Harmondale!\nHeroes, I say!\nMy cousin was one of the ones you rescued!\nWe are in your debt!")
 end)
 
-RegisterGlobalEvent(1224, "Legacy event 1224", function()
+RegisterGlobalEvent(1224, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetMessage("Bracada leased the land where we started the Red Dwarf Mine to us a few years ago.")
         return
@@ -11869,7 +11869,7 @@ RegisterGlobalEvent(1224, "Legacy event 1224", function()
     evt.SetMessage("Thank you for delivering our people from the medusas!")
 end)
 
-RegisterGlobalEvent(1225, "Legacy event 1225", function()
+RegisterGlobalEvent(1225, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetMessage("When the Medusas took the Red Dwarf Mines from us, not everyone escaped.\nThere are still several statues in the mines.\nThey can be rescued if their statues haven't been broken yet, but you would have to fight through the Medusas to do it.")
         return
@@ -11877,11 +11877,11 @@ RegisterGlobalEvent(1225, "Legacy event 1225", function()
     evt.SetMessage("We owe you much for your daring rescue of our people.")
 end)
 
-RegisterGlobalEvent(1226, "Legacy event 1226", function()
+RegisterGlobalEvent(1226, nil, function()
     evt.SetMessage("Do you like our city?\nIt's not just a hole in the ground--it's a home in the ground!\nDwarves have been working this mountain for centuries!\nThere isn't much mining left here, though, and what there is happens to be in unstable and unsafe tunnels.\nBe careful if you go to the lower levels.")
 end)
 
-RegisterGlobalEvent(1227, "Legacy event 1227", function()
+RegisterGlobalEvent(1227, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("Good day, my lords.\nI must say the people are changing their minds about your chances of survival.\nEveryone is saying how wonderful it is to have stable rulers in the Castle!")
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
@@ -11892,11 +11892,11 @@ RegisterGlobalEvent(1227, "Legacy event 1227", function()
     end
 end)
 
-RegisterGlobalEvent(1228, "Legacy event 1228", function()
+RegisterGlobalEvent(1228, nil, function()
     evt.SetMessage("Rebellions here in Harmondale are rare, but we've had a couple of big ones!\nMost of the time lords here don't last long enough to rebel against, but there've been some wicked ones!\nNot that I think you're wicked, my lords.")
 end)
 
-RegisterGlobalEvent(1229, "Legacy event 1229", function()
+RegisterGlobalEvent(1229, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
         evt.SetMessage("It's good to see someone in Harmondale again, my lords.\nThe castle's been standing empty since the War, except for the goblins.\nBut they don't count, I suppose.")
         return
@@ -11904,15 +11904,15 @@ RegisterGlobalEvent(1229, "Legacy event 1229", function()
     evt.SetMessage("It's good to see the Castle rebuilt and those loathsome goblin bandits evicted.")
 end)
 
-RegisterGlobalEvent(1230, "Legacy event 1230", function()
+RegisterGlobalEvent(1230, nil, function()
     evt.SetMessage("What with all the wars that Avlee gets itself into all the time, and all the high taxes, I've moved to Harmondale to stay.\nHarmondale sees a lot of violence, but at least they don't conscript.\nYou know, there's been so many wars in Avlee that one of the kings had a tunnel dug from his castle to the caves in the North just in case the castle was taken AGAIN.")
 end)
 
-RegisterGlobalEvent(1231, "Legacy event 1231", function()
+RegisterGlobalEvent(1231, nil, function()
     evt.SetMessage("A ways outside of Harmondale there's a cave system that's always been the home of bandits, monsters, and other ne'er-do-wells.\nThey're called the White Cliff Caves.\nIf you're ever robbed, or are looking for some evil doers to punish, all you got to do is go up there.\nYou'll find a fight for sure!")
 end)
 
-RegisterGlobalEvent(1232, "Legacy event 1232", function()
+RegisterGlobalEvent(1232, nil, function()
     if not IsQBitSet(QBit(595)) then -- Gave false Loren to Catherine (betray)
         evt.SetMessage("Did you notice that covered bridge on the way from Harmondale to Steadwick?\nIt's called Fort Riverstride, and it protects us from surprise Elvish attacks coming through Harmondale.\nThere's so many traps and tricks inside there, they say it will never fall without the help of treachery.\n")
         return
@@ -11920,7 +11920,7 @@ RegisterGlobalEvent(1232, "Legacy event 1232", function()
     evt.SetMessage("I've heard Fort Riverstride was taken with the aid of treachery!")
 end)
 
-RegisterGlobalEvent(1233, "Legacy event 1233", function()
+RegisterGlobalEvent(1233, nil, function()
     if IsQBitSet(QBit(596)) then -- Gave artifact to humans
         evt.SetMessage("Looks like the trophy fell into the hands of Erathia.")
         return
@@ -11946,7 +11946,7 @@ RegisterCanShowTopic(1233, function()
     end
 end)
 
-RegisterGlobalEvent(1234, "Legacy event 1234", function()
+RegisterGlobalEvent(1234, nil, function()
     if not IsQBitSet(QBit(646)) then -- Arbiter Messenger only happens once
         evt.SetMessage("Because of all the tension in the air, Erathia and Avlee hired an arbiter to help them work out their differences.\nHe's staying in the \"House of Stars\" on the eastern edge of Harmondale territory.\nMaybe he has some advice for you.")
         return
@@ -11965,11 +11965,11 @@ RegisterCanShowTopic(1234, function()
     end
 end)
 
-RegisterGlobalEvent(1235, "Legacy event 1235", function()
+RegisterGlobalEvent(1235, nil, function()
     evt.SetMessage("If you ever feel like you need advice on what next to do, or you've lost something important, go visit the Arbiter in the House of Stars near the Eastern edge of Harmondale territory.\nHe often knows where lost items went, or has advice on what you need to do.\nI'm sure you'll find him helpful.")
 end)
 
-RegisterGlobalEvent(1236, "Legacy event 1236", function()
+RegisterGlobalEvent(1236, nil, function()
     if IsQBitSet(QBit(611)) then -- Chose the path of Light
         evt.SetMessage("It looks like the consequences of your choice are just beginning, my lords.\nI hope you chose wisely.")
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
@@ -11991,23 +11991,23 @@ RegisterCanShowTopic(1236, function()
     end
 end)
 
-RegisterGlobalEvent(1237, "Legacy event 1237", function()
+RegisterGlobalEvent(1237, nil, function()
     evt.SetMessage("The proving grounds, called the Walls of Mist,\nis the place where all the wizards in Celeste have to go before they learn the High Art.\nI hear it is much more of a moral test than a physical one.\nYou aren't allowed to kill any of the monsters in the maze.")
 end)
 
-RegisterGlobalEvent(1238, "Legacy event 1238", function()
+RegisterGlobalEvent(1238, nil, function()
     evt.SetMessage("The city of Celeste has been home to the Light for centuries.\nIt was established by King Magnus II\nin 499 as the centerpiece to the Kingdom of Bracada, and as a beacon of hope to the rest of the world.\n")
 end)
 
-RegisterGlobalEvent(1239, "Legacy event 1239", function()
+RegisterGlobalEvent(1239, nil, function()
     evt.SetMessage("What you see on the surface in Deyja is only a small part of the true Kingdom of Death.")
 end)
 
-RegisterGlobalEvent(1240, "Legacy event 1240", function()
+RegisterGlobalEvent(1240, nil, function()
     evt.SetMessage("Celeste is the magical city built by the Wizards of Bracada centuries ago, and anchored half in the mountains, and half in mist high above Bracada.\nYou must use one of their teleporters to get there--you can find it near the center of Bracada.")
 end)
 
-RegisterGlobalEvent(1241, "Legacy event 1241", function()
+RegisterGlobalEvent(1241, nil, function()
     if not IsQBitSet(QBit(619)) then -- Slayed the vampire
         evt.SetMessage("There was another murder, recently, that's been all the talk around town.\nAnother body--young woman, so I hear--was found near the sewers.\nDrained of blood, for the love of Light!\nIt's those thieves living' in the sewers I tell you!\nRats, they are.\nSomeone should go down there and put them out of business!")
         return
@@ -12026,15 +12026,15 @@ RegisterCanShowTopic(1241, function()
     end
 end)
 
-RegisterGlobalEvent(1242, "Legacy event 1242", function()
+RegisterGlobalEvent(1242, nil, function()
     evt.SetMessage("During the War, the Warlocks had dealings with some strange creatures called the \"Kreegan\" in the mountains south of Avlee.\nIt's impossible to get there from the mainland, but the Warlocks dug a tunnel under the sea from their island that leads to the Kreegan's home.")
 end)
 
-RegisterGlobalEvent(1243, "Legacy event 1243", function()
+RegisterGlobalEvent(1243, nil, function()
     evt.SetMessage("We…overplayed our hand during the War, and failed to win any territory on the mainland.\nOur \"allies\", the Kreegan, turned out to be very untrustworthy.\nPeople from Enroth call them devils--now we know why.\nAt just the moment when we needed them most, they turned and ran, leaving us to face the wrath of the armies of Erathia and Avlee.\nNext time, we won't be so trusting.")
 end)
 
-RegisterGlobalEvent(1244, "Legacy event 1244", function()
+RegisterGlobalEvent(1244, nil, function()
     evt.SetMessage("There's been quite a bit of activity in Deyja, people are saying.\nIt seems that Archibald Ironfist, the leader of Deyja (and former King of Enroth) has left the Pit for an island off the Eastern shore of Avlee.\nA lot of Necromancers followed him there--seems there's some sort of split going on.")
 end)
 RegisterCanShowTopic(1244, function()
@@ -12049,7 +12049,7 @@ RegisterCanShowTopic(1244, function()
     end
 end)
 
-RegisterGlobalEvent(1245, "Legacy event 1245", function()
+RegisterGlobalEvent(1245, nil, function()
     if not IsQBitSet(QBit(752)) then -- Talked to Roland
         evt.SetMessage("Rumors have been trickling out of Nighon that King Roland of Enroth may still be alive.")
         return
@@ -12071,15 +12071,15 @@ RegisterCanShowTopic(1245, function()
     end
 end)
 
-RegisterGlobalEvent(1246, "Legacy event 1246", function()
+RegisterGlobalEvent(1246, nil, function()
     evt.SetMessage("A Soul Jar is what a Necromancer needs to complete the Ritual and become a Lich--an immortal undead monster that retains its mind and memories from life.\nIt's pretty obvious that this is not a desirable condition for most people, which is why the market for these artifacts isn't very good.\nNonetheless, Necromancers will do almost anything to get more--their profession's very existence depends on them.")
 end)
 
-RegisterGlobalEvent(1247, "Legacy event 1247", function()
+RegisterGlobalEvent(1247, nil, function()
     evt.SetMessage("Although the Warlocks are technically servants of the Dark, they usually aren't violent.\nThey will defend themselves if attacked, of course, but they won't start a fight unless you start it first.\nThey're quite reasonable, as a matter of fact, and they take their business seriously.\nI've found dealing with them to be quite pleasant.")
 end)
 
-RegisterGlobalEvent(1248, "Legacy event 1248", function()
+RegisterGlobalEvent(1248, nil, function()
     if not IsQBitSet(QBit(637)) then -- Destroy the magical defenses inside Clanker's Laboratory and return to Dark Shade in the Pit.
         evt.SetMessage("The underground complex Clanker has created is surprisingly well defended.\nThe front door will keep out all magical attacks, and the island makes it difficult for any sort of large force to land on the island.\nSo far, Clanker has kept to himself, and no one has seriously tried his defenses, but his best protection comes from a series of teleport blockers inside the complex.\nNo magical invasion force can teleport past the front door until those blockers are brought down first.")
         return
@@ -12101,19 +12101,19 @@ RegisterCanShowTopic(1248, function()
     end
 end)
 
-RegisterGlobalEvent(1249, "Legacy event 1249", function()
+RegisterGlobalEvent(1249, nil, function()
     evt.SetMessage("Looking for Expert instruction in one of your Skills?\nExpert teachers for most Skills can be found in Harmondale, Erathia and the Tularean Forest. ")
 end)
 
-RegisterGlobalEvent(1250, "Legacy event 1250", function()
+RegisterGlobalEvent(1250, nil, function()
     evt.SetMessage("People have been disappearing recently.\nNot just one or two, but several every day!\nThey go to bed at night, and the next day they aren't seen and their houses are empty!\nI certainly wish someone would find out what it happening!")
 end)
 
-RegisterGlobalEvent(1251, "Legacy event 1251", function()
+RegisterGlobalEvent(1251, nil, function()
     evt.SetMessage("The teleporters of central Bracada can get you to numerous locations in the desert.\nJust check the pillar in front of the teleporter for the location it will take you to.\nBe careful however, some of the teleporters haven't been working correctly and will not show the destination!")
 end)
 
-RegisterGlobalEvent(1252, "Legacy event 1252", function()
+RegisterGlobalEvent(1252, nil, function()
     if HasAward(Award(28)) then -- Completed Necromancer Breeding Pit
         evt.SetMessage("My Lords!\nLord Archibald sent engineers and artisans to upgrade Castle Harmondale!\nNow we have an upstairs and downstairs!\nLord Archibald also left gifts in chests in these new areas.\nThe artisans are setting up shop in the entry hall and will have many wonderful items for sale!\nOh, yes, the workers discovered an older area to the castle--a torture chamber and dungeon!\nWe are very lucky!\nI never thought Harmondale could afford such luxuries, my lords!")
         return
@@ -12134,23 +12134,23 @@ RegisterCanShowTopic(1252, function()
     end
 end)
 
-RegisterGlobalEvent(1253, "Legacy event 1253", function()
+RegisterGlobalEvent(1253, nil, function()
     evt.SetMessage("Pedestals can be found through out the land that can lend you temporary protection from certain types of magic. ")
 end)
 
-RegisterGlobalEvent(1254, "Legacy event 1254", function()
+RegisterGlobalEvent(1254, nil, function()
     evt.SetMessage("My Lords ::bows:: Now that you have cleared Castle Harmondale of the goblins and vermin, you should concentrate on removing the goblins from the area surrounding Harmondale.\nTo the east of here is the center of the disputed region.\nMany great battles have been waged there between the forces of King Eldrich of the Elves and Queen Catherine of Erathia.\nThe goblins have taken the ruined fort in this area an use it to attack any travelers attempting to reach Harmondale!")
 end)
 
-RegisterGlobalEvent(1255, "Legacy event 1255", function()
+RegisterGlobalEvent(1255, nil, function()
     evt.SetMessage("My Lords, remember Castle Harmondale is YOURS.\nFeel free to relax while you're here.\nYour sleep will never be disturbed by attacking monsters, nor will anything you decide to store in the castle's chests ever be stolen or removed.\nYou are home.")
 end)
 
-RegisterGlobalEvent(1256, "Legacy event 1256", function()
+RegisterGlobalEvent(1256, nil, function()
     evt.SetMessage("If you seek aid from Erathia, light the beacon fires near the roads to the Barrow Downs, Erathia, and the Tularean Forest.\nThe Erathian forces near here will see the fires and rush to your aid!")
 end)
 
-RegisterGlobalEvent(1257, "Legacy event 1257", function()
+RegisterGlobalEvent(1257, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1496) then return end -- Crate of Tularean Wood
     evt.SetMessage("Ahh, a shipment of Tularean Wood from my friend Robert Belknap.\nI hope everything is well with him. Here's your payment.")
@@ -12182,7 +12182,7 @@ RegisterGlobalEvent(1257, "Legacy event 1257", function()
     end
 end)
 
-RegisterGlobalEvent(1258, "Legacy event 1258", function()
+RegisterGlobalEvent(1258, nil, function()
     evt.SetMessage("Here's your crate of Griffin Feathers.")
     ClearQBit(QBit(762)) -- Bought Item 1
     if IsAtLeast(Gold, 200) then
@@ -12211,7 +12211,7 @@ RegisterCanShowTopic(1258, function()
     end
 end)
 
-RegisterGlobalEvent(1259, "Legacy event 1259", function()
+RegisterGlobalEvent(1259, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1494) then return end -- Crate of Arrowheads
     evt.SetMessage("Rydric has sent me another shipment of Arrowheads.")
@@ -12243,7 +12243,7 @@ RegisterGlobalEvent(1259, "Legacy event 1259", function()
     end
 end)
 
-RegisterGlobalEvent(1260, "Legacy event 1260", function()
+RegisterGlobalEvent(1260, nil, function()
     evt.SetMessage("Here's your crate of Tularean Wood.")
     ClearQBit(QBit(763)) -- Bought Item 2
     if IsAtLeast(Gold, 200) then
@@ -12272,7 +12272,7 @@ RegisterCanShowTopic(1260, function()
     end
 end)
 
-RegisterGlobalEvent(1261, "Legacy event 1261", function()
+RegisterGlobalEvent(1261, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1495) then return end -- Crate of Griffin Feathers
     evt.SetMessage("Pip Hillier sends another shipment of Griffin Feathers.")
@@ -12304,7 +12304,7 @@ RegisterGlobalEvent(1261, "Legacy event 1261", function()
     end
 end)
 
-RegisterGlobalEvent(1262, "Legacy event 1262", function()
+RegisterGlobalEvent(1262, nil, function()
     evt.SetMessage("Thanks!\nHere's your crate of Sand. Arvin Beneclowd in the forsaken Barrow Downs pays well for this Sand, from it he creates fine bottles!")
     ClearQBit(QBit(767)) -- Bought Item 6
     if IsAtLeast(Gold, 2000) then
@@ -12334,7 +12334,7 @@ RegisterCanShowTopic(1262, function()
     end
 end)
 
-RegisterGlobalEvent(1263, "Legacy event 1263", function()
+RegisterGlobalEvent(1263, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1499) then return end -- Crate of Enrothian Wine
     evt.SetMessage("Ahh, a shipment of Enrothian Wine from Infernon.\nThis will warm the hearts of many! Here's your payment.")
@@ -12355,7 +12355,7 @@ RegisterGlobalEvent(1263, "Legacy event 1263", function()
     AddValue(Gold, 3000)
 end)
 
-RegisterGlobalEvent(1264, "Legacy event 1264", function()
+RegisterGlobalEvent(1264, nil, function()
     evt.SetMessage("Be sure to take this crate of Glass Bottles to Infernon in Avlee.")
     ClearQBit(QBit(765)) -- Bought Item 4
     if IsAtLeast(Gold, 2000) then
@@ -12385,7 +12385,7 @@ RegisterCanShowTopic(1264, function()
     end
 end)
 
-RegisterGlobalEvent(1265, "Legacy event 1265", function()
+RegisterGlobalEvent(1265, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1497) then return end -- Crate of Sand
     evt.SetMessage("Ahh, a shipment of Sand from Calindra Goldensight.\nHere's your payment.")
@@ -12406,7 +12406,7 @@ RegisterGlobalEvent(1265, "Legacy event 1265", function()
     AddValue(Gold, 3000)
 end)
 
-RegisterGlobalEvent(1266, "Legacy event 1266", function()
+RegisterGlobalEvent(1266, nil, function()
     evt.SetMessage("Here's your crate of Enrothian Wine.")
     ClearQBit(QBit(766)) -- Bought Item 5
     if IsAtLeast(Gold, 2000) then
@@ -12436,7 +12436,7 @@ RegisterCanShowTopic(1266, function()
     end
 end)
 
-RegisterGlobalEvent(1267, "Legacy event 1267", function()
+RegisterGlobalEvent(1267, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1498) then return end -- Crate of Glass Bottles
     evt.SetMessage("Arvin Beneclowd sends me another shipment of Glass Bottles.")
@@ -12457,67 +12457,67 @@ RegisterGlobalEvent(1267, "Legacy event 1267", function()
     AddValue(Gold, 3000)
 end)
 
-RegisterGlobalEvent(1268, "Legacy event 1268", function()
+RegisterGlobalEvent(1268, nil, function()
     evt.SetMessage("You can charter a boat from this port to Erathia on Tuesdays, Thursdays and Saturdays. Boats for the Bracada Desert leave on Mondays and Wednesdays. Boats leave for Avlee on Friday only. If you have completed the Priest quest you can charter a boat to Evenmorn Island on Sundays.")
 end)
 
-RegisterGlobalEvent(1269, "Legacy event 1269", function()
+RegisterGlobalEvent(1269, nil, function()
     evt.SetMessage("If you are looking to make it quickly to Nighon through the tunnels below, you should take the left fork of the Nighon Tunnel.\nMany have taken the right fork and have never been heard from again.\nThen again they may have made it to Nighon only to be taken by the Warlocks!")
 end)
 
-RegisterGlobalEvent(1270, "Legacy event 1270", function()
+RegisterGlobalEvent(1270, nil, function()
     evt.SetMessage("Many traders all over Erathia hire out to travelers to deliver their goods!\nIf you are ever in need of some extra coin, try finding one of these merchants and make a delivery for them!")
 end)
 
-RegisterGlobalEvent(1271, "Legacy event 1271", function()
+RegisterGlobalEvent(1271, nil, function()
     evt.CastSpell(5, 5, 4, 0, 0, 0, 0, 0, 0) -- Haste
 end)
 
-RegisterGlobalEvent(1272, "Legacy event 1272", function()
+RegisterGlobalEvent(1272, nil, function()
     evt.CastSpell(36, 5, 4, 0, 0, 0, 0, 0, 0) -- Earth Resistance
 end)
 
-RegisterGlobalEvent(1273, "Legacy event 1273", function()
+RegisterGlobalEvent(1273, nil, function()
     evt.CastSpell(83, 5, 4, 0, 0, 0, 0, 0, 0) -- Day of the Gods
 end)
 
-RegisterGlobalEvent(1274, "Legacy event 1274", function()
+RegisterGlobalEvent(1274, nil, function()
     evt.CastSpell(17, 5, 4, 0, 0, 0, 0, 0, 0) -- Shield
 end)
 
-RegisterGlobalEvent(1275, "Legacy event 1275", function()
+RegisterGlobalEvent(1275, nil, function()
     evt.CastSpell(25, 5, 4, 0, 0, 0, 0, 0, 0) -- Water Resistance
 end)
 
-RegisterGlobalEvent(1276, "Legacy event 1276", function()
+RegisterGlobalEvent(1276, nil, function()
     evt.CastSpell(3, 5, 4, 0, 0, 0, 0, 0, 0) -- Fire Resistance
 end)
 
-RegisterGlobalEvent(1277, "Legacy event 1277", function()
+RegisterGlobalEvent(1277, nil, function()
     evt.CastSpell(51, 5, 4, 0, 0, 0, 0, 0, 0) -- Heroism
 end)
 
-RegisterGlobalEvent(1278, "Legacy event 1278", function()
+RegisterGlobalEvent(1278, nil, function()
     evt.CastSpell(8, 5, 4, 0, 0, 0, 0, 0, 0) -- Immolation
 end)
 
-RegisterGlobalEvent(1279, "Legacy event 1279", function()
+RegisterGlobalEvent(1279, nil, function()
     evt.CastSpell(58, 5, 4, 0, 0, 0, 0, 0, 0) -- Mind Resistance
 end)
 
-RegisterGlobalEvent(1280, "Legacy event 1280", function()
+RegisterGlobalEvent(1280, nil, function()
     evt.CastSpell(69, 5, 4, 0, 0, 0, 0, 0, 0) -- Body Resistance
 end)
 
-RegisterGlobalEvent(1281, "Legacy event 1281", function()
+RegisterGlobalEvent(1281, nil, function()
     evt.CastSpell(38, 5, 4, 0, 0, 0, 0, 0, 0) -- Stone Skin
 end)
 
-RegisterGlobalEvent(1282, "Legacy event 1282", function()
+RegisterGlobalEvent(1282, nil, function()
     evt.CastSpell(14, 5, 4, 0, 0, 0, 0, 0, 0) -- Air Resistance
 end)
 
-RegisterGlobalEvent(1283, "Legacy event 1283", function()
+RegisterGlobalEvent(1283, nil, function()
     if IsPlayerBitSet(PlayerBit(31)) then
         evt.StatusText("You have already won!")
         return
@@ -12530,7 +12530,7 @@ RegisterGlobalEvent(1283, "Legacy event 1283", function()
     end
 end)
 
-RegisterGlobalEvent(1284, "Legacy event 1284", function()
+RegisterGlobalEvent(1284, nil, function()
     if IsPlayerBitSet(PlayerBit(32)) then
         evt.StatusText("You have already won!")
         return
@@ -12543,7 +12543,7 @@ RegisterGlobalEvent(1284, "Legacy event 1284", function()
     end
 end)
 
-RegisterGlobalEvent(1285, "Legacy event 1285", function()
+RegisterGlobalEvent(1285, nil, function()
     if IsPlayerBitSet(PlayerBit(33)) then
         evt.StatusText("You have already won!")
         return
@@ -12556,7 +12556,7 @@ RegisterGlobalEvent(1285, "Legacy event 1285", function()
     end
 end)
 
-RegisterGlobalEvent(1286, "Legacy event 1286", function()
+RegisterGlobalEvent(1286, nil, function()
     if IsPlayerBitSet(PlayerBit(34)) then
         evt.StatusText("You have already won!")
         return
@@ -12569,7 +12569,7 @@ RegisterGlobalEvent(1286, "Legacy event 1286", function()
     end
 end)
 
-RegisterGlobalEvent(1287, "Legacy event 1287", function()
+RegisterGlobalEvent(1287, nil, function()
     if IsPlayerBitSet(PlayerBit(35)) then
         evt.StatusText("You have already won!")
         return
@@ -12582,7 +12582,7 @@ RegisterGlobalEvent(1287, "Legacy event 1287", function()
     end
 end)
 
-RegisterGlobalEvent(1288, "Legacy event 1288", function()
+RegisterGlobalEvent(1288, nil, function()
     if IsPlayerBitSet(PlayerBit(36)) then
         evt.StatusText("You have already won!")
         return
@@ -12595,7 +12595,7 @@ RegisterGlobalEvent(1288, "Legacy event 1288", function()
     end
 end)
 
-RegisterGlobalEvent(1289, "Legacy event 1289", function()
+RegisterGlobalEvent(1289, nil, function()
     if IsPlayerBitSet(PlayerBit(37)) then
         evt.StatusText("You have already won!")
         return
@@ -12608,7 +12608,7 @@ RegisterGlobalEvent(1289, "Legacy event 1289", function()
     end
 end)
 
-RegisterGlobalEvent(1290, "Legacy event 1290", function()
+RegisterGlobalEvent(1290, nil, function()
     if IsPlayerBitSet(PlayerBit(38)) then
         evt.StatusText("You have already won!")
         return
@@ -12621,7 +12621,7 @@ RegisterGlobalEvent(1290, "Legacy event 1290", function()
     end
 end)
 
-RegisterGlobalEvent(1291, "Legacy event 1291", function()
+RegisterGlobalEvent(1291, nil, function()
     if IsPlayerBitSet(PlayerBit(39)) then
         evt.StatusText("You have already won!")
         return
@@ -12634,7 +12634,7 @@ RegisterGlobalEvent(1291, "Legacy event 1291", function()
     end
 end)
 
-RegisterGlobalEvent(1292, "Legacy event 1292", function()
+RegisterGlobalEvent(1292, nil, function()
     if IsPlayerBitSet(PlayerBit(40)) then
         evt.StatusText("You have already won!")
         return
@@ -12647,7 +12647,7 @@ RegisterGlobalEvent(1292, "Legacy event 1292", function()
     end
 end)
 
-RegisterGlobalEvent(1293, "Legacy event 1293", function()
+RegisterGlobalEvent(1293, nil, function()
     if IsPlayerBitSet(PlayerBit(41)) then
         evt.StatusText("You have already won!")
         return
@@ -12660,7 +12660,7 @@ RegisterGlobalEvent(1293, "Legacy event 1293", function()
     end
 end)
 
-RegisterGlobalEvent(1294, "Legacy event 1294", function()
+RegisterGlobalEvent(1294, nil, function()
     if IsPlayerBitSet(PlayerBit(42)) then
         evt.StatusText("You have already won!")
         return
@@ -12673,7 +12673,7 @@ RegisterGlobalEvent(1294, "Legacy event 1294", function()
     end
 end)
 
-RegisterGlobalEvent(1295, "Legacy event 1295", function()
+RegisterGlobalEvent(1295, nil, function()
     if IsPlayerBitSet(PlayerBit(43)) then
         evt.StatusText("You have already won!")
         return
@@ -12686,7 +12686,7 @@ RegisterGlobalEvent(1295, "Legacy event 1295", function()
     end
 end)
 
-RegisterGlobalEvent(1296, "Legacy event 1296", function()
+RegisterGlobalEvent(1296, nil, function()
     if IsPlayerBitSet(PlayerBit(44)) then
         evt.StatusText("You have already won!")
         return
@@ -12699,7 +12699,7 @@ RegisterGlobalEvent(1296, "Legacy event 1296", function()
     end
 end)
 
-RegisterGlobalEvent(1297, "Legacy event 1297", function()
+RegisterGlobalEvent(1297, nil, function()
     if IsPlayerBitSet(PlayerBit(45)) then
         evt.StatusText("You have already won!")
         return
@@ -12712,7 +12712,7 @@ RegisterGlobalEvent(1297, "Legacy event 1297", function()
     end
 end)
 
-RegisterGlobalEvent(1298, "Legacy event 1298", function()
+RegisterGlobalEvent(1298, nil, function()
     if IsPlayerBitSet(PlayerBit(46)) then
         evt.StatusText("You have already won!")
         return
@@ -12725,7 +12725,7 @@ RegisterGlobalEvent(1298, "Legacy event 1298", function()
     end
 end)
 
-RegisterGlobalEvent(1299, "Legacy event 1299", function()
+RegisterGlobalEvent(1299, nil, function()
     if IsPlayerBitSet(PlayerBit(47)) then
         evt.StatusText("You have already won!")
         return
@@ -12738,7 +12738,7 @@ RegisterGlobalEvent(1299, "Legacy event 1299", function()
     end
 end)
 
-RegisterGlobalEvent(1300, "Legacy event 1300", function()
+RegisterGlobalEvent(1300, nil, function()
     if IsPlayerBitSet(PlayerBit(48)) then
         evt.StatusText("You have already won!")
         return
@@ -12751,7 +12751,7 @@ RegisterGlobalEvent(1300, "Legacy event 1300", function()
     end
 end)
 
-RegisterGlobalEvent(1301, "Legacy event 1301", function()
+RegisterGlobalEvent(1301, nil, function()
     if IsPlayerBitSet(PlayerBit(49)) then
         evt.StatusText("You have already won!")
         return
@@ -12764,7 +12764,7 @@ RegisterGlobalEvent(1301, "Legacy event 1301", function()
     end
 end)
 
-RegisterGlobalEvent(1302, "Legacy event 1302", function()
+RegisterGlobalEvent(1302, nil, function()
     if IsPlayerBitSet(PlayerBit(50)) then
         evt.StatusText("You have already won!")
         return
@@ -12777,7 +12777,7 @@ RegisterGlobalEvent(1302, "Legacy event 1302", function()
     end
 end)
 
-RegisterGlobalEvent(1303, "Legacy event 1303", function()
+RegisterGlobalEvent(1303, nil, function()
     if IsPlayerBitSet(PlayerBit(51)) then
         evt.StatusText("You have already won!")
         return
@@ -12790,7 +12790,7 @@ RegisterGlobalEvent(1303, "Legacy event 1303", function()
     end
 end)
 
-RegisterGlobalEvent(1304, "Legacy event 1304", function()
+RegisterGlobalEvent(1304, nil, function()
     if IsPlayerBitSet(PlayerBit(52)) then
         evt.StatusText("You have already won!")
         return
@@ -12803,7 +12803,7 @@ RegisterGlobalEvent(1304, "Legacy event 1304", function()
     end
 end)
 
-RegisterGlobalEvent(1305, "Legacy event 1305", function()
+RegisterGlobalEvent(1305, nil, function()
     if IsPlayerBitSet(PlayerBit(53)) then
         evt.StatusText("You have already won!")
         return
@@ -12816,7 +12816,7 @@ RegisterGlobalEvent(1305, "Legacy event 1305", function()
     end
 end)
 
-RegisterGlobalEvent(1306, "Legacy event 1306", function()
+RegisterGlobalEvent(1306, nil, function()
     if IsPlayerBitSet(PlayerBit(54)) then
         evt.StatusText("You have already won!")
         return
@@ -12829,7 +12829,7 @@ RegisterGlobalEvent(1306, "Legacy event 1306", function()
     end
 end)
 
-RegisterGlobalEvent(1307, "Legacy event 1307", function()
+RegisterGlobalEvent(1307, nil, function()
     if IsPlayerBitSet(PlayerBit(55)) then
         evt.StatusText("You have already won!")
         return
@@ -12842,7 +12842,7 @@ RegisterGlobalEvent(1307, "Legacy event 1307", function()
     end
 end)
 
-RegisterGlobalEvent(1308, "Legacy event 1308", function()
+RegisterGlobalEvent(1308, nil, function()
     if IsPlayerBitSet(PlayerBit(56)) then
         evt.StatusText("You have already won!")
         return
@@ -12855,7 +12855,7 @@ RegisterGlobalEvent(1308, "Legacy event 1308", function()
     end
 end)
 
-RegisterGlobalEvent(1309, "Legacy event 1309", function()
+RegisterGlobalEvent(1309, nil, function()
     if IsPlayerBitSet(PlayerBit(57)) then
         evt.StatusText("You have already won!")
         return
@@ -12868,7 +12868,7 @@ RegisterGlobalEvent(1309, "Legacy event 1309", function()
     end
 end)
 
-RegisterGlobalEvent(1310, "Legacy event 1310", function()
+RegisterGlobalEvent(1310, nil, function()
     if IsPlayerBitSet(PlayerBit(58)) then
         evt.StatusText("You have already won!")
         return
@@ -12881,7 +12881,7 @@ RegisterGlobalEvent(1310, "Legacy event 1310", function()
     end
 end)
 
-RegisterGlobalEvent(1311, "Legacy event 1311", function()
+RegisterGlobalEvent(1311, nil, function()
     evt.SetMessage("What!")
     evt.SetMonGroupBit(84, MonsterBits.Invisible, 1)
     evt.SetMonGroupBit(85, MonsterBits.Invisible, 0)
@@ -12898,15 +12898,15 @@ RegisterCanShowTopic(1311, function()
     end
 end)
 
-RegisterGlobalEvent(1312, "Legacy event 1312", function()
+RegisterGlobalEvent(1312, nil, function()
     evt.SetMessage("I have heard rumors that the shrine to the southeast of here can send you to the Land of the Giants.\nI have been to the shrine many times and it has never done anything special for me.\nOr is that you can get here, FROM the Land of the Giants? I wonder...")
 end)
 
-RegisterGlobalEvent(1313, "Legacy event 1313", function()
+RegisterGlobalEvent(1313, nil, function()
     evt.SetMessage("Scattered around the land are the Challenges.\nIf your ability is great enough, and you best the challenge, you will be award skill points to do with as you wish!")
 end)
 
-RegisterGlobalEvent(1314, "Legacy event 1314", function()
+RegisterGlobalEvent(1314, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2125) then -- The Letter
         evt.SetMessage("My instructions are quite clear.\nI am to pay the person carrying the letter that bears the Seal.\nSince you don't have a letter with a Seal, you get no money!")
@@ -12920,18 +12920,18 @@ RegisterGlobalEvent(1314, "Legacy event 1314", function()
     SetQBit(QBit(1106)) -- Bring Sulman's letter to Regent Wilbur Humphrey at Castle Ironfist. - Set by Andover after you show him the letter
 end)
 
-RegisterGlobalEvent(1315, "Legacy event 1315", function()
+RegisterGlobalEvent(1315, nil, function()
     evt.SetMessage("Don't try to say I didn't pay you!")
 end)
 
-RegisterGlobalEvent(1316, "Legacy event 1316", function()
+RegisterGlobalEvent(1316, nil, function()
     evt.SetMessage("Just south of town is an old keep called Goblinwatch.\nIt was originally built to help keep the town safe from goblin raids, but times have been so peaceful recently that we haven't been taking care of it.\nYou can imagine our embarrassment when we realized that the very monsters we were guarding against have moved into the keep!\nThey also changed the lock on a very important door leading to the caves below the dungeon level.\nWe have a standing reward of 2000 gold pieces to the ones who can figure out the combination and tell us what it is.")
     evt.SetNPCTopic(1076, 0, 1317) -- Janice topic 0: Goblinwatch
     SetQBit(QBit(1107)) -- Find the Combination to the vault door in Goblinwatch and return to the Town Hall in New Sorpigal. - Set by Town Hall
     AddValue(InventoryItem(2109), 2109) -- Key to Goblinwatch
 end)
 
-RegisterGlobalEvent(1317, "Legacy event 1317", function()
+RegisterGlobalEvent(1317, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2163) then -- Goblinwatch Code
         evt.SetMessage("How can you find the combination to that lock by standing around here?")
@@ -12949,13 +12949,13 @@ RegisterGlobalEvent(1317, "Legacy event 1317", function()
     evt.MoveNPC(828, 1463) -- Samson Tess -> House
 end)
 
-RegisterGlobalEvent(1318, "Legacy event 1318", function()
+RegisterGlobalEvent(1318, nil, function()
     evt.SetMessage("You did such a fine job with the Goblinwatch assignment that we would like to employ you again.\nA cult has moved into an old abandoned temple a few day's journey west of here.\nTo pay for their blasphemous activities, they've been robbing travelers using the road that leads to Castle Ironfist.\nWe've appealed to the regent to do something about these horrible cultists, but he says all his forces are occupied in the west, or some such nonsense.\nWe want it gone now, so we're willing to pay you 5000 gold pieces to get rid of them and bring us back the Chime of Harmony as proof you've done the deed.")
     evt.SetNPCTopic(1076, 0, 1319) -- Janice topic 0: Evil Cults
     SetQBit(QBit(1108)) -- Get the Chime of Harmony from the Temple of Baa and return to the New Sorpigal Town Hall. - Paul
 end)
 
-RegisterGlobalEvent(1319, "Legacy event 1319", function()
+RegisterGlobalEvent(1319, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2095) then -- Chime of Harmony
         evt.SetMessage("Without the Chime of Harmony, I'm not authorized to pay the reward money.\n")
@@ -12972,15 +12972,15 @@ RegisterGlobalEvent(1319, "Legacy event 1319", function()
     evt.SetNPCTopic(1076, 0, 1320) -- Janice topic 0: Evil Cults
 end)
 
-RegisterGlobalEvent(1320, "Legacy event 1320", function()
+RegisterGlobalEvent(1320, nil, function()
     evt.SetMessage("The road to Ironfist is much safer thanks to you.")
 end)
 
-RegisterGlobalEvent(1321, "Legacy event 1321", function()
+RegisterGlobalEvent(1321, nil, function()
     evt.SetMessage("The proprietor of the Howling Moon is George Caniss.")
 end)
 
-RegisterGlobalEvent(1322, "Legacy event 1322", function()
+RegisterGlobalEvent(1322, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2125) then -- The Letter
         evt.SetMessage("Welcome, adventurers!\nDid you have something for me?\nI'm a very busy man, you know.\n")
@@ -12999,13 +12999,13 @@ RegisterGlobalEvent(1322, "Legacy event 1322", function()
     evt.SetNPCTopic(789, 0, 1323) -- Wilbur Humphrey topic 0: Lord Kilburn
 end)
 
-RegisterGlobalEvent(1323, "Legacy event 1323", function()
+RegisterGlobalEvent(1323, nil, function()
     evt.SetMessage("<Wilbur snaps his fingers> Say, you wouldn’t happen to be interested in taking care of a little detail for me, would you?\nLord Kilburn disappeared near Blackshire.\nFind out what you can and return to me with the information.\nIf it is true that he has been slain by devils, return his shield to me if at all possible.\nI will grant you my favor with the High Council, should you require it, and you can rest assured your compensation will be generous.")
     SetQBit(QBit(1110)) -- Find Lord Kilburn's Shield and return to Wilbur Humphrey in Castle Ironfist to report. - Paul
     evt.SetNPCTopic(789, 0, 1324) -- Wilbur Humphrey topic 0: Lord Kilburn
 end)
 
-RegisterGlobalEvent(1324, "Legacy event 1324", function()
+RegisterGlobalEvent(1324, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2119) then -- Lord Kilburn's Shield
         evt.SetMessage("Hmm.\nNo luck finding the shield yet, eh?\nWell, do keep looking, will you?\nIt really is important that someone accounts for his whereabouts.")
@@ -13033,7 +13033,7 @@ RegisterGlobalEvent(1324, "Legacy event 1324", function()
     end
 end)
 
-RegisterGlobalEvent(1325, "Legacy event 1325", function()
+RegisterGlobalEvent(1325, nil, function()
     if not HasAward(Award(63)) then -- Exposed the Traitor on the High Council
         evt.SetMessage("Well, you have my vote on the High Council.\nI trust you implicitly.\nI've sent a messenger instructing Slicker Silvertongue to vote for you on my behalf.\nNow I'm quite busy, and must attend to other duties.\nI'm sure you can take care of any problems and miscommunications that may arise in this matter.\nYes.\nQuite right.")
         return
@@ -13043,13 +13043,13 @@ RegisterGlobalEvent(1325, "Legacy event 1325", function()
     SetAward(Award(101)) -- Allowed to use the Royal Yacht
 end)
 
-RegisterGlobalEvent(1326, "Legacy event 1326", function()
+RegisterGlobalEvent(1326, nil, function()
     evt.SetMessage("I am the Foremost Paladin, and as such, I am the one charged with the promotion and keeping of the titles and responsibilities of paladinhood.\nThose paladins who wish to perform a quest for the official promotion to crusader must rescue a damsel in distress.\nThose of you who are not paladins will be awarded the title of honorary crusader, and all will be given a sizeable gold reward.\nReturn to me with said damsel and I will promote any paladins aiding in her rescue to the status of crusader.")
     SetQBit(QBit(1112)) -- Rescue a Damsel in Distress and return with her to Wilbur Humphrey in Castle Ironfist. - Paul
     evt.SetNPCTopic(789, 1, 1327) -- Wilbur Humphrey topic 1: Crusaders
 end)
 
-RegisterGlobalEvent(1327, "Legacy event 1327", function()
+RegisterGlobalEvent(1327, nil, function()
     if not IsQBitSet(QBit(1699)) then -- Replacement for NPCs ¹11 ver. 6
         evt.SetMessage("I know there is a shortage of damsels in distress, but this quest is the traditional test.\nI really can’t bend the rules here.\nKeep looking– I’m sure you’ll find someone.\nIf it helps, I hear Melody Silver, daughter of the noble John Silver, is being held captive by ruffians on the Island of Mist.")
         return
@@ -13073,13 +13073,13 @@ RegisterGlobalEvent(1327, "Legacy event 1327", function()
     evt.SetNPCTopic(789, 1, 1328) -- Wilbur Humphrey topic 1: Heroes
 end)
 
-RegisterGlobalEvent(1328, "Legacy event 1328", function()
+RegisterGlobalEvent(1328, nil, function()
     evt.SetMessage("Well, then!\nIt is a fine thing to be promoted to crusader, but even finer a thing to be promoted to hero.\nAs you may have guessed by now, the condition for hero status is to slay a dragon.\nI know this seems difficult, but tradition has its demands.\nWhat’s worse, you can’t slay just any dragon, but must slay a named dragon.\nYour task is to slay Longfang Witherhide and return with a claw or tooth as proof.\nFortunately, we know that Longfang lives in a cave in the mountains behind Castle Darkmoor.\nHe has slain at least twelve would-be heroes, so be careful!")
     SetQBit(QBit(1113)) -- Slay Longfang Witherhide in his cave near Castle Darkmoor and return to Wilbur Humphrey in Castle Ironfist. - Paul
     evt.SetNPCTopic(789, 1, 1329) -- Wilbur Humphrey topic 1: Heroes
 end)
 
-RegisterGlobalEvent(1329, "Legacy event 1329", function()
+RegisterGlobalEvent(1329, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2075) then -- Dragon Claw
         evt.SetMessage("There is no use returning to me to talk about your quest.")
@@ -13103,22 +13103,22 @@ RegisterGlobalEvent(1329, "Legacy event 1329", function()
     evt.SetNPCTopic(789, 1, 1330) -- Wilbur Humphrey topic 1: Heroes
 end)
 
-RegisterGlobalEvent(1330, "Legacy event 1330", function()
+RegisterGlobalEvent(1330, nil, function()
     evt.SetMessage("It is always good to speak with heroes of the realm!")
 end)
 
-RegisterGlobalEvent(1331, "Legacy event 1331", function()
+RegisterGlobalEvent(1331, nil, function()
     evt.SetMessage("The palace is deadly dull, and everyone tells me what to do.\nBeing royalty isn’t really worth much and no one will let me go outside the walls while my father is gone.\nI haven’t left the castle for months!\nAnyway, you people look pretty important.\nWhat if you helped me sneak out and stay with you for a couple of days?\nI can’t give you much in return yet, but I’ll owe you a favor.\nSomeday I’ll be able to repay you.\nI am the prince, after all!\nI’ll go out the secret door and meet you outside.")
     SetQBit(QBit(1114)) -- Entertain Nicolai. - Paul
     SetQBit(QBit(1700)) -- Replacement for NPCs ¹13 ver. 6
     evt.SetNPCTopic(798, 0, 1332) -- Nicolai Ironfist topic 0: The Circus
 end)
 
-RegisterGlobalEvent(1332, "Legacy event 1332", function()
+RegisterGlobalEvent(1332, nil, function()
     evt.SetMessage("Let’s go see the circus!")
 end)
 
-RegisterGlobalEvent(1333, "Legacy event 1333", function(continueStep)
+RegisterGlobalEvent(1333, nil, function(continueStep)
     if continueStep == 7 then
     end
     if continueStep ~= nil then return end
@@ -13131,32 +13131,32 @@ RegisterGlobalEvent(1333, "Legacy event 1333", function(continueStep)
     evt._PressAnyKey(1333, 7)
 end)
 
-RegisterGlobalEvent(1334, "Legacy event 1334", function()
+RegisterGlobalEvent(1334, nil, function()
     evt.SetMessage("Um.\nHi. <smiling weakly> Would you believe I got lost and these nice people were taking me home?\nNo?\nI guess I wouldn’t either.\nI suppose it’s time we got back to the castle, then.")
     SetQBit(QBit(1700)) -- Replacement for NPCs ¹13 ver. 6
     evt.SetNPCTopic(798, 0, 1335) -- Nicolai Ironfist topic 0: Excuse me, your Highness…
 end)
 
-RegisterGlobalEvent(1335, "Legacy event 1335", function()
+RegisterGlobalEvent(1335, nil, function()
     evt.SetMessage("We should go back to Castle Ironfist.")
 end)
 
-RegisterGlobalEvent(1337, "Legacy event 1337", function()
+RegisterGlobalEvent(1337, nil, function()
     evt.SetMessage("Thanks for bringing me home.")
 end)
 
-RegisterGlobalEvent(1338, "Legacy event 1338", function()
+RegisterGlobalEvent(1338, nil, function()
     evt.SetMessage("Everyone says that my Uncle Archibald wasn’t a very nice person, and that he almost usurped the throne from my father, but we defeated him.\nFather had Tanir turn him to stone and then locked him in the library.\nNobody’s been in there for years. ")
 end)
 
-RegisterGlobalEvent(1339, "Legacy event 1339", function()
+RegisterGlobalEvent(1339, nil, function()
     evt.SetMessage("You want to free Archibald?!\nIf the Oracle told you to do it, I guess we should, but he’ll be trouble once he’s loose, that’s for sure.\nI know where the bell is that turned him to stone, but I can’t open the family vault that it’s in without the Third Eye.\nIt’s one of three gems you need to put into the door of the vault in order to open it.\nI’ve got two of them– one in my father’s crown and one in his scepter, but my father hid the third one, and he didn’t tell me where it is.\nIf you could find it, I could open the vault and get the bell.")
     SetQBit(QBit(1120)) -- Find the Third Eye and bring it to Prince Nicolai in Castle Ironfist. - Walt
     evt.SetNPCTopic(798, 1, 1340) -- Nicolai Ironfist topic 1: Uncle Archibald
     evt.SetNPCTopic(793, 1, 0) -- Oracle topic 1 cleared
 end)
 
-RegisterGlobalEvent(1340, "Legacy event 1340", function()
+RegisterGlobalEvent(1340, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2066) then -- The Third Eye
         evt.SetMessage("Without the Third Eye, I can’t get into the vault to get you the bell that will release Archibald.\nHe must have hidden it near the castle, because he used to just go right outside and fetch it whenever he needed to open the vault.")
@@ -13172,11 +13172,11 @@ RegisterGlobalEvent(1340, "Legacy event 1340", function()
     evt.SetNPCTopic(798, 1, 1341) -- Nicolai Ironfist topic 1: Uncle Archibald
 end)
 
-RegisterGlobalEvent(1341, "Legacy event 1341", function()
+RegisterGlobalEvent(1341, nil, function()
     evt.SetMessage("I hope you know what you're doing.")
 end)
 
-RegisterGlobalEvent(1343, "Legacy event 1343", function()
+RegisterGlobalEvent(1343, nil, function()
     if IsQBitSet(QBit(1201)) then return end -- NPC
     evt.SetMessage("Now wait just a minute Tanir, and I’ll make it worth your while to let me…Oh. <Archibald is silent for a long while> I guess I have you people to thank for releasing me from my prison of stone.\nThank you!\nYou say you need a spell that I've created?\n<reaching to the shelves and removing a library scroll> Well, as a reward, I’ll give you the Ritual of the Void.\nUse it in good health.\nNow, I’m sure you’re very busy, as am I…<Archibald waves his arms and fades away>")
     AddValue(InventoryItem(2164), 2164) -- Ritual of the Void
@@ -13191,19 +13191,19 @@ RegisterGlobalEvent(1343, "Legacy event 1343", function()
     evt.MoveNPC(797, 0) -- Archibald Ironfist -> removed
 end)
 
-RegisterGlobalEvent(1344, "Legacy event 1344", function()
+RegisterGlobalEvent(1344, nil, function()
     evt.SetMessage("Thank you for rescuing me from the clutches of those ruffians!\nOh, I wish there was some way for me to reward you!")
     SetQBit(QBit(1699)) -- Replacement for NPCs ¹11 ver. 6
     SetQBit(QBit(1151)) -- NPC
 end)
 
-RegisterGlobalEvent(1345, "Legacy event 1345", function()
+RegisterGlobalEvent(1345, nil, function()
     evt.SetMessage("Mine is the traditional duty to oversee the, um, less than upright business in the Kingdom.\nMy House has done this for centuries under the philosophy that such business will always exist and is better watched and regulated than not.\nRecently, a man styling himself the 'Prince of Thieves' has begun to usurp my authority in Free Haven.\nNot only does he challenge my authority, he cooperates with that loathsome new cult that’s sprung up recently…what’s it called?\nMoo, or Yak, or Bark…no…whatever.\nSome sort of animal sound.\nAnyway, my sources tell me that this cult plots to overthrow the King and assume power in Enroth.\nThis is a bad business, and needs to be stopped.\nYou can start by arresting the Prince of Thieves and returning him to me in chains.\nI will, of course, reward you richly.\n")
     SetQBit(QBit(1122)) -- Capture the Prince of Thieves and bring him to Lord Anthony Stone at Castle Stone. - NPC
     evt.SetNPCTopic(801, 0, 1346) -- Anthony Stone topic 0: The Prince of Thieves
 end)
 
-RegisterGlobalEvent(1346, "Legacy event 1346", function()
+RegisterGlobalEvent(1346, nil, function()
     if not IsQBitSet(QBit(1701)) then -- Replacement for NPCs ¹17 ver. 6
         evt.SetMessage("I have no information on his whereabouts, so it will do you no good to talk to me about it.\nTry going to Free Haven and asking around.\nHe must have a hideout somewhere in or near that town.\n<Smiling> if you find where he’s living, be sure to check under the bed and in the closet– you’ll probably find him hiding under a pile of clothes.")
         return
@@ -13230,17 +13230,17 @@ RegisterGlobalEvent(1346, "Legacy event 1346", function()
     end
 end)
 
-RegisterGlobalEvent(1347, "Legacy event 1347", function()
+RegisterGlobalEvent(1347, nil, function()
     evt.SetMessage("Your work in capturing the Prince of Thieves has been quite beneficial to me.")
 end)
 
-RegisterGlobalEvent(1348, "Legacy event 1348", function()
+RegisterGlobalEvent(1348, nil, function()
     evt.SetMessage("In addition to my duties as overseer of unlicensed business, I am the High Priest of Enroth.\nIt is my job to promote clerics to priests, and if warranted, priests to priests of light.\nRight now, the rolls are full of priests, and I am unable to promote new ones without creating new positions.\nTo do so would be highly irregular, but if someone were to perform an extraordinary service for the kingdom, the promotion would be acceptable.\n<Rubbing his temples> Come to think of it, there is a service I need.\nA temple in Free Haven was destroyed by fire a few months ago.\nIf you could get it rebuilt, I would have a reason to promote any clerics among you to priest status.\nSince I really want this job done, I am even willing to promote non-priests to an honorary priest status, and I will pay you well for your service.\nYou’ll need to hire a stonecutter and a carpenter and show them the temple you want them to work on.")
     SetQBit(QBit(1129)) -- Hire a Stonecutter and a Carpenter, bring them to Temple Stone in Free Haven to repair the Temple, and then return to Lord Anthony Stone at Castle Stone. - NPC
     evt.SetNPCTopic(801, 1, 1349) -- Anthony Stone topic 1: Priests
 end)
 
-RegisterGlobalEvent(1349, "Legacy event 1349", function()
+RegisterGlobalEvent(1349, nil, function()
     if not IsQBitSet(QBit(1130)) then -- NPC
         evt.SetMessage("The temple I asked you to rebuild still stands in ruins.\nThe people are deprived of their rightful religious solace, and you return to me empty-handed.\nLeave here and complete your mission!\n")
         return
@@ -13262,13 +13262,13 @@ RegisterGlobalEvent(1349, "Legacy event 1349", function()
     end
 end)
 
-RegisterGlobalEvent(1350, "Legacy event 1350", function()
+RegisterGlobalEvent(1350, nil, function()
     evt.SetMessage("It seems a bit quick to promote anyone to high priests, given that the promotion to priest has been so recent.\nWhy, many wait their entire lives to receive such a promotion, only to be granted it posthumously.\nHowever, an extraordinary service could possibly accelerate that promotion to, well, right now for instance… and I do have such a service in mind.\nThe heretical monks that live on the islands east of Free Haven have stolen our sacred chalice.\nRetrieve it from the monks and put it in the temple you rebuilt.\nThen return to me.")
     SetQBit(QBit(1131)) -- Take the Sacred Chalice from the monks in their island temple east of Free Haven, return it to Temple Stone in Free Haven, and then return to Lord Stone at Castle Stone. - NPC
     evt.SetNPCTopic(801, 1, 1351) -- Anthony Stone topic 1: High Priests
 end)
 
-RegisterGlobalEvent(1351, "Legacy event 1351", function()
+RegisterGlobalEvent(1351, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1132)) then -- NPC
         evt.SetMessage("You are successful!\nIt looks like I will have to keep my promise and make more irregular, early promotions.\nI do so with pleasure.\nI hereby promote all priests to high priests, and all honorary priests to honorary high priests.")
@@ -13293,28 +13293,28 @@ RegisterGlobalEvent(1351, "Legacy event 1351", function()
     end
 end)
 
-RegisterGlobalEvent(1352, "Legacy event 1352", function()
+RegisterGlobalEvent(1352, nil, function()
     evt.SetMessage("Though your rise to priest of light status was almost unseemly quick, I have never seen finer priests of light in all my years.\nI am grateful for all you've done for myself and for Enroth.")
 end)
 
-RegisterGlobalEvent(1353, "Legacy event 1353", function()
+RegisterGlobalEvent(1353, nil, function()
     evt.SetMessage("Hello there!\nAre you here to tile the floors?\nOh!\nSorry, for a moment I forgot who you were!\nWelcome again, arch mages!\nPerhaps you can assist me in an experiment or two when you’re less busy?")
 end)
 
-RegisterGlobalEvent(1354, "Legacy event 1354", function()
+RegisterGlobalEvent(1354, nil, function()
     evt.SetMessage("This is %s, the month of %s.\nJourney to the Shrine of %s and pray there to be rewarded.")
     evt.SetNPCTopic(794, 0, 1355) -- The Seer topic 0: Quest
 end)
 
-RegisterGlobalEvent(1355, "Legacy event 1355", function()
+RegisterGlobalEvent(1355, nil, function()
     evt.SetMessage("You must wait until the new month to undergo a pilgrimage.")
 end)
 
-RegisterGlobalEvent(1356, "Legacy event 1356", function()
+RegisterGlobalEvent(1356, nil, function()
     evt.SetMessage("performed daring deeds")
 end)
 
-RegisterGlobalEvent(1359, "Legacy event 1359", function()
+RegisterGlobalEvent(1359, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1105)) then -- Show Sulman's letter to Andover Potbello in New Sorpigal. - Set when the party starts
         evt.SetMessage("You should probably show The Letter to Andover Potbello in New Sorpigal.")
@@ -13389,27 +13389,27 @@ RegisterGlobalEvent(1359, "Legacy event 1359", function()
     end
 end)
 
-RegisterGlobalEvent(1360, "Legacy event 1360", function()
+RegisterGlobalEvent(1360, nil, function()
     evt.SetMessage("1")
     SetQBit(QBit(1133)) -- NPC
     evt.SetNPCTopic(795, 0, 1361) -- Marton Ferris topic 0: Divine Intervention
 end)
 
-RegisterGlobalEvent(1361, "Legacy event 1361", function()
+RegisterGlobalEvent(1361, nil, function()
     evt.SetMessage("2")
 end)
 
-RegisterGlobalEvent(1362, "Legacy event 1362", function()
+RegisterGlobalEvent(1362, nil, function()
     evt.SetMessage("3")
 end)
 
-RegisterGlobalEvent(1364, "Legacy event 1364", function()
+RegisterGlobalEvent(1364, nil, function()
     evt.SetMessage("I sometimes have the worst trouble trying to remember things I’ve learned.\nI’m not sure why this is, but I’ve discovered a way around the problem.\nI am going to create a mirror that will allow me to look back in time, so that I can remember what it is I’ve forgotten.\nTo do this, I need the Hourglass of Time, but my duties and research prevent me from searching for the hourglass on my own.\nThe hourglass is said to be in a dark cavern up near area… <pauses a moment>\nNo, that was the Spear of Darkness…\nwhere is the hourglass?\n<pauses again>\nI should be able to remember this.\n<snaps his fingers>\nOf course!\nIt’s buried in an old fort to the south of here.\nI can offer you my support in the council if you will help me in creating my mirror.")
     evt.SetNPCTopic(790, 0, 1365) -- Albert Newton topic 0: Council Quest
     SetQBit(QBit(1134)) -- Find and return the Hourglass of Time to Lord Albert Newton in Mist. - NPC
 end)
 
-RegisterGlobalEvent(1365, "Legacy event 1365", function()
+RegisterGlobalEvent(1365, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(2053) then -- Hourglass of Time
         evt.SetMessage("Now all I have to do is remember how to create the mirror.\nI wrote down all the important parts so I wouldn’t forget how to do it.\n<stops> Where did I put those notes?\n<ponders for a minute> I must have left them somewhere obvious, maybe in the laboratory.\nAnyway, your part in this is done, and again I thank you.\nYou will have my complete support in the council for this.\nWhat were your names again? ")
@@ -13440,15 +13440,15 @@ RegisterGlobalEvent(1365, "Legacy event 1365", function()
     end
 end)
 
-RegisterGlobalEvent(1366, "Legacy event 1366", function()
+RegisterGlobalEvent(1366, nil, function()
     evt.SetMessage("The hourglass wasn’t there?\nOh, that’s right!\nI knew I forgot something!\nThe key is in there!\nYou use the key to open the Forge of… <pauses>\nWell, I can’t remember whose forge it is, but that is the resting place of the Hourglass of Time...I think.\nIt can’t hurt to look there, especially now that you’ve found the key.\n<pauses>\nAt least I THINK that’s what the key opens.\nAnyway, that forge or laboratory or whatever it is can be found on the islands north of New Sorpigal.\nGood Luck!")
 end)
 
-RegisterGlobalEvent(1367, "Legacy event 1367", function()
+RegisterGlobalEvent(1367, nil, function()
     evt.SetMessage("Thanks again for getting the hourglass for me!")
 end)
 
-RegisterGlobalEvent(1368, "Legacy event 1368", function()
+RegisterGlobalEvent(1368, nil, function()
     SetQBit(QBit(1135)) -- Drink from the Fountain of Magic and return to Lord Albert Newton in Mist. - NPC
     evt.SetNPCTopic(790, 1, 1369) -- Albert Newton topic 1: Wizards
     evt.ForPlayer(Players.All)
@@ -13459,11 +13459,11 @@ RegisterGlobalEvent(1368, "Legacy event 1368", function()
     evt.SetMessage("I am the magus in charge of training and promoting sorcerers.\nThough powerful, sorcerer is not the pinnacle of the elemental magician.\nWizards take the knowledge and ability of a sorcerer, and hone those abilities to a sharper level.\nThey have greater magical potential than the sorcerer, and demand greater respect.\nThe way to earn this training, however, is not easy.\nFind the Fountain of Magic, drink from its waters, and return here.\nIf you are able to do this, I will train you in the ways of the wizard.")
 end)
 
-RegisterGlobalEvent(1369, "Legacy event 1369", function()
+RegisterGlobalEvent(1369, nil, function()
     evt.SetMessage("Don’t ask me for hints, I’ve already forgotten where the Fountain is.\nI know this isn’t an easy task, but if it were not difficult, every sorcerer would already BE a wizard.")
 end)
 
-RegisterGlobalEvent(1371, "Legacy event 1371", function()
+RegisterGlobalEvent(1371, nil, function()
     evt.SetMessage("You have done well in finding the Fountain.\nIt’s location and powers are a secret, do not spread its location around.\nNow, let me show you the secrets of the wizard.")
     evt.ForPlayer(Players.All)
     AddValue(Experience, 15000)
@@ -13481,13 +13481,13 @@ RegisterGlobalEvent(1371, "Legacy event 1371", function()
     evt.SetNPCTopic(790, 1, 1372) -- Albert Newton topic 1: Master Wizards
 end)
 
-RegisterGlobalEvent(1372, "Legacy event 1372", function()
+RegisterGlobalEvent(1372, nil, function()
     evt.SetMessage("Your training does not end with what you have learned as a wizard, one final step remains.\nMaster wizard status completes your mastery of elemental magic.\nBuilding on your wizard training, master wizards have vast magical ability– the most efficient and skilled use of magic anywhere.\nEarning this training requires a powerful artifact, owned by the powerful Arch Mage Drael-.. no, it was Frundir-… no, that’s not right either.\nActually, I can’t seem to remember what the artifact was or who owned it.\nI'd remember it if I saw it, though.\nI know it can be found in Corlagon’s Estate near the Mire of the Damned.\nSearch for it there and return it; I must have it to train you to become a master wizard.")
     SetQBit(QBit(1136)) -- Retrieve the Crystal of Terrax and return to Lord Albert Newton in Mist. - NPC
     evt.SetNPCTopic(790, 1, 1373) -- Albert Newton topic 1: Master Wizards
 end)
 
-RegisterGlobalEvent(1373, "Legacy event 1373", function()
+RegisterGlobalEvent(1373, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2077) then -- Crystal of Terrax
         evt.SetMessage("I’m sorry, but I still haven’t remembered exactly what it is you need.\nI know you need to search Corlagon’s Estate.\n ")
@@ -13512,13 +13512,13 @@ RegisterGlobalEvent(1373, "Legacy event 1373", function()
     evt.SetNPCTopic(790, 1, 1353) -- Albert Newton topic 1: Arch Mages
 end)
 
-RegisterGlobalEvent(1374, "Legacy event 1374", function()
+RegisterGlobalEvent(1374, nil, function()
     evt.SetMessage("I don’t have much time to talk right now– I have a lot to do.\nI’m in the process of organizing a few campaigns to attack the devils along the western coast.\nYou must realize, as I do, that nothing in all of Enroth poses as much of a threat to our safety as they do.\nI only wish the other Lords would assist me by contributing supplies and troops, or just helping in the planning of these attacks.\nThey spend more time bickering amongst themselves over borders and laws and trade than in helping me deal with the REAL threat.\nThe devils have an advance post in Kriegspire near the Sentinels.\nFrom here, they are able to base small raids and gather intelligence on our forces.\nI need you to sneak in and attack it, find what information you can on the location of any devil strongholds and patrol patterns, and destroy the place.\nDo not let any of the devils escape!\nSurprise and secrecy are our greatest weapons.")
     SetQBit(QBit(1137)) -- Destroy the Devil's Outpost and return to Lord Osric Temper at Castle Temper. - NPC
     evt.SetNPCTopic(791, 0, 1375) -- Osric Temper topic 0: Council Quest
 end)
 
-RegisterGlobalEvent(1375, "Legacy event 1375", function()
+RegisterGlobalEvent(1375, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2126) then -- Devil Plans
         evt.SetMessage("Did you fail in your mission?\nYou didn’t allow the demons to escape, did you?\nThat post MUST be destroyed for any large attack against them to be successful.\nAs long as that post exists, your mission still stands. ")
@@ -13545,11 +13545,11 @@ RegisterGlobalEvent(1375, "Legacy event 1375", function()
     end
 end)
 
-RegisterGlobalEvent(1377, "Legacy event 1377", function()
+RegisterGlobalEvent(1377, nil, function()
     evt.SetMessage("Excellent work in dispatching those devils!\nAgain, you have my thanks.\nMy support in the council is yours, at least until the threat of the devils is past.\nHopefully you can spur the council into action.\nBy the way, the information that you brought back has confirmed our suspicion about the enemy base.\nIt is definitely near the town of Sweet Water in Paradise Valley.")
 end)
 
-RegisterGlobalEvent(1378, "Legacy event 1378", function()
+RegisterGlobalEvent(1378, nil, function()
     SetQBit(QBit(1138)) -- Get Knight's nomination from Chadwick and return to Lord Osric Temper at Castle Temper. - NPC
     evt.SetNPCTopic(792, 0, 1379) -- Chadwick Blackpoole topic 0: Nomination
     evt.SetNPCTopic(791, 1, 1381) -- Osric Temper topic 1: Cavaliers
@@ -13561,22 +13561,22 @@ RegisterGlobalEvent(1378, "Legacy event 1378", function()
     evt.SetMessage("I am the Armsmaster in charge of the promotion of all knights in Enroth.\nWorthy knights can be promoted to cavaliers.\nCavaliers embody the spirit of action and the power of purpose.\nBehind their courageous example, armies charge into battle and enemies flee in terror. However, to become a cavalier, you need to be nominated by a person of authority.\nIf you could get the nomination of a cavalier, that would be good enough for me.\n ")
 end)
 
-RegisterGlobalEvent(1379, "Legacy event 1379", function()
+RegisterGlobalEvent(1379, nil, function()
     evt.SetMessage("Well there, you’re looking for a nomination to become cavaliers?\nI was once a valiant knight in my day.\nI fought with Roland in the Succession wars, though now I’m too old to do much good on the battlefield.\nIt’s good to see Osric keeping the traditions of the knights alive.\nTell him that I proudly nominate you to become cavaliers, and if he gives you any trouble tell him to come see me himself.")
     evt.SetNPCTopic(791, 1, 1382) -- Osric Temper topic 1: Cavaliers
     evt.SetNPCTopic(792, 0, 0) -- Chadwick Blackpoole topic 0 cleared
 end)
 
-RegisterGlobalEvent(1380, "Legacy event 1380", function()
+RegisterGlobalEvent(1380, nil, function()
     evt.SetMessage("Congratulations!")
     evt.SetNPCTopic(792, 0, 0) -- Chadwick Blackpoole topic 0 cleared
 end)
 
-RegisterGlobalEvent(1381, "Legacy event 1381", function()
+RegisterGlobalEvent(1381, nil, function()
     evt.SetMessage("Come now!\nA person of your fame and stature should have no problem being nominated.\nDon’t tell me your fame is contrived– are you sure you deserve to be as famous as you are?\n<laughs>\nI’m jesting, calm down.\nSeriously, I'd suggest looking in Free Haven or the village of Rockham.\nI've heard a few cavaliers frequent the taverns there.")
 end)
 
-RegisterGlobalEvent(1382, "Legacy event 1382", function()
+RegisterGlobalEvent(1382, nil, function()
     evt.SetMessage("Congratulations!\nThe nomination may not seem important, but we have a tradition that must be followed for this promotion.\nAs a cavalier, you need to understand that the traditions and values of the people need to be defended.\nI gladly promote you to the rank of cavalier!")
     ClearQBit(QBit(1138)) -- Get Knight's nomination from Chadwick and return to Lord Osric Temper at Castle Temper. - NPC
     AddValue(131307, 2)
@@ -13595,13 +13595,13 @@ RegisterGlobalEvent(1382, "Legacy event 1382", function()
     evt.SetNPCTopic(792, 0, 1380) -- Chadwick Blackpoole topic 0: Cavaliers
 end)
 
-RegisterGlobalEvent(1383, "Legacy event 1383", function()
+RegisterGlobalEvent(1383, nil, function()
     evt.SetMessage("Ah, worthy cavaliers, the final step in your training is to become a champion.\nA cavalier is a brave and noble warrior, but a champion is a power to behold.\nNo force can stand between the champion and victory.\nEntire campaigns are decided on the bravery, decisiveness, and powerful example of the champion.\nThe task to complete this promotion, however, is difficult.\nYou must defeat a powerful enemy to prove your ability and determination.\nThe only enemy worthy of this task is a man known only as the Warlord, a dangerous and powerful warrior.\nHe commands a legion of evil knights, normally based to the northeast of\nIcewind Pass.\nDefeat him, bring back proof of your victory, and your promotion to champion is assured.")
     SetQBit(QBit(1139)) -- Defeat the Warlord and bring proof to Osric Temper - NPC
     evt.SetNPCTopic(791, 1, 1384) -- Osric Temper topic 1: Champions
 end)
 
-RegisterGlobalEvent(1384, "Legacy event 1384", function()
+RegisterGlobalEvent(1384, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2128) then -- Discharge Papers
         evt.SetMessage("You’re not scared of the Warlord, are you?\nHis terror needs to be put to an end.\nYou can’t become champion hiding underneath your bed or standing around looking at the walls– you need to go out and DO it!")
@@ -13626,11 +13626,11 @@ RegisterGlobalEvent(1384, "Legacy event 1384", function()
     evt.SetNPCTopic(791, 1, 1385) -- Osric Temper topic 1: Champions
 end)
 
-RegisterGlobalEvent(1385, "Legacy event 1385", function()
+RegisterGlobalEvent(1385, nil, function()
     evt.SetMessage("Well met, champions!\nPlease, don’t waste your valuable time or mine in times like this.\nUse your skills for the good of Enroth and leave me to my planning!\nWhen this battle is over, THEN we can share tales of valor and skill.")
 end)
 
-RegisterGlobalEvent(1386, "Legacy event 1386", function()
+RegisterGlobalEvent(1386, nil, function()
     evt.SetMessage("Memory Crystal Alpha – Hermit’s Isle.Memory Crystal Beta – Alamos.Memory Crystal Delta – Darkmoor.Memory Crystal Epsilon – Kriegspire.")
     if IsQBitSet(QBit(1186)) then return end -- Find Memory Crystal Alpha in the Supreme Temple of Baa and restore it to a module altar at the Oracle beneath the High Council.. - NPC
     SetQBit(QBit(1186)) -- Find Memory Crystal Alpha in the Supreme Temple of Baa and restore it to a module altar at the Oracle beneath the High Council.. - NPC
@@ -13639,11 +13639,11 @@ RegisterGlobalEvent(1386, "Legacy event 1386", function()
     SetQBit(QBit(1189)) -- Find Memory Crystal Epsilon in Castle Kriegspire and restore it to a module altar at the Oracle beneath the High Council. - NPC
 end)
 
-RegisterGlobalEvent(1387, "Legacy event 1387", function()
+RegisterGlobalEvent(1387, nil, function()
     evt.SetMessage("Place the memory Crystals into the modules above.")
 end)
 
-RegisterGlobalEvent(1389, "Legacy event 1389", function()
+RegisterGlobalEvent(1389, nil, function()
     evt.ForPlayer(Players.All)
     if IsQBitSet(QBit(1190)) then -- Retrieve the Control Cube from the Tomb of Varn in Dragonsand and return to the Oracle beneath the High Council. - NPC
         if HasItem(2076) then -- Control Cube
@@ -13669,7 +13669,7 @@ RegisterGlobalEvent(1389, "Legacy event 1389", function()
     evt.SetMessage("I am Melian, Guardian of Enroth.\nThank you for replacing my memory modules.\nArchibald took them from here when I refused to give him any help in his battle for succession.\nYour timing is impeccable.\nThe Kreegan have invaded our world, and you must try and stop them.\nUnfortunately, Archibald’s attempts at extracting information from me have damaged me enough that I cannot help you directly now.\nInstead, I can only give you advice.While most of the Kreegan can be slain with ordinary weapons and spells, the elite guards and upper echelon breeders have tougher skin and natural defenses that protect them from anything but very powerful weapons.\nIn the planetary control center beneath me are the weapons and armor you will need to survive battle with the enemy.\nMy orders, however, will only permit passage to someone with a Control Cube.\nMy instruments tell me that the only Control Cube left in Enroth can be found somewhere underground in Dragonsand.\n")
 end)
 
-RegisterGlobalEvent(1390, "Legacy event 1390", function()
+RegisterGlobalEvent(1390, nil, function()
     if IsQBitSet(QBit(1329)) then -- NPC
         evt.SetMessage("As I said, the Kreegan are resistant to most of the weapons available in Enroth, but not all.\nTo rid the world of them, you will need to find where their vessel crashed and destroy the main reactor.\nThe only problem is that the resulting explosions from the reactor will destroy this planet.\nYou will need a powerful spell to prevent the explosion from damaging the planet, but no spell like that exists in the world today.\nThe only person I can think of that would know of such a spell is Archibald, but he is in no condition to teach you.\nTo make matters worse, the reactor cannot be harmed by normal weapons or spells– you will need the ancient weapons in the Control Center to destroy the reactor.")
     elseif IsQBitSet(QBit(1120)) then -- Find the Third Eye and bring it to Prince Nicolai in Castle Ironfist. - Walt
@@ -13682,18 +13682,18 @@ RegisterGlobalEvent(1390, "Legacy event 1390", function()
     end
 end)
 
-RegisterGlobalEvent(1391, "Legacy event 1391", function()
+RegisterGlobalEvent(1391, nil, function()
     evt.SetMessage("Though my memory has been damaged by Archibald, I can still remember the danger that our ancient enemy, the Kreegan, pose to our world.\nThe Kreegan first appeared roughly 1500 years ago, attacking outlying colonies and stealing their resources.\nIt was thought at the time they simply needed certain minerals, and could be reasoned with, but this was not the case.\nTheir life cycle forces them to breed until the world cannot support their numbers, then they send ships off to other worlds to renew the cycle.\nTheir attacks against the empire of the Ancients disrupted the network of shipping and communications that held us all together, causing the Silence that marks the first year of our modern calendar.\nWithout support from the homeworlds, our fledgling technology failed, bringing us to this sorry state.\nI would help rebuild our technology, but I seem to have become a religious figure in the minds of many people, and very few visit me or understand what I have to offer.\nPerhaps this Kreegan crisis we face will bring people to their senses--as long as we survive it.")
 end)
 
-RegisterGlobalEvent(1392, "Legacy event 1392", function()
+RegisterGlobalEvent(1392, nil, function()
     evt.SetMessage("I happen to know that you are amongst a short list of adventurers looking to receive favor from the High Council.\nWhat you want it for I don’t know, nor do I care.\nI’ll be blunt:\nI love money, and I want more.\nMuch more.\nI have a plan to fix the price of shipping in my favor for a time and I need competent agents to carry it out.\nPerform this task well and I will give you my support, not to mention a lot of money.\nHere is the plan:\nEach of the nine shipping companies in the Kingdom must be convinced to charge at least 48 gold per pound per mile of material they transport.\nThey are all in competition and they know it, so none will want to make a move before the others.\nI don’t care how you convince them– just get the job done and report back to me.")
     SetQBit(QBit(1140)) -- Fix the prices of all 9 stables in the Kingdom and return to Lady Fleise in Silver Cove. - NPC
     SetQBit(QBit(1706)) -- Replacement for NeedToTestIt ¹0 ver. 6
     evt.SetNPCTopic(799, 0, 1393) -- Loretta Fleise topic 0: Money
 end)
 
-RegisterGlobalEvent(1393, "Legacy event 1393", function()
+RegisterGlobalEvent(1393, nil, function()
     if not IsQBitSet(QBit(1141)) then -- NPC
         evt.SetMessage("Not all of the companies have agreed to raise their prices!\nWhy do you return only to report incompetence?\nThere are large profits I could be reaping if you had done your job and convinced these idiots to raise their prices!\nMUST I DO THIS MYSELF?\nShould I send someone else?\nWhy do I surround myself with MORONS?!\nSo far I have lost a lot of gold because you haven’t finished your job!\nI’ll deduct these losses from your final payment, you can be sure of that!")
         return
@@ -13738,46 +13738,46 @@ RegisterGlobalEvent(1393, "Legacy event 1393", function()
     end
 end)
 
-RegisterGlobalEvent(1394, "Legacy event 1394", function()
+RegisterGlobalEvent(1394, nil, function()
     evt.SetMessage("If you're concerned about the suffering of the peasants over my price increase, don't be.\nI did it all for a good cause.\nI needed to raise money for granaries to store the excess grain we are harvesting this year.\nThe shipping prices are back down, and the availability of cheap, high quality grain more than makes up for it.\nThere!\nI'm not so horrible, am I?")
 end)
 
-RegisterGlobalEvent(1395, "Legacy event 1395", function()
+RegisterGlobalEvent(1395, nil, function()
     evt.SetMessage("Although it may be hard to believe, I happen to be one of the top druids in the land.\nAs such I am empowered to promote druids to great and arch druid status, provided they prove themselves worthy.\nTo be promoted to great druid status, you must perform the Ceremony of the Sun.\nPray at the center of the Circle of Stone during any equinox or solstice– March 20th, June 21st, September 23rd, or December 21st.\nIf you are there at that time, I will contact you magically and lead you through the Ceremony, thus promoting you to great druid.\nThose among you who are not druids will be granted honorary great druid status, and I am sure the experience will be worthwhile.")
     SetQBit(QBit(1142)) -- Visit the Altar of the Sun in the circle of stones north of Silver Cove on an equinox or solstice (HINT: March 20th is an equinox). - NPC
     evt.SetNPCTopic(799, 1, 1396) -- Loretta Fleise topic 1: Great Druids
 end)
 
-RegisterGlobalEvent(1396, "Legacy event 1396", function()
+RegisterGlobalEvent(1396, nil, function()
     evt.SetMessage("You must pray at the center of the Circle of Stone during an equinox or solstice to complete the Ceremony of the Sun and be promoted to great druid.")
 end)
 
-RegisterGlobalEvent(1397, "Legacy event 1397", function()
+RegisterGlobalEvent(1397, nil, function()
     evt.SetMessage("So, you believe you are deserving of the title of arch druid.\nYou must complete the Ceremony of the Moon to achieve arch druid status.\nThis used to be rather easy before the factional split amongst the last generation of druids, but now you must fight your way to the sacred altar.\nIt is in the Temple of the Moon, currently controlled by the evil heretic Cedric Druthers.\nThere is no way they will just let you complete the ceremony peacefully, so you will probably have to fight your way in.\nLike the Ceremony of the Sun, the Ceremony of the Moon must be performed at a certain place and time.\nPray at the Altar of the Moon in the Temple of the Moon at midnight during any full moon.\nIf you are there at that time, I will contact you magically and lead you through the Ceremony.")
     SetQBit(QBit(1143)) -- Visit the Altar of the Moon in the Temple of the Moon at midnight of a full moon. - NPC
     evt.SetNPCTopic(1090, 1, 1398) -- Loretta Fleise topic 1: Arch Druids
 end)
 
-RegisterGlobalEvent(1398, "Legacy event 1398", function()
+RegisterGlobalEvent(1398, nil, function()
     evt.SetMessage("You must be standing before the altar of the Moon at midnight on any full moon to complete the Ceremony of the Moon and be promoted to arch druid.")
 end)
 
-RegisterGlobalEvent(1399, "Legacy event 1399", function()
+RegisterGlobalEvent(1399, nil, function()
     evt.SetMessage("The earth is wounded in the west.\nI can feel it, my fellow druids, and if you put your hand to the ground and listen with your heart, you'll feel it, too.\nI am bound here with my responsibilities, but I urge you to investigate the source of this pain.\nI am sure the wound and the Night of Shooting Stars are related.\n")
 end)
 
-RegisterGlobalEvent(1400, "Legacy event 1400", function()
+RegisterGlobalEvent(1400, nil, function()
     evt.SetMessage("I grow tired of winter.\nIn my lands, winter seems to last year round.\nAs a matter of fact, for the last few years, summer didn’t arrive at all.\nI have come to believe that something is wrong with the weather, and I want something done about it.\nI know your reputation, and I hear you can do anything.\nI have a deal for you.\nEnd the winter in my land and I will give you my support in the High Council when it comes time for you to ask for it.\nIf it's any help at all, I hear there is hermit on a mountaintop somewhere west of here who has studied the weather in detail.")
     SetQBit(QBit(1144)) -- End winter for Lord Stromgard at Castle Stromgard, and return to him with the good news. - NPC
     evt.SetNPCTopic(800, 0, 1401) -- Erik Von Stromgard topic 0: Winter
     evt.SetNPCTopic(804, 0, 1409) -- The Hermit on the Mountain topic 0: Winter
 end)
 
-RegisterGlobalEvent(1401, "Legacy event 1401", function()
+RegisterGlobalEvent(1401, nil, function()
     evt.SetMessage("Do you think you could hurry this miracle thing along?\nThe snow on the ground is building up, and we are going to have to start putting buildings on stilts!")
 end)
 
-RegisterGlobalEvent(1402, "Legacy event 1402", function()
+RegisterGlobalEvent(1402, nil, function()
     evt.SetMessage("I was looking out my window when the weather broke and the snow vanished!")
     ClearQBit(QBit(1144)) -- End winter for Lord Stromgard at Castle Stromgard, and return to him with the good news. - NPC
     SetQBit(QBit(1199)) -- NPC
@@ -13798,17 +13798,17 @@ RegisterGlobalEvent(1402, "Legacy event 1402", function()
     end
 end)
 
-RegisterGlobalEvent(1403, "Legacy event 1403", function()
+RegisterGlobalEvent(1403, nil, function()
     evt.SetMessage("For your services, I grant you my favor in the High Council!\nLong may you live, O enemies of Winter!")
 end)
 
-RegisterGlobalEvent(1404, "Legacy event 1404", function()
+RegisterGlobalEvent(1404, nil, function()
     evt.SetMessage("20 years ago, I won the annual archery competition held at Castle Ironfist, and I have held the championship ever since.\nThis gives me the right to promote archers to the title of warrior mage and master archer as I see fit.\nI’ll grant the title of warrior mage to all the archers amongst you if you do me a little favor. I need the key to the old Dragon Towers set up near every major settlement in Enroth to shoot down flying creatures.\nI think that they can be set to shoot down only monsters, instead of shooting anything flying through the air. Since this is something of a pet project, I will reward honorary warrior mage status to the rest of you.\nThe key is in my old keep near the southern entrance to my lands.\nI had to leave it there when the ogres and their companions took it from me a few years ago.\nReturn with that key and be rewarded.\nAnd I won’t be crying in my beer if you kill a lot of those monsters while you’re at it.\nThey took my keep!")
     SetQBit(QBit(1145)) -- Retrieve the key to the Dragon Towers from Icewind Keep south of Whitecap, and bring it to Lord Stromgard at Castle Stromgard. - NPC
     evt.SetNPCTopic(800, 1, 1405) -- Erik Von Stromgard topic 1: Warrior Mages
 end)
 
-RegisterGlobalEvent(1405, "Legacy event 1405", function()
+RegisterGlobalEvent(1405, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2106) then -- Dragon Tower Keys
         evt.SetMessage("No key—No reward.")
@@ -13831,36 +13831,36 @@ RegisterGlobalEvent(1405, "Legacy event 1405", function()
     evt.SetNPCTopic(800, 1, 1406) -- Erik Von Stromgard topic 1: Master Archers
 end)
 
-RegisterGlobalEvent(1406, "Legacy event 1406", function()
+RegisterGlobalEvent(1406, nil, function()
     evt.SetMessage("The reason I wanted the key was to open the Dragon Towers and make the adjustments to prevent them from shooting flyers indiscriminately.\nThere is a way to adjust the towers to shoot at only large objects, and I want all of them adjusted for the good of the Kingdom.\nMagic is becoming more common, as are stories of young Sorcerers getting shot from the sky because they didn’t know the function of the towers.\nYou have the key.\nIf you adjust all of the towers to shoot at only large objects, I will promote all warrior mages amongst you to master archers and promote any honorary warrior mages to honorary master archers.")
     SetQBit(QBit(1146)) -- Reset all of the Dragon Towers at each town and return to Lord Stromgard in Castle Stromgard. - NPC
     evt.SetNPCTopic(800, 1, 1413) -- Erik Von Stromgard topic 1: Master Archers
 end)
 
-RegisterGlobalEvent(1407, "Legacy event 1407", function()
+RegisterGlobalEvent(1407, nil, function()
     evt.SetMessage("Welcome, master archers!\nYou may warm yourself by my hearth any time!")
 end)
 
-RegisterGlobalEvent(1408, "Legacy event 1408", function()
+RegisterGlobalEvent(1408, nil, function()
     evt.SetMessage("I like it up here.\nIt’s as though I can watch the world turn from up high and all alone.\nSerene.\nUntouchable.\nAlmost…Prophetic.\nI can see the clouds churn and travel, break apart and mix together.\nI can predict the weather almost perfectly.\n<Smiling> Right now, I predict more snow.")
 end)
 
-RegisterGlobalEvent(1409, "Legacy event 1409", function()
+RegisterGlobalEvent(1409, nil, function()
     evt.SetMessage("So, Stromgard needs a miracle with the weather, eh?\nAll this time I thought he was the one responsible for making it snow continually.\nI can break the enchantment on the weather easily, and if you hurry back to him, I’m sure you can claim responsibility.")
     SetQBit(QBit(1252)) -- NPC
     evt.SetNPCTopic(800, 0, 1402) -- Erik Von Stromgard topic 0: Winter
     evt.SetNPCTopic(804, 0, 1410) -- The Hermit on the Mountain topic 0: Winter
 end)
 
-RegisterGlobalEvent(1410, "Legacy event 1410", function()
+RegisterGlobalEvent(1410, nil, function()
     evt.SetMessage("As grateful as I am for your company, I am, in fact, a hermit.\nI'm sure you have plenty of important things to do and don't need to be cluttering up my house any longer.")
 end)
 
-RegisterGlobalEvent(1411, "Legacy event 1411", function()
+RegisterGlobalEvent(1411, nil, function()
     evt.SetMessage("Curses!")
 end)
 
-RegisterGlobalEvent(1413, "Legacy event 1413", function()
+RegisterGlobalEvent(1413, nil, function()
     if IsQBitSet(QBit(1180)) then -- NPC
         if IsQBitSet(QBit(1181)) then -- NPC
             if IsQBitSet(QBit(1182)) then -- NPC
@@ -13894,14 +13894,14 @@ RegisterGlobalEvent(1413, "Legacy event 1413", function()
     evt.SetMessage("Hmm.\nNot all of the towers have been reset.\nThey are easy to find, if a bit long in getting to.\nThe easiest is in Whitecap to the west of us.")
 end)
 
-RegisterGlobalEvent(1414, "Legacy event 1414", function()
+RegisterGlobalEvent(1414, nil, function()
     evt.SetMessage("Slicker Silvertongue refused my order?\nThis must be treason!\nStill, I've known him so long, and he's never disobeyed an order before…perhaps he is suffering from delusions.\nYes, that's it.\nHe's been spending so much time investigating that horrible Baa cult that it's affected his mind– I even found one of their cloaks in his room.\nPerhaps you can find a cure for him.\nThey must surely know what they've done to him!\nI would start at their headquarters east of Castle Kriegspire.\nHere, take the cloak– perhaps you can find some use for it.")
     SetQBit(QBit(1224)) -- Find a cure for Slicker Silvertongue in the Superior Temple of Baa east of Castle Kriegspire and return to Wilbur Humphrey with the good news. - Wilbur Humphrey
     AddValue(InventoryItem(2105), 2105) -- Cloak of Baa
     evt.SetNPCTopic(789, 0, 1415) -- Wilbur Humphrey topic 0: Silvertongue's Cure
 end)
 
-RegisterGlobalEvent(1415, "Legacy event 1415", function()
+RegisterGlobalEvent(1415, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(2122) then -- Letter from Zenofex
         evt.SetMessage("Oh, my!\nIt appears that Slicker Silvertongue really is a traitor!\nWho ever would have guessed it?\nYou've done a good thing, bringing this letter to me.\nTake it to High Council immediately so we can be rid of this wicked traitor for once and for all!")
@@ -13918,15 +13918,15 @@ RegisterGlobalEvent(1415, "Legacy event 1415", function()
     end
 end)
 
-RegisterGlobalEvent(1416, "Legacy event 1416", function()
+RegisterGlobalEvent(1416, nil, function()
     evt.SetMessage("I cannot thank you enough for uncovering that horrible traitor and his crimes against the throne.\nI understand you are on a mission of some importance, so for Services Rendered to the Crown, it behooves me to offer you free use of the royal yacht for your travels.\nIt will take you as far as Hermit's Isle, if you need it to.\nOnce again, thank you!")
 end)
 
-RegisterGlobalEvent(1417, "Legacy event 1417", function()
+RegisterGlobalEvent(1417, nil, function()
     evt.SetMessage("Welcome to the Circus of the Sun!\nWe have a variety of games for your amusement.\nYou can take the prizes you win from the various games and trade them in here for either kegs of wine or golden pyramids.\nYou need at least 10 points to get a keg of wine, and 30 or more points will win you a golden pyramid.\nIn case you didn't know, each lodestone is worth 1 point, each harpy feather is worth 3 points, and each four leaf clover is worth 5 points.\n")
 end)
 
-RegisterGlobalEvent(1418, "Legacy event 1418", function()
+RegisterGlobalEvent(1418, nil, function()
     local function Step_0()
         if IsAtLeast(CircusPrises, 30) then return 2 end
         return 1
@@ -14085,11 +14085,11 @@ RegisterGlobalEvent(1418, "Legacy event 1418", function()
     end
 end)
 
-RegisterGlobalEvent(1419, "Legacy event 1419", function()
+RegisterGlobalEvent(1419, nil, function()
     evt.SetMessage("Welcome!\nTo play my game, simply pay 50 gold and step right up to compete against me.\nDepending on how well you do you can win either a lodestone, a harpy feather, or a four leaf clover.\nIf you do poorly, you win nothing.\nYou can trade in your lodestones, feathers, and clovers in the main tent.")
 end)
 
-RegisterGlobalEvent(1420, "Legacy event 1420", function()
+RegisterGlobalEvent(1420, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualMight, 200) then
         local randomStep = PickRandomOption(1420, 4, {4, 7, 10, 13, 16, 19})
@@ -14246,7 +14246,7 @@ RegisterGlobalEvent(1420, "Legacy event 1420", function()
     end
 end)
 
-RegisterGlobalEvent(1421, "Legacy event 1421", function()
+RegisterGlobalEvent(1421, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualEndurance, 200) then
         local randomStep = PickRandomOption(1421, 4, {4, 7, 10, 13, 16, 19})
@@ -14403,7 +14403,7 @@ RegisterGlobalEvent(1421, "Legacy event 1421", function()
     end
 end)
 
-RegisterGlobalEvent(1422, "Legacy event 1422", function()
+RegisterGlobalEvent(1422, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualSpeed, 200) then
         local randomStep = PickRandomOption(1422, 4, {4, 7, 10, 13, 16, 19})
@@ -14560,7 +14560,7 @@ RegisterGlobalEvent(1422, "Legacy event 1422", function()
     end
 end)
 
-RegisterGlobalEvent(1423, "Legacy event 1423", function()
+RegisterGlobalEvent(1423, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualAccuracy, 200) then
         local randomStep = PickRandomOption(1423, 4, {4, 7, 10, 13, 16, 19})
@@ -14717,7 +14717,7 @@ RegisterGlobalEvent(1423, "Legacy event 1423", function()
     end
 end)
 
-RegisterGlobalEvent(1424, "Legacy event 1424", function()
+RegisterGlobalEvent(1424, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualLuck, 200) then
         local randomStep = PickRandomOption(1424, 4, {4, 7, 10, 13, 16, 19})
@@ -14874,7 +14874,7 @@ RegisterGlobalEvent(1424, "Legacy event 1424", function()
     end
 end)
 
-RegisterGlobalEvent(1425, "Legacy event 1425", function()
+RegisterGlobalEvent(1425, nil, function()
     SubtractValue(Gold, 50)
     if IsAtLeast(ActualIntellect, 200) then
         local randomStep = PickRandomOption(1425, 4, {4, 7, 10, 13, 16, 19})
@@ -15031,7 +15031,7 @@ RegisterGlobalEvent(1425, "Legacy event 1425", function()
     end
 end)
 
-RegisterGlobalEvent(1426, "Legacy event 1426", function()
+RegisterGlobalEvent(1426, nil, function()
     SetAutonote(461) -- Lawrence Aleman will buy temple gongs for 2000 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15045,7 +15045,7 @@ RegisterGlobalEvent(1426, "Legacy event 1426", function()
     evt.SetMessage("As part of the effort to rebuild the Temple here in Free Haven, I'm collecting temple gongs.\nIf you have any gongs, I'll pay you 2000 gold for each of them.")
 end)
 
-RegisterGlobalEvent(1427, "Legacy event 1427", function()
+RegisterGlobalEvent(1427, nil, function()
     SetAutonote(462) -- Lon Miller will buy bones for 1000 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15060,7 +15060,7 @@ RegisterGlobalEvent(1427, "Legacy event 1427", function()
     evt.SetMessage("I'm looking for bones to use in my rituals.\nI prefer bones from humans or humanoids, but I suppose I can make do with whatever you find.\nI'm willing to pay up to 1000 gold for bones that I can use.")
 end)
 
-RegisterGlobalEvent(1428, "Legacy event 1428", function()
+RegisterGlobalEvent(1428, nil, function()
     SetAutonote(463) -- Davis Carp will buy lodestones for 5 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15074,7 +15074,7 @@ RegisterGlobalEvent(1428, "Legacy event 1428", function()
     evt.SetMessage("Many people aren't able to visit the circus, so I'm collecting circus prizes to give away to those not able to visit it themselves.\nI'll buy lodestones for 5 gold each if you want to part with them.")
 end)
 
-RegisterGlobalEvent(1429, "Legacy event 1429", function()
+RegisterGlobalEvent(1429, nil, function()
     SetAutonote(464) -- Bonnie Rotterdam will buy feathers for 10 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15088,7 +15088,7 @@ RegisterGlobalEvent(1429, "Legacy event 1429", function()
     evt.SetMessage("My daughter wants to go to the circus, but we never have the time when the circus is near here.\nI'd love to give her a bunch of the pretty harpy feathers for her.\nI'll take any harpy feathers you have for 10 gold each.")
 end)
 
-RegisterGlobalEvent(1430, "Legacy event 1430", function()
+RegisterGlobalEvent(1430, nil, function()
     SetAutonote(465) -- Renee Blackburn will buy pyramids for 1000 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15102,7 +15102,7 @@ RegisterGlobalEvent(1430, "Legacy event 1430", function()
     evt.SetMessage("I've heard that you can get really nifty things from Abdul's Desert Resort if you pay with golden pyramids.\nI'm hoping to go there one day, and I want to stock up on the pyramids now.\nI'll take any golden pyramids you have for 1000 gold.")
 end)
 
-RegisterGlobalEvent(1431, "Legacy event 1431", function()
+RegisterGlobalEvent(1431, nil, function()
     SetAutonote(466) -- Nick Fenstar will buy kegs of wine for 300 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15116,7 +15116,7 @@ RegisterGlobalEvent(1431, "Legacy event 1431", function()
     evt.SetMessage("My favorite wine is the stuff they give you for winning at the circus.")
 end)
 
-RegisterGlobalEvent(1432, "Legacy event 1432", function()
+RegisterGlobalEvent(1432, nil, function()
     SetAutonote(467) -- Sy Roth will buy teeth for 500 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15130,7 +15130,7 @@ RegisterGlobalEvent(1432, "Legacy event 1432", function()
     evt.SetMessage("I have an incredible teeth collection, but I'm always looking for more.\nIf you find a tooth I don't have in my collection, I'll pay you 500 gold for it.")
 end)
 
-RegisterGlobalEvent(1433, "Legacy event 1433", function()
+RegisterGlobalEvent(1433, nil, function()
     SetAutonote(468) -- Geoff Southy will buy clovers for 25 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15144,7 +15144,7 @@ RegisterGlobalEvent(1433, "Legacy event 1433", function()
     evt.SetMessage("I have been to the circus three times, and I can't win anything.\nAll I really want are the nifty four leaf clovers they use as prizes there.\nI'll pay 25 gold for any four leaf clover you bring me.")
 end)
 
-RegisterGlobalEvent(1434, "Legacy event 1434", function()
+RegisterGlobalEvent(1434, nil, function()
     SetAutonote(469) -- Dillan Robinson will buy amber for 500 gold each in Free Haven.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15158,13 +15158,13 @@ RegisterGlobalEvent(1434, "Legacy event 1434", function()
     evt.SetMessage("I've heard it's possible to find large chunks of amber in a series of caves north of Castle Ironfist.\nI never have the time to leave Free Haven, but I'd love to get my hands on some of that amber.\nI'll pay 500 gold for any piece of amber.")
 end)
 
-RegisterGlobalEvent(1435, "Legacy event 1435", function()
+RegisterGlobalEvent(1435, nil, function()
     evt.SetMessage("As you may know, the last members of the Necromancers' Guild in Enroth fled to Castle Darkmoor after their defeat in the Succession War.\nWho knows what foul magics they're concocting while we wait around.\nI'm certain that the book containing the Ritual of Endless Night, known as the Book of Liches, has been moved into that castle.\nIf the book were to be destroyed, it would deal a severe blow to whatever evil plans they have.\nI've tried a few times to get to the book, but the castle is too well defended.\nIf you are able to destroy the book, come back to me and I'll reward you personally.")
     SetQBit(QBit(1228)) -- Find and destroy the Book of Liches in Castle Darkmoor and return to Terry Ros in Darkmoor village. - NPC
     evt.SetNPCTopic(1115, 0, 1436) -- Terry Ros topic 0: Quest
 end)
 
-RegisterGlobalEvent(1436, "Legacy event 1436", function()
+RegisterGlobalEvent(1436, nil, function()
     evt.ForPlayer(Players.All)
     if not IsQBitSet(QBit(1033)) then -- 9, CD2, given when you destroy Lich book
         evt.SetMessage("There's no rush in destroying the book.\nIf you manage it, come back and talk to me.\nI'm not sure it's even possible to get to the book and destroy it– there are far too many evil creatures in that castle.")
@@ -15181,27 +15181,27 @@ RegisterGlobalEvent(1436, "Legacy event 1436", function()
     evt.MoveNPC(1115, 0) -- Terry Ros -> removed
 end)
 
-RegisterGlobalEvent(1437, "Legacy event 1437", function()
+RegisterGlobalEvent(1437, nil, function()
     evt.SetMessage("Welcome to my Desert Resort!\nYou'll notice we don't have the riff-raff associated with the towns and villages of the lands here.\nTake a moment to relax and enjoy the serenity of the desert, my friends.\nIf you're interested, we have a few traders here that will trade rare items for weapons and armor– it may be worth your while to check them out.")
 end)
 
-RegisterGlobalEvent(1438, "Legacy event 1438", function()
+RegisterGlobalEvent(1438, nil, function()
     evt.SetMessage("It seems rumors abound about my little Resort.\nAlas, the Fountain of Youth everyone seems to be talking about is not here, it's a few days journey to the west.")
 end)
 
-RegisterGlobalEvent(1439, "Legacy event 1439", function()
+RegisterGlobalEvent(1439, nil, function()
     evt.SetMessage("Hello!")
 end)
 
-RegisterGlobalEvent(1440, "Legacy event 1440", function()
+RegisterGlobalEvent(1440, nil, function()
     evt.SetMessage("I'll trade high quality weapons for golden pyramids or kegs of wine.")
 end)
 
-RegisterGlobalEvent(1441, "Legacy event 1441", function()
+RegisterGlobalEvent(1441, nil, function()
     evt.SetMessage("I have a wide variety of magical accessories I'll gladly trade for golden pyramids or kegs of wine.")
 end)
 
-RegisterGlobalEvent(1442, "Legacy event 1442", function()
+RegisterGlobalEvent(1442, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2092) then -- Golden Pyramid
@@ -15214,7 +15214,7 @@ RegisterGlobalEvent(1442, "Legacy event 1442", function()
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
-RegisterGlobalEvent(1443, "Legacy event 1443", function()
+RegisterGlobalEvent(1443, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2092) then -- Golden Pyramid
@@ -15227,7 +15227,7 @@ RegisterGlobalEvent(1443, "Legacy event 1443", function()
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
-RegisterGlobalEvent(1444, "Legacy event 1444", function()
+RegisterGlobalEvent(1444, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2092) then -- Golden Pyramid
@@ -15240,7 +15240,7 @@ RegisterGlobalEvent(1444, "Legacy event 1444", function()
     evt.SetMessage("I'm afraid you don't have a golden pyramid, so I can't make a deal with you.")
 end)
 
-RegisterGlobalEvent(1445, "Legacy event 1445", function()
+RegisterGlobalEvent(1445, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2093) then -- Keg of Wine
@@ -15253,7 +15253,7 @@ RegisterGlobalEvent(1445, "Legacy event 1445", function()
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
-RegisterGlobalEvent(1446, "Legacy event 1446", function()
+RegisterGlobalEvent(1446, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2093) then -- Keg of Wine
@@ -15266,7 +15266,7 @@ RegisterGlobalEvent(1446, "Legacy event 1446", function()
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
-RegisterGlobalEvent(1447, "Legacy event 1447", function()
+RegisterGlobalEvent(1447, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2093) then -- Keg of Wine
@@ -15279,7 +15279,7 @@ RegisterGlobalEvent(1447, "Legacy event 1447", function()
     evt.SetMessage("You don't have a keg of wine to trade!")
 end)
 
-RegisterGlobalEvent(1448, "Legacy event 1448", function()
+RegisterGlobalEvent(1448, nil, function()
     SetAutonote(470) -- Bandar Jahrom will trade gems for lamps in Abul's Desert Resort in Dragonsand.
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -15317,133 +15317,133 @@ RegisterGlobalEvent(1448, "Legacy event 1448", function()
     evt.SetMessage("I'm collecting used magic lamps, but I don't have any money.\nI'll trade you some of these pretty stones for the lamps, though.")
 end)
 
-RegisterGlobalEvent(1573, "Legacy event 1573", function()
+RegisterGlobalEvent(1573, nil, function()
     evt.SetMessage("The best staff teacher in the land, Jasper Rice, lives up near Silver Cove.\nYou'll want to talk to him if you wish to continue your training with the staff.")
 end)
 
-RegisterGlobalEvent(1574, "Legacy event 1574", function()
+RegisterGlobalEvent(1574, nil, function()
     evt.SetMessage("Guy Hampton in Blackshire taught me everything I know about the sword.\nIf you're looking to master the blade, he's the one to train under.")
 end)
 
-RegisterGlobalEvent(1575, "Legacy event 1575", function()
+RegisterGlobalEvent(1575, nil, function()
     evt.SetMessage("I'm only a novice when compared to someone like Jules Miles.\nHe lives near Castle Stone, and he can teach anyone how to improve their dagger skills.")
 end)
 
-RegisterGlobalEvent(1576, "Legacy event 1576", function()
+RegisterGlobalEvent(1576, nil, function()
     evt.SetMessage("Avinril Smythers mastered the axe before most of us were even born, but he doesn't train humans.\nI'm sure if you could do something special for him, he might consider teaching a human how to really swing an axe.\nHe spends most of his time in the Haunt in the Mire of the Damned.")
 end)
 
-RegisterGlobalEvent(1577, "Legacy event 1577", function()
+RegisterGlobalEvent(1577, nil, function()
     evt.SetMessage("The best spearman in Enroth, Burton Rutherford, lives in Darkmoor.\nI'm not sure why he picks such a remote place to call his home.\nMaybe he doesn't like being bothered with students?")
 end)
 
-RegisterGlobalEvent(1578, "Legacy event 1578", function()
+RegisterGlobalEvent(1578, nil, function()
     evt.SetMessage("As good as Lord Stromgard is with a bow, he won't accept students.\nTo master the bow, you need to talk to Desmond Weller in Kriegspire.")
 end)
 
-RegisterGlobalEvent(1579, "Legacy event 1579", function()
+RegisterGlobalEvent(1579, nil, function()
     evt.SetMessage("If you want to master the mace, you need to speak to Errol Ostermann in Blackshire.")
 end)
 
-RegisterGlobalEvent(1580, "Legacy event 1580", function()
+RegisterGlobalEvent(1580, nil, function()
     evt.SetMessage("Very few people even know that these weapons exist.\nThe only other person I've ever seen using an ancient weapon is Rexella, but she was last living in Paradise Valley– I'm not sure she's even there anymore.")
 end)
 
-RegisterGlobalEvent(1581, "Legacy event 1581", function()
+RegisterGlobalEvent(1581, nil, function()
     evt.SetMessage("No one can use a shield like Bronwyn Meck in Blackshire.")
 end)
 
-RegisterGlobalEvent(1582, "Legacy event 1582", function()
+RegisterGlobalEvent(1582, nil, function()
     evt.SetMessage("Arlen Sailor runs the best school in the art of wearing leather armor.")
 end)
 
-RegisterGlobalEvent(1583, "Legacy event 1583", function()
+RegisterGlobalEvent(1583, nil, function()
     evt.SetMessage("Darkmoor is the home of David Feather, the only person I know of that can teach you to master your skill in chain armor.")
 end)
 
-RegisterGlobalEvent(1584, "Legacy event 1584", function()
+RegisterGlobalEvent(1584, nil, function()
     evt.SetMessage("Forrest Suthers, one of the head Paladins in Enroth, teaches how to master plate near Castle Temper.")
 end)
 
-RegisterGlobalEvent(1585, "Legacy event 1585", function()
+RegisterGlobalEvent(1585, nil, function()
     evt.SetMessage("To master the fire skill you need to speak to Jezebel in Mist.")
 end)
 
-RegisterGlobalEvent(1586, "Legacy event 1586", function()
+RegisterGlobalEvent(1586, nil, function()
     evt.SetMessage("Caao Salem can show you even more tricks with air magic in Mist.")
 end)
 
-RegisterGlobalEvent(1587, "Legacy event 1587", function()
+RegisterGlobalEvent(1587, nil, function()
     evt.SetMessage("To gain mastery of the water skill you need to train under Harper Collins in Mist.")
 end)
 
-RegisterGlobalEvent(1588, "Legacy event 1588", function()
+RegisterGlobalEvent(1588, nil, function()
     evt.SetMessage("Revee Botania can train you to master the earth skill in Silver Cove.")
 end)
 
-RegisterGlobalEvent(1589, "Legacy event 1589", function()
+RegisterGlobalEvent(1589, nil, function()
     evt.SetMessage("Spirit can be mastered with the help of Bishop Inquisitorio.\nHe lives right behind Castle Ironfist, you can't miss him.")
 end)
 
-RegisterGlobalEvent(1590, "Legacy event 1590", function()
+RegisterGlobalEvent(1590, nil, function()
     evt.SetMessage("Thane Roper can train you to master the mind skill in Silver Cove.")
 end)
 
-RegisterGlobalEvent(1591, "Legacy event 1591", function()
+RegisterGlobalEvent(1591, nil, function()
     evt.SetMessage("If you're looking to master body magic, you need to talk to Gilbert Hammer in Silver Cove.")
 end)
 
-RegisterGlobalEvent(1592, "Legacy event 1592", function()
+RegisterGlobalEvent(1592, nil, function()
     evt.SetMessage("Light magic is a difficult skill to learn, and the Great Teacher, Ki Lo Nee, can only be found somewhere around Castle Alamos.")
 end)
 
-RegisterGlobalEvent(1593, "Legacy event 1593", function()
+RegisterGlobalEvent(1593, nil, function()
     evt.SetMessage("Su Lang Manchu was my teacher in dark magic.")
 end)
 
-RegisterGlobalEvent(1594, "Legacy event 1594", function()
+RegisterGlobalEvent(1594, nil, function()
     evt.SetMessage("Hans Gifford can show you even more neat tricks in identifying items in Free Haven.")
 end)
 
-RegisterGlobalEvent(1595, "Legacy event 1595", function()
+RegisterGlobalEvent(1595, nil, function()
     evt.SetMessage("The smoothest talking merchant I've ever seen is Will Ottoman in Silver Cove.\nIf you're looking to improve your merchant skill, he's the man to see.")
 end)
 
-RegisterGlobalEvent(1596, "Legacy event 1596", function()
+RegisterGlobalEvent(1596, nil, function()
     evt.SetMessage("If you think I'm good at repairing things, Ryan Treacle is the best around.\nI'm sure he can be convinced to assist you in mastering the skill.\nHe lives up near Castle Stone the last I heard.")
 end)
 
-RegisterGlobalEvent(1597, "Legacy event 1597", function()
+RegisterGlobalEvent(1597, nil, function()
     evt.SetMessage("Jason Traveler will coach you in the finest points of body-building.\nHe works in Free Haven, if you can handle his rigorous training.")
 end)
 
-RegisterGlobalEvent(1598, "Legacy event 1598", function()
+RegisterGlobalEvent(1598, nil, function()
     evt.SetMessage("If mastering meditation is your goal, you'll need to see Norio Ariganaka in Mist.")
 end)
 
-RegisterGlobalEvent(1599, "Legacy event 1599", function()
+RegisterGlobalEvent(1599, nil, function()
     evt.SetMessage("Perception can be mastered with help from Macro Caligula in Darkmoor.")
 end)
 
-RegisterGlobalEvent(1600, "Legacy event 1600", function()
+RegisterGlobalEvent(1600, nil, function()
     evt.SetMessage("Jacques Kohl is working with Lord Stromgard to develop experimental recipes.\nIf he has time, perhaps he can assist you as well in mastering the art of Alchemy.")
 end)
 
-RegisterGlobalEvent(1601, "Legacy event 1601", function()
+RegisterGlobalEvent(1601, nil, function()
     evt.SetMessage("The greatest trap disarmer, Gabe Lester, is currently teaching his craft near Castle Stone.\nHe's the person to talk to if you want to learn all the best tricks.")
 end)
 
-RegisterGlobalEvent(1602, "Legacy event 1602", function()
+RegisterGlobalEvent(1602, nil, function()
     evt.SetMessage("John Tuck can teach you to master the learning skill.")
 end)
 
-RegisterGlobalEvent(1603, "Legacy event 1603", function()
+RegisterGlobalEvent(1603, nil, function()
     evt.SetMessage("The King of the Dwarves, Snergle, usurped Rocklin for leadership of the dwarven clans.\nNow Rocklin is in exile somewhere and Snergle is in charge.\nMost dwarves don’t like Snergle and would like to see Rocklin back in power.\nUnfortunately, Snergle has claimed both Rocklin’s caverns and the largest dwarven Iron Mine.\nSnergle, fearing treachery near home, has removed me, the Dwarven Weaponmaster, from my position.\nWe need someone to get Snergle out of power by any means necessary.\nI’d even consider training you humans how to use an axe like a true dwarf if you’ll help us.")
     SetQBit(QBit(1148)) -- Kill Snergle in Snergle's Caverns and return with his axe to Avinril Smythers at The Haunt tavern in the Mire of the Damned. - NPC
     evt.SetNPCTopic(817, 0, 1604) -- Avinril Smythers  topic 0: Quest
 end)
 
-RegisterGlobalEvent(1604, "Legacy event 1604", function()
+RegisterGlobalEvent(1604, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2118) then -- Snergle's Axe
         evt.SetMessage("I need proof that Snergle has been defeated.\nI’m sorry, but I just can’t take your word for it.\nBring back some personal item of his, like his axe maybe.")
@@ -15459,13 +15459,13 @@ RegisterGlobalEvent(1604, "Legacy event 1604", function()
     evt.SetNPCTopic(817, 0, 1520) -- Avinril Smythers  topic 0: Master Axe Fighting
 end)
 
-RegisterGlobalEvent(1605, "Legacy event 1605", function()
+RegisterGlobalEvent(1605, nil, function()
     evt.SetMessage("The Mayor here in Mist is considering allowing the Fraternal Order of Silver to police the town in their battle against evil.\nI know the Silver Helm Persecution Squads have murdered innocents in their misguided crusade against ‘evil,’ but there are no living witnesses to their atrocities.\nI need you to storm their outpost to the south of here to find proof so that I can convince the mayor to ban them from Mist.")
     SetQBit(QBit(1149)) -- Storm the Silver Helm Outpost near Mist and return with evidence of their corruption to the Constable of Mist. - NPC
     evt.SetNPCTopic(822, 0, 1606) -- Charles D'Sorpigal topic 0: Quest
 end)
 
-RegisterGlobalEvent(1606, "Legacy event 1606", function()
+RegisterGlobalEvent(1606, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2123) then -- Enemies List
         evt.SetMessage("Keep searching– the lives of the mayor and myself could very well be in your hands.")
@@ -15483,21 +15483,21 @@ RegisterGlobalEvent(1606, "Legacy event 1606", function()
     evt.SetNPCTopic(831, 0, 1608) -- Bertrand Scrivner topic 0: Silver Helms
 end)
 
-RegisterGlobalEvent(1607, "Legacy event 1607", function()
+RegisterGlobalEvent(1607, nil, function()
     evt.SetMessage("I think I might just allow the Fraternal Order of Silver to police the areas around Mist.")
 end)
 
-RegisterGlobalEvent(1608, "Legacy event 1608", function()
+RegisterGlobalEvent(1608, nil, function()
     evt.SetMessage("I can’t believe those Silver Helms wanted to kill me!\nI’ve never done anything wrong in my life!\nWell, nothing more wrong than any other mayor at least.\nThank you again for stopping them.")
 end)
 
-RegisterGlobalEvent(1609, "Legacy event 1609", function()
+RegisterGlobalEvent(1609, nil, function()
     evt.SetMessage("Could you do the Temple of Baa a favor?\nIt appears that my brethren left the old temple to the northwest of here in a little too much of a hurry, and a candelabra necessary for some of our rituals was left behind.\nNone of the Baa priests want to go back because they’re afraid of whatever curse has been placed on the temple.\nIf you were to bring back the candelabra to me, however, I could reward you in their place.")
     SetQBit(QBit(1150)) -- Retrieve the candelabra from the Abandoned Temple for Andover Potbello in New Sorpigal. - NPC
     evt.SetNPCTopic(786, 1, 1610) -- Andover Potbello topic 1: Quest
 end)
 
-RegisterGlobalEvent(1610, "Legacy event 1610", function()
+RegisterGlobalEvent(1610, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2069) then -- Candelabra
         evt.SetMessage("Did the curse frighten you away as well?\nI can understand.\nBaa is patient, however.\nShould you work up the courage to find the candelabra, I’m still prepared to compensate you for it.")
@@ -15514,11 +15514,11 @@ RegisterGlobalEvent(1610, "Legacy event 1610", function()
     evt.SetNPCTopic(786, 1, 0) -- Andover Potbello topic 1 cleared
 end)
 
-RegisterGlobalEvent(1611, "Legacy event 1611", function()
+RegisterGlobalEvent(1611, nil, function()
     evt.SetMessage("Who would have thought that the evil I sought to fight all across Enroth would be found so close to my own home?\nGerrard Blackames was once my second in command.\nNot long before he murdered me he began corresponding with the Temple of Baa, and they began to feed him targets for our Order.\nI ended up being one of the targets, and Gerrard took control of the Order.\nNow, the Silver Helms are as evil as the people they hunt.\nI’m certain the Temple of Baa is responsible for the corruption of our Order.\nAt the same time, Gerrard’s brother, Marcus the Sorcerer, has been supplying the Silver Helms with high quality equipment.\nThe last I heard, Marcus was assisting someone in a forge on an island to the southeast.")
 end)
 
-RegisterGlobalEvent(1612, "Legacy event 1612", function()
+RegisterGlobalEvent(1612, nil, function()
     if not IsQBitSet(QBit(1151)) then -- NPC
         evt.SetMessage("My niece, Melody, has been kidnapped from her home in Mist and locked in a Silver Helm outpost near there.\nShe’s one of the few people who know that I’ve been murdered.\nI’m sure Gerrard has her locked up for that reason, but I believe he wants to force her into marriage to eliminate any opposition to his leadership of the Fraternal Order of Silver.")
         return
@@ -15526,13 +15526,13 @@ RegisterGlobalEvent(1612, "Legacy event 1612", function()
     evt.SetMessage("Thank you for saving my niece.")
 end)
 
-RegisterGlobalEvent(1613, "Legacy event 1613", function()
+RegisterGlobalEvent(1613, nil, function()
     evt.SetMessage("Gerrard has an ankh inscribed with his name given to him by the priests of Baa.\nI’m not sure exactly what the ankh is used for, but he may use it to identify himself as a friend of Baa.")
     evt.SetNPCTopic(799, 2, 1675) -- Loretta Fleise topic 2: Ankh
     evt.SetNPCTopic(801, 2, 1676) -- Anthony Stone topic 2: Ankh
 end)
 
-RegisterGlobalEvent(1614, "Legacy event 1614", function()
+RegisterGlobalEvent(1614, nil, function()
     evt.SetMessage("You want to defeat Snergle, do you?\nWell, he knows how he stands among most dwarves.\nHe’s holed up in Rocklin’s old caverns surrounded by a horde of his loyal dwarves.\nIf anything were to happen in there, he’d just immediately lock himself in his private room and let his followers handle it.\nYou’ll need a key to get into his room; there’s no way you’ll bash down a high quality dwarven door.\nI was a steward for Rocklin– I know that room well and I happen to still have a key to it hidden on me.\nFortunately for you, I’m in this cell because of Snergle, and there’s nothing I’d rather see than his reign put to a quick end.\nHere’s the key– think of it as payment for letting me out of this cell.")
     evt.MoveNPC(851, 0) -- Ghim Hammond -> removed
     if HasItem(2108) then return end -- Key to Snergle's Chambers
@@ -15550,18 +15550,18 @@ RegisterCanShowTopic(1614, function()
     end
 end)
 
-RegisterGlobalEvent(1615, "Legacy event 1615", function()
+RegisterGlobalEvent(1615, nil, function()
     evt.SetMessage("Thank you for releasing me.\nThe only thing keeping the Silver Helms from killing me was the fact I’m a priest.\nFrankly, I’m surprised they would show me any mercy at all.\nListen, I’ve heard some strange sounds coming from around here… I think there might be a hidden passage near here.\nIn any event, I should probably be leaving now; I don’t want to stay in this cell any longer.")
     evt.MoveNPC(859, 0) -- Oliver Wendell -> removed
 end)
 
-RegisterGlobalEvent(1616, "Legacy event 1616", function()
+RegisterGlobalEvent(1616, nil, function()
     evt.SetMessage("The Dragoons that have been plaguing the roads around here recently stole a harp of mine from one of my caravans.\nI’m not strong enough to get it back from them, but I’m willing to pay someone capable to do it for me.\nFind the harp and return it, and I’ll reward you.")
     SetQBit(QBit(1152)) -- Retrieve the harp from the Dragoon's Caverns south of Castle Ironfist and return it to Andrew Besper in Castle Ironfist. - NPC
     evt.SetNPCTopic(862, 0, 1617) -- Andrew Besper topic 0: Quest
 end)
 
-RegisterGlobalEvent(1617, "Legacy event 1617", function()
+RegisterGlobalEvent(1617, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(2099) then -- Harp
         evt.SetMessage("My gratitude!\nMy wife loves this harp; I’m so glad you were able to recover it!\nHere, take this as a reward.\nI’ve heard rumors that the Dragoons were working with the Shadow Guild.\nIf that’s the case, I’m sure the Mayor of New Sorpigal would love to see proof of it.\nThank you again for your assistance.")
@@ -15580,13 +15580,13 @@ RegisterGlobalEvent(1617, "Legacy event 1617", function()
     end
 end)
 
-RegisterGlobalEvent(1618, "Legacy event 1618", function()
+RegisterGlobalEvent(1618, nil, function()
     evt.SetMessage("I have a few theories about the undead that I would very much like to prove.\nWhat I really need is the remains of an undead creature, preferably a powerful one.\nActually, what I really need is the remains of the FIRST lich, Ethric the Mad.\nI am a scholar, however, and don’t have the means to gain such a specimen.\nI do have some money saved up, and I’d be willing to pay you well for Ethric’s remains.")
     SetQBit(QBit(1153)) -- Retrieve Ethric's skull from his tomb west of Free Haven for Gabriel Cartman in Free Haven. - NPC
     evt.SetNPCTopic(956, 0, 1619) -- Gabriel Cartman topic 0: Quest
 end)
 
-RegisterGlobalEvent(1619, "Legacy event 1619", function()
+RegisterGlobalEvent(1619, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2084) then -- Ethric's Skull
         evt.SetMessage("I am well aware of the difficulty of the task, believe me.\nTake your time but at the least, do the job properly. ")
@@ -15603,13 +15603,13 @@ RegisterGlobalEvent(1619, "Legacy event 1619", function()
     evt.MoveNPC(956, 0) -- Gabriel Cartman -> removed
 end)
 
-RegisterGlobalEvent(1621, "Legacy event 1621", function()
+RegisterGlobalEvent(1621, nil, function()
     evt.SetMessage("Our town is periodically plagued by giant spiders.\nI’m pretty sure that if the spider queen were killed, the rest of the spiders would go away.\nCurrently, I’m offering a reward to the person that can kill the spider queen.")
     SetQBit(QBit(1154)) -- Kill the Queen of the Spiders in the Abandoned Temple in New Sorpigal and return with her heart to Buford T. Allman in New Sorpigal. - NPC
     evt.SetNPCTopic(992, 0, 1622) -- Buford T. Allman topic 0: Quest
 end)
 
-RegisterGlobalEvent(1622, "Legacy event 1622", function()
+RegisterGlobalEvent(1622, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2101) then -- Spider Queen's Heart
         evt.SetMessage("No one has returned with proof that they’ve killed the spider queen, so the reward is still available.")
@@ -15625,13 +15625,13 @@ RegisterGlobalEvent(1622, "Legacy event 1622", function()
     evt.SetNPCTopic(992, 0, 0) -- Buford T. Allman topic 0 cleared
 end)
 
-RegisterGlobalEvent(1623, "Legacy event 1623", function()
+RegisterGlobalEvent(1623, nil, function()
     evt.SetMessage("Cedric Druthers and his Celestial Order have taken over the Monolith, an ancient place sacred to druids.\nTheir dark rituals are corrupting the Monolith and they need to be stopped– whatever altar they use as the center of their ceremonies needs to be defaced.\nDo this for us and we will compensate you for your time and services.")
     SetQBit(QBit(1155)) -- Deface the altar in the Monolith west of Silver Cove and return to Eleanor Vanderbilt in Silver Cove. - NPC
     evt.SetNPCTopic(1052, 0, 1624) -- Eleanor Vanderbilt topic 0: Quest
 end)
 
-RegisterGlobalEvent(1624, "Legacy event 1624", function()
+RegisterGlobalEvent(1624, nil, function()
     if not IsQBitSet(QBit(1047)) then -- 23 D13, Given when Altar is desecrated
         evt.SetMessage("I’m glad to see you again, but the Celestial Order is still in the Monolith.")
         return
@@ -15647,7 +15647,7 @@ RegisterGlobalEvent(1624, "Legacy event 1624", function()
     evt.MoveNPC(1052, 0) -- Eleanor Vanderbilt -> removed
 end)
 
-RegisterGlobalEvent(1625, "Legacy event 1625", function()
+RegisterGlobalEvent(1625, nil, function()
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
         if HasItem(2094) then -- Cobra Egg
@@ -15660,20 +15660,20 @@ RegisterGlobalEvent(1625, "Legacy event 1625", function()
     evt.SetMessage("I am a collector of rare and exotic creatures, and I make a living by selling some of these creatures as pets.\nCurrently, cobras are in great demand, and I don’t have many cobras left to sell.\nTherefore, I’m willing to pay handsomely for any cobra eggs you might have.\nRemember, if you find any cobra eggs, I’ll give you the best prices.")
 end)
 
-RegisterGlobalEvent(1626, "Legacy event 1626", function()
+RegisterGlobalEvent(1626, nil, function()
     evt.SetMessage("Removed Bat Guano Message")
     SetQBit(QBit(1157)) -- NPC
     evt.SetNPCTopic(1074, 0, 1627) -- Barrad Unter topic 0: Quest
     AddValue(InventoryItem(2050), 2050) -- Leather Pouch
 end)
 
-RegisterGlobalEvent(1628, "Legacy event 1628", function()
+RegisterGlobalEvent(1628, nil, function()
     evt.SetMessage("Near here is a temple dedicated to the Order of the Fist.\nI once belonged to that order, but recently they uncovered a powerful evil crystal.\nThey hope to use the crystal as a bargaining chip to be accepted into the Temple of Baa.\nI don’t want to see the crystal fall into Baa’s hands– it must be destroyed.\nPlease infiltrate the temple and destroy the crystal.")
     SetQBit(QBit(1158)) -- Destroy the crystal in the Temple of the Fist and return to Winston Schezar in Bootleg Bay. - NPC
     evt.SetNPCTopic(1075, 0, 1629) -- Winston Schezar topic 0: Quest
 end)
 
-RegisterGlobalEvent(1629, "Legacy event 1629", function()
+RegisterGlobalEvent(1629, nil, function()
     if not IsQBitSet(QBit(1045)) then -- 21 T2, Given when evil crystal is destroyed
         evt.SetMessage("You must hurry and destroy the crystal before Baa claims it.\nI’m not sure how long it will take, so time is of the essence.")
         return
@@ -15689,13 +15689,13 @@ RegisterGlobalEvent(1629, "Legacy event 1629", function()
     evt.MoveNPC(1075, 0) -- Winston Schezar -> removed
 end)
 
-RegisterGlobalEvent(1630, "Legacy event 1630", function()
+RegisterGlobalEvent(1630, nil, function()
     evt.SetMessage("My husband, Emmanuel, went to Star Island a few weeks ago with a few friends hoping to find some treasure.\nI haven’t seen him since, and I’m worried about him.\nI don’t dare go to the island; it’s rumored to be the home of medusas!\nIf you could find him and bring him home, I would be very grateful.")
     SetQBit(QBit(1160)) -- Rescue Emmanuel from the Temple of the Snake near Blackshire and return him to Joanne Cravitz in Blackshire. - NPC
     evt.SetNPCTopic(903, 0, 1631) -- Joanne Cravitz topic 0: Quest
 end)
 
-RegisterGlobalEvent(1631, "Legacy event 1631", function()
+RegisterGlobalEvent(1631, nil, function()
     if not IsQBitSet(QBit(1702)) then -- Replacement for NPCs ¹108 ver. 6
         evt.SetMessage("No luck?\nHe must be in grave danger if you did not find him.\nIf you do happen to find him, please bring him back here.\nI’ll be waiting for him.")
         return
@@ -15712,26 +15712,26 @@ RegisterGlobalEvent(1631, "Legacy event 1631", function()
     evt.SetNPCTopic(903, 0, 0) -- Joanne Cravitz topic 0 cleared
 end)
 
-RegisterGlobalEvent(1632, "Legacy event 1632", function()
+RegisterGlobalEvent(1632, nil, function()
     evt.SetMessage("Thank you for turning me back to normal. I’d love to stay and chat, but I really should be getting out of here.")
 end)
 
-RegisterGlobalEvent(1633, "Legacy event 1633", function()
+RegisterGlobalEvent(1633, nil, function()
     evt.SetMessage("Thank you for turning me back to normal. I’d love to stay and chat, but I really should be getting out of here.")
 end)
 
-RegisterGlobalEvent(1634, "Legacy event 1634", function()
+RegisterGlobalEvent(1634, nil, function()
     evt.SetMessage("Could you help me get out of here?")
     SetQBit(QBit(1702)) -- Replacement for NPCs ¹108 ver. 6
 end)
 
-RegisterGlobalEvent(1635, "Legacy event 1635", function()
+RegisterGlobalEvent(1635, nil, function()
     evt.SetMessage("An explorer friend of mine recently uncovered a powerful artifact, Mordred, in his travels.\nHe wanted to sell it to me, and shipped it here for me to decide if I wanted it.\nUnfortunately, raiders attacked the caravan it was on and stole the artifact.\nThey were last seen headed to an area west of Castle Temper; I’m sure they must have some sort of base there.\nIf you bring back Mordred for me, I’ll give you a cut of what I’m paying my friend for it.")
     SetQBit(QBit(1161)) -- Find the lost artifact in the Dragoons' Keep near Castle Temper and return it to Zoltan Phelps in Free Haven. - NPC
     evt.SetNPCTopic(861, 0, 1636) -- Zoltan Phelps topic 0: Quest
 end)
 
-RegisterGlobalEvent(1636, "Legacy event 1636", function()
+RegisterGlobalEvent(1636, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2020) then -- Mordred
         evt.SetMessage("Hello again.\nNo one has found Mordred yet, so our deal is still good.\nI’ll give you part of the selling price for the artifact if you return it.")
@@ -15748,13 +15748,13 @@ RegisterGlobalEvent(1636, "Legacy event 1636", function()
     evt.MoveNPC(861, 0) -- Zoltan Phelps -> removed
 end)
 
-RegisterGlobalEvent(1637, "Legacy event 1637", function()
+RegisterGlobalEvent(1637, nil, function()
     evt.SetMessage("Members of the Shadow Guild have moved down south recently, and have been trying to exert their influence over merchants in the area.\nI refused them access to our town, so they kidnapped Sharry Carnegie, an old healer loved by the townspeople, in an attempt to ‘convince’ me to let them operate here.\nI can’t believe that their extortion has moved so far south, I thought I was safe from that down here.\nPlease rescue Sharry– I can offer you some money as a reward, and I’m sure the townsfolk would appreciate her return.")
     SetQBit(QBit(1162)) -- Rescue Sharry from the Shadow Guild Hideout and return with her to Frank Fairchild in New Sorpigal. - NPC
     evt.SetNPCTopic(788, 0, 1638) -- Frank Fairchild topic 0: Quest
 end)
 
-RegisterGlobalEvent(1638, "Legacy event 1638", function()
+RegisterGlobalEvent(1638, nil, function()
     if not IsQBitSet(QBit(1703)) then -- Replacement for NPCs ¹193 ver. 6
         evt.SetMessage("Have you found Sharry yet?")
         return
@@ -15769,7 +15769,7 @@ RegisterGlobalEvent(1638, "Legacy event 1638", function()
     evt.SetNPCTopic(788, 0, 0) -- Frank Fairchild topic 0 cleared
 end)
 
-RegisterGlobalEvent(1639, "Legacy event 1639", function()
+RegisterGlobalEvent(1639, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2124) then -- Orders from the Shadow Guild
         evt.SetMessage("I'm so tired of the Shadow Guild, but I don't have any substantial proof of their activities.\nI'd love to have something I could show to Anthony Stone proving the Shadow Guild is up to no good down here.")
@@ -15784,18 +15784,18 @@ RegisterGlobalEvent(1639, "Legacy event 1639", function()
     evt.SetNPCTopic(788, 1, 0) -- Frank Fairchild topic 1 cleared
 end)
 
-RegisterGlobalEvent(1640, "Legacy event 1640", function()
+RegisterGlobalEvent(1640, nil, function()
     evt.SetMessage("Thank you for rescuing me from these horrible ruffians!")
     SetQBit(QBit(1703)) -- Replacement for NPCs ¹193 ver. 6
 end)
 
-RegisterGlobalEvent(1641, "Legacy event 1641", function()
+RegisterGlobalEvent(1641, nil, function()
     evt.SetMessage("Oh dear, can you help me?\nMy daughter Angela is missing!\nI think she may have wandered into the abandoned temple near town, and if she did she could be in terrible danger– who knows what kind of horrible things are lurking in that cursed place!\nPlease find her and bring her back to me.")
     SetQBit(QBit(1163)) -- Rescue Angela from the Abandoned Temple and return her to Violet Dawson in New Sorpigal. - NPC
     evt.SetNPCTopic(939, 0, 1642) -- Violet Dawson topic 0: Quest
 end)
 
-RegisterGlobalEvent(1642, "Legacy event 1642", function()
+RegisterGlobalEvent(1642, nil, function()
     if not IsQBitSet(QBit(1704)) then -- Replacement for NPCs ¹195 ver. 6
         evt.SetMessage("You didn’t find poor Angela?")
         return
@@ -15813,18 +15813,18 @@ RegisterGlobalEvent(1642, "Legacy event 1642", function()
     evt.SetNPCTopic(980, 0, 0) -- Angela Dawson topic 0 cleared
 end)
 
-RegisterGlobalEvent(1643, "Legacy event 1643", function()
+RegisterGlobalEvent(1643, nil, function()
     evt.SetMessage("I think I'm lost…<sob>…I want to go home!")
     SetQBit(QBit(1704)) -- Replacement for NPCs ¹195 ver. 6
 end)
 
-RegisterGlobalEvent(1644, "Legacy event 1644", function()
+RegisterGlobalEvent(1644, nil, function()
     evt.SetMessage("A good friend of mine, Sherell, went with a group of friends to the islands in Bootleg Bay to explore an old temple rumored to be there.\nHer friends returned and said she was captured by cannibals on the island and taken to some ancient temple.\nI’m sure she doesn’t have much time before they do something dreadful to her, please rescue her!")
     SetQBit(QBit(1164)) -- Rescue Sherell from the cannibals on the islands east of Free Haven and return with her to Carlo Tormini in Free Haven. - NPC
     evt.SetNPCTopic(985, 0, 1645) -- Carlo Tormini topic 0: Quest
 end)
 
-RegisterGlobalEvent(1645, "Legacy event 1645", function()
+RegisterGlobalEvent(1645, nil, function()
     if not IsQBitSet(QBit(1705)) then -- Replacement for NPCs ¹155 ver. 6
         evt.SetMessage("Oh dear!\nYou haven’t found her yet?\nSurely she must have been sacrificed or eaten or something.\nPlease try to find her, or at least avenge her death.")
         return
@@ -15841,18 +15841,18 @@ RegisterGlobalEvent(1645, "Legacy event 1645", function()
     evt.SetNPCTopic(985, 0, 0) -- Carlo Tormini topic 0 cleared
 end)
 
-RegisterGlobalEvent(1646, "Legacy event 1646", function()
+RegisterGlobalEvent(1646, nil, function()
     evt.SetMessage("Hello!\nPlease, oh please, get me out of this temple.\nI don’t want to die!")
     SetQBit(QBit(1705)) -- Replacement for NPCs ¹155 ver. 6
 end)
 
-RegisterGlobalEvent(1647, "Legacy event 1647", function()
+RegisterGlobalEvent(1647, nil, function()
     evt.SetMessage("Our town is under a terrible curse, though most people don’t believe it.\nUnder a full moon, we all change into werewolves.\nAlthough none of us are truly evil, we don’t really know what sort of horrible things we do as werewolves.\nWe can’t approach our lord, Acton Spindler about the problem because he doesn’t realize that we are the werewolves.\nPlease find a way to turn us back to normal!")
     SetQBit(QBit(1165)) -- Destroy the Werewolf's altar in the Lair of the Wolf and return to Maria Trepan in Blackshire. - NPC
     evt.SetNPCTopic(997, 0, 1648) -- Maria Trepan topic 0: Quest
 end)
 
-RegisterGlobalEvent(1648, "Legacy event 1648", function()
+RegisterGlobalEvent(1648, nil, function()
     if not IsQBitSet(QBit(1041)) then -- 17 D17, given when wolf altar is destroyed.
         evt.SetMessage("Is there no hope for us?")
         return
@@ -15868,23 +15868,23 @@ RegisterGlobalEvent(1648, "Legacy event 1648", function()
     evt.MoveNPC(997, 0) -- Maria Trepan -> removed
 end)
 
-RegisterGlobalEvent(1651, "Legacy event 1651", function()
+RegisterGlobalEvent(1651, nil, function()
     evt.SetMessage("I was a guest at Lord Spindler's manor when it was attacked by a band of werewolves that had tunneled in from the mountains.\nI fought my way back down the tunnels they had created hoping to escape.\nEventually, they cornered me and I was killed at this very spot. ")
 end)
 
-RegisterGlobalEvent(1652, "Legacy event 1652", function()
+RegisterGlobalEvent(1652, nil, function()
     evt.SetMessage("In my flight, I managed to hide the Pearl of Purity in these caverns.\nThe pearl will both protect you from the curse of the werewolves, and will also destroy the Altar of the Wolf if the pearl touches it.\nThat should free everyone afflicted by the curse these werewolves have caused.\nThe pearl is at the end of the cavern across from this one.\nPlease do me one favor, return the Pearl to Wilbur Humphrey.\nHe is the lord in charge of paladins and the pearl belongs with him.")
     SetQBit(QBit(1166)) -- NPC
     evt.SetNPCTopic(789, 2, 1655) -- Wilbur Humphrey topic 2: Pearl of Purity
 end)
 
-RegisterGlobalEvent(1653, "Legacy event 1653", function()
+RegisterGlobalEvent(1653, nil, function()
     evt.SetMessage("The werewolf leader possesses the Pearl of Putrescence, the opposite of my Pearl of Purity.\nWith this pearl, he has been able to cause the curse.\nI was never able to kill him in my retreat.\nI will be able to rest in peace knowing that he has been defeated.")
     SetQBit(QBit(1167)) -- Find the Pearl of Putrescence in the Lair of the Wolf and bring it to the Ghost of Balthasar, also in the Lair of the Wolf. - NPC
     evt.SetNPCTopic(1080, 2, 1654) -- Ghost of Balthasar topic 2: Quest
 end)
 
-RegisterGlobalEvent(1654, "Legacy event 1654", function()
+RegisterGlobalEvent(1654, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2078) then -- Pearl of Putrescence
         evt.SetMessage("The werewolf leader possesses the Pearl of Putrescence, the opposite of my Pearl of Purity.\nWith this pearl, he has been able to cause the curse.\nI was never able to kill him in my retreat.\nI will be able to rest in peace knowing that he has been defeated.")
@@ -15900,7 +15900,7 @@ RegisterGlobalEvent(1654, "Legacy event 1654", function()
     evt.SetNPCTopic(1080, 2, 0) -- Ghost of Balthasar topic 2 cleared
 end)
 
-RegisterGlobalEvent(1655, "Legacy event 1655", function()
+RegisterGlobalEvent(1655, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2079) then -- Pearl of Purity
         evt.SetMessage("One of the few remaining Paladin artifacts left is the Pearl of Purity.\nBalthasar was in possession of the pearl the last I heard.\nHe was visiting Lord Spindler in Blackshire, but I haven't heard anything from him in months.")
@@ -15914,34 +15914,34 @@ RegisterGlobalEvent(1655, "Legacy event 1655", function()
     evt.SetNPCTopic(789, 2, 0) -- Wilbur Humphrey topic 2 cleared
 end)
 
-RegisterGlobalEvent(1660, "Legacy event 1660", function()
+RegisterGlobalEvent(1660, nil, function()
     evt.SetMessage("You no goblin!")
 end)
 
-RegisterGlobalEvent(1661, "Legacy event 1661", function()
+RegisterGlobalEvent(1661, nil, function()
     evt.SetMessage("Good work removing the goblins from this keep.\nWe have the situation mostly under control now, though your help is always appreciated.")
 end)
 
-RegisterGlobalEvent(1662, "Legacy event 1662", function()
+RegisterGlobalEvent(1662, nil, function()
     evt.SetMessage("Hello again, my pupils!\nI'm afraid there is nothing more I can teach you– your experiences must guide you from this point on.\nI know nothing more than you do about the devils that destroyed Sweet Water, but I know who you need to ask.\nThe Oracle in Free Haven will know what to do to rid Enroth of the terrible devils.\nUnfortunately, you will need the approval of the six High Council members, each of which represents one of the lords of Enroth.\nYou must do whatever necessary to speak to the Oracle in Free Haven and rid Enroth of the devils.")
 end)
 
-RegisterGlobalEvent(1664, "Legacy event 1664", function()
+RegisterGlobalEvent(1664, nil, function()
     evt.SetMessage("I’ve discovered a way to reverse the effects of time and make myself young again.\nThis requires a complex magical ritual, which I’ve worked out.\nThe problem is that I need to place magical statuettes on various pedestals. The tiger statuette goes on the pedestal near Sweet Water, the bear statuette in Kriegspire, the eagle statuette in Dragonsand, the wolf statuette in the Mire of the Damned, and the dragon statuette in Bootleg Bay.\nThe distances are too far for me to travel in my old age, and in the meantime I need to prepare the ritual itself.\nThere is no way I can do all of this on my own; I need your help.\nThe statuettes are in the chest outside my house.\nPlace them on the pedestals and return to me.\nEven if the ritual is a failure, I'll pay you for your efforts.")
     SetQBit(QBit(1243)) -- Place the statuettes in Sweet Water, Kriegspire, Dragonsand, Mire of the Damned, and Bootleg Bay and return to Twillen in Blackshire. - NPC
     SetQBit(QBit(1244)) -- NPC
     evt.SetNPCTopic(872, 0, 1665) -- Twillen topic 0: Quest
 end)
 
-RegisterGlobalEvent(1665, "Legacy event 1665", function()
+RegisterGlobalEvent(1665, nil, function()
     evt.SetMessage("I have almost prepared the entire ritual– all that is left is to place the statuettes.")
 end)
 
-RegisterGlobalEvent(1666, "Legacy event 1666", function()
+RegisterGlobalEvent(1666, nil, function()
     evt.SetMessage("I was once the court magician, long ago.\nThat all ended when Archibald… disrupted… things.\nArchibald had acquired some skill as a sorcerer and had knowledge of spells beyond that taught to magicians today, and therefore didn’t require my services.\nSince then, I’ve lived in this little shack, conducted my own research, and have grown old.")
 end)
 
-RegisterGlobalEvent(1667, "Legacy event 1667", function()
+RegisterGlobalEvent(1667, nil, function()
     evt.SetMessage("Good work!\nI have my youth again, thanks to you– have you ever thought about assisting me full-time?\nI could certainly use reliable help.\nI've managed to collect a variety of trinkets over the years, so please help yourself to a few of these in the chest outside as payment for your services.\nI need to clean up a few things here, but I think I'll head back to Castle Ironfist and see if there's an opening for a court magician.")
     ClearQBit(QBit(1243)) -- Place the statuettes in Sweet Water, Kriegspire, Dragonsand, Mire of the Damned, and Bootleg Bay and return to Twillen in Blackshire. - NPC
     SetQBit(QBit(1245)) -- NPC
@@ -15952,13 +15952,13 @@ RegisterGlobalEvent(1667, "Legacy event 1667", function()
     evt.MoveNPC(826, 0) -- Twillen -> removed
 end)
 
-RegisterGlobalEvent(1668, "Legacy event 1668", function()
+RegisterGlobalEvent(1668, nil, function()
     evt.SetMessage("I was one of the mages studying at Kriegspire when the creatures there went completely out of control.\nIn my escape from the castle, I left a valuable item behind, a jeweled egg.\nThis egg is a family heirloom that goes back in my family as far as the Silence.\nI have tried a few times to get it back, but the creatures there are too powerful for me.\nI’d gladly trade a generous sum of money to get my egg back.")
     SetQBit(QBit(1168)) -- Retrieve the jewelled egg from Castle Kriegspire and return it to Emil Lime in Kriegspire village. - NPC
     evt.SetNPCTopic(986, 0, 1669) -- Emil Lime topic 0: Quest
 end)
 
-RegisterGlobalEvent(1669, "Legacy event 1669", function()
+RegisterGlobalEvent(1669, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2100) then -- Jeweled Egg
         evt.SetMessage("Kriegspire is the castle inside the volcano.\nWe mages were forced to raise the earth around the castle to try and prevent the creatures from overrunning the surrounding towns.\nNow they’re contained inside, and that’s where the egg is.")
@@ -15976,21 +15976,21 @@ RegisterGlobalEvent(1669, "Legacy event 1669", function()
     evt.MoveNPC(986, 0) -- Emil Lime -> removed
 end)
 
-RegisterGlobalEvent(1670, "Legacy event 1670", function()
+RegisterGlobalEvent(1670, nil, function()
     evt.SetMessage("I am the Lord of Fire, an immortal earth spirit.\nMy power is drawn from below the earth.\nThe channels that I use have been blocked by doors warded with powerful magic in the north.\nI need you to unward the doors so that I may awaken again.\nThough the enchantments on them are powerful, amber will break the ward on the doors.")
     SetQBit(QBit(1169)) -- Unward the doors in the Hall of the Fire Lord and return to the Lord of Fire, also in the Hall of the Fire Lord. - NPC
     evt.SetNPCTopic(1083, 0, 1673) -- Lord of Fire topic 0: Quest
 end)
 
-RegisterGlobalEvent(1671, "Legacy event 1671", function()
+RegisterGlobalEvent(1671, nil, function()
     evt.SetMessage("If you get lost in the caverns, you may find assistance from my servants.\nIf you have a piece of amber, they will assume you are under my care and will teleport you back to me if you talk to them.\nIf you do not have any amber, they will drain with some of your life force as payment for teleporting you back up here.\nDon’t worry, they rarely kill anyone.")
 end)
 
-RegisterGlobalEvent(1672, "Legacy event 1672", function()
+RegisterGlobalEvent(1672, nil, function()
     evt.SetMessage("The doors became warded when a strange creature came to reside here.\nI am not familiar with this type of being, and I’ve seen many types in my long time here in Enroth.\nI do not know why it chose this place as its home, or why there is only one, but I would like to see it destroyed for the trouble it has caused me. ")
 end)
 
-RegisterGlobalEvent(1673, "Legacy event 1673", function()
+RegisterGlobalEvent(1673, nil, function()
     if not IsQBitSet(QBit(1095)) then -- Walt
         evt.SetMessage("As patient as I am, I would like to see the channels I use to sustain me opened again.\nPlease do not fail.")
         return
@@ -16005,7 +16005,7 @@ RegisterGlobalEvent(1673, "Legacy event 1673", function()
     evt.SetNPCTopic(1083, 2, 0) -- Lord of Fire topic 2 cleared
 end)
 
-RegisterGlobalEvent(1675, "Legacy event 1675", function()
+RegisterGlobalEvent(1675, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2068) then -- Ankh
         evt.SetMessage("Recently, the Fraternal Order of Silver has been disrupting my business and my caravans.\nI'm not sure why Sir John feels it necessary, but I'd like this to stop.\nIf you could convince him to leave me alone, I'm sure I could give you a portion of the money you would be saving me.")
@@ -16019,7 +16019,7 @@ RegisterGlobalEvent(1675, "Legacy event 1675", function()
     evt.SetNPCTopic(799, 2, 0) -- Loretta Fleise topic 2 cleared
 end)
 
-RegisterGlobalEvent(1676, "Legacy event 1676", function()
+RegisterGlobalEvent(1676, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2068) then -- Ankh
         evt.SetMessage("The Fraternal Order of Silver has begun more direct attacks on my legitimate, underworld associates.\nI would appreciate it greatly if you could talk to Sir John and learn why he feels these actions are necessary.")
@@ -16034,13 +16034,13 @@ RegisterGlobalEvent(1676, "Legacy event 1676", function()
     evt.SetNPCTopic(799, 2, 0) -- Loretta Fleise topic 2 cleared
 end)
 
-RegisterGlobalEvent(1677, "Legacy event 1677", function()
+RegisterGlobalEvent(1677, nil, function()
     evt.SetMessage("So Baa was behind the corruption of the Silver Helms and the murder of Sir John Silver?\nWhat a tragedy for Sir John, rest his soul.\n<blink> Loretta told you to collect the reward from me?\nGreedy witch.\nHere, your services should not go unrewarded.")
     AddValue(Gold, 5000)
     evt.SetNPCTopic(801, 2, 0) -- Anthony Stone topic 2 cleared
 end)
 
-RegisterGlobalEvent(1678, "Legacy event 1678", function()
+RegisterGlobalEvent(1678, nil, function()
     evt.SetMessage("<Loretta Fleise contacts you via a telepathy spell> Welcome to the Ceremony of the Sun.\nStand ye in the circle of life and face the north while no shadows stretch before thee.\nMeditate upon this truth:\n“Money is everything.\nI have no truer a friend than money…” <grinning> Just kidding.\nNow, close your eyes, and meditate as you stand at the center of the world and time for just this one, sublime moment… <long, silent pause>\nOpen your eyes.\nI hereby promote all druids to great druids and all non-druids to honorary druids. <Loretta fades away> ")
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -16060,7 +16060,7 @@ RegisterGlobalEvent(1678, "Legacy event 1678", function()
     evt.SetNPCTopic(799, 1, 1397) -- Loretta Fleise topic 1: Arch Druids
 end)
 
-RegisterGlobalEvent(1679, "Legacy event 1679", function()
+RegisterGlobalEvent(1679, nil, function()
     evt.SetMessage("<Loretta Fleise contacts you via a telepathy spell> Welcome to the Ceremony of the Moon.\nStand ye before the altar of the Moon facing south.\nClose your eyes and meditate upon the Circle of Seasons and the Wheel of Life.\n<long, silent pause>\nOpen your eyes, my friends.\nI hereby promote all great druids to arch druids, and all honorary great druids to honorary arch druids.\n<Loretta fades away> ")
     for _, player in ipairs(PartyMembers()) do
         evt.ForPlayer(player)
@@ -16080,7 +16080,7 @@ RegisterGlobalEvent(1679, "Legacy event 1679", function()
     evt.SetNPCTopic(799, 1, 1399) -- Loretta Fleise topic 1: Arch Druids
 end)
 
-RegisterGlobalEvent(1688, "Legacy event 1688", function()
+RegisterGlobalEvent(1688, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(59)) then -- Destroyed the Devil's Post
         evt.SetMessage("I am only allowed to vote on the issues that Lord Temper specifically instructs me on.\nGarner his approval, and on his recommendation, I will vote in your favor.")
@@ -16089,7 +16089,7 @@ RegisterGlobalEvent(1688, "Legacy event 1688", function()
     evt.SetMessage("Osric has instructed me to vote for your cause.")
 end)
 
-RegisterGlobalEvent(1689, "Legacy event 1689", function()
+RegisterGlobalEvent(1689, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(61)) then -- Fixed the Stable Prices
         evt.SetMessage("Lady Fleise could not possibly care less about your problems and I will therefore not even consider your request.")
@@ -16098,7 +16098,7 @@ RegisterGlobalEvent(1689, "Legacy event 1689", function()
     evt.SetMessage("You have my vote, in Loretta’s name, to visit the Oracle.")
 end)
 
-RegisterGlobalEvent(1690, "Legacy event 1690", function()
+RegisterGlobalEvent(1690, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(60)) then -- Captured the Prince of Thieves
         evt.SetMessage("Lord Stone has not authorized me to vote in your behalf.")
@@ -16107,7 +16107,7 @@ RegisterGlobalEvent(1690, "Legacy event 1690", function()
     evt.SetMessage("Anthony backs your request to visit the Oracle, and I give you my vote on his behalf.")
 end)
 
-RegisterGlobalEvent(1691, "Legacy event 1691", function()
+RegisterGlobalEvent(1691, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(62)) then -- Ended Winter
         evt.SetMessage("I cannot vote on matters that do not concern Lord Stromgard.\nUntil you have his backing, I cannot vote for you.")
@@ -16116,7 +16116,7 @@ RegisterGlobalEvent(1691, "Legacy event 1691", function()
     evt.SetMessage("I vote for you to visit the Oracle, as instructed by Eric von Stromgard himself.")
 end)
 
-RegisterGlobalEvent(1692, "Legacy event 1692", function()
+RegisterGlobalEvent(1692, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(58)) then -- Retrieved the Hourglass of Time
         evt.SetMessage("Until I receive favorable word from Lord Newton on your request, I cannot give you my backing.")
@@ -16125,7 +16125,7 @@ RegisterGlobalEvent(1692, "Legacy event 1692", function()
     evt.SetMessage("Albert has given me permission to back your request to visit the Oracle. ")
 end)
 
-RegisterGlobalEvent(1693, "Legacy event 1693", function()
+RegisterGlobalEvent(1693, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(2122) then -- Letter from Zenofex
         evt.MoveNPC(1089, 0) -- Slicker Silvertongue -> removed
@@ -16159,168 +16159,168 @@ RegisterGlobalEvent(1693, "Legacy event 1693", function()
     end
 end)
 
-RegisterGlobalEvent(1711, "Legacy event 1711", function()
+RegisterGlobalEvent(1711, nil, function()
     evt.SetMessage("Followers of Baa and a band of cutpurses have been raiding Mist from the islands to the north.\nThey come to Mist through a teleporter on the northwest of the island.\nI'll activate the teleporter so that you can get to their islands and get rid of them.\nI'm sure they have all the things they've stolen on those islands, and you can get back from their teleporter.\n ")
     SetQBit(QBit(1325)) -- NPC
     evt.SetNPCTopic(950, 0, 0) -- Kathleen Mester topic 0 cleared
 end)
 
-RegisterGlobalEvent(1722, "Legacy event 1722", function()
+RegisterGlobalEvent(1722, nil, function()
     evt.StatusText("Path of Light")
 end)
 
-RegisterGlobalEvent(1723, "Legacy event 1723", function()
+RegisterGlobalEvent(1723, nil, function()
     evt.StatusText("Path of Dark")
     AddValue(BaseMight, 1)
     SetAutonote(480) -- Red liquid grants Might.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1724, "Legacy event 1724", function()
+RegisterGlobalEvent(1724, nil, function()
     evt.StatusText("Are you sure, you want to change your path? Dark spells will be vanished from your spellbook and dark magic will be erased from your mind. (Yes/No)")
     AddValue(BaseAccuracy, 1)
     SetAutonote(484) -- Yellow liquid grants Accuracy.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1725, "Legacy event 1725", function()
+RegisterGlobalEvent(1725, nil, function()
     evt.StatusText("Are you sure, you want to change your path? Light spells will be vanished from your spellbook and light magic will be erased from your mind. (Yes/No)")
     AddValue(BasePersonality, 1)
     SetAutonote(482) -- Blue liquid grants Personality.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1726, "Legacy event 1726", function()
+RegisterGlobalEvent(1726, nil, function()
     evt.StatusText("It is never late to turn back to light, child. Choose light side.")
     AddValue(BaseIntellect, 1)
     SetAutonote(481) -- Orange liquid grants Intellect.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1727, "Legacy event 1727", function()
+RegisterGlobalEvent(1727, nil, function()
     evt.StatusText("Darkness wait and it's patience is eternal. Choose dark side.")
     AddValue(BaseEndurance, 1)
     SetAutonote(483) -- Green liquid grants Endurance.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1728, "Legacy event 1728", function()
+RegisterGlobalEvent(1728, nil, function()
     evt.StatusText("yes")
     AddValue(BaseSpeed, 1)
     SetAutonote(485) -- Purple liquid grants Speed.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1729, "Legacy event 1729", function()
+RegisterGlobalEvent(1729, nil, function()
     evt.StatusText("Either you've already choosen your path, or you are not ready to do it.")
     AddValue(BaseLuck, 1)
     SetAutonote(486) -- White liquid grants Luck.
     evt.ChangeEvent(1722)
 end)
 
-RegisterGlobalEvent(1730, "Legacy event 1730", function()
+RegisterGlobalEvent(1730, nil, function()
     evt.StatusText("The cauldron is empty")
 end)
 
-RegisterGlobalEvent(1731, "Legacy event 1731", function()
+RegisterGlobalEvent(1731, nil, function()
     evt.StatusText("+1 Fire resistance permanent")
     AddValue(FireResistance, 1)
     SetAutonote(487) -- Steaming liquid grants Fire Resistance.
     evt.ChangeEvent(1730)
 end)
 
-RegisterGlobalEvent(1732, "Legacy event 1732", function()
+RegisterGlobalEvent(1732, nil, function()
     evt.StatusText("+1 Cold resistance permanent")
     AddValue(WaterResistance, 1)
     SetAutonote(488) -- Frosty liquid grants Cold Resistance.
     evt.ChangeEvent(1730)
 end)
 
-RegisterGlobalEvent(1733, "Legacy event 1733", function()
+RegisterGlobalEvent(1733, nil, function()
     evt.StatusText("+1 Electric resistance permanent")
     AddValue(AirResistance, 1)
     SetAutonote(489) -- Shocking liquid grants Electricity Resistance.
     evt.ChangeEvent(1730)
 end)
 
-RegisterGlobalEvent(1734, "Legacy event 1734", function()
+RegisterGlobalEvent(1734, nil, function()
     evt.StatusText("+1 Poison resistance permanent")
     AddValue(EarthResistance, 1)
     SetAutonote(490) -- Noxious liquid grants Poison Resistance.
     evt.ChangeEvent(1730)
 end)
 
-RegisterGlobalEvent(1735, "Legacy event 1735", function()
+RegisterGlobalEvent(1735, nil, function()
     evt.StatusText("+1 Magic resistance permanent")
     AddValue(FireResistance, 1)
     SetAutonote(491) -- Magical liquid grants Magic Resistance.
     evt.ChangeEvent(1730)
 end)
 
-RegisterGlobalEvent(1736, "Legacy event 1736", function()
+RegisterGlobalEvent(1736, nil, function()
     evt.StatusText("The cook pot is empty")
 end)
 
-RegisterGlobalEvent(1737, "Legacy event 1737", function()
+RegisterGlobalEvent(1737, nil, function()
     AddValue(Food, 3)
     evt.ChangeEvent(1736)
 end)
 
-RegisterGlobalEvent(1738, "Legacy event 1738", function()
+RegisterGlobalEvent(1738, nil, function()
     evt.GiveItem(1, ItemType.Ring_)
     AddValue(Food, 3)
     evt.ChangeEvent(1736)
 end)
 
-RegisterGlobalEvent(1739, "Legacy event 1739", function()
+RegisterGlobalEvent(1739, nil, function()
     evt.GiveItem(2, ItemType.Ring_)
     AddValue(Food, 3)
     evt.ChangeEvent(1736)
 end)
 
-RegisterGlobalEvent(1740, "Legacy event 1740", function()
+RegisterGlobalEvent(1740, nil, function()
     evt.GiveItem(3, ItemType.Ring_)
     AddValue(Food, 3)
     evt.ChangeEvent(1736)
 end)
 
-RegisterGlobalEvent(1741, "Legacy event 1741", function()
+RegisterGlobalEvent(1741, nil, function()
     evt.StatusText("Empty sack")
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1742, "Legacy event 1742", function()
+RegisterGlobalEvent(1742, nil, function()
     AddValue(Food, 2)
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1743, "Legacy event 1743", function()
+RegisterGlobalEvent(1743, nil, function()
     evt.StatusText("Empty bag")
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1744, "Legacy event 1744", function()
+RegisterGlobalEvent(1744, nil, function()
     evt.GiveItem(1, 0)
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1745, "Legacy event 1745", function()
+RegisterGlobalEvent(1745, nil, function()
     evt.GiveItem(2, 0)
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1746, "Legacy event 1746", function()
+RegisterGlobalEvent(1746, nil, function()
     evt.GiveItem(3, 0)
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1747, "Legacy event 1747", function()
+RegisterGlobalEvent(1747, nil, function()
     AddValue(Gold, 50)
     AddValue(Gold, 200)
     evt.ChangeEvent(0)
 end)
 
-RegisterGlobalEvent(1748, "Legacy event 1748", function()
+RegisterGlobalEvent(1748, nil, function()
     local randomStep = PickRandomOption(1748, 1, {1, 5})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -16334,7 +16334,7 @@ RegisterGlobalEvent(1748, "Legacy event 1748", function()
     end
 end)
 
-RegisterGlobalEvent(1749, "Legacy event 1749", function()
+RegisterGlobalEvent(1749, nil, function()
     local randomStep = PickRandomOption(1749, 1, {1, 5, 9})
     if randomStep == 1 then
         if not IsAtLeast(DisarmTrapSkill, 1) then
@@ -16355,11 +16355,11 @@ RegisterGlobalEvent(1749, "Legacy event 1749", function()
     evt.ChangeEvent(1748)
 end)
 
-RegisterGlobalEvent(1750, "Legacy event 1750", function()
+RegisterGlobalEvent(1750, nil, function()
     evt.StatusText("Nothing here")
 end)
 
-RegisterGlobalEvent(1751, "Legacy event 1751", function()
+RegisterGlobalEvent(1751, nil, function()
     if not IsAtLeast(DisarmTrapSkill, 5) then
         SetValue(Afraid, 0)
         evt.StatusText("Search Failed!")
@@ -16369,7 +16369,7 @@ RegisterGlobalEvent(1751, "Legacy event 1751", function()
     evt.ChangeEvent(1750)
 end)
 
-RegisterGlobalEvent(1752, "Legacy event 1752", function()
+RegisterGlobalEvent(1752, nil, function()
     if not IsAtLeast(DisarmTrapSkill, 6) then
         SetValue(Asleep, 0)
         evt.StatusText("Search Failed!")
@@ -16379,7 +16379,7 @@ RegisterGlobalEvent(1752, "Legacy event 1752", function()
     evt.ChangeEvent(1750)
 end)
 
-RegisterGlobalEvent(1753, "Legacy event 1753", function()
+RegisterGlobalEvent(1753, nil, function()
     if not IsAtLeast(DisarmTrapSkill, 7) then
         SetValue(DiseasedGreen, 0)
         evt.StatusText("Search Failed!")
@@ -16389,7 +16389,7 @@ RegisterGlobalEvent(1753, "Legacy event 1753", function()
     evt.ChangeEvent(1750)
 end)
 
-RegisterGlobalEvent(1754, "Legacy event 1754", function()
+RegisterGlobalEvent(1754, nil, function()
     if not IsAtLeast(DisarmTrapSkill, 8) then
         SetValue(Eradicated, 0)
         evt.StatusText("Search Failed!")
@@ -16399,93 +16399,93 @@ RegisterGlobalEvent(1754, "Legacy event 1754", function()
     evt.ChangeEvent(1750)
 end)
 
-RegisterGlobalEvent(1755, "Legacy event 1755", function()
+RegisterGlobalEvent(1755, nil, function()
     evt.StatusText("Empty bucket")
 end)
 
-RegisterGlobalEvent(1756, "Legacy event 1756", function()
+RegisterGlobalEvent(1756, nil, function()
     AddValue(InventoryItem(1762), 1762) -- Poppysnaps
     evt.ChangeEvent(1755)
 end)
 
-RegisterGlobalEvent(1757, "Legacy event 1757", function()
+RegisterGlobalEvent(1757, nil, function()
     AddValue(InventoryItem(1763), 1763) -- Phirna Root
     evt.ChangeEvent(1755)
 end)
 
-RegisterGlobalEvent(1758, "Legacy event 1758", function()
+RegisterGlobalEvent(1758, nil, function()
     AddValue(InventoryItem(1764), 1764) -- Widoweeps Berries
     evt.ChangeEvent(1755)
 end)
 
-RegisterGlobalEvent(1759, "Legacy event 1759", function()
+RegisterGlobalEvent(1759, nil, function()
     evt.StatusText("Useless Crystal")
 end)
 
-RegisterGlobalEvent(1760, "Legacy event 1760", function()
+RegisterGlobalEvent(1760, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2056), 2056) -- Diamond
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1761, "Legacy event 1761", function()
+RegisterGlobalEvent(1761, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2057), 2057) -- Moonstone
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1762, "Legacy event 1762", function()
+RegisterGlobalEvent(1762, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2058), 2058) -- Topaz
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1763, "Legacy event 1763", function()
+RegisterGlobalEvent(1763, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2059), 2059) -- Ruby
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1764, "Legacy event 1764", function()
+RegisterGlobalEvent(1764, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2060), 2060) -- Amethyst
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1765, "Legacy event 1765", function()
+RegisterGlobalEvent(1765, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2061), 2061) -- Emerald
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1766, "Legacy event 1766", function()
+RegisterGlobalEvent(1766, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2062), 2062) -- Purple Topaz
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1767, "Legacy event 1767", function()
+RegisterGlobalEvent(1767, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2063), 2063) -- Sunstone
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1768, "Legacy event 1768", function()
+RegisterGlobalEvent(1768, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2064), 2064) -- Emerald
         evt.ChangeEvent(0)
     end
 end)
 
-RegisterGlobalEvent(1769, "Legacy event 1769", function()
+RegisterGlobalEvent(1769, nil, function()
     if IsAtLeast(DisarmTrapSkill, 10) then
         AddValue(InventoryItem(2065), 2065) -- Sapphire
         evt.ChangeEvent(0)

@@ -35,7 +35,7 @@ RegisterEvent(4, "Strange tree", function()
     evt.SetDoorState(4, DoorAction.Close)
 end, "Strange tree")
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(5, DoorAction.Close)
 end)
 
@@ -63,7 +63,7 @@ RegisterEvent(10, "Door", function()
     evt.SetDoorState(10, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(7, DoorAction.Open)
 end)
 
@@ -196,7 +196,7 @@ RegisterEvent(25, "Door", function()
     evt.StatusText("The door will not budge.")
 end, "Door")
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     if IsQBitSet(QBit(1047)) then -- 23 D13, Given when Altar is desecrated
         evt.SetTexture(949, "d6flora")
         evt.SetTexture(947, "d6flora")

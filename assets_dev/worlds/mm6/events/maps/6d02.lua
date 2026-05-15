@@ -61,11 +61,11 @@ RegisterEvent(11, "Teleporter", function()
     evt.MoveToMap(247, 2331, -740, 1088, 0, 0, 0, 0)
 end, "Teleporter")
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.OpenChest(1)
 end)
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     if IsQBitSet(QBit(1056)) then return end -- 32 D02, given when kid is rescued
     evt.SpeakNPC(980) -- Angela Dawson
     SetQBit(QBit(1704)) -- Replacement for NPCs ¹195 ver. 6
@@ -153,7 +153,7 @@ RegisterEvent(29, "Chest", function()
     evt.OpenChest(6)
 end, "Chest")
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     evt.CastSpell(15, 10, 1, 11040, 6384, -176, 11040, 6384, 0) -- Sparks
     evt.CastSpell(15, 10, 1, 11040, 6384, -192, 15033, 5785, -256) -- Sparks
     evt.CastSpell(15, 10, 1, 11040, 6384, -200, 11188, 4279, -256) -- Sparks
@@ -164,7 +164,7 @@ RegisterEvent(31, "Teleporter", function()
     evt.MoveToMap(16519, -18589, 753, 1024, 50, 0, 0, 0)
 end, "Teleporter")
 
-RegisterEvent(35, "Legacy event 35", function()
+RegisterEvent(35, nil, function()
     if IsAtLeast(MapVar(31), 1) then return end
     SetValue(MapVar(31), 1)
     evt.GiveItem(4, ItemType.Ring_)

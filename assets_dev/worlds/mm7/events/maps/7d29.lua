@@ -34,7 +34,7 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     if not IsQBitSet(QBit(718)) then -- TP Buff Castle Harmondale
         SetQBit(QBit(718)) -- TP Buff Castle Harmondale
     end
@@ -101,7 +101,7 @@ RegisterEvent(1, "Legacy event 1", function()
     end
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if IsQBitSet(QBit(647)) then return end -- Player castle goblins are all dead
     if evt.CheckMonstersKilled(ActorKillCheck.Group, 56, 0, false) then -- actor group 56: spawn Bat A, spawn Goblin A, spawn Rat A; all matching actors defeated
         evt.ForPlayer(Players.All)
@@ -137,7 +137,7 @@ RegisterEvent(9, "Door", function()
     evt.SetDoorState(9, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.SetDoorState(10, DoorAction.Close)
 end)
 
@@ -157,19 +157,19 @@ RegisterEvent(14, "Door", function()
     evt.SetDoorState(14, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     if IsQBitSet(QBit(614)) or IsQBitSet(QBit(641)) then -- Completed Proving Grounds without killing a single creature
         evt.SetDoorState(15, DoorAction.Open)
     end
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     if IsQBitSet(QBit(614)) or IsQBitSet(QBit(641)) then -- Completed Proving Grounds without killing a single creature
         evt.SetDoorState(16, DoorAction.Open)
     end
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.SetDoorState(17, DoorAction.Open)
 end)
 
@@ -207,7 +207,7 @@ RegisterEvent(25, "Door", function()
     evt.SetDoorState(27, DoorAction.Open)
 end, "Door")
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     evt.SetDoorState(28, DoorAction.Open)
 end)
 
@@ -361,7 +361,7 @@ RegisterEvent(197, "Bookcase", function()
     SetValue(MapVar(3), 1)
 end, "Bookcase")
 
-RegisterEvent(376, "Legacy event 376", function()
+RegisterEvent(376, nil, function()
     evt.SetMonGroupBit(57, MonsterBits.Hostile, 0) -- actor group 57: Gold Golem
     evt.SetMonGroupBit(57, MonsterBits.Invisible, 1) -- actor group 57: Gold Golem
     if IsQBitSet(QBit(585)) then -- Finished constructing Golem with Abbey normal head
@@ -378,7 +378,7 @@ RegisterEvent(376, "Legacy event 376", function()
     end
 end)
 
-RegisterEvent(377, "Legacy event 377", function()
+RegisterEvent(377, nil, function()
     evt.SetMonGroupBit(60, MonsterBits.Hostile, 0) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
     evt.SetMonGroupBit(60, MonsterBits.Invisible, 1) -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more
     if IsQBitSet(QBit(526)) then -- Accepted Fireball wand from Malwick
@@ -425,7 +425,7 @@ RegisterEvent(377, "Legacy event 377", function()
     ClearQBit(QBit(694)) -- Steal the Tapestry from your associate's Castle and return it to Niles Stantley in the Mercenary Guild in Tatalia. - Do the Merc Guild Quest
 end)
 
-RegisterEvent(378, "Legacy event 378", function()
+RegisterEvent(378, nil, function()
     if not IsQBitSet(QBit(695)) then return end -- Failed either goto or do guild quest
     if IsQBitSet(QBit(696)) then return end -- Killed all castle monsters
     if not evt.CheckMonstersKilled(ActorKillCheck.Group, 60, 0, false) then return end -- actor group 60: Adventurer, Goblin, Goblin Lord, Guard, +1 more; all matching actors defeated
@@ -506,7 +506,7 @@ RegisterEvent(420, "Throne Room", function()
     evt.EnterHouse(1169) -- Throne Room
 end, "Throne Room")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     SetValue(MapVar(5), 10)
     SetValue(MapVar(6), 10)
     if IsQBitSet(QBit(596)) then -- Gave artifact to humans

@@ -393,7 +393,7 @@ RegisterEvent(63, "Counter", function()
     AddValue(InventoryItem(220), 220) -- Potion Bottle
 end, "Counter")
 
-RegisterEvent(64, "Legacy event 64", function()
+RegisterEvent(64, nil, function()
     if IsAtLeast(MapVar(3), 16) then return end
     AddValue(MapVar(3), 1)
     evt.StatusText("You found something!")
@@ -410,7 +410,7 @@ RegisterEvent(64, "Legacy event 64", function()
     end
 end)
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     evt.SummonObject(36, 2944, 1920, 1, 1000, 5, false) -- Widowsweep Berries
 end)
 
@@ -436,12 +436,12 @@ RegisterEvent(66, "Desk", function()
     end
 end, "Desk")
 
-RegisterEvent(67, "Legacy event 67", function()
+RegisterEvent(67, nil, function()
     evt.ForPlayer(Players.All)
     AddValue(Insane, 10)
 end)
 
-RegisterEvent(68, "Legacy event 68", function()
+RegisterEvent(68, nil, function()
     evt.ForPlayer(Players.All)
     if IsAtLeast(Insane, 10) then
         SubtractValue(Insane, 10)

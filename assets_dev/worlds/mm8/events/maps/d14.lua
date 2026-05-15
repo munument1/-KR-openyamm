@@ -33,30 +33,30 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterNoOpEvent(6, "Legacy event 6")
+RegisterNoOpEvent(6, nil)
 
-RegisterNoOpEvent(7, "Legacy event 7")
+RegisterNoOpEvent(7, nil)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(627) then -- Remains of Korbu
         SetQBit(QBit(219)) -- Remains of Korbu - I lost it
     end
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     if IsQBitSet(QBit(81)) then return end -- Found the Sarcophagus of Korbu
     evt.ForPlayer(Players.All)
     if HasItem(612) and HasItem(627) then -- Sarcophagus of Korbu
@@ -346,22 +346,22 @@ RegisterEvent(100, "Chest", function()
     evt.OpenChest(19)
 end, "Chest")
 
-RegisterEvent(101, "Legacy event 101", function()
+RegisterEvent(101, nil, function()
     evt.CastSpell(15, 25, 4, -2176, -4432, 896, -1, -1, -1) -- Sparks
     evt.CastSpell(15, 25, 4, -1536, -4432, 896, -1, -1, -1) -- Sparks
 end)
 
-RegisterEvent(102, "Legacy event 102", function()
+RegisterEvent(102, nil, function()
     evt.CastSpell(2, 30, 4, -4380, -5344, -848, -4004, -5344, -848) -- Fire Bolt
     evt.CastSpell(2, 30, 4, -4004, -5344, -848, -4380, -5344, -848) -- Fire Bolt
 end)
 
-RegisterEvent(103, "Legacy event 103", function()
+RegisterEvent(103, nil, function()
     evt.CastSpell(2, 30, 4, -4380, -5600, -848, -4004, -5600, -848) -- Fire Bolt
     evt.CastSpell(2, 30, 4, -4004, -5600, -848, -4380, -5600, -848) -- Fire Bolt
 end)
 
-RegisterEvent(104, "Legacy event 104", function()
+RegisterEvent(104, nil, function()
     evt.CastSpell(2, 30, 4, -4380, -5856, -848, -4004, -5856, -848) -- Fire Bolt
     evt.CastSpell(2, 30, 4, -4004, -5856, -848, -4380, -5856, -848) -- Fire Bolt
     evt.CastSpell(2, 30, 4, -4380, -5984, -848, -4004, -5984, -848) -- Fire Bolt

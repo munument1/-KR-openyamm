@@ -77,7 +77,7 @@ RegisterEvent(14, "Door", function()
     evt.SetDoorState(14, DoorAction.Close)
 end, "Door")
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.SetDoorState(15, DoorAction.Close)
 end)
 
@@ -101,7 +101,7 @@ RegisterEvent(20, "Exit", function()
     evt.MoveToMap(-350, 18784, 256, 1792, 0, 0, 0, 0, "outd3.odm") -- Castle Ironfist
 end, "Exit")
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     if not IsAtLeast(MapVar(2), 1) then
         evt.ForPlayer(Players.All)
         if not HasItem(2180) then -- Guild Key
@@ -112,14 +112,14 @@ RegisterEvent(21, "Legacy event 21", function()
     SetValue(MapVar(2), 1)
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     if IsQBitSet(QBit(1036)) then return end -- 12 D3, given when you save Mom.
     evt.SpeakNPC(978) -- Sharry Carnegie
     SetQBit(QBit(1703)) -- Replacement for NPCs ¹193 ver. 6
     SetQBit(QBit(1036)) -- 12 D3, given when you save Mom.
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     if IsQBitSet(QBit(1036)) then -- 12 D3, given when you save Mom.
         evt.SetSprite(52, 1, "0")
         evt.SetSprite(53, 1, "0")
@@ -130,7 +130,7 @@ RegisterEvent(25, "Legacy event 25", function()
     end
 end)
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     if IsAtLeast(MapVar(3), 1) then return end
     SetValue(MapVar(3), 1)
     evt.GiveItem(4, ItemType.Ring_)

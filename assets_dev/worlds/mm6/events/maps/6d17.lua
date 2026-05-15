@@ -52,11 +52,11 @@ RegisterEvent(8, "Magic Door", function()
     evt.SetDoorState(8, DoorAction.Close)
 end, "Magic Door")
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     evt.SetDoorState(9, DoorAction.Close)
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.SetDoorState(10, DoorAction.Close)
 end)
 
@@ -64,11 +64,11 @@ RegisterEvent(11, "Wooden Door", function()
     evt.SetDoorState(11, DoorAction.Close)
 end, "Wooden Door")
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(12, DoorAction.Close)
 end)
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     evt.SetDoorState(13, DoorAction.Close)
 end)
 
@@ -120,20 +120,20 @@ RegisterEvent(25, "Wooden Door", function()
     evt.SetDoorState(25, DoorAction.Close)
 end, "Wooden Door")
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     evt.SetDoorState(9, DoorAction.Open)
     evt.SetDoorState(34, DoorAction.Open)
 end)
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.SetDoorState(12, DoorAction.Open)
 end)
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     evt.SetDoorState(10, DoorAction.Open)
 end)
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     evt.SetDoorState(8, DoorAction.Open)
     evt.SummonMonsters(1, 1, 2, -3019, -7145, 1313, 0, 0) -- encounter slot 1 "Werewolf" tier A, count 2, pos=(-3019, -7145, 1313), actor group 0, no unique actor name
     evt.SummonMonsters(2, 2, 4, -3019, -7391, 1313, 0, 0) -- encounter slot 2 "Nobleman" tier B, count 4, pos=(-3019, -7391, 1313), actor group 0, no unique actor name
@@ -160,16 +160,16 @@ RegisterEvent(30, "Wooden Door", function()
     evt.SetDoorState(30, DoorAction.Close)
 end, "Wooden Door")
 
-RegisterEvent(31, "Legacy event 31", function()
+RegisterEvent(31, nil, function()
     evt.SetDoorState(32, DoorAction.Open)
     evt.SetDoorState(33, DoorAction.Open)
 end)
 
-RegisterEvent(32, "Legacy event 32", function()
+RegisterEvent(32, nil, function()
     evt.SetDoorState(32, DoorAction.Close)
 end)
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     evt.SetDoorState(33, DoorAction.Close)
 end)
 
@@ -230,27 +230,27 @@ RegisterEvent(46, "Chest", function()
     evt.OpenChest(7)
 end, "Chest")
 
-RegisterEvent(47, "Legacy event 47", function()
+RegisterEvent(47, nil, function()
     evt.MoveToMap(4747, -16024, 1825, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(48, "Legacy event 48", function()
+RegisterEvent(48, nil, function()
     evt.MoveToMap(4439, -9086, 1825, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(49, "Legacy event 49", function()
+RegisterEvent(49, nil, function()
     evt.MoveToMap(2427, -19303, 1825, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     evt.MoveToMap(2673, -11904, 1825, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     evt.MoveToMap(8583, -16348, 1825, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     evt.MoveToMap(8827, -9341, 1825, 0, 0, 0, 0, 0)
 end)
 
@@ -266,13 +266,13 @@ RegisterEvent(54, "Wolf Altar", function()
     end
 end, "Wolf Altar")
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     if IsQBitSet(QBit(1059)) then return end -- 35 D17 Brought back Black Pearl and Ghost will no longer show up.
     evt.SetFacetBit(5286, 16384, 0)
     evt.SetTexture(5286, "paladn01")
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     if IsQBitSet(QBit(1044)) then -- 20 D17, given when party digs up tiger statue quest item.
         return
     elseif IsQBitSet(QBit(1166)) then -- NPC
@@ -289,7 +289,7 @@ RegisterEvent(58, "Exit", function()
     evt.MoveToMap(-13100, 2028, 161, 640, 0, 0, 0, 0, "outb2.odm") -- Blackshire
 end, "Exit")
 
-RegisterEvent(59, "Legacy event 59", function()
+RegisterEvent(59, nil, function()
     evt.SummonMonsters(1, 1, 1, -130, -2922, 1, 0, 0) -- encounter slot 1 "Werewolf" tier A, count 1, pos=(-130, -2922, 1), actor group 0, no unique actor name
     evt.SummonMonsters(1, 2, 2, 122, -2922, 1, 0, 0) -- encounter slot 1 "Werewolf" tier B, count 2, pos=(122, -2922, 1), actor group 0, no unique actor name
     evt.PlaySound(42699, 0, 0)
@@ -309,7 +309,7 @@ RegisterEvent(59, "Legacy event 59", function()
     end
 end)
 
-RegisterEvent(61, "Legacy event 61", function()
+RegisterEvent(61, nil, function()
     evt.SetDoorState(14, DoorAction.Open)
     evt.SetDoorState(15, DoorAction.Open)
     evt.SummonMonsters(1, 1, 2, 4302, -3134, -511, 0, 0) -- encounter slot 1 "Werewolf" tier A, count 2, pos=(4302, -3134, -511), actor group 0, no unique actor name
@@ -347,7 +347,7 @@ RegisterEvent(65, "Crate", function()
     evt.OpenChest(11)
 end, "Crate")
 
-RegisterEvent(67, "Legacy event 67", function()
+RegisterEvent(67, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
     evt.SummonMonsters(1, 1, 1, -130, -2922, 1, 0, 0) -- encounter slot 1 "Werewolf" tier A, count 1, pos=(-130, -2922, 1), actor group 0, no unique actor name
     evt.SummonMonsters(2, 2, 6, 122, -2922, 1, 0, 0) -- encounter slot 2 "Nobleman" tier B, count 6, pos=(122, -2922, 1), actor group 0, no unique actor name
@@ -368,7 +368,7 @@ RegisterEvent(67, "Legacy event 67", function()
     end
 end)
 
-RegisterEvent(68, "Legacy event 68", function()
+RegisterEvent(68, nil, function()
     evt.SetDoorState(1, DoorAction.Open)
     evt.SummonMonsters(1, 1, 1, -3019, -7145, 1313, 0, 0) -- encounter slot 1 "Werewolf" tier A, count 1, pos=(-3019, -7145, 1313), actor group 0, no unique actor name
     evt.SummonMonsters(2, 2, 6, -3019, -7391, 1313, 0, 0) -- encounter slot 2 "Nobleman" tier B, count 6, pos=(-3019, -7391, 1313), actor group 0, no unique actor name
@@ -395,7 +395,7 @@ RegisterEvent(73, "Crate", function()
     evt.StatusText("Empty")
 end, "Crate")
 
-RegisterEvent(74, "Legacy event 74", function()
+RegisterEvent(74, nil, function()
     if IsQBitSet(QBit(1041)) then -- 17 D17, given when wolf altar is destroyed.
         evt.SetTexture(5083, "d7wl1ctr2")
         evt.SetTexture(5084, "d7wl1ctr2")
@@ -405,7 +405,7 @@ RegisterEvent(74, "Legacy event 74", function()
     end
 end)
 
-RegisterEvent(90, "Legacy event 90", function()
+RegisterEvent(90, nil, function()
     if IsQBitSet(QBit(1059)) then return end -- 35 D17 Brought back Black Pearl and Ghost will no longer show up.
     SetQBit(QBit(1166)) -- NPC
     evt.SpeakNPC(1080) -- Ghost of Balthasar

@@ -45,11 +45,11 @@ RegisterEvent(5, "Door", function()
     evt.SetDoorState(31, DoorAction.Trigger)
 end, "Door")
 
-RegisterEvent(151, "Legacy event 151", function()
+RegisterEvent(151, nil, function()
     evt.SetDoorState(1, DoorAction.Close)
 end)
 
-RegisterEvent(152, "Legacy event 152", function()
+RegisterEvent(152, nil, function()
     evt.MoveToMap(-1383, 2328, 1, 0, 0, 0, 0, 0)
     evt.SetDoorState(1, DoorAction.Open)
 end)
@@ -140,21 +140,21 @@ RegisterEvent(197, "Drink from the Well", function()
     evt.StatusText("Refreshing !")
 end, "Drink from the Well")
 
-RegisterEvent(316, "Legacy event 316", function()
+RegisterEvent(316, nil, function()
     if IsQBitSet(QBit(549)) or IsQBitSet(QBit(691)) then -- Solve the secret to the entrance of the Faerie Mound in Avlee and speak to the Faerie King.
         evt.SpeakNPC(391) -- Faerie King
     end
 end)
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(1233, -34, -1023, -1, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(-1210, 194, -2047, -1, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1464) then -- Faerie Key
         evt.FaceAnimation(FaceAnimation.DoorLocked)
@@ -219,7 +219,7 @@ RegisterEvent(459, "Fruit Tree", function()
     evt.SetSprite(56, 1, "tree37")
 end, "Fruit Tree")
 
-RegisterEvent(460, "Legacy event 460", function()
+RegisterEvent(460, nil, function()
     if IsAtLeast(MapVar(52), 1) then
         goto step_4
     end

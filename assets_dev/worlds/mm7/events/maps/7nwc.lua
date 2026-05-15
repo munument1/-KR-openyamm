@@ -33,326 +33,326 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(3, "Legacy event 3", function()
+RegisterEvent(3, nil, function()
     evt.SetDoorState(3, DoorAction.Trigger)
 end)
 
-RegisterEvent(4, "Legacy event 4", function()
+RegisterEvent(4, nil, function()
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
 
-RegisterEvent(5, "Legacy event 5", function()
+RegisterEvent(5, nil, function()
     evt.SetDoorState(5, DoorAction.Trigger)
 end)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     evt.SetDoorState(6, DoorAction.Trigger)
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.SetDoorState(7, DoorAction.Trigger)
 end)
 
-RegisterEvent(8, "Legacy event 8", function()
+RegisterEvent(8, nil, function()
     evt.SetDoorState(8, DoorAction.Trigger)
 end)
 
-RegisterEvent(9, "Legacy event 9", function()
+RegisterEvent(9, nil, function()
     evt.SetDoorState(9, DoorAction.Trigger)
 end)
 
-RegisterEvent(10, "Legacy event 10", function()
+RegisterEvent(10, nil, function()
     evt.SetDoorState(10, DoorAction.Trigger)
 end)
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     evt.SetDoorState(11, DoorAction.Trigger)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     evt.SetDoorState(12, DoorAction.Trigger)
 end)
 
-RegisterEvent(13, "Legacy event 13", function()
+RegisterEvent(13, nil, function()
     evt.SetDoorState(13, DoorAction.Trigger)
 end)
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     evt.SetDoorState(14, DoorAction.Trigger)
 end)
 
-RegisterEvent(15, "Legacy event 15", function()
+RegisterEvent(15, nil, function()
     evt.SetDoorState(15, DoorAction.Trigger)
 end)
 
-RegisterEvent(16, "Legacy event 16", function()
+RegisterEvent(16, nil, function()
     evt.SetDoorState(16, DoorAction.Trigger)
 end)
 
-RegisterEvent(17, "Legacy event 17", function()
+RegisterEvent(17, nil, function()
     evt.SetDoorState(17, DoorAction.Trigger)
 end)
 
-RegisterEvent(18, "Legacy event 18", function()
+RegisterEvent(18, nil, function()
     evt.SetDoorState(18, DoorAction.Trigger)
 end)
 
-RegisterEvent(19, "Legacy event 19", function()
+RegisterEvent(19, nil, function()
     evt.SetDoorState(19, DoorAction.Trigger)
 end)
 
-RegisterEvent(20, "Legacy event 20", function()
+RegisterEvent(20, nil, function()
     evt.SetDoorState(20, DoorAction.Trigger)
 end)
 
-RegisterEvent(21, "Legacy event 21", function()
+RegisterEvent(21, nil, function()
     evt.SetDoorState(21, DoorAction.Trigger)
 end)
 
-RegisterEvent(22, "Legacy event 22", function()
+RegisterEvent(22, nil, function()
     evt.SetDoorState(22, DoorAction.Trigger)
 end)
 
-RegisterEvent(23, "Legacy event 23", function()
+RegisterEvent(23, nil, function()
     evt.SetDoorState(23, DoorAction.Trigger)
 end)
 
-RegisterEvent(24, "Legacy event 24", function()
+RegisterEvent(24, nil, function()
     evt.SetDoorState(24, DoorAction.Trigger)
 end)
 
-RegisterEvent(25, "Legacy event 25", function()
+RegisterEvent(25, nil, function()
     evt.SetDoorState(25, DoorAction.Trigger)
 end)
 
-RegisterEvent(26, "Legacy event 26", function()
+RegisterEvent(26, nil, function()
     evt.SetDoorState(26, DoorAction.Trigger)
 end)
 
-RegisterEvent(27, "Legacy event 27", function()
+RegisterEvent(27, nil, function()
     evt.SetDoorState(27, DoorAction.Trigger)
 end)
 
-RegisterEvent(28, "Legacy event 28", function()
+RegisterEvent(28, nil, function()
     evt.SetDoorState(28, DoorAction.Trigger)
 end)
 
-RegisterEvent(29, "Legacy event 29", function()
+RegisterEvent(29, nil, function()
     evt.SetDoorState(29, DoorAction.Trigger)
 end)
 
-RegisterEvent(30, "Legacy event 30", function()
+RegisterEvent(30, nil, function()
     evt.SetDoorState(30, DoorAction.Trigger)
 end)
 
-RegisterEvent(31, "Legacy event 31", function()
+RegisterEvent(31, nil, function()
     evt.SetDoorState(31, DoorAction.Trigger)
 end)
 
-RegisterEvent(32, "Legacy event 32", function()
+RegisterEvent(32, nil, function()
     evt.SetDoorState(32, DoorAction.Trigger)
 end)
 
-RegisterEvent(33, "Legacy event 33", function()
+RegisterEvent(33, nil, function()
     evt.SetDoorState(33, DoorAction.Trigger)
 end)
 
-RegisterEvent(34, "Legacy event 34", function()
+RegisterEvent(34, nil, function()
     evt.SetDoorState(34, DoorAction.Trigger)
 end)
 
-RegisterEvent(35, "Legacy event 35", function()
+RegisterEvent(35, nil, function()
     evt.SetDoorState(35, DoorAction.Trigger)
 end)
 
-RegisterEvent(36, "Legacy event 36", function()
+RegisterEvent(36, nil, function()
     evt.SetDoorState(36, DoorAction.Trigger)
 end)
 
-RegisterEvent(37, "Legacy event 37", function()
+RegisterEvent(37, nil, function()
     evt.SetDoorState(37, DoorAction.Trigger)
 end)
 
-RegisterEvent(38, "Legacy event 38", function()
+RegisterEvent(38, nil, function()
     evt.SetDoorState(38, DoorAction.Trigger)
 end)
 
-RegisterEvent(39, "Legacy event 39", function()
+RegisterEvent(39, nil, function()
     evt.SetDoorState(39, DoorAction.Trigger)
 end)
 
-RegisterEvent(40, "Legacy event 40", function()
+RegisterEvent(40, nil, function()
     evt.SetDoorState(40, DoorAction.Trigger)
 end)
 
-RegisterEvent(41, "Legacy event 41", function()
+RegisterEvent(41, nil, function()
     evt.SetDoorState(41, DoorAction.Trigger)
 end)
 
-RegisterEvent(42, "Legacy event 42", function()
+RegisterEvent(42, nil, function()
     evt.SetDoorState(42, DoorAction.Trigger)
 end)
 
-RegisterEvent(43, "Legacy event 43", function()
+RegisterEvent(43, nil, function()
     evt.SetDoorState(43, DoorAction.Trigger)
 end)
 
-RegisterEvent(44, "Legacy event 44", function()
+RegisterEvent(44, nil, function()
     evt.SetDoorState(44, DoorAction.Trigger)
 end)
 
-RegisterEvent(45, "Legacy event 45", function()
+RegisterEvent(45, nil, function()
     evt.SetDoorState(45, DoorAction.Trigger)
 end)
 
-RegisterEvent(46, "Legacy event 46", function()
+RegisterEvent(46, nil, function()
     evt.SetDoorState(46, DoorAction.Trigger)
 end)
 
-RegisterEvent(47, "Legacy event 47", function()
+RegisterEvent(47, nil, function()
     evt.SetDoorState(47, DoorAction.Trigger)
 end)
 
-RegisterEvent(48, "Legacy event 48", function()
+RegisterEvent(48, nil, function()
     evt.SetDoorState(48, DoorAction.Trigger)
 end)
 
-RegisterEvent(49, "Legacy event 49", function()
+RegisterEvent(49, nil, function()
     evt.SetDoorState(49, DoorAction.Trigger)
 end)
 
-RegisterEvent(50, "Legacy event 50", function()
+RegisterEvent(50, nil, function()
     evt.SetDoorState(50, DoorAction.Trigger)
 end)
 
-RegisterEvent(51, "Legacy event 51", function()
+RegisterEvent(51, nil, function()
     evt.SetDoorState(51, DoorAction.Trigger)
 end)
 
-RegisterEvent(52, "Legacy event 52", function()
+RegisterEvent(52, nil, function()
     evt.SetDoorState(52, DoorAction.Trigger)
 end)
 
-RegisterEvent(53, "Legacy event 53", function()
+RegisterEvent(53, nil, function()
     evt.SetDoorState(53, DoorAction.Trigger)
 end)
 
-RegisterEvent(54, "Legacy event 54", function()
+RegisterEvent(54, nil, function()
     evt.SetDoorState(54, DoorAction.Trigger)
 end)
 
-RegisterEvent(55, "Legacy event 55", function()
+RegisterEvent(55, nil, function()
     evt.SetDoorState(55, DoorAction.Trigger)
 end)
 
-RegisterEvent(56, "Legacy event 56", function()
+RegisterEvent(56, nil, function()
     evt.SetDoorState(56, DoorAction.Trigger)
 end)
 
-RegisterEvent(57, "Legacy event 57", function()
+RegisterEvent(57, nil, function()
     evt.SetDoorState(57, DoorAction.Trigger)
 end)
 
-RegisterEvent(58, "Legacy event 58", function()
+RegisterEvent(58, nil, function()
     evt.SetDoorState(58, DoorAction.Trigger)
 end)
 
-RegisterEvent(59, "Legacy event 59", function()
+RegisterEvent(59, nil, function()
     evt.SetDoorState(59, DoorAction.Trigger)
 end)
 
-RegisterEvent(60, "Legacy event 60", function()
+RegisterEvent(60, nil, function()
     evt.SetDoorState(60, DoorAction.Trigger)
 end)
 
-RegisterEvent(61, "Legacy event 61", function()
+RegisterEvent(61, nil, function()
     evt.SetDoorState(61, DoorAction.Trigger)
 end)
 
-RegisterEvent(62, "Legacy event 62", function()
+RegisterEvent(62, nil, function()
     evt.SetDoorState(62, DoorAction.Trigger)
 end)
 
-RegisterEvent(63, "Legacy event 63", function()
+RegisterEvent(63, nil, function()
     evt.SetDoorState(63, DoorAction.Trigger)
 end)
 
-RegisterEvent(64, "Legacy event 64", function()
+RegisterEvent(64, nil, function()
     evt.SetDoorState(64, DoorAction.Trigger)
 end)
 
-RegisterEvent(65, "Legacy event 65", function()
+RegisterEvent(65, nil, function()
     evt.SetDoorState(65, DoorAction.Trigger)
 end)
 
-RegisterEvent(66, "Legacy event 66", function()
+RegisterEvent(66, nil, function()
     evt.SetDoorState(66, DoorAction.Trigger)
 end)
 
-RegisterEvent(67, "Legacy event 67", function()
+RegisterEvent(67, nil, function()
     evt.SetDoorState(67, DoorAction.Trigger)
 end)
 
-RegisterEvent(68, "Legacy event 68", function()
+RegisterEvent(68, nil, function()
     evt.SetDoorState(68, DoorAction.Trigger)
 end)
 
-RegisterEvent(69, "Legacy event 69", function()
+RegisterEvent(69, nil, function()
     evt.SetDoorState(69, DoorAction.Trigger)
 end)
 
-RegisterEvent(70, "Legacy event 70", function()
+RegisterEvent(70, nil, function()
     evt.SetDoorState(70, DoorAction.Trigger)
 end)
 
-RegisterEvent(71, "Legacy event 71", function()
+RegisterEvent(71, nil, function()
     evt.SetDoorState(1, DoorAction.Trigger)
     evt.SetDoorState(2, DoorAction.Trigger)
 end)
 
-RegisterEvent(72, "Legacy event 72", function()
+RegisterEvent(72, nil, function()
     evt.SetDoorState(71, DoorAction.Trigger)
 end)
 
-RegisterEvent(73, "Legacy event 73", function()
+RegisterEvent(73, nil, function()
     evt.SetDoorState(72, DoorAction.Trigger)
 end)
 
-RegisterEvent(74, "Legacy event 74", function()
+RegisterEvent(74, nil, function()
     evt.SetDoorState(73, DoorAction.Trigger)
 end)
 
-RegisterEvent(75, "Legacy event 75", function()
+RegisterEvent(75, nil, function()
     evt.SetDoorState(74, DoorAction.Close)
     evt.SetDoorState(81, DoorAction.Close)
 end)
 
-RegisterEvent(76, "Legacy event 76", function()
+RegisterEvent(76, nil, function()
     evt.SetDoorState(75, DoorAction.Close)
     evt.SetDoorState(82, DoorAction.Close)
 end)
 
-RegisterEvent(77, "Legacy event 77", function()
+RegisterEvent(77, nil, function()
     evt.SetDoorState(76, DoorAction.Close)
     evt.SetDoorState(83, DoorAction.Close)
 end)
 
-RegisterEvent(78, "Legacy event 78", function()
+RegisterEvent(78, nil, function()
     evt.SetDoorState(77, DoorAction.Close)
     evt.SetDoorState(84, DoorAction.Close)
 end)
 
-RegisterEvent(79, "Legacy event 79", function()
+RegisterEvent(79, nil, function()
     evt.SetDoorState(78, DoorAction.Close)
     evt.SetDoorState(85, DoorAction.Close)
 end)
 
-RegisterEvent(80, "Legacy event 80", function()
+RegisterEvent(80, nil, function()
     evt.SetDoorState(79, DoorAction.Close)
     evt.SetDoorState(86, DoorAction.Close)
 end)
 
-RegisterEvent(81, "Legacy event 81", function()
+RegisterEvent(81, nil, function()
     evt.SetDoorState(80, DoorAction.Close)
     evt.SetDoorState(71, DoorAction.Close)
     evt.SetDoorState(72, DoorAction.Close)
@@ -439,15 +439,15 @@ RegisterEvent(195, "Door", function()
     evt.OpenChest(0)
 end, "Door")
 
-RegisterEvent(451, "Legacy event 451", function()
+RegisterEvent(451, nil, function()
     evt.MoveToMap(1, -256, 1, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.MoveToMap(2752, 13056, -1376, 0, 0, 0, 0, 0)
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     if IsAtLeast(Gold, 10000) then return end
     local randomStep = PickRandomOption(453, 2, {2, 4, 6, 8, 10, 12})
     if randomStep == 2 then
@@ -470,12 +470,12 @@ RegisterEvent(453, "Legacy event 453", function()
     end
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     SubtractValue(Gold, 10)
     AddValue(InventoryItem(1022), 1022) -- _potion/reagent
 end)
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(-177331, 12547, 465, 0, 0, 0, 0, 0, "7out02.odm") -- Harmondale
 end)
 

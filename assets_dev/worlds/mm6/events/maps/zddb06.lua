@@ -14,11 +14,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.StatusText("Looks like an earthquake hit this mine.")
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     evt.StatusText("The mine shakes and shifts around you.")
     evt.FaceExpression(14)
 end)
@@ -119,7 +119,7 @@ RegisterEvent(10, "Boulders.", function()
     evt.StatusText("This cave-in blocks any further access into the mine.")
 end, "Boulders.")
 
-RegisterEvent(11, "Legacy event 11", function()
+RegisterEvent(11, nil, function()
     if IsAtLeast(MapVar(8), 1) then return end
     evt.StatusText("Small rocks and debris fall from above. ")
     evt.FaceExpression(31)
@@ -132,7 +132,7 @@ RegisterEvent(11, "Legacy event 11", function()
     evt.FaceExpression(33)
 end)
 
-RegisterEvent(12, "Legacy event 12", function()
+RegisterEvent(12, nil, function()
     if IsAtLeast(MapVar(9), 1) then return end
     evt.StatusText("Small rocks and debris fall from above. ")
     evt.FaceExpression(31)

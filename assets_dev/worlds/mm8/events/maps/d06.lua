@@ -33,17 +33,17 @@ SetMapMetadata({
     },
 })
 
-RegisterNoOpEvent(1, "Legacy event 1")
+RegisterNoOpEvent(1, nil)
 
-RegisterNoOpEvent(2, "Legacy event 2")
+RegisterNoOpEvent(2, nil)
 
-RegisterNoOpEvent(3, "Legacy event 3")
+RegisterNoOpEvent(3, nil)
 
-RegisterNoOpEvent(4, "Legacy event 4")
+RegisterNoOpEvent(4, nil)
 
-RegisterNoOpEvent(5, "Legacy event 5")
+RegisterNoOpEvent(5, nil)
 
-RegisterEvent(6, "Legacy event 6", function()
+RegisterEvent(6, nil, function()
     if IsQBitSet(QBit(6)) then return end -- Pirate Leader in Dagger Wound Pirate Outpost killed (quest given at Q Bit 5). Ends pirate/lizardman war on Dagger Wound. Shuts off pirate timer.
     if evt.CheckMonstersKilled(ActorKillCheck.UniqueNameId, 1, 0, true) then -- unique actor 1 "Blackwell Cooper"; all matching actors defeated
         SetValue(Counter(1), 0)
@@ -51,18 +51,18 @@ RegisterEvent(6, "Legacy event 6", function()
     end
 end)
 
-RegisterEvent(7, "Legacy event 7", function()
+RegisterEvent(7, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(619) then -- Pirate Leader's Key
         SetQBit(QBit(214)) -- Pirate Leader's Key - I lost it
     end
 end)
 
-RegisterNoOpEvent(8, "Legacy event 8")
+RegisterNoOpEvent(8, nil)
 
-RegisterNoOpEvent(9, "Legacy event 9")
+RegisterNoOpEvent(9, nil)
 
-RegisterNoOpEvent(10, "Legacy event 10")
+RegisterNoOpEvent(10, nil)
 
 RegisterEvent(11, "Door", function()
     evt.SetDoorState(1, DoorAction.Open)
@@ -77,7 +77,7 @@ RegisterEvent(13, "Door", function()
     evt.CastSpell(6, 20, 3, 3142, -3270, -576, 3142, 538, -576) -- Fireball
 end, "Door")
 
-RegisterEvent(14, "Legacy event 14", function()
+RegisterEvent(14, nil, function()
     evt.SetDoorState(5, DoorAction.Trigger)
     evt.SetDoorState(4, DoorAction.Trigger)
 end)
@@ -374,17 +374,17 @@ RegisterEvent(451, "Enter the Submarine", function()
     evt.FaceAnimation(FaceAnimation.DoorLocked)
 end, "Enter the Submarine")
 
-RegisterEvent(452, "Legacy event 452", function()
+RegisterEvent(452, nil, function()
     evt.SetDoorState(27, DoorAction.Trigger)
     evt.CastSpell(15, 20, 3, 448, -608, 632, -1, -1, -1) -- Sparks
 end)
 
-RegisterEvent(453, "Legacy event 453", function()
+RegisterEvent(453, nil, function()
     evt.SetDoorState(28, DoorAction.Trigger)
     evt.SetDoorState(6, DoorAction.Open)
 end)
 
-RegisterEvent(454, "Legacy event 454", function()
+RegisterEvent(454, nil, function()
     evt.SetDoorState(29, DoorAction.Trigger)
     evt.CastSpell(15, 20, 3, 256, -608, 632, -1, -1, -1) -- Sparks
 end)

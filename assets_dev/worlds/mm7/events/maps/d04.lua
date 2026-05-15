@@ -33,11 +33,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: Acolyte of the Moon, Cleric of the Moon, Priest of the Moon, spawn Devil A, +1 more
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.ActorIdOe, 34, 1, false) then -- OE actor 34; at least 1 matching actor defeated
         SetQBit(QBit(755)) -- Killed High Preist of Baa
     end
@@ -170,7 +170,7 @@ RegisterEvent(195, "Chest", function()
     evt.OpenChest(0)
 end, "Chest")
 
-RegisterEvent(501, "Legacy event 501", function()
+RegisterEvent(501, nil, function()
     evt.MoveToMap(-9306, -19451, 3361, 0, 0, 0, 0, 0, "out14.odm") -- Avlee
 end)
 

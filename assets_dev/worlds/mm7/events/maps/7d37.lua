@@ -32,11 +32,11 @@ SetMapMetadata({
     },
 })
 
-RegisterEvent(1, "Legacy event 1", function()
+RegisterEvent(1, nil, function()
     evt.SetMonGroupBit(56, MonsterBits.Hostile, 1) -- actor group 56: spawn Ghost A, spawn Ghoul A, spawn Wight A
 end)
 
-RegisterEvent(2, "Legacy event 2", function()
+RegisterEvent(2, nil, function()
     if evt.CheckMonstersKilled(ActorKillCheck.Any, 51, 0, false) then -- any actor; all matching actors defeated
         evt.ForPlayer(Players.All)
         SetQBit(QBit(652)) -- Cleaned out the haunted mansion (Cavalier promo)
