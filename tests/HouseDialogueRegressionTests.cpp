@@ -3,6 +3,7 @@
 #include "game/audio/SoundIds.h"
 #include "game/events/EvtEnums.h"
 #include "game/gameplay/GenericActorDialog.h"
+#include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
@@ -314,6 +315,17 @@ std::optional<size_t> findActionIndexByLabel(
     }
 
     return std::nullopt;
+}
+
+size_t actionLabelCount(const OpenYAMM::Game::EventDialogContent &dialog, const std::string &label)
+{
+    return static_cast<size_t>(std::count_if(
+        dialog.actions.begin(),
+        dialog.actions.end(),
+        [&label](const OpenYAMM::Game::EventDialogAction &action)
+        {
+            return action.label == label;
+        }));
 }
 
 bool houseActionsContainDestination(
@@ -2817,6 +2829,21 @@ TEST_CASE("dwi training service stays open after success")
     pMember->experience = 50000;
     harness.party().addGold(1000);
 
+    OpenYAMM::Game::Character *pOtherMember = harness.party().member(1);
+    REQUIRE(pOtherMember != nullptr);
+    pOtherMember->health = 1;
+    pOtherMember->spellPoints = 0;
+
+    const float initialGameMinutes = harness.worldRuntime().gameMinutes();
+    const int initialMinuteOfDay = static_cast<int>(initialGameMinutes) % (24 * 60);
+    int minutesUntilDawn = 5 * 60 - initialMinuteOfDay;
+    if (minutesUntilDawn <= 0)
+    {
+        minutesUntilDawn += 24 * 60;
+    }
+    const float expectedTrainingMinutes = 7.0f * 24.0f * 60.0f
+        + static_cast<float>(minutesUntilDawn)
+        + 4.0f * 60.0f;
     const uint32_t expectedLevel = pMember->level + 1;
     const uint32_t expectedSkillPoints = 5 + expectedLevel / 10;
 
@@ -2830,6 +2857,15 @@ TEST_CASE("dwi training service stays open after success")
     CHECK(resultDialog.isActive);
     CHECK_EQ(pMember->level, expectedLevel);
     CHECK_GE(pMember->skillPoints, expectedSkillPoints);
+    CHECK_EQ(
+        harness.worldRuntime().gameMinutes(),
+        doctest::Approx(initialGameMinutes + expectedTrainingMinutes));
+    CHECK_EQ(
+        pOtherMember->health,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxHealth(*pOtherMember));
+    CHECK_EQ(
+        pOtherMember->spellPoints,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxSpellPoints(*pOtherMember));
 }
 
 TEST_CASE("dwi tavern arcomage submenu")
@@ -3256,9 +3292,14 @@ TEST_CASE("mm6 free haven armsmaster teachers use mmerge topic data")
 
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.eventRuntimeState().npcTopicOverrides[LawrenceAlemanNpcId][3] = 405;
+    harness.eventRuntimeState().npcTopicOverrides[WinstonHistorianNpcId][3] = 406;
+    harness.eventRuntimeState().npcTopicOverrides[WinstonHistorianNpcId][4] = 407;
 
     const OpenYAMM::Game::EventDialogContent &lawrenceDialog =
         harness.openNpcDialogue(LawrenceAlemanNpcId, LawrenceAlemanHouseId);
+
+    CHECK_EQ(actionLabelCount(lawrenceDialog, "Expert Armsmaster"), 1u);
 
     const std::optional<size_t> gongsIndex = findActionIndexByLabel(lawrenceDialog, "Gongs");
     REQUIRE(gongsIndex.has_value());
@@ -3272,6 +3313,9 @@ TEST_CASE("mm6 free haven armsmaster teachers use mmerge topic data")
 
     const OpenYAMM::Game::EventDialogContent &winstonDialog =
         harness.openNpcDialogue(WinstonHistorianNpcId, WinstonHistorianHouseId);
+
+    CHECK_EQ(actionLabelCount(winstonDialog, "Master Armsmaster"), 1u);
+    CHECK_EQ(actionLabelCount(winstonDialog, "Grand Master Armsmaster"), 1u);
 
     const std::optional<size_t> guildIndex = findActionIndexByLabel(winstonDialog, "Duelist's Edge Membership");
     REQUIRE(guildIndex.has_value());

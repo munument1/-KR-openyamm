@@ -2,6 +2,7 @@
 
 #include "engine/TextTable.h"
 #include "game/app/GameSettings.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/party/Party.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
@@ -201,6 +202,9 @@ TEST_CASE("settings debug startup options round trip")
     settings.fpsTrace = true;
     settings.hitchTrace = true;
     settings.hitchThresholdMilliseconds = 12.5f;
+    settings.combatTrace = true;
+    settings.combatTraceFile = "tmp/combat.log";
+    settings.combatTraceAppend = false;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -220,6 +224,9 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->fpsTrace);
     CHECK(loadedSettings->hitchTrace);
     CHECK(loadedSettings->hitchThresholdMilliseconds == doctest::Approx(12.5f));
+    CHECK(loadedSettings->combatTrace);
+    CHECK_EQ(loadedSettings->combatTraceFile, "tmp/combat.log");
+    CHECK_FALSE(loadedSettings->combatTraceAppend);
 
     std::filesystem::remove(path);
 }
@@ -252,6 +259,33 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_EQ(loadedSettings->blasterMinimumRecoveryTicks, 0);
     CHECK_FALSE(loadedSettings->logIndoorVisibility);
     CHECK_FALSE(loadedSettings->fpsTrace);
+    CHECK_FALSE(loadedSettings->combatTrace);
+    CHECK_EQ(loadedSettings->combatTraceFile, "logs/combat_trace.log");
+    CHECK(loadedSettings->combatTraceAppend);
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("combat trace writes only when settings-backed sink is enabled")
+{
+    const std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "openyamm_combat_trace_test.log";
+    std::filesystem::remove(path);
+
+    OpenYAMM::Game::configureGameplayCombatTrace(false, path.string(), false);
+    GAMEPLAY_COMBAT_TRACE("disabled message");
+    CHECK_FALSE(std::filesystem::exists(path));
+
+    OpenYAMM::Game::configureGameplayCombatTrace(true, path.string(), false);
+    GAMEPLAY_COMBAT_TRACE("enabled message");
+    OpenYAMM::Game::configureGameplayCombatTrace(false, path.string(), true);
+
+    std::ifstream input(path);
+    REQUIRE(input.good());
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    CHECK(buffer.str().find("[CombatTrace] enabled message") != std::string::npos);
+    CHECK(buffer.str().find("disabled message") == std::string::npos);
 
     std::filesystem::remove(path);
 }

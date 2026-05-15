@@ -840,6 +840,31 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "combat_trace"))
+    {
+        bool parsed = settings.combatTrace;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.combatTrace = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "combat_trace_file"))
+    {
+        settings.combatTraceFile = trimCopy(*value);
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "combat_trace_append"))
+    {
+        bool parsed = settings.combatTraceAppend;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.combatTraceAppend = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "logging", "hitch_threshold_ms"))
     {
         float parsed = settings.hitchThresholdMilliseconds;
@@ -1049,6 +1074,9 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'
         << "collision_trace=" << (settings.collisionTrace ? "true" : "false") << '\n'
+        << "combat_trace=" << (settings.combatTrace ? "true" : "false") << '\n'
+        << "combat_trace_file=" << settings.combatTraceFile << '\n'
+        << "combat_trace_append=" << (settings.combatTraceAppend ? "true" : "false") << '\n'
         << "hitch_threshold_ms=" << std::clamp(settings.hitchThresholdMilliseconds, 0.1f, 1000.0f) << "\n\n"
         << "[keyboard]\n";
 

@@ -5672,8 +5672,13 @@ TEST_CASE("mm6 outc2 overlay ports council and temple local fixes")
     REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
-    OpenYAMM::Game::Party councilParty = makeScriptedRegressionParty();
-    councilParty.grantItem(2122);
+    OpenYAMM::Game::PartySeed councilSeed = {};
+    councilSeed.members.push_back(makeScriptedRegressionMember());
+    councilSeed.members.push_back(makeScriptedRegressionMember());
+    OpenYAMM::Game::Party councilParty = {};
+    councilParty.seed(councilSeed);
+    REQUIRE(councilParty.setActiveMemberIndex(0));
+    REQUIRE(councilParty.grantItemToMember(1, 2122));
     OpenYAMM::Game::EventRuntimeState councilState = {};
 
     REQUIRE(eventRuntime.executeEventById(
@@ -5688,6 +5693,20 @@ TEST_CASE("mm6 outc2 overlay ports council and temple local fixes")
     CHECK_EQ(councilState.npcHouseOverrides[1089], 0u);
     CHECK(councilParty.hasQuestBit(1192));
     CHECK(councilParty.hasAward(63));
+    CHECK_EQ(councilParty.inventoryItemCount(2122), 0);
+    REQUIRE(councilState.pendingDialogueContext.has_value());
+    CHECK_EQ(councilState.pendingDialogueContext->sourceId, 209u);
+
+    councilState.pendingMovie.reset();
+    councilState.pendingDialogueContext.reset();
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        49,
+        councilState,
+        &councilParty,
+        nullptr));
+    CHECK_FALSE(councilState.pendingMovie.has_value());
     REQUIRE(councilState.pendingDialogueContext.has_value());
     CHECK_EQ(councilState.pendingDialogueContext->sourceId, 209u);
 
@@ -6586,6 +6605,77 @@ TEST_CASE("mm6 castle alamos password plate keeps pressure trigger metadata")
     }
 
     CHECK_GT(passwordPlateCount, 0u);
+}
+
+TEST_CASE("mm6 castle alamos beta memory crystal sprite override targets map sprite index")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "cd1.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapData.has_value());
+    REQUIRE_GT(pLoadedMap->indoorMapData->entities.size(), 394u);
+
+    const OpenYAMM::Game::IndoorEntity &crystalEntity = pLoadedMap->indoorMapData->entities[394];
+    CHECK_EQ(crystalEntity.eventIdPrimary, 0u);
+    CHECK_EQ(crystalEntity.eventIdSecondary, 59u);
+    CHECK_EQ(crystalEntity.spriteOverrideKey(394), 394u);
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "cd1", "cd1_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 59, runtimeState, &party));
+
+    REQUIRE(runtimeState.spriteOverrides.contains(crystalEntity.spriteOverrideKey(394)));
+    CHECK_EQ(runtimeState.spriteOverrides.at(crystalEntity.spriteOverrideKey(394)).textureName, "crysdisc");
+}
+
+TEST_CASE("mm7 castle harmondale repair sprite override targets map sprite index")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7d29.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapData.has_value());
+    REQUIRE_GT(pLoadedMap->indoorMapData->entities.size(), 10u);
+
+    const OpenYAMM::Game::IndoorEntity &repairEntity = pLoadedMap->indoorMapData->entities[10];
+    CHECK_EQ(repairEntity.spriteOverrideKey(10), 10u);
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d29", "7d29_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    party.setQuestBit(610, true);
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 1, runtimeState, &party));
+
+    REQUIRE(runtimeState.spriteOverrides.contains(repairEntity.spriteOverrideKey(10)));
+    CHECK(runtimeState.spriteOverrides.at(repairEntity.spriteOverrideKey(10)).hidden);
 }
 
 TEST_CASE("mm6 castle alamos wrong password sends party to current-map fallback point")

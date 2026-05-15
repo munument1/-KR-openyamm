@@ -4236,10 +4236,12 @@ void GameApplication::loadOrCreateSettings()
     m_config.fpsTrace = m_settings.fpsTrace;
     m_config.performanceTrace = m_settings.performanceTrace;
     m_engineApplication.setConfiguration(m_config);
+    configureGameplayCombatTrace(m_settings.combatTrace, m_settings.combatTraceFile, m_settings.combatTraceAppend);
 }
 
 void GameApplication::applyCurrentSettingsToActiveRuntime()
 {
+    configureGameplayCombatTrace(m_settings.combatTrace, m_settings.combatTraceFile, m_settings.combatTraceAppend);
     setTextureFilteringConfig(textureFilteringConfigFromSettings(m_settings));
     m_gameAudioSystem.setSoundVolume(normalizedVolumeLevel(m_settings.soundVolume));
     m_gameAudioSystem.setMusicVolume(normalizedVolumeLevel(m_settings.musicVolume));

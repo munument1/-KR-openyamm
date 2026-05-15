@@ -42,6 +42,28 @@ constexpr int ParameterBonusValues[29] = {
 
 const ClassMultiplierTable *g_pClassMultiplierTable = nullptr;
 
+bool monsterHourOfPowerBoostsDamageResistance(CombatDamageType damageType)
+{
+    switch (damageType)
+    {
+        case CombatDamageType::Fire:
+        case CombatDamageType::Air:
+        case CombatDamageType::Water:
+        case CombatDamageType::Earth:
+        case CombatDamageType::Mind:
+        case CombatDamageType::Body:
+            return true;
+        case CombatDamageType::Physical:
+        case CombatDamageType::Spirit:
+        case CombatDamageType::Light:
+        case CombatDamageType::Dark:
+        case CombatDamageType::Energy:
+        case CombatDamageType::Irresistible:
+        default:
+            return false;
+    }
+}
+
 uint64_t experienceRequiredForNextLevel(uint32_t currentLevel)
 {
     return 1000ull * currentLevel * (currentLevel + 1) / 2;
@@ -1768,6 +1790,7 @@ int resistanceValueForDamageType(const CharacterSheetSummary &summary, CombatDam
         case CombatDamageType::Physical:
         case CombatDamageType::Light:
         case CombatDamageType::Dark:
+        case CombatDamageType::Energy:
         case CombatDamageType::Irresistible:
         default:
             return 0;
@@ -1789,6 +1812,7 @@ bool resistanceImmuneForDamageType(const CharacterSheetSummary &summary, CombatD
         case CombatDamageType::Physical:
         case CombatDamageType::Light:
         case CombatDamageType::Dark:
+        case CombatDamageType::Energy:
         case CombatDamageType::Irresistible:
         default:
             return false;
@@ -2759,6 +2783,30 @@ bool GameMechanics::monsterAttackHitsArmorClass(
     return hitRoll + bonus > armorClass + 5;
 }
 
+int GameMechanics::rollMonsterAttackDamage(int diceRolls, int diceSides, int damageBonus, std::mt19937 &rng)
+{
+    int damage = damageBonus;
+
+    if (diceRolls <= 0 || diceSides <= 0)
+    {
+        return damage;
+    }
+
+    std::uniform_int_distribution<int> distribution(1, diceSides);
+
+    for (int rollIndex = 0; rollIndex < diceRolls; ++rollIndex)
+    {
+        damage += distribution(rng);
+    }
+
+    return damage;
+}
+
+int GameMechanics::resolveShieldedPhysicalProjectileDamage(int damage)
+{
+    return damage / 2;
+}
+
 SpeechId GameMechanics::resolveIdentifyMonsterSpeech(const Character &character, int monsterLevel)
 {
     const int level = skillLevel(character, "IdentifyMonster");
@@ -2816,6 +2864,7 @@ CombatDamageType GameMechanics::parseCombatDamageType(const std::string &value)
     if (normalized == "body") return CombatDamageType::Body;
     if (normalized == "light") return CombatDamageType::Light;
     if (normalized == "dark") return CombatDamageType::Dark;
+    if (normalized == "ener" || normalized == "energy") return CombatDamageType::Energy;
     if (normalized == "irresistible") return CombatDamageType::Irresistible;
     return CombatDamageType::Physical;
 }
@@ -2935,8 +2984,8 @@ int GameMechanics::resolveCharacterIncomingDamage(
 int GameMechanics::resolveMonsterIncomingDamage(
     int damage,
     CombatDamageType damageType,
-    int monsterLevel,
     int resistance,
+    int hourOfPowerResistanceBonus,
     std::mt19937 &rng)
 {
     int resolvedDamage = std::max(0, damage);
@@ -2951,7 +3000,9 @@ int GameMechanics::resolveMonsterIncomingDamage(
         return 0;
     }
 
-    const int rollUpperBound = std::max(1, std::max(0, monsterLevel) / 4 + std::max(0, resistance) + 30);
+    const int effectiveHourOfPowerBonus =
+        monsterHourOfPowerBoostsDamageResistance(damageType) ? std::max(0, hourOfPowerResistanceBonus) : 0;
+    const int rollUpperBound = std::max(1, std::max(0, resistance) + effectiveHourOfPowerBonus + 30);
 
     for (int rollIndex = 0; rollIndex < 4; ++rollIndex)
     {

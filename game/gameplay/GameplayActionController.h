@@ -74,6 +74,7 @@ public:
         int currentHp = 0;
         int maxHp = 0;
         int effectiveArmorClass = 0;
+        int hourOfPowerPower = 0;
         bool isDead = false;
         bool isInvisible = false;
         bool hostileToParty = false;

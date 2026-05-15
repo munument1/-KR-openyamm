@@ -503,10 +503,15 @@ bool NpcDialogTable::loadNpcRows(const std::vector<std::vector<std::string>> &ro
         {
             uint32_t topicId = 0;
 
-            if (parseUnsigned(row[topicColumn], topicId) && topicId != 0)
+            if (parseUnsigned(row[topicColumn], topicId))
             {
                 entry.topicIds.push_back(topicId);
             }
+        }
+
+        while (!entry.topicIds.empty() && entry.topicIds.back() == 0)
+        {
+            entry.topicIds.pop_back();
         }
 
         m_npcs[entry.id] = std::move(entry);

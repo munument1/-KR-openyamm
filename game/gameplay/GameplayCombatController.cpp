@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayCombatController.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayBolsterRuntime.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -11,6 +12,7 @@
 #include <iterator>
 #include <limits>
 #include <random>
+#include <sstream>
 #include <unordered_map>
 
 namespace OpenYAMM::Game
@@ -33,6 +35,16 @@ struct BreakItemCandidate
     InventoryItem *pInventoryItem = nullptr;
     EquippedItemRuntimeState *pEquippedRuntime = nullptr;
     const ItemDefinition *pItemDefinition = nullptr;
+};
+
+struct MonsterImpactHitCheck
+{
+    bool hit = false;
+    int baseArmorClass = 0;
+    int adjustedArmorClass = 0;
+    int monsterLevel = 0;
+    int attackBonus = 0;
+    bool bolsterAffectsArmorClass = false;
 };
 
 constexpr EquipmentSlot BreakItemEquipmentSlots[] = {
@@ -64,6 +76,144 @@ std::optional<GameplayCombatActorInfo> resolveActor(
     }
 
     return context.pWorldRuntime->combatActorInfoById(actorId);
+}
+
+const char *boolText(bool value)
+{
+    return value ? "true" : "false";
+}
+
+const char *combatDamageTypeName(CombatDamageType damageType)
+{
+    switch (damageType)
+    {
+        case CombatDamageType::Physical: return "physical";
+        case CombatDamageType::Fire: return "fire";
+        case CombatDamageType::Air: return "air";
+        case CombatDamageType::Water: return "water";
+        case CombatDamageType::Earth: return "earth";
+        case CombatDamageType::Spirit: return "spirit";
+        case CombatDamageType::Mind: return "mind";
+        case CombatDamageType::Body: return "body";
+        case CombatDamageType::Light: return "light";
+        case CombatDamageType::Dark: return "dark";
+        case CombatDamageType::Energy: return "energy";
+        case CombatDamageType::Irresistible: return "irresistible";
+    }
+
+    return "unknown";
+}
+
+const char *actorAbilityName(GameplayActorAttackAbility ability)
+{
+    switch (ability)
+    {
+        case GameplayActorAttackAbility::Attack1: return "attack1";
+        case GameplayActorAttackAbility::Attack2: return "attack2";
+        case GameplayActorAttackAbility::Spell1: return "spell1";
+        case GameplayActorAttackAbility::Spell2: return "spell2";
+    }
+
+    return "unknown";
+}
+
+const char *combatEventTypeName(GameplayCombatController::CombatEventType type)
+{
+    switch (type)
+    {
+        case GameplayCombatController::CombatEventType::MonsterMeleeImpact: return "monster_melee_impact";
+        case GameplayCombatController::CombatEventType::MonsterRangedRelease: return "monster_ranged_release";
+        case GameplayCombatController::CombatEventType::PartyProjectileImpact: return "party_projectile_impact";
+        case GameplayCombatController::CombatEventType::PartyProjectileActorImpact:
+            return "party_projectile_actor_impact";
+    }
+
+    return "unknown";
+}
+
+const char *characterAttackModeName(CharacterAttackMode mode)
+{
+    switch (mode)
+    {
+        case CharacterAttackMode::None: return "none";
+        case CharacterAttackMode::Melee: return "melee";
+        case CharacterAttackMode::Bow: return "bow";
+        case CharacterAttackMode::Wand: return "wand";
+        case CharacterAttackMode::Blaster: return "blaster";
+        case CharacterAttackMode::DragonBreath: return "dragon_breath";
+    }
+
+    return "unknown";
+}
+
+void appendCombatEventSummary(std::ostream &out, const GameplayCombatController::CombatEvent &event)
+{
+    out << " event_type=" << combatEventTypeName(event.type)
+        << " source_id=" << event.sourceId
+        << " source_party_member_index=" << event.sourcePartyMemberIndex
+        << " target_actor_id=" << event.targetActorId
+        << " input_damage=" << event.damage
+        << " attack_bonus=" << event.attackBonus
+        << " spell_id=" << event.spellId
+        << " damage_type=" << combatDamageTypeName(event.damageType)
+        << " ability=" << actorAbilityName(event.ability)
+        << " affects_all_party=" << boolText(event.affectsAllParty)
+        << " event_hit=" << boolText(event.hit)
+        << " event_killed=" << boolText(event.killed);
+}
+
+void appendActorSummary(std::ostream &out, const std::optional<GameplayCombatActorInfo> &actor)
+{
+    if (!actor)
+    {
+        out << " actor_present=false";
+        return;
+    }
+
+    out << " actor_present=true"
+        << " actor_id=" << actor->actorId
+        << " actor_monster_id=" << actor->monsterId
+        << " actor_name=\"" << actor->displayName << "\""
+        << " actor_level=" << actor->monsterLevel
+        << " actor_max_hp=" << actor->maxHp
+        << " actor_attack_bonus=" << actor->attackBonus
+        << " actor_attack_preferences=" << actor->attackPreferences
+        << " actor_special_attack=" << static_cast<int>(actor->specialAttackKind)
+        << " actor_special_attack_level=" << actor->specialAttackLevel
+        << " actor_bolster_affects_player_ac=" << boolText(actor->bolsterAffectsPlayerArmorClass);
+}
+
+void appendMemberDefenseSummary(
+    std::ostream &out,
+    const Character &member,
+    const GameplayScreenRuntime *pRuntime)
+{
+    const ItemTable *pItemTable = pRuntime != nullptr ? pRuntime->itemTable() : nullptr;
+    const StandardItemEnchantTable *pStandardItemEnchantTable =
+        pRuntime != nullptr ? pRuntime->standardItemEnchantTable() : nullptr;
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable =
+        pRuntime != nullptr ? pRuntime->specialItemEnchantTable() : nullptr;
+    const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(
+        member,
+        pItemTable,
+        pStandardItemEnchantTable,
+        pSpecialItemEnchantTable);
+
+    out << " member_name=\"" << member.name << "\""
+        << " member_health=" << member.health
+        << " member_max_health=" << member.maxHealth
+        << " member_level=" << member.level
+        << " member_ac_actual=" << summary.armorClass.actual
+        << " member_ac_modifier=" << member.armorClassModifier
+        << " member_luck_actual=" << summary.luck.actual
+        << " member_fire_resist=" << summary.fireResistance.actual
+        << " member_air_resist=" << summary.airResistance.actual
+        << " member_water_resist=" << summary.waterResistance.actual
+        << " member_earth_resist=" << summary.earthResistance.actual
+        << " member_mind_resist=" << summary.mindResistance.actual
+        << " member_body_resist=" << summary.bodyResistance.actual
+        << " member_physical_immune=" << boolText(member.physicalDamageImmune)
+        << " member_half_missile_damage=" << boolText(member.halfMissileDamage);
 }
 
 void triggerPortraitFaceAnimation(
@@ -246,32 +396,38 @@ bool monsterImpactRequiresArmorHitRoll(
         && event.spellId == 0;
 }
 
-bool monsterImpactHitsMember(
+MonsterImpactHitCheck resolveMonsterImpactHitCheck(
     const GameplayCombatController::PendingCombatEventContext &context,
     const GameplayCombatController::CombatEvent &event,
     const GameplayCombatActorInfo &sourceActor,
     size_t targetMemberIndex)
 {
+    MonsterImpactHitCheck result = {};
+    result.monsterLevel = sourceActor.monsterLevel;
+    result.bolsterAffectsArmorClass = sourceActor.bolsterAffectsPlayerArmorClass;
+    result.attackBonus = event.attackBonus > 0 ? event.attackBonus : sourceActor.attackBonus;
+
     const Character *pMember = context.party.member(targetMemberIndex);
 
     if (pMember == nullptr)
     {
-        return false;
+        return result;
     }
 
-    const int armorClass =
+    result.baseArmorClass = incomingAttackArmorClass(*pMember, context.pRuntime);
+    result.adjustedArmorClass =
         gameplayBolsterPlayerArmorClass(
-            incomingAttackArmorClass(*pMember, context.pRuntime),
-            sourceActor.monsterLevel,
+            result.baseArmorClass,
+            result.monsterLevel,
             static_cast<int>(std::max<uint32_t>(1, pMember->level)),
-            sourceActor.bolsterAffectsPlayerArmorClass);
+            result.bolsterAffectsArmorClass);
     std::mt19937 rng = buildMonsterAttackRng(event, targetMemberIndex, animationTicks(context.pRuntime));
-    const int attackBonus = event.attackBonus > 0 ? event.attackBonus : sourceActor.attackBonus;
-    return GameMechanics::monsterAttackHitsArmorClass(
-        armorClass,
-        sourceActor.monsterLevel,
-        attackBonus,
+    result.hit = GameMechanics::monsterAttackHitsArmorClass(
+        result.adjustedArmorClass,
+        result.monsterLevel,
+        result.attackBonus,
         rng);
+    return result;
 }
 
 int characterCombatSkillLevel(const Character &character, const std::string &skillName)
@@ -330,7 +486,7 @@ int adjustedIncomingDamageForMember(
 
     if (isPhysicalProjectile && member.halfMissileDamage)
     {
-        damage = std::max(1, (damage + 1) / 2);
+        damage = GameMechanics::resolveShieldedPhysicalProjectileDamage(damage);
     }
 
     std::mt19937 rng = buildMonsterAttackRng(event, memberIndex, animationTicks(context.pRuntime));
@@ -1056,6 +1212,47 @@ void GameplayCombatController::handlePartyAttackPresentation(
     GameplayScreenRuntime *pRuntime,
     const PartyAttackPresentation &attack)
 {
+    GAMEPLAY_COMBAT_TRACE_BLOCK(
+    {
+        std::ostringstream out;
+        out << "party_attack_attempt"
+            << " member_index=" << attack.memberIndex
+            << " attacker=\"" << attack.attackerName << "\""
+            << " target=\"" << attack.targetName << "\""
+            << " action_performed=" << boolText(attack.actionPerformed)
+            << " attacked=" << boolText(attack.attacked)
+            << " had_melee_target=" << boolText(attack.hadMeleeTarget)
+            << " mode=" << characterAttackModeName(attack.attack.mode)
+            << " can_attack=" << boolText(attack.attack.canAttack)
+            << " hit=" << boolText(attack.attack.hit)
+            << " resolves_on_impact=" << boolText(attack.attack.resolvesOnImpact)
+            << " raw_damage=" << attack.attack.damage
+            << " applied_damage=";
+        if (attack.appliedDamage)
+        {
+            out << *attack.appliedDamage;
+        }
+        else
+        {
+            out << "none";
+        }
+        out << " attack_bonus=" << attack.attack.attackBonus
+            << " target_ac=" << attack.attack.targetArmorClass
+            << " target_distance=" << attack.attack.targetDistance
+            << " recovery_seconds=" << attack.attack.recoverySeconds
+            << " skill_level=" << attack.attack.skillLevel
+            << " skill_mastery=" << attack.attack.skillMastery
+            << " spell_id=" << attack.attack.spellId
+            << " damage_type=" << combatDamageTypeName(attack.attack.damageType)
+            << " critical=" << boolText(attack.attack.criticalDamage)
+            << " stun=" << boolText(attack.attack.stunTarget)
+            << " paralyze=" << boolText(attack.attack.paralyzeTarget)
+            << " halve_target_ac=" << boolText(attack.attack.halveTargetArmorClass)
+            << " killed=" << boolText(attack.killed)
+            << " target_strong_enemy=" << boolText(attack.targetStrongEnemy);
+        gameplayCombatTraceWrite(out.str());
+    });
+
     if (attack.actionPerformed)
     {
         if (attack.attack.mode == CharacterAttackMode::Melee)
@@ -1112,6 +1309,26 @@ void GameplayCombatController::handlePendingCombatEvents(
             const std::string sourceName =
                 pSourceMember != nullptr && !pSourceMember->name.empty() ? pSourceMember->name : "party";
             const std::string targetName = targetActor ? targetActor->displayName : "monster";
+
+            GAMEPLAY_COMBAT_TRACE_BLOCK(
+            {
+                std::ostringstream out;
+                out << "party_projectile_actor_result"
+                    << " source_name=\"" << sourceName << "\""
+                    << " target_name=\"" << targetName << "\"";
+                appendCombatEventSummary(out, event);
+                appendActorSummary(out, targetActor);
+                if (pSourceMember != nullptr)
+                {
+                    out << " source_member_name=\"" << pSourceMember->name << "\""
+                        << " source_member_health=" << pSourceMember->health
+                        << " source_member_level=" << pSourceMember->level
+                        << " source_member_luck=" << pSourceMember->luck;
+                }
+                out << " result=" << (!event.hit ? "missed" : event.killed ? "killed" : "hit")
+                    << " final_damage=" << event.damage;
+                gameplayCombatTraceWrite(out.str());
+            });
 
             if (!event.hit)
             {
@@ -1196,9 +1413,35 @@ void GameplayCombatController::handlePendingCombatEvents(
         Character *pTargetMember = targetMemberIndex ? context.party.member(*targetMemberIndex) : nullptr;
         const bool needsArmorHitRoll = monsterImpactRequiresArmorHitRoll(event, sourceActor);
 
-        if (needsArmorHitRoll && targetMemberIndex.has_value() && sourceActor
-            && !monsterImpactHitsMember(context, event, *sourceActor, *targetMemberIndex))
+        std::optional<MonsterImpactHitCheck> hitCheck = std::nullopt;
+        if (needsArmorHitRoll && targetMemberIndex.has_value() && sourceActor)
         {
+            hitCheck = resolveMonsterImpactHitCheck(context, event, *sourceActor, *targetMemberIndex);
+        }
+
+        if (hitCheck && !hitCheck->hit)
+        {
+            GAMEPLAY_COMBAT_TRACE_BLOCK(
+            {
+                std::ostringstream out;
+                out << "monster_attack_result result=missed";
+                appendCombatEventSummary(out, event);
+                appendActorSummary(out, sourceActor);
+                out << " target_member_index=" << *targetMemberIndex
+                    << " target_selected=true"
+                    << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll)
+                    << " hit_roll_result=false"
+                    << " base_ac=" << hitCheck->baseArmorClass
+                    << " adjusted_ac=" << hitCheck->adjustedArmorClass
+                    << " monster_level=" << hitCheck->monsterLevel
+                    << " attack_bonus_used=" << hitCheck->attackBonus
+                    << " bolster_affects_ac=" << boolText(hitCheck->bolsterAffectsArmorClass);
+                if (pTargetMember != nullptr)
+                {
+                    appendMemberDefenseSummary(out, *pTargetMember, context.pRuntime);
+                }
+                gameplayCombatTraceWrite(out.str());
+            });
             continue;
         }
 
@@ -1209,6 +1452,38 @@ void GameplayCombatController::handlePendingCombatEvents(
 
         if (ignorePhysicalDamage)
         {
+            GAMEPLAY_COMBAT_TRACE_BLOCK(
+            {
+                std::ostringstream out;
+                out << "monster_attack_result result=immune";
+                appendCombatEventSummary(out, event);
+                appendActorSummary(out, sourceActor);
+                out << " target_member_index=";
+                if (targetMemberIndex)
+                {
+                    out << *targetMemberIndex;
+                }
+                else
+                {
+                    out << "none";
+                }
+                out << " target_selected=" << boolText(targetMemberIndex.has_value())
+                    << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll);
+                if (hitCheck)
+                {
+                    out << " hit_roll_result=" << boolText(hitCheck->hit)
+                        << " base_ac=" << hitCheck->baseArmorClass
+                        << " adjusted_ac=" << hitCheck->adjustedArmorClass
+                        << " monster_level=" << hitCheck->monsterLevel
+                        << " attack_bonus_used=" << hitCheck->attackBonus
+                        << " bolster_affects_ac=" << boolText(hitCheck->bolsterAffectsArmorClass);
+                }
+                if (pTargetMember != nullptr)
+                {
+                    appendMemberDefenseSummary(out, *pTargetMember, context.pRuntime);
+                }
+                gameplayCombatTraceWrite(out.str());
+            });
             continue;
         }
 
@@ -1237,6 +1512,19 @@ void GameplayCombatController::handlePendingCombatEvents(
                 if (pMember->physicalDamageImmune
                     && event.damageType == CombatDamageType::Physical)
                 {
+                    GAMEPLAY_COMBAT_TRACE_BLOCK(
+                    {
+                        std::ostringstream out;
+                        out << "monster_attack_result result=immune";
+                        appendCombatEventSummary(out, event);
+                        appendActorSummary(out, sourceActor);
+                        out << " target_member_index=" << memberIndex
+                            << " target_selected=true"
+                            << " affects_all_member=true"
+                            << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll);
+                        appendMemberDefenseSummary(out, *pMember, context.pRuntime);
+                        gameplayCombatTraceWrite(out.str());
+                    });
                     continue;
                 }
 
@@ -1246,6 +1534,19 @@ void GameplayCombatController::handlePendingCombatEvents(
                         memberIndex,
                         animationTicks(context.pRuntime)))
                 {
+                    GAMEPLAY_COMBAT_TRACE_BLOCK(
+                    {
+                        std::ostringstream out;
+                        out << "monster_attack_result result=evaded";
+                        appendCombatEventSummary(out, event);
+                        appendActorSummary(out, sourceActor);
+                        out << " target_member_index=" << memberIndex
+                            << " target_selected=true"
+                            << " affects_all_member=true"
+                            << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll);
+                        appendMemberDefenseSummary(out, *pMember, context.pRuntime);
+                        gameplayCombatTraceWrite(out.str());
+                    });
                     showHitStatus(context.pRuntime, pMember->name + " evades damage");
                     continue;
                 }
@@ -1256,6 +1557,25 @@ void GameplayCombatController::handlePendingCombatEvents(
                     adjustedIncomingDamageForMember(context, event, *pMember, memberIndex, isPhysicalProjectile);
                 const bool applied = context.party.applyDamageToMember(memberIndex, adjustedDamage, "", true);
                 damagedParty = applied || damagedParty;
+
+                GAMEPLAY_COMBAT_TRACE_BLOCK(
+                {
+                    std::ostringstream out;
+                    out << "monster_attack_result result=" << (applied ? "damaged" : "no_damage_applied");
+                    appendCombatEventSummary(out, event);
+                    appendActorSummary(out, sourceActor);
+                    out << " target_member_index=" << memberIndex
+                        << " target_selected=true"
+                        << " affects_all_member=true"
+                        << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll)
+                        << " input_damage=" << event.damage
+                        << " final_damage=" << adjustedDamage
+                        << " resisted_or_adjusted_damage=" << (event.damage - adjustedDamage)
+                        << " physical_projectile=" << boolText(isPhysicalProjectile)
+                        << " applied=" << boolText(applied);
+                    appendMemberDefenseSummary(out, *pMember, context.pRuntime);
+                    gameplayCombatTraceWrite(out.str());
+                });
 
                 if (applied)
                 {
@@ -1285,6 +1605,31 @@ void GameplayCombatController::handlePendingCombatEvents(
 
             if (evaded)
             {
+                GAMEPLAY_COMBAT_TRACE_BLOCK(
+                {
+                    std::ostringstream out;
+                    out << "monster_attack_result result=evaded";
+                    appendCombatEventSummary(out, event);
+                    appendActorSummary(out, sourceActor);
+                    out << " target_member_index=" << (targetMemberIndex ? std::to_string(*targetMemberIndex) : "none")
+                        << " target_selected=" << boolText(targetMemberIndex.has_value())
+                        << " affects_all_member=false"
+                        << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll);
+                    if (hitCheck)
+                    {
+                        out << " hit_roll_result=" << boolText(hitCheck->hit)
+                            << " base_ac=" << hitCheck->baseArmorClass
+                            << " adjusted_ac=" << hitCheck->adjustedArmorClass
+                            << " monster_level=" << hitCheck->monsterLevel
+                            << " attack_bonus_used=" << hitCheck->attackBonus
+                            << " bolster_affects_ac=" << boolText(hitCheck->bolsterAffectsArmorClass);
+                    }
+                    if (pTargetMember != nullptr)
+                    {
+                        appendMemberDefenseSummary(out, *pTargetMember, context.pRuntime);
+                    }
+                    gameplayCombatTraceWrite(out.str());
+                });
                 showHitStatus(context.pRuntime, pTargetMember->name + " evades damage");
             }
 
@@ -1296,6 +1641,40 @@ void GameplayCombatController::handlePendingCombatEvents(
             damagedParty = targetMemberIndex
                 ? (!evaded && context.party.applyDamageToMember(*targetMemberIndex, adjustedDamage, ""))
                 : false;
+
+            if (!evaded)
+            {
+                GAMEPLAY_COMBAT_TRACE_BLOCK(
+                {
+                    std::ostringstream out;
+                    out << "monster_attack_result result=" << (damagedParty ? "damaged" : "no_damage_applied");
+                    appendCombatEventSummary(out, event);
+                    appendActorSummary(out, sourceActor);
+                    out << " target_member_index=" << (targetMemberIndex ? std::to_string(*targetMemberIndex) : "none")
+                        << " target_selected=" << boolText(targetMemberIndex.has_value())
+                        << " affects_all_member=false"
+                        << " needs_armor_hit_roll=" << boolText(needsArmorHitRoll);
+                    if (hitCheck)
+                    {
+                        out << " hit_roll_result=" << boolText(hitCheck->hit)
+                            << " base_ac=" << hitCheck->baseArmorClass
+                            << " adjusted_ac=" << hitCheck->adjustedArmorClass
+                            << " monster_level=" << hitCheck->monsterLevel
+                            << " attack_bonus_used=" << hitCheck->attackBonus
+                            << " bolster_affects_ac=" << boolText(hitCheck->bolsterAffectsArmorClass);
+                    }
+                    out << " input_damage=" << event.damage
+                        << " final_damage=" << adjustedDamage
+                        << " resisted_or_adjusted_damage=" << (event.damage - adjustedDamage)
+                        << " physical_projectile=" << boolText(isPhysicalProjectile)
+                        << " applied=" << boolText(damagedParty);
+                    if (pTargetMember != nullptr)
+                    {
+                        appendMemberDefenseSummary(out, *pTargetMember, context.pRuntime);
+                    }
+                    gameplayCombatTraceWrite(out.str());
+                });
+            }
 
             if (damagedParty && targetMemberIndex.has_value())
             {

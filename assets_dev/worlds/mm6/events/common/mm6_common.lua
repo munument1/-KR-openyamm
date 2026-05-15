@@ -302,7 +302,8 @@ function MM6.ApplyFrozenHighlandsWinterState()
 end
 
 function MM6.RevealSilvertongue()
-    if HasItem(2122) then
+    evt.ForPlayer(Players.All)
+    if HasItem(2122) and not IsQBitSet(QBit(1192)) then
         evt.ShowMovie("citytrtr", false)
         evt.MoveNPC(1089, 0)
         RemoveItem(2122)

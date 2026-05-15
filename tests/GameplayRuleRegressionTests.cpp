@@ -1194,7 +1194,7 @@ TEST_CASE("party melee status text reports applied damage")
         "Ariel inflicts 48 points killing Goblin");
 }
 
-TEST_CASE("level one knight melee damage can be reduced by monster level even with zero physical resistance")
+TEST_CASE("zero monster resistance does not reduce incoming melee damage")
 {
     REQUIRE(OpenYAMM::Tests::regressionGameDataLoaded());
     const OpenYAMM::Tests::RegressionGameData &gameData = OpenYAMM::Tests::regressionGameData();
@@ -1220,7 +1220,7 @@ TEST_CASE("level one knight melee damage can be reduced by monster level even wi
     CHECK(profile.meleeMinDamage == 7);
     CHECK(profile.meleeMaxDamage == 11);
 
-    auto observedHitDamages = [&](int monsterLevel, int physicalResistance)
+    auto observedHitDamages = [&]()
     {
         std::set<int> damages;
 
@@ -1244,24 +1244,46 @@ TEST_CASE("level one knight melee damage can be reduced by monster level even wi
             damages.insert(OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
                 attack.damage,
                 attack.damageType,
-                monsterLevel,
-                physicalResistance,
+                0,
+                0,
                 rng));
         }
 
         return damages;
     };
 
-    const std::set<int> levelThreePeasantDamages = observedHitDamages(3, 0);
-    CHECK(levelThreePeasantDamages == std::set<int>{7, 8, 9, 10, 11});
+    CHECK(observedHitDamages() == std::set<int>{7, 8, 9, 10, 11});
+}
 
-    const std::set<int> levelFourGoblinDamages = observedHitDamages(4, 0);
-    CHECK(levelFourGoblinDamages.contains(3));
-    CHECK(levelFourGoblinDamages.contains(5));
+TEST_CASE("monster hour of power resistance bonus only affects OE elemental damage types")
+{
+    constexpr int Damage = 64;
+    bool sawFireReduced = false;
+    bool sawPhysicalReduced = false;
 
-    const std::set<int> levelEightPeasantDamages = observedHitDamages(8, 0);
-    CHECK(levelEightPeasantDamages.contains(3));
-    CHECK(levelEightPeasantDamages.contains(5));
+    for (uint32_t seed = 1; seed <= 1000; ++seed)
+    {
+        std::mt19937 fireRng(seed);
+        const int fireDamage = OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
+            Damage,
+            OpenYAMM::Game::CombatDamageType::Fire,
+            0,
+            100,
+            fireRng);
+        sawFireReduced = sawFireReduced || fireDamage < Damage;
+
+        std::mt19937 physicalRng(seed);
+        const int physicalDamage = OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
+            Damage,
+            OpenYAMM::Game::CombatDamageType::Physical,
+            0,
+            100,
+            physicalRng);
+        sawPhysicalReduced = sawPhysicalReduced || physicalDamage < Damage;
+    }
+
+    CHECK(sawFireReduced);
+    CHECK_FALSE(sawPhysicalReduced);
 }
 
 TEST_CASE("monster Attack1 projectile applies special attack condition")
@@ -1508,10 +1530,165 @@ TEST_CASE("blaster damage bypasses monster resistance")
         OpenYAMM::Game::GameMechanics::resolveMonsterIncomingDamage(
             damage,
             OpenYAMM::Game::CombatDamageType::Irresistible,
-            200,
+            0,
             200,
             rng),
         damage);
+}
+
+TEST_CASE("monster energy attack type parses as energy damage")
+{
+    CHECK(
+        OpenYAMM::Game::GameMechanics::parseCombatDamageType("Ener")
+        == OpenYAMM::Game::CombatDamageType::Energy);
+    CHECK(
+        OpenYAMM::Game::GameMechanics::parseCombatDamageType("Energy")
+        == OpenYAMM::Game::CombatDamageType::Energy);
+}
+
+TEST_CASE("energy damage does not use earth resistance or immunity")
+{
+    OpenYAMM::Game::Character character = {};
+    character.permanentImmunities.earth = true;
+
+    std::mt19937 rng(13);
+
+    CHECK_EQ(
+        OpenYAMM::Game::GameMechanics::resolveCharacterIncomingDamage(
+            character,
+            nullptr,
+            nullptr,
+            nullptr,
+            137,
+            OpenYAMM::Game::CombatDamageType::Earth,
+            rng),
+        0);
+
+    rng.seed(13);
+    CHECK_EQ(
+        OpenYAMM::Game::GameMechanics::resolveCharacterIncomingDamage(
+            character,
+            nullptr,
+            nullptr,
+            nullptr,
+            137,
+            OpenYAMM::Game::CombatDamageType::Energy,
+            rng),
+        137);
+}
+
+TEST_CASE("monster physical attack damage roll follows OE dice and bonus formula")
+{
+    std::mt19937 expectedRng(17);
+    int expectedDamage = 2;
+    std::uniform_int_distribution<int> distribution(1, 6);
+
+    for (int rollIndex = 0; rollIndex < 3; ++rollIndex)
+    {
+        expectedDamage += distribution(expectedRng);
+    }
+
+    std::mt19937 rng(17);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::rollMonsterAttackDamage(3, 6, 2, rng), expectedDamage);
+
+    rng.seed(23);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::rollMonsterAttackDamage(0, 0, 0, rng), 0);
+
+    rng.seed(29);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::rollMonsterAttackDamage(0, 6, -3, rng), -3);
+}
+
+TEST_CASE("monster hit chance follows OE armor class formula")
+{
+    constexpr int ArmorClass = 40;
+    constexpr int MonsterLevel = 7;
+    constexpr int AttackBonus = 13;
+    constexpr int RollUpperBound = ArmorClass + 2 * MonsterLevel + 10;
+
+    for (uint32_t seed = 1; seed <= 32; ++seed)
+    {
+        std::mt19937 expectedRng(seed);
+        const int hitRoll = std::uniform_int_distribution<int>(1, RollUpperBound)(expectedRng);
+        const bool expectedHit = hitRoll + AttackBonus > ArmorClass + 5;
+
+        std::mt19937 rng(seed);
+        CHECK_EQ(
+            OpenYAMM::Game::GameMechanics::monsterAttackHitsArmorClass(
+                ArmorClass,
+                MonsterLevel,
+                AttackBonus,
+                rng),
+            expectedHit);
+    }
+}
+
+TEST_CASE("luck factors into incoming physical damage reduction but not monster hit chance")
+{
+    OpenYAMM::Game::Character character = {};
+    character.luck = 100;
+
+    bool sawPhysicalDamageReducedByLuck = false;
+
+    for (uint32_t seed = 1; seed <= 128; ++seed)
+    {
+        std::mt19937 expectedRng(seed);
+        int expectedDamage = 128;
+
+        for (int rollIndex = 0; rollIndex < 4; ++rollIndex)
+        {
+            if (std::uniform_int_distribution<int>(0, 40)(expectedRng) < 30)
+            {
+                break;
+            }
+
+            expectedDamage /= 2;
+        }
+
+        std::mt19937 rng(seed);
+        CHECK_EQ(
+            OpenYAMM::Game::GameMechanics::resolveCharacterIncomingDamage(
+                character,
+                nullptr,
+                nullptr,
+                nullptr,
+                128,
+                OpenYAMM::Game::CombatDamageType::Physical,
+                rng),
+            expectedDamage);
+
+        if (expectedDamage < 128)
+        {
+            sawPhysicalDamageReducedByLuck = true;
+        }
+    }
+
+    CHECK(sawPhysicalDamageReducedByLuck);
+
+    constexpr int ArmorClass = 40;
+    constexpr int MonsterLevel = 7;
+    constexpr int AttackBonus = 13;
+    constexpr int RollUpperBound = ArmorClass + 2 * MonsterLevel + 10;
+
+    std::mt19937 expectedRng(61);
+    const int hitRoll = std::uniform_int_distribution<int>(1, RollUpperBound)(expectedRng);
+    const bool expectedHit = hitRoll + AttackBonus > ArmorClass + 5;
+
+    std::mt19937 rng(61);
+    CHECK_EQ(
+        OpenYAMM::Game::GameMechanics::monsterAttackHitsArmorClass(
+            ArmorClass,
+            MonsterLevel,
+            AttackBonus,
+            rng),
+        expectedHit);
+}
+
+TEST_CASE("shielded physical projectile damage uses OE truncating halving")
+{
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveShieldedPhysicalProjectileDamage(0), 0);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveShieldedPhysicalProjectileDamage(1), 0);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveShieldedPhysicalProjectileDamage(3), 1);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveShieldedPhysicalProjectileDamage(10), 5);
 }
 
 TEST_CASE("dragon character normal attack uses dragon ability firebolt profile")
@@ -3212,19 +3389,19 @@ TEST_CASE("level decoration script event id comes from legacy uEventID field")
     indoorEntity.eventIdPrimary = 1;
     indoorEntity.eventIdSecondary = 376;
     CHECK_EQ(indoorEntity.scriptEventId(), 376u);
-    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 1u);
+    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 7u);
 
     indoorEntity.eventIdPrimary = 0;
-    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 0u);
+    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 7u);
 
     OpenYAMM::Game::OutdoorEntity outdoorEntity = {};
     outdoorEntity.eventIdPrimary = 1;
     outdoorEntity.eventIdSecondary = 376;
     CHECK_EQ(outdoorEntity.scriptEventId(), 376u);
-    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 1u);
+    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);
 
     outdoorEntity.eventIdPrimary = 0;
-    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 0u);
+    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);
 }
 
 TEST_CASE("lua event runtime stores question answer metadata and resumes continuation step")

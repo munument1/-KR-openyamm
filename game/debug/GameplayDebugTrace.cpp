@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -91,6 +92,26 @@ std::mutex &gameplayTraceOutputMutex()
     static std::mutex mutex;
     return mutex;
 }
+
+struct CombatTraceState
+{
+    bool enabled = false;
+    bool append = true;
+    std::string filePath;
+    std::unique_ptr<std::ofstream> pOutput;
+};
+
+CombatTraceState &combatTraceState()
+{
+    static CombatTraceState state;
+    return state;
+}
+
+std::mutex &combatTraceOutputMutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
 }
 
 bool gameplayDebugTraceEnabled()
@@ -118,6 +139,68 @@ void gameplayDebugTraceWrite(const std::string &message)
         *pOutput << line << '\n';
         pOutput->flush();
     }
+}
+
+void configureGameplayCombatTrace(bool enabled, const std::string &filePath, bool append)
+{
+    std::lock_guard<std::mutex> lock(combatTraceOutputMutex());
+    CombatTraceState &state = combatTraceState();
+    state.enabled = enabled;
+    state.append = append;
+    state.filePath = filePath;
+    state.pOutput.reset();
+
+    if (!state.enabled || state.filePath.empty())
+    {
+        state.enabled = false;
+        return;
+    }
+
+    const std::filesystem::path path(state.filePath);
+    const std::filesystem::path parentPath = path.parent_path();
+
+    if (!parentPath.empty())
+    {
+        std::error_code errorCode;
+        std::filesystem::create_directories(parentPath, errorCode);
+
+        if (errorCode)
+        {
+            std::cerr << "CombatTrace: failed to create directory \"" << parentPath.string()
+                << "\": " << errorCode.message() << '\n';
+            state.enabled = false;
+            return;
+        }
+    }
+
+    const std::ios::openmode mode = std::ios::out | (state.append ? std::ios::app : std::ios::trunc);
+    state.pOutput = std::make_unique<std::ofstream>(state.filePath, mode);
+
+    if (!*state.pOutput)
+    {
+        std::cerr << "CombatTrace: failed to open trace file \"" << state.filePath << "\"\n";
+        state.pOutput.reset();
+        state.enabled = false;
+    }
+}
+
+bool gameplayCombatTraceEnabled()
+{
+    return combatTraceState().enabled;
+}
+
+void gameplayCombatTraceWrite(const std::string &message)
+{
+    std::lock_guard<std::mutex> lock(combatTraceOutputMutex());
+    CombatTraceState &state = combatTraceState();
+
+    if (!state.enabled || state.pOutput == nullptr)
+    {
+        return;
+    }
+
+    *state.pOutput << "[CombatTrace] " << message << '\n';
+    state.pOutput->flush();
 }
 
 std::string gameplayDebugTraceWorldHitSummary(const GameplayWorldHit &hit)

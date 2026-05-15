@@ -105,6 +105,9 @@ struct GameSettings
     bool performanceTrace = false;
     bool hitchTrace = false;
     bool collisionTrace = false;
+    bool combatTrace = false;
+    bool combatTraceAppend = true;
+    std::string combatTraceFile = "logs/combat_trace.log";
     float hitchThresholdMilliseconds = 8.0f;
     KeyboardSettings keyboard = {};
     bool preseedParty = true;

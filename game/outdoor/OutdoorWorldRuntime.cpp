@@ -515,11 +515,22 @@ int monsterResistanceForDamageType(
         case CombatDamageType::Body: return stats.bodyResistance;
         case CombatDamageType::Light: return stats.lightResistance;
         case CombatDamageType::Dark: return stats.darkResistance;
+        case CombatDamageType::Energy: return 0;
         case CombatDamageType::Irresistible: return 0;
         case CombatDamageType::Physical:
         default:
             return stats.physicalResistance;
     }
+}
+
+int monsterHourOfPowerResistanceBonus(const OutdoorWorldRuntime::MapActorState &actor)
+{
+    if (actor.hourOfPowerRemainingSeconds <= 0.0f)
+    {
+        return 0;
+    }
+
+    return std::max(0, actor.hourOfPowerPower);
 }
 
 uint32_t monsterActorAttackSeed(
@@ -5527,8 +5538,8 @@ void OutdoorWorldRuntime::applyFireSpikeTrapTriggerResult(
                 appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                     damage,
                     damageType,
-                    pStats->level,
                     monsterResistanceForDamageType(*pStats, damageType),
+                    monsterHourOfPowerResistanceBonus(m_mapActors[triggeredActorIndex]),
                     rng);
             }
 
@@ -10140,8 +10151,8 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
                 appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                     impact.damage,
                     projectile.damageType,
-                    pStats->level,
                     monsterResistanceForDamageType(*pStats, projectile.damageType),
+                    monsterHourOfPowerResistanceBonus(m_mapActors[impact.actorIndex]),
                     rng);
             }
 
@@ -10230,8 +10241,8 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
                     appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                         actorHit.damage,
                         projectile.damageType,
-                        pStats->level,
                         monsterResistanceForDamageType(*pStats, projectile.damageType),
+                        monsterHourOfPowerResistanceBonus(m_mapActors[actorHit.actorIndex]),
                         rng);
                 }
 
@@ -11363,8 +11374,8 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
             appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                 damage,
                 damageType,
-                pStats->level,
                 monsterResistanceForDamageType(*pStats, damageType),
+                monsterHourOfPowerResistanceBonus(actor),
                 rng);
         }
 
@@ -11494,6 +11505,7 @@ std::optional<GameplayPartyAttackActorFacts> OutdoorWorldRuntime::partyAttackAct
         .currentHp = pActor->currentHp,
         .maxHp = pActor->maxHp,
         .effectiveArmorClass = effectiveMapActorArmorClass(actorIndex),
+        .hourOfPowerPower = monsterHourOfPowerResistanceBonus(*pActor),
         .isDead = pActor->isDead,
         .isInvisible = pActor->isInvisible,
         .hostileToParty = pActor->hostileToParty,
@@ -11883,8 +11895,8 @@ bool OutdoorWorldRuntime::applyMonsterActorMeleeAttackToMapActor(
         appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
             damage,
             damageType,
-            pTargetStats->level,
             monsterResistanceForDamageType(*pTargetStats, damageType),
+            monsterHourOfPowerResistanceBonus(targetActor),
             damageRng);
     }
 
@@ -12639,8 +12651,8 @@ bool OutdoorWorldRuntime::applyDirectSpellImpactToMapActor(
         appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
             impact.damage,
             damageType,
-            pStats->level,
             monsterResistanceForDamageType(*pStats, damageType),
+            monsterHourOfPowerResistanceBonus(actor),
             rng);
     }
 

@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayActorAiSystem.h"
 
+#include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayActorService.h"
 
 #include <algorithm>
@@ -450,21 +451,8 @@ IdleBehaviorResult resolveIdleBehavior(
 
 int rollAttackDamage(const AttackDamageProfile &profile)
 {
-    if (profile.diceRolls <= 0 || profile.diceSides <= 0)
-    {
-        return std::max(0, profile.bonus);
-    }
-
     static thread_local std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<int> distribution(1, profile.diceSides);
-    int damage = std::max(0, profile.bonus);
-
-    for (int rollIndex = 0; rollIndex < profile.diceRolls; ++rollIndex)
-    {
-        damage += distribution(rng);
-    }
-
-    return damage;
+    return GameMechanics::rollMonsterAttackDamage(profile.diceRolls, profile.diceSides, profile.bonus, rng);
 }
 
 int resolveBaseAttackImpactDamage(
@@ -473,25 +461,18 @@ int resolveBaseAttackImpactDamage(
     const AttackDamageProfile &attack1Damage,
     const AttackDamageProfile &attack2Damage)
 {
-    const int fallbackAttackDamage = std::max(1, monsterLevel / 2);
     const int fallbackSpellDamage = std::max(2, monsterLevel);
 
     switch (ability)
     {
         case GameplayActorAttackAbility::Attack2:
-        {
-            const int damage = rollAttackDamage(attack2Damage);
-            return std::max(1, damage > 0 ? damage : fallbackAttackDamage);
-        }
+            return rollAttackDamage(attack2Damage);
         case GameplayActorAttackAbility::Spell1:
         case GameplayActorAttackAbility::Spell2:
             return fallbackSpellDamage;
         case GameplayActorAttackAbility::Attack1:
         default:
-        {
-            const int damage = rollAttackDamage(attack1Damage);
-            return std::max(1, damage > 0 ? damage : fallbackAttackDamage);
-        }
+            return rollAttackDamage(attack1Damage);
     }
 }
 
@@ -545,14 +526,16 @@ AttackImpactOutcome finishAttackImpact(
 
     if (shrinkActive)
     {
-        result.damage = std::max(
-            1,
-            static_cast<int>(std::round(static_cast<float>(result.damage) * shrinkDamageMultiplier)));
+        const int shrinkDivisor =
+            shrinkDamageMultiplier > 0.0f
+                ? std::max(1, static_cast<int>(std::lround(1.0f / shrinkDamageMultiplier)))
+                : 1;
+        result.damage /= shrinkDivisor;
     }
 
     if (darkGraspActive && abilityIsMelee)
     {
-        result.damage = std::max(1, (result.damage + 1) / 2);
+        result.damage /= 2;
     }
 
     if (abilityIsRanged)

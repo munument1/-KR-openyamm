@@ -63,6 +63,7 @@ enum class CombatDamageType
     Body,
     Light,
     Dark,
+    Energy,
     Irresistible,
 };
 
@@ -226,9 +227,11 @@ public:
     static int resolveMonsterIncomingDamage(
         int damage,
         CombatDamageType damageType,
-        int monsterLevel,
         int resistance,
+        int hourOfPowerResistanceBonus,
         std::mt19937 &rng);
+    static int rollMonsterAttackDamage(int diceRolls, int diceSides, int damageBonus, std::mt19937 &rng);
+    static int resolveShieldedPhysicalProjectileDamage(int damage);
     static bool monsterAttackHitsArmorClass(
         int targetArmorClass,
         int monsterLevel,

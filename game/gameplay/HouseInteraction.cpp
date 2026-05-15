@@ -33,6 +33,10 @@ constexpr uint32_t BountyHuntGroup = 39;
 constexpr int MMergeBadReputationShopBanThreshold = 25;
 constexpr int ShopTheftBanDays = 336;
 constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
+constexpr uint32_t Mm7PitTrainingHouseId = 1575;
+constexpr uint32_t Mm7MountNighonTrainingHouseId = 1576;
+constexpr uint32_t OeMm7PitTrainingHouseId = 94;
+constexpr uint32_t OeMm7MountNighonTrainingHouseId = 95;
 constexpr uint32_t PrisonTermsAwardId = 87;
 constexpr const char *pLorettaPriceFixingLabel = "Price Fixing";
 constexpr const char *pLorettaPriceFixingMessage =
@@ -58,6 +62,44 @@ int minuteOfDayFromGameMinutes(float currentGameMinutes)
     }
 
     return minuteOfDay;
+}
+
+float minutesUntilNextDawn(float currentGameMinutes)
+{
+    constexpr int DawnMinuteOfDay = 5 * 60;
+
+    int minutesUntilDawn = DawnMinuteOfDay - minuteOfDayFromGameMinutes(currentGameMinutes);
+
+    if (minutesUntilDawn <= 0)
+    {
+        minutesUntilDawn += MinutesPerDay;
+    }
+
+    return static_cast<float>(minutesUntilDawn);
+}
+
+bool trainingHouseUsesExtendedOeTrainingTime(const HouseEntry &houseEntry)
+{
+    return houseEntry.id == Mm7PitTrainingHouseId
+        || houseEntry.id == Mm7MountNighonTrainingHouseId
+        || houseEntry.id == OeMm7PitTrainingHouseId
+        || houseEntry.id == OeMm7MountNighonTrainingHouseId
+        || houseEntry.name == "Perdition's Flame"
+        || houseEntry.name == "Applied Instruction";
+}
+
+float oeTrainingDurationMinutes(const HouseEntry &houseEntry, float currentGameMinutes)
+{
+    float durationMinutes = 7.0f * static_cast<float>(MinutesPerDay)
+        + minutesUntilNextDawn(currentGameMinutes)
+        + 4.0f * 60.0f;
+
+    if (trainingHouseUsesExtendedOeTrainingTime(houseEntry))
+    {
+        durationMinutes += 12.0f * 60.0f;
+    }
+
+    return durationMinutes;
 }
 
 int dayOfWeekFromGameMinutes(float currentGameMinutes)
@@ -1881,6 +1923,15 @@ HouseActionResult performHouseAction(
             }
 
             party.addGold(-price);
+            party.restAndHealAll();
+
+            if (pWorldRuntime != nullptr)
+            {
+                const float trainingMinutes = oeTrainingDurationMinutes(houseEntry, pWorldRuntime->gameMinutes());
+                pWorldRuntime->advanceGameMinutes(trainingMinutes);
+                party.advanceTimedStates(trainingMinutes * 60.0f);
+            }
+
             result.messages.push_back(
                 pMember->name
                 + " is now level "

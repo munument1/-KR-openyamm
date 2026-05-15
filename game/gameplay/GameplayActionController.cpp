@@ -246,6 +246,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> resolveUsableActo
         .currentHp = actor->currentHp,
         .maxHp = actor->maxHp,
         .effectiveArmorClass = actor->effectiveArmorClass,
+        .hourOfPowerPower = actor->hourOfPowerPower,
         .isDead = actor->isDead,
         .isInvisible = actor->isInvisible,
         .hostileToParty = actor->hostileToParty,
@@ -287,6 +288,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> chooseFallbackRan
             .currentHp = actor.currentHp,
             .maxHp = actor.maxHp,
             .effectiveArmorClass = actor.effectiveArmorClass,
+            .hourOfPowerPower = actor.hourOfPowerPower,
             .isDead = actor.isDead,
             .isInvisible = actor.isInvisible,
             .hostileToParty = actor.hostileToParty,
@@ -395,6 +397,7 @@ int resolveMeleeAppliedDamage(
         case CombatDamageType::Body: resistance = pStats->bodyResistance; break;
         case CombatDamageType::Light: resistance = pStats->lightResistance; break;
         case CombatDamageType::Dark: resistance = pStats->darkResistance; break;
+        case CombatDamageType::Energy: resistance = 0; break;
         case CombatDamageType::Irresistible: resistance = 0; break;
         case CombatDamageType::Physical:
         default:
@@ -405,8 +408,8 @@ int resolveMeleeAppliedDamage(
     return GameMechanics::resolveMonsterIncomingDamage(
         appliedDamage,
         attack.damageType,
-        pStats->level,
         resistance,
+        target.hourOfPowerPower,
         rng);
 }
 

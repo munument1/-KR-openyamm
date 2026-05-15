@@ -517,11 +517,31 @@ int monsterResistanceForDamageType(
         case CombatDamageType::Body: return stats.bodyResistance;
         case CombatDamageType::Light: return stats.lightResistance;
         case CombatDamageType::Dark: return stats.darkResistance;
+        case CombatDamageType::Energy: return 0;
         case CombatDamageType::Irresistible: return 0;
         case CombatDamageType::Physical:
         default:
             return stats.physicalResistance;
     }
+}
+
+int monsterHourOfPowerResistanceBonus(
+    const std::vector<IndoorWorldRuntime::MapActorAiState> &actorStates,
+    size_t actorIndex)
+{
+    if (actorIndex >= actorStates.size())
+    {
+        return 0;
+    }
+
+    const GameplayActorSpellEffectState &spellEffects = actorStates[actorIndex].spellEffects;
+
+    if (spellEffects.hourOfPowerRemainingSeconds <= 0.0f)
+    {
+        return 0;
+    }
+
+    return std::max(0, spellEffects.hourOfPowerPower);
 }
 
 uint32_t evtDamageTypeFromCombatDamageType(CombatDamageType damageType)
@@ -539,6 +559,7 @@ uint32_t evtDamageTypeFromCombatDamageType(CombatDamageType damageType)
         case CombatDamageType::Body: return 8;
         case CombatDamageType::Light: return 9;
         case CombatDamageType::Dark: return 10;
+        case CombatDamageType::Energy: return 12;
         default: return 4;
     }
 }
@@ -5858,8 +5879,8 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
                 appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                     impact.damage,
                     projectile.damageType,
-                    pStats->level,
                     monsterResistanceForDamageType(*pStats, projectile.damageType),
+                    monsterHourOfPowerResistanceBonus(m_mapActorAiStates, impact.actorIndex),
                     rng);
             }
 
@@ -6073,8 +6094,8 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
                             appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                                 actorHit.damage,
                                 projectile.damageType,
-                                pStats->level,
                                 monsterResistanceForDamageType(*pStats, projectile.damageType),
+                                monsterHourOfPowerResistanceBonus(m_mapActorAiStates, actorHit.actorIndex),
                                 rng);
                         }
 
@@ -9105,8 +9126,8 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
         appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
             damage,
             damageType,
-            pStats->level,
             monsterResistanceForDamageType(*pStats, damageType),
+            monsterHourOfPowerResistanceBonus(m_mapActorAiStates, actorIndex),
             rng);
     }
 
@@ -9398,8 +9419,8 @@ bool IndoorWorldRuntime::applyPartySpellToActor(
                 appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
                     directImpact.damage,
                     damageType,
-                    pStats->level,
                     monsterResistanceForDamageType(*pStats, damageType),
+                    monsterHourOfPowerResistanceBonus(m_mapActorAiStates, actorIndex),
                     rng);
             }
 
@@ -10269,8 +10290,8 @@ bool IndoorWorldRuntime::applyActorMeleeAttackToMapActor(
         appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
             attackRequest.damage,
             attackRequest.damageType,
-            pTargetStats->level,
             monsterResistanceForDamageType(*pTargetStats, attackRequest.damageType),
+            monsterHourOfPowerResistanceBonus(m_mapActorAiStates, attackRequest.targetActorIndex),
             damageRng);
     }
 
@@ -10743,6 +10764,7 @@ std::optional<GameplayPartyAttackActorFacts> IndoorWorldRuntime::partyAttackActo
         .currentHp = inspectState.currentHp,
         .maxHp = inspectState.maxHp,
         .effectiveArmorClass = inspectState.armorClass,
+        .hourOfPowerPower = monsterHourOfPowerResistanceBonus(m_mapActorAiStates, actorIndex),
         .isDead = runtimeState.isDead,
         .isInvisible = runtimeState.isInvisible,
         .hostileToParty = runtimeState.hostileToParty,
