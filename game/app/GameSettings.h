@@ -127,6 +127,11 @@ struct GameSettings
     bool debugConsole = true;
     int keyboardInteractionDepth = 512;
     int mouseInteractionDepth = 512;
+#if defined(__ANDROID__)
+    bool contextActionPopup = true;
+#else
+    bool contextActionPopup = false;
+#endif
 
     static GameSettings createDefault();
 };

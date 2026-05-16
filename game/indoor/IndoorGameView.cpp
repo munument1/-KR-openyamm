@@ -1916,7 +1916,9 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
     if (input.rightMouseButton.pressed && !inspectState.isDead)
     {
         Party *pParty = screenRuntime.party();
-        const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
+        const std::optional<size_t> speakerMemberIndex =
+            pParty != nullptr ? pParty->bestPartyWideUtilitySkillMemberIndex("IdentifyMonster") : std::nullopt;
+        const Character *pMember = speakerMemberIndex ? pParty->member(*speakerMemberIndex) : nullptr;
         const MonsterTable::MonsterStatsEntry *pStats =
             m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
 
@@ -1926,7 +1928,7 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
 
             if (speechId != SpeechId::None)
             {
-                screenRuntime.playSpeechReaction(pParty->activeMemberIndex(), speechId, true);
+                screenRuntime.playSpeechReaction(*speakerMemberIndex, speechId, true);
             }
         }
     }

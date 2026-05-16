@@ -759,10 +759,7 @@ ChestTrapOpenResult resolveChestTrapOpen(
 
     result.trapWasPresent = true;
 
-    const Character *pActiveMember = party.activeMember();
-    const int disarmValue = pActiveMember != nullptr
-        ? GameMechanics::resolveCharacterDisarmTrapValue(*pActiveMember)
-        : 0;
+    const int disarmValue = party.bestPartyWideUtilitySkillValue("DisarmTraps");
 
     if (disarmValue >= map.disarmDifficulty * 2)
     {
@@ -806,7 +803,7 @@ ChestTrapOpenResult resolveChestTrapOpen(
         ChestTrapMemberResult memberResult = {};
         memberResult.memberIndex = memberIndex;
 
-        const int perceptionCheckValue = GameMechanics::resolveCharacterPerceptionValue(*pMember) + 20;
+        const int perceptionCheckValue = party.bestPartyWideUtilitySkillValue("Perception") + 20;
 
         if (GameMechanics::canAct(*pMember)
             && perceptionCheckValue > 0

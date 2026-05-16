@@ -107,6 +107,10 @@ constexpr std::array<PackagedAsset, 18> PackagedShaders = {{
     {"runtime/shaders/essl/vs_spell_area_preview.bin", "runtime/shaders/essl/vs_spell_area_preview.bin"}
 }};
 
+constexpr std::array<PackagedAsset, 1> PackagedRuntimeFiles = {{
+    {"settings.ini", "settings.ini"}
+}};
+
 void openYammLog(const char *pFormat, ...)
 {
     va_list args;
@@ -256,6 +260,11 @@ void prepareAndroidAssetRoot()
     for (const PackagedAsset &shader : PackagedShaders)
     {
         extractPackagedAssetIfNeeded(storageRoot, shader);
+    }
+
+    for (const PackagedAsset &runtimeFile : PackagedRuntimeFiles)
+    {
+        extractPackagedAssetIfNeeded(storageRoot, runtimeFile);
     }
 
     std::filesystem::current_path(storageRoot);

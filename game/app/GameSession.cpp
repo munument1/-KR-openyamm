@@ -27,6 +27,14 @@ uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
     return nanoseconds / 1000ULL;
 }
 
+void pulseGameplayAction(GameplayInputFrame &input, KeyboardAction action)
+{
+    GameplayButtonInputState &state = input.actions[keyboardActionIndex(action)];
+    state.held = true;
+    state.pressed = true;
+    state.released = false;
+}
+
 Party buildConfiguredParty(
     const Party::Snapshot &snapshot,
     const GameDataRepository &data)
@@ -541,11 +549,29 @@ void GameSession::updateGameplay(
                 });
         recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.sharedInputNanoseconds, sharedInputBeginTickCount);
 
+        GameplayInputFrame worldInput = input;
+
+        if (m_overlayInteractionState.gameplayHudAttackRequested)
+        {
+            pulseGameplayAction(worldInput, KeyboardAction::Attack);
+            m_overlayInteractionState.gameplayHudAttackRequested = false;
+        }
+
+        if (m_overlayInteractionState.gameplayHudTriggerRequested)
+        {
+            pulseGameplayAction(worldInput, KeyboardAction::Trigger);
+            m_overlayInteractionState.gameplayHudTriggerRequested = false;
+        }
+
+        const bool gameplayHudPointerActive =
+            m_overlayInteractionState.gameplayHudClickLatch
+            && m_overlayInteractionState.gameplayHudPressedTarget.type != GameplayHudPointerTargetType::None;
         const bool gameplayCursorModeActive = m_sharedInputFrameResult.mouseLookPolicy.cursorModeActive;
         const bool pendingSpellTargetActive = m_gameplayScreenState.pendingSpellTarget().active;
         const bool modalWorldInputBlocked =
             m_sharedInputFrameResult.journalInputConsumed
-            || m_sharedInputFrameResult.worldInputBlocked;
+            || m_sharedInputFrameResult.worldInputBlocked
+            || gameplayHudPointerActive;
         const bool standardWorldInputBlocked =
             gameplayCursorModeActive
             || modalWorldInputBlocked;
@@ -553,7 +579,7 @@ void GameSession::updateGameplay(
             !standardWorldInputBlocked
             && !pendingSpellTargetActive;
         const uint64_t worldMovementBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
-        pWorldRuntime->updateWorldMovement(input, deltaSeconds, allowWorldMovementInput);
+        pWorldRuntime->updateWorldMovement(worldInput, deltaSeconds, allowWorldMovementInput);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.worldMovementNanoseconds,
             worldMovementBeginTickCount);
@@ -597,7 +623,7 @@ void GameSession::updateGameplay(
             m_overlayInteractionState,
             m_gameplayScreenRuntime,
             m_gameplaySpellService,
-            input,
+            worldInput,
             m_sharedInputFrameResult,
             worldInputBlocked);
         recordDiagnostics(

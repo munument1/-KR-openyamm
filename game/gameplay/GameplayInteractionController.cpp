@@ -9,6 +9,7 @@
 #include "game/gameplay/GameplayWorldItemInteraction.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
 
 #include <SDL3/SDL_timer.h>
@@ -24,8 +25,20 @@ namespace
 constexpr float NearHoverStatusDistance = 1024.0f;
 constexpr float ActorHoverStatusDistance = 8192.0f;
 constexpr uint64_t HoverInspectRefreshNanoseconds = 33 * 1000 * 1000;
+constexpr uint64_t ContextActionRefreshNanoseconds = 250 * 1000 * 1000;
+constexpr uint64_t ContextActionIdleRetryNanoseconds = 1000 * 1000 * 1000;
+constexpr float ContextActionRayOriginChangeThresholdSquared = 4.0f;
+constexpr float ContextActionRayDirectionChangeThresholdSquared = 0.000001f;
 constexpr uint32_t ArrowProjectileObjectId = 545;
 constexpr uint32_t BlasterProjectileObjectId = 555;
+
+#if defined(__ANDROID__)
+bool usesMobileGroundTargetConfirm(uint32_t spellId)
+{
+    return isSpellId(spellId, SpellId::MeteorShower)
+        || isSpellId(spellId, SpellId::Starburst);
+}
+#endif
 
 bool hasStatusText(const std::optional<std::string> &text)
 {
@@ -37,6 +50,361 @@ bool hasActiveLootView(const GameplayScreenRuntime &runtime)
     const IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
     return pWorldRuntime != nullptr
         && (pWorldRuntime->activeChestView() != nullptr || pWorldRuntime->activeCorpseView() != nullptr);
+}
+
+float vecDeltaSquared(const bx::Vec3 &left, const bx::Vec3 &right)
+{
+    const float deltaX = left.x - right.x;
+    const float deltaY = left.y - right.y;
+    const float deltaZ = left.z - right.z;
+
+    return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+}
+
+bool contextActionPickRayChanged(
+    const GameplayContextActionState &state,
+    const GameplayWorldPickRequest &request)
+{
+    if (!request.hasRay || !state.hasLastUpdateRay)
+    {
+        return request.hasRay != state.hasLastUpdateRay;
+    }
+
+    return vecDeltaSquared(request.rayOrigin, state.lastUpdateRayOrigin)
+            >= ContextActionRayOriginChangeThresholdSquared
+        || vecDeltaSquared(request.rayDirection, state.lastUpdateRayDirection)
+            >= ContextActionRayDirectionChangeThresholdSquared;
+}
+
+const char *contextActionIconId(GameplayContextActionKind kind)
+{
+    switch (kind)
+    {
+    case GameplayContextActionKind::Talk:
+        return "context_talk";
+    case GameplayContextActionKind::PickUpItem:
+        return "context_pickup_item";
+    case GameplayContextActionKind::LootCorpse:
+        return "context_loot_corpse";
+    case GameplayContextActionKind::OpenChest:
+        return "context_open_chest";
+    case GameplayContextActionKind::EnterHouse:
+        return "context_enter_house";
+    case GameplayContextActionKind::OpenDoor:
+        return "context_open_door";
+    case GameplayContextActionKind::PressButton:
+        return "context_press_button";
+    case GameplayContextActionKind::UseLever:
+        return "context_use_lever";
+    case GameplayContextActionKind::GenericEvent:
+        return "context_generic_event";
+    case GameplayContextActionKind::None:
+        break;
+    }
+
+    return "context_generic_event";
+}
+
+const char *contextActionDefaultLabel(GameplayContextActionKind kind)
+{
+    switch (kind)
+    {
+    case GameplayContextActionKind::Talk:
+        return "Talk";
+    case GameplayContextActionKind::PickUpItem:
+        return "Pick Up";
+    case GameplayContextActionKind::LootCorpse:
+        return "Loot";
+    case GameplayContextActionKind::OpenChest:
+        return "Open Chest";
+    case GameplayContextActionKind::EnterHouse:
+        return "Enter";
+    case GameplayContextActionKind::OpenDoor:
+        return "Open Door";
+    case GameplayContextActionKind::PressButton:
+        return "Press";
+    case GameplayContextActionKind::UseLever:
+        return "Use Lever";
+    case GameplayContextActionKind::GenericEvent:
+        return "";
+    case GameplayContextActionKind::None:
+        break;
+    }
+
+    return "Use";
+}
+
+GameplayContextActionKind contextActionKindFromMetadataKind(const std::string &kind)
+{
+    if (kind == "open_chest")
+    {
+        return GameplayContextActionKind::OpenChest;
+    }
+
+    if (kind == "enter_house" || kind == "enter_dungeon" || kind == "leave_dungeon"
+        || kind == "passage" || kind == "travel" || kind == "teleport")
+    {
+        return GameplayContextActionKind::EnterHouse;
+    }
+
+    if (kind == "open_door")
+    {
+        return GameplayContextActionKind::OpenDoor;
+    }
+
+    if (kind == "press_button")
+    {
+        return GameplayContextActionKind::PressButton;
+    }
+
+    if (kind == "use_lever" || kind == "use_switch" || kind == "use_elevator" || kind == "use_pedestal")
+    {
+        return GameplayContextActionKind::UseLever;
+    }
+
+    return GameplayContextActionKind::GenericEvent;
+}
+
+std::string contextActionIconIdFromMetadataKind(const std::string &kind, GameplayContextActionKind fallbackKind)
+{
+    if (kind.empty())
+    {
+        return contextActionIconId(fallbackKind);
+    }
+
+    return "context_" + kind;
+}
+
+std::string contextActionDefaultLabelFromMetadata(
+    const GameplayEventTargetContextActionMetadata &metadata,
+    GameplayContextActionKind actionKind)
+{
+    if (metadata.targetName && !metadata.targetName->empty())
+    {
+        return *metadata.targetName;
+    }
+
+    if (metadata.kind == "leave_dungeon")
+    {
+        return "Exit";
+    }
+
+    if (metadata.kind == "travel")
+    {
+        return "Travel";
+    }
+
+    if (metadata.kind == "passage")
+    {
+        return "Passage";
+    }
+
+    if (metadata.kind == "teleport")
+    {
+        return "Teleport";
+    }
+
+    if (metadata.kind == "use_switch")
+    {
+        return "Use Switch";
+    }
+
+    if (metadata.kind == "use_elevator")
+    {
+        return "Use Elevator";
+    }
+
+    if (metadata.kind == "use_pedestal")
+    {
+        return "Use Pedestal";
+    }
+
+    if (metadata.kind == "fountain")
+    {
+        return "Fountain";
+    }
+
+    if (metadata.kind == "well")
+    {
+        return "Well";
+    }
+
+    if (metadata.kind == "shrine")
+    {
+        return "Shrine";
+    }
+
+    if (metadata.kind == "obelisk")
+    {
+        return "Obelisk";
+    }
+
+    if (metadata.kind == "boost")
+    {
+        return "Boost";
+    }
+
+    if (metadata.kind == "read")
+    {
+        return "Read";
+    }
+
+    if (metadata.kind == "secret_event")
+    {
+        return "???";
+    }
+
+    if (metadata.kind == "generic_event")
+    {
+        return "";
+    }
+
+    return contextActionDefaultLabel(actionKind);
+}
+
+std::string contextActionLabelWithName(const char *pVerb, const std::string &name)
+{
+    if (name.empty())
+    {
+        return pVerb != nullptr ? pVerb : "";
+    }
+
+    return std::string(pVerb != nullptr ? pVerb : "") + " (" + name + ")";
+}
+
+GameplayContextActionKind classifyEventTargetContextAction(const GameplayWorldHit &hit)
+{
+    if (!hit.eventTarget)
+    {
+        return GameplayContextActionKind::GenericEvent;
+    }
+
+    if (hit.eventTarget->contextActionMetadata)
+    {
+        return contextActionKindFromMetadataKind(hit.eventTarget->contextActionMetadata->kind);
+    }
+
+    if (!hit.eventTarget->openedChestIds.empty())
+    {
+        return GameplayContextActionKind::OpenChest;
+    }
+
+    if (hit.eventTarget->targetKind == GameplayWorldEventTargetKind::Mechanism)
+    {
+        return GameplayContextActionKind::UseLever;
+    }
+
+    return GameplayContextActionKind::GenericEvent;
+}
+
+std::optional<GameplayContextAction> buildContextAction(
+    IGameplayWorldRuntime &worldRuntime,
+    const GameplayWorldHit &hit,
+    const std::optional<std::string> &eventTargetStatusText)
+{
+    if (!hit.hasHit || !worldRuntime.canActivateWorldHit(hit, GameplayInteractionMethod::Keyboard))
+    {
+        return std::nullopt;
+    }
+
+    GameplayContextAction action = {};
+    action.worldHit = hit;
+
+    if (hit.kind == GameplayWorldHitKind::Actor && hit.actor)
+    {
+        GameplayRuntimeActorState actorState = {};
+        const bool hasActorState = worldRuntime.actorRuntimeState(hit.actor->actorIndex, actorState);
+        action.kind = hasActorState && actorState.isDead
+            ? GameplayContextActionKind::LootCorpse
+            : GameplayContextActionKind::Talk;
+        if (action.kind == GameplayContextActionKind::Talk)
+        {
+            action.label = !hit.actor->displayName.empty()
+                ? hit.actor->displayName
+                : contextActionDefaultLabel(action.kind);
+        }
+        else
+        {
+            action.label = contextActionLabelWithName(contextActionDefaultLabel(action.kind), hit.actor->displayName);
+        }
+    }
+    else if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
+    {
+        action.kind = GameplayContextActionKind::PickUpItem;
+        action.label =
+            contextActionLabelWithName("Pick", hit.worldItem->displayName);
+    }
+    else if (hit.kind == GameplayWorldHitKind::Chest && hit.container)
+    {
+        action.kind = GameplayContextActionKind::OpenChest;
+        action.label = contextActionDefaultLabel(action.kind);
+    }
+    else if (hit.kind == GameplayWorldHitKind::Corpse && hit.container)
+    {
+        action.kind = GameplayContextActionKind::LootCorpse;
+        action.label =
+            contextActionLabelWithName(contextActionDefaultLabel(action.kind), hit.container->displayName);
+    }
+    else if (hit.kind == GameplayWorldHitKind::EventTarget && hit.eventTarget)
+    {
+        if (hit.eventTarget->hintOnlyEvent)
+        {
+            return std::nullopt;
+        }
+
+        action.kind = classifyEventTargetContextAction(hit);
+        if (hit.eventTarget->contextActionMetadata)
+        {
+            const GameplayEventTargetContextActionMetadata &metadata = *hit.eventTarget->contextActionMetadata;
+            action.label = contextActionDefaultLabelFromMetadata(metadata, action.kind);
+            action.iconId = contextActionIconIdFromMetadataKind(metadata.kind, action.kind);
+        }
+        else
+        {
+            action.label = hasStatusText(eventTargetStatusText)
+                ? *eventTargetStatusText
+                : (!hit.eventTarget->name.empty()
+                    ? hit.eventTarget->name
+                    : contextActionDefaultLabel(action.kind));
+        }
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    if (action.iconId.empty())
+    {
+        action.iconId = contextActionIconId(action.kind);
+    }
+    return action;
+}
+
+void setSingleContextAction(
+    GameplayScreenRuntime &runtime,
+    const std::optional<GameplayContextAction> &action,
+    uint64_t updateTickNanoseconds,
+    const GameplayWorldPickRequest &pickRequest)
+{
+    GameplayContextActionState &state = runtime.contextActionState();
+    state = {};
+    state.lastUpdateNanoseconds = updateTickNanoseconds;
+    state.hasLastUpdateRay = pickRequest.hasRay;
+
+    if (pickRequest.hasRay)
+    {
+        state.lastUpdateRayOrigin = pickRequest.rayOrigin;
+        state.lastUpdateRayDirection = pickRequest.rayDirection;
+    }
+
+    if (!action)
+    {
+        return;
+    }
+
+    state.visible = true;
+    state.actions.push_back(*action);
+    state.primaryIndex = 0;
 }
 
 std::string formatFoundItemStatusText(const std::string &itemName)
@@ -509,6 +877,7 @@ void clearWorldInteractionFrameState(
 
     clearWorldHover(runtime.worldRuntime());
     runtime.clearStatusBarHoverText();
+    runtime.clearContextActionState();
 }
 }
 
@@ -554,6 +923,8 @@ GameplayInteractionController::HoverStateResult GameplayInteractionController::u
 
     const std::optional<std::string> statusText = resolveHoverStatusText(payload);
     result.hitKind = payload.worldHit.kind;
+    result.worldHit = payload.worldHit;
+    result.eventTargetStatusText = payload.eventTargetStatusText;
     result.statusText = statusText.value_or("");
     result.hasHover = result.hitKind != GameplayWorldHitKind::None || !result.statusText.empty();
     return result;
@@ -833,7 +1204,11 @@ GameplayInteractionController::resolveWorldInteractionPointerPolicy(
     policy.activationPressed = input.keyboardActivationPressed && !input.rightMousePressed;
     policy.attackPressed =
         (input.keyboardAttackPressed && !input.rightMousePressed)
+#if !defined(__ANDROID__)
         || (policy.useCenterGameplayPoint && input.leftMousePressed && !input.rightMousePressed);
+#else
+        ;
+#endif
     return policy;
 }
 
@@ -906,6 +1281,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
     if (pendingSpellCast.active)
     {
+        runtime.clearContextActionState();
         GameplayWorldPickRequest pendingSpellPickRequest = {};
         GameplayWorldPickRequest centerHoverPickRequest = {};
 
@@ -961,11 +1337,70 @@ GameplayInteractionController::updateWorldInteractionFrame(
             pendingTargetInput.cancelPressed = true;
         }
 
-        if (pointerPolicy.leftMousePressed && !pendingTargetInput.cancelPressed)
+        if (overlayInteractionState.gameplayHudSpellTargetCancelRequested)
+        {
+            pendingTargetInput.cancelPressed = true;
+            overlayInteractionState.gameplayHudSpellTargetCancelRequested = false;
+        }
+
+        const bool confirmFromMobileHudButton =
+            overlayInteractionState.gameplayHudSpellTargetConfirmRequested;
+        overlayInteractionState.gameplayHudSpellTargetConfirmRequested = false;
+
+#if defined(__ANDROID__)
+        const bool mobileGroundTargetConfirmSpell = usesMobileGroundTargetConfirm(pendingSpellCast.spellId);
+#else
+        const bool mobileGroundTargetConfirmSpell = false;
+#endif
+
+        if (mobileGroundTargetConfirmSpell
+            && pendingSpellCast.targetKind == PartySpellCastTargetKind::GroundPoint
+            && !confirmFromMobileHudButton
+            && !hoveredPortraitMemberIndex
+            && worldReady
+            && pWorldRuntime != nullptr)
+        {
+            const GameplayPendingSpellWorldTargetFacts targetFacts =
+                pWorldRuntime->pickPendingSpellWorldTarget(pendingSpellPickRequest);
+            const std::optional<bx::Vec3> groundTargetPoint =
+                GameplaySpellActionController::resolveGroundTargetPointForWorldHit(
+                    targetFacts.worldHit,
+                    pWorldRuntime,
+                    targetFacts.fallbackGroundTargetPoint);
+
+            if (groundTargetPoint)
+            {
+                pendingSpellCast.hasSelectedGroundTargetPoint = true;
+                pendingSpellCast.selectedGroundTargetX = groundTargetPoint->x;
+                pendingSpellCast.selectedGroundTargetY = groundTargetPoint->y;
+                pendingSpellCast.selectedGroundTargetZ = groundTargetPoint->z;
+            }
+        }
+
+        bool confirmFromPointer = pointerPolicy.leftMousePressed;
+#if defined(__ANDROID__)
+        if (mobileGroundTargetConfirmSpell)
+        {
+            confirmFromPointer = false;
+        }
+#endif
+
+        if ((confirmFromPointer || confirmFromMobileHudButton) && !pendingTargetInput.cancelPressed)
         {
             pendingTargetInput.confirmPressed = true;
 
-            if (!pendingSpellCast.clickLatch
+            if (confirmFromMobileHudButton
+                && mobileGroundTargetConfirmSpell
+                && pendingSpellCast.targetKind == PartySpellCastTargetKind::GroundPoint
+                && pendingSpellCast.hasSelectedGroundTargetPoint)
+            {
+                pendingTargetInput.fallbackGroundTargetPoint = bx::Vec3{
+                    pendingSpellCast.selectedGroundTargetX,
+                    pendingSpellCast.selectedGroundTargetY,
+                    pendingSpellCast.selectedGroundTargetZ
+                };
+            }
+            else if (!pendingSpellCast.clickLatch
                 && !hoveredPortraitMemberIndex
                 && worldReady
                 && pWorldRuntime != nullptr)
@@ -1046,10 +1481,12 @@ GameplayInteractionController::updateWorldInteractionFrame(
     {
         result.keyboardUseActivated = true;
         clearWorldHover(pWorldRuntime);
+        runtime.clearContextActionState();
     }
 
     if (heldItemActive)
     {
+        runtime.clearContextActionState();
         GameplayWorldHit heldItemWorldHit = {};
         bool hasHeldItemWorldHit = false;
 
@@ -1128,6 +1565,66 @@ GameplayInteractionController::updateWorldInteractionFrame(
         };
 
     result.hover = updateHoverState(standardHoverInput, pWorldRuntime);
+
+    if (runtime.settingsSnapshot().contextActionPopup && pWorldRuntime != nullptr)
+    {
+        GameplayWorldHit contextActionHit = {};
+        std::optional<std::string> contextActionEventStatusText;
+        GameplayContextActionState &contextActionState = runtime.contextActionState();
+        const uint64_t contextActionRefreshIntervalNanoseconds =
+            contextActionState.visible ? ContextActionRefreshNanoseconds : ContextActionIdleRetryNanoseconds;
+        const bool contextActionRayChanged =
+            contextActionPickRayChanged(contextActionState, currentInteractionPickRequest);
+        const bool contextActionRefreshDue =
+            contextActionState.lastUpdateNanoseconds == 0
+            || currentTickNanoseconds < contextActionState.lastUpdateNanoseconds
+            || contextActionRayChanged
+            || currentTickNanoseconds - contextActionState.lastUpdateNanoseconds
+                >= contextActionRefreshIntervalNanoseconds;
+
+        if (contextActionRefreshDue)
+        {
+            std::optional<GameplayContextAction> contextAction =
+                buildContextAction(*pWorldRuntime, result.hover.worldHit, result.hover.eventTargetStatusText);
+
+            if (!contextAction)
+            {
+                contextActionHit = pWorldRuntime->pickKeyboardInteractionTarget(currentInteractionPickRequest);
+
+                if (isSameActivationTarget(contextActionHit, result.hover.worldHit))
+                {
+                    contextActionEventStatusText = result.hover.eventTargetStatusText;
+                }
+
+                contextAction = buildContextAction(*pWorldRuntime, contextActionHit, contextActionEventStatusText);
+            }
+
+            setSingleContextAction(
+                runtime,
+                contextAction,
+                currentTickNanoseconds,
+                currentInteractionPickRequest);
+        }
+        else
+        {
+            const bool visibleActionInvalid = contextActionState.visible
+                && contextActionState.primaryIndex >= contextActionState.actions.size();
+            const bool visibleActionNoLongerActivatable = contextActionState.visible
+                && !visibleActionInvalid
+                && !pWorldRuntime->canActivateWorldHit(
+                    contextActionState.actions[contextActionState.primaryIndex].worldHit,
+                    GameplayInteractionMethod::Keyboard);
+
+            if (visibleActionInvalid || visibleActionNoLongerActivatable)
+            {
+                runtime.clearContextActionState();
+            }
+        }
+    }
+    else
+    {
+        runtime.clearContextActionState();
+    }
 
     GameplayWorldHit currentHit = {};
     bool currentHitRefreshed = false;
@@ -1211,6 +1708,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
     {
         result.keyboardActivationActivated = true;
         refreshWorldHover(standardHoverInput, pWorldRuntime);
+        runtime.clearContextActionState();
 
         const bool hasLootViewAfterActivation = hasActiveLootView(runtime);
 

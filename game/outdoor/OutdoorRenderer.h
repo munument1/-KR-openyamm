@@ -111,6 +111,7 @@ private:
         uint16_t viewId,
         const bx::Vec3 &cameraPosition,
         float farClipDistance);
+    static void renderContextActionGeometryHighlight(OutdoorGameView &view, uint16_t viewId);
     static void renderPendingSpellAreaPreview(OutdoorGameView &view, uint16_t viewId);
 };
 } // namespace OpenYAMM::Game

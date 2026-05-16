@@ -214,6 +214,41 @@ TEST_CASE("legacy lua exporter omits generated fallback titles")
     CHECK(eventLua.find("Legacy event 26") == std::string::npos);
 }
 
+TEST_CASE("legacy lua exporter emits context action metadata")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T1.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/6T1.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Temple of Baa";
+    lookups.sourceMapFile = "6t1.blv";
+    lookups.mapNamesByFile["outd3.odm"] = "New Sorpigal";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    CHECK(lua.find("contextActions = {") != std::string::npos);
+    CHECK(lua.find("[1] = { kind = \"open_door\", source = \"title\" }") != std::string::npos);
+    CHECK(lua.find("[28] = { kind = \"open_chest\", source = \"opcode\", chestIds = {2} }") != std::string::npos);
+    CHECK(lua.find("[34] = { kind = \"fountain\", source = \"title\" }") != std::string::npos);
+    CHECK(lua.find("[50] = { kind = \"leave_dungeon\", source = \"opcode\", targetMap = \"outd3.odm\"")
+        != std::string::npos);
+    CHECK(lua.find("targetName = \"New Sorpigal\"") != std::string::npos);
+}
+
 TEST_CASE("legacy lua exporter rewrites unrolled party member rewards to dynamic party loops")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

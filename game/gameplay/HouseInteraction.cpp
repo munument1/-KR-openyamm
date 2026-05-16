@@ -399,6 +399,12 @@ const Character *selectedMember(const Party *pParty)
     return pParty != nullptr ? pParty->activeMember() : nullptr;
 }
 
+const Character *partyMerchantMember(const Party *pParty)
+{
+    const Character *pMerchant = pParty != nullptr ? pParty->bestPartyWideUtilitySkillMember("Merchant") : nullptr;
+    return pMerchant != nullptr ? pMerchant : selectedMember(pParty);
+}
+
 bool isTransportHouseType(const HouseEntry &houseEntry)
 {
     return isHouseType(houseEntry, "Stables") || isHouseType(houseEntry, "Boats");
@@ -689,7 +695,7 @@ int skillLearningCost(
     int effectiveReputation = 0)
 {
     return PriceCalculator::skillLearningPrice(
-        pParty != nullptr ? pParty->activeMember() : nullptr,
+        partyMerchantMember(pParty),
         houseEntry,
         isGuild,
         effectiveReputation);
@@ -697,7 +703,11 @@ int skillLearningCost(
 
 int trainingCost(const HouseEntry &houseEntry, const Party &party, int effectiveReputation = 0)
 {
-    return PriceCalculator::trainingPrice(party.activeMember(), houseEntry, effectiveReputation);
+    return PriceCalculator::trainingPrice(
+        party.activeMember(),
+        partyMerchantMember(&party),
+        houseEntry,
+        effectiveReputation);
 }
 
 uint64_t experienceRequiredForNextLevel(uint32_t currentLevel)
@@ -1086,7 +1096,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (serviceType == HouseServiceType::Tavern)
     {
-        const Character *pMember = selectedMember(pParty);
+        const Character *pMember = partyMerchantMember(pParty);
 
         options.push_back(makeOption(
             HouseActionId::TavernRentRoom,
@@ -1331,7 +1341,7 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
             anyRouteVisible = true;
             const int price = PriceCalculator::transportPrice(
-                pMember,
+                partyMerchantMember(pParty),
                 houseEntry,
                 isBoatHouse(houseEntry),
                 effectiveReputationForWorld(pWorldRuntime));
@@ -1592,7 +1602,7 @@ HouseActionResult performHouseAction(
         case HouseActionId::TavernRentRoom:
         {
             const int price = PriceCalculator::tavernRoomPrice(
-                party.activeMember(),
+                partyMerchantMember(&party),
                 houseEntry,
                 effectiveReputationForWorld(pWorldRuntime));
 
@@ -1621,7 +1631,7 @@ HouseActionResult performHouseAction(
             }
 
             const int price = PriceCalculator::tavernFoodPrice(
-                party.activeMember(),
+                partyMerchantMember(&party),
                 houseEntry,
                 effectiveReputationForWorld(pWorldRuntime));
 
@@ -2052,9 +2062,8 @@ HouseActionResult performHouseAction(
                 return result;
             }
 
-            const Character *pMember = party.activeMember();
             const int price = PriceCalculator::transportPrice(
-                pMember,
+                partyMerchantMember(&party),
                 houseEntry,
                 isBoatHouse(houseEntry),
                 effectiveReputationForWorld(pWorldRuntime));

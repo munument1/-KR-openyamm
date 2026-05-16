@@ -6,6 +6,13 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "open_door", source = "title" },
+    [2] = { kind = "open_door", source = "title" },
+    [3] = { kind = "open_door", source = "title" },
+    [4] = { kind = "open_door", source = "title" },
+    [5] = { kind = "open_door", source = "title" },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

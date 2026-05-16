@@ -6,6 +6,9 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "leave_dungeon", source = "opcode", targetMap = "outd3.odm", targetName = "Castle Ironfist" },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

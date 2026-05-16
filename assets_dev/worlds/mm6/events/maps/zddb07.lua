@@ -6,6 +6,17 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "generic_event", source = "opcode" },
+    [2] = { kind = "generic_event", source = "opcode" },
+    [3] = { kind = "use_switch", source = "title" },
+    [5] = { kind = "teleport", source = "heuristic" },
+    [6] = { kind = "teleport", source = "heuristic" },
+    [7] = { kind = "teleport", source = "heuristic" },
+    [8] = { kind = "secret_event", source = "heuristic", hidden = true },
+    [9] = { kind = "generic_event", source = "opcode" },
+    [10] = { kind = "generic_event", source = "opcode" },
+    },
     textureNames = {"d8s2on"},
     spriteNames = {"torch01"},
     castSpellIds = {6},

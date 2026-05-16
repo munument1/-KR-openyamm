@@ -6,6 +6,18 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "open_door", source = "opcode" },
+    [2] = { kind = "open_door", source = "opcode" },
+    [3] = { kind = "enter_house", source = "opcode", houseId = 451, targetName = "The Oracle" },
+    [4] = { kind = "open_door", source = "opcode" },
+    [5] = { kind = "generic_event", source = "opcode" },
+    [14] = { kind = "generic_event", source = "opcode" },
+    [15] = { kind = "generic_event", source = "opcode" },
+    [16] = { kind = "generic_event", source = "opcode" },
+    [17] = { kind = "generic_event", source = "opcode" },
+    [50] = { kind = "leave_dungeon", source = "opcode", targetMap = "outc2.odm", targetName = "Free Haven" },
+    },
     textureNames = {"trekscon", "trekscrn"},
     spriteNames = {"mcryst01"},
     castSpellIds = {},

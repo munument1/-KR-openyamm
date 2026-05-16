@@ -2249,6 +2249,10 @@ SetMapMetadata({
     openedChestIds = {
         [10] = {1},
     },
+    contextActions = {
+        [10] = { kind = "open_chest", source = "opcode", chestIds = {1} },
+        [11] = { kind = "open_door", source = "title" },
+    },
     timers = {
         { eventId = 10, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
     },
@@ -2279,6 +2283,7 @@ end, "Overlay hint")
     CHECK_FALSE(localEventProgram->hasEvent(10));
     CHECK_FALSE(localEventProgram->getHint(10).has_value());
     CHECK(localEventProgram->getOpenedChestIds(10).empty());
+    CHECK_FALSE(localEventProgram->getContextActionMetadata(10).has_value());
     CHECK(std::find(
         localEventProgram->onLoadEventIds().begin(),
         localEventProgram->onLoadEventIds().end(),
@@ -2306,6 +2311,64 @@ end, "Overlay hint")
     REQUIRE(replacementHint.has_value());
     CHECK_EQ(*replacementSummary, "Overlay");
     CHECK_EQ(*replacementHint, "Overlay hint");
+    CHECK_FALSE(localEventProgram->getContextActionMetadata(11).has_value());
+}
+
+TEST_CASE("scripted event program reads context action metadata")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+
+    REQUIRE(supportLua.has_value());
+
+    const std::string luaSource =
+        *supportLua
+        + R"lua(
+
+SetMapMetadata({
+    contextActions = {
+        [50] = {
+            kind = "leave_dungeon",
+            source = "opcode",
+            targetMap = "outd3.odm",
+            targetName = "Castle Ironfist",
+            houseId = 123,
+            chestIds = {2, 2, 1},
+            hidden = true,
+        },
+    },
+})
+
+RegisterEvent(50, "Exit", function()
+end)
+
+)lua";
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            luaSource,
+            "@events/maps/context_action.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram::ContextActionMetadata> metadata =
+        localEventProgram->getContextActionMetadata(50);
+
+    REQUIRE(metadata.has_value());
+    CHECK_EQ(metadata->kind, "leave_dungeon");
+    CHECK_EQ(metadata->source, "opcode");
+    REQUIRE(metadata->targetMap.has_value());
+    REQUIRE(metadata->targetName.has_value());
+    REQUIRE(metadata->houseId.has_value());
+    CHECK_EQ(*metadata->targetMap, "outd3.odm");
+    CHECK_EQ(*metadata->targetName, "Castle Ironfist");
+    CHECK_EQ(*metadata->houseId, 123u);
+    CHECK_EQ(metadata->chestIds, std::vector<uint32_t>({1, 2}));
+    CHECK(metadata->hidden);
 }
 
 TEST_CASE("event runtime runs global chest open hooks for opened chest ids")

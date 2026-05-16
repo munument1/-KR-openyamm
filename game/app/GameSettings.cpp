@@ -557,6 +557,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "gameplay", "context_action_popup"))
+    {
+        bool parsed = settings.contextActionPopup;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.contextActionPopup = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "blood_splats"))
     {
         bool parsed = settings.bloodSplats;
@@ -1059,7 +1069,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "flip_on_exit=" << (settings.flipOnExit ? "true" : "false") << "\n\n"
         << "[gameplay]\n"
         << "keyboard_interaction_depth=" << std::clamp(settings.keyboardInteractionDepth, 32, 4096) << '\n'
-        << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << "\n\n"
+        << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << '\n'
+        << "context_action_popup=" << (settings.contextActionPopup ? "true" : "false") << "\n\n"
         << "[startup]\n"
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
         << "[features]\n"

@@ -498,6 +498,7 @@ local function ensureMetaScope(scopeName)
     meta.title = meta.title or {}
     meta.hint = meta.hint or {}
     meta.openedChestIds = meta.openedChestIds or {}
+    meta.contextActions = meta.contextActions or {}
     meta.textureNames = meta.textureNames or {}
     meta.spriteNames = meta.spriteNames or {}
     meta.castSpellIds = meta.castSpellIds or {}
@@ -807,6 +808,7 @@ function support.removeScopeEvent(scopeName, tableName, eventId)
     meta.summary = meta.summary or {}
     meta.summary[eventId] = nil
     meta.openedChestIds[eventId] = nil
+    meta.contextActions[eventId] = nil
 
     removeArrayValue(meta.onLoad, eventId)
     removeArrayValue(meta.onLeave, eventId)

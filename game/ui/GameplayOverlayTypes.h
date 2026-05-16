@@ -394,8 +394,13 @@ enum class GameplayHudPointerTargetType
     MenuButton,
     RestButton,
     BooksButton,
+    InventoryButton,
     DimensionDoorButton,
     QuickReferenceButton,
+    AttackButton,
+    TriggerButton,
+    CastButton,
+    ContextActionButton,
     MinimapZoomInButton,
     MinimapZoomOutButton,
     FollowerPanelToggleButton,
@@ -569,6 +574,12 @@ struct GameplayOverlayInteractionState
     GameplayRestPointerTarget restPressedTarget = {};
     bool gameplayHudClickLatch = false;
     GameplayHudPointerTarget gameplayHudPressedTarget = {};
+    bool gameplayHudPressedContextActionActive = false;
+    GameplayWorldHit gameplayHudPressedContextActionHit = {};
+    bool gameplayHudAttackRequested = false;
+    bool gameplayHudTriggerRequested = false;
+    bool gameplayHudSpellTargetConfirmRequested = false;
+    bool gameplayHudSpellTargetCancelRequested = false;
     bool followerPanelOpen = false;
     size_t followerPanelScrollOffset = 0;
     bool menuToggleLatch = false;

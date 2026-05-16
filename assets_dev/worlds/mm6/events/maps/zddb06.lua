@@ -6,6 +6,18 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [3] = { kind = "boost", source = "title" },
+    [4] = { kind = "boost", source = "title" },
+    [5] = { kind = "generic_event", source = "opcode" },
+    [6] = { kind = "use_switch", source = "title" },
+    [7] = { kind = "generic_event", source = "opcode" },
+    [8] = { kind = "generic_event", source = "opcode" },
+    [9] = { kind = "generic_event", source = "opcode" },
+    [10] = { kind = "generic_event", source = "opcode" },
+    [11] = { kind = "secret_event", source = "heuristic", hidden = true },
+    [12] = { kind = "secret_event", source = "heuristic", hidden = true },
+    },
     textureNames = {"d3ll6"},
     spriteNames = {},
     castSpellIds = {},

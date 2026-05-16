@@ -397,6 +397,31 @@ bool isBuffLayoutVisible(const Party &party, const std::string &layoutId)
         return party.hasPartyBuff(PartyBuffId::FeatherFall);
     }
 
+    if (normalizedLayoutId == "outdoorbuffskull_detectlife")
+    {
+        return party.hasPartyBuff(PartyBuffId::DetectLife);
+    }
+
+    if (normalizedLayoutId == "outdoorbuffskull_waterwalk")
+    {
+        return party.hasPartyBuff(PartyBuffId::WaterWalk);
+    }
+
+    if (normalizedLayoutId == "outdoorbuffskull_fly")
+    {
+        return party.hasPartyBuff(PartyBuffId::Fly);
+    }
+
+    if (normalizedLayoutId == "outdoorbuffskull_invisibility")
+    {
+        return party.hasPartyBuff(PartyBuffId::Invisibility);
+    }
+
+    if (normalizedLayoutId == "outdoorbuffskull_immolation")
+    {
+        return party.hasPartyBuff(PartyBuffId::Immolation);
+    }
+
     if (normalizedLayoutId == "outdoorflybufficon")
     {
         return party.hasPartyBuff(PartyBuffId::Fly);
@@ -465,6 +490,12 @@ bool isBuffLayoutVisible(const Party &party, const std::string &layoutId)
     if (normalizedLayoutId == "outdoorbuffbody_immolation")
     {
         return party.hasPartyBuff(PartyBuffId::Immolation);
+    }
+
+    if (normalizedLayoutId.rfind("outdoorbuffskull_", 0) == 0
+        || normalizedLayoutId.rfind("outdoorbuffbody_", 0) == 0)
+    {
+        return false;
     }
 
     return true;
@@ -546,6 +577,9 @@ bool isGameplayElementVisibleInHudState(
             "outdoorbuffbodypanel",
             "outdoorbuffskullpanel",
             "outdoorminimapframe",
+            "outdoormobileactionpanel",
+            "outdoormobilesystempanel",
+            "outdoormobilemovementzone",
         });
 }
 } // namespace
@@ -562,9 +596,13 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
     const GameplayHudScreenState hudScreenState = context.currentHudScreenState();
     const ActiveGameplayHudLayout gameplayHudLayout = isOverlayHudState(hudScreenState)
         ? ActiveGameplayHudLayout::Overlay
+#if defined(__ANDROID__)
+        : ActiveGameplayHudLayout::Widescreen;
+#else
         : (context.settingsSnapshot().gameplayUiLayout == GameplayUiLayout::Standard
             ? ActiveGameplayHudLayout::Standard
             : ActiveGameplayHudLayout::Widescreen);
+#endif
     const bool useGameplayWideHud = gameplayHudLayout == ActiveGameplayHudLayout::Widescreen;
     const std::string basebarLayoutId = basebarLayoutIdForHudLayout(gameplayHudLayout);
     const std::string partyStripLayoutId = partyStripLayoutIdForHudLayout(gameplayHudLayout);
@@ -1436,6 +1474,41 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
                 minimapScissorHeight);
         }
     }
+
+#if defined(__ANDROID__)
+    if (hudScreenState == GameplayHudScreenState::Gameplay)
+    {
+        const GameplayInputFrame *pInputFrame = context.currentGameplayInputFrame();
+
+        if (pInputFrame != nullptr && pInputFrame->mobileJoystickActive)
+        {
+            const std::optional<GameplayHudTextureHandle> joystickBase =
+                context.gameplayUiRuntime().ensureHudTextureLoaded("joystick_base_active");
+            const std::optional<GameplayHudTextureHandle> joystickKnob =
+                context.gameplayUiRuntime().ensureHudTextureLoaded("joystick_knob_active");
+
+            if (joystickBase && joystickKnob)
+            {
+                const float baseSize = 128.0f * uiScale;
+                const float knobSize = 48.0f * uiScale;
+                submitQuad(
+                    queuedHudQuads,
+                    *joystickBase,
+                    pInputFrame->mobileJoystickBaseX - baseSize * 0.5f,
+                    pInputFrame->mobileJoystickBaseY - baseSize * 0.5f,
+                    baseSize,
+                    baseSize);
+                submitQuad(
+                    queuedHudQuads,
+                    *joystickKnob,
+                    pInputFrame->mobileJoystickKnobX - knobSize * 0.5f,
+                    pInputFrame->mobileJoystickKnobY - knobSize * 0.5f,
+                    knobSize,
+                    knobSize);
+            }
+        }
+    }
+#endif
 
     flushQueuedHudQuads();
 }

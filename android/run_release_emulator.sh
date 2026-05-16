@@ -11,7 +11,37 @@ emulator_partition_mb=${OPENYAMM_EMULATOR_PARTITION_MB:-16384}
 emulator_wipe_data=${OPENYAMM_EMULATOR_WIPE_DATA:-0}
 build_release_apk=${OPENYAMM_BUILD_RELEASE_APK:-1}
 uninstall_on_signature_mismatch=${OPENYAMM_ANDROID_UNINSTALL_ON_SIGNATURE_MISMATCH:-1}
+repack_assets=${OPENYAMM_REPACK_ASSETS:-0}
+force_landscape=${OPENYAMM_EMULATOR_LANDSCAPE:-1}
+follow_logs=${OPENYAMM_ANDROID_FOLLOW_LOGS:-1}
 apk_path="${repo_root}/android/app-release.apk"
+
+usage()
+{
+    echo "Usage: $0 [--repack-assets] [--no-logcat]" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repack-assets)
+            repack_assets=1
+            shift
+            ;;
+        --no-logcat)
+            follow_logs=0
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
 
 read_local_sdk_dir()
 {
@@ -115,23 +145,47 @@ check_release_device_abi()
 {
     local serial="$1"
     local device_abis=""
+    local requested_abis="${OPENYAMM_ANDROID_RELEASE_ABIS:-arm64-v8a}"
 
     device_abis=$("${adb_bin}" -s "${serial}" shell getprop ro.product.cpu.abilist 2>/dev/null | tr -d '\r' || true)
 
-    if [[ ",${device_abis}," == *",arm64-v8a,"* ]]; then
+    IFS=',' read -ra requested_abi_list <<<"${requested_abis}"
+    for requested_abi in "${requested_abi_list[@]}"; do
+        requested_abi=$(echo "${requested_abi}" | xargs)
+        if [[ -n "${requested_abi}" && ",${device_abis}," == *",${requested_abi},"* ]]; then
+            return 0
+        fi
+    done
+
+    echo "Release APK ABIs (${requested_abis}) do not match ${serial}, which supports: ${device_abis:-unknown}" >&2
+    echo "For this x86_64 AVD, set OPENYAMM_ANDROID_RELEASE_ABIS=x86_64 for release-emulator testing." >&2
+    return 1
+}
+
+force_landscape_orientation()
+{
+    local serial="$1"
+
+    if [[ "${force_landscape}" != "1" ]]; then
         return 0
     fi
 
-    echo "Release APK is arm64-v8a only, but ${serial} supports: ${device_abis:-unknown}" >&2
-    echo "Use an arm64 emulator/device for release testing, or use android/run_debug_emulator.sh on x86_64." >&2
-    return 1
+    echo "Forcing emulator landscape orientation..."
+    "${adb_bin}" -s "${serial}" shell settings put system accelerometer_rotation 0 >/dev/null || true
+    "${adb_bin}" -s "${serial}" shell settings put system user_rotation 1 >/dev/null || true
 }
 
 echo "ANDROID_HOME=${ANDROID_HOME}"
 echo "JAVA_HOME=${JAVA_HOME}"
 
 if [[ "${build_release_apk}" == "1" ]]; then
-    "${script_dir}/build_release_apk.sh"
+    build_release_args=()
+
+    if [[ "${repack_assets}" == "1" ]]; then
+        build_release_args+=(--repack-assets)
+    fi
+
+    "${script_dir}/build_release_apk.sh" "${build_release_args[@]}"
 elif [[ ! -f "${apk_path}" ]]; then
     echo "Release APK not found: ${apk_path}" >&2
     echo "Run android/build_release_apk.sh first, or set OPENYAMM_BUILD_RELEASE_APK=1." >&2
@@ -160,7 +214,11 @@ if [[ -z "${serial}" ]]; then
         emulator_args+=(-wipe-data -no-snapshot-load)
     fi
 
-    nohup "${emulator_bin}" "${emulator_args[@]}" >"${repo_root}/android/emulator-${avd_name}.log" 2>&1 &
+    if command -v setsid >/dev/null 2>&1; then
+        setsid -f "${emulator_bin}" "${emulator_args[@]}" >"${repo_root}/android/emulator-${avd_name}.log" 2>&1
+    else
+        nohup "${emulator_bin}" "${emulator_args[@]}" >"${repo_root}/android/emulator-${avd_name}.log" 2>&1 &
+    fi
 
     "${adb_bin}" wait-for-device
     serial=$(device_serial || true)
@@ -173,6 +231,7 @@ fi
 
 wait_for_boot "${serial}"
 check_release_device_abi "${serial}"
+force_landscape_orientation "${serial}"
 
 echo "Using device ${serial}"
 echo "Installing ${apk_path}..."
@@ -181,6 +240,11 @@ install_apk "${serial}"
 echo "Launching ${package_name}..."
 "${adb_bin}" -s "${serial}" logcat -c
 "${adb_bin}" -s "${serial}" shell monkey -p "${package_name}" 1 >/dev/null
+
+if [[ "${follow_logs}" != "1" ]]; then
+    echo "Launched ${package_name}; logcat follow disabled."
+    exit 0
+fi
 
 echo "Following logs. Press Ctrl-C to stop."
 "${adb_bin}" -s "${serial}" logcat -v time -s OpenYAMM SDL AndroidRuntime DEBUG libc

@@ -7,6 +7,17 @@ SetMapMetadata({
     openedChestIds = {
     [75] = {1},
     },
+    contextActions = {
+    [75] = { kind = "open_chest", source = "opcode", chestIds = {1} },
+    [90] = { kind = "enter_house", source = "opcode", houseId = 421, targetName = "The Hive" },
+    [100] = { kind = "well", source = "title" },
+    [101] = { kind = "fountain", source = "title" },
+    [102] = { kind = "fountain", source = "title" },
+    [103] = { kind = "use_pedestal", source = "title" },
+    [204] = { kind = "enter_house", source = "opcode", houseId = 1216, targetName = "House" },
+    [205] = { kind = "enter_house", source = "opcode", houseId = 1231, targetName = "House" },
+    [210] = { kind = "obelisk", source = "title" },
+    },
     textureNames = {},
     spriteNames = {"ped02"},
     castSpellIds = {},

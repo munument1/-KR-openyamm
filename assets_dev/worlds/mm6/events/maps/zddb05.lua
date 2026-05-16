@@ -7,6 +7,14 @@ SetMapMetadata({
     openedChestIds = {
     [5] = {0},
     },
+    contextActions = {
+    [1] = { kind = "generic_event", source = "opcode" },
+    [2] = { kind = "teleport", source = "heuristic" },
+    [3] = { kind = "generic_event", source = "opcode" },
+    [4] = { kind = "use_switch", source = "title" },
+    [5] = { kind = "open_chest", source = "opcode", chestIds = {0} },
+    [6] = { kind = "generic_event", source = "opcode" },
+    },
     textureNames = {"d8s2on"},
     spriteNames = {"0"},
     castSpellIds = {},

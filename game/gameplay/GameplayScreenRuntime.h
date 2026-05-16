@@ -156,11 +156,16 @@ public:
     const std::vector<uint8_t> *journalMapFullyRevealedCells() const;
     const std::vector<uint8_t> *journalMapPartiallyRevealedCells() const;
     EventDialogContent &activeEventDialog() const;
+    bool pendingSpellTargetActive() const;
+    PartySpellCastTargetKind pendingSpellTargetKind() const;
     std::string &statusBarEventText() const;
     float &statusBarEventRemainingSeconds() const;
     const std::string &statusBarHoverText() const;
     void setStatusBarHoverText(const std::string &text) const;
     void clearStatusBarHoverText() const;
+    GameplayContextActionState &contextActionState() const;
+    const GameplayContextActionState &contextActionStateReadOnly() const;
+    void clearContextActionState() const;
     size_t &eventDialogSelectionIndex() const;
     GameplayOverlayInteractionState &interactionState() const;
     const GameplayInputFrame *currentGameplayInputFrame() const;

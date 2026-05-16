@@ -263,6 +263,106 @@ std::unordered_map<uint16_t, std::vector<uint32_t>> readOpenedChestIds(lua_State
     return values;
 }
 
+std::optional<std::string> readOptionalStringField(lua_State *pLuaState, int tableIndex, const char *pFieldName)
+{
+    const int absoluteTableIndex = lua_absindex(pLuaState, tableIndex);
+    lua_getfield(pLuaState, absoluteTableIndex, pFieldName);
+
+    std::optional<std::string> value;
+
+    if (lua_isstring(pLuaState, -1))
+    {
+        value = std::string(lua_tostring(pLuaState, -1));
+    }
+
+    lua_pop(pLuaState, 1);
+    return value;
+}
+
+std::optional<uint32_t> readOptionalUnsignedField(lua_State *pLuaState, int tableIndex, const char *pFieldName)
+{
+    const int absoluteTableIndex = lua_absindex(pLuaState, tableIndex);
+    lua_getfield(pLuaState, absoluteTableIndex, pFieldName);
+
+    std::optional<uint32_t> value;
+
+    if (lua_isinteger(pLuaState, -1))
+    {
+        const lua_Integer rawValue = lua_tointeger(pLuaState, -1);
+
+        if (rawValue >= 0)
+        {
+            value = static_cast<uint32_t>(rawValue);
+        }
+    }
+
+    lua_pop(pLuaState, 1);
+    return value;
+}
+
+std::optional<ScriptedEventProgram::ContextActionMetadata> readContextActionMetadata(
+    lua_State *pLuaState,
+    int tableIndex)
+{
+    if (!lua_istable(pLuaState, tableIndex))
+    {
+        return std::nullopt;
+    }
+
+    ScriptedEventProgram::ContextActionMetadata metadata = {};
+    const int absoluteTableIndex = lua_absindex(pLuaState, tableIndex);
+
+    metadata.kind = readOptionalStringField(pLuaState, absoluteTableIndex, "kind").value_or("");
+    metadata.source = readOptionalStringField(pLuaState, absoluteTableIndex, "source").value_or("");
+    metadata.houseId = readOptionalUnsignedField(pLuaState, absoluteTableIndex, "houseId");
+    metadata.targetMap = readOptionalStringField(pLuaState, absoluteTableIndex, "targetMap");
+    metadata.targetName = readOptionalStringField(pLuaState, absoluteTableIndex, "targetName");
+    metadata.chestIds = readIntegerArrayFromField<uint32_t>(pLuaState, absoluteTableIndex, "chestIds");
+
+    lua_getfield(pLuaState, absoluteTableIndex, "hidden");
+    metadata.hidden = lua_toboolean(pLuaState, -1) != 0;
+    lua_pop(pLuaState, 1);
+
+    if (metadata.kind.empty())
+    {
+        return std::nullopt;
+    }
+
+    return metadata;
+}
+
+std::unordered_map<uint16_t, ScriptedEventProgram::ContextActionMetadata> readContextActionMetadataByEventId(
+    lua_State *pLuaState,
+    int tableIndex)
+{
+    std::unordered_map<uint16_t, ScriptedEventProgram::ContextActionMetadata> values;
+    lua_getfield(pLuaState, tableIndex, "contextActions");
+
+    if (lua_istable(pLuaState, -1))
+    {
+        lua_pushnil(pLuaState);
+
+        while (lua_next(pLuaState, -2) != 0)
+        {
+            if (lua_isinteger(pLuaState, -2) && lua_istable(pLuaState, -1))
+            {
+                const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+                    readContextActionMetadata(pLuaState, -1);
+
+                if (metadata)
+                {
+                    values.emplace(static_cast<uint16_t>(lua_tointeger(pLuaState, -2)), *metadata);
+                }
+            }
+
+            lua_pop(pLuaState, 1);
+        }
+    }
+
+    lua_pop(pLuaState, 1);
+    return values;
+}
+
 std::vector<ScriptedEventProgram::TimerTrigger> readTimerTriggers(lua_State *pLuaState, int tableIndex)
 {
     std::vector<ScriptedEventProgram::TimerTrigger> timers;
@@ -363,6 +463,7 @@ bool ScriptedEventProgram::populateMetadataFromLua(
     }
 
     program.m_openedChestIdsByEventId = readOpenedChestIds(pLuaState, -1);
+    program.m_contextActionsByEventId = readContextActionMetadataByEventId(pLuaState, -1);
     program.m_textureNames = readStringArrayFromField(pLuaState, -1, "textureNames");
     program.m_spriteNames = readStringArrayFromField(pLuaState, -1, "spriteNames");
     program.m_castSpellIds = readIntegerArrayFromField<uint32_t>(pLuaState, -1, "castSpellIds");
@@ -507,5 +608,14 @@ std::vector<uint32_t> ScriptedEventProgram::getOpenedChestIds(uint16_t eventId) 
 {
     const auto iterator = m_openedChestIdsByEventId.find(eventId);
     return iterator != m_openedChestIdsByEventId.end() ? iterator->second : std::vector<uint32_t>{};
+}
+
+std::optional<ScriptedEventProgram::ContextActionMetadata> ScriptedEventProgram::getContextActionMetadata(
+    uint16_t eventId) const
+{
+    const auto iterator = m_contextActionsByEventId.find(eventId);
+    return iterator != m_contextActionsByEventId.end()
+        ? std::optional<ContextActionMetadata>(iterator->second)
+        : std::nullopt;
 }
 }

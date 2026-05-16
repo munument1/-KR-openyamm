@@ -535,6 +535,52 @@ TEST_CASE("trapped chest opens when active character disarms it")
     CHECK(result.memberResults.empty());
 }
 
+TEST_CASE("trapped chest opens when another party member disarms it")
+{
+    OpenYAMM::Game::Character activeMember = {};
+    activeMember.name = "Opener";
+    activeMember.maxHealth = 50;
+    activeMember.health = 50;
+
+    OpenYAMM::Game::Character disarmer = {};
+    disarmer.name = "Disarmer";
+    disarmer.maxHealth = 50;
+    disarmer.health = 50;
+    disarmer.skills["DisarmTraps"] = OpenYAMM::Game::CharacterSkill{
+        .name = "DisarmTraps",
+        .level = 1,
+        .mastery = OpenYAMM::Game::SkillMastery::Grandmaster,
+    };
+
+    OpenYAMM::Game::PartySeed seed = {};
+    seed.members.push_back(activeMember);
+    seed.members.push_back(disarmer);
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(seed);
+    REQUIRE(party.setActiveMemberIndex(0));
+
+    OpenYAMM::Game::MapStatsEntry map = {};
+    map.disarmDifficulty = 20;
+    map.trapDamageD20DiceCount = 0;
+
+    OpenYAMM::Game::ChestTrapOpenContext context = {};
+    context.seed = 1234;
+    const OpenYAMM::Game::ChestTrapOpenResult result = OpenYAMM::Game::resolveChestTrapOpen(
+        party,
+        map,
+        static_cast<uint16_t>(OpenYAMM::Game::EvtChestFlag::Trapped),
+        context,
+        nullptr,
+        nullptr,
+        nullptr);
+
+    CHECK(result.trapWasPresent);
+    CHECK(result.trapDisarmed);
+    CHECK_FALSE(result.trapDischarged);
+    CHECK(result.shouldOpenChest);
+}
+
 TEST_CASE("failed trapped chest opening discharges trap and damages nearby party")
 {
     OpenYAMM::Game::Character member = {};

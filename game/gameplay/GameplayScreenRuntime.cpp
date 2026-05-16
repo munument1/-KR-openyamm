@@ -887,6 +887,16 @@ EventDialogContent &GameplayScreenRuntime::activeEventDialog() const
     return uiController().eventDialog().content;
 }
 
+bool GameplayScreenRuntime::pendingSpellTargetActive() const
+{
+    return m_session.gameplayScreenState().pendingSpellTarget().active;
+}
+
+PartySpellCastTargetKind GameplayScreenRuntime::pendingSpellTargetKind() const
+{
+    return m_session.gameplayScreenState().pendingSpellTarget().targetKind;
+}
+
 std::string &GameplayScreenRuntime::statusBarEventText() const
 {
     return uiController().statusBar().eventText;
@@ -900,6 +910,21 @@ float &GameplayScreenRuntime::statusBarEventRemainingSeconds() const
 const std::string &GameplayScreenRuntime::statusBarHoverText() const
 {
     return uiController().statusBar().hoverText;
+}
+
+GameplayContextActionState &GameplayScreenRuntime::contextActionState() const
+{
+    return uiController().contextActionState();
+}
+
+const GameplayContextActionState &GameplayScreenRuntime::contextActionStateReadOnly() const
+{
+    return uiController().contextActionState();
+}
+
+void GameplayScreenRuntime::clearContextActionState() const
+{
+    uiController().contextActionState() = {};
 }
 
 void GameplayScreenRuntime::setStatusBarHoverText(const std::string &text) const

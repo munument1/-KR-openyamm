@@ -447,7 +447,31 @@ std::string GameplaySpellService::pendingTargetSelectionPromptText(bool includeC
 
     if (includeControls)
     {
+#if defined(__ANDROID__)
+        const bool mobileGroundTargetConfirmSpell =
+            isSpellId(pendingTargetState.spellId, SpellId::MeteorShower)
+            || isSpellId(pendingTargetState.spellId, SpellId::Starburst);
+
+        if (mobileGroundTargetConfirmSpell)
+        {
+            prompt += "  Drag target  Spell button cast  Pause cancel";
+        }
+        else if (pendingTargetState.targetKind == PartySpellCastTargetKind::Character)
+        {
+            prompt += "  Tap portrait  Pause cancel";
+        }
+        else if (pendingTargetState.targetKind == PartySpellCastTargetKind::Actor
+            || pendingTargetState.targetKind == PartySpellCastTargetKind::ActorOrCharacter)
+        {
+            prompt += "  Tap target  Pause cancel";
+        }
+        else
+        {
+            prompt += "  Tap target  Pause cancel";
+        }
+#else
         prompt += "  LMB cast  Esc cancel";
+#endif
     }
 
     return prompt;

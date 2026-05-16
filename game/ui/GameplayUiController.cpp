@@ -1,16 +1,19 @@
 #include "game/ui/GameplayUiController.h"
 
-#include <array>
 #include <algorithm>
 #include <iostream>
 #include <optional>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
 namespace
 {
-const std::array<std::string, 23> GameplayLayoutFiles = {
+const std::vector<std::string> GameplayLayoutFiles = {
     "Data/ui/gameplay/gameplay.yml",
+#if defined(__ANDROID__)
+    "Data/ui/gameplay/gameplay_mobile.yml",
+#endif
     "Data/ui/gameplay/chest.yml",
     "Data/ui/gameplay/dialogue.yml",
     "Data/ui/gameplay/character.yml",
@@ -340,6 +343,16 @@ GameplayUiController::StatusBarState &GameplayUiController::statusBar()
 const GameplayUiController::StatusBarState &GameplayUiController::statusBar() const
 {
     return resolvedState().statusBar;
+}
+
+GameplayContextActionState &GameplayUiController::contextActionState()
+{
+    return resolvedState().contextAction;
+}
+
+const GameplayContextActionState &GameplayUiController::contextActionState() const
+{
+    return resolvedState().contextAction;
 }
 
 GameplayUiController::EventDialogState &GameplayUiController::eventDialog()

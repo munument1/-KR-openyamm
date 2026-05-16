@@ -1068,13 +1068,13 @@ std::optional<std::string> skillNameForEvtVariable(EvtVariable variableId)
         case EvtVariable::DarkSkill: return "DarkMagic";
         case EvtVariable::IdentifyItemSkill: return "IdentifyItem";
         case EvtVariable::MerchantSkill: return "Merchant";
-        case EvtVariable::RepairSkill: return "Repair";
+        case EvtVariable::RepairSkill: return "RepairItem";
         case EvtVariable::BodybuildingSkill: return "Bodybuilding";
         case EvtVariable::MeditationSkill: return "Meditation";
         case EvtVariable::PerceptionSkill: return "Perception";
         case EvtVariable::DiplomacySkill: return "Diplomacy";
         case EvtVariable::ThieverySkill: return "Thievery";
-        case EvtVariable::DisarmTrapSkill: return "DisarmTrap";
+        case EvtVariable::DisarmTrapSkill: return "DisarmTraps";
         case EvtVariable::DodgeSkill: return "Dodging";
         case EvtVariable::UnarmedSkill: return "Unarmed";
         case EvtVariable::IdentifyMonsterSkill: return "IdentifyMonster";
@@ -2385,16 +2385,19 @@ int32_t EventRuntime::getVariableValue(
 
     if (variable.kind == VariableKind::Skill)
     {
-        const Character *pMember = resolveCharacterForVariableRead(pParty, memberIndex);
+        const std::optional<std::string> skillName = skillNameForEvtVariable(variableId);
 
-        if (pMember == nullptr)
+        if (!skillName)
         {
             return 0;
         }
 
-        const std::optional<std::string> skillName = skillNameForEvtVariable(variableId);
+        const Character *pMember =
+            pParty != nullptr && Party::isPartyWideUtilitySkill(*skillName)
+                ? pParty->bestPartyWideUtilitySkillMember(*skillName)
+                : resolveCharacterForVariableRead(pParty, memberIndex);
 
-        if (!skillName)
+        if (pMember == nullptr)
         {
             return 0;
         }
@@ -5960,15 +5963,26 @@ int luaCheckSkill(lua_State *pLuaState)
         return 1;
     }
 
-    for (size_t memberIndex : selectedTargetMemberIndices(pLuaState))
+    if (Party::isPartyWideUtilitySkill(*skillName))
     {
-        const Character *pMember = pParty->member(memberIndex);
-
-        if (pMember != nullptr
-            && characterMeetsSkillCheck(*pMember, *skillName, static_cast<uint32_t>(rawMasteryArgument), level))
+        const std::optional<size_t> memberIndex = pParty->bestPartyWideUtilitySkillMemberIndex(*skillName);
+        const Character *pMember = memberIndex ? pParty->member(*memberIndex) : nullptr;
+        passed =
+            pMember != nullptr
+            && characterMeetsSkillCheck(*pMember, *skillName, static_cast<uint32_t>(rawMasteryArgument), level);
+    }
+    else
+    {
+        for (size_t memberIndex : selectedTargetMemberIndices(pLuaState))
         {
-            passed = true;
-            break;
+            const Character *pMember = pParty->member(memberIndex);
+
+            if (pMember != nullptr
+                && characterMeetsSkillCheck(*pMember, *skillName, static_cast<uint32_t>(rawMasteryArgument), level))
+            {
+                passed = true;
+                break;
+            }
         }
     }
 

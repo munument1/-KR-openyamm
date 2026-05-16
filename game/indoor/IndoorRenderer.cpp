@@ -1362,6 +1362,104 @@ std::optional<std::string> resolveIndoorGlobalEventHintText(
     return std::nullopt;
 }
 
+std::vector<uint32_t> resolveIndoorOpenedChestIds(const IndoorSceneRuntime *pSceneRuntime, uint16_t eventId)
+{
+    if (pSceneRuntime == nullptr || eventId == 0)
+    {
+        return {};
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
+
+    if (localEventProgram)
+    {
+        const std::vector<uint32_t> chestIds = localEventProgram->getOpenedChestIds(eventId);
+
+        if (!chestIds.empty())
+        {
+            return chestIds;
+        }
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+
+    return globalEventProgram ? globalEventProgram->getOpenedChestIds(eventId) : std::vector<uint32_t>{};
+}
+
+static GameplayEventTargetContextActionMetadata toGameplayContextActionMetadata(
+    const ScriptedEventProgram::ContextActionMetadata &metadata)
+{
+    GameplayEventTargetContextActionMetadata gameplayMetadata = {};
+    gameplayMetadata.kind = metadata.kind;
+    gameplayMetadata.source = metadata.source;
+    gameplayMetadata.houseId = metadata.houseId;
+    gameplayMetadata.targetMap = metadata.targetMap;
+    gameplayMetadata.targetName = metadata.targetName;
+    gameplayMetadata.chestIds = metadata.chestIds;
+    gameplayMetadata.hidden = metadata.hidden;
+    return gameplayMetadata;
+}
+
+std::optional<GameplayEventTargetContextActionMetadata> resolveIndoorContextActionMetadata(
+    const IndoorSceneRuntime *pSceneRuntime,
+    uint16_t eventId)
+{
+    if (pSceneRuntime == nullptr || eventId == 0)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
+
+    if (localEventProgram)
+    {
+        const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+            localEventProgram->getContextActionMetadata(eventId);
+
+        if (metadata)
+        {
+            return toGameplayContextActionMetadata(*metadata);
+        }
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+
+    if (!globalEventProgram)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+        globalEventProgram->getContextActionMetadata(eventId);
+
+    if (!metadata)
+    {
+        return std::nullopt;
+    }
+
+    return toGameplayContextActionMetadata(*metadata);
+}
+
+bool indoorEventIsHintOnly(const IndoorSceneRuntime *pSceneRuntime, uint16_t eventId)
+{
+    if (pSceneRuntime == nullptr || eventId == 0)
+    {
+        return false;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
+
+    if (localEventProgram && localEventProgram->hasEvent(eventId))
+    {
+        return localEventProgram->isHintOnlyEvent(eventId);
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+
+    return globalEventProgram && globalEventProgram->hasEvent(eventId)
+        && globalEventProgram->isHintOnlyEvent(eventId);
+}
+
 bool indoorFaceIsInteractionActivatable(uint32_t attributes, uint16_t eventId)
 {
     return eventId != 0
@@ -1649,6 +1747,62 @@ uint32_t resolveHoveredIndoorActorOutlineColor(
 uint32_t hoveredIndoorWorldItemOutlineColor()
 {
     return makeAbgr(64, 128, 255);
+}
+
+uint32_t contextActionHighlightOutlineColor()
+{
+    return makeAbgr(56, 216, 255);
+}
+
+uint32_t makeAbgrAlpha(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+{
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>(blue) << 16)
+        | (static_cast<uint32_t>(green) << 8)
+        | static_cast<uint32_t>(red);
+}
+
+uint32_t contextActionGeometryHighlightColor(float elapsedTime)
+{
+    const float pulse = 0.5f + 0.5f * std::sin(elapsedTime * 4.0f);
+    const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(52.0f + pulse * 52.0f), 0l, 255l));
+    return makeAbgrAlpha(56, 216, 255, alpha);
+}
+
+const GameplayWorldHit *selectedContextActionWorldHit(const GameplayContextActionState *pState)
+{
+    if (pState == nullptr || !pState->visible || pState->primaryIndex >= pState->actions.size())
+    {
+        return nullptr;
+    }
+
+    const GameplayWorldHit &hit = pState->actions[pState->primaryIndex].worldHit;
+    return hit.hasHit ? &hit : nullptr;
+}
+
+bool contextActionHighlightsActor(const GameplayWorldHit *pHit, size_t actorIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::Actor
+        && pHit->actor.has_value()
+        && pHit->actor->actorIndex == actorIndex;
+}
+
+bool contextActionHighlightsWorldItem(const GameplayWorldHit *pHit, size_t worldItemIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::WorldItem
+        && pHit->worldItem.has_value()
+        && pHit->worldItem->worldItemIndex == worldItemIndex;
+}
+
+bool contextActionHighlightsIndoorEntity(const GameplayWorldHit *pHit, size_t entityIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::EventTarget
+        && pHit->eventTarget.has_value()
+        && pHit->eventTarget->targetKind == GameplayWorldEventTargetKind::Entity
+        && pHit->eventTarget->targetIndex == entityIndex;
 }
 
 std::string normalizeBillboardTextureName(const std::string &textureName)
@@ -3299,6 +3453,13 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderBloodSplatsNanoseconds += SDL_GetTicksNS() - bloodSplatsBeginTickCount;
     }
 
+    const GameplayContextActionState *pContextActionState = nullptr;
+    if (settings.contextActionPopup)
+    {
+        pContextActionState = &gameSession.gameplayScreenRuntime().contextActionStateReadOnly();
+    }
+    renderContextActionGeometryHighlight(MainViewId, pContextActionState);
+
     const uint64_t decorationBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderDecorationBillboards(
         MainViewId,
@@ -3306,7 +3467,8 @@ void IndoorRenderer::render(
         eye,
         renderVisibleSectorMask,
         renderVisibleSectorFrustums,
-        lightingFrame);
+        lightingFrame,
+        pContextActionState);
 
     if (collectRenderDiagnostics)
     {
@@ -3321,7 +3483,8 @@ void IndoorRenderer::render(
         renderVisibleSectorMask,
         renderVisibleSectorFrustums,
         lightingFrame,
-        settings.spriteOutline);
+        settings.spriteOutline,
+        pContextActionState);
 
     if (collectRenderDiagnostics)
     {
@@ -3336,7 +3499,8 @@ void IndoorRenderer::render(
         renderVisibleSectorMask,
         renderVisibleSectorFrustums,
         lightingFrame,
-        settings.spriteOutline);
+        settings.spriteOutline,
+        pContextActionState);
 
     if (collectRenderDiagnostics)
     {
@@ -3964,6 +4128,7 @@ GameplayWorldHit IndoorRenderer::translateInspectHitToGameplayWorldHit(
 
             GameplayWorldItemTargetHit worldItemHit = {};
             worldItemHit.worldItemIndex = inspectHit.index;
+            worldItemHit.displayName = inspectHit.name;
             worldItemHit.objectDescriptionId = inspectHit.objectDescriptionId;
             worldItemHit.objectSpriteId = inspectHit.objectSpriteId;
             worldItemHit.hitPoint = hitPoint;
@@ -3995,9 +4160,15 @@ GameplayWorldHit IndoorRenderer::translateInspectHitToGameplayWorldHit(
     eventTargetHit.variableSecondary = inspectHit.variableSecondary;
     eventTargetHit.specialTrigger = inspectHit.specialTrigger;
     eventTargetHit.attributes = inspectHit.attributes;
-    eventTargetHit.name = inspectHit.name;
+    const std::optional<std::string> eventTargetStatusText = resolveEventTargetHoverStatusText(inspectHit);
+    eventTargetHit.name =
+        eventTargetStatusText && !eventTargetStatusText->empty() ? *eventTargetStatusText : inspectHit.name;
     eventTargetHit.hitPoint = hitPoint;
     eventTargetHit.distance = inspectHit.distance;
+    const uint16_t eventId = inspectHitEventId(inspectHit);
+    eventTargetHit.openedChestIds = resolveIndoorOpenedChestIds(m_pSceneRuntime, eventId);
+    eventTargetHit.contextActionMetadata = resolveIndoorContextActionMetadata(m_pSceneRuntime, eventId);
+    eventTargetHit.hintOnlyEvent = indoorEventIsHintOnly(m_pSceneRuntime, eventId);
 
     if (inspectHit.kind == "face")
     {
@@ -4471,6 +4642,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             };
             GameplayWorldItemTargetHit worldItemHit = {};
             worldItemHit.worldItemIndex = object.objectIndex;
+            worldItemHit.displayName = object.objectName;
             worldItemHit.objectDescriptionId = object.objectDescriptionId;
             worldItemHit.objectSpriteId = object.objectSpriteId;
             worldItemHit.hitPoint = hitPoint;
@@ -5758,7 +5930,8 @@ void IndoorRenderer::renderDecorationBillboards(
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
-    const IndoorLightingFrame &lightingFrame
+    const IndoorLightingFrame &lightingFrame,
+    const GameplayContextActionState *pContextActionState
 )
 {
     if (!m_indoorDecorationBillboardSet
@@ -5790,11 +5963,14 @@ void IndoorRenderer::renderDecorationBillboards(
         const SpriteFrameEntry *pFrame = nullptr;
         const BillboardTextureHandle *pTexture = nullptr;
         bool mirrored = false;
+        bool hovered = false;
+        uint32_t hoveredOutlineColorAbgr = 0;
         float distanceSquared = 0.0f;
     };
 
     std::vector<BillboardDrawItem> drawItems;
     drawItems.reserve(m_indoorDecorationBillboardSet->billboards.size());
+    const GameplayWorldHit *pContextActionHit = selectedContextActionWorldHit(pContextActionState);
     const auto resolveBillboardSpriteId = [this](const DecorationBillboard &billboard, bool &hidden)
     {
         hidden = false;
@@ -5911,6 +6087,8 @@ void IndoorRenderer::renderDecorationBillboards(
         drawItem.pFrame = pFrame;
         drawItem.pTexture = pTexture;
         drawItem.mirrored = resolvedTexture.mirrored;
+        drawItem.hovered = contextActionHighlightsIndoorEntity(pContextActionHit, billboard.entityIndex);
+        drawItem.hoveredOutlineColorAbgr = drawItem.hovered ? contextActionHighlightOutlineColor() : 0;
         drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
         drawItems.push_back(drawItem);
     };
@@ -5980,6 +6158,137 @@ void IndoorRenderer::renderDecorationBillboards(
         const float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float fogDensities[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
+
+        if (drawItem.hovered)
+        {
+            const float paddingU = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.width);
+            const float paddingV = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.height);
+            const float outlinedHalfWidth =
+                (static_cast<float>(texture.width) * spriteScale
+                    + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
+            const float outlinedHalfHeight =
+                (static_cast<float>(texture.height) * spriteScale
+                    + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
+            const bx::Vec3 outlineRight = {
+                cameraRight.x * outlinedHalfWidth,
+                cameraRight.y * outlinedHalfWidth,
+                cameraRight.z * outlinedHalfWidth
+            };
+            const bx::Vec3 outlineUp = {
+                cameraUp.x * outlinedHalfHeight,
+                cameraUp.y * outlinedHalfHeight,
+                cameraUp.z * outlinedHalfHeight
+            };
+            const float outlineU0 = drawItem.mirrored ? 1.0f + paddingU : -paddingU;
+            const float outlineU1 = drawItem.mirrored ? -paddingU : 1.0f + paddingU;
+            const float outlineVTop = -paddingV;
+            const float outlineVBottom = 1.0f + paddingV;
+            std::array<LitBillboardVertex, 6> outlineVertices = {{
+                {
+                    center.x - outlineRight.x - outlineUp.x,
+                    center.y - outlineRight.y - outlineUp.y,
+                    center.z - outlineRight.z - outlineUp.z,
+                    outlineU0,
+                    outlineVBottom,
+                    vertexColorAbgr
+                },
+                {
+                    center.x - outlineRight.x + outlineUp.x,
+                    center.y - outlineRight.y + outlineUp.y,
+                    center.z - outlineRight.z + outlineUp.z,
+                    outlineU0,
+                    outlineVTop,
+                    vertexColorAbgr
+                },
+                {
+                    center.x + outlineRight.x + outlineUp.x,
+                    center.y + outlineRight.y + outlineUp.y,
+                    center.z + outlineRight.z + outlineUp.z,
+                    outlineU1,
+                    outlineVTop,
+                    vertexColorAbgr
+                },
+                {
+                    center.x - outlineRight.x - outlineUp.x,
+                    center.y - outlineRight.y - outlineUp.y,
+                    center.z - outlineRight.z - outlineUp.z,
+                    outlineU0,
+                    outlineVBottom,
+                    vertexColorAbgr
+                },
+                {
+                    center.x + outlineRight.x + outlineUp.x,
+                    center.y + outlineRight.y + outlineUp.y,
+                    center.z + outlineRight.z + outlineUp.z,
+                    outlineU1,
+                    outlineVTop,
+                    vertexColorAbgr
+                },
+                {
+                    center.x + outlineRight.x - outlineUp.x,
+                    center.y + outlineRight.y - outlineUp.y,
+                    center.z + outlineRight.z - outlineUp.z,
+                    outlineU1,
+                    outlineVBottom,
+                    vertexColorAbgr
+                }
+            }};
+
+            if (bgfx::getAvailTransientVertexBuffer(
+                    static_cast<uint32_t>(outlineVertices.size()),
+                    LitBillboardVertex::ms_layout) >= outlineVertices.size())
+            {
+                bgfx::TransientVertexBuffer outlineTransientVertexBuffer = {};
+                bgfx::allocTransientVertexBuffer(
+                    &outlineTransientVertexBuffer,
+                    static_cast<uint32_t>(outlineVertices.size()),
+                    LitBillboardVertex::ms_layout);
+                std::memcpy(
+                    outlineTransientVertexBuffer.data,
+                    outlineVertices.data(),
+                    static_cast<size_t>(outlineVertices.size() * sizeof(LitBillboardVertex)));
+
+                const float overrideColor[4] = {
+                    redChannel(drawItem.hoveredOutlineColorAbgr),
+                    greenChannel(drawItem.hoveredOutlineColorAbgr),
+                    blueChannel(drawItem.hoveredOutlineColorAbgr),
+                    1.0f
+                };
+                const float outlineParams[4] = {
+                    1.0f / static_cast<float>(texture.width),
+                    1.0f / static_cast<float>(texture.height),
+                    HoveredActorOutlineThicknessPixels,
+                    1.0f
+                };
+                float modelMatrix[16] = {};
+                bx::mtxIdentity(modelMatrix);
+                bgfx::setTransform(modelMatrix);
+                bgfx::setVertexBuffer(
+                    0,
+                    &outlineTransientVertexBuffer,
+                    0,
+                    static_cast<uint32_t>(outlineVertices.size()));
+                bindTexture(
+                    0,
+                    m_textureSamplerHandle,
+                    texture.textureHandle,
+                    TextureFilterProfile::Billboard,
+                    BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+                bgfx::setUniform(m_billboardAmbientUniformHandle, ambient.data());
+                bgfx::setUniform(m_billboardOverrideColorUniformHandle, overrideColor);
+                bgfx::setUniform(m_billboardOutlineParamsUniformHandle, outlineParams);
+                bgfx::setUniform(m_billboardFogColorUniformHandle, fogColor);
+                bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
+                bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
+                bgfx::setState(
+                    BGFX_STATE_WRITE_RGB
+                    | BGFX_STATE_WRITE_A
+                    | BGFX_STATE_DEPTH_TEST_LEQUAL
+                    | BGFX_STATE_BLEND_ALPHA);
+                bgfx::submit(viewId, m_billboardProgramHandle);
+            }
+        }
+
         std::array<LitBillboardVertex, 6> vertices = {{
             {
                 center.x - right.x - up.x,
@@ -6082,7 +6391,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const std::vector<uint8_t> &visibleSectorMask,
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
-    bool spriteOutlineEnabled
+    bool spriteOutlineEnabled,
+    const GameplayContextActionState *pContextActionState
 )
 {
     if (!m_indoorActorPreviewBillboardSet
@@ -6129,6 +6439,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         m_cachedInspectHitValid && m_cachedInspectHit.kind == "actor"
         ? std::optional<size_t>(m_cachedInspectHit.index)
         : std::nullopt;
+    const GameplayWorldHit *pContextActionHit = selectedContextActionWorldHit(pContextActionState);
     const std::vector<RuntimeActorBillboard> runtimeBillboards =
         mapDeltaData && m_monsterTable
         ? buildRuntimeActorBillboards(
@@ -6233,15 +6544,19 @@ void IndoorRenderer::renderActorPreviewBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
+            const bool contextHighlighted = contextActionHighlightsActor(pContextActionHit, billboard.actorIndex);
             drawItem.hovered =
-                spriteOutlineEnabled && hoveredActorIndex && *hoveredActorIndex == billboard.actorIndex;
+                contextHighlighted
+                || (spriteOutlineEnabled && hoveredActorIndex && *hoveredActorIndex == billboard.actorIndex);
             drawItem.heightScale = billboard.heightScale;
             if (drawItem.hovered && mapDeltaData && billboard.actorIndex < mapDeltaData->actors.size())
             {
                 drawItem.hoveredOutlineColorAbgr =
-                    resolveHoveredIndoorActorOutlineColor(
-                        mapDeltaData->actors[billboard.actorIndex],
-                        pActorAiState);
+                    contextHighlighted
+                        ? contextActionHighlightOutlineColor()
+                        : resolveHoveredIndoorActorOutlineColor(
+                            mapDeltaData->actors[billboard.actorIndex],
+                            pActorAiState);
             }
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             drawItems.push_back(drawItem);
@@ -6567,7 +6882,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const std::vector<uint8_t> &visibleSectorMask,
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
-    bool spriteOutlineEnabled
+    bool spriteOutlineEnabled,
+    const GameplayContextActionState *pContextActionState
 )
 {
     if (!bgfx::isValid(m_billboardProgramHandle)
@@ -6663,6 +6979,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         m_cachedInspectHitValid && m_cachedInspectHit.kind == "object" && m_cachedInspectHit.hasContainingItem
         ? std::optional<size_t>(m_cachedInspectHit.index)
         : std::nullopt;
+    const GameplayWorldHit *pContextActionHit = selectedContextActionWorldHit(pContextActionState);
     drawItems.reserve(
         useRuntimeBillboards
         ? runtimeBillboards.size()
@@ -6861,10 +7178,15 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
+            const bool contextHighlighted =
+                contextActionHighlightsWorldItem(pContextActionHit, billboard.objectIndex);
             drawItem.hovered =
-                spriteOutlineEnabled && hoveredWorldItemIndex && *hoveredWorldItemIndex == billboard.objectIndex;
+                contextHighlighted
+                || (spriteOutlineEnabled && hoveredWorldItemIndex && *hoveredWorldItemIndex == billboard.objectIndex);
             drawItem.hoveredOutlineColorAbgr =
-                drawItem.hovered ? hoveredIndoorWorldItemOutlineColor() : 0;
+                drawItem.hovered
+                    ? (contextHighlighted ? contextActionHighlightOutlineColor() : hoveredIndoorWorldItemOutlineColor())
+                    : 0;
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             drawItems.push_back(drawItem);
         }
@@ -7417,6 +7739,122 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
     }
+}
+
+void IndoorRenderer::renderContextActionGeometryHighlight(
+    uint16_t viewId,
+    const GameplayContextActionState *pContextActionState)
+{
+    const GameplayWorldHit *pHit = selectedContextActionWorldHit(pContextActionState);
+
+    if (pHit == nullptr
+        || pHit->kind != GameplayWorldHitKind::EventTarget
+        || !pHit->eventTarget.has_value()
+        || !m_indoorMapData
+        || !bgfx::isValid(m_programHandle))
+    {
+        return;
+    }
+
+    std::vector<size_t> faceIndices;
+    const GameplayEventTargetHit &eventTarget = *pHit->eventTarget;
+
+    if (eventTarget.targetKind == GameplayWorldEventTargetKind::Surface
+        && eventTarget.secondaryIndex != GameplayInvalidWorldIndex)
+    {
+        faceIndices.push_back(eventTarget.secondaryIndex);
+    }
+    else if (eventTarget.targetKind == GameplayWorldEventTargetKind::Mechanism)
+    {
+        const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+
+        if (mapDeltaData && eventTarget.targetIndex < mapDeltaData->doors.size())
+        {
+            const MapDeltaDoor &door = mapDeltaData->doors[eventTarget.targetIndex];
+
+            for (uint16_t faceId : door.faceIds)
+            {
+                faceIndices.push_back(faceId);
+            }
+        }
+    }
+
+    if (faceIndices.empty())
+    {
+        return;
+    }
+
+    const uint32_t color = contextActionGeometryHighlightColor(m_elapsedTime);
+    std::vector<TerrainVertex> highlightVertices;
+    highlightVertices.reserve(faceIndices.size() * 12);
+    IndoorFaceGeometryCache geometryCache(m_indoorMapData->faces.size());
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    geometryCache.setAttributeOverrides(mapDeltaData ? &*mapDeltaData : nullptr);
+
+    for (size_t faceIndex : faceIndices)
+    {
+        if (faceIndex >= m_indoorMapData->faces.size())
+        {
+            continue;
+        }
+
+        const IndoorFaceGeometryData *pGeometry =
+            geometryCache.geometryForFace(*m_indoorMapData, m_renderVertices, faceIndex);
+
+        if (pGeometry == nullptr || pGeometry->vertices.size() < 3)
+        {
+            continue;
+        }
+
+        const bx::Vec3 normal = vecLength(pGeometry->normal) > 0.0001f
+            ? vecNormalize(pGeometry->normal)
+            : bx::Vec3{0.0f, 0.0f, 0.0f};
+        const bx::Vec3 offset = {normal.x * 1.5f, normal.y * 1.5f, normal.z * 1.5f};
+
+        for (size_t triangleIndex = 1; triangleIndex + 1 < pGeometry->vertices.size(); ++triangleIndex)
+        {
+            const bx::Vec3 triangleVertices[3] = {
+                pGeometry->vertices[0],
+                pGeometry->vertices[triangleIndex],
+                pGeometry->vertices[triangleIndex + 1]
+            };
+
+            for (const bx::Vec3 &vertex : triangleVertices)
+            {
+                highlightVertices.push_back(
+                    {vertex.x + offset.x, vertex.y + offset.y, vertex.z + offset.z, color});
+            }
+        }
+    }
+
+    if (highlightVertices.empty()
+        || bgfx::getAvailTransientVertexBuffer(
+            static_cast<uint32_t>(highlightVertices.size()),
+            TerrainVertex::ms_layout) < highlightVertices.size())
+    {
+        return;
+    }
+
+    bgfx::TransientVertexBuffer transientVertexBuffer = {};
+    bgfx::allocTransientVertexBuffer(
+        &transientVertexBuffer,
+        static_cast<uint32_t>(highlightVertices.size()),
+        TerrainVertex::ms_layout);
+    std::memcpy(
+        transientVertexBuffer.data,
+        highlightVertices.data(),
+        highlightVertices.size() * sizeof(TerrainVertex));
+
+    float modelMatrix[16] = {};
+    bx::mtxIdentity(modelMatrix);
+    bgfx::setTransform(modelMatrix);
+    bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(highlightVertices.size()));
+    bgfx::setState(
+        BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_WRITE_A
+        | BGFX_STATE_DEPTH_TEST_LEQUAL
+        | BGFX_STATE_BLEND_ALPHA);
+    bgfx::submit(viewId, m_programHandle);
 }
 
 const bgfx::TextureHandle *IndoorRenderer::findIndoorTextureHandle(const std::string &textureName) const

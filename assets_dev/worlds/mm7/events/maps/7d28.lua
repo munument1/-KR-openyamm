@@ -6,6 +6,10 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "open_door", source = "opcode" },
+    [101] = { kind = "leave_dungeon", source = "opcode", targetMap = "7out01.odm", targetName = "Emerald Island" },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

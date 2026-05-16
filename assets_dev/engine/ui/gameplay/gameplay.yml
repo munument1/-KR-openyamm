@@ -1038,3 +1038,18 @@ elements:
       default: npcopenup
       pressed: npcopendw
     notes: MMerge follower panel open/close toggle button, placed at the right screen edge above the minimap.
+
+  - id: OutdoorMobileContextActionButton
+    anchor_space: screen
+    anchor: bottom_right
+    offset_x: -8
+    offset_y: -8
+    width: 260
+    height: 56
+    z_index: 101
+    interactive: true
+    visible: false
+    scale:
+      min: 1.0
+      max: 2.0
+    notes: Runtime context action popup target; enabled by setting for mobile or desktop testing.

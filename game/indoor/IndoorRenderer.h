@@ -352,7 +352,8 @@ private:
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
         const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
-        const IndoorLightingFrame &lightingFrame
+        const IndoorLightingFrame &lightingFrame,
+        const GameplayContextActionState *pContextActionState = nullptr
     );
     void renderActorPreviewBillboards(
         uint16_t viewId,
@@ -361,7 +362,8 @@ private:
         const std::vector<uint8_t> &visibleSectorMask,
         const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
-        bool spriteOutlineEnabled
+        bool spriteOutlineEnabled,
+        const GameplayContextActionState *pContextActionState = nullptr
     );
     void renderSpriteObjectBillboards(
         uint16_t viewId,
@@ -370,8 +372,12 @@ private:
         const std::vector<uint8_t> &visibleSectorMask,
         const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
-        bool spriteOutlineEnabled
+        bool spriteOutlineEnabled,
+        const GameplayContextActionState *pContextActionState = nullptr
     );
+    void renderContextActionGeometryHighlight(
+        uint16_t viewId,
+        const GameplayContextActionState *pContextActionState);
     bgfx::TextureHandle ensureBloodSplatTexture();
     void ensureBloodSplatVertexBuffer();
     void renderBloodSplats(

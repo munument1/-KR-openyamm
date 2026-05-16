@@ -24,6 +24,11 @@ struct GameplayInputFrame
     float pointerY = 0.0f;
     float relativeMouseX = 0.0f;
     float relativeMouseY = 0.0f;
+    bool mobileJoystickActive = false;
+    float mobileJoystickBaseX = 0.0f;
+    float mobileJoystickBaseY = 0.0f;
+    float mobileJoystickKnobX = 0.0f;
+    float mobileJoystickKnobY = 0.0f;
     GameplayButtonInputState leftMouseButton = {};
     GameplayButtonInputState rightMouseButton = {};
     GameplayButtonInputState middleMouseButton = {};

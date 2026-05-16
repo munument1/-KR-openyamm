@@ -2090,6 +2090,9 @@ bool exportLegacyProgram(
 
     if (!globalScope)
     {
+        lookups.sourceMapFile = pMapEntry != nullptr && !pMapEntry->fileName.empty()
+            ? pMapEntry->fileName
+            : outputStem;
         const auto iterator = lookups.mapNamesByFile.find(toLowerCopy(outputStem));
 
         if (iterator != lookups.mapNamesByFile.end())

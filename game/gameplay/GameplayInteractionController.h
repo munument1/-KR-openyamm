@@ -34,6 +34,8 @@ public:
         bool refreshed = false;
         bool cleared = false;
         GameplayWorldHitKind hitKind = GameplayWorldHitKind::None;
+        GameplayWorldHit worldHit = {};
+        std::optional<std::string> eventTargetStatusText;
         std::string statusText;
     };
 

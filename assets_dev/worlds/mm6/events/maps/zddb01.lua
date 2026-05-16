@@ -6,6 +6,9 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "leave_dungeon", source = "opcode", targetMap = "outc3.odm", targetName = "Mire of the Damned" },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

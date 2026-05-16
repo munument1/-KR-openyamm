@@ -4102,6 +4102,14 @@ TEST_CASE("lua event CheckSkill supports effective checks and explicit mastery c
     REQUIRE(eventRuntime.executeEventById(disarmProgram, std::nullopt, 1, runtimeState, &party, nullptr));
     REQUIRE_FALSE(runtimeState.statusMessages.empty());
     CHECK_EQ(runtimeState.statusMessages.back(), "disarm pass");
+
+    pMember->skills.erase("DisarmTraps");
+    OpenYAMM::Game::Character *pOtherMember = party.member(1);
+    REQUIRE(pOtherMember != nullptr);
+    pOtherMember->skills["DisarmTraps"] = {"DisarmTraps", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+    REQUIRE(eventRuntime.executeEventById(disarmProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_FALSE(runtimeState.statusMessages.empty());
+    CHECK_EQ(runtimeState.statusMessages.back(), "disarm pass");
 }
 
 TEST_CASE("lua event DamagePlayer uses its explicit player argument")

@@ -922,6 +922,12 @@ bool hasMerchantSkillForPhrase(const Character *pCharacter)
     return pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0;
 }
 
+const Character *partyMerchantMember(const Party &party)
+{
+    const Character *pMerchant = party.bestPartyWideUtilitySkillMember("Merchant");
+    return pMerchant != nullptr ? pMerchant : party.activeMember();
+}
+
 std::string merchantProfessionName(const HouseEntry &houseEntry)
 {
     if (isHouseType(houseEntry, "Weapon Shop"))
@@ -1169,7 +1175,7 @@ int HouseServiceRuntime::buyPrice(
     const int actualValue =
         PriceCalculator::itemValue(item, *pItemDefinition, &standardItemEnchantTable, &specialItemEnchantTable);
     const int price = PriceCalculator::itemBuyingPrice(
-        party.activeMember(),
+        partyMerchantMember(party),
         actualValue,
         houseEntry.priceMultiplier,
         effectiveReputation);
@@ -1193,7 +1199,7 @@ int HouseServiceRuntime::sellPrice(
     }
 
     return PriceCalculator::itemSellingPrice(
-        party.activeMember(),
+        partyMerchantMember(party),
         item,
         *pItemDefinition,
         houseEntry.priceMultiplier,
@@ -1233,7 +1239,7 @@ std::string HouseServiceRuntime::buildBuyHoverText(
         return "Unavailable";
     }
 
-    const Character *pActiveMember = party.activeMember();
+    const Character *pActiveMember = partyMerchantMember(party);
     const int actualPrice = buyPrice(
         party,
         itemTable,
@@ -1282,7 +1288,7 @@ std::string HouseServiceRuntime::buildSellHoverText(
     }
 
     return buildSellPhrase(
-        party.activeMember(),
+        partyMerchantMember(party),
         houseEntry,
         *pItemDefinition,
         item,
@@ -1315,7 +1321,7 @@ std::string HouseServiceRuntime::buildIdentifyHoverText(
     }
 
     return buildIdentifyPhrase(
-        party.activeMember(),
+        partyMerchantMember(party),
         houseEntry,
         item,
         *pItemDefinition,
@@ -1347,7 +1353,7 @@ std::string HouseServiceRuntime::buildRepairHoverText(
     }
 
     return buildRepairPhrase(
-        party.activeMember(),
+        partyMerchantMember(party),
         houseEntry,
         item,
         *pItemDefinition,
@@ -1811,7 +1817,7 @@ bool HouseServiceRuntime::tryIdentifyInventoryItem(
     }
 
     const int price = PriceCalculator::itemIdentificationPrice(
-        party.activeMember(),
+        partyMerchantMember(party),
         *pItem,
         *pItemDefinition,
         houseEntry.priceMultiplier,
@@ -1936,7 +1942,7 @@ bool HouseServiceRuntime::tryRepairInventoryItem(
     }
 
     const int price = PriceCalculator::itemRepairPrice(
-        party.activeMember(),
+        partyMerchantMember(party),
         *pItem,
         *pItemDefinition,
         houseEntry.priceMultiplier,

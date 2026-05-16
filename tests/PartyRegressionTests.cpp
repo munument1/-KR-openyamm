@@ -3,6 +3,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/events/EventRuntime.h"
 #include "game/gameplay/JournalQuestRuntime.h"
+#include "game/items/ItemRuntime.h"
 #include "game/maps/SaveGame.h"
 #include "game/party/Party.h"
 #include "game/party/SpellIds.h"
@@ -737,6 +738,108 @@ TEST_CASE("party shared experience uses learning and skips incapacitated members
     CHECK_EQ(pThird->experience, 0u);
     CHECK_EQ(pFourth->experience, 159u);
     CHECK_EQ(totalGrantedExperience, 273u);
+}
+
+TEST_CASE("party-wide utility skills use the best actable member")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::Character *pActiveMember = party.member(0);
+    OpenYAMM::Game::Character *pExpert = party.member(1);
+    OpenYAMM::Game::Character *pGrandmaster = party.member(2);
+    REQUIRE(pActiveMember != nullptr);
+    REQUIRE(pExpert != nullptr);
+    REQUIRE(pGrandmaster != nullptr);
+
+    pActiveMember->skills["RepairItem"] = {"RepairItem", 1, OpenYAMM::Game::SkillMastery::Normal};
+    pExpert->skills["RepairItem"] = {"RepairItem", 20, OpenYAMM::Game::SkillMastery::Expert};
+    pGrandmaster->skills["RepairItem"] = {"RepairItem", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    const std::optional<size_t> bestRepairMember = party.bestPartyWideUtilitySkillMemberIndex("RepairItem");
+    REQUIRE(bestRepairMember.has_value());
+    CHECK_EQ(*bestRepairMember, 2u);
+
+    pGrandmaster->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Unconscious));
+    const std::optional<size_t> bestActableRepairMember = party.bestPartyWideUtilitySkillMemberIndex("RepairItem");
+    REQUIRE(bestActableRepairMember.has_value());
+    CHECK_EQ(*bestActableRepairMember, 1u);
+
+    pExpert->skills["DisarmTraps"] = {"DisarmTraps", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pExpert->skills["Merchant"] = {"Merchant", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pExpert->skills["IdentifyItem"] = {"IdentifyItem", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pExpert->skills["IdentifyMonster"] = {"IdentifyMonster", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pExpert->skills["Alchemy"] = {"Alchemy", 4, OpenYAMM::Game::SkillMastery::Expert};
+    pExpert->skills["Perception"] = {"Perception", 4, OpenYAMM::Game::SkillMastery::Expert};
+
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("DisarmTraps"));
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("Merchant"));
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("IdentifyItem"));
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("IdentifyMonster"));
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("Alchemy"));
+    CHECK(OpenYAMM::Game::Party::isPartyWideUtilitySkill("Perception"));
+    CHECK_FALSE(OpenYAMM::Game::Party::isPartyWideUtilitySkill("Armsmaster"));
+    CHECK(party.bestPartyWideUtilitySkillValue("DisarmTraps") > 0);
+    CHECK(party.bestPartyWideUtilitySkillValue("Merchant") > 0);
+    CHECK(party.bestPartyWideUtilitySkillValue("IdentifyItem") > 0);
+    CHECK(party.bestPartyWideUtilitySkillValue("IdentifyMonster") > 0);
+    CHECK(party.bestPartyWideUtilitySkillValue("Alchemy") > 0);
+    CHECK(party.bestPartyWideUtilitySkillValue("Perception") > 0);
+}
+
+TEST_CASE("inventory identify and repair use best party utility skill")
+{
+    REQUIRE_MESSAGE(
+        OpenYAMM::Tests::regressionGameDataLoaded(),
+        OpenYAMM::Tests::regressionGameDataFailure().c_str());
+
+    const OpenYAMM::Game::ItemDefinition *pDifficultItemDefinition = nullptr;
+
+    for (const OpenYAMM::Game::ItemDefinition &itemDefinition : OpenYAMM::Tests::regressionGameData().itemTable.entries())
+    {
+        if (itemDefinition.itemId != 0
+            && itemDefinition.identifyRepairDifficulty > 20
+            && OpenYAMM::Game::ItemRuntime::requiresIdentification(itemDefinition))
+        {
+            pDifficultItemDefinition = &itemDefinition;
+            break;
+        }
+    }
+
+    REQUIRE(pDifficultItemDefinition != nullptr);
+
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    party.setItemTable(&OpenYAMM::Tests::regressionGameData().itemTable);
+
+    OpenYAMM::Game::Character *pActiveMember = party.member(0);
+    OpenYAMM::Game::Character *pSkilledMember = party.member(1);
+    REQUIRE(pActiveMember != nullptr);
+    REQUIRE(pSkilledMember != nullptr);
+
+    pActiveMember->skills["IdentifyItem"] = {"IdentifyItem", 1, OpenYAMM::Game::SkillMastery::Normal};
+    pActiveMember->skills["RepairItem"] = {"RepairItem", 1, OpenYAMM::Game::SkillMastery::Normal};
+    pSkilledMember->skills["IdentifyItem"] = {"IdentifyItem", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+    pSkilledMember->skills["RepairItem"] = {"RepairItem", 1, OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    OpenYAMM::Game::InventoryItem item = {};
+    item.objectDescriptionId = pDifficultItemDefinition->itemId;
+    item.quantity = 1;
+    item.width = std::max<uint8_t>(1, pDifficultItemDefinition->inventoryWidth);
+    item.height = std::max<uint8_t>(1, pDifficultItemDefinition->inventoryHeight);
+    item.identified = false;
+    item.broken = true;
+    REQUIRE(pActiveMember->addInventoryItemAt(item, 0, 0));
+
+    std::string statusText;
+    CHECK(party.tryIdentifyMemberInventoryItem(0, 0, 0, 0, statusText));
+    const OpenYAMM::Game::InventoryItem *pItem = pActiveMember->inventoryItemAt(0, 0);
+    REQUIRE(pItem != nullptr);
+    CHECK(pItem->identified);
+
+    CHECK(party.tryRepairMemberInventoryItem(0, 0, 0, 0, statusText));
+    pItem = pActiveMember->inventoryItemAt(0, 0);
+    REQUIRE(pItem != nullptr);
+    CHECK_FALSE(pItem->broken);
 }
 
 TEST_CASE("member experience mutation clamps like OE")

@@ -333,6 +333,15 @@ int PriceCalculator::trainingPrice(
     const HouseEntry &houseEntry,
     int effectiveReputation)
 {
+    return trainingPrice(pCharacter, pCharacter, houseEntry, effectiveReputation);
+}
+
+int PriceCalculator::trainingPrice(
+    const Character *pCharacter,
+    const Character *pMerchantCharacter,
+    const HouseEntry &houseEntry,
+    int effectiveReputation)
+{
     if (pCharacter == nullptr)
     {
         return 0;
@@ -348,10 +357,10 @@ int PriceCalculator::trainingPrice(
 
     const int classTier = std::max(1, classTierForClassName(canonicalClassName(pCharacter->className)));
     const int basePrice = std::max(
-        1,
-        static_cast<int>(std::round(
-            static_cast<float>(pCharacter->level) * houseEntry.priceMultiplier * static_cast<float>(classTier))));
+            1,
+            static_cast<int>(std::round(
+                static_cast<float>(pCharacter->level) * houseEntry.priceMultiplier * static_cast<float>(classTier))));
     const int minimumPrice = std::max(1, basePrice / 3);
-    return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
+    return std::max(minimumPrice, applyMerchantDiscount(pMerchantCharacter, basePrice, effectiveReputation));
 }
 }

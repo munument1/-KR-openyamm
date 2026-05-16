@@ -4,6 +4,7 @@
 #include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/ui/GameplaySpellTargetingOverlayRenderer.h"
 #include "game/outdoor/OutdoorBillboardRenderer.h"
@@ -86,6 +87,49 @@ uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
         | (static_cast<uint32_t>(blue) << 16)
         | (static_cast<uint32_t>(green) << 8)
         | static_cast<uint32_t>(red);
+}
+
+uint32_t makeAbgrAlpha(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+{
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>(blue) << 16)
+        | (static_cast<uint32_t>(green) << 8)
+        | static_cast<uint32_t>(red);
+}
+
+uint32_t contextActionGeometryHighlightColor(float elapsedTime)
+{
+    const float pulse = 0.5f + 0.5f * std::sin(elapsedTime * 4.0f);
+    const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(52.0f + pulse * 52.0f), 0l, 255l));
+    return makeAbgrAlpha(56, 216, 255, alpha);
+}
+
+float contextHighlightVecLength(const bx::Vec3 &value)
+{
+    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+bx::Vec3 contextHighlightVecNormalize(const bx::Vec3 &value)
+{
+    const float length = contextHighlightVecLength(value);
+
+    if (length <= 0.0001f)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    return {value.x / length, value.y / length, value.z / length};
+}
+
+const GameplayWorldHit *selectedContextActionWorldHit(const GameplayContextActionState &state)
+{
+    if (!state.visible || state.primaryIndex >= state.actions.size())
+    {
+        return nullptr;
+    }
+
+    const GameplayWorldHit &hit = state.actions[state.primaryIndex].worldHit;
+    return hit.hasHit ? &hit : nullptr;
 }
 
 uint32_t makeTintedFogColor(
@@ -2608,6 +2652,119 @@ void OutdoorRenderer::renderBloodSplats(
     bgfx::submit(viewId, view.m_outdoorTexturedFogProgramHandle);
 }
 
+void OutdoorRenderer::renderContextActionGeometryHighlight(OutdoorGameView &view, uint16_t viewId)
+{
+    if (!view.settingsSnapshot().contextActionPopup)
+    {
+        return;
+    }
+
+    const GameplayWorldHit *pHit =
+        selectedContextActionWorldHit(view.m_gameSession.gameplayScreenRuntime().contextActionStateReadOnly());
+
+    if (pHit == nullptr || !bgfx::isValid(view.m_programHandle))
+    {
+        return;
+    }
+
+    size_t highlightedBModelIndex = GameplayInvalidWorldIndex;
+    size_t highlightedFaceIndex = GameplayInvalidWorldIndex;
+
+    if (pHit->kind != GameplayWorldHitKind::EventTarget
+        || !pHit->eventTarget.has_value()
+        || pHit->eventTarget->targetKind != GameplayWorldEventTargetKind::Surface
+        || pHit->eventTarget->targetIndex == GameplayInvalidWorldIndex
+        || pHit->eventTarget->secondaryIndex == GameplayInvalidWorldIndex)
+    {
+        return;
+    }
+
+    highlightedBModelIndex = pHit->eventTarget->targetIndex;
+    highlightedFaceIndex = pHit->eventTarget->secondaryIndex;
+
+    const EventRuntimeState *pEventRuntimeState =
+        view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
+    const MapDeltaData *pMapDeltaData =
+        view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->mapDeltaData() : nullptr;
+    const uint32_t color = contextActionGeometryHighlightColor(view.m_elapsedTime);
+    std::vector<OutdoorGameView::TerrainVertex> highlightVertices;
+
+    for (const OutdoorGameView::TexturedBModelBatch &batch : view.m_texturedBModelBatches)
+    {
+        if (batch.bModelIndex != highlightedBModelIndex
+            || (highlightedFaceIndex != GameplayInvalidWorldIndex && batch.faceIndex != highlightedFaceIndex)
+            || batch.vertices.empty()
+            || outdoorFaceHiddenByEventRuntime(batch.faceId, batch.baseAttributes, pMapDeltaData, pEventRuntimeState))
+        {
+            continue;
+        }
+
+        const std::array<float, 3> bmodelOffset =
+            outdoorBModelRuntimeOffset(pEventRuntimeState, batch.bModelIndex);
+        bx::Vec3 normal = {0.0f, 0.0f, 0.0f};
+
+        if (view.m_outdoorMapData
+            && batch.bModelIndex < view.m_outdoorMapData->bmodels.size()
+            && batch.faceIndex < view.m_outdoorMapData->bmodels[batch.bModelIndex].faces.size())
+        {
+            OutdoorFaceGeometryData geometry = {};
+            const OutdoorBModel &bmodel = view.m_outdoorMapData->bmodels[batch.bModelIndex];
+            const OutdoorBModelFace &face = bmodel.faces[batch.faceIndex];
+
+            if (buildOutdoorFaceGeometry(bmodel, batch.bModelIndex, face, batch.faceIndex, geometry, true)
+                && contextHighlightVecLength(geometry.normal) > 0.0001f)
+            {
+                normal = contextHighlightVecNormalize(geometry.normal);
+            }
+        }
+
+        const bx::Vec3 offset = {normal.x * 1.5f, normal.y * 1.5f, normal.z * 1.5f};
+        highlightVertices.reserve(batch.vertices.size());
+
+        for (const OutdoorGameView::TexturedTerrainVertex &vertex : batch.vertices)
+        {
+            highlightVertices.push_back(
+                {
+                    vertex.x + bmodelOffset[0] + offset.x,
+                    vertex.y + bmodelOffset[1] + offset.y,
+                    vertex.z + bmodelOffset[2] + offset.z,
+                    color
+                });
+        }
+
+        break;
+    }
+
+    if (highlightVertices.empty()
+        || bgfx::getAvailTransientVertexBuffer(
+            static_cast<uint32_t>(highlightVertices.size()),
+            OutdoorGameView::TerrainVertex::ms_layout) < highlightVertices.size())
+    {
+        return;
+    }
+
+    bgfx::TransientVertexBuffer transientVertexBuffer = {};
+    bgfx::allocTransientVertexBuffer(
+        &transientVertexBuffer,
+        static_cast<uint32_t>(highlightVertices.size()),
+        OutdoorGameView::TerrainVertex::ms_layout);
+    std::memcpy(
+        transientVertexBuffer.data,
+        highlightVertices.data(),
+        highlightVertices.size() * sizeof(OutdoorGameView::TerrainVertex));
+
+    float modelMatrix[16] = {};
+    bx::mtxIdentity(modelMatrix);
+    bgfx::setTransform(modelMatrix);
+    bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(highlightVertices.size()));
+    bgfx::setState(
+        BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_WRITE_A
+        | BGFX_STATE_DEPTH_TEST_LEQUAL
+        | BGFX_STATE_BLEND_ALPHA);
+    bgfx::submit(viewId, view.m_programHandle);
+}
+
 void OutdoorRenderer::invalidateSkyResources(OutdoorGameView &view)
 {
     for (OutdoorGameView::SkyTextureHandle &textureHandle : view.m_skyTextureHandles)
@@ -3039,6 +3196,7 @@ void OutdoorRenderer::renderWorldPasses(
     }
 
     renderBloodSplats(view, MainViewId, cameraPosition, farClipDistance);
+    renderContextActionGeometryHighlight(view, MainViewId);
 
     if (view.m_gameSettings.shadows && (view.m_showSpriteObjects || view.m_showActors))
     {

@@ -9,8 +9,33 @@ package_name=${OPENYAMM_ANDROID_PACKAGE:-org.openyamm.android}
 keystore_path=${OPENYAMM_ANDROID_KEYSTORE:-"${script_dir}/keystores/openyamm-release.jks"}
 key_alias=${OPENYAMM_ANDROID_KEY_ALIAS:-openyamm}
 key_dname=${OPENYAMM_ANDROID_KEY_DNAME:-"CN=OpenYAMM, O=OpenYAMM, C=US"}
+repack_assets=${OPENYAMM_REPACK_ASSETS:-0}
 release_apk="${repo_root}/android/app/build/outputs/apk/release/app-release.apk"
 hosted_apk="${repo_root}/android/app-release.apk"
+release_abis=${OPENYAMM_ANDROID_RELEASE_ABIS:-arm64-v8a}
+
+usage()
+{
+    echo "Usage: $0 [--repack-assets]" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repack-assets)
+            repack_assets=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
 
 read_local_sdk_dir()
 {
@@ -93,6 +118,10 @@ if ! command -v keytool >/dev/null 2>&1; then
     exit 1
 fi
 
+if [[ "${repack_assets}" == "1" ]]; then
+    "${script_dir}/repack_runtime_assets.sh"
+fi
+
 read_secret "Release keystore password: " OPENYAMM_ANDROID_KEYSTORE_PASSWORD
 
 if [[ -z "${OPENYAMM_ANDROID_KEY_PASSWORD:-}" ]]; then
@@ -119,7 +148,8 @@ fi
 echo "ANDROID_HOME=${ANDROID_HOME}"
 echo "JAVA_HOME=${JAVA_HOME}"
 echo "Package=${package_name}"
-echo "Building arm64-v8a release APK..."
+echo "Release ABIs=${release_abis}"
+echo "Building release APK..."
 (
     cd "${repo_root}"
     "${script_dir}/gradlew" :app:assembleRelease

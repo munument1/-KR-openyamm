@@ -73,5 +73,10 @@ public:
         const Character *pCharacter,
         const HouseEntry &houseEntry,
         int effectiveReputation = 0);
+    static int trainingPrice(
+        const Character *pCharacter,
+        const Character *pMerchantCharacter,
+        const HouseEntry &houseEntry,
+        int effectiveReputation = 0);
 };
 }

@@ -205,6 +205,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.combatTrace = true;
     settings.combatTraceFile = "tmp/combat.log";
     settings.combatTraceAppend = false;
+    settings.contextActionPopup = true;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -227,6 +228,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->combatTrace);
     CHECK_EQ(loadedSettings->combatTraceFile, "tmp/combat.log");
     CHECK_FALSE(loadedSettings->combatTraceAppend);
+    CHECK(loadedSettings->contextActionPopup);
 
     std::filesystem::remove(path);
 }
@@ -262,6 +264,7 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_FALSE(loadedSettings->combatTrace);
     CHECK_EQ(loadedSettings->combatTraceFile, "logs/combat_trace.log");
     CHECK(loadedSettings->combatTraceAppend);
+    CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
 
     std::filesystem::remove(path);
 }

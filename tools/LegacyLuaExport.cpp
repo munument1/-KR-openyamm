@@ -11752,6 +11752,441 @@ void emitCanShowTopicFunction(
     stream << "end)\n";
 }
 
+struct ContextActionMetadata
+{
+    std::string kind;
+    std::string source;
+    std::optional<uint32_t> houseId;
+    std::optional<std::string> targetMap;
+    std::optional<std::string> targetName;
+    std::vector<uint32_t> chestIds;
+    bool hidden = false;
+};
+
+bool isLegacyTriggerInstruction(EvtOpcode opcode)
+{
+    return opcode == EvtOpcode::OnMapReload
+        || opcode == EvtOpcode::OnMapLeave
+        || opcode == EvtOpcode::OnTimer
+        || opcode == EvtOpcode::OnLongTimer
+        || opcode == EvtOpcode::OnDateTimer
+        || opcode == EvtOpcode::EnableDateTimer;
+}
+
+bool hasLegacyOpcode(const EvtEvent &event, EvtOpcode opcode)
+{
+    return std::any_of(
+        event.instructions.begin(),
+        event.instructions.end(),
+        [opcode](const EvtInstruction &instruction)
+        {
+            return instruction.opcode == opcode;
+        });
+}
+
+const EvtInstruction *firstLegacyInstruction(const EvtEvent &event, EvtOpcode opcode)
+{
+    const auto iterator = std::find_if(
+        event.instructions.begin(),
+        event.instructions.end(),
+        [opcode](const EvtInstruction &instruction)
+        {
+            return instruction.opcode == opcode;
+        });
+
+    return iterator != event.instructions.end() ? &*iterator : nullptr;
+}
+
+std::string normalizedContextTitle(const std::string &title)
+{
+    std::string normalized;
+    normalized.reserve(title.size());
+
+    bool previousWasSpace = true;
+
+    for (char character : title)
+    {
+        const unsigned char unsignedCharacter = static_cast<unsigned char>(character);
+
+        if (std::isalnum(unsignedCharacter) != 0)
+        {
+            normalized.push_back(static_cast<char>(std::tolower(unsignedCharacter)));
+            previousWasSpace = false;
+        }
+        else if (!previousWasSpace)
+        {
+            normalized.push_back(' ');
+            previousWasSpace = true;
+        }
+    }
+
+    if (!normalized.empty() && normalized.back() == ' ')
+    {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+bool contextTitleContainsWord(const std::string &normalizedTitle, std::string_view word)
+{
+    size_t offset = 0;
+
+    while (offset < normalizedTitle.size())
+    {
+        const size_t nextOffset = normalizedTitle.find(' ', offset);
+        const size_t endOffset = nextOffset == std::string::npos ? normalizedTitle.size() : nextOffset;
+
+        if (normalizedTitle.compare(offset, endOffset - offset, word) == 0)
+        {
+            return true;
+        }
+
+        if (nextOffset == std::string::npos)
+        {
+            break;
+        }
+
+        offset = nextOffset + 1;
+    }
+
+    return false;
+}
+
+bool contextTitleStartsWithWord(const std::string &normalizedTitle, std::string_view word)
+{
+    return normalizedTitle.size() == word.size()
+        ? normalizedTitle == word
+        : normalizedTitle.size() > word.size()
+            && normalizedTitle.compare(0, word.size(), word) == 0
+            && normalizedTitle[word.size()] == ' ';
+}
+
+std::string contextMapExtension(const std::optional<std::string> &mapFile)
+{
+    if (!mapFile || mapFile->empty())
+    {
+        return "";
+    }
+
+    return toLowerCopy(std::filesystem::path(*mapFile).extension().string());
+}
+
+std::optional<std::string> contextMapDisplayName(
+    const LegacyLuaExportLookups &lookups,
+    const std::string &targetMap)
+{
+    if (targetMap.empty())
+    {
+        return std::nullopt;
+    }
+
+    const std::string loweredTarget = toLowerCopy(targetMap);
+    const auto fileIterator = lookups.mapNamesByFile.find(loweredTarget);
+
+    if (fileIterator != lookups.mapNamesByFile.end() && !fileIterator->second.empty())
+    {
+        return fileIterator->second;
+    }
+
+    const std::string loweredStem = toLowerCopy(std::filesystem::path(targetMap).stem().string());
+    const auto stemIterator = lookups.mapNamesByFile.find(loweredStem);
+
+    return stemIterator != lookups.mapNamesByFile.end() && !stemIterator->second.empty()
+        ? std::optional<std::string>(stemIterator->second)
+        : std::nullopt;
+}
+
+std::string classifyMoveToMapContextAction(
+    const std::string &sourceExtension,
+    const std::string &targetMap,
+    const std::string &normalizedTitle)
+{
+    const std::string targetExtension = contextMapExtension(targetMap);
+
+    if (targetMap.empty())
+    {
+        return "teleport";
+    }
+
+    if (sourceExtension == ".odm" && targetExtension == ".blv")
+    {
+        return "enter_dungeon";
+    }
+
+    if (sourceExtension == ".blv" && targetExtension == ".odm")
+    {
+        return "leave_dungeon";
+    }
+
+    if (sourceExtension == ".blv" && targetExtension == ".blv")
+    {
+        return "passage";
+    }
+
+    if (sourceExtension == ".odm" && targetExtension == ".odm")
+    {
+        return "travel";
+    }
+
+    if (targetExtension == ".blv" && contextTitleStartsWithWord(normalizedTitle, "enter"))
+    {
+        return "enter_dungeon";
+    }
+
+    if (targetExtension == ".odm"
+        && (contextTitleStartsWithWord(normalizedTitle, "leave")
+            || contextTitleStartsWithWord(normalizedTitle, "exit")))
+    {
+        return "leave_dungeon";
+    }
+
+    return targetExtension == ".blv" ? "passage" : "travel";
+}
+
+std::optional<std::string> classifyContextActionFromTitle(const std::string &normalizedTitle)
+{
+    if (normalizedTitle.empty())
+    {
+        return std::nullopt;
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "fountain"))
+    {
+        return "fountain";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "well"))
+    {
+        return "well";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "shrine")
+        || contextTitleContainsWord(normalizedTitle, "altar"))
+    {
+        return "shrine";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "obelisk"))
+    {
+        return "obelisk";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "barrel")
+        || contextTitleContainsWord(normalizedTitle, "cauldron")
+        || contextTitleContainsWord(normalizedTitle, "keg")
+        || contextTitleContainsWord(normalizedTitle, "trough"))
+    {
+        return "boost";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "door")
+        || contextTitleContainsWord(normalizedTitle, "gate"))
+    {
+        return "open_door";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "lever"))
+    {
+        return "use_lever";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "button"))
+    {
+        return "press_button";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "switch"))
+    {
+        return "use_switch";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "elevator")
+        || contextTitleContainsWord(normalizedTitle, "lift"))
+    {
+        return "use_elevator";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "teleporter")
+        || contextTitleContainsWord(normalizedTitle, "teleport")
+        || contextTitleContainsWord(normalizedTitle, "portal"))
+    {
+        return "teleport";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "pedestal"))
+    {
+        return "use_pedestal";
+    }
+
+    if (contextTitleContainsWord(normalizedTitle, "sign")
+        || contextTitleContainsWord(normalizedTitle, "read"))
+    {
+        return "read";
+    }
+
+    return std::nullopt;
+}
+
+bool contextActionLooksHidden(const EvtEvent &event, const std::string &title)
+{
+    if (!title.empty())
+    {
+        return false;
+    }
+
+    return hasLegacyOpcode(event, EvtOpcode::GiveItem)
+        || hasLegacyOpcode(event, EvtOpcode::SummonItem)
+        || hasLegacyOpcode(event, EvtOpcode::ReceiveDamage)
+        || hasLegacyOpcode(event, EvtOpcode::CastSpell)
+        || hasLegacyOpcode(event, EvtOpcode::SummonMonsters);
+}
+
+std::optional<ContextActionMetadata> contextActionMetadataForEvent(
+    const EvtEvent &event,
+    const StrTable &strTable,
+    const LegacyLuaExportLookups &lookups)
+{
+    if (event.instructions.empty() || isHintOnlyLegacyEvent(event))
+    {
+        return std::nullopt;
+    }
+
+    if (isLegacyTriggerInstruction(event.instructions.front().opcode))
+    {
+        return std::nullopt;
+    }
+
+    const std::string title = buildGeneratedEventTitle(event, strTable, lookups);
+    const std::string normalizedTitle = normalizedContextTitle(title);
+    ContextActionMetadata metadata = {};
+
+    metadata.chestIds = getOpenedChestIds(event);
+    sortAndUnique(metadata.chestIds);
+
+    if (!metadata.chestIds.empty())
+    {
+        metadata.kind = "open_chest";
+        metadata.source = "opcode";
+        return metadata;
+    }
+
+    if (const EvtInstruction *pHouseInstruction = firstLegacyInstruction(event, EvtOpcode::SpeakInHouse))
+    {
+        metadata.kind = "enter_house";
+        metadata.source = "opcode";
+
+        if (pHouseInstruction->value1)
+        {
+            metadata.houseId = *pHouseInstruction->value1;
+            metadata.targetName = lookupText(lookups.houseNames, *pHouseInstruction->value1);
+        }
+
+        return metadata;
+    }
+
+    if (const EvtInstruction *pMoveInstruction = firstLegacyInstruction(event, EvtOpcode::MoveToMap))
+    {
+        const std::optional<std::string> targetMap = normalizeMoveToMapName(pMoveInstruction->stringValue);
+        metadata.kind = classifyMoveToMapContextAction(
+            contextMapExtension(lookups.sourceMapFile),
+            targetMap.value_or(""),
+            normalizedTitle);
+        metadata.source = targetMap && !targetMap->empty()
+            ? "opcode"
+            : "heuristic";
+
+        if (targetMap && !targetMap->empty())
+        {
+            metadata.targetMap = *targetMap;
+            metadata.targetName = contextMapDisplayName(lookups, *targetMap);
+        }
+
+        return metadata;
+    }
+
+    if (const std::optional<std::string> titleKind = classifyContextActionFromTitle(normalizedTitle))
+    {
+        metadata.kind = *titleKind;
+        metadata.source = "title";
+        return metadata;
+    }
+
+    if (hasLegacyOpcode(event, EvtOpcode::ChangeDoorState) || hasLegacyOpcode(event, EvtOpcode::StopAnimation))
+    {
+        metadata.kind = "open_door";
+        metadata.source = "opcode";
+        return metadata;
+    }
+
+    if (contextActionLooksHidden(event, title))
+    {
+        metadata.kind = "secret_event";
+        metadata.source = "heuristic";
+        metadata.hidden = true;
+        return metadata;
+    }
+
+    if (hasLegacyOpcode(event, EvtOpcode::ShowMessage)
+        || hasLegacyOpcode(event, EvtOpcode::StatusText)
+        || hasLegacyOpcode(event, EvtOpcode::InputString)
+        || hasLegacyOpcode(event, EvtOpcode::PressAnyKey))
+    {
+        metadata.kind = "generic_event";
+        metadata.source = "opcode";
+        return metadata;
+    }
+
+    return std::nullopt;
+}
+
+void emitContextActionMetadataValue(
+    std::ostringstream &stream,
+    const ContextActionMetadata &metadata)
+{
+    stream << "{ kind = " << luaQuoted(metadata.kind)
+           << ", source = " << luaQuoted(metadata.source);
+
+    if (metadata.houseId)
+    {
+        stream << ", houseId = " << *metadata.houseId;
+    }
+
+    if (metadata.targetMap)
+    {
+        stream << ", targetMap = " << luaQuoted(*metadata.targetMap);
+    }
+
+    if (metadata.targetName)
+    {
+        stream << ", targetName = " << luaQuoted(*metadata.targetName);
+    }
+
+    if (!metadata.chestIds.empty())
+    {
+        stream << ", chestIds = {";
+
+        for (size_t chestIndex = 0; chestIndex < metadata.chestIds.size(); ++chestIndex)
+        {
+            if (chestIndex > 0)
+            {
+                stream << ", ";
+            }
+
+            stream << metadata.chestIds[chestIndex];
+        }
+
+        stream << "}";
+    }
+
+    if (metadata.hidden)
+    {
+        stream << ", hidden = true";
+    }
+
+    stream << " }";
+}
+
 void emitMetadata(
     std::ostringstream &stream,
     const EvtProgram &evtProgram,
@@ -11844,6 +12279,29 @@ void emitMetadata(
     }
 
     stream << "    },\n";
+
+    if (scope == LegacyLuaExportScope::Map)
+    {
+        stream << "    contextActions = {\n";
+
+        for (const EvtEvent &event : evtProgram.getEvents())
+        {
+            const std::optional<ContextActionMetadata> contextAction =
+                contextActionMetadataForEvent(event, strTable, lookups);
+
+            if (!contextAction)
+            {
+                continue;
+            }
+
+            stream << "    [" << event.eventId << "] = ";
+            emitContextActionMetadataValue(stream, *contextAction);
+            stream << ",\n";
+        }
+
+        stream << "    },\n";
+    }
+
     stream << "    textureNames = {";
 
     for (size_t index = 0; index < textureNames.size(); ++index)

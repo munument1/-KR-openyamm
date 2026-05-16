@@ -65,7 +65,13 @@ const char *activeGameplayButtonLayoutId(
     const char *pWideId,
     const char *pStandardId)
 {
+#if defined(__ANDROID__)
+    (void)context;
+    (void)pStandardId;
+    return pWideId;
+#else
     return context.settingsSnapshot().gameplayUiLayout == GameplayUiLayout::Standard ? pStandardId : pWideId;
+#endif
 }
 
 void openDimensionDoorOverlay(GameplayScreenRuntime &context)
@@ -245,6 +251,8 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
     {
         context.interactionState().gameplayHudClickLatch = false;
         context.interactionState().gameplayHudPressedTarget = {};
+        context.interactionState().gameplayHudPressedContextActionActive = false;
+        context.interactionState().gameplayHudPressedContextActionHit = {};
         return;
     }
 
@@ -259,8 +267,16 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
         context.interactionState().gameplayHudClickLatch,
         context.interactionState().gameplayHudPressedTarget,
         GameplayHudPointerTarget{},
-        [&context, &config](float pointerX, float pointerY) -> GameplayHudPointerTarget
+        [&context, &config, &pointerState](float pointerX, float pointerY) -> GameplayHudPointerTarget
         {
+            if (context.interactionState().gameplayHudPressedTarget.type
+                    == GameplayHudPointerTargetType::ContextActionButton
+                && context.settingsSnapshot().contextActionPopup
+                && pointerInsideHudElement(context, config, "OutdoorMobileContextActionButton", pointerX, pointerY))
+            {
+                return context.interactionState().gameplayHudPressedTarget;
+            }
+
             if (context.interactionState().followerPanelOpen)
             {
                 static constexpr std::array<const char *, VisibleFollowerPanelSlots> FollowerSlots = {{
@@ -288,12 +304,36 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 }
             }
 
+            const GameplayContextActionState &contextActionState = context.contextActionStateReadOnly();
+
+            if (context.settingsSnapshot().contextActionPopup
+                && contextActionState.visible
+                && contextActionState.primaryIndex < contextActionState.actions.size()
+                && pointerInsideHudElement(context, config, "OutdoorMobileContextActionButton", pointerX, pointerY))
+            {
+                if (pointerState.leftButtonPressed && !context.interactionState().gameplayHudClickLatch)
+                {
+                    context.interactionState().gameplayHudPressedContextActionActive = true;
+                    context.interactionState().gameplayHudPressedContextActionHit =
+                        contextActionState.actions[contextActionState.primaryIndex].worldHit;
+                }
+
+                return {GameplayHudPointerTargetType::ContextActionButton, contextActionState.primaryIndex};
+            }
+
             const std::pair<const char *, GameplayHudPointerTargetType> targets[] = {
                 {
                     activeGameplayButtonLayoutId(
                         context,
                         "OutdoorButtonOptions",
                         "OutdoorStandardButtonOptions"),
+                    GameplayHudPointerTargetType::MenuButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
+                        "OutdoorMobileButtonPause",
+                        ""),
                     GameplayHudPointerTargetType::MenuButton
                 },
                 {
@@ -313,6 +353,13 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 {
                     activeGameplayButtonLayoutId(
                         context,
+                        "OutdoorMobileButtonInventory",
+                        ""),
+                    GameplayHudPointerTargetType::InventoryButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
                         "OutdoorButtonDimensionDoor",
                         "OutdoorStandardButtonDimensionDoor"),
                     GameplayHudPointerTargetType::DimensionDoorButton
@@ -320,9 +367,23 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 {
                     activeGameplayButtonLayoutId(
                         context,
-                        "",
+                        "OutdoorButtonQuickReference",
                         "OutdoorStandardButtonQuickReference"),
                     GameplayHudPointerTargetType::QuickReferenceButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
+                        "OutdoorMobileButtonAttack",
+                        ""),
+                    GameplayHudPointerTargetType::AttackButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
+                        "OutdoorMobileButtonCast",
+                        ""),
+                    GameplayHudPointerTargetType::CastButton
                 },
                 {
                     activeGameplayButtonLayoutId(
@@ -382,7 +443,14 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
             switch (target.type)
             {
             case GameplayHudPointerTargetType::MenuButton:
-                context.openMenuOverlay();
+                if (context.pendingSpellTargetActive())
+                {
+                    context.interactionState().gameplayHudSpellTargetCancelRequested = true;
+                }
+                else
+                {
+                    context.openMenuOverlay();
+                }
                 break;
             case GameplayHudPointerTargetType::RestButton:
                 context.openRestOverlay();
@@ -390,12 +458,65 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
             case GameplayHudPointerTargetType::BooksButton:
                 context.openJournalOverlay();
                 break;
+            case GameplayHudPointerTargetType::InventoryButton:
+                context.toggleCharacterInventoryScreen();
+                break;
             case GameplayHudPointerTargetType::DimensionDoorButton:
                 openDimensionDoorOverlay(context);
                 break;
             case GameplayHudPointerTargetType::QuickReferenceButton:
                 context.openQuickReferenceOverlay();
                 break;
+            case GameplayHudPointerTargetType::AttackButton:
+                context.interactionState().gameplayHudAttackRequested = true;
+                break;
+            case GameplayHudPointerTargetType::TriggerButton:
+                context.interactionState().gameplayHudTriggerRequested = true;
+                break;
+            case GameplayHudPointerTargetType::CastButton:
+                if (context.pendingSpellTargetActive())
+                {
+                    context.interactionState().gameplayHudSpellTargetConfirmRequested = true;
+                }
+                else
+                {
+                    context.openSpellbookOverlay();
+                }
+                break;
+            case GameplayHudPointerTargetType::ContextActionButton:
+            {
+                GameplayContextActionState &contextActionState = context.contextActionState();
+                IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
+                const bool contextActionPopupEnabled = context.settingsSnapshot().contextActionPopup;
+                const bool hasPressedContextAction =
+                    contextActionPopupEnabled && context.interactionState().gameplayHudPressedContextActionActive;
+                const GameplayWorldHit pressedWorldHit =
+                    context.interactionState().gameplayHudPressedContextActionHit;
+                GameplayWorldHit activationHit = {};
+
+                if (hasPressedContextAction)
+                {
+                    activationHit = pressedWorldHit;
+                }
+                else if (contextActionPopupEnabled
+                    && contextActionState.visible
+                    && target.index < contextActionState.actions.size())
+                {
+                    activationHit = contextActionState.actions[target.index].worldHit;
+                }
+
+                if (pWorldRuntime != nullptr
+                    && activationHit.hasHit
+                    && pWorldRuntime->canActivateWorldHit(activationHit, GameplayInteractionMethod::Keyboard))
+                {
+                    pWorldRuntime->activateWorldHit(activationHit);
+                }
+
+                context.interactionState().gameplayHudPressedContextActionActive = false;
+                context.interactionState().gameplayHudPressedContextActionHit = {};
+                context.clearContextActionState();
+                break;
+            }
             case GameplayHudPointerTargetType::MinimapZoomInButton:
                 context.zoomGameplayMinimapIn();
                 break;
@@ -425,7 +546,13 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
             }
             case GameplayHudPointerTargetType::None:
                 break;
-            }
+        }
         });
+
+    if (!context.interactionState().gameplayHudClickLatch)
+    {
+        context.interactionState().gameplayHudPressedContextActionActive = false;
+        context.interactionState().gameplayHudPressedContextActionHit = {};
+    }
 }
 } // namespace OpenYAMM::Game

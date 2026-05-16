@@ -6,6 +6,9 @@ SetMapMetadata({
     onLeave = {},
     openedChestIds = {
     },
+    contextActions = {
+    [1] = { kind = "leave_dungeon", source = "opcode", targetMap = "outb1.odm", targetName = "Kriegspire" },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

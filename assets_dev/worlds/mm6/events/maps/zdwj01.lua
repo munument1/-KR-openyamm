@@ -8,6 +8,13 @@ SetMapMetadata({
     [5] = {2},
     [6] = {3},
     },
+    contextActions = {
+    [1] = { kind = "open_door", source = "opcode" },
+    [2] = { kind = "open_door", source = "opcode" },
+    [3] = { kind = "open_door", source = "opcode" },
+    [5] = { kind = "open_chest", source = "opcode", chestIds = {2} },
+    [6] = { kind = "open_chest", source = "opcode", chestIds = {3} },
+    },
     textureNames = {},
     spriteNames = {},
     castSpellIds = {},

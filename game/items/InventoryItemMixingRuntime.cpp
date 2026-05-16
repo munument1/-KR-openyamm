@@ -184,6 +184,9 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         return {};
     }
 
+    const Character *pAlchemyMember = party.bestPartyWideUtilitySkillMember("Alchemy");
+    const Character &alchemyMember = pAlchemyMember != nullptr ? *pAlchemyMember : *pMember;
+
     const ItemDefinition *pHeldDefinition = itemTable.get(heldItem.objectDescriptionId);
     const ItemDefinition *pTargetDefinition = itemTable.get(pTargetItem->objectDescriptionId);
 
@@ -238,7 +241,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         pTargetItem->standardEnchantPower =
             static_cast<uint16_t>(std::min<uint32_t>(
                 0xFFFFu,
-                alchemyLevel(*pMember) + reagentPower(*pHeldDefinition)));
+                alchemyLevel(alchemyMember) + reagentPower(*pHeldDefinition)));
         pTargetItem->identified = true;
 
         InventoryItemMixResult result = {};
@@ -257,7 +260,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
         pTargetItem->standardEnchantPower =
             static_cast<uint16_t>(std::min<uint32_t>(
                 0xFFFFu,
-                alchemyLevel(*pMember) + reagentPower(*pTargetDefinition)));
+                alchemyLevel(alchemyMember) + reagentPower(*pTargetDefinition)));
         pTargetItem->identified = true;
 
         InventoryItemMixResult result = {};
@@ -316,7 +319,7 @@ InventoryItemMixResult InventoryItemMixingRuntime::tryApplyHeldItemToInventoryIt
 
     const uint8_t damageLevel = combination->failureDamageLevel != 0
         ? combination->failureDamageLevel
-        : requiredFailureDamageLevel(combination->resultItemId, alchemyMastery(*pMember), potionSettingTable);
+        : requiredFailureDamageLevel(combination->resultItemId, alchemyMastery(alchemyMember), potionSettingTable);
 
     if (damageLevel != 0)
     {

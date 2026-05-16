@@ -2,6 +2,7 @@
 
 #include "engine/AssetFileSystem.h"
 #include "game/app/KeyboardBindings.h"
+#include "game/gameplay/GameplayWorldInteraction.h"
 #include "game/party/CharacterState.h"
 #include "game/events/EventDialogContent.h"
 #include "game/party/Party.h"
@@ -450,6 +451,7 @@ public:
         HouseBankState houseBankState = {};
         UtilitySpellOverlayState utilitySpellOverlay = {};
         StatusBarState statusBar = {};
+        GameplayContextActionState contextAction = {};
         EventDialogState eventDialog = {};
     };
 
@@ -532,6 +534,9 @@ public:
 
     StatusBarState &statusBar();
     const StatusBarState &statusBar() const;
+
+    GameplayContextActionState &contextActionState();
+    const GameplayContextActionState &contextActionState() const;
 
     EventDialogState &eventDialog();
     const EventDialogState &eventDialog() const;

@@ -3827,6 +3827,10 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
         return;
     }
 
+#if defined(__ANDROID__)
+    m_gameInputSystem.handleSdlEvent(event);
+#endif
+
     IScreen *pActiveScreen = m_screenManager.activeScreen();
 
     if (pActiveScreen != nullptr)
@@ -6500,12 +6504,21 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         m_gameInputSystem.resetRelativeMouseMotion();
     }
 
+    const IScreen *pActiveScreenForInput = m_screenManager.activeScreen();
+    const GameplayScreenState::PendingSpellTargetState &pendingSpellTargetForInput =
+        m_gameSession.gameplayScreenState().pendingSpellTarget();
+    const bool mobileGameplayTouchControlsEnabled =
+        pActiveScreenForInput == nullptr
+        && !pendingSpellTargetForInput.active
+        && m_gameSession.gameplayScreenRuntime().currentHudScreenState() == GameplayHudScreenState::Gameplay;
+
     m_gameInputSystem.updateFromEngineInput(
         width,
         height,
         mouseWheelDelta,
         m_settings,
-        debugConsoleOpen);
+        debugConsoleOpen,
+        mobileGameplayTouchControlsEnabled);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());
     recordFrameDiagnostics(m_framePerformanceDiagnostics.inputNanoseconds, inputBeginTickCount);
 

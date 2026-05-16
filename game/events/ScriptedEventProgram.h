@@ -28,6 +28,17 @@ public:
         float remainingGameMinutes = 0.0f;
     };
 
+    struct ContextActionMetadata
+    {
+        std::string kind;
+        std::string source;
+        std::optional<uint32_t> houseId;
+        std::optional<std::string> targetMap;
+        std::optional<std::string> targetName;
+        std::vector<uint32_t> chestIds;
+        bool hidden = false;
+    };
+
     static std::optional<ScriptedEventProgram> loadFromLuaText(
         const std::string &luaSourceText,
         const std::string &luaSourceName,
@@ -53,6 +64,7 @@ public:
     std::optional<std::string> getHint(uint16_t eventId) const;
     std::optional<std::string> summarizeEvent(uint16_t eventId) const;
     std::vector<uint32_t> getOpenedChestIds(uint16_t eventId) const;
+    std::optional<ContextActionMetadata> getContextActionMetadata(uint16_t eventId) const;
 
 private:
     static bool populateMetadataFromLua(
@@ -74,6 +86,7 @@ private:
     std::unordered_map<uint16_t, std::string> m_hints;
     std::unordered_map<uint16_t, std::string> m_summaries;
     std::unordered_map<uint16_t, std::vector<uint32_t>> m_openedChestIdsByEventId;
+    std::unordered_map<uint16_t, ContextActionMetadata> m_contextActionsByEventId;
     std::vector<std::string> m_textureNames;
     std::vector<std::string> m_spriteNames;
     std::vector<uint32_t> m_castSpellIds;

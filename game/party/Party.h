@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -459,6 +460,12 @@ public:
     EquippedItemRuntimeState *equippedItemRuntimeMutable(size_t memberIndex, EquipmentSlot slot);
     bool consumeEquippedWandCharge(size_t memberIndex);
     void refreshDerivedState();
+    static bool isPartyWideUtilitySkill(std::string_view skillName);
+    std::optional<size_t> bestPartyWideUtilitySkillMemberIndex(
+        std::string_view skillName,
+        bool requireCanAct = true) const;
+    const Character *bestPartyWideUtilitySkillMember(std::string_view skillName, bool requireCanAct = true) const;
+    int bestPartyWideUtilitySkillValue(std::string_view skillName, bool requireCanAct = true) const;
     bool tryIdentifyMemberInventoryItem(
         size_t memberIndex,
         uint8_t gridX,

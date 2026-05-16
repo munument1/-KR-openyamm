@@ -256,6 +256,16 @@ private:
         EventRuntimeState &eventRuntimeState,
         const char *reason);
     static std::optional<std::string> resolveEventHintText(const OutdoorGameView &view, uint16_t eventId);
+    static uint16_t inspectEventId(const OutdoorGameView &view, const OutdoorGameView::InspectHit &inspectHit);
+    static std::vector<uint32_t> resolveOpenedChestIds(
+        const OutdoorGameView &view,
+        const OutdoorGameView::InspectHit &inspectHit);
+    static std::optional<GameplayEventTargetContextActionMetadata> resolveContextActionMetadata(
+        const OutdoorGameView &view,
+        const OutdoorGameView::InspectHit &inspectHit);
+    static bool inspectEventIsHintOnly(
+        const OutdoorGameView &view,
+        const OutdoorGameView::InspectHit &inspectHit);
     static const OutdoorBitmapTexture *findDecorationBillboardTexture(
         const OutdoorGameView &view,
         const std::string &textureName);

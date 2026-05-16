@@ -9,6 +9,30 @@ package_name=${OPENYAMM_ANDROID_PACKAGE:-org.openyamm.android}
 java_home=${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}
 emulator_partition_mb=${OPENYAMM_EMULATOR_PARTITION_MB:-16384}
 emulator_wipe_data=${OPENYAMM_EMULATOR_WIPE_DATA:-0}
+repack_assets=${OPENYAMM_REPACK_ASSETS:-0}
+
+usage()
+{
+    echo "Usage: $0 [--repack-assets]" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repack-assets)
+            repack_assets=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
 
 read_local_sdk_dir()
 {
@@ -88,6 +112,11 @@ wait_for_boot()
 
 echo "ANDROID_HOME=${ANDROID_HOME}"
 echo "JAVA_HOME=${JAVA_HOME}"
+
+if [[ "${repack_assets}" == "1" ]]; then
+    "${script_dir}/repack_runtime_assets.sh"
+fi
+
 echo "Building debug APK..."
 (
     cd "${repo_root}"

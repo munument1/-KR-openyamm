@@ -5,6 +5,7 @@
 #include "game/events/EventProjectileSpells.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/ParticleSystem.h"
+#include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/outdoor/OutdoorGameView.h"
 #include "game/outdoor/OutdoorFogProfile.h"
 #include "game/outdoor/OutdoorInteractionController.h"
@@ -160,6 +161,47 @@ uint32_t resolveHoveredActorOutlineColor(const OutdoorWorldRuntime::MapActorStat
 uint32_t hoveredWorldItemOutlineColor()
 {
     return makeAbgr(64, 128, 255);
+}
+
+uint32_t contextActionHighlightOutlineColor()
+{
+    return makeAbgr(56, 216, 255);
+}
+
+const GameplayWorldHit *selectedContextActionWorldHit(const GameplayContextActionState &state)
+{
+    if (!state.visible || state.primaryIndex >= state.actions.size())
+    {
+        return nullptr;
+    }
+
+    const GameplayWorldHit &hit = state.actions[state.primaryIndex].worldHit;
+    return hit.hasHit ? &hit : nullptr;
+}
+
+bool contextActionHighlightsActor(const GameplayWorldHit *pHit, size_t actorIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::Actor
+        && pHit->actor.has_value()
+        && pHit->actor->actorIndex == actorIndex;
+}
+
+bool contextActionHighlightsWorldItem(const GameplayWorldHit *pHit, size_t worldItemIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::WorldItem
+        && pHit->worldItem.has_value()
+        && pHit->worldItem->worldItemIndex == worldItemIndex;
+}
+
+bool contextActionHighlightsOutdoorDecoration(const GameplayWorldHit *pHit, size_t decorationIndex)
+{
+    return pHit != nullptr
+        && pHit->kind == GameplayWorldHitKind::EventTarget
+        && pHit->eventTarget.has_value()
+        && pHit->eventTarget->targetKind == GameplayWorldEventTargetKind::Decoration
+        && pHit->eventTarget->targetIndex == decorationIndex;
 }
 
 uint32_t computeClearDistanceFogColorAbgr(const OutdoorWorldRuntime &worldRuntime)
@@ -2299,6 +2341,13 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             OutdoorInteractionController::resolveRuntimeActorIndexForInspectHit(view, *hoveredInspectHit);
     }
 
+    const GameplayWorldHit *pContextActionHit = nullptr;
+    if (view.settingsSnapshot().contextActionPopup)
+    {
+        pContextActionHit =
+            selectedContextActionWorldHit(view.m_gameSession.gameplayScreenRuntime().contextActionStateReadOnly());
+    }
+
     thread_local std::vector<bool> coveredRuntimeActors;
     coveredRuntimeActors.clear();
 
@@ -2416,13 +2465,17 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
-            drawItem.hovered =
+            const bool contextHighlighted =
                 runtimeActorIndex.has_value()
-                && hoveredRuntimeActorIndex.has_value()
-                && *runtimeActorIndex == *hoveredRuntimeActorIndex;
+                && contextActionHighlightsActor(pContextActionHit, *runtimeActorIndex);
+            drawItem.hovered =
+                contextHighlighted
+                || (runtimeActorIndex.has_value()
+                    && hoveredRuntimeActorIndex.has_value()
+                    && *runtimeActorIndex == *hoveredRuntimeActorIndex);
             drawItem.hoveredOutlineColorAbgr =
                 drawItem.hovered && pRuntimeActor != nullptr
-                    ? resolveHoveredActorOutlineColor(*pRuntimeActor)
+                    ? (contextHighlighted ? contextActionHighlightOutlineColor() : resolveHoveredActorOutlineColor(*pRuntimeActor))
                     : 0;
             drawItem.x = static_cast<float>(actorX);
             drawItem.y = static_cast<float>(actorY);
@@ -2448,8 +2501,11 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     if (view.m_showDecorationBillboards && view.m_outdoorDecorationBillboardSet)
     {
-        for (const DecorationBillboard &billboard : view.m_outdoorDecorationBillboardSet->billboards)
+        for (size_t decorationIndex = 0;
+             decorationIndex < view.m_outdoorDecorationBillboardSet->billboards.size();
+             ++decorationIndex)
         {
+            const DecorationBillboard &billboard = view.m_outdoorDecorationBillboardSet->billboards[decorationIndex];
             bool hidden = false;
             const uint16_t spriteId =
                 OutdoorInteractionController::resolveDecorationBillboardSpriteId(view, billboard, hidden);
@@ -2506,6 +2562,9 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.y = static_cast<float>(billboard.y);
             drawItem.z = static_cast<float>(billboard.z);
             drawItem.heightScale = 1.0f;
+            drawItem.hovered = contextActionHighlightsOutdoorDecoration(pContextActionHit, decorationIndex);
+            drawItem.hoveredOutlineColorAbgr =
+                drawItem.hovered ? contextActionHighlightOutlineColor() : 0;
             drawItem.distanceSquared = distanceSquared;
             drawItem.cameraDepth = cameraDepth;
             drawItem.lightContributionAbgr = computeBillboardLightContributionAbgr(
@@ -2909,6 +2968,13 @@ void OutdoorBillboardRenderer::renderRuntimeWorldItems(
         hoveredWorldItemIndex = hoveredInspectHit->bModelIndex;
     }
 
+    const GameplayWorldHit *pContextActionHit = nullptr;
+    if (view.settingsSnapshot().contextActionPopup)
+    {
+        pContextActionHit =
+            selectedContextActionWorldHit(view.m_gameSession.gameplayScreenRuntime().contextActionStateReadOnly());
+    }
+
     for (size_t worldItemIndex = 0; worldItemIndex < view.m_pOutdoorWorldRuntime->worldItemCount(); ++worldItemIndex)
     {
         const OutdoorWorldRuntime::WorldItemState *pWorldItem = view.m_pOutdoorWorldRuntime->worldItemState(worldItemIndex);
@@ -2966,8 +3032,14 @@ void OutdoorBillboardRenderer::renderRuntimeWorldItems(
         drawItem.pFrame = pFrame;
         drawItem.pTexture = pTexture;
         drawItem.mirrored = resolvedTexture.mirrored;
-        drawItem.hovered = hoveredWorldItemIndex.has_value() && *hoveredWorldItemIndex == worldItemIndex;
-        drawItem.hoveredOutlineColorAbgr = drawItem.hovered ? hoveredWorldItemOutlineColor() : 0;
+        const bool contextHighlighted = contextActionHighlightsWorldItem(pContextActionHit, worldItemIndex);
+        drawItem.hovered =
+            contextHighlighted
+            || (hoveredWorldItemIndex.has_value() && *hoveredWorldItemIndex == worldItemIndex);
+        drawItem.hoveredOutlineColorAbgr =
+            drawItem.hovered
+                ? (contextHighlighted ? contextActionHighlightOutlineColor() : hoveredWorldItemOutlineColor())
+                : 0;
         drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
         drawItem.lightContributionAbgr = computeBillboardLightContributionAbgr(
             view,

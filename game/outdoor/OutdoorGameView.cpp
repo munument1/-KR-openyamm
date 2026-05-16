@@ -4660,14 +4660,18 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
                 const MonsterTable::MonsterStatsEntry *pStats =
                     m_gameSession.data().monsterTable().findStatsById(inspectState.monsterId);
 
-                if (pParty != nullptr && pMember != nullptr && pStats != nullptr)
+                const std::optional<size_t> speakerMemberIndex =
+                    pParty != nullptr ? pParty->bestPartyWideUtilitySkillMemberIndex("IdentifyMonster") : std::nullopt;
+                const Character *pIdentifier = speakerMemberIndex ? pParty->member(*speakerMemberIndex) : nullptr;
+
+                if (pParty != nullptr && pIdentifier != nullptr && pStats != nullptr)
                 {
-                    const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pMember, pStats->level);
+                    const SpeechId speechId = GameMechanics::resolveIdentifyMonsterSpeech(*pIdentifier, pStats->level);
 
                     if (speechId != SpeechId::None)
                     {
                         m_gameSession.gameplayScreenRuntime().playSpeechReaction(
-                            pParty->activeMemberIndex(),
+                            *speakerMemberIndex,
                             speechId,
                             true);
                     }

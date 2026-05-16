@@ -1950,6 +1950,166 @@ std::optional<std::string> OutdoorInteractionController::resolveEventHintText(
     return std::nullopt;
 }
 
+uint16_t OutdoorInteractionController::inspectEventId(
+    const OutdoorGameView &view,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (inspectHit.kind == "face")
+    {
+        return inspectHit.cogTriggeredNumber;
+    }
+
+    if (inspectHit.kind == "entity")
+    {
+        return resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary);
+    }
+
+    if (inspectHit.kind == "decoration"
+        && view.m_outdoorMapData
+        && view.m_outdoorDecorationBillboardSet
+        && inspectHit.bModelIndex < view.m_outdoorDecorationBillboardSet->billboards.size())
+    {
+        const DecorationBillboard &decoration =
+            view.m_outdoorDecorationBillboardSet->billboards[inspectHit.bModelIndex];
+
+        if (decoration.entityIndex < view.m_outdoorMapData->entities.size())
+        {
+            return resolveOutdoorEntityScriptEventId(view.m_outdoorMapData->entities[decoration.entityIndex]);
+        }
+    }
+
+    return 0;
+}
+
+std::vector<uint32_t> OutdoorInteractionController::resolveOpenedChestIds(
+    const OutdoorGameView &view,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (view.m_pOutdoorSceneRuntime == nullptr)
+    {
+        return {};
+    }
+
+    const uint16_t eventId = inspectEventId(view, inspectHit);
+
+    if (eventId == 0)
+    {
+        return {};
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram =
+        view.m_pOutdoorSceneRuntime->localEventProgram();
+
+    if (localEventProgram)
+    {
+        const std::vector<uint32_t> chestIds = localEventProgram->getOpenedChestIds(eventId);
+
+        if (!chestIds.empty())
+        {
+            return chestIds;
+        }
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram =
+        view.m_pOutdoorSceneRuntime->globalEventProgram();
+
+    return globalEventProgram ? globalEventProgram->getOpenedChestIds(eventId) : std::vector<uint32_t>{};
+}
+
+static GameplayEventTargetContextActionMetadata toGameplayContextActionMetadata(
+    const ScriptedEventProgram::ContextActionMetadata &metadata)
+{
+    GameplayEventTargetContextActionMetadata gameplayMetadata = {};
+    gameplayMetadata.kind = metadata.kind;
+    gameplayMetadata.source = metadata.source;
+    gameplayMetadata.houseId = metadata.houseId;
+    gameplayMetadata.targetMap = metadata.targetMap;
+    gameplayMetadata.targetName = metadata.targetName;
+    gameplayMetadata.chestIds = metadata.chestIds;
+    gameplayMetadata.hidden = metadata.hidden;
+    return gameplayMetadata;
+}
+
+std::optional<GameplayEventTargetContextActionMetadata> OutdoorInteractionController::resolveContextActionMetadata(
+    const OutdoorGameView &view,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (view.m_pOutdoorSceneRuntime == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const uint16_t eventId = inspectEventId(view, inspectHit);
+
+    if (eventId == 0)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram =
+        view.m_pOutdoorSceneRuntime->localEventProgram();
+
+    if (localEventProgram)
+    {
+        const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+            localEventProgram->getContextActionMetadata(eventId);
+
+        if (metadata)
+        {
+            return toGameplayContextActionMetadata(*metadata);
+        }
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram =
+        view.m_pOutdoorSceneRuntime->globalEventProgram();
+
+    if (!globalEventProgram)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+        globalEventProgram->getContextActionMetadata(eventId);
+
+    if (!metadata)
+    {
+        return std::nullopt;
+    }
+
+    return toGameplayContextActionMetadata(*metadata);
+}
+
+bool OutdoorInteractionController::inspectEventIsHintOnly(
+    const OutdoorGameView &view,
+    const OutdoorGameView::InspectHit &inspectHit)
+{
+    if (view.m_pOutdoorSceneRuntime == nullptr)
+    {
+        return false;
+    }
+
+    const uint16_t eventId = inspectEventId(view, inspectHit);
+
+    if (eventId == 0)
+    {
+        return false;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram =
+        view.m_pOutdoorSceneRuntime->localEventProgram();
+
+    if (localEventProgram && localEventProgram->hasEvent(eventId))
+    {
+        return localEventProgram->isHintOnlyEvent(eventId);
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram =
+        view.m_pOutdoorSceneRuntime->globalEventProgram();
+
+    return globalEventProgram && globalEventProgram->hasEvent(eventId)
+        && globalEventProgram->isHintOnlyEvent(eventId);
+}
+
 
 
 std::optional<std::string> OutdoorInteractionController::resolveEventTargetHoverStatusText(
@@ -2128,6 +2288,7 @@ GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorl
 
         GameplayWorldItemTargetHit worldItemHit = {};
         worldItemHit.worldItemIndex = inspectHit.bModelIndex;
+        worldItemHit.displayName = inspectHit.name;
         worldItemHit.objectDescriptionId = inspectHit.objectDescriptionId;
         worldItemHit.objectSpriteId = inspectHit.objectSpriteId;
         worldItemHit.hitPoint = hitPoint;
@@ -2145,6 +2306,7 @@ GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorl
         containerHit.sourceKind =
             isChest ? GameplayWorldContainerSourceKind::Chest : GameplayWorldContainerSourceKind::Corpse;
         containerHit.sourceIndex = inspectHit.bModelIndex;
+        containerHit.displayName = inspectHit.name;
         containerHit.distance = inspectHit.distance;
         worldHit.container = containerHit;
         return worldHit;
@@ -2188,9 +2350,14 @@ GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorl
     eventTargetHit.variableSecondary = inspectHit.variableSecondary;
     eventTargetHit.specialTrigger = inspectHit.specialTrigger;
     eventTargetHit.attributes = inspectHit.attributes;
-    eventTargetHit.name = inspectHit.name;
+    const std::optional<std::string> eventTargetStatusText = resolveEventTargetHoverStatusText(view, inspectHit);
+    eventTargetHit.name =
+        eventTargetStatusText && !eventTargetStatusText->empty() ? *eventTargetStatusText : inspectHit.name;
     eventTargetHit.hitPoint = hitPoint;
     eventTargetHit.distance = inspectHit.distance;
+    eventTargetHit.openedChestIds = resolveOpenedChestIds(view, inspectHit);
+    eventTargetHit.contextActionMetadata = resolveContextActionMetadata(view, inspectHit);
+    eventTargetHit.hintOnlyEvent = inspectEventIsHintOnly(view, inspectHit);
 
     if (inspectHit.kind == "face")
     {
@@ -4257,16 +4424,10 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
     const EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    const auto nearestLevelGeometryDistance =
+    const auto nearestBModelGeometryDistance =
         [&](const bx::Vec3 &rayOrigin, const bx::Vec3 &rayDirection, float maxDistance) -> float
         {
             float bestDistance = maxDistance;
-
-            if (const std::optional<float> terrainDistance =
-                    intersectOutdoorTerrainRay(outdoorMapData, rayOrigin, rayDirection))
-            {
-                bestDistance = std::min(bestDistance, *terrainDistance);
-            }
 
             const bx::Vec3 inspectEnd = {
                 rayOrigin.x + rayDirection.x * maxDistance,
@@ -4445,7 +4606,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
                     continue;
                 }
 
-                const float blockingDistance = nearestLevelGeometryDistance(rayOrigin, rayDirection, candidateDistance);
+                const float blockingDistance = nearestBModelGeometryDistance(rayOrigin, rayDirection, candidateDistance);
 
                 if (blockingDistance + GeometryDistanceEpsilon < candidateDistance)
                 {
@@ -4581,7 +4742,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
                 continue;
             }
 
-            const float blockingDistance = nearestLevelGeometryDistance(rayOrigin, rayDirection, *faceDistance);
+            const float blockingDistance = nearestBModelGeometryDistance(rayOrigin, rayDirection, *faceDistance);
 
             if (blockingDistance + 1.0f < *faceDistance)
             {

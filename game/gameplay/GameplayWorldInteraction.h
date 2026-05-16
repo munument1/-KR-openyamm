@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <bx/math.h>
 
@@ -86,6 +87,7 @@ struct GameplayActorTargetHit
 struct GameplayWorldItemTargetHit
 {
     size_t worldItemIndex = GameplayInvalidWorldIndex;
+    std::string displayName;
     uint16_t objectDescriptionId = 0;
     uint16_t objectSpriteId = 0;
     bx::Vec3 hitPoint = {0.0f, 0.0f, 0.0f};
@@ -96,7 +98,19 @@ struct GameplayContainerTargetHit
 {
     GameplayWorldContainerSourceKind sourceKind = GameplayWorldContainerSourceKind::None;
     size_t sourceIndex = GameplayInvalidWorldIndex;
+    std::string displayName;
     float distance = 0.0f;
+};
+
+struct GameplayEventTargetContextActionMetadata
+{
+    std::string kind;
+    std::string source;
+    std::optional<uint32_t> houseId;
+    std::optional<std::string> targetMap;
+    std::optional<std::string> targetName;
+    std::vector<uint32_t> chestIds;
+    bool hidden = false;
 };
 
 struct GameplayEventTargetHit
@@ -113,8 +127,11 @@ struct GameplayEventTargetHit
     uint16_t specialTrigger = 0;
     uint32_t attributes = 0;
     std::string name;
+    std::vector<uint32_t> openedChestIds;
+    std::optional<GameplayEventTargetContextActionMetadata> contextActionMetadata;
     bx::Vec3 hitPoint = {0.0f, 0.0f, 0.0f};
     float distance = 0.0f;
+    bool hintOnlyEvent = false;
 };
 
 struct GameplayObjectTargetHit
@@ -176,5 +193,39 @@ struct GameplayPendingSpellWorldTargetFacts
 {
     GameplayWorldHit worldHit = {};
     std::optional<bx::Vec3> fallbackGroundTargetPoint;
+};
+
+enum class GameplayContextActionKind
+{
+    None,
+    Talk,
+    PickUpItem,
+    LootCorpse,
+    OpenChest,
+    EnterHouse,
+    OpenDoor,
+    PressButton,
+    UseLever,
+    GenericEvent,
+};
+
+struct GameplayContextAction
+{
+    GameplayContextActionKind kind = GameplayContextActionKind::None;
+    GameplayWorldHit worldHit = {};
+    std::string label;
+    std::string iconId;
+    float score = 0.0f;
+};
+
+struct GameplayContextActionState
+{
+    bool visible = false;
+    std::vector<GameplayContextAction> actions;
+    size_t primaryIndex = 0;
+    uint64_t lastUpdateNanoseconds = 0;
+    bool hasLastUpdateRay = false;
+    bx::Vec3 lastUpdateRayOrigin = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastUpdateRayDirection = {0.0f, 0.0f, 0.0f};
 };
 }

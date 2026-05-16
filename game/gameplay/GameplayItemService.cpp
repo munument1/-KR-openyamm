@@ -922,9 +922,10 @@ bool GameplayItemService::tryIdentifyInspectedItem(
         return false;
     }
 
-    const Character *pInspector = pParty->member(inspectorMemberIndex);
+    const Character *pRequestedInspector = pParty->member(inspectorMemberIndex);
+    const Character *pInspector = pParty->bestPartyWideUtilitySkillMember("IdentifyItem");
 
-    if (pInspector == nullptr)
+    if (pRequestedInspector == nullptr)
     {
         return false;
     }
@@ -1024,9 +1025,10 @@ bool GameplayItemService::tryRepairInspectedItem(
         return false;
     }
 
-    const Character *pInspector = pParty->member(inspectorMemberIndex);
+    const Character *pRequestedInspector = pParty->member(inspectorMemberIndex);
+    const Character *pInspector = pParty->bestPartyWideUtilitySkillMember("RepairItem");
 
-    if (pInspector == nullptr)
+    if (pRequestedInspector == nullptr)
     {
         return false;
     }

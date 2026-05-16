@@ -40,6 +40,10 @@ public:
         std::string spellName;
         bool clickLatch = false;
         bool cancelLatch = false;
+        bool hasSelectedGroundTargetPoint = false;
+        float selectedGroundTargetX = 0.0f;
+        float selectedGroundTargetY = 0.0f;
+        float selectedGroundTargetZ = 0.0f;
 
         void clear();
     };

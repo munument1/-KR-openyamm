@@ -39,6 +39,91 @@ constexpr float OeFiveGameMinuteTickRealSeconds = 10.0f;
 constexpr float OeFiveGameMinuteTickGameSeconds = 5.0f * 60.0f;
 constexpr uint32_t FirstRegularItemId = 1;
 constexpr uint32_t LastRegularItemId = 134;
+constexpr int GrandmasterUtilitySkillScore = std::numeric_limits<int>::max() / 4;
+
+int utilitySkillMasteryMultiplier(SkillMastery mastery)
+{
+    switch (mastery)
+    {
+        case SkillMastery::Normal:
+            return 1;
+        case SkillMastery::Expert:
+            return 2;
+        case SkillMastery::Master:
+            return 3;
+        case SkillMastery::Grandmaster:
+            return 5;
+        case SkillMastery::None:
+        default:
+            return 0;
+    }
+}
+
+std::string canonicalPartyWideUtilitySkillName(std::string_view skillName)
+{
+    const std::string canonical = canonicalSkillName(std::string(skillName));
+
+    if (canonical == "Repair")
+    {
+        return "RepairItem";
+    }
+
+    if (canonical == "DisarmTrap")
+    {
+        return "DisarmTraps";
+    }
+
+    return canonical;
+}
+
+int itemSkillBonusForName(const Character &member, const std::string &skillName)
+{
+    const auto iterator = member.itemSkillBonuses.find(skillName);
+    return iterator != member.itemSkillBonuses.end() ? iterator->second : 0;
+}
+
+int genericUtilitySkillScore(const Character &member, const std::string &skillName)
+{
+    const CharacterSkill *pSkill = member.findSkill(skillName);
+    const int itemBonus = itemSkillBonusForName(member, skillName);
+
+    if ((pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None) && itemBonus == 0)
+    {
+        return 0;
+    }
+
+    if (pSkill != nullptr && pSkill->mastery == SkillMastery::Grandmaster)
+    {
+        return GrandmasterUtilitySkillScore + static_cast<int>(pSkill->level) + std::max(0, itemBonus);
+    }
+
+    const int level = (pSkill != nullptr ? static_cast<int>(pSkill->level) : 0) + itemBonus;
+    const SkillMastery mastery = pSkill != nullptr ? pSkill->mastery : SkillMastery::Normal;
+    return std::max(0, level) * utilitySkillMasteryMultiplier(mastery);
+}
+
+int partyWideUtilitySkillScore(const Character &member, const std::string &skillName)
+{
+    if (skillName == "Perception")
+    {
+        return GameMechanics::resolveCharacterPerceptionValue(member);
+    }
+
+    if (skillName == "DisarmTraps")
+    {
+        return GameMechanics::resolveCharacterDisarmTrapValue(member);
+    }
+
+    if (skillName == "Merchant")
+    {
+        const int merchantScore = genericUtilitySkillScore(member, skillName);
+        return merchantScore > 0
+            ? merchantScore + std::max(0, member.merchantBonus)
+            : std::max(0, member.merchantBonus);
+    }
+
+    return genericUtilitySkillScore(member, skillName);
+}
 
 bool hasWonAllMm7ArcomageTaverns(const std::unordered_set<uint32_t> &wonHouseIds)
 {
@@ -4404,6 +4489,73 @@ void Party::refreshDerivedState()
     rebuildMagicalBonusesFromBuffs();
 }
 
+bool Party::isPartyWideUtilitySkill(std::string_view skillName)
+{
+    const std::string canonical = canonicalPartyWideUtilitySkillName(skillName);
+
+    return canonical == "RepairItem"
+        || canonical == "DisarmTraps"
+        || canonical == "Merchant"
+        || canonical == "IdentifyItem"
+        || canonical == "IdentifyMonster"
+        || canonical == "Alchemy"
+        || canonical == "Perception";
+}
+
+std::optional<size_t> Party::bestPartyWideUtilitySkillMemberIndex(
+    std::string_view skillName,
+    bool requireCanAct) const
+{
+    const std::string canonical = canonicalPartyWideUtilitySkillName(skillName);
+
+    if (!isPartyWideUtilitySkill(canonical))
+    {
+        return std::nullopt;
+    }
+
+    std::optional<size_t> bestMemberIndex;
+    int bestScore = 0;
+
+    for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
+    {
+        const Character &member = m_members[memberIndex];
+
+        if (requireCanAct && !GameMechanics::canAct(member))
+        {
+            continue;
+        }
+
+        const int score = partyWideUtilitySkillScore(member, canonical);
+
+        if (score > bestScore)
+        {
+            bestScore = score;
+            bestMemberIndex = memberIndex;
+        }
+    }
+
+    return bestMemberIndex;
+}
+
+const Character *Party::bestPartyWideUtilitySkillMember(std::string_view skillName, bool requireCanAct) const
+{
+    const std::optional<size_t> memberIndex = bestPartyWideUtilitySkillMemberIndex(skillName, requireCanAct);
+    return memberIndex ? member(*memberIndex) : nullptr;
+}
+
+int Party::bestPartyWideUtilitySkillValue(std::string_view skillName, bool requireCanAct) const
+{
+    const std::optional<size_t> memberIndex = bestPartyWideUtilitySkillMemberIndex(skillName, requireCanAct);
+    const Character *pMember = memberIndex ? member(*memberIndex) : nullptr;
+
+    if (pMember == nullptr)
+    {
+        return 0;
+    }
+
+    return partyWideUtilitySkillScore(*pMember, canonicalPartyWideUtilitySkillName(skillName));
+}
+
 bool Party::tryIdentifyMemberInventoryItem(
     size_t memberIndex,
     uint8_t gridX,
@@ -4413,9 +4565,10 @@ bool Party::tryIdentifyMemberInventoryItem(
 {
     statusText.clear();
     Character *pMember = member(memberIndex);
-    const Character *pInspector = member(inspectorMemberIndex);
+    const Character *pInspector = bestPartyWideUtilitySkillMember("IdentifyItem");
+    const Character *pRequestedInspector = member(inspectorMemberIndex);
 
-    if (pMember == nullptr || pInspector == nullptr || m_pItemTable == nullptr)
+    if (pMember == nullptr || pRequestedInspector == nullptr || m_pItemTable == nullptr)
     {
         return false;
     }
@@ -4466,7 +4619,7 @@ bool Party::tryIdentifyMemberInventoryItem(
         return false;
     }
 
-    if (!ItemRuntime::canCharacterIdentifyItem(*pInspector, *pItemDefinition))
+    if (pInspector == nullptr || !ItemRuntime::canCharacterIdentifyItem(*pInspector, *pItemDefinition))
     {
         statusText = "Identify Failed";
         logItemInteractionResult(
@@ -4508,9 +4661,10 @@ bool Party::tryRepairMemberInventoryItem(
 {
     statusText.clear();
     Character *pMember = member(memberIndex);
-    const Character *pInspector = member(inspectorMemberIndex);
+    const Character *pInspector = bestPartyWideUtilitySkillMember("RepairItem");
+    const Character *pRequestedInspector = member(inspectorMemberIndex);
 
-    if (pMember == nullptr || pInspector == nullptr || m_pItemTable == nullptr)
+    if (pMember == nullptr || pRequestedInspector == nullptr || m_pItemTable == nullptr)
     {
         return false;
     }
@@ -4561,7 +4715,7 @@ bool Party::tryRepairMemberInventoryItem(
         return false;
     }
 
-    if (!ItemRuntime::canCharacterRepairItem(*pInspector, *pItemDefinition))
+    if (pInspector == nullptr || !ItemRuntime::canCharacterRepairItem(*pInspector, *pItemDefinition))
     {
         statusText = "Repair Failed";
         logItemInteractionResult(
@@ -4734,9 +4888,10 @@ bool Party::tryIdentifyEquippedItem(
 {
     statusText.clear();
     Character *pMember = member(memberIndex);
-    const Character *pInspector = member(inspectorMemberIndex);
+    const Character *pInspector = bestPartyWideUtilitySkillMember("IdentifyItem");
+    const Character *pRequestedInspector = member(inspectorMemberIndex);
 
-    if (pMember == nullptr || pInspector == nullptr || m_pItemTable == nullptr)
+    if (pMember == nullptr || pRequestedInspector == nullptr || m_pItemTable == nullptr)
     {
         return false;
     }
@@ -4788,7 +4943,7 @@ bool Party::tryIdentifyEquippedItem(
         return false;
     }
 
-    if (!ItemRuntime::canCharacterIdentifyItem(*pInspector, *pItemDefinition))
+    if (pInspector == nullptr || !ItemRuntime::canCharacterIdentifyItem(*pInspector, *pItemDefinition))
     {
         statusText = "Identify Failed";
         logItemInteractionResult(
@@ -4829,9 +4984,10 @@ bool Party::tryRepairEquippedItem(
 {
     statusText.clear();
     Character *pMember = member(memberIndex);
-    const Character *pInspector = member(inspectorMemberIndex);
+    const Character *pInspector = bestPartyWideUtilitySkillMember("RepairItem");
+    const Character *pRequestedInspector = member(inspectorMemberIndex);
 
-    if (pMember == nullptr || pInspector == nullptr || m_pItemTable == nullptr)
+    if (pMember == nullptr || pRequestedInspector == nullptr || m_pItemTable == nullptr)
     {
         return false;
     }
@@ -4883,7 +5039,7 @@ bool Party::tryRepairEquippedItem(
         return false;
     }
 
-    if (!ItemRuntime::canCharacterRepairItem(*pInspector, *pItemDefinition))
+    if (pInspector == nullptr || !ItemRuntime::canCharacterRepairItem(*pInspector, *pItemDefinition))
     {
         statusText = "Repair Failed";
         logItemInteractionResult(
