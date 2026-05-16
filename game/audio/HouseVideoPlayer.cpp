@@ -786,7 +786,7 @@ void HouseVideoPlayer::uploadVideoFrame(size_t frameIndex)
         return;
     }
 
-    const bgfx::Memory *pMemory = bgfx::copy(
+    const bgfx::Memory *pMemory = copyBgraTextureUploadMemory(
         m_pActiveClip->videoPixels.data() + frameOffset,
         static_cast<uint32_t>(m_pActiveClip->frameSizeBytes));
     bgfx::updateTexture2D(

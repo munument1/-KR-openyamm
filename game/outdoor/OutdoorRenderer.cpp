@@ -284,14 +284,16 @@ std::filesystem::path getShaderPath(bgfx::RendererType::Enum rendererType, const
 {
     std::filesystem::path shaderRoot = OPENYAMM_BGFX_SHADER_DIR;
 
-    if (rendererType == bgfx::RendererType::OpenGL)
+    switch (rendererType)
     {
+    case bgfx::RendererType::OpenGL:
         return shaderRoot / "glsl" / (std::string(pShaderName) + ".bin");
-    }
 
-    if (rendererType == bgfx::RendererType::Noop)
-    {
-        return {};
+    case bgfx::RendererType::OpenGLES:
+        return shaderRoot / "essl" / (std::string(pShaderName) + ".bin");
+
+    default:
+        break;
     }
 
     return {};
@@ -615,7 +617,7 @@ void updateTerrainAtlasTileTexture(
             static_cast<uint16_t>(mipY0),
             static_cast<uint16_t>(updateWidth),
             static_cast<uint16_t>(updateHeight),
-            bgfx::copy(updatePixels.data(), static_cast<uint32_t>(updatePixels.size())));
+            copyBgraTextureUploadMemory(updatePixels.data(), static_cast<uint32_t>(updatePixels.size())));
 
         if (targetMip.width == 1 && targetMip.height == 1)
         {
@@ -3597,9 +3599,9 @@ void OutdoorRenderer::renderOutdoorSky(
             1,
             false,
             1,
-            bgfx::TextureFormat::BGRA8,
+            bgraTextureUploadFormat(),
             BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT,
-            bgfx::copy(&whitePixel, sizeof(whitePixel)));
+            copyBgraTextureUploadMemory(reinterpret_cast<const uint8_t *>(&whitePixel), sizeof(whitePixel)));
     }
 
     const uint32_t vertexCount = 6;

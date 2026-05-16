@@ -66,8 +66,10 @@ private:
     bool validateTierDirectories(const std::filesystem::path &assetRoot) const;
     bool validateTierDirectoriesInMountedPackages() const;
     bool isPackagedAssetRoot(const std::filesystem::path &assetRoot) const;
+    bool isAndroidApkAssetRoot(const std::filesystem::path &assetRoot) const;
     bool mountDevelopmentPackageRoots(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
     bool mountPackagedAssetRoot(const std::filesystem::path &assetRoot, const std::string &activeWorldId);
+    bool mountAndroidApkAssetRoot(const std::string &activeWorldId);
     bool mountPackageArchiveIfPresent(const std::filesystem::path &archivePath, bool appendToPath);
     bool mountSearchRoot(const std::filesystem::path &assetRoot, bool appendToPath);
     bool mountSearchRootAt(
@@ -101,6 +103,7 @@ private:
     );
     std::string resolveVirtualPath(const std::string &virtualPath) const;
     std::vector<std::string> resolveVirtualPathCandidates(const std::string &virtualPath) const;
+    std::vector<std::string> expandAndroidApkAssetCandidates(const std::string &virtualPath) const;
     static std::string normalizeVirtualPath(const std::string &virtualPath);
     static std::string normalizePackageId(const std::string &packageId, const std::string &defaultPackageId);
     static std::vector<std::string> expandPackageAliasCandidates(const std::string &virtualPath);
@@ -119,5 +122,6 @@ private:
     AssetScaleTier m_assetScaleTier;
     AssetScaleProfile m_assetScaleProfile;
     std::vector<SearchMount> m_searchMounts;
+    bool m_androidApkAssetRoot;
 };
 }

@@ -5,7 +5,7 @@ openyamm_configure_ffmpeg()
 FetchContent_GetProperties(imgui SOURCE_DIR OPENYAMM_IMGUI_SOURCE_DIR)
 FetchContent_GetProperties(bgfx SOURCE_DIR OPENYAMM_BGFX_FETCH_SOURCE_DIR)
 
-add_executable(openyamm
+add_library(openyamm_game STATIC
     app/ScreenManager.cpp
     app/GameInputSystem.cpp
     arcomage/ArcomageAi.cpp
@@ -195,7 +195,7 @@ add_executable(openyamm
     ${OPENYAMM_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
 )
 
-target_include_directories(openyamm
+target_include_directories(openyamm_game
     PRIVATE
         ${CMAKE_SOURCE_DIR}
         ${OPENYAMM_IMGUI_SOURCE_DIR}
@@ -211,12 +211,19 @@ set_property(
         ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
 )
 
-target_compile_definitions(openyamm
+if (ANDROID)
+    set(openyammBgfxShaderDir "runtime/shaders")
+else()
+    set(openyammBgfxShaderDir "${OPENYAMM_RUNTIME_SHADER_DIR}")
+endif()
+
+target_compile_definitions(openyamm_game
     PRIVATE
-        OPENYAMM_BGFX_SHADER_DIR="${OPENYAMM_RUNTIME_SHADER_DIR}"
+        OPENYAMM_NO_DESKTOP_MAIN
+        OPENYAMM_BGFX_SHADER_DIR="${openyammBgfxShaderDir}"
 )
 
-target_link_libraries(openyamm
+target_link_libraries(openyamm_game
     PRIVATE
         openyamm_engine
         imgui::imgui
@@ -224,23 +231,41 @@ target_link_libraries(openyamm
         yaml-cpp::yaml-cpp
 )
 
-target_compile_features(openyamm PRIVATE cxx_std_20)
-add_dependencies(openyamm openyamm_runtime_shaders)
-openyamm_target_link_ffmpeg(openyamm)
+target_compile_features(openyamm_game PRIVATE cxx_std_20)
+add_dependencies(openyamm_game openyamm_runtime_shaders)
+openyamm_target_link_ffmpeg(openyamm_game)
 
 find_library(OPENYAMM_M_LIBRARY m)
 if (OPENYAMM_M_LIBRARY)
-    target_link_libraries(openyamm PRIVATE "${OPENYAMM_M_LIBRARY}")
+    target_link_libraries(openyamm_game PRIVATE "${OPENYAMM_M_LIBRARY}")
 endif()
 
 find_library(OPENYAMM_ATOMIC_LIBRARY atomic)
 if (OPENYAMM_ATOMIC_LIBRARY)
-    target_link_libraries(openyamm PRIVATE "${OPENYAMM_ATOMIC_LIBRARY}")
+    target_link_libraries(openyamm_game PRIVATE "${OPENYAMM_ATOMIC_LIBRARY}")
 endif()
 
-if (UNIX AND NOT APPLE)
-    target_link_options(openyamm
-        PRIVATE
-            "-Wl,-rpath,$ORIGIN/../_deps/sdl3-build"
+if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
+    add_executable(openyamm
+        app/DesktopMain.cpp
     )
+
+    target_link_libraries(openyamm
+        PRIVATE
+            openyamm_game
+    )
+
+    target_include_directories(openyamm
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}
+    )
+
+    target_compile_features(openyamm PRIVATE cxx_std_20)
+
+    if (UNIX AND NOT APPLE)
+        target_link_options(openyamm
+            PRIVATE
+                "-Wl,-rpath,$ORIGIN/../_deps/sdl3-build"
+        )
+    endif()
 endif()

@@ -1,0 +1,6 @@
+# Copy to android/signing.properties for local release builds, or use the
+# OPENYAMM_ANDROID_* environment variables consumed by build_release_apk.sh.
+storeFile=keystores/openyamm-release.jks
+storePassword=replace-with-keystore-password
+keyAlias=openyamm
+keyPassword=replace-with-key-password

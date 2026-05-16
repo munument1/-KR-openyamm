@@ -1,7 +1,9 @@
 include_guard(GLOBAL)
 
 function(openyamm_bgfx_shader_platform outputVariable)
-    if (WIN32)
+    if (ANDROID)
+        set(shaderPlatform "android")
+    elseif (WIN32)
         set(shaderPlatform "windows")
     elseif (APPLE)
         set(shaderPlatform "osx")
@@ -12,13 +14,35 @@ function(openyamm_bgfx_shader_platform outputVariable)
     set(${outputVariable} "${shaderPlatform}" PARENT_SCOPE)
 endfunction()
 
+function(openyamm_bgfx_shader_profile outputVariable)
+    if (ANDROID)
+        set(shaderProfile "100_es")
+    else()
+        set(shaderProfile "120")
+    endif()
+
+    set(${outputVariable} "${shaderProfile}" PARENT_SCOPE)
+endfunction()
+
+function(openyamm_bgfx_shader_directory outputVariable)
+    if (ANDROID)
+        set(shaderDirectory "essl")
+    else()
+        set(shaderDirectory "glsl")
+    endif()
+
+    set(${outputVariable} "${shaderDirectory}" PARENT_SCOPE)
+endfunction()
+
 function(openyamm_copy_runtime_shader sourcePath outputName)
+    openyamm_bgfx_shader_directory(shaderDirectory)
+
     add_custom_command(
-        OUTPUT "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/${outputName}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl"
+        OUTPUT "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/${outputName}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${sourcePath}"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/${outputName}"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/${outputName}"
         DEPENDS "${sourcePath}"
         VERBATIM
     )
@@ -26,20 +50,26 @@ endfunction()
 
 function(openyamm_compile_bgfx_shader sourcePath shaderType outputName)
     openyamm_bgfx_shader_platform(shaderPlatform)
+    openyamm_bgfx_shader_profile(shaderProfile)
+    openyamm_bgfx_shader_directory(shaderDirectory)
+
+    if (NOT TARGET openyamm_shaderc)
+        message(FATAL_ERROR "openyamm_shaderc target is unavailable; set OPENYAMM_HOST_SHADERC when cross-compiling.")
+    endif()
 
     add_custom_command(
-        OUTPUT "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/${outputName}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl"
+        OUTPUT "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/${outputName}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}"
         COMMAND "$<TARGET_FILE:openyamm_shaderc>"
             --platform "${shaderPlatform}"
-            -p 120
+            -p "${shaderProfile}"
             --type "${shaderType}"
             --varyingdef "${CMAKE_SOURCE_DIR}/game/shaders/varying.def.sc"
             -i "${CMAKE_SOURCE_DIR}/game/shaders"
             -i "${OPENYAMM_BGFX_SOURCE_DIR}/src"
             -i "${OPENYAMM_BGFX_SOURCE_DIR}/examples/common"
             -f "${sourcePath}"
-            -o "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/${outputName}"
+            -o "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/${outputName}"
         DEPENDS
             "${sourcePath}"
             "${CMAKE_SOURCE_DIR}/game/shaders/varying.def.sc"
@@ -53,10 +83,13 @@ function(openyamm_configure_bgfx_runtime)
     file(GLOB openyammAstcEncoderSources "${OPENYAMM_BIMG_SOURCE_DIR}/3rdparty/astc-encoder/source/*.cpp")
 
     if (NOT TARGET openyamm_bgfx)
-        find_package(OpenGL REQUIRED)
         find_package(Threads REQUIRED)
 
-        if (UNIX AND NOT APPLE)
+        if (NOT ANDROID)
+            find_package(OpenGL REQUIRED)
+        endif()
+
+        if (UNIX AND NOT APPLE AND NOT ANDROID)
             find_package(X11 REQUIRED)
         endif()
 
@@ -102,21 +135,37 @@ function(openyamm_configure_bgfx_runtime)
         )
 
         target_compile_features(openyamm_bgfx PUBLIC cxx_std_20)
+        if (ANDROID)
+            set(openyammBgfxOpenGlVersion 0)
+            set(openyammBgfxOpenGlesVersion 30)
+            set(openyammBgfxDebug 0)
+        else()
+            set(openyammBgfxOpenGlVersion 33)
+            set(openyammBgfxOpenGlesVersion 0)
+            set(openyammBgfxDebug "$<IF:$<CONFIG:Debug>,1,0>")
+        endif()
+
         target_compile_definitions(openyamm_bgfx
             PUBLIC
-                BX_CONFIG_DEBUG=$<IF:$<CONFIG:Debug>,1,0>
+                BX_CONFIG_DEBUG=${openyammBgfxDebug}
             PRIVATE
                 BGFX_CONFIG_RENDERER_DIRECT3D11=0
                 BGFX_CONFIG_RENDERER_DIRECT3D12=0
                 BGFX_CONFIG_RENDERER_METAL=0
                 BGFX_CONFIG_RENDERER_VULKAN=0
                 BGFX_CONFIG_RENDERER_WEBGPU=0
-                BGFX_CONFIG_RENDERER_OPENGL=33
-                BGFX_CONFIG_RENDERER_OPENGLES=0
+                BGFX_CONFIG_RENDERER_OPENGL=${openyammBgfxOpenGlVersion}
+                BGFX_CONFIG_RENDERER_OPENGLES=${openyammBgfxOpenGlesVersion}
         )
-        target_link_libraries(openyamm_bgfx PUBLIC Threads::Threads ${CMAKE_DL_LIBS} OpenGL::GL)
+        target_link_libraries(openyamm_bgfx PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 
-        if (UNIX AND NOT APPLE)
+        if (ANDROID)
+            target_link_libraries(openyamm_bgfx PUBLIC EGL GLESv3 android log)
+        else()
+            target_link_libraries(openyamm_bgfx PUBLIC OpenGL::GL)
+        endif()
+
+        if (UNIX AND NOT APPLE AND NOT ANDROID)
             target_link_libraries(openyamm_bgfx PUBLIC X11::X11 X11::Xext)
         endif()
     endif()
@@ -188,7 +237,20 @@ function(openyamm_configure_bgfx_runtime)
         endif()
     endif()
 
-    if (NOT TARGET openyamm_shaderc)
+    set(OPENYAMM_HOST_SHADERC "" CACHE FILEPATH "Host bgfx shaderc executable used while cross-compiling.")
+
+    if (NOT TARGET openyamm_shaderc AND ANDROID)
+        if (OPENYAMM_HOST_SHADERC STREQUAL "")
+            message(FATAL_ERROR "Set OPENYAMM_HOST_SHADERC to a host bgfx shaderc executable for Android builds.")
+        endif()
+
+        if (NOT EXISTS "${OPENYAMM_HOST_SHADERC}")
+            message(FATAL_ERROR "OPENYAMM_HOST_SHADERC does not exist: ${OPENYAMM_HOST_SHADERC}")
+        endif()
+
+        add_executable(openyamm_shaderc IMPORTED GLOBAL)
+        set_target_properties(openyamm_shaderc PROPERTIES IMPORTED_LOCATION "${OPENYAMM_HOST_SHADERC}")
+    elseif (NOT TARGET openyamm_shaderc)
         add_executable(openyamm_shaderc
             ${OPENYAMM_BGFX_SOURCE_DIR}/tools/shaderc/shaderc.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/tools/shaderc/shaderc_glsl.cpp
@@ -212,17 +274,20 @@ function(openyamm_configure_runtime_shaders)
         return()
     endif()
 
+    openyamm_bgfx_shader_directory(shaderDirectory)
+    set(bgfxExampleShaderDir "${OPENYAMM_BGFX_SOURCE_DIR}/examples/runtime/shaders/${shaderDirectory}")
+
     openyamm_copy_runtime_shader(
-        "${OPENYAMM_BGFX_SOURCE_DIR}/examples/runtime/shaders/glsl/vs_cubes.bin"
+        "${bgfxExampleShaderDir}/vs_cubes.bin"
         "vs_cubes.bin")
     openyamm_copy_runtime_shader(
-        "${OPENYAMM_BGFX_SOURCE_DIR}/examples/runtime/shaders/glsl/fs_cubes.bin"
+        "${bgfxExampleShaderDir}/fs_cubes.bin"
         "fs_cubes.bin")
     openyamm_copy_runtime_shader(
-        "${OPENYAMM_BGFX_SOURCE_DIR}/examples/runtime/shaders/glsl/vs_shadowmaps_texture.bin"
+        "${bgfxExampleShaderDir}/vs_shadowmaps_texture.bin"
         "vs_shadowmaps_texture.bin")
     openyamm_copy_runtime_shader(
-        "${OPENYAMM_BGFX_SOURCE_DIR}/examples/runtime/shaders/glsl/fs_shadowmaps_texture.bin"
+        "${bgfxExampleShaderDir}/fs_shadowmaps_texture.bin"
         "fs_shadowmaps_texture.bin")
     openyamm_compile_bgfx_shader(
         "${CMAKE_SOURCE_DIR}/game/shaders/vs_outdoor_textured_fog.sc"
@@ -283,23 +348,23 @@ function(openyamm_configure_runtime_shaders)
 
     add_custom_target(openyamm_runtime_shaders ALL
         DEPENDS
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_cubes.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_cubes.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_shadowmaps_texture.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_shadowmaps_texture.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_outdoor_textured_fog.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_outdoor_billboard_lit.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_outdoor_textured_fog.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_outdoor_billboard_lit.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_indoor_textured_lit.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_indoor_textured_lit.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_outdoor_force_perspective.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_outdoor_force_perspective.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_particle.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_particle.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_spell_area_preview.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_spell_area_preview.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/vs_editor_preview_material.bin"
-            "${OPENYAMM_RUNTIME_SHADER_DIR}/glsl/fs_editor_preview_material.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_cubes.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_cubes.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_shadowmaps_texture.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_shadowmaps_texture.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_outdoor_textured_fog.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_outdoor_billboard_lit.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_outdoor_textured_fog.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_outdoor_billboard_lit.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_indoor_textured_lit.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_indoor_textured_lit.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_outdoor_force_perspective.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_outdoor_force_perspective.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_particle.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_particle.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_spell_area_preview.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_spell_area_preview.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/vs_editor_preview_material.bin"
+            "${OPENYAMM_RUNTIME_SHADER_DIR}/${shaderDirectory}/fs_editor_preview_material.bin"
     )
 endfunction()

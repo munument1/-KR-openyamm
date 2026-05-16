@@ -8,7 +8,11 @@ ApplicationConfig ApplicationConfig::createDefault()
 {
     ApplicationConfig config;
     config.appName = "OpenYAMM";
+#if defined(__ANDROID__)
+    config.assetRoot = "assets";
+#else
     config.assetRoot = AssetPaths::getDevelopmentAssetRoot();
+#endif
     config.activeWorldId = "mm8";
     config.startupMapFileOverride.clear();
     config.assetScaleTier = AssetScaleTier::X1;

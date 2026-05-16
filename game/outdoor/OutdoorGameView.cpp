@@ -2738,14 +2738,16 @@ std::filesystem::path getShaderPath(bgfx::RendererType::Enum rendererType, const
 {
     std::filesystem::path shaderRoot = OPENYAMM_BGFX_SHADER_DIR;
 
-    if (rendererType == bgfx::RendererType::OpenGL)
+    switch (rendererType)
     {
+    case bgfx::RendererType::OpenGL:
         return shaderRoot / "glsl" / (std::string(pShaderName) + ".bin");
-    }
 
-    if (rendererType == bgfx::RendererType::Noop)
-    {
-        return {};
+    case bgfx::RendererType::OpenGLES:
+        return shaderRoot / "essl" / (std::string(pShaderName) + ".bin");
+
+    default:
+        break;
     }
 
     return {};

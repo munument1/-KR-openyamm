@@ -1,6 +1,9 @@
 #include "engine/AssetFileSystem.h"
 
 #include <physfs.h>
+#if defined(__ANDROID__)
+#include <SDL3/SDL_system.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -35,6 +38,7 @@ constexpr const char *SkyTextureDirectoryName = "sky_textures";
 constexpr const char *LegacyDirectoryName = "_legacy";
 constexpr const char *SingleAssetPackageName = "assets.zip";
 constexpr const char *EngineAssetPackageName = "engine.zip";
+constexpr std::array<const char *, 4> KnownWorldPackageIds = {"mm6", "mm7", "mm8", "mmmerge"};
 
 struct TieredAssetDirectory
 {
@@ -70,7 +74,21 @@ struct MergedRootFile
     std::filesystem::path filePath;
 };
 
-constexpr std::array<VirtualPathAlias, 20> PackagePathAliases = {
+constexpr std::array<VirtualPathAlias, 34> PackagePathAliases = {
+    VirtualPathAlias{"engine/audio", "audio"},
+    VirtualPathAlias{"engine/data_tables/english", "data_tables/english"},
+    VirtualPathAlias{"engine/data_tables", "data_tables"},
+    VirtualPathAlias{"engine/events", "events"},
+    VirtualPathAlias{"engine/fonts/english_text", "fonts/english_text"},
+    VirtualPathAlias{"engine/fonts/icons", "fonts/icons"},
+    VirtualPathAlias{"engine/fonts", "fonts"},
+    VirtualPathAlias{"engine/icons", "icons"},
+    VirtualPathAlias{"engine/music", "music"},
+    VirtualPathAlias{"engine/rendering", "rendering"},
+    VirtualPathAlias{"engine/scripts", "scripts"},
+    VirtualPathAlias{"engine/sprites", "sprites"},
+    VirtualPathAlias{"engine/terrain", "terrain"},
+    VirtualPathAlias{"engine/textures", "textures"},
     VirtualPathAlias{"Data/data_tables/english", "data_tables/english"},
     VirtualPathAlias{"Data/data_tables", "data_tables"},
     VirtualPathAlias{"Data/games", "maps"},
@@ -366,6 +384,25 @@ PHYSFS_File *openReadExactOrCaseInsensitive(const std::string &virtualPath)
 
     return PHYSFS_openRead(resolvedPath->c_str());
 }
+
+bool initializePhysicsFs(const std::filesystem::path &basePath)
+{
+#if defined(__ANDROID__)
+    PHYSFS_AndroidInit androidInit = {};
+    androidInit.jnienv = SDL_GetAndroidJNIEnv();
+    androidInit.context = SDL_GetAndroidActivity();
+
+    if (androidInit.jnienv == nullptr || androidInit.context == nullptr)
+    {
+        std::cerr << "PHYSFS_init failed: Android JNI environment or activity is unavailable\n";
+        return false;
+    }
+
+    return PHYSFS_init(reinterpret_cast<const char *>(&androidInit)) != 0;
+#else
+    return PHYSFS_init(basePath.string().c_str()) != 0;
+#endif
+}
 }
 
 AssetFileSystem::AssetFileSystem()
@@ -373,6 +410,7 @@ AssetFileSystem::AssetFileSystem()
     , m_activeWorldId(DefaultActiveWorldId)
     , m_assetScaleTier(AssetScaleTier::X1)
     , m_assetScaleProfile(createUniformAssetScaleProfile(AssetScaleTier::X1))
+    , m_androidApkAssetRoot(false)
 {
 }
 
@@ -412,7 +450,7 @@ bool AssetFileSystem::initialize(
 {
     shutdown();
 
-    if (!PHYSFS_init(basePath.string().c_str()))
+    if (!initializePhysicsFs(basePath))
     {
         std::cerr << "PHYSFS_init failed: " << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << '\n';
         return false;
@@ -424,7 +462,8 @@ bool AssetFileSystem::initialize(
     m_assetScaleProfile = assetScaleProfile;
     m_activeWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
 
-    const bool packagedAssetRoot = isPackagedAssetRoot(assetRoot);
+    const bool androidApkAssetRoot = isAndroidApkAssetRoot(assetRoot);
+    const bool packagedAssetRoot = androidApkAssetRoot || isPackagedAssetRoot(assetRoot);
 
     if (!packagedAssetRoot && !validateTierDirectories(assetRoot))
     {
@@ -432,7 +471,21 @@ bool AssetFileSystem::initialize(
         return false;
     }
 
-    if (packagedAssetRoot)
+    if (androidApkAssetRoot)
+    {
+        if (!mountAndroidApkAssetRoot(m_activeWorldId))
+        {
+            shutdown();
+            return false;
+        }
+
+        if (!validateTierDirectoriesInMountedPackages())
+        {
+            shutdown();
+            return false;
+        }
+    }
+    else if (packagedAssetRoot)
     {
         if (!mountPackagedAssetRoot(assetRoot, m_activeWorldId))
         {
@@ -515,6 +568,19 @@ bool AssetFileSystem::switchActiveWorld(const std::string &activeWorldId)
 
 bool AssetFileSystem::mountDevelopmentRoot(const std::filesystem::path &assetRoot)
 {
+    if (isAndroidApkAssetRoot(assetRoot))
+    {
+        if (!mountAndroidApkAssetRoot(DefaultActiveWorldId))
+        {
+            return false;
+        }
+
+        m_activeWorldId = DefaultActiveWorldId;
+        m_developmentRoot = assetRoot;
+        m_editorDevelopmentRoot = deriveEditorDevelopmentRoot(assetRoot);
+        return true;
+    }
+
     if (isPackagedAssetRoot(assetRoot))
     {
         if (!mountPackagedAssetRoot(assetRoot, DefaultActiveWorldId))
@@ -626,6 +692,62 @@ bool AssetFileSystem::isPackagedAssetRoot(const std::filesystem::path &assetRoot
     return isZipArchivePath(assetRoot / SingleAssetPackageName)
         || isZipArchivePath(assetRoot / EngineAssetPackageName)
         || !collectExistingWorldPackageArchives(assetRoot).empty();
+}
+
+bool AssetFileSystem::isAndroidApkAssetRoot(const std::filesystem::path &assetRoot) const
+{
+#if defined(__ANDROID__)
+    return normalizeVirtualPath(assetRoot.generic_string()) == "assets"
+        || assetRoot.filename() == "assets";
+#else
+    (void)assetRoot;
+    return false;
+#endif
+}
+
+bool AssetFileSystem::mountAndroidApkAssetRoot(const std::string &activeWorldId)
+{
+#if defined(__ANDROID__)
+    if (!isInitialized())
+    {
+        return false;
+    }
+
+    const char *pApkPath = PHYSFS_getBaseDir();
+
+    if (pApkPath == nullptr || pApkPath[0] == '\0')
+    {
+        std::cerr << "PHYSFS_getBaseDir returned no Android APK path\n";
+        return false;
+    }
+
+    if (!std::filesystem::exists(pApkPath))
+    {
+        std::cerr << "Android APK path does not exist: " << pApkPath << '\n';
+        return false;
+    }
+
+    if (!PHYSFS_mount(pApkPath, "/", 1))
+    {
+        std::cerr << "PHYSFS_mount failed for Android APK " << pApkPath << ": "
+                  << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << '\n';
+        return false;
+    }
+
+    SearchMount searchMount;
+    searchMount.root = pApkPath;
+    searchMount.mountPoint = "";
+    searchMount.archive = true;
+    m_searchMounts.push_back(searchMount);
+    m_activeWorldId = normalizePackageId(activeWorldId, DefaultActiveWorldId);
+    m_androidApkAssetRoot = true;
+
+    std::cout << "Mounted Android APK asset root: " << pApkPath << '\n';
+    return true;
+#else
+    (void)activeWorldId;
+    return false;
+#endif
 }
 
 bool AssetFileSystem::mountPackagedAssetRoot(
@@ -1181,6 +1303,7 @@ void AssetFileSystem::shutdown()
     m_assetScaleTier = AssetScaleTier::X1;
     m_assetScaleProfile = createUniformAssetScaleProfile(AssetScaleTier::X1);
     m_searchMounts.clear();
+    m_androidApkAssetRoot = false;
 }
 
 bool AssetFileSystem::isInitialized() const
@@ -1268,8 +1391,7 @@ bool AssetFileSystem::validateTierDirectoriesInMountedPackages() const
             ? std::filesystem::path(scaledLegacyDirectoryName)
             : parentPath / scaledLegacyDirectoryName;
 
-        if (PHYSFS_exists(scaledPackageDirectoryName.c_str()) != 0
-            || PHYSFS_exists(scaledLegacyPath.generic_string().c_str()) != 0)
+        if (exists(scaledPackageDirectoryName) || exists(scaledLegacyPath.generic_string()))
         {
             continue;
         }
@@ -1304,18 +1426,79 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         }
     };
 
+    const auto appendCandidateWithAndroidApkPrefixes =
+        [this, &appendCandidate](const std::string &candidate)
+    {
+        appendCandidate(candidate);
+
+        const std::vector<std::string> androidCandidates = expandAndroidApkAssetCandidates(candidate);
+
+        for (const std::string &androidCandidate : androidCandidates)
+        {
+            appendCandidate(androidCandidate);
+        }
+    };
+
     for (const std::string &candidate : aliasCandidates)
     {
         const std::string remappedCandidate = remapTieredVirtualPath(candidate, m_assetScaleProfile);
-        appendCandidate(remappedCandidate);
-        appendCandidate(baseTieredVirtualPath(candidate));
+        appendCandidateWithAndroidApkPrefixes(remappedCandidate);
+        appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(candidate));
     }
 
     const std::string remappedLegacyPath = remapTieredVirtualPath(normalizedPath, m_assetScaleProfile);
-    appendCandidate(remappedLegacyPath);
-    appendCandidate(baseTieredVirtualPath(normalizedPath));
+    appendCandidateWithAndroidApkPrefixes(remappedLegacyPath);
+    appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(normalizedPath));
 
     return resolvedPaths;
+}
+
+std::vector<std::string> AssetFileSystem::expandAndroidApkAssetCandidates(const std::string &virtualPath) const
+{
+    std::vector<std::string> candidates;
+
+    if (!m_androidApkAssetRoot || virtualPath.empty())
+    {
+        return candidates;
+    }
+
+    if (virtualPath == "." || virtualPath == "/")
+    {
+        candidates.emplace_back("assets/worlds/" + m_activeWorldId);
+        candidates.emplace_back("assets/engine");
+        candidates.emplace_back("assets");
+        return candidates;
+    }
+
+    const auto appendCandidate = [&candidates](const std::string &candidate)
+    {
+        if (std::find(candidates.begin(), candidates.end(), candidate) == candidates.end())
+        {
+            candidates.push_back(candidate);
+        }
+    };
+
+    appendCandidate("assets/worlds/" + m_activeWorldId + "/" + virtualPath);
+    appendCandidate("assets/engine/" + virtualPath);
+
+    for (const char *pWorldId : KnownWorldPackageIds)
+    {
+        if (m_activeWorldId != pWorldId)
+        {
+            appendCandidate(std::string("assets/worlds/") + pWorldId + "/" + virtualPath);
+        }
+    }
+
+    if (virtualPath.starts_with("assets/"))
+    {
+        appendCandidate(virtualPath);
+    }
+    else
+    {
+        appendCandidate("assets/" + virtualPath);
+    }
+
+    return candidates;
 }
 
 std::string AssetFileSystem::normalizeVirtualPath(const std::string &virtualPath)

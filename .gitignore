@@ -11,3 +11,6 @@ __pycache__/
 /_codex/
 /reference/
 /saves/
+/android/signing.properties
+/android/keystores/
+/android/app-release.apk

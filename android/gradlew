@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+sdl_wrapper="${script_dir}/../build/_deps/sdl3-src/android-project/gradlew"
+
+if [ ! -x "${sdl_wrapper}" ]; then
+    echo "SDL3 Gradle wrapper not found: ${sdl_wrapper}" >&2
+    echo "Build the desktop project once so FetchContent populates build/_deps/sdl3-src." >&2
+    exit 1
+fi
+
+exec "${sdl_wrapper}" -p "${script_dir}" "$@"

@@ -1,0 +1,248 @@
+plugins {
+    id "com.android.application"
+}
+
+def sdl3SourceDirPath = project.findProperty("OPENYAMM_SDL3_SOURCE_DIR")
+if (sdl3SourceDirPath == null || sdl3SourceDirPath.toString().trim().isEmpty()) {
+    sdl3SourceDirPath = "${rootDir}/../build/_deps/sdl3-src"
+}
+
+def sdl3SourceDir = file(sdl3SourceDirPath)
+if (!sdl3SourceDir.isDirectory()) {
+    throw new GradleException(
+        "SDL3 source directory not found: ${sdl3SourceDir}. " +
+        "Build the desktop project once or pass -POPENYAMM_SDL3_SOURCE_DIR=/path/to/SDL."
+    )
+}
+
+def signingPropertiesFile = file("${rootDir}/signing.properties")
+def signingProperties = new Properties()
+if (signingPropertiesFile.isFile()) {
+    signingPropertiesFile.withInputStream { signingProperties.load(it) }
+}
+
+def signingValue = { propertyName, envName ->
+    def value = signingProperties.getProperty(propertyName)
+    if (value == null || value.toString().trim().isEmpty()) {
+        value = project.findProperty("openyamm.signing.${propertyName}")
+    }
+    if (value == null || value.toString().trim().isEmpty()) {
+        value = System.getenv(envName)
+    }
+    return value == null ? null : value.toString()
+}
+
+def releaseStoreFilePath = signingValue("storeFile", "OPENYAMM_ANDROID_KEYSTORE")
+def releaseStorePassword = signingValue("storePassword", "OPENYAMM_ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = signingValue("keyAlias", "OPENYAMM_ANDROID_KEY_ALIAS")
+def releaseKeyPassword = signingValue("keyPassword", "OPENYAMM_ANDROID_KEY_PASSWORD")
+def releaseSigningReady = releaseStoreFilePath != null
+    && releaseStorePassword != null
+    && releaseKeyAlias != null
+    && releaseKeyPassword != null
+def appVersionName = project.findProperty("openyamm.android.versionName").toString()
+def appVersionCode = project.findProperty("openyamm.android.versionCode").toString().toInteger()
+
+android {
+    namespace "org.openyamm.android"
+    compileSdk 35
+    ndkVersion "28.2.13676358"
+
+    defaultConfig {
+        applicationId "org.openyamm.android"
+        minSdk 23
+        targetSdk 35
+        versionCode appVersionCode
+        versionName appVersionName
+
+        externalNativeBuild {
+            cmake {
+                arguments(
+                    "-DANDROID_PLATFORM=android-23",
+                    "-DANDROID_STL=c++_shared",
+                    "-DOPENYAMM_SDL3_SOURCE_DIR=${sdl3SourceDir.absolutePath}",
+                    "-DOPENYAMM_BUILD_DESKTOP_EXECUTABLE=OFF",
+                    "-DOPENYAMM_BUILD_TESTS=OFF",
+                    "-DOPENYAMM_BUILD_EDITOR=OFF",
+                    "-DOPENYAMM_BUILD_TOOLS=OFF",
+                    "-DOPENYAMM_DEV_ASSETS_DIR=assets",
+                    "-DOPENYAMM_WINDOW_WIDTH=1280",
+                    "-DOPENYAMM_WINDOW_HEIGHT=720",
+                    "-DOPENYAMM_HOST_SHADERC=${rootDir}/../build/openyamm_shaderc"
+                )
+            }
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += "${sdl3SourceDir}/android-project/app/src/main/java"
+        }
+        debug {
+            assets.srcDirs = [
+                "${buildDir}/generated/openyammApkAssets/debug"
+            ]
+        }
+        release {
+            assets.srcDirs = [
+                "${buildDir}/generated/openyammApkAssets/release"
+            ]
+        }
+    }
+
+    androidResources {
+        noCompress += ["zip"]
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "../../CMakeLists.txt"
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(releaseStoreFilePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            ndk {
+                abiFilters "arm64-v8a", "x86_64"
+            }
+            externalNativeBuild {
+                cmake {
+                    abiFilters "arm64-v8a", "x86_64"
+                }
+            }
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+            ndk {
+                abiFilters "arm64-v8a"
+            }
+            externalNativeBuild {
+                cmake {
+                    abiFilters "arm64-v8a"
+                }
+            }
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuildDirectories, generatedAssetsRoot ->
+    tasks.register(taskName) {
+        dependsOn(nativeBuildTaskName)
+
+        def packagedAssetRoots = [
+            [zip: file("${rootDir}/../assets/engine.zip"), into: "engine"],
+            [zip: file("${rootDir}/../assets/worlds/mm6.zip"), into: "worlds/mm6"],
+            [zip: file("${rootDir}/../assets/worlds/mm7.zip"), into: "worlds/mm7"],
+            [zip: file("${rootDir}/../assets/worlds/mm8.zip"), into: "worlds/mm8"],
+            [zip: file("${rootDir}/../assets/worlds/mmmerge.zip"), into: "worlds/mmmerge"]
+        ]
+
+        inputs.files(packagedAssetRoots.collect { it.zip })
+        inputs.files(shaderBuildDirectories.collect { shaderBuildDirectory ->
+            fileTree(shaderBuildDirectory) {
+                include("*/*/runtime/shaders/**")
+            }
+        })
+        outputs.dir(generatedAssetsRoot)
+
+        doLast {
+            delete(generatedAssetsRoot)
+
+            packagedAssetRoots.each { assetRoot ->
+                if (!assetRoot.zip.isFile()) {
+                    throw new GradleException(
+                        "Missing runtime asset package ${assetRoot.zip}. " +
+                        "Generate assets/*.zip before building the Android APK."
+                    )
+                }
+
+                copy {
+                    from(zipTree(assetRoot.zip))
+                    into(file("${generatedAssetsRoot}/${assetRoot.into}"))
+                }
+            }
+
+            copy {
+                shaderBuildDirectories.each { shaderBuildDirectory ->
+                    from(fileTree(shaderBuildDirectory) {
+                        include("*/*/runtime/shaders/**")
+                    }) {
+                        eachFile { details ->
+                            def segments = details.relativePath.segments
+                            def runtimeIndex = segments.findIndexOf { it == "runtime" }
+                            if (runtimeIndex >= 0) {
+                                details.relativePath = new RelativePath(
+                                    !details.directory,
+                                    segments[runtimeIndex..-1] as String[]
+                                )
+                            }
+                        }
+                        includeEmptyDirs = false
+                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                    }
+                }
+                into(generatedAssetsRoot)
+            }
+        }
+    }
+}
+
+registerOpenYammApkAssetsTask(
+    "syncOpenYammDebugApkAssets",
+    "externalNativeBuildDebug",
+    [file("${projectDir}/.cxx/Debug")],
+    file("${buildDir}/generated/openyammApkAssets/debug")
+)
+registerOpenYammApkAssetsTask(
+    "syncOpenYammReleaseApkAssets",
+    "externalNativeBuildRelease",
+    [
+        file("${projectDir}/.cxx/Release"),
+        file("${projectDir}/.cxx/RelWithDebInfo"),
+        file("${projectDir}/.cxx/MinSizeRel")
+    ],
+    file("${buildDir}/generated/openyammApkAssets/release")
+)
+
+tasks.matching { it.name == "mergeDebugAssets" }.configureEach {
+    dependsOn("syncOpenYammDebugApkAssets")
+}
+
+tasks.matching { it.name == "mergeReleaseAssets" }.configureEach {
+    dependsOn("syncOpenYammReleaseApkAssets")
+}
+
+tasks.matching { it.name.contains("Release") && it.name.toLowerCase().contains("lint") }.configureEach {
+    dependsOn("syncOpenYammReleaseApkAssets")
+}
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    doFirst {
+        if (!releaseSigningReady) {
+            throw new GradleException(
+                "Release signing is not configured. Use android/build_release_apk.sh, " +
+                "android/signing.properties, or OPENYAMM_ANDROID_KEYSTORE/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD."
+            )
+        }
+    }
+}

@@ -544,7 +544,14 @@ void EngineApplication::setConfiguration(const ApplicationConfig &config)
 
 bool EngineApplication::validateConfiguration() const
 {
+#if defined(__ANDROID__)
+    const bool androidApkAssetRoot = m_config.assetRoot == "assets"
+        || std::filesystem::path(m_config.assetRoot).filename() == "assets";
+
+    if (!androidApkAssetRoot && !std::filesystem::exists(m_config.assetRoot))
+#else
     if (!std::filesystem::exists(m_config.assetRoot))
+#endif
     {
         std::cerr << "Asset root does not exist: " << m_config.assetRoot << '\n';
         return false;

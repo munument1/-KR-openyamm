@@ -80,6 +80,21 @@ uint64_t textureFilterSamplerFlagsForMode(TextureFilterMode mode)
     return BGFX_SAMPLER_NONE;
 }
 
+std::vector<uint8_t> convertBgraToRgba(const uint8_t *pPixels, uint32_t pixelBytes)
+{
+    std::vector<uint8_t> rgbaPixels(pixelBytes);
+
+    for (uint32_t byteOffset = 0; byteOffset + 3 < pixelBytes; byteOffset += 4)
+    {
+        rgbaPixels[byteOffset + 0] = pPixels[byteOffset + 2];
+        rgbaPixels[byteOffset + 1] = pPixels[byteOffset + 1];
+        rgbaPixels[byteOffset + 2] = pPixels[byteOffset + 0];
+        rgbaPixels[byteOffset + 3] = pPixels[byteOffset + 3];
+    }
+
+    return rgbaPixels;
+}
+
 bool hasMixedTransparency(const uint8_t *pPixels, size_t pixelCount)
 {
     bool foundTransparent = false;
@@ -346,7 +361,7 @@ bgfx::TextureHandle createBgraTextureWithMipChain(
         height,
         true,
         1,
-        bgfx::TextureFormat::BGRA8,
+        bgraTextureUploadFormat(),
         textureFilterSamplerFlags(profile) | extraFlags);
 
     if (!bgfx::isValid(textureHandle))
@@ -365,7 +380,7 @@ bgfx::TextureHandle createBgraTextureWithMipChain(
             0,
             mipLevel.width,
             mipLevel.height,
-            bgfx::copy(mipLevel.pixels.data(), static_cast<uint32_t>(mipLevel.pixels.size())));
+            copyBgraTextureUploadMemory(mipLevel.pixels.data(), static_cast<uint32_t>(mipLevel.pixels.size())));
     }
 
     return textureHandle;
@@ -413,6 +428,30 @@ uint32_t textureBindingSamplerFlags(TextureFilterProfile profile, uint32_t extra
     return uint32_t(profileFlags) | extraFlags;
 }
 
+bgfx::TextureFormat::Enum bgraTextureUploadFormat()
+{
+#if defined(__ANDROID__)
+    return bgfx::TextureFormat::RGBA8;
+#else
+    return bgfx::TextureFormat::BGRA8;
+#endif
+}
+
+const bgfx::Memory *copyBgraTextureUploadMemory(const uint8_t *pPixels, uint32_t pixelBytes)
+{
+    if (pPixels == nullptr || pixelBytes == 0)
+    {
+        return nullptr;
+    }
+
+#if defined(__ANDROID__)
+    const std::vector<uint8_t> rgbaPixels = convertBgraToRgba(pPixels, pixelBytes);
+    return bgfx::copy(rgbaPixels.data(), static_cast<uint32_t>(rgbaPixels.size()));
+#else
+    return bgfx::copy(pPixels, pixelBytes);
+#endif
+}
+
 void bindTexture(
     uint8_t stage,
     bgfx::UniformHandle sampler,
@@ -455,9 +494,9 @@ bgfx::TextureHandle createBgraTexture2D(
         height,
         false,
         1,
-        bgfx::TextureFormat::BGRA8,
+        bgraTextureUploadFormat(),
         textureFilterSamplerFlags(profile) | extraFlags,
-        bgfx::copy(pUploadPixels, pixelBytes));
+        copyBgraTextureUploadMemory(pUploadPixels, pixelBytes));
 }
 
 bgfx::TextureHandle createEmptyBgraTexture2D(
@@ -471,7 +510,7 @@ bgfx::TextureHandle createEmptyBgraTexture2D(
         height,
         false,
         1,
-        bgfx::TextureFormat::BGRA8,
+        bgraTextureUploadFormat(),
         textureFilterSamplerFlags(profile) | extraFlags);
 }
 }

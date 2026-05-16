@@ -41,24 +41,37 @@ function(openyamm_populate_dependency dependencyName outputSourceDirVariable)
 endfunction()
 
 function(openyamm_configure_sdl3)
+    if (TARGET SDL3::SDL3)
+        return()
+    endif()
+
     if (OPENYAMM_USE_SYSTEM_SDL3)
         find_package(SDL3 CONFIG REQUIRED)
         return()
     endif()
 
-    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    if (ANDROID)
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    else()
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    endif()
+
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
+
+    if (DEFINED OPENYAMM_SDL3_SOURCE_DIR AND IS_DIRECTORY "${OPENYAMM_SDL3_SOURCE_DIR}")
+        add_subdirectory("${OPENYAMM_SDL3_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/sdl3")
+        return()
+    endif()
 
     FetchContent_Declare(
         sdl3
         URL ${OPENYAMM_SDL3_URL}
         URL_HASH ${OPENYAMM_SDL3_URL_HASH}
-        DOWNLOAD_EXTRACT_TIMESTAMP OFF
     )
-
     FetchContent_MakeAvailable(sdl3)
 endfunction()
 
@@ -67,7 +80,6 @@ function(openyamm_configure_lua)
         lua
         URL ${OPENYAMM_LUA_URL}
         URL_HASH ${OPENYAMM_LUA_URL_HASH}
-        DOWNLOAD_EXTRACT_TIMESTAMP OFF
     )
 
     openyamm_populate_dependency(lua luaSourceDir)

@@ -1,5 +1,7 @@
 #include "game/debug/GameImGuiBgfxRenderer.h"
 
+#include "game/render/TextureFiltering.h"
+
 #include <imgui.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/math.h>
@@ -92,7 +94,7 @@ bool GameImGuiBgfxRenderer::initialize()
         static_cast<uint16_t>(textureHeight),
         false,
         1,
-        bgfx::TextureFormat::BGRA8,
+        bgraTextureUploadFormat(),
         0,
         bgfx::copy(pPixels, static_cast<uint32_t>(textureWidth * textureHeight * 4)));
 

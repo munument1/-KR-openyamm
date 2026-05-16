@@ -20,6 +20,20 @@ namespace
 std::mutex g_screenshotMutex;
 std::optional<BgfxContext::ScreenshotCapture> g_screenshotCapture;
 bool g_bgfxInitialized = false;
+
+bgfx::RendererType::Enum selectRendererType(bool useNoopRenderer)
+{
+    if (useNoopRenderer)
+    {
+        return bgfx::RendererType::Noop;
+    }
+
+#if defined(__ANDROID__)
+    return bgfx::RendererType::OpenGLES;
+#else
+    return bgfx::RendererType::OpenGL;
+#endif
+}
 }
 
 class BgfxContext::Callback final : public bgfx::CallbackI
@@ -162,7 +176,7 @@ bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHei
     const char *pVideoDriver = SDL_GetCurrentVideoDriver();
     const bool useNoopRenderer = (pVideoDriver != nullptr) && (SDL_strcmp(pVideoDriver, "dummy") == 0);
 
-    init.type = useNoopRenderer ? bgfx::RendererType::Noop : bgfx::RendererType::OpenGL;
+    init.type = selectRendererType(useNoopRenderer);
     init.vendorId = BGFX_PCI_ID_NONE;
     init.platformData = resolvePlatformData(pWindow);
     init.resolution.width = static_cast<uint32_t>(windowWidth);
@@ -256,6 +270,17 @@ bgfx::PlatformData BgfxContext::resolvePlatformData(SDL_Window *pWindow)
     {
         return platformData;
     }
+
+#if defined(SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER)
+    void *pAndroidWindow = SDL_GetPointerProperty(windowProperties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+
+    if (pAndroidWindow != nullptr)
+    {
+        platformData.nwh = pAndroidWindow;
+        platformData.type = bgfx::NativeWindowHandleType::Default;
+        return platformData;
+    }
+#endif
 
     void *pWaylandDisplay = SDL_GetPointerProperty(windowProperties, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
     void *pWaylandSurface = SDL_GetPointerProperty(windowProperties, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);

@@ -2,6 +2,7 @@
 
 #include "engine/ImageAssetLoader.h"
 #include "game/maps/MapIdentity.h"
+#include "game/render/TextureFiltering.h"
 #include "game/StringUtils.h"
 
 #include <algorithm>
@@ -905,7 +906,7 @@ std::optional<GameplayHudTextureHandle> GameplayHudCommon::ensureDynamicHudTextu
         0,
         static_cast<uint16_t>(width),
         static_cast<uint16_t>(height),
-        bgfx::copy(bgraPixels.data(), static_cast<uint32_t>(bgraPixels.size())));
+        copyBgraTextureUploadMemory(bgraPixels.data(), static_cast<uint32_t>(bgraPixels.size())));
 
     GameplayHudTextureHandle result = {};
     result.textureName = pTexture->textureName;

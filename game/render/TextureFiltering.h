@@ -47,6 +47,9 @@ void bindTexture(
     TextureFilterProfile profile,
     uint32_t extraFlags = BGFX_SAMPLER_NONE);
 
+bgfx::TextureFormat::Enum bgraTextureUploadFormat();
+const bgfx::Memory *copyBgraTextureUploadMemory(const uint8_t *pPixels, uint32_t pixelBytes);
+
 bgfx::TextureHandle createBgraTexture2D(
     uint16_t width,
     uint16_t height,

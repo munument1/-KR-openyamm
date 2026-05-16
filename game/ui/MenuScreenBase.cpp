@@ -1570,7 +1570,7 @@ bgfx::TextureHandle MenuScreenBase::ensureDynamicTexture(
             0,
             static_cast<uint16_t>(width),
             static_cast<uint16_t>(height),
-            bgfx::copy(pixelsBgra.data(), static_cast<uint32_t>(pixelsBgra.size())));
+            copyBgraTextureUploadMemory(pixelsBgra.data(), static_cast<uint32_t>(pixelsBgra.size())));
         return textureHandle.handle;
     }
 
@@ -1597,7 +1597,7 @@ bgfx::TextureHandle MenuScreenBase::ensureDynamicTexture(
         0,
         static_cast<uint16_t>(width),
         static_cast<uint16_t>(height),
-        bgfx::copy(pixelsBgra.data(), static_cast<uint32_t>(pixelsBgra.size())));
+        copyBgraTextureUploadMemory(pixelsBgra.data(), static_cast<uint32_t>(pixelsBgra.size())));
     s_dynamicTextureHandles.push_back(std::move(textureHandle));
     return s_dynamicTextureHandles.back().handle;
 }

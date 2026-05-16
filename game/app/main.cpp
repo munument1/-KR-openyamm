@@ -3,6 +3,7 @@
 #include "engine/AssetScaleTier.h"
 #include "game/app/GameApplication.h"
 #include "game/app/GameSettings.h"
+#include "game/app/OpenYammMain.h"
 #include "game/outdoor/HeadlessOutdoorDiagnostics.h"
 #include "game/scenario/ScenarioHeadlessCommand.h"
 
@@ -24,6 +25,8 @@ extern "C"
 #include <string_view>
 #include <vector>
 
+namespace OpenYAMM::Game
+{
 namespace
 {
 bool parseCommonArguments(
@@ -165,6 +168,7 @@ void applySettingsConfigOverridesIfConfigured(
     config.performanceTrace = settings->performanceTrace;
     config.hitchTrace = settings->hitchTrace;
     config.hitchThresholdMilliseconds = settings->hitchThresholdMilliseconds;
+}
 }
 
 int runApplication(int argc, char **argv)
@@ -359,11 +363,12 @@ int runApplication(int argc, char **argv)
 }
 }
 
+#ifndef OPENYAMM_NO_DESKTOP_MAIN
 int main(int argc, char **argv)
 {
     try
     {
-        return runApplication(argc, argv);
+        return OpenYAMM::Game::runApplication(argc, argv);
     }
     catch (const std::exception &exception)
     {
@@ -371,3 +376,4 @@ int main(int argc, char **argv)
         return 1;
     }
 }
+#endif
