@@ -139,5 +139,9 @@ function(openyamm_target_link_ffmpeg targetName)
             "${OPENYAMM_FFMPEG_LIBAVUTIL}"
     )
 
+    if (WIN32)
+        target_link_libraries(${targetName} PRIVATE bcrypt)
+    endif()
+
     add_dependencies(${targetName} openyamm_ffmpeg_build)
 endfunction()

@@ -29,6 +29,15 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+void setEnvironmentVariable(const char *pName, const char *pValue)
+{
+#if defined(_WIN32)
+    _putenv_s(pName, pValue);
+#else
+    setenv(pName, pValue, 1);
+#endif
+}
+
 bool parseCommonArguments(
     int argc,
     char **argv,
@@ -55,15 +64,15 @@ bool parseCommonArguments(
                 return false;
             }
 
-            setenv("OPENYAMM_GAMEPLAY_TRACE", "1", 1);
-            setenv("OPENYAMM_GAMEPLAY_TRACE_FILE", argv[argumentIndex + 1], 1);
+            setEnvironmentVariable("OPENYAMM_GAMEPLAY_TRACE", "1");
+            setEnvironmentVariable("OPENYAMM_GAMEPLAY_TRACE_FILE", argv[argumentIndex + 1]);
             ++argumentIndex;
             continue;
         }
 
         if (argument == "--gameplay-trace-append")
         {
-            setenv("OPENYAMM_GAMEPLAY_TRACE_APPEND", "1", 1);
+            setEnvironmentVariable("OPENYAMM_GAMEPLAY_TRACE_APPEND", "1");
             continue;
         }
 
@@ -189,7 +198,7 @@ int runApplication(int argc, char **argv)
 
     if (!arguments.empty() && arguments[0].rfind("--headless-", 0) == 0)
     {
-        setenv("OPENYAMM_DISABLE_LOADING_OVERLAY", "1", 1);
+        setEnvironmentVariable("OPENYAMM_DISABLE_LOADING_OVERLAY", "1");
     }
 
     if (arguments.size() >= 2 && arguments[0] == "--headless-validate-scenario")

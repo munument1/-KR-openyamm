@@ -81,6 +81,30 @@ endfunction()
 
 function(openyamm_configure_bgfx_runtime)
     file(GLOB openyammAstcEncoderSources "${OPENYAMM_BIMG_SOURCE_DIR}/3rdparty/astc-encoder/source/*.cpp")
+    set(openyammBxSources
+        ${OPENYAMM_BX_SOURCE_DIR}/src/allocator.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/bounds.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/bx.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/commandline.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/crtnone.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/debug.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/dtoa.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/easing.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/file.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/filepath.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/hash.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/math.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/mutex.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/os.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/process.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/semaphore.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/settings.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/sort.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/string.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/thread.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/timer.cpp
+        ${OPENYAMM_BX_SOURCE_DIR}/src/url.cpp
+    )
 
     if (NOT TARGET openyamm_bgfx)
         find_package(Threads REQUIRED)
@@ -97,6 +121,7 @@ function(openyamm_configure_bgfx_runtime)
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/bgfx.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/debug_renderdoc.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/glcontext_egl.cpp
+            ${OPENYAMM_BGFX_SOURCE_DIR}/src/glcontext_wgl.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/renderer_agc.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/renderer_d3d11.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/renderer_d3d12.cpp
@@ -110,7 +135,7 @@ function(openyamm_configure_bgfx_runtime)
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/shader_spirv.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/topology.cpp
             ${OPENYAMM_BGFX_SOURCE_DIR}/src/vertexlayout.cpp
-            ${OPENYAMM_BX_SOURCE_DIR}/src/amalgamated.cpp
+            ${openyammBxSources}
             ${OPENYAMM_BIMG_SOURCE_DIR}/src/image.cpp
             ${OPENYAMM_BIMG_SOURCE_DIR}/src/image_cubemap_filter.cpp
             ${OPENYAMM_BIMG_SOURCE_DIR}/src/image_decode.cpp
@@ -223,6 +248,10 @@ function(openyamm_configure_bgfx_runtime)
                 ${OPENYAMM_BGFX_SOURCE_DIR}/3rdparty/glsl-optimizer/src/mapi
                 ${OPENYAMM_BGFX_SOURCE_DIR}/3rdparty/glsl-optimizer/src/util
         )
+
+        if (MINGW)
+            target_compile_options(openyamm_glsl_optimizer PRIVATE -O1)
+        endif()
 
         if (UNIX AND NOT APPLE)
             target_compile_options(openyamm_glsl_optimizer PRIVATE

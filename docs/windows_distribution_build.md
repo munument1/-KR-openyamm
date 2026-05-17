@@ -87,7 +87,7 @@ The first configure step needs internet access because CMake fetches dependencie
 ## Build
 
 ```bash
-cmake --build build-windows-release --target openyamm
+cmake --build build-windows-release --target openyamm --parallel 16
 ```
 
 Optional smoke test from the build tree:
@@ -99,7 +99,7 @@ Optional smoke test from the build tree:
 ## Build Distribution Zip
 
 ```bash
-cmake --build build-windows-release --target openyamm_windows_release_zip
+cmake --build build-windows-release --target openyamm_windows_release_zip --parallel 16
 ```
 
 Expected output:
@@ -172,3 +172,12 @@ No Visual C++ redistributable should be required when building with MinGW and pa
 SmartScreen may warn for unsigned executables; signing is the long-term fix for public website distribution.
 
 Only distribute packaged game assets when you have the right to distribute them.
+
+## Running From PowerShell
+
+If invoking the build from PowerShell instead of an already-open **MSYS2 UCRT64** shell, set `MSYSTEM=UCRT64` before
+sourcing `/etc/profile` so MSYS2 prepends `/ucrt64/bin` to `PATH`:
+
+```powershell
+C:\msys64\usr\bin\bash.exe -lc "export MSYSTEM=UCRT64 && export CHERE_INVOKING=1 && source /etc/profile && cd /home/pjasicek/openyamm && cmake --build build-windows-release --target openyamm --parallel 16"
+```

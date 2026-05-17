@@ -223,6 +223,10 @@ function(openyamm_configure_yaml_cpp)
 
     FetchContent_MakeAvailable(yaml-cpp)
 
+    if (TARGET yaml-cpp AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(yaml-cpp PRIVATE -include cstdint)
+    endif()
+
     if (TARGET yaml-cpp AND NOT TARGET yaml-cpp::yaml-cpp)
         add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
     endif()
