@@ -4166,6 +4166,29 @@ TEST_CASE("event runtime queues qbit portrait fx only for visible quest entries"
     CHECK(runtimeState.pendingSounds.empty());
 }
 
+TEST_CASE("event runtime queues one quest sound for stat and autonote portrait fx")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    const OpenYAMM::Game::EventRuntime::VariableRef baseMight =
+        OpenYAMM::Game::EventRuntime::decodeVariable(
+            static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::BaseMight));
+    const OpenYAMM::Game::EventRuntime::VariableRef autoNote =
+        OpenYAMM::Game::EventRuntime::decodeVariable(
+            (17u << 16) | static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::AutoNotes));
+
+    OpenYAMM::Game::EventRuntime::addVariableValue(runtimeState, baseMight, 2, &party, {0});
+    OpenYAMM::Game::EventRuntime::setVariableValue(runtimeState, autoNote, 17, &party, {0});
+
+    REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 2u);
+    CHECK_EQ(runtimeState.portraitFxRequests[0].kind, OpenYAMM::Game::PortraitFxEventKind::StatIncrease);
+    CHECK_EQ(runtimeState.portraitFxRequests[1].kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
+    REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
+    CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
+}
+
 TEST_CASE("lua event runtime Subtract clears condition variables")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(

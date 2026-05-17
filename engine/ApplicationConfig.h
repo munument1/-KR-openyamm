@@ -24,6 +24,7 @@ struct ApplicationConfig
     int windowWidth;
     int windowHeight;
     WindowMode windowMode;
+    bool verticalSync;
     bool fpsTrace;
     bool performanceTrace;
     bool hitchTrace;

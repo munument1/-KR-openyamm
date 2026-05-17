@@ -206,6 +206,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.combatTraceFile = "tmp/combat.log";
     settings.combatTraceAppend = false;
     settings.contextActionPopup = true;
+    settings.verticalSync = true;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -229,6 +230,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->combatTraceFile, "tmp/combat.log");
     CHECK_FALSE(loadedSettings->combatTraceAppend);
     CHECK(loadedSettings->contextActionPopup);
+    CHECK(loadedSettings->verticalSync);
 
     std::filesystem::remove(path);
 }

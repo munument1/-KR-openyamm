@@ -263,14 +263,14 @@ std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
 {
     switch (kind)
     {
+        case PortraitFxEventKind::AutoNote:
         case PortraitFxEventKind::QuestComplete:
+        case PortraitFxEventKind::StatIncrease:
             return SoundId::Quest;
 
         case PortraitFxEventKind::AwardGain:
             return SoundId::Chimes;
 
-        case PortraitFxEventKind::AutoNote:
-        case PortraitFxEventKind::StatIncrease:
         case PortraitFxEventKind::StatDecrease:
         case PortraitFxEventKind::Disease:
         case PortraitFxEventKind::None:
@@ -652,8 +652,25 @@ void queuePortraitFxRequest(
 
     if (const std::optional<SoundId> soundId = soundIdForPortraitFxEvent(kind))
     {
+        const uint32_t rawSoundId = static_cast<uint32_t>(*soundId);
+        const bool alreadyQueued = std::any_of(
+            eventRuntimeState.pendingSounds.begin(),
+            eventRuntimeState.pendingSounds.end(),
+            [rawSoundId](const EventRuntimeState::PendingSound &sound)
+            {
+                return sound.kind == EventRuntimeState::PendingSound::Kind::PlayOneShot
+                    && !sound.positional
+                    && sound.soundScope == SoundScope::Engine
+                    && sound.soundId == rawSoundId;
+            });
+
+        if (alreadyQueued)
+        {
+            return;
+        }
+
         EventRuntimeState::PendingSound sound = {};
-        sound.soundId = static_cast<uint32_t>(*soundId);
+        sound.soundId = rawSoundId;
         sound.positional = false;
         eventRuntimeState.pendingSounds.push_back(sound);
     }

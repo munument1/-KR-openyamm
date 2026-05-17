@@ -158,6 +158,7 @@ public:
 
 BgfxContext::BgfxContext()
     : m_isInitialized(false)
+    , m_verticalSync(false)
     , m_rendererType(bgfx::RendererType::Noop)
     , m_pCallback(std::make_unique<Callback>())
 {
@@ -168,7 +169,19 @@ BgfxContext::~BgfxContext()
     shutdown();
 }
 
-bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHeight)
+uint32_t bgfxResetFlags(bool verticalSync)
+{
+    uint32_t flags = BGFX_RESET_MAXANISOTROPY;
+
+    if (verticalSync)
+    {
+        flags |= BGFX_RESET_VSYNC;
+    }
+
+    return flags;
+}
+
+bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHeight, bool verticalSync)
 {
     shutdown();
 
@@ -181,7 +194,7 @@ bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHei
     init.platformData = resolvePlatformData(pWindow);
     init.resolution.width = static_cast<uint32_t>(windowWidth);
     init.resolution.height = static_cast<uint32_t>(windowHeight);
-    init.resolution.reset = BGFX_RESET_MAXANISOTROPY;
+    init.resolution.reset = bgfxResetFlags(verticalSync);
     init.callback = m_pCallback.get();
 
     if (!bgfx::init(init))
@@ -192,6 +205,7 @@ bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHei
 
     g_bgfxInitialized = true;
     m_isInitialized = true;
+    m_verticalSync = verticalSync;
     m_rendererType = bgfx::getRendererType();
 
     bgfx::setDebug(BGFX_DEBUG_NONE);
@@ -210,7 +224,7 @@ void BgfxContext::resize(int windowWidth, int windowHeight) const
     bgfx::reset(
         static_cast<uint32_t>(windowWidth),
         static_cast<uint32_t>(windowHeight),
-        BGFX_RESET_MAXANISOTROPY);
+        bgfxResetFlags(m_verticalSync));
 }
 
 void BgfxContext::shutdown()
@@ -222,6 +236,7 @@ void BgfxContext::shutdown()
 
     bgfx::shutdown();
     m_isInitialized = false;
+    m_verticalSync = false;
     m_rendererType = bgfx::RendererType::Noop;
     g_bgfxInitialized = false;
 }

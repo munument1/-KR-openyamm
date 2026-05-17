@@ -93,6 +93,7 @@ struct GameSettings
     WindowMode windowMode = WindowMode::Windowed;
     int resolutionWidth = 1600;
     int resolutionHeight = 900;
+    bool verticalSync = false;
 
     bool startInMainMenu = false;
     bool bolsterMonsters = false;

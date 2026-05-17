@@ -177,6 +177,7 @@ void applySettingsConfigOverridesIfConfigured(
     config.performanceTrace = settings->performanceTrace;
     config.hitchTrace = settings->hitchTrace;
     config.hitchThresholdMilliseconds = settings->hitchThresholdMilliseconds;
+    config.verticalSync = settings->verticalSync;
 }
 }
 

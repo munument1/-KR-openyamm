@@ -689,6 +689,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "vsync"))
+    {
+        bool parsed = settings.verticalSync;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.verticalSync = parsed;
+        }
+    }
+
     parseAssetScaleProfileValue(
         document,
         "texture",
@@ -1116,6 +1126,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "window_mode=" << windowModeString(settings.windowMode) << '\n'
         << "resolution=" << std::clamp(settings.resolutionWidth, 320, 16384)
         << 'x' << std::clamp(settings.resolutionHeight, 200, 16384) << '\n'
+        << "vsync=" << (settings.verticalSync ? "true" : "false") << '\n'
         << "gameplay_ui_layout=" << gameplayUiLayoutString(settings.gameplayUiLayout) << "\n\n"
         << "[video_quality]\n"
         << "texture=" << Engine::assetScaleTierToString(settings.assetScaleProfile.textures) << '\n'

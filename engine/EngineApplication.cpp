@@ -295,7 +295,7 @@ int EngineApplication::run() const
     int drawableHeight = 0;
     SDL_GetWindowSizeInPixels(pWindow.get(), &drawableWidth, &drawableHeight);
 
-    if (!bgfxContext.initialize(pWindow.get(), drawableWidth, drawableHeight))
+    if (!bgfxContext.initialize(pWindow.get(), drawableWidth, drawableHeight, m_config.verticalSync))
     {
         invokeShutdownCallback(m_shutdownCallback);
         return 1;
@@ -321,6 +321,7 @@ int EngineApplication::run() const
     std::cout << "Window mode: " << windowModeName(m_config.windowMode) << '\n';
     std::cout << "Window requested: " << m_config.windowWidth << "x" << m_config.windowHeight << '\n';
     std::cout << "Window drawable: " << drawableWidth << "x" << drawableHeight << '\n';
+    std::cout << "VSync: " << (m_config.verticalSync ? "on" : "off") << '\n';
     std::cout << "Renderer: " << bgfx::getRendererName(bgfxContext.getRendererType()) << '\n';
     std::cout << "Mounted search paths:\n";
 

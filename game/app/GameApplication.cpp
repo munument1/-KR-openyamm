@@ -4370,6 +4370,7 @@ void GameApplication::loadOrCreateSettings()
     m_config.windowWidth = m_settings.resolutionWidth;
     m_config.windowHeight = m_settings.resolutionHeight;
     m_config.windowMode = engineWindowModeForSettings(m_settings.windowMode);
+    m_config.verticalSync = m_settings.verticalSync;
     m_config.fpsTrace = m_settings.fpsTrace;
     m_config.performanceTrace = m_settings.performanceTrace;
     m_engineApplication.setConfiguration(m_config);

@@ -28,7 +28,7 @@ public:
     BgfxContext(const BgfxContext &) = delete;
     BgfxContext &operator=(const BgfxContext &) = delete;
 
-    bool initialize(SDL_Window *pWindow, int windowWidth, int windowHeight);
+    bool initialize(SDL_Window *pWindow, int windowWidth, int windowHeight, bool verticalSync);
     void resize(int windowWidth, int windowHeight) const;
     void shutdown();
 
@@ -43,6 +43,7 @@ private:
     static bgfx::PlatformData resolvePlatformData(SDL_Window *pWindow);
 
     bool m_isInitialized;
+    bool m_verticalSync;
     bgfx::RendererType::Enum m_rendererType;
     std::unique_ptr<Callback> m_pCallback;
 };

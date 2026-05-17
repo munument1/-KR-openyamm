@@ -262,6 +262,13 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
 
     target_compile_features(openyamm PRIVATE cxx_std_20)
 
+    if (WIN32)
+        set_target_properties(openyamm
+            PROPERTIES
+                WIN32_EXECUTABLE "$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>"
+        )
+    endif()
+
     if (UNIX AND NOT APPLE)
         target_link_options(openyamm
             PRIVATE

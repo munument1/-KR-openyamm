@@ -6083,7 +6083,8 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         }
 
         CHECK(foundStatIncreaseFx);
-        CHECK(runtimeState.pendingSounds.empty());
+        REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
+        CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
         REQUIRE_FALSE(runtimeState.statusMessages.empty());
         CHECK_EQ(runtimeState.statusMessages.back(), "+30 Level temporary.  Look Out!");
     }
