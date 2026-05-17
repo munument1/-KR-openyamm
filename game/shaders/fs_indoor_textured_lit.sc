@@ -11,7 +11,7 @@ uniform vec4 u_secretPulseParams;
 uniform vec4 u_indoorSkyParams;
 uniform vec4 u_indoorSkyProjectionParams;
 
-vec3 getIndoorLighting()
+vec3 getIndoorLighting(vec3 worldPosition)
 {
     vec3 lighting = u_indoorLightParams.yzw;
 
@@ -22,7 +22,7 @@ vec3 getIndoorLighting()
             break;
         }
 
-        vec3 toLight = u_indoorLightPositions[i].xyz - v_worldPosition;
+        vec3 toLight = u_indoorLightPositions[i].xyz - worldPosition;
         float radius = max(u_indoorLightPositions[i].w, 1.0);
         float distanceSquared = dot(toLight, toLight);
         float inverseRadiusSquared = 1.0 / (radius * radius);
@@ -31,7 +31,7 @@ vec3 getIndoorLighting()
         lighting += u_indoorLightColors[i].rgb * (u_indoorLightColors[i].w * attenuation);
     }
 
-    return clamp(lighting, vec3(0.0), vec3(2.0));
+    return clamp(lighting, vec3(0.0, 0.0, 0.0), vec3(2.0, 2.0, 2.0));
 }
 
 void main()
@@ -91,7 +91,7 @@ void main()
         discard;
     }
 
-    vec3 color = textureColor.rgb * getIndoorLighting();
+    vec3 color = textureColor.rgb * getIndoorLighting(v_worldPosition);
 
     if (v_texcoord1.x > 0.5 && u_secretPulseParams.x > 0.5)
     {

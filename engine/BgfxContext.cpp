@@ -30,6 +30,8 @@ bgfx::RendererType::Enum selectRendererType(bool useNoopRenderer)
 
 #if defined(__ANDROID__)
     return bgfx::RendererType::OpenGLES;
+#elif defined(_WIN32)
+    return bgfx::RendererType::Direct3D11;
 #else
     return bgfx::RendererType::OpenGL;
 #endif

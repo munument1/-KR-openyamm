@@ -36,9 +36,9 @@ float getFogAlpha(float dist)
     return 1.0 - safeSmoothstep(u_fogDistances.y, u_fogDistances.z, dist);
 }
 
-vec3 getFxLighting()
+vec3 getFxLighting(vec3 worldPosition)
 {
-    vec3 lighting = vec3(u_fxLightParams.y);
+    vec3 lighting = vec3(u_fxLightParams.y, u_fxLightParams.y, u_fxLightParams.y);
 
     for (int i = 0; i < 8; ++i)
     {
@@ -47,14 +47,14 @@ vec3 getFxLighting()
             continue;
         }
 
-        vec3 toLight = u_fxLightPositions[i].xyz - v_worldPosition;
+        vec3 toLight = u_fxLightPositions[i].xyz - worldPosition;
         float radius = max(u_fxLightPositions[i].w, 1.0);
         float dist = length(toLight);
         float attenuation = 1.0 - safeSmoothstep(0.0, radius, dist);
         lighting += u_fxLightColors[i].rgb * (u_fxLightColors[i].w * attenuation * u_fxLightParams.z);
     }
 
-    return clamp(lighting, vec3(0.0), vec3(2.0));
+    return clamp(lighting, vec3(0.0, 0.0, 0.0), vec3(2.0, 2.0, 2.0));
 }
 
 void main()
@@ -101,7 +101,7 @@ void main()
 
     vec4 textureColor = texture2D(s_texColor, texcoord);
     textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z);
-    vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(), textureColor.a);
+    vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(v_worldPosition), textureColor.a);
 
     if (v_texcoord1.x > 0.5 && u_secretPulseParams.x > 0.5)
     {

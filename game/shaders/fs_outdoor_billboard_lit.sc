@@ -30,14 +30,14 @@ float getFogRatio(float dist)
         + (1.0 - u_fogDensities.y) * safeSmoothstep(u_fogDistances.y, u_fogDistances.z, dist);
 }
 
-float sampleBillboardAlpha(vec2 uv)
+float sampleBillboardAlpha(vec2 uv, float vertexAlpha)
 {
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)
     {
         return 0.0;
     }
 
-    return texture2D(s_texColor, uv).a * v_color0.a;
+    return texture2D(s_texColor, uv).a * vertexAlpha;
 }
 
 void main()
@@ -62,41 +62,41 @@ void main()
         float enable4 = step(4.0, u_billboardOutlineParams.z + 0.001);
         vec2 texel = u_billboardOutlineParams.xy;
 
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, 0.0)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, 0.0)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, texel.y)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, texel.y)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, -texel.y)) * enable1);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, -texel.y)) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, 0.0), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, 0.0), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, texel.y), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, texel.y), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x, -texel.y), v_color0.a) * enable1);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x, -texel.y), v_color0.a) * enable1);
 
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, 0.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, 0.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 2.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 2.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, texel.y * 2.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, texel.y * 2.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, -texel.y * 2.0)) * enable2);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, -texel.y * 2.0)) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, 0.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, 0.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 2.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 2.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, texel.y * 2.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, texel.y * 2.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 2.0, -texel.y * 2.0), v_color0.a) * enable2);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 2.0, -texel.y * 2.0), v_color0.a) * enable2);
 
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, 0.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, 0.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 3.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 3.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, texel.y * 3.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, texel.y * 3.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, -texel.y * 3.0)) * enable3);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, -texel.y * 3.0)) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, 0.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, 0.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 3.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 3.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, texel.y * 3.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, texel.y * 3.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 3.0, -texel.y * 3.0), v_color0.a) * enable3);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 3.0, -texel.y * 3.0), v_color0.a) * enable3);
 
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, 0.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, 0.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 4.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 4.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, texel.y * 4.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, texel.y * 4.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, -texel.y * 4.0)) * enable4);
-        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, -texel.y * 4.0)) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, 0.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, 0.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, texel.y * 4.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(0.0, -texel.y * 4.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, texel.y * 4.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, texel.y * 4.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(texel.x * 4.0, -texel.y * 4.0), v_color0.a) * enable4);
+        outlineAlpha = max(outlineAlpha, sampleBillboardAlpha(v_texcoord0 + vec2(-texel.x * 4.0, -texel.y * 4.0), v_color0.a) * enable4);
 
         if (baseAlpha <= 0.001 && outlineAlpha > 0.001)
         {

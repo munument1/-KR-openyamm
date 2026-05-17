@@ -211,7 +211,7 @@ set_property(
         ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
 )
 
-if (ANDROID)
+if (ANDROID OR WIN32)
     set(openyammBgfxShaderDir "runtime/shaders")
 else()
     set(openyammBgfxShaderDir "${OPENYAMM_RUNTIME_SHADER_DIR}")

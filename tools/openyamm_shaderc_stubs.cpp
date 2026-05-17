@@ -9,6 +9,7 @@ static bool writeUnsupportedBackendMessage(const char *pMessage, bx::WriterI *pM
 
 namespace bgfx
 {
+#if !defined(OPENYAMM_SHADERC_ENABLE_HLSL)
 bool compileHLSLShader(
     const Options &options,
     uint32_t version,
@@ -19,6 +20,7 @@ bool compileHLSLShader(
     BX_UNUSED(options, version, code, pShaderWriter);
     return writeUnsupportedBackendMessage("HLSL shader compilation is not enabled.\n", pMessageWriter);
 }
+#endif
 
 bool compileDxilShader(
     const Options &options,

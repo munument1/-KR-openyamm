@@ -28,27 +28,27 @@ vec3 applyEditorLighting(vec3 baseColor, vec3 normal)
     return baseColor * lightFactor;
 }
 
-vec4 shadeClay()
+vec4 shadeClay(vec4 texcoord1, vec3 worldPosition)
 {
-    vec3 normal = normalize(v_texcoord1.xyz);
-    vec3 localWorld = v_worldPosition - u_previewObjectOrigin.xyz;
+    vec3 normal = normalize(texcoord1.xyz);
+    vec3 localWorld = worldPosition - u_previewObjectOrigin.xyz;
     float slope = 1.0 - clamp(abs(normal.z), 0.0, 1.0);
     float slopeAccent = clamp(u_previewParams0.x, 0.0, 1.0);
     float localHeightTint = clamp((localWorld.z + 2048.0) / 4096.0, 0.0, 1.0);
     vec3 baseColor = u_previewColorA.rgb * mix(0.98, 1.02, localHeightTint);
     vec3 litColor = applyEditorLighting(baseColor, normal);
     vec3 slopeColor = litColor * mix(1.0, 0.82, slope * slopeAccent);
-    return vec4(clamp(slopeColor, vec3(0.0), vec3(1.0)), u_previewColorA.a);
+    return vec4(clamp(slopeColor, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0)), u_previewColorA.a);
 }
 
-vec4 shadeGrid(float mode)
+vec4 shadeGrid(float mode, vec2 texcoord0, vec4 texcoord1)
 {
-    vec3 normal = normalize(v_texcoord1.xyz);
+    vec3 normal = normalize(texcoord1.xyz);
     float cellSize = max(u_previewParams0.x, 1.0);
     float majorInterval = max(u_previewParams0.y, 1.0);
     float minorThickness = clamp(u_previewParams0.z, 0.0005, 0.49);
     float majorThickness = clamp(u_previewParams0.w, minorThickness, 0.49);
-    vec2 cellUv = v_texcoord0 / cellSize;
+    vec2 cellUv = texcoord0 / cellSize;
     vec2 majorUv = cellUv / majorInterval;
     float checker = mod(floor(cellUv.x) + floor(cellUv.y), 2.0);
     vec3 baseColor = mix(u_previewColorA.rgb, u_previewColorB.rgb, checker);
@@ -63,7 +63,7 @@ vec4 shadeGrid(float mode)
         color = mix(color, u_previewColorD.rgb, stripe * 0.35);
     }
 
-    return vec4(clamp(applyEditorLighting(color, normal), vec3(0.0), vec3(1.0)), 1.0);
+    return vec4(clamp(applyEditorLighting(color, normal), vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0)), 1.0);
 }
 
 void main()
@@ -72,9 +72,9 @@ void main()
 
     if (mode < 0.5)
     {
-        gl_FragColor = shadeClay();
+        gl_FragColor = shadeClay(v_texcoord1, v_worldPosition);
         return;
     }
 
-    gl_FragColor = shadeGrid(mode);
+    gl_FragColor = shadeGrid(mode, v_texcoord0, v_texcoord1);
 }

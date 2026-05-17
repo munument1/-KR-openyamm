@@ -2736,21 +2736,56 @@ bool projectWorldPointToScreen(
 
 std::filesystem::path getShaderPath(bgfx::RendererType::Enum rendererType, const char *pShaderName)
 {
-    std::filesystem::path shaderRoot = OPENYAMM_BGFX_SHADER_DIR;
+    const std::filesystem::path configuredShaderRoot = OPENYAMM_BGFX_SHADER_DIR;
+    std::string rendererDirectory;
 
     switch (rendererType)
     {
+    case bgfx::RendererType::Direct3D11:
+        rendererDirectory = "dxbc";
+        break;
+
     case bgfx::RendererType::OpenGL:
-        return shaderRoot / "glsl" / (std::string(pShaderName) + ".bin");
+        rendererDirectory = "glsl";
+        break;
 
     case bgfx::RendererType::OpenGLES:
-        return shaderRoot / "essl" / (std::string(pShaderName) + ".bin");
+        rendererDirectory = "essl";
+        break;
 
     default:
-        break;
+        return {};
     }
 
-    return {};
+    const std::filesystem::path shaderName =
+        std::filesystem::path(rendererDirectory) / (std::string(pShaderName) + ".bin");
+
+    if (configuredShaderRoot.is_absolute())
+    {
+        return configuredShaderRoot / shaderName;
+    }
+
+    if (const char *pBasePath = SDL_GetBasePath())
+    {
+        const std::filesystem::path executableRoot = pBasePath;
+        const std::filesystem::path packagedPath = executableRoot / configuredShaderRoot / shaderName;
+
+        if (std::filesystem::exists(packagedPath))
+        {
+            return packagedPath;
+        }
+
+        const std::filesystem::path buildTreePath = executableRoot / ".." / configuredShaderRoot / shaderName;
+
+        if (std::filesystem::exists(buildTreePath))
+        {
+            return buildTreePath;
+        }
+
+        return packagedPath;
+    }
+
+    return configuredShaderRoot / shaderName;
 }
 
 bool hasOutdoorCameraMotionInput(const GameplayInputFrame &input)
