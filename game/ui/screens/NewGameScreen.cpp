@@ -1373,6 +1373,11 @@ void NewGameScreen::refreshSkillChoices(bool applyCandidateDefaults)
     }
 }
 
+bool NewGameScreen::textInputActive() const
+{
+    return m_state.nameEditing;
+}
+
 void NewGameScreen::beginNameEditing()
 {
     if (m_state.nameEditing)
@@ -1382,12 +1387,14 @@ void NewGameScreen::beginNameEditing()
 
     m_state.nameEditing = true;
     m_state.nameEditBuffer = m_state.name;
+#if !defined(__ANDROID__)
     SDL_Window *pWindow = SDL_GetKeyboardFocus();
 
     if (pWindow != nullptr)
     {
         SDL_StartTextInput(pWindow);
     }
+#endif
 }
 
 void NewGameScreen::endNameEditing(bool commitEdit)
@@ -1408,12 +1415,14 @@ void NewGameScreen::endNameEditing(bool commitEdit)
     }
 
     m_state.nameEditing = false;
+#if !defined(__ANDROID__)
     SDL_Window *pWindow = SDL_GetKeyboardFocus();
 
     if (pWindow != nullptr)
     {
         SDL_StopTextInput(pWindow);
     }
+#endif
 }
 
 int NewGameScreen::currentBonusPool() const

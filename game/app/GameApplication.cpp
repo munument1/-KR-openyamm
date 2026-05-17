@@ -78,6 +78,86 @@ uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
     return nanoseconds / 1000ULL;
 }
 
+#if defined(__ANDROID__)
+bool isAndroidFingerEvent(const SDL_Event &event)
+{
+    return event.type == SDL_EVENT_FINGER_DOWN
+        || event.type == SDL_EVENT_FINGER_MOTION
+        || event.type == SDL_EVENT_FINGER_UP
+        || event.type == SDL_EVENT_FINGER_CANCELED;
+}
+
+SDL_Window *focusedSdlWindow()
+{
+    SDL_Window *pWindow = SDL_GetKeyboardFocus();
+
+    if (pWindow != nullptr)
+    {
+        return pWindow;
+    }
+
+    pWindow = SDL_GetMouseFocus();
+
+    if (pWindow != nullptr)
+    {
+        return pWindow;
+    }
+
+    int windowCount = 0;
+    SDL_Window **ppWindows = SDL_GetWindows(&windowCount);
+
+    if (ppWindows == nullptr || windowCount <= 0)
+    {
+        return nullptr;
+    }
+
+    pWindow = ppWindows[0];
+    SDL_free(ppWindows);
+    return pWindow;
+}
+
+bool submitAndroidFingerEventToImGui(const SDL_Event &event)
+{
+    if (!isAndroidFingerEvent(event))
+    {
+        return false;
+    }
+
+    SDL_Window *pWindow = focusedSdlWindow();
+
+    if (pWindow == nullptr)
+    {
+        return false;
+    }
+
+    int windowWidth = 0;
+    int windowHeight = 0;
+    SDL_GetWindowSize(pWindow, &windowWidth, &windowHeight);
+
+    if (windowWidth <= 0 || windowHeight <= 0)
+    {
+        return false;
+    }
+
+    ImGuiIO &io = ImGui::GetIO();
+    const float mouseX = std::clamp(event.tfinger.x, 0.0f, 1.0f) * static_cast<float>(windowWidth);
+    const float mouseY = std::clamp(event.tfinger.y, 0.0f, 1.0f) * static_cast<float>(windowHeight);
+    io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
+    io.AddMousePosEvent(mouseX, mouseY);
+
+    if (event.type == SDL_EVENT_FINGER_DOWN)
+    {
+        io.AddMouseButtonEvent(0, true);
+    }
+    else if (event.type == SDL_EVENT_FINGER_UP || event.type == SDL_EVENT_FINGER_CANCELED)
+    {
+        io.AddMouseButtonEvent(0, false);
+    }
+
+    return true;
+}
+#endif
+
 uint64_t soundPreloadKey(SoundRef sound)
 {
     return (static_cast<uint64_t>(sound.scope == SoundScope::World ? 1u : 0u) << 32u) | sound.id;
@@ -2145,7 +2225,8 @@ GameApplication::GameApplication(const Engine::ApplicationConfig &config)
             std::placeholders::_3,
             std::placeholders::_4
         ),
-        std::bind(&GameApplication::shutdownApplication, this)
+        std::bind(&GameApplication::shutdownApplication, this),
+        std::bind(&GameApplication::applicationTextInputActive, this)
     )
     , m_gameSession()
     , m_indoorGameView(m_gameSession)
@@ -3110,7 +3191,7 @@ void GameApplication::registerDebugConsoleCommands()
                 return commandResult(false, "No active party.");
             }
 
-            pParty->restoreAll();
+            pParty->reviveAndRestoreAll();
             return commandResult(true, "Party restored.");
         }});
 
@@ -3793,6 +3874,12 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
     if (m_debugConsoleRendererInitialized)
     {
         ImGui_ImplSDL3_ProcessEvent(&event);
+#if defined(__ANDROID__)
+        const bool debugConsoleConsumedAndroidTouch =
+            m_debugConsole.enabled() && submitAndroidFingerEventToImGui(event);
+#else
+        const bool debugConsoleConsumedAndroidTouch = false;
+#endif
 
         if (m_settings.debugConsole
             && event.type == SDL_EVENT_KEY_DOWN
@@ -3814,6 +3901,10 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
                 || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
                 || event.type == SDL_EVENT_MOUSE_BUTTON_UP
                 || event.type == SDL_EVENT_MOUSE_WHEEL
+                || debugConsoleConsumedAndroidTouch
+#if defined(__ANDROID__)
+                || isAndroidFingerEvent(event)
+#endif
                 || io.WantCaptureKeyboard
                 || io.WantCaptureMouse)
             {
@@ -3829,6 +3920,17 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
 
 #if defined(__ANDROID__)
     m_gameInputSystem.handleSdlEvent(event);
+
+    if (m_gameInputSystem.consumeMobileDebugConsoleToggleRequested())
+    {
+        if (m_settings.debugConsole && m_debugConsoleRendererInitialized)
+        {
+            m_debugConsole.toggleEnabled();
+            m_gameSession.requestRelativeMouseMotionReset();
+        }
+
+        return;
+    }
 #endif
 
     IScreen *pActiveScreen = m_screenManager.activeScreen();
@@ -3854,6 +3956,33 @@ bool GameApplication::pendingInputPromptActive() const
         && pRuntimeState != nullptr
         && pRuntimeState->pendingInputPrompt
         && pRuntimeState->pendingInputPrompt->kind == EventRuntimeState::PendingInputPrompt::Kind::InputString;
+}
+
+bool GameApplication::applicationTextInputActive() const
+{
+    if (m_debugConsoleRendererInitialized && m_debugConsole.enabled() && ImGui::GetIO().WantTextInput)
+    {
+        return true;
+    }
+
+    const IScreen *pActiveScreen = m_screenManager.activeScreen();
+
+    if (pActiveScreen != nullptr)
+    {
+        const NewGameScreen *pNewGameScreen = dynamic_cast<const NewGameScreen *>(pActiveScreen);
+        return pNewGameScreen != nullptr && pNewGameScreen->textInputActive();
+    }
+
+    if (pendingInputPromptActive())
+    {
+        return true;
+    }
+
+    const GameplayScreenRuntime &gameplayScreenRuntime = m_gameSession.gameplayScreenRuntime();
+    const GameplayUiController::SaveGameScreenState &saveGameScreen = gameplayScreenRuntime.saveGameScreenState();
+
+    return (saveGameScreen.active && saveGameScreen.editActive)
+        || gameplayScreenRuntime.houseBankState().inputActive();
 }
 
 bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
@@ -3916,6 +4045,7 @@ bool GameApplication::handlePendingInputPromptSdlEvent(const SDL_Event &event)
 
 void GameApplication::clearPendingInputPromptUi(bool clearStatusBar)
 {
+#if !defined(__ANDROID__)
     if (m_pendingInputTextActive)
     {
         SDL_Window *pWindow = SDL_GetKeyboardFocus();
@@ -3925,6 +4055,7 @@ void GameApplication::clearPendingInputPromptUi(bool clearStatusBar)
             SDL_StopTextInput(pWindow);
         }
     }
+#endif
 
     m_pendingInputTextActive = false;
     m_pendingInputText.clear();
@@ -3983,12 +4114,14 @@ void GameApplication::updatePendingInputPrompt()
 
     if (!m_pendingInputTextActive)
     {
+#if !defined(__ANDROID__)
         SDL_Window *pWindow = SDL_GetKeyboardFocus();
 
         if (pWindow != nullptr)
         {
             SDL_StartTextInput(pWindow);
         }
+#endif
 
         m_pendingInputTextActive = true;
 

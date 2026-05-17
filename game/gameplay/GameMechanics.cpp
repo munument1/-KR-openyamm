@@ -911,6 +911,21 @@ int resolveBlasterDamageSkillBonus(const Character &character, CharacterAttackTu
     return masteryMultiplier(skillMastery(character, "Blaster"), 0, 0, 0, 1) * level;
 }
 
+std::pair<int, int> resolveBlasterDamageRange(
+    const Character &character,
+    const ItemDefinition *pBlasterItem,
+    CharacterAttackTuning attackTuning)
+{
+    const int skillDamageBonus = resolveBlasterDamageSkillBonus(character, attackTuning);
+    const int minimumDamage = std::max(
+        0,
+        (pBlasterItem != nullptr ? weaponMinDamage(*pBlasterItem) : 0) + skillDamageBonus);
+    const int maximumDamage = std::max(
+        minimumDamage,
+        (pBlasterItem != nullptr ? weaponMaxDamage(*pBlasterItem) : 0) + skillDamageBonus);
+    return {minimumDamage, maximumDamage};
+}
+
 int resolveMeleeAttackSkillBonus(const Character &character, const EquippedItems &equippedItems)
 {
     const int armsmasterBonus = resolveArmsmasterAttackBonus(character);
@@ -2312,6 +2327,12 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     {
         summary.combat.meleeDamageText = "Wand";
     }
+    else if (equippedItems.pMainHand != nullptr && isBlasterItem(*equippedItems.pMainHand))
+    {
+        const std::pair<int, int> damageRange =
+            resolveBlasterDamageRange(character, equippedItems.pMainHand, attackTuning);
+        summary.combat.meleeDamageText = formatDamageRange(damageRange.first, damageRange.second);
+    }
     else if (dragonDamageRange.has_value())
     {
         summary.combat.attack = skillLevel(character, "DragonAbility");
@@ -2331,20 +2352,28 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     }
     else if (summary.combat.shoot)
     {
+        const bool bowIsBlaster =
+            equippedItems.pBow != nullptr && isBlasterItem(*equippedItems.pBow);
+        const int rangedSkillDamageBonus =
+            bowIsBlaster
+                ? resolveBlasterDamageSkillBonus(character, attackTuning)
+                : resolveRangedDamageSkillBonus(character, equippedItems, attackTuning);
+        const int rangedFlatDamageBonus =
+            bowIsBlaster
+                ? 0
+                : character.weaponEnchantmentDamageBonus
+                    + character.permanentBonuses.rangedDamage
+                    + character.magicalBonuses.rangedDamage;
         const int rangedMinDamage = std::max(
             0,
             weaponMinDamage(*equippedItems.pBow)
-                + resolveRangedDamageSkillBonus(character, equippedItems, attackTuning)
-                + character.weaponEnchantmentDamageBonus
-                + character.permanentBonuses.rangedDamage
-                + character.magicalBonuses.rangedDamage);
+                + rangedSkillDamageBonus
+                + rangedFlatDamageBonus);
         const int rangedMaxDamage = std::max(
             0,
             weaponMaxDamage(*equippedItems.pBow)
-                + resolveRangedDamageSkillBonus(character, equippedItems, attackTuning)
-                + character.weaponEnchantmentDamageBonus
-                + character.permanentBonuses.rangedDamage
-                + character.magicalBonuses.rangedDamage);
+                + rangedSkillDamageBonus
+                + rangedFlatDamageBonus);
         summary.combat.rangedDamageText = formatDamageRange(rangedMinDamage, rangedMaxDamage);
     }
     else if (equippedItems.pMainHand != nullptr && isWandWeapon(*equippedItems.pMainHand))
@@ -2488,25 +2517,17 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
 
         if (mainHandIsBlaster)
         {
-            profile.rangedMinDamage = profile.meleeMinDamage;
-            profile.rangedMaxDamage = profile.meleeMaxDamage;
+            const std::pair<int, int> damageRange =
+                resolveBlasterDamageRange(character, pBlasterItem, attackTuning);
+            profile.rangedMinDamage = damageRange.first;
+            profile.rangedMaxDamage = damageRange.second;
         }
         else
         {
-            profile.rangedMinDamage = std::max(
-                0,
-                resolveRangedDamageSkillBonus(character, equippedItems, attackTuning)
-                    + (pBlasterItem != nullptr ? weaponMinDamage(*pBlasterItem) : 0)
-                    + character.weaponEnchantmentDamageBonus
-                    + character.permanentBonuses.rangedDamage
-                    + character.magicalBonuses.rangedDamage);
-            profile.rangedMaxDamage = std::max(
-                profile.rangedMinDamage,
-                resolveRangedDamageSkillBonus(character, equippedItems, attackTuning)
-                    + (pBlasterItem != nullptr ? weaponMaxDamage(*pBlasterItem) : 0)
-                    + character.weaponEnchantmentDamageBonus
-                    + character.permanentBonuses.rangedDamage
-                    + character.magicalBonuses.rangedDamage);
+            const std::pair<int, int> damageRange =
+                resolveBlasterDamageRange(character, pBlasterItem, attackTuning);
+            profile.rangedMinDamage = damageRange.first;
+            profile.rangedMaxDamage = damageRange.second;
         }
     }
     else if (summary.combat.shoot.has_value())

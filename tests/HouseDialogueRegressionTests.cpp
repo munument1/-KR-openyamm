@@ -2,6 +2,7 @@
 
 #include "game/audio/SoundIds.h"
 #include "game/events/EvtEnums.h"
+#include "game/events/ISceneEventContext.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -32,7 +33,9 @@ namespace
 {
 constexpr uint32_t TempleHouseId = 303;
 constexpr uint32_t NewSorpigalTempleHouseId = 325;
+constexpr uint32_t FreeHavenTempleStoneHouseId = 326;
 constexpr uint32_t BlackshireTempleHouseId = 327;
+constexpr uint32_t FreeHavenTempleHouseId = 1442;
 constexpr uint32_t ElementalGuildHouseId = 139;
 constexpr uint32_t TrainingHallHouseId = 1564;
 constexpr uint32_t BankHouseId = 281;
@@ -46,6 +49,113 @@ constexpr uint32_t WindBoatHouseId = 483;
 constexpr uint32_t NewSorpigalStableHouseId = 470;
 constexpr uint32_t NewSorpigalBoatHouseId = 496;
 constexpr uint32_t BuccaneersLairHouseId = 191;
+
+class TempleConditionTimeSceneContext : public OpenYAMM::Game::ISceneEventContext
+{
+public:
+    explicit TempleConditionTimeSceneContext(float currentGameMinutes)
+        : m_currentGameMinutes(currentGameMinutes)
+    {
+    }
+
+    float currentGameMinutes() const override
+    {
+        return m_currentGameMinutes;
+    }
+
+    const OpenYAMM::Game::MapDeltaData *mapDeltaData() const override
+    {
+        return nullptr;
+    }
+
+    OpenYAMM::Game::MapDeltaData *mapDeltaData() override
+    {
+        return nullptr;
+    }
+
+    bool setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn) override
+    {
+        (void)cogNumber;
+        (void)bit;
+        (void)isOn;
+        return false;
+    }
+
+    bool castEventSpell(
+        uint32_t spellId,
+        uint32_t skillLevel,
+        uint32_t skillMastery,
+        int32_t fromX,
+        int32_t fromY,
+        int32_t fromZ,
+        int32_t toX,
+        int32_t toY,
+        int32_t toZ) override
+    {
+        (void)spellId;
+        (void)skillLevel;
+        (void)skillMastery;
+        (void)fromX;
+        (void)fromY;
+        (void)fromZ;
+        (void)toX;
+        (void)toY;
+        (void)toZ;
+        return false;
+    }
+
+    bool summonMonsters(
+        uint32_t typeIndexInMapStats,
+        uint32_t level,
+        uint32_t count,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        uint32_t group,
+        uint32_t uniqueNameId) override
+    {
+        (void)typeIndexInMapStats;
+        (void)level;
+        (void)count;
+        (void)x;
+        (void)y;
+        (void)z;
+        (void)group;
+        (void)uniqueNameId;
+        return false;
+    }
+
+    bool summonEventItem(
+        uint32_t itemId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate) override
+    {
+        (void)itemId;
+        (void)x;
+        (void)y;
+        (void)z;
+        (void)speed;
+        (void)count;
+        (void)randomRotate;
+        return false;
+    }
+
+    bool checkMonstersKilled(uint32_t checkType, uint32_t id, uint32_t count, bool invisibleAsDead) const override
+    {
+        (void)checkType;
+        (void)id;
+        (void)count;
+        (void)invisibleAsDead;
+        return false;
+    }
+
+private:
+    float m_currentGameMinutes = 0.0f;
+};
 constexpr uint32_t BerserkersFuryHouseId = 199;
 constexpr uint32_t BrekishHallHouseId = 212;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
@@ -2628,16 +2738,67 @@ TEST_CASE("temple healing price uses condition age and house multiplier")
     CHECK_EQ(healAction->label, "Heal 150 gold");
 }
 
+TEST_CASE("event-applied conditions use absolute game time for temple healing price")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pTempleHouse = gameData.houseTable.get(TempleHouseId);
+
+    REQUIRE(pTempleHouse != nullptr);
+
+    constexpr float OneYearMinutes = 12.0f * 28.0f * 24.0f * 60.0f;
+    harness.worldRuntime().advanceGameMinutes(OneYearMinutes);
+
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    pMember->health = pMember->maxHealth;
+    pMember->spellPoints = pMember->maxSpellPoints;
+
+    harness.eventRuntimeState().variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 12;
+    harness.eventRuntimeState().variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::DayOfYear)] = 1;
+    TempleConditionTimeSceneContext sceneContext(harness.worldRuntime().gameMinutes());
+    const OpenYAMM::Game::EventRuntime::VariableRef weakVariable =
+        OpenYAMM::Game::EventRuntime::decodeVariable(
+            static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Weak));
+
+    OpenYAMM::Game::EventRuntime::setVariableValue(
+        harness.eventRuntimeState(),
+        weakVariable,
+        1,
+        &harness.party(),
+        {harness.party().activeMemberIndex()},
+        &sceneContext);
+
+    std::vector<OpenYAMM::Game::HouseActionOption> actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pTempleHouse,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    const std::optional<OpenYAMM::Game::HouseActionOption> healAction =
+        findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal);
+
+    REQUIRE(healAction.has_value());
+    CHECK_EQ(healAction->label, "Heal 10 gold");
+}
+
 TEST_CASE("mm6 temple healing tier limits serious condition treatment")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
     const OpenYAMM::Game::HouseEntry *pNewSorpigalTemple = gameData.houseTable.get(NewSorpigalTempleHouseId);
+    const OpenYAMM::Game::HouseEntry *pFreeHavenTempleStone = gameData.houseTable.get(FreeHavenTempleStoneHouseId);
+    const OpenYAMM::Game::HouseEntry *pFreeHavenTemple = gameData.houseTable.get(FreeHavenTempleHouseId);
     const OpenYAMM::Game::HouseEntry *pBlackshireTemple = gameData.houseTable.get(BlackshireTempleHouseId);
 
     REQUIRE(pNewSorpigalTemple != nullptr);
+    REQUIRE(pFreeHavenTempleStone != nullptr);
+    REQUIRE(pFreeHavenTemple != nullptr);
     REQUIRE(pBlackshireTemple != nullptr);
     CHECK_EQ(pNewSorpigalTemple->templeHealingTier, doctest::Approx(2.0f));
+    CHECK_EQ(pFreeHavenTempleStone->templeHealingTier, doctest::Approx(2.5f));
+    CHECK_EQ(pFreeHavenTemple->templeHealingTier, doctest::Approx(2.5f));
     CHECK_EQ(pBlackshireTemple->templeHealingTier, doctest::Approx(2.5f));
 
     OpenYAMM::Game::Character *pMember = harness.party().activeMember();
@@ -2670,6 +2831,24 @@ TEST_CASE("mm6 temple healing tier limits serious condition treatment")
         harness.worldRuntime().gameMinutes(),
         OpenYAMM::Game::DialogueMenuId::None);
     CHECK_FALSE(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pFreeHavenTempleStone,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    CHECK(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+
+    actions = OpenYAMM::Game::buildHouseActionOptions(
+        *pFreeHavenTemple,
+        &harness.party(),
+        &gameData.classSkillTable,
+        &harness.worldRuntime(),
+        harness.worldRuntime().gameMinutes(),
+        OpenYAMM::Game::DialogueMenuId::None);
+    CHECK(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
 
     actions = OpenYAMM::Game::buildHouseActionOptions(
         *pBlackshireTemple,

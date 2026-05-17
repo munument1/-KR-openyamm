@@ -74,6 +74,53 @@ constexpr std::array<SaveGameKeyBinding, 39> SaveGameEditBindings = {{
     {SDL_SCANCODE_SPACE, ' ', ' '}, {SDL_SCANCODE_MINUS, '-', '_'}, {SDL_SCANCODE_APOSTROPHE, '\'', '"'}
 }};
 
+bool isSaveGameTextInputCharacter(char character)
+{
+    for (const SaveGameKeyBinding &binding : SaveGameEditBindings)
+    {
+        if (character == binding.lower || character == binding.upper)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void appendSaveGameTextInput(std::string &buffer, const std::string &textInput)
+{
+    static constexpr size_t MaximumSaveGameTextLength = 30;
+
+    for (const char character : textInput)
+    {
+        if (buffer.size() >= MaximumSaveGameTextLength)
+        {
+            break;
+        }
+
+        if (isSaveGameTextInputCharacter(character))
+        {
+            buffer.push_back(character);
+        }
+    }
+}
+
+void appendDigitTextInput(std::string &buffer, const std::string &textInput, size_t maximumLength)
+{
+    for (const char character : textInput)
+    {
+        if (buffer.size() >= maximumLength)
+        {
+            break;
+        }
+
+        if (character >= '0' && character <= '9')
+        {
+            buffer.push_back(character);
+        }
+    }
+}
+
 struct HudPointerState
 {
     float x = 0.0f;
@@ -1753,6 +1800,8 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
 
     if (saveGameScreen.editActive && pKeyboardState != nullptr)
     {
+        appendSaveGameTextInput(saveGameScreen.editBuffer, input.textInput);
+
         const bool shiftPressed =
             pKeyboardState[SDL_SCANCODE_LSHIFT] || pKeyboardState[SDL_SCANCODE_RSHIFT];
 
@@ -1763,7 +1812,9 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
 
             if (pressed)
             {
-                if (!view.interactionState().saveGameEditKeyLatches[bindingIndex] && saveGameScreen.editBuffer.size() < 30)
+                if (input.textInput.empty()
+                    && !view.interactionState().saveGameEditKeyLatches[bindingIndex]
+                    && saveGameScreen.editBuffer.size() < 30)
                 {
                     saveGameScreen.editBuffer.push_back(shiftPressed ? binding.upper : binding.lower);
                     view.interactionState().saveGameEditKeyLatches[bindingIndex] = true;
@@ -2644,6 +2695,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
 
     if (view.houseBankState().inputActive())
     {
+        appendDigitTextInput(view.houseBankState().inputText, input.textInput, 10);
+
         static constexpr SDL_Scancode DigitScancodes[10] = {
             SDL_SCANCODE_0,
             SDL_SCANCODE_1,
@@ -2676,7 +2729,9 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
 
             if (pressed)
             {
-                if (!view.interactionState().houseBankDigitLatches[digit] && view.houseBankState().inputText.size() < 10)
+                if (input.textInput.empty()
+                    && !view.interactionState().houseBankDigitLatches[digit]
+                    && view.houseBankState().inputText.size() < 10)
                 {
                     view.houseBankState().inputText.push_back(static_cast<char>('0' + digit));
                 }

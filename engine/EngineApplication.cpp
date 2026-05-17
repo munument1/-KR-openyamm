@@ -17,6 +17,35 @@ namespace
 constexpr int MinimumWindowAspectWidth = 4;
 constexpr int MinimumWindowAspectHeight = 3;
 
+#if defined(__ANDROID__)
+constexpr Sint64 AndroidInputTypeClassText = 0x00000001;
+constexpr Sint64 AndroidInputTypeTextVariationVisiblePassword = 0x00000090;
+constexpr Sint64 AndroidInputTypeTextFlagNoSuggestions = 0x00080000;
+
+bool startManagedAndroidTextInput(SDL_Window *pWindow)
+{
+    SDL_PropertiesID properties = SDL_CreateProperties();
+
+    if (properties == 0)
+    {
+        return SDL_StartTextInput(pWindow);
+    }
+
+    const Sint64 inputType =
+        AndroidInputTypeClassText
+        | AndroidInputTypeTextVariationVisiblePassword
+        | AndroidInputTypeTextFlagNoSuggestions;
+
+    SDL_SetNumberProperty(properties, SDL_PROP_TEXTINPUT_ANDROID_INPUTTYPE_NUMBER, inputType);
+    SDL_SetBooleanProperty(properties, SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN, false);
+    SDL_SetBooleanProperty(properties, SDL_PROP_TEXTINPUT_MULTILINE_BOOLEAN, false);
+
+    const bool started = SDL_StartTextInputWithProperties(pWindow, properties);
+    SDL_DestroyProperties(properties);
+    return started;
+}
+#endif
+
 uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
 {
     return count != 0 ? totalNanoseconds / count : 0;
@@ -196,7 +225,8 @@ EngineApplication::EngineApplication(
     RenderSetupCallback renderSetupCallback,
     EventCallback eventCallback,
     RenderFrameCallback renderFrameCallback,
-    ShutdownCallback shutdownCallback
+    ShutdownCallback shutdownCallback,
+    TextInputActiveCallback textInputActiveCallback
 )
     : m_config(config)
     , m_startupCallback(std::move(startupCallback))
@@ -204,6 +234,7 @@ EngineApplication::EngineApplication(
     , m_eventCallback(std::move(eventCallback))
     , m_renderFrameCallback(std::move(renderFrameCallback))
     , m_shutdownCallback(std::move(shutdownCallback))
+    , m_textInputActiveCallback(std::move(textInputActiveCallback))
 {
 }
 
@@ -321,6 +352,25 @@ int EngineApplication::run() const
     uint64_t fpsWindowSizeNanoseconds = 0;
     uint64_t fpsRenderCallbackNanoseconds = 0;
     uint64_t fpsBgfxFrameNanoseconds = 0;
+#if defined(__ANDROID__)
+    bool managedTextInputActive = false;
+    const auto syncManagedTextInput =
+        [&managedTextInputActive, this, &pWindow]()
+        {
+            const bool textInputRequested = m_textInputActiveCallback && m_textInputActiveCallback();
+
+            if (textInputRequested && !managedTextInputActive)
+            {
+                startManagedAndroidTextInput(pWindow.get());
+                managedTextInputActive = true;
+            }
+            else if (!textInputRequested && managedTextInputActive)
+            {
+                SDL_StopTextInput(pWindow.get());
+                managedTextInputActive = false;
+            }
+        };
+#endif
 
     while (isRunning)
     {
@@ -389,6 +439,10 @@ int EngineApplication::run() const
             }
         }
 
+#if defined(__ANDROID__)
+        syncManagedTextInput();
+#endif
+
         const uint64_t windowSizeBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
         int drawableWidth = 0;
         int drawableHeight = 0;
@@ -417,6 +471,10 @@ int EngineApplication::run() const
             bgfx::setViewRect(0, 0, 0, static_cast<uint16_t>(drawableWidth), static_cast<uint16_t>(drawableHeight));
             bgfx::touch(0);
         }
+
+#if defined(__ANDROID__)
+        syncManagedTextInput();
+#endif
 
         uint64_t frameRenderCallbackNanoseconds = 0;
 
@@ -531,6 +589,13 @@ int EngineApplication::run() const
             }
         }
     }
+
+#if defined(__ANDROID__)
+    if (managedTextInputActive)
+    {
+        SDL_StopTextInput(pWindow.get());
+    }
+#endif
 
     invokeShutdownCallback(m_shutdownCallback);
 

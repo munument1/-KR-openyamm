@@ -547,6 +547,7 @@ public:
     bool hasCharacterBuff(size_t memberIndex, CharacterBuffId buffId) const;
     const PartyBuffState *partyBuff(PartyBuffId buffId) const;
     const CharacterBuffState *characterBuff(size_t memberIndex, CharacterBuffId buffId) const;
+    bool blockConditionWithProtectionFromMagic(CharacterCondition condition);
     bool applyMemberCondition(size_t memberIndex, CharacterCondition condition, float gameMinutes = 0.0f);
     bool clearMemberCondition(size_t memberIndex, CharacterCondition condition);
     bool hasMemberConditionImmunity(size_t memberIndex, CharacterCondition condition) const;

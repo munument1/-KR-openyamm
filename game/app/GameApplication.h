@@ -229,6 +229,7 @@ private:
     void handleSdlEvent(const SDL_Event &event);
     bool handlePendingInputPromptSdlEvent(const SDL_Event &event);
     bool pendingInputPromptActive() const;
+    bool applicationTextInputActive() const;
     void clearPendingInputPromptUi(bool clearStatusBar);
     void updatePendingInputPrompt();
     void finishPendingInputPrompt(bool accepted);

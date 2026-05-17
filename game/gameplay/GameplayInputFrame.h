@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -24,6 +25,7 @@ struct GameplayInputFrame
     float pointerY = 0.0f;
     float relativeMouseX = 0.0f;
     float relativeMouseY = 0.0f;
+    std::string textInput;
     bool mobileJoystickActive = false;
     float mobileJoystickBaseX = 0.0f;
     float mobileJoystickBaseY = 0.0f;

@@ -18,7 +18,7 @@ INFO         |      Ok: Hardware GPU compatibility checks are not required
 INFO         |   Checking: hasSufficientSystem
 INFO         |      Ok: System requirements to run avd: `openyamm_api35` are met
 WARNING      | Failed to process .ini file /home/pjasicek/.android/avd/../avd/openyamm_api35.avd/quickbootChoice.ini for reading.
-INFO         | Storing crashdata in: /tmp/android-pjasicek/emu-crash-36.5.11.db, detection is enabled for process: 399035
+INFO         | Storing crashdata in: /tmp/android-pjasicek/emu-crash-36.5.11.db, detection is enabled for process: 1084777
 INFO         | Initializing gfxstream backend
 INFO         | android_startOpenglesRenderer: gpu info
 INFO         | 
@@ -85,10 +85,10 @@ INFO         | Monitoring duration of emulator setup.
 WARNING      | The emulator now requires a signed jwt token for gRPC access! Use the -grpc flag if you really want an open unprotected grpc port
 INFO         | Using security allow list from: /home/pjasicek/android-sdk/emulator/lib/emulator_access.json
 WARNING      | *** Basic token auth should only be used by android-studio ***
-INFO         | The active JSON Web Key Sets can be found here: /run/user/1000/avd/running/399035/jwks/2cd39047-3659-4fa9-afff-c66c31ee0f96/active.jwk
-INFO         | Scanning /run/user/1000/avd/running/399035/jwks/2cd39047-3659-4fa9-afff-c66c31ee0f96 for jwk keys.
+INFO         | The active JSON Web Key Sets can be found here: /run/user/1000/avd/running/1084777/jwks/745f9559-9f14-4cc3-959d-cc63b3e3d4ae/active.jwk
+INFO         | Scanning /run/user/1000/avd/running/1084777/jwks/745f9559-9f14-4cc3-959d-cc63b3e3d4ae for jwk keys.
 INFO         | Started GRPC server at 127.0.0.1:8554, security: Local, auth: +token
-INFO         | Advertising in: /run/user/1000/avd/running/pid_399035.ini
+INFO         | Advertising in: /run/user/1000/avd/running/pid_1084777.ini
 INFO         | Successfully initialized netsim WiFi
 INFO         | Activated packet streamer for bluetooth emulation
 INFO         | Setting display: 0 configuration to: 1080x2400, dpi: 420x420 
@@ -102,7 +102,10 @@ INFO         |   Checking: hasSufficientHwGpu
 INFO         |      Ok: Hardware GPU compatibility checks are not required
 INFO         |   Checking: hasSufficientSystem
 INFO         |      Ok: System requirements to run avd: `openyamm_api35` are met
-USER_INFO    | Emulator is performing a full startup. This may take upto two minutes, or more.
+INFO         | Loading snapshot 'default_boot'...
+WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
+
+WARNING      | Failed to load snapshot 'default_boot'
 INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for on_rgbcSensorValueWidget_valueChanged() (:0, )
 INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for on_posture_valueChanged(int) (:0, )
 INFO         | Warning: QObject::connect: Cannot queue arguments of type 'std::vector<android::emulation::control::SnapshotInfo>'
@@ -114,10 +117,9 @@ INFO         | Warning: QObject::connect:  (receiver name: 'microphonePage') (:0
 INFO         | Warning: QObject::connect: No such signal MicrophonePage::microphoneEnabledChanged() in /buildbot/src/googleplex-android/emu-36-5-release/external/qemu/android/android-ui/modules/aemu-ui-qt/src/android/skin/qt/extended-window.cpp:162 (:0, )
 INFO         | Warning: QObject::connect:  (sender name:   'microphonePage') (:0, )
 INFO         | Warning: QObject::connect:  (receiver name: 'ToolControls') (:0, )
-INFO         | Created extended window in 499.376ms
-INFO         | Boot completed in 26533 ms
+INFO         | Created extended window in 554.028ms
+INFO         | Boot completed in 24540 ms
 INFO         | Increasing screen off timeout, logcat buffer size to 2M.
-qemu-system-x86_64: warning: I/O thread spun for 1000 iterations
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
@@ -127,4 +129,12 @@ INFO         | Warning: scroll event from unregistered device 19 (:0, )
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
 INFO         | Warning: scroll event from unregistered device 19 (:0, )
-INFO         | Warning: scroll event from unregistered device 19 (:0, )
+INFO         | Wait for emulator (pid 1084777) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+
+INFO         | Wait for emulator (pid 1084777) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+
+INFO         | Saving with gfxstream=1
+INFO         | Saving snapshot 'default_boot' using 1778 ms
+ERROR        | stop: Not implemented
+ERROR        | Unable to write to file /home/pjasicek/.android/avd/../avd/openyamm_api35.avd/modem_simulator/modem_nvram.json
+WARNING      | Netsim Wifi localhost:33055 is gone due to CANCELLED

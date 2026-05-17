@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <limits>
@@ -410,6 +411,37 @@ constexpr float ActorInertiaReferenceFrameRate = 60.0f;
 constexpr float ActorStopVelocitySquared = 400.0f;
 constexpr float ActorKnockbackVelocityStep = 50.0f;
 constexpr int ActorMaxKnockbackSteps = 10;
+
+bool blasterProjectileTraceEnabled()
+{
+    static const bool environmentEnabled =
+        []()
+        {
+            const char *pValue = std::getenv("OPENYAMM_BLASTER_PROJECTILE_TRACE");
+            return pValue != nullptr && pValue[0] != '\0' && std::strcmp(pValue, "0") != 0;
+        }();
+    return environmentEnabled || gameplayCombatTraceEnabled();
+}
+
+void writeBlasterProjectileTrace(const std::string &message)
+{
+    if (gameplayCombatTraceEnabled())
+    {
+        gameplayCombatTraceWrite(message);
+        return;
+    }
+
+    gameplayDebugTraceWrite(message);
+}
+
+bool projectileLooksLikeBlasterTraceTarget(const OutdoorWorldRuntime::ProjectileState &projectile)
+{
+    return projectile.sourceKind == OutdoorWorldRuntime::ProjectileState::SourceKind::Party
+        && (projectile.objectDescriptionId == 555
+            || projectile.objectName.find("Laser") != std::string::npos
+            || projectile.objectName.find("laser") != std::string::npos
+            || projectile.objectSpriteName.find("lzrbolt") != std::string::npos);
+}
 
 bool outdoorActorIsTerminalCorpse(const OutdoorWorldRuntime::MapActorState &actor)
 {
@@ -1431,6 +1463,121 @@ float pointSegmentDistanceSquared2d(
     const float deltaX = pointX - closestX;
     const float deltaY = pointY - closestY;
     return deltaX * deltaX + deltaY * deltaY;
+}
+
+struct OutdoorProjectileActorProbe
+{
+    float progress = 0.0f;
+    bx::Vec3 closest = {0.0f, 0.0f, 0.0f};
+    float horizontalDistanceSquared = 0.0f;
+    float collisionZ = 0.0f;
+    float minZ = 0.0f;
+    float maxZ = 0.0f;
+    bool withinHorizontal = false;
+    bool withinVertical = false;
+};
+
+OutdoorProjectileActorProbe probeOutdoorProjectileActor(
+    const bx::Vec3 &segmentStart,
+    const bx::Vec3 &segmentEnd,
+    const OutdoorWorldRuntime::MapActorState &actor,
+    float radius,
+    float verticalPadding)
+{
+    OutdoorProjectileActorProbe probe = {};
+    probe.horizontalDistanceSquared =
+        pointSegmentDistanceSquared2d(
+            actor.preciseX,
+            actor.preciseY,
+            segmentStart.x,
+            segmentStart.y,
+            segmentEnd.x,
+            segmentEnd.y,
+            probe.progress);
+    probe.closest = {
+        segmentStart.x + (segmentEnd.x - segmentStart.x) * probe.progress,
+        segmentStart.y + (segmentEnd.y - segmentStart.y) * probe.progress,
+        segmentStart.z + (segmentEnd.z - segmentStart.z) * probe.progress
+    };
+    probe.collisionZ = probe.closest.z;
+    probe.minZ = actor.preciseZ - verticalPadding;
+    probe.maxZ = actor.preciseZ + static_cast<float>(actor.height) + verticalPadding;
+    probe.withinHorizontal = probe.horizontalDistanceSquared <= radius * radius;
+    probe.withinVertical = probe.collisionZ >= probe.minZ && probe.collisionZ <= probe.maxZ;
+    return probe;
+}
+
+bool outdoorProjectileActorProbeIsTraceWorthy(const OutdoorProjectileActorProbe &probe, float radius)
+{
+    const float expandedRadius = radius + 192.0f;
+    return probe.horizontalDistanceSquared <= expandedRadius * expandedRadius
+        && probe.collisionZ >= probe.minZ - 512.0f
+        && probe.collisionZ <= probe.maxZ + 512.0f;
+}
+
+const char *outdoorProjectileTraceCollisionKindName(OutdoorWorldRuntime::ProjectileCollisionKind kind)
+{
+    switch (kind)
+    {
+        case OutdoorWorldRuntime::ProjectileCollisionKind::None: return "none";
+        case OutdoorWorldRuntime::ProjectileCollisionKind::Party: return "party";
+        case OutdoorWorldRuntime::ProjectileCollisionKind::Actor: return "actor";
+        case OutdoorWorldRuntime::ProjectileCollisionKind::BModel: return "bmodel";
+        case OutdoorWorldRuntime::ProjectileCollisionKind::Terrain: return "terrain";
+    }
+
+    return "unknown";
+}
+
+void traceOutdoorBlasterProjectileActorProbe(
+    const OutdoorWorldRuntime::ProjectileState &projectile,
+    const bx::Vec3 &segmentStart,
+    const bx::Vec3 &segmentEnd,
+    size_t actorIndex,
+    const OutdoorWorldRuntime::MapActorState &actor,
+    const char *pDecision,
+    const OutdoorProjectileActorProbe &probe,
+    float hitRadius,
+    const OutdoorWorldRuntime::ProjectileCollisionFacts &bestCollision)
+{
+    std::ostringstream out;
+    out
+        << "blaster_projectile_actor_probe scene=outdoor"
+        << " projectile=" << projectile.projectileId
+        << " object_id=" << projectile.objectDescriptionId
+        << " object=\"" << projectile.objectName << "\""
+        << " sprite=\"" << projectile.objectSpriteName << "\""
+        << " actor_index=" << actorIndex
+        << " actor_id=" << actor.actorId
+        << " monster_id=" << actor.monsterId
+        << " decision=" << pDecision
+        << " start=(" << segmentStart.x << "," << segmentStart.y << "," << segmentStart.z << ")"
+        << " end=(" << segmentEnd.x << "," << segmentEnd.y << "," << segmentEnd.z << ")"
+        << " closest=(" << probe.closest.x << "," << probe.closest.y << "," << probe.closest.z << ")"
+        << " progress=" << probe.progress
+        << " horizontal_distance=" << std::sqrt(probe.horizontalDistanceSquared)
+        << " collision_z=" << probe.collisionZ
+        << " actor_min_z=" << probe.minZ
+        << " actor_max_z=" << probe.maxZ
+        << " hit_radius=" << hitRadius
+        << " within_horizontal=" << (probe.withinHorizontal ? 1 : 0)
+        << " within_vertical=" << (probe.withinVertical ? 1 : 0);
+
+    if (bestCollision.hit)
+    {
+        out
+            << " current_best_kind=" << outdoorProjectileTraceCollisionKindName(bestCollision.kind)
+            << " current_best_factor=" << bestCollision.factor
+            << " current_best_actor=" << bestCollision.actorIndex
+            << " current_best_face=" << bestCollision.faceIndex
+            << " current_best_collider=\"" << bestCollision.colliderName << "\"";
+    }
+    else
+    {
+        out << " current_best_kind=none";
+    }
+
+    writeBlasterProjectileTrace(out.str());
 }
 
 float normalizeAngleRadians(float angle)
@@ -9858,9 +10005,39 @@ OutdoorWorldRuntime::ProjectileCollisionFacts OutdoorWorldRuntime::buildProjecti
         }
     }
 
+    const bool traceBlasterProjectile =
+        blasterProjectileTraceEnabled() && projectileLooksLikeBlasterTraceTarget(projectile);
+
     for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
     {
         const MapActorState &actor = m_mapActors[actorIndex];
+        const float collisionRadius =
+            static_cast<float>(std::max<uint16_t>(actor.radius, 8))
+            + static_cast<float>(std::max<uint16_t>(projectile.radius, 8));
+        const OutdoorProjectileActorProbe actorProbe =
+            probeOutdoorProjectileActor(
+                segmentStart,
+                segmentEnd,
+                actor,
+                collisionRadius,
+                static_cast<float>(projectile.height));
+
+        const auto traceActorDecision = [&](const char *pDecision)
+        {
+            if (traceBlasterProjectile && outdoorProjectileActorProbeIsTraceWorthy(actorProbe, collisionRadius))
+            {
+                traceOutdoorBlasterProjectileActorProbe(
+                    projectile,
+                    segmentStart,
+                    segmentEnd,
+                    actorIndex,
+                    actor,
+                    pDecision,
+                    actorProbe,
+                    collisionRadius,
+                    best);
+            }
+        };
 
         GameplayProjectileService::ProjectileCollisionActorFacts actorFacts = {};
         actorFacts.actorId = actor.actorId;
@@ -9872,43 +10049,36 @@ OutdoorWorldRuntime::ProjectileCollisionFacts OutdoorWorldRuntime::buildProjecti
 
         if (!projectileService().canProjectileCollideWithActor(projectile, actorFacts))
         {
+            const char *pDecision =
+                actorFacts.dead ? "skip_dead"
+                : actorFacts.unavailableForCombat ? "skip_unavailable"
+                : actorFacts.friendlyToProjectileSource ? "skip_friendly"
+                : "skip_cannot_collide";
+            traceActorDecision(pDecision);
             continue;
         }
 
-        float projectionFactor = 0.0f;
-        const float distanceSquared = pointSegmentDistanceSquared2d(
-            actor.preciseX,
-            actor.preciseY,
-            segmentStart.x,
-            segmentStart.y,
-            segmentEnd.x,
-            segmentEnd.y,
-            projectionFactor);
-        const float collisionRadius =
-            static_cast<float>(std::max<uint16_t>(actor.radius, 8))
-            + static_cast<float>(std::max<uint16_t>(projectile.radius, 8));
-
-        if (distanceSquared > collisionRadius * collisionRadius)
+        if (actorProbe.horizontalDistanceSquared > collisionRadius * collisionRadius)
         {
+            traceActorDecision("skip_horizontal");
             continue;
         }
 
-        const float collisionZ = segmentStart.z + (segmentEnd.z - segmentStart.z) * projectionFactor;
-
-        if (collisionZ < actor.preciseZ - static_cast<float>(projectile.height)
-            || collisionZ > actor.preciseZ + static_cast<float>(actor.height) + static_cast<float>(projectile.height))
+        if (!actorProbe.withinVertical)
         {
+            traceActorDecision("skip_vertical");
             continue;
         }
 
         std::ostringstream colliderNameStream;
         colliderNameStream << actor.displayName << " #" << actor.actorId;
+        traceActorDecision("hit_candidate");
         considerImpact(
-            projectionFactor,
+            actorProbe.progress,
             {
-                segmentStart.x + (segmentEnd.x - segmentStart.x) * projectionFactor,
-                segmentStart.y + (segmentEnd.y - segmentStart.y) * projectionFactor,
-                collisionZ
+                actorProbe.closest.x,
+                actorProbe.closest.y,
+                actorProbe.collisionZ
             },
             ProjectileCollisionKind::Actor,
             colliderNameStream.str(),
@@ -15158,6 +15328,32 @@ bool OutdoorWorldRuntime::spawnPartyProjectile(const PartyProjectileRequest &req
         projectileService().spawnProjectile(spawnRequest);
     const GameplayProjectileService::ProjectileSpawnEffects spawnEffects =
         projectileService().buildProjectileSpawnEffects(spawnResult, false);
+
+    if (blasterProjectileTraceEnabled() && projectileLooksLikeBlasterTraceTarget(spawnResult.projectile))
+    {
+        std::ostringstream out;
+        out
+            << "blaster_projectile_spawn scene=outdoor"
+            << " source=party_attack"
+            << " member=" << request.sourcePartyMemberIndex
+            << " accepted=" << (spawnEffects.accepted ? 1 : 0)
+            << " projectileId=" << spawnResult.projectile.projectileId
+            << " object_id=" << spawnResult.projectile.objectDescriptionId
+            << " object=\"" << definition.objectName << "\""
+            << " sprite=\"" << definition.objectSpriteName << "\""
+            << " flags=0x" << std::hex << definition.objectFlags << std::dec
+            << " radius=" << definition.radius
+            << " height=" << definition.height
+            << " speed=" << definition.speed
+            << " source=(" << spawnRequest.sourceX << "," << spawnRequest.sourceY << ","
+            << spawnRequest.sourceZ << ")"
+            << " target=(" << spawnRequest.targetX << "," << spawnRequest.targetY << ","
+            << spawnRequest.targetZ << ")"
+            << " dir=(" << spawnResult.directionX << "," << spawnResult.directionY << ","
+            << spawnResult.directionZ << ")";
+        writeBlasterProjectileTrace(out.str());
+    }
+
     return applyProjectileSpawnEffects(
         spawnResult,
         spawnEffects,

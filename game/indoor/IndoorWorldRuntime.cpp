@@ -774,6 +774,37 @@ const char *indoorProjectileCollisionKindName(GameplayProjectileService::Project
     return "unknown";
 }
 
+bool blasterProjectileTraceEnabled()
+{
+    static const bool environmentEnabled =
+        []()
+        {
+            const char *pValue = std::getenv("OPENYAMM_BLASTER_PROJECTILE_TRACE");
+            return pValue != nullptr && pValue[0] != '\0' && std::strcmp(pValue, "0") != 0;
+        }();
+    return environmentEnabled || gameplayCombatTraceEnabled();
+}
+
+void writeBlasterProjectileTrace(const std::string &message)
+{
+    if (gameplayCombatTraceEnabled())
+    {
+        gameplayCombatTraceWrite(message);
+        return;
+    }
+
+    gameplayDebugTraceWrite(message);
+}
+
+bool projectileLooksLikeBlasterTraceTarget(const GameplayProjectileService::ProjectileState &projectile)
+{
+    return projectile.sourceKind == GameplayProjectileService::ProjectileState::SourceKind::Party
+        && (projectile.objectDescriptionId == 555
+            || projectile.objectName.find("Laser") != std::string::npos
+            || projectile.objectName.find("laser") != std::string::npos
+            || projectile.objectSpriteName.find("lzrbolt") != std::string::npos);
+}
+
 const char *indoorProjectileSpawnKindName(GameplayProjectileService::ProjectileSpawnResult::Kind kind)
 {
     switch (kind)
@@ -1874,6 +1905,123 @@ std::optional<IndoorProjectileCollisionCandidate> findProjectileCylinderHit(
     hit.progress = progress;
     hit.distanceSquared = horizontalDistanceSquared + deltaZ * deltaZ;
     return hit;
+}
+
+struct ProjectileCylinderProbe
+{
+    float progress = 0.0f;
+    GameplayWorldPoint closest;
+    float horizontalDistanceSquared = 0.0f;
+    float verticalDelta = 0.0f;
+    bool withinHorizontal = false;
+    bool withinVertical = false;
+};
+
+std::optional<ProjectileCylinderProbe> probeProjectileCylinder(
+    const GameplayWorldPoint &source,
+    const GameplayWorldPoint &target,
+    const GameplayWorldPoint &center,
+    float radius,
+    float halfHeight)
+{
+    const float segmentX = target.x - source.x;
+    const float segmentY = target.y - source.y;
+    const float segmentZ = target.z - source.z;
+    const float segmentLengthSquared =
+        segmentX * segmentX + segmentY * segmentY + segmentZ * segmentZ;
+
+    if (segmentLengthSquared <= 0.0f)
+    {
+        return std::nullopt;
+    }
+
+    const float targetX = center.x - source.x;
+    const float targetY = center.y - source.y;
+    const float targetZ = center.z - source.z;
+    const float progress =
+        std::clamp(
+            (targetX * segmentX + targetY * segmentY + targetZ * segmentZ) / segmentLengthSquared,
+            0.0f,
+            1.0f);
+    const GameplayWorldPoint closest = {
+        source.x + segmentX * progress,
+        source.y + segmentY * progress,
+        source.z + segmentZ * progress
+    };
+    const float deltaX = center.x - closest.x;
+    const float deltaY = center.y - closest.y;
+    const float deltaZ = center.z - closest.z;
+
+    ProjectileCylinderProbe probe = {};
+    probe.progress = progress;
+    probe.closest = closest;
+    probe.horizontalDistanceSquared = deltaX * deltaX + deltaY * deltaY;
+    probe.verticalDelta = deltaZ;
+    probe.withinHorizontal = probe.horizontalDistanceSquared <= radius * radius;
+    probe.withinVertical = std::abs(deltaZ) <= std::max(halfHeight, 1.0f);
+    return probe;
+}
+
+bool projectileActorProbeIsTraceWorthy(const ProjectileCylinderProbe &probe, float radius)
+{
+    const float expandedRadius = radius + 192.0f;
+    return probe.horizontalDistanceSquared <= expandedRadius * expandedRadius
+        && std::abs(probe.verticalDelta) <= 512.0f;
+}
+
+void traceIndoorBlasterProjectileActorProbe(
+    const GameplayProjectileService::ProjectileState &projectile,
+    const GameplayWorldPoint &segmentStart,
+    const GameplayWorldPoint &segmentEnd,
+    size_t actorIndex,
+    uint32_t actorId,
+    int16_t monsterId,
+    int16_t projectileSectorId,
+    int16_t actorSectorId,
+    const char *pDecision,
+    const ProjectileCylinderProbe &probe,
+    float hitRadius,
+    float halfHeight,
+    const std::optional<IndoorProjectileCollisionCandidate> &bestCollision)
+{
+    std::ostringstream out;
+    out
+        << "blaster_projectile_actor_probe scene=indoor"
+        << " projectile=" << projectile.projectileId
+        << " object_id=" << projectile.objectDescriptionId
+        << " object=\"" << projectile.objectName << "\""
+        << " sprite=\"" << projectile.objectSpriteName << "\""
+        << " actor_index=" << actorIndex
+        << " actor_id=" << actorId
+        << " monster_id=" << monsterId
+        << " projectile_sector=" << projectileSectorId
+        << " actor_sector=" << actorSectorId
+        << " decision=" << pDecision
+        << " start=(" << segmentStart.x << "," << segmentStart.y << "," << segmentStart.z << ")"
+        << " end=(" << segmentEnd.x << "," << segmentEnd.y << "," << segmentEnd.z << ")"
+        << " closest=(" << probe.closest.x << "," << probe.closest.y << "," << probe.closest.z << ")"
+        << " progress=" << probe.progress
+        << " horizontal_distance=" << std::sqrt(probe.horizontalDistanceSquared)
+        << " vertical_delta=" << probe.verticalDelta
+        << " hit_radius=" << hitRadius
+        << " half_height=" << halfHeight
+        << " within_horizontal=" << (probe.withinHorizontal ? 1 : 0)
+        << " within_vertical=" << (probe.withinVertical ? 1 : 0);
+
+    if (bestCollision)
+    {
+        out
+            << " current_best_kind=" << indoorProjectileCollisionKindName(bestCollision->kind)
+            << " current_best_progress=" << bestCollision->progress
+            << " current_best_actor=" << bestCollision->actorIndex
+            << " current_best_face=" << bestCollision->faceIndex;
+    }
+    else
+    {
+        out << " current_best_kind=none";
+    }
+
+    writeBlasterProjectileTrace(out.str());
 }
 
 bool projectileHitSortsBefore(
@@ -5515,6 +5663,9 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
             }
         }
 
+        const bool traceBlasterProjectile =
+            blasterProjectileTraceEnabled() && projectileLooksLikeBlasterTraceTarget(projectile);
+
         if (pMapDeltaData != nullptr)
         {
             for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
@@ -5526,17 +5677,57 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
 
                 const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
                 const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
-
                 const int16_t actorSectorId = aiState.sectorId >= 0 ? aiState.sectorId : actor.sectorId;
+
+                std::optional<ProjectileCylinderProbe> approximateProbe;
+                const float approximateRadius =
+                    static_cast<float>(std::max<uint16_t>(aiState.projectileHitRadius, aiState.collisionRadius))
+                    + static_cast<float>(projectile.radius);
+                const float approximateHalfHeight =
+                    static_cast<float>(std::max<uint16_t>(aiState.collisionHeight, 16)) * 0.5f;
+                if (traceBlasterProjectile)
+                {
+                    const GameplayWorldPoint approximateCenter = {
+                        aiState.preciseX,
+                        aiState.preciseY,
+                        aiState.preciseZ + static_cast<float>(aiState.collisionHeight) * 0.5f
+                    };
+                    approximateProbe =
+                        probeProjectileCylinder(
+                            segmentStart,
+                            segmentEnd,
+                            approximateCenter,
+                            approximateRadius,
+                            approximateHalfHeight);
+                }
+
+                const auto traceApproximateDecision = [&](const char *pDecision)
+                {
+                    if (approximateProbe
+                        && projectileActorProbeIsTraceWorthy(*approximateProbe, approximateRadius))
+                    {
+                        traceIndoorBlasterProjectileActorProbe(
+                            projectile,
+                            segmentStart,
+                            segmentEnd,
+                            actorIndex,
+                            aiState.actorId,
+                            aiState.monsterId,
+                            projectile.sectorId,
+                            actorSectorId,
+                            pDecision,
+                            *approximateProbe,
+                            approximateRadius,
+                            approximateHalfHeight,
+                            bestCollision);
+                    }
+                };
+
                 if (!traversalSectorIds.empty()
                     && actorSectorId >= 0
                     && !sectorListContains(traversalSectorIds, actorSectorId))
                 {
-                    continue;
-                }
-
-                if (!indoorActorSectorActivated(actor, &aiState))
-                {
+                    traceApproximateDecision("skip_sector");
                     continue;
                 }
 
@@ -5552,12 +5743,14 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
                         static_cast<float>(aiState.collisionHeight),
                         static_cast<float>(projectile.radius)))
                 {
+                    traceApproximateDecision("skip_broadphase");
                     continue;
                 }
 
                 GameplayRuntimeActorState actorState = {};
                 if (!actorRuntimeState(actorIndex, actorState))
                 {
+                    traceApproximateDecision("skip_runtime_state");
                     continue;
                 }
 
@@ -5579,6 +5772,12 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
 
                 if (!m_pGameplayProjectileService->canProjectileCollideWithActor(projectile, actorFacts))
                 {
+                    const char *pDecision =
+                        actorFacts.dead ? "skip_dead"
+                        : actorFacts.unavailableForCombat ? "skip_unavailable"
+                        : actorFacts.friendlyToProjectileSource ? "skip_friendly"
+                        : "skip_cannot_collide";
+                    traceApproximateDecision(pDecision);
                     continue;
                 }
 
@@ -5604,11 +5803,72 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
 
                 if (!actorHit)
                 {
+                    if (traceBlasterProjectile)
+                    {
+                        const float actorHalfHeight =
+                            static_cast<float>(std::max<uint16_t>(actorState.height, 16)) * 0.5f;
+                        const float actorHitRadius = hitRadius + static_cast<float>(projectile.radius);
+                        const std::optional<ProjectileCylinderProbe> actorProbe =
+                            probeProjectileCylinder(
+                                segmentStart,
+                                segmentEnd,
+                                actorCenter,
+                                actorHitRadius,
+                                actorHalfHeight);
+                        if (actorProbe && projectileActorProbeIsTraceWorthy(*actorProbe, actorHitRadius))
+                        {
+                            traceIndoorBlasterProjectileActorProbe(
+                                projectile,
+                                segmentStart,
+                                segmentEnd,
+                                actorIndex,
+                                aiState.actorId,
+                                actorState.monsterId,
+                                projectile.sectorId,
+                                actorSectorId,
+                                "skip_cylinder",
+                                *actorProbe,
+                                actorHitRadius,
+                                actorHalfHeight,
+                                bestCollision);
+                        }
+                    }
                     continue;
                 }
 
                 actorHit->kind = GameplayProjectileService::ProjectileFrameCollisionKind::Actor;
                 actorHit->actorIndex = actorIndex;
+
+                if (traceBlasterProjectile)
+                {
+                    const float actorHalfHeight =
+                        static_cast<float>(std::max<uint16_t>(actorState.height, 16)) * 0.5f;
+                    const float actorHitRadius = hitRadius + static_cast<float>(projectile.radius);
+                    const std::optional<ProjectileCylinderProbe> actorProbe =
+                        probeProjectileCylinder(
+                            segmentStart,
+                            segmentEnd,
+                            actorCenter,
+                            actorHitRadius,
+                            actorHalfHeight);
+                    if (actorProbe)
+                    {
+                        traceIndoorBlasterProjectileActorProbe(
+                            projectile,
+                            segmentStart,
+                            segmentEnd,
+                            actorIndex,
+                            aiState.actorId,
+                            actorState.monsterId,
+                            projectile.sectorId,
+                            actorSectorId,
+                            "hit_candidate",
+                            *actorProbe,
+                            actorHitRadius,
+                            actorHalfHeight,
+                            bestCollision);
+                    }
+                }
 
                 if (!bestCollision || projectileHitSortsBefore(*actorHit, *bestCollision))
                 {
@@ -11187,6 +11447,32 @@ bool IndoorWorldRuntime::spawnPartyAttackProjectile(const GameplayPartyAttackPro
         m_pGameplayProjectileService->spawnProjectile(spawnRequest);
     const GameplayProjectileService::ProjectileSpawnEffects spawnEffects =
         m_pGameplayProjectileService->buildProjectileSpawnEffects(spawnResult, false);
+
+    if (blasterProjectileTraceEnabled() && projectileLooksLikeBlasterTraceTarget(spawnResult.projectile))
+    {
+        std::ostringstream out;
+        out
+            << "blaster_projectile_spawn scene=indoor"
+            << " source=party_attack"
+            << " member=" << request.sourcePartyMemberIndex
+            << " kind=" << indoorProjectileSpawnKindName(spawnResult.kind)
+            << " accepted=" << (spawnEffects.accepted ? 1 : 0)
+            << " projectileId=" << spawnResult.projectile.projectileId
+            << " object_id=" << spawnResult.projectile.objectDescriptionId
+            << " object=\"" << definition.objectName << "\""
+            << " sprite=\"" << definition.objectSpriteName << "\""
+            << " flags=0x" << std::hex << definition.objectFlags << std::dec
+            << " radius=" << definition.radius
+            << " height=" << definition.height
+            << " speed=" << definition.speed
+            << " source=(" << spawnRequest.sourceX << "," << spawnRequest.sourceY << ","
+            << spawnRequest.sourceZ << ")"
+            << " target=(" << spawnRequest.targetX << "," << spawnRequest.targetY << ","
+            << spawnRequest.targetZ << ")"
+            << " dir=(" << spawnResult.directionX << "," << spawnResult.directionY << ","
+            << spawnResult.directionZ << ")";
+        writeBlasterProjectileTrace(out.str());
+    }
 
     if (indoorProjectileDebugEnabled())
     {

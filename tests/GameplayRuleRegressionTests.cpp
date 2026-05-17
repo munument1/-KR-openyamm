@@ -1435,9 +1435,196 @@ TEST_CASE("monster non-Attack1 projectile does not apply special attack conditio
     CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
 }
 
-TEST_CASE("monster break item uses regular inventory plus equipment candidates")
+TEST_CASE("Protection from Magic blocks regular monster condition special attacks")
 {
     constexpr uint32_t ActorId = 79;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    party.applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::ProtectionFromMagic,
+        60.0f,
+        1,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::ProtectionFromMagic),
+        1,
+        OpenYAMM::Game::SkillMastery::Master,
+        0);
+
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 100,
+        .attackBonus = 1000,
+        .specialAttackKind = OpenYAMM::Game::MonsterSpecialAttackKind::Paralyze,
+        .specialAttackLevel = 1,
+        .displayName = "Paralyzing Archer",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        0,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Physical,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    const OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
+    CHECK(party.partyBuff(OpenYAMM::Game::PartyBuffId::ProtectionFromMagic) == nullptr);
+}
+
+TEST_CASE("grandmaster Protection from Magic blocks monster death and eradication special attacks")
+{
+    constexpr uint32_t ActorId = 80;
+
+    const std::vector<std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition>>
+        protectedConditions = {
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Dead, OpenYAMM::Game::CharacterCondition::Dead},
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Eradicate, OpenYAMM::Game::CharacterCondition::Eradicated},
+        };
+
+    for (const std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition> &testCase
+        : protectedConditions)
+    {
+        OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+        party.applyPartyBuff(
+            OpenYAMM::Game::PartyBuffId::ProtectionFromMagic,
+            60.0f,
+            1,
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::ProtectionFromMagic),
+            1,
+            OpenYAMM::Game::SkillMastery::Grandmaster,
+            0);
+
+        MonsterSpecialAttackTestWorldRuntime world = {};
+        world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+            .actorId = ActorId,
+            .monsterLevel = 100,
+            .attackBonus = 1000,
+            .specialAttackKind = testCase.first,
+            .specialAttackLevel = 1,
+            .displayName = "Terminator Unit",
+        };
+
+        OpenYAMM::Game::GameplayCombatController controller = {};
+        controller.recordMonsterMeleeImpact(
+            ActorId,
+            0,
+            1000,
+            OpenYAMM::Game::CombatDamageType::Physical,
+            OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+        OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+        controller.handleAndClearPendingCombatEvents(context);
+
+        const OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(testCase.second)));
+        CHECK(party.partyBuff(OpenYAMM::Game::PartyBuffId::ProtectionFromMagic) == nullptr);
+    }
+}
+
+TEST_CASE("master Protection from Magic does not block monster death and eradication special attacks")
+{
+    constexpr uint32_t ActorId = 81;
+
+    const std::vector<std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition>>
+        unprotectedConditions = {
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Dead, OpenYAMM::Game::CharacterCondition::Dead},
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Eradicate, OpenYAMM::Game::CharacterCondition::Eradicated},
+        };
+
+    for (const std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition> &testCase
+        : unprotectedConditions)
+    {
+        OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+        party.applyPartyBuff(
+            OpenYAMM::Game::PartyBuffId::ProtectionFromMagic,
+            60.0f,
+            1,
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::ProtectionFromMagic),
+            1,
+            OpenYAMM::Game::SkillMastery::Master,
+            0);
+
+        MonsterSpecialAttackTestWorldRuntime world = {};
+        world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+            .actorId = ActorId,
+            .monsterLevel = 100,
+            .attackBonus = 1000,
+            .specialAttackKind = testCase.first,
+            .specialAttackLevel = 1,
+            .displayName = "Terminator Unit",
+        };
+
+        OpenYAMM::Game::GameplayCombatController controller = {};
+        controller.recordMonsterMeleeImpact(
+            ActorId,
+            0,
+            1000,
+            OpenYAMM::Game::CombatDamageType::Physical,
+            OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+        OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+        controller.handleAndClearPendingCombatEvents(context);
+
+        const OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        CHECK(pMember->conditions.test(static_cast<size_t>(testCase.second)));
+        CHECK(party.partyBuff(OpenYAMM::Game::PartyBuffId::ProtectionFromMagic) != nullptr);
+    }
+}
+
+TEST_CASE("monster incapacitating special attacks reduce victim health to zero")
+{
+    constexpr uint32_t ActorId = 82;
+
+    const std::vector<std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition>>
+        incapacitatingConditions = {
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Unconscious, OpenYAMM::Game::CharacterCondition::Unconscious},
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Dead, OpenYAMM::Game::CharacterCondition::Dead},
+            {OpenYAMM::Game::MonsterSpecialAttackKind::Eradicate, OpenYAMM::Game::CharacterCondition::Eradicated},
+        };
+
+    for (const std::pair<OpenYAMM::Game::MonsterSpecialAttackKind, OpenYAMM::Game::CharacterCondition> &testCase
+        : incapacitatingConditions)
+    {
+        OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+
+        MonsterSpecialAttackTestWorldRuntime world = {};
+        world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+            .actorId = ActorId,
+            .monsterLevel = 100,
+            .attackBonus = 1000,
+            .specialAttackKind = testCase.first,
+            .specialAttackLevel = 1,
+            .displayName = "Incapacitating Monster",
+        };
+
+        OpenYAMM::Game::GameplayCombatController controller = {};
+        controller.recordMonsterMeleeImpact(
+            ActorId,
+            0,
+            1000,
+            OpenYAMM::Game::CombatDamageType::Physical,
+            OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+        OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+        controller.handleAndClearPendingCombatEvents(context);
+
+        const OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        CHECK(pMember->conditions.test(static_cast<size_t>(testCase.second)));
+        CHECK(pMember->health == 0);
+    }
+}
+
+TEST_CASE("monster break item uses regular inventory plus equipment candidates")
+{
+    constexpr uint32_t ActorId = 83;
     constexpr uint32_t RegularWeaponId = 31;
     constexpr uint32_t PotionId = 222;
 
@@ -1602,6 +1789,41 @@ TEST_CASE("blaster attack tuning can add scaling skill damage and minimum recove
 
     CHECK_EQ(grandmasterProfile.rangedMinDamage, defaultProfile.rangedMinDamage + 10);
     CHECK_EQ(grandmasterProfile.rangedMaxDamage, defaultProfile.rangedMaxDamage + 10);
+}
+
+TEST_CASE("spell damage buffs do not increase blaster attack damage")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Character member = makeRegressionPartyMember("Ariel", "Knight", "PC01-01", 1);
+    member.equipment.mainHand = findFirstItemIdBySkillGroup(gameData.itemTable, "Blaster");
+    member.skills["Blaster"] = {"Blaster", 10, OpenYAMM::Game::SkillMastery::Grandmaster};
+    REQUIRE(member.equipment.mainHand != 0);
+
+    const OpenYAMM::Game::CharacterAttackProfile baseProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            member,
+            &gameData.itemTable,
+            &gameData.spellTable);
+    const OpenYAMM::Game::CharacterSheetSummary baseSummary =
+        OpenYAMM::Game::GameMechanics::buildCharacterSheetSummary(member, &gameData.itemTable);
+
+    OpenYAMM::Game::Character buffedMember = member;
+    buffedMember.magicalBonuses.might += 100;
+    buffedMember.magicalBonuses.meleeDamage += 50;
+    buffedMember.magicalBonuses.rangedDamage += 50;
+    buffedMember.weaponEnchantmentDamageBonus += 18;
+
+    const OpenYAMM::Game::CharacterAttackProfile buffedProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            buffedMember,
+            &gameData.itemTable,
+            &gameData.spellTable);
+    const OpenYAMM::Game::CharacterSheetSummary buffedSummary =
+        OpenYAMM::Game::GameMechanics::buildCharacterSheetSummary(buffedMember, &gameData.itemTable);
+
+    CHECK_EQ(buffedProfile.rangedMinDamage, baseProfile.rangedMinDamage);
+    CHECK_EQ(buffedProfile.rangedMaxDamage, baseProfile.rangedMaxDamage);
+    CHECK_EQ(buffedSummary.combat.meleeDamageText, baseSummary.combat.meleeDamageText);
 }
 
 TEST_CASE("blaster damage bypasses monster resistance")

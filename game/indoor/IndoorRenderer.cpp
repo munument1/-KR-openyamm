@@ -1449,15 +1449,19 @@ bool indoorEventIsHintOnly(const IndoorSceneRuntime *pSceneRuntime, uint16_t eve
 
     const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
 
+    if (localEventProgram && localEventProgram->isHintOnlyEvent(eventId))
+    {
+        return true;
+    }
+
     if (localEventProgram && localEventProgram->hasEvent(eventId))
     {
-        return localEventProgram->isHintOnlyEvent(eventId);
+        return false;
     }
 
     const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
 
-    return globalEventProgram && globalEventProgram->hasEvent(eventId)
-        && globalEventProgram->isHintOnlyEvent(eventId);
+    return globalEventProgram && globalEventProgram->isHintOnlyEvent(eventId);
 }
 
 bool indoorFaceIsInteractionActivatable(uint32_t attributes, uint16_t eventId)

@@ -747,6 +747,20 @@ std::optional<CharacterCondition> conditionForMonsterSpecialAttack(MonsterSpecia
     }
 }
 
+bool monsterSpecialAttackSetsZeroHealth(MonsterSpecialAttackKind specialAttackKind)
+{
+    switch (specialAttackKind)
+    {
+        case MonsterSpecialAttackKind::Unconscious:
+        case MonsterSpecialAttackKind::Dead:
+        case MonsterSpecialAttackKind::Eradicate:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 FaceAnimationId faceAnimationForMonsterSpecialAttack(MonsterSpecialAttackKind specialAttackKind)
 {
     switch (specialAttackKind)
@@ -994,8 +1008,19 @@ bool applyMonsterSpecialAttack(
 
     if (condition)
     {
-        const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
-        applied = context.party.applyMemberCondition(memberIndex, *condition, gameMinutes);
+        const size_t conditionIndex = static_cast<size_t>(*condition);
+        const bool alreadyHadCondition =
+            conditionIndex < CharacterConditionCount && pMember->conditions.test(conditionIndex);
+
+        if (alreadyHadCondition || !context.party.blockConditionWithProtectionFromMagic(*condition))
+        {
+            const float gameMinutes = context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f;
+            applied = context.party.applyMemberCondition(memberIndex, *condition, gameMinutes);
+            if (applied && monsterSpecialAttackSetsZeroHealth(sourceActor.specialAttackKind))
+            {
+                pMember->health = 0;
+            }
+        }
     }
     else if (sourceActor.specialAttackKind == MonsterSpecialAttackKind::ManaDrain)
     {

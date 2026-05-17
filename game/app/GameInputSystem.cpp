@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -18,6 +20,9 @@ constexpr float MobileCameraZoneX = 300.0f;
 constexpr float MobileJoystickRadius = 64.0f;
 constexpr float MobileJoystickDeadZone = 10.0f;
 constexpr float MobileGameplayTapMaxNormalizedDistanceSquared = 0.000225f;
+constexpr float MobileDebugConsoleGestureTopEdgeNormalized = 0.055f;
+constexpr float MobileDebugConsoleGestureMinDragNormalized = 0.14f;
+constexpr float MobileDebugConsoleGestureMaxHorizontalNormalized = 0.09f;
 
 GameplayButtonInputState buildButtonState(bool held, bool previousHeld)
 {
@@ -37,10 +42,21 @@ bool pointInsideRect(float x, float y, float rectX, float rectY, float rectWidth
 {
     return x >= rectX && y >= rectY && x <= rectX + rectWidth && y <= rectY + rectHeight;
 }
+
 } // namespace
 
 void GameInputSystem::handleSdlEvent(const SDL_Event &event)
 {
+    if (event.type == SDL_EVENT_TEXT_INPUT)
+    {
+        if (event.text.text != nullptr)
+        {
+            m_pendingTextInput.append(event.text.text, std::strlen(event.text.text));
+        }
+
+        return;
+    }
+
 #if defined(__ANDROID__)
     const auto findTouch =
         [this](SDL_FingerID fingerId) -> MobileTouchPoint *
@@ -84,6 +100,8 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
         pTouch->startY = event.tfinger.y;
         pTouch->x = event.tfinger.x;
         pTouch->y = event.tfinger.y;
+        pTouch->debugConsoleGestureCandidate =
+            event.tfinger.y >= 0.0f && event.tfinger.y <= MobileDebugConsoleGestureTopEdgeNormalized;
         return;
     }
 
@@ -100,6 +118,25 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
         pTouch->deltaY += event.tfinger.y - pTouch->y;
         pTouch->x = event.tfinger.x;
         pTouch->y = event.tfinger.y;
+
+        if (pTouch->debugConsoleGestureCandidate && !pTouch->debugConsoleGestureTriggered)
+        {
+            const float dragX = event.tfinger.x - pTouch->startX;
+            const float dragY = event.tfinger.y - pTouch->startY;
+
+            if (dragY >= MobileDebugConsoleGestureMinDragNormalized
+                && std::abs(dragX) <= MobileDebugConsoleGestureMaxHorizontalNormalized)
+            {
+                pTouch->role = MobileTouchRole::DebugConsoleGesture;
+                pTouch->debugConsoleGestureTriggered = true;
+                m_mobilePendingHudTap = false;
+                m_mobilePendingHudRelease = false;
+                m_mobilePendingGameplayTap = false;
+                m_mobilePendingGameplayRelease = false;
+                m_mobileDebugConsoleToggleRequested = true;
+            }
+        }
+
         return;
     }
 
@@ -145,6 +182,13 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
 #endif
 }
 
+bool GameInputSystem::consumeMobileDebugConsoleToggleRequested()
+{
+    const bool requested = m_mobileDebugConsoleToggleRequested;
+    m_mobileDebugConsoleToggleRequested = false;
+    return requested;
+}
+
 void GameInputSystem::updateFromEngineInput(
     int screenWidth,
     int screenHeight,
@@ -157,6 +201,8 @@ void GameInputSystem::updateFromEngineInput(
     m_frame.screenWidth = screenWidth;
     m_frame.screenHeight = screenHeight;
     m_frame.mouseWheelDelta = blockGameplayInput ? 0.0f : mouseWheelDelta;
+    m_frame.textInput = blockGameplayInput ? std::string() : std::move(m_pendingTextInput);
+    m_pendingTextInput.clear();
 
     int keyboardStateCount = 0;
     const bool *pKeyboardState = SDL_GetKeyboardState(&keyboardStateCount);
@@ -294,6 +340,7 @@ void GameInputSystem::updateFromEngineInput(
         {
             touch.role = MobileTouchRole::Hud;
         }
+
     }
 
     bool hasNonHudMobileTouch = false;
@@ -361,6 +408,10 @@ void GameInputSystem::updateFromEngineInput(
             hasHudTouch = true;
             hudTouchX = touch.x * static_cast<float>(screenWidth);
             hudTouchY = touch.y * static_cast<float>(screenHeight);
+        }
+        else if (touch.role == MobileTouchRole::DebugConsoleGesture)
+        {
+            hasNonHudMobileTouch = true;
         }
 
         touch.deltaX = 0.0f;

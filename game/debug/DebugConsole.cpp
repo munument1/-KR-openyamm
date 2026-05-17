@@ -587,6 +587,11 @@ int DebugConsole::mapOptionSearchScore(const MapOption &map, const std::string &
 
 void DebugConsole::renderConsoleWindow(int width, int height)
 {
+#if defined(__ANDROID__)
+    renderMobileConsoleWindow(width, height);
+    return;
+#endif
+
     const float windowWidth = std::max(640.0f, static_cast<float>(width));
     const float minWindowHeight = std::min(300.0f, std::max(220.0f, static_cast<float>(height) - 48.0f));
     const float maxWindowHeight = std::max(minWindowHeight, static_cast<float>(height) - 24.0f);
@@ -728,6 +733,146 @@ void DebugConsole::renderConsoleWindow(int width, int height)
     ImGui::PopStyleVar(2);
 }
 
+void DebugConsole::renderMobileConsoleWindow(int width, int height)
+{
+    const float windowWidth = std::max(1.0f, static_cast<float>(width));
+    const float windowHeight = std::max(1.0f, static_cast<float>(height));
+    const float layoutScale = std::clamp(
+        std::min(windowWidth / 960.0f, windowHeight / 540.0f) * 1.2f,
+        1.55f,
+        2.45f);
+    const bool wasRenderingMobileConsole = m_renderingMobileConsole;
+    const float previousMobileConsoleScale = m_activeMobileConsoleScale;
+    m_renderingMobileConsole = true;
+    m_activeMobileConsoleScale = layoutScale;
+
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.96f);
+
+    const ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar
+        | ImGuiWindowFlags_NoCollapse
+        | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoSavedSettings;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * layoutScale, 7.0f * layoutScale));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f * layoutScale, 5.0f * layoutScale));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f * layoutScale, 6.0f * layoutScale));
+
+    if (!ImGui::Begin("OpenYAMM Console", &m_enabled, flags))
+    {
+        ImGui::End();
+        ImGui::PopStyleVar(5);
+        m_renderingMobileConsole = wasRenderingMobileConsole;
+        m_activeMobileConsoleScale = previousMobileConsoleScale;
+        return;
+    }
+
+    applyActiveMobileConsoleScale();
+
+    ImGui::TextUnformatted("OpenYAMM Console");
+    ImGui::SameLine();
+    ImGui::Checkbox("Freeze", &m_freezeGameplay);
+    ImGui::SameLine();
+    ImGui::Checkbox("Tools", &m_showHelpPanel);
+    ImGui::SameLine();
+
+    if (ImGui::Button("Clear"))
+    {
+        clearMessages();
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Close"))
+    {
+        m_enabled = false;
+    }
+
+    ImGui::Separator();
+
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float inputHeight = ImGui::GetFrameHeightWithSpacing();
+    const float contentHeight = std::max(120.0f, ImGui::GetContentRegionAvail().y - inputHeight - spacing);
+    const float availableWidth = ImGui::GetContentRegionAvail().x;
+    const float maxToolsWidth = std::max(0.0f, availableWidth - 360.0f * layoutScale);
+    const float minToolsWidth = std::min(500.0f * layoutScale, maxToolsWidth);
+    const float toolsWidth = m_showHelpPanel
+        ? std::clamp(availableWidth * 0.6f, minToolsWidth, maxToolsWidth)
+        : 0.0f;
+    const float messagesWidth = m_showHelpPanel
+        ? std::max(320.0f * layoutScale, availableWidth - toolsWidth - spacing)
+        : 0.0f;
+
+    if (ImGui::BeginChild("MobileConsoleMessages", ImVec2(messagesWidth, contentHeight), true))
+    {
+        applyActiveMobileConsoleScale();
+
+        for (const Message &message : m_messages)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, messageColor(message.kind));
+            ImGui::TextWrapped("%s", message.text.c_str());
+            ImGui::PopStyleColor();
+        }
+
+        if (m_scrollToBottom)
+        {
+            ImGui::SetScrollHereY(1.0f);
+            m_scrollToBottom = false;
+        }
+    }
+
+    ImGui::EndChild();
+
+    if (m_showHelpPanel)
+    {
+        ImGui::SameLine();
+
+        if (ImGui::BeginChild("MobileConsoleTools", ImVec2(0.0f, contentHeight), true))
+        {
+            applyActiveMobileConsoleScale();
+            renderMobileHelpPanelContents();
+        }
+
+        ImGui::EndChild();
+    }
+
+    ImGui::PushItemWidth(-(88.0f * layoutScale));
+
+    if (m_focusCommandInput)
+    {
+        ImGui::SetKeyboardFocusHere();
+        m_focusCommandInput = false;
+    }
+
+    const bool submitted = ImGui::InputText(
+        "##MobileConsoleInput",
+        m_inputBuffer,
+        sizeof(m_inputBuffer),
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory,
+        consoleInputTextCallback,
+        this);
+    ImGui::PopItemWidth();
+    ImGui::SameLine();
+
+    if (ImGui::Button("Run", ImVec2(80.0f * layoutScale, 0.0f)) || submitted)
+    {
+        const std::string line = m_inputBuffer;
+        std::memset(m_inputBuffer, 0, sizeof(m_inputBuffer));
+        executeLine(line);
+        m_focusCommandInput = true;
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar(5);
+    m_renderingMobileConsole = wasRenderingMobileConsole;
+    m_activeMobileConsoleScale = previousMobileConsoleScale;
+}
+
 void DebugConsole::renderHelpPanelContents()
 {
     const float contentHeight = ImGui::GetContentRegionAvail().y;
@@ -766,6 +911,181 @@ void DebugConsole::renderHelpPanelContents()
     }
 
     ImGui::EndChild();
+}
+
+void DebugConsole::renderMobileHelpPanelContents()
+{
+    const ImGuiTableFlags tableFlags =
+        ImGuiTableFlags_BordersInnerV
+        | ImGuiTableFlags_Resizable
+        | ImGuiTableFlags_SizingStretchProp;
+
+    if (!ImGui::BeginTable("MobileConsoleToolColumns", 3, tableFlags, ImVec2(-1.0f, 0.0f)))
+    {
+        return;
+    }
+
+    ImGui::TableSetupColumn("Quick", ImGuiTableColumnFlags_WidthStretch, 0.85f);
+    ImGui::TableSetupColumn("Maps", ImGuiTableColumnFlags_WidthStretch, 1.55f);
+    ImGui::TableSetupColumn("Items", ImGuiTableColumnFlags_WidthStretch, 1.6f);
+    ImGui::TableHeadersRow();
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    renderMobileQuickActions();
+
+    ImGui::TableSetColumnIndex(1);
+    renderMapControls();
+
+    ImGui::TableSetColumnIndex(2);
+    renderItemPicker();
+
+    ImGui::EndTable();
+}
+
+void DebugConsole::renderMobileQuickActions()
+{
+    const auto toggleLabel = [](std::string_view name, bool value)
+    {
+        std::string label(name);
+        label += value ? " [On]" : " [Off]";
+        return label;
+    };
+
+    const auto commandButton =
+        [this](const char *pLabel, const char *pCommand)
+        {
+            if (ImGui::Button(pLabel, ImVec2(-1.0f, 0.0f)))
+            {
+                executeLine(pCommand);
+            }
+        };
+
+    ImGui::SeparatorText("Quick");
+    commandButton("Map Info", "map");
+    commandButton("Full Heal", "hp full");
+    commandButton("Next Day", "time advance 1");
+    commandButton("Set up Breach", "setup breach");
+
+    if (ImGui::Button("Clear Log", ImVec2(-1.0f, 0.0f)))
+    {
+        clearMessages();
+    }
+
+    const std::string immortalLabel = toggleLabel("Immortal", m_debugImmortal);
+    const std::string manaLabel = toggleLabel("Unlimited Mana", m_debugUnlimitedMana);
+    const std::string invisibleLabel = toggleLabel("Invisible", m_debugInvisible);
+
+    commandButton(immortalLabel.c_str(), "config toggle immortal");
+    commandButton(manaLabel.c_str(), "config toggle unlimited_mana");
+    commandButton(invisibleLabel.c_str(), "config toggle invisible");
+}
+
+void DebugConsole::renderMobileQuestBitControls()
+{
+    ImGui::SeparatorText("QBits");
+
+    ImGui::PushItemWidth(-1.0f);
+    ImGui::InputText("##MobileQBitSet", m_qbitSetBuffer, sizeof(m_qbitSetBuffer));
+    ImGui::PopItemWidth();
+
+    if (ImGui::Button("Set QBit", ImVec2(-1.0f, 0.0f)))
+    {
+        if (m_qbitSetBuffer[0] == '\0')
+        {
+            addMessage(MessageKind::Error, "Set QBit needs an id.");
+        }
+        else
+        {
+            executeLine(std::string("qbit set ") + m_qbitSetBuffer);
+        }
+    }
+
+    ImGui::PushItemWidth(-1.0f);
+    ImGui::InputText("##MobileQBitClear", m_qbitClearBuffer, sizeof(m_qbitClearBuffer));
+    ImGui::PopItemWidth();
+
+    if (ImGui::Button("Clear QBit", ImVec2(-1.0f, 0.0f)))
+    {
+        if (m_qbitClearBuffer[0] == '\0')
+        {
+            addMessage(MessageKind::Error, "Clear QBit needs an id.");
+        }
+        else
+        {
+            executeLine(std::string("qbit clear ") + m_qbitClearBuffer);
+        }
+    }
+
+    if (ImGui::Button("Dump Active QBits", ImVec2(-1.0f, 0.0f)))
+    {
+        executeLine("qbit dump active");
+    }
+
+    if (ImGui::Button("Dump All QBits", ImVec2(-1.0f, 0.0f)))
+    {
+        executeLine("qbit dump all");
+    }
+}
+
+void DebugConsole::renderMobileAwardControls()
+{
+    ImGui::SeparatorText("Awards");
+
+    ImGui::PushItemWidth(-1.0f);
+    ImGui::InputText("##MobileAwardSet", m_awardSetBuffer, sizeof(m_awardSetBuffer));
+    ImGui::PopItemWidth();
+
+    if (ImGui::Button("Set Award", ImVec2(-1.0f, 0.0f)))
+    {
+        if (m_awardSetBuffer[0] == '\0')
+        {
+            addMessage(MessageKind::Error, "Set Award needs an id.");
+        }
+        else
+        {
+            executeLine(std::string("award set ") + m_awardSetBuffer);
+        }
+    }
+
+    ImGui::PushItemWidth(-1.0f);
+    ImGui::InputText("##MobileAwardClear", m_awardClearBuffer, sizeof(m_awardClearBuffer));
+    ImGui::PopItemWidth();
+
+    if (ImGui::Button("Clear Award", ImVec2(-1.0f, 0.0f)))
+    {
+        if (m_awardClearBuffer[0] == '\0')
+        {
+            addMessage(MessageKind::Error, "Clear Award needs an id.");
+        }
+        else
+        {
+            executeLine(std::string("award clear ") + m_awardClearBuffer);
+        }
+    }
+
+    if (ImGui::Button("Dump Active Awards", ImVec2(-1.0f, 0.0f)))
+    {
+        executeLine("award dump active");
+    }
+
+    if (ImGui::Button("Dump All Awards", ImVec2(-1.0f, 0.0f)))
+    {
+        executeLine("award dump all");
+    }
+}
+
+float DebugConsole::activeMobileConsoleScale() const
+{
+    return m_renderingMobileConsole ? std::max(1.0f, m_activeMobileConsoleScale) : 1.0f;
+}
+
+void DebugConsole::applyActiveMobileConsoleScale() const
+{
+    if (m_renderingMobileConsole)
+    {
+        ImGui::SetWindowFontScale(activeMobileConsoleScale());
+    }
 }
 
 void DebugConsole::renderQuickActions()
@@ -1015,8 +1335,14 @@ void DebugConsole::renderMapPicker(
         selectedMapId = !matches.empty() && matches.front().pMap != nullptr ? matches.front().pMap->mapId : 0;
     }
 
-    if (ImGui::BeginListBox((std::string("##MapSelect") + label).c_str(), ImVec2(-1.0f, 86.0f)))
+    const float mobileScale = activeMobileConsoleScale();
+
+    if (ImGui::BeginListBox(
+            (std::string("##MapSelect") + label).c_str(),
+            ImVec2(-1.0f, 86.0f * mobileScale)))
     {
+        applyActiveMobileConsoleScale();
+
         ImGuiListClipper clipper;
         clipper.Begin(static_cast<int>(matches.size()));
 
@@ -1113,8 +1439,12 @@ void DebugConsole::renderItemPicker()
         m_selectedItemId = !matches.empty() && matches.front().pItem != nullptr ? matches.front().pItem->itemId : 0;
     }
 
-    if (ImGui::BeginListBox("##ItemSelect", ImVec2(-1.0f, 156.0f)))
+    const float mobileScale = activeMobileConsoleScale();
+
+    if (ImGui::BeginListBox("##ItemSelect", ImVec2(-1.0f, 156.0f * mobileScale)))
     {
+        applyActiveMobileConsoleScale();
+
         ImGuiListClipper clipper;
         clipper.Begin(static_cast<int>(matches.size()));
 

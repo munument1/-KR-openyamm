@@ -17,6 +17,7 @@ public:
     using RenderFrameCallback = std::function<void(int, int, float, float)>;
     using EventCallback = std::function<void(const SDL_Event &)>;
     using ShutdownCallback = std::function<void()>;
+    using TextInputActiveCallback = std::function<bool()>;
 
     EngineApplication(
         const ApplicationConfig &config,
@@ -24,7 +25,8 @@ public:
         RenderSetupCallback renderSetupCallback,
         EventCallback eventCallback,
         RenderFrameCallback renderFrameCallback,
-        ShutdownCallback shutdownCallback = {}
+        ShutdownCallback shutdownCallback = {},
+        TextInputActiveCallback textInputActiveCallback = {}
     );
 
     int run() const;
@@ -40,5 +42,6 @@ private:
     EventCallback m_eventCallback;
     RenderFrameCallback m_renderFrameCallback;
     ShutdownCallback m_shutdownCallback;
+    TextInputActiveCallback m_textInputActiveCallback;
 };
 }

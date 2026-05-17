@@ -103,7 +103,12 @@ private:
     static int mapOptionSearchScore(const MapOption &map, const std::string &query);
 
     void renderConsoleWindow(int width, int height);
+    void renderMobileConsoleWindow(int width, int height);
     void renderHelpPanelContents();
+    void renderMobileHelpPanelContents();
+    void renderMobileQuickActions();
+    void renderMobileQuestBitControls();
+    void renderMobileAwardControls();
     void renderQuickActions();
     void renderQuestBitControls();
     void renderAwardControls();
@@ -112,6 +117,8 @@ private:
     void renderItemPicker();
     void giveSelectedItem();
     void renderHelpText() const;
+    float activeMobileConsoleScale() const;
+    void applyActiveMobileConsoleScale() const;
 
     std::unordered_map<std::string, CommandDefinition> m_commands;
     std::vector<Message> m_messages;
@@ -139,6 +146,8 @@ private:
     bool m_showHelpPanel = true;
     bool m_scrollToBottom = false;
     bool m_focusCommandInput = true;
+    bool m_renderingMobileConsole = false;
+    float m_activeMobileConsoleScale = 1.0f;
     size_t m_historyCursor = 0;
 };
 }

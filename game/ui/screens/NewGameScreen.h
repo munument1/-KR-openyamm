@@ -61,6 +61,7 @@ public:
     void onEnter() override;
     void onExit() override;
     void handleSdlEvent(const SDL_Event &event) override;
+    bool textInputActive() const;
 
 private:
     enum class FlowStage

@@ -4,6 +4,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -28,16 +29,30 @@ public class OpenYammActivity extends SDLActivity {
         }
     };
 
+    private final ViewGroup.OnHierarchyChangeListener textInputHierarchyListener =
+        new ViewGroup.OnHierarchyChangeListener() {
+        @Override
+        public void onChildViewAdded(View parent, View child) {
+            disableAutoHandwriting(child);
+        }
+
+        @Override
+        public void onChildViewRemoved(View parent, View child) {
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         applyImmersiveMode();
+        installTextInputViewOptions();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         applyImmersiveMode();
+        installTextInputViewOptions();
     }
 
     @Override
@@ -94,6 +109,7 @@ public class OpenYammActivity extends SDLActivity {
 
         View decorView = window.getDecorView();
         decorView.setSystemUiVisibility(IMMERSIVE_SYSTEM_UI_FLAGS);
+        disableAutoHandwriting(decorView);
 
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController controller = window.getInsetsController();
@@ -102,6 +118,39 @@ public class OpenYammActivity extends SDLActivity {
                 controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
+        }
+    }
+
+    private void installTextInputViewOptions() {
+        if (Build.VERSION.SDK_INT < 33) {
+            return;
+        }
+
+        if (mLayout != null) {
+            mLayout.setOnHierarchyChangeListener(textInputHierarchyListener);
+            disableAutoHandwriting(mLayout);
+        }
+
+        if (mTextEdit != null) {
+            disableAutoHandwriting(mTextEdit);
+        }
+    }
+
+    private void disableAutoHandwriting(View view) {
+        if (view == null) {
+            return;
+        }
+
+        view.setAutoHandwritingEnabled(false);
+
+        if (!(view instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup group = (ViewGroup)view;
+
+        for (int index = 0; index < group.getChildCount(); ++index) {
+            disableAutoHandwriting(group.getChildAt(index));
         }
     }
 }

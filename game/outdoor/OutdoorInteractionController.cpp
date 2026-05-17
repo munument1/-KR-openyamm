@@ -2098,16 +2098,20 @@ bool OutdoorInteractionController::inspectEventIsHintOnly(
     const std::optional<ScriptedEventProgram> &localEventProgram =
         view.m_pOutdoorSceneRuntime->localEventProgram();
 
+    if (localEventProgram && localEventProgram->isHintOnlyEvent(eventId))
+    {
+        return true;
+    }
+
     if (localEventProgram && localEventProgram->hasEvent(eventId))
     {
-        return localEventProgram->isHintOnlyEvent(eventId);
+        return false;
     }
 
     const std::optional<ScriptedEventProgram> &globalEventProgram =
         view.m_pOutdoorSceneRuntime->globalEventProgram();
 
-    return globalEventProgram && globalEventProgram->hasEvent(eventId)
-        && globalEventProgram->isHintOnlyEvent(eventId);
+    return globalEventProgram && globalEventProgram->isHintOnlyEvent(eventId);
 }
 
 

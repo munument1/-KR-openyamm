@@ -4,6 +4,7 @@
 #include "game/gameplay/GameplayInputFrame.h"
 
 #include <array>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -21,6 +22,7 @@ public:
         bool mobileGameplayTouchControlsEnabled = true);
 
     const GameplayInputFrame &frame() const;
+    bool consumeMobileDebugConsoleToggleRequested();
     void resetRelativeMouseMotion();
 
 private:
@@ -29,7 +31,8 @@ private:
         None,
         Movement,
         Camera,
-        Hud
+        Hud,
+        DebugConsoleGesture
     };
 
     struct MobileTouchPoint
@@ -43,9 +46,12 @@ private:
         float y = 0.0f;
         float deltaX = 0.0f;
         float deltaY = 0.0f;
+        bool debugConsoleGestureCandidate = false;
+        bool debugConsoleGestureTriggered = false;
     };
 
     GameplayInputFrame m_frame = {};
+    std::string m_pendingTextInput;
     std::array<bool, SDL_SCANCODE_COUNT> m_previousKeyboardHeld = {};
     std::array<bool, KeyboardActionCount> m_previousActionHeld = {};
     std::array<MobileTouchPoint, 8> m_mobileTouches = {};
@@ -63,6 +69,7 @@ private:
     bool m_mobilePendingGameplayRelease = false;
     float m_mobilePendingGameplayReleaseX = 0.0f;
     float m_mobilePendingGameplayReleaseY = 0.0f;
+    bool m_mobileDebugConsoleToggleRequested = false;
     bool m_previousLeftMouseButtonHeld = false;
     bool m_previousRightMouseButtonHeld = false;
     bool m_previousMiddleMouseButtonHeld = false;

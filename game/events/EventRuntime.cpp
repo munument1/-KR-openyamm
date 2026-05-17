@@ -1346,6 +1346,18 @@ int currentGameMinutesFromRuntimeState(const EventRuntimeState &runtimeState)
     return ((dayOfYear - 1) * 24 + hour) * 60;
 }
 
+float conditionStartGameMinutes(
+    const EventRuntimeState &runtimeState,
+    const ISceneEventContext *pSceneEventContext)
+{
+    if (pSceneEventContext != nullptr)
+    {
+        return std::max(0.0f, pSceneEventContext->currentGameMinutes());
+    }
+
+    return static_cast<float>(currentGameMinutesFromRuntimeState(runtimeState));
+}
+
 bool isTradingTriangleBuyTopic(uint16_t topicId)
 {
     switch (topicId)
@@ -2583,7 +2595,8 @@ void EventRuntime::setVariableValue(
     const VariableRef &variable,
     int32_t value,
     Party *pParty,
-    const std::vector<size_t> &targetMemberIndices
+    const std::vector<size_t> &targetMemberIndices,
+    const ISceneEventContext *pSceneEventContext
 )
 {
     const EvtVariable variableId = static_cast<EvtVariable>(variable.tag);
@@ -3097,7 +3110,7 @@ void EventRuntime::setVariableValue(
             if (pParty->applyMemberCondition(
                     targetMemberIndex,
                     *condition,
-                    static_cast<float>(currentGameMinutesFromRuntimeState(runtimeState)))
+                    conditionStartGameMinutes(runtimeState, pSceneEventContext))
                 && !hadCondition)
             {
                 changed = true;
@@ -3333,7 +3346,8 @@ void EventRuntime::addVariableValue(
     const VariableRef &variable,
     int32_t value,
     Party *pParty,
-    const std::vector<size_t> &targetMemberIndices
+    const std::vector<size_t> &targetMemberIndices,
+    const ISceneEventContext *pSceneEventContext
 )
 {
     const EvtVariable variableId = static_cast<EvtVariable>(variable.tag);
@@ -3379,7 +3393,7 @@ void EventRuntime::addVariableValue(
             if (pParty->applyMemberCondition(
                     targetMemberIndex,
                     *condition,
-                    static_cast<float>(currentGameMinutesFromRuntimeState(runtimeState)))
+                    conditionStartGameMinutes(runtimeState, pSceneEventContext))
                 && !hadCondition)
             {
                 changed = true;
@@ -3481,7 +3495,7 @@ void EventRuntime::addVariableValue(
 
     if (variable.kind == VariableKind::ClassId)
     {
-        setVariableValue(runtimeState, variable, value, pParty, targetMemberIndices);
+        setVariableValue(runtimeState, variable, value, pParty, targetMemberIndices, pSceneEventContext);
         return;
     }
 
@@ -6962,12 +6976,14 @@ int luaSetMonsterRelation(lua_State *pLuaState)
 int luaAdd(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
     EventRuntime::addVariableValue(
         *pRuntimeState,
         EventRuntime::decodeVariable(static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1))),
         static_cast<int32_t>(luaL_checkinteger(pLuaState, 2)),
         writableParty(pLuaState),
-        selectedTargetMemberIndices(pLuaState));
+        selectedTargetMemberIndices(pLuaState),
+        readonlySceneEventContext(pExecutionContext));
     return 0;
 }
 
@@ -6986,12 +7002,14 @@ int luaSubtract(lua_State *pLuaState)
 int luaSet(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
     EventRuntime::setVariableValue(
         *pRuntimeState,
         EventRuntime::decodeVariable(static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1))),
         static_cast<int32_t>(luaL_checkinteger(pLuaState, 2)),
         writableParty(pLuaState),
-        selectedTargetMemberIndices(pLuaState));
+        selectedTargetMemberIndices(pLuaState),
+        readonlySceneEventContext(pExecutionContext));
     return 0;
 }
 

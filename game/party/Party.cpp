@@ -996,6 +996,33 @@ bool hasConditionImmunity(const Character &member, CharacterCondition condition)
             || member.magicalConditionImmunities.test(conditionIndex));
 }
 
+bool conditionAffectedByProtectionFromMagic(CharacterCondition condition)
+{
+    switch (condition)
+    {
+        case CharacterCondition::Weak:
+        case CharacterCondition::PoisonWeak:
+        case CharacterCondition::DiseaseWeak:
+        case CharacterCondition::PoisonMedium:
+        case CharacterCondition::DiseaseMedium:
+        case CharacterCondition::PoisonSevere:
+        case CharacterCondition::DiseaseSevere:
+        case CharacterCondition::Paralyzed:
+        case CharacterCondition::Dead:
+        case CharacterCondition::Petrified:
+        case CharacterCondition::Eradicated:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+bool conditionRequiresGrandmasterProtectionFromMagic(CharacterCondition condition)
+{
+    return condition == CharacterCondition::Dead || condition == CharacterCondition::Eradicated;
+}
+
 uint64_t experienceRequiredForNextLevel(uint32_t currentLevel)
 {
     return 1000ull * currentLevel * (currentLevel + 1) / 2;
@@ -5870,6 +5897,37 @@ const CharacterBuffState *Party::characterBuff(size_t memberIndex, CharacterBuff
 
     const CharacterBuffState &buff = m_characterBuffs[memberIndex][static_cast<size_t>(buffId)];
     return buff.active() ? &buff : nullptr;
+}
+
+bool Party::blockConditionWithProtectionFromMagic(CharacterCondition condition)
+{
+    if (!conditionAffectedByProtectionFromMagic(condition))
+    {
+        return false;
+    }
+
+    PartyBuffState &buff = m_partyBuffs[static_cast<size_t>(PartyBuffId::ProtectionFromMagic)];
+
+    if (!buff.active() || buff.power <= 0)
+    {
+        return false;
+    }
+
+    if (conditionRequiresGrandmasterProtectionFromMagic(condition)
+        && buff.skillMastery < SkillMastery::Grandmaster)
+    {
+        return false;
+    }
+
+    --buff.power;
+
+    if (buff.power < 1)
+    {
+        buff = {};
+    }
+
+    rebuildMagicalBonusesFromBuffs();
+    return true;
 }
 
 bool Party::clearMemberCondition(size_t memberIndex, CharacterCondition condition)

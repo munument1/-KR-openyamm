@@ -668,14 +668,16 @@ public:
         const VariableRef &variable,
         int32_t value,
         Party *pParty,
-        const std::vector<size_t> &targetMemberIndices
+        const std::vector<size_t> &targetMemberIndices,
+        const ISceneEventContext *pSceneEventContext = nullptr
     );
     static void addVariableValue(
         EventRuntimeState &runtimeState,
         const VariableRef &variable,
         int32_t value,
         Party *pParty,
-        const std::vector<size_t> &targetMemberIndices
+        const std::vector<size_t> &targetMemberIndices,
+        const ISceneEventContext *pSceneEventContext = nullptr
     );
     static void subtractVariableValue(
         EventRuntimeState &runtimeState,
