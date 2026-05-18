@@ -966,6 +966,7 @@ void GameplayScreenController::renderStandardUi(
                     .renderDialogueAboveHud = true,
                     .renderCharacterBelowHud = true,
                     .renderCharacterAboveHud = true,
+                    .renderItemInspectOverlay = !deferDialogueInventoryServiceOverlay,
                     .renderDebugDialogueFallback = config.renderDebugFallbacks,
                 },
             .renderDeferredInventoryOverlay = deferDialogueInventoryServiceOverlay,
@@ -1044,6 +1045,7 @@ void GameplayScreenController::renderSharedOverlays(
     if (config.renderDeferredInventoryOverlay)
     {
         GameplayHudOverlayRenderer::renderInventoryNestedOverlay(context, width, height, false);
+        GameplayPartyOverlayRenderer::renderItemInspectOverlay(context, width, height);
     }
 
     if (config.renderUtilitySpellOverlay)

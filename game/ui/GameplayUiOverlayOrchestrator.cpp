@@ -170,7 +170,10 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
         GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderSpellbookOverlay(overlayContext, width, height);
         GameplayPartyOverlayRenderer::renderHeldInventoryItem(overlayContext, width, height);
-        GameplayPartyOverlayRenderer::renderItemInspectOverlay(overlayContext, width, height);
+        if (config.renderItemInspectOverlay)
+        {
+            GameplayPartyOverlayRenderer::renderItemInspectOverlay(overlayContext, width, height);
+        }
         GameplayHudOverlaySupport::renderGameplayMouseLookOverlay(
             overlayContext,
             width,

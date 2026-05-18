@@ -571,8 +571,34 @@ bool GameAudioSystem::initialize(
     const SpellTable &spellTable)
 {
     shutdown();
+    if (!initializeSoundCatalog(assetFileSystem))
+    {
+        return false;
+    }
+
+    bindGameplayTables(characterDollTable, characterVoiceTable, spellTable);
+    return true;
+}
+
+bool GameAudioSystem::initializeMenuAudio(const Engine::AssetFileSystem &assetFileSystem)
+{
+    shutdown();
+    return initializeSoundCatalog(assetFileSystem);
+}
+
+void GameAudioSystem::bindGameplayTables(
+    const CharacterDollTable &characterDollTable,
+    const MergedCharacterVoiceTable &characterVoiceTable,
+    const SpellTable &spellTable)
+{
     m_pCharacterDollTable = &characterDollTable;
     m_pCharacterVoiceTable = &characterVoiceTable;
+    preloadSpellEffectSounds(spellTable);
+    preloadArcomageUiSounds();
+}
+
+bool GameAudioSystem::initializeSoundCatalog(const Engine::AssetFileSystem &assetFileSystem)
+{
     m_pAssetFileSystem = &assetFileSystem;
 
     const std::optional<std::string> engineSoundCatalogText =
@@ -614,8 +640,6 @@ bool GameAudioSystem::initialize(
     }
 
     m_soundCatalog.initializeVirtualPathIndex(assetFileSystem);
-    preloadSpellEffectSounds(spellTable);
-    preloadArcomageUiSounds();
     return true;
 }
 

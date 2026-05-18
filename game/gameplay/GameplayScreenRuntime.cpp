@@ -81,6 +81,14 @@ const char *restModeTraceName(GameplayUiController::RestMode mode)
     return "unknown";
 }
 
+bool isHouseInventoryServiceOverlay(const GameplayUiController::InventoryNestedOverlayState &overlay)
+{
+    return overlay.active
+        && (overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+            || overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
+            || overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair);
+}
+
 std::string normalizedMapFileName(std::string mapName)
 {
     std::replace(mapName.begin(), mapName.end(), '\\', '/');
@@ -969,7 +977,10 @@ bool GameplayScreenRuntime::trySelectPartyMember(size_t memberIndex, bool requir
 
     EventRuntimeState *pEventRuntimeState = worldRuntime() != nullptr ? worldRuntime()->eventRuntimeState() : nullptr;
 
-    if (pEventRuntimeState != nullptr && activeEventDialog().isActive)
+    if (pEventRuntimeState != nullptr
+        && activeEventDialog().isActive
+        && !houseShopOverlay().active
+        && !isHouseInventoryServiceOverlay(inventoryNestedOverlay()))
     {
         presentPendingEventDialog(pEventRuntimeState->messages.size(), true);
     }

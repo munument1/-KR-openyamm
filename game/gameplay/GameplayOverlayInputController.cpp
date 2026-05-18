@@ -3299,6 +3299,12 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
 
             if (overlayBlocksServiceTopics)
             {
+                if (serviceInventoryOverlayActive
+                    && view.resolvePartyPortraitIndexAtPoint(screenWidth, screenHeight, mouseX, mouseY).has_value())
+                {
+                    return {};
+                }
+
                 const GameplayScreenRuntime::HudLayoutElement *pGoodbyeLayout =
                     view.findHudLayoutElement("DialogueGoodbyeButton");
                 const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedGoodbye =

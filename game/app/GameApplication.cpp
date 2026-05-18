@@ -43,6 +43,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <random>
 #include <set>
 #include <sstream>
@@ -3505,28 +3506,38 @@ void GameApplication::registerDebugConsoleCommands()
             return commandResult(true, "Reloaded " + m_gameSession.currentMapFileName());
         }});
 
+    updateDebugConsoleDataOptions();
+    m_debugConsole.addMessage(DebugConsole::MessageKind::Info, "OpenYAMM debug console ready. Type help.");
+    m_debugConsoleCommandsRegistered = true;
+}
+
+void GameApplication::updateDebugConsoleDataOptions()
+{
     std::vector<DebugConsole::ItemOption> itemOptions;
 
-    for (const ItemDefinition &item : m_gameDataLoader.getItemTable().entries())
+    if (m_commonGameDataLoaded)
     {
-        if (item.itemId == 0 || item.name.empty())
+        for (const ItemDefinition &item : m_gameDataLoader.getItemTable().entries())
         {
-            continue;
-        }
+            if (item.itemId == 0 || item.name.empty())
+            {
+                continue;
+            }
 
-        itemOptions.push_back({
-            .itemId = item.itemId,
-            .name = item.name,
-            .unidentifiedName = item.unidentifiedName,
-            .iconName = item.iconName,
-            .skillGroup = item.skillGroup,
-            .notes = item.notes,
-        });
+            itemOptions.push_back({
+                .itemId = item.itemId,
+                .name = item.name,
+                .unidentifiedName = item.unidentifiedName,
+                .iconName = item.iconName,
+                .skillGroup = item.skillGroup,
+                .notes = item.notes,
+            });
+        }
     }
 
     m_debugConsole.setItemOptions(std::move(itemOptions));
 
-    if (m_pAssetFileSystem != nullptr)
+    if (m_commonGameDataLoaded)
     {
         m_debugConsole.setMapOptionsFromMapStats(m_gameDataLoader.getMapStats());
     }
@@ -3534,8 +3545,6 @@ void GameApplication::registerDebugConsoleCommands()
     {
         m_debugConsole.setMapOptions({});
     }
-    m_debugConsole.addMessage(DebugConsole::MessageKind::Info, "OpenYAMM debug console ready. Type help.");
-    m_debugConsoleCommandsRegistered = true;
 }
 
 bool GameApplication::initializeDebugConsoleRenderer()
@@ -4485,10 +4494,53 @@ bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
     m_gameDataLoader.setActiveWorldId(m_activeWorldManifest.id);
     m_gameDataLoader.setInitialMapFileName(m_activeWorldManifest.start.mapFileName);
 
-    if (!m_gameDataLoader.loadForGameplay(assetFileSystem))
+    loadOrCreateSettings();
+
+    if (!m_gameAudioSystem.initializeMenuAudio(assetFileSystem))
     {
         return false;
     }
+
+    applyCurrentSettingsToActiveRuntime();
+    m_screenManager.setCurrentMode(AppMode::MainMenu);
+    m_bootSeededDwiOnNextRendererInit = !m_settings.startInMainMenu;
+    m_commonGameDataLoaded = false;
+    m_commonGameDataLoadFailed = false;
+    m_deferredCommonGameDataLoadPending = m_settings.startInMainMenu;
+    m_mainMenuRenderedFrameCount = 0;
+    m_deferredMainMenuChildWarmupStage = 0;
+
+    return true;
+}
+
+bool GameApplication::ensureCommonGameDataLoaded()
+{
+    if (m_commonGameDataLoaded)
+    {
+        return true;
+    }
+
+    if (m_commonGameDataLoadFailed || m_pAssetFileSystem == nullptr)
+    {
+        return false;
+    }
+
+    m_gameDataLoader.setActiveWorldId(m_activeWorldManifest.id);
+    m_gameDataLoader.setInitialMapFileName(m_activeWorldManifest.start.mapFileName);
+
+    if (!m_gameDataLoader.loadCommonForGameplay(*m_pAssetFileSystem))
+    {
+        m_commonGameDataLoadFailed = true;
+        std::cerr << "GameApplication: failed to load common gameplay data\n";
+        return false;
+    }
+
+    m_gameDataRepository.bind(m_gameDataLoader);
+    m_gameSession.bindDataRepository(&m_gameDataRepository);
+    m_gameAudioSystem.bindGameplayTables(
+        m_gameDataLoader.getCharacterDollTable(),
+        m_gameDataLoader.getMergedCharacterVoiceTable(),
+        m_gameDataLoader.getSpellTable());
 
     if (gameplayDebugTraceEnabled() && !m_traceSessionHeaderLogged)
     {
@@ -4506,32 +4558,75 @@ bool GameApplication::loadGameData(Engine::AssetFileSystem &assetFileSystem)
             + (traceEnvironmentValue("OPENYAMM_GAMEPLAY_TRACE").empty() ? "false" : "true"));
     }
 
-    m_gameDataRepository.bind(m_gameDataLoader);
-    m_gameSession.bindDataRepository(&m_gameDataRepository);
-
-    loadOrCreateSettings();
-
-    if (!m_gameAudioSystem.initialize(
-            assetFileSystem,
-            m_gameDataLoader.getCharacterDollTable(),
-            m_gameDataLoader.getMergedCharacterVoiceTable(),
-            m_gameDataLoader.getSpellTable()))
-    {
-        return false;
-    }
-
-    const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
-
-    if (selectedMap)
-    {
-        m_gameSession.setCurrentMapFileName(selectedMap->map.fileName);
-    }
-
     applyCurrentSettingsToActiveRuntime();
-    m_screenManager.setCurrentMode(AppMode::MainMenu);
-    m_bootSeededDwiOnNextRendererInit = !m_settings.startInMainMenu;
-
+    m_commonGameDataLoaded = true;
+    m_deferredCommonGameDataLoadPending = false;
+    updateDebugConsoleDataOptions();
     return true;
+}
+
+void GameApplication::updateDeferredStartupLoads()
+{
+    if (!m_deferredCommonGameDataLoadPending || m_commonGameDataLoaded || m_commonGameDataLoadFailed)
+    {
+        updateDeferredMainMenuChildWarmup();
+        return;
+    }
+
+    if (m_screenManager.currentMode() == AppMode::MainMenu && m_mainMenuRenderedFrameCount == 0)
+    {
+        return;
+    }
+
+    (void)ensureCommonGameDataLoaded();
+}
+
+void GameApplication::updateDeferredMainMenuChildWarmup()
+{
+    if (m_mainMenuChildScreensPrepared
+        || m_deferredMainMenuChildWarmupStage == 0
+        || m_screenManager.currentMode() != AppMode::MainMenu
+        || m_mainMenuRenderedFrameCount == 0
+        || !m_commonGameDataLoaded
+        || m_pAssetFileSystem == nullptr)
+    {
+        return;
+    }
+
+    if (m_deferredMainMenuChildWarmupStage == 1)
+    {
+        NewGameScreen warmupScreen(
+            *m_pAssetFileSystem,
+            &m_gameAudioSystem,
+            m_gameSession.data(),
+            m_settings.newGameGodLich,
+            [](const std::vector<Character> &, uint32_t)
+            {
+            },
+            []()
+            {
+            });
+        warmupScreen.prepareForFirstFrame();
+        m_deferredMainMenuChildWarmupStage = 2;
+        return;
+    }
+
+    if (m_deferredMainMenuChildWarmupStage == 2)
+    {
+        LoadGameScreen warmupScreen(
+            *m_pAssetFileSystem,
+            m_gameSession.data(),
+            [](const std::filesystem::path &) -> bool
+            {
+                return false;
+            },
+            []()
+            {
+            });
+        warmupScreen.prepareForFirstFrame();
+        m_mainMenuChildScreensPrepared = true;
+        m_deferredMainMenuChildWarmupStage = 0;
+    }
 }
 
 bool GameApplication::activateWorldForMap(const MapStatsEntry &map)
@@ -4646,6 +4741,13 @@ bool GameApplication::initializeStartupSession(bool initializeView)
     }
 
     m_bootSeededDwiOnNextRendererInit = false;
+
+    if (!ensureCommonGameDataLoaded())
+    {
+        std::cerr << "GameApplication: initializeStartupSession failed to load common gameplay data\n";
+        return false;
+    }
+
     const bool initialized = startNewSession(std::nullopt, initializeView);
 
     if (!initialized)
@@ -5203,6 +5305,12 @@ bool GameApplication::loadCurrentSessionMap(
             << " asset_fs=" << (m_pAssetFileSystem != nullptr ? "yes" : "no")
             << " has_map=" << (m_gameSession.hasCurrentMapFileName() ? "yes" : "no")
             << '\n';
+        return false;
+    }
+
+    if (!ensureCommonGameDataLoaded())
+    {
+        std::cerr << "GameApplication: loadCurrentSessionMap failed to load common gameplay data\n";
         return false;
     }
 
@@ -5997,6 +6105,13 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
         return false;
     }
 
+    if (!ensureCommonGameDataLoaded())
+    {
+        GAMEPLAY_DEBUG_TRACE("load_game_failed path=\"" + path.string() + "\" reason=common_data_unavailable");
+        reportQuickSaveStatus("Quick load unavailable");
+        return false;
+    }
+
     GAMEPLAY_DEBUG_TRACE(
         "load_game_started path=\"" + path.string() + "\""
         + " initialize_view=" + (initializeView ? "true" : "false"));
@@ -6089,11 +6204,19 @@ void GameApplication::openMainMenuScreen()
         [this]()
         {
             GAMEPLAY_DEBUG_TRACE("menu_action action=new_game source=main_menu");
+            if (!ensureCommonGameDataLoaded())
+            {
+                return;
+            }
             openNewGameScreen("main_menu");
         },
         [this]()
         {
             GAMEPLAY_DEBUG_TRACE("menu_action action=load_game source=main_menu");
+            if (!ensureCommonGameDataLoaded())
+            {
+                return;
+            }
             openLoadGameScreen(false, "main_menu");
         },
         [this]()
@@ -6103,47 +6226,20 @@ void GameApplication::openMainMenuScreen()
 
     pScreen->prepareForFirstFrame();
 
-    if (!m_mainMenuChildScreensPrepared)
-    {
-        {
-            NewGameScreen warmupScreen(
-                *m_pAssetFileSystem,
-                &m_gameAudioSystem,
-                m_gameSession.data(),
-                m_settings.newGameGodLich,
-                [](const std::vector<Character> &, uint32_t)
-                {
-                },
-                []()
-                {
-                });
-            warmupScreen.prepareForFirstFrame();
-        }
-
-        {
-            LoadGameScreen warmupScreen(
-                *m_pAssetFileSystem,
-                m_gameSession.data(),
-                [](const std::filesystem::path &) -> bool
-                {
-                    return false;
-                },
-                []()
-                {
-                });
-            warmupScreen.prepareForFirstFrame();
-        }
-
-        m_mainMenuChildScreensPrepared = true;
-    }
-
     m_gameAudioSystem.setBackgroundMusicTrack(MainMenuMusicTrack);
+    m_mainMenuRenderedFrameCount = 0;
+    m_deferredMainMenuChildWarmupStage = m_mainMenuChildScreensPrepared ? 0 : 1;
     m_screenManager.setActiveScreen(std::move(pScreen));
 }
 
 void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::string &source)
 {
     if (m_pAssetFileSystem == nullptr)
+    {
+        return;
+    }
+
+    if (!ensureCommonGameDataLoaded())
     {
         return;
     }
@@ -6199,6 +6295,11 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::s
 void GameApplication::openNewGameScreen(const std::string &source)
 {
     if (m_pAssetFileSystem == nullptr)
+    {
+        return;
+    }
+
+    if (!ensureCommonGameDataLoaded())
     {
         return;
     }
@@ -6364,6 +6465,12 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
         return false;
     }
 
+    if (!ensureCommonGameDataLoaded())
+    {
+        std::cerr << "GameApplication: startNewSession failed to load common gameplay data\n";
+        return false;
+    }
+
     m_screenManager.setActiveScreen(nullptr);
     shutdownRenderer();
     m_gameSession.clear();
@@ -6464,6 +6571,12 @@ bool GameApplication::startNewSessionFromCharacterCreation(
 {
     if (m_pAssetFileSystem == nullptr)
     {
+        return false;
+    }
+
+    if (!ensureCommonGameDataLoaded())
+    {
+        std::cerr << "GameApplication: startNewSessionFromCharacterCreation failed to load common gameplay data\n";
         return false;
     }
 
@@ -6667,10 +6780,17 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
     if (IScreen *pActiveScreen = m_screenManager.activeScreen())
     {
+        updateDeferredStartupLoads();
+
         const uint64_t activeScreenBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+        const bool renderedMainMenu = pActiveScreen->mode() == AppMode::MainMenu;
         m_screenManager.beginActiveScreenRender();
         pActiveScreen->renderFrame(width, height, m_gameInputSystem.frame(), deltaSeconds);
         m_screenManager.endActiveScreenRender();
+        if (renderedMainMenu && m_mainMenuRenderedFrameCount < std::numeric_limits<uint32_t>::max())
+        {
+            ++m_mainMenuRenderedFrameCount;
+        }
         handleCompletedPartyDefeatScreen();
         handleCompletedEventMovieScreen();
         handleCompletedWinGameScreen();

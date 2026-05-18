@@ -6444,6 +6444,59 @@ TEST_CASE("merchant pricing uses effective reputation")
     CHECK_EQ(OpenYAMM::Game::PriceCalculator::playerMerchant(&grandmaster, 50), 100);
 }
 
+TEST_CASE("house identify and repair service prices match OE formulas")
+{
+    OpenYAMM::Game::InventoryItem cheapItem = {};
+    cheapItem.objectDescriptionId = 1;
+
+    OpenYAMM::Game::ItemDefinition cheapDefinition = {};
+    cheapDefinition.itemId = 1;
+    cheapDefinition.value = 10;
+
+    OpenYAMM::Game::Character noMerchant = {};
+
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemIdentificationPrice(
+            &noMerchant,
+            cheapItem,
+            cheapDefinition,
+            1.0f),
+        50);
+
+    OpenYAMM::Game::Character merchant = {};
+    merchant.skills["Merchant"] = {"Merchant", 30, OpenYAMM::Game::SkillMastery::Master};
+
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemIdentificationPrice(
+            &merchant,
+            cheapItem,
+            cheapDefinition,
+            2.0f),
+        33);
+
+    OpenYAMM::Game::InventoryItem expensiveItem = {};
+    expensiveItem.objectDescriptionId = 2;
+
+    OpenYAMM::Game::ItemDefinition expensiveDefinition = {};
+    expensiveDefinition.itemId = 2;
+    expensiveDefinition.value = 1000;
+
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemIdentificationPrice(
+            &noMerchant,
+            expensiveItem,
+            expensiveDefinition,
+            1.0f),
+        50);
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemRepairPrice(
+            &noMerchant,
+            expensiveItem,
+            expensiveDefinition,
+            1.0f),
+        200);
+}
+
 TEST_CASE("item inspect value preserves zero value items")
 {
     OpenYAMM::Game::InventoryItem item = {};

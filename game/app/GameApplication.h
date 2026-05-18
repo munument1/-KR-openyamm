@@ -143,6 +143,9 @@ private:
     friend struct GameApplicationTestAccess;
 
     bool loadGameData(Engine::AssetFileSystem &assetFileSystem);
+    bool ensureCommonGameDataLoaded();
+    void updateDeferredStartupLoads();
+    void updateDeferredMainMenuChildWarmup();
     void shutdownApplication();
     bool initializeSelectedMapRuntime(bool initializeView);
     bool initializeRenderer();
@@ -150,6 +153,7 @@ private:
     void shutdownDebugConsoleRenderer();
     void configureDebugConsoleStyle();
     void registerDebugConsoleCommands();
+    void updateDebugConsoleDataOptions();
     void beginDebugConsoleFrame();
     void renderDebugConsoleFrame(int width, int height);
     bool processPendingDebugMapJump();
@@ -271,6 +275,11 @@ private:
     bool m_pendingQuickLoad = false;
     bool m_pendingAdvanceTime = false;
     bool m_bootSeededDwiOnNextRendererInit = false;
+    bool m_commonGameDataLoaded = false;
+    bool m_commonGameDataLoadFailed = false;
+    bool m_deferredCommonGameDataLoadPending = false;
+    uint32_t m_mainMenuRenderedFrameCount = 0;
+    uint8_t m_deferredMainMenuChildWarmupStage = 0;
     std::unique_ptr<LoadingOverlayScreen> m_pLoadingOverlayScreen;
     std::string m_loadingOverlayBackgroundTextureName;
     LoadingOverlayScreen::Presentation m_loadingOverlayPresentation = LoadingOverlayScreen::Presentation::Fullscreen;

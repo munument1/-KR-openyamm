@@ -44,6 +44,11 @@ public:
         const CharacterDollTable &characterDollTable,
         const MergedCharacterVoiceTable &characterVoiceTable,
         const SpellTable &spellTable);
+    bool initializeMenuAudio(const Engine::AssetFileSystem &assetFileSystem);
+    void bindGameplayTables(
+        const CharacterDollTable &characterDollTable,
+        const MergedCharacterVoiceTable &characterVoiceTable,
+        const SpellTable &spellTable);
     void shutdown();
     void update(float listenerX, float listenerY, float listenerZ, float deltaSeconds);
     void setBackgroundMusicTrack(int redbookTrack);
@@ -108,6 +113,7 @@ private:
     };
 
     static bool isExclusiveGroup(PlaybackGroup group);
+    bool initializeSoundCatalog(const Engine::AssetFileSystem &assetFileSystem);
     void preloadSpellEffectSounds(const SpellTable &spellTable);
     void preloadArcomageUiSounds();
     bool isBackgroundMusicTrackLoaded(int redbookTrack) const;

@@ -1378,7 +1378,7 @@ void logIndoorDoors(
 
 bool GameDataLoader::load(const Engine::AssetFileSystem &assetFileSystem)
 {
-    return loadInternal(assetFileSystem, MapLoadPurpose::Full);
+    return loadInternal(assetFileSystem, MapLoadPurpose::Full, true);
 }
 
 void GameDataLoader::setActiveWorldId(const std::string &worldId)
@@ -1405,18 +1405,27 @@ void GameDataLoader::setInitialMapFileName(const std::string &fileName)
 
 bool GameDataLoader::loadForGameplay(const Engine::AssetFileSystem &assetFileSystem)
 {
-    return loadInternal(assetFileSystem, MapLoadPurpose::FullGameplay);
+    return loadInternal(assetFileSystem, MapLoadPurpose::FullGameplay, true);
+}
+
+bool GameDataLoader::loadCommonForGameplay(const Engine::AssetFileSystem &assetFileSystem)
+{
+    return loadInternal(assetFileSystem, MapLoadPurpose::FullGameplay, false);
 }
 
 bool GameDataLoader::loadForHeadlessGameplay(const Engine::AssetFileSystem &assetFileSystem)
 {
-    return loadInternal(assetFileSystem, MapLoadPurpose::HeadlessGameplay);
+    return loadInternal(assetFileSystem, MapLoadPurpose::HeadlessGameplay, true);
 }
 
-bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem, MapLoadPurpose mapLoadPurpose)
+bool GameDataLoader::loadInternal(
+    const Engine::AssetFileSystem &assetFileSystem,
+    MapLoadPurpose mapLoadPurpose,
+    bool loadInitialMap)
 {
     m_activeWorldId = normalizeWorldId(assetFileSystem.getActiveWorldId());
     m_loadedTables.clear();
+    m_selectedMap.reset();
     m_mapAssetLoadSharedCache = {};
     m_skyTextureAssetNames.reset();
     m_resolvedMergedSkyTextureNameByKey.clear();
@@ -1571,7 +1580,7 @@ bool GameDataLoader::loadInternal(const Engine::AssetFileSystem &assetFileSystem
         return false;
     }
 
-    if (!loadInitialMap(assetFileSystem, mapLoadPurpose))
+    if (loadInitialMap && !this->loadInitialMap(assetFileSystem, mapLoadPurpose))
     {
         return false;
     }

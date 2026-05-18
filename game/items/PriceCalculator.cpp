@@ -219,15 +219,14 @@ int PriceCalculator::itemSellingPrice(
 
 int PriceCalculator::itemIdentificationPrice(
     const Character *pCharacter,
-    const InventoryItem &item,
-    const ItemDefinition &itemDefinition,
+    const InventoryItem &,
+    const ItemDefinition &,
     float priceMultiplier,
-    const StandardItemEnchantTable *pStandardEnchantTable,
-    const SpecialItemEnchantTable *pSpecialEnchantTable,
+    const StandardItemEnchantTable *,
+    const SpecialItemEnchantTable *,
     int effectiveReputation)
 {
-    const int realValue = itemValue(item, itemDefinition, pStandardEnchantTable, pSpecialEnchantTable);
-    const int basePrice = std::max(1, static_cast<int>(static_cast<float>(realValue) * priceMultiplier / 32.0f));
+    const int basePrice = std::max(1, static_cast<int>(priceMultiplier * 50.0f));
     const int minimumPrice = std::max(1, basePrice / 3);
     return std::max(minimumPrice, applyMerchantDiscount(pCharacter, basePrice, effectiveReputation));
 }

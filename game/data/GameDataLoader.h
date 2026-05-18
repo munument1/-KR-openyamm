@@ -57,6 +57,7 @@ public:
     void setActiveWorldId(const std::string &worldId);
     void setInitialMapFileName(const std::string &fileName);
     bool load(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadCommonForGameplay(const Engine::AssetFileSystem &assetFileSystem);
     bool loadForGameplay(const Engine::AssetFileSystem &assetFileSystem);
     bool loadForHeadlessGameplay(const Engine::AssetFileSystem &assetFileSystem);
     bool loadMapById(const Engine::AssetFileSystem &assetFileSystem, int mapId);
@@ -138,7 +139,7 @@ public:
     const MergedTransportLocationTable &getMergedTransportLocationTable() const;
 
 private:
-    bool loadInternal(const Engine::AssetFileSystem &assetFileSystem, MapLoadPurpose mapLoadPurpose);
+    bool loadInternal(const Engine::AssetFileSystem &assetFileSystem, MapLoadPurpose mapLoadPurpose, bool loadInitialMap);
     bool loadTable(
         const Engine::AssetFileSystem &assetFileSystem,
         const std::string &virtualPath,
