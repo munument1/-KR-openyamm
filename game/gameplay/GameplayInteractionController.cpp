@@ -8,6 +8,7 @@
 #include "game/gameplay/GameplaySpellService.h"
 #include "game/gameplay/GameplayWorldItemInteraction.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
@@ -815,6 +816,22 @@ void executePartyAttack(
         return;
     }
 
+    TurnBasedCombatRuntime &turnBasedCombatRuntime = runtime.turnBasedCombatRuntime();
+    if (turnBasedCombatRuntime.active())
+    {
+        if (turnBasedCombatRuntime.stage() == TurnBasedCombatStage::Movement)
+        {
+            turnBasedCombatRuntime.finishMovementPhase();
+            GAMEPLAY_DEBUG_TRACE("turn_based_attack_finished_movement stage=movement");
+            return;
+        }
+
+        if (!turnBasedCombatRuntime.canBeginPlayerAction(*pParty))
+        {
+            return;
+        }
+    }
+
     const std::optional<size_t> directActorIndex =
         currentHit.kind == GameplayWorldHitKind::Actor && currentHit.actor
             ? std::optional<size_t>(currentHit.actor->actorIndex)
@@ -826,7 +843,8 @@ void executePartyAttack(
     const std::optional<GameplayActionController::WorldPoint> hitRangedTarget =
         partyRangedTargetFromWorldHit(currentHit);
 
-    GameplayActionController::executePartyAttack(
+    const GameplayActionController::PartyAttackExecutionResult attackResult =
+        GameplayActionController::executePartyAttack(
         GameplayActionController::PartyAttackConfig{
             .pRuntime = &runtime,
             .pSpellService = &spellService,
@@ -852,6 +870,14 @@ void executePartyAttack(
             .pressedThisFrame = decision.pressedThisFrame,
             .targetQueries = targetQueries,
         });
+
+    if (turnBasedCombatRuntime.active() && attackResult.actionPerformed)
+    {
+        turnBasedCombatRuntime.applyPlayerAction(
+            *pParty,
+            attackResult.actingMemberIndex,
+            attackResult.attack.recoverySeconds);
+    }
 }
 
 void clearWorldInteractionFrameState(
@@ -1236,7 +1262,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
     const bool inspectModeActive = pWorldRuntime != nullptr && pWorldRuntime->worldInspectModeActive();
     const bool pendingSpellCancelPressed = input.isScancodeHeld(SDL_SCANCODE_ESCAPE);
     const bool keyboardUsePressed = input.action(KeyboardAction::Trigger).held;
-    const bool activationPressed = input.isScancodeHeld(SDL_SCANCODE_E);
+    const bool usePressed = input.action(KeyboardAction::Use).held;
     const bool attackPressed = input.action(KeyboardAction::Attack).held;
     const bool leftMousePressed = input.leftMouseButton.held;
     const bool rightMousePressed = input.rightMouseButton.held;
@@ -1259,7 +1285,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
                 .cursorModeActive = cursorModeActive,
                 .leftMousePressed = leftMousePressed,
                 .rightMousePressed = rightMousePressed,
-                .keyboardActivationPressed = activationPressed,
+                .keyboardActivationPressed = usePressed,
                 .keyboardAttackPressed = attackPressed,
                 .pointerX = input.pointerX,
                 .pointerY = input.pointerY,
@@ -1655,15 +1681,36 @@ GameplayInteractionController::updateWorldInteractionFrame(
     if (stealPressed
         && currentHit.kind == GameplayWorldHitKind::Actor
         && currentHit.actor
-        && pWorldRuntime != nullptr
-        && pWorldRuntime->tryStealFromActor(
+        && pWorldRuntime != nullptr)
+    {
+        TurnBasedCombatRuntime &turnBasedCombatRuntime = runtime.turnBasedCombatRuntime();
+        Party *pMutableParty = pWorldRuntime->party();
+
+        if (turnBasedCombatRuntime.active()
+            && (pMutableParty == nullptr || !turnBasedCombatRuntime.beginPlayerActionOrFinishMovement(*pMutableParty)))
+        {
+            return result;
+        }
+
+        const bool stole = pWorldRuntime->tryStealFromActor(
             currentHit.actor->actorIndex,
             interactionRandomSeed(0x9e3779b9u),
-            interactionRandomSeed(0x7f4a7c15u)))
-    {
-        result.mouseActivationActivated = true;
-        clearWorldHover(pWorldRuntime);
-        return result;
+            interactionRandomSeed(0x7f4a7c15u));
+
+        if (stole)
+        {
+            if (turnBasedCombatRuntime.active() && pMutableParty != nullptr)
+            {
+                const size_t memberIndex = pMutableParty->activeMemberIndex();
+                const Character *pMember = pMutableParty->member(memberIndex);
+                const float recoverySeconds = pMember != nullptr ? pMember->recoverySecondsRemaining : 0.0f;
+                turnBasedCombatRuntime.applyPlayerAction(*pMutableParty, memberIndex, recoverySeconds);
+            }
+
+            result.mouseActivationActivated = true;
+            clearWorldHover(pWorldRuntime);
+            return result;
+        }
     }
 
     const bool hadLootViewBeforeActivation = hasActiveLootView(runtime);

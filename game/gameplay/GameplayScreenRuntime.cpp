@@ -964,6 +964,18 @@ bool GameplayScreenRuntime::trySelectPartyMember(size_t memberIndex, bool requir
         return false;
     }
 
+    if (turnBasedCombatRuntime().active())
+    {
+        const Character *pActiveMember = pParty->activeMember();
+        if (pActiveMember != nullptr
+            && GameMechanics::canTakeGameplayAction(*pActiveMember)
+            && turnBasedCombatRuntime().canBeginPlayerAction(*pParty)
+            && memberIndex != pParty->activeMemberIndex())
+        {
+            return false;
+        }
+    }
+
     if (!pParty->setActiveMemberIndex(memberIndex))
     {
         return false;
@@ -1087,6 +1099,13 @@ void GameplayScreenRuntime::openRestOverlay(bool enforceWorldRestrictions)
 {
     if (party() == nullptr || worldRuntime() == nullptr)
     {
+        return;
+    }
+
+    if (turnBasedCombatRuntime().active())
+    {
+        setStatusBarEvent("You can't rest in turn-based mode!");
+        playCantRestHereReaction();
         return;
     }
 
@@ -1361,6 +1380,11 @@ void GameplayScreenRuntime::closeHouseShopOverlay()
 
 void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)
 {
+    openFollowerNpcDialogueByIndex(interactionState().followerPanelScrollOffset + followerSlotIndex);
+}
+
+void GameplayScreenRuntime::openFollowerNpcDialogueByIndex(size_t followerIndex)
+{
     IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
     EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
     const NpcDialogTable *pNpcDialogTable = npcDialogTable();
@@ -1378,7 +1402,6 @@ void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)
             pParty,
             *pNpcDialogTable,
             *pNpcProfessionTable);
-    const size_t followerIndex = interactionState().followerPanelScrollOffset + followerSlotIndex;
 
     if (followerIndex >= followerViews.size())
     {
@@ -2064,6 +2087,11 @@ GameplaySpellService &GameplayScreenRuntime::spellService() const
     return m_session.gameplaySpellService();
 }
 
+TurnBasedCombatRuntime &GameplayScreenRuntime::turnBasedCombatRuntime() const
+{
+    return m_session.turnBasedCombatRuntime();
+}
+
 void GameplayScreenRuntime::resetDialogueOverlayInteractionState()
 {
     interactionState().eventDialogSelectUpLatch = false;
@@ -2571,6 +2599,16 @@ bool GameplayScreenRuntime::tryCastSpellRequest(
     const PartySpellCastRequest &request,
     const std::string &spellName)
 {
+    if (turnBasedCombatRuntime().active())
+    {
+        Party *pParty = party();
+
+        if (pParty == nullptr || !turnBasedCombatRuntime().beginPlayerActionOrFinishMovement(*pParty))
+        {
+            return false;
+        }
+    }
+
     return sceneAdapter().tryCastSpellRequest(request, spellName);
 }
 
@@ -2849,6 +2887,11 @@ void GameplayScreenRuntime::updateHouseVideoBackgroundPreloads()
 
 void GameplayScreenRuntime::updateHouseVideoPlayback(float deltaSeconds)
 {
+    if (m_pAudioSystem != nullptr)
+    {
+        uiRuntime().setHouseVideoAudioVolume(m_pAudioSystem->soundVolume());
+    }
+
     uiRuntime().updateHouseVideoPlayback(deltaSeconds);
 }
 

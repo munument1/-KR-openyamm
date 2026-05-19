@@ -202,11 +202,15 @@ TEST_CASE("settings debug startup options round trip")
     settings.fpsTrace = true;
     settings.hitchTrace = true;
     settings.hitchThresholdMilliseconds = 12.5f;
+    settings.gameplayTrace = true;
+    settings.gameplayTraceFile = "tmp/gameplay.log";
+    settings.gameplayTraceAppend = false;
     settings.combatTrace = true;
     settings.combatTraceFile = "tmp/combat.log";
     settings.combatTraceAppend = false;
     settings.contextActionPopup = true;
     settings.verticalSync = true;
+    settings.mouseSensitivity = 42;
 
     std::string error;
     REQUIRE(OpenYAMM::Game::saveGameSettings(path, settings, error));
@@ -226,11 +230,15 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->fpsTrace);
     CHECK(loadedSettings->hitchTrace);
     CHECK(loadedSettings->hitchThresholdMilliseconds == doctest::Approx(12.5f));
+    CHECK(loadedSettings->gameplayTrace);
+    CHECK_EQ(loadedSettings->gameplayTraceFile, "tmp/gameplay.log");
+    CHECK_FALSE(loadedSettings->gameplayTraceAppend);
     CHECK(loadedSettings->combatTrace);
     CHECK_EQ(loadedSettings->combatTraceFile, "tmp/combat.log");
     CHECK_FALSE(loadedSettings->combatTraceAppend);
     CHECK(loadedSettings->contextActionPopup);
     CHECK(loadedSettings->verticalSync);
+    CHECK_EQ(loadedSettings->mouseSensitivity, 42);
 
     std::filesystem::remove(path);
 }
@@ -263,10 +271,37 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_EQ(loadedSettings->blasterMinimumRecoveryTicks, 0);
     CHECK_FALSE(loadedSettings->logIndoorVisibility);
     CHECK_FALSE(loadedSettings->fpsTrace);
+    CHECK_FALSE(loadedSettings->gameplayTrace);
+    CHECK_EQ(loadedSettings->gameplayTraceFile, "logs/gameplay_trace.log");
+    CHECK(loadedSettings->gameplayTraceAppend);
     CHECK_FALSE(loadedSettings->combatTrace);
     CHECK_EQ(loadedSettings->combatTraceFile, "logs/combat_trace.log");
     CHECK(loadedSettings->combatTraceAppend);
     CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("gameplay trace writes only when settings-backed sink is enabled")
+{
+    const std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "openyamm_gameplay_trace_test.log";
+    std::filesystem::remove(path);
+
+    OpenYAMM::Game::configureGameplayDebugTrace(false, path.string(), false);
+    GAMEPLAY_DEBUG_TRACE("disabled gameplay message");
+    CHECK_FALSE(std::filesystem::exists(path));
+
+    OpenYAMM::Game::configureGameplayDebugTrace(true, path.string(), false);
+    GAMEPLAY_DEBUG_TRACE("enabled gameplay message");
+    OpenYAMM::Game::configureGameplayDebugTrace(false, path.string(), true);
+
+    std::ifstream input(path);
+    REQUIRE(input.good());
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    CHECK(buffer.str().find("[GameplayTrace] enabled gameplay message") != std::string::npos);
+    CHECK(buffer.str().find("disabled gameplay message") == std::string::npos);
 
     std::filesystem::remove(path);
 }

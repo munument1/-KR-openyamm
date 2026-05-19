@@ -3102,7 +3102,7 @@ void IndoorRenderer::render(
     const float deltaMilliseconds = deltaSeconds * 1000.0f;
     m_elapsedTime += std::max(deltaSeconds, 0.0f);
 
-    if (allowWorldInput && m_pSceneRuntime != nullptr)
+    if (allowWorldInput && m_pSceneRuntime != nullptr && !gameSession.turnBasedCombatRuntime().active())
     {
         const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
         const uint64_t mechanismBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
@@ -10650,11 +10650,30 @@ void IndoorRenderer::updateCameraFromInput(
         pKeyboardState[SDL_SCANCODE_LSHIFT] || pKeyboardState[SDL_SCANCODE_RSHIFT];
     const bool turboPressed =
         pKeyboardState[SDL_SCANCODE_LCTRL] || pKeyboardState[SDL_SCANCODE_RCTRL];
-    const bool jumpPressed = pKeyboardState[SDL_SCANCODE_X];
+    const bool jumpPressed = input.action(KeyboardAction::Jump).held;
     const bool jumpRequested = allowWorldInput && jumpPressed && !m_jumpHeld;
     m_jumpHeld = jumpPressed;
+    const bool standardControls = !m_gameplayMouseLookEnabled;
+    const bool leftPressed = input.action(KeyboardAction::Left).held;
+    const bool rightPressed = input.action(KeyboardAction::Right).held;
+    const bool strafeLeftPressed = !standardControls && leftPressed;
+    const bool strafeRightPressed = !standardControls && rightPressed;
+    const float keyboardYawSpeed = 1.75f;
     float desiredVelocityX = 0.0f;
     float desiredVelocityY = 0.0f;
+
+    if (allowWorldInput && standardControls)
+    {
+        if (leftPressed)
+        {
+            m_cameraYawRadians += keyboardYawSpeed * deltaSeconds;
+        }
+
+        if (rightPressed)
+        {
+            m_cameraYawRadians -= keyboardYawSpeed * deltaSeconds;
+        }
+    }
 
     if (m_pSceneRuntime != nullptr)
     {
@@ -10668,25 +10687,25 @@ void IndoorRenderer::updateCameraFromInput(
         const float backwardMoveSpeed = walkSpeed * turboScale;
         const float strafeMoveSpeed = walkSpeed * indoorStrafeMultiplier * runScale * turboScale;
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_W])
+        if (allowWorldInput && input.action(KeyboardAction::Forward).held)
         {
             desiredVelocityX += cosYaw * forwardMoveSpeed;
             desiredVelocityY += sinYaw * forwardMoveSpeed;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_S])
+        if (allowWorldInput && input.action(KeyboardAction::Backward).held)
         {
             desiredVelocityX -= cosYaw * backwardMoveSpeed;
             desiredVelocityY -= sinYaw * backwardMoveSpeed;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_A])
+        if (allowWorldInput && strafeLeftPressed)
         {
             desiredVelocityX -= right.x * strafeMoveSpeed;
             desiredVelocityY -= right.y * strafeMoveSpeed;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_D])
+        if (allowWorldInput && strafeRightPressed)
         {
             desiredVelocityX += right.x * strafeMoveSpeed;
             desiredVelocityY += right.y * strafeMoveSpeed;
@@ -10713,27 +10732,27 @@ void IndoorRenderer::updateCameraFromInput(
     {
         const float currentMoveSpeed = walkSpeed * (turboPressed ? turboMultiplier : 1.5f);
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_W])
+        if (allowWorldInput && input.action(KeyboardAction::Forward).held)
         {
             m_cameraPositionX += forward.x * currentMoveSpeed * deltaSeconds;
             m_cameraPositionY += forward.y * currentMoveSpeed * deltaSeconds;
             m_cameraPositionZ += forward.z * currentMoveSpeed * deltaSeconds;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_S])
+        if (allowWorldInput && input.action(KeyboardAction::Backward).held)
         {
             m_cameraPositionX -= forward.x * currentMoveSpeed * deltaSeconds;
             m_cameraPositionY -= forward.y * currentMoveSpeed * deltaSeconds;
             m_cameraPositionZ -= forward.z * currentMoveSpeed * deltaSeconds;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_A])
+        if (allowWorldInput && strafeLeftPressed)
         {
             m_cameraPositionX -= right.x * currentMoveSpeed * deltaSeconds;
             m_cameraPositionY -= right.y * currentMoveSpeed * deltaSeconds;
         }
 
-        if (allowWorldInput && pKeyboardState[SDL_SCANCODE_D])
+        if (allowWorldInput && strafeRightPressed)
         {
             m_cameraPositionX += right.x * currentMoveSpeed * deltaSeconds;
             m_cameraPositionY += right.y * currentMoveSpeed * deltaSeconds;

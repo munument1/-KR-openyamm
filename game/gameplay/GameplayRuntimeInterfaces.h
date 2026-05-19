@@ -239,6 +239,7 @@ struct GameplayPartySpellProjectileRequest
     float targetZ = 0.0f;
     uint32_t effectSoundIdOverride = 0;
     uint32_t impactSoundIdOverride = 0;
+    bool turnBasedPendingAction = false;
 };
 
 struct GameplayProjectilePresentationState
@@ -357,6 +358,7 @@ struct GameplayPartyAttackProjectileRequest
     CombatDamageType damageType = CombatDamageType::Physical;
     GameplayWorldPoint source = {};
     GameplayWorldPoint target = {};
+    bool turnBasedPendingAction = false;
 };
 
 struct GameplayPartyAttackFallbackQuery
@@ -458,6 +460,21 @@ public:
         (void)enabled;
     }
     virtual void updateActorAi(float deltaSeconds) = 0;
+    virtual void updateTurnBasedPausedActorAnimations(float deltaSeconds)
+    {
+        (void)deltaSeconds;
+    }
+    virtual size_t turnBasedPendingWorldActionCount() const
+    {
+        return 0;
+    }
+    virtual bool turnBasedActorActionInProgress() const
+    {
+        return false;
+    }
+    virtual void stopTurnBasedActorMovement()
+    {
+    }
     virtual void updateWorld(float deltaSeconds) = 0;
     virtual void renderWorld(
         int width,

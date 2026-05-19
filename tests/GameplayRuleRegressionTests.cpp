@@ -488,6 +488,52 @@ TEST_CASE("outdoor water damage tick reports drowning status text")
     CHECK_EQ(partyRuntime.movementStatusText(), "You are drowning!");
 }
 
+TEST_CASE("classic outdoor flying ignores camera pitch for forward movement")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    movementDriver.initialize(boundary.landX, boundary.landY, 0.0f);
+    movementDriver.setFlyingAvailable(true);
+    movementDriver.setFlying(true);
+    const float startFootZ = movementDriver.state().footZ;
+
+    OpenYAMM::Game::OutdoorMovementInput movementInput = {};
+    movementInput.forward = true;
+    movementInput.pitchRadians = 0.75f;
+    movementInput.usePitchForFlyingMovement = false;
+    movementDriver.update(movementInput, 0.1f);
+
+    CHECK_EQ(movementDriver.state().footZ, doctest::Approx(startFootZ).epsilon(0.001f));
+}
+
+TEST_CASE("modern outdoor flying keeps camera pitch for forward movement")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    movementDriver.initialize(boundary.landX, boundary.landY, 0.0f);
+    movementDriver.setFlyingAvailable(true);
+    movementDriver.setFlying(true);
+    const float startFootZ = movementDriver.state().footZ;
+
+    OpenYAMM::Game::OutdoorMovementInput movementInput = {};
+    movementInput.forward = true;
+    movementInput.pitchRadians = 0.75f;
+    movementInput.usePitchForFlyingMovement = true;
+    movementDriver.update(movementInput, 0.1f);
+
+    CHECK_GT(movementDriver.state().footZ, startFootZ);
+}
+
 TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tilesets")
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
@@ -2498,6 +2544,88 @@ TEST_CASE("outdoor actor movement ignores pre-existing actor overlap")
 
     CHECK(contactedActorIndices.empty());
     CHECK(resolved.x > state.x + 32.0f);
+}
+
+TEST_CASE("outdoor party can move out of pre-existing decoration overlap")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorDecorationCollision decoration = {};
+    decoration.radius = 64;
+    decoration.height = 192;
+    decoration.worldX = static_cast<int>(std::lround(boundary.landX));
+    decoration.worldY = static_cast<int>(std::lround(boundary.landY));
+    decoration.worldZ = 0;
+    decoration.name = "test tree";
+
+    OpenYAMM::Game::OutdoorDecorationCollisionSet decorationSet = {};
+    decorationSet.colliders.push_back(decoration);
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        boundary.mapData,
+        std::nullopt,
+        decorationSet,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state =
+        movementController.initializeState(boundary.landX + 90.0f, boundary.landY, 0.0f);
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        256.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        0.5f);
+
+    CHECK_GT(resolved.x, state.x + 100.0f);
+}
+
+TEST_CASE("outdoor party is still blocked from entering decoration collision")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorDecorationCollision decoration = {};
+    decoration.radius = 64;
+    decoration.height = 192;
+    decoration.worldX = static_cast<int>(std::lround(boundary.landX));
+    decoration.worldY = static_cast<int>(std::lround(boundary.landY));
+    decoration.worldZ = 0;
+    decoration.name = "test tree";
+
+    OpenYAMM::Game::OutdoorDecorationCollisionSet decorationSet = {};
+    decorationSet.colliders.push_back(decoration);
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        boundary.mapData,
+        std::nullopt,
+        decorationSet,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state =
+        movementController.initializeState(boundary.landX - 160.0f, boundary.landY, 0.0f);
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        512.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        0.5f);
+
+    CHECK_LT(resolved.x, boundary.landX - 95.0f);
 }
 
 TEST_CASE("outdoor steep terrain slides stationary party downhill")

@@ -315,6 +315,17 @@ TEST_CASE("projectile collision filters dead actor-source and friendly actors")
     CHECK_FALSE(service.canProjectileCollideWithActor(makeActorProjectile(), actorFacts));
 }
 
+TEST_CASE("party projectile direct actor hit radius has small-monster floor")
+{
+    const GameplayProjectileService::ProjectileState partyProjectile = makePartyProjectile();
+    const GameplayProjectileService::ProjectileState actorProjectile = makeActorProjectile();
+
+    CHECK_EQ(GameplayProjectileService::directActorProjectileHitRadius(partyProjectile, 20.0f), 32.0f);
+    CHECK_EQ(GameplayProjectileService::directActorProjectileHitRadius(partyProjectile, 50.0f), 50.0f);
+    CHECK_EQ(GameplayProjectileService::directActorProjectileHitRadius(actorProjectile, 4.0f), 8.0f);
+    CHECK_EQ(GameplayProjectileService::directActorProjectileHitRadius(actorProjectile, 20.0f), 20.0f);
+}
+
 TEST_CASE("summoned actor projectiles do not collide with party allies")
 {
     GameplayProjectileService service;
@@ -434,6 +445,7 @@ TEST_CASE("projectile spawn forward offset stays on the ray and does not oversho
     request.sourceKind = GameplayProjectileService::ProjectileState::SourceKind::Party;
     request.definition.speed = 100.0f;
     request.definition.lifetimeTicks = 100;
+    request.turnBasedPendingAction = true;
     request.sourceX = 0.0f;
     request.sourceY = 0.0f;
     request.sourceZ = 0.0f;
@@ -445,6 +457,7 @@ TEST_CASE("projectile spawn forward offset stays on the ray and does not oversho
     const GameplayProjectileService::ProjectileSpawnResult result = service.spawnProjectile(request);
 
     CHECK(result.kind == GameplayProjectileService::ProjectileSpawnResult::Kind::SpawnedProjectile);
+    CHECK(result.projectile.turnBasedPendingAction);
     CHECK_EQ(result.projectile.x, doctest::Approx(10.0f));
     CHECK_EQ(result.projectile.y, doctest::Approx(0.0f));
     CHECK_EQ(result.projectile.z, doctest::Approx(10.0f));

@@ -57,6 +57,7 @@ constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
 constexpr float WalkingSoundMovementSpeedThreshold = 20.0f;
 constexpr float WalkingMotionHoldSeconds = 0.125f;
 constexpr uint16_t HudViewId = 2;
+constexpr uint64_t GameplayMouseLookCursorSyncIntervalTicks = 100;
 const std::filesystem::path AutosavePath = std::filesystem::path("saves") / "autosave.oysav";
 using SpellbookPointerTargetType = IndoorSpellbookPointerTargetType;
 using SpellbookPointerTarget = IndoorSpellbookPointerTarget;
@@ -1788,7 +1789,12 @@ void IndoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled
 {
     if (pWindow != nullptr && SDL_GetWindowRelativeMouseMode(pWindow) != enabled)
     {
-        if (!enabled)
+        if (enabled)
+        {
+            syncCursorToGameplayCrosshair(pWindow);
+            m_lastGameplayMouseLookCursorSyncTicks = SDL_GetTicks();
+        }
+        else
         {
             int windowWidth = 0;
             int windowHeight = 0;
@@ -1801,10 +1807,28 @@ void IndoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled
                     static_cast<float>(windowWidth) * 0.5f,
                     static_cast<float>(windowHeight) * 0.5f);
             }
+
+            m_lastGameplayMouseLookCursorSyncTicks = 0;
         }
 
         SDL_SetWindowRelativeMouseMode(pWindow, enabled);
         m_gameSession.requestRelativeMouseMotionReset();
+    }
+    else if (enabled)
+    {
+        const uint64_t nowTicks = SDL_GetTicks();
+
+        if (m_lastGameplayMouseLookCursorSyncTicks == 0
+            || nowTicks < m_lastGameplayMouseLookCursorSyncTicks
+            || nowTicks - m_lastGameplayMouseLookCursorSyncTicks >= GameplayMouseLookCursorSyncIntervalTicks)
+        {
+            syncCursorToGameplayCrosshair(pWindow);
+            m_lastGameplayMouseLookCursorSyncTicks = nowTicks;
+        }
+    }
+    else
+    {
+        m_lastGameplayMouseLookCursorSyncTicks = 0;
     }
 
     if (enabled)
@@ -1815,6 +1839,55 @@ void IndoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled
     {
         SDL_ShowCursor();
     }
+}
+
+void IndoorGameView::syncCursorToGameplayCrosshair(SDL_Window *pWindow)
+{
+    const GameplayScreenState::GameplayMouseLookState &mouseLookState =
+        m_gameSession.gameplayScreenState().gameplayMouseLookState();
+
+    if (!mouseLookState.mouseLookActive || mouseLookState.cursorModeActive)
+    {
+        return;
+    }
+
+    if (pWindow == nullptr)
+    {
+        pWindow = SDL_GetMouseFocus();
+
+        if (pWindow == nullptr)
+        {
+            pWindow = SDL_GetKeyboardFocus();
+        }
+    }
+
+    if (pWindow == nullptr)
+    {
+        return;
+    }
+
+    int windowWidth = 0;
+    int windowHeight = 0;
+    SDL_GetWindowSizeInPixels(pWindow, &windowWidth, &windowHeight);
+
+    if (windowWidth <= 0 || windowHeight <= 0)
+    {
+        const GameplayInputFrame *pInputFrame = m_gameSession.currentGameplayInputFrame();
+
+        if (pInputFrame == nullptr || pInputFrame->screenWidth <= 0 || pInputFrame->screenHeight <= 0)
+        {
+            return;
+        }
+
+        windowWidth = pInputFrame->screenWidth;
+        windowHeight = pInputFrame->screenHeight;
+    }
+
+    SDL_WarpMouseInWindow(
+        pWindow,
+        static_cast<float>(windowWidth) * 0.5f,
+        static_cast<float>(windowHeight) * 0.5f);
+    m_gameSession.requestRelativeMouseMotionReset();
 }
 
 void IndoorGameView::updateActorInspectOverlayState(int width, int height, const GameplayInputFrame &input)

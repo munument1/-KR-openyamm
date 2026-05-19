@@ -5,6 +5,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/party/SpellIds.h"
 
@@ -596,7 +597,29 @@ PartySpellCastResult GameplaySpellService::castSpell(
         return {};
     }
 
-    return PartySpellSystem::castSpell(*pParty, *pWorldRuntime, *pSpellTable, request);
+    PartySpellCastRequest effectiveRequest = request;
+    TurnBasedCombatRuntime &turnBasedCombatRuntime = runtime.turnBasedCombatRuntime();
+    const bool turnBasedRecovery =
+        turnBasedCombatRuntime.active()
+        && request.applyRecovery
+        && turnBasedCombatRuntime.stage() == TurnBasedCombatStage::Attack;
+
+    if (turnBasedRecovery)
+    {
+        effectiveRequest.applyRecovery = false;
+        effectiveRequest.turnBasedPendingAction = true;
+    }
+
+    PartySpellCastResult result = PartySpellSystem::castSpell(*pParty, *pWorldRuntime, *pSpellTable, effectiveRequest);
+
+    if (turnBasedRecovery && result.recoverySeconds > 0.0f)
+    {
+        turnBasedCombatRuntime.storeMemberTurnRecovery(request.casterMemberIndex, result.recoverySeconds);
+
+        turnBasedCombatRuntime.applyPlayerAction(*pParty, request.casterMemberIndex, result.recoverySeconds);
+    }
+
+    return result;
 }
 
 bool GameplaySpellService::isQuickCastable(const PartySpellDescriptor &descriptor)

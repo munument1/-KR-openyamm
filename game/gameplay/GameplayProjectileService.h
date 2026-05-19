@@ -71,6 +71,7 @@ public:
         int attackBonus = 0;
         CombatDamageType damageType = CombatDamageType::Physical;
         bool useActorHitChance = false;
+        bool turnBasedPendingAction = false;
         uint32_t timeSinceCreatedTicks = 0;
         float lifetimeTickAccumulator = 0.0f;
         uint32_t lifetimeTicks = 0;
@@ -134,6 +135,7 @@ public:
         int attackBonus = 0;
         CombatDamageType damageType = CombatDamageType::Physical;
         bool useActorHitChance = false;
+        bool turnBasedPendingAction = false;
         uint32_t impactSoundIdOverride = 0;
         float sourceX = 0.0f;
         float sourceY = 0.0f;
@@ -672,6 +674,9 @@ public:
     bool isProjectileSourceFriendlyToActor(
         const ProjectileState &projectile,
         const ProjectileActorRelationFacts &facts) const;
+    static float directActorProjectileHitRadius(
+        const ProjectileState &projectile,
+        float actorRadius);
     bool canProjectileCollideWithParty(const ProjectileState &projectile) const;
     bool canProjectileCollideWithActor(
         const ProjectileState &projectile,

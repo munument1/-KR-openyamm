@@ -759,6 +759,11 @@ void GameAudioSystem::setSoundVolume(float volume)
     m_soundVolume = std::clamp(volume, 0.0f, 1.0f);
 }
 
+float GameAudioSystem::soundVolume() const
+{
+    return m_soundVolume;
+}
+
 void GameAudioSystem::setMusicVolume(float volume)
 {
     m_musicVolume = std::clamp(volume, 0.0f, 1.0f);
@@ -1309,10 +1314,24 @@ void GameAudioSystem::setBackgroundMusicTrack(int redbookTrack)
         return;
     }
 
-    if (m_backgroundMusicPaused && m_activeMusicTrack == normalizedTrack && m_activeMusicInstanceId != 0)
+    if (m_backgroundMusicPaused)
     {
-        m_pendingMusicDecodeDelaySeconds = 0.0f;
-        resumeBackgroundMusic();
+        if (m_activeMusicTrack == normalizedTrack && m_activeMusicInstanceId != 0)
+        {
+            m_pendingMusicTrack = 0;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+        }
+        else
+        {
+            m_pendingMusicTrack = normalizedTrack;
+            m_pendingMusicDecodeDelaySeconds = 0.0f;
+
+            if (!isBackgroundMusicTrackLoaded(normalizedTrack))
+            {
+                queueBackgroundMusicTrackDecode(normalizedTrack);
+            }
+        }
+
         return;
     }
 
@@ -1400,7 +1419,7 @@ void GameAudioSystem::stopBackgroundMusicImmediate()
 
 void GameAudioSystem::pauseBackgroundMusic()
 {
-    if (m_activeMusicInstanceId == 0 || m_backgroundMusicPaused)
+    if (m_backgroundMusicPaused)
     {
         return;
     }
@@ -1412,13 +1431,17 @@ void GameAudioSystem::pauseBackgroundMusic()
                   << " activeInstance=" << m_activeMusicInstanceId << '\n';
     }
 
-    m_audioSystem.pauseClip(m_activeMusicInstanceId);
     m_backgroundMusicPaused = true;
+
+    if (m_activeMusicInstanceId != 0)
+    {
+        m_audioSystem.pauseClip(m_activeMusicInstanceId);
+    }
 }
 
 void GameAudioSystem::resumeBackgroundMusic()
 {
-    if (m_activeMusicInstanceId == 0 || !m_backgroundMusicPaused)
+    if (!m_backgroundMusicPaused)
     {
         return;
     }
@@ -1430,8 +1453,12 @@ void GameAudioSystem::resumeBackgroundMusic()
                   << " activeInstance=" << m_activeMusicInstanceId << '\n';
     }
 
-    m_audioSystem.resumeClip(m_activeMusicInstanceId);
     m_backgroundMusicPaused = false;
+
+    if (m_activeMusicInstanceId != 0)
+    {
+        m_audioSystem.resumeClip(m_activeMusicInstanceId);
+    }
 }
 
 int GameAudioSystem::currentBackgroundMusicTrack() const

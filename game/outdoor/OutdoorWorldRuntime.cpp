@@ -395,6 +395,10 @@ constexpr size_t MaxActiveActorUpdates = 48;
 constexpr float InactiveActorDecisionIntervalSeconds = 1.5f;
 constexpr float InactiveActorBoredSeconds = 2.0f;
 constexpr uint32_t InactiveActorFidgetChancePercent = 5u;
+constexpr float TurnBasedActorStandMinSeconds = 1.0f;
+constexpr float TurnBasedActorStandMaxSeconds = 2.0f;
+constexpr float TurnBasedActorBoredFallbackSeconds = 2.0f;
+constexpr uint32_t TurnBasedActorBoredChancePercent = 50u;
 constexpr float PeasantAggroRadius = 4096.0f;
 constexpr float PartyCollisionRadius = 37.0f;
 constexpr float PartyCollisionHeight = 192.0f;
@@ -1600,6 +1604,14 @@ uint32_t inactiveActorDecisionSeed(uint32_t actorId, uint32_t counter, uint32_t 
     return static_cast<uint32_t>(actorId + 1) * 1103515245u
         + counter * 2654435761u
         + salt;
+}
+
+float turnBasedActorStandSeconds(uint32_t decisionSeed)
+{
+    constexpr uint32_t Resolution = 1000u;
+    const float spanSeconds = TurnBasedActorStandMaxSeconds - TurnBasedActorStandMinSeconds;
+    return TurnBasedActorStandMinSeconds
+        + spanSeconds * static_cast<float>(decisionSeed % (Resolution + 1u)) / static_cast<float>(Resolution);
 }
 
 float shortestAngleDistanceRadians(float left, float right)
@@ -4133,6 +4145,108 @@ void updateInactiveActorPresentation(
     }
 }
 
+void updateTurnBasedActorWaitingPresentation(
+    OutdoorWorldRuntime::MapActorState &actor,
+    float partyX,
+    float partyY,
+    float deltaSeconds,
+    const SpriteFrameTable *pActorSpriteFrameTable)
+{
+    if (actor.isDead || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead)
+    {
+        actor.aiState = OutdoorWorldRuntime::ActorAiState::Dead;
+        actor.animation = OutdoorWorldRuntime::ActorAnimation::Dead;
+        actor.moveDirectionX = 0.0f;
+        actor.moveDirectionY = 0.0f;
+        actor.actionSeconds = 0.0f;
+        actor.attackImpactTriggered = false;
+        return;
+    }
+
+    actor.aiState = OutdoorWorldRuntime::ActorAiState::Standing;
+    actor.moveDirectionX = 0.0f;
+    actor.moveDirectionY = 0.0f;
+    actor.velocityX = 0.0f;
+    actor.velocityY = 0.0f;
+    actor.velocityZ = 0.0f;
+    actor.attackImpactTriggered = false;
+
+    const float deltaX = partyX - actor.preciseX;
+    const float deltaY = partyY - actor.preciseY;
+
+    if (std::abs(deltaX) > 0.01f || std::abs(deltaY) > 0.01f)
+    {
+        actor.yawRadians = std::atan2(deltaY, deltaX);
+    }
+
+    const bool wasBored = actor.animation == OutdoorWorldRuntime::ActorAnimation::Bored;
+
+    if (!wasBored)
+    {
+        if (actor.idleDecisionSeconds <= 0.0f && actor.actionSeconds <= 0.0f)
+        {
+            const uint32_t standSeed = inactiveActorDecisionSeed(actor.actorId, actor.idleDecisionCount, 0x95f2a5f1u);
+            const float standSeconds = turnBasedActorStandSeconds(standSeed);
+            actor.idleDecisionSeconds = standSeconds;
+            actor.actionSeconds = standSeconds;
+        }
+        else
+        {
+            actor.idleDecisionSeconds = std::min(actor.idleDecisionSeconds, TurnBasedActorStandMaxSeconds);
+            actor.actionSeconds = std::min(actor.actionSeconds, TurnBasedActorStandMaxSeconds);
+        }
+    }
+
+    const float stepSeconds = std::max(0.0f, deltaSeconds);
+    actor.animationTimeTicks += stepSeconds * TicksPerSecond;
+    actor.actionSeconds = std::max(0.0f, actor.actionSeconds - stepSeconds);
+    actor.idleDecisionSeconds = std::max(0.0f, actor.idleDecisionSeconds - stepSeconds);
+
+    if (wasBored && actor.actionSeconds > 0.0f)
+    {
+        return;
+    }
+
+    actor.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
+
+    if (wasBored)
+    {
+        const uint32_t standSeed = inactiveActorDecisionSeed(actor.actorId, actor.idleDecisionCount, 0x95f2a5f1u);
+        const float standSeconds = turnBasedActorStandSeconds(standSeed);
+        actor.idleDecisionSeconds = standSeconds;
+        actor.actionSeconds = standSeconds;
+        actor.animationTimeTicks = 0.0f;
+        return;
+    }
+
+    if (actor.idleDecisionSeconds > 0.0f)
+    {
+        return;
+    }
+
+    const uint32_t decisionSeed = inactiveActorDecisionSeed(actor.actorId, actor.idleDecisionCount, 0x7f4a7c15u);
+    actor.idleDecisionCount += 1;
+
+    if ((decisionSeed % 100u) < TurnBasedActorBoredChancePercent)
+    {
+        const float boredSeconds = actorAnimationSeconds(
+            pActorSpriteFrameTable,
+            actor,
+            OutdoorWorldRuntime::ActorAnimation::Bored,
+            TurnBasedActorBoredFallbackSeconds);
+        actor.actionSeconds = boredSeconds;
+        actor.idleDecisionSeconds = boredSeconds;
+        actor.animation = OutdoorWorldRuntime::ActorAnimation::Bored;
+        actor.animationTimeTicks = 0.0f;
+        return;
+    }
+
+    const float standSeconds = turnBasedActorStandSeconds(decisionSeed >> 8u);
+    actor.actionSeconds = standSeconds;
+    actor.idleDecisionSeconds = standSeconds;
+    actor.animationTimeTicks = 0.0f;
+}
+
 char tierLetterForSummonLevel(uint32_t level)
 {
     const uint32_t clampedLevel = std::clamp(level, 1u, 3u);
@@ -5818,10 +5932,13 @@ void OutdoorWorldRuntime::updateWorldMovement(
 
 void OutdoorWorldRuntime::updateActorAi(float deltaSeconds)
 {
-    (void)deltaSeconds;
-
     if (!m_actorAiUpdateQueued)
     {
+        if (deltaSeconds > 0.0f)
+        {
+            updateMapActors(deltaSeconds, partyX(), partyY(), partyFootZ());
+        }
+
         return;
     }
 
@@ -5837,6 +5954,190 @@ void OutdoorWorldRuntime::updateActorAi(float deltaSeconds)
     m_queuedActorAiPartyZ = 0.0f;
 
     updateMapActors(queuedDeltaSeconds, partyX, partyY, partyZ);
+}
+
+void OutdoorWorldRuntime::updateTurnBasedPausedActorAnimations(float deltaSeconds)
+{
+    if (deltaSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    updateProjectiles(deltaSeconds, partyX(), partyY(), partyFootZ());
+
+    const float animationTickDelta = deltaSeconds * TicksPerSecond;
+    const std::vector<bool> inactiveActorMask(m_mapActors.size(), false);
+
+    for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
+    {
+        MapActorState &actor = m_mapActors[actorIndex];
+        const InactiveActorDeathFrame deathFrame = resolveInactiveActorDeathFrame(
+            actor.isDead,
+            actor.currentHp <= 0,
+            actor.currentHp <= 0 && actor.aiState == ActorAiState::Dying,
+            actor.actionSeconds,
+            deltaSeconds);
+
+        if (deathFrame.action == InactiveActorDeathAction::HoldDead)
+        {
+            actor.aiState = ActorAiState::Dead;
+            actor.animation = ActorAnimation::Dead;
+            actor.moveDirectionX = 0.0f;
+            actor.moveDirectionY = 0.0f;
+            actor.actionSeconds = 0.0f;
+            actor.attackImpactTriggered = false;
+            continue;
+        }
+
+        if (deathFrame.action == InactiveActorDeathAction::MarkDead)
+        {
+            setMapActorDead(actorIndex, true, false);
+            continue;
+        }
+
+        if (deathFrame.action != InactiveActorDeathAction::AdvanceDying)
+        {
+            const bool activePresentation =
+                actor.aiState == ActorAiState::Stunned
+                || actor.aiState == ActorAiState::Attacking
+                || actor.animation == ActorAnimation::GotHit
+                || actor.animation == ActorAnimation::AttackMelee
+                || actor.animation == ActorAnimation::AttackRanged;
+
+            if (activePresentation && actor.actionSeconds > 0.0f)
+            {
+                actor.moveDirectionX = 0.0f;
+                actor.moveDirectionY = 0.0f;
+                actor.velocityX = 0.0f;
+                actor.velocityY = 0.0f;
+                actor.velocityZ = 0.0f;
+                actor.animationTimeTicks += animationTickDelta;
+                actor.actionSeconds = std::max(0.0f, actor.actionSeconds - deltaSeconds);
+
+                if (actor.actionSeconds <= 0.0f)
+                {
+                    actor.aiState = ActorAiState::Standing;
+                    actor.animation = ActorAnimation::Standing;
+                    actor.attackImpactTriggered = false;
+                }
+
+                continue;
+            }
+
+            updateTurnBasedActorWaitingPresentation(actor, partyX(), partyY(), deltaSeconds, m_pActorSpriteFrameTable);
+            continue;
+        }
+
+        spawnBloodSplatForActorIfNeeded(actorIndex);
+        actor.aiState = ActorAiState::Dying;
+        actor.animation = ActorAnimation::Dying;
+        actor.animationTimeTicks += animationTickDelta;
+        actor.actionSeconds = deathFrame.actionSeconds;
+        actor.moveDirectionX = 0.0f;
+        actor.moveDirectionY = 0.0f;
+        actor.attackImpactTriggered = false;
+
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+        if (pStats != nullptr)
+        {
+            applyOutdoorActorPhysicsStep(actorIndex, *pStats, inactiveActorMask);
+        }
+
+        if (deathFrame.finishedDying)
+        {
+            setMapActorDead(actorIndex, true, false);
+        }
+    }
+}
+
+size_t OutdoorWorldRuntime::turnBasedPendingWorldActionCount() const
+{
+    return static_cast<size_t>(
+        std::count_if(
+            projectileService().projectiles().begin(),
+            projectileService().projectiles().end(),
+            [](const ProjectileState &projectile)
+            {
+                return projectile.turnBasedPendingAction && !projectile.isExpired && !projectile.isSettled;
+            }));
+}
+
+bool OutdoorWorldRuntime::turnBasedActorActionInProgress() const
+{
+    return std::any_of(
+        m_mapActors.begin(),
+        m_mapActors.end(),
+        [](const MapActorState &actor)
+        {
+            if (actor.isDead || actor.aiState == ActorAiState::Dead || actor.aiState == ActorAiState::Dying)
+            {
+                return false;
+            }
+
+            const bool activeAttackPresentation =
+                actor.aiState == ActorAiState::Attacking
+                || actor.animation == ActorAnimation::AttackMelee
+                || actor.animation == ActorAnimation::AttackRanged;
+            return activeAttackPresentation && actor.actionSeconds > 0.0f;
+        });
+}
+
+void OutdoorWorldRuntime::stopTurnBasedActorMovement()
+{
+    size_t stoppedActors = 0;
+    size_t skippedTerminalActors = 0;
+
+    for (MapActorState &actor : m_mapActors)
+    {
+        if (actor.isDead || actor.aiState == ActorAiState::Dead || actor.aiState == ActorAiState::Dying)
+        {
+            ++skippedTerminalActors;
+            continue;
+        }
+
+        const bool activeAttackPresentation =
+            actor.aiState == ActorAiState::Attacking
+            || actor.animation == ActorAnimation::AttackMelee
+            || actor.animation == ActorAnimation::AttackRanged;
+        if (activeAttackPresentation && actor.actionSeconds > 0.0f)
+        {
+            actor.moveDirectionX = 0.0f;
+            actor.moveDirectionY = 0.0f;
+            actor.velocityX = 0.0f;
+            actor.velocityY = 0.0f;
+            actor.velocityZ = 0.0f;
+            ++skippedTerminalActors;
+            continue;
+        }
+
+        if (actor.aiState != ActorAiState::Standing
+            || actor.animation != ActorAnimation::Standing
+            || actor.velocityX != 0.0f
+            || actor.velocityY != 0.0f
+            || actor.velocityZ != 0.0f
+            || actor.moveDirectionX != 0.0f
+            || actor.moveDirectionY != 0.0f
+            || actor.actionSeconds != 0.0f)
+        {
+            ++stoppedActors;
+        }
+
+        actor.aiState = ActorAiState::Standing;
+        actor.animation = ActorAnimation::Standing;
+        actor.moveDirectionX = 0.0f;
+        actor.moveDirectionY = 0.0f;
+        actor.velocityX = 0.0f;
+        actor.velocityY = 0.0f;
+        actor.velocityZ = 0.0f;
+        actor.actionSeconds = 0.0f;
+        actor.attackImpactTriggered = false;
+    }
+
+    GAMEPLAY_DEBUG_TRACE(
+        "turn_based_outdoor_stop_actor_movement actor_count=" + std::to_string(m_mapActors.size())
+        + " stopped=" + std::to_string(stoppedActors)
+        + " skipped_terminal=" + std::to_string(skippedTerminalActors));
 }
 
 void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
@@ -9253,6 +9554,7 @@ bool OutdoorWorldRuntime::spawnSpellProjectile(
     spawnRequest.attackBonus = request.attackBonus;
     spawnRequest.useActorHitChance = request.useActorHitChance;
     spawnRequest.damageType = request.damageType;
+    spawnRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     spawnRequest.sourceX = sourceX;
     spawnRequest.sourceY = sourceY;
     spawnRequest.sourceZ = sourceZ;
@@ -10012,7 +10314,7 @@ OutdoorWorldRuntime::ProjectileCollisionFacts OutdoorWorldRuntime::buildProjecti
     {
         const MapActorState &actor = m_mapActors[actorIndex];
         const float collisionRadius =
-            static_cast<float>(std::max<uint16_t>(actor.radius, 8))
+            GameplayProjectileService::directActorProjectileHitRadius(projectile, static_cast<float>(actor.radius))
             + static_cast<float>(std::max<uint16_t>(projectile.radius, 8));
         const OutdoorProjectileActorProbe actorProbe =
             probeOutdoorProjectileActor(
@@ -15289,6 +15591,7 @@ bool OutdoorWorldRuntime::castPartySpellProjectile(const GameplayPartySpellProje
     worldRequest.targetZ = request.targetZ;
     worldRequest.effectSoundIdOverride = request.effectSoundIdOverride;
     worldRequest.impactSoundIdOverride = request.impactSoundIdOverride;
+    worldRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     return castPartySpell(worldRequest);
 }
 
@@ -15317,6 +15620,7 @@ bool OutdoorWorldRuntime::spawnPartyProjectile(const PartyProjectileRequest &req
     spawnRequest.attackBonus = request.attackBonus;
     spawnRequest.useActorHitChance = request.useActorHitChance;
     spawnRequest.damageType = request.damageType;
+    spawnRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     spawnRequest.sourceX = request.sourceX;
     spawnRequest.sourceY = request.sourceY;
     spawnRequest.sourceZ = request.sourceZ;

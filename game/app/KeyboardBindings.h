@@ -42,7 +42,7 @@ enum class KeyboardAction : uint8_t
     QuickRef,
     Rest,
     History,
-    AutoNotes,
+    Use,
     MapBook,
     AlwaysRun,
     LookUp,
@@ -59,6 +59,20 @@ enum class KeyboardAction : uint8_t
 
 constexpr size_t KeyboardActionCount = static_cast<size_t>(KeyboardAction::Count);
 
+enum class InputBindingKind : uint8_t
+{
+    None = 0,
+    Keyboard,
+    MouseButton
+};
+
+struct InputBinding
+{
+    InputBindingKind kind = InputBindingKind::None;
+    SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
+    uint8_t mouseButton = 0;
+};
+
 struct KeyboardBindingDefinition
 {
     KeyboardAction action = KeyboardAction::Forward;
@@ -67,15 +81,20 @@ struct KeyboardBindingDefinition
     KeyboardBindingPage page = KeyboardBindingPage::Page1;
     KeyboardBindingColumn column = KeyboardBindingColumn::Left;
     size_t row = 0;
-    SDL_Scancode defaultScancode = SDL_SCANCODE_UNKNOWN;
+    InputBinding defaultBinding = {};
     bool implemented = false;
 };
 
 size_t keyboardActionIndex(KeyboardAction action);
 const std::array<KeyboardBindingDefinition, KeyboardActionCount> &keyboardBindingDefinitions();
 const KeyboardBindingDefinition &keyboardBindingDefinition(KeyboardAction action);
-std::array<SDL_Scancode, KeyboardActionCount> createDefaultKeyboardBindings();
+InputBinding keyboardInputBinding(SDL_Scancode scancode);
+InputBinding mouseButtonInputBinding(uint8_t button);
+std::array<InputBinding, KeyboardActionCount> createDefaultKeyboardBindings();
 SDL_Scancode parseKeyboardBindingName(const std::string &name);
+InputBinding parseInputBindingName(const std::string &name);
 std::string keyboardBindingName(SDL_Scancode scancode);
 std::string keyboardBindingDisplayName(SDL_Scancode scancode);
+std::string inputBindingName(const InputBinding &binding);
+std::string inputBindingDisplayName(const InputBinding &binding);
 }

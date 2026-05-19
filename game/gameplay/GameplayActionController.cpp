@@ -3,6 +3,7 @@
 #include "game/audio/GameAudioSystem.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GameplaySpellService.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/party/PartySpellSystem.h"
 #include "game/tables/MonsterTable.h"
@@ -590,7 +591,9 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             attackCastResult.followupUiActive = spellAttackCastResult.followupUiActive;
         }
 
-        if (attackCastResult.castStarted && !attackCastResult.followupUiActive)
+        if (attackCastResult.castStarted
+            && !attackCastResult.followupUiActive
+            && (config.pRuntime == nullptr || !config.pRuntime->turnBasedCombatRuntime().active()))
         {
             party.switchToNextReadyMember();
         }
@@ -736,6 +739,8 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                         .targetZ = rangedTarget.z,
                         .effectSoundIdOverride = static_cast<uint32_t>(SoundId::DragonBreath),
                         .impactSoundIdOverride = static_cast<uint32_t>(SoundId::DragonBreathImpact),
+                        .turnBasedPendingAction =
+                            config.pRuntime != nullptr && config.pRuntime->turnBasedCombatRuntime().active(),
                     });
             }
         }
@@ -785,6 +790,8 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                 .damageType = attack.damageType,
                 .source = toRuntimeWorldPoint(rangedSource),
                 .target = toRuntimeWorldPoint(rangedTarget),
+                .turnBasedPendingAction =
+                    config.pRuntime != nullptr && config.pRuntime->turnBasedCombatRuntime().active(),
             };
             attacked = config.pWorldRuntime->spawnPartyAttackProjectile(projectileRequest);
 
@@ -807,8 +814,18 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
     if (actionPerformed)
     {
         playPartyAttackSound(config, *pAttacker, attack);
-        party.applyRecoveryToActiveMember(attack.recoverySeconds);
-        party.switchToNextReadyMember();
+
+        if (config.pRuntime != nullptr && config.pRuntime->turnBasedCombatRuntime().active())
+        {
+            config.pRuntime->turnBasedCombatRuntime().storeMemberTurnRecovery(
+                actingMemberIndex,
+                attack.recoverySeconds);
+        }
+        else
+        {
+            party.applyRecoveryToActiveMember(attack.recoverySeconds);
+            party.switchToNextReadyMember();
+        }
     }
 
     std::string targetName;

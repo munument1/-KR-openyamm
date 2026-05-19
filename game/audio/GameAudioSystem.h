@@ -61,6 +61,7 @@ public:
     void setSoundVolume(float volume);
     void setMusicVolume(float volume);
     void setVoiceVolume(float volume);
+    float soundVolume() const;
 
     bool playSound(
         uint32_t soundId,

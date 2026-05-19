@@ -13,6 +13,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GameplayDialogController.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/maps/SaveGame.h"
 #include "game/scene/SceneKind.h"
 #include "game/data/GameDataRepository.h"
@@ -84,6 +85,8 @@ public:
     const GameplayFxService &gameplayFxService() const;
     GameplaySpellService &gameplaySpellService();
     const GameplaySpellService &gameplaySpellService() const;
+    TurnBasedCombatRuntime &turnBasedCombatRuntime();
+    const TurnBasedCombatRuntime &turnBasedCombatRuntime() const;
     GameplayScreenRuntime &gameplayScreenRuntime();
     const GameplayScreenRuntime &gameplayScreenRuntime() const;
     GameplayDialogController &gameplayDialogController();
@@ -208,7 +211,34 @@ private:
         }
     };
 
+    struct TurnBasedFrameTraceState
+    {
+        bool active = false;
+        uint32_t lastLogTick = 0;
+        TurnBasedCombatStage stage = TurnBasedCombatStage::None;
+        bool actorAiUpdate = false;
+        bool gameplayPaused = false;
+        bool allowMoveInput = false;
+        bool cursorMode = false;
+        bool modalBlocked = false;
+        bool pendingSpellTarget = false;
+        bool sharedWorldBlocked = false;
+        int movementActionPoints = 0;
+        int pendingActions = 0;
+    };
+
     void logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const;
+    void logTurnBasedFrameTraceIfNeeded(
+        bool actorAiUpdate,
+        bool gameplayPaused,
+        bool allowMoveInput,
+        bool movementStep,
+        bool cursorMode,
+        bool modalBlocked,
+        bool pendingSpellTarget,
+        bool sharedWorldBlocked,
+        float movementDeltaSeconds,
+        float frameDeltaSeconds);
 
     const GameDataRepository *m_pDataRepository = nullptr;
     std::optional<Party> m_partyState;
@@ -223,6 +253,8 @@ private:
     GameplayProjectileService m_gameplayProjectileService;
     GameplayFxService m_gameplayFxService;
     GameplaySpellService m_gameplaySpellService;
+    TurnBasedCombatRuntime m_turnBasedCombatRuntime;
+    size_t m_turnBasedPendingWorldActions = 0;
     GameplayScreenRuntime m_gameplayScreenRuntime;
     GameplayDialogController m_gameplayDialogController;
     GameplayOverlayInteractionState m_overlayInteractionState;
@@ -247,5 +279,6 @@ private:
     SettingsChangedCallback m_settingsChangedCallback;
     mutable GameplayUpdatePerformanceDiagnostics m_gameplayUpdatePerformanceDiagnostics;
     mutable uint32_t m_lastGameplayUpdatePerformanceLogTick = 0;
+    TurnBasedFrameTraceState m_turnBasedFrameTraceState;
 };
 }

@@ -2453,6 +2453,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
         worldRequest.skillLevel = skillLevel;
         worldRequest.skillMastery = skillMastery;
         worldRequest.damage = rollSpellDamage(*rule, *pSpellEntry, skillLevel);
+        worldRequest.turnBasedPendingAction = request.turnBasedPendingAction;
         worldRequest.sourceX = projectileSource.x;
         worldRequest.sourceY = projectileSource.y;
         worldRequest.sourceZ = projectileSource.z;
@@ -2490,6 +2491,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
             worldRequest.skillLevel = skillLevel;
             worldRequest.skillMastery = skillMastery;
             worldRequest.damage = rollSpellDamage(*rule, *pSpellEntry, skillLevel);
+            worldRequest.turnBasedPendingAction = request.turnBasedPendingAction;
             worldRequest.sourceX = projectileSource.x;
             worldRequest.sourceY = projectileSource.y;
             worldRequest.sourceZ = projectileSource.z;

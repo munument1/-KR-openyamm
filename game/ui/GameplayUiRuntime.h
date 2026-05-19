@@ -211,6 +211,7 @@ public:
     bool playHouseVideo(const std::string &videoStem, const std::string &videoDirectory);
     void queueBackgroundHouseVideoPreload(const std::string &videoStem);
     void updateHouseVideoBackgroundPreloads();
+    void setHouseVideoAudioVolume(float volume);
     void updateHouseVideoPlayback(float deltaSeconds);
     bool renderHouseVideoFrame(float x, float y, float quadWidth, float quadHeight) const;
 

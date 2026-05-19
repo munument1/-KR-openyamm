@@ -355,6 +355,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
         projectile.attackBonus = request.attackBonus;
         projectile.damageType = request.damageType;
         projectile.useActorHitChance = request.useActorHitChance;
+        projectile.turnBasedPendingAction = request.turnBasedPendingAction;
         projectile.lifetimeTicks = request.definition.lifetimeTicks;
         projectile.sectorId = request.sectorId;
 
@@ -404,6 +405,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     projectile.attackBonus = request.attackBonus;
     projectile.damageType = request.damageType;
     projectile.useActorHitChance = request.useActorHitChance;
+    projectile.turnBasedPendingAction = request.turnBasedPendingAction;
     projectile.lifetimeTicks = request.definition.lifetimeTicks;
     projectile.sectorId = request.sectorId;
 
@@ -1462,6 +1464,14 @@ bool GameplayProjectileService::isProjectileSourceFriendlyToActor(
     }
 
     return facts.sourceMonsterFriendlyToTarget;
+}
+
+float GameplayProjectileService::directActorProjectileHitRadius(
+    const ProjectileState &projectile,
+    float actorRadius)
+{
+    const float minimumRadius = projectile.sourceKind == ProjectileState::SourceKind::Party ? 32.0f : 8.0f;
+    return std::max(actorRadius, minimumRadius);
 }
 
 bool GameplayProjectileService::canProjectileCollideWithActor(

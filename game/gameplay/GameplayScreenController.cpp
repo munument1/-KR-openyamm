@@ -15,6 +15,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <string>
 
@@ -22,6 +23,55 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr std::array<SDL_Scancode, 9> NumberHotkeyScancodes = {{
+    SDL_SCANCODE_1,
+    SDL_SCANCODE_2,
+    SDL_SCANCODE_3,
+    SDL_SCANCODE_4,
+    SDL_SCANCODE_5,
+    SDL_SCANCODE_6,
+    SDL_SCANCODE_7,
+    SDL_SCANCODE_8,
+    SDL_SCANCODE_9
+}};
+
+constexpr std::array<SDL_Scancode, 9> KeypadNumberHotkeyScancodes = {{
+    SDL_SCANCODE_KP_1,
+    SDL_SCANCODE_KP_2,
+    SDL_SCANCODE_KP_3,
+    SDL_SCANCODE_KP_4,
+    SDL_SCANCODE_KP_5,
+    SDL_SCANCODE_KP_6,
+    SDL_SCANCODE_KP_7,
+    SDL_SCANCODE_KP_8,
+    SDL_SCANCODE_KP_9
+}};
+
+bool isScancodeNewlyPressed(
+    const GameplayInputFrame &input,
+    const std::array<uint8_t, SDL_SCANCODE_COUNT> &previousKeyboardState,
+    SDL_Scancode scancode)
+{
+    return scancode > SDL_SCANCODE_UNKNOWN
+        && scancode < SDL_SCANCODE_COUNT
+        && input.keyboardHeld[scancode]
+        && previousKeyboardState[scancode] == 0;
+}
+
+bool isNumberHotkeyNewlyPressed(
+    const GameplayInputFrame &input,
+    const std::array<uint8_t, SDL_SCANCODE_COUNT> &previousKeyboardState,
+    size_t numberIndex)
+{
+    if (numberIndex >= NumberHotkeyScancodes.size())
+    {
+        return false;
+    }
+
+    return isScancodeNewlyPressed(input, previousKeyboardState, NumberHotkeyScancodes[numberIndex])
+        || isScancodeNewlyPressed(input, previousKeyboardState, KeypadNumberHotkeyScancodes[numberIndex]);
+}
+
 bool isHouseOccupantSelectionMode(const EventDialogContent &dialog)
 {
     return !dialog.actions.empty()
@@ -697,9 +747,54 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         handlePartyPortraitInput(context, GameplayPartyPortraitInputConfig{});
     }
 
+    const bool canUsePartyNumberHotkeys =
+        !config.blockPortraitInput
+        && !spellbookActive
+        && !restActive
+        && !menuActive
+        && !controlsActive
+        && !keyboardActive
+        && !videoOptionsActive
+        && !saveGameActive
+        && !loadGameActive
+        && !journalActive
+        && !quickReferenceActive
+        && !houseBankInputActive;
+
+    if (canUsePartyNumberHotkeys)
+    {
+        const GameplayPartyPortraitInputConfig portraitHotkeyConfig{
+            .screenWidth = config.width,
+            .screenHeight = config.height,
+            .pointerX = config.pointerX,
+            .pointerY = config.pointerY,
+            .leftButtonPressed = false,
+            .allowInput = true,
+            .requireGameplayReady = requirePortraitGameplayReady,
+            .hasActiveLootView = hasActiveLootView,
+            .onPortraitActivated = config.onPortraitActivated,
+        };
+
+        for (size_t memberIndex = 0; memberIndex < 5; ++memberIndex)
+        {
+            if (isNumberHotkeyNewlyPressed(input, context.previousKeyboardState(), memberIndex))
+            {
+                GameplayHudInputController::activatePartyPortrait(context, memberIndex, portraitHotkeyConfig);
+            }
+        }
+    }
+
+    const bool allowGameplayHudPointerInput =
+#if defined(__ANDROID__)
+        config.allowGameplayPointerInput || input.leftMouseButton.held;
+#else
+        config.allowGameplayPointerInput;
+#endif
+
     const bool canClickGameplayHudButtons =
         config.width > 0
         && config.height > 0
+        && allowGameplayHudPointerInput
         && !config.blockHudButtonInput
         && !activeEventDialog
         && !characterScreenOpen
@@ -728,6 +823,38 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
             .allowInput = canClickGameplayHudButtons,
         });
 
+    const bool canUseFollowerNumberHotkeys =
+        !activeEventDialog
+        && !characterScreenOpen
+        && !spellbookActive
+        && !hasActiveLootView
+        && !restActive
+        && !menuActive
+        && !controlsActive
+        && !keyboardActive
+        && !videoOptionsActive
+        && !saveGameActive
+        && !loadGameActive
+        && !journalActive
+        && !quickReferenceActive
+        && !houseShopActive
+        && !houseBankInputActive
+        && !context.inventoryNestedOverlay().active
+        && !context.readableScrollOverlayReadOnly().active
+        && !context.utilitySpellOverlayReadOnly().active
+        && !context.pendingSpellTargetActive();
+
+    if (canUseFollowerNumberHotkeys)
+    {
+        for (size_t followerIndex = 0; followerIndex < 4; ++followerIndex)
+        {
+            if (isNumberHotkeyNewlyPressed(input, context.previousKeyboardState(), followerIndex + 5))
+            {
+                context.openFollowerNpcDialogueByIndex(followerIndex);
+            }
+        }
+    }
+
     const bool canToggleJournal =
         !activeEventDialog
         && !hasActiveLootView
@@ -749,8 +876,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         || input.action(KeyboardAction::MapBook).held;
     const bool storyShortcutPressed =
         input.action(KeyboardAction::History).held;
-    const bool notesShortcutPressed =
-        input.action(KeyboardAction::AutoNotes).held;
+    const bool notesShortcutPressed = false;
     const bool zoomInPressed =
         input.action(KeyboardAction::ZoomIn).held;
     const bool zoomOutPressed =

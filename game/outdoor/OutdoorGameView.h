@@ -522,7 +522,7 @@ private:
     void clearWorldInteractionInputLatches();
     float innRestDurationMinutes(uint32_t houseId) const;
     void syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled);
-    void syncCursorToGameplayCrosshair();
+    void syncCursorToGameplayCrosshair(SDL_Window *pWindow = nullptr);
     void refreshViewDistanceCache();
     const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId = 0) const;
     bool m_isInitialized;
@@ -653,6 +653,7 @@ private:
     bool m_isRotatingCamera;
     float m_lastMouseX;
     float m_lastMouseY;
+    uint64_t m_lastGameplayMouseLookCursorSyncTicks = 0;
     GameSession &m_gameSession;
     uint64_t m_lastAdventurersInnPortraitClickTicks;
     std::optional<size_t> m_lastAdventurersInnPortraitClickedIndex;

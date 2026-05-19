@@ -30,6 +30,7 @@ namespace OpenYAMM::Game
 class GameSession;
 class GameAudioSystem;
 class GameplayFxService;
+class TurnBasedCombatRuntime;
 struct GameplayInputFrame;
 class GameplayItemService;
 class GameplaySpellService;
@@ -210,6 +211,7 @@ public:
     void closeQuickReferenceOverlay();
     void closeHouseShopOverlay();
     void openFollowerNpcDialogue(size_t followerSlotIndex);
+    void openFollowerNpcDialogueByIndex(size_t followerIndex);
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);
     void ensurePendingEventDialogPresented(
         bool allowNpcFallbackContent,
@@ -247,6 +249,7 @@ public:
     GameplayItemService &itemService() const;
     GameplayFxService &fxService() const;
     GameplaySpellService &spellService() const;
+    TurnBasedCombatRuntime &turnBasedCombatRuntime() const;
     void resetDialogueOverlayInteractionState();
     void resetSpellbookOverlayInteractionState();
     void resetCharacterOverlayInteractionState();

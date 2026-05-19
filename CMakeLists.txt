@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.22)
 
 project(OpenYAMM VERSION 0.1.0 LANGUAGES C CXX)
 
+if (WIN32)
+    enable_language(RC)
+endif()
+
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 4.0 AND NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 endif()
@@ -22,6 +26,11 @@ option(OPENYAMM_BUILD_TOOLS "Build the tools targets." OFF)
 option(OPENYAMM_BUILD_TESTS "Build the unit test target." ON)
 option(OPENYAMM_BUILD_DESKTOP_EXECUTABLE "Build the desktop OpenYAMM executable." ON)
 option(OPENYAMM_USE_SYSTEM_SDL3 "Use an installed SDL3 package instead of fetching it." OFF)
+set(OPENYAMM_RUNTIME_SHADER_PATH
+    ""
+    CACHE STRING
+    "Runtime shader path embedded in the desktop executable. Empty selects the platform default."
+)
 
 set(OPENYAMM_DEV_ASSETS_DIR
     "${CMAKE_SOURCE_DIR}/assets_dev"
@@ -76,6 +85,11 @@ endif()
 set(OPENYAMM_RELEASE_ROOT_DIR "${CMAKE_BINARY_DIR}/release")
 set(OPENYAMM_RELEASE_STAGE_DIR "${OPENYAMM_RELEASE_ROOT_DIR}/$<CONFIG>/OpenYAMM")
 set(OPENYAMM_RELEASE_ZIP_PATH "${OPENYAMM_RELEASE_ROOT_DIR}/OpenYAMM-windows-$<CONFIG>.zip")
+set(OPENYAMM_FLATPAK_OUTPUT_DIR
+    "${CMAKE_BINARY_DIR}/flatpak"
+    CACHE PATH
+    "Output directory for local Flatpak release builds."
+)
 
 if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
     add_custom_target(openyamm_windows_release_zip
@@ -89,8 +103,26 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
             "-DOPENYAMM_RELEASE_RUNTIME_SEARCH_DIRS=${OPENYAMM_RELEASE_RUNTIME_SEARCH_DIRS}"
             "-DOPENYAMM_RELEASE_SHADER_DIR=${OPENYAMM_RUNTIME_SHADER_DIR}"
             "-DOPENYAMM_RELEASE_ASSET_DEV_DIR=${OPENYAMM_DEV_ASSETS_DIR}"
+            "-DOPENYAMM_RELEASE_SETTINGS_TEMPLATE=${CMAKE_SOURCE_DIR}/settings_release.ini"
             -P "${CMAKE_SOURCE_DIR}/cmake/CreateOpenYammReleasePackage.cmake"
         DEPENDS openyamm openyamm_runtime_shaders
+        VERBATIM
+    )
+
+    add_custom_target(openyamm_flatpak_release
+        COMMAND "${CMAKE_SOURCE_DIR}/packaging/flatpak/build_flatpak.sh"
+            "--output-dir=${OPENYAMM_FLATPAK_OUTPUT_DIR}"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        USES_TERMINAL
+        VERBATIM
+    )
+
+    add_custom_target(openyamm_flatpak_clean
+        COMMAND "${CMAKE_SOURCE_DIR}/packaging/flatpak/build_flatpak.sh"
+            "--output-dir=${OPENYAMM_FLATPAK_OUTPUT_DIR}"
+            "--clean-only"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        USES_TERMINAL
         VERBATIM
     )
 endif()

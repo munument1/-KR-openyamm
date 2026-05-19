@@ -43,6 +43,22 @@ bool pointInsideRect(float x, float y, float rectX, float rectY, float rectWidth
     return x >= rectX && y >= rectY && x <= rectX + rectWidth && y <= rectY + rectHeight;
 }
 
+void suppressButtonWhileHeld(bool physicalHeld, bool &logicalHeld, bool &suppressUntilReleased)
+{
+    if (!suppressUntilReleased)
+    {
+        return;
+    }
+
+    if (physicalHeld)
+    {
+        logicalHeld = false;
+        return;
+    }
+
+    suppressUntilReleased = false;
+}
+
 } // namespace
 
 void GameInputSystem::handleSdlEvent(const SDL_Event &event)
@@ -221,6 +237,25 @@ void GameInputSystem::updateFromEngineInput(
     m_frame.pointerX = pointerX;
     m_frame.pointerY = pointerY;
 
+#if !defined(__ANDROID__)
+    SDL_Window *pMouseLookWindow = SDL_GetMouseFocus();
+
+    if (pMouseLookWindow == nullptr)
+    {
+        pMouseLookWindow = SDL_GetKeyboardFocus();
+    }
+
+    if (settings.controlScheme == ControlScheme::Modern
+        && pMouseLookWindow != nullptr
+        && SDL_GetWindowRelativeMouseMode(pMouseLookWindow)
+        && screenWidth > 0
+        && screenHeight > 0)
+    {
+        m_frame.pointerX = static_cast<float>(screenWidth) * 0.5f;
+        m_frame.pointerY = static_cast<float>(screenHeight) * 0.5f;
+    }
+#endif
+
     float relativeMouseX = 0.0f;
     float relativeMouseY = 0.0f;
     SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
@@ -228,22 +263,52 @@ void GameInputSystem::updateFromEngineInput(
     m_frame.relativeMouseX = 0.0f;
     m_frame.relativeMouseY = 0.0f;
 #else
-    m_frame.relativeMouseX = blockGameplayInput ? 0.0f : relativeMouseX;
-    m_frame.relativeMouseY = blockGameplayInput ? 0.0f : relativeMouseY;
+    const float mouseSensitivityScale = static_cast<float>(std::clamp(settings.mouseSensitivity, 0, 100)) / 100.0f;
+    m_frame.relativeMouseX = blockGameplayInput ? 0.0f : relativeMouseX * mouseSensitivityScale;
+    m_frame.relativeMouseY = blockGameplayInput ? 0.0f : relativeMouseY * mouseSensitivityScale;
 #endif
 
-    bool leftMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_LMASK) != 0;
-    const bool rightMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_RMASK) != 0;
-    const bool middleMouseButtonHeld = !blockGameplayInput && (mouseButtons & SDL_BUTTON_MMASK) != 0;
+    const bool physicalLeftMouseButtonHeld = (mouseButtons & SDL_BUTTON_LMASK) != 0;
+    const bool physicalRightMouseButtonHeld = (mouseButtons & SDL_BUTTON_RMASK) != 0;
+    const bool physicalMiddleMouseButtonHeld = (mouseButtons & SDL_BUTTON_MMASK) != 0;
+    bool leftMouseButtonHeld = !blockGameplayInput && physicalLeftMouseButtonHeld;
+    bool rightMouseButtonHeld = !blockGameplayInput && physicalRightMouseButtonHeld;
+    bool middleMouseButtonHeld = !blockGameplayInput && physicalMiddleMouseButtonHeld;
+
+    suppressButtonWhileHeld(
+        physicalLeftMouseButtonHeld,
+        leftMouseButtonHeld,
+        m_suppressLeftMouseButtonUntilReleased);
+    suppressButtonWhileHeld(
+        physicalRightMouseButtonHeld,
+        rightMouseButtonHeld,
+        m_suppressRightMouseButtonUntilReleased);
+    suppressButtonWhileHeld(
+        physicalMiddleMouseButtonHeld,
+        middleMouseButtonHeld,
+        m_suppressMiddleMouseButtonUntilReleased);
+
     std::array<bool, KeyboardActionCount> actionHeld = {};
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
-        const SDL_Scancode scancode = settings.keyboard.binding(definition.action);
-        const bool held =
-            scancode > SDL_SCANCODE_UNKNOWN
-            && scancode < SDL_SCANCODE_COUNT
-            && m_frame.keyboardHeld[scancode];
+        const InputBinding binding = settings.keyboard.binding(definition.action);
+        bool held = false;
+
+        if (binding.kind == InputBindingKind::Keyboard)
+        {
+            held =
+                binding.scancode > SDL_SCANCODE_UNKNOWN
+                && binding.scancode < SDL_SCANCODE_COUNT
+                && m_frame.keyboardHeld[binding.scancode];
+        }
+        else if (binding.kind == InputBindingKind::MouseButton)
+        {
+            held =
+                (binding.mouseButton == SDL_BUTTON_LEFT && leftMouseButtonHeld)
+                || (binding.mouseButton == SDL_BUTTON_RIGHT && rightMouseButtonHeld)
+                || (binding.mouseButton == SDL_BUTTON_MIDDLE && middleMouseButtonHeld);
+        }
 
         actionHeld[keyboardActionIndex(definition.action)] = held;
     }
@@ -255,7 +320,7 @@ void GameInputSystem::updateFromEngineInput(
         {
             actionHeld[keyboardActionIndex(action)] = true;
 
-            const SDL_Scancode scancode = settings.keyboard.binding(action);
+            const SDL_Scancode scancode = settings.keyboard.keyboardBinding(action);
             if (scancode > SDL_SCANCODE_UNKNOWN && scancode < SDL_SCANCODE_COUNT)
             {
                 m_frame.keyboardHeld[scancode] = true;
@@ -501,5 +566,15 @@ void GameInputSystem::resetRelativeMouseMotion()
     SDL_GetRelativeMouseState(nullptr, nullptr);
     m_frame.relativeMouseX = 0.0f;
     m_frame.relativeMouseY = 0.0f;
+}
+
+void GameInputSystem::suppressMouseButtonsUntilReleased()
+{
+    m_suppressLeftMouseButtonUntilReleased = true;
+    m_suppressRightMouseButtonUntilReleased = true;
+    m_suppressMiddleMouseButtonUntilReleased = true;
+    m_previousLeftMouseButtonHeld = false;
+    m_previousRightMouseButtonHeld = false;
+    m_previousMiddleMouseButtonHeld = false;
 }
 } // namespace OpenYAMM::Game

@@ -92,6 +92,7 @@ private:
     std::optional<std::string> findCachedAssetPath(const std::string &directoryPath, const std::string &fileName) const;
     std::optional<std::vector<uint8_t>> readCachedBinaryFile(const std::string &assetPath) const;
     void syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled);
+    void syncCursorToGameplayCrosshair(SDL_Window *pWindow);
     void updateItemInspectOverlayState(int width, int height, const GameplayInputFrame &input);
     void updateActorInspectOverlayState(int width, int height, const GameplayInputFrame &input);
     void updateFootstepAudio(float deltaSeconds);
@@ -122,6 +123,7 @@ private:
     int m_lastRenderWidth = 0;
     int m_lastRenderHeight = 0;
     bool m_renderGameplayUiThisFrame = true;
+    uint64_t m_lastGameplayMouseLookCursorSyncTicks = 0;
     PendingSavePreviewCaptureState m_pendingSavePreviewCapture = {};
     bool m_hasLastFootstepPosition = false;
     float m_lastFootstepX = 0.0f;

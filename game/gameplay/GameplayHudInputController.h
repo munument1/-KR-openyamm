@@ -34,6 +34,11 @@ struct GameplayHudButtonInputConfig
 class GameplayHudInputController
 {
 public:
+    static void activatePartyPortrait(
+        GameplayScreenRuntime &context,
+        size_t memberIndex,
+        const GameplayPartyPortraitInputConfig &config);
+
     static void handlePartyPortraitInput(
         GameplayScreenRuntime &context,
         const GameplayPartyPortraitInputConfig &config);

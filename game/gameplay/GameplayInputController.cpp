@@ -1,11 +1,13 @@
 #include "game/gameplay/GameplayInputController.h"
 
 #include "game/gameplay/GameplayActionController.h"
+#include "game/app/GameSettings.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayScreenController.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GameplaySpellActionController.h"
 #include "game/gameplay/GameplaySpellService.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 
 #include <SDL3/SDL.h>
 
@@ -22,7 +24,7 @@ bool isActionNewlyPressed(GameplayScreenRuntime &context, KeyboardAction action,
         return false;
     }
 
-    const SDL_Scancode scancode = context.mutableSettings().keyboard.binding(action);
+    const SDL_Scancode scancode = context.mutableSettings().keyboard.keyboardBinding(action);
 
     if (scancode <= SDL_SCANCODE_UNKNOWN || scancode >= SDL_SCANCODE_COUNT)
     {
@@ -222,6 +224,7 @@ void GameplayInputController::handleStandardUiHotkeys(
     if (config.pKeyboardState != nullptr)
     {
         const bool escapePressed = config.pKeyboardState[SDL_SCANCODE_ESCAPE];
+        const bool turnBasedActive = context.turnBasedCombatRuntime().active();
 
         if (canToggleMenu)
         {
@@ -239,7 +242,23 @@ void GameplayInputController::handleStandardUiHotkeys(
             }
         }
 
-        if (canOpenRestFromGameplay)
+        if (canOpenRestFromGameplay && turnBasedActive)
+        {
+            if (isActionHeld(context, KeyboardAction::Rest, config.pInputFrame, config.pKeyboardState))
+            {
+                if (!context.interactionState().restToggleLatch)
+                {
+                    context.setStatusBarEvent("You can't rest in turn-based mode!");
+                    context.playCantRestHereReaction();
+                    context.interactionState().restToggleLatch = true;
+                }
+            }
+            else
+            {
+                context.interactionState().restToggleLatch = false;
+            }
+        }
+        else if (canOpenRestFromGameplay)
         {
             if (isActionHeld(context, KeyboardAction::Rest, config.pInputFrame, config.pKeyboardState))
             {
@@ -406,6 +425,7 @@ void GameplayInputController::handleSharedGameplayHotkeys(
     {
         context.interactionState().alwaysRunToggleLatch = false;
         context.interactionState().adventurersInnToggleLatch = false;
+        context.interactionState().turnBasedToggleLatch = false;
         return;
     }
 
@@ -429,6 +449,38 @@ void GameplayInputController::handleSharedGameplayHotkeys(
     else
     {
         context.interactionState().alwaysRunToggleLatch = false;
+    }
+
+    const bool combatPressed =
+        config.canToggleAlwaysRun
+        && isActionHeld(context, KeyboardAction::Combat, config.pInputFrame, config.pKeyboardState);
+    if (combatPressed)
+    {
+        if (!context.interactionState().turnBasedToggleLatch)
+        {
+            Party *pParty = context.party();
+
+            if (pParty != nullptr)
+            {
+                if (context.turnBasedCombatRuntime().toggle(*pParty, context.worldRuntime()))
+                {
+                    context.setStatusBarEvent(
+                        context.turnBasedCombatRuntime().active()
+                            ? "Turn-based mode"
+                            : "Realtime mode");
+                }
+                else
+                {
+                    context.setStatusBarEvent("Cannot leave turn-based mode now.");
+                }
+            }
+
+            context.interactionState().turnBasedToggleLatch = true;
+        }
+    }
+    else
+    {
+        context.interactionState().turnBasedToggleLatch = false;
     }
 
     if (config.canToggleAdventurersInn && config.pKeyboardState[SDL_SCANCODE_P])
@@ -488,7 +540,8 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
         context.currentHudScreenState() != GameplayHudScreenState::Gameplay
         || config.isReadableScrollOverlayActive;
     const bool gameplayMouseLookAllowed =
-        GameplayScreenController::canEnableGameplayMouseLook(
+        context.settingsSnapshot().controlScheme == ControlScheme::Modern
+        && GameplayScreenController::canEnableGameplayMouseLook(
             context,
             GameplayMouseLookEnableConfig{
                 .hasPendingSpellTarget = hasPendingSpellCast,
@@ -620,6 +673,23 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
 
     if (canRunStandardGameplayAction && config.processQuickCast)
     {
+        if (context.turnBasedCombatRuntime().active()
+            && isActionNewlyPressed(context, KeyboardAction::Pass, config.pInputFrame, config.pKeyboardState))
+        {
+            Party *pParty = context.party();
+            if (pParty != nullptr)
+            {
+                if (context.turnBasedCombatRuntime().stage() == TurnBasedCombatStage::Movement)
+                {
+                    context.turnBasedCombatRuntime().finishMovementPhase();
+                }
+                else if (context.turnBasedCombatRuntime().canBeginPlayerAction(*pParty))
+                {
+                    context.turnBasedCombatRuntime().applyPlayerAction(*pParty, pParty->activeMemberIndex(), 0.0f);
+                }
+            }
+        }
+
         const bool isQuickCastPressed =
             isActionHeld(context, KeyboardAction::CastReady, config.pInputFrame, config.pKeyboardState);
 
@@ -636,8 +706,23 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
         {
             GameplayActionController::QuickCastActionResult quickCastResult =
                 GameplayActionController::QuickCastActionResult::Failed;
+            bool quickCastHandledByTurnBasedMode = false;
 
-            if (config.canBeginQuickCast && context.worldRuntime() != nullptr)
+            if (context.turnBasedCombatRuntime().active())
+            {
+                Party *pParty = context.party();
+                if (context.turnBasedCombatRuntime().stage() == TurnBasedCombatStage::Movement)
+                {
+                    context.turnBasedCombatRuntime().finishMovementPhase();
+                    quickCastHandledByTurnBasedMode = true;
+                }
+                else if (pParty == nullptr || !context.turnBasedCombatRuntime().canBeginPlayerAction(*pParty))
+                {
+                    quickCastHandledByTurnBasedMode = true;
+                }
+            }
+
+            if (!quickCastHandledByTurnBasedMode && config.canBeginQuickCast && context.worldRuntime() != nullptr)
             {
                 const GameplaySpellActionController::SpellActionResult spellActionResult =
                     GameplaySpellActionController::tryBeginQuickSpellCast(

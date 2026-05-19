@@ -24,6 +24,7 @@ public:
     const GameplayInputFrame &frame() const;
     bool consumeMobileDebugConsoleToggleRequested();
     void resetRelativeMouseMotion();
+    void suppressMouseButtonsUntilReleased();
 
 private:
     enum class MobileTouchRole
@@ -73,5 +74,8 @@ private:
     bool m_previousLeftMouseButtonHeld = false;
     bool m_previousRightMouseButtonHeld = false;
     bool m_previousMiddleMouseButtonHeld = false;
+    bool m_suppressLeftMouseButtonUntilReleased = false;
+    bool m_suppressRightMouseButtonUntilReleased = false;
+    bool m_suppressMiddleMouseButtonUntilReleased = false;
 };
 } // namespace OpenYAMM::Game

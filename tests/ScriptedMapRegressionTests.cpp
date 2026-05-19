@@ -5973,6 +5973,55 @@ TEST_CASE("mm6 New Sorpigal overlay repairs missing starting letter state withou
     CHECK_EQ(progressedParty.inventoryItemCount(2125), 0);
 }
 
+TEST_CASE("mm6 and mm8 initial cutscene overlays queue intro movies once")
+{
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "oute3", "oute3_intro", error);
+
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        CHECK(localEventProgram->hasEvent(65030));
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["OpenYAMM.WorldIntro.MM6"], 1);
+        REQUIRE(runtimeState.pendingMovie.has_value());
+        CHECK_EQ(runtimeState.pendingMovie->movieName, "6intro");
+        CHECK(runtimeState.pendingMovie->restoreAfterPlayback);
+
+        runtimeState.pendingMovie.reset();
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_FALSE(runtimeState.pendingMovie.has_value());
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "out01", "out01_intro", error);
+
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        CHECK(localEventProgram->hasEvent(65030));
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_EQ(runtimeState.namedGlobalVars["OpenYAMM.WorldIntro.MM8"], 1);
+        REQUIRE(runtimeState.pendingMovie.has_value());
+        CHECK_EQ(runtimeState.pendingMovie->movieName, "intro");
+        CHECK(runtimeState.pendingMovie->restoreAfterPlayback);
+
+        runtimeState.pendingMovie.reset();
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, runtimeState, &party));
+        CHECK_FALSE(runtimeState.pendingMovie.has_value());
+    }
+}
+
 TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
 {
     {

@@ -167,6 +167,21 @@ bool isMetalImpactSound(OpenYAMM::Game::SoundId soundId)
 }
 }
 
+TEST_CASE("background music pause remains active across cutscene track requests")
+{
+    OpenYAMM::Game::GameAudioSystem audioSystem;
+
+    CHECK_FALSE(audioSystem.isBackgroundMusicPaused());
+    audioSystem.pauseBackgroundMusic();
+    CHECK(audioSystem.isBackgroundMusicPaused());
+
+    audioSystem.setBackgroundMusicTrack(3);
+    CHECK(audioSystem.isBackgroundMusicPaused());
+
+    audioSystem.resumeBackgroundMusic();
+    CHECK_FALSE(audioSystem.isBackgroundMusicPaused());
+}
+
 TEST_CASE("spellbook speech audio resolves for success failure and store closed")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

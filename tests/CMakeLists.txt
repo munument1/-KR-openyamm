@@ -38,6 +38,7 @@ add_executable(openyamm_unit_tests
     SpellbookUiLayoutTests.cpp
     TableRegressionTests.cpp
     TextTableTests.cpp
+    TurnBasedCombatRuntimeTests.cpp
     GameplayScreenRuntimeTestStubs.cpp
     ../game/app/GameSettings.cpp
     ../game/app/KeyboardBindings.cpp
@@ -82,6 +83,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/ReputationRuntime.cpp
     ../game/gameplay/StealingRuntime.cpp
     ../game/gameplay/GameplayProjectileService.cpp
+    ../game/gameplay/TurnBasedCombatRuntime.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
     ../game/gameplay/SavePreviewImage.cpp
     ../game/maps/MapDeltaData.cpp

@@ -1,5 +1,6 @@
 #include "game/outdoor/OutdoorGameplayInputController.h"
 
+#include "game/app/GameSettings.h"
 #include "game/app/GameSession.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -29,7 +30,10 @@ void OutdoorGameplayInputController::updateCameraFromInput(
     view.m_framesPerSecond = (view.m_framesPerSecond == 0.0f)
         ? instantaneousFramesPerSecond
         : (view.m_framesPerSecond * 0.9f + instantaneousFramesPerSecond * 0.1f);
-    deltaSeconds = std::min(deltaSeconds, 0.05f);
+    if (!input.turnBasedMovementStep)
+    {
+        deltaSeconds = std::min(deltaSeconds, 0.05f);
+    }
 
     const bool *pKeyboardState = input.keyboardState();
 
@@ -69,6 +73,7 @@ void OutdoorGameplayInputController::updateCameraFromInput(
         overlayContext.buffInspectOverlayReadOnly().active
         || overlayContext.characterDetailOverlayReadOnly().active;
     const bool wasRotatingCamera = view.m_isRotatingCamera;
+    const bool classicControls = overlayContext.settingsSnapshot().controlScheme == ControlScheme::Classic;
 
     if (gameplayMouseLookState.mouseLookActive && !hasPendingSpellCast && !blockCameraRotation)
     {
@@ -105,8 +110,10 @@ void OutdoorGameplayInputController::updateCameraFromInput(
 
     const bool moveForwardPressed = input.action(KeyboardAction::Forward).held;
     const bool moveBackwardPressed = input.action(KeyboardAction::Backward).held;
-    const bool strafeLeftPressed = input.action(KeyboardAction::Left).held;
-    const bool strafeRightPressed = input.action(KeyboardAction::Right).held;
+    const bool leftPressed = input.action(KeyboardAction::Left).held;
+    const bool rightPressed = input.action(KeyboardAction::Right).held;
+    const bool strafeLeftPressed = !classicControls && leftPressed;
+    const bool strafeRightPressed = !classicControls && rightPressed;
     const bool jumpPressed = input.action(KeyboardAction::Jump).held;
     const bool flyUpPressed = input.action(KeyboardAction::FlyUp).held;
     const bool flyDownPressed = input.action(KeyboardAction::FlyDown).held;
@@ -114,11 +121,27 @@ void OutdoorGameplayInputController::updateCameraFromInput(
     const bool lookDownPressed = input.action(KeyboardAction::LookDown).held;
     const bool centerViewPressed = input.action(KeyboardAction::CenterView).held;
 
+    const bool allowCameraMovementInput = !hasActiveLootView && !hasPendingSpellCast && !gameplayMouseLookState.cursorModeActive;
+    const float keyboardYawSpeed = 1.75f;
+
+    if (classicControls && allowCameraMovementInput)
+    {
+        if (leftPressed)
+        {
+            view.m_cameraYawRadians += keyboardYawSpeed * deltaSeconds;
+        }
+
+        if (rightPressed)
+        {
+            view.m_cameraYawRadians -= keyboardYawSpeed * deltaSeconds;
+        }
+    }
+
     if (view.m_outdoorMapData)
     {
         if (view.m_pOutdoorPartyRuntime)
         {
-            if (!hasActiveLootView && !hasPendingSpellCast && !gameplayMouseLookState.cursorModeActive)
+            if (allowCameraMovementInput)
             {
                 const OutdoorMovementInput movementInput = {
                     moveForwardPressed,
@@ -131,7 +154,8 @@ void OutdoorGameplayInputController::updateCameraFromInput(
                     runWalkModifier,
                     turboSpeed,
                     view.m_cameraYawRadians,
-                    view.m_cameraPitchRadians
+                    view.m_cameraPitchRadians,
+                    !classicControls
                 };
                 if (view.m_pOutdoorSceneRuntime != nullptr)
                 {

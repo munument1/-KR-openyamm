@@ -45,6 +45,7 @@ public:
         const std::string &videoDirectory);
     void queueBackgroundPreload(const std::string &videoStem);
     void updateBackgroundPreloads(const Engine::AssetFileSystem &assetFileSystem);
+    void setAudioVolume(float volume);
     void update(float deltaSeconds);
     bool hasActiveFrame() const;
     bool hasFinishedPlayback() const;
@@ -105,6 +106,7 @@ private:
     size_t m_nextAudioSampleIndex;
     uint64_t m_totalQueuedAudioFrames;
     bool m_loopPlayback;
+    float m_audioVolume;
     std::unordered_map<std::string, std::shared_ptr<DecodedClip>> m_cachedClipsByKey;
     std::vector<std::string> m_pendingBackgroundPreloadStems;
     std::optional<BackgroundPreloadJob> m_backgroundPreloadJob;

@@ -570,6 +570,7 @@ struct GameplayOverlayInteractionState
     bool restToggleLatch = false;
     bool restClickLatch = false;
     bool alwaysRunToggleLatch = false;
+    bool turnBasedToggleLatch = false;
     bool adventurersInnToggleLatch = false;
     GameplayRestPointerTarget restPressedTarget = {};
     bool gameplayHudClickLatch = false;

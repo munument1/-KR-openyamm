@@ -1836,6 +1836,14 @@ void GameplayUiRuntime::updateHouseVideoBackgroundPreloads()
     }
 }
 
+void GameplayUiRuntime::setHouseVideoAudioVolume(float volume)
+{
+    if (initializeHouseVideoPlayer())
+    {
+        m_houseVideoPlayer.setAudioVolume(volume);
+    }
+}
+
 void GameplayUiRuntime::updateHouseVideoPlayback(float deltaSeconds)
 {
     if (m_houseVideoPlayerInitialized)

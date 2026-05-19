@@ -4,6 +4,7 @@
 #include "game/gameplay/GameplayFxService.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/StringUtils.h"
 #include "game/tables/MergedBaseTables.h"
@@ -29,6 +30,8 @@ constexpr int EventNpcPortraitNativeWidth = 63;
 constexpr int EventNpcPortraitNativeHeight = 73;
 constexpr float EventNpcPortraitUvCropX = 2.0f;
 constexpr float EventNpcPortraitUvCropY = 2.0f;
+constexpr float TurnBasedIndicatorX = 394.0f;
+constexpr float TurnBasedIndicatorY = 288.0f;
 
 enum class PortraitAggroIndicator
 {
@@ -67,6 +70,30 @@ PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &context)
     input.mouseY = pInputFrame->pointerY;
     input.isLeftMousePressed = pInputFrame->leftMouseButton.held;
     return input;
+}
+
+std::string turnBasedIndicatorAnimationName(const TurnBasedCombatRuntime &turnBasedRuntime)
+{
+    if (!turnBasedRuntime.active())
+    {
+        return {};
+    }
+
+    switch (turnBasedRuntime.stage())
+    {
+        case TurnBasedCombatStage::Attack:
+            return "turnstop";
+        case TurnBasedCombatStage::Movement:
+        {
+            const int spentMovementSteps = std::clamp(5 - turnBasedRuntime.movementActionPoints() / 26, 0, 4);
+            return "turn" + std::to_string(spentMovementSteps);
+        }
+        case TurnBasedCombatStage::Wait:
+            return "turnhour";
+        case TurnBasedCombatStage::None:
+        default:
+            return {};
+    }
 }
 
 std::string normalizeGameplayLayoutRoleIdFromNormalized(const std::string &normalizedId);
@@ -1509,6 +1536,35 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
         }
     }
 #endif
+
+    if (hudScreenState == GameplayHudScreenState::Gameplay)
+    {
+        const std::string turnBasedIndicatorAnimation =
+            turnBasedIndicatorAnimationName(context.turnBasedCombatRuntime());
+
+        if (!turnBasedIndicatorAnimation.empty())
+        {
+            const std::optional<std::string> turnBasedIndicatorTextureName =
+                context.gameplayUiRuntime().iconAnimationFrameTextureName(
+                    turnBasedIndicatorAnimation,
+                    context.animationTicks());
+            const std::optional<GameplayHudTextureHandle> turnBasedIndicator =
+                turnBasedIndicatorTextureName
+                    ? context.gameplayUiRuntime().ensureHudTextureLoaded(*turnBasedIndicatorTextureName)
+                    : std::nullopt;
+
+            if (turnBasedIndicator)
+            {
+                submitQuad(
+                    queuedHudQuads,
+                    *turnBasedIndicator,
+                    TurnBasedIndicatorX * uiScale,
+                    TurnBasedIndicatorY * uiScale,
+                    turnBasedIndicator->width * uiScale,
+                    turnBasedIndicator->height * uiScale);
+            }
+        }
+    }
 
     flushQueuedHudQuads();
 }

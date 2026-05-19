@@ -166,6 +166,16 @@ public:
         return m_radiusQueryActorIndices;
     }
 
+    void setTurnBasedActorActionInProgress(bool inProgress)
+    {
+        m_turnBasedActorActionInProgress = inProgress;
+    }
+
+    size_t stopTurnBasedActorMovementCount() const
+    {
+        return m_stopTurnBasedActorMovementCount;
+    }
+
     bool syncSpellMovementStatesCalled() const
     {
         return m_syncSpellMovementStatesCalled;
@@ -291,6 +301,16 @@ public:
     void updateActorAi(float deltaSeconds) override
     {
         (void)deltaSeconds;
+    }
+
+    bool turnBasedActorActionInProgress() const override
+    {
+        return m_turnBasedActorActionInProgress;
+    }
+
+    void stopTurnBasedActorMovement() override
+    {
+        ++m_stopTurnBasedActorMovementCount;
     }
 
     void updateWorld(float deltaSeconds) override
@@ -931,5 +951,7 @@ private:
     float m_partyJumpVerticalVelocity = 0.0f;
     float m_partyJumpLift = 1.0f;
     bool m_alwaysRunEnabled = false;
+    bool m_turnBasedActorActionInProgress = false;
+    size_t m_stopTurnBasedActorMovementCount = 0;
 };
 }

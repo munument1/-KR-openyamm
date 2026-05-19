@@ -4,6 +4,7 @@
 #include "game/tables/ItemTable.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstdlib>
 #include <filesystem>
@@ -93,6 +94,20 @@ std::mutex &gameplayTraceOutputMutex()
     return mutex;
 }
 
+struct GameplayTraceState
+{
+    std::atomic_bool enabled = false;
+    bool append = true;
+    std::string filePath;
+    std::unique_ptr<std::ofstream> pOutput;
+};
+
+GameplayTraceState &gameplayTraceState()
+{
+    static GameplayTraceState state;
+    return state;
+}
+
 struct CombatTraceState
 {
     bool enabled = false;
@@ -120,7 +135,7 @@ bool gameplayDebugTraceEnabled()
         environmentFlagEnabled("OPENYAMM_GAMEPLAY_TRACE")
         || environmentFlagEnabled("OPENYAMM_ROUTE_TRACE")
         || !environmentString("OPENYAMM_GAMEPLAY_TRACE_FILE").empty();
-    return enabled;
+    return enabled || gameplayTraceState().enabled.load();
 }
 
 bool gameplayDebugTraceSuppressed()
@@ -134,11 +149,61 @@ void gameplayDebugTraceWrite(const std::string &message)
     std::lock_guard<std::mutex> lock(gameplayTraceOutputMutex());
     std::cout << line << '\n';
 
+    GameplayTraceState &state = gameplayTraceState();
+    if (state.enabled.load() && state.pOutput != nullptr)
+    {
+        *state.pOutput << line << '\n';
+        state.pOutput->flush();
+    }
+
     if (std::ofstream *pOutput = gameplayTraceFileStream())
     {
         *pOutput << line << '\n';
         pOutput->flush();
     }
+}
+
+void configureGameplayDebugTrace(bool enabled, const std::string &filePath, bool append)
+{
+    std::lock_guard<std::mutex> lock(gameplayTraceOutputMutex());
+    GameplayTraceState &state = gameplayTraceState();
+    state.enabled.store(false);
+    state.append = append;
+    state.filePath = filePath;
+    state.pOutput.reset();
+
+    if (!enabled || state.filePath.empty())
+    {
+        return;
+    }
+
+    const std::filesystem::path path(state.filePath);
+    const std::filesystem::path parentPath = path.parent_path();
+
+    if (!parentPath.empty())
+    {
+        std::error_code errorCode;
+        std::filesystem::create_directories(parentPath, errorCode);
+
+        if (errorCode)
+        {
+            std::cerr << "GameplayTrace: failed to create directory \"" << parentPath.string()
+                << "\": " << errorCode.message() << '\n';
+            return;
+        }
+    }
+
+    const std::ios::openmode mode = std::ios::out | (state.append ? std::ios::app : std::ios::trunc);
+    state.pOutput = std::make_unique<std::ofstream>(state.filePath, mode);
+
+    if (!*state.pOutput)
+    {
+        std::cerr << "GameplayTrace: failed to open trace file \"" << state.filePath << "\"\n";
+        state.pOutput.reset();
+        return;
+    }
+
+    state.enabled.store(true);
 }
 
 void configureGameplayCombatTrace(bool enabled, const std::string &filePath, bool append)

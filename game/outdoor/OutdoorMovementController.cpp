@@ -585,6 +585,36 @@ bool rangesOverlap(float minA, float maxA, float minB, float maxB)
     return !(maxA < minB || minA > maxB);
 }
 
+bool sphereStartsInsideCylinderOverlap(
+    const bx::Vec3 &centerLo,
+    float cylinderRadius,
+    float cylinderHeight,
+    const bx::Vec3 &position,
+    float sphereRadius)
+{
+    const float combinedRadius = cylinderRadius + sphereRadius;
+
+    if (combinedRadius <= 0.0f)
+    {
+        return false;
+    }
+
+    const float deltaX = position.x - centerLo.x;
+    const float deltaY = position.y - centerLo.y;
+    const float distanceSquared = deltaX * deltaX + deltaY * deltaY;
+
+    if (distanceSquared >= combinedRadius * combinedRadius)
+    {
+        return false;
+    }
+
+    return rangesOverlap(
+        position.z - sphereRadius,
+        position.z + sphereRadius,
+        centerLo.z,
+        centerLo.z + cylinderHeight);
+}
+
 bool actorMovementStartsInsideActorOverlap(
     const bx::Vec3 &bodyPosition,
     float bodyRadius,
@@ -948,6 +978,11 @@ void collideOutdoorWithDecorations(
             float moveDistance = collisionState.adjustedMoveDistance;
             bx::Vec3 collisionPoint = {0.0f, 0.0f, 0.0f};
 
+            if (sphereStartsInsideCylinderOverlap(centerLo, colliderRadius, colliderHeight, position, radius))
+            {
+                continue;
+            }
+
             if (!collideSphereWithCylinder(
                     centerLo,
                     colliderRadius,
@@ -1183,6 +1218,11 @@ void collideOutdoorWithSpriteObjects(
 
             float moveDistance = collisionState.adjustedMoveDistance;
             bx::Vec3 collisionPoint = {0.0f, 0.0f, 0.0f};
+
+            if (sphereStartsInsideCylinderOverlap(centerLo, colliderRadius, colliderHeight, position, radius))
+            {
+                return;
+            }
 
             if (!collideSphereWithCylinder(
                     centerLo,

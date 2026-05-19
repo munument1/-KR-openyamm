@@ -133,6 +133,87 @@ bool pointerInsideHudElement(
 }
 }
 
+void GameplayHudInputController::activatePartyPortrait(
+    GameplayScreenRuntime &context,
+    size_t memberIndex,
+    const GameplayPartyPortraitInputConfig &config)
+{
+    if (config.onPortraitActivated && config.onPortraitActivated(memberIndex))
+    {
+        return;
+    }
+
+    if (context.heldInventoryItem().active)
+    {
+        const bool switchCharacterOnFailedPlacement =
+            context.characterScreenReadOnly().open
+            && context.characterScreenReadOnly().page == GameplayUiController::CharacterPage::Inventory;
+
+        if (context.tryAutoPlaceHeldInventoryItemOnPartyMember(memberIndex, !switchCharacterOnFailedPlacement))
+        {
+            context.interactionState().lastPartyPortraitClickedIndex = std::nullopt;
+        }
+        else if (switchCharacterOnFailedPlacement)
+        {
+            GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+            characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
+            characterScreen.sourceIndex = memberIndex;
+            context.trySelectPartyMember(memberIndex, config.requireGameplayReady);
+        }
+
+        return;
+    }
+
+    const uint64_t nowTicks = SDL_GetTicks();
+    const bool isGameplayInventoryDoubleClick =
+        config.requireGameplayReady
+        && context.interactionState().lastPartyPortraitClickedIndex.has_value()
+        && *context.interactionState().lastPartyPortraitClickedIndex == memberIndex
+        && nowTicks >= context.interactionState().lastPartyPortraitClickTicks
+        && nowTicks - context.interactionState().lastPartyPortraitClickTicks <= PartyPortraitDoubleClickWindowMs;
+    const bool isChestInventoryDoubleClick =
+        config.hasActiveLootView
+        && context.interactionState().lastPartyPortraitClickedIndex.has_value()
+        && *context.interactionState().lastPartyPortraitClickedIndex == memberIndex
+        && nowTicks >= context.interactionState().lastPartyPortraitClickTicks
+        && nowTicks - context.interactionState().lastPartyPortraitClickTicks <= PartyPortraitDoubleClickWindowMs;
+
+    if (context.characterScreenReadOnly().open && !context.isAdventurersInnCharacterSourceActive())
+    {
+        GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+        characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
+        characterScreen.sourceIndex = memberIndex;
+        context.trySelectPartyMember(memberIndex, config.requireGameplayReady);
+        context.interactionState().lastPartyPortraitClickTicks = nowTicks;
+        context.interactionState().lastPartyPortraitClickedIndex = memberIndex;
+        return;
+    }
+
+    const bool selected = context.trySelectPartyMember(memberIndex, config.requireGameplayReady);
+
+    if (!selected && !isGameplayInventoryDoubleClick)
+    {
+        return;
+    }
+
+    if (isGameplayInventoryDoubleClick)
+    {
+        GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
+        characterScreen = {};
+        characterScreen.open = true;
+        characterScreen.page = GameplayUiController::CharacterPage::Inventory;
+        characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
+        characterScreen.sourceIndex = memberIndex;
+    }
+    else if (isChestInventoryDoubleClick)
+    {
+        context.openChestTransferInventoryOverlay();
+    }
+
+    context.interactionState().lastPartyPortraitClickTicks = nowTicks;
+    context.interactionState().lastPartyPortraitClickedIndex = memberIndex;
+}
+
 void GameplayHudInputController::handlePartyPortraitInput(
     GameplayScreenRuntime &context,
     const GameplayPartyPortraitInputConfig &config)
@@ -166,80 +247,7 @@ void GameplayHudInputController::handlePartyPortraitInput(
                 return;
             }
 
-            if (config.onPortraitActivated && config.onPortraitActivated(*memberIndex))
-            {
-                return;
-            }
-
-            if (context.heldInventoryItem().active)
-            {
-                const bool switchCharacterOnFailedPlacement =
-                    context.characterScreenReadOnly().open
-                    && context.characterScreenReadOnly().page == GameplayUiController::CharacterPage::Inventory;
-
-                if (context.tryAutoPlaceHeldInventoryItemOnPartyMember(*memberIndex, !switchCharacterOnFailedPlacement))
-                {
-                    context.interactionState().lastPartyPortraitClickedIndex = std::nullopt;
-                }
-                else if (switchCharacterOnFailedPlacement)
-                {
-                    GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
-                    characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
-                    characterScreen.sourceIndex = *memberIndex;
-                    context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
-                }
-
-                return;
-            }
-
-            const uint64_t nowTicks = SDL_GetTicks();
-            const bool isGameplayInventoryDoubleClick =
-                config.requireGameplayReady
-                && context.interactionState().lastPartyPortraitClickedIndex.has_value()
-                && *context.interactionState().lastPartyPortraitClickedIndex == *memberIndex
-                && nowTicks >= context.interactionState().lastPartyPortraitClickTicks
-                && nowTicks - context.interactionState().lastPartyPortraitClickTicks <= PartyPortraitDoubleClickWindowMs;
-            const bool isChestInventoryDoubleClick =
-                config.hasActiveLootView
-                && context.interactionState().lastPartyPortraitClickedIndex.has_value()
-                && *context.interactionState().lastPartyPortraitClickedIndex == *memberIndex
-                && nowTicks >= context.interactionState().lastPartyPortraitClickTicks
-                && nowTicks - context.interactionState().lastPartyPortraitClickTicks <= PartyPortraitDoubleClickWindowMs;
-
-            if (context.characterScreenReadOnly().open && !context.isAdventurersInnCharacterSourceActive())
-            {
-                GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
-                characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
-                characterScreen.sourceIndex = *memberIndex;
-                context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
-                context.interactionState().lastPartyPortraitClickTicks = nowTicks;
-                context.interactionState().lastPartyPortraitClickedIndex = *memberIndex;
-                return;
-            }
-
-            const bool selected = context.trySelectPartyMember(*memberIndex, config.requireGameplayReady);
-
-            if (!selected && !isGameplayInventoryDoubleClick)
-            {
-                return;
-            }
-
-            if (isGameplayInventoryDoubleClick)
-            {
-                GameplayUiController::CharacterScreenState &characterScreen = context.characterScreen();
-                characterScreen = {};
-                characterScreen.open = true;
-                characterScreen.page = GameplayUiController::CharacterPage::Inventory;
-                characterScreen.source = GameplayUiController::CharacterScreenSource::Party;
-                characterScreen.sourceIndex = *memberIndex;
-            }
-            else if (isChestInventoryDoubleClick)
-            {
-                context.openChestTransferInventoryOverlay();
-            }
-
-            context.interactionState().lastPartyPortraitClickTicks = nowTicks;
-            context.interactionState().lastPartyPortraitClickedIndex = *memberIndex;
+            GameplayHudInputController::activatePartyPortrait(context, *memberIndex, config);
         });
 }
 

@@ -3535,8 +3535,8 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             valueColor,
             std::vector<std::string>{
                 highlighted
-                    ? std::string("Press Key")
-                    : keyboardBindingDisplayName(settings.keyboard.binding(definition.action))
+                    ? std::string("Press Input")
+                    : inputBindingDisplayName(settings.keyboard.binding(definition.action))
             },
             valueX + keyboardLayout->textPaddingX,
             textY,

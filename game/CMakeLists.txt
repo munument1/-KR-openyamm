@@ -76,6 +76,7 @@ add_library(openyamm_game STATIC
     gameplay/SavePreviewImage.cpp
     gameplay/StoryTextFormatter.cpp
     gameplay/TreasureRuntime.cpp
+    gameplay/TurnBasedCombatRuntime.cpp
     pathfinding/ActorPathRuntime.cpp
     pathfinding/PathMap.cpp
     pathfinding/PathPlanner.cpp
@@ -211,7 +212,9 @@ set_property(
         ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
 )
 
-if (ANDROID OR WIN32)
+if (NOT OPENYAMM_RUNTIME_SHADER_PATH STREQUAL "")
+    set(openyammBgfxShaderDir "${OPENYAMM_RUNTIME_SHADER_PATH}")
+elseif (ANDROID OR WIN32)
     set(openyammBgfxShaderDir "runtime/shaders")
 else()
     set(openyammBgfxShaderDir "${OPENYAMM_RUNTIME_SHADER_DIR}")
@@ -263,6 +266,16 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
     target_compile_features(openyamm PRIVATE cxx_std_20)
 
     if (WIN32)
+        file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/packaging/windows/openyamm.ico" openyammWindowsIconPath)
+        configure_file(
+            "${CMAKE_SOURCE_DIR}/packaging/windows/openyamm.rc.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/openyamm.rc"
+            @ONLY
+        )
+        target_sources(openyamm
+            PRIVATE
+                "${CMAKE_CURRENT_BINARY_DIR}/openyamm.rc"
+        )
         set_target_properties(openyamm
             PROPERTIES
                 WIN32_EXECUTABLE "$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>"
@@ -273,6 +286,22 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
         target_link_options(openyamm
             PRIVATE
                 "-Wl,-rpath,$ORIGIN/../_deps/sdl3-build"
+        )
+    endif()
+
+    install(TARGETS openyamm
+        RUNTIME DESTINATION bin
+    )
+
+    install(DIRECTORY "${OPENYAMM_RUNTIME_SHADER_DIR}/"
+        DESTINATION "share/openyamm/runtime/shaders"
+    )
+
+    if (IS_DIRECTORY "${CMAKE_SOURCE_DIR}/assets")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/"
+            DESTINATION "share/openyamm/assets"
+            FILES_MATCHING
+                PATTERN "*.zip"
         )
     endif()
 endif()

@@ -1,5 +1,6 @@
 #include "game/app/GameSession.h"
 
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayActionController.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
@@ -25,6 +26,49 @@ uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
 uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
 {
     return nanoseconds / 1000ULL;
+}
+
+const char *turnBasedStageName(TurnBasedCombatStage stage)
+{
+    switch (stage)
+    {
+        case TurnBasedCombatStage::None:
+            return "none";
+        case TurnBasedCombatStage::Wait:
+            return "wait";
+        case TurnBasedCombatStage::Attack:
+            return "attack";
+        case TurnBasedCombatStage::Movement:
+            return "movement";
+        default:
+            return "unknown";
+    }
+}
+
+void synchronizeTurnBasedPendingWorldActions(
+    TurnBasedCombatRuntime &turnBasedCombatRuntime,
+    IGameplayWorldRuntime *pWorldRuntime,
+    size_t &syncedPendingWorldActions)
+{
+    if (!turnBasedCombatRuntime.active() || pWorldRuntime == nullptr)
+    {
+        syncedPendingWorldActions = 0;
+        return;
+    }
+
+    const size_t pendingWorldActions = pWorldRuntime->turnBasedPendingWorldActionCount();
+
+    while (syncedPendingWorldActions < pendingWorldActions)
+    {
+        turnBasedCombatRuntime.registerPendingAction();
+        ++syncedPendingWorldActions;
+    }
+
+    while (syncedPendingWorldActions > pendingWorldActions)
+    {
+        turnBasedCombatRuntime.resolvePendingAction();
+        --syncedPendingWorldActions;
+    }
 }
 
 void pulseGameplayAction(GameplayInputFrame &input, KeyboardAction action)
@@ -66,9 +110,15 @@ void migrateSavedRuntimeFollowersToParty(
 
 void synchronizeGameplayActiveMemberToReadyMember(
     GameplayScreenRuntime &screenRuntime,
-    const GameplayScreenState &screenState)
+    const GameplayScreenState &screenState,
+    const TurnBasedCombatRuntime &turnBasedCombatRuntime)
 {
     if (screenRuntime.currentHudScreenState() != GameplayHudScreenState::Gameplay)
+    {
+        return;
+    }
+
+    if (turnBasedCombatRuntime.active())
     {
         return;
     }
@@ -140,6 +190,9 @@ void GameSession::clear()
     m_gameplayCombatController.clear();
     m_gameplayProjectileService.clear();
     m_gameplayFxService.clear();
+    m_turnBasedCombatRuntime.reset();
+    m_turnBasedPendingWorldActions = 0;
+    m_turnBasedFrameTraceState = {};
     m_gameplayUiRuntime.clear();
     m_gameplayScreenRuntime.clearTransientBindings();
     m_overlayInteractionState = {};
@@ -312,6 +365,16 @@ const GameplaySpellService &GameSession::gameplaySpellService() const
     return m_gameplaySpellService;
 }
 
+TurnBasedCombatRuntime &GameSession::turnBasedCombatRuntime()
+{
+    return m_turnBasedCombatRuntime;
+}
+
+const TurnBasedCombatRuntime &GameSession::turnBasedCombatRuntime() const
+{
+    return m_turnBasedCombatRuntime;
+}
+
 GameplayScreenRuntime &GameSession::gameplayScreenRuntime()
 {
     return m_gameplayScreenRuntime;
@@ -359,6 +422,12 @@ IGameplayWorldRuntime *GameSession::activeWorldRuntime() const
 
 void GameSession::bindActiveWorldRuntime(IGameplayWorldRuntime *pWorldRuntime)
 {
+    if (m_pActiveWorldRuntime != pWorldRuntime)
+    {
+        m_turnBasedCombatRuntime.end(m_pActiveWorldRuntime != nullptr ? m_pActiveWorldRuntime->party() : nullptr);
+        m_turnBasedFrameTraceState = {};
+    }
+
     m_pActiveWorldRuntime = pWorldRuntime;
 }
 
@@ -446,6 +515,80 @@ void GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) 
     m_gameplayUpdatePerformanceDiagnostics = {};
 }
 
+void GameSession::logTurnBasedFrameTraceIfNeeded(
+    bool actorAiUpdate,
+    bool gameplayPaused,
+    bool allowMoveInput,
+    bool movementStep,
+    bool cursorMode,
+    bool modalBlocked,
+    bool pendingSpellTarget,
+    bool sharedWorldBlocked,
+    float movementDeltaSeconds,
+    float frameDeltaSeconds)
+{
+    constexpr uint32_t LogIntervalMs = 1000;
+
+    if (!m_turnBasedCombatRuntime.active())
+    {
+        m_turnBasedFrameTraceState = {};
+        return;
+    }
+
+    const uint32_t currentTick = SDL_GetTicks();
+    const TurnBasedCombatStage stage = m_turnBasedCombatRuntime.stage();
+    const int movementActionPoints = m_turnBasedCombatRuntime.movementActionPoints();
+    const int pendingActions = m_turnBasedCombatRuntime.pendingActions();
+
+    const bool stateChanged =
+        !m_turnBasedFrameTraceState.active
+        || m_turnBasedFrameTraceState.stage != stage
+        || m_turnBasedFrameTraceState.actorAiUpdate != actorAiUpdate
+        || m_turnBasedFrameTraceState.gameplayPaused != gameplayPaused
+        || m_turnBasedFrameTraceState.allowMoveInput != allowMoveInput
+        || m_turnBasedFrameTraceState.cursorMode != cursorMode
+        || m_turnBasedFrameTraceState.modalBlocked != modalBlocked
+        || m_turnBasedFrameTraceState.pendingSpellTarget != pendingSpellTarget
+        || m_turnBasedFrameTraceState.sharedWorldBlocked != sharedWorldBlocked
+        || m_turnBasedFrameTraceState.movementActionPoints != movementActionPoints
+        || m_turnBasedFrameTraceState.pendingActions != pendingActions;
+    const bool periodic =
+        !m_turnBasedFrameTraceState.active
+        || currentTick - m_turnBasedFrameTraceState.lastLogTick >= LogIntervalMs;
+
+    if (stateChanged || movementStep || periodic)
+    {
+        const char *reason = movementStep ? "movement_step" : (stateChanged ? "state" : "periodic");
+        GAMEPLAY_DEBUG_TRACE(
+            "turn_based_frame reason=" + std::string(reason)
+            + " stage=" + std::string(turnBasedStageName(stage))
+            + " actor_ai_update=" + (actorAiUpdate ? "true" : "false")
+            + " gameplay_paused=" + (gameplayPaused ? "true" : "false")
+            + " allow_move_input=" + (allowMoveInput ? "true" : "false")
+            + " cursor_mode=" + (cursorMode ? "true" : "false")
+            + " modal_blocked=" + (modalBlocked ? "true" : "false")
+            + " pending_spell_target=" + (pendingSpellTarget ? "true" : "false")
+            + " shared_world_blocked=" + (sharedWorldBlocked ? "true" : "false")
+            + " movement_dt=" + std::to_string(movementDeltaSeconds)
+            + " frame_dt=" + std::to_string(frameDeltaSeconds)
+            + " movement_ap=" + std::to_string(movementActionPoints)
+            + " pending=" + std::to_string(pendingActions));
+        m_turnBasedFrameTraceState.lastLogTick = currentTick;
+    }
+
+    m_turnBasedFrameTraceState.active = true;
+    m_turnBasedFrameTraceState.stage = stage;
+    m_turnBasedFrameTraceState.actorAiUpdate = actorAiUpdate;
+    m_turnBasedFrameTraceState.gameplayPaused = gameplayPaused;
+    m_turnBasedFrameTraceState.allowMoveInput = allowMoveInput;
+    m_turnBasedFrameTraceState.cursorMode = cursorMode;
+    m_turnBasedFrameTraceState.modalBlocked = modalBlocked;
+    m_turnBasedFrameTraceState.pendingSpellTarget = pendingSpellTarget;
+    m_turnBasedFrameTraceState.sharedWorldBlocked = sharedWorldBlocked;
+    m_turnBasedFrameTraceState.movementActionPoints = movementActionPoints;
+    m_turnBasedFrameTraceState.pendingActions = pendingActions;
+}
+
 void GameSession::updateGameplay(
     const GameplayInputFrame &input,
     float deltaSeconds,
@@ -510,7 +653,10 @@ void GameSession::updateGameplay(
         }
 
         const uint64_t activeMemberSyncBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
-        synchronizeGameplayActiveMemberToReadyMember(m_gameplayScreenRuntime, m_gameplayScreenState);
+        synchronizeGameplayActiveMemberToReadyMember(
+            m_gameplayScreenRuntime,
+            m_gameplayScreenState,
+            m_turnBasedCombatRuntime);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.activeMemberSyncNanoseconds,
             activeMemberSyncBeginTickCount);
@@ -578,8 +724,16 @@ void GameSession::updateGameplay(
         const bool allowWorldMovementInput =
             !standardWorldInputBlocked
             && !pendingSpellTargetActive;
+        float worldMovementDeltaSeconds = deltaSeconds;
+        bool turnBasedMovementStep = false;
+        if (m_turnBasedCombatRuntime.active())
+        {
+            turnBasedMovementStep = m_turnBasedCombatRuntime.noteMovementInput(worldInput);
+            worldMovementDeltaSeconds = m_turnBasedCombatRuntime.movementDeltaSecondsForFrame(deltaSeconds);
+        }
+
         const uint64_t worldMovementBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
-        pWorldRuntime->updateWorldMovement(worldInput, deltaSeconds, allowWorldMovementInput);
+        pWorldRuntime->updateWorldMovement(worldInput, worldMovementDeltaSeconds, allowWorldMovementInput);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.worldMovementNanoseconds,
             worldMovementBeginTickCount);
@@ -589,7 +743,29 @@ void GameSession::updateGameplay(
             || pendingSpellTargetActive
             || m_sharedWorldInteractionBlockedThisFrame;
 
-        if (!gameplayWorldPaused)
+        const Party *pTurnBasedParty = pWorldRuntime->party();
+        const bool turnBasedWorldPaused =
+            m_turnBasedCombatRuntime.active()
+            && !m_turnBasedCombatRuntime.shouldUpdateActorAi(pTurnBasedParty);
+
+        synchronizeTurnBasedPendingWorldActions(
+            m_turnBasedCombatRuntime,
+            pWorldRuntime,
+            m_turnBasedPendingWorldActions);
+
+        logTurnBasedFrameTraceIfNeeded(
+            !turnBasedWorldPaused,
+            gameplayWorldPaused,
+            allowWorldMovementInput,
+            turnBasedMovementStep,
+            gameplayCursorModeActive,
+            modalWorldInputBlocked,
+            pendingSpellTargetActive,
+            m_sharedWorldInteractionBlockedThisFrame,
+            worldMovementDeltaSeconds,
+            deltaSeconds);
+
+        if (!gameplayWorldPaused && !turnBasedWorldPaused)
         {
             if (collectPerformanceDiagnostics)
             {
@@ -599,6 +775,20 @@ void GameSession::updateGameplay(
             const uint64_t actorAiBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
             pWorldRuntime->updateActorAi(deltaSeconds);
             recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.actorAiNanoseconds, actorAiBeginTickCount);
+        }
+        else if (turnBasedWorldPaused)
+        {
+            pWorldRuntime->updateTurnBasedPausedActorAnimations(deltaSeconds);
+        }
+
+        synchronizeTurnBasedPendingWorldActions(
+            m_turnBasedCombatRuntime,
+            pWorldRuntime,
+            m_turnBasedPendingWorldActions);
+
+        if (!gameplayWorldPaused)
+        {
+            m_turnBasedCombatRuntime.update(pWorldRuntime->party(), pWorldRuntime, deltaSeconds);
         }
 
         const uint64_t combatEventsBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
@@ -1132,6 +1322,7 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
 
 void GameSession::restoreFromSaveData(const GameSaveData &saveData)
 {
+    m_turnBasedCombatRuntime.reset();
     m_partyState = buildConfiguredParty(saveData.party, data());
 
     if (m_partyState)

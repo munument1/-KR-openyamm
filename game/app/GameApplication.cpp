@@ -4383,11 +4383,13 @@ void GameApplication::loadOrCreateSettings()
     m_config.fpsTrace = m_settings.fpsTrace;
     m_config.performanceTrace = m_settings.performanceTrace;
     m_engineApplication.setConfiguration(m_config);
+    configureGameplayDebugTrace(m_settings.gameplayTrace, m_settings.gameplayTraceFile, m_settings.gameplayTraceAppend);
     configureGameplayCombatTrace(m_settings.combatTrace, m_settings.combatTraceFile, m_settings.combatTraceAppend);
 }
 
 void GameApplication::applyCurrentSettingsToActiveRuntime()
 {
+    configureGameplayDebugTrace(m_settings.gameplayTrace, m_settings.gameplayTraceFile, m_settings.gameplayTraceAppend);
     configureGameplayCombatTrace(m_settings.combatTrace, m_settings.combatTraceFile, m_settings.combatTraceAppend);
     setTextureFilteringConfig(textureFilteringConfigFromSettings(m_settings));
     m_gameAudioSystem.setSoundVolume(normalizedVolumeLevel(m_settings.soundVolume));
@@ -7601,6 +7603,7 @@ void GameApplication::handleCompletedPartyDefeatScreen()
         return;
     }
 
+    m_gameInputSystem.suppressMouseButtonsUntilReleased();
     m_screenManager.setActiveScreen(nullptr);
     m_gameSession.gameplayScreenRuntime().interactionState().menuToggleLatch = true;
     applyPartyDefeatConsequences();
@@ -7625,6 +7628,7 @@ void GameApplication::handleCompletedEventMovieScreen()
 
     if (m_pendingWinGameCertificateAfterMovie && m_pAssetFileSystem != nullptr)
     {
+        m_gameInputSystem.suppressMouseButtonsUntilReleased();
         m_screenManager.setActiveScreen(std::make_unique<WinGameScreen>(
             *m_pAssetFileSystem,
             buildWinGameCertificate(),
@@ -7638,10 +7642,12 @@ void GameApplication::handleCompletedEventMovieScreen()
     if (pRuntimeState != nullptr && pRuntimeState->pendingReturnToMainMenu)
     {
         pRuntimeState->pendingReturnToMainMenu = false;
+        m_gameInputSystem.suppressMouseButtonsUntilReleased();
         openMainMenuScreen();
         return;
     }
 
+    m_gameInputSystem.suppressMouseButtonsUntilReleased();
     m_screenManager.setActiveScreen(nullptr);
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
     screenRuntime.updatePreviousKeyboardStateSnapshot(m_gameInputSystem.frame().keyboardState());

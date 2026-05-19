@@ -22,6 +22,11 @@ if (NOT DEFINED OPENYAMM_RELEASE_ASSET_DEV_DIR OR OPENYAMM_RELEASE_ASSET_DEV_DIR
     message(FATAL_ERROR "OPENYAMM_RELEASE_ASSET_DEV_DIR is required")
 endif()
 
+if (NOT DEFINED OPENYAMM_RELEASE_SETTINGS_TEMPLATE OR OPENYAMM_RELEASE_SETTINGS_TEMPLATE STREQUAL "")
+    get_filename_component(openyammReleaseSourceDir "${OPENYAMM_RELEASE_ASSET_DEV_DIR}" DIRECTORY)
+    set(OPENYAMM_RELEASE_SETTINGS_TEMPLATE "${openyammReleaseSourceDir}/settings_release.ini")
+endif()
+
 function(openyamm_release_zip_directory sourceDir outputZip)
     if (NOT IS_DIRECTORY "${sourceDir}")
         message(FATAL_ERROR "Release package source directory does not exist: ${sourceDir}")
@@ -106,7 +111,18 @@ if (DEFINED OPENYAMM_RELEASE_COLLECT_RUNTIME_DEPENDENCIES AND OPENYAMM_RELEASE_C
     endif()
 endif()
 
-file(WRITE "${OPENYAMM_RELEASE_STAGE_DIR}/settings.ini" "[assets]\nroot=assets\n")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DOPENYAMM_SETTINGS_TEMPLATE=${OPENYAMM_RELEASE_SETTINGS_TEMPLATE}"
+        "-DOPENYAMM_SETTINGS_OUTPUT=${OPENYAMM_RELEASE_STAGE_DIR}/settings.ini"
+        "-DOPENYAMM_SETTINGS_ASSET_ROOT=assets"
+        -P "${CMAKE_CURRENT_LIST_DIR}/CreateOpenYammReleaseSettings.cmake"
+    RESULT_VARIABLE openyammReleaseSettingsResult
+)
+
+if (NOT openyammReleaseSettingsResult EQUAL 0)
+    message(FATAL_ERROR "Failed to create release settings.ini")
+endif()
 
 openyamm_release_zip_directory(
     "${OPENYAMM_RELEASE_ASSET_DEV_DIR}/engine"

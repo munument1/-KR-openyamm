@@ -168,6 +168,7 @@ constexpr int MinutesPerDay = 24 * 60;
 constexpr int InnRestDawnHour = 5;
 constexpr uint32_t DeyjaTavernHouseId = 111;
 constexpr uint32_t PitTavernHouseId = 114;
+constexpr uint64_t GameplayMouseLookCursorSyncIntervalTicks = 100;
 constexpr uint32_t MountNighonTavernHouseId = 116;
 constexpr std::array<int, 3> JournalMapZoomLevels = {384, 768, 1536};
 constexpr int JournalRevealWidth = 88;
@@ -3904,7 +3905,12 @@ void OutdoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enable
 {
     if (pWindow != nullptr && SDL_GetWindowRelativeMouseMode(pWindow) != enabled)
     {
-        if (!enabled)
+        if (enabled)
+        {
+            syncCursorToGameplayCrosshair(pWindow);
+            m_lastGameplayMouseLookCursorSyncTicks = SDL_GetTicks();
+        }
+        else
         {
             int windowWidth = 0;
             int windowHeight = 0;
@@ -3917,10 +3923,28 @@ void OutdoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enable
                     static_cast<float>(windowWidth) * 0.5f,
                     static_cast<float>(windowHeight) * 0.5f);
             }
+
+            m_lastGameplayMouseLookCursorSyncTicks = 0;
         }
 
         SDL_SetWindowRelativeMouseMode(pWindow, enabled);
         m_gameSession.requestRelativeMouseMotionReset();
+    }
+    else if (enabled)
+    {
+        const uint64_t nowTicks = SDL_GetTicks();
+
+        if (m_lastGameplayMouseLookCursorSyncTicks == 0
+            || nowTicks < m_lastGameplayMouseLookCursorSyncTicks
+            || nowTicks - m_lastGameplayMouseLookCursorSyncTicks >= GameplayMouseLookCursorSyncIntervalTicks)
+        {
+            syncCursorToGameplayCrosshair(pWindow);
+            m_lastGameplayMouseLookCursorSyncTicks = nowTicks;
+        }
+    }
+    else
+    {
+        m_lastGameplayMouseLookCursorSyncTicks = 0;
     }
 
     if (enabled)
@@ -3933,7 +3957,7 @@ void OutdoorGameView::syncGameplayMouseLookMode(SDL_Window *pWindow, bool enable
     }
 }
 
-void OutdoorGameView::syncCursorToGameplayCrosshair()
+void OutdoorGameView::syncCursorToGameplayCrosshair(SDL_Window *pWindow)
 {
     const GameplayScreenState::GameplayMouseLookState &mouseLookState =
         m_gameSession.gameplayScreenState().gameplayMouseLookState();
@@ -3943,11 +3967,14 @@ void OutdoorGameView::syncCursorToGameplayCrosshair()
         return;
     }
 
-    SDL_Window *pWindow = SDL_GetMouseFocus();
-
     if (pWindow == nullptr)
     {
-        pWindow = SDL_GetKeyboardFocus();
+        pWindow = SDL_GetMouseFocus();
+
+        if (pWindow == nullptr)
+        {
+            pWindow = SDL_GetKeyboardFocus();
+        }
     }
 
     if (pWindow == nullptr)

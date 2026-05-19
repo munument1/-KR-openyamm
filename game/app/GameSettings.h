@@ -33,20 +33,32 @@ enum class WindowMode
     Fullscreen
 };
 
+enum class ControlScheme
+{
+    Modern,
+    Classic
+};
+
 struct GameSettings
 {
     struct KeyboardSettings
     {
-        std::array<SDL_Scancode, KeyboardActionCount> bindings = createDefaultKeyboardBindings();
+        std::array<InputBinding, KeyboardActionCount> bindings = createDefaultKeyboardBindings();
 
-        SDL_Scancode binding(KeyboardAction action) const
+        InputBinding binding(KeyboardAction action) const
         {
             return bindings[keyboardActionIndex(action)];
         }
 
+        SDL_Scancode keyboardBinding(KeyboardAction action) const
+        {
+            const InputBinding inputBinding = binding(action);
+            return inputBinding.kind == InputBindingKind::Keyboard ? inputBinding.scancode : SDL_SCANCODE_UNKNOWN;
+        }
+
         bool isPressed(KeyboardAction action, const bool *pKeyboardState) const
         {
-            const SDL_Scancode scancode = binding(action);
+            const SDL_Scancode scancode = keyboardBinding(action);
 
             return pKeyboardState != nullptr
                 && scancode > SDL_SCANCODE_UNKNOWN
@@ -54,14 +66,34 @@ struct GameSettings
                 && pKeyboardState[scancode];
         }
 
-        void setBinding(KeyboardAction action, SDL_Scancode scancode)
+        void setBinding(KeyboardAction action, InputBinding binding)
         {
-            bindings[keyboardActionIndex(action)] = scancode;
+            bindings[keyboardActionIndex(action)] = binding;
         }
 
-        void restoreDefaults()
+        void setBinding(KeyboardAction action, SDL_Scancode scancode)
+        {
+            bindings[keyboardActionIndex(action)] = keyboardInputBinding(scancode);
+        }
+
+        void restoreDefaults(ControlScheme scheme = ControlScheme::Modern)
         {
             bindings = createDefaultKeyboardBindings();
+
+            if (scheme == ControlScheme::Modern)
+            {
+                setBinding(KeyboardAction::Attack, mouseButtonInputBinding(SDL_BUTTON_LEFT));
+                setBinding(KeyboardAction::Use, keyboardInputBinding(SDL_SCANCODE_E));
+            }
+            else
+            {
+                setBinding(KeyboardAction::Forward, keyboardInputBinding(SDL_SCANCODE_UP));
+                setBinding(KeyboardAction::Backward, keyboardInputBinding(SDL_SCANCODE_DOWN));
+                setBinding(KeyboardAction::Left, keyboardInputBinding(SDL_SCANCODE_LEFT));
+                setBinding(KeyboardAction::Right, keyboardInputBinding(SDL_SCANCODE_RIGHT));
+                setBinding(KeyboardAction::Attack, keyboardInputBinding(SDL_SCANCODE_A));
+                setBinding(KeyboardAction::Use, mouseButtonInputBinding(SDL_BUTTON_LEFT));
+            }
         }
     };
 
@@ -74,6 +106,8 @@ struct GameSettings
     bool showHits = true;
     bool alwaysRun = true;
     bool flipOnExit = false;
+    int mouseSensitivity = 100;
+    ControlScheme controlScheme = ControlScheme::Modern;
     bool bloodSplats = true;
     bool coloredLights = true;
     bool tinting = true;
@@ -106,6 +140,9 @@ struct GameSettings
     bool performanceTrace = false;
     bool hitchTrace = false;
     bool collisionTrace = false;
+    bool gameplayTrace = false;
+    bool gameplayTraceAppend = true;
+    std::string gameplayTraceFile = "logs/gameplay_trace.log";
     bool combatTrace = false;
     bool combatTraceAppend = true;
     std::string combatTraceFile = "logs/combat_trace.log";

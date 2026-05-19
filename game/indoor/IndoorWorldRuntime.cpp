@@ -114,6 +114,27 @@ constexpr float IndoorPathSpatialGridCellSize = 256.0f;
 constexpr float IndoorPathIgnoreActorCollisionMinTargetDistance = 768.0f;
 constexpr float IndoorPathFacingDeadZoneRadians = Pi / 48.0f;
 constexpr float IndoorPathFacingMaxStepRadians = Pi / 32.0f;
+constexpr float TurnBasedIdleDecisionMinSeconds = 1.0f;
+constexpr float TurnBasedIdleDecisionMaxSeconds = 2.0f;
+constexpr float TurnBasedIdleBoredFallbackSeconds = 2.0f;
+constexpr uint32_t TurnBasedIdleFidgetChancePercent = 50u;
+
+uint32_t turnBasedActorIdleDecisionSeed(uint32_t actorId, uint32_t counter)
+{
+    uint32_t value = actorId * 1103515245u + (counter + 1u) * 12345u + 0x7f4a7c15u;
+    value ^= value >> 16u;
+    value *= 2246822519u;
+    value ^= value >> 13u;
+    return value;
+}
+
+float turnBasedActorStandSeconds(uint32_t decisionSeed)
+{
+    constexpr uint32_t Resolution = 1000u;
+    const float spanSeconds = TurnBasedIdleDecisionMaxSeconds - TurnBasedIdleDecisionMinSeconds;
+    return TurnBasedIdleDecisionMinSeconds
+        + spanSeconds * static_cast<float>(decisionSeed % (Resolution + 1u)) / static_cast<float>(Resolution);
+}
 
 bool indoorActorIsTerminalCorpse(
     const MapDeltaActor &actor,
@@ -5786,13 +5807,15 @@ GameplayProjectileService::ProjectileFrameFacts IndoorWorldRuntime::collectIndoo
                     actorState.preciseY,
                     actorState.preciseZ + static_cast<float>(actorState.height) * 0.5f
                 };
-                const float hitRadius =
+                const float baseHitRadius =
                     actorIndex < m_mapActorAiStates.size()
                         ? static_cast<float>(m_mapActorAiStates[actorIndex].projectileHitRadius)
                         : indoorProjectileActorHitRadius(
                             m_pMonsterTable,
                             pMapDeltaData->actors[actorIndex],
                             actorState);
+                const float hitRadius =
+                    GameplayProjectileService::directActorProjectileHitRadius(projectile, baseHitRadius);
                 std::optional<IndoorProjectileCollisionCandidate> actorHit =
                     findProjectileCylinderHit(
                         segmentStart,
@@ -8252,6 +8275,256 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
     }
 }
 
+void IndoorWorldRuntime::updateTurnBasedPausedActorAnimations(float deltaSeconds)
+{
+    if (deltaSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    updateIndoorProjectiles(deltaSeconds);
+
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr)
+    {
+        return;
+    }
+
+    syncMapActorAiStates();
+
+    const float animationTickDelta = deltaSeconds * TicksPerSecond;
+
+    const size_t actorCount = std::min(pMapDeltaData->actors.size(), m_mapActorAiStates.size());
+
+    for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex)
+    {
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+        if (aiState.motionState == ActorAiMotionState::Dead)
+        {
+            aiState.animationState = ActorAiAnimationState::Dead;
+            aiState.actionSeconds = 0.0f;
+            actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Dead);
+            continue;
+        }
+
+        if (actor.hp <= 0 && aiState.motionState != ActorAiMotionState::Dying)
+        {
+            aiState.motionState = ActorAiMotionState::Dying;
+            aiState.animationState = ActorAiAnimationState::Dying;
+            aiState.actionSeconds = aiState.dyingAnimationSeconds;
+            aiState.animationTimeTicks = 0.0f;
+            aiState.attackImpactTriggered = false;
+            actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Dying);
+            activateIndoorActorCorpsePhysics(actorIndex);
+        }
+
+        if (aiState.motionState != ActorAiMotionState::Dying)
+        {
+            const bool activePresentation =
+                aiState.motionState == ActorAiMotionState::Stunned
+                || aiState.motionState == ActorAiMotionState::Attacking
+                || aiState.animationState == ActorAiAnimationState::GotHit
+                || aiState.animationState == ActorAiAnimationState::AttackMelee
+                || aiState.animationState == ActorAiAnimationState::AttackRanged;
+
+            if (activePresentation && aiState.actionSeconds > 0.0f)
+            {
+                aiState.moveDirectionX = 0.0f;
+                aiState.moveDirectionY = 0.0f;
+                aiState.velocityX = 0.0f;
+                aiState.velocityY = 0.0f;
+                aiState.velocityZ = 0.0f;
+                aiState.animationTimeTicks += animationTickDelta;
+                aiState.actionSeconds = std::max(0.0f, aiState.actionSeconds - deltaSeconds);
+                aiState.attackImpactTriggered = false;
+
+                if (aiState.actionSeconds <= 0.0f)
+                {
+                    aiState.motionState = ActorAiMotionState::Standing;
+                    aiState.animationState = ActorAiAnimationState::Standing;
+                }
+
+                actor.currentActionAnimation = indoorActionAnimationFromActorAi(aiState.animationState);
+                continue;
+            }
+
+            const float deltaX = partyX() - aiState.preciseX;
+            const float deltaY = partyY() - aiState.preciseY;
+            if (deltaX * deltaX + deltaY * deltaY > 0.0001f)
+            {
+                aiState.yawRadians = std::atan2(deltaY, deltaX);
+            }
+
+            aiState.motionState = ActorAiMotionState::Standing;
+            aiState.moveDirectionX = 0.0f;
+            aiState.moveDirectionY = 0.0f;
+            aiState.velocityX = 0.0f;
+            aiState.velocityY = 0.0f;
+            aiState.velocityZ = 0.0f;
+            aiState.attackImpactTriggered = false;
+
+            const bool wasBored = aiState.animationState == ActorAiAnimationState::Bored;
+
+            if (!wasBored)
+            {
+                if (aiState.idleDecisionSeconds <= 0.0f && aiState.actionSeconds <= 0.0f)
+                {
+                    const uint32_t standSeed =
+                        turnBasedActorIdleDecisionSeed(aiState.actorId, aiState.idleDecisionCount);
+                    const float standSeconds = turnBasedActorStandSeconds(standSeed);
+                    aiState.idleDecisionSeconds = standSeconds;
+                    aiState.actionSeconds = standSeconds;
+                }
+                else
+                {
+                    aiState.idleDecisionSeconds =
+                        std::min(aiState.idleDecisionSeconds, TurnBasedIdleDecisionMaxSeconds);
+                    aiState.actionSeconds = std::min(aiState.actionSeconds, TurnBasedIdleDecisionMaxSeconds);
+                }
+            }
+
+            aiState.animationTimeTicks += animationTickDelta;
+            aiState.actionSeconds = std::max(0.0f, aiState.actionSeconds - deltaSeconds);
+            aiState.idleDecisionSeconds = std::max(0.0f, aiState.idleDecisionSeconds - deltaSeconds);
+
+            if (wasBored && aiState.actionSeconds > 0.0f)
+            {
+                actor.currentActionAnimation = indoorActionAnimationFromActorAi(aiState.animationState);
+                continue;
+            }
+
+            if (aiState.animationState != ActorAiAnimationState::Bored || aiState.actionSeconds <= 0.0f)
+            {
+                aiState.animationState = ActorAiAnimationState::Standing;
+
+                if (wasBored)
+                {
+                    const uint32_t standSeed =
+                        turnBasedActorIdleDecisionSeed(aiState.actorId, aiState.idleDecisionCount);
+                    const float standSeconds = turnBasedActorStandSeconds(standSeed);
+                    aiState.idleDecisionSeconds = standSeconds;
+                    aiState.actionSeconds = standSeconds;
+                    aiState.animationTimeTicks = 0.0f;
+                    actor.currentActionAnimation = indoorActionAnimationFromActorAi(aiState.animationState);
+                    continue;
+                }
+
+                if (aiState.idleDecisionSeconds <= 0.0f)
+                {
+                    const uint32_t decisionSeed =
+                        turnBasedActorIdleDecisionSeed(aiState.actorId, aiState.idleDecisionCount);
+                    aiState.idleDecisionCount += 1;
+
+                    if ((decisionSeed % 100u) < TurnBasedIdleFidgetChancePercent)
+                    {
+                        const uint32_t boredFallbackTicks =
+                            static_cast<uint32_t>(TurnBasedIdleBoredFallbackSeconds * TicksPerSecond);
+                        const float boredSeconds =
+                            static_cast<float>(
+                                spriteAnimationLengthTicks(
+                                    m_pActorSpriteFrameTable,
+                                    actorInspectPreviewSpriteFrameIndex(
+                                        aiState,
+                                        ActorAiAnimationState::Bored),
+                                    boredFallbackTicks))
+                            / TicksPerSecond;
+                        aiState.animationState = ActorAiAnimationState::Bored;
+                        aiState.actionSeconds = boredSeconds;
+                        aiState.idleDecisionSeconds = boredSeconds;
+                        aiState.animationTimeTicks = 0.0f;
+                    }
+                    else
+                    {
+                        const float standSeconds = turnBasedActorStandSeconds(decisionSeed >> 8u);
+                        aiState.idleDecisionSeconds = standSeconds;
+                        aiState.actionSeconds = standSeconds;
+                        aiState.animationTimeTicks = 0.0f;
+                    }
+                }
+            }
+
+            actor.currentActionAnimation = indoorActionAnimationFromActorAi(aiState.animationState);
+            continue;
+        }
+
+        aiState.animationState = ActorAiAnimationState::Dying;
+        aiState.animationTimeTicks += animationTickDelta;
+        aiState.actionSeconds = std::max(0.0f, aiState.actionSeconds - deltaSeconds);
+        aiState.moveDirectionX = 0.0f;
+        aiState.moveDirectionY = 0.0f;
+        aiState.attackImpactTriggered = false;
+        actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Dying);
+
+        if (aiState.actionSeconds <= 0.0f)
+        {
+            actor.hp = 0;
+            aiState.motionState = ActorAiMotionState::Dead;
+            aiState.animationState = ActorAiAnimationState::Dead;
+            aiState.actionSeconds = 0.0f;
+            aiState.animationTimeTicks = 0.0f;
+            actor.currentActionAnimation = indoorActionAnimationFromActorAi(ActorAiAnimationState::Dead);
+
+            if (!actorShouldLeaveCorpse(m_pMonsterTable, actor))
+            {
+                actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+                aiState.velocityX = 0.0f;
+                aiState.velocityY = 0.0f;
+                aiState.velocityZ = 0.0f;
+            }
+            else if (indoorActorCorpsePhysicsNeedsStep(actor, aiState))
+            {
+                activateIndoorActorCorpsePhysics(actorIndex);
+            }
+        }
+    }
+
+    if (!m_actorCorpsePhysicsActorIndices.empty() && m_pIndoorMapData != nullptr)
+    {
+        const std::vector<uint8_t> actorPhysicsApplied;
+        applyIndoorActorCorpsePhysicsSteps(actorMovementController(), actorPhysicsApplied, nullptr);
+    }
+}
+
+size_t IndoorWorldRuntime::turnBasedPendingWorldActionCount() const
+{
+    if (m_pGameplayProjectileService == nullptr)
+    {
+        return 0;
+    }
+
+    return static_cast<size_t>(
+        std::count_if(
+            m_pGameplayProjectileService->projectiles().begin(),
+            m_pGameplayProjectileService->projectiles().end(),
+            [](const GameplayProjectileService::ProjectileState &projectile)
+            {
+                return projectile.turnBasedPendingAction && !projectile.isExpired && !projectile.isSettled;
+            }));
+}
+
+bool IndoorWorldRuntime::turnBasedActorActionInProgress() const
+{
+    return std::any_of(
+        m_mapActorAiStates.begin(),
+        m_mapActorAiStates.end(),
+        [](const MapActorAiState &aiState)
+        {
+            if (aiState.motionState == ActorAiMotionState::Dead
+                || aiState.motionState == ActorAiMotionState::Dying)
+            {
+                return false;
+            }
+
+            const bool activeAttackPresentation =
+                aiState.motionState == ActorAiMotionState::Attacking
+                || aiState.animationState == ActorAiAnimationState::AttackMelee
+                || aiState.animationState == ActorAiAnimationState::AttackRanged;
+            return activeAttackPresentation && aiState.actionSeconds > 0.0f;
+        });
+}
+
 void IndoorWorldRuntime::updateWorld(float deltaSeconds)
 {
     updateWorldItems(deltaSeconds);
@@ -9481,6 +9754,7 @@ bool IndoorWorldRuntime::castPartySpellProjectile(const GameplayPartySpellProjec
     spawnRequest.attackBonus = 0;
     spawnRequest.useActorHitChance = false;
     spawnRequest.damageType = GameMechanics::spellCombatDamageType(request.spellId, m_pSpellTable);
+    spawnRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     spawnRequest.sourceX = request.sourceX;
     spawnRequest.sourceY = request.sourceY;
     spawnRequest.sourceZ = request.sourceZ;
@@ -11429,6 +11703,7 @@ bool IndoorWorldRuntime::spawnPartyAttackProjectile(const GameplayPartyAttackPro
     spawnRequest.attackBonus = request.attackBonus;
     spawnRequest.useActorHitChance = request.useActorHitChance;
     spawnRequest.damageType = request.damageType;
+    spawnRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     spawnRequest.sourceX = request.source.x;
     spawnRequest.sourceY = request.source.y;
     spawnRequest.sourceZ = request.source.z;

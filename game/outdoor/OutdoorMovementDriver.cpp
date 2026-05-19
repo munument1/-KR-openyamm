@@ -144,8 +144,9 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
 
     const float cosYaw = std::cos(input.yawRadians);
     const float sinYaw = std::sin(input.yawRadians);
-    const float cosPitch = std::cos(input.pitchRadians);
-    const float sinPitch = std::sin(input.pitchRadians);
+    const float movementPitchRadians = input.usePitchForFlyingMovement ? input.pitchRadians : 0.0f;
+    const float cosPitch = std::cos(movementPitchRadians);
+    const float sinPitch = std::sin(movementPitchRadians);
     const float speedMultiplier = std::max(m_speedMultiplier, 0.0f);
     const bx::Vec3 forward = {cosYaw, sinYaw, 0.0f};
     const bx::Vec3 forwardFlying = {cosYaw * cosPitch, sinYaw * cosPitch, sinPitch};

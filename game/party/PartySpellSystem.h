@@ -92,6 +92,7 @@ struct PartySpellCastRequest
     bool bypassGameplayCasterValidation = false;
     // Gate Master opens Town Portal directly from an NPC caster in the original game.
     bool bypassTownPortalFailureChecks = false;
+    bool turnBasedPendingAction = false;
     bool spendMana = true;
     bool applyRecovery = true;
     bool hasViewTransform = false;

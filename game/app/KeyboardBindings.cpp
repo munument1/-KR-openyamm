@@ -18,63 +18,63 @@ struct KeyboardScancodeName
 
 const std::array<KeyboardBindingDefinition, KeyboardActionCount> KeyboardBindings = {{
     {KeyboardAction::Forward, "forward", "Forward", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 0,
-        SDL_SCANCODE_W, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_W, 0}, true},
     {KeyboardAction::Backward, "backward", "Backward", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 1,
-        SDL_SCANCODE_S, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_S, 0}, true},
     {KeyboardAction::Left, "left", "Left", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 2,
-        SDL_SCANCODE_A, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_A, 0}, true},
     {KeyboardAction::Right, "right", "Right", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 3,
-        SDL_SCANCODE_D, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_D, 0}, true},
     {KeyboardAction::Yell, "yell", "Yell", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 4,
-        SDL_SCANCODE_Y, false},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_Y, 0}, false},
     {KeyboardAction::Jump, "jump", "Jump", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 5,
-        SDL_SCANCODE_X, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_X, 0}, true},
     {KeyboardAction::Combat, "combat", "Combat", KeyboardBindingPage::Page1, KeyboardBindingColumn::Left, 6,
-        SDL_SCANCODE_RETURN, false},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_RETURN, 0}, false},
     {KeyboardAction::CastReady, "cast_ready", "Cast Ready", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 0,
-        SDL_SCANCODE_Q, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_Q, 0}, true},
     {KeyboardAction::Attack, "attack", "Attack", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 1,
-        SDL_SCANCODE_F, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_F, 0}, true},
     {KeyboardAction::Trigger, "trigger", "Trigger", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 2,
-        SDL_SCANCODE_SPACE, true},
-    {KeyboardAction::Cast, "cast", "Cast", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 3,
-        SDL_SCANCODE_C, true},
-    {KeyboardAction::Pass, "pass", "Pass", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 4,
-        SDL_SCANCODE_B, false},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_SPACE, 0}, true},
+    {KeyboardAction::Cast, "cast", "Cast", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 4,
+        {InputBindingKind::Keyboard, SDL_SCANCODE_C, 0}, true},
+    {KeyboardAction::Pass, "pass", "Pass", KeyboardBindingPage::Hidden, KeyboardBindingColumn::Right, 4,
+        {InputBindingKind::Keyboard, SDL_SCANCODE_B, 0}, false},
     {KeyboardAction::CharCycle, "char_cycle", "Char Cycle", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 5,
-        SDL_SCANCODE_TAB, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_TAB, 0}, true},
     {KeyboardAction::Quest, "quest", "Quest", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 6,
-        SDL_SCANCODE_I, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_I, 0}, true},
     {KeyboardAction::QuickRef, "quick_ref", "Quick Ref", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 0,
-        SDL_SCANCODE_Z, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_Z, 0}, true},
     {KeyboardAction::Rest, "rest", "Rest", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 1,
-        SDL_SCANCODE_R, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_R, 0}, true},
     {KeyboardAction::History, "history", "History", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 2,
-        SDL_SCANCODE_H, true},
-    {KeyboardAction::AutoNotes, "auto_notes", "Auto Notes", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 3,
-        SDL_SCANCODE_N, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_H, 0}, true},
+    {KeyboardAction::Use, "use", "Use", KeyboardBindingPage::Page1, KeyboardBindingColumn::Right, 3,
+        {InputBindingKind::Keyboard, SDL_SCANCODE_E, 0}, true},
     {KeyboardAction::MapBook, "map_book", "Map Book", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 4,
-        SDL_SCANCODE_L, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_L, 0}, true},
     {KeyboardAction::AlwaysRun, "always_run_toggle", "Always Run", KeyboardBindingPage::Page2,
-        KeyboardBindingColumn::Left, 5, SDL_SCANCODE_U, true},
+        KeyboardBindingColumn::Left, 5, {InputBindingKind::Keyboard, SDL_SCANCODE_U, 0}, true},
     {KeyboardAction::LookUp, "look_up", "Look Up", KeyboardBindingPage::Page2, KeyboardBindingColumn::Left, 6,
-        SDL_SCANCODE_PAGEDOWN, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_PAGEDOWN, 0}, true},
     {KeyboardAction::LookDown, "look_down", "Look Down", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 0,
-        SDL_SCANCODE_DELETE, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_DELETE, 0}, true},
     {KeyboardAction::CenterView, "center_view", "Ctr. View", KeyboardBindingPage::Page2,
-        KeyboardBindingColumn::Right, 1, SDL_SCANCODE_END, true},
+        KeyboardBindingColumn::Right, 1, {InputBindingKind::Keyboard, SDL_SCANCODE_END, 0}, true},
     {KeyboardAction::ZoomIn, "zoom_in", "Zoom In", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 2,
-        SDL_SCANCODE_KP_PLUS, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_KP_PLUS, 0}, true},
     {KeyboardAction::ZoomOut, "zoom_out", "Zoom Out", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 3,
-        SDL_SCANCODE_KP_MINUS, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_KP_MINUS, 0}, true},
     {KeyboardAction::FlyUp, "fly_up", "Fly Up", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 4,
-        SDL_SCANCODE_J, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_J, 0}, true},
     {KeyboardAction::FlyDown, "fly_down", "Fly Down", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 5,
-        SDL_SCANCODE_K, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_K, 0}, true},
     {KeyboardAction::Land, "land", "Land", KeyboardBindingPage::Page2, KeyboardBindingColumn::Right, 6,
-        SDL_SCANCODE_HOME, true},
+        {InputBindingKind::Keyboard, SDL_SCANCODE_HOME, 0}, true},
     {KeyboardAction::DoubleSpeed, "double_speed", "Double Speed", KeyboardBindingPage::Hidden,
-        KeyboardBindingColumn::Left, 0, SDL_SCANCODE_F2, true},
+        KeyboardBindingColumn::Left, 0, {InputBindingKind::Keyboard, SDL_SCANCODE_F2, 0}, true},
 }};
 
 const std::array<KeyboardScancodeName, 54> KeyboardScancodeNames = {{
@@ -168,13 +168,28 @@ const KeyboardBindingDefinition &keyboardBindingDefinition(KeyboardAction action
     return KeyboardBindings[keyboardActionIndex(action)];
 }
 
-std::array<SDL_Scancode, KeyboardActionCount> createDefaultKeyboardBindings()
+InputBinding keyboardInputBinding(SDL_Scancode scancode)
 {
-    std::array<SDL_Scancode, KeyboardActionCount> bindings = {};
+    if (scancode == SDL_SCANCODE_UNKNOWN)
+    {
+        return {};
+    }
+
+    return InputBinding{InputBindingKind::Keyboard, scancode, 0};
+}
+
+InputBinding mouseButtonInputBinding(uint8_t button)
+{
+    return InputBinding{InputBindingKind::MouseButton, SDL_SCANCODE_UNKNOWN, button};
+}
+
+std::array<InputBinding, KeyboardActionCount> createDefaultKeyboardBindings()
+{
+    std::array<InputBinding, KeyboardActionCount> bindings = {};
 
     for (const KeyboardBindingDefinition &definition : KeyboardBindings)
     {
-        bindings[keyboardActionIndex(definition.action)] = definition.defaultScancode;
+        bindings[keyboardActionIndex(definition.action)] = definition.defaultBinding;
     }
 
     return bindings;
@@ -210,6 +225,30 @@ SDL_Scancode parseKeyboardBindingName(const std::string &name)
     }
 
     return SDL_SCANCODE_UNKNOWN;
+}
+
+InputBinding parseInputBindingName(const std::string &name)
+{
+    if (name.empty())
+    {
+        return {};
+    }
+
+    const std::string normalized = normalizeBindingName(name);
+
+    if (normalized == "mouseleft" || normalized == "leftmouse" || normalized == "lmb")
+    {
+        return mouseButtonInputBinding(SDL_BUTTON_LEFT);
+    }
+
+    const SDL_Scancode scancode = parseKeyboardBindingName(name);
+
+    if (scancode != SDL_SCANCODE_UNKNOWN)
+    {
+        return keyboardInputBinding(scancode);
+    }
+
+    return {};
 }
 
 std::string keyboardBindingName(SDL_Scancode scancode)
@@ -251,5 +290,45 @@ std::string keyboardBindingDisplayName(SDL_Scancode scancode)
     }
 
     return keyboardBindingName(scancode);
+}
+
+std::string inputBindingName(const InputBinding &binding)
+{
+    switch (binding.kind)
+    {
+    case InputBindingKind::Keyboard:
+        return keyboardBindingName(binding.scancode);
+
+    case InputBindingKind::MouseButton:
+        if (binding.mouseButton == SDL_BUTTON_LEFT)
+        {
+            return "MouseLeft";
+        }
+        return "MouseButton_" + std::to_string(static_cast<int>(binding.mouseButton));
+
+    case InputBindingKind::None:
+    default:
+        return "Unbound";
+    }
+}
+
+std::string inputBindingDisplayName(const InputBinding &binding)
+{
+    switch (binding.kind)
+    {
+    case InputBindingKind::Keyboard:
+        return keyboardBindingDisplayName(binding.scancode);
+
+    case InputBindingKind::MouseButton:
+        if (binding.mouseButton == SDL_BUTTON_LEFT)
+        {
+            return "LMB";
+        }
+        return "Mouse " + std::to_string(static_cast<int>(binding.mouseButton));
+
+    case InputBindingKind::None:
+    default:
+        return "Unbound";
+    }
 }
 }

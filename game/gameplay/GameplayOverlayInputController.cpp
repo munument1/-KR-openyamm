@@ -1483,6 +1483,17 @@ bool GameplayOverlayInputController::handleKeyboardOverlayInput(
             view.mutableSettings().keyboard.setBinding(keyboardScreen.pendingAction, *reboundScancode);
             keyboardScreen.waitingForBinding = false;
             view.commitSettingsChange();
+            return true;
+        }
+
+        if (input.leftMouseButton.pressed)
+        {
+            view.mutableSettings().keyboard.setBinding(
+                keyboardScreen.pendingAction,
+                mouseButtonInputBinding(SDL_BUTTON_LEFT));
+            keyboardScreen.waitingForBinding = false;
+            view.commitSettingsChange();
+            return true;
         }
     }
 
@@ -1608,7 +1619,7 @@ bool GameplayOverlayInputController::handleKeyboardOverlayInput(
                 break;
 
             case GameplayKeyboardPointerTargetType::DefaultButton:
-                view.mutableSettings().keyboard.restoreDefaults();
+                view.mutableSettings().keyboard.restoreDefaults(view.mutableSettings().controlScheme);
                 keyboardScreen.waitingForBinding = false;
                 view.commitSettingsChange();
                 break;

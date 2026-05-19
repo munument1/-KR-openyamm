@@ -411,6 +411,7 @@ HouseVideoPlayer::HouseVideoPlayer()
     , m_nextAudioSampleIndex(0)
     , m_totalQueuedAudioFrames(0)
     , m_loopPlayback(true)
+    , m_audioVolume(1.0f)
 {
 }
 
@@ -633,6 +634,16 @@ void HouseVideoPlayer::updateBackgroundPreloads(const Engine::AssetFileSystem &a
     }
 }
 
+void HouseVideoPlayer::setAudioVolume(float volume)
+{
+    m_audioVolume = std::clamp(volume, 0.0f, 1.0f);
+
+    if (m_pAudioStream != nullptr && !SDL_SetAudioStreamGain(m_pAudioStream, m_audioVolume))
+    {
+        std::cerr << "HouseVideoPlayer: SDL_SetAudioStreamGain failed: " << SDL_GetError() << '\n';
+    }
+}
+
 void HouseVideoPlayer::warmUpPlaybackPath()
 {
     if (!m_isInitialized)
@@ -721,6 +732,11 @@ bool HouseVideoPlayer::ensureAudioStream()
     {
         std::cerr << "HouseVideoPlayer: SDL_OpenAudioDeviceStream failed: " << SDL_GetError() << '\n';
         return false;
+    }
+
+    if (!SDL_SetAudioStreamGain(m_pAudioStream, m_audioVolume))
+    {
+        std::cerr << "HouseVideoPlayer: SDL_SetAudioStreamGain failed: " << SDL_GetError() << '\n';
     }
 
     if (!SDL_ResumeAudioStreamDevice(m_pAudioStream))

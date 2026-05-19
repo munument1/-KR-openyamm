@@ -58,6 +58,12 @@ void CutsceneVideoScreen::onExit()
 
 void CutsceneVideoScreen::handleSdlEvent(const SDL_Event &event)
 {
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+    {
+        m_shouldClose = true;
+        return;
+    }
+
     if (event.type != SDL_EVENT_KEY_DOWN)
     {
         return;
@@ -77,6 +83,11 @@ void CutsceneVideoScreen::drawScreen(float deltaSeconds)
     if (!m_playAttempted)
     {
         m_playAttempted = true;
+        if (m_pGameAudioSystem != nullptr)
+        {
+            m_videoPlayer.setAudioVolume(m_pGameAudioSystem->soundVolume());
+        }
+
         m_startedPlayback = m_videoPlayer.play(assetFileSystem(), m_videoStem, m_videoDirectory, false);
 
         if (!m_startedPlayback)
@@ -89,6 +100,11 @@ void CutsceneVideoScreen::drawScreen(float deltaSeconds)
     if (!m_startedPlayback)
     {
         return;
+    }
+
+    if (m_pGameAudioSystem != nullptr)
+    {
+        m_videoPlayer.setAudioVolume(m_pGameAudioSystem->soundVolume());
     }
 
     m_videoPlayer.update(deltaSeconds);

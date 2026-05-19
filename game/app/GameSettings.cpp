@@ -296,6 +296,19 @@ std::string windowModeString(WindowMode mode)
     return "windowed";
 }
 
+std::string controlSchemeString(ControlScheme scheme)
+{
+    switch (scheme)
+    {
+    case ControlScheme::Classic:
+        return "classic";
+
+    case ControlScheme::Modern:
+    default:
+        return "modern";
+    }
+}
+
 TurnRateMode parseTurnRateMode(const std::string &value)
 {
     const std::string normalized = toLowerCopy(trimCopy(value));
@@ -311,6 +324,18 @@ TurnRateMode parseTurnRateMode(const std::string &value)
     }
 
     return TurnRateMode::X32;
+}
+
+ControlScheme parseControlScheme(const std::string &value)
+{
+    const std::string normalized = toLowerCopy(trimCopy(value));
+
+    if (normalized == "classic" || normalized == "oe" || normalized == "standard")
+    {
+        return ControlScheme::Classic;
+    }
+
+    return ControlScheme::Modern;
 }
 
 GameplayUiLayout parseGameplayUiLayout(const std::string &value)
@@ -397,7 +422,9 @@ void parseAssetScaleProfileValue(
 
 GameSettings GameSettings::createDefault()
 {
-    return GameSettings();
+    GameSettings settings;
+    settings.keyboard.restoreDefaults(settings.controlScheme);
+    return settings;
 }
 
 float resolveViewDistanceSetting(const std::string &value, float defaultDistance)
@@ -487,6 +514,14 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         settings.turnRate = parseTurnRateMode(*value);
     }
 
+    const std::optional<std::string> controlSchemeValue = getIniValue(document, "controls", "control_scheme");
+
+    if (controlSchemeValue)
+    {
+        settings.controlScheme = parseControlScheme(*controlSchemeValue);
+        settings.keyboard.restoreDefaults(settings.controlScheme);
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "controls", "walksound"))
     {
         bool parsed = settings.walksound;
@@ -534,6 +569,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         if (parseBoolValue(*value, parsed))
         {
             settings.flipOnExit = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "controls", "mouse_sensitivity"))
+    {
+        int parsed = settings.mouseSensitivity;
+
+        if (parseIntValue(*value, parsed))
+        {
+            settings.mouseSensitivity = std::clamp(parsed, 0, 100);
         }
     }
 
@@ -860,6 +905,31 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "gameplay_trace"))
+    {
+        bool parsed = settings.gameplayTrace;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.gameplayTrace = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "gameplay_trace_file"))
+    {
+        settings.gameplayTraceFile = trimCopy(*value);
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "gameplay_trace_append"))
+    {
+        bool parsed = settings.gameplayTraceAppend;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.gameplayTraceAppend = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "logging", "combat_trace"))
     {
         bool parsed = settings.combatTrace;
@@ -897,18 +967,23 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
-        const std::optional<std::string> value = getIniValue(document, "keyboard", std::string(definition.iniKey));
+        std::optional<std::string> value = getIniValue(document, "input", std::string(definition.iniKey));
+
+        if (!value.has_value() && !controlSchemeValue.has_value())
+        {
+            value = getIniValue(document, "keyboard", std::string(definition.iniKey));
+        }
 
         if (!value.has_value())
         {
             continue;
         }
 
-        const SDL_Scancode scancode = parseKeyboardBindingName(trimCopy(*value));
+        const InputBinding binding = parseInputBindingName(trimCopy(*value));
 
-        if (scancode != SDL_SCANCODE_UNKNOWN)
+        if (binding.kind != InputBindingKind::None)
         {
-            settings.keyboard.setBinding(definition.action, scancode);
+            settings.keyboard.setBinding(definition.action, binding);
         }
     }
 
@@ -1073,10 +1148,12 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "voice_volume=" << std::clamp(settings.voiceVolume, 0, 9) << "\n\n"
         << "[controls]\n"
         << "turn_rate=" << turnRateModeString(settings.turnRate) << '\n'
+        << "control_scheme=" << controlSchemeString(settings.controlScheme) << '\n'
         << "walksound=" << (settings.walksound ? "true" : "false") << '\n'
         << "show_hits=" << (settings.showHits ? "true" : "false") << '\n'
         << "always_run=" << (settings.alwaysRun ? "true" : "false") << '\n'
-        << "flip_on_exit=" << (settings.flipOnExit ? "true" : "false") << "\n\n"
+        << "flip_on_exit=" << (settings.flipOnExit ? "true" : "false") << '\n'
+        << "mouse_sensitivity=" << std::clamp(settings.mouseSensitivity, 0, 100) << "\n\n"
         << "[gameplay]\n"
         << "keyboard_interaction_depth=" << std::clamp(settings.keyboardInteractionDepth, 32, 4096) << '\n'
         << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << '\n'
@@ -1095,15 +1172,18 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'
         << "collision_trace=" << (settings.collisionTrace ? "true" : "false") << '\n'
+        << "gameplay_trace=" << (settings.gameplayTrace ? "true" : "false") << '\n'
+        << "gameplay_trace_file=" << settings.gameplayTraceFile << '\n'
+        << "gameplay_trace_append=" << (settings.gameplayTraceAppend ? "true" : "false") << '\n'
         << "combat_trace=" << (settings.combatTrace ? "true" : "false") << '\n'
         << "combat_trace_file=" << settings.combatTraceFile << '\n'
         << "combat_trace_append=" << (settings.combatTraceAppend ? "true" : "false") << '\n'
         << "hitch_threshold_ms=" << std::clamp(settings.hitchThresholdMilliseconds, 0.1f, 1000.0f) << "\n\n"
-        << "[keyboard]\n";
+        << "[input]\n";
 
     for (const KeyboardBindingDefinition &definition : keyboardBindingDefinitions())
     {
-        output << definition.iniKey << '=' << keyboardBindingName(settings.keyboard.binding(definition.action)) << '\n';
+        output << definition.iniKey << '=' << inputBindingName(settings.keyboard.binding(definition.action)) << '\n';
     }
 
     output
