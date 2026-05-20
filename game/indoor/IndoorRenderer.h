@@ -274,6 +274,7 @@ private:
         uint32_t doorId = 0;
         uint16_t doorState = 0;
         uint16_t mechanismLinkedEventId = 0;
+        size_t mechanismFaceIndex = static_cast<size_t>(-1);
         std::string mechanismFaceSummary;
         std::string mechanismLinkedEventSummary;
     };

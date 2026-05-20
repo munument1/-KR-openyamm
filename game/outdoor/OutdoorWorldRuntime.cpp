@@ -12728,6 +12728,7 @@ void OutdoorWorldRuntime::aggroNearbyMapActorFaction(size_t actorIndex, float pa
     }
 
     const MapActorState &victim = m_mapActors[actorIndex];
+    const MonsterTable::MonsterStatsEntry *pVictimStats = m_pMonsterTable->findStatsById(victim.monsterId);
 
     for (size_t otherActorIndex = 0; otherActorIndex < m_mapActors.size(); ++otherActorIndex)
     {
@@ -12745,8 +12746,11 @@ void OutdoorWorldRuntime::aggroNearbyMapActorFaction(size_t actorIndex, float pa
 
         const bool sameEventGroup = victim.group != 0 && victim.group == otherActor.group;
         const bool sameMonsterFaction = m_pMonsterTable->isLikelySameFaction(victim.monsterId, otherActor.monsterId);
+        const MonsterTable::MonsterStatsEntry *pOtherStats = m_pMonsterTable->findStatsById(otherActor.monsterId);
+        const bool sameCivilianAggression =
+            actorSharesCivilianAggression(victim.group, pVictimStats, otherActor.group, pOtherStats);
 
-        if (!sameEventGroup && !sameMonsterFaction)
+        if (!sameEventGroup && !sameMonsterFaction && !sameCivilianAggression)
         {
             continue;
         }

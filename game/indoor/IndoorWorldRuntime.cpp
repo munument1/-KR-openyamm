@@ -8648,6 +8648,7 @@ void IndoorWorldRuntime::aggroNearbyMapActorFaction(size_t actorIndex)
 
     const MapDeltaActor &victim = pMapDeltaData->actors[actorIndex];
     const int16_t victimMonsterId = resolveIndoorActorStatsId(victim);
+    const MonsterTable::MonsterStatsEntry *pVictimStats = m_pMonsterTable->findStatsById(victimMonsterId);
     const float victimX =
         actorIndex < m_mapActorAiStates.size() ? m_mapActorAiStates[actorIndex].preciseX : static_cast<float>(victim.x);
     const float victimY =
@@ -8671,10 +8672,13 @@ void IndoorWorldRuntime::aggroNearbyMapActorFaction(size_t actorIndex)
         }
 
         const bool sameEventGroup = victim.group != 0 && victim.group == otherActor.group;
-        const bool sameMonsterFaction =
-            m_pMonsterTable->isLikelySameFaction(victimMonsterId, resolveIndoorActorStatsId(otherActor));
+        const int16_t otherMonsterId = resolveIndoorActorStatsId(otherActor);
+        const bool sameMonsterFaction = m_pMonsterTable->isLikelySameFaction(victimMonsterId, otherMonsterId);
+        const MonsterTable::MonsterStatsEntry *pOtherStats = m_pMonsterTable->findStatsById(otherMonsterId);
+        const bool sameCivilianAggression =
+            actorSharesCivilianAggression(victim.group, pVictimStats, otherActor.group, pOtherStats);
 
-        if (!sameEventGroup && !sameMonsterFaction)
+        if (!sameEventGroup && !sameMonsterFaction && !sameCivilianAggression)
         {
             continue;
         }

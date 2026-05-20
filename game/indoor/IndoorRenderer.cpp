@@ -52,6 +52,76 @@ float secretFaceVertexFlag(uint32_t attributes)
     return hasFaceAttribute(attributes, FaceAttribute::IsSecret) ? 1.0f : 0.0f;
 }
 
+bool indoorFaceMarkedAsCeiling(const IndoorMapData &indoorMapData, size_t faceIndex, const IndoorFace &face)
+{
+    if (face.facetType == 5 || face.facetType == 6)
+    {
+        return true;
+    }
+
+    const auto sectorContainsCeilingFace =
+        [&](uint16_t sectorId) -> bool
+        {
+            if (sectorId >= indoorMapData.sectors.size())
+            {
+                return false;
+            }
+
+            const std::vector<uint16_t> &ceilingFaceIds = indoorMapData.sectors[sectorId].ceilingFaceIds;
+            return std::find(ceilingFaceIds.begin(), ceilingFaceIds.end(), faceIndex) != ceilingFaceIds.end();
+        };
+
+    return sectorContainsCeilingFace(face.roomNumber) || sectorContainsCeilingFace(face.roomBehindNumber);
+}
+
+bool indoorContextActionTargetsChest(
+    const std::optional<GameplayEventTargetContextActionMetadata> &metadata,
+    const std::vector<uint32_t> &openedChestIds)
+{
+    return !openedChestIds.empty() || (metadata && metadata->kind == "open_chest");
+}
+
+bool indoorFaceSuppressedForContextAction(
+    const IndoorMapData &indoorMapData,
+    size_t faceIndex,
+    const IndoorFace &face,
+    const std::optional<GameplayEventTargetContextActionMetadata> &metadata,
+    const std::vector<uint32_t> &openedChestIds)
+{
+    if (indoorContextActionTargetsChest(metadata, openedChestIds))
+    {
+        return false;
+    }
+
+    return face.facetType == 3 || indoorFaceMarkedAsCeiling(indoorMapData, faceIndex, face);
+}
+
+uint16_t indoorDoorRuntimeState(const MapDeltaDoor &door, const EventRuntimeState *pEventRuntimeState)
+{
+    if (pEventRuntimeState != nullptr)
+    {
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+
+        if (mechanismIterator != pEventRuntimeState->mechanisms.end())
+        {
+            return mechanismIterator->second.state;
+        }
+    }
+
+    return door.state;
+}
+
+bool indoorDoorMechanismSuppressedForContextAction(
+    const MapDeltaDoor &door,
+    const EventRuntimeState *pEventRuntimeState)
+{
+    const uint16_t state = indoorDoorRuntimeState(door, pEventRuntimeState);
+
+    return state == static_cast<uint16_t>(EvtMechanismState::Open)
+        || state == static_cast<uint16_t>(EvtMechanismState::Opening);
+}
+
 bool hasMovingMechanism(const EventRuntimeState *pEventRuntimeState)
 {
     if (pEventRuntimeState == nullptr)
@@ -153,6 +223,7 @@ constexpr uint16_t HudViewId = 2;
 constexpr size_t MaxIndoorShaderLights = MaxIndoorDrawLights;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float InspectRayEpsilon = 0.0001f;
+constexpr float KeyboardEventFaceScreenRadius = 384.0f;
 constexpr float HoveredActorOutlineThicknessPixels = 2.0f;
 constexpr float BillboardFrustumSlack = 8.0f;
 
@@ -1329,6 +1400,39 @@ std::optional<std::string> resolveIndoorEventHintText(
     return std::nullopt;
 }
 
+std::optional<std::string> resolveIndoorLocalEventHintText(
+    const IndoorSceneRuntime *pSceneRuntime,
+    uint16_t eventId)
+{
+    if (pSceneRuntime == nullptr || eventId == 0)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
+
+    if (!localEventProgram)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<std::string> hint = localEventProgram->getHint(eventId);
+
+    if (hint && !hint->empty())
+    {
+        return hint;
+    }
+
+    const std::optional<std::string> summary = localEventProgram->summarizeEvent(eventId);
+
+    if (summary && !summary->empty())
+    {
+        return summary;
+    }
+
+    return std::nullopt;
+}
+
 std::optional<std::string> resolveIndoorGlobalEventHintText(
     const IndoorSceneRuntime *pSceneRuntime,
     uint16_t eventId)
@@ -1362,7 +1466,10 @@ std::optional<std::string> resolveIndoorGlobalEventHintText(
     return std::nullopt;
 }
 
-std::vector<uint32_t> resolveIndoorOpenedChestIds(const IndoorSceneRuntime *pSceneRuntime, uint16_t eventId)
+std::vector<uint32_t> resolveIndoorOpenedChestIds(
+    const IndoorSceneRuntime *pSceneRuntime,
+    uint16_t eventId,
+    bool allowGlobalFallback = true)
 {
     if (pSceneRuntime == nullptr || eventId == 0)
     {
@@ -1381,8 +1488,12 @@ std::vector<uint32_t> resolveIndoorOpenedChestIds(const IndoorSceneRuntime *pSce
         }
     }
 
-    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+    if (!allowGlobalFallback)
+    {
+        return {};
+    }
 
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
     return globalEventProgram ? globalEventProgram->getOpenedChestIds(eventId) : std::vector<uint32_t>{};
 }
 
@@ -1402,7 +1513,8 @@ static GameplayEventTargetContextActionMetadata toGameplayContextActionMetadata(
 
 std::optional<GameplayEventTargetContextActionMetadata> resolveIndoorContextActionMetadata(
     const IndoorSceneRuntime *pSceneRuntime,
-    uint16_t eventId)
+    uint16_t eventId,
+    bool allowGlobalFallback = true)
 {
     if (pSceneRuntime == nullptr || eventId == 0)
     {
@@ -1422,8 +1534,12 @@ std::optional<GameplayEventTargetContextActionMetadata> resolveIndoorContextActi
         }
     }
 
-    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+    if (!allowGlobalFallback)
+    {
+        return std::nullopt;
+    }
 
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
     if (!globalEventProgram)
     {
         return std::nullopt;
@@ -1440,7 +1556,10 @@ std::optional<GameplayEventTargetContextActionMetadata> resolveIndoorContextActi
     return toGameplayContextActionMetadata(*metadata);
 }
 
-bool indoorEventIsHintOnly(const IndoorSceneRuntime *pSceneRuntime, uint16_t eventId)
+bool indoorEventIsHintOnly(
+    const IndoorSceneRuntime *pSceneRuntime,
+    uint16_t eventId,
+    bool allowGlobalFallback = true)
 {
     if (pSceneRuntime == nullptr || eventId == 0)
     {
@@ -1459,8 +1578,12 @@ bool indoorEventIsHintOnly(const IndoorSceneRuntime *pSceneRuntime, uint16_t eve
         return false;
     }
 
-    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
+    if (!allowGlobalFallback)
+    {
+        return false;
+    }
 
+    const std::optional<ScriptedEventProgram> &globalEventProgram = pSceneRuntime->globalEventProgram();
     return globalEventProgram && globalEventProgram->isHintOnlyEvent(eventId);
 }
 
@@ -1470,6 +1593,18 @@ bool indoorFaceIsInteractionActivatable(uint32_t attributes, uint16_t eventId)
         && hasFaceAttribute(attributes, FaceAttribute::Clickable)
         && !hasFaceAttribute(attributes, FaceAttribute::HasHint)
         && !hasFaceAttribute(attributes, FaceAttribute::Invisible);
+}
+
+bool indoorFaceHasActualEvent(const IndoorSceneRuntime *pSceneRuntime, const IndoorFace &face)
+{
+    if (pSceneRuntime == nullptr || face.cogTriggered == 0)
+    {
+        return false;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram = pSceneRuntime->localEventProgram();
+
+    return localEventProgram && localEventProgram->hasEvent(face.cogTriggered);
 }
 
 bool intersectRayTriangle(
@@ -4205,9 +4340,12 @@ GameplayWorldHit IndoorRenderer::translateInspectHitToGameplayWorldHit(
     eventTargetHit.hitPoint = hitPoint;
     eventTargetHit.distance = inspectHit.distance;
     const uint16_t eventId = inspectHitEventId(inspectHit);
-    eventTargetHit.openedChestIds = resolveIndoorOpenedChestIds(m_pSceneRuntime, eventId);
-    eventTargetHit.contextActionMetadata = resolveIndoorContextActionMetadata(m_pSceneRuntime, eventId);
-    eventTargetHit.hintOnlyEvent = indoorEventIsHintOnly(m_pSceneRuntime, eventId);
+    const bool allowGlobalEventMetadata = inspectHit.kind == "entity";
+    eventTargetHit.openedChestIds =
+        resolveIndoorOpenedChestIds(m_pSceneRuntime, eventId, allowGlobalEventMetadata);
+    eventTargetHit.contextActionMetadata =
+        resolveIndoorContextActionMetadata(m_pSceneRuntime, eventId, allowGlobalEventMetadata);
+    eventTargetHit.hintOnlyEvent = indoorEventIsHintOnly(m_pSceneRuntime, eventId, allowGlobalEventMetadata);
 
     if (inspectHit.kind == "face")
     {
@@ -4226,6 +4364,7 @@ GameplayWorldHit IndoorRenderer::translateInspectHitToGameplayWorldHit(
     {
         eventTargetHit.targetKind = GameplayWorldEventTargetKind::Mechanism;
         eventTargetHit.triggeredEventId = inspectHit.mechanismLinkedEventId;
+        eventTargetHit.secondaryIndex = inspectHit.mechanismFaceIndex;
     }
     else
     {
@@ -4352,7 +4491,7 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
         if (directEventId != 0)
         {
             const std::optional<std::string> directHint =
-                resolveIndoorEventHintText(m_pSceneRuntime, directEventId);
+                resolveIndoorLocalEventHintText(m_pSceneRuntime, directEventId);
 
             if (directHint && !directHint->empty())
             {
@@ -4369,7 +4508,7 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
         }
     }
 
-    return resolveIndoorEventHintText(m_pSceneRuntime, inspectHitEventId(inspectHit));
+    return resolveIndoorLocalEventHintText(m_pSceneRuntime, inspectHitEventId(inspectHit));
 }
 
 GameplayWorldHit IndoorRenderer::pickGameplayWorldHit(const GameplayWorldPickRequest &request) const
@@ -4471,6 +4610,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
 
                 if (face.vertexIndices.size() < 3
                     || face.isPortal
+                    || indoorFaceMarkedAsCeiling(*m_indoorMapData, faceIndex, face)
                     || hasFaceAttribute(face.attributes, FaceAttribute::IsPortal)
                     || !isFaceVisible(faceIndex, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage())
                     || (!visibleSectorMask.empty()
@@ -4574,7 +4714,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
         };
 
     const auto appendProjectedWorldHitCandidate =
-        [&](const bx::Vec3 &worldPoint, GameplayWorldHit worldHit)
+        [&](const bx::Vec3 &worldPoint, GameplayWorldHit worldHit, float screenRadius)
         {
             if (!isSelectableHit(worldHit))
             {
@@ -4605,6 +4745,12 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             const float deltaX = projected.x - rayRequest.screenX;
             const float deltaY = projected.y - rayRequest.screenY;
             const float screenDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (screenRadius >= 0.0f && screenDistance > screenRadius)
+            {
+                return;
+            }
+
             const float worldDistance = vecLength(vecSubtract(worldPoint, rayRequest.eye));
 
             candidates.push_back(KeyboardCandidate{
@@ -4653,7 +4799,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             worldHit.hasHit = true;
             worldHit.kind = GameplayWorldHitKind::Actor;
             worldHit.actor = actorHit;
-            appendProjectedWorldHitCandidate(hitPoint, worldHit);
+            appendProjectedWorldHitCandidate(hitPoint, worldHit, -1.0f);
         }
     }
 
@@ -4691,7 +4837,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             worldHit.hasHit = true;
             worldHit.kind = GameplayWorldHitKind::WorldItem;
             worldHit.worldItem = worldItemHit;
-            appendProjectedWorldHitCandidate(hitPoint, worldHit);
+            appendProjectedWorldHitCandidate(hitPoint, worldHit, -1.0f);
         }
     }
 
@@ -4734,7 +4880,36 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
         center.x /= static_cast<float>(validVertexCount);
         center.y /= static_cast<float>(validVertexCount);
         center.z /= static_cast<float>(validVertexCount);
-        appendProjectedCandidate(center, 128.0f);
+
+        const std::optional<std::string> faceHint =
+            resolveIndoorLocalEventHintText(m_pSceneRuntime, face.cogTriggered);
+        const std::optional<GameplayEventTargetContextActionMetadata> metadata =
+            resolveIndoorContextActionMetadata(m_pSceneRuntime, face.cogTriggered, false);
+        const std::vector<uint32_t> openedChestIds =
+            resolveIndoorOpenedChestIds(m_pSceneRuntime, face.cogTriggered, false);
+
+        GameplayEventTargetHit eventTargetHit = {};
+        eventTargetHit.targetKind = GameplayWorldEventTargetKind::Surface;
+        eventTargetHit.targetIndex = faceIndex;
+        eventTargetHit.secondaryIndex = faceIndex;
+        eventTargetHit.triggeredEventId = face.cogTriggered;
+        eventTargetHit.trigger = face.cogTriggerType;
+        eventTargetHit.attributes =
+            mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size()
+                ? mapDeltaData->faceAttributes[faceIndex]
+                : face.attributes;
+        eventTargetHit.name = faceHint.value_or("");
+        eventTargetHit.openedChestIds = openedChestIds;
+        eventTargetHit.contextActionMetadata = metadata;
+        eventTargetHit.hintOnlyEvent = indoorEventIsHintOnly(m_pSceneRuntime, face.cogTriggered, false);
+        eventTargetHit.hitPoint = center;
+        eventTargetHit.distance = vecLength(vecSubtract(center, rayRequest.eye));
+
+        GameplayWorldHit worldHit = {};
+        worldHit.hasHit = true;
+        worldHit.kind = GameplayWorldHitKind::EventTarget;
+        worldHit.eventTarget = eventTargetHit;
+        appendProjectedWorldHitCandidate(center, worldHit, KeyboardEventFaceScreenRadius);
     }
 
     if (m_indoorMapData)
@@ -4758,9 +4933,8 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             const MapDeltaDoor &door = mapDeltaData->doors[doorIndex];
 
             if (door.vertexIds.empty()
-                || (doorIndex < m_mechanismBindings.size()
-                    && m_mechanismBindings[doorIndex].linkedEventId == 0
-                    && door.doorId == 0))
+                || doorIndex >= m_mechanismBindings.size()
+                || m_mechanismBindings[doorIndex].linkedEventId == 0)
             {
                 continue;
             }
@@ -4790,7 +4964,44 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
             center.x /= static_cast<float>(validVertexCount);
             center.y /= static_cast<float>(validVertexCount);
             center.z /= static_cast<float>(validVertexCount);
-            appendProjectedCandidate(center, 128.0f);
+
+            size_t mechanismFaceIndex = GameplayInvalidWorldIndex;
+
+            for (uint16_t faceId : door.faceIds)
+            {
+                if (faceId >= m_indoorMapData->faces.size())
+                {
+                    continue;
+                }
+
+                const IndoorFace &face = m_indoorMapData->faces[faceId];
+
+                if (indoorFaceHasActualEvent(m_pSceneRuntime, face)
+                    && isFaceVisible(faceId, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage()))
+                {
+                    mechanismFaceIndex = faceId;
+                    break;
+                }
+            }
+
+            const MechanismBinding &binding = m_mechanismBindings[doorIndex];
+            GameplayEventTargetHit eventTargetHit = {};
+            eventTargetHit.targetKind = GameplayWorldEventTargetKind::Mechanism;
+            eventTargetHit.targetIndex = doorIndex;
+            eventTargetHit.secondaryIndex = mechanismFaceIndex;
+            eventTargetHit.triggeredEventId = binding.linkedEventId;
+            eventTargetHit.name = binding.linkedEventSummary;
+            eventTargetHit.hitPoint = center;
+            eventTargetHit.distance = vecLength(vecSubtract(center, rayRequest.eye));
+            eventTargetHit.contextActionMetadata =
+                resolveIndoorContextActionMetadata(m_pSceneRuntime, binding.linkedEventId, false);
+            eventTargetHit.hintOnlyEvent = indoorEventIsHintOnly(m_pSceneRuntime, binding.linkedEventId, false);
+
+            GameplayWorldHit worldHit = {};
+            worldHit.hasHit = true;
+            worldHit.kind = GameplayWorldHitKind::EventTarget;
+            worldHit.eventTarget = eventTargetHit;
+            appendProjectedWorldHitCandidate(center, worldHit, KeyboardEventFaceScreenRadius);
         }
     }
 
@@ -5171,6 +5382,7 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectHitFromGameplay
     {
         inspectHit.kind = "mechanism";
         inspectHit.mechanismLinkedEventId = eventTarget.triggeredEventId;
+        inspectHit.mechanismFaceIndex = eventTarget.secondaryIndex;
     }
     else if (eventTarget.targetKind == GameplayWorldEventTargetKind::Object)
     {
@@ -5186,6 +5398,73 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectHitFromGameplay
 
 bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) const
 {
+    if (hit.kind == GameplayWorldHitKind::EventTarget && hit.eventTarget)
+    {
+        const GameplayEventTargetHit &eventTarget = *hit.eventTarget;
+
+        if (eventTarget.targetKind == GameplayWorldEventTargetKind::Surface)
+        {
+            if (!m_indoorMapData)
+            {
+                return false;
+            }
+
+            const size_t faceIndex =
+                eventTarget.secondaryIndex != GameplayInvalidWorldIndex
+                    ? eventTarget.secondaryIndex
+                    : eventTarget.targetIndex;
+
+            if (faceIndex >= m_indoorMapData->faces.size())
+            {
+                return false;
+            }
+
+            const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+
+            if (!indoorFaceHasActualEvent(m_pSceneRuntime, face)
+                || !isFaceVisible(faceIndex, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage())
+                || indoorFaceSuppressedForContextAction(
+                    *m_indoorMapData,
+                    faceIndex,
+                    face,
+                    eventTarget.contextActionMetadata,
+                    eventTarget.openedChestIds))
+            {
+                return false;
+            }
+
+            if (!eventTarget.openedChestIds.empty()
+                || (eventTarget.contextActionMetadata && !eventTarget.contextActionMetadata->hidden))
+            {
+                return true;
+            }
+
+            const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+            const uint32_t effectiveAttributes =
+                mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size()
+                    ? mapDeltaData->faceAttributes[faceIndex]
+                    : face.attributes;
+
+            return indoorFaceIsInteractionActivatable(effectiveAttributes, eventTarget.triggeredEventId);
+        }
+
+        if (eventTarget.targetKind == GameplayWorldEventTargetKind::Mechanism && eventTarget.triggeredEventId != 0)
+        {
+            const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+
+            if (mapDeltaData
+                && eventTarget.targetIndex < mapDeltaData->doors.size()
+                && indoorDoorMechanismSuppressedForContextAction(
+                    mapDeltaData->doors[eventTarget.targetIndex],
+                    runtimeEventRuntimeState()))
+            {
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     const std::optional<InspectHit> inspectHit = inspectHitFromGameplayWorldHit(hit);
 
     if (!inspectHit)
@@ -7807,9 +8086,19 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
     {
         const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
 
-        if (mapDeltaData && eventTarget.targetIndex < mapDeltaData->doors.size())
+        if (eventTarget.secondaryIndex != GameplayInvalidWorldIndex
+            && eventTarget.secondaryIndex < m_indoorMapData->faces.size())
+        {
+            faceIndices.push_back(eventTarget.secondaryIndex);
+        }
+        else if (mapDeltaData && eventTarget.targetIndex < mapDeltaData->doors.size())
         {
             const MapDeltaDoor &door = mapDeltaData->doors[eventTarget.targetIndex];
+
+            if (indoorDoorMechanismSuppressedForContextAction(door, runtimeEventRuntimeState()))
+            {
+                return;
+            }
 
             for (uint16_t faceId : door.faceIds)
             {
@@ -7833,6 +8122,30 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
     for (size_t faceIndex : faceIndices)
     {
         if (faceIndex >= m_indoorMapData->faces.size())
+        {
+            continue;
+        }
+
+        const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+
+        if (!indoorFaceHasActualEvent(m_pSceneRuntime, face))
+        {
+            continue;
+        }
+
+        if (eventTarget.targetKind == GameplayWorldEventTargetKind::Mechanism)
+        {
+            if (face.facetType == 3 || indoorFaceMarkedAsCeiling(*m_indoorMapData, faceIndex, face))
+            {
+                continue;
+            }
+        }
+        else if (indoorFaceSuppressedForContextAction(
+                *m_indoorMapData,
+                faceIndex,
+                face,
+                eventTarget.contextActionMetadata,
+                eventTarget.openedChestIds))
         {
             continue;
         }

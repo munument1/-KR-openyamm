@@ -46,6 +46,27 @@ bool hasStatusText(const std::optional<std::string> &text)
     return text.has_value() && !text->empty();
 }
 
+GameplayWorldHit pickPrecisionContextActionTarget(
+    IGameplayWorldRuntime &worldRuntime,
+    const GameplayWorldPickRequest &request)
+{
+    GameplayWorldHit hit = worldRuntime.pickMouseInteractionTarget(request);
+
+    if (worldRuntime.canActivateWorldHit(hit, GameplayInteractionMethod::Keyboard))
+    {
+        return hit;
+    }
+
+    hit = worldRuntime.pickKeyboardInteractionTarget(request);
+
+    if (worldRuntime.canActivateWorldHit(hit, GameplayInteractionMethod::Keyboard))
+    {
+        return hit;
+    }
+
+    return {};
+}
+
 bool hasActiveLootView(const GameplayScreenRuntime &runtime)
 {
     const IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
@@ -1615,7 +1636,8 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
             if (!contextAction)
             {
-                contextActionHit = pWorldRuntime->pickKeyboardInteractionTarget(currentInteractionPickRequest);
+                contextActionHit =
+                    pickPrecisionContextActionTarget(*pWorldRuntime, currentInteractionPickRequest);
 
                 if (isSameActivationTarget(contextActionHit, result.hover.worldHit))
                 {
@@ -1718,16 +1740,28 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
     if (pointerPolicy.activationPressed && worldReady && pWorldRuntime != nullptr)
     {
-        const GameplayWorldPickRequest keyboardActivationPickRequest =
-            pWorldRuntime->buildWorldPickRequest(
-                GameplayWorldPickRequestInput{
-                    .screenX = pointerPolicy.inspectScreenX,
-                    .screenY = pointerPolicy.inspectScreenY,
-                    .screenWidth = input.screenWidth,
-                    .screenHeight = input.screenHeight,
-                    .includeRay = true,
-                });
-        keyboardActivationHit = pWorldRuntime->pickMouseInteractionTarget(keyboardActivationPickRequest);
+        const GameplayContextActionState &contextActionState = runtime.contextActionStateReadOnly();
+        const bool hasPrimaryContextAction =
+            contextActionState.visible && contextActionState.primaryIndex < contextActionState.actions.size();
+
+        if (hasPrimaryContextAction)
+        {
+            keyboardActivationHit = contextActionState.actions[contextActionState.primaryIndex].worldHit;
+        }
+        else
+        {
+            const GameplayWorldPickRequest keyboardActivationPickRequest =
+                pWorldRuntime->buildWorldPickRequest(
+                    GameplayWorldPickRequestInput{
+                        .screenX = pointerPolicy.inspectScreenX,
+                        .screenY = pointerPolicy.inspectScreenY,
+                        .screenWidth = input.screenWidth,
+                        .screenHeight = input.screenHeight,
+                        .includeRay = true,
+                    });
+            keyboardActivationHit =
+                pickPrecisionContextActionTarget(*pWorldRuntime, keyboardActivationPickRequest);
+        }
     }
 
     const KeyboardActivationInteractionResult keyboardActivationResult =

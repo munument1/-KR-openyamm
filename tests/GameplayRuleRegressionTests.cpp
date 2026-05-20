@@ -6677,6 +6677,21 @@ TEST_CASE("MMerge monster kill reputation applies peasant and guard deltas")
     CHECK_EQ(worldRuntime.currentLocationReputation(), 6);
 }
 
+TEST_CASE("MMerge civilian aggression links guards and peasants")
+{
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry peasant = {};
+    peasant.kindFlags = OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Peasant);
+
+    OpenYAMM::Game::MonsterTable::MonsterStatsEntry monster = {};
+
+    CHECK(OpenYAMM::Game::actorSharesCivilianAggression(55, &monster, 85, &peasant));
+    CHECK(OpenYAMM::Game::actorSharesCivilianAggression(85, &peasant, 55, &monster));
+    CHECK(OpenYAMM::Game::actorSharesCivilianAggression(38, &monster, 85, &peasant));
+    CHECK(OpenYAMM::Game::actorSharesCivilianAggression(12, &peasant, 85, &peasant));
+    CHECK_FALSE(OpenYAMM::Game::actorSharesCivilianAggression(12, &monster, 85, &peasant));
+    CHECK_FALSE(OpenYAMM::Game::actorSharesCivilianAggression(55, &monster, 12, &monster));
+}
+
 TEST_CASE("MMerge monster kill reputation ignores ordinary monsters")
 {
     OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
