@@ -16,6 +16,7 @@ constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float GameSecondsPerRealSecond = GameMinutesPerRealSecond * 60.0f;
 constexpr float IndoorMovementStepSeconds = 1.0f / 128.0f;
 constexpr float DamageTickSeconds = 1.0f;
+constexpr float FallDamageDistance = 512.0f;
 constexpr float MaxAccumulatedMovementSeconds = 0.1f;
 constexpr float DefaultJumpVelocity = 420.0f;
 
@@ -109,6 +110,9 @@ void IndoorPartyRuntime::translatePartyPosition(float deltaX, float deltaY, floa
     m_movementState.footZ += deltaZ;
     m_movementState.verticalVelocity = 0.0f;
     m_movementState.grounded = true;
+    m_movementState.landedThisFrame = false;
+    m_movementState.fallStartZ = m_movementState.footZ;
+    m_movementState.fallDistance = 0.0f;
 }
 
 void IndoorPartyRuntime::update(
@@ -137,6 +141,7 @@ void IndoorPartyRuntime::update(
     const float impulseVelocityZ = m_pendingImpulseVelocityZ;
     const bool hasPendingImpulse =
         impulseVelocityX != 0.0f || impulseVelocityY != 0.0f || impulseVelocityZ != 0.0f;
+    float landingFallDistance = 0.0f;
 
     if (hasPendingImpulse)
     {
@@ -169,6 +174,10 @@ void IndoorPartyRuntime::update(
             false,
             jumpVelocityThisStep,
             jumpLiftThisStep);
+        if (m_movementState.landedThisFrame)
+        {
+            landingFallDistance = std::max(landingFallDistance, m_movementState.fallDistance);
+        }
         if (m_collisionTraceEnabled)
         {
             const IndoorCollisionTraceInfo traceInfo =
@@ -256,19 +265,35 @@ void IndoorPartyRuntime::update(
         m_movementAccumulatorSeconds -= IndoorMovementStepSeconds;
     }
 
+    OutdoorMovementEffects effects = {};
+    const bool featherFallActive = m_party.hasPartyBuff(PartyBuffId::FeatherFall);
+
+    if (landingFallDistance > FallDamageDistance && !featherFallActive)
+    {
+        effects.maxFallDamageDistance = landingFallDistance;
+    }
+
+    if (featherFallActive)
+    {
+        m_movementState.landedThisFrame = false;
+        m_movementState.fallStartZ = m_movementState.footZ;
+        m_movementState.fallDistance = 0.0f;
+    }
+    else if (landingFallDistance > 0.0f)
+    {
+        m_movementState.landedThisFrame = true;
+        m_movementState.fallDistance = landingFallDistance;
+    }
+
     if (m_movementState.grounded && m_movementController.supportFaceIsBurning(m_movementState.supportFaceIndex))
     {
         m_burningDamageTimerSeconds += deltaSeconds;
-
-        OutdoorMovementEffects effects = {};
 
         while (m_burningDamageTimerSeconds >= DamageTickSeconds)
         {
             effects.burningDamageTicks += 1;
             m_burningDamageTimerSeconds -= DamageTickSeconds;
         }
-
-        m_party.applyMovementEffects(effects);
 
         if (effects.burningDamageTicks > 0)
         {
@@ -279,6 +304,8 @@ void IndoorPartyRuntime::update(
     {
         m_burningDamageTimerSeconds = 0.0f;
     }
+
+    m_party.applyMovementEffects(effects);
 }
 
 void IndoorPartyRuntime::setActorColliders(const std::vector<IndoorActorCollision> &actorColliders)

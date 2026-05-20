@@ -717,7 +717,13 @@ std::optional<std::vector<uint8_t>> GameplayUiRuntime::loadSpriteBitmapPixelsBgr
 
 void GameplayUiRuntime::clearHudLayoutRuntimeHeightOverrides()
 {
+    m_hudLayoutRuntimeWidthOverrides.clear();
     m_hudLayoutRuntimeHeightOverrides.clear();
+}
+
+void GameplayUiRuntime::setHudLayoutRuntimeWidthOverride(const std::string &layoutId, float width)
+{
+    m_hudLayoutRuntimeWidthOverrides[toLowerCopy(layoutId)] = width;
 }
 
 void GameplayUiRuntime::setHudLayoutRuntimeHeightOverride(const std::string &layoutId, float height)
@@ -749,6 +755,7 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayUiRuntime::resolveHudLay
 {
     return GameplayHudCommon::resolveHudLayoutElement(
         m_layoutManager,
+        m_hudLayoutRuntimeWidthOverrides,
         m_hudLayoutRuntimeHeightOverrides,
         layoutId,
         screenWidth,

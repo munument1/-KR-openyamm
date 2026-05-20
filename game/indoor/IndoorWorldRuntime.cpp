@@ -13378,6 +13378,16 @@ bool IndoorWorldRuntime::setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn
     return matchedAny;
 }
 
+std::vector<uint32_t> IndoorWorldRuntime::resolveIndoorLightReferenceIds(int32_t rawReferenceId) const
+{
+    if (m_pIndoorMapData == nullptr)
+    {
+        return {};
+    }
+
+    return OpenYAMM::Game::resolveIndoorLightReferenceIds(*m_pIndoorMapData, rawReferenceId);
+}
+
 std::vector<IndoorActorCollision> IndoorWorldRuntime::actorMovementCollidersForActorMovement(
     const std::vector<size_t> &activeActorIndices) const
 {

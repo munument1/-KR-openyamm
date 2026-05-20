@@ -228,6 +228,7 @@ public:
     const MapDeltaData *mapDeltaData() const override;
     MapDeltaData *mapDeltaData() override;
     bool setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn) override;
+    std::vector<uint32_t> resolveIndoorLightReferenceIds(int32_t rawReferenceId) const override;
     float gameMinutes() const override;
     int currentHour() const override;
     void advanceGameMinutes(float minutes) override;

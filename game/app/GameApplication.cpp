@@ -18,6 +18,7 @@
 #include "game/maps/MapIdentity.h"
 #include "game/tables/ClassMultiplierTable.h"
 #include "game/tables/ItemTable.h"
+#include "game/tables/NpcDialogTable.h"
 #include "game/ui/screens/ArcomageScreen.h"
 #include "game/ui/screens/CutsceneVideoScreen.h"
 #include "game/ui/screens/LoadGameScreen.h"
@@ -1183,6 +1184,121 @@ std::string boolString(bool value)
     return value ? "true" : "false";
 }
 
+constexpr size_t DebugMaxNpcFollowerCount = 4;
+constexpr uint32_t DebugMaxNpcFollowerFeePercent = 100;
+
+bool debugHasHiredNpcFollower(const EventRuntimeState &runtimeState, uint32_t npcId)
+{
+    return std::find_if(
+        runtimeState.hiredNpcFollowers.begin(),
+        runtimeState.hiredNpcFollowers.end(),
+        [npcId](const HiredNpcFollower &follower)
+        {
+            return follower.npcId == npcId;
+        }) != runtimeState.hiredNpcFollowers.end();
+}
+
+uint32_t debugHiredNpcFollowerFeePercent(const EventRuntimeState &runtimeState)
+{
+    uint32_t total = 0;
+
+    for (const HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)
+    {
+        total += follower.weeklyCost / 100u;
+    }
+
+    return total;
+}
+
+NpcEntry debugNpcEntryWithRuntimeOverrides(NpcEntry entry, const EventRuntimeState &runtimeState)
+{
+    const std::unordered_map<uint32_t, std::string>::const_iterator nameIt =
+        runtimeState.npcNameOverrides.find(entry.id);
+    if (nameIt != runtimeState.npcNameOverrides.end())
+    {
+        entry.name = nameIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator pictureIt =
+        runtimeState.npcPictureOverrides.find(entry.id);
+    if (pictureIt != runtimeState.npcPictureOverrides.end())
+    {
+        entry.pictureId = pictureIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator professionIt =
+        runtimeState.npcProfessionOverrides.find(entry.id);
+    if (professionIt != runtimeState.npcProfessionOverrides.end())
+    {
+        entry.professionId = professionIt->second;
+    }
+
+    return entry;
+}
+
+std::vector<NpcEntry> debugNpcEntriesForProfession(
+    const NpcDialogTable &npcDialogTable,
+    const EventRuntimeState &runtimeState,
+    uint32_t professionId)
+{
+    std::vector<NpcEntry> entries;
+    std::unordered_set<uint32_t> baseNpcIds;
+
+    for (const NpcEntry &baseEntry : npcDialogTable.entries())
+    {
+        baseNpcIds.insert(baseEntry.id);
+        NpcEntry entry = debugNpcEntryWithRuntimeOverrides(baseEntry, runtimeState);
+
+        if (entry.professionId == professionId)
+        {
+            entries.push_back(std::move(entry));
+        }
+    }
+
+    for (const auto &[npcId, runtimeProfessionId] : runtimeState.npcProfessionOverrides)
+    {
+        if (baseNpcIds.contains(npcId) || runtimeProfessionId != professionId)
+        {
+            continue;
+        }
+
+        NpcEntry entry = {};
+        entry.id = npcId;
+        entry.name = "NPC " + std::to_string(npcId);
+        entry.professionId = runtimeProfessionId;
+        entries.push_back(debugNpcEntryWithRuntimeOverrides(std::move(entry), runtimeState));
+    }
+
+    std::sort(
+        entries.begin(),
+        entries.end(),
+        [](const NpcEntry &left, const NpcEntry &right)
+        {
+            return left.id < right.id;
+        });
+
+    return entries;
+}
+
+bool debugNpcCanOfferProfessionHire(const NpcEntry &npc, const MergedNpcProfessionEntry &profession)
+{
+    return npc.joins || profession.joins;
+}
+
+bool debugContinentAllowsNpcFollowers(
+    const std::optional<MapAssetInfo> &selectedMap,
+    const MergedContinentSettingTable &continentSettingTable)
+{
+    if (!selectedMap || selectedMap->map.mergedContinentId == 0)
+    {
+        return true;
+    }
+
+    const MergedContinentSettingEntry *pContinentSetting =
+        continentSettingTable.findById(selectedMap->map.mergedContinentId);
+    return pContinentSetting == nullptr || pContinentSetting->npcFollowers;
+}
+
 struct DebugCivilTime
 {
     int year = 1168;
@@ -2336,7 +2452,8 @@ void GameApplication::registerDebugConsoleCommands()
                 << "qbit get|set|clear <id>, qbit dump [active|all|filter], "
                 << "global get|set|clear <name> [value], global dump [filter], "
                 << "mapvar get|set|clear <index> [value], mapvar dump, "
-                << "award get|set|clear <id>, award dump [active|all|filter], gold get|add|set <amount>, "
+                << "award get|set|clear <id>, award dump [active|all|filter], "
+                << "hire <profession-id>, gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
             return commandResult(true, out.str());
@@ -3194,6 +3311,160 @@ void GameApplication::registerDebugConsoleCommands()
 
             pParty->reviveAndRestoreAll();
             return commandResult(true, "Party restored.");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "hire",
+        .description = "Hire an available NPC by profession id.",
+        .usage = "hire <profession-id>",
+        .callback = [this, activeParty, activeEventRuntimeState, commandResult](
+            const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() != 1)
+            {
+                return commandResult(false, "Usage: hire <profession-id>");
+            }
+
+            const std::optional<int32_t> parsedProfessionId = parseInt32Argument(context.args[0]);
+
+            if (!parsedProfessionId || *parsedProfessionId <= 0)
+            {
+                return commandResult(false, "Invalid profession id.");
+            }
+
+            Party *pParty = activeParty();
+            EventRuntimeState *pRuntimeState = activeEventRuntimeState();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            if (pRuntimeState == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            if (!debugContinentAllowsNpcFollowers(
+                    m_gameDataLoader.getSelectedMap(),
+                    m_gameDataLoader.getMergedContinentSettingTable()))
+            {
+                return commandResult(false, "This continent does not allow NPC followers.");
+            }
+
+            const uint32_t professionId = static_cast<uint32_t>(*parsedProfessionId);
+            const MergedNpcProfessionEntry *pProfession =
+                m_gameDataLoader.getMergedNpcProfessionTable().get(professionId);
+
+            if (pProfession == nullptr)
+            {
+                return commandResult(false, "Unknown NPC profession id.");
+            }
+
+            std::optional<NpcEntry> selectedNpc;
+            std::optional<NpcEntry> alreadyHiredNpc;
+            bool sawHireableNpc = false;
+
+            for (const NpcEntry &npc : debugNpcEntriesForProfession(
+                    m_gameDataLoader.getNpcDialogTable(),
+                    *pRuntimeState,
+                    professionId))
+            {
+                if (!debugNpcCanOfferProfessionHire(npc, *pProfession))
+                {
+                    continue;
+                }
+
+                sawHireableNpc = true;
+
+                if (debugHasHiredNpcFollower(*pRuntimeState, npc.id))
+                {
+                    if (!alreadyHiredNpc)
+                    {
+                        alreadyHiredNpc = npc;
+                    }
+
+                    continue;
+                }
+
+                if (pRuntimeState->unavailableNpcIds.contains(npc.id))
+                {
+                    continue;
+                }
+
+                selectedNpc = npc;
+                break;
+            }
+
+            if (!selectedNpc)
+            {
+                if (alreadyHiredNpc)
+                {
+                    return commandResult(
+                        false,
+                        alreadyHiredNpc->name + " is already following you.");
+                }
+
+                if (sawHireableNpc)
+                {
+                    return commandResult(false, "All matching NPCs are unavailable.");
+                }
+
+                return commandResult(
+                    false,
+                    "No hireable NPC found for profession " + std::to_string(professionId) + " ("
+                        + pProfession->profession + ").");
+            }
+
+            if (pRuntimeState->hiredNpcFollowers.size() >= DebugMaxNpcFollowerCount
+                || debugHiredNpcFollowerFeePercent(*pRuntimeState) >= DebugMaxNpcFollowerFeePercent)
+            {
+                return commandResult(false, "You already have enough followers.");
+            }
+
+            if (pParty->gold() < static_cast<int>(pProfession->weeklyCost))
+            {
+                return commandResult(false, "You do not have enough gold.");
+            }
+
+            pParty->addGold(-static_cast<int>(pProfession->weeklyCost));
+
+            HiredNpcFollower follower = {};
+            follower.npcId = selectedNpc->id;
+            follower.professionId = selectedNpc->professionId;
+            follower.weeklyCost = pProfession->weeklyCost;
+            pRuntimeState->hiredNpcFollowers.push_back(follower);
+            pRuntimeState->unavailableNpcIds.insert(selectedNpc->id);
+            pRuntimeState->npcHouseOverrides.erase(selectedNpc->id);
+            pParty->addHiredNpcFollower(follower);
+            pParty->setNpcUnavailable(selectedNpc->id, true);
+            pParty->clearNpcHouseOverride(selectedNpc->id);
+
+            if (m_pMapSceneRuntime != nullptr)
+            {
+                if (m_pMapSceneRuntime->kind() == SceneKind::Outdoor && m_pOutdoorWorldRuntime != nullptr)
+                {
+                    m_pOutdoorWorldRuntime->applyEventRuntimeState();
+                    if (m_pOutdoorPartyRuntime != nullptr)
+                    {
+                        m_pOutdoorPartyRuntime->applyEventRuntimeState(*pRuntimeState, false);
+                    }
+                }
+                else if (m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+                {
+                    IndoorSceneRuntime *pIndoorRuntime =
+                        static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+                    pIndoorRuntime->worldRuntime().applyEventRuntimeState();
+                    pIndoorRuntime->party().applyEventRuntimeState(*pRuntimeState, false);
+                }
+            }
+
+            synchronizeSessionFromRuntime();
+
+            return commandResult(
+                true,
+                "Hired " + selectedNpc->name + " (npc " + std::to_string(selectedNpc->id)
+                    + ", profession " + std::to_string(professionId) + " " + pProfession->profession + ").");
         }});
 
     m_debugConsole.registerCommand({

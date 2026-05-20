@@ -7356,8 +7356,27 @@ int luaSetOutdoorModelFacetTexture(lua_State *pLuaState)
 int luaSetLight(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
-    pRuntimeState->indoorLightsEnabled[eventReferenceId(luaL_checkinteger(pLuaState, 1))] =
-        luaEventBoolean(pLuaState, 2);
+    const lua_Integer rawReferenceId = luaL_checkinteger(pLuaState, 1);
+    const bool enabled = luaEventBoolean(pLuaState, 2);
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pExecutionContext != nullptr && pExecutionContext->pSceneEventContext != nullptr)
+    {
+        const std::vector<uint32_t> resolvedLightIds =
+            pExecutionContext->pSceneEventContext->resolveIndoorLightReferenceIds(
+                static_cast<int32_t>(rawReferenceId));
+
+        if (!resolvedLightIds.empty())
+        {
+            for (uint32_t lightId : resolvedLightIds)
+            {
+                pRuntimeState->indoorLightsEnabled[lightId] = enabled;
+            }
+            return 0;
+        }
+    }
+
+    pRuntimeState->indoorLightsEnabled[eventReferenceId(rawReferenceId)] = enabled;
     return 0;
 }
 

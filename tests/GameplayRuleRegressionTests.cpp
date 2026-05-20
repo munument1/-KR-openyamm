@@ -488,6 +488,47 @@ TEST_CASE("outdoor water damage tick reports drowning status text")
     CHECK_EQ(partyRuntime.movementStatusText(), "You are drowning!");
 }
 
+TEST_CASE("outdoor water landing still applies fall damage")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::OutdoorPartyRuntime partyRuntime(std::move(movementDriver), itemTable);
+    partyRuntime.initialize(boundary.waterX, boundary.waterY, 0.0f, true);
+
+    OpenYAMM::Game::OutdoorPartyRuntime::Snapshot snapshot = partyRuntime.snapshot();
+    snapshot.movementState = movementController.initializeState(boundary.waterX, boundary.waterY, 0.0f);
+    snapshot.movementState.footZ += 768.0f;
+    snapshot.movementState.airborne = true;
+    snapshot.movementState.verticalVelocity = 0.0f;
+    snapshot.movementState.fallStartZ = snapshot.movementState.footZ;
+    snapshot.movementState.supportOnWater = false;
+    snapshot.partyMovementState = {};
+    partyRuntime.restoreSnapshot(snapshot);
+
+    const int initialHealth = partyRuntime.party().totalHealth();
+
+    for (int i = 0; i < 80 && partyRuntime.party().lastFallDamageDistance() <= 0.0f; ++i)
+    {
+        partyRuntime.update(OpenYAMM::Game::OutdoorMovementInput{}, 0.1f);
+    }
+
+    CHECK(partyRuntime.movementState().supportOnWater);
+    CHECK_GT(partyRuntime.party().lastFallDamageDistance(), 512.0f);
+    CHECK_LT(partyRuntime.party().totalHealth(), initialHealth);
+}
+
 TEST_CASE("classic outdoor flying ignores camera pitch for forward movement")
 {
     const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
@@ -3144,6 +3185,59 @@ TEST_CASE("indoor lava support applies recurring burning damage")
     CHECK_LT(partyRuntime.party().totalHealth(), initialHealth);
     CHECK_EQ(partyRuntime.party().lastStatus(), "burning damage");
     CHECK_EQ(partyRuntime.movementStatusText(), "You are burning!");
+}
+
+TEST_CASE("indoor party runtime applies fall damage after airborne landing")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 0},
+        {512, 512, 0},
+        {-512, 512, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    mapData.faces = {floor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 512;
+    sector.minZ = -512;
+    sector.maxZ = 2048;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::IndoorPartyRuntime partyRuntime(std::move(movementController), itemTable);
+    partyRuntime.initializeEyePosition(0.0f, 0.0f, 928.0f, true);
+
+    REQUIRE_FALSE(partyRuntime.movementState().grounded);
+    const int initialHealth = partyRuntime.party().totalHealth();
+
+    for (int i = 0; i < 80 && partyRuntime.party().lastFallDamageDistance() <= 0.0f; ++i)
+    {
+        partyRuntime.update(0.0f, 0.0f, false, false, 0.1f);
+    }
+
+    CHECK(partyRuntime.movementState().grounded);
+    CHECK_GT(partyRuntime.party().lastFallDamageDistance(), 512.0f);
+    CHECK_LT(partyRuntime.party().totalHealth(), initialHealth);
+    CHECK_EQ(partyRuntime.party().lastStatus(), "fall damage");
 }
 
 TEST_CASE("indoor movement rejects standing clearance below body height")

@@ -441,8 +441,7 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
 
     if (m_lastEvents.hardLanding
         && !m_partyMovementState.featherFall
-        && !m_partyMovementState.flying
-        && !m_state.supportOnWater)
+        && !m_partyMovementState.flying)
     {
         m_fallDamageConsequenceSeconds = EventHoldSeconds;
         m_lastConsequences.fallDamageDistance = m_lastEvents.landingFallDistance;

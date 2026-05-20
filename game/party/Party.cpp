@@ -2564,8 +2564,12 @@ void Party::applyMovementEffects(const OutdoorMovementEffects &effects)
                 continue;
             }
 
-            const int damage =
-                std::max(0, static_cast<int>(effects.maxFallDamageDistance * (m_members[memberIndex].maxHealth / 10.0f) / 256.0f));
+            const int fallDistance = std::max(0, static_cast<int>(effects.maxFallDamageDistance));
+            const int healthFactor = std::max(0, m_members[memberIndex].maxHealth) / 10;
+            const int damage = static_cast<int>(
+                std::min<int64_t>(
+                    std::numeric_limits<int>::max(),
+                    static_cast<int64_t>(fallDistance) * healthFactor / 256));
             applyDamageToMember(memberIndex, damage, "falling");
         }
 

@@ -414,3 +414,63 @@ TEST_CASE("legacy lua exporter rewrites lich ritual checks and promotions to all
     CHECK(ritualLua.find("evt.ForPlayer(Players.Member0)") == std::string::npos);
     CHECK(ritualLua.find("evt.ForPlayer(Players.Member3)") == std::string::npos);
 }
+
+TEST_CASE("legacy lua exporter preserves mm8 indoor light group ids")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm8/_legacy/events/D05.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm8/_legacy/events/D05.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Abandoned Temple";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm8);
+
+    const std::string buttonLua = extractLuaEvent(lua, "RegisterEvent(106");
+    INFO(buttonLua);
+    CHECK(buttonLua.find("evt.SetTexture(5, \"t65b11b\")") != std::string::npos);
+    CHECK(buttonLua.find("evt.SetLight(5, 0)") != std::string::npos);
+    CHECK(buttonLua.find("evt.SetLight(5, 1)") != std::string::npos);
+    CHECK(buttonLua.find("evt.SetLight(4, 0)") == std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter keeps mm6 indoor light ids zero based")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/SEWER.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/SEWER.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "Sewer";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    INFO(lua);
+    CHECK(lua.find("evt.SetLight(0, 1)") != std::string::npos);
+}

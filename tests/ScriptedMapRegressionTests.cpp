@@ -98,6 +98,16 @@ public:
         return false;
     }
 
+    std::vector<uint32_t> resolveIndoorLightReferenceIds(int32_t rawReferenceId) const override
+    {
+        if (pIndoorMapData == nullptr)
+        {
+            return {};
+        }
+
+        return OpenYAMM::Game::resolveIndoorLightReferenceIds(*pIndoorMapData, rawReferenceId);
+    }
+
     bool registerOutdoorModelMechanism(
         uint32_t mechanismId,
         const std::string &modelName,
@@ -200,6 +210,7 @@ public:
     std::vector<SummonMonstersCall> summonMonstersCalls;
     std::vector<OutdoorModelMechanismCall> outdoorModelMechanismCalls;
     std::unordered_map<uint32_t, bool> killedGroupResults;
+    const OpenYAMM::Game::IndoorMapData *pIndoorMapData = nullptr;
 
 private:
     float m_currentGameMinutes = 0.0f;
@@ -1817,6 +1828,7 @@ TEST_CASE("mmmerge shared Breach maps are mounted and scripted")
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
     OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.mapVars[12] = 1;
     OpenYAMM::Game::Party party = makeScriptedRegressionParty();
     RecordingSceneEventContext sceneContext = {};
 
@@ -5522,7 +5534,8 @@ TEST_CASE("mm6 global mmmerge supplement keeps rescue followers and collector to
             {1327, "Paladin", "Crusader", {1699}, 0, 1635},
             {1329, "Crusader", "Hero", {}, 2075, 1637},
             {1349, "Cleric", "Priest", {1130}, 0, 1647},
-            {1351, "Priest", "PriestLight", {1132}, 0, 1649},
+            {1349, "PriestLight", "PriestLight", {1130}, 0, 1648},
+            {1351, "Priest", "HighPriest", {1132}, 0, 1649},
             {1371, "Sorcerer", "Wizard", {}, 0, 1639},
             {1373, "Wizard", "ArchMage", {}, 2077, 1641},
             {1382, "Knight", "Cavalier", {}, 0, 1643},
@@ -5806,6 +5819,10 @@ TEST_CASE("mm6 outc2 overlay ports council and temple local fixes")
     CHECK(syncedTempleState.hiredNpcFollowers.empty());
     REQUIRE_FALSE(templeState.messages.empty());
     CHECK_EQ(templeState.messages.back(), "The stone cutter and carpenter begin rebuilding the temple.");
+    REQUIRE(templeState.pendingDialogueContext.has_value());
+    CHECK_EQ(
+        templeState.pendingDialogueContext->kind,
+        OpenYAMM::Game::DialogueContextKind::MapEvent);
 
     OpenYAMM::Game::Party chaliceParty = makeScriptedRegressionParty();
     chaliceParty.setQuestBit(1131, true);
@@ -5825,11 +5842,25 @@ TEST_CASE("mm6 outc2 overlay ports council and temple local fixes")
     REQUIRE(chaliceState.pendingDialogueContext.has_value());
     CHECK_EQ(
         chaliceState.pendingDialogueContext->kind,
-        OpenYAMM::Game::DialogueContextKind::MapEvent);
+        OpenYAMM::Game::DialogueContextKind::HouseService);
+    CHECK_EQ(chaliceState.pendingDialogueContext->sourceId, 326u);
     REQUIRE_FALSE(chaliceState.messages.empty());
     CHECK(
         chaliceState.messages.back().find("Sacred Chalice")
         != std::string::npos);
+
+    OpenYAMM::Game::Party chaliceMissingParty = makeScriptedRegressionParty();
+    chaliceMissingParty.setQuestBit(1131, true);
+    OpenYAMM::Game::EventRuntimeState chaliceMissingState = {};
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        19,
+        chaliceMissingState,
+        &chaliceMissingParty,
+        nullptr));
+    REQUIRE(chaliceMissingState.pendingDialogueContext.has_value());
+    CHECK_EQ(chaliceMissingState.pendingDialogueContext->sourceId, 1442u);
 
     OpenYAMM::Game::Party repairedQuestCompleteParty = makeScriptedRegressionParty();
     repairedQuestCompleteParty.setQuestBit(1130, true);
@@ -5856,7 +5887,20 @@ TEST_CASE("mm6 outc2 overlay ports council and temple local fixes")
         &repairedQuestPendingParty,
         nullptr));
     REQUIRE(repairedQuestPendingState.pendingDialogueContext.has_value());
-    CHECK_EQ(repairedQuestPendingState.pendingDialogueContext->sourceId, 326u);
+    CHECK_EQ(repairedQuestPendingState.pendingDialogueContext->sourceId, 1442u);
+
+    OpenYAMM::Game::Party restoredTempleParty = makeScriptedRegressionParty();
+    restoredTempleParty.setQuestBit(1132, true);
+    OpenYAMM::Game::EventRuntimeState restoredTempleState = {};
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        19,
+        restoredTempleState,
+        &restoredTempleParty,
+        nullptr));
+    REQUIRE(restoredTempleState.pendingDialogueContext.has_value());
+    CHECK_EQ(restoredTempleState.pendingDialogueContext->sourceId, 326u);
 }
 
 TEST_CASE("mm6 oute3 overlay ports dimension door and volcano events")
@@ -7339,6 +7383,80 @@ TEST_CASE("mm7 dragon lair loads indoor billboards and lights")
     CHECK_EQ(
         pLoadedMap->indoorActorPreviewBillboardSet->texturedActorCount,
         pLoadedMap->indoorActorPreviewBillboardSet->billboards.size());
+}
+
+TEST_CASE("mm8 abandoned temple buttons resolve SetLight by authored light group id")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "d05.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapData.has_value());
+
+    const OpenYAMM::Game::IndoorMapData &mapData = *pLoadedMap->indoorMapData;
+    REQUIRE_GT(mapData.faces.size(), 776u);
+    REQUIRE_GT(mapData.lights.size(), 5u);
+    CHECK_EQ(mapData.faces[776].cogTriggered, 104u);
+    CHECK_EQ(mapData.faces[776].cogNumber, 3u);
+    CHECK_EQ(mapData.lights[3].id, 3);
+    CHECK_EQ(mapData.lights[2].id, 4);
+    CHECK_EQ(mapData.lights[4].id, 5);
+
+    CHECK_EQ(OpenYAMM::Game::resolveIndoorLightReferenceIds(mapData, 3), std::vector<uint32_t>{3u});
+    CHECK_EQ(OpenYAMM::Game::resolveIndoorLightReferenceIds(mapData, 4), std::vector<uint32_t>{2u});
+    CHECK_EQ(OpenYAMM::Game::resolveIndoorLightReferenceIds(mapData, 5), std::vector<uint32_t>{4u});
+
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    const std::optional<std::string> commonLua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm8/events/common/mm8_common.lua");
+    const std::optional<std::string> d05Lua =
+        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm8/events/maps/d05.lua");
+    REQUIRE(supportLua.has_value());
+    REQUIRE(commonLua.has_value());
+    REQUIRE(d05Lua.has_value());
+
+    CHECK(d05Lua->find("RegisterEvent(104") != std::string::npos);
+    CHECK(d05Lua->find("evt.SetLight(3, 0)") != std::string::npos);
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> lightProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *commonLua + "\n\n"
+            "RegisterEvent(1, \"Button\", function()\n"
+            "    evt.SetLight(3, 0)\n"
+            "end, \"Button\")\n",
+            "@tests/mm8_light_group.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(lightProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    RecordingSceneEventContext sceneContext = {};
+    sceneContext.pIndoorMapData = &mapData;
+
+    REQUIRE(eventRuntime.executeEventById(
+        lightProgram,
+        std::nullopt,
+        1,
+        runtimeState,
+        &party,
+        &sceneContext));
+
+    const auto light3Iterator = runtimeState.indoorLightsEnabled.find(3u);
+    REQUIRE(light3Iterator != runtimeState.indoorLightsEnabled.end());
+    CHECK_FALSE(light3Iterator->second);
+    CHECK(runtimeState.indoorLightsEnabled.find(2u) == runtimeState.indoorLightsEnabled.end());
 }
 
 TEST_CASE("mm6 darkmoor actor previews preload random encounter tier textures")

@@ -87,6 +87,7 @@ struct IndoorLight
     uint8_t type = 0;
     int16_t attributes = 0;
     int16_t brightness = 0;
+    int32_t id = 0;
 };
 
 struct IndoorBspNode
@@ -178,6 +179,8 @@ struct IndoorMapData
     size_t lightCount = 0;
     size_t spawnCount = 0;
 };
+
+std::vector<uint32_t> resolveIndoorLightReferenceIds(const IndoorMapData &indoorMapData, int32_t rawReferenceId);
 
 class IndoorMapDataLoader
 {

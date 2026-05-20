@@ -2798,7 +2798,7 @@ TEST_CASE("mm6 temple healing tier limits serious condition treatment")
     REQUIRE(pBlackshireTemple != nullptr);
     CHECK_EQ(pNewSorpigalTemple->templeHealingTier, doctest::Approx(2.0f));
     CHECK_EQ(pFreeHavenTempleStone->templeHealingTier, doctest::Approx(2.5f));
-    CHECK_EQ(pFreeHavenTemple->templeHealingTier, doctest::Approx(2.5f));
+    CHECK_EQ(OpenYAMM::Game::resolveHouseServiceType(*pFreeHavenTemple), OpenYAMM::Game::HouseServiceType::None);
     CHECK_EQ(pBlackshireTemple->templeHealingTier, doctest::Approx(2.5f));
 
     OpenYAMM::Game::Character *pMember = harness.party().activeMember();
@@ -2848,7 +2848,9 @@ TEST_CASE("mm6 temple healing tier limits serious condition treatment")
         &harness.worldRuntime(),
         harness.worldRuntime().gameMinutes(),
         OpenYAMM::Game::DialogueMenuId::None);
-    CHECK(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+    CHECK_FALSE(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleHeal).has_value());
+    CHECK_FALSE(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::TempleDonate).has_value());
+    CHECK_FALSE(findHouseActionById(actions, OpenYAMM::Game::HouseActionId::OpenLearnSkillsMenu).has_value());
 
     actions = OpenYAMM::Game::buildHouseActionOptions(
         *pBlackshireTemple,
