@@ -7911,12 +7911,12 @@ void OutdoorWorldRuntime::applyOutdoorActorAudioRequests(const std::vector<Actor
             continue;
         }
 
-        if (audioRequest.kind == ActorAiAudioRequestKind::Alert)
+        if (audioRequest.kind == ActorAiAudioRequestKind::Bored)
         {
             pushAudioEvent(
-                pStats->awareSoundId,
+                pStats->boredSoundId,
                 actor.actorId,
-                "monster_alert",
+                "monster_bored",
                 audioRequest.position.x,
                 audioRequest.position.y,
                 audioRequest.position.z,

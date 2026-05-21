@@ -720,6 +720,7 @@ void GameplayHudOverlaySupport::updateCharacterInspectOverlay(
                 overlay.active = true;
                 overlay.title = pEntry->name;
                 overlay.body = pEntry->description;
+                std::string normalDescription = pEntry->normalDescription;
                 std::string expertDescription = pEntry->expertDescription;
                 std::string masterDescription = pEntry->masterDescription;
                 std::string grandmasterDescription = pEntry->grandmasterDescription;
@@ -736,6 +737,13 @@ void GameplayHudOverlaySupport::updateCharacterInspectOverlay(
                         "Skill added to Attack Bonus (quintuple effect); +1 damage per skill point";
                 }
 
+                overlay.normal.text = "Normal: " + normalDescription;
+                overlay.normal.availability = skillMasteryAvailability(
+                    context.classSkillTable(),
+                    pCharacter,
+                    row.canonicalName,
+                    SkillMastery::Normal);
+                overlay.normal.visible = !normalDescription.empty();
                 overlay.expert.text = "Expert: " + expertDescription;
                 overlay.expert.availability = skillMasteryAvailability(
                     context.classSkillTable(),

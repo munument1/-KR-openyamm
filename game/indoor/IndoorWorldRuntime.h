@@ -644,6 +644,7 @@ private:
         size_t actorIndex,
         const MapDeltaActor &actor,
         const MonsterTable::MonsterStatsEntry &stats) const;
+    void pushIndoorMonsterSound(size_t actorIndex, uint32_t soundId);
     void beginMapActorHitReaction(
         size_t actorIndex,
         MapDeltaActor &actor,

@@ -519,6 +519,11 @@ bool isBuffLayoutVisible(const Party &party, const std::string &layoutId)
         return party.hasPartyBuff(PartyBuffId::Immolation);
     }
 
+    if (normalizedLayoutId == "outdoorbuffskull_frame" || normalizedLayoutId == "outdoorbuffbody_frame")
+    {
+        return true;
+    }
+
     if (normalizedLayoutId.rfind("outdoorbuffskull_", 0) == 0
         || normalizedLayoutId.rfind("outdoorbuffbody_", 0) == 0)
     {

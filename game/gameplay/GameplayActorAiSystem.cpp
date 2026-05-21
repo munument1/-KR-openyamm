@@ -125,7 +125,6 @@ struct ActorEngagementState
     bool shouldUpdateHostilityType = false;
     uint8_t hostilityType = 0;
     bool hasDetectedParty = false;
-    bool shouldPlayPartyAlert = false;
     float promotionRange = 0.0f;
     bool shouldFlee = false;
     bool inMeleeRange = false;
@@ -1336,7 +1335,6 @@ ActorEngagementState resolveActorEngagement(
     if (result.targetIsParty && !actor.status.hasDetectedParty)
     {
         result.hasDetectedParty = true;
-        result.shouldPlayPartyAlert = true;
     }
     else if (!result.targetIsParty || !combatTarget.partyCanSense)
     {
@@ -2930,15 +2928,6 @@ void applyCombatEngagementUpdate(const ActorAiFacts &actor, const ActorAiFrameFa
         update.state.hasDetectedParty = engagement.hasDetectedParty;
     }
 
-    if (engagement.shouldPlayPartyAlert)
-    {
-        ActorAudioRequest alert = {};
-        alert.kind = ActorAiAudioRequestKind::Alert;
-        alert.actorIndex = actor.actorIndex;
-        alert.position = actor.movement.position;
-        alert.position.z += static_cast<float>(actor.stats.height) * 0.5f;
-        update.audioRequests.push_back(alert);
-    }
 }
 
 void applyAttackImpactOutcome(const ActorAiFacts &actor, ActorAiUpdate &update)
@@ -3553,11 +3542,25 @@ void AI_Stand(ActorAiCommandContext &ai)
 
 void AI_Bored(ActorAiCommandContext &ai)
 {
+    const ActorAiFacts &actor = ai.actor();
+
     ai.setMotionState(ActorAiMotionState::Standing);
     ai.setAnimationState(ActorAiAnimationState::Bored);
     ai.setMovementAction(ActorAiMovementAction::Stand);
     ai.clearMovementDirection();
     ai.clearVelocity();
+
+    const uint32_t soundSeed = mixActorDecisionSeed(actor.actorId, actor.runtime.idleDecisionCount, 0x04b1d0f5u);
+
+    if ((soundSeed % 100u) < 5u)
+    {
+        ActorAudioRequest boredAudio = {};
+        boredAudio.kind = ActorAiAudioRequestKind::Bored;
+        boredAudio.actorIndex = actor.actorIndex;
+        boredAudio.position = actor.movement.position;
+        boredAudio.position.z += static_cast<float>(actor.stats.height) * 0.5f;
+        ai.requestAudio(boredAudio);
+    }
 }
 
 void AI_RandomMove(ActorAiCommandContext &ai, const IdleBehaviorResult &idleBehavior)

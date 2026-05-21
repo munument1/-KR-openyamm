@@ -5525,7 +5525,10 @@ TEST_CASE("event teacher hint sets autonote and note fx")
     }
 
     CHECK(sawAutoNoteFx);
-    CHECK(harness.eventRuntimeState().pendingSounds.empty());
+    REQUIRE_FALSE(harness.eventRuntimeState().pendingSounds.empty());
+    CHECK_EQ(
+        harness.eventRuntimeState().pendingSounds.back().soundId,
+        static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
     REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
     CHECK_NE(
         harness.eventRuntimeState().messages.front().find("Ashandra Withersmythe"),

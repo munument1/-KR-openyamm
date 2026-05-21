@@ -4971,9 +4971,9 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
 
         uint32_t soundId = 0;
 
-        if (audioRequest.kind == ActorAiAudioRequestKind::Alert)
+        if (audioRequest.kind == ActorAiAudioRequestKind::Bored)
         {
-            soundId = pStats->awareSoundId;
+            soundId = pStats->boredSoundId;
         }
         else if (audioRequest.kind == ActorAiAudioRequestKind::Attack)
         {
@@ -4998,7 +4998,9 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
         sound.soundId = soundId;
         sound.x = static_cast<int32_t>(std::lround(audioRequest.position.x));
         sound.y = static_cast<int32_t>(std::lround(audioRequest.position.y));
+        sound.z = static_cast<int32_t>(std::lround(audioRequest.position.z));
         sound.positional = true;
+        sound.hasExplicitZ = true;
         (*m_pEventRuntimeState)->pendingSounds.push_back(sound);
     }
 
@@ -5486,6 +5488,30 @@ void IndoorWorldRuntime::pushIndoorProjectileAudioEvent(
     sound.x = static_cast<int32_t>(std::lround(audioRequest.x));
     sound.y = static_cast<int32_t>(std::lround(audioRequest.y));
     sound.positional = audioRequest.positional;
+    (*m_pEventRuntimeState)->pendingSounds.push_back(sound);
+}
+
+void IndoorWorldRuntime::pushIndoorMonsterSound(size_t actorIndex, uint32_t soundId)
+{
+    if (soundId == 0
+        || m_pEventRuntimeState == nullptr
+        || !*m_pEventRuntimeState
+        || actorIndex >= m_mapActorAiStates.size())
+    {
+        return;
+    }
+
+    const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+    EventRuntimeState::PendingSound sound = {};
+    sound.soundScope = SoundScope::World;
+    sound.soundId = soundId;
+    sound.x = static_cast<int32_t>(std::lround(aiState.preciseX));
+    sound.y = static_cast<int32_t>(std::lround(aiState.preciseY));
+    sound.z = static_cast<int32_t>(
+        std::lround(aiState.preciseZ + static_cast<float>(aiState.collisionHeight) * 0.5f));
+    sound.positional = true;
+    sound.hasExplicitZ = true;
     (*m_pEventRuntimeState)->pendingSounds.push_back(sound);
 }
 
@@ -6150,7 +6176,8 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
             const MonsterTable::MonsterStatsEntry *pStats = nullptr;
             if (impact.actorIndex < pMapDeltaData->actors.size() && m_pMonsterTable != nullptr)
             {
-                pStats = m_pMonsterTable->findStatsById(resolveIndoorActorStatsId(pMapDeltaData->actors[impact.actorIndex]));
+                pStats = m_pMonsterTable->findStatsById(
+                    resolveIndoorActorStatsId(pMapDeltaData->actors[impact.actorIndex]));
             }
 
             if (pStats != nullptr)
@@ -6216,11 +6243,29 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
             if (previousHp > 0 && targetActor.hp <= 0)
             {
                 beginMapActorDyingState(impact.actorIndex, targetActor);
+
+                if (m_pMonsterTable != nullptr)
+                {
+                    if (const MonsterTable::MonsterStatsEntry *pStats =
+                            m_pMonsterTable->findStatsById(resolvedMonsterId))
+                    {
+                        pushIndoorMonsterSound(impact.actorIndex, pStats->deathSoundId);
+                    }
+                }
             }
             else if (previousHp > 0 && targetActor.hp < previousHp)
             {
                 const GameplayWorldPoint sourcePoint = {projectile.sourceX, projectile.sourceY, projectile.sourceZ};
                 beginMapActorHitReaction(impact.actorIndex, targetActor, &sourcePoint);
+
+                if (m_pMonsterTable != nullptr)
+                {
+                    if (const MonsterTable::MonsterStatsEntry *pStats =
+                            m_pMonsterTable->findStatsById(resolvedMonsterId))
+                    {
+                        pushIndoorMonsterSound(impact.actorIndex, pStats->winceSoundId);
+                    }
+                }
             }
         }
     }
@@ -6421,12 +6466,30 @@ void IndoorWorldRuntime::applyIndoorProjectileFrameResult(
                         if (previousHp > 0 && targetActor.hp <= 0)
                         {
                             beginMapActorDyingState(actorHit.actorIndex, targetActor);
+
+                            if (m_pMonsterTable != nullptr)
+                            {
+                                if (const MonsterTable::MonsterStatsEntry *pStats =
+                                        m_pMonsterTable->findStatsById(resolvedMonsterId))
+                                {
+                                    pushIndoorMonsterSound(actorHit.actorIndex, pStats->deathSoundId);
+                                }
+                            }
                         }
                         else if (previousHp > 0 && targetActor.hp < previousHp)
                         {
                             const GameplayWorldPoint sourcePoint =
                                 {projectile.sourceX, projectile.sourceY, projectile.sourceZ};
                             beginMapActorHitReaction(actorHit.actorIndex, targetActor, &sourcePoint);
+
+                            if (m_pMonsterTable != nullptr)
+                            {
+                                if (const MonsterTable::MonsterStatsEntry *pStats =
+                                        m_pMonsterTable->findStatsById(resolvedMonsterId))
+                                {
+                                    pushIndoorMonsterSound(actorHit.actorIndex, pStats->winceSoundId);
+                                }
+                            }
                         }
                     }
                 }
@@ -9694,6 +9757,11 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
         m_mapActorAiStates[actorIndex].velocityY = knockback.y;
         m_mapActorAiStates[actorIndex].velocityZ = knockback.z;
 
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->deathSoundId);
+        }
+
         applyMonsterKillReputationPenalty(*this, pStats, actor.group);
 
         if (pStats != nullptr && pStats->experience > 0 && m_pParty != nullptr)
@@ -9712,6 +9780,11 @@ bool IndoorWorldRuntime::applyReflectedDamageToActor(
         source.y = partyY();
         source.z = partyFootZ();
         beginMapActorHitReaction(actorIndex, actor, &source);
+
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->winceSoundId);
+        }
     }
 
     return actor.hp != previousHp;
@@ -10066,11 +10139,21 @@ bool IndoorWorldRuntime::applyPartySpellToActor(
         aiState.velocityX = knockback.x;
         aiState.velocityY = knockback.y;
         aiState.velocityZ = knockback.z;
+
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->deathSoundId);
+        }
     }
     else if (previousHp > 0 && actor.hp < previousHp)
     {
         const GameplayWorldPoint sourcePoint = {partyX, partyY, partyZ};
         beginMapActorHitReaction(actorIndex, actor, &sourcePoint);
+
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->winceSoundId);
+        }
     }
 
     return actor.hp != previousHp;
@@ -11518,6 +11601,11 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
         m_mapActorAiStates[actorIndex].velocityX = knockback.x;
         m_mapActorAiStates[actorIndex].velocityY = knockback.y;
         m_mapActorAiStates[actorIndex].velocityZ = knockback.z;
+
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->deathSoundId);
+        }
     }
 
     if (actorIndex < m_mapActorAiStates.size())
@@ -11577,6 +11665,11 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
         m_mapActorAiStates[actorIndex].velocityX = knockback.x;
         m_mapActorAiStates[actorIndex].velocityY = knockback.y;
         m_mapActorAiStates[actorIndex].velocityZ = knockback.z;
+
+        if (pStats != nullptr)
+        {
+            pushIndoorMonsterSound(actorIndex, pStats->winceSoundId);
+        }
     }
 
     if (previousHp > 0 && nextHp <= 0 && m_pMonsterTable != nullptr && m_pParty != nullptr)

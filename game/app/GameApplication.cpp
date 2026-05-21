@@ -202,7 +202,7 @@ void preloadMonsterStatsSounds(
     const SpellTable &spellTable,
     const MonsterTable::MonsterStatsEntry &stats)
 {
-    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.awareSoundId));
+    preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.boredSoundId));
     preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.attackSoundId));
     preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.winceSoundId));
     preloadSoundOnce(audioSystem, preloadedSounds, worldSound(stats.deathSoundId));

@@ -1507,18 +1507,26 @@ struct QuickReferenceRow
 constexpr std::array<QuickReferenceRow, 14> QuickReferenceRows = {{
     {"Name", 18.0f},
     {"Level", 47.0f},
-    {"Class", 60.0f},
-    {"HP", 73.0f},
-    {"SP", 86.0f},
-    {"AC", 99.0f},
-    {"Attack", 112.0f},
-    {"Dmg", 125.0f},
-    {"Shoot", 138.0f},
-    {"Dmg", 151.0f},
-    {"Skills", 164.0f},
-    {"Points", 177.0f},
-    {"Cond", 190.0f},
-    {"QSpell", 203.0f},
+    {"Class", 67.0f},
+    {"HP", 87.0f},
+    {"SP", 107.0f},
+    {"AC", 127.0f},
+    {"Attack", 147.0f},
+    {"Dmg", 167.0f},
+    {"Shoot", 187.0f},
+    {"Dmg", 207.0f},
+    {"Skills", 227.0f},
+    {"Points", 247.0f},
+    {"Cond", 267.0f},
+    {"QSpell", 287.0f},
+}};
+
+constexpr std::array<float, 5> QuickReferenceMemberColumnX = {{
+    106.0f,
+    214.0f,
+    322.0f,
+    430.0f,
+    538.0f,
 }};
 
 std::string formatQuickReferenceSignedValue(int value)
@@ -2946,6 +2954,8 @@ void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRun
     }
 
     context.prepareHudView(width, height);
+    context.renderViewportSidePanels(width, height, "UI-Parch");
+
     const PointerRenderInput pointer = pointerRenderInput(context);
     const std::vector<std::string> orderedLayoutIds = context.sortedHudLayoutIdsForScreen("QuickReference");
 
@@ -3047,11 +3057,10 @@ void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRun
     const auto renderMemberRow =
         [&context, &rootRect, textHeight](size_t memberIndex, size_t rowIndex, const std::string &text, uint32_t color)
         {
-            const float x = 89.0f + static_cast<float>(memberIndex) * 94.0f;
             renderQuickReferenceText(
                 context,
                 *rootRect,
-                x,
+                QuickReferenceMemberColumnX[memberIndex],
                 QuickReferenceRows[rowIndex].y,
                 84.0f,
                 textHeight,
@@ -3130,7 +3139,7 @@ void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRun
     renderQuickReferenceText(
         context,
         *rootRect,
-        96.0f,
+        130.0f,
         323.0f,
         130.0f,
         textHeight,
@@ -3139,7 +3148,7 @@ void GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(GameplayScreenRun
     renderQuickReferenceText(
         context,
         *rootRect,
-        0.0f,
+        230.0f,
         323.0f,
         261.0f,
         textHeight,
@@ -6273,6 +6282,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     const GameplayScreenRuntime::HudLayoutElement *pRootLayout = context.findHudLayoutElement("CharacterInspectRoot");
     const GameplayScreenRuntime::HudLayoutElement *pTitleLayout = context.findHudLayoutElement("CharacterInspectTitle");
     const GameplayScreenRuntime::HudLayoutElement *pBodyLayout = context.findHudLayoutElement("CharacterInspectBody");
+    const GameplayScreenRuntime::HudLayoutElement *pNormalLayout = context.findHudLayoutElement("CharacterInspectNormal");
     const GameplayScreenRuntime::HudLayoutElement *pExpertLayout = context.findHudLayoutElement("CharacterInspectExpert");
     const GameplayScreenRuntime::HudLayoutElement *pMasterLayout = context.findHudLayoutElement("CharacterInspectMaster");
     const GameplayScreenRuntime::HudLayoutElement *pGrandmasterLayout =
@@ -6281,6 +6291,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     if (pRootLayout == nullptr
         || pTitleLayout == nullptr
         || pBodyLayout == nullptr
+        || pNormalLayout == nullptr
         || pExpertLayout == nullptr
         || pMasterLayout == nullptr
         || pGrandmasterLayout == nullptr)
@@ -6318,6 +6329,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
             ? context.wrapHudTextToWidth(*pBodyFont, overlay.body, bodyWidth)
             : std::vector<std::string>{overlay.body};
     const float bodyHeight = bodyLines.empty() ? bodyLineHeight : bodyLineHeight * static_cast<float>(bodyLines.size());
+    const bool showNormal = overlay.normal.visible && !overlay.normal.text.empty();
     const bool showExpert = overlay.expert.visible && !overlay.expert.text.empty();
     const bool showMaster = overlay.master.visible && !overlay.master.text.empty();
     const bool showGrandmaster = overlay.grandmaster.visible && !overlay.grandmaster.text.empty();
@@ -6352,6 +6364,8 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
             return std::max(lineHeight, lineHeight * static_cast<float>(std::max<size_t>(1, lines.size())));
         };
 
+    const std::vector<std::string> normalLines =
+        showNormal ? resolveWrappedMasteryLines(*pNormalLayout, overlay.normal.text) : std::vector<std::string>{};
     const std::vector<std::string> expertLines =
         showExpert ? resolveWrappedMasteryLines(*pExpertLayout, overlay.expert.text) : std::vector<std::string>{};
     const std::vector<std::string> masterLines =
@@ -6362,6 +6376,8 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     bool hasAnyMasteryRows = false;
 
     for (const auto &[showRow, pLayout, pLines] : {
+             std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
+                 showNormal, pNormalLayout, &normalLines},
              std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
                  showExpert, pExpertLayout, &expertLines},
              std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
@@ -6619,10 +6635,26 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 return rowY + lineHeight * static_cast<float>(std::max<size_t>(1, wrappedLines.size()));
             };
 
+        const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> normalRect = resolveLayout("CharacterInspectNormal");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> expertRect = resolveLayout("CharacterInspectExpert");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> masterRect = resolveLayout("CharacterInspectMaster");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> grandmasterRect =
             resolveLayout("CharacterInspectGrandmaster");
+
+        if (normalRect)
+        {
+            nextRowY = renderMasteryRow(
+                *pNormalLayout,
+                *normalRect,
+                nextRowY,
+                overlay.normal,
+                normalLines);
+
+            if (showNormal)
+            {
+                nextRowY += CharacterInspectRowGap * popupScale;
+            }
+        }
 
         if (expertRect)
         {

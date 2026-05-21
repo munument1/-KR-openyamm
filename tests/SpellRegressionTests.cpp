@@ -673,9 +673,13 @@ TEST_CASE("party spell backend supports all defined non utility spells")
             return OpenYAMM::Game::PartySpellCastStatus::NeedInventoryItemTarget;
         }
 
+        if (spellId == OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Telekinesis))
+        {
+            return OpenYAMM::Game::PartySpellCastStatus::NeedTelekinesisTarget;
+        }
+
         if (spellId == OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TownPortal)
             || spellId == OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::LloydsBeacon)
-            || spellId == OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Telekinesis)
             || spellId == OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Telepathy))
         {
             return OpenYAMM::Game::PartySpellCastStatus::NeedUtilityUi;

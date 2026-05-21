@@ -313,12 +313,16 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     CHECK_EQ(bolsterMapTable.entries()[1].note, "Dagger Wound Island");
     const OpenYAMM::Game::MergedBolsterMapEntry *pHarmondale = bolsterMapTable.findById(63u);
     REQUIRE(pHarmondale != nullptr);
-    CHECK_FALSE(pHarmondale->rain);
+    CHECK(pHarmondale->rain);
     CHECK(pHarmondale->snow);
     const OpenYAMM::Game::MergedBolsterMapEntry *pTulareanForest = bolsterMapTable.findById(65u);
     REQUIRE(pTulareanForest != nullptr);
     CHECK(pTulareanForest->rain);
     CHECK_FALSE(pTulareanForest->snow);
+    const OpenYAMM::Game::MergedBolsterMapEntry *pBracadaDesert = bolsterMapTable.findById(67u);
+    REQUIRE(pBracadaDesert != nullptr);
+    CHECK_FALSE(pBracadaDesert->rain);
+    CHECK_FALSE(pBracadaDesert->snow);
 
     CHECK_GT(bolsterMonsterTable.entries().size(), 100u);
     CHECK_EQ(bolsterMonsterTable.entries()[1].type, "Lizardman");
