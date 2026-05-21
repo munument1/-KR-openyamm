@@ -122,6 +122,7 @@ struct GameSettings
     std::string textFiltering = "nearest";
     std::string minimapFiltering = "linear";
     std::string viewDistance = "default";
+    float outdoorBillboardDepthSlice = 256.0f;
     Engine::AssetScaleProfile assetScaleProfile = Engine::createUniformAssetScaleProfile(Engine::AssetScaleTier::X1);
     GameplayUiLayout gameplayUiLayout = GameplayUiLayout::Widescreen;
     WindowMode windowMode = WindowMode::Windowed;

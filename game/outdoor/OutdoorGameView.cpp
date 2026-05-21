@@ -3527,6 +3527,7 @@ void OutdoorGameView::shutdown()
         }
         m_pOutdoorWorldRuntime = nullptr;
         resetLightingStats(m_outdoorLightingStats);
+        m_outdoorSpriteRenderDiagnostics = {};
         m_lastOutdoorLightingStatsLogElapsedTime = 0.0f;
     };
 
@@ -3858,6 +3859,7 @@ void OutdoorGameView::shutdown()
     m_framesPerSecond = 0.0f;
     m_lastOutdoorFxLightUniformUpdateElapsedTime = -1.0f;
     resetLightingStats(m_outdoorLightingStats);
+    m_outdoorSpriteRenderDiagnostics = {};
     m_lastOutdoorLightingStatsLogElapsedTime = 0.0f;
     m_cachedSkyVertices.clear();
     m_cachedSkyTextureName.clear();

@@ -461,6 +461,23 @@ private:
         uint64_t renderVisibleTexturedBatches = 0;
         uint64_t renderSubmittedTexturedBatches = 0;
         uint64_t renderCulledTexturedBatches = 0;
+        uint64_t renderDecorationSpriteItems = 0;
+        uint64_t renderDecorationSpriteSubmits = 0;
+        uint64_t renderDecorationSpriteOutlineSubmits = 0;
+        uint64_t renderDecorationSpriteTextureSwitches = 0;
+        uint64_t renderActorSpriteItems = 0;
+        uint64_t renderActorSpriteSubmits = 0;
+        uint64_t renderActorSpriteOutlineSubmits = 0;
+        uint64_t renderActorSpriteTextureSwitches = 0;
+        uint64_t renderSpriteObjectItems = 0;
+        uint64_t renderSpriteObjectProjectiles = 0;
+        uint64_t renderSpriteObjectImpacts = 0;
+        uint64_t renderSpriteObjectSubmits = 0;
+        uint64_t renderSpriteObjectBatchSubmits = 0;
+        uint64_t renderSpriteObjectBatchedItems = 0;
+        uint64_t renderSpriteObjectUnbatchedItems = 0;
+        uint64_t renderSpriteObjectOutlineSubmits = 0;
+        uint64_t renderSpriteObjectTextureSwitches = 0;
         LightingStats lightingStats = {};
 
         bool hasActivity() const

@@ -4,6 +4,7 @@
 #include "game/app/GameSettings.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/party/Party.h"
+#include "game/party/SkillData.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
 #include "game/tables/SpriteTables.h"
@@ -21,6 +22,14 @@
 
 namespace
 {
+TEST_CASE("merged class display names hide mechanics keys")
+{
+    CHECK_EQ(OpenYAMM::Game::displayClassName("GreatWyrm"), "Great Wyrm");
+    CHECK_EQ(OpenYAMM::Game::displayClassName("Great Wyrm"), "Great Wyrm");
+    CHECK_EQ(OpenYAMM::Game::displayClassName("PriestLight"), "Priest of the Light");
+    CHECK_EQ(OpenYAMM::Game::displayClassName("Priest of the Light"), "Priest of the Light");
+}
+
 const OpenYAMM::Tests::RegressionGameData &requireRegressionGameData()
 {
     REQUIRE_MESSAGE(
@@ -196,6 +205,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.startMapFile.clear();
     settings.spriteOutline = true;
     settings.viewDistance = "unlimited";
+    settings.outdoorBillboardDepthSlice = 0.0f;
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
     settings.logIndoorVisibility = true;
@@ -224,6 +234,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->spriteOutline);
     CHECK_EQ(loadedSettings->viewDistance, "unlimited");
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
+    CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(0.0f));
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->logIndoorVisibility);
@@ -278,6 +289,7 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_EQ(loadedSettings->combatTraceFile, "logs/combat_trace.log");
     CHECK(loadedSettings->combatTraceAppend);
     CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
+    CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(256.0f));
 
     std::filesystem::remove(path);
 }
@@ -764,6 +776,24 @@ TEST_CASE("roster join offer mapping samples")
 
     CHECK_FALSE(gameData.npcDialogTable.getRosterJoinOfferForTopic(600).has_value());
     CHECK_FALSE(gameData.npcDialogTable.getRosterJoinOfferForTopic(650).has_value());
+}
+
+TEST_CASE("volog roster join text stays tied to troll homeland quest")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const std::optional<OpenYAMM::Game::NpcDialogTable::RosterJoinOffer> offer =
+        gameData.npcDialogTable.getRosterJoinOfferForTopic(612);
+
+    REQUIRE(offer.has_value());
+    CHECK_EQ(offer->rosterId, 12);
+    CHECK_EQ(offer->inviteTextId, 222);
+
+    const std::optional<std::string> inviteText = gameData.npcDialogTable.getText(offer->inviteTextId);
+    REQUIRE(inviteText.has_value());
+    CHECK(inviteText->find("Ancient Troll Home") != std::string::npos);
+    CHECK(inviteText->find("village of Rust") != std::string::npos);
+    CHECK(inviteText->find("Balthazar") == std::string::npos);
+    CHECK(inviteText->find("Axe") == std::string::npos);
 }
 
 TEST_CASE("recruit roster member loads birth experience resistances and items")

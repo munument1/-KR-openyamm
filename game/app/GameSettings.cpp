@@ -712,6 +712,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         settings.viewDistance = trimCopy(*value);
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "outdoor_billboard_depth_slice"))
+    {
+        float parsed = settings.outdoorBillboardDepthSlice;
+
+        if (parseFloatValue(*value, parsed))
+        {
+            settings.outdoorBillboardDepthSlice = std::clamp(parsed, 0.0f, 8192.0f);
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "gameplay_ui_layout"))
     {
         settings.gameplayUiLayout = parseGameplayUiLayout(*value);
@@ -1203,6 +1213,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "text_filtering=" << settings.textFiltering << '\n'
         << "minimap_filtering=" << settings.minimapFiltering << '\n'
         << "view_distance=" << settings.viewDistance << '\n'
+        << "outdoor_billboard_depth_slice="
+        << std::clamp(settings.outdoorBillboardDepthSlice, 0.0f, 8192.0f) << '\n'
         << "window_mode=" << windowModeString(settings.windowMode) << '\n'
         << "resolution=" << std::clamp(settings.resolutionWidth, 320, 16384)
         << 'x' << std::clamp(settings.resolutionHeight, 200, 16384) << '\n'

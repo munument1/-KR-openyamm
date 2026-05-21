@@ -8774,7 +8774,9 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             label = replaceAllText(
                 label,
                 "{character_class_race}",
-                pCharacter != nullptr ? (!pCharacter->className.empty() ? pCharacter->className : pCharacter->role) : "");
+                pCharacter != nullptr
+                    ? displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role)
+                    : "");
             label = replaceAllText(
                 label,
                 "{quick_stats}",
@@ -9194,7 +9196,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                 170.0f,
                 16.0f);
             renderInnLabel(
-                "Class: " + (!pCharacter->className.empty() ? pCharacter->className : pCharacter->role),
+                "Class: " + displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role),
                 AdventurersInnColumn1X + uiViewport.x / baseScale,
                 AdventurersInnColumn1Y + AdventurersInnColumnLineStep + uiViewport.y / baseScale,
                 170.0f,

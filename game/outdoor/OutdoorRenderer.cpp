@@ -1419,7 +1419,51 @@ void OutdoorRenderer::applyOutdoorFxLightUniforms(OutdoorGameView &view, const b
                       stats.outdoorUniformSelectionNanoseconds,
                       stats.selectionCalls))
                   << '\n';
+
+        const OutdoorGameView::OutdoorSpriteRenderDiagnostics &spriteStats =
+            view.m_outdoorSpriteRenderDiagnostics;
+        std::cout << "[OutdoorSpritePerf]"
+                  << " dec_items=" << spriteStats.decorationItems
+                  << " dec_batch_submits=" << spriteStats.decorationBatchSubmits
+                  << " dec_batched=" << spriteStats.decorationBatchedItems
+                  << " dec_texture_groups=" << spriteStats.decorationTextureGroups
+                  << " dec_submits=" << spriteStats.decorationSubmits
+                  << " dec_outline_submits=" << spriteStats.decorationOutlineSubmits
+                  << " dec_texture_switches=" << spriteStats.decorationTextureSwitches
+                  << " actor_items=" << spriteStats.actorItems
+                  << " actor_batch_submits=" << spriteStats.actorBatchSubmits
+                  << " actor_batched=" << spriteStats.actorBatchedItems
+                  << " actor_submits=" << spriteStats.actorSubmits
+                  << " actor_outline_submits=" << spriteStats.actorOutlineSubmits
+                  << " actor_texture_switches=" << spriteStats.actorTextureSwitches
+                  << " combined_depth_slices=" << spriteStats.combinedDepthSlices
+                  << " combined_slice_texture_groups=" << spriteStats.combinedDepthSliceTextureGroups
+                  << " combined_slice_items=" << spriteStats.combinedDepthSliceItems
+                  << " world_item_items=" << spriteStats.worldItemItems
+                  << " world_item_batch_submits=" << spriteStats.worldItemBatchSubmits
+                  << " world_item_batched=" << spriteStats.worldItemBatchedItems
+                  << " world_item_submits=" << spriteStats.worldItemSubmits
+                  << " world_item_outline_submits=" << spriteStats.worldItemOutlineSubmits
+                  << " world_item_texture_switches=" << spriteStats.worldItemTextureSwitches
+                  << " world_item_depth_slices=" << spriteStats.worldItemDepthSlices
+                  << " world_item_slice_texture_groups=" << spriteStats.worldItemDepthSliceTextureGroups
+                  << " world_item_slice_items=" << spriteStats.worldItemDepthSliceItems
+                  << " projectile_items=" << spriteStats.runtimeProjectileItems
+                  << " projectile_batch_submits=" << spriteStats.runtimeProjectileBatchSubmits
+                  << " projectile_batched=" << spriteStats.runtimeProjectileBatchedItems
+                  << " projectile_texture_groups=" << spriteStats.runtimeProjectileTextureGroups
+                  << " static_obj_items=" << spriteStats.staticSpriteObjectItems
+                  << " static_obj_batch_submits=" << spriteStats.staticSpriteObjectBatchSubmits
+                  << " static_obj_batched=" << spriteStats.staticSpriteObjectBatchedItems
+                  << " static_obj_submits=" << spriteStats.staticSpriteObjectSubmits
+                  << " static_obj_texture_switches=" << spriteStats.staticSpriteObjectTextureSwitches
+                  << " fx_glow_items=" << spriteStats.fxGlowItems
+                  << " fx_glow_submits=" << spriteStats.fxGlowSubmits
+                  << " fx_shadow_items=" << spriteStats.fxContactShadowItems
+                  << " fx_shadow_submits=" << spriteStats.fxContactShadowSubmits
+                  << '\n';
         resetLightingStats(view.m_outdoorLightingStats);
+        view.m_outdoorSpriteRenderDiagnostics = {};
         view.m_lastOutdoorLightingStatsLogElapsedTime = view.m_elapsedTime;
     }
 }

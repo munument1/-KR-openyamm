@@ -2981,6 +2981,23 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
                   << " textured_visible=" << diagnostics.renderVisibleTexturedBatches
                   << " textured_submitted=" << diagnostics.renderSubmittedTexturedBatches
                   << " textured_culled=" << diagnostics.renderCulledTexturedBatches
+                  << " sprite_dec_items=" << diagnostics.renderDecorationSpriteItems
+                  << " sprite_dec_submits=" << diagnostics.renderDecorationSpriteSubmits
+                  << " sprite_dec_outline_submits=" << diagnostics.renderDecorationSpriteOutlineSubmits
+                  << " sprite_dec_texture_switches=" << diagnostics.renderDecorationSpriteTextureSwitches
+                  << " sprite_actor_items=" << diagnostics.renderActorSpriteItems
+                  << " sprite_actor_submits=" << diagnostics.renderActorSpriteSubmits
+                  << " sprite_actor_outline_submits=" << diagnostics.renderActorSpriteOutlineSubmits
+                  << " sprite_actor_texture_switches=" << diagnostics.renderActorSpriteTextureSwitches
+                  << " sprite_obj_items=" << diagnostics.renderSpriteObjectItems
+                  << " sprite_obj_projectiles=" << diagnostics.renderSpriteObjectProjectiles
+                  << " sprite_obj_impacts=" << diagnostics.renderSpriteObjectImpacts
+                  << " sprite_obj_submits=" << diagnostics.renderSpriteObjectSubmits
+                  << " sprite_obj_batch_submits=" << diagnostics.renderSpriteObjectBatchSubmits
+                  << " sprite_obj_batched=" << diagnostics.renderSpriteObjectBatchedItems
+                  << " sprite_obj_unbatched=" << diagnostics.renderSpriteObjectUnbatchedItems
+                  << " sprite_obj_outline_submits=" << diagnostics.renderSpriteObjectOutlineSubmits
+                  << " sprite_obj_texture_switches=" << diagnostics.renderSpriteObjectTextureSwitches
                   << '\n';
 
         m_indoorPerformanceDiagnostics = {};
@@ -6602,6 +6619,21 @@ void IndoorRenderer::renderDecorationBillboards(
         }
     );
 
+    if (m_logIndoorPerformanceDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderDecorationSpriteItems += drawItems.size();
+
+        const BillboardTextureHandle *pLastTexture = nullptr;
+        for (const BillboardDrawItem &drawItem : drawItems)
+        {
+            if (drawItem.pTexture != pLastTexture)
+            {
+                ++m_indoorPerformanceDiagnostics.renderDecorationSpriteTextureSwitches;
+                pLastTexture = drawItem.pTexture;
+            }
+        }
+    }
+
     for (const BillboardDrawItem &drawItem : drawItems)
     {
         const DecorationBillboard &billboard = *drawItem.pBillboard;
@@ -6746,6 +6778,11 @@ void IndoorRenderer::renderDecorationBillboards(
                 bgfx::setState(
                     IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
+
+                if (m_logIndoorPerformanceDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.renderDecorationSpriteOutlineSubmits;
+                }
             }
         }
 
@@ -6838,6 +6875,11 @@ void IndoorRenderer::renderDecorationBillboards(
             IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
+
+        if (m_logIndoorPerformanceDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.renderDecorationSpriteSubmits;
+        }
     }
 }
 
@@ -7091,6 +7133,21 @@ void IndoorRenderer::renderActorPreviewBillboards(
         }
     );
 
+    if (m_logIndoorPerformanceDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderActorSpriteItems += drawItems.size();
+
+        const BillboardTextureHandle *pLastTexture = nullptr;
+        for (const BillboardDrawItem &drawItem : drawItems)
+        {
+            if (drawItem.pTexture != pLastTexture)
+            {
+                ++m_indoorPerformanceDiagnostics.renderActorSpriteTextureSwitches;
+                pLastTexture = drawItem.pTexture;
+            }
+        }
+    }
+
     for (const BillboardDrawItem &drawItem : drawItems)
     {
         const SpriteFrameEntry &frame = *drawItem.pFrame;
@@ -7235,6 +7292,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 bgfx::setState(
                     IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
+
+                if (m_logIndoorPerformanceDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.renderActorSpriteOutlineSubmits;
+                }
             }
         }
 
@@ -7312,6 +7374,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
             IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
+
+        if (m_logIndoorPerformanceDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.renderActorSpriteSubmits;
+        }
     }
 }
 
@@ -7404,6 +7471,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         const BillboardTextureHandle *pTexture = nullptr;
         bool mirrored = false;
         bool hovered = false;
+        bool projectile = false;
+        bool impact = false;
         uint32_t hoveredOutlineColorAbgr = 0;
         float distanceSquared = 0.0f;
     };
@@ -7437,7 +7506,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             float velocityY,
             int16_t sectorId,
             uint32_t timeTicks,
-            bool forceLog = false)
+            bool forceLog = false,
+            bool impact = false)
         {
             uint16_t spriteFrameIndex = cachedSpriteFrameIndex;
             const char *pResolutionSource = cachedSpriteFrameIndex != 0 ? "cached" : "none";
@@ -7563,6 +7633,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             drawItem.pFrame = pFrame;
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
+            drawItem.projectile = !impact;
+            drawItem.impact = impact;
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             drawItems.push_back(drawItem);
         };
@@ -7767,7 +7839,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 0.0f,
                 impact.sectorId,
                 impact.freezeAnimation ? 0u : impact.timeSinceCreatedTicks,
-                impact.objectName.find("Trap") != std::string::npos);
+                impact.objectName.find("Trap") != std::string::npos,
+                true);
         }
     }
 
@@ -7779,6 +7852,31 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             return left.distanceSquared > right.distanceSquared;
         }
     );
+
+    if (m_logIndoorPerformanceDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderSpriteObjectItems += drawItems.size();
+
+        const BillboardTextureHandle *pLastTexture = nullptr;
+        for (const BillboardDrawItem &drawItem : drawItems)
+        {
+            if (drawItem.projectile)
+            {
+                ++m_indoorPerformanceDiagnostics.renderSpriteObjectProjectiles;
+            }
+
+            if (drawItem.impact)
+            {
+                ++m_indoorPerformanceDiagnostics.renderSpriteObjectImpacts;
+            }
+
+            if (drawItem.pTexture != pLastTexture)
+            {
+                ++m_indoorPerformanceDiagnostics.renderSpriteObjectTextureSwitches;
+                pLastTexture = drawItem.pTexture;
+            }
+        }
+    }
 
     struct LitSpriteObjectBillboardBatch
     {
@@ -7842,6 +7940,13 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
                 bgfx::setState(IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
+
+                if (m_logIndoorPerformanceDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.renderSpriteObjectBatchSubmits;
+                    m_indoorPerformanceDiagnostics.renderSpriteObjectBatchedItems +=
+                        litBillboardBatch.vertices.size() / 6;
+                }
             }
 
             litBillboardBatch.vertices.clear();
@@ -7992,6 +8097,11 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 bgfx::setState(
                     IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
+
+                if (m_logIndoorPerformanceDiagnostics)
+                {
+                    ++m_indoorPerformanceDiagnostics.renderSpriteObjectOutlineSubmits;
+                }
             }
         }
 
@@ -8108,6 +8218,12 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
+
+        if (m_logIndoorPerformanceDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.renderSpriteObjectSubmits;
+            ++m_indoorPerformanceDiagnostics.renderSpriteObjectUnbatchedItems;
+        }
     }
 
     flushLitBillboardBatch();

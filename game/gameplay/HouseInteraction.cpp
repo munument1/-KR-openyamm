@@ -802,7 +802,8 @@ std::string selectedMemberLine(const Party *pParty)
         return "Selected: no character";
     }
 
-    return "Selected: " + pMember->name + " the " + pMember->role;
+    const std::string className = !pMember->className.empty() ? pMember->className : pMember->role;
+    return "Selected: " + pMember->name + " the " + displayClassName(className);
 }
 
 std::string houseWelcomeLine(const HouseEntry &houseEntry)

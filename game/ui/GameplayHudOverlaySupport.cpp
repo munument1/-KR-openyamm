@@ -1123,7 +1123,8 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
 
     overlay.active = true;
     const std::string characterName = pCharacter->name.empty() ? "Member" : pCharacter->name;
-    const std::string characterClass = !pCharacter->className.empty() ? pCharacter->className : pCharacter->role;
+    const std::string characterClass =
+        displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role);
     overlay.title = characterClass.empty() ? characterName : characterName + " the " + characterClass;
     overlay.body.clear();
     overlay.portraitTextureName = defaultCharacterPortraitTextureName(*pCharacter);
