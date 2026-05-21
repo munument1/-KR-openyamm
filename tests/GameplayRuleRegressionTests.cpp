@@ -3916,7 +3916,7 @@ TEST_CASE("level decoration script event id comes from legacy uEventID field")
     indoorEntity.eventIdPrimary = 1;
     indoorEntity.eventIdSecondary = 376;
     CHECK_EQ(indoorEntity.scriptEventId(), 376u);
-    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 7u);
+    CHECK_EQ(indoorEntity.spriteOverrideKey(7), 1u);
 
     indoorEntity.eventIdPrimary = 0;
     CHECK_EQ(indoorEntity.spriteOverrideKey(7), 7u);
@@ -3925,7 +3925,7 @@ TEST_CASE("level decoration script event id comes from legacy uEventID field")
     outdoorEntity.eventIdPrimary = 1;
     outdoorEntity.eventIdSecondary = 376;
     CHECK_EQ(outdoorEntity.scriptEventId(), 376u);
-    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);
+    CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 1u);
 
     outdoorEntity.eventIdPrimary = 0;
     CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);

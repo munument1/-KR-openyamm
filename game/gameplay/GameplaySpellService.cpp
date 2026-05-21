@@ -461,6 +461,10 @@ std::string GameplaySpellService::pendingTargetSelectionPromptText(bool includeC
         {
             prompt += "  Tap portrait  Pause cancel";
         }
+        else if (pendingTargetState.targetKind == PartySpellCastTargetKind::CharacterOrWorldTarget)
+        {
+            prompt += "  Tap target  Pause cancel";
+        }
         else if (pendingTargetState.targetKind == PartySpellCastTargetKind::Actor
             || pendingTargetState.targetKind == PartySpellCastTargetKind::ActorOrCharacter)
         {
@@ -511,6 +515,10 @@ bool GameplaySpellService::validatePendingTargetSelectionRequest(
 
         case PartySpellCastTargetKind::Character:
             targetResolved = request.targetCharacterIndex.has_value();
+            break;
+
+        case PartySpellCastTargetKind::CharacterOrWorldTarget:
+            targetResolved = request.targetCharacterIndex.has_value() || request.targetWorldHit.has_value();
             break;
 
         case PartySpellCastTargetKind::ActorOrCharacter:
@@ -655,6 +663,7 @@ bool GameplaySpellService::requiresTargetSelection(const PartySpellCastResult &r
 {
     return result.status == PartySpellCastStatus::NeedActorTarget
         || result.status == PartySpellCastStatus::NeedCharacterTarget
+        || result.status == PartySpellCastStatus::NeedCharacterOrWorldTarget
         || result.status == PartySpellCastStatus::NeedActorOrCharacterTarget
         || result.status == PartySpellCastStatus::NeedGroundPoint
         || result.status == PartySpellCastStatus::NeedTelekinesisTarget;

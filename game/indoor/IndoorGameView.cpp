@@ -1568,6 +1568,11 @@ void IndoorGameView::presentPendingEventFeedback()
         }
 
         pEventRuntimeState->statusMessages.clear();
+
+        GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
+            m_gameSession.gameplayScreenRuntime(),
+            *pEventRuntimeState,
+            m_gameSession.data().itemTable());
     }
 
     m_gameSession.gameplayScreenRuntime().ensurePendingEventDialogPresented(

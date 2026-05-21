@@ -3526,6 +3526,8 @@ void OutdoorGameView::shutdown()
             m_pOutdoorWorldRuntime->setWorldFxSystem(nullptr);
         }
         m_pOutdoorWorldRuntime = nullptr;
+        resetLightingStats(m_outdoorLightingStats);
+        m_lastOutdoorLightingStatsLogElapsedTime = 0.0f;
     };
 
     screenRuntime.clearUiControllerRuntimeState();
@@ -3570,6 +3572,7 @@ void OutdoorGameView::shutdown()
         m_filledTerrainVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_skyVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_texturedTerrainVertexBufferHandle = BGFX_INVALID_HANDLE;
+        m_texturedTerrainChunks.clear();
         m_bmodelVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_bmodelCollisionVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_entityMarkerVertexBufferHandle = BGFX_INVALID_HANDLE;
@@ -3799,6 +3802,17 @@ void OutdoorGameView::shutdown()
         m_texturedTerrainVertexBufferHandle = BGFX_INVALID_HANDLE;
     }
 
+    for (TexturedTerrainChunk &chunk : m_texturedTerrainChunks)
+    {
+        if (bgfx::isValid(chunk.vertexBufferHandle))
+        {
+            bgfx::destroy(chunk.vertexBufferHandle);
+            chunk.vertexBufferHandle = BGFX_INVALID_HANDLE;
+        }
+    }
+
+    m_texturedTerrainChunks.clear();
+
     if (bgfx::isValid(m_bloodSplatVertexBufferHandle))
     {
         bgfx::destroy(m_bloodSplatVertexBufferHandle);
@@ -3843,6 +3857,8 @@ void OutdoorGameView::shutdown()
     m_elapsedTime = 0.0f;
     m_framesPerSecond = 0.0f;
     m_lastOutdoorFxLightUniformUpdateElapsedTime = -1.0f;
+    resetLightingStats(m_outdoorLightingStats);
+    m_lastOutdoorLightingStatsLogElapsedTime = 0.0f;
     m_cachedSkyVertices.clear();
     m_cachedSkyTextureName.clear();
     m_lastSkyUpdateElapsedTime = -1.0f;

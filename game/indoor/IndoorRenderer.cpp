@@ -46,6 +46,37 @@ namespace
 constexpr float IndoorCameraVerticalFovDegrees = 60.0f;
 constexpr float IndoorSkyProjectionPitchOffsetRadians = 3.14159265358979323846f / 64.0f;
 constexpr float IndoorSkyProjectionFarClipDistance = 50000.0f;
+constexpr uint32_t IndoorLightSelectionCacheMaxAgeFrames = 180;
+constexpr uint64_t IndoorBillboardDrawState =
+    BGFX_STATE_WRITE_RGB
+    | BGFX_STATE_WRITE_A
+    | BGFX_STATE_DEPTH_TEST_LEQUAL
+    | BGFX_STATE_BLEND_ALPHA;
+
+uint32_t fnv1a32Update(uint32_t hash, const std::string &text)
+{
+    for (char character : text)
+    {
+        hash ^= static_cast<uint8_t>(character);
+        hash *= 16777619u;
+    }
+
+    return hash;
+}
+
+uint32_t stableIndoorTexturedBatchId(
+    const std::string &textureName,
+    int16_t sectorId,
+    int16_t backSectorId,
+    size_t batchIndex)
+{
+    uint32_t hash = 2166136261u;
+    hash = fnv1a32Update(hash, textureName);
+    hash ^= static_cast<uint32_t>(static_cast<uint16_t>(sectorId)) + 0x9e3779b9u + (hash << 6) + (hash >> 2);
+    hash ^= static_cast<uint32_t>(static_cast<uint16_t>(backSectorId)) + 0x85ebca6bu + (hash << 6) + (hash >> 2);
+    hash ^= static_cast<uint32_t>(batchIndex) + 0xc2b2ae35u + (hash << 6) + (hash >> 2);
+    return hash != 0 ? hash : 1u;
+}
 
 float secretFaceVertexFlag(uint32_t attributes)
 {
@@ -729,6 +760,15 @@ bx::Vec3 spriteFrameBillboardCenter(
     }
 
     return bottomAnchoredBillboardCenter(x, y, z, cameraUp, worldHeight);
+}
+
+bx::Vec3 transformIndoorPoint(const bx::Vec3 &point, const float *pMatrix)
+{
+    return {
+        point.x * pMatrix[0] + point.y * pMatrix[4] + point.z * pMatrix[8] + pMatrix[12],
+        point.x * pMatrix[1] + point.y * pMatrix[5] + point.z * pMatrix[9] + pMatrix[13],
+        point.x * pMatrix[2] + point.y * pMatrix[6] + point.z * pMatrix[10] + pMatrix[14]
+    };
 }
 
 float indoorPlaneDistance(const IndoorVisibilityPlane &plane, const bx::Vec3 &point)
@@ -1879,10 +1919,21 @@ float alphaChannel(uint32_t colorAbgr)
 std::array<float, 4> billboardAmbientUniform(
     const IndoorLightingFrame &lightingFrame,
     const bx::Vec3 &position,
-    int16_t sectorId)
+    int16_t sectorId,
+    LightingStats *pLightingStats)
 {
+    const uint64_t sampleBeginTickCount = pLightingStats != nullptr ? SDL_GetTicksNS() : 0;
     const std::array<float, 3> rgb =
-        IndoorLightingRuntime::sampleLightingRgbForSectors(lightingFrame, position, sectorId);
+        IndoorLightingRuntime::sampleLightingRgbForSectors(
+            lightingFrame,
+            position,
+            sectorId,
+            -1,
+            pLightingStats);
+    if (pLightingStats != nullptr)
+    {
+        pLightingStats->billboardSampleNanoseconds += SDL_GetTicksNS() - sampleBeginTickCount;
+    }
     return {{rgb[0], rgb[1], rgb[2], 0.0f}};
 }
 
@@ -1890,14 +1941,15 @@ std::array<float, 4> billboardLightingUniform(
     const IndoorLightingFrame &lightingFrame,
     const SpriteFrameEntry &frame,
     const bx::Vec3 &position,
-    int16_t sectorId)
+    int16_t sectorId,
+    LightingStats *pLightingStats)
 {
     if (SpriteFrameTable::hasFlag(frame.flags, SpriteFrameFlag::Lit))
     {
         return {{1.0f, 1.0f, 1.0f, 0.0f}};
     }
 
-    return billboardAmbientUniform(lightingFrame, position, sectorId);
+    return billboardAmbientUniform(lightingFrame, position, sectorId, pLightingStats);
 }
 
 uint32_t resolveHoveredIndoorActorOutlineColor(
@@ -2814,6 +2866,13 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
             diagnostics.renderTotalNanoseconds > measuredRenderNanoseconds
                 ? diagnostics.renderTotalNanoseconds - measuredRenderNanoseconds
                 : 0;
+        const LightingStats &lightingStats = diagnostics.lightingStats;
+        const uint64_t averageLightingSelectionNanoseconds = averageNanoseconds(
+            lightingStats.selectionNanoseconds,
+            lightingStats.selectionCalls);
+        const uint64_t averageBillboardSampleNanoseconds = averageNanoseconds(
+            lightingStats.billboardSampleNanoseconds,
+            lightingStats.billboardSamples);
 
         std::cout << "[IndoorPerf]"
                   << " visibility_calls=" << diagnostics.visibilityCalls
@@ -2880,6 +2939,23 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
                   << " avg_lighting_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                       diagnostics.renderLightingNanoseconds,
                       diagnostics.renderFrames))
+                  << " lighting_input=" << lightingStats.inputLights
+                  << " lighting_static=" << lightingStats.inputStaticLights
+                  << " lighting_dynamic=" << lightingStats.inputDynamicLights
+                  << " lighting_clustered_fx=" << lightingStats.clusteredFxLights
+                  << " lighting_visible_sectors=" << lightingStats.visibleSectors
+                  << " lighting_selection_calls=" << lightingStats.selectionCalls
+                  << " lighting_candidates=" << lightingStats.candidateEvaluations
+                  << " lighting_max_candidates=" << lightingStats.maxCandidatesPerSelection
+                  << " lighting_selected=" << lightingStats.selectedLights
+                  << " lighting_output=" << lightingStats.outputLights
+                  << " lighting_tail_omitted=" << lightingStats.omittedTailLights
+                  << " lighting_billboard_samples=" << lightingStats.billboardSamples
+                  << " avg_lighting_build_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      lightingStats.buildFrameNanoseconds,
+                      diagnostics.renderFrames))
+                  << " avg_lighting_select_us=" << nanosecondsToMicroseconds(averageLightingSelectionNanoseconds)
+                  << " avg_billboard_sample_us=" << nanosecondsToMicroseconds(averageBillboardSampleNanoseconds)
                   << " avg_inspect_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                       diagnostics.renderInspectNanoseconds,
                       diagnostics.renderFrames))
@@ -3362,6 +3438,8 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderVisibilityNanoseconds += SDL_GetTicksNS() - visibilityBeginTickCount;
     }
 
+    LightingStats *pLightingStats =
+        collectRenderDiagnostics ? &m_indoorPerformanceDiagnostics.lightingStats : nullptr;
     const uint64_t lightingBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     IndoorLightingFrameInput lightingInput = {};
     lightingInput.pMapData = m_indoorMapData ? &m_indoorMapData.value() : nullptr;
@@ -3375,8 +3453,33 @@ void IndoorRenderer::render(
     lightingInput.cameraPosition = eye;
     lightingInput.coloredLights = settings.coloredLights;
     const IndoorLightingFrame lightingFrame = m_indoorLightingRuntime.buildFrame(lightingInput);
+    if (pLightingStats != nullptr)
+    {
+        const uint32_t dynamicLightInputCount =
+            lightingFrame.sourceFxLightCount != 0
+                ? lightingFrame.sourceFxLightCount
+                : static_cast<uint32_t>(lightingFrame.fxLightIndices.size());
+        const uint32_t staticLightInputCount =
+            lightingFrame.lights.size() >= lightingFrame.fxLightIndices.size()
+                ? static_cast<uint32_t>(lightingFrame.lights.size() - lightingFrame.fxLightIndices.size())
+                : 0u;
+        pLightingStats->buildFrameNanoseconds += SDL_GetTicksNS() - lightingBeginTickCount;
+        pLightingStats->inputLights += staticLightInputCount + dynamicLightInputCount;
+        pLightingStats->inputDynamicLights += dynamicLightInputCount;
+        pLightingStats->inputStaticLights += staticLightInputCount;
+        pLightingStats->clusteredFxLights += lightingFrame.clusteredFxLightCount;
+        pLightingStats->visibleSectors += static_cast<uint32_t>(
+            std::count(renderVisibleSectorMask.begin(), renderVisibleSectorMask.end(), static_cast<uint8_t>(1)));
+    }
+
+    const uint64_t defaultSelectionBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const IndoorDrawLightSet defaultLightSet =
-        IndoorLightingRuntime::selectDrawLightSetForPoint(lightingFrame, eye, viewForward);
+        IndoorLightingRuntime::selectDrawLightSetForPoint(lightingFrame, eye, viewForward, pLightingStats);
+    if (pLightingStats != nullptr)
+    {
+        pLightingStats->selectionNanoseconds += SDL_GetTicksNS() - defaultSelectionBeginTickCount;
+        pLightingStats->outputLights += static_cast<uint32_t>(defaultLightSet.lightCount);
+    }
 
     if (collectRenderDiagnostics)
     {
@@ -3471,6 +3574,7 @@ void IndoorRenderer::render(
 
     float modelMatrix[16] = {};
     bx::mtxIdentity(modelMatrix);
+    ++m_indoorLightingSelectionFrame;
     const auto drawLightSetForBatch =
         [&](const TexturedBatch &batch) -> IndoorDrawLightSet
         {
@@ -3478,14 +3582,45 @@ void IndoorRenderer::render(
             bounds.min = batch.boundsMin;
             bounds.max = batch.boundsMax;
             bounds.valid = batch.hasBounds;
+            const CachedIndoorLightSelection *pCachedSelection = nullptr;
+            const auto cacheIterator = m_indoorLightingSelectionCache.find(batch.stableId);
 
-            return IndoorLightingRuntime::selectDrawLightSetForBounds(
+            if (cacheIterator != m_indoorLightingSelectionCache.end())
+            {
+                pCachedSelection = &cacheIterator->second;
+            }
+
+            const uint64_t selectionBeginTickCount = pLightingStats != nullptr ? SDL_GetTicksNS() : 0;
+            IndoorDrawLightSet lightSet = IndoorLightingRuntime::selectDrawLightSetForBounds(
                 lightingFrame,
                 eye,
                 viewForward,
                 batch.sectorId,
                 batch.backSectorId,
-                bounds);
+                bounds,
+                pLightingStats,
+                pCachedSelection != nullptr ? &pCachedSelection->history : nullptr);
+
+            if (pLightingStats != nullptr)
+            {
+                pLightingStats->selectionNanoseconds += SDL_GetTicksNS() - selectionBeginTickCount;
+                pLightingStats->outputLights += static_cast<uint32_t>(lightSet.lightCount);
+            }
+
+            if (batch.stableId != 0)
+            {
+                CachedIndoorLightSelection &cachedSelection = m_indoorLightingSelectionCache[batch.stableId];
+                cachedSelection.history.lightCount = lightSet.lightCount;
+                cachedSelection.lastSeenFrame = m_indoorLightingSelectionFrame;
+
+                for (size_t index = 0; index < MaxIndoorDrawLights; ++index)
+                {
+                    cachedSelection.history.lightStableIds[index] =
+                        index < lightSet.lightCount ? lightSet.stableIds[index] : 0u;
+                }
+            }
+
+            return lightSet;
         };
 
     const uint64_t texturedSubmitBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
@@ -3601,6 +3736,20 @@ void IndoorRenderer::render(
             bgfx::submit(MainViewId, m_indoorLitProgramHandle);
             ++submittedTexturedBatchCount;
         }
+
+        for (std::unordered_map<uint32_t, CachedIndoorLightSelection>::iterator it =
+                m_indoorLightingSelectionCache.begin();
+            it != m_indoorLightingSelectionCache.end();)
+        {
+            if (m_indoorLightingSelectionFrame - it->second.lastSeenFrame > IndoorLightSelectionCacheMaxAgeFrames)
+            {
+                it = m_indoorLightingSelectionCache.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
     }
 
     if (collectRenderDiagnostics)
@@ -3642,7 +3791,8 @@ void IndoorRenderer::render(
         renderVisibleSectorMask,
         renderVisibleSectorFrustums,
         lightingFrame,
-        pContextActionState);
+        pContextActionState,
+        pLightingStats);
 
     if (collectRenderDiagnostics)
     {
@@ -3658,7 +3808,8 @@ void IndoorRenderer::render(
         renderVisibleSectorFrustums,
         lightingFrame,
         settings.spriteOutline,
-        pContextActionState);
+        pContextActionState,
+        pLightingStats);
 
     if (collectRenderDiagnostics)
     {
@@ -3674,7 +3825,8 @@ void IndoorRenderer::render(
         renderVisibleSectorFrustums,
         lightingFrame,
         settings.spriteOutline,
-        pContextActionState);
+        pContextActionState,
+        pLightingStats);
 
     if (collectRenderDiagnostics)
     {
@@ -5565,6 +5717,8 @@ void IndoorRenderer::shutdown()
         m_billboardTextureIndexByKey.clear();
         m_indoorTextureHandles.clear();
         m_texturedBatches.clear();
+        m_indoorLightingSelectionCache.clear();
+        m_indoorLightingSelectionFrame = 0;
         m_faceBatchIndices.clear();
         m_texturedBatchVisualRevision = std::numeric_limits<uint64_t>::max();
         m_elapsedTime = 0.0f;
@@ -6249,7 +6403,8 @@ void IndoorRenderer::renderDecorationBillboards(
     const std::vector<uint8_t> &visibleSectorMask,
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
-    const GameplayContextActionState *pContextActionState
+    const GameplayContextActionState *pContextActionState,
+    LightingStats *pLightingStats
 )
 {
     if (!m_indoorDecorationBillboardSet
@@ -6265,8 +6420,9 @@ void IndoorRenderer::renderDecorationBillboards(
         return;
     }
 
-    const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    float billboardModelMatrix[16] = {};
+    bx::mtxInverse(billboardModelMatrix, pViewMatrix);
     const float aspectRatio =
         m_lastRenderHeight > 0
         ? static_cast<float>(std::max(m_lastRenderWidth, 1)) / static_cast<float>(m_lastRenderHeight)
@@ -6460,17 +6616,14 @@ void IndoorRenderer::renderDecorationBillboards(
             static_cast<float>(billboard.y),
             static_cast<float>(billboard.z) + worldHeight * 0.5f
         };
-        const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
-        const bx::Vec3 up = {
-            cameraUp.x * worldHeight * 0.5f,
-            cameraUp.y * worldHeight * 0.5f,
-            cameraUp.z * worldHeight * 0.5f
-        };
+        const bx::Vec3 viewCenter = transformIndoorPoint(center, pViewMatrix);
+        const bx::Vec3 right = {halfWidth, 0.0f, 0.0f};
+        const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
         const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
         const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
         const std::array<float, 4> ambient =
-            billboardLightingUniform(lightingFrame, frame, center, billboard.sectorId);
+            billboardLightingUniform(lightingFrame, frame, center, billboard.sectorId, pLightingStats);
         const float clearOverrideColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float clearOutlineParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -6487,65 +6640,57 @@ void IndoorRenderer::renderDecorationBillboards(
             const float outlinedHalfHeight =
                 (static_cast<float>(texture.height) * spriteScale
                     + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
-            const bx::Vec3 outlineRight = {
-                cameraRight.x * outlinedHalfWidth,
-                cameraRight.y * outlinedHalfWidth,
-                cameraRight.z * outlinedHalfWidth
-            };
-            const bx::Vec3 outlineUp = {
-                cameraUp.x * outlinedHalfHeight,
-                cameraUp.y * outlinedHalfHeight,
-                cameraUp.z * outlinedHalfHeight
-            };
+            const bx::Vec3 outlineRight = {outlinedHalfWidth, 0.0f, 0.0f};
+            const bx::Vec3 outlineUp = {0.0f, outlinedHalfHeight, 0.0f};
             const float outlineU0 = drawItem.mirrored ? 1.0f + paddingU : -paddingU;
             const float outlineU1 = drawItem.mirrored ? -paddingU : 1.0f + paddingU;
             const float outlineVTop = -paddingV;
             const float outlineVBottom = 1.0f + paddingV;
             std::array<LitBillboardVertex, 6> outlineVertices = {{
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x + outlineUp.x,
-                    center.y - outlineRight.y + outlineUp.y,
-                    center.z - outlineRight.z + outlineUp.z,
+                    viewCenter.x - outlineRight.x + outlineUp.x,
+                    viewCenter.y - outlineRight.y + outlineUp.y,
+                    viewCenter.z - outlineRight.z + outlineUp.z,
                     outlineU0,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x - outlineUp.x,
-                    center.y + outlineRight.y - outlineUp.y,
-                    center.z + outlineRight.z - outlineUp.z,
+                    viewCenter.x + outlineRight.x - outlineUp.x,
+                    viewCenter.y + outlineRight.y - outlineUp.y,
+                    viewCenter.z + outlineRight.z - outlineUp.z,
                     outlineU1,
                     outlineVBottom,
                     vertexColorAbgr
@@ -6579,7 +6724,7 @@ void IndoorRenderer::renderDecorationBillboards(
                     1.0f
                 };
                 float modelMatrix[16] = {};
-                bx::mtxIdentity(modelMatrix);
+                std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
                 bgfx::setTransform(modelMatrix);
                 bgfx::setVertexBuffer(
                     0,
@@ -6599,59 +6744,56 @@ void IndoorRenderer::renderDecorationBillboards(
                 bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
                 bgfx::setState(
-                    BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_WRITE_A
-                    | BGFX_STATE_DEPTH_TEST_LEQUAL
-                    | BGFX_STATE_BLEND_ALPHA);
+                    IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
             }
         }
 
         std::array<LitBillboardVertex, 6> vertices = {{
             {
-                center.x - right.x - up.x,
-                center.y - right.y - up.y,
-                center.z - right.z - up.z,
+                viewCenter.x - right.x - up.x,
+                viewCenter.y - right.y - up.y,
+                viewCenter.z - right.z - up.z,
                 u0,
                 1.0f,
                 vertexColorAbgr
             },
             {
-                center.x - right.x + up.x,
-                center.y - right.y + up.y,
-                center.z - right.z + up.z,
+                viewCenter.x - right.x + up.x,
+                viewCenter.y - right.y + up.y,
+                viewCenter.z - right.z + up.z,
                 u0,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x + up.x,
-                center.y + right.y + up.y,
-                center.z + right.z + up.z,
+                viewCenter.x + right.x + up.x,
+                viewCenter.y + right.y + up.y,
+                viewCenter.z + right.z + up.z,
                 u1,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x - right.x - up.x,
-                center.y - right.y - up.y,
-                center.z - right.z - up.z,
+                viewCenter.x - right.x - up.x,
+                viewCenter.y - right.y - up.y,
+                viewCenter.z - right.z - up.z,
                 u0,
                 1.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x + up.x,
-                center.y + right.y + up.y,
-                center.z + right.z + up.z,
+                viewCenter.x + right.x + up.x,
+                viewCenter.y + right.y + up.y,
+                viewCenter.z + right.z + up.z,
                 u1,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x - up.x,
-                center.y + right.y - up.y,
-                center.z + right.z - up.z,
+                viewCenter.x + right.x - up.x,
+                viewCenter.y + right.y - up.y,
+                viewCenter.z + right.z - up.z,
                 u1,
                 1.0f,
                 vertexColorAbgr
@@ -6677,7 +6819,7 @@ void IndoorRenderer::renderDecorationBillboards(
         );
 
         float modelMatrix[16] = {};
-        bx::mtxIdentity(modelMatrix);
+        std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
         bgfx::setTransform(modelMatrix);
         bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(vertices.size()));
         bindTexture(
@@ -6693,10 +6835,7 @@ void IndoorRenderer::renderDecorationBillboards(
         bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
         bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
         bgfx::setState(
-            BGFX_STATE_WRITE_RGB
-            | BGFX_STATE_WRITE_A
-            | BGFX_STATE_DEPTH_TEST_LEQUAL
-            | BGFX_STATE_BLEND_ALPHA
+            IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
     }
@@ -6710,7 +6849,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
-    const GameplayContextActionState *pContextActionState
+    const GameplayContextActionState *pContextActionState,
+    LightingStats *pLightingStats
 )
 {
     if (!m_indoorActorPreviewBillboardSet
@@ -6726,8 +6866,9 @@ void IndoorRenderer::renderActorPreviewBillboards(
         return;
     }
 
-    const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    float billboardModelMatrix[16] = {};
+    bx::mtxInverse(billboardModelMatrix, pViewMatrix);
     const float aspectRatio =
         m_lastRenderHeight > 0
         ? static_cast<float>(std::max(m_lastRenderWidth, 1)) / static_cast<float>(m_lastRenderHeight)
@@ -6964,17 +7105,14 @@ void IndoorRenderer::renderActorPreviewBillboards(
             static_cast<float>(drawItem.z),
             cameraUp,
             worldHeight);
-        const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
-        const bx::Vec3 up = {
-            cameraUp.x * worldHeight * 0.5f,
-            cameraUp.y * worldHeight * 0.5f,
-            cameraUp.z * worldHeight * 0.5f
-        };
+        const bx::Vec3 viewCenter = transformIndoorPoint(center, pViewMatrix);
+        const bx::Vec3 right = {halfWidth, 0.0f, 0.0f};
+        const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
         const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
         const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
         const std::array<float, 4> ambient =
-            billboardLightingUniform(lightingFrame, frame, center, drawItem.sectorId);
+            billboardLightingUniform(lightingFrame, frame, center, drawItem.sectorId, pLightingStats);
         const float clearOverrideColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float clearOutlineParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         const float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -6991,65 +7129,57 @@ void IndoorRenderer::renderActorPreviewBillboards(
             const float outlinedHalfHeight =
                 (static_cast<float>(texture.height) * spriteScale
                     + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
-            const bx::Vec3 outlineRight = {
-                cameraRight.x * outlinedHalfWidth,
-                cameraRight.y * outlinedHalfWidth,
-                cameraRight.z * outlinedHalfWidth
-            };
-            const bx::Vec3 outlineUp = {
-                cameraUp.x * outlinedHalfHeight,
-                cameraUp.y * outlinedHalfHeight,
-                cameraUp.z * outlinedHalfHeight
-            };
+            const bx::Vec3 outlineRight = {outlinedHalfWidth, 0.0f, 0.0f};
+            const bx::Vec3 outlineUp = {0.0f, outlinedHalfHeight, 0.0f};
             const float outlineU0 = drawItem.mirrored ? 1.0f + paddingU : -paddingU;
             const float outlineU1 = drawItem.mirrored ? -paddingU : 1.0f + paddingU;
             const float outlineVTop = -paddingV;
             const float outlineVBottom = 1.0f + paddingV;
             std::array<LitBillboardVertex, 6> outlineVertices = {{
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x + outlineUp.x,
-                    center.y - outlineRight.y + outlineUp.y,
-                    center.z - outlineRight.z + outlineUp.z,
+                    viewCenter.x - outlineRight.x + outlineUp.x,
+                    viewCenter.y - outlineRight.y + outlineUp.y,
+                    viewCenter.z - outlineRight.z + outlineUp.z,
                     outlineU0,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x - outlineUp.x,
-                    center.y + outlineRight.y - outlineUp.y,
-                    center.z + outlineRight.z - outlineUp.z,
+                    viewCenter.x + outlineRight.x - outlineUp.x,
+                    viewCenter.y + outlineRight.y - outlineUp.y,
+                    viewCenter.z + outlineRight.z - outlineUp.z,
                     outlineU1,
                     outlineVBottom,
                     vertexColorAbgr
@@ -7083,7 +7213,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
                     1.0f
                 };
                 float modelMatrix[16] = {};
-                bx::mtxIdentity(modelMatrix);
+                std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
                 bgfx::setTransform(modelMatrix);
                 bgfx::setVertexBuffer(
                     0,
@@ -7103,36 +7233,32 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
                 bgfx::setState(
-                    BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_WRITE_A
-                    | BGFX_STATE_WRITE_Z
-                    | BGFX_STATE_DEPTH_TEST_LEQUAL
-                    | BGFX_STATE_BLEND_ALPHA);
+                    IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
             }
         }
 
         std::array<LitBillboardVertex, 6> vertices = {};
         vertices[0] = {
-            center.x - right.x - up.x,
-            center.y - right.y - up.y,
-            center.z - right.z - up.z,
+            viewCenter.x - right.x - up.x,
+            viewCenter.y - right.y - up.y,
+            viewCenter.z - right.z - up.z,
             u0,
             1.0f,
             vertexColorAbgr
         };
         vertices[1] = {
-            center.x - right.x + up.x,
-            center.y - right.y + up.y,
-            center.z - right.z + up.z,
+            viewCenter.x - right.x + up.x,
+            viewCenter.y - right.y + up.y,
+            viewCenter.z - right.z + up.z,
             u0,
             0.0f,
             vertexColorAbgr
         };
         vertices[2] = {
-            center.x + right.x + up.x,
-            center.y + right.y + up.y,
-            center.z + right.z + up.z,
+            viewCenter.x + right.x + up.x,
+            viewCenter.y + right.y + up.y,
+            viewCenter.z + right.z + up.z,
             u1,
             0.0f,
             vertexColorAbgr
@@ -7140,9 +7266,9 @@ void IndoorRenderer::renderActorPreviewBillboards(
         vertices[3] = vertices[0];
         vertices[4] = vertices[2];
         vertices[5] = {
-            center.x + right.x - up.x,
-            center.y + right.y - up.y,
-            center.z + right.z - up.z,
+            viewCenter.x + right.x - up.x,
+            viewCenter.y + right.y - up.y,
+            viewCenter.z + right.z - up.z,
             u1,
             1.0f,
             vertexColorAbgr
@@ -7167,7 +7293,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         );
 
         float modelMatrix[16] = {};
-        bx::mtxIdentity(modelMatrix);
+        std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
         bgfx::setTransform(modelMatrix);
         bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(vertices.size()));
         bindTexture(
@@ -7183,11 +7309,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
         bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
         bgfx::setState(
-            BGFX_STATE_WRITE_RGB
-            | BGFX_STATE_WRITE_A
-            | BGFX_STATE_WRITE_Z
-            | BGFX_STATE_DEPTH_TEST_LEQUAL
-            | BGFX_STATE_BLEND_ALPHA
+            IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
     }
@@ -7201,7 +7323,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
-    const GameplayContextActionState *pContextActionState
+    const GameplayContextActionState *pContextActionState,
+    LightingStats *pLightingStats
 )
 {
     if (!bgfx::isValid(m_billboardProgramHandle)
@@ -7236,8 +7359,9 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         return;
     }
 
-    const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    float billboardModelMatrix[16] = {};
+    bx::mtxInverse(billboardModelMatrix, pViewMatrix);
     const float aspectRatio =
         m_lastRenderHeight > 0
         ? static_cast<float>(std::max(m_lastRenderWidth, 1)) / static_cast<float>(m_lastRenderHeight)
@@ -7656,146 +7780,73 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         }
     );
 
-    const bool needsDepthPrepass =
-        std::any_of(
-            drawItems.begin(),
-            drawItems.end(),
-            [](const BillboardDrawItem &drawItem)
-            {
-                return drawItem.hovered;
-            });
-
-    if (needsDepthPrepass)
+    struct LitSpriteObjectBillboardBatch
     {
-        const float prepassAmbient[4] = {1.0f, 1.0f, 1.0f, 0.0f};
-        const float prepassOverrideColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float prepassOutlineParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float prepassFogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float prepassFogDensities[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float prepassFogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
+        const BillboardTextureHandle *pTexture = nullptr;
+        std::vector<LitBillboardVertex> vertices;
+    };
 
-        for (const BillboardDrawItem &drawItem : drawItems)
+    LitSpriteObjectBillboardBatch litBillboardBatch = {};
+    litBillboardBatch.vertices.reserve(drawItems.size() * 6);
+
+    const float litAmbient[4] = {1.0f, 1.0f, 1.0f, 0.0f};
+    const float clearOverrideColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float clearOutlineParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float fogDensities[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
+
+    const auto flushLitBillboardBatch =
+        [&]()
         {
-            const SpriteFrameEntry &frame = *drawItem.pFrame;
-            const BillboardTextureHandle &texture = *drawItem.pTexture;
-            const float spriteScale = std::max(frame.scale, 0.01f);
-            const float worldWidth = float(texture.width) * spriteScale;
-            const float worldHeight = float(texture.height) * spriteScale;
-            const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = spriteFrameBillboardCenter(
-                drawItem.x,
-                drawItem.y,
-                drawItem.z,
-                frame,
-                cameraUp,
-                worldHeight);
-            const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
-            const bx::Vec3 up = {
-                cameraUp.x * worldHeight * 0.5f,
-                cameraUp.y * worldHeight * 0.5f,
-                cameraUp.z * worldHeight * 0.5f
-            };
-            const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
-            const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
-            const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
-            std::array<LitBillboardVertex, 6> prepassVertices = {{
-                {
-                    center.x - right.x - up.x,
-                    center.y - right.y - up.y,
-                    center.z - right.z - up.z,
-                    u0,
-                    1.0f,
-                    vertexColorAbgr
-                },
-                {
-                    center.x - right.x + up.x,
-                    center.y - right.y + up.y,
-                    center.z - right.z + up.z,
-                    u0,
-                    0.0f,
-                    vertexColorAbgr
-                },
-                {
-                    center.x + right.x + up.x,
-                    center.y + right.y + up.y,
-                    center.z + right.z + up.z,
-                    u1,
-                    0.0f,
-                    vertexColorAbgr
-                },
-                {
-                    center.x - right.x - up.x,
-                    center.y - right.y - up.y,
-                    center.z - right.z - up.z,
-                    u0,
-                    1.0f,
-                    vertexColorAbgr
-                },
-                {
-                    center.x + right.x + up.x,
-                    center.y + right.y + up.y,
-                    center.z + right.z + up.z,
-                    u1,
-                    0.0f,
-                    vertexColorAbgr
-                },
-                {
-                    center.x + right.x - up.x,
-                    center.y + right.y - up.y,
-                    center.z + right.z - up.z,
-                    u1,
-                    1.0f,
-                    vertexColorAbgr
-                }
-            }};
-
-            if (bgfx::getAvailTransientVertexBuffer(
-                    static_cast<uint32_t>(prepassVertices.size()),
-                    LitBillboardVertex::ms_layout) < prepassVertices.size())
+            if (litBillboardBatch.pTexture == nullptr || litBillboardBatch.vertices.empty())
             {
-                continue;
+                litBillboardBatch.vertices.clear();
+                litBillboardBatch.pTexture = nullptr;
+                return;
             }
 
-            bgfx::TransientVertexBuffer prepassTransientVertexBuffer = {};
-            bgfx::allocTransientVertexBuffer(
-                &prepassTransientVertexBuffer,
-                static_cast<uint32_t>(prepassVertices.size()),
-                LitBillboardVertex::ms_layout
-            );
-            std::memcpy(
-                prepassTransientVertexBuffer.data,
-                prepassVertices.data(),
-                static_cast<size_t>(prepassVertices.size() * sizeof(LitBillboardVertex))
-            );
+            if (bgfx::getAvailTransientVertexBuffer(
+                    static_cast<uint32_t>(litBillboardBatch.vertices.size()),
+                    LitBillboardVertex::ms_layout) >= litBillboardBatch.vertices.size())
+            {
+                bgfx::TransientVertexBuffer transientVertexBuffer = {};
+                bgfx::allocTransientVertexBuffer(
+                    &transientVertexBuffer,
+                    static_cast<uint32_t>(litBillboardBatch.vertices.size()),
+                    LitBillboardVertex::ms_layout);
+                std::memcpy(
+                    transientVertexBuffer.data,
+                    litBillboardBatch.vertices.data(),
+                    static_cast<size_t>(litBillboardBatch.vertices.size() * sizeof(LitBillboardVertex)));
 
-            float prepassModelMatrix[16] = {};
-            bx::mtxIdentity(prepassModelMatrix);
-            bgfx::setTransform(prepassModelMatrix);
-            bgfx::setVertexBuffer(
-                0,
-                &prepassTransientVertexBuffer,
-                0,
-                static_cast<uint32_t>(prepassVertices.size()));
-            bindTexture(
-                0,
-                m_textureSamplerHandle,
-                texture.textureHandle,
-                TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-            bgfx::setUniform(m_billboardAmbientUniformHandle, prepassAmbient);
-            bgfx::setUniform(m_billboardOverrideColorUniformHandle, prepassOverrideColor);
-            bgfx::setUniform(m_billboardOutlineParamsUniformHandle, prepassOutlineParams);
-            bgfx::setUniform(m_billboardFogColorUniformHandle, prepassFogColor);
-            bgfx::setUniform(m_billboardFogDensitiesUniformHandle, prepassFogDensities);
-            bgfx::setUniform(m_billboardFogDistancesUniformHandle, prepassFogDistances);
-            bgfx::setState(
-                BGFX_STATE_WRITE_Z
-                | BGFX_STATE_DEPTH_TEST_LEQUAL
-                | BGFX_STATE_BLEND_ALPHA
-            );
-            bgfx::submit(viewId, m_billboardProgramHandle);
-        }
-    }
+                float modelMatrix[16] = {};
+                std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
+                bgfx::setTransform(modelMatrix);
+                bgfx::setVertexBuffer(
+                    0,
+                    &transientVertexBuffer,
+                    0,
+                    static_cast<uint32_t>(litBillboardBatch.vertices.size()));
+                bindTexture(
+                    0,
+                    m_textureSamplerHandle,
+                    litBillboardBatch.pTexture->textureHandle,
+                    TextureFilterProfile::Billboard,
+                    BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+                bgfx::setUniform(m_billboardAmbientUniformHandle, litAmbient);
+                bgfx::setUniform(m_billboardOverrideColorUniformHandle, clearOverrideColor);
+                bgfx::setUniform(m_billboardOutlineParamsUniformHandle, clearOutlineParams);
+                bgfx::setUniform(m_billboardFogColorUniformHandle, fogColor);
+                bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
+                bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
+                bgfx::setState(IndoorBillboardDrawState);
+                bgfx::submit(viewId, m_billboardProgramHandle);
+            }
+
+            litBillboardBatch.vertices.clear();
+            litBillboardBatch.pTexture = nullptr;
+        };
 
     for (const BillboardDrawItem &drawItem : drawItems)
     {
@@ -7812,17 +7863,16 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             frame,
             cameraUp,
             worldHeight);
-        const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
-        const bx::Vec3 up = {
-            cameraUp.x * worldHeight * 0.5f,
-            cameraUp.y * worldHeight * 0.5f,
-            cameraUp.z * worldHeight * 0.5f
-        };
+        const bx::Vec3 viewCenter = transformIndoorPoint(center, pViewMatrix);
+        const bx::Vec3 right = {halfWidth, 0.0f, 0.0f};
+        const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
         const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
 
         if (drawItem.hovered)
         {
+            flushLitBillboardBatch();
+
             const float paddingU = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.width);
             const float paddingV = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.height);
             const float outlinedHalfWidth =
@@ -7831,16 +7881,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             const float outlinedHalfHeight =
                 (static_cast<float>(texture.height) * spriteScale
                     + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
-            const bx::Vec3 outlineRight = {
-                cameraRight.x * outlinedHalfWidth,
-                cameraRight.y * outlinedHalfWidth,
-                cameraRight.z * outlinedHalfWidth
-            };
-            const bx::Vec3 outlineUp = {
-                cameraUp.x * outlinedHalfHeight,
-                cameraUp.y * outlinedHalfHeight,
-                cameraUp.z * outlinedHalfHeight
-            };
+            const bx::Vec3 outlineRight = {outlinedHalfWidth, 0.0f, 0.0f};
+            const bx::Vec3 outlineUp = {0.0f, outlinedHalfHeight, 0.0f};
             const float outlineU0 = drawItem.mirrored ? 1.0f + paddingU : -paddingU;
             const float outlineU1 = drawItem.mirrored ? -paddingU : 1.0f + paddingU;
             const float outlineVTop = -paddingV;
@@ -7848,49 +7890,49 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
             std::array<LitBillboardVertex, 6> outlineVertices = {{
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x + outlineUp.x,
-                    center.y - outlineRight.y + outlineUp.y,
-                    center.z - outlineRight.z + outlineUp.z,
+                    viewCenter.x - outlineRight.x + outlineUp.x,
+                    viewCenter.y - outlineRight.y + outlineUp.y,
+                    viewCenter.z - outlineRight.z + outlineUp.z,
                     outlineU0,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x - outlineRight.x - outlineUp.x,
-                    center.y - outlineRight.y - outlineUp.y,
-                    center.z - outlineRight.z - outlineUp.z,
+                    viewCenter.x - outlineRight.x - outlineUp.x,
+                    viewCenter.y - outlineRight.y - outlineUp.y,
+                    viewCenter.z - outlineRight.z - outlineUp.z,
                     outlineU0,
                     outlineVBottom,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x + outlineUp.x,
-                    center.y + outlineRight.y + outlineUp.y,
-                    center.z + outlineRight.z + outlineUp.z,
+                    viewCenter.x + outlineRight.x + outlineUp.x,
+                    viewCenter.y + outlineRight.y + outlineUp.y,
+                    viewCenter.z + outlineRight.z + outlineUp.z,
                     outlineU1,
                     outlineVTop,
                     vertexColorAbgr
                 },
                 {
-                    center.x + outlineRight.x - outlineUp.x,
-                    center.y + outlineRight.y - outlineUp.y,
-                    center.z + outlineRight.z - outlineUp.z,
+                    viewCenter.x + outlineRight.x - outlineUp.x,
+                    viewCenter.y + outlineRight.y - outlineUp.y,
+                    viewCenter.z + outlineRight.z - outlineUp.z,
                     outlineU1,
                     outlineVBottom,
                     vertexColorAbgr
@@ -7928,7 +7970,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 const float fogDensities[4] = {0.0f, 0.0f, 0.0f, 0.0f};
                 const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
                 float outlineModelMatrix[16] = {};
-                bx::mtxIdentity(outlineModelMatrix);
+                std::memcpy(outlineModelMatrix, billboardModelMatrix, sizeof(outlineModelMatrix));
                 bgfx::setTransform(outlineModelMatrix);
                 bgfx::setVertexBuffer(
                     0,
@@ -7948,72 +7990,85 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
                 bgfx::setState(
-                    BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_WRITE_A
-                    | BGFX_STATE_DEPTH_TEST_LEQUAL
-                    | BGFX_STATE_BLEND_ALPHA);
+                    IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
             }
         }
 
         const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
-        const std::array<float, 4> ambient =
-            billboardLightingUniform(lightingFrame, frame, center, drawItem.sectorId);
-        const float clearOverrideColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float clearOutlineParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float fogDensities[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
         std::array<LitBillboardVertex, 6> vertices = {{
             {
-                center.x - right.x - up.x,
-                center.y - right.y - up.y,
-                center.z - right.z - up.z,
+                viewCenter.x - right.x - up.x,
+                viewCenter.y - right.y - up.y,
+                viewCenter.z - right.z - up.z,
                 u0,
                 1.0f,
                 vertexColorAbgr
             },
             {
-                center.x - right.x + up.x,
-                center.y - right.y + up.y,
-                center.z - right.z + up.z,
+                viewCenter.x - right.x + up.x,
+                viewCenter.y - right.y + up.y,
+                viewCenter.z - right.z + up.z,
                 u0,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x + up.x,
-                center.y + right.y + up.y,
-                center.z + right.z + up.z,
+                viewCenter.x + right.x + up.x,
+                viewCenter.y + right.y + up.y,
+                viewCenter.z + right.z + up.z,
                 u1,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x - right.x - up.x,
-                center.y - right.y - up.y,
-                center.z - right.z - up.z,
+                viewCenter.x - right.x - up.x,
+                viewCenter.y - right.y - up.y,
+                viewCenter.z - right.z - up.z,
                 u0,
                 1.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x + up.x,
-                center.y + right.y + up.y,
-                center.z + right.z + up.z,
+                viewCenter.x + right.x + up.x,
+                viewCenter.y + right.y + up.y,
+                viewCenter.z + right.z + up.z,
                 u1,
                 0.0f,
                 vertexColorAbgr
             },
             {
-                center.x + right.x - up.x,
-                center.y + right.y - up.y,
-                center.z + right.z - up.z,
+                viewCenter.x + right.x - up.x,
+                viewCenter.y + right.y - up.y,
+                viewCenter.z + right.z - up.z,
                 u1,
                 1.0f,
                 vertexColorAbgr
             }
         }};
+
+        const bool batchableLitBillboard =
+            !drawItem.hovered && SpriteFrameTable::hasFlag(frame.flags, SpriteFrameFlag::Lit);
+
+        if (batchableLitBillboard)
+        {
+            if (litBillboardBatch.pTexture != &texture)
+            {
+                flushLitBillboardBatch();
+                litBillboardBatch.pTexture = &texture;
+            }
+
+            litBillboardBatch.vertices.insert(
+                litBillboardBatch.vertices.end(),
+                vertices.begin(),
+                vertices.end());
+            continue;
+        }
+
+        flushLitBillboardBatch();
+
+        const std::array<float, 4> ambient =
+            billboardLightingUniform(lightingFrame, frame, center, drawItem.sectorId, pLightingStats);
 
         if (bgfx::getAvailTransientVertexBuffer(static_cast<uint32_t>(vertices.size()), LitBillboardVertex::ms_layout)
             < vertices.size())
@@ -8034,7 +8089,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         );
 
         float modelMatrix[16] = {};
-        bx::mtxIdentity(modelMatrix);
+        std::memcpy(modelMatrix, billboardModelMatrix, sizeof(modelMatrix));
         bgfx::setTransform(modelMatrix);
         bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(vertices.size()));
         bindTexture(
@@ -8050,13 +8105,12 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
         bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
         bgfx::setState(
-            BGFX_STATE_WRITE_RGB
-            | BGFX_STATE_WRITE_A
-            | BGFX_STATE_DEPTH_TEST_LEQUAL
-            | BGFX_STATE_BLEND_ALPHA
+            IndoorBillboardDrawState
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
     }
+
+    flushLitBillboardBatch();
 }
 
 void IndoorRenderer::renderContextActionGeometryHighlight(
@@ -8420,6 +8474,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
     if (!m_indoorTextureSet || !m_indoorMapData)
     {
         m_texturedBatches.clear();
+        m_indoorLightingSelectionCache.clear();
         m_faceBatchIndices.clear();
         m_faceVertexOffsets.clear();
         m_faceVertexCounts.clear();
@@ -8429,6 +8484,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
 
     std::vector<TexturedBatch> previousBatches = std::move(m_texturedBatches);
     m_texturedBatches.clear();
+    m_indoorLightingSelectionCache.clear();
     m_faceBatchIndices.assign(m_indoorMapData->faces.size(), -1);
     m_faceVertexOffsets.assign(m_indoorMapData->faces.size(), 0);
     m_faceVertexCounts.assign(m_indoorMapData->faces.size(), 0);
@@ -8552,6 +8608,11 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
 
             batchIndex = m_texturedBatches.size();
             batchIndicesByTexture[batchKey] = batchIndex;
+            batch.stableId = stableIndoorTexturedBatchId(
+                batch.textureName,
+                batch.sectorId,
+                batch.backSectorId,
+                batchIndex);
             m_texturedBatches.push_back(std::move(batch));
         }
         else
@@ -8792,6 +8853,8 @@ void IndoorRenderer::destroyDerivedGeometryResources()
     }
 
     m_texturedBatches.clear();
+    m_indoorLightingSelectionCache.clear();
+    m_indoorLightingSelectionFrame = 0;
     m_faceBatchIndices.clear();
     m_faceVertexOffsets.clear();
     m_faceVertexCounts.clear();

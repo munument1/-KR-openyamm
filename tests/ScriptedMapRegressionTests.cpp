@@ -2807,16 +2807,54 @@ TEST_CASE("mm8 mmmerge out07 statues dimension door and duplicate gems apply")
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
 
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram::ContextActionMetadata> cauriStatueMetadata =
+        localEventProgram->getContextActionMetadata(132);
+    REQUIRE(cauriStatueMetadata.has_value());
+    CHECK_EQ(cauriStatueMetadata->kind, "stone_to_flesh");
+    CHECK_EQ(cauriStatueMetadata->source, "spell");
+
+    OpenYAMM::Game::Party interactSpellParty = makeScriptedRegressionParty();
+    REQUIRE(interactSpellParty.member(0) != nullptr);
+    CHECK(interactSpellParty.member(0)->learnSpell(40));
+    OpenYAMM::Game::EventRuntimeState interactSpellState = {};
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        132,
+        interactSpellState,
+        &interactSpellParty));
+    CHECK_FALSE(interactSpellParty.hasQuestBit(40));
+    CHECK_FALSE(interactSpellParty.hasQuestBit(430));
+    CHECK_FALSE(interactSpellState.spriteOverrides[20].hidden);
+    CHECK_FALSE(interactSpellState.pendingDialogueContext.has_value());
+
     OpenYAMM::Game::Party spellParty = makeScriptedRegressionParty();
-    REQUIRE(spellParty.member(0) != nullptr);
-    CHECK(spellParty.member(0)->learnSpell(40));
     OpenYAMM::Game::EventRuntimeState spellState = {};
+    spellState.activeEventSpellId = 40;
     REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 132, spellState, &spellParty));
     CHECK(spellParty.hasQuestBit(40));
     CHECK(spellParty.hasQuestBit(430));
     CHECK(spellState.spriteOverrides[20].hidden);
     REQUIRE(spellState.pendingDialogueContext.has_value());
     CHECK_EQ(spellState.pendingDialogueContext->sourceId, 42u);
+
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pOut07 = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "out07.odm",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pOut07 != nullptr);
+    REQUIRE(pOut07->outdoorMapData.has_value());
+    REQUIRE_GT(pOut07->outdoorMapData->entities.size(), 1418u);
+    const OpenYAMM::Game::OutdoorEntity &cauriStatueEntity = pOut07->outdoorMapData->entities[1418];
+    CHECK_EQ(cauriStatueEntity.eventIdPrimary, 20u);
+    CHECK_EQ(cauriStatueEntity.eventIdSecondary, 132u);
+    CHECK_EQ(cauriStatueEntity.spriteOverrideKey(1418), 20u);
 
     OpenYAMM::Game::Party scrollParty = makeScriptedRegressionParty();
     scrollParty.grantItem(339);

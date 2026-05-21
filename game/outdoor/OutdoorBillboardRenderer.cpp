@@ -76,6 +76,12 @@ uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
         | static_cast<uint32_t>(red);
 }
 
+uint8_t lightContributionByte(float value)
+{
+    return static_cast<uint8_t>(
+        std::clamp(std::lround(value * BillboardLightContributionScale * 255.0f), 0l, 255l));
+}
+
 bool timingEnvironmentFlagEnabled(const char *pName)
 {
     const char *pValue = std::getenv(pName);
@@ -714,19 +720,30 @@ void OutdoorBillboardRenderer::writeLitBillboardVertices(
 }
 
 uint32_t OutdoorBillboardRenderer::computeBillboardLightContributionAbgr(
-    const OutdoorGameView &view,
+    OutdoorGameView &view,
     float x,
     float y,
     float z)
 {
-    (void)view;
-    (void)x;
-    (void)y;
-    (void)z;
+    LightingStats *pLightingStats = view.m_gameSettings.performanceTrace ? &view.m_outdoorLightingStats : nullptr;
+    const uint64_t sampleBeginTickCount = pLightingStats != nullptr ? SDL_GetTicksNS() : 0;
 
-    // Billboard lighting is intentionally ambient-only for now.
-    // Terrain and textured bmodels still receive the shader-backed FX light contribution.
-    return 0xff000000u;
+    if (pLightingStats != nullptr)
+    {
+        ++pLightingStats->billboardSamples;
+    }
+
+    const std::array<float, 3> rgb = view.m_outdoorLightingRuntime.sampleLightingRgb({x, y, z});
+
+    if (pLightingStats != nullptr)
+    {
+        pLightingStats->billboardSampleNanoseconds += SDL_GetTicksNS() - sampleBeginTickCount;
+    }
+
+    return makeAbgr(
+        lightContributionByte(rgb[0]),
+        lightContributionByte(rgb[1]),
+        lightContributionByte(rgb[2]));
 }
 
 std::optional<OutdoorGameView::InspectHit> OutdoorBillboardRenderer::resolveHoveredOutlineInspectHit(

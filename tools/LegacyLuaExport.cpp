@@ -5373,13 +5373,13 @@ bool tryEmitReadablePartyMemberLoop(
             {
                 requirementStep = primaryJumpStep;
                 directSuccessStep = primaryFallthroughStep;
-                negatePrimaryCondition = true;
+                negatePrimaryCondition = false;
             }
             else if (isCompareInstructionStep(primaryFallthroughStep) && primaryJumpStep)
             {
                 requirementStep = primaryFallthroughStep;
                 directSuccessStep = primaryJumpStep;
-                negatePrimaryCondition = false;
+                negatePrimaryCondition = true;
             }
             else
             {
@@ -5901,13 +5901,13 @@ bool tryEmitReadablePartyMemberLoop(
             {
                 requirementStep = jumpStep;
                 directSuccessStep = fallthroughSignificantStep;
-                shape.negatePrimaryCondition = true;
+                shape.negatePrimaryCondition = false;
             }
             else if (isCompareInstructionStep(fallthroughSignificantStep) && jumpStep)
             {
                 requirementStep = fallthroughSignificantStep;
                 directSuccessStep = jumpStep;
-                shape.negatePrimaryCondition = false;
+                shape.negatePrimaryCondition = true;
             }
             else
             {

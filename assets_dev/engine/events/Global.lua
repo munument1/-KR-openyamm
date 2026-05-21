@@ -1276,7 +1276,7 @@ RegisterGlobalEvent(89, "Promotion to Lich", function()
     end
     for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
         evt.ForPlayer(player)
-        if not IsAtLeast(ClassId, 44) then
+        if IsAtLeast(ClassId, 44) then
             if not HasItem(628) then -- Lich Jar
                 evt.SetMessage("You have the Lost Book of Khel, however you lack the Lich Jars needed to complete the transformation!\nReturn here when you have one for each necromancer in your party!")
                 return
@@ -6844,7 +6844,7 @@ RegisterGlobalEvent(738, "Promote Necromancers", function()
         evt.SetMessage("Ah, you return seeking promotion for others in your party?\nI have not forgotten your help in recovering the Lost Book of Kehl!\nAll Necromancers in your party will be promoted to Lich.\nBe sure each Necromancer has a Lich Jar in his possession.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
-            if not IsAtLeast(ClassId, 44) then
+            if IsAtLeast(ClassId, 44) then
                 if not HasItem(628) then -- Lich Jar
                     evt.SetMessage("You have the Lost Book of Khel, however you lack the Lich Jars needed to complete the transformation!\nReturn here when you have one for each necromancer in your party!")
                     return
@@ -6866,7 +6866,7 @@ RegisterGlobalEvent(738, "Promote Necromancers", function()
         evt.SetMessage("Ah, you return seeking promotion for others in your party?\nI have not forgotten your help in recovering the Lost Book of Kehl!\nAll Necromancers in your party will be promoted to Lich.\nBe sure each Necromancer has a Lich Jar in his possession.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
-            if not IsAtLeast(ClassId, 44) then
+            if IsAtLeast(ClassId, 44) then
                 if not HasItem(628) then -- Lich Jar
                     evt.SetMessage("You have the Lost Book of Khel, however you lack the Lich Jars needed to complete the transformation!\nReturn here when you have one for each necromancer in your party!")
                     return

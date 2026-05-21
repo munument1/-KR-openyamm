@@ -680,7 +680,7 @@ void spawnProjectileTrailParticles(
 {
     const SpellId spellId = spellIdFromValue(static_cast<uint32_t>(context.spellId));
 
-    if (recipe == ProjectileRecipe::Blaster)
+    if (recipe == ProjectileRecipe::Blaster || recipe == ProjectileRecipe::Sparks)
     {
         return;
     }
@@ -1170,6 +1170,12 @@ void spawnProjectileTrailParticles(
 void spawnImpactParticles(ParticleSystem &particleSystem, const ImpactSpawnContext &context)
 {
     const ProjectileRecipe recipe = context.recipe;
+
+    if (recipe == ProjectileRecipe::Sparks)
+    {
+        return;
+    }
+
     const uint32_t colorAbgr =
         recipe != ProjectileRecipe::None ? projectileRecipeColorAbgr(recipe)
             : deriveImpactColorAbgr(context.objectName, context.spriteName);

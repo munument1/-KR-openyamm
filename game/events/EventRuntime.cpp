@@ -6511,6 +6511,13 @@ int luaSetRuntimeVariable(lua_State *pLuaState)
     return 0;
 }
 
+int luaGetActiveEventSpellId(lua_State *pLuaState)
+{
+    const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    lua_pushinteger(pLuaState, pRuntimeState != nullptr ? pRuntimeState->activeEventSpellId : 0);
+    return 1;
+}
+
 int luaGetPartyVariable(lua_State *pLuaState)
 {
     const Party *pParty = readableParty(pLuaState);
@@ -7731,6 +7738,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "AdvanceGameMinutes", luaAdvanceGameMinutes);
     registerLuaFunction(pLuaState, "GetRuntimeVariable", luaGetRuntimeVariable);
     registerLuaFunction(pLuaState, "SetRuntimeVariable", luaSetRuntimeVariable);
+    registerLuaFunction(pLuaState, "GetActiveEventSpellId", luaGetActiveEventSpellId);
     registerLuaFunction(pLuaState, "GetPartyVariable", luaGetPartyVariable);
     registerLuaFunction(pLuaState, "SetPartyVariable", luaSetPartyVariable);
     registerLuaFunction(pLuaState, "GetClassId", luaGetClassId);
@@ -8110,6 +8118,7 @@ void clearTransientEventRuntimeState(EventRuntimeState &runtimeState)
     runtimeState.openedChestIds.clear();
     runtimeState.openedChestRequests.clear();
     runtimeState.activeEventOpenedByTelekinesis = false;
+    runtimeState.activeEventSpellId = 0;
     runtimeState.grantedItems.clear();
     runtimeState.grantedItemIds.clear();
     runtimeState.clearHeldItemRequest = false;

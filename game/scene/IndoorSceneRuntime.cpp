@@ -1044,7 +1044,7 @@ bool IndoorSceneRuntime::activateEvent(
     }
 
     m_worldRuntime.applyEventRuntimeState();
-    m_partyRuntime.party().applyEventRuntimeState(*m_eventRuntimeState);
+    m_partyRuntime.party().applyEventRuntimeState(*m_eventRuntimeState, false);
     m_eventRuntimeState->lastActivationResult = "event " + std::to_string(eventId) + " executed";
     return true;
 }

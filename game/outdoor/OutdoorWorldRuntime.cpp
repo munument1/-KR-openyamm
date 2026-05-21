@@ -15754,6 +15754,26 @@ bool OutdoorWorldRuntime::activateWorldHit(const GameplayWorldHit &hit)
     return OutdoorInteractionController::dispatchWorldActivation(*m_pInteractionView, hit);
 }
 
+bool OutdoorWorldRuntime::activateWorldHitFromSpell(const GameplayWorldHit &hit, uint32_t spellId)
+{
+    EventRuntimeState *pRuntimeState = eventRuntimeState();
+    const uint32_t previousSpellId = pRuntimeState != nullptr ? pRuntimeState->activeEventSpellId : 0;
+
+    if (pRuntimeState != nullptr)
+    {
+        pRuntimeState->activeEventSpellId = spellId;
+    }
+
+    const bool activated = activateWorldHit(hit);
+
+    if (pRuntimeState != nullptr)
+    {
+        pRuntimeState->activeEventSpellId = previousSpellId;
+    }
+
+    return activated;
+}
+
 bool OutdoorWorldRuntime::canActivateTelekinesisTarget(const GameplayWorldHit &hit) const
 {
     if (!hit.hasHit)

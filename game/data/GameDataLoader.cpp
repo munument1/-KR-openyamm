@@ -2485,7 +2485,7 @@ bool GameDataLoader::loadRosterTable(const Engine::AssetFileSystem &assetFileSys
         return false;
     }
 
-    if (!m_rosterTable.loadFromRows(rows))
+    if (!m_rosterTable.loadFromRows(rows, &m_classSkillTable))
     {
         std::cerr << "Failed to parse roster table: " << rosterPath << '\n';
         return false;

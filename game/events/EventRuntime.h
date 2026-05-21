@@ -457,6 +457,7 @@ struct EventRuntimeState
     std::vector<uint32_t> openedChestIds;
     std::vector<OpenedChestRequest> openedChestRequests;
     bool activeEventOpenedByTelekinesis = false;
+    uint32_t activeEventSpellId = 0;
     std::vector<InventoryItem> grantedItems;
     std::vector<uint32_t> grantedItemIds;
     bool clearHeldItemRequest = false;

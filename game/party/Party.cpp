@@ -19,8 +19,10 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <random>
 #include <unordered_set>
 
@@ -422,6 +424,37 @@ std::string normalizeRoleName(const std::string &className)
     }
 
     return displayClassName(canonicalName);
+}
+
+std::string normalizePartyClassName(const std::string &className, const ClassSkillTable *pClassSkillTable)
+{
+    const std::string canonicalName = canonicalClassName(className);
+
+    if (canonicalName.empty() || pClassSkillTable == nullptr)
+    {
+        return canonicalName;
+    }
+
+    for (char character : canonicalName)
+    {
+        if (std::isdigit(static_cast<unsigned char>(character)) == 0)
+        {
+            return canonicalName;
+        }
+    }
+
+    char *pEnd = nullptr;
+    const unsigned long classId = std::strtoul(canonicalName.c_str(), &pEnd, 10);
+
+    if (pEnd == canonicalName.c_str() || *pEnd != '\0')
+    {
+        return canonicalName;
+    }
+
+    const std::optional<std::string> resolvedClassName =
+        pClassSkillTable->classNameForId(static_cast<uint32_t>(classId));
+
+    return resolvedClassName ? canonicalClassName(*resolvedClassName) : canonicalName;
 }
 
 uint32_t generateHouseStockSeed()
@@ -2207,7 +2240,9 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
 
     for (Character &member : m_members)
     {
-        member.className = canonicalClassName(member.className.empty() ? member.role : member.className);
+        member.className = normalizePartyClassName(
+            member.className.empty() ? member.role : member.className,
+            m_pClassSkillTable);
 
         if (member.skills.empty())
         {
@@ -2224,8 +2259,9 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
 
     for (AdventurersInnMember &member : m_adventurersInnMembers)
     {
-        member.character.className = canonicalClassName(
-            member.character.className.empty() ? member.character.role : member.character.className);
+        member.character.className = normalizePartyClassName(
+            member.character.className.empty() ? member.character.role : member.character.className,
+            m_pClassSkillTable);
 
         if (member.character.skills.empty())
         {

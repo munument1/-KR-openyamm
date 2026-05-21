@@ -5339,6 +5339,28 @@ TEST_CASE("repeat promotion events include first member")
     }
 }
 
+TEST_CASE("mm8 lich promotion only requires jars from necromancers")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setMemberClassName(0, "Knight"));
+    REQUIRE(harness.party().setMemberClassName(1, "Necromancer"));
+    REQUIRE(harness.party().setMemberClassName(2, "Cleric"));
+    REQUIRE(harness.party().grantItemToMember(0, 611));
+    REQUIRE(harness.party().grantItemToMember(1, 628));
+
+    REQUIRE(harness.executeGlobalEvent(89));
+
+    const OpenYAMM::Game::Character *pNecromancer = harness.party().member(1);
+
+    REQUIRE(pNecromancer != nullptr);
+    CHECK_EQ(pNecromancer->className, "Lich");
+    CHECK_EQ(harness.party().inventoryItemCount(611), 0);
+    CHECK_EQ(harness.party().inventoryItemCount(628), 0);
+    CHECK(harness.party().hasQuestBit(1548));
+}
+
 TEST_CASE("deftclaw visible topics do not depend on active member refresh")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
