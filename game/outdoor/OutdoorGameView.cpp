@@ -3871,6 +3871,8 @@ void OutdoorGameView::shutdown()
     m_spawnMarkerVertexCount = 0;
     worldInteractionInputState.keyboardUseLatch = false;
     worldInteractionInputState.inspectKeyboardActivateLatch = false;
+    worldInteractionInputState.keyboardUseNextRepeatTickNanoseconds = 0;
+    worldInteractionInputState.inspectKeyboardActivateNextRepeatTickNanoseconds = 0;
     screenRuntime.resetOverlayInteractionState();
     worldInteractionInputState.inspectMouseActivateLatch = false;
     attackActionState.clear();
@@ -4313,6 +4315,8 @@ void OutdoorGameView::clearWorldInteractionInputLatches()
 
     worldInteractionInputState.keyboardUseLatch = false;
     worldInteractionInputState.inspectKeyboardActivateLatch = false;
+    worldInteractionInputState.keyboardUseNextRepeatTickNanoseconds = 0;
+    worldInteractionInputState.inspectKeyboardActivateNextRepeatTickNanoseconds = 0;
     pendingSpellCast.clickLatch = false;
     worldInteractionInputState.heldInventoryDropLatch = false;
     m_gameSession.overlayInteractionState().activateInspectLatch = false;

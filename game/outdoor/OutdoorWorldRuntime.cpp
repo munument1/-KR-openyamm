@@ -695,11 +695,7 @@ constexpr float ChestTrapForwardDepth = 96.0f;
 constexpr float ChestTrapForwardPitchScale = 0.70710678f;
 constexpr float ChestTrapCenterSpriteZOffset = 32.0f;
 constexpr float OeTurnAwayFromWaterAngleRadians = Pi / 32.0f;
-constexpr int DwiMapId = 1;
-constexpr uint32_t DwiTestActor61 = 61;
-constexpr float DwiTestActor61X = -7665.0f;
-constexpr float DwiTestActor61Y = -4660.0f;
-constexpr float DwiTestActor61Z = 200.0f;
+constexpr int DaggerWoundIslandMapId = 1;
 constexpr uint32_t EventSpellSourceId = std::numeric_limits<uint32_t>::max();
 constexpr uint32_t GoldHeapSmallItemId = 187;
 constexpr uint32_t GoldHeapLargeItemId = 189;
@@ -2244,37 +2240,6 @@ float resolveActorGroundZ(
     }
 
     return floorZ;
-}
-
-void applyTestActorOverrides(
-    int mapId,
-    const OutdoorMapData *pOutdoorMapData,
-    const MonsterTable::MonsterStatsEntry *pStats,
-    uint32_t actorId,
-    OutdoorWorldRuntime::MapActorState &state
-)
-{
-    if (mapId == DwiMapId && actorId == DwiTestActor61)
-    {
-        state.preciseX = DwiTestActor61X;
-        state.preciseY = DwiTestActor61Y;
-        state.preciseZ = resolveActorGroundZ(
-            pOutdoorMapData,
-            pStats,
-            state.radius,
-            DwiTestActor61X,
-            DwiTestActor61Y,
-            DwiTestActor61Z);
-        state.x = static_cast<int>(std::lround(state.preciseX));
-        state.y = static_cast<int>(std::lround(state.preciseY));
-        state.z = static_cast<int>(std::lround(state.preciseZ));
-        state.homePreciseX = state.preciseX;
-        state.homePreciseY = state.preciseY;
-        state.homePreciseZ = state.preciseZ;
-        state.homeX = state.x;
-        state.homeY = state.y;
-        state.homeZ = state.z;
-    }
 }
 
 float actorCollisionRadius(
@@ -4897,7 +4862,6 @@ void OutdoorWorldRuntime::initialize(
                 mapActorAttackAnimationSeconds[actorIndex],
                 bolsterContext);
             const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(actorState.monsterId);
-            applyTestActorOverrides(map.id, m_pOutdoorMapData, pStats, actorState.actorId, actorState);
 
             if (outdoorActorPreviewBillboardSet)
             {
@@ -7122,7 +7086,7 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
             resolveRenderedSkyTextureName(m_atmosphereState.sourceSkyTextureName, minutesOfDay);
     }
 
-    if (m_mapId == DwiMapId)
+    if (m_mapId == DaggerWoundIslandMapId)
     {
         m_atmosphereState.skyTextureName = "sunsetclouds";
     }
@@ -12650,7 +12614,6 @@ bool OutdoorWorldRuntime::spawnEncounterFromResolvedData(
         }
 
         actor.hostileToParty = actor.hostileToParty || aggro;
-        applyTestActorOverrides(m_mapId, m_pOutdoorMapData, pStats, actor.actorId, actor);
         applyOeOutdoorActorFloorCorrection(actor, *pStats);
 
         if (m_outdoorMovementController)

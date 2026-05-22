@@ -206,6 +206,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.spriteOutline = true;
     settings.viewDistance = "unlimited";
     settings.outdoorBillboardDepthSlice = 0.0f;
+    settings.skipEventCutscenes = true;
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
     settings.logIndoorVisibility = true;
@@ -235,6 +236,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->viewDistance, "unlimited");
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(0.0f));
+    CHECK(loadedSettings->skipEventCutscenes);
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->logIndoorVisibility);
@@ -290,6 +292,7 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK(loadedSettings->combatTraceAppend);
     CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(256.0f));
+    CHECK_FALSE(loadedSettings->skipEventCutscenes);
 
     std::filesystem::remove(path);
 }

@@ -120,7 +120,8 @@ void IndoorPartyRuntime::update(
     float desiredVelocityY,
     bool jumpRequested,
     bool running,
-    float deltaSeconds)
+    float deltaSeconds,
+    bool turnBasedMovementStep)
 {
     m_movementStatusText.clear();
 
@@ -134,8 +135,10 @@ void IndoorPartyRuntime::update(
 
     const IndoorBodyDimensions body = {};
     m_pendingJumpRequested = m_pendingJumpRequested || jumpRequested;
+    const float maxAccumulatedMovementSeconds =
+        turnBasedMovementStep ? std::max(deltaSeconds, MaxAccumulatedMovementSeconds) : MaxAccumulatedMovementSeconds;
     m_movementAccumulatorSeconds =
-        std::min(m_movementAccumulatorSeconds + deltaSeconds, MaxAccumulatedMovementSeconds);
+        std::min(m_movementAccumulatorSeconds + deltaSeconds, maxAccumulatedMovementSeconds);
     const float impulseVelocityX = m_pendingImpulseVelocityX;
     const float impulseVelocityY = m_pendingImpulseVelocityY;
     const float impulseVelocityZ = m_pendingImpulseVelocityZ;

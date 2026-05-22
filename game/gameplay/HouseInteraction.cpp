@@ -1129,8 +1129,6 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         }
 
         options.push_back(std::move(food));
-        options.push_back(makeOption(HouseActionId::TavernDrink, "Have a Drink", isHouseOpenNow, closedReason));
-        options.push_back(makeOption(HouseActionId::TavernTip, "Tip Innkeeper", isHouseOpenNow, closedReason));
         options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
 
         if (houseEntry.arcomageRule.has_value())

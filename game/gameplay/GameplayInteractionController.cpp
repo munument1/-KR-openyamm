@@ -28,6 +28,8 @@ constexpr float ActorHoverStatusDistance = 8192.0f;
 constexpr uint64_t HoverInspectRefreshNanoseconds = 33 * 1000 * 1000;
 constexpr uint64_t ContextActionRefreshNanoseconds = 250 * 1000 * 1000;
 constexpr uint64_t ContextActionIdleRetryNanoseconds = 1000 * 1000 * 1000;
+constexpr uint64_t KeyboardInteractionFirstRepeatNanoseconds = 500 * 1000 * 1000;
+constexpr uint64_t KeyboardInteractionRepeatNanoseconds = 67 * 1000 * 1000;
 constexpr float ContextActionRayOriginChangeThresholdSquared = 4.0f;
 constexpr float ContextActionRayDirectionChangeThresholdSquared = 0.000001f;
 constexpr uint32_t ArrowProjectileObjectId = 545;
@@ -914,6 +916,8 @@ void clearWorldInteractionFrameState(
 
     worldInteractionInputState.keyboardUseLatch = false;
     worldInteractionInputState.inspectKeyboardActivateLatch = false;
+    worldInteractionInputState.keyboardUseNextRepeatTickNanoseconds = 0;
+    worldInteractionInputState.inspectKeyboardActivateNextRepeatTickNanoseconds = 0;
     pendingSpellCast.clickLatch = false;
     worldInteractionInputState.heldInventoryDropLatch = false;
     overlayInteractionState.activateInspectLatch = false;
@@ -925,6 +929,28 @@ void clearWorldInteractionFrameState(
     clearWorldHover(runtime.worldRuntime());
     runtime.clearStatusBarHoverText();
     runtime.clearContextActionState();
+}
+
+bool keyboardRepeatInteractionDue(
+    bool &latched,
+    uint64_t &nextRepeatTickNanoseconds,
+    uint64_t currentTickNanoseconds)
+{
+    if (!latched)
+    {
+        latched = true;
+        nextRepeatTickNanoseconds = currentTickNanoseconds + KeyboardInteractionFirstRepeatNanoseconds;
+        return true;
+    }
+
+    if (nextRepeatTickNanoseconds == 0
+        || currentTickNanoseconds < nextRepeatTickNanoseconds)
+    {
+        return false;
+    }
+
+    nextRepeatTickNanoseconds = currentTickNanoseconds + KeyboardInteractionRepeatNanoseconds;
+    return true;
 }
 }
 
@@ -1036,11 +1062,7 @@ GameplayInteractionController::KeyboardInteractionResult GameplayInteractionCont
         }
 
         state.keyboardUseLatch = false;
-        return result;
-    }
-
-    if (state.keyboardUseLatch)
-    {
+        state.keyboardUseNextRepeatTickNanoseconds = 0;
         return result;
     }
 
@@ -1049,7 +1071,14 @@ GameplayInteractionController::KeyboardInteractionResult GameplayInteractionCont
         return result;
     }
 
-    state.keyboardUseLatch = true;
+    if (!keyboardRepeatInteractionDue(
+        state.keyboardUseLatch,
+        state.keyboardUseNextRepeatTickNanoseconds,
+        input.currentTickNanoseconds))
+    {
+        return result;
+    }
+
     result.latched = true;
 
     const GameplayWorldHit &hit = input.pickedHit;
@@ -1089,11 +1118,7 @@ GameplayInteractionController::updateKeyboardActivationInteraction(
         }
 
         state.inspectKeyboardActivateLatch = false;
-        return result;
-    }
-
-    if (state.inspectKeyboardActivateLatch)
-    {
+        state.inspectKeyboardActivateNextRepeatTickNanoseconds = 0;
         return result;
     }
 
@@ -1102,7 +1127,14 @@ GameplayInteractionController::updateKeyboardActivationInteraction(
         return result;
     }
 
-    state.inspectKeyboardActivateLatch = true;
+    if (!keyboardRepeatInteractionDue(
+        state.inspectKeyboardActivateLatch,
+        state.inspectKeyboardActivateNextRepeatTickNanoseconds,
+        input.currentTickNanoseconds))
+    {
+        return result;
+    }
+
     result.latched = true;
 
     if (!input.currentHit.hasHit)
@@ -1479,9 +1511,11 @@ GameplayInteractionController::updateWorldInteractionFrame(
         }
 
         worldInteractionInputState.keyboardUseLatch = false;
+        worldInteractionInputState.keyboardUseNextRepeatTickNanoseconds = 0;
         worldInteractionInputState.heldInventoryDropLatch = false;
         overlayInteractionState.activateInspectLatch = false;
         worldInteractionInputState.inspectKeyboardActivateLatch = false;
+        worldInteractionInputState.inspectKeyboardActivateNextRepeatTickNanoseconds = 0;
         worldInteractionInputState.inspectMouseActivateLatch = false;
         worldInteractionInputState.pressedWorldHit = {};
         attackActionState.inspectLatch = false;
@@ -1494,7 +1528,6 @@ GameplayInteractionController::updateWorldInteractionFrame(
     bool hasKeyboardUseHit = false;
 
     if (keyboardUsePressed
-        && !worldInteractionInputState.keyboardUseLatch
         && worldReady
         && pWorldRuntime != nullptr)
     {
@@ -1517,6 +1550,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
             KeyboardInteractionInput{
                 .interactionPressed = keyboardUsePressed,
                 .allowInteraction = worldReady,
+                .currentTickNanoseconds = currentTickNanoseconds,
                 .pickedHit = keyboardUseHit,
                 .hasPickedHit = hasKeyboardUseHit,
                 .pRuntime = &runtime,
@@ -1770,6 +1804,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
             KeyboardActivationInteractionInput{
                 .activationPressed = pointerPolicy.activationPressed,
                 .allowInteraction = worldReady,
+                .currentTickNanoseconds = currentTickNanoseconds,
                 .currentHit = keyboardActivationHit,
                 .pRuntime = &runtime,
                 .pWorldRuntime = pWorldRuntime,

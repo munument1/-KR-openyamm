@@ -2553,7 +2553,19 @@ bool GameDataLoader::loadCharacterInspectTable(const Engine::AssetFileSystem &as
         return false;
     }
 
-    if (!m_characterInspectTable.loadStatRows(statRows) || !m_characterInspectTable.loadSkillRows(skillRows))
+    std::vector<std::vector<std::string>> classRows;
+
+    const std::string classPath = engineEnglishDataTablePath("class.txt");
+
+    if (!loadTextTableRows(assetFileSystem, classPath, classRows))
+    {
+        std::cerr << "Failed to read character inspect table: " << classPath << '\n';
+        return false;
+    }
+
+    if (!m_characterInspectTable.loadStatRows(statRows)
+        || !m_characterInspectTable.loadSkillRows(skillRows)
+        || !m_characterInspectTable.loadClassRows(classRows))
     {
         std::cerr << "Failed to parse character inspect tables\n";
         return false;

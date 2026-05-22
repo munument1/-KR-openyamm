@@ -3613,6 +3613,13 @@ void OutdoorRenderer::renderWorldPasses(
         OutdoorBillboardRenderer::renderFxContactShadows(view, MainViewId);
     }
 
+    if (view.m_showSpriteObjects)
+    {
+        OutdoorBillboardRenderer::renderRuntimeWorldItems(view, MainViewId, pViewMatrix, cameraPosition);
+        OutdoorBillboardRenderer::renderRuntimeProjectiles(view, MainViewId, pViewMatrix, cameraPosition);
+        OutdoorBillboardRenderer::renderSpriteObjectBillboards(view, MainViewId, pViewMatrix, cameraPosition);
+    }
+
     if (view.m_showActors || view.m_showDecorationBillboards)
     {
         OutdoorBillboardRenderer::renderActorPreviewBillboards(view, MainViewId, pViewMatrix, cameraPosition);
@@ -3621,13 +3628,6 @@ void OutdoorRenderer::renderWorldPasses(
         {
             renderActorCollisionOverlays(view, MainViewId, cameraPosition);
         }
-    }
-
-    if (view.m_showSpriteObjects)
-    {
-        OutdoorBillboardRenderer::renderRuntimeWorldItems(view, MainViewId, pViewMatrix, cameraPosition);
-        OutdoorBillboardRenderer::renderRuntimeProjectiles(view, MainViewId, pViewMatrix, cameraPosition);
-        OutdoorBillboardRenderer::renderSpriteObjectBillboards(view, MainViewId, pViewMatrix, cameraPosition);
     }
 
     if (view.m_showSpriteObjects || view.m_showActors || view.m_showDecorationBillboards)

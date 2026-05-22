@@ -85,7 +85,7 @@ std::string turnBasedIndicatorAnimationName(const TurnBasedCombatRuntime &turnBa
             return "turnstop";
         case TurnBasedCombatStage::Movement:
         {
-            const int spentMovementSteps = std::clamp(5 - turnBasedRuntime.movementActionPoints() / 26, 0, 4);
+            const int spentMovementSteps = std::clamp((130 - turnBasedRuntime.movementActionPoints()) / 26, 0, 4);
             return "turn" + std::to_string(spentMovementSteps);
         }
         case TurnBasedCombatStage::Wait:

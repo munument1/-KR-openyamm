@@ -102,6 +102,10 @@ public:
         const std::string &textureName,
         int &width,
         int &height);
+    std::optional<std::vector<uint8_t>> loadItemIconBitmapPixelsBgraCached(
+        const std::string &textureName,
+        int &width,
+        int &height);
     std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgraCached(
         const std::string &textureName,
         int16_t paletteId,

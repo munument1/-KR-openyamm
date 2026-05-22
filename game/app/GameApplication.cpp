@@ -4873,6 +4873,7 @@ void GameApplication::updateDeferredMainMenuChildWarmup()
             &m_gameAudioSystem,
             m_gameSession.data(),
             m_settings.newGameGodLich,
+            m_settings.allowIncompleteCharacterCreation,
             [](const std::vector<Character> &, uint32_t)
             {
             },
@@ -6584,6 +6585,7 @@ void GameApplication::openNewGameScreen(const std::string &source)
         &m_gameAudioSystem,
         m_gameSession.data(),
         m_settings.newGameGodLich,
+        m_settings.allowIncompleteCharacterCreation,
         [this](const std::vector<Character> &characters, uint32_t continentId)
         {
             startNewSessionFromCharacterCreation(characters, continentId, true);
@@ -7790,6 +7792,11 @@ bool GameApplication::processPendingEventMovie()
 
     std::optional<EventRuntimeState::PendingMovie> pendingMovie = std::move(pRuntimeState->pendingMovie);
     pRuntimeState->pendingMovie.reset();
+
+    if (m_settings.skipEventCutscenes)
+    {
+        return true;
+    }
 
     const std::string movieStem = resolveEventMovieStem(*m_pAssetFileSystem, pendingMovie->movieName);
 

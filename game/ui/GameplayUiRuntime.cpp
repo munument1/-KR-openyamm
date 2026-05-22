@@ -700,6 +700,20 @@ std::optional<std::vector<uint8_t>> GameplayUiRuntime::loadHudBitmapPixelsBgraCa
         height);
 }
 
+std::optional<std::vector<uint8_t>> GameplayUiRuntime::loadItemIconBitmapPixelsBgraCached(
+    const std::string &textureName,
+    int &width,
+    int &height)
+{
+    return GameplayHudCommon::loadHudBitmapPixelsBgraCached(
+        m_pAssetFileSystem,
+        m_assetLoadCache,
+        textureName,
+        width,
+        height,
+        GameplayHudBitmapTransparencyMode::ItemIcon);
+}
+
 std::optional<std::vector<uint8_t>> GameplayUiRuntime::loadSpriteBitmapPixelsBgraCached(
     const std::string &textureName,
     int16_t paletteId,

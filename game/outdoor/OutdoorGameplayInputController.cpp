@@ -155,7 +155,8 @@ void OutdoorGameplayInputController::updateCameraFromInput(
                     turboSpeed,
                     view.m_cameraYawRadians,
                     view.m_cameraPitchRadians,
-                    !classicControls
+                    !classicControls,
+                    input.turnBasedMovementStep
                 };
                 if (view.m_pOutdoorSceneRuntime != nullptr)
                 {

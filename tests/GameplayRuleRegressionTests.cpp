@@ -730,6 +730,39 @@ TEST_CASE("outdoor scene overlays apply partial environment flags")
     CHECK_EQ(mergedScene.environment.fogStrongDistance, 2048);
 }
 
+TEST_CASE("outdoor scene overlays can correct actor NPC ids")
+{
+    const auto loadText =
+        [](const std::filesystem::path &path)
+        {
+            std::ifstream file(path);
+            REQUIRE(file.good());
+            std::ostringstream text;
+            text << file.rdbuf();
+            return text.str();
+        };
+
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::filesystem::path scenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out01.scene.yml";
+    const std::filesystem::path overlayPath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out01_1.scene.yml";
+
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+        sceneLoader.loadFromText(loadText(scenePath), sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+    REQUIRE_FALSE(scene->initialState.actors.empty());
+    CHECK_EQ(scene->initialState.actors.front().npcId, 31);
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedScene, loadText(overlayPath), sceneError),
+        sceneError.c_str());
+    REQUIRE_FALSE(mergedScene.initialState.actors.empty());
+    CHECK_EQ(mergedScene.initialState.actors.front().npcId, 27);
+}
+
 TEST_CASE("mm7 shoals scene overlay combines always dark fog with underwater tint")
 {
     OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};

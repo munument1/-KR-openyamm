@@ -264,8 +264,10 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     m_hardLandingSoundConsequenceSeconds = std::max(0.0f, m_hardLandingSoundConsequenceSeconds - deltaSeconds);
     m_lastEvents = {};
     m_lastConsequences = {};
+    const float maxAccumulatedMovementSeconds =
+        input.turnBasedMovementStep ? std::max(deltaSeconds, MaxAccumulatedMovementSeconds) : MaxAccumulatedMovementSeconds;
     m_movementAccumulatorSeconds =
-        std::min(m_movementAccumulatorSeconds + deltaSeconds, MaxAccumulatedMovementSeconds);
+        std::min(m_movementAccumulatorSeconds + deltaSeconds, maxAccumulatedMovementSeconds);
     float impulseVelocityX = 0.0f;
     float impulseVelocityY = 0.0f;
     float impulseVelocityZ = 0.0f;

@@ -465,6 +465,142 @@ uint32_t packHudColorAbgr(uint8_t red, uint8_t green, uint8_t blue)
         | 0xff000000u;
 }
 
+struct NativeBgraLayer
+{
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+};
+
+struct NativePaperdollComposite
+{
+    int physicalWidth = 0;
+    int physicalHeight = 0;
+    int logicalWidth = 0;
+    int logicalHeight = 0;
+    std::vector<uint8_t> pixels;
+};
+
+std::optional<NativeBgraLayer> loadHudNativeBgraLayer(
+    GameplayScreenRuntime &context,
+    const std::string &textureName,
+    bool itemIconTransparency)
+{
+    if (textureName.empty() || textureName == "none" || textureName == "null")
+    {
+        return std::nullopt;
+    }
+
+    int width = 0;
+    int height = 0;
+    const std::optional<std::vector<uint8_t>> pixels = itemIconTransparency
+        ? context.gameplayUiRuntime().loadItemIconBitmapPixelsBgraCached(textureName, width, height)
+        : context.gameplayUiRuntime().loadHudBitmapPixelsBgraCached(textureName, width, height);
+
+    if (!pixels.has_value() || width <= 0 || height <= 0 || pixels->empty())
+    {
+        return std::nullopt;
+    }
+
+    return NativeBgraLayer{width, height, *pixels};
+}
+
+void blendNativeBgraPixel(
+    std::vector<uint8_t> &destinationPixels,
+    size_t destinationOffset,
+    const std::vector<uint8_t> &sourcePixels,
+    size_t sourceOffset,
+    uint32_t tintColorAbgr = 0xffffffffu)
+{
+    uint32_t sourceAlpha = sourcePixels[sourceOffset + 3];
+
+    if (sourceAlpha == 0)
+    {
+        return;
+    }
+
+    uint8_t sourceBlue = sourcePixels[sourceOffset + 0];
+    uint8_t sourceGreen = sourcePixels[sourceOffset + 1];
+    uint8_t sourceRed = sourcePixels[sourceOffset + 2];
+
+    if (tintColorAbgr != 0xffffffffu)
+    {
+        sourceRed = static_cast<uint8_t>(tintColorAbgr & 0xffu);
+        sourceGreen = static_cast<uint8_t>((tintColorAbgr >> 8) & 0xffu);
+        sourceBlue = static_cast<uint8_t>((tintColorAbgr >> 16) & 0xffu);
+        sourceAlpha = sourceAlpha * static_cast<uint8_t>((tintColorAbgr >> 24) & 0xffu) / 255u;
+
+        if (sourceAlpha == 0)
+        {
+            return;
+        }
+    }
+
+    if (sourceAlpha == 255)
+    {
+        destinationPixels[destinationOffset + 0] = sourceBlue;
+        destinationPixels[destinationOffset + 1] = sourceGreen;
+        destinationPixels[destinationOffset + 2] = sourceRed;
+        destinationPixels[destinationOffset + 3] = 255;
+        return;
+    }
+
+    const uint32_t inverseAlpha = 255u - sourceAlpha;
+    destinationPixels[destinationOffset + 0] = static_cast<uint8_t>(
+        (sourceBlue * sourceAlpha + destinationPixels[destinationOffset + 0] * inverseAlpha) / 255u);
+    destinationPixels[destinationOffset + 1] = static_cast<uint8_t>(
+        (sourceGreen * sourceAlpha + destinationPixels[destinationOffset + 1] * inverseAlpha) / 255u);
+    destinationPixels[destinationOffset + 2] = static_cast<uint8_t>(
+        (sourceRed * sourceAlpha + destinationPixels[destinationOffset + 2] * inverseAlpha) / 255u);
+    destinationPixels[destinationOffset + 3] = static_cast<uint8_t>(
+        std::min<uint32_t>(
+            255u,
+            sourceAlpha + destinationPixels[destinationOffset + 3] * inverseAlpha / 255u));
+}
+
+void compositeNativeBgraLayer(
+    NativePaperdollComposite &composite,
+    const NativeBgraLayer &layer,
+    int targetX,
+    int targetY,
+    bool rotatedCounterClockwise = false,
+    uint32_t tintColorAbgr = 0xffffffffu)
+{
+    if (composite.physicalWidth <= 0
+        || composite.physicalHeight <= 0
+        || composite.pixels.empty()
+        || layer.width <= 0
+        || layer.height <= 0
+        || layer.pixels.empty())
+    {
+        return;
+    }
+
+    for (int sourceY = 0; sourceY < layer.height; ++sourceY)
+    {
+        for (int sourceX = 0; sourceX < layer.width; ++sourceX)
+        {
+            const int destinationX = rotatedCounterClockwise ? targetX + sourceY : targetX + sourceX;
+            const int destinationY = rotatedCounterClockwise ? targetY + layer.width - 1 - sourceX : targetY + sourceY;
+
+            if (destinationX < 0
+                || destinationY < 0
+                || destinationX >= composite.physicalWidth
+                || destinationY >= composite.physicalHeight)
+            {
+                continue;
+            }
+
+            const size_t sourceOffset =
+                (static_cast<size_t>(sourceY) * static_cast<size_t>(layer.width) + static_cast<size_t>(sourceX)) * 4;
+            const size_t destinationOffset =
+                (static_cast<size_t>(destinationY) * static_cast<size_t>(composite.physicalWidth)
+                 + static_cast<size_t>(destinationX)) * 4;
+            blendNativeBgraPixel(composite.pixels, destinationOffset, layer.pixels, sourceOffset, tintColorAbgr);
+        }
+    }
+}
+
 std::string replaceAllText(std::string text, const std::string &from, const std::string &to)
 {
     size_t position = 0;
@@ -8151,6 +8287,274 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             || (canonicalSkillName(pMainHandItem->skillGroup) == "Spear" && spearMastery < SkillMastery::Master));
     const bool offHandWeaponGripAbove =
         pOffHandItem != nullptr && pOffHandItem->equipStat != "Shield";
+    std::optional<NativePaperdollComposite> nativePaperdollComposite;
+    std::optional<GameplayResolvedHudLayoutElement> nativePaperdollResolved;
+    const bool useNativePaperdollComposite =
+        !isAdventurersInnRoster
+        && !characterScreen.dollJewelryOverlayOpen
+        && pCharacter != nullptr
+        && pCharacterDollEntry != nullptr
+        && pCharacterDollType != nullptr;
+
+    if (useNativePaperdollComposite)
+    {
+        const UiLayoutManager::LayoutElement *pBackgroundLayout =
+            context.findHudLayoutElement("CharacterDollBackground");
+
+        if (pBackgroundLayout != nullptr && shouldRenderInCurrentPass(pBackgroundLayout->zIndex))
+        {
+            std::string backgroundAssetName = pBackgroundLayout->primaryAsset;
+
+            if (!pCharacterDollEntry->backgroundAsset.empty() && pCharacterDollEntry->backgroundAsset != "none")
+            {
+                backgroundAssetName = pCharacterDollEntry->backgroundAsset;
+            }
+
+            const std::optional<GameplayHudTextureHandle> backgroundTexture =
+                context.gameplayUiRuntime().ensureHudTextureLoaded(backgroundAssetName);
+            const std::optional<NativeBgraLayer> backgroundLayer =
+                loadHudNativeBgraLayer(context, backgroundAssetName, false);
+            const std::optional<GameplayResolvedHudLayoutElement> resolvedBackground =
+                context.resolveHudLayoutElement(
+                    pBackgroundLayout->id,
+                    width,
+                    height,
+                    pBackgroundLayout->width,
+                    pBackgroundLayout->height);
+
+            if (backgroundTexture.has_value()
+                && backgroundLayer.has_value()
+                && resolvedBackground.has_value()
+                && backgroundTexture->width > 0
+                && backgroundTexture->height > 0)
+            {
+                nativePaperdollComposite = NativePaperdollComposite{
+                    backgroundLayer->width,
+                    backgroundLayer->height,
+                    backgroundTexture->width,
+                    backgroundTexture->height,
+                    backgroundLayer->pixels};
+                nativePaperdollResolved = *resolvedBackground;
+                const float physicalScaleX = static_cast<float>(nativePaperdollComposite->physicalWidth)
+                    / static_cast<float>(std::max(1, nativePaperdollComposite->logicalWidth));
+                const float physicalScaleY = static_cast<float>(nativePaperdollComposite->physicalHeight)
+                    / static_cast<float>(std::max(1, nativePaperdollComposite->logicalHeight));
+                const auto logicalToPhysicalX =
+                    [physicalScaleX](int logicalX)
+                    {
+                        return static_cast<int>(std::lround(static_cast<float>(logicalX) * physicalScaleX));
+                    };
+                const auto logicalToPhysicalY =
+                    [physicalScaleY](int logicalY)
+                    {
+                        return static_cast<int>(std::lround(static_cast<float>(logicalY) * physicalScaleY));
+                    };
+                const auto screenToLogicalX =
+                    [&resolvedBackground](float screenX)
+                    {
+                        return static_cast<int>(
+                            std::lround((screenX - resolvedBackground->x) / resolvedBackground->scale));
+                    };
+                const auto screenToLogicalY =
+                    [&resolvedBackground](float screenY)
+                    {
+                        return static_cast<int>(
+                            std::lround((screenY - resolvedBackground->y) / resolvedBackground->scale));
+                    };
+                const auto compositeHudLayer =
+                    [&context, &nativePaperdollComposite, &logicalToPhysicalX, &logicalToPhysicalY](
+                        const std::string &assetName,
+                        int logicalX,
+                        int logicalY)
+                    {
+                        if (!nativePaperdollComposite.has_value())
+                        {
+                            return;
+                        }
+
+                        const std::optional<NativeBgraLayer> layer = loadHudNativeBgraLayer(context, assetName, false);
+
+                        if (layer.has_value())
+                        {
+                            compositeNativeBgraLayer(
+                                *nativePaperdollComposite,
+                                *layer,
+                                logicalToPhysicalX(logicalX),
+                                logicalToPhysicalY(logicalY));
+                        }
+                    };
+
+                for (const std::string &layoutId : orderedCharacterLayoutIds)
+                {
+                    const UiLayoutManager::LayoutElement *pLayout = context.findHudLayoutElement(layoutId);
+
+                    if (pLayout == nullptr
+                        || !hasVisibleCharacterAncestors(*pLayout)
+                        || !shouldRenderInCurrentPass(pLayout->zIndex))
+                    {
+                        continue;
+                    }
+
+                    const std::string normalizedLayoutId = toLowerCopy(pLayout->id);
+
+                    if (normalizedLayoutId == "characterdollbody")
+                    {
+                        compositeHudLayer(
+                            pCharacterDollEntry->bodyAsset,
+                            pCharacterDollEntry->bodyOffsetX,
+                            pCharacterDollEntry->bodyOffsetY);
+                        continue;
+                    }
+
+                    if (normalizedLayoutId == "characterdollrighthand")
+                    {
+                        compositeHudLayer(
+                            pMainHandItem != nullptr
+                                ? pCharacterDollEntry->rightHandHoldAsset
+                                : pCharacterDollEntry->rightHandOpenAsset,
+                            pMainHandItem != nullptr
+                                ? pCharacterDollType->rightHandClosedX
+                                : pCharacterDollType->rightHandOpenX,
+                            pMainHandItem != nullptr
+                                ? pCharacterDollType->rightHandClosedY
+                                : pCharacterDollType->rightHandOpenY);
+                        continue;
+                    }
+
+                    if (normalizedLayoutId == "characterdolllefthand")
+                    {
+                        if (pOffHandItem != nullptr)
+                        {
+                            if (pOffHandItem->equipStat == "Shield")
+                            {
+                                compositeHudLayer(
+                                    pCharacterDollEntry->leftHandClosedAsset,
+                                    pCharacterDollType->leftHandClosedX,
+                                    pCharacterDollType->leftHandClosedY);
+                            }
+                        }
+                        else if (!leftHandDisabled)
+                        {
+                            compositeHudLayer(
+                                pCharacterDollEntry->leftHandOpenAsset,
+                                pCharacterDollType->leftHandFingersX,
+                                pCharacterDollType->leftHandFingersY);
+                        }
+
+                        continue;
+                    }
+
+                    if (normalizedLayoutId == "characterdollrighthandfingers")
+                    {
+                        if (pMainHandItem != nullptr)
+                        {
+                            compositeHudLayer(
+                                pCharacterDollEntry->rightHandFingersAsset,
+                                pCharacterDollType->rightHandFingersX,
+                                pCharacterDollType->rightHandFingersY);
+                        }
+
+                        if (leftHandDisabled || offHandWeaponGripAbove)
+                        {
+                            compositeHudLayer(
+                                pCharacterDollEntry->leftHandHoldAsset,
+                                pCharacterDollType->leftHandOpenX,
+                                pCharacterDollType->leftHandOpenY);
+                        }
+
+                        continue;
+                    }
+
+                    const std::optional<EquipmentSlot> slot = characterEquipmentSlotForLayoutId(pLayout->id);
+
+                    if (!slot.has_value() || !isVisibleInCharacterDollOverlay(*slot, false))
+                    {
+                        continue;
+                    }
+
+                    const uint32_t equippedId = equippedItemId(pCharacter->equipment, *slot);
+                    const ItemDefinition *pItemDefinition =
+                        equippedId != 0 && context.itemTable() != nullptr
+                            ? context.itemTable()->get(equippedId)
+                            : nullptr;
+
+                    if (pItemDefinition == nullptr || pItemDefinition->iconName.empty())
+                    {
+                        continue;
+                    }
+
+                    const bool hasRightHandWeapon = pCharacter->equipment.mainHand != 0;
+                    const uint32_t dollTypeId = pCharacterDollType->id;
+                    const std::string textureName =
+                        context.resolveEquippedItemHudTextureName(
+                            *pItemDefinition,
+                            dollTypeId,
+                            hasRightHandWeapon,
+                            *slot);
+                    const std::optional<GameplayHudTextureHandle> itemTexture =
+                        context.gameplayUiRuntime().ensureItemIconTextureLoaded(textureName);
+
+                    if (!itemTexture.has_value())
+                    {
+                        continue;
+                    }
+
+                    const std::optional<GameplayResolvedHudLayoutElement> iconRect =
+                        context.resolveCharacterEquipmentRenderRect(
+                            *pLayout,
+                            *pItemDefinition,
+                            *itemTexture,
+                            pCharacterDollEntry,
+                            pCharacterDollType,
+                            *slot,
+                            width,
+                            height);
+
+                    if (!iconRect.has_value())
+                    {
+                        continue;
+                    }
+
+                    const std::optional<NativeBgraLayer> itemLayer =
+                        loadHudNativeBgraLayer(context, textureName, true);
+
+                    if (!itemLayer.has_value())
+                    {
+                        continue;
+                    }
+
+                    const bool rotatedCounterClockwise =
+                        *slot == EquipmentSlot::OffHand && pItemDefinition->equipStat != "Shield";
+                    const int physicalX = logicalToPhysicalX(screenToLogicalX(iconRect->x));
+                    const int physicalY = logicalToPhysicalY(screenToLogicalY(iconRect->y));
+                    compositeNativeBgraLayer(
+                        *nativePaperdollComposite,
+                        *itemLayer,
+                        physicalX,
+                        physicalY,
+                        rotatedCounterClockwise);
+
+                    const std::optional<InventoryItem> equippedItemState =
+                        party.equippedItem(characterSourceIndex, *slot);
+                    const uint32_t tintColor = itemTintColorAbgr(
+                        equippedItemState ? &*equippedItemState : nullptr,
+                        pItemDefinition,
+                        ItemTintContext::CharacterScreen);
+
+                    if (tintColor != 0xffffffffu)
+                    {
+                        compositeNativeBgraLayer(
+                            *nativePaperdollComposite,
+                            *itemLayer,
+                            physicalX,
+                            physicalY,
+                            rotatedCounterClockwise,
+                            tintColor);
+                    }
+                }
+            }
+        }
+    }
     const auto submitCharacterDollLayer =
         [&context](
             const UiLayoutManager::LayoutElement &layout,
@@ -8484,6 +8888,28 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
         if (normalizedLayoutId == "characterdollbackground")
         {
+            if (nativePaperdollComposite.has_value() && nativePaperdollResolved.has_value())
+            {
+                const std::optional<GameplayHudTextureHandle> compositeTexture =
+                    context.gameplayUiRuntime().ensureDynamicHudTexture(
+                        "character_paperdoll_composite_" + std::to_string(characterSourceIndex),
+                        nativePaperdollComposite->physicalWidth,
+                        nativePaperdollComposite->physicalHeight,
+                        nativePaperdollComposite->pixels);
+
+                if (compositeTexture.has_value())
+                {
+                    context.submitHudTexturedQuad(
+                        *compositeTexture,
+                        nativePaperdollResolved->x,
+                        nativePaperdollResolved->y,
+                        nativePaperdollResolved->width,
+                        nativePaperdollResolved->height);
+                }
+
+                continue;
+            }
+
             std::string assetName = pLayout->primaryAsset;
 
             if (pCharacterDollEntry != nullptr
@@ -8508,6 +8934,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
         if (normalizedLayoutId == "characterdollbody" && pCharacterDollEntry != nullptr)
         {
+            if (nativePaperdollComposite.has_value())
+            {
+                continue;
+            }
+
             submitCharacterDollLayer(
                 *pLayout,
                 *resolved,
@@ -8522,6 +8953,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             && pCharacterDollEntry != nullptr
             && pCharacterDollType != nullptr)
         {
+            if (nativePaperdollComposite.has_value())
+            {
+                continue;
+            }
+
             submitCharacterDollLayer(
                 *pLayout,
                 *resolved,
@@ -8536,6 +8972,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             && pCharacterDollEntry != nullptr
             && pCharacterDollType != nullptr)
         {
+            if (nativePaperdollComposite.has_value())
+            {
+                continue;
+            }
+
             if (pOffHandItem != nullptr)
             {
                 if (pOffHandItem->equipStat == "Shield")
@@ -8571,6 +9012,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             && pCharacterDollType != nullptr
             && (pMainHandItem != nullptr || offHandWeaponGripAbove))
         {
+            if (nativePaperdollComposite.has_value())
+            {
+                continue;
+            }
+
             if (pMainHandItem != nullptr)
             {
                 submitCharacterDollLayer(
@@ -8682,37 +9128,40 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                         const bool rotatedCounterClockwise =
                             *slot == EquipmentSlot::OffHand && pItemDefinition->equipStat != "Shield";
 
-                        if (rotatedCounterClockwise)
+                        if (!nativePaperdollComposite.has_value())
                         {
-                            context.submitHudTexturedQuadRotatedCounterClockwise(
-                                *itemTexture,
-                                iconRect->x,
-                                iconRect->y,
-                                iconRect->width,
-                                iconRect->height);
-                        }
-                        else
-                        {
-                            context.submitHudTexturedQuad(
-                                *itemTexture,
-                                iconRect->x,
-                                iconRect->y,
-                                iconRect->width,
-                                iconRect->height);
-                        }
+                            if (rotatedCounterClockwise)
+                            {
+                                context.submitHudTexturedQuadRotatedCounterClockwise(
+                                    *itemTexture,
+                                    iconRect->x,
+                                    iconRect->y,
+                                    iconRect->width,
+                                    iconRect->height);
+                            }
+                            else
+                            {
+                                context.submitHudTexturedQuad(
+                                    *itemTexture,
+                                    iconRect->x,
+                                    iconRect->y,
+                                    iconRect->width,
+                                    iconRect->height);
+                            }
 
-                        submitItemTintOverlay(
-                            context,
-                            *itemTexture,
-                            iconRect->x,
-                            iconRect->y,
-                            iconRect->width,
-                            iconRect->height,
-                            rotatedCounterClockwise,
-                            itemTintColorAbgr(
-                                equippedItemState ? &*equippedItemState : nullptr,
-                                pItemDefinition,
-                                ItemTintContext::CharacterScreen));
+                            submitItemTintOverlay(
+                                context,
+                                *itemTexture,
+                                iconRect->x,
+                                iconRect->y,
+                                iconRect->width,
+                                iconRect->height,
+                                rotatedCounterClockwise,
+                                itemTintColorAbgr(
+                                    equippedItemState ? &*equippedItemState : nullptr,
+                                    pItemDefinition,
+                                    ItemTintContext::CharacterScreen));
+                        }
 
                         const bool equipmentSlotInteractive =
                             !characterScreen.dollJewelryOverlayOpen || isJewelryOverlayEquipmentSlot(*slot);

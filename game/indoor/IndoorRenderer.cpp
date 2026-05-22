@@ -3816,23 +3816,6 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderDecorationNanoseconds += SDL_GetTicksNS() - decorationBeginTickCount;
     }
 
-    const uint64_t actorBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
-    renderActorPreviewBillboards(
-        MainViewId,
-        viewMatrix,
-        eye,
-        renderVisibleSectorMask,
-        renderVisibleSectorFrustums,
-        lightingFrame,
-        settings.spriteOutline,
-        pContextActionState,
-        pLightingStats);
-
-    if (collectRenderDiagnostics)
-    {
-        m_indoorPerformanceDiagnostics.renderActorNanoseconds += SDL_GetTicksNS() - actorBeginTickCount;
-    }
-
     const uint64_t spriteObjectBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderSpriteObjectBillboards(
         MainViewId,
@@ -3849,6 +3832,23 @@ void IndoorRenderer::render(
     {
         m_indoorPerformanceDiagnostics.renderSpriteObjectNanoseconds +=
             SDL_GetTicksNS() - spriteObjectBeginTickCount;
+    }
+
+    const uint64_t actorBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    renderActorPreviewBillboards(
+        MainViewId,
+        viewMatrix,
+        eye,
+        renderVisibleSectorMask,
+        renderVisibleSectorFrustums,
+        lightingFrame,
+        settings.spriteOutline,
+        pContextActionState,
+        pLightingStats);
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderActorNanoseconds += SDL_GetTicksNS() - actorBeginTickCount;
     }
 
     const uint64_t particlesBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
@@ -11091,7 +11091,10 @@ void IndoorRenderer::updateCameraFromInput(
     m_framesPerSecond = (m_framesPerSecond == 0.0f)
         ? instantaneousFramesPerSecond
         : (m_framesPerSecond * 0.9f + instantaneousFramesPerSecond * 0.1f);
-    deltaSeconds = std::min(deltaSeconds, 0.05f);
+    if (!input.turnBasedMovementStep)
+    {
+        deltaSeconds = std::min(deltaSeconds, 0.05f);
+    }
 
     const bool *pKeyboardState = input.keyboardState();
 
@@ -11214,7 +11217,13 @@ void IndoorRenderer::updateCameraFromInput(
         }
         partyRuntime.setDecorationColliders(worldRuntime.decorationMovementColliders());
         partyRuntime.setSpriteObjectColliders(worldRuntime.spriteObjectMovementColliders());
-        partyRuntime.update(desiredVelocityX, desiredVelocityY, jumpRequested, running, deltaSeconds);
+        partyRuntime.update(
+            desiredVelocityX,
+            desiredVelocityY,
+            jumpRequested,
+            running,
+            deltaSeconds,
+            input.turnBasedMovementStep);
         const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
         m_cameraPositionX = moveState.x;
         m_cameraPositionY = moveState.y;

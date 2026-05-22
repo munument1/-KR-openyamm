@@ -43,6 +43,7 @@ constexpr uint32_t AdventurersInnHouseId = 756;
 constexpr uint32_t ServiceTavernWithResidentHouseId = 260;
 constexpr uint32_t DaggerWoundTavernHouseId = 228;
 constexpr uint32_t BullsEyeInnHouseId = 235;
+constexpr uint32_t HarmondaleTavernHouseId = 240;
 constexpr uint32_t WindlingBoatHouseId = 479;
 constexpr uint32_t SmokeBoatHouseId = 481;
 constexpr uint32_t WindBoatHouseId = 483;
@@ -663,16 +664,26 @@ TEST_CASE("mm8 house NPC dialogs use merged NPCData portrait ids")
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
 
     const OpenYAMM::Game::NpcEntry *pBrekish = gameData.npcDialogTable.getNpc(BrekishOnefangNpcId);
+    const OpenYAMM::Game::NpcEntry *pSton = gameData.npcDialogTable.getNpc(StonNpcId);
     const OpenYAMM::Game::NpcEntry *pElgar = gameData.npcDialogTable.getNpc(ElgarFellmoonNpcId);
     REQUIRE(pBrekish != nullptr);
+    REQUIRE(pSton != nullptr);
     REQUIRE(pElgar != nullptr);
     CHECK_EQ(pBrekish->pictureId, 1465u);
+    CHECK_EQ(pSton->pictureId, 1477u);
     CHECK_EQ(pElgar->pictureId, 1438u);
 
     const OpenYAMM::Game::EventDialogContent &brekishDialog =
         harness.openNpcDialogue(BrekishOnefangNpcId, BrekishHallHouseId);
     CHECK_EQ(brekishDialog.title, "Brekish Onefang");
     CHECK_EQ(brekishDialog.participantPictureId, 1465u);
+
+    const OpenYAMM::Game::EventDialogContent &stonDialog = harness.openNpcDialogue(StonNpcId);
+    CHECK_EQ(stonDialog.title, "S'ton");
+    CHECK_EQ(stonDialog.participantPictureId, 1477u);
+    CHECK(dialogHasActionLabel(stonDialog, "Cataclysm"));
+    CHECK(dialogHasActionLabel(stonDialog, "Caravan Master"));
+    CHECK(dialogHasActionLabel(stonDialog, "Pirates of Regna"));
 
     const OpenYAMM::Game::EventDialogContent &elgarDialog =
         harness.openNpcDialogue(ElgarFellmoonNpcId, ElgarFellmoonHouseId);
@@ -3072,6 +3083,50 @@ TEST_CASE("dwi tavern arcomage submenu")
     CHECK(dialogHasActionLabel(rulesDialog, "Rules"));
     CHECK(dialogHasActionLabel(rulesDialog, "Victory Conditions"));
     CHECK(dialogHasActionLabel(rulesDialog, "Play"));
+}
+
+TEST_CASE("merged tavern arcomage topics follow world rules")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    const auto hasArcomageTopic =
+        [&gameData](uint32_t houseId)
+        {
+            const OpenYAMM::Game::HouseEntry *pHouseEntry = gameData.houseTable.get(houseId);
+            REQUIRE(pHouseEntry != nullptr);
+
+            const std::vector<OpenYAMM::Game::HouseActionOption> options =
+                OpenYAMM::Game::buildHouseActionOptions(
+                    *pHouseEntry,
+                    nullptr,
+                    &gameData.classSkillTable,
+                    nullptr,
+                    12.0f * 60.0f,
+                    OpenYAMM::Game::DialogueMenuId::None);
+
+            return findHouseActionById(options, OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu).has_value();
+        };
+    const auto rootTopicCount =
+        [&gameData](uint32_t houseId)
+        {
+            const OpenYAMM::Game::HouseEntry *pHouseEntry = gameData.houseTable.get(houseId);
+            REQUIRE(pHouseEntry != nullptr);
+
+            return OpenYAMM::Game::buildHouseActionOptions(
+                *pHouseEntry,
+                nullptr,
+                &gameData.classSkillTable,
+                nullptr,
+                12.0f * 60.0f,
+                OpenYAMM::Game::DialogueMenuId::None).size();
+        };
+
+    CHECK(hasArcomageTopic(BullsEyeInnHouseId));
+    CHECK(hasArcomageTopic(HarmondaleTavernHouseId));
+    CHECK_FALSE(hasArcomageTopic(ServiceTavernWithResidentHouseId));
+    CHECK_EQ(rootTopicCount(BullsEyeInnHouseId), 4u);
+    CHECK_EQ(rootTopicCount(HarmondaleTavernHouseId), 4u);
+    CHECK_EQ(rootTopicCount(ServiceTavernWithResidentHouseId), 3u);
 }
 
 TEST_CASE("dwi bank deposit withdraw roundtrip")
