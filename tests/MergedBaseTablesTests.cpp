@@ -735,10 +735,11 @@ TEST_CASE("merged character presentation-only reactions have no speech sounds")
     OpenYAMM::Game::SpeechReactionTable speechReactionTable;
     REQUIRE(speechReactionTable.loadFromRows(loadRows("character_speech_events.txt")));
 
-    const std::array<OpenYAMM::Game::SpeechId, 7> portraitOnlySpeechIds = {{
+    const std::array<OpenYAMM::Game::SpeechId, 8> portraitOnlySpeechIds = {{
         OpenYAMM::Game::SpeechId::Shoot,
         OpenYAMM::Game::SpeechId::AttackHit,
         OpenYAMM::Game::SpeechId::AttackMiss,
+        OpenYAMM::Game::SpeechId::FoundItem,
         OpenYAMM::Game::SpeechId::StatBonusIncreased,
         OpenYAMM::Game::SpeechId::StatBaseIncreased,
         OpenYAMM::Game::SpeechId::QuestGot,

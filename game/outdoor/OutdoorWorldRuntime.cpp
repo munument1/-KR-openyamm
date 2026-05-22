@@ -1,5 +1,6 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
 
+#include "game/data/ActorNameResolver.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/tables/ChestTable.h"
 #include "game/fx/ParticleRecipes.h"
@@ -56,6 +57,25 @@ namespace
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CollisionEpsilon = 0.01f;
 constexpr float OutdoorMechanismGeometryRefreshStepSeconds = 1.0f / 30.0f;
+
+std::string resolveSpawnedMapActorName(
+    const MonsterTable &monsterTable,
+    const MonsterTable::MonsterStatsEntry &stats,
+    uint32_t uniqueNameId)
+{
+    if (uniqueNameId != 0)
+    {
+        const std::optional<std::string> uniqueName =
+            monsterTable.getUniqueName(static_cast<int32_t>(uniqueNameId));
+
+        if (uniqueName && !uniqueName->empty())
+        {
+            return *uniqueName;
+        }
+    }
+
+    return stats.name;
+}
 
 float outdoorMechanismOpenFraction(
     const RuntimeMechanismState &mechanism,
@@ -2694,7 +2714,7 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
         pStats != nullptr ? resolveGameplayMonsterBolster(bolsterContext, *pStats, pMonsterEntry)
                           : GameplayMonsterBolsterResult {};
     const int baseMaxHp = pStats != nullptr ? pStats->hitPoints : std::max(0, static_cast<int>(actor.hp));
-    state.displayName = pStats != nullptr ? pStats->name : actor.name;
+    state.displayName = resolveMapDeltaActorName(monsterTable, actor);
     state.maxHp = pStats != nullptr ? bolster.maxHp : std::max(0, static_cast<int>(actor.hp));
     state.currentHp = actor.hp > 0 && actor.hp > baseMaxHp ? actor.hp : state.maxHp;
     state.bolsterRewardMultiplier = pStats != nullptr
@@ -3655,7 +3675,7 @@ OutdoorWorldRuntime::MapActorState buildSpawnedMapActorState(
     OutdoorWorldRuntime::MapActorState state = {};
     state.actorId = actorId;
     state.monsterId = static_cast<int16_t>(stats.id);
-    state.displayName = stats.name;
+    state.displayName = resolveSpawnedMapActorName(monsterTable, stats, uniqueNameId);
     state.uniqueNameId = uniqueNameId;
     state.spawnedAtRuntime = true;
     state.fromSpawnPoint = fromSpawnPoint;
@@ -12751,8 +12771,6 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         return false;
     }
 
-    const bool wasHostileOrAggressor = actor.hostileToParty || actor.hasDetectedParty;
-
     if (m_pGameplayActorService != nullptr
         && m_pGameplayActorService->hasPainReflection(buildGameplayActorSpellEffectState(actor))
         && m_pParty != nullptr)
@@ -12873,10 +12891,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         }
     }
 
-    if (!wasHostileOrAggressor)
-    {
-        aggroNearbyMapActorFaction(actorIndex, partyX, partyY, partyZ);
-    }
+    aggroNearbyMapActorFaction(actorIndex, partyX, partyY, partyZ);
     return true;
 }
 

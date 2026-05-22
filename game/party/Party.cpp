@@ -3609,6 +3609,7 @@ bool Party::recruitCharacter(const Character &character)
         applyDefaultStartingSkills(m_members.back());
     }
 
+    GameMechanics::refreshCharacterBaseResources(m_members.back(), true, m_pClassMultiplierTable);
     initializePortraitRuntimeState(m_members.back());
     m_lastStatus = "party member recruited";
     return true;

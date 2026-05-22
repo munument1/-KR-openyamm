@@ -1666,9 +1666,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             && !flying
             && !sweptRequest.jumpRequested
             && movementLength > 0.0001f;
+        const auto floorDropsBelowActorLedgeGuard =
+            [&state](const IndoorFloorSample &sample) -> bool
+        {
+            return !sample.hasFloor || sample.height < state.footZ - ActorLedgeDropGuardHeight;
+        };
 
-        if (guardGroundActorAgainstLedgeDrop
-            && (!floor.hasFloor || floor.height < state.footZ - ActorLedgeDropGuardHeight))
+        if (guardGroundActorAgainstLedgeDrop && floorDropsBelowActorLedgeGuard(floor))
         {
             return false;
         }
@@ -1691,6 +1695,11 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 body,
                 preferredSectorId,
                 &nonBlockingMechanismFaceMask);
+
+            if (guardGroundActorAgainstLedgeDrop && floorDropsBelowActorLedgeGuard(leadingFootprintFloor))
+            {
+                return false;
+            }
 
             if (floor.hasFloor
                 && floor.faceIndex == state.supportFaceIndex

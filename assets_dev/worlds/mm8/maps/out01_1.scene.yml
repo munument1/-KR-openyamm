@@ -1,8 +1,0 @@
-format_version: 1
-kind: outdoor_scene_overlay
-source:
-  geometry_file: out01.odm
-initial_state:
-  actor_npc_id_overrides:
-    - actor_index: 0
-      npc_id: 27

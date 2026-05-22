@@ -21,7 +21,7 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float DecorationEmitterCooldownSeconds = 0.045f;
-constexpr float DecorationSmokeEmitterCooldownSeconds = 0.14f;
+constexpr float DecorationSmokeEmitterCooldownSeconds = 0.24f;
 constexpr float SpatialFxRefreshIntervalSeconds = 1.0f / 60.0f;
 constexpr float ShadowHeightFadeDistance = 512.0f;
 constexpr int32_t MapWeatherSnowing = 2;

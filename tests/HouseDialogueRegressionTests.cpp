@@ -44,6 +44,7 @@ constexpr uint32_t ServiceTavernWithResidentHouseId = 260;
 constexpr uint32_t DaggerWoundTavernHouseId = 228;
 constexpr uint32_t BullsEyeInnHouseId = 235;
 constexpr uint32_t HarmondaleTavernHouseId = 240;
+constexpr uint32_t ArcomageDeckItemId = 1453;
 constexpr uint32_t WindlingBoatHouseId = 479;
 constexpr uint32_t SmokeBoatHouseId = 481;
 constexpr uint32_t WindBoatHouseId = 483;
@@ -420,6 +421,22 @@ std::optional<size_t> findActionIndexByLabel(
     for (size_t actionIndex = 0; actionIndex < dialog.actions.size(); ++actionIndex)
     {
         if (dialog.actions[actionIndex].label == label)
+        {
+            return actionIndex;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<size_t> findActionIndexByHouseActionId(
+    const OpenYAMM::Game::EventDialogContent &dialog,
+    OpenYAMM::Game::HouseActionId actionId)
+{
+    for (size_t actionIndex = 0; actionIndex < dialog.actions.size(); ++actionIndex)
+    {
+        if (dialog.actions[actionIndex].kind == OpenYAMM::Game::EventDialogActionKind::HouseService
+            && dialog.actions[actionIndex].id == static_cast<uint32_t>(actionId))
         {
             return actionIndex;
         }
@@ -1361,6 +1378,26 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(findActionIndexByLabel(dialog, "Join").has_value());
     CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
     CHECK(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionNews, "Free Haven"));
+    CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Bard"));
+
+    const OpenYAMM::Game::MergedNpcProfessionEntry *pBardProfession =
+        gameData.mergedNpcProfessionTable.get(BardProfessionId);
+    REQUIRE(pBardProfession != nullptr);
+    CHECK(pBardProfession->joins);
+
+    OpenYAMM::Tests::HouseDialogueTestHarness generatedBardHarness(gameData);
+    constexpr uint32_t GeneratedBardNpcId = 20004;
+    generatedBardHarness.eventRuntimeState().npcNameOverrides[GeneratedBardNpcId] = "Christine";
+    generatedBardHarness.eventRuntimeState().npcPictureOverrides[GeneratedBardNpcId] = 1;
+    generatedBardHarness.eventRuntimeState().npcProfessionOverrides[GeneratedBardNpcId] = BardProfessionId;
+
+    OpenYAMM::Game::MapStatsEntry jadameMap = {};
+    jadameMap.mergedContinentId = 1;
+    generatedBardHarness.setCurrentMap(jadameMap);
+
+    dialog = generatedBardHarness.openNpcDialogue(GeneratedBardNpcId);
+    CHECK(findActionIndexByLabel(dialog, "Join").has_value());
+    CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
     CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Bard"));
 
     const OpenYAMM::Game::NpcEntry *pPaul = gameData.npcDialogTable.getNpc(PaulHapsburgNpcId);
@@ -3066,7 +3103,8 @@ TEST_CASE("dwi tavern arcomage submenu")
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
 
     const OpenYAMM::Game::EventDialogContent &rootDialog = harness.openHouseDialog(BullsEyeInnHouseId);
-    const std::optional<size_t> arcomageIndex = findActionIndexByLabel(rootDialog, "Play Arcomage");
+    const std::optional<size_t> arcomageIndex =
+        findActionIndexByHouseActionId(rootDialog, OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu);
 
     REQUIRE(arcomageIndex.has_value());
     const OpenYAMM::Game::EventDialogContent &submenuDialog = harness.executeAndPresent(*arcomageIndex);
@@ -3083,6 +3121,61 @@ TEST_CASE("dwi tavern arcomage submenu")
     CHECK(dialogHasActionLabel(rulesDialog, "Rules"));
     CHECK(dialogHasActionLabel(rulesDialog, "Victory Conditions"));
     CHECK(dialogHasActionLabel(rulesDialog, "Play"));
+}
+
+TEST_CASE("mm7 tavern arcomage submenu requires deck to play")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pHarmondaleTavern = gameData.houseTable.get(HarmondaleTavernHouseId);
+    REQUIRE(pHarmondaleTavern != nullptr);
+
+    const std::vector<OpenYAMM::Game::HouseActionOption> rootOptions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pHarmondaleTavern,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            18.0f * 60.0f,
+            OpenYAMM::Game::DialogueMenuId::None);
+    const std::vector<OpenYAMM::Game::HouseActionOption> submenuOptions =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pHarmondaleTavern,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            18.0f * 60.0f,
+            OpenYAMM::Game::DialogueMenuId::TavernArcomage);
+    const std::vector<std::string> submenuLines =
+        OpenYAMM::Game::buildHouseServiceInfoLines(
+            *pHarmondaleTavern,
+            &harness.party(),
+            &gameData.classSkillTable,
+            OpenYAMM::Game::DialogueMenuId::TavernArcomage);
+
+    CHECK(findHouseActionById(rootOptions, OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu).has_value());
+    CHECK(findHouseActionById(submenuOptions, OpenYAMM::Game::HouseActionId::TavernArcomageRules).has_value());
+    CHECK(findHouseActionById(
+        submenuOptions,
+        OpenYAMM::Game::HouseActionId::TavernArcomageVictoryConditions).has_value());
+    CHECK_FALSE(findHouseActionById(submenuOptions, OpenYAMM::Game::HouseActionId::TavernArcomagePlay).has_value());
+    CHECK(std::find(
+        submenuLines.begin(),
+        submenuLines.end(),
+        "You must have your own card deck to play here.") != submenuLines.end());
+
+    harness.party().grantItem(ArcomageDeckItemId);
+    const std::vector<OpenYAMM::Game::HouseActionOption> submenuOptionsWithDeck =
+        OpenYAMM::Game::buildHouseActionOptions(
+            *pHarmondaleTavern,
+            &harness.party(),
+            &gameData.classSkillTable,
+            &harness.worldRuntime(),
+            18.0f * 60.0f,
+            OpenYAMM::Game::DialogueMenuId::TavernArcomage);
+    CHECK(findHouseActionById(
+        submenuOptionsWithDeck,
+        OpenYAMM::Game::HouseActionId::TavernArcomagePlay).has_value());
 }
 
 TEST_CASE("merged tavern arcomage topics follow world rules")

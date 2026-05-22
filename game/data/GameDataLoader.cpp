@@ -3436,7 +3436,7 @@ bool GameDataLoader::loadSelectedMap(
     timingLogger.stage("script textures appended");
 
     {
-        EventRuntime eventRuntime(&m_houseTable);
+        EventRuntime eventRuntime(&m_houseTable, &m_npcDialogTable);
         const std::optional<MapDeltaData> &mapDeltaData = m_selectedMap->outdoorMapDeltaData
             ? m_selectedMap->outdoorMapDeltaData
             : m_selectedMap->indoorMapDeltaData;

@@ -24,6 +24,7 @@ namespace OpenYAMM::Game
 class Party;
 class ISceneEventContext;
 class HouseTable;
+class NpcDialogTable;
 struct LuaSessionCache;
 
 enum class DialogueContextKind
@@ -388,6 +389,7 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, RuntimeMapNote> runtimeMapNotes;
     std::unordered_map<std::string, SavedLocation> savedLocations;
     std::unordered_map<uint64_t, TransportRouteOverride> transportRouteOverrides;
+    uint32_t eventRandomState = 0;
     std::optional<MapNoteSourcePoint> activeEventMapNoteSourcePoint;
     uint32_t activeHistoryContinentId = 1;
     std::unordered_map<uint32_t, int32_t> historyEventTimes;
@@ -508,7 +510,7 @@ const std::unordered_map<uint32_t, int32_t> &historyEventTimesForActiveContinent
 class EventRuntime
 {
 public:
-    EventRuntime(const HouseTable *pHouseTable = nullptr);
+    EventRuntime(const HouseTable *pHouseTable = nullptr, const NpcDialogTable *pNpcDialogTable = nullptr);
     ~EventRuntime();
 
     EventRuntime(const EventRuntime &) = delete;
@@ -519,6 +521,8 @@ public:
 
     void bindHouseTable(const HouseTable *pHouseTable);
     const HouseTable *houseTable() const;
+    void bindNpcDialogTable(const NpcDialogTable *pNpcDialogTable);
+    const NpcDialogTable *npcDialogTable() const;
 
     static uint32_t outdoorModelFacetTextureOverrideKey(uint32_t modelIndex, uint32_t faceIndex);
     static uint32_t monsterRelationOverrideKey(uint32_t leftMonsterId, uint32_t rightMonsterId);
@@ -617,6 +621,7 @@ public:
         Inventory,
         Awards,
         Players,
+        CircusPrises,
         ClassId,
         Experience,
         CurrentHealth,
@@ -703,5 +708,6 @@ public:
     mutable uint64_t m_cachedLocalProgramCacheId = 0;
     mutable uint64_t m_cachedGlobalProgramCacheId = 0;
     const HouseTable *m_pHouseTable = nullptr;
+    const NpcDialogTable *m_pNpcDialogTable = nullptr;
 };
 }

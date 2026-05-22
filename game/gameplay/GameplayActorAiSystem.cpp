@@ -28,7 +28,8 @@ constexpr float ActorMeleeRange = 307.2f;
 constexpr float HostilityLongRange = 10240.0f;
 constexpr float IdleStandSeconds = 1.5f;
 constexpr float IdleBoredSeconds = 2.0f;
-constexpr float PursueFleeMoveSpeedMultiplier = 2.0f;
+constexpr float PursueMoveSpeedMultiplier = 1.5f;
+constexpr float FleeMoveSpeedMultiplier = 1.0f;
 constexpr float MaxActorMoveSpeed = 1000.0f;
 constexpr uint32_t IdleStandChancePercent = 25u;
 
@@ -81,9 +82,13 @@ float movementSpeedForMotion(float effectiveMoveSpeed, ActorAiMotionState motion
 {
     float moveSpeed = std::max(0.0f, effectiveMoveSpeed);
 
-    if (motionState == ActorAiMotionState::Pursuing || motionState == ActorAiMotionState::Fleeing)
+    if (motionState == ActorAiMotionState::Pursuing)
     {
-        moveSpeed *= PursueFleeMoveSpeedMultiplier;
+        moveSpeed *= PursueMoveSpeedMultiplier;
+    }
+    else if (motionState == ActorAiMotionState::Fleeing)
+    {
+        moveSpeed *= FleeMoveSpeedMultiplier;
     }
 
     return std::min(moveSpeed, MaxActorMoveSpeed);

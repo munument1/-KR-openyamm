@@ -3022,7 +3022,7 @@ IndoorWorldRuntime::MapActorAiState buildIndoorMapActorAiState(
     IndoorWorldRuntime::MapActorAiState state = {};
     state.actorId = static_cast<uint32_t>(actorIndex);
     state.monsterId = resolvedMonsterId;
-    state.displayName = pStats != nullptr ? pStats->name : actor.name;
+    state.displayName = pMonsterTable != nullptr ? resolveMapDeltaActorName(*pMonsterTable, actor) : actor.name;
     state.bolsterRewardMultiplier = std::max(1.0f, actor.bolsterRewardMultiplier);
     state.spriteFrameIndex = pActorSpriteFrameTable != nullptr
         ? resolveRuntimeActorSpriteFrameIndex(*pActorSpriteFrameTable, actor, pMonsterEntry)
@@ -11150,7 +11150,12 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
             actorIndex,
             true,
             nullptr,
-            actorCanFly);
+            actorCanFly,
+            false,
+            420.0f,
+            1.0f,
+            false,
+            true);
 
     const float deltaX = resolvedMoveState.x - aiState.preciseX;
     const float deltaY = resolvedMoveState.y - aiState.preciseY;
@@ -11586,10 +11591,6 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
         return false;
     }
 
-    const bool wasHostileOrAggressor =
-        (actor.attributes
-            & (static_cast<uint32_t>(EvtActorAttribute::Hostile)
-                | static_cast<uint32_t>(EvtActorAttribute::Aggressor))) != 0;
     const int16_t resolvedMonsterId = resolveIndoorActorStatsId(actor);
     const int appliedDamage = applyMonsterDamageEventHooks(actorIndex, resolvedMonsterId, damage, damageType);
     const int previousHp = actor.hp;
@@ -11708,10 +11709,7 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
         }
     }
 
-    if (!wasHostileOrAggressor)
-    {
-        aggroNearbyMapActorFaction(actorIndex);
-    }
+    aggroNearbyMapActorFaction(actorIndex);
     return actor.hp != previousHp;
 }
 

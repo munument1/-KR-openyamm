@@ -1194,6 +1194,17 @@ function support.currentGameMinutes()
     return evt.CurrentGameMinutes()
 end
 
+function support.npcText(textId, fallback)
+    return evt.NPCText(textId or 0, fallback or "")
+end
+
+Game = Game or {}
+Game.NPCText = setmetatable(Game.NPCText or {}, {
+    __index = function(_, key)
+        return support.npcText(tonumber(key) or 0)
+    end,
+})
+
 function support.currentContinent()
     return evt.GetCurrentContinent()
 end
@@ -1580,6 +1591,7 @@ HasFollowerNpc = support.hasFollowerNpc
 AddFollowerNpc = support.addFollowerNpc
 RemoveFollowerNpc = support.removeFollowerNpc
 CurrentGameMinutes = support.currentGameMinutes
+NPCText = support.npcText
 CurrentContinent = support.currentContinent
 AdvanceGameMinutes = support.advanceGameMinutes
 GetRuntimeVariable = support.getRuntimeVariable

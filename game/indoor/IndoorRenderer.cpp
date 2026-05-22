@@ -50,6 +50,7 @@ constexpr uint32_t IndoorLightSelectionCacheMaxAgeFrames = 180;
 constexpr uint64_t IndoorBillboardDrawState =
     BGFX_STATE_WRITE_RGB
     | BGFX_STATE_WRITE_A
+    | BGFX_STATE_WRITE_Z
     | BGFX_STATE_DEPTH_TEST_LEQUAL
     | BGFX_STATE_BLEND_ALPHA;
 
@@ -120,6 +121,11 @@ bool indoorFaceSuppressedForContextAction(
     const std::vector<uint32_t> &openedChestIds)
 {
     if (indoorContextActionTargetsChest(metadata, openedChestIds))
+    {
+        return false;
+    }
+
+    if (metadata && !metadata->hidden)
     {
         return false;
     }
@@ -8833,6 +8839,52 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
 
         if (batchIndex < 0 || static_cast<size_t>(batchIndex) >= m_texturedBatches.size())
         {
+            if (faceIndex >= m_indoorMapData->faces.size())
+            {
+                continue;
+            }
+
+            const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+            const std::string textureName = resolveFaceTextureName(faceIndex, face, eventRuntimeState);
+
+            if (face.isPortal || textureName.empty() || face.vertexIndices.size() < 3)
+            {
+                continue;
+            }
+
+            const std::string normalizedTextureName = toLowerCopy(textureName);
+            const OutdoorBitmapTexture *pTexture = nullptr;
+
+            for (const OutdoorBitmapTexture &candidate : m_indoorTextureSet->textures)
+            {
+                if (toLowerCopy(candidate.textureName) == normalizedTextureName)
+                {
+                    pTexture = &candidate;
+                    break;
+                }
+            }
+
+            if (pTexture == nullptr)
+            {
+                continue;
+            }
+
+            const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
+            const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
+                *m_indoorMapData,
+                m_renderVertices,
+                *pTexture,
+                faceIndex,
+                runtimeMapDeltaData(),
+                eventRuntimeState
+            );
+            texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
+
+            if (!faceVertices.empty())
+            {
+                return false;
+            }
+
             continue;
         }
 

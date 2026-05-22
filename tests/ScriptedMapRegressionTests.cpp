@@ -903,6 +903,21 @@ OpenYAMM::Game::InventoryItem makeScriptedInventoryItem(uint32_t objectDescripti
     return item;
 }
 
+int circusPrizeItemCount(const OpenYAMM::Game::Party &party)
+{
+    return party.inventoryItemCount(2090)
+        + party.inventoryItemCount(2091)
+        + party.inventoryItemCount(2097);
+}
+
+int eventInventoryItemCount(
+    const OpenYAMM::Game::EventRuntimeState &runtimeState,
+    const OpenYAMM::Game::Party &party,
+    uint32_t itemId)
+{
+    return OpenYAMM::Game::EventRuntime::getInventoryItemCount(runtimeState, &party, itemId, std::nullopt);
+}
+
 OpenYAMM::Game::Party makeScriptedRegressionParty()
 {
     OpenYAMM::Game::PartySeed seed = {};
@@ -3377,16 +3392,17 @@ TEST_CASE("mm7 global mmmerge arcomage requires deck")
             return *runtimeState.activeHookContext;
         };
 
-    for (OpenYAMM::Game::HouseActionId actionId :
-        {OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu, OpenYAMM::Game::HouseActionId::TavernArcomagePlay})
-    {
-        OpenYAMM::Game::Party partyWithoutDeck = makeScriptedRegressionParty();
-        const OpenYAMM::Game::EventRuntimeState::ActiveHookContext blockedContext =
-            executeArcomageClickHook(partyWithoutDeck, actionId);
-        CHECK(blockedContext.blocked);
-        REQUIRE(blockedContext.statusText.has_value());
-        CHECK_EQ(*blockedContext.statusText, "You must have your own card deck to play here.");
-    }
+    OpenYAMM::Game::Party partyWithoutDeck = makeScriptedRegressionParty();
+    const OpenYAMM::Game::EventRuntimeState::ActiveHookContext submenuContext =
+        executeArcomageClickHook(partyWithoutDeck, OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu);
+    CHECK_FALSE(submenuContext.blocked);
+    CHECK_FALSE(submenuContext.statusText.has_value());
+
+    const OpenYAMM::Game::EventRuntimeState::ActiveHookContext blockedContext =
+        executeArcomageClickHook(partyWithoutDeck, OpenYAMM::Game::HouseActionId::TavernArcomagePlay);
+    CHECK(blockedContext.blocked);
+    REQUIRE(blockedContext.statusText.has_value());
+    CHECK_EQ(*blockedContext.statusText, "You must have your own card deck to play here.");
 
     OpenYAMM::Game::Party partyWithDeck = makeScriptedRegressionParty();
     REQUIRE(partyWithDeck.member(0) != nullptr);
@@ -4262,6 +4278,32 @@ TEST_CASE("mm7 global mmmerge supplement keeps quest followers in sync")
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 842, runtimeState, &party));
+        CHECK(party.hasQuestBit(557));
+        CHECK(party.hasQuestBit(1686));
+        CHECK(hasFollower(runtimeState, 395));
+        CHECK_EQ(runtimeState.npcTopicOverrides[387][0], 843u);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("build a golem") != std::string::npos);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(611, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 805, runtimeState, &party));
+        CHECK(party.hasQuestBit(537));
+        CHECK(party.hasQuestBit(1685));
+        CHECK(hasFollower(runtimeState, 393));
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("William has captured me") != std::string::npos);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
         REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 859, runtimeState, &party));
         CHECK(party.hasQuestBit(1688));
         REQUIRE_EQ(runtimeState.hiredNpcFollowers.size(), 1u);
@@ -4697,6 +4739,34 @@ TEST_CASE("mm7 global mmmerge supplement applies custom CrossContinents and hatc
         CHECK(party.hasQuestBit(1624));
         CHECK_EQ(runtimeState.npcTopicOverrides[388][0], 0u);
         CHECK_EQ(runtimeState.npcGreetingOverrides[388], 194u);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime(nullptr, &mapLoader.gameDataLoader.getNpcDialogTable());
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setClassSkillTable(&mapLoader.gameDataLoader.getClassSkillTable());
+        REQUIRE(party.setMemberClassName(0, "Monk"));
+        party.setQuestBit(539, true);
+        party.setQuestBit(1685, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 810, runtimeState, &party));
+        const OpenYAMM::Game::Character *pMember = party.member(0);
+        REQUIRE(pMember != nullptr);
+        CHECK_EQ(pMember->className, "Initiate");
+        CHECK(party.hasQuestBit(1572));
+        CHECK(party.hasQuestBit(1573));
+        CHECK_FALSE(party.hasQuestBit(539));
+        CHECK(party.hasQuestBit(1685));
+        CHECK_EQ(runtimeState.npcTopicOverrides[377][0], 810u);
+        CHECK_EQ(runtimeState.npcTopicOverrides[377][1], 811u);
+        CHECK_EQ(runtimeState.npcTopicOverrides[394][0], 810u);
+        CHECK_EQ(runtimeState.npcTopicOverrides[394][1], 811u);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        const std::optional<std::string> monkPromotionText = mapLoader.gameDataLoader.getNpcDialogTable().getText(1032);
+        REQUIRE(monkPromotionText.has_value());
+        CHECK_EQ(runtimeState.messages.back(), *monkPromotionText);
+        CHECK(runtimeState.messages.back().find("enlightenment is gained by the journey") != std::string::npos);
     }
 
     {
@@ -5508,6 +5578,31 @@ TEST_CASE("mm6 global mmmerge supplement keeps rescue followers and collector to
                 return follower.npcId == npcId;
             }) != runtimeState.hiredNpcFollowers.end();
     };
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1331, runtimeState, &party));
+        CHECK(party.hasQuestBit(1114));
+        CHECK(party.hasQuestBit(1700));
+        CHECK(hasFollower(runtimeState, 798));
+        CHECK_EQ(runtimeState.npcTopicOverrides[798][0], 1332u);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("The palace is deadly dull") != std::string::npos);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1334, runtimeState, &party));
+        CHECK(party.hasQuestBit(1700));
+        CHECK(hasFollower(runtimeState, 798));
+        CHECK_EQ(runtimeState.npcTopicOverrides[798][0], 1335u);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("Would you believe I got lost") != std::string::npos);
+    }
 
     {
         OpenYAMM::Game::EventRuntime eventRuntime = {};
@@ -7269,6 +7364,102 @@ TEST_CASE("mm7 nighon actor previews load world sprite packages")
     CHECK(textureLoaded(*pNighonTunnels->indoorActorPreviewBillboardSet, "m250sa0", 615));
 }
 
+TEST_CASE("mm6 circus prize games require the 50 gold entry fee")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalEventProgram =
+        loadMm6GlobalSupplementProgram(OPENYAMM_SOURCE_DIR, error);
+    REQUIRE_MESSAGE(globalEventProgram.has_value(), error.c_str());
+    REQUIRE(globalEventProgram->hasEvent(1424));
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        party.member(0)->luck = 200;
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1424, runtimeState, &party));
+        CHECK_EQ(party.gold(), 0);
+        CHECK_EQ(circusPrizeItemCount(party), 0);
+        CHECK(runtimeState.messages.empty());
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        party.member(0)->luck = 200;
+        party.addGold(50);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1424, runtimeState, &party));
+        CHECK_EQ(party.gold(), 0);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+    }
+}
+
+TEST_CASE("mm6 circus master trades souvenir points for keg or pyramid")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalEventProgram =
+        loadMm6GlobalSupplementProgram(OPENYAMM_SOURCE_DIR, error);
+    REQUIRE_MESSAGE(globalEventProgram.has_value(), error.c_str());
+    REQUIRE(globalEventProgram->hasEvent(1418));
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        for (int itemIndex = 0; itemIndex < 9; ++itemIndex)
+        {
+            party.member(0)->inventory.push_back(makeScriptedInventoryItem(2090));
+        }
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1418, runtimeState, &party));
+        CHECK_EQ(party.inventoryItemCount(2090), 9);
+        CHECK_EQ(party.inventoryItemCount(2093), 0);
+        CHECK_EQ(party.inventoryItemCount(2092), 0);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("don't have 10 points") != std::string::npos);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        party.member(0)->inventory.push_back(makeScriptedInventoryItem(2097));
+        party.member(0)->inventory.push_back(makeScriptedInventoryItem(2097));
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1418, runtimeState, &party));
+        CHECK_EQ(circusPrizeItemCount(party), 0);
+        CHECK_EQ(eventInventoryItemCount(runtimeState, party, 2093), 1);
+        CHECK_EQ(eventInventoryItemCount(runtimeState, party, 2092), 0);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("win a keg of wine") != std::string::npos);
+    }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        REQUIRE(party.member(0) != nullptr);
+        for (int itemIndex = 0; itemIndex < 6; ++itemIndex)
+        {
+            party.member(0)->inventory.push_back(makeScriptedInventoryItem(2097));
+        }
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 1418, runtimeState, &party));
+        CHECK_EQ(circusPrizeItemCount(party), 0);
+        CHECK_EQ(eventInventoryItemCount(runtimeState, party, 2093), 0);
+        CHECK_EQ(eventInventoryItemCount(runtimeState, party, 2092), 1);
+        REQUIRE_FALSE(runtimeState.messages.empty());
+        CHECK(runtimeState.messages.back().find("win a golden pyramid") != std::string::npos);
+    }
+}
+
 TEST_CASE("mm7 Mount Nighon local relations keep resident warlocks peaceful to town peasants")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
@@ -7881,6 +8072,41 @@ TEST_CASE("corpse loot includes authored guaranteed carried item")
     REQUIRE_EQ(corpse.items.size(), 1u);
     CHECK_EQ(corpse.items.front().itemId, 540u);
     CHECK_EQ(corpse.items.front().item.objectDescriptionId, 540u);
+}
+
+TEST_CASE("corpse loot with authored guaranteed carried item suppresses random item roll")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+
+    OpenYAMM::Game::Party party = {};
+    party.setItemTable(&mapLoader.gameDataLoader.getItemTable());
+    party.setItemEnchantTables(
+        &mapLoader.gameDataLoader.getStandardItemEnchantTable(),
+        &mapLoader.gameDataLoader.getSpecialItemEnchantTable());
+    party.setClassMultiplierTable(&mapLoader.gameDataLoader.getClassMultiplierTable());
+    party.setClassSkillTable(&mapLoader.gameDataLoader.getClassSkillTable());
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::MonsterTable::LootPrototype guaranteedRandomLoot = {};
+    guaranteedRandomLoot.goldDiceRolls = 1;
+    guaranteedRandomLoot.goldDiceSides = 1;
+    guaranteedRandomLoot.itemChance = 100;
+    guaranteedRandomLoot.itemLevel = 1;
+    guaranteedRandomLoot.itemKind = OpenYAMM::Game::MonsterTable::LootItemKind::Any;
+
+    const OpenYAMM::Game::GameplayCorpseViewState corpse = OpenYAMM::Game::buildMonsterCorpseView(
+        "Jeric Whistlebone",
+        guaranteedRandomLoot,
+        &mapLoader.gameDataLoader.getItemTable(),
+        &party,
+        {540});
+
+    REQUIRE_EQ(corpse.items.size(), 2u);
+    CHECK(corpse.items[0].isGold);
+    CHECK_EQ(corpse.items[0].goldAmount, 1u);
+    CHECK_FALSE(corpse.items[1].isGold);
+    CHECK_EQ(corpse.items[1].itemId, 540u);
+    CHECK_EQ(corpse.items[1].item.objectDescriptionId, 540u);
 }
 
 TEST_CASE("outdoor_party_runtime_wait_advances_buff_durations_with_game_clock")

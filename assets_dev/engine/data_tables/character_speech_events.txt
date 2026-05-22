@@ -44,7 +44,7 @@ AttackMiss	Attack Miss		AttackMiss
 Shoot	Shoot		Shoot
 CastSpell	Cast Spell		CastSpell
 DamagedParty	Damaged Party	SoftInjure1	DamagedParty
-FoundItem	Found Item	Thanks1,Thanks2	FoundItem
+FoundItem	Found Item		FoundItem
 SkillIncreased	Skill Increased	Thanks1,Thanks2	SkillIncreased
 QuestGot	Quest Got		QuestGot
 AwardGot	Award Got		AwardGot

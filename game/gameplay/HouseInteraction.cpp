@@ -33,11 +33,15 @@ constexpr uint32_t BountyHuntGroup = 39;
 constexpr int MMergeBadReputationShopBanThreshold = 25;
 constexpr int ShopTheftBanDays = 336;
 constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
+constexpr uint32_t ArcomageDeckItemId = 1453;
+constexpr uint32_t FirstAntagarichArcomageTavernHouseId = 239;
+constexpr uint32_t LastAntagarichArcomageTavernHouseId = 252;
 constexpr uint32_t Mm7PitTrainingHouseId = 1575;
 constexpr uint32_t Mm7MountNighonTrainingHouseId = 1576;
 constexpr uint32_t OeMm7PitTrainingHouseId = 94;
 constexpr uint32_t OeMm7MountNighonTrainingHouseId = 95;
 constexpr uint32_t PrisonTermsAwardId = 87;
+constexpr const char *pArcomageDeckRequiredMessage = "You must have your own card deck to play here.";
 constexpr const char *pLorettaPriceFixingLabel = "Price Fixing";
 constexpr const char *pLorettaPriceFixingMessage =
     "Well, If Loretta's got a new scheme, count me in!\n"
@@ -427,6 +431,32 @@ bool isTempleOfBaa(const HouseEntry &houseEntry)
 bool isBoatHouse(const HouseEntry &houseEntry)
 {
     return isHouseType(houseEntry, "Boats");
+}
+
+uint32_t arcomageDeckItemId()
+{
+    return ArcomageDeckItemId;
+}
+
+const char *arcomageDeckRequiredMessage()
+{
+    return pArcomageDeckRequiredMessage;
+}
+
+bool partyHasArcomageDeck(const Party *pParty)
+{
+    return pParty != nullptr && pParty->hasItemAnywhere(ArcomageDeckItemId);
+}
+
+bool houseRequiresArcomageDeck(const HouseEntry &houseEntry)
+{
+    return houseEntry.id >= FirstAntagarichArcomageTavernHouseId
+        && houseEntry.id <= LastAntagarichArcomageTavernHouseId;
+}
+
+bool partyCanPlayArcomageInHouse(const HouseEntry &houseEntry, const Party *pParty)
+{
+    return !houseRequiresArcomageDeck(houseEntry) || partyHasArcomageDeck(pParty);
 }
 
 bool routeQBitSatisfied(
@@ -927,7 +957,15 @@ std::vector<std::string> buildHouseServiceInfoLines(
     else if (menuId == DialogueMenuId::TavernArcomage)
     {
         lines.push_back(std::string {});
-        lines.push_back("Choose an Arcomage option.");
+
+        if (partyCanPlayArcomageInHouse(houseEntry, pParty))
+        {
+            lines.push_back("Choose an Arcomage option.");
+        }
+        else
+        {
+            lines.push_back(arcomageDeckRequiredMessage());
+        }
     }
 
     return lines;
@@ -1048,13 +1086,16 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         );
         options.push_back(std::move(victory));
 
-        HouseActionOption play = makeOption(
-            HouseActionId::TavernArcomagePlay,
-            "Play",
-            isHouseOpenNow,
-            closedReason
-        );
-        options.push_back(std::move(play));
+        if (partyCanPlayArcomageInHouse(houseEntry, pParty))
+        {
+            HouseActionOption play = makeOption(
+                HouseActionId::TavernArcomagePlay,
+                "Play",
+                isHouseOpenNow,
+                closedReason
+            );
+            options.push_back(std::move(play));
+        }
 
         return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }

@@ -16,7 +16,9 @@
 #include "game/events/EventRuntime.h"
 #include "game/events/EvtEnums.h"
 #include "game/maps/MapIdentity.h"
+#include "game/tables/CharacterDollTable.h"
 #include "game/tables/ClassMultiplierTable.h"
+#include "game/tables/ClassSkillTable.h"
 #include "game/tables/ItemTable.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/ui/screens/ArcomageScreen.h"
@@ -1182,6 +1184,111 @@ std::optional<float> parseFloatArgument(const std::string &value)
 std::string boolString(bool value)
 {
     return value ? "true" : "false";
+}
+
+std::optional<std::string> debugResolveClassName(const std::string &argument, const ClassSkillTable &classSkillTable)
+{
+    const std::optional<int32_t> parsedClassId = parseInt32Argument(argument);
+
+    if (parsedClassId)
+    {
+        if (*parsedClassId < 0)
+        {
+            return std::nullopt;
+        }
+
+        return classSkillTable.classNameForId(static_cast<uint32_t>(*parsedClassId));
+    }
+
+    const std::optional<uint32_t> classId = classSkillTable.classIdForName(argument);
+
+    if (!classId)
+    {
+        return std::nullopt;
+    }
+
+    return classSkillTable.classNameForId(*classId);
+}
+
+const CharacterDollEntry *debugCharacterDollForClass(
+    const CharacterDollTable &characterDollTable,
+    uint32_t classId,
+    size_t memberCount)
+{
+    std::vector<const CharacterDollEntry *> matches;
+    std::vector<const CharacterDollEntry *> fallbacks;
+
+    for (const auto &[characterId, entry] : characterDollTable.characters())
+    {
+        (void)characterId;
+
+        if (!entry.availableAtStart)
+        {
+            continue;
+        }
+
+        if (entry.defaultClassId == classId)
+        {
+            matches.push_back(&entry);
+        }
+
+        fallbacks.push_back(&entry);
+    }
+
+    std::vector<const CharacterDollEntry *> &choices = !matches.empty() ? matches : fallbacks;
+
+    if (choices.empty())
+    {
+        return nullptr;
+    }
+
+    std::sort(
+        choices.begin(),
+        choices.end(),
+        [](const CharacterDollEntry *pLeft, const CharacterDollEntry *pRight)
+        {
+            return pLeft->id < pRight->id;
+        });
+
+    return choices[memberCount % choices.size()];
+}
+
+Character debugCreatePlayerCharacter(
+    const std::string &className,
+    uint32_t classId,
+    const std::string &name,
+    const CharacterDollTable &characterDollTable,
+    size_t memberCount)
+{
+    Character character = {};
+    character.name = name.empty() ? "Debug " + displayClassName(className) : name;
+    character.className = className;
+    character.role = displayClassName(className);
+    character.level = 1;
+    character.experience = 0;
+    character.skillPoints = 0;
+    character.might = 10;
+    character.intellect = 10;
+    character.personality = 10;
+    character.endurance = 10;
+    character.speed = 10;
+    character.accuracy = 10;
+    character.luck = 10;
+
+    const CharacterDollEntry *pDollEntry = debugCharacterDollForClass(characterDollTable, classId, memberCount);
+
+    if (pDollEntry != nullptr)
+    {
+        character.characterDataId = pDollEntry->id;
+        character.portraitPictureId = pDollEntry->id - 1;
+
+        if (!pDollEntry->facePicturesPrefix.empty())
+        {
+            character.portraitTextureName = pDollEntry->facePicturesPrefix + "01";
+        }
+    }
+
+    return character;
 }
 
 constexpr size_t DebugMaxNpcFollowerCount = 4;
@@ -2449,11 +2556,12 @@ void GameApplication::registerDebugConsoleCommands()
             std::ostringstream out;
             out << "Commands: help, cls, map, setup breach, event <id>, "
                 << "time [advance [days]], "
-                << "qbit get|set|clear <id>, qbit dump [active|all|filter], "
+                << "qbit get|set|clear <id> [id...], qbit dump [active|all|filter], "
+                << "npc greeting get|reset|set <npc-id> [greeting-id], "
                 << "global get|set|clear <name> [value], global dump [filter], "
                 << "mapvar get|set|clear <index> [value], mapvar dump, "
                 << "award get|set|clear <id>, award dump [active|all|filter], "
-                << "hire <profession-id>, gold get|add|set <amount>, "
+                << "player add <class-id|class-name> [name], hire <profession-id>, gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
             return commandResult(true, out.str());
@@ -2695,7 +2803,7 @@ void GameApplication::registerDebugConsoleCommands()
                 return commandResult(false, "No selected map.");
             }
 
-            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable(), &m_gameDataLoader.getNpcDialogTable());
             const bool executed = eventRuntime.executeEventById(
                 selectedMap->localEventProgram,
                 selectedMap->globalEventProgram,
@@ -2709,12 +2817,12 @@ void GameApplication::registerDebugConsoleCommands()
     m_debugConsole.registerCommand({
         .name = "qbit",
         .description = "Inspect or mutate party quest bits.",
-        .usage = "qbit get|set|clear <id> | qbit dump [active|all|filter]",
+        .usage = "qbit get|set|clear <id> [id...] | qbit dump [active|all|filter]",
         .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
         {
             if (context.args.empty())
             {
-                return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+                return commandResult(false, "Usage: qbit get|set|clear <id> [id...] | qbit dump [active|all|filter]");
             }
 
             Party *pParty = activeParty();
@@ -2826,36 +2934,202 @@ void GameApplication::registerDebugConsoleCommands()
 
             if (context.args.size() < 2)
             {
-                return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+                return commandResult(false, "Usage: qbit get|set|clear <id> [id...] | qbit dump [active|all|filter]");
             }
 
-            const std::optional<int32_t> qbitId = parseInt32Argument(context.args[1]);
+            std::vector<uint32_t> qbitIds;
+            qbitIds.reserve(context.args.size() - 1);
 
-            if (!qbitId || *qbitId < 0)
+            for (size_t argumentIndex = 1; argumentIndex < context.args.size(); ++argumentIndex)
             {
-                return commandResult(false, "Invalid qbit id.");
+                const std::optional<int32_t> qbitId = parseInt32Argument(context.args[argumentIndex]);
+
+                if (!qbitId || *qbitId < 0)
+                {
+                    return commandResult(false, "Invalid qbit id: " + context.args[argumentIndex]);
+                }
+
+                qbitIds.push_back(static_cast<uint32_t>(*qbitId));
             }
 
-            const uint32_t id = static_cast<uint32_t>(*qbitId);
+            const auto formatQBitResults =
+                [pParty](const std::vector<uint32_t> &ids) -> std::string
+                {
+                    std::ostringstream out;
+
+                    for (size_t index = 0; index < ids.size(); ++index)
+                    {
+                        const uint32_t id = ids[index];
+
+                        if (index != 0)
+                        {
+                            out << ", ";
+                        }
+
+                        out << "qbit " << id << "=" << boolString(pParty->hasQuestBit(id));
+                    }
+
+                    return out.str();
+                };
 
             if (action == "get")
             {
-                return commandResult(true, "qbit " + std::to_string(id) + "=" + boolString(pParty->hasQuestBit(id)));
+                return commandResult(true, formatQBitResults(qbitIds));
             }
 
             if (action == "set")
             {
-                pParty->setQuestBit(id, true);
-                return commandResult(true, "qbit " + std::to_string(id) + "=true");
+                for (uint32_t id : qbitIds)
+                {
+                    pParty->setQuestBit(id, true);
+                }
+
+                return commandResult(true, formatQBitResults(qbitIds));
             }
 
             if (action == "clear")
             {
-                pParty->setQuestBit(id, false);
-                return commandResult(true, "qbit " + std::to_string(id) + "=false");
+                for (uint32_t id : qbitIds)
+                {
+                    pParty->setQuestBit(id, false);
+                }
+
+                return commandResult(true, formatQBitResults(qbitIds));
             }
 
-            return commandResult(false, "Usage: qbit get|set|clear <id> | qbit dump [active|all|filter]");
+            return commandResult(false, "Usage: qbit get|set|clear <id> [id...] | qbit dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "npc",
+        .description = "Inspect or mutate NPC debug state.",
+        .usage = "npc greeting get|reset|set <npc-id> [greeting-id]",
+        .callback = [this, activeParty, activeEventRuntimeState, commandResult](
+            const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 3 || toLowerCopy(context.args[0]) != "greeting")
+            {
+                return commandResult(false, "Usage: npc greeting get|reset|set <npc-id> [greeting-id]");
+            }
+
+            const std::string action = toLowerCopy(context.args[1]);
+            const std::optional<int32_t> parsedNpcId = parseInt32Argument(context.args[2]);
+
+            if (!parsedNpcId || *parsedNpcId < 0)
+            {
+                return commandResult(false, "Invalid npc id.");
+            }
+
+            const uint32_t npcId = static_cast<uint32_t>(*parsedNpcId);
+            const NpcEntry *pNpc = m_gameDataLoader.getNpcDialogTable().getNpc(npcId);
+
+            if (pNpc == nullptr)
+            {
+                return commandResult(false, "Unknown npc id.");
+            }
+
+            Party *pParty = activeParty();
+            EventRuntimeState *pRuntimeState = activeEventRuntimeState();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            const Party::Snapshot partySnapshot = pParty->snapshot();
+            uint32_t greetingId = pNpc->greetId;
+            uint32_t displayCount = 0;
+            const char *pSource = "base";
+
+            const std::unordered_map<uint32_t, uint32_t>::const_iterator runtimeGreetingIt =
+                pRuntimeState != nullptr ? pRuntimeState->npcGreetingOverrides.find(npcId)
+                                         : std::unordered_map<uint32_t, uint32_t>::const_iterator();
+
+            if (pRuntimeState != nullptr && runtimeGreetingIt != pRuntimeState->npcGreetingOverrides.end())
+            {
+                greetingId = runtimeGreetingIt->second;
+                pSource = "runtime override";
+            }
+            else
+            {
+                const std::unordered_map<uint32_t, uint32_t>::const_iterator partyGreetingIt =
+                    partySnapshot.npcGreetingOverrides.find(npcId);
+
+                if (partyGreetingIt != partySnapshot.npcGreetingOverrides.end())
+                {
+                    greetingId = partyGreetingIt->second;
+                    pSource = "party override";
+                }
+            }
+
+            const std::unordered_map<uint32_t, uint32_t> *pDisplayCounts =
+                pRuntimeState != nullptr ? &pRuntimeState->npcGreetingDisplayCounts
+                                         : &partySnapshot.npcGreetingDisplayCounts;
+            const std::unordered_map<uint32_t, uint32_t>::const_iterator displayIt = pDisplayCounts->find(npcId);
+
+            if (displayIt != pDisplayCounts->end())
+            {
+                displayCount = displayIt->second;
+            }
+
+            if (action == "get")
+            {
+                std::ostringstream out;
+                out << "npc " << npcId << " greeting=" << greetingId << " (" << pSource << ")"
+                    << " display_count=" << displayCount << " name=\"" << pNpc->name << "\"";
+                return commandResult(true, out.str());
+            }
+
+            if (action != "reset" && action != "set")
+            {
+                return commandResult(false, "Usage: npc greeting get|reset|set <npc-id> [greeting-id]");
+            }
+
+            if (action == "set")
+            {
+                if (context.args.size() < 4)
+                {
+                    return commandResult(false, "Usage: npc greeting set <npc-id> <greeting-id>");
+                }
+
+                const std::optional<int32_t> parsedGreetingId = parseInt32Argument(context.args[3]);
+
+                if (!parsedGreetingId || *parsedGreetingId < 0)
+                {
+                    return commandResult(false, "Invalid greeting id.");
+                }
+
+                greetingId = static_cast<uint32_t>(*parsedGreetingId);
+            }
+            else if (context.args.size() >= 4)
+            {
+                const std::optional<int32_t> parsedGreetingId = parseInt32Argument(context.args[3]);
+
+                if (!parsedGreetingId || *parsedGreetingId < 0)
+                {
+                    return commandResult(false, "Invalid greeting id.");
+                }
+
+                greetingId = static_cast<uint32_t>(*parsedGreetingId);
+            }
+
+            if (m_gameDataLoader.getNpcDialogTable().getGreeting(greetingId) == nullptr)
+            {
+                return commandResult(false, "Unknown greeting id.");
+            }
+
+            pParty->setNpcGreetingOverride(npcId, greetingId);
+
+            if (pRuntimeState != nullptr)
+            {
+                pRuntimeState->npcGreetingOverrides[npcId] = greetingId;
+                pRuntimeState->npcGreetingDisplayCounts[npcId] = 0;
+            }
+
+            return commandResult(
+                true,
+                "npc " + std::to_string(npcId) + " greeting=" + std::to_string(greetingId)
+                    + " display_count=0 name=\"" + pNpc->name + "\"");
         }});
 
     m_debugConsole.registerCommand({
@@ -3311,6 +3585,85 @@ void GameApplication::registerDebugConsoleCommands()
 
             pParty->reviveAndRestoreAll();
             return commandResult(true, "Party restored.");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "player",
+        .description = "Create a level-1 player character and add it to the party.",
+        .usage = "player add <class-id|class-name> [name]",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 2 || toLowerCopy(context.args[0]) != "add")
+            {
+                return commandResult(false, "Usage: player add <class-id|class-name> [name]");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            if (pParty->isFull())
+            {
+                return commandResult(false, "Party is full.");
+            }
+
+            const ClassSkillTable &classSkillTable = m_gameDataLoader.getClassSkillTable();
+            const std::optional<std::string> className = debugResolveClassName(context.args[1], classSkillTable);
+
+            if (!className)
+            {
+                return commandResult(false, "Unknown class: " + context.args[1]);
+            }
+
+            const std::optional<uint32_t> classId = classSkillTable.classIdForName(*className);
+
+            if (!classId)
+            {
+                return commandResult(false, "Unknown class: " + context.args[1]);
+            }
+
+            std::string name;
+
+            if (context.args.size() >= 3)
+            {
+                std::ostringstream nameStream;
+
+                for (size_t index = 2; index < context.args.size(); ++index)
+                {
+                    if (index != 2)
+                    {
+                        nameStream << ' ';
+                    }
+
+                    nameStream << context.args[index];
+                }
+
+                name = trimCopy(nameStream.str());
+            }
+
+            Character character = debugCreatePlayerCharacter(
+                *className,
+                *classId,
+                name,
+                m_gameDataLoader.getCharacterDollTable(),
+                pParty->memberCount());
+
+            if (!pParty->recruitCharacter(character))
+            {
+                return commandResult(false, "Could not add player character.");
+            }
+
+            synchronizeSessionFromRuntime();
+
+            const Character *pMember = pParty->member(pParty->memberCount() - 1);
+            const std::string addedName = pMember != nullptr ? pMember->name : character.name;
+            return commandResult(
+                true,
+                "Added " + addedName + " as " + displayClassName(*className) + " (class "
+                    + std::to_string(*classId) + ").");
         }});
 
     m_debugConsole.registerCommand({
@@ -5172,7 +5525,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         {
             m_gameSession.applyNamedGlobalVarsToRuntime(*pEventRuntimeState);
 
-            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable(), &m_gameDataLoader.getNpcDialogTable());
 
             eventRuntime.executeOnLoadEvents(
                 selectedMap->localEventProgram,
@@ -5206,7 +5559,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             *m_pOutdoorWorldRuntime,
             selectedMap->localEventProgram,
             selectedMap->globalEventProgram,
-            &m_gameDataLoader.getHouseTable());
+            &m_gameDataLoader.getHouseTable(),
+            &m_gameDataLoader.getNpcDialogTable());
         timingLogger.stage("outdoor scene runtime created");
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
         timingLogger.stage("outdoor gameplay runtime bound");
@@ -5329,7 +5683,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             selectedMap->indoorDecorationBillboardSet ? &*selectedMap->indoorDecorationBillboardSet : nullptr,
             &m_gameDataLoader.getMergedBolsterMapTable(),
             &m_gameDataLoader.getMergedBolsterMonsterTable(),
-            m_settings.bolsterMonsters
+            m_settings.bolsterMonsters,
+            &m_gameDataLoader.getNpcDialogTable()
         );
         timingLogger.stage("indoor runtime initialized");
         if (restoreSavedIndoorState && pSavedIndoorState != nullptr)
@@ -5373,7 +5728,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         {
             m_gameSession.applyNamedGlobalVarsToRuntime(*pEventRuntimeState);
 
-            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable());
+            EventRuntime eventRuntime(&m_gameDataLoader.getHouseTable(), &m_gameDataLoader.getNpcDialogTable());
             eventRuntime.executeOnLoadEvents(
                 selectedMap->localEventProgram,
                 selectedMap->globalEventProgram,
@@ -7695,6 +8050,7 @@ bool GameApplication::executeCurrentMapOnLeaveEvents()
 
     EventRuntime eventRuntime = {};
     eventRuntime.bindHouseTable(&m_gameDataLoader.getHouseTable());
+    eventRuntime.bindNpcDialogTable(&m_gameDataLoader.getNpcDialogTable());
     return eventRuntime.executeOnLeaveEvents(
         m_pMapSceneRuntime->localEventProgram(),
         m_pMapSceneRuntime->globalEventProgram(),
