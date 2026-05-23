@@ -74,6 +74,51 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr float CombatTargetPanelDurationSeconds = 4.0f;
+
+uint32_t makeCombatHudColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+{
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>(blue) << 16)
+        | (static_cast<uint32_t>(green) << 8)
+        | static_cast<uint32_t>(red);
+}
+
+void drawCombatHudRect(
+    GameplayScreenRuntime &screenRuntime,
+    const std::string &textureName,
+    float x,
+    float y,
+    float width,
+    float height,
+    uint32_t colorAbgr)
+{
+    const std::optional<GameplayScreenRuntime::HudTextureHandle> texture =
+        screenRuntime.gameplayUiRuntime().ensureSolidHudTextureLoaded(textureName, colorAbgr);
+
+    if (!texture)
+    {
+        return;
+    }
+
+    screenRuntime.submitHudTexturedQuad(*texture, x, y, width, height);
+}
+
+float combatDamageFontScale(int damage)
+{
+    const float damageMagnitude = std::sqrt(static_cast<float>(std::max(1, damage)));
+    return 1.55f + std::clamp(damageMagnitude / 22.0f, 0.0f, 0.75f);
+}
+
+float combatDamageTextOriginZ(float actorZ, float actorHeight)
+{
+    constexpr float TorsoHeightFraction = 0.55f;
+    constexpr float MinimumTorsoOffset = 48.0f;
+    constexpr float MaximumEffectiveActorHeight = 256.0f;
+    const float effectiveHeight = std::clamp(actorHeight, 0.0f, MaximumEffectiveActorHeight);
+    return actorZ + std::max(MinimumTorsoOffset, effectiveHeight * TorsoHeightFraction);
+}
+
 bool isAutosavePath(const std::filesystem::path &path)
 {
     return toLowerCopy(path.stem().string()) == "autosave";
@@ -3443,6 +3488,11 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
 
     updateFootstepAudio(deltaSeconds);
     consumePendingWorldAudioEvents();
+    updateCombatFeedback(deltaSeconds);
+
+    float gameplayViewProjectionMatrix[16] = {};
+    bx::mtxMul(gameplayViewProjectionMatrix, wireframeViewMatrix, wireframeProjectionMatrix);
+    renderCombatFeedbackOverlay(width, height, gameplayViewProjectionMatrix);
     captureFrameTimingStage(audioStageNanoseconds);
 
     if (frameTimingEnabled)
@@ -4526,6 +4576,16 @@ void OutdoorGameView::setSettingsSnapshot(const GameSettings &settings)
     m_gameSettings = settings;
     refreshViewDistanceCache();
 
+    if (!m_gameSettings.combatText)
+    {
+        m_combatFloatingTexts.clear();
+    }
+
+    if (!m_gameSettings.combatTargetPanel)
+    {
+        m_combatTargetState = {};
+    }
+
     if (m_pOutdoorPartyRuntime != nullptr)
     {
         Party &party = m_pOutdoorPartyRuntime->party();
@@ -4561,6 +4621,232 @@ void OutdoorGameView::refreshViewDistanceCache()
 const GameSettings &OutdoorGameView::settingsSnapshot() const
 {
     return m_gameSettings;
+}
+
+void OutdoorGameView::updateCombatFeedback(float deltaSeconds)
+{
+    const float elapsedSeconds = std::max(0.0f, deltaSeconds);
+
+    for (CombatFloatingText &floatingText : m_combatFloatingTexts)
+    {
+        floatingText.remainingSeconds = std::max(0.0f, floatingText.remainingSeconds - elapsedSeconds);
+    }
+
+    if (m_combatTargetState.active)
+    {
+        m_combatTargetState.remainingSeconds =
+            std::max(0.0f, m_combatTargetState.remainingSeconds - elapsedSeconds);
+
+        if (m_combatTargetState.remainingSeconds <= 0.0f)
+        {
+            m_combatTargetState = {};
+        }
+    }
+
+    m_combatFloatingTexts.erase(
+        std::remove_if(
+            m_combatFloatingTexts.begin(),
+            m_combatFloatingTexts.end(),
+            [](const CombatFloatingText &floatingText)
+            {
+                return floatingText.remainingSeconds <= 0.0f;
+            }),
+        m_combatFloatingTexts.end());
+
+    if (m_pOutdoorWorldRuntime == nullptr)
+    {
+        return;
+    }
+
+    const std::vector<GameplayCombatFeedbackEvent> events = m_pOutdoorWorldRuntime->drainCombatFeedbackEvents();
+    std::optional<size_t> targetOnlyActorIndex;
+    std::optional<size_t> damagedActorIndex;
+
+    for (const GameplayCombatFeedbackEvent &event : events)
+    {
+        if (event.actorIndex < m_pOutdoorWorldRuntime->mapActorCount())
+        {
+            if (event.damage > 0)
+            {
+                damagedActorIndex = event.actorIndex;
+            }
+            else
+            {
+                targetOnlyActorIndex = event.actorIndex;
+            }
+
+            if (event.damage > 0 && m_gameSettings.combatText)
+            {
+                m_combatFloatingTexts.push_back(
+                    CombatFloatingText{
+                        .actorIndex = event.actorIndex,
+                        .amount = event.damage,
+                        .text = std::to_string(event.damage),
+                        .x = event.x,
+                        .y = event.y,
+                        .z = combatDamageTextOriginZ(event.z, event.height),
+                        .remainingSeconds = 0.6f,
+                        .durationSeconds = 0.6f,
+                        .colorAbgr = event.damage >= 100
+                            ? makeCombatHudColor(255, 225, 106, 255)
+                            : makeCombatHudColor(238, 235, 216, 255),
+                        .fontScale = combatDamageFontScale(event.damage),
+                    });
+            }
+        }
+    }
+
+    const std::optional<size_t> panelActorIndex = damagedActorIndex ? damagedActorIndex : targetOnlyActorIndex;
+
+    if (panelActorIndex)
+    {
+        m_combatTargetState.active = true;
+        m_combatTargetState.actorIndex = *panelActorIndex;
+        m_combatTargetState.remainingSeconds = CombatTargetPanelDurationSeconds;
+    }
+}
+
+void OutdoorGameView::renderCombatFeedbackOverlay(
+    int width,
+    int height,
+    const float *pViewProjectionMatrix)
+{
+    if (m_pOutdoorWorldRuntime == nullptr || width <= 0 || height <= 0 || pViewProjectionMatrix == nullptr)
+    {
+        return;
+    }
+
+    GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    screenRuntime.prepareHudView(width, height);
+
+    constexpr const char *FontName = "Create";
+    constexpr float CombatFontScale = 1.0f;
+    constexpr float DamageRisePixels = 29.0f;
+
+    if (m_gameSettings.combatText)
+    {
+        for (const CombatFloatingText &floatingText : m_combatFloatingTexts)
+        {
+            if (floatingText.remainingSeconds <= 0.0f || floatingText.durationSeconds <= 0.0f)
+            {
+                continue;
+            }
+
+            const float progress =
+                1.0f - std::clamp(floatingText.remainingSeconds / floatingText.durationSeconds, 0.0f, 1.0f);
+            ProjectedPoint projected = {};
+
+            if (!projectWorldPointToScreen(
+                    bx::Vec3{floatingText.x, floatingText.y, floatingText.z + progress * DamageRisePixels},
+                    width,
+                    height,
+                    pViewProjectionMatrix,
+                    projected))
+            {
+                continue;
+            }
+
+            const float fadeStartSeconds = 0.225f;
+            const float alpha = std::clamp(floatingText.remainingSeconds / fadeStartSeconds, 0.0f, 1.0f);
+            const uint8_t alphaByte = static_cast<uint8_t>(std::round(255.0f * alpha));
+            const uint32_t textColor = (floatingText.colorAbgr & 0x00ffffffu)
+                | (static_cast<uint32_t>(alphaByte) << 24);
+            const float fontScale = CombatFontScale * std::max(0.5f, floatingText.fontScale);
+            const float textWidth = screenRuntime.measureHudTextWidth(FontName, floatingText.text) * fontScale;
+            screenRuntime.renderHudTextLine(
+                FontName,
+                textColor,
+                floatingText.text,
+                projected.x - textWidth * 0.5f,
+                projected.y,
+                fontScale);
+        }
+    }
+
+    if (!m_gameSettings.combatTargetPanel)
+    {
+        return;
+    }
+
+    GameplayActorInspectState inspectState = {};
+
+    if (!m_combatTargetState.active
+        || m_combatTargetState.remainingSeconds <= 0.0f
+        || !m_pOutdoorWorldRuntime->actorInspectState(m_combatTargetState.actorIndex, 0, inspectState)
+        || inspectState.maxHp <= 0
+        || inspectState.currentHp <= 0
+        || inspectState.isDead)
+    {
+        m_combatTargetState = {};
+        return;
+    }
+
+    constexpr float PanelWidth = 260.0f;
+    constexpr float PanelHeight = 40.0f;
+    constexpr float BarHeight = 14.0f;
+    constexpr float Border = 2.0f;
+    constexpr float NameScale = 1.0f;
+    const float panelX = (static_cast<float>(width) - PanelWidth) * 0.5f;
+    const float panelY = 0.0f;
+    const float nameWidth = screenRuntime.measureHudTextWidth(FontName, inspectState.displayName) * NameScale;
+    const float nameX = panelX + (PanelWidth - nameWidth) * 0.5f;
+    const float barX = panelX + 12.0f;
+    const float barY = panelY + 22.0f;
+    const float barWidth = PanelWidth - 24.0f;
+    const float fillRatio =
+        std::clamp(static_cast<float>(inspectState.currentHp) / static_cast<float>(inspectState.maxHp), 0.0f, 1.0f);
+
+    drawCombatHudRect(
+        screenRuntime,
+        "__combat_target_panel_bg_tinted_strong__",
+        panelX,
+        panelY,
+        PanelWidth,
+        PanelHeight,
+        makeCombatHudColor(78, 16, 19, 214));
+    drawCombatHudRect(
+        screenRuntime,
+        "__combat_target_panel_highlight_tinted__",
+        panelX,
+        panelY,
+        PanelWidth,
+        1.0f,
+        makeCombatHudColor(158, 41, 44, 230));
+    screenRuntime.renderHudTextLine(
+        FontName,
+        makeCombatHudColor(255, 211, 132, 255),
+        inspectState.displayName,
+        nameX,
+        panelY + 2.0f,
+        NameScale);
+    drawCombatHudRect(
+        screenRuntime,
+        "__combat_target_bar_frame_tinted_strong__",
+        barX,
+        barY,
+        barWidth,
+        BarHeight,
+        makeCombatHudColor(18, 12, 10, 230));
+    const float fillWidth = (barWidth - Border * 2.0f) * fillRatio;
+    if (fillWidth > 0.0f)
+    {
+        drawCombatHudRect(
+            screenRuntime,
+            "__combat_target_bar_fill_tinted__",
+            barX + Border,
+            barY + Border,
+            fillWidth,
+            BarHeight - Border * 2.0f,
+            makeCombatHudColor(177, 25, 28, 245));
+        drawCombatHudRect(
+            screenRuntime,
+            "__combat_target_bar_gloss_tinted__",
+            barX + Border,
+            barY + Border,
+            fillWidth,
+            std::max(1.0f, (BarHeight - Border * 2.0f) * 0.32f),
+            makeCombatHudColor(255, 108, 82, 155));
+    }
 }
 
 void OutdoorGameView::showCombatStatusBarEvent(const std::string &text, float durationSeconds)

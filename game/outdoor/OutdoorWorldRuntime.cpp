@@ -12804,6 +12804,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
 
     const int previousHp = actor.currentHp;
     actor.currentHp = std::max(0, actor.currentHp - damage);
+    int experienceReward = 0;
     faceDirection(actor, partyX - actor.preciseX, partyY - actor.preciseY);
     setMapActorHostileToParty(actorIndex, partyX, partyY, partyZ, false);
 
@@ -12835,11 +12836,12 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
 
                 if (m_pParty != nullptr && pStats->experience > 0)
                 {
-                    m_pParty->grantSharedExperience(
+                    experienceReward = static_cast<int>(
                         gameplayBolsterExperienceReward(
                             pStats->experience,
                             pStats->hitPoints,
                             actor.bolsterRewardMultiplier));
+                    m_pParty->grantSharedExperience(static_cast<uint32_t>(experienceReward));
                 }
 
                 pushAudioEvent(
@@ -12891,6 +12893,21 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
         }
     }
 
+    if (damage > 0)
+    {
+        m_combatFeedbackEvents.push_back(
+            GameplayCombatFeedbackEvent{
+                .actorIndex = actorIndex,
+                .damage = damage,
+                .experience = experienceReward,
+                .x = actor.preciseX,
+                .y = actor.preciseY,
+                .z = actor.preciseZ,
+                .height = static_cast<float>(actor.height),
+                .killed = previousHp > 0 && actor.currentHp <= 0,
+            });
+    }
+
     aggroNearbyMapActorFaction(actorIndex, partyX, partyY, partyZ);
     return true;
 }
@@ -12901,6 +12918,13 @@ bool OutdoorWorldRuntime::applyPartyAttackMeleeDamage(
     const GameplayWorldPoint &source)
 {
     return applyPartyAttackToMapActor(actorIndex, damage, source.x, source.y, source.z);
+}
+
+std::vector<GameplayCombatFeedbackEvent> OutdoorWorldRuntime::drainCombatFeedbackEvents()
+{
+    std::vector<GameplayCombatFeedbackEvent> events = std::move(m_combatFeedbackEvents);
+    m_combatFeedbackEvents.clear();
+    return events;
 }
 
 void OutdoorWorldRuntime::applyPartyAttackMeleeEffects(
@@ -13004,6 +13028,22 @@ void OutdoorWorldRuntime::recordPartyAttackWorldResult(
     bool attacked,
     bool actionPerformed)
 {
+    if (actorIndex && actionPerformed && *actorIndex < m_mapActors.size())
+    {
+        const MapActorState &actor = m_mapActors[*actorIndex];
+        m_combatFeedbackEvents.push_back(
+            GameplayCombatFeedbackEvent{
+                .actorIndex = *actorIndex,
+                .damage = 0,
+                .experience = 0,
+                .x = actor.preciseX,
+                .y = actor.preciseY,
+                .z = actor.preciseZ,
+                .height = static_cast<float>(actor.height),
+                .killed = false,
+            });
+    }
+
     if (!m_eventRuntimeState)
     {
         return;

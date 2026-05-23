@@ -530,6 +530,11 @@ private:
     bool hasActiveEventDialog() const;
     void updateItemInspectOverlayState(int width, int height, const GameplayInputFrame &input);
     void updateActorInspectOverlayState(int width, int height, const GameplayInputFrame &input);
+    void updateCombatFeedback(float deltaSeconds);
+    void renderCombatFeedbackOverlay(
+        int width,
+        int height,
+        const float *pViewProjectionMatrix);
     const AdventurersInnMember *selectedAdventurersInnMember() const;
     AdventurersInnMember *selectedAdventurersInnMember();
     void consumePendingWorldAudioEvents();
@@ -544,6 +549,28 @@ private:
     void syncCursorToGameplayCrosshair(SDL_Window *pWindow = nullptr);
     void refreshViewDistanceCache();
     const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId = 0) const;
+
+    struct CombatFloatingText
+    {
+        size_t actorIndex = 0;
+        int amount = 0;
+        std::string text;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        float remainingSeconds = 0.0f;
+        float durationSeconds = 0.0f;
+        uint32_t colorAbgr = 0xffffffffu;
+        float fontScale = 1.0f;
+    };
+
+    struct CombatTargetState
+    {
+        bool active = false;
+        size_t actorIndex = 0;
+        float remainingSeconds = 0.0f;
+    };
+
     bool m_isInitialized;
     bool m_isRenderable;
     std::optional<MapStatsEntry> m_map;
@@ -737,5 +764,7 @@ private:
     PendingSavePreviewCaptureState m_pendingSavePreviewCapture;
     int m_lastRenderWidth = 0;
     int m_lastRenderHeight = 0;
+    std::vector<CombatFloatingText> m_combatFloatingTexts;
+    CombatTargetState m_combatTargetState;
 };
 }

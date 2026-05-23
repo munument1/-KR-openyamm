@@ -86,6 +86,18 @@ struct GameplayRuntimeActorState
     bool combatTargetingParty = false;
 };
 
+struct GameplayCombatFeedbackEvent
+{
+    size_t actorIndex = 0;
+    int damage = 0;
+    int experience = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float height = 0.0f;
+    bool killed = false;
+};
+
 enum class GameplayActorControlMode : uint8_t
 {
     None = 0,
@@ -646,6 +658,10 @@ public:
     }
     virtual bool spawnPartyAttackProjectile(const GameplayPartyAttackProjectileRequest &request) = 0;
     virtual bool castPartyAttackSpell(const GameplayPartyAttackSpellRequest &request) = 0;
+    virtual std::vector<GameplayCombatFeedbackEvent> drainCombatFeedbackEvents()
+    {
+        return {};
+    }
     virtual void recordPartyAttackWorldResult(
         std::optional<size_t> actorIndex,
         bool attacked,

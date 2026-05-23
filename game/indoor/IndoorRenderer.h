@@ -36,6 +36,7 @@
 namespace OpenYAMM::Game
 {
 class GameSession;
+struct GameSettings;
 struct GameplayInputFrame;
 struct PartySpellCastResult;
 class IndoorSceneRuntime;
@@ -117,6 +118,12 @@ public:
     GameplayHoverStatusPayload refreshGameplayWorldHover(const GameplayWorldHoverRequest &request);
     GameplayHoverStatusPayload readCachedGameplayWorldHover() const;
     void clearGameplayWorldHover();
+    bool projectGameplayWorldPointToScreen(
+        const bx::Vec3 &point,
+        int viewWidth,
+        int viewHeight,
+        float &screenX,
+        float &screenY) const;
     std::optional<size_t> gameplayHoveredActorIndex() const;
     std::optional<size_t> gameplayClosestVisibleHostileActorIndex() const;
     std::optional<bx::Vec3> gameplayActorTargetPoint(size_t actorIndex) const;
@@ -373,6 +380,7 @@ private:
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled,
         const GameplayContextActionState *pContextActionState = nullptr,
+        const GameSettings *pSettings = nullptr,
         LightingStats *pLightingStats = nullptr
     );
     void renderSpriteObjectBillboards(

@@ -78,6 +78,14 @@ uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
         | static_cast<uint32_t>(red);
 }
 
+uint32_t makeAbgrAlpha(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+{
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>(blue) << 16)
+        | (static_cast<uint32_t>(green) << 8)
+        | static_cast<uint32_t>(red);
+}
+
 uint8_t lightContributionByte(float value)
 {
     return static_cast<uint8_t>(
@@ -2283,6 +2291,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         float distanceSquared = 0.0f;
         float cameraDepth = 0.0f;
         uint32_t lightContributionAbgr = 0xff000000u;
+        bool hasHealthBar = false;
+        float healthRatio = 1.0f;
+        float healthBarZ = 0.0f;
+        float healthBarScale = 1.0f;
     };
 
     thread_local std::vector<BillboardDrawItem> drawItems;
@@ -2393,6 +2405,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
     {
         coveredRuntimeActors.assign(view.m_pOutdoorWorldRuntime->mapActorCount(), false);
     }
+
+    const bool renderCombatActorHealthBars = view.settingsSnapshot().combatActorHealthBars;
 
     auto appendActorDrawItem =
         [&](const OutdoorWorldRuntime::MapActorState *pRuntimeActor,
@@ -2530,11 +2544,29 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.distanceSquared = distanceSquared;
             drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
             const float previewScale = std::max(pFrame->scale * drawItem.heightScale, 0.01f);
+            const float worldHeight = static_cast<float>(pTexture->height) * previewScale;
             drawItem.lightContributionAbgr = computeBillboardLightContributionAbgr(
                 view,
                 drawItem.x,
                 drawItem.y,
-                drawItem.z + static_cast<float>(pTexture->height) * previewScale * 0.5f);
+                drawItem.z + worldHeight * 0.5f);
+
+            if (renderCombatActorHealthBars
+                && pRuntimeActor != nullptr
+                && pRuntimeActor->hostileToParty
+                && pRuntimeActor->currentHp > 0
+                && pRuntimeActor->maxHp > 0)
+            {
+                drawItem.hasHealthBar = true;
+                drawItem.healthRatio =
+                    std::clamp(
+                        static_cast<float>(pRuntimeActor->currentHp) / static_cast<float>(pRuntimeActor->maxHp),
+                        0.0f,
+                        1.0f);
+                drawItem.healthBarScale = 1.0f;
+            }
+
+            drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
             drawItems.push_back(drawItem);
         };
 
@@ -3230,6 +3262,74 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             }
         }
     }
+
+    thread_local std::vector<OutdoorGameView::TerrainVertex> healthBarVertices;
+    healthBarVertices.clear();
+
+    for (const BillboardDrawItem &drawItem : drawItems)
+    {
+        if (!drawItem.hasHealthBar)
+        {
+            continue;
+        }
+
+        const float barScale = std::max(0.65f, drawItem.healthBarScale);
+        const float barWidth = 92.0f * barScale;
+        const float barHeight = 11.0f * barScale;
+        const bx::Vec3 center = {drawItem.x, drawItem.y, drawItem.healthBarZ};
+        const bx::Vec3 shadowCenter = {
+            center.x - cameraUp.x * 3.0f * barScale,
+            center.y - cameraUp.y * 3.0f * barScale,
+            center.z - cameraUp.z * 3.0f * barScale
+        };
+        const bx::Vec3 frameRight = {
+            cameraRight.x * barWidth * 0.5f,
+            cameraRight.y * barWidth * 0.5f,
+            cameraRight.z * barWidth * 0.5f
+        };
+        const bx::Vec3 frameUp = {
+            cameraUp.x * barHeight * 0.5f,
+            cameraUp.y * barHeight * 0.5f,
+            cameraUp.z * barHeight * 0.5f
+        };
+        appendWorldQuadVertices(healthBarVertices, shadowCenter, frameRight, frameUp, makeAbgrAlpha(0, 0, 0, 150));
+        appendWorldQuadVertices(healthBarVertices, center, frameRight, frameUp, makeAbgrAlpha(18, 12, 10, 230));
+
+        const float innerWidth = std::max(2.0f, barWidth - 6.0f * barScale);
+        const float innerHeight = std::max(2.0f, barHeight - 4.0f * barScale);
+        const float fillWidth = std::max(1.0f, innerWidth * drawItem.healthRatio);
+        const float fillOffset = (innerWidth - fillWidth) * 0.5f;
+        const bx::Vec3 fillCenter = {
+            center.x - cameraRight.x * fillOffset,
+            center.y - cameraRight.y * fillOffset,
+            center.z - cameraRight.z * fillOffset
+        };
+        const bx::Vec3 fillRight = {
+            cameraRight.x * fillWidth * 0.5f,
+            cameraRight.y * fillWidth * 0.5f,
+            cameraRight.z * fillWidth * 0.5f
+        };
+        const bx::Vec3 fillUp = {
+            cameraUp.x * innerHeight * 0.5f,
+            cameraUp.y * innerHeight * 0.5f,
+            cameraUp.z * innerHeight * 0.5f
+        };
+        appendWorldQuadVertices(healthBarVertices, fillCenter, fillRight, fillUp, makeAbgrAlpha(177, 25, 28, 245));
+
+        const bx::Vec3 glossCenter = {
+            fillCenter.x + cameraUp.x * innerHeight * 0.22f,
+            fillCenter.y + cameraUp.y * innerHeight * 0.22f,
+            fillCenter.z + cameraUp.z * innerHeight * 0.22f
+        };
+        const bx::Vec3 glossUp = {
+            cameraUp.x * innerHeight * 0.16f,
+            cameraUp.y * innerHeight * 0.16f,
+            cameraUp.z * innerHeight * 0.16f
+        };
+        appendWorldQuadVertices(healthBarVertices, glossCenter, fillRight, glossUp, makeAbgrAlpha(255, 108, 82, 155));
+    }
+
+    submitColoredVertices(view, viewId, healthBarVertices, ColoredAlphaRenderState);
 
     const uint64_t totalActorRenderNanoseconds = SDL_GetTicksNS() - actorRenderStartTickCount;
 

@@ -399,6 +399,7 @@ public:
         const GameplayWorldPoint &source) override;
     bool spawnPartyAttackProjectile(const GameplayPartyAttackProjectileRequest &request) override;
     bool castPartyAttackSpell(const GameplayPartyAttackSpellRequest &request) override;
+    std::vector<GameplayCombatFeedbackEvent> drainCombatFeedbackEvents() override;
     void recordPartyAttackWorldResult(
         std::optional<size_t> actorIndex,
         bool attacked,
@@ -744,5 +745,6 @@ private:
     bool m_cachedGameplayMinimapLinesValid = false;
     uint64_t m_cachedGameplayMinimapLineSignature = 0;
     std::vector<GameplayMinimapLineState> m_cachedGameplayMinimapLines;
+    std::vector<GameplayCombatFeedbackEvent> m_combatFeedbackEvents;
 };
 }

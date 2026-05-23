@@ -612,6 +612,36 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "gameplay", "combat_text"))
+    {
+        bool parsed = settings.combatText;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.combatText = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "gameplay", "combat_actor_hp_bars"))
+    {
+        bool parsed = settings.combatActorHealthBars;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.combatActorHealthBars = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "gameplay", "combat_target_panel"))
+    {
+        bool parsed = settings.combatTargetPanel;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.combatTargetPanel = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "blood_splats"))
     {
         bool parsed = settings.bloodSplats;
@@ -1187,6 +1217,9 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "[gameplay]\n"
         << "keyboard_interaction_depth=" << std::clamp(settings.keyboardInteractionDepth, 32, 4096) << '\n'
         << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << '\n'
+        << "combat_text=" << (settings.combatText ? "true" : "false") << '\n'
+        << "combat_actor_hp_bars=" << (settings.combatActorHealthBars ? "true" : "false") << '\n'
+        << "combat_target_panel=" << (settings.combatTargetPanel ? "true" : "false") << '\n'
         << "context_action_popup=" << (settings.contextActionPopup ? "true" : "false") << "\n\n"
         << "[startup]\n"
         << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"

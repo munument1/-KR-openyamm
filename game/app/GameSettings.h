@@ -168,6 +168,9 @@ struct GameSettings
     bool debugConsole = true;
     int keyboardInteractionDepth = 512;
     int mouseInteractionDepth = 512;
+    bool combatText = true;
+    bool combatActorHealthBars = true;
+    bool combatTargetPanel = false;
 #if defined(__ANDROID__)
     bool contextActionPopup = true;
 #else

@@ -3850,6 +3850,7 @@ void IndoorRenderer::render(
         lightingFrame,
         settings.spriteOutline,
         pContextActionState,
+        &settings,
         pLightingStats);
 
     if (collectRenderDiagnostics)
@@ -5310,6 +5311,54 @@ void IndoorRenderer::clearGameplayWorldHover()
     m_cachedInspectHit = {};
     m_cachedInspectHitValid = false;
     m_cachedGameplayWorldPickRequest = {};
+}
+
+bool IndoorRenderer::projectGameplayWorldPointToScreen(
+    const bx::Vec3 &point,
+    int viewWidth,
+    int viewHeight,
+    float &screenX,
+    float &screenY) const
+{
+    viewWidth = std::max(viewWidth, 1);
+    viewHeight = std::max(viewHeight, 1);
+
+    const float aspectRatio = static_cast<float>(viewWidth) / static_cast<float>(viewHeight);
+    const float cosYaw = std::cos(m_cameraYawRadians);
+    const float sinYaw = std::sin(m_cameraYawRadians);
+    const float cosPitch = std::cos(m_cameraPitchRadians);
+    const float sinPitch = std::sin(m_cameraPitchRadians);
+    const bx::Vec3 eye = {m_cameraPositionX, m_cameraPositionY, m_cameraPositionZ};
+    const bx::Vec3 at = {
+        eye.x + cosYaw * cosPitch,
+        eye.y + sinYaw * cosPitch,
+        eye.z + sinPitch
+    };
+    const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
+    float viewMatrix[16] = {};
+    float projectionMatrix[16] = {};
+    float viewProjectionMatrix[16] = {};
+    bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
+    bx::mtxProj(
+        projectionMatrix,
+        IndoorCameraVerticalFovDegrees,
+        aspectRatio,
+        0.1f,
+        50000.0f,
+        bgfx::getCaps()->homogeneousDepth,
+        bx::Handedness::Right);
+    bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
+
+    ProjectedPoint projected = {};
+
+    if (!projectWorldPointToScreen(point, viewWidth, viewHeight, viewProjectionMatrix, projected))
+    {
+        return false;
+    }
+
+    screenX = projected.x;
+    screenY = projected.y;
+    return true;
 }
 
 std::optional<size_t> IndoorRenderer::gameplayHoveredActorIndex() const
@@ -6898,6 +6947,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
     const GameplayContextActionState *pContextActionState,
+    const GameSettings *pSettings,
     LightingStats *pLightingStats
 )
 {
@@ -6914,6 +6964,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         return;
     }
 
+    const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
     float billboardModelMatrix[16] = {};
     bx::mtxInverse(billboardModelMatrix, pViewMatrix);
@@ -6939,6 +6990,10 @@ void IndoorRenderer::renderActorPreviewBillboards(
         uint32_t hoveredOutlineColorAbgr = 0;
         float heightScale = 1.0f;
         float distanceSquared = 0.0f;
+        bool hasHealthBar = false;
+        float healthRatio = 1.0f;
+        float healthBarZ = 0.0f;
+        float healthBarScale = 1.0f;
     };
 
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
@@ -6947,6 +7002,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         ? std::optional<size_t>(m_cachedInspectHit.index)
         : std::nullopt;
     const GameplayWorldHit *pContextActionHit = selectedContextActionWorldHit(pContextActionState);
+    const bool renderCombatActorHealthBars = pSettings != nullptr && pSettings->combatActorHealthBars;
     const std::vector<RuntimeActorBillboard> runtimeBillboards =
         mapDeltaData && m_monsterTable
         ? buildRuntimeActorBillboards(
@@ -7066,6 +7122,41 @@ void IndoorRenderer::renderActorPreviewBillboards(
                             pActorAiState);
             }
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+
+            if (renderCombatActorHealthBars
+                && pActorAiState != nullptr
+                && pActorAiState->hostileToParty
+                && mapDeltaData
+                && billboard.actorIndex < mapDeltaData->actors.size()
+                && mapDeltaData->actors[billboard.actorIndex].hp > 0)
+            {
+                GameplayActorInspectState inspectState = {};
+                const bool hasInspectState =
+                    m_pSceneRuntime != nullptr
+                    && m_pSceneRuntime->worldRuntime().actorInspectState(
+                        billboard.actorIndex,
+                        0,
+                        inspectState);
+                const int maxHp = hasInspectState && inspectState.maxHp > 0
+                    ? inspectState.maxHp
+                    : static_cast<int>(mapDeltaData->actors[billboard.actorIndex].hp);
+                const int currentHp = hasInspectState
+                    ? inspectState.currentHp
+                    : static_cast<int>(mapDeltaData->actors[billboard.actorIndex].hp);
+
+                if (maxHp > 0 && currentHp > 0)
+                {
+                    drawItem.hasHealthBar = true;
+                    drawItem.healthRatio =
+                        std::clamp(
+                            static_cast<float>(currentHp) / static_cast<float>(maxHp),
+                            0.0f,
+                            1.0f);
+                    drawItem.healthBarScale = 1.0f;
+                }
+            }
+
+            drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
             drawItems.push_back(drawItem);
         }
     }
@@ -7385,6 +7476,124 @@ void IndoorRenderer::renderActorPreviewBillboards(
         {
             ++m_indoorPerformanceDiagnostics.renderActorSpriteSubmits;
         }
+    }
+
+    const auto appendWorldQuadVertices =
+        [](std::vector<TerrainVertex> &vertices,
+            const bx::Vec3 &center,
+            const bx::Vec3 &right,
+            const bx::Vec3 &up,
+            uint32_t colorAbgr)
+        {
+            vertices.push_back(
+                {center.x - right.x - up.x, center.y - right.y - up.y, center.z - right.z - up.z, colorAbgr});
+            vertices.push_back(
+                {center.x - right.x + up.x, center.y - right.y + up.y, center.z - right.z + up.z, colorAbgr});
+            vertices.push_back(
+                {center.x + right.x + up.x, center.y + right.y + up.y, center.z + right.z + up.z, colorAbgr});
+            vertices.push_back(
+                {center.x - right.x - up.x, center.y - right.y - up.y, center.z - right.z - up.z, colorAbgr});
+            vertices.push_back(
+                {center.x + right.x + up.x, center.y + right.y + up.y, center.z + right.z + up.z, colorAbgr});
+            vertices.push_back(
+                {center.x + right.x - up.x, center.y + right.y - up.y, center.z + right.z - up.z, colorAbgr});
+        };
+
+    std::vector<TerrainVertex> healthBarVertices;
+
+    for (const BillboardDrawItem &drawItem : drawItems)
+    {
+        if (!drawItem.hasHealthBar)
+        {
+            continue;
+        }
+
+        const float barScale = std::max(0.65f, drawItem.healthBarScale);
+        const float barWidth = 92.0f * barScale;
+        const float barHeight = 11.0f * barScale;
+        const bx::Vec3 center = {
+            static_cast<float>(drawItem.x),
+            static_cast<float>(drawItem.y),
+            drawItem.healthBarZ
+        };
+        const bx::Vec3 shadowCenter = {
+            center.x - cameraUp.x * 3.0f * barScale,
+            center.y - cameraUp.y * 3.0f * barScale,
+            center.z - cameraUp.z * 3.0f * barScale
+        };
+        const bx::Vec3 frameRight = {
+            cameraRight.x * barWidth * 0.5f,
+            cameraRight.y * barWidth * 0.5f,
+            cameraRight.z * barWidth * 0.5f
+        };
+        const bx::Vec3 frameUp = {
+            cameraUp.x * barHeight * 0.5f,
+            cameraUp.y * barHeight * 0.5f,
+            cameraUp.z * barHeight * 0.5f
+        };
+        appendWorldQuadVertices(healthBarVertices, shadowCenter, frameRight, frameUp, makeAbgrAlpha(0, 0, 0, 150));
+        appendWorldQuadVertices(healthBarVertices, center, frameRight, frameUp, makeAbgrAlpha(18, 12, 10, 230));
+
+        const float innerWidth = std::max(2.0f, barWidth - 6.0f * barScale);
+        const float innerHeight = std::max(2.0f, barHeight - 4.0f * barScale);
+        const float fillWidth = std::max(1.0f, innerWidth * drawItem.healthRatio);
+        const float fillOffset = (innerWidth - fillWidth) * 0.5f;
+        const bx::Vec3 fillCenter = {
+            center.x - cameraRight.x * fillOffset,
+            center.y - cameraRight.y * fillOffset,
+            center.z - cameraRight.z * fillOffset
+        };
+        const bx::Vec3 fillRight = {
+            cameraRight.x * fillWidth * 0.5f,
+            cameraRight.y * fillWidth * 0.5f,
+            cameraRight.z * fillWidth * 0.5f
+        };
+        const bx::Vec3 fillUp = {
+            cameraUp.x * innerHeight * 0.5f,
+            cameraUp.y * innerHeight * 0.5f,
+            cameraUp.z * innerHeight * 0.5f
+        };
+        appendWorldQuadVertices(healthBarVertices, fillCenter, fillRight, fillUp, makeAbgrAlpha(177, 25, 28, 245));
+
+        const bx::Vec3 glossCenter = {
+            fillCenter.x + cameraUp.x * innerHeight * 0.22f,
+            fillCenter.y + cameraUp.y * innerHeight * 0.22f,
+            fillCenter.z + cameraUp.z * innerHeight * 0.22f
+        };
+        const bx::Vec3 glossUp = {
+            cameraUp.x * innerHeight * 0.16f,
+            cameraUp.y * innerHeight * 0.16f,
+            cameraUp.z * innerHeight * 0.16f
+        };
+        appendWorldQuadVertices(healthBarVertices, glossCenter, fillRight, glossUp, makeAbgrAlpha(255, 108, 82, 155));
+    }
+
+    if (!healthBarVertices.empty()
+        && bgfx::isValid(m_programHandle)
+        && bgfx::getAvailTransientVertexBuffer(
+            static_cast<uint32_t>(healthBarVertices.size()),
+            TerrainVertex::ms_layout) >= healthBarVertices.size())
+    {
+        bgfx::TransientVertexBuffer transientVertexBuffer = {};
+        bgfx::allocTransientVertexBuffer(
+            &transientVertexBuffer,
+            static_cast<uint32_t>(healthBarVertices.size()),
+            TerrainVertex::ms_layout);
+        std::memcpy(
+            transientVertexBuffer.data,
+            healthBarVertices.data(),
+            healthBarVertices.size() * sizeof(TerrainVertex));
+
+        float modelMatrix[16] = {};
+        bx::mtxIdentity(modelMatrix);
+        bgfx::setTransform(modelMatrix);
+        bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(healthBarVertices.size()));
+        bgfx::setState(
+            BGFX_STATE_WRITE_RGB
+            | BGFX_STATE_WRITE_A
+            | BGFX_STATE_DEPTH_TEST_LEQUAL
+            | BGFX_STATE_BLEND_ALPHA);
+        bgfx::submit(viewId, m_programHandle);
     }
 }
 

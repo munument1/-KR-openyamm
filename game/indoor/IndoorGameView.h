@@ -97,10 +97,33 @@ private:
     void updateActorInspectOverlayState(int width, int height, const GameplayInputFrame &input);
     void updateFootstepAudio(float deltaSeconds);
     void updateDialogueVideoPlayback(float deltaSeconds);
+    void updateCombatFeedback(float deltaSeconds);
+    void renderCombatFeedbackOverlay(int width, int height);
     bool beginSaveWithPreview(
         const std::filesystem::path &path,
         const std::string &saveName,
         bool closeUiOnSuccess);
+
+    struct CombatFloatingText
+    {
+        size_t actorIndex = 0;
+        int amount = 0;
+        std::string text;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        float remainingSeconds = 0.0f;
+        float durationSeconds = 0.0f;
+        uint32_t colorAbgr = 0xffffffffu;
+        float fontScale = 1.0f;
+    };
+
+    struct CombatTargetState
+    {
+        bool active = false;
+        size_t actorIndex = 0;
+        float remainingSeconds = 0.0f;
+    };
 
     struct PendingSavePreviewCaptureState
     {
@@ -130,5 +153,7 @@ private:
     float m_lastFootstepY = 0.0f;
     float m_walkingMotionHoldSeconds = 0.0f;
     std::optional<uint32_t> m_activeWalkingSoundId;
+    std::vector<CombatFloatingText> m_combatFloatingTexts;
+    CombatTargetState m_combatTargetState;
 };
 } // namespace OpenYAMM::Game

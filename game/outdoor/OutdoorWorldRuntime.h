@@ -622,6 +622,7 @@ public:
         const GameplayWorldPoint &source) override;
     bool spawnPartyAttackProjectile(const GameplayPartyAttackProjectileRequest &request) override;
     bool castPartyAttackSpell(const GameplayPartyAttackSpellRequest &request) override;
+    std::vector<GameplayCombatFeedbackEvent> drainCombatFeedbackEvents() override;
     void recordPartyAttackWorldResult(
         std::optional<size_t> actorIndex,
         bool attacked,
@@ -1293,6 +1294,7 @@ private:
     std::vector<WorldItemState> m_worldItems;
     uint32_t m_nextWorldItemId = 1;
     float m_gameplayOverlayRemainingSeconds = 0.0f;
+    std::vector<GameplayCombatFeedbackEvent> m_combatFeedbackEvents;
     float m_gameplayOverlayDurationSeconds = 0.0f;
     float m_gameplayOverlayPeakAlpha = 0.0f;
     uint32_t m_gameplayOverlayColorAbgr = 0x00000000u;

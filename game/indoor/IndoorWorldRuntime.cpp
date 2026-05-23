@@ -11595,6 +11595,7 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
     const int appliedDamage = applyMonsterDamageEventHooks(actorIndex, resolvedMonsterId, damage, damageType);
     const int previousHp = actor.hp;
     const int nextHp = std::max(0, previousHp - appliedDamage);
+    int experienceReward = 0;
     actor.hp = static_cast<int16_t>(nextHp);
     actor.attributes |= static_cast<uint32_t>(EvtActorAttribute::Hostile)
         | static_cast<uint32_t>(EvtActorAttribute::Aggressor)
@@ -11704,9 +11705,27 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
             const float rewardMultiplier = actorIndex < m_mapActorAiStates.size()
                 ? m_mapActorAiStates[actorIndex].bolsterRewardMultiplier
                 : 1.0f;
-            m_pParty->grantSharedExperience(
+            experienceReward = static_cast<int>(
                 gameplayBolsterExperienceReward(pStats->experience, pStats->hitPoints, rewardMultiplier));
+            m_pParty->grantSharedExperience(static_cast<uint32_t>(experienceReward));
         }
+    }
+
+    if (appliedDamage > 0)
+    {
+        const MapActorAiState *pAiState =
+            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
+        m_combatFeedbackEvents.push_back(
+            GameplayCombatFeedbackEvent{
+                .actorIndex = actorIndex,
+                .damage = appliedDamage,
+                .experience = experienceReward,
+                .x = pAiState != nullptr ? pAiState->preciseX : static_cast<float>(actor.x),
+                .y = pAiState != nullptr ? pAiState->preciseY : static_cast<float>(actor.y),
+                .z = pAiState != nullptr ? pAiState->preciseZ : static_cast<float>(actor.z),
+                .height = pAiState != nullptr ? static_cast<float>(pAiState->collisionHeight) : 128.0f,
+                .killed = previousHp > 0 && nextHp <= 0,
+            });
     }
 
     aggroNearbyMapActorFaction(actorIndex);
@@ -11719,6 +11738,13 @@ bool IndoorWorldRuntime::applyPartyAttackMeleeDamage(
     const GameplayWorldPoint &source)
 {
     return applyPartyAttackMeleeDamage(actorIndex, damage, CombatDamageType::Physical, source);
+}
+
+std::vector<GameplayCombatFeedbackEvent> IndoorWorldRuntime::drainCombatFeedbackEvents()
+{
+    std::vector<GameplayCombatFeedbackEvent> events = std::move(m_combatFeedbackEvents);
+    m_combatFeedbackEvents.clear();
+    return events;
 }
 
 void IndoorWorldRuntime::applyPartyAttackMeleeEffects(
@@ -11932,6 +11958,29 @@ void IndoorWorldRuntime::recordPartyAttackWorldResult(
     bool attacked,
     bool actionPerformed)
 {
+    if (actorIndex && actionPerformed)
+    {
+        const MapDeltaData *pMapDeltaData = mapDeltaData();
+
+        if (pMapDeltaData != nullptr && *actorIndex < pMapDeltaData->actors.size())
+        {
+            const MapDeltaActor &actor = pMapDeltaData->actors[*actorIndex];
+            const MapActorAiState *pAiState =
+                *actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[*actorIndex] : nullptr;
+            m_combatFeedbackEvents.push_back(
+                GameplayCombatFeedbackEvent{
+                    .actorIndex = *actorIndex,
+                    .damage = 0,
+                    .experience = 0,
+                    .x = pAiState != nullptr ? pAiState->preciseX : static_cast<float>(actor.x),
+                    .y = pAiState != nullptr ? pAiState->preciseY : static_cast<float>(actor.y),
+                    .z = pAiState != nullptr ? pAiState->preciseZ : static_cast<float>(actor.z),
+                    .height = pAiState != nullptr ? static_cast<float>(pAiState->collisionHeight) : 128.0f,
+                    .killed = false,
+                });
+        }
+    }
+
     if (!m_pEventRuntimeState || !*m_pEventRuntimeState)
     {
         return;
