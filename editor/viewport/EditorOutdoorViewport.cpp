@@ -2690,7 +2690,9 @@ std::vector<EditorOutdoorViewport::TexturedPreviewVertex> buildTexturedBModelFac
     const Game::OutdoorBModel &bmodel = outdoorMapData.bmodels[bmodelIndex];
     const Game::OutdoorBModelFace &face = bmodel.faces[faceIndex];
 
-    if (face.vertexIndices.size() < 3 || face.textureName.empty())
+    if (Game::hasFaceAttribute(face.attributes, Game::FaceAttribute::Invisible)
+        || face.vertexIndices.size() < 3
+        || face.textureName.empty())
     {
         return vertices;
     }
@@ -6649,7 +6651,8 @@ void EditorOutdoorViewport::ensureGeometryBuffers(const EditorSession &session)
     }
 
     BitmapLoadCache bitmapLoadCache = {};
-    const std::optional<TerrainAtlasData> atlasData = buildTerrainAtlasData(assetFileSystem, outdoorGeometry, bitmapLoadCache);
+    const std::optional<TerrainAtlasData> atlasData =
+        buildTerrainAtlasData(assetFileSystem, outdoorGeometry, bitmapLoadCache);
 
     if (atlasData && !atlasData->pixels.empty())
     {
@@ -6722,6 +6725,11 @@ void EditorOutdoorViewport::ensureGeometryBuffers(const EditorSession &session)
         for (size_t faceIndex = 0; faceIndex < bmodel.faces.size(); ++faceIndex)
         {
             const Game::OutdoorBModelFace &face = bmodel.faces[faceIndex];
+            if (Game::hasFaceAttribute(face.attributes, Game::FaceAttribute::Invisible))
+            {
+                continue;
+            }
+
             std::vector<ProceduralPreviewVertex> allFaceVertices =
                 buildProceduralBModelFaceVertices(outdoorGeometry, bmodelIndex, faceIndex, previewOrigin);
 
@@ -8077,6 +8085,7 @@ bool EditorOutdoorViewport::trySelectInteractiveFace(
         float score = std::numeric_limits<float>::max();
         float facingScore = -std::numeric_limits<float>::max();
         bool frontFacing = false;
+        bool fluid = false;
     };
 
     std::vector<FacePickCandidate> pickCandidates;
@@ -8124,7 +8133,8 @@ bool EditorOutdoorViewport::trySelectInteractiveFace(
                 faceIndex,
                 intersectionFactor,
                 facingScore,
-                facingScore > FaceFrontFacingThreshold});
+                facingScore > FaceFrontFacingThreshold,
+                Game::hasFaceAttribute(bmodel.faces[faceIndex].attributes, Game::FaceAttribute::Fluid)});
         }
     }
 
@@ -8194,7 +8204,8 @@ bool EditorOutdoorViewport::trySelectInteractiveFace(
                     faceIndex,
                     averageClipW,
                     facingScore,
-                    facingScore > FaceFrontFacingThreshold});
+                    facingScore > FaceFrontFacingThreshold,
+                    Game::hasFaceAttribute(bmodel.faces[faceIndex].attributes, Game::FaceAttribute::Fluid)});
             }
         }
 
@@ -8204,20 +8215,23 @@ bool EditorOutdoorViewport::trySelectInteractiveFace(
         }
     }
 
-    const bool hasFrontFacingCandidate = std::any_of(
+    const bool hasNonFluidCandidate = std::any_of(
         pickCandidates.begin(),
         pickCandidates.end(),
         [](const FacePickCandidate &candidate)
         {
-            return candidate.frontFacing;
+            return !candidate.fluid;
         });
 
-    std::erase_if(
-        pickCandidates,
-        [hasFrontFacingCandidate](const FacePickCandidate &candidate)
-        {
-            return hasFrontFacingCandidate && !candidate.frontFacing;
-        });
+    if (hasNonFluidCandidate)
+    {
+        std::erase_if(
+            pickCandidates,
+            [](const FacePickCandidate &candidate)
+            {
+                return candidate.fluid;
+            });
+    }
 
     std::sort(
         pickCandidates.begin(),
@@ -10226,7 +10240,9 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
         return selectedBModelIndex && *selectedBModelIndex == bmodelIndex;
     };
 
-    if (m_showTerrainFill && terrainUsesClay && m_terrainVertexCount > 0)
+    const bool showTerrainFill = m_showTerrainFill;
+
+    if (showTerrainFill && terrainUsesClay && m_terrainVertexCount > 0)
     {
         submitProceduralBatch(
             m_terrainVertexBufferHandle,
@@ -10235,7 +10251,7 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
             m_clayPreviewSettings,
             false);
     }
-    else if (m_showTerrainFill
+    else if (showTerrainFill
         && bgfx::isValid(m_texturedTerrainVertexBufferHandle)
         && bgfx::isValid(m_terrainTextureAtlasHandle)
         && bgfx::isValid(m_texturedProgramHandle)
@@ -10253,7 +10269,7 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
                 | BGFX_STATE_MSAA);
         bgfx::submit(EditorSceneViewId, m_texturedProgramHandle);
     }
-    else if (m_showTerrainFill && m_terrainVertexCount > 0)
+    else if (showTerrainFill && m_terrainVertexCount > 0)
     {
         submitProceduralBatch(
             m_terrainVertexBufferHandle,
@@ -10263,7 +10279,7 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
             false);
     }
 
-    if (m_showTerrainFill && m_terrainErrorVertexCount > 0)
+    if (showTerrainFill && m_terrainErrorVertexCount > 0)
     {
         submitGridBatch(
             m_terrainErrorVertexBufferHandle,

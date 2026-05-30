@@ -357,7 +357,10 @@ function(openyamm_configure_runtime_shaders)
     openyamm_copy_runtime_shader("vs_cubes.bin")
     openyamm_copy_runtime_shader("fs_cubes.bin")
     openyamm_copy_runtime_shader("vs_shadowmaps_texture.bin")
-    openyamm_copy_runtime_shader("fs_shadowmaps_texture.bin")
+    openyamm_compile_bgfx_shader(
+        "${CMAKE_SOURCE_DIR}/game/shaders/fs_shadowmaps_texture.sc"
+        "fragment"
+        "fs_shadowmaps_texture.bin")
     openyamm_compile_bgfx_shader(
         "${CMAKE_SOURCE_DIR}/game/shaders/vs_outdoor_textured_fog.sc"
         "vertex"
