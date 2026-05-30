@@ -616,6 +616,7 @@ private:
     bgfx::UniformHandle m_outdoorFogColorUniformHandle;
     bgfx::UniformHandle m_outdoorFogDensitiesUniformHandle;
     bgfx::UniformHandle m_outdoorFogDistancesUniformHandle;
+    bgfx::UniformHandle m_outdoorCameraPositionUniformHandle;
     bgfx::UniformHandle m_secretPulseParamsUniformHandle;
     bgfx::UniformHandle m_spellAreaPreviewParams0UniformHandle;
     bgfx::UniformHandle m_spellAreaPreviewParams1UniformHandle;

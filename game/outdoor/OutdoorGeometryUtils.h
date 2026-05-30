@@ -39,6 +39,7 @@ struct OutdoorFaceGeometryData
     uint8_t polygonType = 0;
     uint32_t attributes = 0;
     bool isWalkable = false;
+    bool notAStep = false;
     bool hasPlane = false;
     float minX = 0.0f;
     float maxX = 0.0f;
@@ -56,9 +57,11 @@ struct OutdoorSupportFloorSample
     bool fromBModel = false;
     size_t bModelIndex = 0;
     size_t faceIndex = 0;
+    bool hasFloor = true;
 };
 
 bool isOutdoorWalkablePolygonType(uint8_t polygonType);
+bool outdoorMapUsesBModelGround(const OutdoorMapData &outdoorMapData);
 bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z);
 bx::Vec3 outdoorBModelVertexToWorld(const OutdoorBModelVertex &vertex);
 float sampleOutdoorTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y);

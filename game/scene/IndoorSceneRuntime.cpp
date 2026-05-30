@@ -250,6 +250,40 @@ bool hasIndoorPressurePlateSupportFace(const IndoorMoveState &state)
     return state.grounded && state.supportFaceIndex != static_cast<size_t>(-1);
 }
 
+uint32_t effectiveIndoorSceneFaceAttributes(
+    const IndoorFace &face,
+    const std::optional<MapDeltaData> &mapDeltaData,
+    size_t faceIndex)
+{
+    if (mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size())
+    {
+        return mapDeltaData->faceAttributes[faceIndex];
+    }
+
+    return face.attributes;
+}
+
+std::optional<uint16_t> indoorPressurePlateEventId(
+    const IndoorMapData &indoorMapData,
+    const std::optional<MapDeltaData> &mapDeltaData,
+    size_t faceIndex)
+{
+    if (faceIndex >= indoorMapData.faces.size())
+    {
+        return std::nullopt;
+    }
+
+    const IndoorFace &face = indoorMapData.faces[faceIndex];
+    const uint32_t attributes = effectiveIndoorSceneFaceAttributes(face, mapDeltaData, faceIndex);
+
+    if (face.cogTriggered == 0 || !hasFaceAttribute(attributes, FaceAttribute::PressurePlate))
+    {
+        return std::nullopt;
+    }
+
+    return face.cogTriggered;
+}
+
 std::string uppercaseCopy(const std::string &value)
 {
     std::string result = value;
@@ -936,6 +970,21 @@ bool IndoorSceneRuntime::updatePartyFaceTriggers()
     m_lastPartyFloorFaceForPressurePlateTriggers = currentMoveState.supportFaceIndex;
 
     if (previousFloorFaceIndex == currentMoveState.supportFaceIndex)
+    {
+        return false;
+    }
+
+    if (m_pIndoorMapData == nullptr)
+    {
+        return false;
+    }
+
+    const std::optional<uint16_t> previousPressureEvent =
+        indoorPressurePlateEventId(*m_pIndoorMapData, m_mapDeltaData, previousFloorFaceIndex);
+    const std::optional<uint16_t> currentPressureEvent =
+        indoorPressurePlateEventId(*m_pIndoorMapData, m_mapDeltaData, currentMoveState.supportFaceIndex);
+
+    if (previousPressureEvent && currentPressureEvent && *previousPressureEvent == *currentPressureEvent)
     {
         return false;
     }

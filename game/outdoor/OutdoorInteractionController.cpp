@@ -1080,6 +1080,13 @@ std::optional<size_t> OutdoorInteractionController::resolveClosestVisibleHostile
             continue;
         }
 
+        if (!view.m_pOutdoorWorldRuntime->hasClearOutdoorLineOfSight(
+                bx::Vec3{sourceX, sourceY, sourceZ},
+                actorPoint))
+        {
+            continue;
+        }
+
         const float dx = pActor->preciseX - sourceX;
         const float dy = pActor->preciseY - sourceY;
         const float dz = pActor->preciseZ - sourceZ;
@@ -1239,7 +1246,9 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
         projectionMatrix,
         OutdoorGameView::DecorationPickMode::Interaction);
     const std::optional<float> terrainDistance =
-        intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
+        outdoorMapUsesBModelGround(*view.m_outdoorMapData)
+            ? std::nullopt
+            : intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
     const std::optional<bx::Vec3> fallbackGroundTargetPoint =
         terrainDistance
             ? std::optional<bx::Vec3>(bx::Vec3 {
@@ -2709,7 +2718,9 @@ GameplayPendingSpellWorldTargetFacts OutdoorInteractionController::pickPendingSp
             OutdoorGameView::DecorationPickMode::Interaction);
 
         const std::optional<float> terrainDistance =
-            intersectOutdoorTerrainRay(outdoorMapData, rayOrigin, rayDirection);
+            outdoorMapUsesBModelGround(outdoorMapData)
+                ? std::nullopt
+                : intersectOutdoorTerrainRay(outdoorMapData, rayOrigin, rayDirection);
 
         if (terrainDistance)
         {
@@ -2850,7 +2861,9 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveSpellActionForwardG
             std::sin(cameraPitchRadians)
         };
         const std::optional<float> terrainDistance =
-            intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
+            outdoorMapUsesBModelGround(*view.m_outdoorMapData)
+                ? std::nullopt
+                : intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
 
         if (terrainDistance)
         {
@@ -3544,8 +3557,11 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
         return {};
     }
 
-    const float terrainBlockDistance =
-        intersectOutdoorTerrainRay(outdoorMapData, rayOrigin, rayDirection).value_or(std::numeric_limits<float>::max());
+    const std::optional<float> terrainBlockHit =
+        outdoorMapUsesBModelGround(outdoorMapData)
+            ? std::nullopt
+            : intersectOutdoorTerrainRay(outdoorMapData, rayOrigin, rayDirection);
+    const float terrainBlockDistance = terrainBlockHit.value_or(std::numeric_limits<float>::max());
     const float terrainDistanceEpsilon = 1.0f;
     const bool allowDecorationBillboardHit =
         pViewMatrix != nullptr
@@ -3592,8 +3608,8 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
     if (view.m_pOutdoorWorldRuntime != nullptr)
     {
         const float maxQueryDistance =
-            std::isfinite(terrainBlockDistance)
-                ? terrainBlockDistance + terrainDistanceEpsilon
+            terrainBlockHit
+                ? *terrainBlockHit + terrainDistanceEpsilon
                 : view.m_viewDistanceCache.farClipDistance;
         const bx::Vec3 rayEnd = {
             rayOrigin.x + rayDirection.x * maxQueryDistance,

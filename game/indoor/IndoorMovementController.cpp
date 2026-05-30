@@ -30,6 +30,7 @@ constexpr float SteepFloorUphillEpsilon = 0.01f;
 constexpr float IndoorMovementSubstepDistance = 24.0f;
 constexpr int MaxIndoorMovementSubsteps = 64;
 constexpr float WallOverlapRecoveryMinVelocity = 480.0f;
+constexpr float BlockedWallMinimumUsefulResponseDistance = 0.25f;
 
 bool hasCylinderCollisionHorizontalComponent(float x, float y)
 {
@@ -144,6 +145,24 @@ bool indoorFaceBlocksAsWallOverlap(const IndoorFaceGeometryData &geometry, float
     }
 
     return !indoorFaceIsSteepFloorCollisionSurface(geometry);
+}
+
+bool indoorFaceBlocksPathRecovery(const IndoorFaceGeometryData &geometry, float footZ)
+{
+    if (indoorFaceBlocksAsWallOverlap(geometry, footZ))
+    {
+        return true;
+    }
+
+    if (geometry.isPortal
+        || hasFaceAttribute(geometry.attributes, FaceAttribute::Untouchable)
+        || geometry.maxZ <= footZ + MaximumRise
+        || !indoorFaceIsSteepFloorCollisionSurface(geometry))
+    {
+        return false;
+    }
+
+    return hasCylinderCollisionHorizontalComponent(geometry.normal.x, geometry.normal.y);
 }
 
 bool indoorBodyStartsInsideSteepFloorSweepRadius(
@@ -711,7 +730,9 @@ IndoorMovementController::SweptCollisionRequest IndoorMovementController::buildS
     bool jumpRequested,
     float deltaSeconds,
     std::optional<size_t> ignoredActorIndex,
-    bool blockActorSlide
+    bool blockActorSlide,
+    bool allowUnsupportedPathRecovery,
+    bool allowBlockedWallRecovery
 ) const
 {
     SweptCollisionRequest request = {};
@@ -722,6 +743,8 @@ IndoorMovementController::SweptCollisionRequest IndoorMovementController::buildS
     request.jumpRequested = jumpRequested;
     request.ignoredActorIndex = ignoredActorIndex;
     request.blockActorSlide = blockActorSlide;
+    request.allowUnsupportedPathRecovery = allowUnsupportedPathRecovery;
+    request.allowBlockedWallRecovery = allowBlockedWallRecovery;
     return request;
 }
 
@@ -1207,6 +1230,7 @@ IndoorMoveState IndoorMovementController::initializeStateFromEyePosition(
                 candidateState.sectorId >= 0 ? std::optional<int16_t>(candidateState.sectorId) : std::nullopt,
                 candidateState.eyeSectorId >= 0 ? std::optional<int16_t>(candidateState.eyeSectorId) : std::nullopt,
                 candidateState.supportFaceIndex,
+                static_cast<size_t>(-1),
                 0.0f,
                 0.0f,
                 nullptr);
@@ -1248,7 +1272,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
     float jumpVelocity,
     float jumpLift,
     bool lockVerticalPosition,
-    bool preventGroundActorLedgeDrop
+    bool preventGroundActorLedgeDrop,
+    bool allowUnsupportedPathRecovery,
+    bool allowBlockedWallRecovery
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1282,7 +1308,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             jumpVelocity,
             jumpLift,
             lockVerticalPosition,
-            preventGroundActorLedgeDrop);
+            preventGroundActorLedgeDrop,
+            allowUnsupportedPathRecovery,
+            allowBlockedWallRecovery);
     }
 
     const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
@@ -1314,7 +1342,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             jumpVelocity,
             jumpLift,
             lockVerticalPosition,
-            preventGroundActorLedgeDrop);
+            preventGroundActorLedgeDrop,
+            allowUnsupportedPathRecovery,
+            allowBlockedWallRecovery);
     }
 
     IndoorMoveState currentState = state;
@@ -1341,7 +1371,9 @@ IndoorMoveState IndoorMovementController::resolveMove(
             jumpVelocity,
             jumpLift,
             lockVerticalPosition,
-            preventGroundActorLedgeDrop);
+            preventGroundActorLedgeDrop,
+            allowUnsupportedPathRecovery,
+            allowBlockedWallRecovery);
 
         if (currentState.landedThisFrame)
         {
@@ -1389,6 +1421,63 @@ IndoorMoveState IndoorMovementController::resolveFlyingActorMove(
         *pVerticalDebugInfo = {};
     }
 
+    const auto constrainToFlyingFloor = [this, &body](const IndoorMoveState &candidate) -> IndoorMoveState
+    {
+        if (m_pIndoorMapData == nullptr)
+        {
+            return candidate;
+        }
+
+        const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
+        IndoorFaceGeometryCache &geometryCache = m_runtimeGeometryCache.geometryCache;
+        const std::vector<IndoorVertex> &vertices = runtimeCache.vertices;
+
+        if (vertices.empty())
+        {
+            return candidate;
+        }
+
+        const std::optional<int16_t> preferredSectorId =
+            candidate.sectorId >= 0 ? std::optional<int16_t>(candidate.sectorId) : std::nullopt;
+        const float probeZ = candidate.footZ + std::max(body.radius, 1.0f);
+        const IndoorFloorSample floor =
+            sampleSupportedFloor(
+                vertices,
+                geometryCache,
+                candidate.x,
+                candidate.y,
+                probeZ,
+                body.height + 1024.0f,
+                body.height + 1024.0f,
+                body,
+                preferredSectorId,
+                &runtimeCache.nonBlockingMechanismFaceMask);
+
+        if (!floor.hasFloor || candidate.footZ >= floor.height || floor.height > probeZ + GroundSnapSlack)
+        {
+            return candidate;
+        }
+
+        IndoorMoveState constrained = candidate;
+        constrained.footZ = floor.height;
+        constrained.verticalVelocity = std::max(0.0f, constrained.verticalVelocity);
+        constrained.sectorId = floor.sectorId;
+        constrained.supportFaceIndex = static_cast<size_t>(-1);
+        constrained.grounded = false;
+        constrained.fallStartZ = constrained.footZ;
+
+        const std::optional<int16_t> eyeSectorId =
+            findIndoorSectorForPoint(
+                *m_pIndoorMapData,
+                vertices,
+                {constrained.x, constrained.y, constrained.eyeZ()},
+                &geometryCache,
+                false);
+        constrained.eyeSectorId = eyeSectorId.value_or(floor.sectorId);
+
+        return constrained;
+    };
+
     IndoorMoveState horizontalState = state;
     const float savedVerticalVelocity = state.verticalVelocity;
     horizontalState.verticalVelocity = 0.0f;
@@ -1410,6 +1499,7 @@ IndoorMoveState IndoorMovementController::resolveFlyingActorMove(
             420.0f,
             1.0f,
             true);
+    resolvedState = constrainToFlyingFloor(resolvedState);
 
     if (resolvedState.footZ > state.footZ)
     {
@@ -1417,19 +1507,21 @@ IndoorMoveState IndoorMovementController::resolveFlyingActorMove(
     }
 
     resolvedState.verticalVelocity = savedVerticalVelocity;
-    return resolveMove(
-        resolvedState,
-        body,
-        0.0f,
-        0.0f,
-        false,
-        deltaSeconds,
-        pContactedActorIndices,
-        ignoredActorIndex,
-        blockActorSlide,
-        pVerticalDebugInfo,
-        true,
-        ignoreActorCollisions);
+    IndoorMoveState verticalState =
+        resolveMove(
+            resolvedState,
+            body,
+            0.0f,
+            0.0f,
+            false,
+            deltaSeconds,
+            pContactedActorIndices,
+            ignoredActorIndex,
+            blockActorSlide,
+            pVerticalDebugInfo,
+            true,
+            ignoreActorCollisions);
+    return constrainToFlyingFloor(verticalState);
 }
 
 IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
@@ -1448,7 +1540,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     float jumpVelocity,
     float jumpLift,
     bool lockVerticalPosition,
-    bool preventGroundActorLedgeDrop
+    bool preventGroundActorLedgeDrop,
+    bool allowUnsupportedPathRecovery,
+    bool allowBlockedWallRecovery
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1473,7 +1567,9 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         jumpRequested,
         deltaSeconds,
         ignoredActorIndex,
-        blockActorSlide);
+        blockActorSlide,
+        allowUnsupportedPathRecovery,
+        allowBlockedWallRecovery);
     const SweptCollisionState sweptState = buildSweptCollisionState(sweptRequest);
     IndoorMoveState resolved = state;
     const float stepX = sweptState.velocity.x * sweptRequest.deltaSeconds;
@@ -1604,7 +1700,8 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             IndoorMoveState &candidateState,
             bool testFaceCollision,
             bool *pHitActor,
-            IndoorWallCollision *pWallCollision) -> bool
+            IndoorWallCollision *pWallCollision,
+            size_t ignoredOverlapFaceIndex = static_cast<size_t>(-1)) -> bool
     {
         IndoorFloorSample floor = sampleSupportedFloor(
             vertices,
@@ -1758,14 +1855,21 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
 
         if (floor.hasFloor)
         {
+            const bool unsupportedPathRecovery =
+                sweptRequest.allowUnsupportedPathRecovery
+                && !state.grounded
+                && state.supportFaceIndex == static_cast<size_t>(-1)
+                && !sweptRequest.jumpRequested;
+            const float snapAboveSlack =
+                unsupportedPathRecovery ? std::max(GroundSnapSlack, body.radius) : GroundSnapSlack;
             const bool closeEnoughToSnapToFloor =
-                positionFootZ <= floor.height + GroundSnapSlack
+                positionFootZ <= floor.height + snapAboveSlack
                 && positionFootZ >= floor.height - MaximumDrop;
             const bool shouldSnapToFloor =
                 !flying
                 && positionVerticalVelocity <= 0.0f
                 && closeEnoughToSnapToFloor
-                && (state.grounded || positionFootZ <= floor.height + GroundSnapSlack);
+                && (state.grounded || unsupportedPathRecovery || positionFootZ <= floor.height + GroundSnapSlack);
 
             if (shouldSnapToFloor)
             {
@@ -1835,6 +1939,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 primarySectorId,
                 eyeSectorId,
                 state.grounded ? state.supportFaceIndex : static_cast<size_t>(-1),
+                ignoredOverlapFaceIndex,
                 candidateX - currentX,
                 candidateY - currentY,
                 pWallCollision))
@@ -1915,11 +2020,19 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         for (const IndoorFaceGeometryData *pGeometry : candidateFaces)
         {
             if (pGeometry == nullptr
-                || !indoorFaceBlocksAsWallOverlap(*pGeometry, moveState.footZ)
+                || !(indoorFaceBlocksAsWallOverlap(*pGeometry, moveState.footZ)
+                    || (sweptRequest.allowBlockedWallRecovery
+                        && indoorFaceBlocksPathRecovery(*pGeometry, moveState.footZ)))
                 || (moveState.grounded
                     && pGeometry->faceIndex == moveState.supportFaceIndex
                     && indoorFaceIsSteepFloorCollisionSurface(*pGeometry))
-                || !isIndoorCylinderBlockedByFace(*pGeometry, moveState.x, moveState.y, moveState.footZ, body.radius, body.height))
+                || !isIndoorCylinderBlockedByFace(
+                    *pGeometry,
+                    moveState.x,
+                    moveState.y,
+                    moveState.footZ,
+                    body.radius,
+                    body.height))
             {
                 continue;
             }
@@ -1945,53 +2058,353 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         return bestOverlap;
     };
 
+    const auto tryRecoverFromWallOverlap =
+        [&](const IndoorMoveState &baseState, const IndoorWallCollision &overlap) -> std::optional<IndoorMoveState>
+    {
+        const bx::Vec3 horizontalNormal = normalizeVec({overlap.normal.x, overlap.normal.y, 0.0f});
+
+        if (!overlap.hit || lengthVec(horizontalNormal) <= 0.0001f)
+        {
+            return std::nullopt;
+        }
+
+        constexpr std::array<float, 7> RecoveryDistances = {{4.0f, 8.0f, 16.0f, 32.0f, 64.0f, 96.0f, 128.0f}};
+
+        for (float directionSign : {1.0f, -1.0f})
+        {
+            for (float distance : RecoveryDistances)
+            {
+                IndoorMoveState recoveredState = {};
+
+                if (tryResolvePosition(
+                        baseState.x,
+                        baseState.y,
+                        baseState.x + horizontalNormal.x * directionSign * distance,
+                        baseState.y + horizontalNormal.y * directionSign * distance,
+                        baseState.footZ,
+                        0.0f,
+                        recoveredState,
+                        true,
+                        nullptr,
+                        nullptr,
+                        overlap.faceIndex))
+                {
+                    if (pDebugInfo != nullptr)
+                    {
+                        pDebugInfo->collisionResponseTried = true;
+                        pDebugInfo->collisionResponseSucceeded = true;
+                        pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::Wall;
+                        pDebugInfo->hitFaceIndex = overlap.faceIndex;
+                        pDebugInfo->hitNormal = overlap.normal;
+                        pDebugInfo->responseStep = {
+                            recoveredState.x - baseState.x,
+                            recoveredState.y - baseState.y,
+                            recoveredState.footZ - baseState.footZ
+                        };
+                    }
+
+                    return recoveredState;
+                }
+            }
+        }
+
+        return std::nullopt;
+    };
+
+    const auto recoveryTraceBlockedByFace =
+        [&](
+            const IndoorMoveState &baseState,
+            float candidateX,
+            float candidateY,
+            size_t ignoredFaceIndex = static_cast<size_t>(-1)) -> bool
+    {
+        const float movementX = candidateX - baseState.x;
+        const float movementY = candidateY - baseState.y;
+        const float movementLength = std::sqrt(movementX * movementX + movementY * movementY);
+
+        if (movementLength <= 0.0001f)
+        {
+            return false;
+        }
+
+        const bx::Vec3 direction = {movementX / movementLength, movementY / movementLength, 0.0f};
+        const std::vector<const IndoorFaceGeometryData *> candidateFaces = collectSweptCollisionFaceCandidates(
+            vertices,
+            geometryCache,
+            baseState.x,
+            baseState.y,
+            baseState.footZ,
+            body,
+            movementX,
+            movementY,
+            0.0f,
+            &collisionFaceMask,
+            &mechanismBlockingFaceMask,
+            baseState.sectorId >= 0 ? std::optional<int16_t>(baseState.sectorId) : std::nullopt,
+            baseState.eyeSectorId >= 0 ? std::optional<int16_t>(baseState.eyeSectorId) : std::nullopt);
+        std::vector<const IndoorFaceGeometryData *> blockingFaces;
+        blockingFaces.reserve(candidateFaces.size());
+
+        for (const IndoorFaceGeometryData *pFace : candidateFaces)
+        {
+            if (pFace == nullptr)
+            {
+                continue;
+            }
+
+            if (pFace->faceIndex == ignoredFaceIndex)
+            {
+                continue;
+            }
+
+            if (pFace->kind == IndoorFaceKind::Wall && pFace->maxZ <= baseState.footZ + MaximumRise)
+            {
+                continue;
+            }
+
+            if (pFace->kind == IndoorFaceKind::Floor
+                && pFace->isWalkable
+                && pFace->normal.z >= MaximumUphillSlopeNormalZ)
+            {
+                continue;
+            }
+
+            blockingFaces.push_back(pFace);
+        }
+
+        IndoorFaceSweepOptions sweepOptions = {};
+        sweepOptions.pCollisionFaceMask = &collisionFaceMask;
+        sweepOptions.pMechanismBlockingFaceMask = &mechanismBlockingFaceMask;
+        sweepOptions.includePortalFaces = false;
+        return selectNearestIndoorFaceHit(
+            buildPrimitiveSweptBody(baseState.x, baseState.y, baseState.footZ, body),
+            direction,
+            movementLength,
+            blockingFaces,
+            sweepOptions).has_value();
+    };
+
+    const auto tryRecoverAlongWallTangent =
+        [&](const IndoorMoveState &baseState, const IndoorWallCollision &wall) -> std::optional<IndoorMoveState>
+    {
+        if (!sweptRequest.allowBlockedWallRecovery
+            || !wall.hit
+            || flying
+            || !baseState.grounded
+            || sweptRequest.jumpRequested)
+        {
+            return std::nullopt;
+        }
+
+        const bx::Vec3 horizontalNormal = normalizeVec({wall.normal.x, wall.normal.y, 0.0f});
+        const bx::Vec3 horizontalStep = {stepX, stepY, 0.0f};
+
+        if (lengthVec(horizontalNormal) <= 0.0001f || lengthVec(horizontalStep) <= 0.0001f)
+        {
+            return std::nullopt;
+        }
+
+        bx::Vec3 tangent = normalizeVec({-horizontalNormal.y, horizontalNormal.x, 0.0f});
+
+        if (dotVec(tangent, horizontalStep) < 0.0f)
+        {
+            tangent = scaleVec(tangent, -1.0f);
+        }
+
+        constexpr std::array<float, 6> RecoveryDistances = {{4.0f, 8.0f, 16.0f, 32.0f, 48.0f, 64.0f}};
+
+        for (float directionSign : {1.0f, -1.0f})
+        {
+            const bx::Vec3 recoveryDirection = scaleVec(tangent, directionSign);
+
+            for (float distance : RecoveryDistances)
+            {
+                const float candidateX = baseState.x + recoveryDirection.x * distance;
+                const float candidateY = baseState.y + recoveryDirection.y * distance;
+
+                if (recoveryTraceBlockedByFace(baseState, candidateX, candidateY, wall.faceIndex))
+                {
+                    continue;
+                }
+
+                IndoorMoveState recoveredState = {};
+
+                if (tryResolvePosition(
+                        baseState.x,
+                        baseState.y,
+                        candidateX,
+                        candidateY,
+                        baseState.footZ,
+                        0.0f,
+                        recoveredState,
+                        true,
+                        nullptr,
+                        nullptr,
+                        wall.faceIndex))
+                {
+                    if (pDebugInfo != nullptr)
+                    {
+                        pDebugInfo->collisionResponseTried = true;
+                        pDebugInfo->collisionResponseSucceeded = true;
+                        pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::Wall;
+                        pDebugInfo->hitFaceIndex = wall.faceIndex;
+                        pDebugInfo->hitNormal = wall.normal;
+                        pDebugInfo->responseStep = {
+                            recoveredState.x - baseState.x,
+                            recoveredState.y - baseState.y,
+                            recoveredState.footZ - baseState.footZ
+                        };
+                    }
+
+                    return recoveredState;
+                }
+            }
+        }
+
+        return std::nullopt;
+    };
+
+    const auto tryRecoverUnsupportedTowardStep = [&](const IndoorMoveState &baseState) -> std::optional<IndoorMoveState>
+    {
+        if (!sweptRequest.allowUnsupportedPathRecovery
+            || flying
+            || sweptRequest.jumpRequested
+            || baseState.grounded
+            || baseState.supportFaceIndex != static_cast<size_t>(-1))
+        {
+            return std::nullopt;
+        }
+
+        const bx::Vec3 horizontalStep = {stepX, stepY, 0.0f};
+        const bx::Vec3 horizontalDirection = normalizeVec(horizontalStep);
+
+        if (lengthVec(horizontalDirection) <= 0.0001f)
+        {
+            return std::nullopt;
+        }
+
+        const bx::Vec3 perpendicular = {-horizontalDirection.y, horizontalDirection.x, 0.0f};
+        const float maxRecoveryDistance = std::clamp(body.radius + IndoorMovementSubstepDistance * 2.0f, 64.0f, 256.0f);
+        const float smallLateralOffset = std::min(body.radius * 0.25f, 32.0f);
+        const float largeLateralOffset = std::min(body.radius * 0.5f, 64.0f);
+        constexpr std::array<float, 9> RecoveryDistances =
+            {{8.0f, 16.0f, 32.0f, 48.0f, 64.0f, 96.0f, 128.0f, 192.0f, 256.0f}};
+        const std::array<float, 5> LateralOffsets =
+            {{0.0f, smallLateralOffset, -smallLateralOffset, largeLateralOffset, -largeLateralOffset}};
+
+        for (float distance : RecoveryDistances)
+        {
+            if (distance > maxRecoveryDistance)
+            {
+                continue;
+            }
+
+            for (float lateralOffset : LateralOffsets)
+            {
+                const float candidateX =
+                    baseState.x + horizontalDirection.x * distance + perpendicular.x * lateralOffset;
+                const float candidateY =
+                    baseState.y + horizontalDirection.y * distance + perpendicular.y * lateralOffset;
+                const IndoorFloorSample floor = sampleSupportedFloor(
+                    vertices,
+                    geometryCache,
+                    candidateX,
+                    candidateY,
+                    baseState.footZ,
+                    MaximumRise,
+                    body.height + 1024.0f,
+                    body,
+                    preferredSectorId,
+                    &nonBlockingMechanismFaceMask);
+
+                if (!floor.hasFloor
+                    || indoorFloorTooSteepForUphillStep(*m_pIndoorMapData, pMapDeltaData, floor, baseState.footZ)
+                    || recoveryTraceBlockedByFace(baseState, candidateX, candidateY))
+                {
+                    continue;
+                }
+
+                const float recoveryFootZ = std::min(baseState.footZ, floor.height + GroundSnapSlack);
+                IndoorMoveState recoveredState = {};
+
+                if (tryResolvePosition(
+                        baseState.x,
+                        baseState.y,
+                        candidateX,
+                        candidateY,
+                        recoveryFootZ,
+                        0.0f,
+                        recoveredState,
+                        true,
+                        nullptr,
+                        nullptr))
+                {
+                    if (pDebugInfo != nullptr)
+                    {
+                        pDebugInfo->collisionResponseTried = true;
+                        pDebugInfo->collisionResponseSucceeded = true;
+                        pDebugInfo->responseStep = {
+                            recoveredState.x - baseState.x,
+                            recoveredState.y - baseState.y,
+                            recoveredState.footZ - baseState.footZ
+                        };
+                    }
+
+                    return recoveredState;
+                }
+            }
+        }
+
+        return std::nullopt;
+    };
+
+    const auto wallContactDoesNotBlockSweep =
+        [&](const IndoorFaceGeometryData &face, const IndoorMoveState &moveState, const bx::Vec3 &moveStep) -> bool
+    {
+        if (!sweptRequest.allowBlockedWallRecovery
+            || !indoorFaceBlocksAsWallOverlap(face, moveState.footZ))
+        {
+            return false;
+        }
+
+        const float movementLength = std::sqrt(moveStep.x * moveStep.x + moveStep.y * moveStep.y);
+
+        if (movementLength <= 0.0001f)
+        {
+            return false;
+        }
+
+        const float bodyCenterZ =
+            moveState.footZ + std::min(body.height * 0.5f, std::max(body.radius, 1.0f));
+        const bx::Vec3 oldCenter = {moveState.x, moveState.y, bodyCenterZ};
+        const bx::Vec3 newCenter = {
+            moveState.x + moveStep.x,
+            moveState.y + moveStep.y,
+            bodyCenterZ + moveStep.z
+        };
+        const float oldSignedDistance = dotVec(subtractVec(oldCenter, face.vertices.front()), face.normal);
+        const float newSignedDistance = dotVec(subtractVec(newCenter, face.vertices.front()), face.normal);
+        const float oldDistance = std::abs(oldSignedDistance);
+        const float newDistance = std::abs(newSignedDistance);
+        const bool startedInsideWallRadius = oldDistance <= body.radius + 0.5f;
+        const bool stayedOnSameSide =
+            oldSignedDistance == 0.0f
+            || newSignedDistance == 0.0f
+            || (oldSignedDistance > 0.0f) == (newSignedDistance > 0.0f);
+        const bool didNotMoveTowardWall = newDistance >= oldDistance - 0.5f;
+
+        return startedInsideWallRadius && stayedOnSameSide && didNotMoveTowardWall;
+    };
+
     if (!state.grounded
         && state.supportFaceIndex != static_cast<size_t>(-1)
         && std::fabs(state.verticalVelocity) >= WallOverlapRecoveryMinVelocity)
     {
         const IndoorWallCollision overlap = findCurrentWallOverlap(state);
-        const bx::Vec3 horizontalNormal = normalizeVec({overlap.normal.x, overlap.normal.y, 0.0f});
 
-        if (overlap.hit && lengthVec(horizontalNormal) > 0.0001f)
+        if (const std::optional<IndoorMoveState> recoveredState = tryRecoverFromWallOverlap(state, overlap))
         {
-            constexpr std::array<float, 5> RecoveryDistances = {{4.0f, 8.0f, 16.0f, 32.0f, 48.0f}};
-
-            for (float directionSign : {1.0f, -1.0f})
-            {
-                for (float distance : RecoveryDistances)
-                {
-                    IndoorMoveState recoveredState = {};
-
-                    if (tryResolvePosition(
-                            state.x,
-                            state.y,
-                            state.x + horizontalNormal.x * directionSign * distance,
-                            state.y + horizontalNormal.y * directionSign * distance,
-                            state.footZ,
-                            0.0f,
-                            recoveredState,
-                            true,
-                            nullptr,
-                            nullptr))
-                    {
-                        if (pDebugInfo != nullptr)
-                        {
-                            pDebugInfo->collisionResponseTried = true;
-                            pDebugInfo->collisionResponseSucceeded = true;
-                            pDebugInfo->primaryBlockKind = IndoorMoveBlockKind::Wall;
-                            pDebugInfo->hitFaceIndex = overlap.faceIndex;
-                            pDebugInfo->hitNormal = overlap.normal;
-                            pDebugInfo->responseStep = {
-                                recoveredState.x - state.x,
-                                recoveredState.y - state.y,
-                                recoveredState.footZ - state.footZ
-                            };
-                        }
-
-                        return finalizeFallState(recoveredState);
-                    }
-                }
-            }
+            return finalizeFallState(*recoveredState);
         }
     }
 
@@ -2339,6 +2752,11 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 continue;
             }
 
+            if (wallContactDoesNotBlockSweep(*pFace, iterativeState, remainingStep))
+            {
+                continue;
+            }
+
             responseFaceCandidates.push_back(pFace);
         }
 
@@ -2543,6 +2961,32 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 nullptr,
                 nullptr))
         {
+            const bool canRecoverFromUnresolvedFaceHit =
+                sweptRequest.allowBlockedWallRecovery
+                && nearestHit->type == SweptCollisionHitType::Face
+                && pNearestHitGeometry != nullptr
+                && indoorFaceBlocksPathRecovery(*pNearestHitGeometry, iterativeState.footZ);
+
+            if (canRecoverFromUnresolvedFaceHit)
+            {
+                IndoorWallCollision wall = {};
+                wall.hit = true;
+                wall.normal = nearestHit->normal;
+                wall.faceIndex = nearestHit->faceIndex;
+
+                if (const std::optional<IndoorMoveState> recoveredState =
+                        tryRecoverAlongWallTangent(iterativeState, wall))
+                {
+                    return finalizeFallState(*recoveredState);
+                }
+
+                if (const std::optional<IndoorMoveState> recoveredState =
+                        tryRecoverFromWallOverlap(iterativeState, wall))
+                {
+                    return finalizeFallState(*recoveredState);
+                }
+            }
+
             sweptFailed = true;
             break;
         }
@@ -2619,6 +3063,34 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         {
             pDebugInfo->responseStep = remainingStep;
         }
+
+        const bool wallResponseCollapsed =
+            sweptRequest.allowBlockedWallRecovery
+            && nearestHit->type == SweptCollisionHitType::Face
+            && pNearestHitGeometry != nullptr
+            && indoorFaceBlocksPathRecovery(*pNearestHitGeometry, advancedState.footZ)
+            && movementDistance(remainingStep.x, remainingStep.y, remainingStep.z)
+                <= BlockedWallMinimumUsefulResponseDistance;
+
+        if (wallResponseCollapsed)
+        {
+            IndoorWallCollision wall = {};
+            wall.hit = true;
+            wall.normal = nearestHit->normal;
+            wall.faceIndex = nearestHit->faceIndex;
+
+            if (const std::optional<IndoorMoveState> recoveredState =
+                    tryRecoverAlongWallTangent(iterativeState, wall))
+            {
+                return finalizeFallState(*recoveredState);
+            }
+
+            if (const std::optional<IndoorMoveState> recoveredState =
+                    tryRecoverFromWallOverlap(iterativeState, wall))
+            {
+                return finalizeFallState(*recoveredState);
+            }
+        }
     }
 
     if (!sweptFailed && sweptFaceHit)
@@ -2629,6 +3101,43 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         }
 
         return finalizeFallState(iterativeState);
+    }
+
+    if (fullMoveWallCollision.hit)
+    {
+        if (const std::optional<IndoorMoveState> recoveredState =
+                tryRecoverAlongWallTangent(iterativeState, fullMoveWallCollision))
+        {
+            return finalizeFallState(*recoveredState);
+        }
+
+        if (const std::optional<IndoorMoveState> recoveredState =
+                tryRecoverFromWallOverlap(iterativeState, fullMoveWallCollision))
+        {
+            return finalizeFallState(*recoveredState);
+        }
+    }
+
+    const IndoorWallCollision currentOverlap = findCurrentWallOverlap(iterativeState);
+
+    if (currentOverlap.hit)
+    {
+        if (const std::optional<IndoorMoveState> recoveredState =
+                tryRecoverAlongWallTangent(iterativeState, currentOverlap))
+        {
+            return finalizeFallState(*recoveredState);
+        }
+
+        if (const std::optional<IndoorMoveState> recoveredState =
+                tryRecoverFromWallOverlap(iterativeState, currentOverlap))
+        {
+            return finalizeFallState(*recoveredState);
+        }
+    }
+
+    if (const std::optional<IndoorMoveState> recoveredState = tryRecoverUnsupportedTowardStep(iterativeState))
+    {
+        return finalizeFallState(*recoveredState);
     }
 
     writePrimaryBlockDebug();
@@ -3034,6 +3543,7 @@ bool IndoorMovementController::collidesAtPosition(
     std::optional<int16_t> primarySectorId,
     std::optional<int16_t> secondarySectorId,
     size_t ignoredSupportFaceIndex,
+    size_t ignoredOverlapFaceIndex,
     float movementX,
     float movementY,
     IndoorWallCollision *pWallCollision
@@ -3065,8 +3575,10 @@ bool IndoorMovementController::collidesAtPosition(
     for (const IndoorFaceGeometryData *pGeometry : candidateFaces)
     {
         if (pGeometry != nullptr
-            && pGeometry->faceIndex == ignoredSupportFaceIndex
-            && (pGeometry->kind == IndoorFaceKind::Floor || indoorFaceIsSteepFloorCollisionSurface(*pGeometry)))
+            && (pGeometry->faceIndex == ignoredOverlapFaceIndex
+                || (pGeometry->faceIndex == ignoredSupportFaceIndex
+                    && (pGeometry->kind == IndoorFaceKind::Floor
+                        || indoorFaceIsSteepFloorCollisionSurface(*pGeometry)))))
         {
             continue;
         }

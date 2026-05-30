@@ -57,6 +57,7 @@ namespace
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CollisionEpsilon = 0.01f;
 constexpr float OutdoorMechanismGeometryRefreshStepSeconds = 1.0f / 30.0f;
+constexpr uint32_t OutdoorEnvironmentFlagNoTerrain = 0x08;
 
 std::string resolveSpawnedMapActorName(
     const MonsterTable &monsterTable,
@@ -1128,6 +1129,7 @@ OutdoorWorldRuntime::AtmosphereState buildAtmosphereSourceState(
     const std::optional<MapDeltaData> &outdoorMapDeltaData)
 {
     OutdoorWorldRuntime::AtmosphereState result = {};
+    bool noTerrainShell = false;
 
     if (outdoorMapDeltaData)
     {
@@ -1135,9 +1137,16 @@ OutdoorWorldRuntime::AtmosphereState buildAtmosphereSourceState(
         result.weatherFlags = outdoorMapDeltaData->locationTime.weatherFlags;
         result.fogWeakDistance = outdoorMapDeltaData->locationTime.fogWeakDistance;
         result.fogStrongDistance = outdoorMapDeltaData->locationTime.fogStrongDistance;
+
+        if (outdoorMapDeltaData->locationTime.reserved.size() >= sizeof(uint32_t))
+        {
+            uint32_t mapExtraBitsRaw = 0;
+            std::memcpy(&mapExtraBitsRaw, outdoorMapDeltaData->locationTime.reserved.data(), sizeof(mapExtraBitsRaw));
+            noTerrainShell = (mapExtraBitsRaw & OutdoorEnvironmentFlagNoTerrain) != 0;
+        }
     }
 
-    if (result.sourceSkyTextureName.empty())
+    if (result.sourceSkyTextureName.empty() && !noTerrainShell)
     {
         result.sourceSkyTextureName = resolveFallbackSkyTextureName(map, outdoorMapData);
     }
@@ -2246,12 +2255,13 @@ float resolveActorGroundZ(
         currentZ,
         5.0f,
         std::max(5.0f, static_cast<float>(radius)));
-    const float terrainFloorZ = sampleOutdoorRenderedTerrainHeight(*pOutdoorMapData, x, y);
+    const bool bModelGround = outdoorMapUsesBModelGround(*pOutdoorMapData);
+    const float terrainFloorZ = bModelGround ? currentZ : sampleOutdoorRenderedTerrainHeight(*pOutdoorMapData, x, y);
     float floorZ = terrainFloorZ;
 
     if (supportFloor.fromBModel && currentZ + CollisionEpsilon >= supportFloor.height)
     {
-        floorZ = std::max(floorZ, supportFloor.height);
+        floorZ = bModelGround ? supportFloor.height : std::max(floorZ, supportFloor.height);
     }
 
     if (pStats != nullptr && pStats->canFly)
@@ -10179,8 +10189,12 @@ float OutdoorWorldRuntime::sampleSupportFloorHeight(float x, float y, float z, f
         return z;
     }
 
-    const float terrainHeight = sampleOutdoorTerrainHeight(*m_pOutdoorMapData, x, y);
-    float bestHeight = terrainHeight;
+    const bool bModelGround = outdoorMapUsesBModelGround(*m_pOutdoorMapData);
+    const float effectiveMaxRise = bModelGround ? std::max(maxRise, 128.0f) : maxRise;
+    const float terrainHeight = bModelGround ? std::numeric_limits<float>::lowest()
+                                             : sampleOutdoorTerrainHeight(*m_pOutdoorMapData, x, y);
+    float bestHeight = bModelGround ? z : terrainHeight;
+    bool hasFloor = !bModelGround;
     std::vector<size_t> candidateFaceIndices;
     collectOutdoorFaceCandidates(x - xySlack, y - xySlack, x + xySlack, y + xySlack, candidateFaceIndices);
 
@@ -10206,14 +10220,17 @@ float OutdoorWorldRuntime::sampleSupportFloorHeight(float x, float y, float z, f
 
         const float faceHeight = calculateOutdoorFaceHeight(geometry, x, y);
 
-        if (faceHeight < terrainHeight || faceHeight > z + maxRise)
+        if (faceHeight < terrainHeight
+            || faceHeight > z + effectiveMaxRise
+            || (geometry.notAStep && faceHeight > z + maxRise))
         {
             continue;
         }
 
-        if (faceHeight >= bestHeight)
+        if (!hasFloor || faceHeight >= bestHeight)
         {
             bestHeight = faceHeight;
+            hasFloor = true;
         }
     }
 
@@ -12023,7 +12040,32 @@ std::optional<GameplayPartyAttackActorFacts> OutdoorWorldRuntime::partyAttackAct
         .isInvisible = pActor->isInvisible,
         .hostileToParty = pActor->hostileToParty,
         .visibleForFallback = visibleForFallback,
+        .lineOfSightToParty = partyAttackActorHasLineOfSight(actorIndex),
     };
+}
+
+bool OutdoorWorldRuntime::partyAttackActorHasLineOfSight(size_t actorIndex) const
+{
+    const MapActorState *pActor = mapActorState(actorIndex);
+
+    if (pActor == nullptr || m_pPartyRuntime == nullptr || pActor->isDead || pActor->isInvisible)
+    {
+        return false;
+    }
+
+    const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
+    const bx::Vec3 source = {
+        moveState.x,
+        moveState.y,
+        moveState.footZ + PartyCollisionHeight / 3.0f,
+    };
+    const bx::Vec3 target = {
+        pActor->preciseX,
+        pActor->preciseY,
+        pActor->preciseZ + std::max(48.0f, static_cast<float>(pActor->height) * 0.6f),
+    };
+
+    return hasClearOutdoorLineOfSight(source, target);
 }
 
 std::vector<GameplayPartyAttackActorFacts> OutdoorWorldRuntime::collectPartyAttackFallbackActors(
@@ -12049,13 +12091,18 @@ std::vector<GameplayPartyAttackActorFacts> OutdoorWorldRuntime::collectPartyAtta
                 projectionPoint->z,
             },
             viewProjectionMatrix);
-        const bool visibleForFallback =
+        bool visibleForFallback =
             projected.z >= 0.0f
             && projected.z <= 1.0f
             && projected.x >= -1.0f
             && projected.x <= 1.0f
             && projected.y >= -1.0f
             && projected.y <= 1.0f;
+        if (visibleForFallback && !partyAttackActorHasLineOfSight(actorIndex))
+        {
+            visibleForFallback = false;
+        }
+
         std::optional<GameplayPartyAttackActorFacts> facts = partyAttackActorFacts(actorIndex, visibleForFallback);
 
         if (facts)
@@ -13112,7 +13159,15 @@ std::optional<size_t> OutdoorWorldRuntime::spellActionHoveredActorIndex() const
         return std::nullopt;
     }
 
-    return OutdoorInteractionController::resolveSpellActionHoveredActorIndex(*m_pInteractionView);
+    const std::optional<size_t> actorIndex =
+        OutdoorInteractionController::resolveSpellActionHoveredActorIndex(*m_pInteractionView);
+
+    if (!actorIndex || !partyAttackActorHasLineOfSight(*actorIndex))
+    {
+        return std::nullopt;
+    }
+
+    return actorIndex;
 }
 
 std::optional<size_t> OutdoorWorldRuntime::spellActionClosestVisibleHostileActorIndex() const

@@ -330,6 +330,7 @@ struct GameplayPartyAttackActorFacts
     bool isInvisible = false;
     bool hostileToParty = false;
     bool visibleForFallback = false;
+    bool lineOfSightToParty = true;
 };
 
 struct GameplayCombatActorInfo

@@ -28,6 +28,7 @@ struct ActorPathResolveRequest
     PathPoint source;
     PathPoint target;
     PathObject object;
+    int32_t preferredSourceFacetSourceId = -1;
     size_t nodeLimit = 8000;
     size_t mapRevision = 0;
     float planningRange = 12000.0f;

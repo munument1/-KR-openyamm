@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <sstream>
@@ -96,15 +97,37 @@ bool parsePositionNode(
     CoordinateType &z,
     std::string &errorMessage)
 {
-    if (!node || !node.IsMap())
+    if (!node)
     {
-        errorMessage = "position must be a map";
+        errorMessage = "position must be a map or 3-value sequence";
         return false;
     }
 
-    return readScalarNode(node, "x", x, errorMessage)
-        && readScalarNode(node, "y", y, errorMessage)
-        && readScalarNode(node, "z", z, errorMessage);
+    if (node.IsMap())
+    {
+        return readScalarNode(node, "x", x, errorMessage)
+            && readScalarNode(node, "y", y, errorMessage)
+            && readScalarNode(node, "z", z, errorMessage);
+    }
+
+    if (node.IsSequence() && node.size() == 3)
+    {
+        try
+        {
+            x = node[0].as<CoordinateType>();
+            y = node[1].as<CoordinateType>();
+            z = node[2].as<CoordinateType>();
+            return true;
+        }
+        catch (const std::exception &exception)
+        {
+            errorMessage = std::string("could not parse position sequence: ") + exception.what();
+            return false;
+        }
+    }
+
+    errorMessage = "position must be a map or 3-value sequence";
+    return false;
 }
 
 bool parseBoolFlagConsistency(
@@ -269,6 +292,92 @@ void encodeSceneMapExtra(uint32_t mapExtraBitsRaw, int32_t ceiling, std::array<u
 size_t totalIndoorFaceCount(const IndoorMapData &indoorMapData)
 {
     return indoorMapData.rawFaceCount != 0 ? indoorMapData.rawFaceCount : indoorMapData.faces.size();
+}
+
+int normalizeDegrees(int degrees)
+{
+    int normalizedDegrees = degrees % 360;
+
+    if (normalizedDegrees < 0)
+    {
+        normalizedDegrees += 360;
+    }
+
+    return normalizedDegrees;
+}
+
+int yawUnitsToDegrees(int yawUnits)
+{
+    const int normalizedYawUnits = ((yawUnits % 2048) + 2048) % 2048;
+    return normalizeDegrees(normalizedYawUnits * 360 / 2048);
+}
+
+bool parseIndoorScenePartyStartPoint(
+    const YAML::Node &startNode,
+    IndoorScenePartyStartPoint &partyStartPoint,
+    std::string &errorMessage)
+{
+    if (!startNode.IsMap())
+    {
+        errorMessage = "party start point entry must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(startNode, "start_index", partyStartPoint.startIndex, errorMessage)
+        || !readScalarNode(startNode, "source_name", partyStartPoint.sourceName, errorMessage, false)
+        || !parsePositionNode(
+            startNode["position"],
+            partyStartPoint.startPoint.x,
+            partyStartPoint.startPoint.y,
+            partyStartPoint.startPoint.z,
+            errorMessage))
+    {
+        return false;
+    }
+
+    double directionDegrees = 0.0;
+
+    if (readScalarNode(startNode, "direction_degrees", directionDegrees, errorMessage, false))
+    {
+        if (startNode["direction_degrees"])
+        {
+            partyStartPoint.startPoint.facingDegrees =
+                normalizeDegrees(static_cast<int>(std::lround(directionDegrees)));
+            return true;
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    int directionYawUnits = 0;
+
+    if (!readScalarNode(startNode, "direction_yaw_units", directionYawUnits, errorMessage, false))
+    {
+        return false;
+    }
+
+    partyStartPoint.startPoint.facingDegrees = yawUnitsToDegrees(directionYawUnits);
+    return true;
+}
+
+const IndoorScenePartyStartPoint *defaultIndoorPartyStartPoint(const IndoorSceneData &sceneData)
+{
+    if (sceneData.partyStartPoints.empty())
+    {
+        return nullptr;
+    }
+
+    for (const IndoorScenePartyStartPoint &partyStartPoint : sceneData.partyStartPoints)
+    {
+        if (toLowerCopy(partyStartPoint.sourceName) == "startpoint0")
+        {
+            return &partyStartPoint;
+        }
+    }
+
+    return &sceneData.partyStartPoints.front();
 }
 
 bool parseIndoorSceneFaceAttributeOverride(
@@ -626,6 +735,7 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
     }
 
     const YAML::Node spawnsNode = rootNode["spawns"];
+    const YAML::Node partyStartPointsNode = rootNode["party_start_points"];
 
     if (spawnsNode)
     {
@@ -660,6 +770,29 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
             }
 
             sceneData.spawns.push_back(std::move(spawn));
+        }
+    }
+
+    if (partyStartPointsNode)
+    {
+        if (!partyStartPointsNode.IsSequence())
+        {
+            errorMessage = "party_start_points must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.partyStartPoints.reserve(partyStartPointsNode.size());
+
+        for (const YAML::Node &startNode : partyStartPointsNode)
+        {
+            IndoorScenePartyStartPoint partyStartPoint = {};
+
+            if (!parseIndoorScenePartyStartPoint(startNode, partyStartPoint, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            sceneData.partyStartPoints.push_back(std::move(partyStartPoint));
         }
     }
 
@@ -1210,6 +1343,11 @@ bool buildIndoorMapStateFromScene(
         }
 
         indoorMapData.spawnCount = indoorMapData.spawns.size();
+    }
+
+    if (const IndoorScenePartyStartPoint *pPartyStartPoint = defaultIndoorPartyStartPoint(sceneData))
+    {
+        indoorMapData.partyStartPoint = pPartyStartPoint->startPoint;
     }
 
     if (sceneData.initialState.visibleOutlines.size() != IndoorVisibleOutlinesBytes)

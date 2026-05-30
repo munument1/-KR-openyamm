@@ -126,6 +126,7 @@ struct OutdoorMapData
     std::string name;
     std::string fileName;
     std::string description;
+    bool noTerrain = false;
     std::string skyTexture;
     std::string groundTilesetName;
     uint8_t masterTile = 0;

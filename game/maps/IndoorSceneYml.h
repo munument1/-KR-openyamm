@@ -53,6 +53,13 @@ struct IndoorSceneSpawn
     IndoorSpawn spawn = {};
 };
 
+struct IndoorScenePartyStartPoint
+{
+    size_t startIndex = 0;
+    std::string sourceName;
+    IndoorPartyStartPoint startPoint = {};
+};
+
 struct IndoorSceneInitialState
 {
     MapDeltaLocationInfo locationInfo = {};
@@ -75,6 +82,7 @@ struct IndoorSceneData
     IndoorSceneEnvironment environment = {};
     bool hasSpawns = false;
     std::vector<IndoorSceneSpawn> spawns;
+    std::vector<IndoorScenePartyStartPoint> partyStartPoints;
     IndoorSceneInitialState initialState = {};
 };
 

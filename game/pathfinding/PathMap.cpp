@@ -71,6 +71,51 @@ float xyDistance(const PathPoint &from, const PathPoint &to)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+float maxWalkDropHeight(const PathObject &object)
+{
+    return std::max(object.stepHeight, std::min(object.radius, object.stepHeight * 2.0f));
+}
+
+bool walkStepDeltaAllowed(float fromZ, float toZ, const PathObject &object)
+{
+    const float deltaZ = toZ - fromZ;
+
+    if (deltaZ > object.stepHeight + PathEpsilon)
+    {
+        return false;
+    }
+
+    if (-deltaZ > maxWalkDropHeight(object) + PathEpsilon)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+float distanceSquared2d(const PathPoint &from, const PathPoint &to)
+{
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    return dx * dx + dy * dy;
+}
+
+PathPoint closestPointOnSegment2d(const PathPoint &point, const PathPoint &from, const PathPoint &to)
+{
+    const float edgeX = to.x - from.x;
+    const float edgeY = to.y - from.y;
+    const float edgeLengthSquared = edgeX * edgeX + edgeY * edgeY;
+
+    if (edgeLengthSquared <= PathEpsilon)
+    {
+        return {from.x, from.y, point.z};
+    }
+
+    const float t =
+        std::clamp(((point.x - from.x) * edgeX + (point.y - from.y) * edgeY) / edgeLengthSquared, 0.0f, 1.0f);
+    return {from.x + edgeX * t, from.y + edgeY * t, point.z};
+}
+
 PathPoint interpolatePoint(const PathPoint &from, const PathPoint &to, float t)
 {
     return {
@@ -354,24 +399,311 @@ size_t PathMap::revision() const
 
 PathFloorSample PathMap::floorAt(const PathPoint &position) const
 {
-    if (!pointIsFinite(position))
+    return debugFloorQuery(position).result;
+}
+
+PathPoint PathMap::snapToWalkableSourceFacet(
+    int32_t sourceId,
+    const PathPoint &position,
+    float maxDistance,
+    bool &valid,
+    PathFloorSample *pFloorSample) const
+{
+    valid = false;
+
+    if (sourceId < 0 || !pointIsFinite(position) || !std::isfinite(maxDistance) || maxDistance < 0.0f)
     {
-        PathFloorSample voidSample = {};
-        voidSample.inVoid = true;
-        return voidSample;
+        return position;
     }
 
-    PathFloorSample bestBelow = {};
+    const auto sampleFacet = [&](size_t facetIndex, const PathPoint &probe, PathFloorSample &sample) -> bool
+    {
+        if (facetIndex >= m_facets.size() || facetIndex >= m_geometry.size())
+        {
+            return false;
+        }
+
+        const PathFacet &facet = m_facets[facetIndex];
+        const FacetGeometry &geometry = m_geometry[facetIndex];
+
+        if (!facet.walkableFloor || !geometry.valid || std::fabs(geometry.normal.z) <= PathEpsilon)
+        {
+            return false;
+        }
+
+        if (probe.x < geometry.bounds.minX - PathEpsilon
+            || probe.x > geometry.bounds.maxX + PathEpsilon
+            || probe.y < geometry.bounds.minY - PathEpsilon
+            || probe.y > geometry.bounds.maxY + PathEpsilon)
+        {
+            return false;
+        }
+
+        const float z =
+            facet.vertices.front().z
+            - (geometry.normal.x * (probe.x - facet.vertices.front().x)
+                + geometry.normal.y * (probe.y - facet.vertices.front().y)) / geometry.normal.z;
+        const PathPoint floorPoint = {probe.x, probe.y, z};
+
+        if (!pointInsideFacet(floorPoint, facet, geometry.normal))
+        {
+            return false;
+        }
+
+        sample.hasFloor = true;
+        sample.inVoid = z > probe.z + PathEpsilon;
+        sample.z = z;
+        sample.normalZ = geometry.normal.z;
+        sample.facetIndex = facetIndex;
+        return true;
+    };
+
+    for (size_t facetIndex = 0; facetIndex < m_facets.size(); ++facetIndex)
+    {
+        const PathFacet &facet = m_facets[facetIndex];
+
+        if (facet.sourceId != sourceId || !facet.walkableFloor || facet.vertices.empty())
+        {
+            continue;
+        }
+
+        PathFloorSample directSample = {};
+
+        if (sampleFacet(facetIndex, position, directSample) && !directSample.inVoid)
+        {
+            valid = true;
+
+            if (pFloorSample != nullptr)
+            {
+                *pFloorSample = directSample;
+            }
+
+            return {position.x, position.y, directSample.z};
+        }
+
+        PathPoint closestPoint = {facet.vertices.front().x, facet.vertices.front().y, position.z};
+        float closestDistanceSquared = distanceSquared2d(position, closestPoint);
+        PathPoint centroid = {};
+
+        for (const PathPoint &vertex : facet.vertices)
+        {
+            centroid.x += vertex.x;
+            centroid.y += vertex.y;
+        }
+
+        centroid.x /= static_cast<float>(facet.vertices.size());
+        centroid.y /= static_cast<float>(facet.vertices.size());
+        centroid.z = position.z;
+
+        for (size_t vertexIndex = 0; vertexIndex < facet.vertices.size(); ++vertexIndex)
+        {
+            const PathPoint &from = facet.vertices[vertexIndex];
+            const PathPoint &to = facet.vertices[(vertexIndex + 1) % facet.vertices.size()];
+            const PathPoint edgePoint = closestPointOnSegment2d(position, from, to);
+            const float edgeDistanceSquared = distanceSquared2d(position, edgePoint);
+
+            if (edgeDistanceSquared < closestDistanceSquared)
+            {
+                closestDistanceSquared = edgeDistanceSquared;
+                closestPoint = edgePoint;
+            }
+        }
+
+        if (closestDistanceSquared > maxDistance * maxDistance)
+        {
+            continue;
+        }
+
+        const float inwardX = centroid.x - closestPoint.x;
+        const float inwardY = centroid.y - closestPoint.y;
+        const float inwardLength = std::sqrt(inwardX * inwardX + inwardY * inwardY);
+        const std::array<float, 9> inwardDistances = {{
+            128.0f,
+            96.0f,
+            64.0f,
+            48.0f,
+            32.0f,
+            16.0f,
+            8.0f,
+            4.0f,
+            0.0f
+        }};
+
+        for (float inwardDistance : inwardDistances)
+        {
+            PathPoint probe = closestPoint;
+
+            if (inwardLength > PathEpsilon && inwardDistance > 0.0f)
+            {
+                probe.x += inwardX / inwardLength * inwardDistance;
+                probe.y += inwardY / inwardLength * inwardDistance;
+            }
+
+            probe.z = position.z;
+            PathFloorSample sample = {};
+
+            if (!sampleFacet(facetIndex, probe, sample) || sample.inVoid)
+            {
+                continue;
+            }
+
+            valid = true;
+
+            if (pFloorSample != nullptr)
+            {
+                *pFloorSample = sample;
+            }
+
+            return {probe.x, probe.y, sample.z};
+        }
+    }
+
+    return position;
+}
+
+PathPoint PathMap::snapToNearestWalkableFloor(
+    const PathPoint &position,
+    float maxDistance,
+    bool &valid,
+    PathFloorSample *pFloorSample) const
+{
+    valid = false;
+
+    if (!pointIsFinite(position) || !std::isfinite(maxDistance) || maxDistance < 0.0f)
+    {
+        return position;
+    }
+
+    PathPoint bestPoint = position;
+    PathFloorSample bestSample = {};
+    float bestDistanceSquared = std::numeric_limits<float>::max();
+
+    for (size_t facetIndex : m_floorFacetIndices)
+    {
+        if (facetIndex >= m_facets.size() || facetIndex >= m_geometry.size())
+        {
+            continue;
+        }
+
+        const PathFacet &facet = m_facets[facetIndex];
+        const FacetGeometry &geometry = m_geometry[facetIndex];
+
+        if (!facet.walkableFloor || !geometry.valid || std::fabs(geometry.normal.z) <= PathEpsilon)
+        {
+            continue;
+        }
+
+        PathPoint closestPoint = {facet.vertices.front().x, facet.vertices.front().y, position.z};
+        float closestDistanceSquared = distanceSquared2d(position, closestPoint);
+        PathPoint centroid = {};
+
+        for (const PathPoint &vertex : facet.vertices)
+        {
+            centroid.x += vertex.x;
+            centroid.y += vertex.y;
+        }
+
+        centroid.x /= static_cast<float>(facet.vertices.size());
+        centroid.y /= static_cast<float>(facet.vertices.size());
+        centroid.z = position.z;
+
+        for (size_t vertexIndex = 0; vertexIndex < facet.vertices.size(); ++vertexIndex)
+        {
+            const PathPoint &from = facet.vertices[vertexIndex];
+            const PathPoint &to = facet.vertices[(vertexIndex + 1) % facet.vertices.size()];
+            const PathPoint edgePoint = closestPointOnSegment2d(position, from, to);
+            const float edgeDistanceSquared = distanceSquared2d(position, edgePoint);
+
+            if (edgeDistanceSquared < closestDistanceSquared)
+            {
+                closestDistanceSquared = edgeDistanceSquared;
+                closestPoint = edgePoint;
+            }
+        }
+
+        if (closestDistanceSquared > maxDistance * maxDistance
+            || closestDistanceSquared >= bestDistanceSquared)
+        {
+            continue;
+        }
+
+        const float inwardX = centroid.x - closestPoint.x;
+        const float inwardY = centroid.y - closestPoint.y;
+        const float inwardLength = std::sqrt(inwardX * inwardX + inwardY * inwardY);
+        const std::array<float, 9> inwardDistances = {{
+            128.0f,
+            96.0f,
+            64.0f,
+            48.0f,
+            32.0f,
+            16.0f,
+            8.0f,
+            4.0f,
+            0.0f
+        }};
+
+        for (float inwardDistance : inwardDistances)
+        {
+            PathPoint probe = closestPoint;
+
+            if (inwardLength > PathEpsilon && inwardDistance > 0.0f)
+            {
+                probe.x += inwardX / inwardLength * inwardDistance;
+                probe.y += inwardY / inwardLength * inwardDistance;
+            }
+
+            probe.z = position.z;
+            const PathFloorSample sample = floorAt(probe);
+
+            if (!sample.hasFloor || sample.inVoid)
+            {
+                continue;
+            }
+
+            valid = true;
+            bestDistanceSquared = closestDistanceSquared;
+            bestSample = sample;
+            bestPoint = {probe.x, probe.y, sample.z};
+            break;
+        }
+    }
+
+    if (!valid)
+    {
+        return position;
+    }
+
+    if (pFloorSample != nullptr)
+    {
+        *pFloorSample = bestSample;
+    }
+
+    return bestPoint;
+}
+
+PathFloorQueryDebug PathMap::debugFloorQuery(const PathPoint &position) const
+{
+    if (!pointIsFinite(position))
+    {
+        PathFloorQueryDebug debug = {};
+        debug.position = position;
+        debug.result.inVoid = true;
+        return debug;
+    }
+
+    PathFloorQueryDebug debug = {};
+    debug.position = position;
     float bestBelowDistance = std::numeric_limits<float>::max();
-    PathFloorSample bestAbove = {};
     float bestAboveDistance = std::numeric_limits<float>::max();
 
     const std::vector<size_t> candidates = candidateFloorFacetsForPoint(position.x, position.y);
+    debug.candidateCount = candidates.size();
 
     for (size_t index : candidates)
     {
         if (index >= m_facets.size() || index >= m_geometry.size())
         {
+            ++debug.invalidFacetCount;
             continue;
         }
 
@@ -380,6 +712,7 @@ PathFloorSample PathMap::floorAt(const PathPoint &position) const
 
         if (!facet.walkableFloor || !geometry.valid || std::fabs(geometry.normal.z) <= PathEpsilon)
         {
+            ++debug.nonWalkableCount;
             continue;
         }
 
@@ -388,6 +721,7 @@ PathFloorSample PathMap::floorAt(const PathPoint &position) const
             || position.y < geometry.bounds.minY - PathEpsilon
             || position.y > geometry.bounds.maxY + PathEpsilon)
         {
+            ++debug.boundsRejectCount;
             continue;
         }
 
@@ -399,52 +733,56 @@ PathFloorSample PathMap::floorAt(const PathPoint &position) const
 
         if (!pointInsideFacet(floorPoint, facet, geometry.normal))
         {
+            ++debug.polygonRejectCount;
             continue;
         }
 
         if (z <= position.z + PathEpsilon)
         {
             const float distance = position.z - z;
+            ++debug.belowCount;
 
             if (distance < bestBelowDistance)
             {
                 bestBelowDistance = distance;
-                bestBelow.hasFloor = true;
-                bestBelow.inVoid = false;
-                bestBelow.z = z;
-                bestBelow.normalZ = geometry.normal.z;
-                bestBelow.facetIndex = index;
+                debug.bestBelow.hasFloor = true;
+                debug.bestBelow.inVoid = false;
+                debug.bestBelow.z = z;
+                debug.bestBelow.normalZ = geometry.normal.z;
+                debug.bestBelow.facetIndex = index;
             }
         }
         else
         {
             const float distance = z - position.z;
+            ++debug.aboveCount;
 
             if (distance < bestAboveDistance)
             {
                 bestAboveDistance = distance;
-                bestAbove.hasFloor = true;
-                bestAbove.inVoid = true;
-                bestAbove.z = z;
-                bestAbove.normalZ = geometry.normal.z;
-                bestAbove.facetIndex = index;
+                debug.bestAbove.hasFloor = true;
+                debug.bestAbove.inVoid = true;
+                debug.bestAbove.z = z;
+                debug.bestAbove.normalZ = geometry.normal.z;
+                debug.bestAbove.facetIndex = index;
             }
         }
     }
 
-    if (bestBelow.hasFloor)
+    if (debug.bestBelow.hasFloor)
     {
-        return bestBelow;
+        debug.result = debug.bestBelow;
+        return debug;
     }
 
-    if (bestAbove.hasFloor)
+    if (debug.bestAbove.hasFloor)
     {
-        return bestAbove;
+        debug.result = debug.bestAbove;
+        return debug;
     }
 
-    PathFloorSample voidSample = {};
-    voidSample.inVoid = true;
-    return voidSample;
+    debug.result.inVoid = true;
+    return debug;
 }
 
 PathTraceResult PathMap::traceLine(
@@ -461,7 +799,7 @@ PathTraceResult PathMap::traceLine(
         return result;
     }
 
-    std::array<std::pair<PathPoint, PathPoint>, 3> traces = {};
+    std::array<std::pair<PathPoint, PathPoint>, 9> traces = {};
     size_t traceCount = 1;
     traces[0] = {from, to};
 
@@ -469,11 +807,34 @@ PathTraceResult PathMap::traceLine(
 
     if (checkBody && radius > PathEpsilon && xyLength > PathEpsilon)
     {
-        const float sideX = -(to.y - from.y) / xyLength * radius;
-        const float sideY = (to.x - from.x) / xyLength * radius;
-        const PathPoint sideOffset = {sideX, sideY, 0.0f};
-        traces[traceCount++] = {pointAdd(from, sideOffset), pointAdd(to, sideOffset)};
-        traces[traceCount++] = {pointSubtract(from, sideOffset), pointSubtract(to, sideOffset)};
+        constexpr float DiagonalOffsetScale = 0.70710678f;
+        const float forwardX = (to.x - from.x) / xyLength;
+        const float forwardY = (to.y - from.y) / xyLength;
+        const float sideX = -forwardY;
+        const float sideY = forwardX;
+        const std::array<PathPoint, 8> offsets = {{
+            {sideX * radius, sideY * radius, 0.0f},
+            {-sideX * radius, -sideY * radius, 0.0f},
+            {forwardX * radius, forwardY * radius, 0.0f},
+            {-forwardX * radius, -forwardY * radius, 0.0f},
+            {(sideX + forwardX) * radius * DiagonalOffsetScale,
+                (sideY + forwardY) * radius * DiagonalOffsetScale,
+                0.0f},
+            {(sideX - forwardX) * radius * DiagonalOffsetScale,
+                (sideY - forwardY) * radius * DiagonalOffsetScale,
+                0.0f},
+            {(-sideX + forwardX) * radius * DiagonalOffsetScale,
+                (-sideY + forwardY) * radius * DiagonalOffsetScale,
+                0.0f},
+            {(-sideX - forwardX) * radius * DiagonalOffsetScale,
+                (-sideY - forwardY) * radius * DiagonalOffsetScale,
+                0.0f}
+        }};
+
+        for (const PathPoint &offset : offsets)
+        {
+            traces[traceCount++] = {pointAdd(from, offset), pointAdd(to, offset)};
+        }
     }
 
     PathTraceResult result = {};
@@ -516,12 +877,41 @@ PathTraceResult PathMap::traceLine(
 
 bool PathMap::traceWalkSegment(const PathPoint &from, const PathPoint &to, const PathObject &object) const
 {
+    return traceWalkSegmentInternal(from, to, object, nullptr);
+}
+
+PathWalkSegmentDebug PathMap::debugTraceWalkSegment(
+    const PathPoint &from,
+    const PathPoint &to,
+    const PathObject &object
+) const
+{
+    PathWalkSegmentDebug debug = {};
+    debug.from = from;
+    debug.to = to;
+
+    traceWalkSegmentInternal(from, to, object, &debug);
+    return debug;
+}
+
+bool PathMap::traceWalkSegmentInternal(
+    const PathPoint &from,
+    const PathPoint &to,
+    const PathObject &object,
+    PathWalkSegmentDebug *pDebug
+) const
+{
     if (!pointIsFinite(from)
         || !pointIsFinite(to)
         || !std::isfinite(object.radius)
         || !std::isfinite(object.stepLength)
         || !std::isfinite(object.stepHeight))
     {
+        if (pDebug != nullptr)
+        {
+            pDebug->rejectReason = PathWalkRejectReason::InvalidInput;
+        }
+
         return false;
     }
 
@@ -530,11 +920,37 @@ bool PathMap::traceWalkSegment(const PathPoint &from, const PathPoint &to, const
     const size_t sampleCount = std::max<size_t>(1, static_cast<size_t>(std::ceil(distance / sampleStep)));
     const float stepHeight = std::max(0.0f, object.stepHeight);
 
+    if (pDebug != nullptr)
+    {
+        pDebug->sampleCount = sampleCount;
+    }
+
     PathPoint previousPoint = from;
     PathFloorSample previousFloor = floorAt({from.x, from.y, from.z + stepHeight});
 
-    if (!previousFloor.hasFloor || previousFloor.inVoid)
+    if (pDebug != nullptr)
     {
+        pDebug->startFloor = previousFloor;
+        pDebug->previousFloor = previousFloor;
+    }
+
+    if (!previousFloor.hasFloor)
+    {
+        if (pDebug != nullptr)
+        {
+            pDebug->rejectReason = PathWalkRejectReason::StartNoFloor;
+        }
+
+        return false;
+    }
+
+    if (previousFloor.inVoid)
+    {
+        if (pDebug != nullptr)
+        {
+            pDebug->rejectReason = PathWalkRejectReason::StartVoid;
+        }
+
         return false;
     }
 
@@ -544,26 +960,70 @@ bool PathMap::traceWalkSegment(const PathPoint &from, const PathPoint &to, const
         const PathPoint probe = interpolatePoint(from, to, t);
         const PathFloorSample floor = floorAt({probe.x, probe.y, previousFloor.z + stepHeight + PathEpsilon});
 
-        if (!floor.hasFloor || floor.inVoid)
+        if (pDebug != nullptr)
         {
+            pDebug->sampleIndex = sampleIndex;
+            pDebug->probe = probe;
+            pDebug->failedFloor = floor;
+            pDebug->previousFloor = previousFloor;
+        }
+
+        if (!floor.hasFloor)
+        {
+            if (pDebug != nullptr)
+            {
+                pDebug->rejectReason = PathWalkRejectReason::SampleNoFloor;
+            }
+
             return false;
         }
 
-        if (std::fabs(floor.z - previousFloor.z) > stepHeight + PathEpsilon)
+        if (floor.inVoid)
         {
+            if (pDebug != nullptr)
+            {
+                pDebug->rejectReason = PathWalkRejectReason::SampleVoid;
+            }
+
+            return false;
+        }
+
+        if (!walkStepDeltaAllowed(previousFloor.z, floor.z, object))
+        {
+            if (pDebug != nullptr)
+            {
+                pDebug->rejectReason = PathWalkRejectReason::StepHeight;
+                pDebug->stepDeltaZ = std::fabs(floor.z - previousFloor.z);
+            }
+
             return false;
         }
 
         const PathPoint segmentFrom = {previousPoint.x, previousPoint.y, previousFloor.z + object.radius};
         const PathPoint segmentTo = {probe.x, probe.y, floor.z + object.radius};
+        const PathTraceResult traceResult = traceLine(segmentFrom, segmentTo, object.radius, true);
 
-        if (traceLine(segmentFrom, segmentTo, object.radius, true).blocked)
+        if (traceResult.blocked)
         {
+            if (pDebug != nullptr)
+            {
+                pDebug->rejectReason = PathWalkRejectReason::Blocked;
+                pDebug->blockedFacet = traceResult.facetIndex;
+                pDebug->blockedPoint = traceResult.point;
+            }
+
             return false;
         }
 
         previousPoint = probe;
         previousFloor = floor;
+    }
+
+    if (pDebug != nullptr)
+    {
+        pDebug->success = true;
+        pDebug->rejectReason = PathWalkRejectReason::None;
+        pDebug->previousFloor = previousFloor;
     }
 
     return true;

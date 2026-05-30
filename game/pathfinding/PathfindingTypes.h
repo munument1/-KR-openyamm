@@ -59,6 +59,21 @@ struct PathFloorSample
     size_t facetIndex = 0;
 };
 
+struct PathFloorQueryDebug
+{
+    PathPoint position;
+    PathFloorSample result;
+    size_t candidateCount = 0;
+    size_t invalidFacetCount = 0;
+    size_t nonWalkableCount = 0;
+    size_t boundsRejectCount = 0;
+    size_t polygonRejectCount = 0;
+    size_t belowCount = 0;
+    size_t aboveCount = 0;
+    PathFloorSample bestBelow;
+    PathFloorSample bestAbove;
+};
+
 struct PathObject
 {
     bool canFly = false;
@@ -67,12 +82,42 @@ struct PathObject
     float stepHeight = 40.0f;
 };
 
+enum class PathWalkRejectReason
+{
+    None,
+    InvalidInput,
+    StartNoFloor,
+    StartVoid,
+    SampleNoFloor,
+    SampleVoid,
+    StepHeight,
+    Blocked
+};
+
+struct PathWalkSegmentDebug
+{
+    bool success = false;
+    PathWalkRejectReason rejectReason = PathWalkRejectReason::None;
+    PathPoint from;
+    PathPoint to;
+    PathPoint probe;
+    PathPoint blockedPoint;
+    PathFloorSample startFloor;
+    PathFloorSample previousFloor;
+    PathFloorSample failedFloor;
+    size_t sampleIndex = 0;
+    size_t sampleCount = 0;
+    size_t blockedFacet = static_cast<size_t>(-1);
+    float stepDeltaZ = 0.0f;
+};
+
 struct PathPlanRequest
 {
     size_t actorIndex = 0;
     PathPoint source;
     PathPoint target;
     PathObject object;
+    int32_t preferredSourceFacetSourceId = -1;
     size_t nodeLimit = 8000;
     uint32_t mapRevision = 0;
     bool allowPartialPath = false;
@@ -83,6 +128,7 @@ struct PathPlanDebugInfo
     bool sourceValid = false;
     bool targetValid = false;
     bool directReachable = false;
+    bool preferredSourceSnapUsed = false;
     PathPoint requestSource;
     PathPoint requestTarget;
     PathPoint snappedSource;
@@ -93,6 +139,7 @@ struct PathPlanDebugInfo
     size_t sourceFloorFacet = static_cast<size_t>(-1);
     size_t targetFloorFacet = static_cast<size_t>(-1);
     size_t bestFloorFacet = static_cast<size_t>(-1);
+    int32_t preferredSourceFacetSourceId = -1;
     float bestDistance2d = 0.0f;
     float bestDistance3d = 0.0f;
     float maxRejectedStepDeltaZ = 0.0f;
@@ -136,6 +183,8 @@ struct ActorPathState
     bool inProgress = false;
     bool directCheckValid = false;
     bool lastDirectReachable = false;
+    bool recoverySourceWaypointActive = false;
+    bool recoveryBestWaypointActive = false;
     PathPlanStatus planStatus = PathPlanStatus::NotRequested;
     double failedUntilSeconds = 0.0;
     double nextDirectCheckSeconds = 0.0;

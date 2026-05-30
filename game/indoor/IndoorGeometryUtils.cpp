@@ -212,10 +212,19 @@ bool faceIsSteepFloorCollisionSurface(const IndoorFaceGeometryData &geometry)
 
 bool faceBlocksInitialActorPlacement(const IndoorFaceGeometryData &geometry, float footZ)
 {
-    if (geometry.kind != IndoorFaceKind::Wall
-        || geometry.isPortal
+    if (geometry.isPortal
         || hasFaceAttribute(geometry.attributes, FaceAttribute::Untouchable)
         || geometry.maxZ <= footZ + InitialActorPlacementWallMinHeight)
+    {
+        return false;
+    }
+
+    if (geometry.kind == IndoorFaceKind::Ceiling)
+    {
+        return true;
+    }
+
+    if (geometry.kind != IndoorFaceKind::Wall)
     {
         return false;
     }
@@ -1253,16 +1262,83 @@ IndoorInitialActorPlacement resolveIndoorInitialActorPlacement(
         result.z = floorSample.height;
     }
 
-    if (!indoorActorPlacementOverlapsBlockingWall(
-            indoorMapData,
-            vertices,
-            geometryCache,
-            result.x,
-            result.y,
-            result.z,
-            radius,
-            height,
-            result.sectorId))
+    const auto actorFitsAt =
+        [&](float candidateX, float candidateY, float candidateZ, int16_t sectorId) -> bool
+    {
+        if (indoorActorPlacementOverlapsBlockingWall(
+                indoorMapData,
+                vertices,
+                geometryCache,
+                candidateX,
+                candidateY,
+                candidateZ,
+                radius,
+                height,
+                sectorId))
+        {
+            return false;
+        }
+
+        const std::optional<int16_t> eyeSectorId =
+            findIndoorSectorForPoint(
+                indoorMapData,
+                vertices,
+                {candidateX, candidateY, candidateZ + height},
+                &geometryCache,
+                false);
+        return eyeSectorId.has_value();
+    };
+    const auto resolveFlyingZ =
+        [&](float candidateX, float candidateY, float requestedZ, const IndoorFloorSample &candidateFloor)
+            -> std::optional<float>
+    {
+        if (!canFly)
+        {
+            return std::nullopt;
+        }
+
+        const float floorZ = candidateFloor.height;
+        const float startZ = std::max(requestedZ, floorZ);
+
+        if (actorFitsAt(candidateX, candidateY, startZ, candidateFloor.sectorId))
+        {
+            return startZ;
+        }
+
+        constexpr float VerticalSearchStep = 64.0f;
+        const int searchSteps =
+            std::max(1, static_cast<int>(std::ceil(std::max(0.0f, startZ - floorZ) / VerticalSearchStep)));
+
+        for (int step = 1; step <= searchSteps; ++step)
+        {
+            const float candidateZ =
+                step == searchSteps ? floorZ : std::max(floorZ, startZ - VerticalSearchStep * step);
+
+            if (actorFitsAt(candidateX, candidateY, candidateZ, candidateFloor.sectorId))
+            {
+                return candidateZ;
+            }
+        }
+
+        return std::nullopt;
+    };
+
+    if (canFly)
+    {
+        const std::optional<float> clearFlyingZ = resolveFlyingZ(result.x, result.y, result.z, floorSample);
+
+        if (clearFlyingZ)
+        {
+            if (std::fabs(*clearFlyingZ - result.z) > 0.5f)
+            {
+                result.verticalOverlapResolved = true;
+            }
+
+            result.z = *clearFlyingZ;
+        }
+    }
+
+    if (actorFitsAt(result.x, result.y, result.z, result.sectorId))
     {
         return result;
     }
@@ -1304,17 +1380,18 @@ IndoorInitialActorPlacement resolveIndoorInitialActorPlacement(
             {
                 candidateZ = candidateFloor.height;
             }
+            else if (const std::optional<float> clearFlyingZ =
+                         resolveFlyingZ(candidateX, candidateY, candidateZ, candidateFloor))
+            {
+                if (std::fabs(*clearFlyingZ - candidateZ) > 0.5f)
+                {
+                    result.verticalOverlapResolved = true;
+                }
 
-            if (indoorActorPlacementOverlapsBlockingWall(
-                    indoorMapData,
-                    vertices,
-                    geometryCache,
-                    candidateX,
-                    candidateY,
-                    candidateZ,
-                    radius,
-                    height,
-                    candidateFloor.sectorId))
+                candidateZ = *clearFlyingZ;
+            }
+
+            if (!actorFitsAt(candidateX, candidateY, candidateZ, candidateFloor.sectorId))
             {
                 continue;
             }

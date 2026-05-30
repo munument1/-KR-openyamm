@@ -228,7 +228,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> resolveUsableActo
     const std::optional<GameplayPartyAttackActorFacts> actor =
         config.pWorldRuntime->partyAttackActorFacts(*actorIndex, false);
 
-    if (!actor || !GameplayActionController::isPartyAttackActorTargetable(*actor))
+    if (!actor || !GameplayActionController::isPartyAttackActorTargetable(*actor) || !actor->lineOfSightToParty)
     {
         return std::nullopt;
     }
@@ -252,6 +252,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> resolveUsableActo
         .isInvisible = actor->isInvisible,
         .hostileToParty = actor->hostileToParty,
         .visibleForFallback = actor->visibleForFallback,
+        .lineOfSightToParty = actor->lineOfSightToParty,
     };
 }
 
@@ -294,6 +295,7 @@ std::optional<GameplayActionController::PartyAttackActorFacts> chooseFallbackRan
             .isInvisible = actor.isInvisible,
             .hostileToParty = actor.hostileToParty,
             .visibleForFallback = actor.visibleForFallback,
+            .lineOfSightToParty = actor.lineOfSightToParty,
         };
         const float distance = actorDistanceFromParty(actionActor, config.partyPosition);
 

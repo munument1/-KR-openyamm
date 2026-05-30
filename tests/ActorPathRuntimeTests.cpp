@@ -104,6 +104,7 @@ TEST_CASE("actor path runtime plans a waypoint when direct movement is blocked")
     CHECK_FALSE(result.directReachable);
     REQUIRE(result.pathActive);
     CHECK(result.planned);
+    CHECK_EQ(result.waypointIndex, 0);
     const bool waypointMoved =
         std::fabs(result.waypoint.x - request.source.x) > 0.001f
         || std::fabs(result.waypoint.y - request.source.y) > 0.001f;
@@ -133,6 +134,78 @@ TEST_CASE("actor path runtime applies failed route cooldown")
     const ActorPathResolveResult cooldown = runtime.resolveWaypoint(map, request);
     CHECK(cooldown.cooldown);
     CHECK_FALSE(cooldown.planned);
+}
+
+TEST_CASE("actor path runtime uses best reachable point after first failed route")
+{
+    PathMap map;
+    map.setFacets({
+        makeRuntimeFloor(-96.0f, 240.0f, -120.0f, 120.0f, 0.0f),
+        makeRuntimeWall(72.0f, -120.0f, 120.0f, 0.0f, 120.0f)
+    });
+
+    ActorPathResolveRequest request = makeRuntimeRequest();
+    request.source = {0.0f, 0.0f, 0.0f};
+    request.target = {192.0f, 0.0f, 0.0f};
+    request.mapRevision = map.revision();
+    request.nowSeconds = 10.0;
+    request.failedRetrySeconds = 5.0;
+
+    ActorPathRuntime runtime;
+    const ActorPathResolveResult failed = runtime.resolveWaypoint(map, request);
+    CHECK(failed.failed);
+    CHECK(failed.planned);
+    REQUIRE(failed.pathActive);
+    CHECK(failed.waypoint.x > request.source.x);
+
+    request.nowSeconds = 12.0;
+    const ActorPathResolveResult recovery = runtime.resolveWaypoint(map, request);
+    CHECK_FALSE(recovery.cooldown);
+    REQUIRE(recovery.pathActive);
+    CHECK(recovery.waypoint.x == doctest::Approx(failed.waypoint.x));
+}
+
+TEST_CASE("actor path runtime drops stalled recovery best waypoint")
+{
+    PathMap map;
+    map.setFacets({
+        makeRuntimeFloor(-96.0f, 240.0f, -120.0f, 120.0f, 0.0f),
+        makeRuntimeWall(72.0f, -120.0f, 120.0f, 0.0f, 120.0f)
+    });
+
+    ActorPathResolveRequest request = makeRuntimeRequest();
+    request.source = {0.0f, 0.0f, 0.0f};
+    request.target = {192.0f, 0.0f, 0.0f};
+    request.mapRevision = map.revision();
+    request.nowSeconds = 10.0;
+    request.failedRetrySeconds = 5.0;
+    request.directCheckIntervalSeconds = 100.0;
+    request.shortcutCheckIntervalSeconds = 100.0;
+
+    ActorPathRuntime runtime;
+    const ActorPathResolveResult failed = runtime.resolveWaypoint(map, request);
+    REQUIRE(failed.failed);
+    REQUIRE(failed.pathActive);
+
+    request.source = {
+        failed.waypoint.x - 20.0f,
+        failed.waypoint.y,
+        failed.waypoint.z
+    };
+
+    request.nowSeconds = 10.10;
+    ActorPathResolveResult active = runtime.resolveWaypoint(map, request);
+    REQUIRE(active.pathActive);
+
+    request.nowSeconds = 10.60;
+    const ActorPathResolveResult stalled = runtime.resolveWaypoint(map, request);
+    CHECK(stalled.stalledWaypointCount == 1);
+    CHECK_FALSE(stalled.pathActive);
+
+    request.nowSeconds = 11.00;
+    const ActorPathResolveResult cooldown = runtime.resolveWaypoint(map, request);
+    CHECK(cooldown.cooldown);
+    CHECK_FALSE(cooldown.pathActive);
 }
 
 TEST_CASE("actor path runtime defers blocked route planning when plan budget is exhausted")
@@ -300,4 +373,33 @@ TEST_CASE("actor path runtime reports out of range without suppressing direct fa
     CHECK_FALSE(result.failed);
     CHECK_FALSE(result.cooldown);
     CHECK_FALSE(result.pathActive);
+}
+
+TEST_CASE("actor path runtime plans flying waypoints around solid walls")
+{
+    PathMap map;
+    map.setFacets({
+        makeRuntimeFloor(-48.0f, 192.0f, -120.0f, 120.0f, 0.0f),
+        makeRuntimeWall(72.0f, -24.0f, 24.0f, 0.0f, 120.0f)
+    });
+
+    ActorPathResolveRequest request = makeRuntimeRequest();
+    request.object.canFly = true;
+    request.object.radius = 8.0f;
+    request.object.stepLength = 32.0f;
+    request.object.stepHeight = 40.0f;
+    request.source = {0.0f, 0.0f, 64.0f};
+    request.target = {144.0f, 0.0f, 64.0f};
+    request.mapRevision = map.revision();
+    request.planningRange = 6000.0f;
+    request.allowPlan = true;
+
+    ActorPathRuntime runtime;
+    const ActorPathResolveResult result = runtime.resolveWaypoint(map, request);
+
+    CHECK_FALSE(result.directReachable);
+    REQUIRE(result.pathActive);
+    CHECK(result.planned);
+    CHECK(result.waypointCount > 0);
+    CHECK(result.waypoint.z == doctest::Approx(64.0f));
 }

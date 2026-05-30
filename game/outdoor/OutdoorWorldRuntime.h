@@ -595,6 +595,7 @@ public:
     std::optional<GameplayPartyAttackActorFacts> partyAttackActorFacts(
         size_t actorIndex,
         bool visibleForFallback) const override;
+    bool partyAttackActorHasLineOfSight(size_t actorIndex) const;
     std::vector<GameplayPartyAttackActorFacts> collectPartyAttackFallbackActors(
         const GameplayPartyAttackFallbackQuery &query) const override;
     std::optional<ActorDecisionDebugInfo> debugActorDecisionInfo(

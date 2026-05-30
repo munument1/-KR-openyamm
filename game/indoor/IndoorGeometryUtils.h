@@ -102,6 +102,7 @@ struct IndoorInitialActorPlacement
     bool hasFloor = false;
     bool movedHorizontally = false;
     bool wallOverlapResolved = false;
+    bool verticalOverlapResolved = false;
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;

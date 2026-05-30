@@ -12,6 +12,8 @@ namespace
 constexpr size_t MaxShortcutWaypointScan = 24;
 constexpr double WaypointStallSeconds = 0.35;
 constexpr float WaypointProgressEpsilon = 2.0f;
+constexpr float RecoverySourceReachDistance = 4.0f;
+constexpr float RecoveryBestReachDistance = 16.0f;
 
 float distanceSquared2d(const PathPoint &from, const PathPoint &to)
 {
@@ -36,6 +38,17 @@ float distance2d(const PathPoint &from, const PathPoint &to)
 bool pathWaypointReached(const PathPoint &source, const PathPoint &waypoint, float reachDistance)
 {
     return distance2d(source, waypoint) <= std::max(1.0f, reachDistance);
+}
+
+bool planHasReachableBestPoint(const PathPlanResult &planResult, const ActorPathResolveRequest &request)
+{
+    if (planResult.debug.acceptedCandidates == 0)
+    {
+        return false;
+    }
+
+    const float reachDistance = std::max(request.waypointReachDistance, RecoveryBestReachDistance);
+    return distanceSquared2d(planResult.debug.bestPoint, request.source) > reachDistance * reachDistance;
 }
 
 float relaxedWaypointReachDistance(const ActorPathResolveRequest &request)
@@ -373,6 +386,10 @@ bool ActorPathRuntime::installPlanResult(
 
     if (!usablePlan || planResult.waypoints.empty())
     {
+        const bool useRecoveryBestWaypoint =
+            !hadActivePath
+            && planHasReachableBestPoint(planResult, request);
+
         if (!hadActivePath)
         {
             state = {};
@@ -383,27 +400,63 @@ bool ActorPathRuntime::installPlanResult(
         state.failedUntilSeconds = request.nowSeconds + std::max(0.1, request.failedRetrySeconds);
         state.nextPlanSeconds = state.failedUntilSeconds;
         result.failed = true;
+
+        if (useRecoveryBestWaypoint)
+        {
+            state.targetSnapshot = request.target;
+            state.sourceSnapshot = request.source;
+            state.lastSourcePosition = request.source;
+            state.mapRevision = static_cast<uint32_t>(request.mapRevision);
+            state.waypoints = {planResult.debug.bestPoint};
+            state.waypointIndex = 0;
+            state.recoveryBestWaypointActive = true;
+            state.directCheckValid = true;
+            state.lastDirectReachable = false;
+            state.planStatus = planResult.status;
+            state.nextDirectCheckSeconds =
+                request.nowSeconds + std::max(0.01, request.directCheckIntervalSeconds);
+            resetWaypointProgress(state, request);
+            result.pathActive = true;
+            result.waypointIndex = state.waypointIndex;
+            result.waypoint = state.waypoints[state.waypointIndex];
+        }
+
         return false;
     }
 
+    std::vector<PathPoint> waypoints = planResult.waypoints;
+    bool recoverySourceWaypointActive = false;
+
+    if (planResult.debug.preferredSourceSnapUsed
+        && distanceSquared2d(planResult.debug.snappedSource, request.source)
+            > RecoverySourceReachDistance * RecoverySourceReachDistance)
+    {
+        waypoints.insert(waypoints.begin(), planResult.debug.snappedSource);
+        recoverySourceWaypointActive = true;
+    }
+
     size_t firstWaypointIndex =
-        firstUnreachedWaypointIndex(planResult.waypoints, request.source, request.waypointReachDistance);
+        recoverySourceWaypointActive
+            ? 0
+            : firstUnreachedWaypointIndex(waypoints, request.source, request.waypointReachDistance);
     const float sourceMovedThreshold =
         std::max(request.waypointReachDistance * 2.0f, request.object.stepLength * 4.0f);
 
-    if (distanceSquared2d(planResult.debug.requestSource, request.source)
+    if (!recoverySourceWaypointActive
+        && distanceSquared2d(planResult.debug.requestSource, request.source)
         > sourceMovedThreshold * sourceMovedThreshold)
     {
         firstWaypointIndex =
-            closestUnreachedWaypointIndex(planResult.waypoints, request.source, request.waypointReachDistance);
+            closestUnreachedWaypointIndex(waypoints, request.source, request.waypointReachDistance);
     }
 
     state.targetSnapshot = request.target;
     state.sourceSnapshot = request.source;
     state.lastSourcePosition = request.source;
     state.mapRevision = static_cast<uint32_t>(request.mapRevision);
-    state.waypoints = planResult.waypoints;
+    state.waypoints = std::move(waypoints);
     state.waypointIndex = firstWaypointIndex;
+    state.recoverySourceWaypointActive = recoverySourceWaypointActive;
     state.inProgress = false;
     state.requestId = 0;
     state.failedUntilSeconds = 0.0;
@@ -432,6 +485,7 @@ bool ActorPathRuntime::queuePlan(
     planRequest.source = request.source;
     planRequest.target = request.target;
     planRequest.object = request.object;
+    planRequest.preferredSourceFacetSourceId = request.preferredSourceFacetSourceId;
     planRequest.nodeLimit = request.nodeLimit;
     planRequest.mapRevision = static_cast<uint32_t>(request.mapRevision);
 
@@ -541,9 +595,26 @@ size_t ActorPathRuntime::advanceReachedWaypoints(
     const size_t originalIndex = state.waypointIndex;
 
     while (state.waypointIndex < state.waypoints.size()
-        && pathWaypointReached(request.source, state.waypoints[state.waypointIndex], request.waypointReachDistance))
+        && pathWaypointReached(
+            request.source,
+            state.waypoints[state.waypointIndex],
+            state.recoverySourceWaypointActive && state.waypointIndex == 0
+                ? RecoverySourceReachDistance
+                : (state.recoveryBestWaypointActive && state.waypointIndex == 0
+                    ? RecoveryBestReachDistance
+                    : request.waypointReachDistance)))
     {
         ++state.waypointIndex;
+
+        if (state.recoverySourceWaypointActive && state.waypointIndex > 0)
+        {
+            state.recoverySourceWaypointActive = false;
+        }
+
+        if (state.recoveryBestWaypointActive && state.waypointIndex > 0)
+        {
+            state.recoveryBestWaypointActive = false;
+        }
     }
 
     if (state.waypointIndex != originalIndex)
@@ -561,6 +632,16 @@ size_t ActorPathRuntime::advanceShortcutWaypoints(
 ) const
 {
     if (!pathCanStillBeFollowed(state) || request.nowSeconds < state.nextShortcutCheckSeconds)
+    {
+        return 0;
+    }
+
+    if (!request.object.canFly)
+    {
+        return 0;
+    }
+
+    if (state.recoverySourceWaypointActive || state.recoveryBestWaypointActive)
     {
         return 0;
     }
@@ -592,7 +673,12 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
     const ActorPathResolveRequest &request
 ) const
 {
-    if (!pathCanStillBeFollowed(state) || state.waypointIndex + 1 >= state.waypoints.size())
+    if (!pathCanStillBeFollowed(state))
+    {
+        return 0;
+    }
+
+    if (state.waypointIndex + 1 >= state.waypoints.size() && !state.recoveryBestWaypointActive)
     {
         return 0;
     }
@@ -621,6 +707,12 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
     }
 
     ++state.waypointIndex;
+
+    if (state.recoveryBestWaypointActive && state.waypointIndex >= state.waypoints.size())
+    {
+        state.recoveryBestWaypointActive = false;
+    }
+
     resetWaypointProgress(state, request);
     return 1;
 }
@@ -680,6 +772,7 @@ void ActorPathRuntime::workerLoop()
         planRequest.source = job.request.source;
         planRequest.target = job.request.target;
         planRequest.object = job.request.object;
+        planRequest.preferredSourceFacetSourceId = job.request.preferredSourceFacetSourceId;
         planRequest.nodeLimit = job.request.nodeLimit;
         planRequest.mapRevision = static_cast<uint32_t>(job.request.mapRevision);
 

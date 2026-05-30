@@ -18,6 +18,8 @@ constexpr float FloorCheckSlack = 5.0f;
 constexpr float FloorSelectionHeightTolerance = 5.0f;
 constexpr float TerrainSteepTileHeight = static_cast<float>(OutdoorMapData::TerrainTileSize);
 constexpr float OutdoorFacePlaneScale = 65536.0f;
+constexpr uint16_t OutdoorFaceReservedNotAStep = 0x0001;
+constexpr float BModelGroundSupportRise = 128.0f;
 
 bool outdoorFaceIsEthereal(uint32_t attributes)
 {
@@ -78,6 +80,11 @@ bx::Vec3 authoredPlaneNormal(const OutdoorBModelFace &face)
 bool isOutdoorWalkablePolygonType(uint8_t polygonType)
 {
     return polygonType == OutdoorPolygonFloor || polygonType == OutdoorPolygonInBetweenFloorAndWall;
+}
+
+bool outdoorMapUsesBModelGround(const OutdoorMapData &outdoorMapData)
+{
+    return outdoorMapData.noTerrain && !outdoorMapData.bmodels.empty();
 }
 
 bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z)
@@ -293,6 +300,7 @@ bool buildOutdoorFaceGeometry(
     geometry.polygonType = face.polygonType;
     geometry.attributes = face.attributes;
     geometry.isWalkable = isOutdoorWalkablePolygonType(face.polygonType);
+    geometry.notAStep = (face.reserved & OutdoorFaceReservedNotAStep) != 0;
     geometry.vertices.reserve(face.vertexIndices.size());
 
     for (uint16_t vertexIndex : face.vertexIndices)
@@ -602,9 +610,13 @@ OutdoorSupportFloorSample sampleOutdoorSupportFloor(
     float xySlack
 )
 {
-    const float terrainHeight = sampleOutdoorTerrainHeight(outdoorMapData, x, y);
+    const bool bModelGround = outdoorMapUsesBModelGround(outdoorMapData);
+    const float effectiveMaxRise = bModelGround ? std::max(maxRise, BModelGroundSupportRise) : maxRise;
+    const float terrainHeight = bModelGround ? std::numeric_limits<float>::lowest()
+                                             : sampleOutdoorTerrainHeight(outdoorMapData, x, y);
     OutdoorSupportFloorSample bestSample = {};
-    bestSample.height = terrainHeight;
+    bestSample.height = bModelGround ? z : terrainHeight;
+    bestSample.hasFloor = !bModelGround;
 
     for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
     {
@@ -627,15 +639,18 @@ OutdoorSupportFloorSample sampleOutdoorSupportFloor(
 
             const float faceHeight = calculateOutdoorFaceHeight(geometry, x, y);
 
-            if (faceHeight < terrainHeight || faceHeight > z + maxRise)
+            if (faceHeight < terrainHeight
+                || faceHeight > z + effectiveMaxRise
+                || (geometry.notAStep && faceHeight > z + maxRise))
             {
                 continue;
             }
 
-            if (!bestSample.fromBModel || faceHeight >= bestSample.height)
+            if (!bestSample.hasFloor || !bestSample.fromBModel || faceHeight >= bestSample.height)
             {
                 bestSample.height = faceHeight;
                 bestSample.fromBModel = true;
+                bestSample.hasFloor = true;
                 bestSample.bModelIndex = bModelIndex;
                 bestSample.faceIndex = faceIndex;
             }
@@ -681,6 +696,12 @@ float sampleOutdoorActorPlacementFloorHeight(
         z,
         FloorSelectionHeightTolerance,
         xySlack);
+
+    if (outdoorMapUsesBModelGround(outdoorMapData))
+    {
+        return support.hasFloor ? support.height : z;
+    }
+
     const float terrainHeight = sampleOutdoorRenderedTerrainHeight(outdoorMapData, x, y);
 
     if (support.fromBModel)

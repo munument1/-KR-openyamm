@@ -117,6 +117,6 @@ private:
         float farClipDistance,
         bool useLocalFxLighting);
     static void renderContextActionGeometryHighlight(OutdoorGameView &view, uint16_t viewId);
-    static void renderPendingSpellAreaPreview(OutdoorGameView &view, uint16_t viewId);
+    static void renderPendingSpellAreaPreview(OutdoorGameView &view, uint16_t viewId, const bx::Vec3 &cameraPosition);
 };
 } // namespace OpenYAMM::Game

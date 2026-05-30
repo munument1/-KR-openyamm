@@ -7,6 +7,7 @@ SAMPLER2D(s_texColor, 0);
 uniform vec4 u_fogColor;
 uniform vec4 u_fogDensities;
 uniform vec4 u_fogDistances;
+uniform vec4 u_cameraPosition;
 uniform vec4 u_fxLightPositions[8];
 uniform vec4 u_fxLightColors[8];
 uniform vec4 u_fxLightParams;
@@ -102,6 +103,11 @@ void main()
     }
 
     vec4 textureColor = texture2D(s_texColor, texcoord);
+    if (textureColor.a <= 0.1)
+    {
+        discard;
+    }
+
     textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z);
     vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(v_worldPosition), textureColor.a);
 
@@ -111,8 +117,9 @@ void main()
         litTextureColor.rgb *= vec3(1.0, pulse, pulse);
     }
 
-    float fogRatio = getFogRatio(v_depth);
-    float fogAlpha = getFogAlpha(v_depth);
+    float fogDistance = length(v_worldPosition - u_cameraPosition.xyz);
+    float fogRatio = getFogRatio(fogDistance);
+    float fogAlpha = getFogAlpha(fogDistance);
     vec4 fogColor = vec4(u_fogColor.rgb, fogAlpha);
     gl_FragColor = mix(litTextureColor, fogColor, fogRatio);
 }

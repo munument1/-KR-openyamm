@@ -2906,6 +2906,7 @@ OutdoorGameView::OutdoorGameView(GameSession &gameSession)
     , m_outdoorFogColorUniformHandle(BGFX_INVALID_HANDLE)
     , m_outdoorFogDensitiesUniformHandle(BGFX_INVALID_HANDLE)
     , m_outdoorFogDistancesUniformHandle(BGFX_INVALID_HANDLE)
+    , m_outdoorCameraPositionUniformHandle(BGFX_INVALID_HANDLE)
     , m_secretPulseParamsUniformHandle(BGFX_INVALID_HANDLE)
     , m_spellAreaPreviewParams0UniformHandle(BGFX_INVALID_HANDLE)
     , m_spellAreaPreviewParams1UniformHandle(BGFX_INVALID_HANDLE)
@@ -3147,6 +3148,7 @@ bool OutdoorGameView::initialize(
     m_outdoorFogColorUniformHandle = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
     m_outdoorFogDensitiesUniformHandle = bgfx::createUniform("u_fogDensities", bgfx::UniformType::Vec4);
     m_outdoorFogDistancesUniformHandle = bgfx::createUniform("u_fogDistances", bgfx::UniformType::Vec4);
+    m_outdoorCameraPositionUniformHandle = bgfx::createUniform("u_cameraPosition", bgfx::UniformType::Vec4);
     m_secretPulseParamsUniformHandle = bgfx::createUniform("u_secretPulseParams", bgfx::UniformType::Vec4);
     m_spellAreaPreviewParams0UniformHandle = bgfx::createUniform("u_spellAreaParams0", bgfx::UniformType::Vec4);
     m_spellAreaPreviewParams1UniformHandle = bgfx::createUniform("u_spellAreaParams1", bgfx::UniformType::Vec4);
@@ -3154,8 +3156,10 @@ bool OutdoorGameView::initialize(
     m_spellAreaPreviewColorBUniformHandle = bgfx::createUniform("u_spellAreaColorB", bgfx::UniformType::Vec4);
     timingLogger.stage("outdoor uniforms created");
 
-    if (!bgfx::isValid(m_vertexBufferHandle)
-        || !bgfx::isValid(m_indexBufferHandle)
+    constexpr bool requireTerrainResources = true;
+
+    if ((requireTerrainResources && !bgfx::isValid(m_vertexBufferHandle))
+        || (requireTerrainResources && !bgfx::isValid(m_indexBufferHandle))
         || !bgfx::isValid(m_programHandle)
         || !bgfx::isValid(m_outdoorLitBillboardProgramHandle)
         || !m_worldFxRenderResources.isReady()
@@ -3170,6 +3174,7 @@ bool OutdoorGameView::initialize(
         || !bgfx::isValid(m_outdoorFogColorUniformHandle)
         || !bgfx::isValid(m_outdoorFogDensitiesUniformHandle)
         || !bgfx::isValid(m_outdoorFogDistancesUniformHandle)
+        || !bgfx::isValid(m_outdoorCameraPositionUniformHandle)
         || !bgfx::isValid(m_secretPulseParamsUniformHandle))
     {
         std::cerr << "OutdoorGameView failed to create bgfx resources.\n";
@@ -3614,6 +3619,7 @@ void OutdoorGameView::shutdown()
         m_outdoorFogColorUniformHandle = BGFX_INVALID_HANDLE;
         m_outdoorFogDensitiesUniformHandle = BGFX_INVALID_HANDLE;
         m_outdoorFogDistancesUniformHandle = BGFX_INVALID_HANDLE;
+        m_outdoorCameraPositionUniformHandle = BGFX_INVALID_HANDLE;
         m_secretPulseParamsUniformHandle = BGFX_INVALID_HANDLE;
         m_spellAreaPreviewParams0UniformHandle = BGFX_INVALID_HANDLE;
         m_spellAreaPreviewParams1UniformHandle = BGFX_INVALID_HANDLE;
@@ -3761,6 +3767,12 @@ void OutdoorGameView::shutdown()
     {
         bgfx::destroy(m_outdoorFogDistancesUniformHandle);
         m_outdoorFogDistancesUniformHandle = BGFX_INVALID_HANDLE;
+    }
+
+    if (bgfx::isValid(m_outdoorCameraPositionUniformHandle))
+    {
+        bgfx::destroy(m_outdoorCameraPositionUniformHandle);
+        m_outdoorCameraPositionUniformHandle = BGFX_INVALID_HANDLE;
     }
 
     if (bgfx::isValid(m_secretPulseParamsUniformHandle))

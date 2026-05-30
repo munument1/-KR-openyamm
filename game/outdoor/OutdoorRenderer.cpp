@@ -1305,11 +1305,14 @@ void applyOutdoorFogUniforms(
     bgfx::UniformHandle fogColorUniformHandle,
     bgfx::UniformHandle fogDensitiesUniformHandle,
     bgfx::UniformHandle fogDistancesUniformHandle,
+    bgfx::UniformHandle cameraPositionUniformHandle,
+    const bx::Vec3 &cameraPosition,
     const OutdoorFogParameters &parameters)
 {
     if (!bgfx::isValid(fogColorUniformHandle)
         || !bgfx::isValid(fogDensitiesUniformHandle)
-        || !bgfx::isValid(fogDistancesUniformHandle))
+        || !bgfx::isValid(fogDistancesUniformHandle)
+        || !bgfx::isValid(cameraPositionUniformHandle))
     {
         return;
     }
@@ -1317,6 +1320,13 @@ void applyOutdoorFogUniforms(
     bgfx::setUniform(fogColorUniformHandle, parameters.color.data());
     bgfx::setUniform(fogDensitiesUniformHandle, parameters.densities.data());
     bgfx::setUniform(fogDistancesUniformHandle, parameters.distances.data());
+    const std::array<float, 4> cameraPositionUniform = {
+        cameraPosition.x,
+        cameraPosition.y,
+        cameraPosition.z,
+        0.0f
+    };
+    bgfx::setUniform(cameraPositionUniformHandle, cameraPositionUniform.data());
 }
 
 } // namespace
@@ -2493,12 +2503,14 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     OutdoorGameView::TexturedTerrainVertex::init();
     OutdoorGameView::LitBillboardVertex::init();
     OutdoorGameView::ForcePerspectiveVertex::init();
+    constexpr bool renderTerrain = true;
     const std::vector<OutdoorGameView::TerrainVertex> vertices = buildTerrainVertices(outdoorMapData);
     const std::vector<uint16_t> indices = buildTerrainIndices();
     std::vector<OutdoorGameView::TexturedTerrainVertex> texturedTerrainVertices;
-    const std::vector<OutdoorGameView::TerrainVertex> filledTerrainVertices = buildFilledTerrainVertices(
-        outdoorMapData,
-        outdoorTileColors);
+    const std::vector<OutdoorGameView::TerrainVertex> filledTerrainVertices =
+        renderTerrain
+            ? buildFilledTerrainVertices(outdoorMapData, outdoorTileColors)
+            : std::vector<OutdoorGameView::TerrainVertex>();
     const std::vector<OutdoorGameView::TerrainVertex> bmodelVertices = buildBModelWireframeVertices(outdoorMapData);
     const std::vector<OutdoorGameView::TerrainVertex> bmodelCollisionVertices = buildBModelCollisionFaceVertices(
         outdoorMapData);
@@ -2507,7 +2519,7 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     const std::vector<OutdoorGameView::TerrainVertex> spawnMarkerVertices =
         buildSpawnMarkerVertices(outdoorMapData);
 
-    if (outdoorTerrainTextureAtlas)
+    if (renderTerrain && outdoorTerrainTextureAtlas)
     {
         texturedTerrainVertices = buildTexturedTerrainVertices(outdoorMapData, *outdoorTerrainTextureAtlas);
         buildTexturedTerrainChunks(view, texturedTerrainVertices);
@@ -2517,22 +2529,25 @@ bool OutdoorRenderer::initializeWorldRenderResources(
         destroyTexturedTerrainChunks(view);
     }
 
-    initializeAnimatedWaterTileState(view, outdoorTerrainTextureAtlas);
+    initializeAnimatedWaterTileState(view, renderTerrain ? outdoorTerrainTextureAtlas : std::nullopt);
 
-    if (vertices.empty() || indices.empty())
+    if (renderTerrain && (vertices.empty() || indices.empty()))
     {
         std::cerr << "OutdoorGameView received empty terrain mesh.\n";
         return false;
     }
 
-    view.m_vertexBufferHandle = bgfx::createVertexBuffer(
-        bgfx::copy(
-            vertices.data(),
-            static_cast<uint32_t>(vertices.size() * sizeof(OutdoorGameView::TerrainVertex))),
-        OutdoorGameView::TerrainVertex::ms_layout);
+    if (renderTerrain)
+    {
+        view.m_vertexBufferHandle = bgfx::createVertexBuffer(
+            bgfx::copy(
+                vertices.data(),
+                static_cast<uint32_t>(vertices.size() * sizeof(OutdoorGameView::TerrainVertex))),
+            OutdoorGameView::TerrainVertex::ms_layout);
 
-    view.m_indexBufferHandle = bgfx::createIndexBuffer(
-        bgfx::copy(indices.data(), static_cast<uint32_t>(indices.size() * sizeof(uint16_t))));
+        view.m_indexBufferHandle = bgfx::createIndexBuffer(
+            bgfx::copy(indices.data(), static_cast<uint32_t>(indices.size() * sizeof(uint16_t))));
+    }
 
     if (!texturedTerrainVertices.empty())
     {
@@ -2966,6 +2981,8 @@ void OutdoorRenderer::renderBloodSplats(
         view.m_outdoorFogColorUniformHandle,
         view.m_outdoorFogDensitiesUniformHandle,
         view.m_outdoorFogDistancesUniformHandle,
+        view.m_outdoorCameraPositionUniformHandle,
+        cameraPosition,
         fogParameters);
     applySecretPulseUniforms(view);
     bgfx::setState(
@@ -3154,7 +3171,12 @@ void OutdoorRenderer::renderWorldPasses(
     {
         bgfx::setTransform(modelMatrix);
 
-        if (view.m_showFilledTerrain && bgfx::isValid(view.m_filledTerrainVertexBufferHandle))
+        const bool showTerrain = view.m_showFilledTerrain;
+        const bool showFilledTerrain =
+            showTerrain
+            && !(view.m_outdoorMapData.has_value() && view.m_outdoorMapData->noTerrain);
+
+        if (showFilledTerrain && bgfx::isValid(view.m_filledTerrainVertexBufferHandle))
         {
             bgfx::setVertexBuffer(0, view.m_filledTerrainVertexBufferHandle);
             bgfx::setState(
@@ -3166,7 +3188,7 @@ void OutdoorRenderer::renderWorldPasses(
             bgfx::submit(MainViewId, view.m_programHandle);
         }
 
-        if (view.m_showFilledTerrain
+        if (showTerrain
             && bgfx::isValid(view.m_outdoorTexturedFogProgramHandle)
             && bgfx::isValid(view.m_terrainTextureAtlasHandle)
             && bgfx::isValid(view.m_terrainTextureSamplerHandle)
@@ -3209,6 +3231,8 @@ void OutdoorRenderer::renderWorldPasses(
                         view.m_outdoorFogColorUniformHandle,
                         view.m_outdoorFogDensitiesUniformHandle,
                         view.m_outdoorFogDistancesUniformHandle,
+                        view.m_outdoorCameraPositionUniformHandle,
+                        cameraPosition,
                         worldFogParameters);
                     applySecretPulseUniforms(view);
                     bgfx::setState(
@@ -3234,6 +3258,8 @@ void OutdoorRenderer::renderWorldPasses(
                     view.m_outdoorFogColorUniformHandle,
                     view.m_outdoorFogDensitiesUniformHandle,
                     view.m_outdoorFogDistancesUniformHandle,
+                    view.m_outdoorCameraPositionUniformHandle,
+                    cameraPosition,
                     worldFogParameters);
                 applySecretPulseUniforms(view);
                 bgfx::setState(
@@ -3343,6 +3369,8 @@ void OutdoorRenderer::renderWorldPasses(
                         view.m_outdoorFogColorUniformHandle,
                         view.m_outdoorFogDensitiesUniformHandle,
                         view.m_outdoorFogDistancesUniformHandle,
+                        view.m_outdoorCameraPositionUniformHandle,
+                        cameraPosition,
                         worldFogParameters);
                     applySecretPulseUniforms(view);
                     bgfx::setState(
@@ -3541,6 +3569,8 @@ void OutdoorRenderer::renderWorldPasses(
                         view.m_outdoorFogColorUniformHandle,
                         view.m_outdoorFogDensitiesUniformHandle,
                         view.m_outdoorFogDistancesUniformHandle,
+                        view.m_outdoorCameraPositionUniformHandle,
+                        cameraPosition,
                         worldFogParameters);
                     applySecretPulseUniforms(view);
                     bgfx::setState(
@@ -3635,7 +3665,7 @@ void OutdoorRenderer::renderWorldPasses(
         OutdoorBillboardRenderer::renderFxGlowBillboards(view, MainViewId, pViewMatrix);
     }
 
-    renderPendingSpellAreaPreview(view, MainViewId);
+    renderPendingSpellAreaPreview(view, MainViewId, cameraPosition);
 
     {
         if (view.m_showSpawns
@@ -3695,7 +3725,10 @@ void OutdoorRenderer::renderWorldPasses(
     }
 }
 
-void OutdoorRenderer::renderPendingSpellAreaPreview(OutdoorGameView &view, uint16_t viewId)
+void OutdoorRenderer::renderPendingSpellAreaPreview(
+    OutdoorGameView &view,
+    uint16_t viewId,
+    const bx::Vec3 &cameraPosition)
 {
     const GameplayScreenState::PendingSpellTargetState &pendingSpellCast =
         view.m_gameSession.gameplayScreenState().pendingSpellTarget();
@@ -3937,6 +3970,8 @@ void OutdoorRenderer::renderPendingSpellAreaPreview(OutdoorGameView &view, uint1
                 view.m_outdoorFogColorUniformHandle,
                 view.m_outdoorFogDensitiesUniformHandle,
                 view.m_outdoorFogDistancesUniformHandle,
+                view.m_outdoorCameraPositionUniformHandle,
+                cameraPosition,
                 fogParameters);
             bgfx::setUniform(view.m_spellAreaPreviewParams0UniformHandle, params0.data());
             bgfx::setUniform(view.m_spellAreaPreviewParams1UniformHandle, params1.data());
@@ -4367,6 +4402,8 @@ void OutdoorRenderer::renderOutdoorSky(
         view.m_outdoorFogColorUniformHandle,
         view.m_outdoorFogDensitiesUniformHandle,
         view.m_outdoorFogDistancesUniformHandle,
+        view.m_outdoorCameraPositionUniformHandle,
+        cameraPosition,
         skyFogParameters);
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA);
     bgfx::submit(viewId, view.m_outdoorForcePerspectiveProgramHandle);
@@ -4523,6 +4560,8 @@ void OutdoorRenderer::renderOutdoorSky(
                 view.m_outdoorFogColorUniformHandle,
                 view.m_outdoorFogDensitiesUniformHandle,
                 view.m_outdoorFogDistancesUniformHandle,
+                view.m_outdoorCameraPositionUniformHandle,
+                cameraPosition,
                 skyFogParameters);
             bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA);
             bgfx::submit(viewId, view.m_outdoorForcePerspectiveProgramHandle);

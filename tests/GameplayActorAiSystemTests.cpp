@@ -345,6 +345,50 @@ TEST_CASE("shared actor AI exposes a melee recovery window after the attack anim
     CHECK(*recoveryUpdate.state.attackCooldownSeconds > 0.0f);
 }
 
+TEST_CASE("shared actor AI returns to standing presentation when attack impact resolves")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(12, 109);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.aiType = GameplayActorAiType::Normal;
+    actor.stats.attack1Damage.diceRolls = 1;
+    actor.stats.attack1Damage.diceSides = 4;
+    actor.runtime.motionState = ActorAiMotionState::Attacking;
+    actor.runtime.animationState = ActorAiAnimationState::AttackMelee;
+    actor.runtime.animationTimeTicks = 128.0f;
+    actor.runtime.actionSeconds = 1.0f / 256.0f;
+    actor.runtime.attackCooldownSeconds = 0.5f;
+    actor.runtime.queuedAttackAbility = GameplayActorAttackAbility::Attack1;
+    actor.runtime.attackImpactTriggered = false;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {132.0f, 200.0f, 64.0f};
+    actor.target.currentDistance = 96.0f;
+    actor.target.currentEdgeDistance = 0.0f;
+    actor.target.currentCanSense = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    REQUIRE(update.attackRequest.has_value());
+    REQUIRE(update.state.attackImpactTriggered.has_value());
+    CHECK(*update.state.attackImpactTriggered);
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Standing);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::Standing);
+    REQUIRE(update.animation.animationTimeTicks.has_value());
+    CHECK(*update.animation.animationTimeTicks == doctest::Approx(0.0f));
+    REQUIRE(update.state.attackCooldownSeconds.has_value());
+    CHECK(*update.state.attackCooldownSeconds > 0.0f);
+}
+
 TEST_CASE("shared actor AI doubles attack recovery while slowed")
 {
     GameplayActorAiSystem system;
@@ -524,6 +568,45 @@ TEST_CASE("shared actor AI uses movement target height for flying pursuit")
     CHECK(update.movementIntent.applyMovement);
     CHECK(update.movementIntent.targetPosition.z == doctest::Approx(400.0f));
     CHECK(update.movementIntent.desiredMoveZ > 0.99f);
+    CHECK_FALSE(update.attackRequest.has_value());
+}
+
+TEST_CASE("shared actor AI lets flying pursuit use party body height instead of attack point")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(25, 125);
+    actor.world.active = true;
+    actor.world.targetZ = 375.0f;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.aiType = GameplayActorAiType::Normal;
+    actor.stats.canFly = true;
+    actor.stats.moveSpeed = 200;
+    actor.stats.attack1Damage.diceRolls = 1;
+    actor.stats.attack1Damage.diceSides = 4;
+    actor.movement.movementAllowed = true;
+    actor.movement.effectiveMoveSpeed = 200.0f;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {1024.0f, 200.0f, 96.0f};
+    actor.target.currentMovementPosition = {1024.0f, 200.0f, 192.0f};
+    actor.target.hasCurrentMovementPosition = true;
+    actor.target.currentDistance = 2048.0f;
+    actor.target.currentEdgeDistance = 2048.0f;
+    actor.target.currentCanSense = true;
+    actor.target.currentHasAttackLineOfSight = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    CHECK(update.movementIntent.applyMovement);
+    CHECK(update.movementIntent.targetPosition.z == doctest::Approx(192.0f));
+    CHECK(update.movementIntent.desiredMoveZ < 0.0f);
+    CHECK(update.movementIntent.desiredMoveZ > -0.5f);
     CHECK_FALSE(update.attackRequest.has_value());
 }
 
@@ -1229,6 +1312,34 @@ TEST_CASE("shared actor AI stands briefly when actor movement is crowded after c
     CHECK(update.movementIntent.clearVelocity);
 }
 
+TEST_CASE("shared actor AI stands when pursuing movement is suppressed by navigation")
+{
+    GameplayActorAiSystem system;
+    ActorAiFacts actor = makeActor(27, 127);
+    actor.runtime.motionState = ActorAiMotionState::Pursuing;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.runtime.actionSeconds = 1.0f;
+    actor.movement.meleePursuitActive = true;
+    actor.movement.movementSuppressedByNavigation = true;
+    actor.movement.allowCrowdSteering = true;
+    actor.movement.movementBlocked = true;
+    actor.target.currentPosition = {300.0f, 200.0f, 0.0f};
+    actor.target.currentEdgeDistance = 400.0f;
+
+    const OpenYAMM::Game::ActorAiUpdate update = system.updateActorAfterWorldMovement(actor);
+
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Standing);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::Standing);
+    CHECK(update.movementIntent.action == ActorAiMovementAction::Stand);
+    CHECK(update.movementIntent.moveDirectionX == doctest::Approx(0.0f));
+    CHECK(update.movementIntent.moveDirectionY == doctest::Approx(0.0f));
+    CHECK(update.movementIntent.clearVelocity);
+    REQUIRE(update.state.actionSeconds.has_value());
+    CHECK(*update.state.actionSeconds == doctest::Approx(0.25f));
+}
+
 TEST_CASE("shared actor AI flees briefly after a single hostile actor contact")
 {
     GameplayActorAiSystem system;
@@ -1255,7 +1366,7 @@ TEST_CASE("shared actor AI flees briefly after a single hostile actor contact")
     CHECK(*update.state.actionSeconds > 0.0f);
 }
 
-TEST_CASE("shared actor AI does not flee from actor contact while flying")
+TEST_CASE("shared actor AI lets flying actors react to actor contact")
 {
     GameplayActorAiSystem system;
     ActorAiFacts actor = makeActor(8, 105);
@@ -1270,9 +1381,14 @@ TEST_CASE("shared actor AI does not flee from actor contact while flying")
 
     const OpenYAMM::Game::ActorAiUpdate update = system.updateActorAfterWorldMovement(actor);
 
-    CHECK_FALSE(update.state.motionState.has_value());
-    CHECK(update.movementIntent.action == ActorAiMovementAction::None);
-    CHECK_FALSE(update.movementIntent.clearVelocity);
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Fleeing);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::Walking);
+    CHECK(update.movementIntent.action == ActorAiMovementAction::Flee);
+    CHECK(update.movementIntent.moveDirectionX > 0.99f);
+    CHECK(std::abs(update.movementIntent.moveDirectionY) < 0.01f);
+    CHECK(update.movementIntent.clearVelocity);
 }
 
 TEST_CASE("shared actor AI crowd steers while flying")

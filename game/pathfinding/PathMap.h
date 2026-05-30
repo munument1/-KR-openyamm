@@ -28,6 +28,20 @@ public:
     size_t revision() const;
 
     PathFloorSample floorAt(const PathPoint &position) const;
+    PathPoint snapToWalkableSourceFacet(
+        int32_t sourceId,
+        const PathPoint &position,
+        float maxDistance,
+        bool &valid,
+        PathFloorSample *pFloorSample = nullptr
+    ) const;
+    PathPoint snapToNearestWalkableFloor(
+        const PathPoint &position,
+        float maxDistance,
+        bool &valid,
+        PathFloorSample *pFloorSample = nullptr
+    ) const;
+    PathFloorQueryDebug debugFloorQuery(const PathPoint &position) const;
     PathTraceResult traceLine(
         const PathPoint &from,
         const PathPoint &to,
@@ -35,6 +49,11 @@ public:
         bool checkBody = false
     ) const;
     bool traceWalkSegment(const PathPoint &from, const PathPoint &to, const PathObject &object) const;
+    PathWalkSegmentDebug debugTraceWalkSegment(
+        const PathPoint &from,
+        const PathPoint &to,
+        const PathObject &object
+    ) const;
     bool canReachDirectly(const PathPoint &from, const PathPoint &to, const PathObject &object) const;
 
 private:
@@ -75,6 +94,12 @@ private:
 
     std::vector<size_t> candidateFacetsForBounds(const PathBounds &bounds) const;
     std::vector<size_t> candidateFloorFacetsForPoint(float x, float y) const;
+    bool traceWalkSegmentInternal(
+        const PathPoint &from,
+        const PathPoint &to,
+        const PathObject &object,
+        PathWalkSegmentDebug *pDebug
+    ) const;
     void rebuildGeometry();
     void rebuildSpatialGrid();
     int32_t gridCoordinate(float value) const;

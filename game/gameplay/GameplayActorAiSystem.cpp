@@ -1895,7 +1895,7 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
 {
     ActorMovementBlockOutcome result = {};
 
-    if (!actor.stats.canFly && actor.movement.contactedActorCount > 1)
+    if (actor.movement.contactedActorCount > 1)
     {
         result.zeroVelocity = true;
         result.resetMoveDirection = true;
@@ -1905,9 +1905,7 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
         return result;
     }
 
-    if (actor.movement.contactedActorCount == 1
-        && !actor.stats.canFly
-        && actor.movement.hasContactedActor)
+    if (actor.movement.contactedActorCount == 1 && actor.movement.hasContactedActor)
     {
         const bool selfFriendly = actor.identity.hostilityType == 0;
         const bool otherFriendly = actor.movement.contactedActorHostilityType == 0;
@@ -1944,6 +1942,15 @@ ActorMovementBlockOutcome buildPostMovementBlock(const ActorAiFacts &actor)
 
         result.resetMoveDirection = true;
         result.stand = true;
+        return result;
+    }
+
+    if (actor.movement.movementSuppressedByNavigation)
+    {
+        result.zeroVelocity = true;
+        result.resetMoveDirection = true;
+        result.stand = true;
+        result.actionSeconds = std::min(actor.runtime.actionSeconds, ContactFleeFallbackSeconds);
         return result;
     }
 
@@ -2864,7 +2871,7 @@ bool AI_CrowdSteer(ActorAiCommandContext &ai)
 {
     const ActorAiFacts &actor = ai.actor();
 
-    if (!actor.movement.allowCrowdSteering)
+    if (!actor.movement.allowCrowdSteering || actor.movement.movementSuppressedByNavigation)
     {
         return false;
     }
@@ -3765,6 +3772,7 @@ ActorAiUpdate AI_ActiveCurrentAction(
 
     if (attackImpactResolved)
     {
+        AI_Stand(ai);
         return ai.finish();
     }
 

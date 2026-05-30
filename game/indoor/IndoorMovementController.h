@@ -133,7 +133,9 @@ public:
         float jumpVelocity = 420.0f,
         float jumpLift = 1.0f,
         bool lockVerticalPosition = false,
-        bool preventGroundActorLedgeDrop = false
+        bool preventGroundActorLedgeDrop = false,
+        bool allowUnsupportedPathRecovery = false,
+        bool allowBlockedWallRecovery = false
     ) const;
     IndoorMoveState resolveFlyingActorMove(
         const IndoorMoveState &state,
@@ -257,6 +259,8 @@ private:
         float deltaSeconds = 0.0f;
         bool jumpRequested = false;
         bool blockActorSlide = false;
+        bool allowUnsupportedPathRecovery = false;
+        bool allowBlockedWallRecovery = false;
         std::optional<size_t> ignoredActorIndex = std::nullopt;
     };
     struct SweptCollisionState
@@ -312,7 +316,9 @@ private:
         bool jumpRequested,
         float deltaSeconds,
         std::optional<size_t> ignoredActorIndex,
-        bool blockActorSlide
+        bool blockActorSlide,
+        bool allowUnsupportedPathRecovery,
+        bool allowBlockedWallRecovery
     ) const;
     SweptCollisionBody buildSweptCollisionBody(
         const IndoorMoveState &state,
@@ -335,7 +341,9 @@ private:
         float jumpVelocity,
         float jumpLift,
         bool lockVerticalPosition,
-        bool preventGroundActorLedgeDrop
+        bool preventGroundActorLedgeDrop,
+        bool allowUnsupportedPathRecovery,
+        bool allowBlockedWallRecovery
     ) const;
     bool collidesAtPosition(
         const std::vector<IndoorVertex> &vertices,
@@ -349,6 +357,7 @@ private:
         std::optional<int16_t> primarySectorId,
         std::optional<int16_t> secondarySectorId,
         size_t ignoredSupportFaceIndex,
+        size_t ignoredOverlapFaceIndex,
         float movementX,
         float movementY,
         IndoorWallCollision *pWallCollision

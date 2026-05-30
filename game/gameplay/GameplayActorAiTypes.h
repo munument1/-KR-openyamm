@@ -243,6 +243,7 @@ struct ActorMovementFacts
     bool allowIdleWander = false;
     bool movementAllowed = false;
     bool movementBlocked = false;
+    bool movementSuppressedByNavigation = false;
 };
 
 struct ActorWorldFacts

@@ -84,6 +84,28 @@ float distance3d(const PathPoint &from, const PathPoint &to)
     return std::sqrt(distanceSquared3d(from, to));
 }
 
+float maxWalkDropHeight(const PathObject &object)
+{
+    return std::max(object.stepHeight, std::min(object.radius, object.stepHeight * 2.0f));
+}
+
+bool walkStepDeltaAllowed(float fromZ, float toZ, const PathObject &object)
+{
+    const float deltaZ = toZ - fromZ;
+
+    if (deltaZ > object.stepHeight + PlannerEpsilon)
+    {
+        return false;
+    }
+
+    if (-deltaZ > maxWalkDropHeight(object) + PlannerEpsilon)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 void updateBestDebugPoint(PathPlanDebugInfo &debug, const SearchNode &node, const PathPoint &target)
 {
     debug.bestPoint = node.point;
@@ -154,7 +176,9 @@ PathPoint snapGroundPoint(
     const PathPoint &point,
     const PathObject &object,
     bool &valid,
-    PathFloorSample *pFloorSample = nullptr
+    PathFloorSample *pFloorSample = nullptr,
+    int32_t preferredSourceFacetSourceId = -1,
+    bool *pPreferredSnapUsed = nullptr
 )
 {
     const PathFloorSample floor = map.floorAt({point.x, point.y, point.z + object.stepHeight});
@@ -166,6 +190,65 @@ PathPoint snapGroundPoint(
 
     if (!floor.hasFloor || floor.inVoid)
     {
+        const float sourceSnapDistance = std::max(4.0f, object.radius + 4.0f);
+
+        if (preferredSourceFacetSourceId >= 0)
+        {
+            PathFloorSample preferredFloor = {};
+            bool preferredValid = false;
+            const PathPoint snapped =
+                map.snapToWalkableSourceFacet(
+                    preferredSourceFacetSourceId,
+                    {point.x, point.y, point.z + object.stepHeight},
+                    sourceSnapDistance,
+                    preferredValid,
+                    &preferredFloor);
+
+            if (preferredValid)
+            {
+                valid = true;
+
+                if (pFloorSample != nullptr)
+                {
+                    *pFloorSample = preferredFloor;
+                }
+
+                if (pPreferredSnapUsed != nullptr)
+                {
+                    *pPreferredSnapUsed = true;
+                }
+
+                return snapped;
+            }
+        }
+
+        PathFloorSample nearbyFloor = {};
+        bool nearbyValid = false;
+        const float nearbySnapDistance = std::max(sourceSnapDistance, object.radius + object.stepLength);
+        const PathPoint nearbySnapped =
+            map.snapToNearestWalkableFloor(
+                {point.x, point.y, point.z + object.stepHeight},
+                nearbySnapDistance,
+                nearbyValid,
+                &nearbyFloor);
+
+        if (nearbyValid)
+        {
+            valid = true;
+
+            if (pFloorSample != nullptr)
+            {
+                *pFloorSample = nearbyFloor;
+            }
+
+            if (pPreferredSnapUsed != nullptr)
+            {
+                *pPreferredSnapUsed = true;
+            }
+
+            return nearbySnapped;
+        }
+
         valid = false;
         return point;
     }
@@ -214,6 +297,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
     result.mapRevision = request.mapRevision;
     result.debug.requestSource = request.source;
     result.debug.requestTarget = request.target;
+    result.debug.preferredSourceFacetSourceId = request.preferredSourceFacetSourceId;
 
     const float stepSize = std::max(request.object.stepLength, 24.0f);
     PathPoint start = request.source;
@@ -225,7 +309,17 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
 
     if (!request.object.canFly)
     {
-        start = snapGroundPoint(map, request.source, request.object, startValid, &startFloor);
+        bool preferredSourceSnapUsed = false;
+        start =
+            snapGroundPoint(
+                map,
+                request.source,
+                request.object,
+                startValid,
+                &startFloor,
+                request.preferredSourceFacetSourceId,
+                &preferredSourceSnapUsed);
+        result.debug.preferredSourceSnapUsed = preferredSourceSnapUsed;
         target = snapGroundPoint(map, request.target, request.object, targetValid, &targetFloor);
     }
     else
@@ -371,7 +465,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
 
                 const float stepDeltaZ = std::fabs(candidate.z - currentPoint.z);
 
-                if (stepDeltaZ > request.object.stepHeight + PlannerEpsilon)
+                if (!walkStepDeltaAllowed(currentPoint.z, candidate.z, request.object))
                 {
                     ++result.debug.rejectedStepHeight;
 

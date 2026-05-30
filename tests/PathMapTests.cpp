@@ -46,6 +46,20 @@ PathFacet makeWall(float x, float minY, float maxY, float minZ, float maxZ)
     };
     return facet;
 }
+
+PathFacet makeHorizontalWall(float y, float minX, float maxX, float minZ, float maxZ)
+{
+    PathFacet facet = {};
+    facet.kind = PathFacetKind::Wall;
+    facet.blocking = true;
+    facet.vertices = {
+        {minX, y, minZ},
+        {maxX, y, minZ},
+        {maxX, y, maxZ},
+        {minX, y, maxZ}
+    };
+    return facet;
+}
 }
 
 TEST_CASE("path map line trace blocks through a wall and allows a route around it")
@@ -153,6 +167,21 @@ TEST_CASE("path map body-radius side trace rejects narrow wall clearance")
     CHECK_FALSE(center.blocked);
 
     const PathTraceResult body = map.traceLine({0.0f, 0.0f, 50.0f}, {100.0f, 0.0f, 50.0f}, 15.0f, true);
+    CHECK(body.blocked);
+    CHECK_EQ(body.facetIndex, 0u);
+}
+
+TEST_CASE("path map body-radius forward trace rejects wall clearance before center crossing")
+{
+    PathMap map;
+    map.setFacets({
+        makeHorizontalWall(115.0f, -16.0f, 16.0f, 0.0f, 100.0f)
+    });
+
+    const PathTraceResult center = map.traceLine({0.0f, 0.0f, 50.0f}, {0.0f, 100.0f, 50.0f});
+    CHECK_FALSE(center.blocked);
+
+    const PathTraceResult body = map.traceLine({0.0f, 0.0f, 50.0f}, {0.0f, 100.0f, 50.0f}, 20.0f, true);
     CHECK(body.blocked);
     CHECK_EQ(body.facetIndex, 0u);
 }

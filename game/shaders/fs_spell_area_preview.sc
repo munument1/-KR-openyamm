@@ -5,6 +5,7 @@ $input v_texcoord0, v_depth, v_worldPosition
 uniform vec4 u_fogColor;
 uniform vec4 u_fogDensities;
 uniform vec4 u_fogDistances;
+uniform vec4 u_cameraPosition;
 uniform vec4 u_spellAreaParams0;
 uniform vec4 u_spellAreaParams1;
 uniform vec4 u_spellAreaColorA;
@@ -134,8 +135,9 @@ void main()
             0.0,
             u_spellAreaParams0.z);
 
-    float fogRatio = getFogRatio(v_depth);
-    float fogAlpha = getFogAlpha(v_depth);
+    float fogDistance = length(v_worldPosition - u_cameraPosition.xyz);
+    float fogRatio = getFogRatio(fogDistance);
+    float fogAlpha = getFogAlpha(fogDistance);
     vec4 fogColor = vec4(u_fogColor.rgb, fogAlpha);
     vec4 markerColor = vec4(color, alpha);
     gl_FragColor = mix(markerColor, fogColor, fogRatio);

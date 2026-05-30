@@ -125,6 +125,7 @@ constexpr uint16_t LevelDecorationInvisible = 0x0020;
 constexpr uint32_t EnvironmentFlagRain = 0x01;
 constexpr uint32_t EnvironmentFlagSnow = 0x02;
 constexpr uint32_t EnvironmentFlagUnderwater = 0x04;
+constexpr uint32_t EnvironmentFlagNoTerrain = 0x08;
 constexpr uint32_t EnvironmentFlagAlwaysDark = 0x10;
 constexpr uint32_t EnvironmentFlagAlwaysLight = 0x20;
 constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
@@ -3972,6 +3973,14 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
             if (!applyTerrainTileDescriptorAttributes(assetFileSystem, *assetInfo.outdoorMapData))
             {
                 std::cerr << "Failed to apply outdoor terrain tile flags for " << map.fileName << '\n';
+            }
+
+            if (assetInfo.outdoorMapDeltaData)
+            {
+                uint32_t mapExtraBitsRaw = 0;
+                int32_t ceiling = 0;
+                decodeOutdoorMapExtra(assetInfo.outdoorMapDeltaData->locationTime, mapExtraBitsRaw, ceiling);
+                assetInfo.outdoorMapData->noTerrain = (mapExtraBitsRaw & EnvironmentFlagNoTerrain) != 0;
             }
 
             if (loadActorPreviews)

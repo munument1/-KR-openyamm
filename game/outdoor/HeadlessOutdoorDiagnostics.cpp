@@ -6650,6 +6650,268 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
         );
 
         runCase(
+            "indoor_pressure_plate_requires_explicit_monster_trigger_attribute",
+            [&](std::string &failure)
+            {
+                if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "d17.blv"))
+                {
+                    failure = "could not load d17.blv";
+                    return false;
+                }
+
+                const std::optional<MapAssetInfo> &loadedMap = gameDataLoader.getSelectedMap();
+
+                if (!loadedMap || !loadedMap->indoorMapData || !loadedMap->eventRuntimeState)
+                {
+                    failure = "d17.blv missing indoor runtime state";
+                    return false;
+                }
+
+                IndoorMapData mapData = *loadedMap->indoorMapData;
+
+                if (mapData.faces.empty())
+                {
+                    failure = "d17.blv has no indoor faces";
+                    return false;
+                }
+
+                constexpr size_t TestFaceIndex = 0;
+                constexpr uint16_t PressurePlateEventId = 452;
+                constexpr uint32_t PlateOnlyAttributes = faceAttributeBit(FaceAttribute::PressurePlate);
+                constexpr uint32_t PlateMonsterAttributes =
+                    faceAttributeBit(FaceAttribute::PressurePlate)
+                    | faceAttributeBit(FaceAttribute::TriggerByMonster);
+
+                mapData.faces[TestFaceIndex].attributes = PlateOnlyAttributes;
+                mapData.faces[TestFaceIndex].cogTriggered = PressurePlateEventId;
+
+                std::optional<MapDeltaData> mapDeltaData = loadedMap->indoorMapDeltaData;
+
+                if (!mapDeltaData)
+                {
+                    mapDeltaData = MapDeltaData{};
+                }
+
+                if (mapDeltaData->faceAttributes.size() < mapData.faces.size())
+                {
+                    mapDeltaData->faceAttributes.resize(mapData.faces.size(), 0);
+                }
+
+                mapDeltaData->faceAttributes[TestFaceIndex] = PlateOnlyAttributes;
+
+                std::optional<EventRuntimeState> eventRuntimeState = loadedMap->eventRuntimeState;
+
+                Party party = {};
+                party.setItemTable(&gameDataLoader.getItemTable());
+                party.setCharacterDollTable(&gameDataLoader.getCharacterDollTable());
+                party.setItemEnchantTables(
+                    &gameDataLoader.getStandardItemEnchantTable(),
+                    &gameDataLoader.getSpecialItemEnchantTable());
+                party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+                party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
+                party.seed(createRegressionPartySeed());
+
+                GameplayActorService actorService = buildBoundGameplayActorService(gameDataLoader);
+                IndoorWorldRuntime world = {};
+                world.initialize(
+                    loadedMap->map,
+                    gameDataLoader.getMonsterTable(),
+                    gameDataLoader.getObjectTable(),
+                    gameDataLoader.getItemTable(),
+                    gameDataLoader.getChestTable(),
+                    &party,
+                    nullptr,
+                    &mapDeltaData,
+                    &eventRuntimeState,
+                    &actorService,
+                    nullptr,
+                    &mapData);
+
+                EventRuntime eventRuntime = {};
+                world.bindEventExecution(
+                    &eventRuntime,
+                    &loadedMap->localEventProgram,
+                    &loadedMap->globalEventProgram);
+
+                if (world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::TriggerByMonster, false))
+                {
+                    failure = "monster trigger executed a plate without TriggerByMonster";
+                    return false;
+                }
+
+                mapData.faces[TestFaceIndex].attributes = PlateMonsterAttributes;
+                mapDeltaData->faceAttributes[TestFaceIndex] = PlateMonsterAttributes;
+
+                if (!world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::TriggerByMonster, false))
+                {
+                    failure = "explicit monster-triggered pressure plate did not execute";
+                    return false;
+                }
+
+                EventRuntimeState *pEventRuntimeState = world.eventRuntimeState();
+
+                if (pEventRuntimeState == nullptr || !pEventRuntimeState->lastPressurePlateTrigger)
+                {
+                    failure = "monster-triggered pressure plate was not recorded";
+                    return false;
+                }
+
+                pEventRuntimeState->lastPressurePlateTrigger.reset();
+
+                if (!world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::PressurePlate, false))
+                {
+                    failure = "party pressure-plate trigger no longer executed";
+                    return false;
+                }
+
+                if (pEventRuntimeState == nullptr || !pEventRuntimeState->lastPressurePlateTrigger)
+                {
+                    failure = "party pressure-plate trigger was not recorded";
+                    return false;
+                }
+
+                if (pEventRuntimeState->lastPressurePlateTrigger->eventId != PressurePlateEventId)
+                {
+                    failure = "party pressure-plate trigger recorded wrong event id";
+                    return false;
+                }
+
+                return true;
+            }
+        );
+
+        runCase(
+            "indoor_pressure_plate_tiled_region_triggers_once_per_event_entry",
+            [&](std::string &failure)
+            {
+                if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "d26.blv"))
+                {
+                    failure = "could not load d26.blv";
+                    return false;
+                }
+
+                const std::optional<MapAssetInfo> &loadedMap = gameDataLoader.getSelectedMap();
+
+                if (!loadedMap || !loadedMap->indoorMapData || !loadedMap->eventRuntimeState
+                    || !loadedMap->indoorMapDeltaData)
+                {
+                    failure = "d26.blv missing indoor runtime state";
+                    return false;
+                }
+
+                constexpr size_t FirstSparkPlateFace = 983;
+                constexpr size_t SecondSparkPlateFace = 985;
+                constexpr size_t NonPressureFloorFace = 533;
+                constexpr uint16_t SparkEventId = 101;
+
+                if (FirstSparkPlateFace >= loadedMap->indoorMapData->faces.size()
+                    || SecondSparkPlateFace >= loadedMap->indoorMapData->faces.size()
+                    || NonPressureFloorFace >= loadedMap->indoorMapData->faces.size())
+                {
+                    failure = "d26 pressure plate regression face index is out of range";
+                    return false;
+                }
+
+                auto assertSparkPlateFace =
+                    [&](size_t faceIndex, const char *label) -> bool
+                {
+                    const IndoorFace &face = loadedMap->indoorMapData->faces[faceIndex];
+
+                    if (face.cogTriggered != SparkEventId
+                        || !hasFaceAttribute(face.attributes, FaceAttribute::PressurePlate))
+                    {
+                        failure = std::string("d26 ") + label + " is not a spark pressure plate";
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                if (!assertSparkPlateFace(FirstSparkPlateFace, "first face")
+                    || !assertSparkPlateFace(SecondSparkPlateFace, "second face"))
+                {
+                    return false;
+                }
+
+                Party party = {};
+                party.setItemTable(&gameDataLoader.getItemTable());
+                party.setCharacterDollTable(&gameDataLoader.getCharacterDollTable());
+                party.setItemEnchantTables(
+                    &gameDataLoader.getStandardItemEnchantTable(),
+                    &gameDataLoader.getSpecialItemEnchantTable());
+                party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+                party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
+                party.seed(createRegressionPartySeed());
+
+                GameplayActorService actorService = buildBoundGameplayActorService(gameDataLoader);
+                IndoorSceneRuntime runtime(
+                    loadedMap->map.fileName,
+                    loadedMap->map,
+                    *loadedMap->indoorMapData,
+                    gameDataLoader.getMonsterTable(),
+                    gameDataLoader.getObjectTable(),
+                    gameDataLoader.getItemTable(),
+                    gameDataLoader.getChestTable(),
+                    party,
+                    loadedMap->indoorMapDeltaData,
+                    loadedMap->eventRuntimeState,
+                    loadedMap->localEventProgram,
+                    loadedMap->globalEventProgram,
+                    &actorService
+                );
+
+                auto placePartyOnFace =
+                    [&](size_t faceIndex)
+                {
+                    IndoorSceneRuntime::Snapshot snapshot = runtime.snapshot();
+                    snapshot.partyRuntime.movementState.grounded = true;
+                    snapshot.partyRuntime.movementState.supportFaceIndex = faceIndex;
+                    snapshot.partyRuntime.movementState.sectorId = 1;
+                    snapshot.partyRuntime.movementState.eyeSectorId = 1;
+                    snapshot.partyRuntime.movementState.footZ = -20.0f;
+                    snapshot.eventRuntimeState->lastPressurePlateTrigger.reset();
+                    runtime.restoreSnapshot(snapshot);
+                };
+
+                placePartyOnFace(FirstSparkPlateFace);
+                runtime.advanceSimulation(1.0f);
+
+                placePartyOnFace(SecondSparkPlateFace);
+                runtime.advanceSimulation(1.0f);
+
+                EventRuntimeState *pEventRuntimeState = runtime.eventRuntimeState();
+
+                if (pEventRuntimeState == nullptr)
+                {
+                    failure = "d26 pressure plate regression lost event runtime state";
+                    return false;
+                }
+
+                if (pEventRuntimeState->lastPressurePlateTrigger)
+                {
+                    failure = "d26 adjacent spark pressure plate face retriggered event 101";
+                    return false;
+                }
+
+                placePartyOnFace(NonPressureFloorFace);
+                runtime.advanceSimulation(1.0f);
+                placePartyOnFace(FirstSparkPlateFace);
+                runtime.advanceSimulation(1.0f);
+                pEventRuntimeState = runtime.eventRuntimeState();
+
+                if (pEventRuntimeState == nullptr
+                    || !pEventRuntimeState->lastPressurePlateTrigger
+                    || pEventRuntimeState->lastPressurePlateTrigger->eventId != SparkEventId)
+                {
+                    failure = "d26 spark pressure plate did not trigger after entering from non-plate floor";
+                    return false;
+                }
+
+                return true;
+            }
+        );
+
+        runCase(
             "indoor_scene_party_buff_updates_shared_scene_party_state",
             [&](std::string &failure)
             {
@@ -11344,6 +11606,88 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (contactedActorIndices.front() != 123)
             {
                 failure = "movement controller reported wrong actor contact index";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "party_movement_can_escape_under_new_sorpigal_tavern_sign",
+        [&](std::string &failure)
+        {
+            GameDataLoader signMapLoader;
+
+            if (!signMapLoader.loadForHeadlessGameplay(assetFileSystem))
+            {
+                failure = "could not load gameplay data for New Sorpigal sign regression";
+                return false;
+            }
+
+            if (!signMapLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+            {
+                failure = "could not load oute3.odm";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &signMap = signMapLoader.getSelectedMap();
+
+            if (!signMap || !signMap->outdoorMapData)
+            {
+                failure = "New Sorpigal sign regression map is missing outdoor data";
+                return false;
+            }
+
+            OutdoorMovementController movementController(
+                *signMap->outdoorMapData,
+                signMap->outdoorLandMask,
+                signMap->outdoorDecorationCollisionSet,
+                std::nullopt,
+                signMap->outdoorSpriteObjectCollisionSet);
+
+            constexpr float StartX = -9204.927734f;
+            constexpr float StartY = -9169.957031f;
+            constexpr float StartZ = 175.335342f;
+            constexpr float YawRadians = 1.480795f;
+            constexpr float WalkSpeed = 384.0f;
+            constexpr float RunningMultiplier = 2.0f;
+            constexpr float StepSeconds = 1.0f / 128.0f;
+            constexpr size_t StepCount = 192;
+
+            OutdoorMoveState state = movementController.initializeState(StartX, StartY, StartZ);
+            const float velocityX = std::cos(YawRadians) * WalkSpeed * RunningMultiplier;
+            const float velocityY = std::sin(YawRadians) * WalkSpeed * RunningMultiplier;
+
+            for (size_t stepIndex = 0; stepIndex < StepCount; ++stepIndex)
+            {
+                state = movementController.resolveMove(
+                    state,
+                    velocityX,
+                    velocityY,
+                    0.0f,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    0.0f,
+                    0.0f,
+                    4000.0f,
+                    StepSeconds);
+            }
+
+            const float deltaX = state.x - StartX;
+            const float deltaY = state.y - StartY;
+            const float forwardDistance = deltaX * std::cos(YawRadians) + deltaY * std::sin(YawRadians);
+
+            if (forwardDistance < 200.0f)
+            {
+                failure = "party remained trapped under SgnTavernW, forward_distance="
+                    + std::to_string(forwardDistance)
+                    + " end=(" + std::to_string(state.x)
+                    + "," + std::to_string(state.y)
+                    + "," + std::to_string(state.footZ) + ")";
                 return false;
             }
 

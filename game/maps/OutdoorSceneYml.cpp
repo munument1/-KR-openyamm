@@ -1776,7 +1776,6 @@ bool buildOutdoorMapStateFromScene(
     {
         for (OutdoorBModelFace &face : bmodel.faces)
         {
-            face.attributes = 0;
             face.cogNumber = 0;
             face.cogTriggeredNumber = 0;
             face.cogTrigger = 0;

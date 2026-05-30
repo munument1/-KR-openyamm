@@ -4453,6 +4453,22 @@ bool GameApplication::processPendingDebugMapJump()
             m_indoorRenderer.setCameraAngles(yawRadians, m_indoorRenderer.cameraPitchRadians());
         }
     }
+    else if (selectedMap->indoorMapData.has_value()
+        && selectedMap->indoorMapData->partyStartPoint.has_value()
+        && m_pMapSceneRuntime != nullptr
+        && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+    {
+        int32_t directionDegrees = selectedMap->indoorMapData->partyStartPoint->facingDegrees % 360;
+
+        if (directionDegrees < 0)
+        {
+            directionDegrees += 360;
+        }
+
+        debugStartDirectionDegrees = directionDegrees;
+        const float yawRadians = mapMoveHeadingDegreesToYawRadians(directionDegrees);
+        m_indoorRenderer.setCameraAngles(yawRadians, m_indoorRenderer.cameraPitchRadians());
+    }
     timingLogger.stage("debug start applied");
     const std::string sceneKind =
         m_pMapSceneRuntime != nullptr ? sceneKindName(m_pMapSceneRuntime->kind()) : "none";

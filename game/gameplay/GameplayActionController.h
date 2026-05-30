@@ -79,6 +79,7 @@ public:
         bool isInvisible = false;
         bool hostileToParty = false;
         bool visibleForFallback = false;
+        bool lineOfSightToParty = true;
     };
 
     static bool isPartyAttackActorTargetable(const GameplayPartyAttackActorFacts &actor)
@@ -88,7 +89,10 @@ public:
 
     static bool isPartyAttackFallbackCandidate(const GameplayPartyAttackActorFacts &actor)
     {
-        return isPartyAttackActorTargetable(actor) && actor.hostileToParty && actor.visibleForFallback;
+        return isPartyAttackActorTargetable(actor)
+            && actor.hostileToParty
+            && actor.visibleForFallback
+            && actor.lineOfSightToParty;
     }
 
     struct AttackCastResult
