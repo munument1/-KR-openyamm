@@ -515,7 +515,7 @@ DecorationLookupResult DecorationTable::resolveMapDecoration(
 {
     const std::optional<uint16_t> namedDecorationId = findIdByInternalName(internalName);
 
-    if (namedDecorationId && *namedDecorationId != 0)
+    if (namedDecorationId)
     {
         return DecorationLookupResult{*namedDecorationId, get(*namedDecorationId)};
     }

@@ -817,6 +817,13 @@ TEST_CASE("map decoration names take precedence over legacy decoration ids")
     CHECK_EQ(partyStart.pEntry->internalName, "party start");
     CHECK((partyStart.pEntry->flags & static_cast<uint16_t>(OpenYAMM::Game::DecorationDescFlag::DontDraw)) != 0);
 
+    const OpenYAMM::Game::DecorationLookupResult nullDecoration =
+        decorationTable.resolveMapDecoration(13, "null");
+    REQUIRE(nullDecoration.pEntry != nullptr);
+    CHECK_EQ(nullDecoration.decorationId, 0);
+    CHECK_EQ(nullDecoration.pEntry->internalName, "null");
+    CHECK_EQ(nullDecoration.pEntry->spriteId, 0);
+
     const OpenYAMM::Game::DecorationLookupResult fallback =
         decorationTable.resolveMapDecoration(13, "missing-decoration-name");
     REQUIRE(fallback.pEntry != nullptr);
