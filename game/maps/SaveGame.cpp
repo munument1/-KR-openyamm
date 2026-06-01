@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 61;
+constexpr uint32_t SaveVersion = 62;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -58,6 +58,7 @@ constexpr uint32_t SaveVersionHiredNpcFollowerAbilityUseDay = 58;
 constexpr uint32_t SaveVersionMonsterBolsterRewards = 59;
 constexpr uint32_t SaveVersionMonsterBolsterDamageDice = 60;
 constexpr uint32_t SaveVersionPendingSoundNames = 61;
+constexpr uint32_t SaveVersionOutdoorRuntimeSaveParity = 62;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1133,6 +1134,23 @@ void writeValue(BinaryWriter &writer, const GameplayActorSpellEffectState &value
     writeValue(writer, value.darkGraspRemainingSeconds);
     writeValue(writer, value.hostileToParty);
     writeValue(writer, value.hasDetectedParty);
+    writeValue(writer, value.dayOfProtectionRemainingSeconds);
+    writeValue(writer, value.dayOfProtectionPower);
+    writeValue(writer, value.hourOfPowerRemainingSeconds);
+    writeValue(writer, value.hourOfPowerPower);
+    writeValue(writer, value.painReflectionRemainingSeconds);
+    writeValue(writer, value.hammerhandsRemainingSeconds);
+    writeValue(writer, value.hammerhandsPower);
+    writeValue(writer, value.hasteRemainingSeconds);
+    writeValue(writer, value.shieldRemainingSeconds);
+    writeValue(writer, value.stoneskinRemainingSeconds);
+    writeValue(writer, value.stoneskinPower);
+    writeValue(writer, value.blessRemainingSeconds);
+    writeValue(writer, value.blessPower);
+    writeValue(writer, value.fateRemainingSeconds);
+    writeValue(writer, value.fatePower);
+    writeValue(writer, value.heroismRemainingSeconds);
+    writeValue(writer, value.heroismPower);
 }
 
 bool readValue(BinaryReader &reader, GameplayActorSpellEffectState &value)
@@ -1153,7 +1171,25 @@ bool readValue(BinaryReader &reader, GameplayActorSpellEffectState &value)
             || readValue(reader, value.armorClassHalvedRemainingSeconds))
         && readValue(reader, value.darkGraspRemainingSeconds)
         && readValue(reader, value.hostileToParty)
-        && readValue(reader, value.hasDetectedParty);
+        && readValue(reader, value.hasDetectedParty)
+        && (reader.version() < SaveVersionOutdoorRuntimeSaveParity
+            || (readValue(reader, value.dayOfProtectionRemainingSeconds)
+                && readValue(reader, value.dayOfProtectionPower)
+                && readValue(reader, value.hourOfPowerRemainingSeconds)
+                && readValue(reader, value.hourOfPowerPower)
+                && readValue(reader, value.painReflectionRemainingSeconds)
+                && readValue(reader, value.hammerhandsRemainingSeconds)
+                && readValue(reader, value.hammerhandsPower)
+                && readValue(reader, value.hasteRemainingSeconds)
+                && readValue(reader, value.shieldRemainingSeconds)
+                && readValue(reader, value.stoneskinRemainingSeconds)
+                && readValue(reader, value.stoneskinPower)
+                && readValue(reader, value.blessRemainingSeconds)
+                && readValue(reader, value.blessPower)
+                && readValue(reader, value.fateRemainingSeconds)
+                && readValue(reader, value.fatePower)
+                && readValue(reader, value.heroismRemainingSeconds)
+                && readValue(reader, value.heroismPower)));
 }
 
 void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::BloodSplatState::Vertex &value)
@@ -1185,6 +1221,44 @@ void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::BloodSplatState 
 }
 
 bool readValue(BinaryReader &reader, IndoorWorldRuntime::BloodSplatState &value)
+{
+    return readValue(reader, value.sourceActorId)
+        && readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.z)
+        && readValue(reader, value.radius)
+        && readValue(reader, value.vertices);
+}
+
+void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::BloodSplatState::Vertex &value)
+{
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.z);
+    writeValue(writer, value.u);
+    writeValue(writer, value.v);
+}
+
+bool readValue(BinaryReader &reader, OutdoorWorldRuntime::BloodSplatState::Vertex &value)
+{
+    return readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.z)
+        && readValue(reader, value.u)
+        && readValue(reader, value.v);
+}
+
+void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::BloodSplatState &value)
+{
+    writeValue(writer, value.sourceActorId);
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.z);
+    writeValue(writer, value.radius);
+    writeValue(writer, value.vertices);
+}
+
+bool readValue(BinaryReader &reader, OutdoorWorldRuntime::BloodSplatState &value)
 {
     return readValue(reader, value.sourceActorId)
         && readValue(reader, value.x)
@@ -1250,6 +1324,7 @@ void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::MapActorAiState 
     writeValue(writer, value.crowdProbeElapsedSeconds);
     writeValue(writer, value.crowdEscapeAttempts);
     writeValue(writer, value.crowdSideSign);
+    writeValue(writer, value.suppressLowHealthFlee);
 }
 
 bool readValue(BinaryReader &reader, IndoorWorldRuntime::MapActorAiState &value)
@@ -1309,7 +1384,8 @@ bool readValue(BinaryReader &reader, IndoorWorldRuntime::MapActorAiState &value)
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.crowdProbeEdgeDistance))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.crowdProbeElapsedSeconds))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.crowdEscapeAttempts))
-        && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.crowdSideSign));
+        && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.crowdSideSign))
+        && (reader.version() < SaveVersionOutdoorRuntimeSaveParity || readValue(reader, value.suppressLowHealthFlee));
 }
 
 void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::Snapshot &value)
@@ -2339,6 +2415,56 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &
     writeValue(writer, value.queuedAttackAbility);
     writeValue(writer, value.movementState);
     writeValue(writer, value.movementStateInitialized);
+    writeValue(writer, value.npcId);
+    writeValue(writer, value.aiType);
+    writeValue(writer, value.canFly);
+    writeValue(writer, value.attack1DamageType);
+    writeValue(writer, value.attack2DamageType);
+    writeValue(writer, value.spell1Id);
+    writeValue(writer, value.spell1DamageType);
+    writeValue(writer, value.spell1CastSupported);
+    writeValue(writer, value.spell2Id);
+    writeValue(writer, value.spell2DamageType);
+    writeValue(writer, value.spell2CastSupported);
+    writeValue(writer, value.wanderRadius);
+    writeValue(writer, value.generatedAttack2);
+    writeValue(writer, value.generatedAttack2IsRanged);
+    writeValue(writer, value.copyAttack1DamageToAttack2);
+    writeValue(writer, value.generatedAttack2MissileType);
+    writeValue(writer, value.generatedAttack2Chance);
+    writeValue(writer, value.generatedSpell1UseChance);
+    writeValue(writer, value.generatedSpell2UseChance);
+    writeValue(writer, value.alertStatusBit);
+    writeValue(writer, value.bloodSplatSpawned);
+    writeValue(writer, value.dayOfProtectionRemainingSeconds);
+    writeValue(writer, value.dayOfProtectionPower);
+    writeValue(writer, value.hourOfPowerRemainingSeconds);
+    writeValue(writer, value.hourOfPowerPower);
+    writeValue(writer, value.painReflectionRemainingSeconds);
+    writeValue(writer, value.hammerhandsRemainingSeconds);
+    writeValue(writer, value.hammerhandsPower);
+    writeValue(writer, value.hasteRemainingSeconds);
+    writeValue(writer, value.shieldRemainingSeconds);
+    writeValue(writer, value.stoneskinRemainingSeconds);
+    writeValue(writer, value.stoneskinPower);
+    writeValue(writer, value.blessRemainingSeconds);
+    writeValue(writer, value.blessPower);
+    writeValue(writer, value.fateRemainingSeconds);
+    writeValue(writer, value.fatePower);
+    writeValue(writer, value.heroismRemainingSeconds);
+    writeValue(writer, value.heroismPower);
+    writeValue(writer, value.crowdSideLockRemainingSeconds);
+    writeValue(writer, value.crowdNoProgressSeconds);
+    writeValue(writer, value.crowdLastEdgeDistance);
+    writeValue(writer, value.crowdRetreatRemainingSeconds);
+    writeValue(writer, value.crowdStandRemainingSeconds);
+    writeValue(writer, value.crowdProbeX);
+    writeValue(writer, value.crowdProbeY);
+    writeValue(writer, value.crowdProbeEdgeDistance);
+    writeValue(writer, value.crowdProbeElapsedSeconds);
+    writeValue(writer, value.crowdEscapeAttempts);
+    writeValue(writer, value.crowdSideSign);
+    writeValue(writer, value.suppressLowHealthFlee);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
@@ -2429,7 +2555,58 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
         && readValue(reader, value.attackImpactTriggered)
         && readValue(reader, value.queuedAttackAbility)
         && readValue(reader, value.movementState)
-        && readValue(reader, value.movementStateInitialized);
+        && readValue(reader, value.movementStateInitialized)
+        && (reader.version() < SaveVersionOutdoorRuntimeSaveParity
+            || (readValue(reader, value.npcId)
+                && readValue(reader, value.aiType)
+                && readValue(reader, value.canFly)
+                && readValue(reader, value.attack1DamageType)
+                && readValue(reader, value.attack2DamageType)
+                && readValue(reader, value.spell1Id)
+                && readValue(reader, value.spell1DamageType)
+                && readValue(reader, value.spell1CastSupported)
+                && readValue(reader, value.spell2Id)
+                && readValue(reader, value.spell2DamageType)
+                && readValue(reader, value.spell2CastSupported)
+                && readValue(reader, value.wanderRadius)
+                && readValue(reader, value.generatedAttack2)
+                && readValue(reader, value.generatedAttack2IsRanged)
+                && readValue(reader, value.copyAttack1DamageToAttack2)
+                && readValue(reader, value.generatedAttack2MissileType)
+                && readValue(reader, value.generatedAttack2Chance)
+                && readValue(reader, value.generatedSpell1UseChance)
+                && readValue(reader, value.generatedSpell2UseChance)
+                && readValue(reader, value.alertStatusBit)
+                && readValue(reader, value.bloodSplatSpawned)
+                && readValue(reader, value.dayOfProtectionRemainingSeconds)
+                && readValue(reader, value.dayOfProtectionPower)
+                && readValue(reader, value.hourOfPowerRemainingSeconds)
+                && readValue(reader, value.hourOfPowerPower)
+                && readValue(reader, value.painReflectionRemainingSeconds)
+                && readValue(reader, value.hammerhandsRemainingSeconds)
+                && readValue(reader, value.hammerhandsPower)
+                && readValue(reader, value.hasteRemainingSeconds)
+                && readValue(reader, value.shieldRemainingSeconds)
+                && readValue(reader, value.stoneskinRemainingSeconds)
+                && readValue(reader, value.stoneskinPower)
+                && readValue(reader, value.blessRemainingSeconds)
+                && readValue(reader, value.blessPower)
+                && readValue(reader, value.fateRemainingSeconds)
+                && readValue(reader, value.fatePower)
+                && readValue(reader, value.heroismRemainingSeconds)
+                && readValue(reader, value.heroismPower)
+                && readValue(reader, value.crowdSideLockRemainingSeconds)
+                && readValue(reader, value.crowdNoProgressSeconds)
+                && readValue(reader, value.crowdLastEdgeDistance)
+                && readValue(reader, value.crowdRetreatRemainingSeconds)
+                && readValue(reader, value.crowdStandRemainingSeconds)
+                && readValue(reader, value.crowdProbeX)
+                && readValue(reader, value.crowdProbeY)
+                && readValue(reader, value.crowdProbeEdgeDistance)
+                && readValue(reader, value.crowdProbeElapsedSeconds)
+                && readValue(reader, value.crowdEscapeAttempts)
+                && readValue(reader, value.crowdSideSign)
+                && readValue(reader, value.suppressLowHealthFlee)));
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::ChestItemState &value)
@@ -2560,6 +2737,30 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::WorldItemState &value)
         && readValue(reader, value.lifetimeTicks)
         && readValue(reader, value.spawnedByPlayer)
         && readValue(reader, value.isExpired);
+}
+
+void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::ArmageddonState &value)
+{
+    writeValue(writer, value.remainingSeconds);
+    writeValue(writer, value.skillLevel);
+    writeValue(writer, value.skillMastery);
+    writeValue(writer, value.casterMemberIndex);
+    writeValue(writer, value.shakeStepsRemaining);
+    writeValue(writer, value.shakeSequence);
+    writeValue(writer, value.cameraShakeYawRadians);
+    writeValue(writer, value.cameraShakePitchRadians);
+}
+
+bool readValue(BinaryReader &reader, OutdoorWorldRuntime::ArmageddonState &value)
+{
+    return readValue(reader, value.remainingSeconds)
+        && readValue(reader, value.skillLevel)
+        && readValue(reader, value.skillMastery)
+        && readValue(reader, value.casterMemberIndex)
+        && readValue(reader, value.shakeStepsRemaining)
+        && readValue(reader, value.shakeSequence)
+        && readValue(reader, value.cameraShakeYawRadians)
+        && readValue(reader, value.cameraShakePitchRadians);
 }
 
 void writeValue(BinaryWriter &writer, const GameplayProjectileService::ProjectileState &value)
@@ -2839,11 +3040,19 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::Snapshot &value
     writeValue(writer, value.fireSpikeTraps);
     writeValue(writer, value.fullyRevealedCells);
     writeValue(writer, value.partiallyRevealedCells);
+    writeValue(writer, value.gameplayOverlayRemainingSeconds);
+    writeValue(writer, value.gameplayOverlayDurationSeconds);
+    writeValue(writer, value.gameplayOverlayPeakAlpha);
+    writeValue(writer, value.gameplayOverlayColorAbgr);
+    writeValue(writer, value.armageddon);
+    writeValue(writer, value.hasRainIntensityOverride);
+    writeValue(writer, value.rainIntensityPreset);
+    writeValue(writer, value.bloodSplats);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
 {
-    return readValue(reader, value.gameMinutes)
+    const bool loaded = readValue(reader, value.gameMinutes)
         && (reader.version() < SaveVersionOutdoorLocationInfo || readValue(reader, value.locationInfo))
         && readValue(reader, value.atmosphere)
         && readValue(reader, value.timers)
@@ -2869,7 +3078,23 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
         && (reader.version() < SaveVersionOutdoorJournalRevealMask
             || readValue(reader, value.fullyRevealedCells))
         && (reader.version() < SaveVersionOutdoorJournalRevealMask
-            || readValue(reader, value.partiallyRevealedCells));
+            || readValue(reader, value.partiallyRevealedCells))
+        && (reader.version() < SaveVersionOutdoorRuntimeSaveParity
+            || (readValue(reader, value.gameplayOverlayRemainingSeconds)
+                && readValue(reader, value.gameplayOverlayDurationSeconds)
+                && readValue(reader, value.gameplayOverlayPeakAlpha)
+                && readValue(reader, value.gameplayOverlayColorAbgr)
+                && readValue(reader, value.armageddon)
+                && readValue(reader, value.hasRainIntensityOverride)
+                && readValue(reader, value.rainIntensityPreset)
+                && readValue(reader, value.bloodSplats)));
+
+    if (loaded && reader.version() >= SaveVersionOutdoorRuntimeSaveParity)
+    {
+        value.hasOutdoorRuntimeSaveParityFields = true;
+    }
+
+    return loaded;
 }
 
 void writeValue(BinaryWriter &writer, const IndoorSceneRuntime::Snapshot &value)

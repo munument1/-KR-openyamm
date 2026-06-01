@@ -36,6 +36,7 @@ void GameplayController::bindRuntime(IMapSceneRuntime *pRuntime)
     }
 
     m_pSession->bindActiveWorldRuntime(pWorldRuntime);
+    m_pSession->gameplayScreenRuntime().syncPartyConditionPortraits();
 }
 
 void GameplayController::clearRuntime()

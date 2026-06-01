@@ -23,6 +23,7 @@ ReplaceMapEvent(1, "MMMerge were-rat state", function()
         evt.SetMonGroupBit(11, MonsterBits.Invisible, 0)
     end
 end)
+AppendMapOnLoadEvent(1)
 
 RegisterMapTimerEvent(901, 60, function()
     if MM8.GetMapFlag(WereratsMad) then

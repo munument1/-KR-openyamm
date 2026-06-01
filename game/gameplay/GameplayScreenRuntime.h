@@ -253,6 +253,7 @@ public:
     void resetDialogueOverlayInteractionState();
     void resetSpellbookOverlayInteractionState();
     void resetCharacterOverlayInteractionState();
+    void syncPartyConditionPortraits();
     void updatePartyPortraitAnimations(float deltaSeconds);
     uint32_t animationTicks() const;
     void triggerPortraitEventFxWithoutSpeech(size_t memberIndex, PortraitFxEventKind eventKind);

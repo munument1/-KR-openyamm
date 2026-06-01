@@ -17,7 +17,7 @@ ReplaceMapEvent(451, "Fire the cannon !", function()
     evt.StatusText("You do not see the right kind of ammunition anywhere")
 end, "Fire the cannon !")
 
-ReplaceMapEvent(452, "MMMerge cannon sequence", function()
+RegisterMapTimerEvent(452, 60, function()
     if not IsAtLeast(MapVar(41), 1) then
         return
     end

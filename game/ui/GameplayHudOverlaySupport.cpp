@@ -814,7 +814,8 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
         || context.keyboardScreenState().active
         || context.menuScreenState().active
         || context.saveGameScreenState().active
-        || context.loadGameScreenState().active)
+        || context.loadGameScreenState().active
+        || context.interactionState().partyPortraitRightClickItemUseLatch)
     {
         return;
     }
@@ -1078,7 +1079,8 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
         || context.keyboardScreenState().active
         || context.menuScreenState().active
         || context.saveGameScreenState().active
-        || context.loadGameScreenState().active)
+        || context.loadGameScreenState().active
+        || context.interactionState().partyPortraitRightClickItemUseLatch)
     {
         return;
     }

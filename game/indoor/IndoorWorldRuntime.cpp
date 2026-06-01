@@ -3792,9 +3792,13 @@ bool IndoorWorldRuntime::executeFaceTriggeredEvent(
         return false;
     }
 
-    if (triggerAttribute == FaceAttribute::PressurePlate
-        || (triggerAttribute == FaceAttribute::TriggerByMonster
-            && hasFaceAttribute(attributes, FaceAttribute::PressurePlate)))
+    if (triggerAttribute == FaceAttribute::TriggerByMonster
+        && hasFaceAttribute(attributes, FaceAttribute::PressurePlate))
+    {
+        return false;
+    }
+
+    if (triggerAttribute == FaceAttribute::PressurePlate)
     {
         pEventRuntimeState->lastPressurePlateTrigger = EventRuntimeState::PressurePlateTrigger{
             .world = "indoor",
@@ -7948,40 +7952,13 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     appendMonsterTriggerFace(moveDebugInfo);
     appendMonsterTriggerFace(verticalMoveDebugInfo);
 
-    std::optional<size_t> monsterPressurePlateFaceIndex;
-    const std::optional<uint16_t> previousPressurePlateEvent =
-        moveState.grounded && moveState.supportFaceIndex != static_cast<size_t>(-1)
-            ? indoorPressurePlateEventId(*m_pIndoorMapData, pMapDeltaData, moveState.supportFaceIndex)
-            : std::nullopt;
-    const std::optional<uint16_t> currentPressurePlateEvent =
-        finalMoveState.grounded && finalMoveState.supportFaceIndex != static_cast<size_t>(-1)
-            ? indoorPressurePlateEventId(*m_pIndoorMapData, pMapDeltaData, finalMoveState.supportFaceIndex)
-            : std::nullopt;
-
-    if (!actorCanFly
-        && currentPressurePlateEvent
-        && (!previousPressurePlateEvent || *previousPressurePlateEvent != *currentPressurePlateEvent)
-        && indoorFaceHasEffectiveAttribute(
-            *m_pIndoorMapData,
-            pMapDeltaData,
-            finalMoveState.supportFaceIndex,
-            FaceAttribute::TriggerByMonster))
-    {
-        monsterPressurePlateFaceIndex = finalMoveState.supportFaceIndex;
-    }
-
-    if (!monsterTriggerFaceIndices.empty() || monsterPressurePlateFaceIndex)
+    if (!monsterTriggerFaceIndices.empty())
     {
         const uint64_t eventBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
 
         for (size_t faceIndex : monsterTriggerFaceIndices)
         {
             executeFaceTriggeredEvent(faceIndex, FaceAttribute::TriggerByMonster, false);
-        }
-
-        if (monsterPressurePlateFaceIndex)
-        {
-            executeFaceTriggeredEvent(*monsterPressurePlateFaceIndex, FaceAttribute::TriggerByMonster, false);
         }
 
         if (pDiagnostics != nullptr)

@@ -43186,8 +43186,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 439
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: 2208
@@ -43201,8 +43201,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 440
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: 864
@@ -43216,8 +43216,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 441
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -672
@@ -43231,8 +43231,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 442
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -1984
@@ -43246,8 +43246,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 443
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -8544
@@ -43261,8 +43261,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 444
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -10432
@@ -43276,8 +43276,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 445
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -11232
@@ -43291,8 +43291,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 446
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -11904
@@ -43306,8 +43306,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 447
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -8608
@@ -43321,8 +43321,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 448
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -13888
@@ -43336,8 +43336,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 449
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -17408
@@ -43351,8 +43351,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 450
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -17792
@@ -43366,8 +43366,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 451
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -16608
@@ -43381,8 +43381,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 452
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -17408
@@ -43396,8 +43396,8 @@ entities:
     special_trigger: 0
     initial_decoration_flag: 0
   - entity_index: 453
-    name: ""
-    decoration_list_id: 13
+    name: "null"
+    decoration_list_id: 0
     ai_attributes: 0
     position:
       x: -18144

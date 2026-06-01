@@ -2917,6 +2917,19 @@ TEST_CASE("mm8 mmmerge out13 cannon sequence advances through every reusable sta
         loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "out13", "out13_mmmerge", error);
     REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
 
+    bool foundCannonTimer = false;
+    for (const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &timer : localEventProgram->timerTriggers())
+    {
+        if (timer.eventId == 452)
+        {
+            foundCannonTimer = true;
+            CHECK(timer.repeating);
+            CHECK_EQ(timer.intervalGameMinutes, doctest::Approx(1.0f));
+            CHECK_EQ(timer.remainingGameMinutes, doctest::Approx(1.0f));
+        }
+    }
+    CHECK(foundCannonTimer);
+
     OpenYAMM::Game::EventRuntime eventRuntime = {};
     OpenYAMM::Game::Party party = makeScriptedRegressionParty();
     party.grantItem(662);
@@ -3162,9 +3175,22 @@ TEST_CASE("mm8 mmmerge on-load and kill-tracker overlays apply runtime state")
             loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "d07", "d07_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
 
+        OpenYAMM::Game::Party firstVisitParty = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::EventRuntimeState firstVisitState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            firstVisitState,
+            &firstVisitParty));
+        CHECK_EQ(firstVisitState.actorGroupSetMasks[8] & actorHostileBit, actorHostileBit);
+        CHECK_EQ(firstVisitState.actorGroupSetMasks[10] & actorHostileBit, actorHostileBit);
+        CHECK_EQ(firstVisitState.actorGroupClearMasks[8] & actorInvisibleBit, actorInvisibleBit);
+        CHECK_EQ(firstVisitState.actorGroupSetMasks[11] & actorInvisibleBit, actorInvisibleBit);
+
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
         party.setQuestBit(10, true);
-        OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
         RecordingSceneEventContext sceneContext = {};
         sceneContext.killedGroupResults[8] = true;

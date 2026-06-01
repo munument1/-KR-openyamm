@@ -183,6 +183,111 @@ constexpr float HostilityCloseRange = 1024.0f;
 constexpr float HostilityShortRange = 2560.0f;
 constexpr float HostilityMediumRange = 5120.0f;
 constexpr float HostilityLongRange = 10240.0f;
+constexpr float OutdoorActorAiTraceIntervalSeconds = 0.5f;
+constexpr size_t OutdoorActorAiTraceDefaultActorLimit = 16;
+
+bool environmentFlagEnabled(const char *pName)
+{
+    const char *pValue = std::getenv(pName);
+
+    if (pValue == nullptr || *pValue == '\0')
+    {
+        return false;
+    }
+
+    const std::string value(pValue);
+    return value != "0" && value != "false" && value != "FALSE" && value != "off" && value != "OFF";
+}
+
+std::optional<size_t> environmentSizeValue(const char *pName)
+{
+    const char *pValue = std::getenv(pName);
+
+    if (pValue == nullptr || *pValue == '\0')
+    {
+        return std::nullopt;
+    }
+
+    char *pEnd = nullptr;
+    const unsigned long long value = std::strtoull(pValue, &pEnd, 10);
+
+    if (pEnd == pValue || (pEnd != nullptr && *pEnd != '\0'))
+    {
+        return std::nullopt;
+    }
+
+    return static_cast<size_t>(value);
+}
+
+const char *actorAiMovementActionName(ActorAiMovementAction action)
+{
+    switch (action)
+    {
+        case ActorAiMovementAction::None:
+            return "none";
+        case ActorAiMovementAction::Stand:
+            return "stand";
+        case ActorAiMovementAction::Move:
+            return "move";
+        case ActorAiMovementAction::Pursue:
+            return "pursue";
+        case ActorAiMovementAction::Flee:
+            return "flee";
+        case ActorAiMovementAction::Wander:
+            return "wander";
+    }
+
+    return "unknown";
+}
+
+const char *actorAiTargetKindName(ActorAiTargetKind kind)
+{
+    switch (kind)
+    {
+        case ActorAiTargetKind::None:
+            return "none";
+        case ActorAiTargetKind::Party:
+            return "party";
+        case ActorAiTargetKind::Actor:
+            return "actor";
+    }
+
+    return "unknown";
+}
+
+const ActorAiUpdate *findActorAiUpdate(const ActorAiFrameResult &result, size_t actorIndex)
+{
+    for (const ActorAiUpdate &update : result.actorUpdates)
+    {
+        if (update.actorIndex == actorIndex)
+        {
+            return &update;
+        }
+    }
+
+    return nullptr;
+}
+
+bool outdoorActorAiTraceActorIncluded(const ActorAiFacts &facts, size_t emittedCount)
+{
+    if (const std::optional<size_t> tracedActorIndex =
+            environmentSizeValue("OPENYAMM_OUTDOOR_ACTOR_AI_TRACE_ACTOR"))
+    {
+        return facts.actorIndex == *tracedActorIndex;
+    }
+
+    if (emittedCount >= OutdoorActorAiTraceDefaultActorLimit)
+    {
+        return false;
+    }
+
+    if (!environmentFlagEnabled("OPENYAMM_OUTDOOR_ACTOR_AI_TRACE_ALL") && facts.status.hostileToParty)
+    {
+        return false;
+    }
+
+    return facts.world.active || facts.movement.distanceToParty <= HostilityMediumRange;
+}
 
 uint32_t nextInspectPreviewRandom(OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state)
 {
@@ -2663,6 +2768,37 @@ void populateOutdoorActorStaticCombatFacts(
             state.spell2DamageType = GameMechanics::spellCombatDamageType(state.spell2Id, pSpellTable);
         }
     }
+}
+
+void refreshOutdoorMapActorAiStaticFields(
+    OutdoorWorldRuntime::MapActorState &state,
+    size_t actorIndex,
+    const MapDeltaData *pMapDeltaData,
+    const MonsterTable *pMonsterTable,
+    const SpellTable *pSpellTable)
+{
+    if (!state.spawnedAtRuntime
+        && pMapDeltaData != nullptr
+        && actorIndex < pMapDeltaData->actors.size())
+    {
+        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        state.npcId = actor.npcId;
+        state.alertStatusBit = (actor.attributes & ActorAlertStatusBit) != 0;
+    }
+
+    if (pMonsterTable == nullptr)
+    {
+        return;
+    }
+
+    const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(state.monsterId);
+
+    if (pStats == nullptr)
+    {
+        return;
+    }
+
+    populateOutdoorActorStaticCombatFacts(state, pStats, pSpellTable);
 }
 
 void applyOutdoorBolsterAbilityOverrides(
@@ -6434,9 +6570,11 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
     snapshot.projectiles = projectileSnapshot.projectiles;
     snapshot.projectileImpacts = projectileSnapshot.projectileImpacts;
     snapshot.fireSpikeTraps = m_fireSpikeTraps;
+    snapshot.bloodSplats = m_bloodSplats;
     snapshot.armageddon = m_armageddonState;
     snapshot.hasRainIntensityOverride = m_hasRainIntensityOverride;
     snapshot.rainIntensityPreset = m_rainIntensityPreset;
+    snapshot.hasOutdoorRuntimeSaveParityFields = true;
     if (m_pOutdoorMapDeltaData != nullptr)
     {
         snapshot.fullyRevealedCells = m_pOutdoorMapDeltaData->fullyRevealedCells;
@@ -6496,6 +6634,8 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_gameplayOverlayPeakAlpha = snapshot.gameplayOverlayPeakAlpha;
     m_gameplayOverlayColorAbgr = snapshot.gameplayOverlayColorAbgr;
     m_fireSpikeTraps = snapshot.fireSpikeTraps;
+    m_bloodSplats = snapshot.bloodSplats;
+    ++m_bloodSplatRevision;
     m_armageddonState = snapshot.armageddon;
     m_hasRainIntensityOverride = snapshot.hasRainIntensityOverride;
     m_rainIntensityPreset = snapshot.rainIntensityPreset;
@@ -6515,6 +6655,20 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
 
     m_pendingAudioEvents.clear();
     clearPendingCombatEvents();
+
+    if (!snapshot.hasOutdoorRuntimeSaveParityFields)
+    {
+        for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
+        {
+            refreshOutdoorMapActorAiStaticFields(
+                m_mapActors[actorIndex],
+                actorIndex,
+                m_pOutdoorMapDeltaData,
+                m_pMonsterTable,
+                m_pSpellTable);
+        }
+    }
+
     refreshAtmosphereState();
     applyEventRuntimeState(true);
 }
@@ -9027,6 +9181,161 @@ void OutdoorWorldRuntime::applyActorFrameSideEffects(float deltaSeconds, float p
     updateFireSpikeTraps(deltaSeconds, partyX, partyY, partyZ);
 }
 
+bool OutdoorWorldRuntime::shouldTraceOutdoorActorAi(float deltaSeconds)
+{
+    if (!environmentFlagEnabled("OPENYAMM_OUTDOOR_ACTOR_AI_TRACE"))
+    {
+        m_actorAiTraceAccumulatorSeconds = 0.0f;
+        return false;
+    }
+
+    m_actorAiTraceAccumulatorSeconds += std::max(0.0f, deltaSeconds);
+
+    if (m_actorAiTraceAccumulatorSeconds < OutdoorActorAiTraceIntervalSeconds)
+    {
+        return false;
+    }
+
+    m_actorAiTraceAccumulatorSeconds = 0.0f;
+    return true;
+}
+
+void OutdoorWorldRuntime::traceOutdoorActorAiDecisions(
+    const ActorAiFrameFacts &facts,
+    const ActorAiFrameResult &result,
+    const std::vector<bool> &activeActorMask) const
+{
+    size_t emittedCount = 0;
+    const auto traceActorFacts =
+        [&](const ActorAiFacts &actorFacts)
+    {
+        if (!outdoorActorAiTraceActorIncluded(actorFacts, emittedCount))
+        {
+            return;
+        }
+
+        ++emittedCount;
+
+        const ActorAiUpdate *pUpdate = findActorAiUpdate(result, actorFacts.actorIndex);
+        const bool active =
+            actorFacts.actorIndex < activeActorMask.size() && activeActorMask[actorFacts.actorIndex];
+        std::ostringstream line;
+        line << "outdoor_actor_ai_decision"
+             << " map=\"" << m_map.fileName << "\""
+             << " actor=" << actorFacts.actorIndex
+             << " actor_id=" << actorFacts.actorId
+             << " monster=" << actorFacts.identity.monsterId
+             << " name=\"" << actorFacts.identity.displayName << "\""
+             << " active=" << (active ? "true" : "false")
+             << " service=" << (m_pGameplayActorService != nullptr ? "true" : "false")
+             << " hostile_party=" << (actorFacts.status.hostileToParty ? "true" : "false")
+             << " default_hostile=" << (actorFacts.status.defaultHostileToParty ? "true" : "false")
+             << " detected_party=" << (actorFacts.status.hasDetectedParty ? "true" : "false")
+             << " motion=" << static_cast<int>(actorFacts.runtime.motionState)
+             << " anim=" << static_cast<int>(actorFacts.runtime.animationState)
+             << " idle_secs=" << actorFacts.runtime.idleDecisionSeconds
+             << " action_secs=" << actorFacts.runtime.actionSeconds
+             << " idle_count=" << actorFacts.runtime.idleDecisionCount
+             << " pos=(" << actorFacts.movement.position.x
+             << "," << actorFacts.movement.position.y
+             << "," << actorFacts.movement.position.z << ")"
+             << " party_dist=" << actorFacts.movement.distanceToParty
+             << " movement_allowed=" << (actorFacts.movement.movementAllowed ? "true" : "false")
+             << " allow_idle_wander=" << (actorFacts.movement.allowIdleWander ? "true" : "false")
+             << " wander_radius=" << actorFacts.movement.wanderRadius
+             << " move_speed=" << actorFacts.movement.effectiveMoveSpeed
+             << " target=" << actorAiTargetKindName(actorFacts.target.currentKind)
+             << " target_actor=" << actorFacts.target.currentActorIndex
+             << " target_can_sense=" << (actorFacts.target.currentCanSense ? "true" : "false")
+             << " target_los=" << (actorFacts.target.currentHasAttackLineOfSight ? "true" : "false")
+             << " target_dist=" << actorFacts.target.currentDistance
+             << " target_edge=" << actorFacts.target.currentEdgeDistance;
+
+        if (pUpdate != nullptr)
+        {
+            line << " update=true"
+                 << " move_action=" << actorAiMovementActionName(pUpdate->movementIntent.action)
+                 << " apply_move=" << (pUpdate->movementIntent.applyMovement ? "true" : "false")
+                 << " desired=(" << pUpdate->movementIntent.desiredMoveX
+                 << "," << pUpdate->movementIntent.desiredMoveY
+                 << "," << pUpdate->movementIntent.desiredMoveZ << ")"
+                 << " update_motion=" << (pUpdate->state.motionState
+                     ? std::to_string(static_cast<int>(*pUpdate->state.motionState))
+                     : "none")
+                 << " update_idle_secs=" << (pUpdate->state.idleDecisionSeconds
+                     ? std::to_string(*pUpdate->state.idleDecisionSeconds)
+                     : "none")
+                 << " update_action_secs=" << (pUpdate->state.actionSeconds
+                     ? std::to_string(*pUpdate->state.actionSeconds)
+                     : "none");
+        }
+        else
+        {
+            line << " update=false";
+        }
+
+        GAMEPLAY_DEBUG_TRACE(line.str());
+    };
+
+    for (const ActorAiFacts &actorFacts : facts.activeActors)
+    {
+        traceActorFacts(actorFacts);
+    }
+
+    for (const ActorAiFacts &actorFacts : facts.backgroundActors)
+    {
+        traceActorFacts(actorFacts);
+    }
+}
+
+void OutdoorWorldRuntime::traceOutdoorActorAiAfter(const std::vector<bool> &activeActorMask) const
+{
+    size_t emittedCount = 0;
+
+    for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
+    {
+        const MapActorState &actor = m_mapActors[actorIndex];
+        ActorAiFacts facts = {};
+        facts.actorIndex = actorIndex;
+        facts.status.hostileToParty = actor.hostileToParty && !outdoorActorIsPartyControlled(actor.controlMode);
+        facts.world.active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
+        facts.movement.distanceToParty = 0.0f;
+
+        if (!outdoorActorAiTraceActorIncluded(facts, emittedCount))
+        {
+            continue;
+        }
+
+        ++emittedCount;
+
+        GAMEPLAY_DEBUG_TRACE(
+            "outdoor_actor_ai_after map=\"" + m_map.fileName + "\""
+            + " actor=" + std::to_string(actorIndex)
+            + " actor_id=" + std::to_string(actor.actorId)
+            + " monster=" + std::to_string(actor.monsterId)
+            + " name=\"" + actor.displayName + "\""
+            + " active=" + (facts.world.active ? "true" : "false")
+            + " pos=(" + std::to_string(actor.preciseX)
+            + "," + std::to_string(actor.preciseY)
+            + "," + std::to_string(actor.preciseZ) + ")"
+            + " int_pos=(" + std::to_string(actor.x)
+            + "," + std::to_string(actor.y)
+            + "," + std::to_string(actor.z) + ")"
+            + " ai=" + std::to_string(static_cast<int>(actor.aiState))
+            + " anim=" + std::to_string(static_cast<int>(actor.animation))
+            + " hostile_party=" + (facts.status.hostileToParty ? "true" : "false")
+            + " detected_party=" + (actor.hasDetectedParty ? "true" : "false")
+            + " idle_secs=" + std::to_string(actor.idleDecisionSeconds)
+            + " action_secs=" + std::to_string(actor.actionSeconds)
+            + " idle_count=" + std::to_string(actor.idleDecisionCount)
+            + " velocity=(" + std::to_string(actor.velocityX)
+            + "," + std::to_string(actor.velocityY)
+            + "," + std::to_string(actor.velocityZ) + ")"
+            + " move_dir=(" + std::to_string(actor.moveDirectionX)
+            + "," + std::to_string(actor.moveDirectionY) + ")");
+    }
+}
+
 void OutdoorWorldRuntime::updateMapActors(float deltaSeconds, float partyX, float partyY, float partyZ)
 {
     if (deltaSeconds <= 0.0f || m_pMonsterTable == nullptr)
@@ -9035,6 +9344,7 @@ void OutdoorWorldRuntime::updateMapActors(float deltaSeconds, float partyX, floa
     }
 
     updateActorFrameGlobalEffects(deltaSeconds, partyX, partyY, partyZ);
+    bool traceActorAiThisFrame = shouldTraceOutdoorActorAi(deltaSeconds);
 
     while (m_actorUpdateAccumulatorSeconds >= ActorUpdateStepSeconds)
     {
@@ -9043,7 +9353,16 @@ void OutdoorWorldRuntime::updateMapActors(float deltaSeconds, float partyX, floa
             collectOutdoorActorAiFrameFacts(ActorUpdateStepSeconds, partyX, partyY, partyZ, activeActorMask);
         const GameplayActorAiSystem actorAiSystem = {};
         const ActorAiFrameResult actorAiResult = actorAiSystem.updateActors(actorAiFacts);
+        if (traceActorAiThisFrame)
+        {
+            traceOutdoorActorAiDecisions(actorAiFacts, actorAiResult, activeActorMask);
+        }
         applyOutdoorActorAiFrameResult(actorAiResult, activeActorMask, actorAiSystem);
+        if (traceActorAiThisFrame)
+        {
+            traceOutdoorActorAiAfter(activeActorMask);
+            traceActorAiThisFrame = false;
+        }
 
         updateOutdoorInactiveAndInvalidActors(partyX, partyY, partyZ, activeActorMask);
         applyActorFrameSideEffects(ActorUpdateStepSeconds, partyX, partyY, partyZ);
@@ -16316,7 +16635,7 @@ void OutdoorWorldRuntime::resolveArmageddonDetonation(float partyX, float partyY
             continue;
         }
 
-        m_pParty->applyDamageToMember(memberIndex, armageddonDamage, "");
+        m_pParty->applyDamageToMember(memberIndex, armageddonDamage, "", true);
     }
 
     startGameplayScreenOverlay(makeAbgr(255, 56, 24), 0.6f, 0.72f);

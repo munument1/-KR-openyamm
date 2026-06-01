@@ -475,6 +475,25 @@ public:
         }
     };
 
+    struct BloodSplatState
+    {
+        struct Vertex
+        {
+            float x = 0.0f;
+            float y = 0.0f;
+            float z = 0.0f;
+            float u = 0.0f;
+            float v = 0.0f;
+        };
+
+        uint32_t sourceActorId = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        float radius = 0.0f;
+        std::vector<Vertex> vertices;
+    };
+
     struct Snapshot
     {
         float gameMinutes = 0.0f;
@@ -504,11 +523,13 @@ public:
         std::vector<ProjectileState> projectiles;
         std::vector<ProjectileImpactState> projectileImpacts;
         std::vector<FireSpikeTrapState> fireSpikeTraps;
+        std::vector<BloodSplatState> bloodSplats;
         ArmageddonState armageddon = {};
         bool hasRainIntensityOverride = false;
         RainIntensityPreset rainIntensityPreset = RainIntensityPreset::Off;
         std::vector<uint8_t> fullyRevealedCells;
         std::vector<uint8_t> partiallyRevealedCells;
+        bool hasOutdoorRuntimeSaveParityFields = false;
     };
 
     void initialize(
@@ -976,25 +997,6 @@ public:
         bool useStaticFrame = false;
     };
 
-    struct BloodSplatState
-    {
-        struct Vertex
-        {
-            float x = 0.0f;
-            float y = 0.0f;
-            float z = 0.0f;
-            float u = 0.0f;
-            float v = 0.0f;
-        };
-
-        uint32_t sourceActorId = 0;
-        float x = 0.0f;
-        float y = 0.0f;
-        float z = 0.0f;
-        float radius = 0.0f;
-        std::vector<Vertex> vertices;
-    };
-
     void collectOutdoorFaceCandidates(
         float minX,
         float minY,
@@ -1182,6 +1184,12 @@ private:
         const std::string &instantColliderName);
     static const char *projectileCollisionKindName(ProjectileCollisionKind kind);
     void updateProjectiles(float deltaSeconds, float partyX, float partyY, float partyZ);
+    bool shouldTraceOutdoorActorAi(float deltaSeconds);
+    void traceOutdoorActorAiDecisions(
+        const ActorAiFrameFacts &facts,
+        const ActorAiFrameResult &result,
+        const std::vector<bool> &activeActorMask) const;
+    void traceOutdoorActorAiAfter(const std::vector<bool> &activeActorMask) const;
     void spawnProjectileImpact(
         const ProjectileState &projectile,
         float x,
@@ -1280,6 +1288,7 @@ private:
     float m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
+    float m_actorAiTraceAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     bool m_actorAiUpdateQueued = false;
     float m_queuedActorAiDeltaSeconds = 0.0f;

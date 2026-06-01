@@ -5119,6 +5119,36 @@ TEST_CASE("lua event DamagePlayer uses its explicit player argument")
     CHECK_EQ(party.members()[1].health, 100);
 }
 
+TEST_CASE("lua event DamagePlayer all can move unconscious member to dead")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt._BeginEvent(1)\n"
+        "    evt.DamagePlayer(5, 0, 5)\n"
+        "    return\n"
+        "end\n",
+        "@SyntheticDamagePlayerAllUnconscious.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->health = -1;
+    pMember->endurance = 3;
+    pMember->conditions.set(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Unconscious));
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    CHECK_EQ(pMember->health, -6);
+    CHECK(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Dead)));
+    CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Unconscious)));
+}
+
 TEST_CASE("lua event player bits are character specific and unbounded")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(

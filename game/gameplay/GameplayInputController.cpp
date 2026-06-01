@@ -653,6 +653,7 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
                             .pointerX = config.pointerX,
                             .pointerY = config.pointerY,
                             .leftButtonPressed = config.leftButtonPressed,
+                            .rightButtonPressed = config.rightButtonPressed,
                             .allowGameplayPointerInput = frameResult.mouseLookPolicy.allowGameplayPointerInput,
                             .mouseWheelDelta = config.mouseWheelDelta,
                             .blockPortraitInput =

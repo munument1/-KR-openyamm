@@ -1,5 +1,6 @@
 #include "game/gameplay/GameplayHudInputController.h"
 
+#include "game/gameplay/GameplayItemService.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/party/SpellIds.h"
@@ -221,8 +222,42 @@ void GameplayHudInputController::handlePartyPortraitInput(
     if (!config.allowInput || config.screenWidth <= 0 || config.screenHeight <= 0)
     {
         context.interactionState().partyPortraitClickLatch = false;
+        context.interactionState().partyPortraitRightClickItemUseLatch = false;
         context.interactionState().partyPortraitPressedIndex = std::nullopt;
         return;
+    }
+
+    if (!config.rightButtonPressed)
+    {
+        context.interactionState().partyPortraitRightClickItemUseLatch = false;
+    }
+    else if (!context.interactionState().partyPortraitRightClickItemUseLatch
+             && context.heldInventoryItem().active)
+    {
+        context.interactionState().partyPortraitRightClickItemUseLatch = true;
+
+        const std::optional<size_t> memberIndex =
+            context.resolvePartyPortraitIndexAtPoint(
+                config.screenWidth,
+                config.screenHeight,
+                config.pointerX,
+                config.pointerY);
+
+        const bool keepCharacterScreenOpen =
+            context.characterScreenReadOnly().open
+            && context.characterScreenReadOnly().page == GameplayUiController::CharacterPage::Inventory;
+
+        if (memberIndex
+            && context.itemService().tryUseHeldItemOnPartyMember(
+                context,
+                *memberIndex,
+                keepCharacterScreenOpen))
+        {
+            context.interactionState().partyPortraitClickLatch = false;
+            context.interactionState().partyPortraitPressedIndex = std::nullopt;
+            context.interactionState().lastPartyPortraitClickedIndex = std::nullopt;
+            return;
+        }
     }
 
     const HudPointerState pointerState = {

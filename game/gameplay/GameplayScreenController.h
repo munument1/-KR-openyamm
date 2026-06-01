@@ -38,6 +38,7 @@ struct GameplayStandardUiInputConfig
     float pointerX = 0.0f;
     float pointerY = 0.0f;
     bool leftButtonPressed = false;
+    bool rightButtonPressed = false;
     bool allowGameplayPointerInput = false;
     float mouseWheelDelta = 0.0f;
     bool blockPortraitInput = false;

@@ -665,6 +665,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         fallbackInput.pointerY = config.pointerY;
         fallbackInput.mouseWheelDelta = config.mouseWheelDelta;
         fallbackInput.leftMouseButton.held = config.leftButtonPressed;
+        fallbackInput.rightMouseButton.held = config.rightButtonPressed;
 
         if (config.pKeyboardState != nullptr)
         {
@@ -736,6 +737,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
                 .pointerX = config.pointerX,
                 .pointerY = config.pointerY,
                 .leftButtonPressed = config.leftButtonPressed,
+                .rightButtonPressed = input.rightMouseButton.held,
                 .allowInput = true,
                 .requireGameplayReady = requirePortraitGameplayReady,
                 .hasActiveLootView = hasActiveLootView,
@@ -769,6 +771,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
             .pointerX = config.pointerX,
             .pointerY = config.pointerY,
             .leftButtonPressed = false,
+            .rightButtonPressed = false,
             .allowInput = true,
             .requireGameplayReady = requirePortraitGameplayReady,
             .hasActiveLootView = hasActiveLootView,

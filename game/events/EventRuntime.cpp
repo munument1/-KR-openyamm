@@ -5688,10 +5688,11 @@ int luaDamagePlayer(lua_State *pLuaState)
     }
 
     const std::string status = damageStatusForEvtVariable(targets);
+    const bool allowUnconscious = selector.kind == PartySelectorKind::All;
 
     for (size_t memberIndex : targets)
     {
-        pParty->applyDamageToMember(memberIndex, damage, status);
+        pParty->applyDamageToMember(memberIndex, damage, status, allowUnconscious);
     }
 
     return 0;

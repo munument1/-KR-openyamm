@@ -648,6 +648,7 @@ struct GameplayOverlayInteractionState
     bool inventoryOpenHookExecuted = false;
     size_t chestSelectionIndex = 0;
     bool partyPortraitClickLatch = false;
+    bool partyPortraitRightClickItemUseLatch = false;
     std::optional<size_t> partyPortraitPressedIndex = std::nullopt;
     uint64_t lastPartyPortraitClickTicks = 0;
     std::optional<size_t> lastPartyPortraitClickedIndex = std::nullopt;

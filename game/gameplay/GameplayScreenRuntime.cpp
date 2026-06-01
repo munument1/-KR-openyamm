@@ -326,6 +326,43 @@ bool portraitExpressionAllowedForCondition(
     return true;
 }
 
+bool applyDisplayedConditionPortrait(Character &member)
+{
+    const std::optional<CharacterCondition> displayedCondition = GameMechanics::displayedCondition(member);
+
+    if (!displayedCondition)
+    {
+        return false;
+    }
+
+    const std::optional<PortraitId> conditionPortrait = portraitIdForCondition(*displayedCondition);
+
+    if (!conditionPortrait)
+    {
+        return false;
+    }
+
+    const bool terminalCondition =
+        *conditionPortrait == PortraitId::Dead || *conditionPortrait == PortraitId::Eradicated;
+
+    if (!terminalCondition
+        && isDamagePortrait(member.portraitState)
+        && member.portraitDurationTicks > 0
+        && member.portraitElapsedTicks < member.portraitDurationTicks)
+    {
+        return true;
+    }
+
+    if (member.portraitState != *conditionPortrait || member.portraitDurationTicks != 0)
+    {
+        member.portraitState = *conditionPortrait;
+        member.portraitElapsedTicks = 0;
+        member.portraitDurationTicks = 0;
+    }
+
+    return true;
+}
+
 bool bypassSpeechCooldown(SpeechId speechId)
 {
     switch (speechId)
@@ -2115,6 +2152,28 @@ void GameplayScreenRuntime::resetCharacterOverlayInteractionState()
     interactionState().characterPressedTarget = {};
 }
 
+void GameplayScreenRuntime::syncPartyConditionPortraits()
+{
+    Party *pParty = party();
+
+    if (pParty == nullptr)
+    {
+        return;
+    }
+
+    for (size_t memberIndex = 0; memberIndex < pParty->members().size(); ++memberIndex)
+    {
+        Character *pMember = pParty->member(memberIndex);
+
+        if (pMember == nullptr)
+        {
+            continue;
+        }
+
+        applyDisplayedConditionPortrait(*pMember);
+    }
+}
+
 void GameplayScreenRuntime::updatePartyPortraitAnimations(float deltaSeconds)
 {
     (void)deltaSeconds;
@@ -2138,6 +2197,7 @@ void GameplayScreenRuntime::updatePartyPortraitAnimations(float deltaSeconds)
 
     if (deltaTicks == 0)
     {
+        syncPartyConditionPortraits();
         return;
     }
 
@@ -2157,30 +2217,10 @@ void GameplayScreenRuntime::updatePartyPortraitAnimations(float deltaSeconds)
 void GameplayScreenRuntime::updatePortraitAnimation(Character &member, size_t memberIndex, uint32_t deltaTicks)
 {
     member.portraitElapsedTicks += deltaTicks;
-    const std::optional<CharacterCondition> displayedCondition = GameMechanics::displayedCondition(member);
 
-    if (displayedCondition)
+    if (applyDisplayedConditionPortrait(member))
     {
-        const std::optional<PortraitId> conditionPortrait = portraitIdForCondition(*displayedCondition);
-
-        if (conditionPortrait)
-        {
-            if (isDamagePortrait(member.portraitState)
-                && member.portraitDurationTicks > 0
-                && member.portraitElapsedTicks < member.portraitDurationTicks)
-            {
-                return;
-            }
-
-            if (member.portraitState != *conditionPortrait || member.portraitDurationTicks != 0)
-            {
-                member.portraitState = *conditionPortrait;
-                member.portraitElapsedTicks = 0;
-                member.portraitDurationTicks = 0;
-            }
-
-            return;
-        }
+        return;
     }
 
     if (member.portraitDurationTicks > 0 && member.portraitElapsedTicks < member.portraitDurationTicks)

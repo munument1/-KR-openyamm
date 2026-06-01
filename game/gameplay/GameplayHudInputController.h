@@ -15,6 +15,7 @@ struct GameplayPartyPortraitInputConfig
     float pointerX = 0.0f;
     float pointerY = 0.0f;
     bool leftButtonPressed = false;
+    bool rightButtonPressed = false;
     bool allowInput = false;
     bool requireGameplayReady = false;
     bool hasActiveLootView = false;

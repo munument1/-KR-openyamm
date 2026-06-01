@@ -6650,7 +6650,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
         );
 
         runCase(
-            "indoor_pressure_plate_requires_explicit_monster_trigger_attribute",
+            "indoor_pressure_plate_ignores_monster_trigger_attribute",
             [&](std::string &failure)
             {
                 if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "d17.blv"))
@@ -6742,21 +6742,25 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 mapData.faces[TestFaceIndex].attributes = PlateMonsterAttributes;
                 mapDeltaData->faceAttributes[TestFaceIndex] = PlateMonsterAttributes;
 
-                if (!world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::TriggerByMonster, false))
+                if (world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::TriggerByMonster, false))
                 {
-                    failure = "explicit monster-triggered pressure plate did not execute";
+                    failure = "monster trigger executed an explicit pressure plate";
                     return false;
                 }
 
                 EventRuntimeState *pEventRuntimeState = world.eventRuntimeState();
 
-                if (pEventRuntimeState == nullptr || !pEventRuntimeState->lastPressurePlateTrigger)
+                if (pEventRuntimeState == nullptr)
                 {
-                    failure = "monster-triggered pressure plate was not recorded";
+                    failure = "lost event runtime state after monster pressure-plate check";
                     return false;
                 }
 
-                pEventRuntimeState->lastPressurePlateTrigger.reset();
+                if (pEventRuntimeState->lastPressurePlateTrigger)
+                {
+                    failure = "monster-triggered pressure plate was recorded";
+                    return false;
+                }
 
                 if (!world.executeFaceTriggeredEvent(TestFaceIndex, FaceAttribute::PressurePlate, false))
                 {
@@ -9400,6 +9404,60 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (pSergeant->monsterId != 5 || pSergeant->maxHp != 21 || pSergeant->hostileToParty)
             {
                 failure = "unexpected sergeant runtime state";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "dwi_loaded_save_restores_actor_idle_wander_radius",
+        [&](std::string &failure)
+        {
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pBefore = scenario.world.mapActorState(5);
+
+            if (pBefore == nullptr)
+            {
+                failure = "actor 5 missing";
+                return false;
+            }
+
+            if (pBefore->wanderRadius <= 0.0f)
+            {
+                failure = "actor 5 started without an idle wander radius";
+                return false;
+            }
+
+            OutdoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+            snapshot.hasOutdoorRuntimeSaveParityFields = false;
+
+            for (OutdoorWorldRuntime::MapActorState &actor : snapshot.mapActors)
+            {
+                actor.wanderRadius = 0.0f;
+            }
+
+            scenario.world.restoreSnapshot(snapshot);
+
+            const OutdoorWorldRuntime::MapActorState *pAfter = scenario.world.mapActorState(5);
+
+            if (pAfter == nullptr)
+            {
+                failure = "actor 5 missing after restore";
+                return false;
+            }
+
+            if (pAfter->wanderRadius <= 0.0f)
+            {
+                failure = "actor 5 idle wander radius was not restored from static monster data";
                 return false;
             }
 
@@ -15037,6 +15095,88 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             saveData.outdoorWorld.atmosphere.fogWeakDistance = 2048;
             saveData.outdoorWorld.atmosphere.fogStrongDistance = 4096;
             saveData.outdoorWorld.gameMinutes = 20.0f * 60.0f + 30.0f;
+
+            if (saveData.outdoorWorld.mapActors.empty())
+            {
+                failure = "saved outdoor world has no actors";
+                return false;
+            }
+
+            OutdoorWorldRuntime::MapActorState &savedActor = saveData.outdoorWorld.mapActors[0];
+            savedActor.npcId = 1234;
+            savedActor.aiType = GameplayActorAiType::Aggressive;
+            savedActor.canFly = true;
+            savedActor.attack1DamageType = CombatDamageType::Fire;
+            savedActor.attack2DamageType = CombatDamageType::Air;
+            savedActor.spell1Id = 7;
+            savedActor.spell1DamageType = CombatDamageType::Water;
+            savedActor.spell1CastSupported = false;
+            savedActor.spell2Id = 8;
+            savedActor.spell2DamageType = CombatDamageType::Earth;
+            savedActor.spell2CastSupported = false;
+            savedActor.wanderRadius = 2048.0f;
+            savedActor.generatedAttack2 = true;
+            savedActor.generatedAttack2IsRanged = true;
+            savedActor.copyAttack1DamageToAttack2 = true;
+            savedActor.generatedAttack2MissileType = "firebolt";
+            savedActor.generatedAttack2Chance = 22;
+            savedActor.generatedSpell1UseChance = 33;
+            savedActor.generatedSpell2UseChance = 44;
+            savedActor.alertStatusBit = true;
+            savedActor.bloodSplatSpawned = true;
+            savedActor.dayOfProtectionRemainingSeconds = 11.0f;
+            savedActor.dayOfProtectionPower = 12;
+            savedActor.hourOfPowerRemainingSeconds = 13.0f;
+            savedActor.hourOfPowerPower = 14;
+            savedActor.painReflectionRemainingSeconds = 15.0f;
+            savedActor.hammerhandsRemainingSeconds = 16.0f;
+            savedActor.hammerhandsPower = 17;
+            savedActor.hasteRemainingSeconds = 18.0f;
+            savedActor.shieldRemainingSeconds = 19.0f;
+            savedActor.stoneskinRemainingSeconds = 20.0f;
+            savedActor.stoneskinPower = 21;
+            savedActor.blessRemainingSeconds = 22.0f;
+            savedActor.blessPower = 23;
+            savedActor.fateRemainingSeconds = 24.0f;
+            savedActor.fatePower = 25;
+            savedActor.heroismRemainingSeconds = 26.0f;
+            savedActor.heroismPower = 27;
+            savedActor.crowdSideLockRemainingSeconds = 0.31f;
+            savedActor.crowdNoProgressSeconds = 0.32f;
+            savedActor.crowdLastEdgeDistance = 0.33f;
+            savedActor.crowdRetreatRemainingSeconds = 0.34f;
+            savedActor.crowdStandRemainingSeconds = 0.35f;
+            savedActor.crowdProbeX = 123.0f;
+            savedActor.crowdProbeY = 456.0f;
+            savedActor.crowdProbeEdgeDistance = 0.36f;
+            savedActor.crowdProbeElapsedSeconds = 0.37f;
+            savedActor.crowdEscapeAttempts = 3;
+            savedActor.crowdSideSign = -1;
+            savedActor.suppressLowHealthFlee = true;
+
+            saveData.outdoorWorld.gameplayOverlayRemainingSeconds = 0.5f;
+            saveData.outdoorWorld.gameplayOverlayDurationSeconds = 1.5f;
+            saveData.outdoorWorld.gameplayOverlayPeakAlpha = 0.75f;
+            saveData.outdoorWorld.gameplayOverlayColorAbgr = 0x11223344u;
+            saveData.outdoorWorld.armageddon.remainingSeconds = 2.5f;
+            saveData.outdoorWorld.armageddon.skillLevel = 9;
+            saveData.outdoorWorld.armageddon.skillMastery = SkillMastery::Master;
+            saveData.outdoorWorld.armageddon.casterMemberIndex = 1;
+            saveData.outdoorWorld.armageddon.shakeStepsRemaining = 2;
+            saveData.outdoorWorld.armageddon.shakeSequence = 3;
+            saveData.outdoorWorld.armageddon.cameraShakeYawRadians = 0.04f;
+            saveData.outdoorWorld.armageddon.cameraShakePitchRadians = -0.05f;
+            saveData.outdoorWorld.hasRainIntensityOverride = true;
+            saveData.outdoorWorld.rainIntensityPreset = OutdoorWorldRuntime::RainIntensityPreset::Off;
+            OutdoorWorldRuntime::BloodSplatState savedBloodSplat = {};
+            savedBloodSplat.sourceActorId = savedActor.actorId;
+            savedBloodSplat.x = 1.0f;
+            savedBloodSplat.y = 2.0f;
+            savedBloodSplat.z = 3.0f;
+            savedBloodSplat.radius = 4.0f;
+            savedBloodSplat.vertices.push_back({1.0f, 2.0f, 3.0f, 0.25f, 0.75f});
+            saveData.outdoorWorld.bloodSplats.push_back(savedBloodSplat);
+
             saveData.outdoorWorldStates[saveData.mapFileName] = saveData.outdoorWorld;
             saveData.outdoorWorldStates["Data/games/out02.odm"] = saveData.outdoorWorld;
             saveData.outdoorWorldStates["Data/games/out02.odm"].gameMinutes += 12.0f;
@@ -15086,6 +15226,69 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 || loadedSave->outdoorWorld.partiallyRevealedCells != expectedPartiallyRevealedCells)
             {
                 failure = "current outdoor journal reveal mask did not roundtrip";
+                return false;
+            }
+
+            if (loadedSave->outdoorWorld.mapActors.empty())
+            {
+                failure = "outdoor actor state did not load";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState &loadedActor = loadedSave->outdoorWorld.mapActors[0];
+
+            if (loadedActor.npcId != 1234
+                || loadedActor.aiType != GameplayActorAiType::Aggressive
+                || !loadedActor.canFly
+                || loadedActor.attack1DamageType != CombatDamageType::Fire
+                || loadedActor.attack2DamageType != CombatDamageType::Air
+                || loadedActor.spell1Id != 7
+                || loadedActor.spell1DamageType != CombatDamageType::Water
+                || loadedActor.spell1CastSupported
+                || loadedActor.spell2Id != 8
+                || loadedActor.spell2DamageType != CombatDamageType::Earth
+                || loadedActor.spell2CastSupported
+                || std::abs(loadedActor.wanderRadius - 2048.0f) > 0.01f
+                || !loadedActor.generatedAttack2
+                || !loadedActor.generatedAttack2IsRanged
+                || !loadedActor.copyAttack1DamageToAttack2
+                || loadedActor.generatedAttack2MissileType != "firebolt"
+                || loadedActor.generatedAttack2Chance != 22
+                || loadedActor.generatedSpell1UseChance != 33
+                || loadedActor.generatedSpell2UseChance != 44
+                || !loadedActor.alertStatusBit
+                || !loadedActor.bloodSplatSpawned
+                || std::abs(loadedActor.heroismRemainingSeconds - 26.0f) > 0.01f
+                || loadedActor.heroismPower != 27
+                || std::abs(loadedActor.painReflectionRemainingSeconds - 15.0f) > 0.01f
+                || std::abs(loadedActor.crowdProbeX - 123.0f) > 0.01f
+                || std::abs(loadedActor.crowdProbeY - 456.0f) > 0.01f
+                || loadedActor.crowdEscapeAttempts != 3
+                || loadedActor.crowdSideSign != -1
+                || !loadedActor.suppressLowHealthFlee)
+            {
+                failure = "outdoor actor extended runtime state did not roundtrip";
+                return false;
+            }
+
+            if (!loadedSave->outdoorWorld.hasOutdoorRuntimeSaveParityFields
+                || std::abs(loadedSave->outdoorWorld.gameplayOverlayRemainingSeconds - 0.5f) > 0.01f
+                || std::abs(loadedSave->outdoorWorld.gameplayOverlayDurationSeconds - 1.5f) > 0.01f
+                || std::abs(loadedSave->outdoorWorld.gameplayOverlayPeakAlpha - 0.75f) > 0.01f
+                || loadedSave->outdoorWorld.gameplayOverlayColorAbgr != 0x11223344u
+                || std::abs(loadedSave->outdoorWorld.armageddon.remainingSeconds - 2.5f) > 0.01f
+                || loadedSave->outdoorWorld.armageddon.skillLevel != 9
+                || loadedSave->outdoorWorld.armageddon.skillMastery != SkillMastery::Master
+                || loadedSave->outdoorWorld.armageddon.casterMemberIndex != 1
+                || loadedSave->outdoorWorld.armageddon.shakeStepsRemaining != 2
+                || loadedSave->outdoorWorld.armageddon.shakeSequence != 3
+                || !loadedSave->outdoorWorld.hasRainIntensityOverride
+                || loadedSave->outdoorWorld.rainIntensityPreset != OutdoorWorldRuntime::RainIntensityPreset::Off
+                || loadedSave->outdoorWorld.bloodSplats.size() != 1
+                || loadedSave->outdoorWorld.bloodSplats[0].vertices.empty()
+                || std::abs(loadedSave->outdoorWorld.bloodSplats[0].vertices[0].v - 0.75f) > 0.01f)
+            {
+                failure = "outdoor snapshot extended runtime state did not roundtrip";
                 return false;
             }
 
@@ -15216,7 +15419,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            if (restoredWorld.atmosphereState().sourceSkyTextureName != "sky06"
+            if (restoredWorld.atmosphereState().sourceSkyTextureName != "sunsetclouds"
                 || restoredWorld.atmosphereState().skyTextureName != "sunsetclouds"
                 || restoredWorld.atmosphereState().weatherFlags != 1
                 || restoredWorld.atmosphereState().fogWeakDistance != 2048
@@ -15224,7 +15427,16 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 || restoredWorld.atmosphereState().isNight
                 || std::abs(restoredWorld.atmosphereState().fogDensity - 0.5f) > 0.01f)
             {
-                failure = "outdoor atmosphere state did not roundtrip";
+                std::ostringstream stream;
+                stream << "outdoor atmosphere state did not roundtrip: source="
+                       << restoredWorld.atmosphereState().sourceSkyTextureName
+                       << " sky=" << restoredWorld.atmosphereState().skyTextureName
+                       << " weather=" << restoredWorld.atmosphereState().weatherFlags
+                       << " fog_weak=" << restoredWorld.atmosphereState().fogWeakDistance
+                       << " fog_strong=" << restoredWorld.atmosphereState().fogStrongDistance
+                       << " is_night=" << (restoredWorld.atmosphereState().isNight ? "true" : "false")
+                       << " fog_density=" << restoredWorld.atmosphereState().fogDensity;
+                failure = stream.str();
                 return false;
             }
 
@@ -15239,6 +15451,26 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (pRestoredActor == nullptr || !pRestoredActor->isDead)
             {
                 failure = "actor death state did not roundtrip";
+                return false;
+            }
+
+            if (pRestoredActor->npcId != 1234
+                || !pRestoredActor->alertStatusBit
+                || !pRestoredActor->bloodSplatSpawned
+                || std::abs(pRestoredActor->heroismRemainingSeconds - 26.0f) > 0.01f
+                || !pRestoredActor->generatedAttack2
+                || pRestoredActor->generatedAttack2MissileType != "firebolt"
+                || !pRestoredActor->suppressLowHealthFlee)
+            {
+                failure = "restored outdoor actor extended runtime state did not apply";
+                return false;
+            }
+
+            if (restoredWorld.bloodSplatCount() != 1
+                || !restoredWorld.isArmageddonActive()
+                || restoredWorld.rainIntensityPreset() != OutdoorWorldRuntime::RainIntensityPreset::Off)
+            {
+                failure = "restored outdoor world extended runtime state did not apply";
                 return false;
             }
 
