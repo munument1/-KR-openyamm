@@ -8133,7 +8133,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             false,
             !pathResult.pathActive,
             pathResult.pathActive,
-            !actorCanFly);
+            !actorCanFly,
+            true);
 
     if (pDiagnostics != nullptr)
     {
@@ -12326,7 +12327,10 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
             420.0f,
             1.0f,
             false,
-            true);
+            true,
+            false,
+            false,
+            !actorCanFly);
 
     const float deltaX = resolvedMoveState.x - aiState.preciseX;
     const float deltaY = resolvedMoveState.y - aiState.preciseY;

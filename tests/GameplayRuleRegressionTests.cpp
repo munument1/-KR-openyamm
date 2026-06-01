@@ -3961,6 +3961,90 @@ TEST_CASE("indoor steep in-between floor keeps support but rejects uphill walkin
     CHECK_EQ(stationary.footZ, doctest::Approx(state.footZ));
 }
 
+TEST_CASE("indoor steep floor probe against adjacent cave wall recovers as wall contact")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 0},
+        {512, 0, 0},
+        {-512, 0, 0},
+        {-512, 0, 0},
+        {512, 0, 0},
+        {512, 128, 256},
+        {-512, 128, 256},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepCaveWall = {};
+    steepCaveWall.vertexIndices = {4, 5, 6, 7};
+    steepCaveWall.facetType = 4;
+    steepCaveWall.roomNumber = 1;
+
+    mapData.faces = {floor, steepCaveWall};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 2;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 128;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0, 1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = {0, 1};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController movementController(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body{37.0f, 160.0f};
+    OpenYAMM::Game::IndoorMoveState state =
+        movementController.initializeStateFromEyePosition(0.0f, -20.0f, 160.0f, body);
+    REQUIRE(state.grounded);
+    REQUIRE_EQ(state.supportFaceIndex, 0u);
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState resolved =
+        movementController.resolveMove(
+            state,
+            body,
+            0.0f,
+            300.0f,
+            false,
+            0.1f,
+            nullptr,
+            std::nullopt,
+            true,
+            &debugInfo,
+            false,
+            false,
+            420.0f,
+            1.0f,
+            false,
+            false,
+            false,
+            true);
+
+    const float deltaX = resolved.x - state.x;
+    const float deltaY = resolved.y - state.y;
+
+    CHECK_EQ(debugInfo.primaryBlockKind, OpenYAMM::Game::IndoorMoveBlockKind::Wall);
+    CHECK_EQ(debugInfo.hitFaceIndex, 1u);
+    CHECK(debugInfo.collisionResponseSucceeded);
+    CHECK(std::sqrt(deltaX * deltaX + deltaY * deltaY) > 3.5f);
+    CHECK(resolved.y <= 0.0f);
+    CHECK_EQ(resolved.supportFaceIndex, 0u);
+}
+
 TEST_CASE("indoor lava support applies recurring burning damage")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
@@ -6765,6 +6849,85 @@ TEST_CASE("indoor actor ledge guard blocks leading footprint drops")
     CHECK(guarded.grounded);
     CHECK_EQ(guarded.supportFaceIndex, 0u);
     CHECK_EQ(guarded.footZ, doctest::Approx(0.0f));
+}
+
+TEST_CASE("indoor actor movement does not use steep floor-like wall as support")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-128, -128, 0},
+        {128, -128, 0},
+        {128, 0, 0},
+        {-128, 0, 0},
+        {-128, 0, 0},
+        {128, 0, 0},
+        {128, 64, 128},
+        {-128, 64, 128},
+    };
+
+    OpenYAMM::Game::IndoorFace flatFloor = {};
+    flatFloor.vertexIndices = {0, 1, 2, 3};
+    flatFloor.facetType = 3;
+    flatFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace steepWallLikeFloor = {};
+    steepWallLikeFloor.vertexIndices = {4, 5, 6, 7};
+    steepWallLikeFloor.facetType = 4;
+    steepWallLikeFloor.roomNumber = 1;
+
+    mapData.faces = {flatFloor, steepWallLikeFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 2;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = -128;
+    sector.maxX = 128;
+    sector.minY = -128;
+    sector.maxY = 64;
+    sector.minZ = 0;
+    sector.maxZ = 320;
+    sector.floorFaceIds = {0, 1};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState initial =
+        controller.initializeStateFromEyePosition(0.0f, -64.0f, body.height, body);
+
+    REQUIRE(initial.grounded);
+    REQUIRE_EQ(initial.supportFaceIndex, 0u);
+
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            256.0f,
+            false,
+            0.5f,
+            nullptr,
+            std::nullopt,
+            true,
+            nullptr,
+            false,
+            false,
+            420.0f,
+            1.0f,
+            false,
+            true,
+            false,
+            true,
+            true);
+
+    CHECK_NE(moved.supportFaceIndex, 1u);
+    CHECK(moved.grounded);
+    CHECK_EQ(moved.supportFaceIndex, 0u);
 }
 
 TEST_CASE("indoor movement does not collide with current sloped support floor")

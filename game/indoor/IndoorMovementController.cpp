@@ -589,6 +589,7 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
     // Do not add open/closed masking here: platforms, stairs, plates, and doors all need their moved faces sampled.
     m_runtimeGeometryCache.nonBlockingMechanismFaceMask.clear();
     m_runtimeGeometryCache.mechanismBlockingFaceMask.clear();
+    m_runtimeGeometryCache.actorSupportFaceMask.clear();
     if (supportFaceIdsNeedRefresh)
     {
         m_runtimeGeometryCache.mechanismSupportFaceIds.clear();
@@ -683,6 +684,24 @@ void IndoorMovementController::refreshRuntimeGeometryCache() const
             }
 
             m_runtimeGeometryCache.invisibleSupportRampFaceIds.push_back(static_cast<uint16_t>(faceId));
+        }
+    }
+
+    m_runtimeGeometryCache.actorSupportFaceMask.assign(m_pIndoorMapData->faces.size(), 0);
+    for (size_t faceId = 0; faceId < m_pIndoorMapData->faces.size(); ++faceId)
+    {
+        const bool excludedByMechanism =
+            faceId < m_runtimeGeometryCache.nonBlockingMechanismFaceMask.size()
+            && m_runtimeGeometryCache.nonBlockingMechanismFaceMask[faceId] != 0;
+        const IndoorFaceGeometryData *pGeometry =
+            m_runtimeGeometryCache.geometryCache.geometryForFace(
+                *m_pIndoorMapData,
+                m_runtimeGeometryCache.vertices,
+                faceId);
+
+        if (excludedByMechanism || pGeometry == nullptr || !pGeometry->isWalkable)
+        {
+            m_runtimeGeometryCache.actorSupportFaceMask[faceId] = 1;
         }
     }
 
@@ -1274,7 +1293,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
     bool lockVerticalPosition,
     bool preventGroundActorLedgeDrop,
     bool allowUnsupportedPathRecovery,
-    bool allowBlockedWallRecovery
+    bool allowBlockedWallRecovery,
+    bool requireWalkableSupport
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1310,7 +1330,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             lockVerticalPosition,
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
-            allowBlockedWallRecovery);
+            allowBlockedWallRecovery,
+            requireWalkableSupport);
     }
 
     const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
@@ -1344,7 +1365,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             lockVerticalPosition,
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
-            allowBlockedWallRecovery);
+            allowBlockedWallRecovery,
+            requireWalkableSupport);
     }
 
     IndoorMoveState currentState = state;
@@ -1373,7 +1395,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             lockVerticalPosition,
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
-            allowBlockedWallRecovery);
+            allowBlockedWallRecovery,
+            requireWalkableSupport);
 
         if (currentState.landedThisFrame)
         {
@@ -1542,7 +1565,8 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     bool lockVerticalPosition,
     bool preventGroundActorLedgeDrop,
     bool allowUnsupportedPathRecovery,
-    bool allowBlockedWallRecovery
+    bool allowBlockedWallRecovery,
+    bool requireWalkableSupport
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1554,6 +1578,8 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     IndoorFaceGeometryCache &geometryCache = m_runtimeGeometryCache.geometryCache;
     const std::vector<IndoorVertex> &vertices = runtimeCache.vertices;
     const std::vector<uint8_t> &nonBlockingMechanismFaceMask = runtimeCache.nonBlockingMechanismFaceMask;
+    const std::vector<uint8_t> &supportFaceMask =
+        requireWalkableSupport ? runtimeCache.actorSupportFaceMask : runtimeCache.nonBlockingMechanismFaceMask;
     const std::vector<uint8_t> &mechanismBlockingFaceMask = runtimeCache.mechanismBlockingFaceMask;
     const std::vector<uint8_t> &collisionFaceMask = runtimeCache.collisionFaceMask;
     const MapDeltaData *pMapDeltaData =
@@ -1589,7 +1615,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         body.height + 1024.0f,
         body,
         preferredSectorId,
-        &nonBlockingMechanismFaceMask);
+        &supportFaceMask);
     const IndoorFloorSample preferredCurrentFloor =
         state.grounded && state.supportFaceIndex != static_cast<size_t>(-1)
         ? sampleSupportedFloorOnFace(
@@ -1602,7 +1628,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             MaximumRise,
             body.height + 1024.0f,
             body,
-            &nonBlockingMechanismFaceMask)
+            &supportFaceMask)
         : IndoorFloorSample{};
     const IndoorFloorSample effectiveCurrentFloor =
         preferredCurrentFloor.hasFloor
@@ -1713,7 +1739,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             body.height + 1024.0f,
             body,
             preferredSectorId,
-            &nonBlockingMechanismFaceMask);
+            &supportFaceMask);
         const IndoorFloorSample preferredFloor =
             state.grounded && state.supportFaceIndex != static_cast<size_t>(-1)
             ? sampleSupportedFloorOnFace(
@@ -1726,7 +1752,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 MaximumRise,
                 body.height + 1024.0f,
                 body,
-                &nonBlockingMechanismFaceMask)
+                &supportFaceMask)
             : IndoorFloorSample{};
         IndoorFloorSample approximateFloor = {};
 
@@ -1749,7 +1775,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 body,
                 preferredSectorId,
                 state.supportFaceIndex,
-                &nonBlockingMechanismFaceMask);
+                &supportFaceMask);
             floor = approximateFloor;
         }
 
@@ -1834,7 +1860,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 body.height + 1024.0f,
                 body,
                 preferredSectorId,
-                &nonBlockingMechanismFaceMask);
+                &supportFaceMask);
 
             if (guardGroundActorAgainstLedgeDrop && floorDropsBelowActorLedgeGuard(leadingFootprintFloor))
             {
@@ -1888,6 +1914,19 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             && !sweptRequest.jumpRequested
             && indoorFloorTooSteepForUphillStep(*m_pIndoorMapData, pMapDeltaData, floor, state.footZ))
         {
+            const IndoorFaceGeometryData *pSteepFloorGeometry =
+                geometryCache.geometryForFace(*m_pIndoorMapData, vertices, floor.faceIndex);
+            if (pWallCollision != nullptr
+                && state.grounded
+                && floor.faceIndex != state.supportFaceIndex
+                && pSteepFloorGeometry != nullptr
+                && indoorFaceBlocksPathRecovery(*pSteepFloorGeometry, state.footZ))
+            {
+                pWallCollision->hit = true;
+                pWallCollision->normal = pSteepFloorGeometry->normal;
+                pWallCollision->faceIndex = floor.faceIndex;
+            }
+
             recordInvalidPosition(
                 IndoorMoveInvalidPositionReason::SteepFloor,
                 floor,
@@ -2407,7 +2446,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                     body.height + 1024.0f,
                     body,
                     preferredSectorId,
-                    &nonBlockingMechanismFaceMask);
+                    &supportFaceMask);
 
                 if (!floor.hasFloor
                     || indoorFloorTooSteepForUphillStep(*m_pIndoorMapData, pMapDeltaData, floor, baseState.footZ)

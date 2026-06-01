@@ -163,7 +163,8 @@ public:
         bool lockVerticalPosition = false,
         bool preventGroundActorLedgeDrop = false,
         bool allowUnsupportedPathRecovery = false,
-        bool allowBlockedWallRecovery = false
+        bool allowBlockedWallRecovery = false,
+        bool requireWalkableSupport = false
     ) const;
     IndoorMoveState resolveFlyingActorMove(
         const IndoorMoveState &state,
@@ -240,6 +241,7 @@ private:
         std::vector<IndoorVertex> vertices;
         std::vector<uint8_t> nonBlockingMechanismFaceMask;
         std::vector<uint8_t> mechanismBlockingFaceMask;
+        std::vector<uint8_t> actorSupportFaceMask;
         std::vector<uint8_t> collisionFaceMask;
         std::vector<uint16_t> mechanismSupportFaceIds;
         std::vector<std::vector<uint16_t>> sectorMechanismSupportFaceIds;
@@ -371,7 +373,8 @@ private:
         bool lockVerticalPosition,
         bool preventGroundActorLedgeDrop,
         bool allowUnsupportedPathRecovery,
-        bool allowBlockedWallRecovery
+        bool allowBlockedWallRecovery,
+        bool requireWalkableSupport
     ) const;
     bool collidesAtPosition(
         const std::vector<IndoorVertex> &vertices,
