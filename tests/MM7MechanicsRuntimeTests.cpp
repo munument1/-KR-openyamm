@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "game/events/EvtEnums.h"
 #include "game/gameplay/BountyHuntRuntime.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/HouseInteraction.h"
@@ -141,8 +142,88 @@ TEST_CASE("MM7 bounty hunt runtime filters no-bounty monsters and claims monthly
     CHECK(claim.claimed);
     CHECK_EQ(claim.goldReward, 1200u);
     CHECK_EQ(claim.bountyTotalDelta, 1200u);
-    CHECK_EQ(claim.reputationDelta, 0);
+    CHECK_EQ(claim.reputationDelta, -1);
     CHECK(entry.claimed);
+}
+
+TEST_CASE("MMerge bounty hunt reward applies gold total bounty award and reputation")
+{
+    BountyHuntClaimResult claim = {};
+    claim.claimed = true;
+    claim.goldReward = 1200;
+    claim.bountyTotalDelta = 1200;
+    claim.reputationDelta = -1;
+
+    Party party = makeOneMemberParty();
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.setCurrentLocationReputation(0);
+
+    applyBountyHuntClaimResult(worldRuntime, &party, claim);
+
+    CHECK_EQ(party.gold(), 1200);
+    CHECK_EQ(party.eventVariableValue(static_cast<uint16_t>(EvtVariable::NumBounties)), 1200);
+    CHECK_EQ(party.eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsPage)), 0);
+    CHECK(party.hasAward(44));
+    CHECK_EQ(worldRuntime.currentLocationReputation(), -1);
+}
+
+TEST_CASE("MMerge bounty hunt interaction creates map entry and hostile target")
+{
+    MonsterTable monsterTable = makeBountyMonsterTable();
+    MergedBolsterMonsterTable bolsterTable = makeBountyBolsterMonsterTable();
+    Party party = makeOneMemberParty();
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    EventRuntimeState state = {};
+    worldRuntime.bindParty(&party);
+    worldRuntime.bindEventRuntimeState(&state);
+    worldRuntime.bindMonsterTable(&monsterTable);
+    worldRuntime.bindMergedBolsterMonsterTable(&bolsterTable);
+    worldRuntime.setMapName("new_sorpigal.odm");
+    worldRuntime.setPartyPosition(100.0f, 200.0f, 300.0f);
+    worldRuntime.setBountyHuntSpawnPoint(GameplayWorldPoint{444.0f, 555.0f, 666.0f});
+
+    const BountyHuntInteractionResult result = performBountyHuntInteraction(worldRuntime, &party, true);
+
+    REQUIRE(result.succeeded);
+    REQUIRE_EQ(result.messages.size(), 1u);
+    CHECK(result.messages.front().find("Allowed") != std::string::npos);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Month"], 0);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.MonsterId"], 10);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Done"], 0);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Claimed"], 0);
+    REQUIRE_EQ(worldRuntime.hostileSummonRequests().size(), 1u);
+    CHECK_EQ(worldRuntime.hostileSummonRequests().front().monsterId, 10);
+    CHECK_EQ(worldRuntime.hostileSummonRequests().front().group, 39u);
+    CHECK_EQ(worldRuntime.hostileSummonRequests().front().x, 444.0f);
+    CHECK_EQ(worldRuntime.hostileSummonRequests().front().y, 555.0f);
+    CHECK_EQ(worldRuntime.hostileSummonRequests().front().z, 666.0f);
+}
+
+TEST_CASE("MMerge runtime bounty kill marker scans all active monthly entries")
+{
+    MonsterTable monsterTable = makeBountyMonsterTable();
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    EventRuntimeState state = {};
+    worldRuntime.bindEventRuntimeState(&state);
+    worldRuntime.setMapName("map_b.odm");
+    worldRuntime.setCurrentLocationReputation(0);
+
+    state.namedGlobalVars["MMerge.BountyHunt.map_a.odm.Month"] = 0;
+    state.namedGlobalVars["MMerge.BountyHunt.map_a.odm.MonsterId"] = 10;
+    state.namedGlobalVars["MMerge.BountyHunt.map_b.odm.Month"] = 0;
+    state.namedGlobalVars["MMerge.BountyHunt.map_b.odm.MonsterId"] = 10;
+    state.namedGlobalVars["MMerge.BountyHunt.claimed.odm.Month"] = 0;
+    state.namedGlobalVars["MMerge.BountyHunt.claimed.odm.MonsterId"] = 10;
+    state.namedGlobalVars["MMerge.BountyHunt.claimed.odm.Claimed"] = 1;
+    state.namedGlobalVars["MMerge.BountyHunt.expired.odm.Month"] = 1;
+    state.namedGlobalVars["MMerge.BountyHunt.expired.odm.MonsterId"] = 10;
+
+    CHECK(markRuntimeBountyHuntMonsterKilled(worldRuntime, 10, &monsterTable));
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.map_a.odm.Done"], 1);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.map_b.odm.Done"], 1);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.claimed.odm.Done"], 0);
+    CHECK_EQ(state.namedGlobalVars["MMerge.BountyHunt.expired.odm.Done"], 0);
+    CHECK_EQ(worldRuntime.currentLocationReputation(), -1);
 }
 
 TEST_CASE("MMerge extra potion drink effects apply and one-shot essence potions do not stack")

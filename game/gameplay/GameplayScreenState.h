@@ -26,6 +26,7 @@ public:
     using QuickReferenceScreenState = GameplayUiController::QuickReferenceScreenState;
     using InventoryNestedOverlayState = GameplayUiController::InventoryNestedOverlayState;
     using HouseShopOverlayState = GameplayUiController::HouseShopOverlayState;
+    using HouseShopVisitState = GameplayUiController::HouseShopVisitState;
     using HouseBankState = GameplayUiController::HouseBankState;
 
     struct PendingSpellTargetState
@@ -132,6 +133,9 @@ public:
 
     HouseShopOverlayState &houseShopOverlay();
     const HouseShopOverlayState &houseShopOverlay() const;
+
+    HouseShopVisitState &houseShopVisit();
+    const HouseShopVisitState &houseShopVisit() const;
 
     HouseBankState &houseBankState();
     const HouseBankState &houseBankState() const;

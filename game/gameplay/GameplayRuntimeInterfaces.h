@@ -254,6 +254,12 @@ struct GameplayPartySpellProjectileRequest
     bool turnBasedPendingAction = false;
 };
 
+enum class GameplayProjectileVisualMode
+{
+    SpriteBillboard,
+    FxOnly,
+};
+
 struct GameplayProjectilePresentationState
 {
     uint32_t projectileId = 0;
@@ -261,6 +267,7 @@ struct GameplayProjectilePresentationState
     uint16_t objectSpriteId = 0;
     uint16_t objectSpriteFrameIndex = 0;
     uint16_t objectFlags = 0;
+    GameplayProjectileVisualMode visualMode = GameplayProjectileVisualMode::SpriteBillboard;
     uint16_t radius = 0;
     uint16_t height = 0;
     int spellId = 0;
@@ -411,6 +418,11 @@ public:
     virtual const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const
     {
         return nullptr;
+    }
+    virtual GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const
+    {
+        (void)seed;
+        return GameplayWorldPoint{partyX() + 1024.0f, partyY(), partyFootZ()};
     }
     virtual bool isIndoorMap() const = 0;
     virtual bool isUnderwaterMap() const

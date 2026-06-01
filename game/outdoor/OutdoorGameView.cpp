@@ -631,7 +631,8 @@ bool shouldSkipSpriteObjectInspectTarget(const SpriteObjectBillboard &object, co
 constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr uint16_t HudViewId = 2;
-constexpr float DefaultOutdoorFarClip = 18000.0f;
+constexpr float OeOutdoorNearClip = 32.0f;
+constexpr float DefaultOutdoorFarClip = 16192.0f;
 constexpr float RuntimeProjectileRenderDistance = 12288.0f;
 constexpr float DecorationBillboardRenderDistance = 18000.0f;
 constexpr float ActorBillboardRenderDistance = 18000.0f;
@@ -3439,7 +3440,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
         wireframeProjectionMatrix,
         CameraVerticalFovDegrees,
         wireframeAspectRatio,
-        0.1f,
+        OeOutdoorNearClip,
         farClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right

@@ -13,6 +13,7 @@ namespace
 {
 constexpr float ReferenceWidth = 640.0f;
 constexpr float ReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr float ProgressBarX = 173.0f;
 constexpr float ProgressBarY = 459.0f;
 constexpr float ProgressBarWidth = 299.0f;
@@ -75,8 +76,10 @@ void LoadingOverlayScreen::drawScreen(float deltaSeconds)
     static_cast<void>(deltaSeconds);
 
     const float baseScale = std::min(
-        static_cast<float>(frameWidth()) / ReferenceWidth,
-        static_cast<float>(frameHeight()) / ReferenceHeight);
+        std::min(
+            static_cast<float>(frameWidth()) / ReferenceWidth,
+            static_cast<float>(frameHeight()) / ReferenceHeight),
+        MaxUiScale);
     const float viewportWidth = ReferenceWidth * baseScale;
     const float viewportHeight = ReferenceHeight * baseScale;
     const float viewportX = (static_cast<float>(frameWidth()) - viewportWidth) * 0.5f;

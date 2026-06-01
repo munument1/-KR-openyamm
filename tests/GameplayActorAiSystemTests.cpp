@@ -263,6 +263,42 @@ TEST_CASE("shared actor service lets hostile actors target party controlled acto
     CHECK(result.engagementRange > 0.0f);
 }
 
+TEST_CASE("shared actor service lets party controlled actors target party hostiles")
+{
+    MonsterTable monsterTable = {};
+    REQUIRE(monsterTable.loadStatsFromRows({makeActorServiceMonsterStatsRow(1), makeActorServiceMonsterStatsRow(2)}));
+
+    GameplayActorService service = {};
+    service.bindTables(&monsterTable, nullptr);
+
+    OpenYAMM::Game::GameplayActorTargetPolicyState summonedActor = {};
+    summonedActor.monsterId = 1;
+    summonedActor.group = 999;
+    summonedActor.hostileToParty = false;
+    summonedActor.controlMode = GameplayActorControlMode::Enslaved;
+    summonedActor.height = 128;
+
+    OpenYAMM::Game::GameplayActorTargetPolicyState hostileActor = {};
+    hostileActor.monsterId = 2;
+    hostileActor.group = 999;
+    hostileActor.hostileToParty = true;
+    hostileActor.height = 128;
+
+    const OpenYAMM::Game::GameplayActorTargetPolicyResult hostileResult =
+        service.resolveActorTargetPolicy(summonedActor, hostileActor);
+
+    CHECK(hostileResult.canTarget);
+    CHECK_EQ(hostileResult.relationToTarget, 4);
+    CHECK(hostileResult.engagementRange > 0.0f);
+
+    hostileActor.hostileToParty = false;
+
+    const OpenYAMM::Game::GameplayActorTargetPolicyResult friendlyResult =
+        service.resolveActorTargetPolicy(summonedActor, hostileActor);
+
+    CHECK_FALSE(friendlyResult.canTarget);
+}
+
 TEST_CASE("shared actor service respects runtime party hostility overrides")
 {
     MonsterTable monsterTable = {};

@@ -186,6 +186,7 @@ public:
 
     std::optional<GameSaveData> buildSaveData() const;
     void restoreFromSaveData(const GameSaveData &saveData);
+    void restoreHeldInventoryItemFromSaveData(const GameSaveData &saveData);
 
 private:
     struct GameplayUpdatePerformanceDiagnostics

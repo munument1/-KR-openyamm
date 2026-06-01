@@ -3,7 +3,9 @@
 #include "game/StringUtils.h"
 #include "game/audio/SoundIds.h"
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/gameplay/BountyHuntRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
+#include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
@@ -24,6 +26,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -46,9 +49,12 @@ constexpr uint32_t MaxNpcFollowerFeePercent = 100;
 constexpr uint32_t NpcBegTopicId = 1766;
 constexpr uint32_t NpcThreatTopicId = 1767;
 constexpr uint32_t NpcBribeTopicId = 1768;
+constexpr uint32_t Mm6BountyHuntTopicId = 1712;
+constexpr uint32_t Mm8ThisMonthsBountyTopicId = 579;
 constexpr int MaxFoodForCookFollower = 14;
 constexpr int CookFollowerFoodAmount = 1;
 constexpr int ChefFollowerFoodAmount = 2;
+constexpr float ShopRudeSpeechDelaySeconds = 2.0f;
 
 const char *eventDialogActionKindName(EventDialogActionKind kind)
 {
@@ -1321,6 +1327,84 @@ void playHouseSound(GameplayDialogController::Context &context, uint32_t soundId
     }
 }
 
+std::optional<size_t> chooseRandomActablePartyMember(const Party &party)
+{
+    std::vector<size_t> actableMemberIndices;
+    actableMemberIndices.reserve(party.members().size());
+
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        if (GameMechanics::canAct(party.members()[memberIndex]))
+        {
+            actableMemberIndices.push_back(memberIndex);
+        }
+    }
+
+    if (actableMemberIndices.empty())
+    {
+        return std::nullopt;
+    }
+
+    static thread_local std::mt19937 rng(std::random_device{}());
+    const size_t selectedIndex =
+        std::uniform_int_distribution<size_t>(0, actableMemberIndices.size() - 1)(rng);
+    return actableMemberIndices[selectedIndex];
+}
+
+const char *debugBoolString(bool value)
+{
+    return value ? "true" : "false";
+}
+
+std::string debugShopGoodbyeSoundName(
+    const HouseEntry &houseEntry,
+    const std::optional<HouseSoundType> &soundType)
+{
+    if (!soundType.has_value())
+    {
+        return "none";
+    }
+
+    if (isAlchemyShop(houseEntry))
+    {
+        if (*soundType == HouseSoundType::AlchemyShopGoodbyeBought)
+        {
+            return "AlchemyShopGoodbyeBought";
+        }
+
+        if (*soundType == HouseSoundType::AlchemyShopGoodbyeRegular)
+        {
+            return "AlchemyShopGoodbyeRegular";
+        }
+    }
+    else
+    {
+        if (*soundType == HouseSoundType::ShopGoodbyePolite)
+        {
+            return "ShopGoodbyePolite";
+        }
+
+        if (*soundType == HouseSoundType::ShopGoodbyeRude)
+        {
+            return "ShopGoodbyeRude";
+        }
+    }
+
+    return "HouseSoundType(" + std::to_string(static_cast<uint32_t>(*soundType)) + ")";
+}
+
+void queueDelayedSpeechReaction(
+    GameplayDialogController::Context &context,
+    size_t memberIndex,
+    SpeechId speechId,
+    float delaySeconds)
+{
+    if (context.pScreenRuntime != nullptr)
+    {
+        context.pScreenRuntime->queueDelayedSpeechReaction(memberIndex, speechId, delaySeconds);
+    }
+}
+
 void playCommonUiSound(GameplayDialogController::Context &context, SoundId soundId)
 {
     if (context.pScreenRuntime != nullptr)
@@ -1373,6 +1457,37 @@ bool executeNpcTopicEvent(
 {
     return context.pWorldRuntime != nullptr
         && context.pWorldRuntime->executeNpcTopicEvent(eventId, previousMessageCount);
+}
+
+bool executeBuiltInNpcTopic(
+    GameplayDialogController::Context &context,
+    uint32_t topicId)
+{
+    if (topicId != Mm6BountyHuntTopicId && topicId != Mm8ThisMonthsBountyTopicId)
+    {
+        return false;
+    }
+
+    if (context.pWorldRuntime == nullptr)
+    {
+        context.eventRuntimeState.messages.push_back("The bounty office is unavailable right now.");
+        return true;
+    }
+
+    const BountyHuntInteractionResult result =
+        performBountyHuntInteraction(
+            *context.pWorldRuntime,
+            context.pParty,
+            true,
+            context.pNpcDialogTable);
+
+    for (const std::string &message : result.messages)
+    {
+        context.eventRuntimeState.messages.push_back(message);
+        context.uiController.setStatusBarEvent(message);
+    }
+
+    return true;
 }
 
 std::optional<NpcEntry> runtimeNpcEntry(
@@ -2248,7 +2363,8 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 *pHouseEntry,
                 *context.pParty,
                 context.pClassSkillTable,
-                context.pWorldRuntime
+                context.pWorldRuntime,
+                context.pNpcDialogTable
             );
 
             if (houseResult.soundType.has_value())
@@ -3245,9 +3361,9 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         const uint32_t npcId = context.activeEventDialog.sourceId;
         const std::optional<EventRuntimeState::PendingDialogueContext> previousPendingDialogueContext =
             context.eventRuntimeState.pendingDialogueContext;
-        bool executed = false;
+        bool executed = executeBuiltInNpcTopic(context, action.id);
 
-        if (action.textOnly && context.pNpcDialogTable != nullptr)
+        if (!executed && action.textOnly && context.pNpcDialogTable != nullptr)
         {
             const std::optional<NpcDialogTable::ResolvedTopic> topic =
                 context.pNpcDialogTable->getTopicById(action.secondaryId != 0 ? action.secondaryId : action.id);
@@ -3268,7 +3384,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
                 executed = true;
             }
         }
-        else
+        else if (!executed)
         {
             size_t executionPreviousMessageCount = result.previousMessageCount;
             executed = executeNpcTopicEvent(context, static_cast<uint16_t>(action.id), executionPreviousMessageCount);
@@ -3625,22 +3741,101 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
                 playHouseSound(context, *soundId);
             }
         }
-        else if (resolveHouseServiceType(*pHostHouseEntry) == HouseServiceType::Shop
-                 && context.pParty != nullptr
-                 && context.pWorldRuntime != nullptr
-                 && effectivePartyReputation(
-                        context.pWorldRuntime->currentLocationReputation(),
-                        context.pWorldRuntime->eventRuntimeState()) > 10)
+        else if (resolveHouseServiceType(*pHostHouseEntry) == HouseServiceType::Shop)
         {
-            const std::optional<uint32_t> soundId =
-                deriveHouseSoundId(*pHostHouseEntry, HouseSoundType::ShopGoodbyeRude);
+            const bool transactionPerformed =
+                context.uiController.houseShopTransactionPerformed(pHostHouseEntry->id);
+            const bool shopBanned = context.pWorldRuntime != nullptr
+                && houseRefusesShopServiceForReputation(
+                    *pHostHouseEntry,
+                    context.pWorldRuntime,
+                    context.pWorldRuntime->gameMinutes());
+            const int partyGold = context.pParty != nullptr ? context.pParty->gold() : 0;
+            const HouseShopGoodbyeResult goodbyeResult =
+                resolveHouseShopGoodbyeResult(*pHostHouseEntry, transactionPerformed, shopBanned, partyGold);
+            const std::string goodbyeSoundName =
+                debugShopGoodbyeSoundName(*pHostHouseEntry, goodbyeResult.soundType);
 
-            if (soundId.has_value())
+            GAMEPLAY_DEBUG_TRACE(
+                "shop_goodbye_debug decision house_id=" + std::to_string(pHostHouseEntry->id)
+                + " house_name=\"" + pHostHouseEntry->name + "\""
+                + " house_type=\"" + pHostHouseEntry->type + "\""
+                + " transaction_performed=" + debugBoolString(transactionPerformed)
+                + " shop_banned=" + debugBoolString(shopBanned)
+                + " party_gold=" + std::to_string(partyGold)
+                + " proprietor_line=" + goodbyeSoundName
+                + " party_should_respond=" + debugBoolString(goodbyeResult.queueRudeSpeech));
+
+            if (goodbyeResult.soundType.has_value())
             {
-                playHouseSound(context, *soundId);
+                const std::optional<uint32_t> soundId =
+                    deriveHouseSoundId(*pHostHouseEntry, *goodbyeResult.soundType);
+
+                if (soundId.has_value())
+                {
+                    GAMEPLAY_DEBUG_TRACE(
+                        "shop_goodbye_debug proprietor_play house_id="
+                        + std::to_string(pHostHouseEntry->id)
+                        + " line=" + goodbyeSoundName
+                        + " sound_id=" + std::to_string(*soundId));
+                    playHouseSound(context, *soundId);
+                }
+                else
+                {
+                    GAMEPLAY_DEBUG_TRACE(
+                        "shop_goodbye_debug proprietor_missing_sound house_id="
+                        + std::to_string(pHostHouseEntry->id)
+                        + " line=" + goodbyeSoundName);
+                }
+            }
+            else
+            {
+                GAMEPLAY_DEBUG_TRACE(
+                    "shop_goodbye_debug proprietor_silent house_id="
+                    + std::to_string(pHostHouseEntry->id));
             }
 
-            playSpeechReaction(context, context.pParty->activeMemberIndex(), SpeechId::ShopRude, true);
+            if (goodbyeResult.queueRudeSpeech && context.pParty != nullptr)
+            {
+                const std::optional<size_t> memberIndex = chooseRandomActablePartyMember(*context.pParty);
+
+                if (memberIndex.has_value())
+                {
+                    queueDelayedSpeechReaction(
+                        context,
+                        *memberIndex,
+                        SpeechId::ShopRude,
+                        ShopRudeSpeechDelaySeconds);
+                    GAMEPLAY_DEBUG_TRACE(
+                        "shop_goodbye_debug party_response_queued house_id="
+                        + std::to_string(pHostHouseEntry->id)
+                        + " member_index=" + std::to_string(*memberIndex)
+                        + " speech=ShopRude"
+                        + " delay_seconds=" + std::to_string(ShopRudeSpeechDelaySeconds));
+                }
+                else
+                {
+                    GAMEPLAY_DEBUG_TRACE(
+                        "shop_goodbye_debug party_response_skipped house_id="
+                        + std::to_string(pHostHouseEntry->id)
+                        + " reason=no_actable_member");
+                }
+            }
+            else if (goodbyeResult.queueRudeSpeech)
+            {
+                GAMEPLAY_DEBUG_TRACE(
+                    "shop_goodbye_debug party_response_skipped house_id="
+                    + std::to_string(pHostHouseEntry->id)
+                    + " reason=no_party");
+            }
+            else
+            {
+                GAMEPLAY_DEBUG_TRACE(
+                    "shop_goodbye_debug party_response_not_needed house_id="
+                    + std::to_string(pHostHouseEntry->id));
+            }
+
+            context.uiController.clearHouseShopVisitState();
         }
     }
 

@@ -4,6 +4,7 @@
 #include "game/outdoor/OutdoorMovementController.h"
 
 #include <optional>
+#include <string>
 
 namespace OpenYAMM::Game
 {
@@ -124,10 +125,13 @@ public:
     void setWaterWalkActive(bool active);
     void setFeatherFallActive(bool active);
     void setSpeedMultiplier(float multiplier);
+    void setCollisionTraceEnabled(bool enabled, std::string mapName);
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
     void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
 
 private:
+    bool canActivateFlying() const;
+
     OutdoorMovementController m_movementController;
     OutdoorMoveState m_state;
     OutdoorPartyMovementState m_partyMovementState;
@@ -160,5 +164,9 @@ private:
     float m_waterDamageTimerSeconds = 0.0f;
     float m_burningDamageTimerSeconds = 0.0f;
     float m_speedMultiplier = 1.0f;
+    bool m_collisionTraceEnabled = false;
+    std::string m_collisionTraceMapName;
+    float m_collisionTraceClockSeconds = 0.0f;
+    float m_nextCollisionTraceSeconds = 0.0f;
 };
 }

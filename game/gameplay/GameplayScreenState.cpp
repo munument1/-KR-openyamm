@@ -179,6 +179,16 @@ const GameplayScreenState::HouseShopOverlayState &GameplayScreenState::houseShop
     return m_uiState.houseShopOverlay;
 }
 
+GameplayScreenState::HouseShopVisitState &GameplayScreenState::houseShopVisit()
+{
+    return m_uiState.houseShopVisit;
+}
+
+const GameplayScreenState::HouseShopVisitState &GameplayScreenState::houseShopVisit() const
+{
+    return m_uiState.houseShopVisit;
+}
+
 GameplayScreenState::HouseBankState &GameplayScreenState::houseBankState()
 {
     return m_uiState.houseBankState;

@@ -637,8 +637,7 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
                             .canOpenRest = true,
                             .blockMenuToggle =
                                 hasPendingSpellCast
-                                || context.characterScreenReadOnly().open
-                                || heldInventoryItem.active,
+                                || context.characterScreenReadOnly().open,
                             .blockSpellbookToggle = hasPendingSpellCast || heldInventoryItem.active,
                             .blockInventoryToggle = false,
                             .blockPartyCycle = hasPendingSpellCast || context.characterScreenReadOnly().open,

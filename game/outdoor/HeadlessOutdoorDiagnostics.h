@@ -68,6 +68,10 @@ public:
         size_t actorIndex,
         const std::filesystem::path &outputPath
     ) const;
+    int runCaptureProjectileFx(
+        const std::filesystem::path &basePath,
+        const std::filesystem::path &outputDirectory
+    ) const;
 
 private:
     Engine::ApplicationConfig m_config;

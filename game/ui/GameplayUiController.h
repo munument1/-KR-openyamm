@@ -244,6 +244,7 @@ public:
     {
         bool active = false;
         SpellbookSchool school = SpellbookSchool::Fire;
+        bool hasRememberedSchool = false;
         uint32_t selectedSpellId = 0;
     };
 
@@ -377,6 +378,12 @@ public:
         HouseShopMode mode = HouseShopMode::None;
     };
 
+    struct HouseShopVisitState
+    {
+        uint32_t houseId = 0;
+        bool transactionPerformed = false;
+    };
+
     struct HouseBankState
     {
         uint32_t houseId = 0;
@@ -449,6 +456,7 @@ public:
         QuickReferenceScreenState quickReferenceScreen = {};
         InventoryNestedOverlayState inventoryNestedOverlay = {};
         HouseShopOverlayState houseShopOverlay = {};
+        HouseShopVisitState houseShopVisit = {};
         HouseBankState houseBankState = {};
         UtilitySpellOverlayState utilitySpellOverlay = {};
         StatusBarState statusBar = {};
@@ -527,6 +535,9 @@ public:
     HouseShopOverlayState &houseShopOverlay();
     const HouseShopOverlayState &houseShopOverlay() const;
 
+    HouseShopVisitState &houseShopVisit();
+    const HouseShopVisitState &houseShopVisit() const;
+
     HouseBankState &houseBankState();
     const HouseBankState &houseBankState() const;
 
@@ -549,6 +560,10 @@ public:
     void closeInventoryNestedOverlay();
     void openHouseShopOverlay(uint32_t houseId, HouseShopMode mode);
     void closeHouseShopOverlay();
+    void beginHouseShopVisit(uint32_t houseId);
+    void markHouseShopTransactionPerformed(uint32_t houseId);
+    bool houseShopTransactionPerformed(uint32_t houseId) const;
+    void clearHouseShopVisitState();
     void openUtilitySpellOverlay(
         UtilitySpellOverlayMode mode,
         uint32_t spellId,

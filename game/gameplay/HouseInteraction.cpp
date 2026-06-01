@@ -29,7 +29,6 @@ constexpr uint32_t LorettaPriceCompleteBit = 1141;
 constexpr uint32_t LorettaFirstStableBit = 1515;
 constexpr uint32_t LorettaLastStableBit = 1523;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
-constexpr uint32_t BountyHuntGroup = 39;
 constexpr int MMergeBadReputationShopBanThreshold = 25;
 constexpr int ShopTheftBanDays = 336;
 constexpr float PrisonSentenceMinutes = 365.0f * 24.0f * 60.0f;
@@ -131,24 +130,6 @@ uint32_t templeSpellLevelFromGameMinutes(float currentGameMinutes)
     return static_cast<uint32_t>(dayOfMonthFromGameMinutes(currentGameMinutes) % 7 + 1);
 }
 
-uint32_t monthFromGameMinutes(float currentGameMinutes)
-{
-    const int totalMinutes = std::max(0, static_cast<int>(std::floor(currentGameMinutes)));
-    const int totalDays = totalMinutes / MinutesPerDay;
-    return static_cast<uint32_t>(totalDays / 28);
-}
-
-uint32_t activeBountyMaximumLevel(const Party &party)
-{
-    const Character *pMember = party.member(0);
-    return pMember != nullptr ? pMember->level + 20u : 20u;
-}
-
-std::string bountyHuntVarPrefix(const IGameplayWorldRuntime &worldRuntime)
-{
-    return "MMerge.BountyHunt." + worldRuntime.mapName();
-}
-
 std::string shopBanUntilVar(uint32_t houseId)
 {
     return "MMerge.ShopBanUntil." + std::to_string(houseId);
@@ -157,30 +138,6 @@ std::string shopBanUntilVar(uint32_t houseId)
 bool isFreeHavenHighCouncil(const HouseEntry &houseEntry)
 {
     return houseEntry.id == FreeHavenHighCouncilHouseId;
-}
-
-int32_t namedGlobalVarValue(const EventRuntimeState &state, const std::string &name)
-{
-    const auto iterator = state.namedGlobalVars.find(name);
-    return iterator != state.namedGlobalVars.end() ? iterator->second : 0;
-}
-
-BountyHuntEntry readBountyHuntEntry(const EventRuntimeState &state, const std::string &prefix)
-{
-    BountyHuntEntry entry = {};
-    entry.month = static_cast<uint32_t>(std::max<int32_t>(0, namedGlobalVarValue(state, prefix + ".Month")));
-    entry.monsterId = static_cast<int16_t>(namedGlobalVarValue(state, prefix + ".MonsterId"));
-    entry.done = namedGlobalVarValue(state, prefix + ".Done") != 0;
-    entry.claimed = namedGlobalVarValue(state, prefix + ".Claimed") != 0;
-    return entry;
-}
-
-void writeBountyHuntEntry(EventRuntimeState &state, const std::string &prefix, const BountyHuntEntry &entry)
-{
-    state.namedGlobalVars[prefix + ".Month"] = static_cast<int32_t>(entry.month);
-    state.namedGlobalVars[prefix + ".MonsterId"] = static_cast<int32_t>(entry.monsterId);
-    state.namedGlobalVars[prefix + ".Done"] = entry.done ? 1 : 0;
-    state.namedGlobalVars[prefix + ".Claimed"] = entry.claimed ? 1 : 0;
 }
 
 bool houseServiceSubjectToReputationBan(HouseServiceType serviceType)
@@ -431,6 +388,80 @@ bool isTempleOfBaa(const HouseEntry &houseEntry)
 bool isBoatHouse(const HouseEntry &houseEntry)
 {
     return isHouseType(houseEntry, "Boats");
+}
+
+bool isAlchemyShop(const HouseEntry &houseEntry)
+{
+    return isHouseType(houseEntry, "Alchemist");
+}
+
+bool houseRefusesShopServiceForReputation(
+    const HouseEntry &houseEntry,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes)
+{
+    return resolveHouseServiceType(houseEntry) == HouseServiceType::Shop
+        && houseRefusesServiceForReputation(
+            houseEntry,
+            HouseServiceType::Shop,
+            pWorldRuntime,
+            currentGameMinutes);
+}
+
+HouseShopGoodbyeResult resolveHouseShopGoodbyeResult(
+    const HouseEntry &houseEntry,
+    bool transactionPerformed,
+    bool shopBanned,
+    int partyGold)
+{
+    HouseShopGoodbyeResult result = {};
+
+    if (resolveHouseServiceType(houseEntry) != HouseServiceType::Shop)
+    {
+        return result;
+    }
+
+    if (isAlchemyShop(houseEntry))
+    {
+        if (shopBanned)
+        {
+            result.queueRudeSpeech = true;
+            return result;
+        }
+
+        result.soundType = transactionPerformed
+            ? HouseSoundType::AlchemyShopGoodbyeBought
+            : HouseSoundType::AlchemyShopGoodbyeRegular;
+        return result;
+    }
+
+    if (shopBanned)
+    {
+        result.queueRudeSpeech = true;
+        return result;
+    }
+
+    if (partyGold <= 10000)
+    {
+        if (transactionPerformed)
+        {
+            result.soundType = HouseSoundType::ShopGoodbyePolite;
+        }
+
+        return result;
+    }
+
+    if (transactionPerformed)
+    {
+        result.soundType = HouseSoundType::ShopGoodbyePolite;
+    }
+    else
+    {
+        result.soundType = HouseSoundType::ShopGoodbyeRude;
+        result.queueRudeSpeech = true;
+    }
+
+    return result;
 }
 
 uint32_t arcomageDeckItemId()
@@ -1504,7 +1535,8 @@ HouseActionResult performHouseAction(
     const HouseEntry &houseEntry,
     Party &party,
     const ClassSkillTable *pClassSkillTable,
-    IGameplayWorldRuntime *pWorldRuntime
+    IGameplayWorldRuntime *pWorldRuntime,
+    const NpcDialogTable *pNpcDialogTable
 )
 {
     HouseActionResult result = {};
@@ -1806,85 +1838,16 @@ HouseActionResult performHouseAction(
 
         case HouseActionId::TownHallBountyHunt:
         {
-            if (pWorldRuntime == nullptr || pWorldRuntime->monsterTable() == nullptr)
+            if (pWorldRuntime == nullptr)
             {
                 result.messages.push_back("The bounty office is unavailable right now.");
                 return result;
             }
 
-            EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
-
-            if (pEventRuntimeState == nullptr)
-            {
-                result.messages.push_back("The bounty office is unavailable right now.");
-                return result;
-            }
-
-            const uint32_t currentMonth = monthFromGameMinutes(pWorldRuntime->gameMinutes());
-            const std::string prefix = bountyHuntVarPrefix(*pWorldRuntime);
-            BountyHuntEntry entry = readBountyHuntEntry(*pEventRuntimeState, prefix);
-
-            if (entry.monsterId <= 0 || bountyHuntEntryExpired(entry, currentMonth))
-            {
-                const uint32_t seed =
-                    static_cast<uint32_t>(std::hash<std::string>{}(prefix))
-                    ^ static_cast<uint32_t>(currentMonth * 1103515245u);
-                const std::optional<int16_t> monsterId =
-                    chooseBountyHuntMonsterId(
-                        *pWorldRuntime->monsterTable(),
-                        pWorldRuntime->mergedBolsterMonsterTable(),
-                        activeBountyMaximumLevel(party),
-                        seed);
-
-                if (!monsterId.has_value())
-                {
-                    result.messages.push_back("There is no bounty this month.");
-                    return result;
-                }
-
-                entry = {};
-                entry.month = currentMonth;
-                entry.monsterId = *monsterId;
-                writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
-                pWorldRuntime->summonHostileMonsterById(
-                    entry.monsterId,
-                    1,
-                    pWorldRuntime->partyX() + 1024.0f,
-                    pWorldRuntime->partyY(),
-                    pWorldRuntime->partyFootZ(),
-                    BountyHuntGroup);
-            }
-
-            const MonsterTable::MonsterStatsEntry *pStats =
-                pWorldRuntime->monsterTable()->findStatsById(entry.monsterId);
-
-            if (pStats == nullptr)
-            {
-                result.messages.push_back("The bounty office is unavailable right now.");
-                return result;
-            }
-
-            if (!entry.done)
-            {
-                result.messages.push_back(bountyHuntTargetText(*pStats));
-                result.succeeded = true;
-                return result;
-            }
-
-            const BountyHuntClaimResult claim =
-                claimBountyHuntReward(entry, *pWorldRuntime->monsterTable(), currentMonth, true);
-
-            if (!claim.claimed)
-            {
-                result.messages.push_back("You have already claimed this bounty.");
-                writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
-                return result;
-            }
-
-            applyBountyHuntClaimResult(*pWorldRuntime, &party, claim);
-            writeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
-            result.messages.push_back(bountyHuntRewardText(*pStats));
-            result.succeeded = true;
+            const BountyHuntInteractionResult bountyResult =
+                performBountyHuntInteraction(*pWorldRuntime, &party, true, pNpcDialogTable);
+            result.succeeded = bountyResult.succeeded;
+            result.messages = bountyResult.messages;
             return result;
         }
 

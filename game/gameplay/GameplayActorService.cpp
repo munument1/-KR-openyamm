@@ -200,6 +200,15 @@ GameplayActorService::DirectSpellImpactResult GameplayActorService::resolveDirec
         return result;
     }
 
+    if (resolvedSpellId == SpellId::Inferno)
+    {
+        result.disposition = DirectSpellImpactDisposition::ApplyDamage;
+        result.visualKind = DirectSpellImpactVisualKind::ActorUpperBody;
+        result.damage = std::max(1, baseDamage);
+        result.preferImpactObject = false;
+        return result;
+    }
+
     if (spellName == "mass distortion")
     {
         result.disposition = DirectSpellImpactDisposition::ApplyDamage;
@@ -236,6 +245,41 @@ GameplayActorService::DirectSpellImpactResult GameplayActorService::resolveDirec
     }
 
     return result;
+}
+
+std::optional<bx::Vec3> GameplayActorService::spellPushVelocity(
+    uint32_t spellId,
+    uint32_t skillLevel,
+    float actorX,
+    float actorY,
+    float sourceX,
+    float sourceY)
+{
+    const SpellId resolvedSpellId = spellIdFromValue(spellId);
+
+    if (resolvedSpellId != SpellId::Fear && resolvedSpellId != SpellId::WingBuffet)
+    {
+        return std::nullopt;
+    }
+
+    const float deltaX = actorX - sourceX;
+    const float deltaY = actorY - sourceY;
+    const float horizontalLength = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    if (horizontalLength <= 0.01f)
+    {
+        return std::nullopt;
+    }
+
+    const float pushStrength =
+        resolvedSpellId == SpellId::WingBuffet
+            ? 320.0f + 24.0f * static_cast<float>(skillLevel)
+            : 160.0f + 8.0f * static_cast<float>(skillLevel);
+
+    return bx::Vec3{
+        (deltaX / horizontalLength) * pushStrength,
+        (deltaY / horizontalLength) * pushStrength,
+        0.0f};
 }
 
 GameplayActorService::SharedSpellEffectResult GameplayActorService::tryApplySharedSpellEffect(

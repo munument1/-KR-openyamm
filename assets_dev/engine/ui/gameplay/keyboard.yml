@@ -11,7 +11,7 @@ elements:
     visible: true
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     children:
       - id: KeyboardBackground
         anchor: top_left

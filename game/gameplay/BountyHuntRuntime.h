@@ -26,7 +26,14 @@ struct BountyHuntClaimResult
     uint32_t bountyTotalDelta = 0;
 };
 
+struct BountyHuntInteractionResult
+{
+    bool succeeded = false;
+    std::vector<std::string> messages;
+};
+
 class IGameplayWorldRuntime;
+class NpcDialogTable;
 class Party;
 
 uint32_t bountyHuntRewardForMonster(const MonsterTable::MonsterStatsEntry &stats);
@@ -55,8 +62,18 @@ bool markRuntimeBountyHuntMonsterKilled(
     IGameplayWorldRuntime &worldRuntime,
     int16_t monsterId,
     const MonsterTable *pMonsterTable);
-std::string bountyHuntTargetText(const MonsterTable::MonsterStatsEntry &stats);
-std::string bountyHuntRewardText(const MonsterTable::MonsterStatsEntry &stats);
+BountyHuntInteractionResult performBountyHuntInteraction(
+    IGameplayWorldRuntime &worldRuntime,
+    Party *pParty,
+    bool awardGold,
+    const NpcDialogTable *pNpcDialogTable = nullptr);
+std::string bountyHuntTargetText(
+    const MonsterTable::MonsterStatsEntry &stats,
+    const NpcDialogTable *pNpcDialogTable = nullptr);
+std::string bountyHuntRewardText(
+    const MonsterTable::MonsterStatsEntry &stats,
+    const NpcDialogTable *pNpcDialogTable = nullptr);
+std::string bountyHuntClaimedText(const NpcDialogTable *pNpcDialogTable = nullptr);
 void applyBountyHuntClaimResult(
     IGameplayWorldRuntime &worldRuntime,
     Party *pParty,

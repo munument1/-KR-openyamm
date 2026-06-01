@@ -771,6 +771,11 @@ GameplayUiController::HouseShopOverlayState &GameplayScreenRuntime::houseShopOve
     return m_session.gameplayScreenState().houseShopOverlay();
 }
 
+GameplayUiController::HouseShopVisitState &GameplayScreenRuntime::houseShopVisit() const
+{
+    return m_session.gameplayScreenState().houseShopVisit();
+}
+
 GameplayUiController::HouseBankState &GameplayScreenRuntime::houseBankState() const
 {
     return m_session.gameplayScreenState().houseBankState();
@@ -1250,37 +1255,46 @@ void GameplayScreenRuntime::startInnRest(float durationMinutes)
 
 void GameplayScreenRuntime::openSpellbookOverlay()
 {
-    GameplayUiController::SpellbookSchool school = GameplayUiController::SpellbookSchool::Fire;
+    std::optional<GameplayUiController::SpellbookSchool> school;
+    const GameplayUiController::SpellbookState &currentSpellbook = uiController().spellbook();
 
-    for (const SpellbookSchoolUiDefinition &definition : spellbookSchoolUiDefinitions())
+    if (currentSpellbook.hasRememberedSchool && activeMemberHasSpellbookSchool(currentSpellbook.school))
     {
-        if (activeMemberHasSpellbookSchool(definition.school))
-        {
-            school = definition.school;
-            break;
-        }
+        school = currentSpellbook.school;
     }
 
-    const Character *pCaster = partyReadOnly() != nullptr ? partyReadOnly()->activeMember() : nullptr;
-
-    if (pCaster != nullptr && !pCaster->quickSpellName.empty() && spellTable() != nullptr)
+    if (!school)
     {
-        const SpellEntry *pSpellEntry = spellTable()->findByName(pCaster->quickSpellName);
-
-        if (pSpellEntry != nullptr)
+        for (const SpellbookSchoolUiDefinition &definition : spellbookSchoolUiDefinitions())
         {
-            const SpellbookSchoolUiDefinition *pDefinition =
-                findSpellbookSchoolUiDefinitionForSpellId(uint32_t(pSpellEntry->id));
-
-            if (pDefinition != nullptr && activeMemberHasSpellbookSchool(pDefinition->school))
+            if (activeMemberHasSpellbookSchool(definition.school))
             {
-                school = pDefinition->school;
+                school = definition.school;
+                break;
+            }
+        }
+
+        const Character *pCaster = partyReadOnly() != nullptr ? partyReadOnly()->activeMember() : nullptr;
+
+        if (pCaster != nullptr && !pCaster->quickSpellName.empty() && spellTable() != nullptr)
+        {
+            const SpellEntry *pSpellEntry = spellTable()->findByName(pCaster->quickSpellName);
+
+            if (pSpellEntry != nullptr)
+            {
+                const SpellbookSchoolUiDefinition *pDefinition =
+                    findSpellbookSchoolUiDefinitionForSpellId(uint32_t(pSpellEntry->id));
+
+                if (pDefinition != nullptr && activeMemberHasSpellbookSchool(pDefinition->school))
+                {
+                    school = pDefinition->school;
+                }
             }
         }
     }
 
     closeQuickReferenceOverlay();
-    uiController().openSpellbook(school);
+    uiController().openSpellbook(school.value_or(GameplayUiController::SpellbookSchool::Fire));
     uiController().spellbook().selectedSpellId = 0;
     interactionState().spellbookClickLatch = false;
     interactionState().spellbookPressedTarget = {};
@@ -1413,6 +1427,11 @@ void GameplayScreenRuntime::closeHouseShopOverlay()
     uiController().closeHouseShopOverlay();
     interactionState().houseShopClickLatch = false;
     interactionState().houseShopPressedSlotIndex = static_cast<size_t>(-1);
+}
+
+void GameplayScreenRuntime::markHouseShopTransactionPerformed(uint32_t houseId)
+{
+    uiController().markHouseShopTransactionPerformed(houseId);
 }
 
 void GameplayScreenRuntime::openFollowerNpcDialogue(size_t followerSlotIndex)

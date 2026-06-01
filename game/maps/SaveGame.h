@@ -31,6 +31,12 @@ struct GameSaveData
     float savedGameMinutes = 0.0f;
     float outdoorCameraYawRadians = 0.0f;
     float outdoorCameraPitchRadians = 0.0f;
+    bool heldInventoryItemActive = false;
+    InventoryItem heldInventoryItem = {};
+    uint8_t heldInventoryItemGrabCellOffsetX = 0;
+    uint8_t heldInventoryItemGrabCellOffsetY = 0;
+    float heldInventoryItemGrabOffsetX = 0.0f;
+    float heldInventoryItemGrabOffsetY = 0.0f;
     std::string saveName;
     std::vector<uint8_t> previewBmp;
 };

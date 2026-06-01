@@ -1063,22 +1063,7 @@ void applyIncomingHitSideEffects(
     GameplayCombatController::PendingCombatEventContext &context,
     size_t memberIndex)
 {
-    Character *pMember = context.party.member(memberIndex);
-
-    if (pMember == nullptr)
-    {
-        return;
-    }
-
     context.party.clearMemberCondition(memberIndex, CharacterCondition::Asleep);
-
-    const CharacterSheetSummary summary = GameMechanics::buildCharacterSheetSummary(
-        *pMember,
-        context.pRuntime != nullptr ? context.pRuntime->itemTable() : nullptr,
-        context.pRuntime != nullptr ? context.pRuntime->standardItemEnchantTable() : nullptr,
-        context.pRuntime != nullptr ? context.pRuntime->specialItemEnchantTable() : nullptr);
-    const int recoveryTicks = 20 - parameterBonusForCombat(summary.endurance.actual);
-    context.party.applyRecoveryToMember(memberIndex, recoverySecondsFromTicks(recoveryTicks));
 }
 
 void applyPainReflection(

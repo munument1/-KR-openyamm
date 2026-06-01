@@ -22,6 +22,15 @@ constexpr size_t MaxNpcFollowerCount = 4;
 constexpr uint32_t NpcBegTopicId = 1766;
 constexpr uint32_t NpcThreatTopicId = 1767;
 constexpr uint32_t NpcBribeTopicId = 1768;
+constexpr uint32_t Mm6BountyHuntTopicId = 1712;
+constexpr uint32_t NewSorpigalTownHallHouseId = 208;
+constexpr uint32_t MistTownHallHouseId = 210;
+constexpr uint32_t SilverCoveTownHallHouseId = 211;
+
+std::optional<NpcEntry> runtimeNpcEntryIfExists(
+    const NpcDialogTable *pNpcDialogTable,
+    const EventRuntimeState &eventRuntimeState,
+    uint32_t npcId);
 
 bool houseExtraExitIsAvailable(const HouseEntry &houseEntry, const Party *pParty)
 {
@@ -33,13 +42,49 @@ bool houseExtraExitIsAvailable(const HouseEntry &houseEntry, const Party *pParty
 bool shouldUseResidentOnlyHouseLobby(
     const HouseEntry &houseEntry,
     HouseServiceType serviceType,
-    const std::vector<uint32_t> &residentNpcIds)
+    const std::vector<uint32_t> &residentNpcIds,
+    const NpcDialogTable *pNpcDialogTable,
+    const EventRuntimeState &eventRuntimeState)
 {
-    return serviceType != HouseServiceType::None
+    if (serviceType != HouseServiceType::None
         && !residentNpcIds.empty()
         && houseEntry.extraExit.has_value()
         && houseEntry.proprietorName.empty()
-        && houseEntry.proprietorTitle.empty();
+        && houseEntry.proprietorTitle.empty())
+    {
+        return true;
+    }
+
+    if (serviceType != HouseServiceType::TownHall
+        || residentNpcIds.empty()
+        || houseEntry.proprietorPictureId != 0)
+    {
+        return false;
+    }
+
+    if (houseEntry.id == NewSorpigalTownHallHouseId
+        || houseEntry.id == MistTownHallHouseId
+        || houseEntry.id == SilverCoveTownHallHouseId)
+    {
+        return true;
+    }
+
+    for (uint32_t residentNpcId : residentNpcIds)
+    {
+        const std::optional<NpcEntry> resident =
+            runtimeNpcEntryIfExists(pNpcDialogTable, eventRuntimeState, residentNpcId);
+
+        if (resident
+            && std::find(
+                resident->topicIds.begin(),
+                resident->topicIds.end(),
+                Mm6BountyHuntTopicId) != resident->topicIds.end())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 const char *transitionImageName(uint32_t imageId)
@@ -1069,7 +1114,12 @@ EventDialogContent buildEventDialogContent(
                 ? collectSelectableResidentNpcIds(*pHouseEntry, *pNpcDialogTable, npcRuntimeState)
                 : std::vector<uint32_t>{};
             const bool useResidentOnlyLobby =
-                shouldUseResidentOnlyHouseLobby(*pHouseEntry, serviceType, residentNpcIds);
+                shouldUseResidentOnlyHouseLobby(
+                    *pHouseEntry,
+                    serviceType,
+                    residentNpcIds,
+                    pNpcDialogTable,
+                    npcRuntimeState);
             const bool useResidentExtraExitLobby =
                 serviceType == HouseServiceType::None
                 && pHouseEntry->type == "House"

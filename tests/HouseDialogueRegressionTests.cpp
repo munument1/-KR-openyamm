@@ -14,6 +14,7 @@
 #include "game/party/SpellIds.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
+#include "game/ui/GameplayUiController.h"
 
 #include "tests/HouseDialogueTestHarness.h"
 #include "tests/RegressionGameData.h"
@@ -44,6 +45,12 @@ constexpr uint32_t ServiceTavernWithResidentHouseId = 260;
 constexpr uint32_t DaggerWoundTavernHouseId = 228;
 constexpr uint32_t BullsEyeInnHouseId = 235;
 constexpr uint32_t HarmondaleTavernHouseId = 240;
+constexpr uint32_t HarmondaleTownHallHouseId = 203;
+constexpr uint32_t NewSorpigalTownHallHouseId = 208;
+constexpr uint32_t MistTownHallHouseId = 210;
+constexpr uint32_t SilverCoveTownHallHouseId = 211;
+constexpr uint32_t RavenshoreBountyHunterGuildHouseId = 895;
+constexpr uint32_t GarroteGorgeBountyHunterGuildHouseId = 523;
 constexpr uint32_t ArcomageDeckItemId = 1453;
 constexpr uint32_t WindlingBoatHouseId = 479;
 constexpr uint32_t SmokeBoatHouseId = 481;
@@ -238,6 +245,10 @@ constexpr uint32_t OverduneRosterId = 4;
 constexpr uint32_t GemOfRestorationItemId = 623;
 constexpr uint32_t WealthyHatItemId = 1433;
 constexpr uint32_t SalSharktoothGroupId = 54;
+constexpr uint32_t FrankFairchildNpcId = 788;
+constexpr uint32_t JaniceNpcId = 1076;
+constexpr uint32_t EarnestNpcId = 1077;
+constexpr uint32_t JakeNpcId = 1078;
 
 const OpenYAMM::Game::Character *findPartyMemberByRosterId(
     const OpenYAMM::Game::Party &party,
@@ -363,6 +374,47 @@ bool dialogContainsText(const OpenYAMM::Game::EventDialogContent &dialog, const 
     return false;
 }
 
+bool runtimeMessagesContain(
+    const OpenYAMM::Game::EventRuntimeState &runtimeState,
+    const std::string &text)
+{
+    for (const std::string &message : runtimeState.messages)
+    {
+        if (message.find(text) != std::string::npos)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::vector<std::string> dialogBountyMonsterStatsRow(int id, const std::string &name, int level)
+{
+    std::vector<std::string> row(38);
+    row[0] = std::to_string(id);
+    row[1] = name;
+    row[2] = name;
+    row[3] = std::to_string(level);
+    row[4] = "20";
+    row[5] = "5";
+    row[10] = "Short";
+    row[11] = "Normal";
+    row[12] = "0";
+    row[13] = "100";
+    row[14] = "100";
+    row[17] = "Phys";
+    row[18] = "1d6";
+    return row;
+}
+
+OpenYAMM::Game::MonsterTable makeDialogBountyMonsterTable()
+{
+    OpenYAMM::Game::MonsterTable table;
+    REQUIRE(table.loadStatsFromRows({dialogBountyMonsterStatsRow(10, "Dialog Bounty Target", 12)}));
+    return table;
+}
+
 bool dialogHasActionLabel(const OpenYAMM::Game::EventDialogContent &dialog, const std::string &label)
 {
     for (const OpenYAMM::Game::EventDialogAction &action : dialog.actions)
@@ -390,6 +442,24 @@ bool dialogHasAction(
     }
 
     return false;
+}
+
+std::optional<size_t> findActionIndexByKindAndId(
+    const OpenYAMM::Game::EventDialogContent &dialog,
+    OpenYAMM::Game::EventDialogActionKind kind,
+    uint32_t id)
+{
+    for (size_t index = 0; index < dialog.actions.size(); ++index)
+    {
+        const OpenYAMM::Game::EventDialogAction &action = dialog.actions[index];
+
+        if (action.kind == kind && action.id == id)
+        {
+            return index;
+        }
+    }
+
+    return std::nullopt;
 }
 
 bool portraitFxContainsMember(
@@ -3307,6 +3377,125 @@ TEST_CASE("service house with resident opens occupant selector before service to
     CHECK_EQ(harness.eventRuntimeState().pendingDialogueContext->hostHouseId, ServiceTavernWithResidentHouseId);
 }
 
+TEST_CASE("MM6 town halls expose bounty on real resident NPCs without synthetic clerks")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::MonsterTable bountyMonsterTable = makeDialogBountyMonsterTable();
+    harness.worldRuntime().bindMonsterTable(&bountyMonsterTable);
+    harness.worldRuntime().bindMergedBolsterMonsterTable(nullptr);
+
+    const OpenYAMM::Game::EventDialogContent &newSorpigalDialog =
+        harness.openHouseDialog(NewSorpigalTownHallHouseId);
+
+    CHECK_FALSE(dialogHasAction(
+        newSorpigalDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseProprietor,
+        "Janice, Clerk"));
+    CHECK(findActionIndexByKindAndId(
+        newSorpigalDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseResident,
+        FrankFairchildNpcId).has_value());
+    const std::optional<size_t> janiceIndex = findActionIndexByKindAndId(
+        newSorpigalDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseResident,
+        JaniceNpcId);
+    REQUIRE(janiceIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &janiceDialog = harness.executeAndPresent(*janiceIndex);
+    CHECK(dialogHasActionLabel(janiceDialog, "Bounty Hunt"));
+    const std::optional<size_t> janiceBountyIndex = findActionIndexByLabel(janiceDialog, "Bounty Hunt");
+    REQUIRE(janiceBountyIndex.has_value());
+
+    harness.executeAndPresent(*janiceBountyIndex);
+
+    CHECK_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(
+        harness.eventRuntimeState().messages.back()
+        != "That topic does not have an event yet.");
+    CHECK(runtimeMessagesContain(
+        harness.eventRuntimeState(),
+        "This month's bounty is on a Dialog Bounty Target."));
+    CHECK(harness.eventRuntimeState().namedGlobalVars.contains("MMerge.BountyHunt.spell_test.odm.MonsterId"));
+
+    const OpenYAMM::Game::EventDialogContent &mistDialog = harness.openHouseDialog(MistTownHallHouseId);
+    CHECK_FALSE(dialogHasAction(mistDialog, OpenYAMM::Game::EventDialogActionKind::HouseProprietor, "Earnest, Clerk"));
+    CHECK(findActionIndexByKindAndId(
+        mistDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseResident,
+        EarnestNpcId).has_value());
+
+    const OpenYAMM::Game::EventDialogContent &silverCoveDialog =
+        harness.openHouseDialog(SilverCoveTownHallHouseId);
+    CHECK_FALSE(dialogHasAction(
+        silverCoveDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseProprietor,
+        "Jake, Clerk"));
+    CHECK(findActionIndexByKindAndId(
+        silverCoveDialog,
+        OpenYAMM::Game::EventDialogActionKind::HouseResident,
+        JakeNpcId).has_value());
+}
+
+TEST_CASE("MM7 town hall service bounty actions stay on town hall service")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::MonsterTable bountyMonsterTable = makeDialogBountyMonsterTable();
+    harness.worldRuntime().bindMonsterTable(&bountyMonsterTable);
+    harness.worldRuntime().bindMergedBolsterMonsterTable(nullptr);
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openHouseDialog(HarmondaleTownHallHouseId);
+
+    CHECK(dialogHasActionLabel(dialog, "Current Fine: 0 gold"));
+    CHECK(dialogHasActionLabel(dialog, "Bounty Hunt"));
+    CHECK(dialogHasActionLabel(dialog, "Pay Fine"));
+
+    const std::optional<size_t> bountyIndex = findActionIndexByLabel(dialog, "Bounty Hunt");
+    REQUIRE(bountyIndex.has_value());
+
+    harness.executeAndPresent(*bountyIndex);
+
+    CHECK_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(runtimeMessagesContain(
+        harness.eventRuntimeState(),
+        "This month's bounty is on a Dialog Bounty Target."));
+}
+
+TEST_CASE("MM8 bounty hunter guild exposes this month's bounty topic")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    const auto checkGuildHouse =
+        [&](uint32_t houseId)
+        {
+            OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+            OpenYAMM::Game::MonsterTable bountyMonsterTable = makeDialogBountyMonsterTable();
+            harness.worldRuntime().bindMonsterTable(&bountyMonsterTable);
+            harness.worldRuntime().bindMergedBolsterMonsterTable(nullptr);
+
+            const OpenYAMM::Game::EventDialogContent &guildDialog = harness.openHouseDialog(houseId);
+
+            CHECK(dialogHasActionLabel(guildDialog, "This Month's Bounty"));
+            const std::optional<size_t> bountyIndex = findActionIndexByLabel(guildDialog, "This Month's Bounty");
+            REQUIRE(bountyIndex.has_value());
+
+            harness.executeAndPresent(*bountyIndex);
+
+            CHECK_FALSE(harness.eventRuntimeState().messages.empty());
+            CHECK(
+                harness.eventRuntimeState().messages.back()
+                != "That topic does not have an event yet.");
+            CHECK(runtimeMessagesContain(
+                harness.eventRuntimeState(),
+                "This month's bounty is on a Dialog Bounty Target."));
+            CHECK(harness.eventRuntimeState().namedGlobalVars.contains("MMerge.BountyHunt.spell_test.odm.MonsterId"));
+        };
+
+    checkGuildHouse(RavenshoreBountyHunterGuildHouseId);
+    checkGuildHouse(GarroteGorgeBountyHunterGuildHouseId);
+}
+
 TEST_CASE("transport routes filter by weekday and qbit")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -4751,6 +4940,81 @@ TEST_CASE("merged house movie sound bases drive mm8 house speech")
         REQUIRE(greetingSoundId.has_value());
         CHECK_EQ(*greetingSoundId, expected.expectedGreetingId);
     }
+}
+
+TEST_CASE("shop goodbye decision matches oe transaction and alchemy rules")
+{
+    OpenYAMM::Game::HouseEntry weaponShop = {};
+    weaponShop.type = "Weapon Shop";
+    OpenYAMM::Game::HouseEntry alchemyShop = {};
+    alchemyShop.type = "Alchemist";
+
+    OpenYAMM::Game::HouseShopGoodbyeResult result =
+        OpenYAMM::Game::resolveHouseShopGoodbyeResult(weaponShop, true, false, 5000);
+    REQUIRE(result.soundType.has_value());
+    CHECK_EQ(*result.soundType, OpenYAMM::Game::HouseSoundType::ShopGoodbyePolite);
+    CHECK_FALSE(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(weaponShop, false, false, 5000);
+    CHECK_FALSE(result.soundType.has_value());
+    CHECK_FALSE(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(weaponShop, false, false, 10001);
+    REQUIRE(result.soundType.has_value());
+    CHECK_EQ(*result.soundType, OpenYAMM::Game::HouseSoundType::ShopGoodbyeRude);
+    CHECK(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(weaponShop, false, true, 10001);
+    CHECK_FALSE(result.soundType.has_value());
+    CHECK(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(alchemyShop, false, false, 0);
+    REQUIRE(result.soundType.has_value());
+    CHECK_EQ(*result.soundType, OpenYAMM::Game::HouseSoundType::AlchemyShopGoodbyeRegular);
+    CHECK_FALSE(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(alchemyShop, true, false, 0);
+    REQUIRE(result.soundType.has_value());
+    CHECK_EQ(*result.soundType, OpenYAMM::Game::HouseSoundType::AlchemyShopGoodbyeBought);
+    CHECK_FALSE(result.queueRudeSpeech);
+
+    result = OpenYAMM::Game::resolveHouseShopGoodbyeResult(alchemyShop, true, true, 0);
+    CHECK_FALSE(result.soundType.has_value());
+    CHECK(result.queueRudeSpeech);
+}
+
+TEST_CASE("shop transaction state survives overlay switches until house close")
+{
+    OpenYAMM::Game::GameplayUiController uiController;
+    constexpr uint32_t ShopHouseId = 10;
+    constexpr uint32_t OtherShopHouseId = 11;
+
+    uiController.openHouseShopOverlay(
+        ShopHouseId,
+        OpenYAMM::Game::GameplayUiController::HouseShopMode::BuyStandard);
+    uiController.markHouseShopTransactionPerformed(ShopHouseId);
+    uiController.closeHouseShopOverlay();
+
+    CHECK(uiController.houseShopTransactionPerformed(ShopHouseId));
+
+    uiController.openInventoryNestedOverlay(
+        OpenYAMM::Game::GameplayUiController::InventoryNestedOverlayMode::ShopRepair,
+        ShopHouseId);
+
+    CHECK(uiController.houseShopTransactionPerformed(ShopHouseId));
+
+    uiController.openHouseShopOverlay(
+        OtherShopHouseId,
+        OpenYAMM::Game::GameplayUiController::HouseShopMode::BuyStandard);
+
+    CHECK_FALSE(uiController.houseShopTransactionPerformed(ShopHouseId));
+    CHECK_FALSE(uiController.houseShopTransactionPerformed(OtherShopHouseId));
+
+    uiController.markHouseShopTransactionPerformed(OtherShopHouseId);
+    CHECK(uiController.houseShopTransactionPerformed(OtherShopHouseId));
+
+    uiController.clearHouseShopVisitState();
+    CHECK_FALSE(uiController.houseShopTransactionPerformed(OtherShopHouseId));
 }
 
 TEST_CASE("transport route quest bit gates show unavailable fallback until unlocked")

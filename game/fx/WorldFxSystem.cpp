@@ -18,6 +18,7 @@ namespace
 constexpr float ParticleUpdateStepSeconds = 1.0f / 30.0f;
 constexpr float MaxParticleUpdateAccumulationSeconds = 0.25f;
 constexpr float DefaultProjectileTrailCooldownSeconds = 1.0f / 30.0f;
+constexpr float HangingProjectileTrailCooldownSeconds = 2.0f / 128.0f;
 constexpr float SparksProjectileTrailCooldownSeconds = 0.10f;
 constexpr float PartySpellFxRingRadius = 28.0f;
 constexpr float ImpactLightRadiusScale = 1.18f;
@@ -194,6 +195,11 @@ float projectileTrailCooldownSeconds(FxRecipes::ProjectileRecipe recipe)
             return SparksProjectileTrailCooldownSeconds;
 
         default:
+            if (FxRecipes::projectileRecipeUsesHangingProjectileTrail(recipe))
+            {
+                return HangingProjectileTrailCooldownSeconds;
+            }
+
             return DefaultProjectileTrailCooldownSeconds;
     }
 }
@@ -202,6 +208,21 @@ bool projectileRecipeEmitsTrailParticles(int spellIdValue, FxRecipes::Projectile
 {
     if (recipe == FxRecipes::ProjectileRecipe::Blaster
         || recipe == FxRecipes::ProjectileRecipe::Sparks)
+    {
+        return false;
+    }
+
+    const FxRecipes::ProjectileFxRecipe &fxRecipe = FxRecipes::projectileFxRecipe(recipe);
+
+    if (fxRecipe.trailPrimitive == FxRecipes::ProjectileFxPrimitive::RenderSprite)
+    {
+        return false;
+    }
+
+    if (fxRecipe.trailPrimitive == FxRecipes::ProjectileFxPrimitive::None
+        && (fxRecipe.impactPrimitive != FxRecipes::ProjectileFxPrimitive::None
+            || fxRecipe.mobileLightRadius > 0.0f
+            || !fxRecipe.renderProjectileBillboard))
     {
         return false;
     }
@@ -222,7 +243,8 @@ void WorldFxSystem::reset()
     m_glowBillboards.clear();
     m_lightEmitters.clear();
     m_contactShadows.clear();
-    m_trailCooldownByProjectileId.clear();
+    m_segmentProjectiles.clear();
+    m_projectileTrailStates.clear();
     m_persistentImpactLights.clear();
     m_seenImpactIds.clear();
 }
@@ -371,6 +393,7 @@ void WorldFxSystem::clearSpatialFx()
     m_glowBillboards.clear();
     m_lightEmitters.clear();
     m_contactShadows.clear();
+    m_segmentProjectiles.clear();
 }
 
 void WorldFxSystem::addContactShadow(float x, float y, float z, float radius, uint32_t colorAbgr)
@@ -387,6 +410,33 @@ void WorldFxSystem::addContactShadow(float x, float y, float z, float radius, ui
     shadow.radius = radius;
     shadow.colorAbgr = colorAbgr;
     m_contactShadows.push_back(shadow);
+}
+
+void WorldFxSystem::addSegmentProjectile(
+    float startX,
+    float startY,
+    float startZ,
+    float endX,
+    float endY,
+    float endZ,
+    float width,
+    uint32_t colorAbgr)
+{
+    if (width <= 0.0f)
+    {
+        return;
+    }
+
+    WorldFxSegmentProjectile segment = {};
+    segment.startX = startX;
+    segment.startY = startY;
+    segment.startZ = startZ;
+    segment.endX = endX;
+    segment.endY = endY;
+    segment.endZ = endZ;
+    segment.width = width;
+    segment.colorAbgr = colorAbgr;
+    m_segmentProjectiles.push_back(segment);
 }
 
 void WorldFxSystem::addGlowBillboard(
@@ -456,21 +506,18 @@ const std::vector<WorldFxContactShadow> &WorldFxSystem::contactShadows() const
     return m_contactShadows;
 }
 
+const std::vector<WorldFxSegmentProjectile> &WorldFxSystem::segmentProjectiles() const
+{
+    return m_segmentProjectiles;
+}
+
 void WorldFxSystem::updateProjectileTrailCooldowns(float deltaSeconds)
 {
-    for (std::unordered_map<uint32_t, float>::iterator it = m_trailCooldownByProjectileId.begin();
-        it != m_trailCooldownByProjectileId.end();)
+    for (std::unordered_map<uint32_t, ProjectileFxTrailState>::iterator it = m_projectileTrailStates.begin();
+        it != m_projectileTrailStates.end();
+        ++it)
     {
-        it->second = std::max(0.0f, it->second - deltaSeconds);
-
-        if (it->second <= 0.0f)
-        {
-            it = m_trailCooldownByProjectileId.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
+        it->second.cooldownSeconds = std::max(0.0f, it->second.cooldownSeconds - deltaSeconds);
     }
 }
 
@@ -537,9 +584,13 @@ void WorldFxSystem::syncProjectileTrails(GameSession &session, bool refreshSpati
     const ObjectTable &objectTable = session.data().objectTable();
     const std::vector<GameplayProjectilePresentationState> &projectiles =
         session.gameplayFxService().activeProjectilePresentationStates();
+    std::unordered_set<uint32_t> activeProjectileIds;
+    activeProjectileIds.reserve(projectiles.size());
 
     for (const GameplayProjectilePresentationState &projectile : projectiles)
     {
+        activeProjectileIds.insert(projectile.projectileId);
+
         if (isSparksSpellProjectile(projectile))
         {
             if (refreshSpatialFx)
@@ -586,7 +637,6 @@ void WorldFxSystem::syncProjectileTrails(GameSession &session, bool refreshSpati
             projectile.objectName,
             projectile.objectSpriteName,
             pObjectEntry->flags);
-        const uint32_t trailColor = FxRecipes::projectileRecipeColorAbgr(recipe);
         const float projectileCenterZ =
             projectile.z + FxRecipes::projectileRecipeAnchorOffset(
                 recipe,
@@ -627,12 +677,77 @@ void WorldFxSystem::syncProjectileTrails(GameSession &session, bool refreshSpati
             trailContext.velocityX = projectile.velocityX;
             trailContext.velocityY = projectile.velocityY;
             trailContext.velocityZ = projectile.velocityZ;
-            float &cooldown = m_trailCooldownByProjectileId[projectile.projectileId];
+            ProjectileFxTrailState &trailState = m_projectileTrailStates[projectile.projectileId];
 
-            if (!projectile.isSettled && cooldown <= 0.0f)
+            if (!projectile.isSettled && trailState.cooldownSeconds <= 0.0f)
             {
-                cooldown = projectileTrailCooldownSeconds(recipe);
-                FxRecipes::spawnProjectileTrailParticles(m_particleSystem, trailContext, recipe);
+                trailState.cooldownSeconds = projectileTrailCooldownSeconds(recipe);
+                const FxRecipes::ProjectileFxRecipe &fxRecipe = FxRecipes::projectileFxRecipe(recipe);
+
+                if (fxRecipe.trailPrimitive == FxRecipes::ProjectileFxPrimitive::SegmentProjectile)
+                {
+                    if (trailState.hasPreviousPosition)
+                    {
+                        addSegmentProjectile(
+                            trailState.previousX,
+                            trailState.previousY,
+                            trailState.previousZ,
+                            anchoredX,
+                            anchoredY,
+                            projectileCenterZ,
+                            20.0f,
+                            fxRecipe.colorAbgr);
+                    }
+
+                    trailState.previousX = anchoredX;
+                    trailState.previousY = anchoredY;
+                    trailState.previousZ = projectileCenterZ;
+                    trailState.hasPreviousPosition = true;
+                }
+                else if (fxRecipe.trailPrimitive == FxRecipes::ProjectileFxPrimitive::HangingTrail)
+                {
+                    FxRecipes::ProjectileSegmentSpawnContext segmentContext = {};
+                    segmentContext.projectileId = projectile.projectileId;
+                    segmentContext.hasPreviousPosition = trailState.hasPreviousPosition;
+                    segmentContext.previousX = trailState.previousX;
+                    segmentContext.previousY = trailState.previousY;
+                    segmentContext.previousZ = trailState.previousZ;
+                    segmentContext.currentX = anchoredX;
+                    segmentContext.currentY = anchoredY;
+                    segmentContext.currentZ = projectileCenterZ;
+                    segmentContext.velocityX = projectile.velocityX;
+                    segmentContext.velocityY = projectile.velocityY;
+                    segmentContext.velocityZ = projectile.velocityZ;
+                    FxRecipes::spawnHangingProjectileTrailParticles(m_particleSystem, segmentContext, recipe);
+                    trailState.previousX = anchoredX;
+                    trailState.previousY = anchoredY;
+                    trailState.previousZ = projectileCenterZ;
+                    trailState.hasPreviousPosition = true;
+                }
+                else if (fxRecipe.trailPrimitive == FxRecipes::ProjectileFxPrimitive::Stun)
+                {
+                    FxRecipes::ProjectileSegmentSpawnContext segmentContext = {};
+                    segmentContext.projectileId = projectile.projectileId;
+                    segmentContext.hasPreviousPosition = trailState.hasPreviousPosition;
+                    segmentContext.previousX = trailState.previousX;
+                    segmentContext.previousY = trailState.previousY;
+                    segmentContext.previousZ = trailState.previousZ;
+                    segmentContext.currentX = anchoredX;
+                    segmentContext.currentY = anchoredY;
+                    segmentContext.currentZ = projectileCenterZ;
+                    segmentContext.velocityX = projectile.velocityX;
+                    segmentContext.velocityY = projectile.velocityY;
+                    segmentContext.velocityZ = projectile.velocityZ;
+                    FxRecipes::spawnStunTrailParticles(m_particleSystem, segmentContext, recipe);
+                    trailState.previousX = anchoredX;
+                    trailState.previousY = anchoredY;
+                    trailState.previousZ = projectileCenterZ;
+                    trailState.hasPreviousPosition = true;
+                }
+                else
+                {
+                    FxRecipes::spawnProjectileTrailParticles(m_particleSystem, trailContext, recipe);
+                }
             }
         }
 
@@ -640,19 +755,33 @@ void WorldFxSystem::syncProjectileTrails(GameSession &session, bool refreshSpati
 
         if (refreshSpatialFx && glowRadius > 0.0f)
         {
+            const uint32_t lightColor = FxRecipes::projectileRecipeLightColorAbgr(recipe);
             addLightEmitter(
                 projectile.x,
                 projectile.y,
                 projectileCenterZ,
                 glowRadius,
                 makeAbgr(
-                    static_cast<uint8_t>(trailColor & 0xffu),
-                    static_cast<uint8_t>((trailColor >> 8) & 0xffu),
-                    static_cast<uint8_t>((trailColor >> 16) & 0xffu),
+                    static_cast<uint8_t>(lightColor & 0xffu),
+                    static_cast<uint8_t>((lightColor >> 8) & 0xffu),
+                    static_cast<uint8_t>((lightColor >> 16) & 0xffu),
                     255),
                 projectile.sectorId,
                 RenderLightKind::Projectile,
                 projectile.projectileId);
+        }
+    }
+
+    for (std::unordered_map<uint32_t, ProjectileFxTrailState>::iterator it = m_projectileTrailStates.begin();
+        it != m_projectileTrailStates.end();)
+    {
+        if (activeProjectileIds.find(it->first) == activeProjectileIds.end())
+        {
+            it = m_projectileTrailStates.erase(it);
+        }
+        else
+        {
+            ++it;
         }
     }
 }
@@ -700,7 +829,7 @@ void WorldFxSystem::syncProjectileImpacts(GameSession &session)
             light.z = impact.z + 16.0f;
             light.radius = lightRadius;
             light.durationSeconds = lightDuration;
-            light.colorAbgr = FxRecipes::projectileRecipeColorAbgr(recipe);
+            light.colorAbgr = FxRecipes::projectileRecipeImpactColorAbgr(recipe);
             light.sectorId = impact.sectorId;
             m_persistentImpactLights[impact.effectId] = light;
         }

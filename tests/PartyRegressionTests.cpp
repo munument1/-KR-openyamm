@@ -262,6 +262,50 @@ TEST_CASE("party quest bits survive save data round trip")
     CHECK_FALSE(restoredParty.hasQuestBit(37));
 }
 
+TEST_CASE("held cursor item survives save data round trip")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::InventoryItem heldItem = {};
+    heldItem.objectDescriptionId = 643;
+    heldItem.quantity = 1;
+    heldItem.width = 1;
+    heldItem.height = 2;
+    heldItem.identified = true;
+    heldItem.currentCharges = 3;
+    heldItem.maxCharges = 5;
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "held_cursor_roundtrip.odm";
+    saveData.party = party.snapshot();
+    saveData.heldInventoryItemActive = true;
+    saveData.heldInventoryItem = heldItem;
+    saveData.heldInventoryItemGrabCellOffsetX = 1;
+    saveData.heldInventoryItemGrabCellOffsetY = 2;
+    saveData.heldInventoryItemGrabOffsetX = 9.0f;
+    saveData.heldInventoryItemGrabOffsetY = 17.0f;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_held_cursor_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    CHECK(loaded->heldInventoryItemActive);
+    CHECK(loaded->heldInventoryItem.objectDescriptionId == heldItem.objectDescriptionId);
+    CHECK(loaded->heldInventoryItem.currentCharges == heldItem.currentCharges);
+    CHECK(loaded->heldInventoryItem.maxCharges == heldItem.maxCharges);
+    CHECK(loaded->heldInventoryItemGrabCellOffsetX == 1);
+    CHECK(loaded->heldInventoryItemGrabCellOffsetY == 2);
+    CHECK(loaded->heldInventoryItemGrabOffsetX == 9.0f);
+    CHECK(loaded->heldInventoryItemGrabOffsetY == 17.0f);
+}
+
 TEST_CASE("party continent reputations survive save data round trip")
 {
     OpenYAMM::Game::Party party = {};
@@ -303,6 +347,10 @@ TEST_CASE("named runtime globals survive save data round trip")
     saveData.namedGlobalVars["MMerge.CrossContinents.GotFinalQuest"] = 1;
     saveData.namedGlobalVars["MMerge.CrossContinents.GotFQHint2"] = 1;
     saveData.namedGlobalVars["MMerge.CrossContinents.GotFQHint3"] = 1;
+    saveData.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Month"] = 2;
+    saveData.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.MonsterId"] = 10;
+    saveData.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Done"] = 1;
+    saveData.namedGlobalVars["MMerge.BountyHunt.new_sorpigal.odm.Claimed"] = 0;
 
     const std::filesystem::path savePath =
         std::filesystem::temp_directory_path() / "openyamm_named_globals_roundtrip.oysav";
@@ -318,6 +366,10 @@ TEST_CASE("named runtime globals survive save data round trip")
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFinalQuest"), 1);
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFQHint2"), 1);
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.CrossContinents.GotFQHint3"), 1);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.Month"), 2);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.MonsterId"), 10);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.Done"), 1);
+    CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.Claimed"), 0);
 }
 
 TEST_CASE("outdoor location reset metadata survives save data round trip")

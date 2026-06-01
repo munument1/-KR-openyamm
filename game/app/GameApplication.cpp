@@ -5052,6 +5052,9 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
         m_pOutdoorPartyRuntime->setRunning(m_settings.alwaysRun);
         m_pOutdoorPartyRuntime->setDebugFlyingOverride(m_settings.startFlying);
         m_pOutdoorPartyRuntime->setMovementSpeedMultiplier(m_settings.movementSpeedMultiplier);
+        m_pOutdoorPartyRuntime->setCollisionTraceEnabled(
+            m_settings.collisionTrace,
+            m_gameSession.currentMapFileName());
     }
 
     if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
@@ -6818,6 +6821,8 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
         reportQuickSaveStatus("Quick load failed: runtime apply failed");
         return false;
     }
+
+    m_gameSession.restoreHeldInventoryItemFromSaveData(*saveData);
 
     renderLoadingOverlayProgress(95);
     completeLoadingOverlay();

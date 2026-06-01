@@ -35,7 +35,12 @@ struct IndoorSceneFaceAttributeOverride
     size_t faceIndex = 0;
     std::optional<uint32_t> legacyAttributes;
     std::optional<uint8_t> facetType;
+    std::optional<std::string> textureName;
     std::optional<uint16_t> textureFrameTableCog;
+    std::optional<int16_t> textureDeltaU;
+    std::optional<int16_t> textureDeltaV;
+    std::optional<std::vector<int16_t>> textureUs;
+    std::optional<std::vector<int16_t>> textureVs;
     std::optional<uint16_t> cogNumber;
     std::optional<uint16_t> cogTriggered;
     std::optional<uint16_t> cogTriggerType;

@@ -49,6 +49,7 @@ public:
         uint16_t objectSpriteFrameIndex = 0;
         uint16_t impactObjectDescriptionId = 0;
         uint16_t objectFlags = 0;
+        GameplayProjectileVisualMode visualMode = GameplayProjectileVisualMode::SpriteBillboard;
         uint16_t radius = 0;
         uint16_t height = 0;
         int spellId = 0;
@@ -110,6 +111,7 @@ public:
         uint16_t objectSpriteFrameIndex = 0;
         uint16_t impactObjectDescriptionId = 0;
         uint16_t objectFlags = 0;
+        GameplayProjectileVisualMode visualMode = GameplayProjectileVisualMode::SpriteBillboard;
         uint16_t radius = 0;
         uint16_t height = 0;
         int spellId = 0;
@@ -572,6 +574,8 @@ public:
     const std::vector<ProjectileState> &projectiles() const;
     std::vector<ProjectileImpactState> &projectileImpacts();
     const std::vector<ProjectileImpactState> &projectileImpacts() const;
+    static GameplayProjectileVisualMode monsterProjectileVisualModeForObjectId(int objectId);
+    static bool projectileVisualModeUsesDedicatedFxImpact(const ProjectileState &projectile);
 
     void advanceProjectileImpactLifetimes(float deltaSeconds);
     void updateProjectileImpactPresentation(float deltaSeconds);

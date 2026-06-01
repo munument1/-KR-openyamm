@@ -315,6 +315,16 @@ const GameplayUiController::HouseShopOverlayState &GameplayUiController::houseSh
     return resolvedState().houseShopOverlay;
 }
 
+GameplayUiController::HouseShopVisitState &GameplayUiController::houseShopVisit()
+{
+    return resolvedState().houseShopVisit;
+}
+
+const GameplayUiController::HouseShopVisitState &GameplayUiController::houseShopVisit() const
+{
+    return resolvedState().houseShopVisit;
+}
+
 GameplayUiController::HouseBankState &GameplayUiController::houseBankState()
 {
     return resolvedState().houseBankState;
@@ -372,12 +382,14 @@ void GameplayUiController::openSpellbook(SpellbookSchool school)
     state.spellInspectOverlay = {};
     state.spellbook.active = true;
     state.spellbook.school = school;
+    state.spellbook.hasRememberedSchool = true;
 }
 
 void GameplayUiController::closeSpellbook()
 {
     State &state = resolvedState();
-    state.spellbook = {};
+    state.spellbook.active = false;
+    state.spellbook.selectedSpellId = 0;
     state.spellInspectOverlay = {};
 }
 
@@ -396,6 +408,12 @@ void GameplayUiController::openInventoryNestedOverlay(InventoryNestedOverlayMode
 
     State &state = resolvedState();
     closeHouseShopOverlay();
+    if (mode == InventoryNestedOverlayMode::ShopSell
+        || mode == InventoryNestedOverlayMode::ShopIdentify
+        || mode == InventoryNestedOverlayMode::ShopRepair)
+    {
+        beginHouseShopVisit(houseId);
+    }
     state.inventoryNestedOverlay.active = true;
     state.inventoryNestedOverlay.mode = mode;
     state.inventoryNestedOverlay.houseId = houseId;
@@ -416,6 +434,7 @@ void GameplayUiController::openHouseShopOverlay(uint32_t houseId, HouseShopMode 
 
     State &state = resolvedState();
     closeInventoryNestedOverlay();
+    beginHouseShopVisit(houseId);
     state.houseShopOverlay.active = true;
     state.houseShopOverlay.houseId = houseId;
     state.houseShopOverlay.mode = mode;
@@ -424,6 +443,44 @@ void GameplayUiController::openHouseShopOverlay(uint32_t houseId, HouseShopMode 
 void GameplayUiController::closeHouseShopOverlay()
 {
     resolvedState().houseShopOverlay = {};
+}
+
+void GameplayUiController::beginHouseShopVisit(uint32_t houseId)
+{
+    if (houseId == 0)
+    {
+        clearHouseShopVisitState();
+        return;
+    }
+
+    HouseShopVisitState &visit = resolvedState().houseShopVisit;
+
+    if (visit.houseId != houseId)
+    {
+        visit.houseId = houseId;
+        visit.transactionPerformed = false;
+    }
+}
+
+void GameplayUiController::markHouseShopTransactionPerformed(uint32_t houseId)
+{
+    beginHouseShopVisit(houseId);
+
+    if (houseId != 0)
+    {
+        resolvedState().houseShopVisit.transactionPerformed = true;
+    }
+}
+
+bool GameplayUiController::houseShopTransactionPerformed(uint32_t houseId) const
+{
+    const HouseShopVisitState &visit = resolvedState().houseShopVisit;
+    return houseId != 0 && visit.houseId == houseId && visit.transactionPerformed;
+}
+
+void GameplayUiController::clearHouseShopVisitState()
+{
+    resolvedState().houseShopVisit = {};
 }
 
 void GameplayUiController::openUtilitySpellOverlay(

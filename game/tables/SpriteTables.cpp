@@ -513,6 +513,11 @@ DecorationLookupResult DecorationTable::resolveMapDecoration(
     uint16_t decorationId,
     const std::string &internalName) const
 {
+    if (trimCopy(internalName).empty())
+    {
+        return DecorationLookupResult{0, get(0)};
+    }
+
     const std::optional<uint16_t> namedDecorationId = findIdByInternalName(internalName);
 
     if (namedDecorationId)

@@ -126,6 +126,7 @@ public:
     GameplayUiController::UtilitySpellOverlayState &utilitySpellOverlay() const;
     GameplayUiController::InventoryNestedOverlayState &inventoryNestedOverlay() const;
     GameplayUiController::HouseShopOverlayState &houseShopOverlay() const;
+    GameplayUiController::HouseShopVisitState &houseShopVisit() const;
     GameplayUiController::HouseBankState &houseBankState() const;
     GameplayUiController::JournalScreenState &journalScreenState() const;
     GameplayUiController::RestScreenState &restScreenState() const;
@@ -210,6 +211,7 @@ public:
     void openQuickReferenceOverlay();
     void closeQuickReferenceOverlay();
     void closeHouseShopOverlay();
+    void markHouseShopTransactionPerformed(uint32_t houseId);
     void openFollowerNpcDialogue(size_t followerSlotIndex);
     void openFollowerNpcDialogueByIndex(size_t followerIndex);
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);

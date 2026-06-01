@@ -397,6 +397,7 @@ private:
     void renderContextActionGeometryHighlight(
         uint16_t viewId,
         const GameplayContextActionState *pContextActionState);
+    void renderFxSegmentProjectiles(uint16_t viewId, const float *pViewMatrix);
     bgfx::TextureHandle ensureBloodSplatTexture();
     void ensureBloodSplatVertexBuffer();
     void renderBloodSplats(

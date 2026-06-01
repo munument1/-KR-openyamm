@@ -15,6 +15,7 @@ namespace
 {
 constexpr float ReferenceWidth = 640.0f;
 constexpr float ReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr const char *MainMenuLayoutPath = "Data/ui/menu/main_menu.yml";
 
 struct ResolvedLayoutElement
@@ -155,8 +156,10 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
 
     const UiLayoutManager::LayoutElement &element = *pElement;
     const float baseScale = std::min(
-        static_cast<float>(screenWidth) / ReferenceWidth,
-        static_cast<float>(screenHeight) / ReferenceHeight);
+        std::min(
+            static_cast<float>(screenWidth) / ReferenceWidth,
+            static_cast<float>(screenHeight) / ReferenceHeight),
+        MaxUiScale);
     const float viewportWidth = ReferenceWidth * baseScale;
     const float viewportHeight = ReferenceHeight * baseScale;
     const float viewportX = (static_cast<float>(screenWidth) - viewportWidth) * 0.5f;

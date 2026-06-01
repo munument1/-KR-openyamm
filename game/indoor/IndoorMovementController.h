@@ -69,6 +69,19 @@ enum class IndoorMoveBlockKind
     InvalidPosition
 };
 
+enum class IndoorMoveInvalidPositionReason
+{
+    None,
+    ActorLedgeDrop,
+    LeadingActorLedgeDrop,
+    SteepFloor,
+    StepUpTooHigh,
+    CeilingFloorCrush,
+    MissingEyeSector,
+    FaceCollision,
+    ActorCollision
+};
+
 struct IndoorMoveDebugInfo
 {
     bool wantedHorizontalMove = false;
@@ -85,6 +98,21 @@ struct IndoorMoveDebugInfo
     float hitHeightOffset = 0.0f;
     int16_t startSectorId = -1;
     int16_t startEyeSectorId = -1;
+    IndoorMoveInvalidPositionReason invalidPositionReason = IndoorMoveInvalidPositionReason::None;
+    bx::Vec3 invalidCandidatePosition = {0.0f, 0.0f, 0.0f};
+    bool invalidFloorHas = false;
+    size_t invalidFloorFaceIndex = static_cast<size_t>(-1);
+    int16_t invalidFloorSectorId = -1;
+    float invalidFloorHeight = 0.0f;
+    float invalidFloorNormalZ = 0.0f;
+    bool invalidLeadingFloorHas = false;
+    size_t invalidLeadingFloorFaceIndex = static_cast<size_t>(-1);
+    int16_t invalidLeadingFloorSectorId = -1;
+    float invalidLeadingFloorHeight = 0.0f;
+    float invalidLeadingFloorNormalZ = 0.0f;
+    bool invalidCeilingHas = false;
+    float invalidCeilingHeight = 0.0f;
+    int16_t invalidEyeSectorId = -1;
 };
 
 struct IndoorCollisionTraceInfo

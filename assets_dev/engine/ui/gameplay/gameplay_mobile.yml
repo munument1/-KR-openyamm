@@ -40,7 +40,7 @@ elements:
     z_index: 96
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     interactive: true
     asset:
       default: npcopenup
@@ -55,7 +55,7 @@ elements:
     z_index: 90
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     asset:
       default: topbar
     notes: Mobile top-left utility bar with resources and common actions.
@@ -171,7 +171,7 @@ elements:
     z_index: 88
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     asset:
       default: asiL00
     notes: Mobile body buff panel.
@@ -263,7 +263,7 @@ elements:
     z_index: 88
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     asset:
       default: asiR00
     notes: Mobile skull buff panel.
@@ -341,7 +341,7 @@ elements:
     z_index: 90
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     asset:
       default: mapframe
     notes: Mobile top-right minimap.
@@ -400,7 +400,7 @@ elements:
     z_index: 100
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     notes: Mobile bottom-left system actions.
     children:
       - id: OutdoorMobileButtonPause
@@ -434,7 +434,7 @@ elements:
     z_index: 100
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     notes: Mobile bottom-right gameplay actions.
     children:
       - id: OutdoorMobileButtonAttack

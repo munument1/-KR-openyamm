@@ -4,9 +4,11 @@
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/party/Party.h"
+#include "game/tables/NpcDialogTable.h"
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <random>
 
 namespace OpenYAMM::Game
@@ -14,6 +16,10 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr int MinutesPerDay = 24 * 60;
+constexpr uint32_t BountyHuntGroup = 39;
+constexpr uint32_t MMergeBountyHuntTextId = 133;
+constexpr uint32_t MMergeBountyRewardTextId = 134;
+constexpr uint32_t MMergeBountyClaimedTextId = 135;
 constexpr int MMergeBountyHuntLocalReputationLimit = -20;
 constexpr int MMergeBountyHuntContinentReputationLimit = -5;
 
@@ -41,6 +47,42 @@ void writeRuntimeBountyHuntEntry(EventRuntimeState &state, const std::string &pr
     state.namedGlobalVars[prefix + ".MonsterId"] = static_cast<int32_t>(entry.monsterId);
     state.namedGlobalVars[prefix + ".Done"] = entry.done ? 1 : 0;
     state.namedGlobalVars[prefix + ".Claimed"] = entry.claimed ? 1 : 0;
+}
+
+BountyHuntEntry readRuntimeBountyHuntEntry(const EventRuntimeState &state, const std::string &prefix)
+{
+    BountyHuntEntry entry = {};
+    entry.month = static_cast<uint32_t>(std::max<int32_t>(0, namedGlobalVarValue(state, prefix + ".Month")));
+    entry.monsterId = static_cast<int16_t>(namedGlobalVarValue(state, prefix + ".MonsterId"));
+    entry.done = namedGlobalVarValue(state, prefix + ".Done") != 0;
+    entry.claimed = namedGlobalVarValue(state, prefix + ".Claimed") != 0;
+    return entry;
+}
+
+uint32_t activeBountyMaximumLevel(const Party *pParty)
+{
+    const Character *pMember = pParty != nullptr ? pParty->member(0) : nullptr;
+    return pMember != nullptr ? pMember->level + 20u : 20u;
+}
+
+void replaceFirst(std::string &text, const std::string &needle, const std::string &replacement)
+{
+    const size_t position = text.find(needle);
+
+    if (position != std::string::npos)
+    {
+        text.replace(position, needle.size(), replacement);
+    }
+}
+
+std::optional<std::string> npcText(const NpcDialogTable *pNpcDialogTable, uint32_t textId)
+{
+    if (pNpcDialogTable == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    return pNpcDialogTable->getText(textId);
 }
 
 int32_t bountyHuntReputationDeltaForKilledMonster(
@@ -132,7 +174,7 @@ bool bountyHuntEntryExpired(const BountyHuntEntry &entry, uint32_t currentMonth)
 
 bool markBountyHuntMonsterKilled(BountyHuntEntry &entry, int16_t monsterId, uint32_t currentMonth)
 {
-    if (bountyHuntEntryExpired(entry, currentMonth) || entry.done || entry.monsterId != monsterId)
+    if (bountyHuntEntryExpired(entry, currentMonth) || entry.done || entry.claimed || entry.monsterId != monsterId)
     {
         return false;
     }
@@ -158,25 +200,53 @@ bool markRuntimeBountyHuntMonsterKilled(
         return false;
     }
 
-    const std::string prefix = bountyHuntVarPrefix(worldRuntime);
-    BountyHuntEntry entry = {};
-    entry.month =
-        static_cast<uint32_t>(std::max<int32_t>(0, namedGlobalVarValue(*pEventRuntimeState, prefix + ".Month")));
-    entry.monsterId = static_cast<int16_t>(namedGlobalVarValue(*pEventRuntimeState, prefix + ".MonsterId"));
-    entry.done = namedGlobalVarValue(*pEventRuntimeState, prefix + ".Done") != 0;
-    entry.claimed = namedGlobalVarValue(*pEventRuntimeState, prefix + ".Claimed") != 0;
+    const uint32_t currentMonth = monthFromGameMinutes(worldRuntime.gameMinutes());
+    const std::string currentMapPrefix = bountyHuntVarPrefix(worldRuntime);
+    bool markedAnyEntry = false;
+    bool markedCurrentMapEntry = false;
 
-    if (!markBountyHuntMonsterKilled(entry, monsterId, monthFromGameMinutes(worldRuntime.gameMinutes())))
+    std::vector<std::string> prefixes;
+    prefixes.reserve(pEventRuntimeState->namedGlobalVars.size());
+
+    for (const auto &entry : pEventRuntimeState->namedGlobalVars)
+    {
+        constexpr const char *pMonsterIdSuffix = ".MonsterId";
+        const std::string &name = entry.first;
+
+        if (name.size() <= std::char_traits<char>::length(pMonsterIdSuffix)
+            || name.compare(
+                name.size() - std::char_traits<char>::length(pMonsterIdSuffix),
+                std::char_traits<char>::length(pMonsterIdSuffix),
+                pMonsterIdSuffix) != 0
+            || name.rfind("MMerge.BountyHunt.", 0) != 0)
+        {
+            continue;
+        }
+
+        prefixes.push_back(name.substr(0, name.size() - std::char_traits<char>::length(pMonsterIdSuffix)));
+    }
+
+    for (const std::string &prefix : prefixes)
+    {
+        BountyHuntEntry entry = readRuntimeBountyHuntEntry(*pEventRuntimeState, prefix);
+
+        if (markBountyHuntMonsterKilled(entry, monsterId, currentMonth))
+        {
+            writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+            markedAnyEntry = true;
+            markedCurrentMapEntry = markedCurrentMapEntry || prefix == currentMapPrefix;
+        }
+    }
+
+    if (!markedAnyEntry)
     {
         return false;
     }
 
-    writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
-
     const MonsterTable::MonsterStatsEntry *pStats =
         pMonsterTable != nullptr ? pMonsterTable->findStatsById(monsterId) : nullptr;
 
-    if (pStats != nullptr)
+    if (markedCurrentMapEntry && pStats != nullptr)
     {
         addStoredCurrentLocationReputation(
             worldRuntime,
@@ -209,7 +279,8 @@ BountyHuntClaimResult claimBountyHuntReward(
     result.claimed = true;
     result.goldReward = bountyHuntRewardForMonster(*pStats);
     result.bountyTotalDelta = result.goldReward;
-    result.reputationDelta = 0;
+    result.reputationDelta = -static_cast<int32_t>(
+        std::ceil(static_cast<double>(result.bountyTotalDelta) / 2000.0));
 
     if (!awardGold)
     {
@@ -220,16 +291,142 @@ BountyHuntClaimResult claimBountyHuntReward(
     return result;
 }
 
-std::string bountyHuntTargetText(const MonsterTable::MonsterStatsEntry &stats)
+BountyHuntInteractionResult performBountyHuntInteraction(
+    IGameplayWorldRuntime &worldRuntime,
+    Party *pParty,
+    bool awardGold,
+    const NpcDialogTable *pNpcDialogTable)
 {
-    return "This month's bounty is " + stats.name + " for "
-        + std::to_string(bountyHuntRewardForMonster(stats)) + " gold.";
+    BountyHuntInteractionResult result = {};
+    const MonsterTable *pMonsterTable = worldRuntime.monsterTable();
+
+    if (pMonsterTable == nullptr)
+    {
+        result.messages.push_back("The bounty office is unavailable right now.");
+        return result;
+    }
+
+    EventRuntimeState *pEventRuntimeState = worldRuntime.eventRuntimeState();
+
+    if (pEventRuntimeState == nullptr)
+    {
+        result.messages.push_back("The bounty office is unavailable right now.");
+        return result;
+    }
+
+    const uint32_t currentMonth = monthFromGameMinutes(worldRuntime.gameMinutes());
+    const std::string prefix = bountyHuntVarPrefix(worldRuntime);
+    BountyHuntEntry entry = readRuntimeBountyHuntEntry(*pEventRuntimeState, prefix);
+
+    if (entry.monsterId <= 0 || bountyHuntEntryExpired(entry, currentMonth))
+    {
+        const uint32_t seed =
+            static_cast<uint32_t>(std::hash<std::string>{}(prefix))
+            ^ static_cast<uint32_t>(currentMonth * 1103515245u);
+        const std::optional<int16_t> monsterId =
+            chooseBountyHuntMonsterId(
+                *pMonsterTable,
+                worldRuntime.mergedBolsterMonsterTable(),
+                activeBountyMaximumLevel(pParty),
+                seed);
+
+        if (!monsterId.has_value())
+        {
+            result.messages.push_back("There is no bounty this month.");
+            return result;
+        }
+
+        entry = {};
+        entry.month = currentMonth;
+        entry.monsterId = *monsterId;
+        writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+
+        const GameplayWorldPoint spawnPoint = worldRuntime.chooseBountyHuntSpawnPoint(seed);
+        worldRuntime.summonHostileMonsterById(
+            entry.monsterId,
+            1,
+            spawnPoint.x,
+            spawnPoint.y,
+            spawnPoint.z,
+            BountyHuntGroup);
+    }
+
+    const MonsterTable::MonsterStatsEntry *pStats = pMonsterTable->findStatsById(entry.monsterId);
+
+    if (pStats == nullptr)
+    {
+        result.messages.push_back("The bounty office is unavailable right now.");
+        return result;
+    }
+
+    if (!entry.done)
+    {
+        result.messages.push_back(bountyHuntTargetText(*pStats, pNpcDialogTable));
+        result.succeeded = true;
+        return result;
+    }
+
+    const BountyHuntClaimResult claim = claimBountyHuntReward(entry, *pMonsterTable, currentMonth, awardGold);
+
+    if (!claim.claimed)
+    {
+        result.messages.push_back(bountyHuntClaimedText(pNpcDialogTable));
+        writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+        return result;
+    }
+
+    applyBountyHuntClaimResult(worldRuntime, pParty, claim);
+    writeRuntimeBountyHuntEntry(*pEventRuntimeState, prefix, entry);
+    result.messages.push_back(bountyHuntRewardText(*pStats, pNpcDialogTable));
+    result.succeeded = true;
+    return result;
 }
 
-std::string bountyHuntRewardText(const MonsterTable::MonsterStatsEntry &stats)
+std::string bountyHuntTargetText(
+    const MonsterTable::MonsterStatsEntry &stats,
+    const NpcDialogTable *pNpcDialogTable)
 {
     const uint32_t reward = bountyHuntRewardForMonster(stats);
+    std::optional<std::string> text = npcText(pNpcDialogTable, MMergeBountyHuntTextId);
+
+    if (text && !text->empty())
+    {
+        replaceFirst(*text, "%s", stats.name);
+        replaceFirst(*text, "%lu", std::to_string(reward));
+        return *text;
+    }
+
+    return "This month's bounty is " + stats.name + " for "
+        + std::to_string(reward) + " gold.";
+}
+
+std::string bountyHuntRewardText(
+    const MonsterTable::MonsterStatsEntry &stats,
+    const NpcDialogTable *pNpcDialogTable)
+{
+    const uint32_t reward = bountyHuntRewardForMonster(stats);
+    std::optional<std::string> text = npcText(pNpcDialogTable, MMergeBountyRewardTextId);
+
+    if (text && !text->empty())
+    {
+        replaceFirst(*text, "%s", stats.name);
+        replaceFirst(*text, "%lu", std::to_string(reward));
+        return *text;
+    }
+
     return "You eliminated " + stats.name + ". Your reward is " + std::to_string(reward) + " gold.";
+}
+
+std::string bountyHuntClaimedText(const NpcDialogTable *pNpcDialogTable)
+{
+    std::optional<std::string> text = npcText(pNpcDialogTable, MMergeBountyClaimedTextId);
+
+    if (text && !text->empty())
+    {
+        return *text;
+    }
+
+    return "You have already claimed this bounty.";
 }
 
 void applyBountyHuntClaimResult(
@@ -254,8 +451,9 @@ void applyBountyHuntClaimResult(
         if (result.bountyTotalDelta > 0)
         {
             pParty->addEventVariableValue(
-                static_cast<uint16_t>(EvtVariable::ArenaWinsPage),
+                static_cast<uint16_t>(EvtVariable::NumBounties),
                 static_cast<int32_t>(result.bountyTotalDelta));
+            pParty->addAward(44);
         }
     }
 }

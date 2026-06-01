@@ -14,6 +14,7 @@ namespace OpenYAMM::Game
 {
 class Party;
 class ClassSkillTable;
+class NpcDialogTable;
 
 enum class HouseServiceType : uint32_t
 {
@@ -108,8 +109,24 @@ struct HouseActionResult
     std::optional<InnRestRequest> pendingInnRest;
 };
 
+struct HouseShopGoodbyeResult
+{
+    std::optional<HouseSoundType> soundType;
+    bool queueRudeSpeech = false;
+};
+
 HouseServiceType resolveHouseServiceType(const HouseEntry &houseEntry);
 std::optional<uint32_t> deriveHouseSoundId(const HouseEntry &houseEntry, HouseSoundType soundType);
+bool isAlchemyShop(const HouseEntry &houseEntry);
+bool houseRefusesShopServiceForReputation(
+    const HouseEntry &houseEntry,
+    const IGameplayWorldRuntime *pWorldRuntime,
+    float currentGameMinutes);
+HouseShopGoodbyeResult resolveHouseShopGoodbyeResult(
+    const HouseEntry &houseEntry,
+    bool transactionPerformed,
+    bool shopBanned,
+    int partyGold);
 bool isHouseOpenAtGameMinute(const HouseEntry &houseEntry, float currentGameMinutes);
 std::string buildClosedStatusText(const HouseEntry &houseEntry);
 bool isBoatHouse(const HouseEntry &houseEntry);
@@ -140,6 +157,7 @@ HouseActionResult performHouseAction(
     const HouseEntry &houseEntry,
     Party &party,
     const ClassSkillTable *pClassSkillTable,
-    IGameplayWorldRuntime *pWorldRuntime
+    IGameplayWorldRuntime *pWorldRuntime,
+    const NpcDialogTable *pNpcDialogTable = nullptr
 );
 }

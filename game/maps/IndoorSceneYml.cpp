@@ -282,6 +282,33 @@ bool parseFixedIntSequence(
     return true;
 }
 
+template <typename ValueType>
+bool parseOptionalIntegerSequence(
+    const YAML::Node &parentNode,
+    const char *key,
+    std::optional<std::vector<ValueType>> &values,
+    std::string &errorMessage)
+{
+    const YAML::Node sequenceNode = parentNode[key];
+
+    if (!sequenceNode)
+    {
+        values.reset();
+        return true;
+    }
+
+    std::vector<ValueType> parsedValues;
+
+    if (!parseIntegerSequence(sequenceNode, parsedValues, errorMessage))
+    {
+        errorMessage = std::string(key) + ": " + errorMessage;
+        return false;
+    }
+
+    values = std::move(parsedValues);
+    return true;
+}
+
 void encodeSceneMapExtra(uint32_t mapExtraBitsRaw, int32_t ceiling, std::array<uint8_t, 24> &reservedBytes)
 {
     reservedBytes.fill(0);
@@ -394,11 +421,16 @@ bool parseIndoorSceneFaceAttributeOverride(
     if (!readScalarNode(overrideNode, "face_index", faceOverride.faceIndex, errorMessage)
         || !readOptionalScalarNode(overrideNode, "legacy_attributes", faceOverride.legacyAttributes, errorMessage)
         || !readOptionalScalarNode(overrideNode, "facet_type", faceOverride.facetType, errorMessage)
+        || !readOptionalScalarNode(overrideNode, "texture_name", faceOverride.textureName, errorMessage)
         || !readOptionalScalarNode(
             overrideNode,
             "texture_frame_table_cog",
             faceOverride.textureFrameTableCog,
             errorMessage)
+        || !readOptionalScalarNode(overrideNode, "texture_delta_u", faceOverride.textureDeltaU, errorMessage)
+        || !readOptionalScalarNode(overrideNode, "texture_delta_v", faceOverride.textureDeltaV, errorMessage)
+        || !parseOptionalIntegerSequence(overrideNode, "texture_us", faceOverride.textureUs, errorMessage)
+        || !parseOptionalIntegerSequence(overrideNode, "texture_vs", faceOverride.textureVs, errorMessage)
         || !readOptionalScalarNode(overrideNode, "cog_number", faceOverride.cogNumber, errorMessage)
         || !readOptionalScalarNode(overrideNode, "cog_triggered", faceOverride.cogTriggered, errorMessage)
         || !readOptionalScalarNode(
@@ -412,7 +444,12 @@ bool parseIndoorSceneFaceAttributeOverride(
 
     if (!faceOverride.legacyAttributes.has_value()
         && !faceOverride.facetType.has_value()
+        && !faceOverride.textureName.has_value()
         && !faceOverride.textureFrameTableCog.has_value()
+        && !faceOverride.textureDeltaU.has_value()
+        && !faceOverride.textureDeltaV.has_value()
+        && !faceOverride.textureUs.has_value()
+        && !faceOverride.textureVs.has_value()
         && !faceOverride.cogNumber.has_value()
         && !faceOverride.cogTriggered.has_value()
         && !faceOverride.cogTriggerType.has_value())
@@ -447,9 +484,34 @@ void mergeIndoorSceneFaceAttributeOverride(
         pTargetOverride->facetType = sourceOverride.facetType;
     }
 
+    if (sourceOverride.textureName.has_value())
+    {
+        pTargetOverride->textureName = sourceOverride.textureName;
+    }
+
     if (sourceOverride.textureFrameTableCog.has_value())
     {
         pTargetOverride->textureFrameTableCog = sourceOverride.textureFrameTableCog;
+    }
+
+    if (sourceOverride.textureDeltaU.has_value())
+    {
+        pTargetOverride->textureDeltaU = sourceOverride.textureDeltaU;
+    }
+
+    if (sourceOverride.textureDeltaV.has_value())
+    {
+        pTargetOverride->textureDeltaV = sourceOverride.textureDeltaV;
+    }
+
+    if (sourceOverride.textureUs.has_value())
+    {
+        pTargetOverride->textureUs = sourceOverride.textureUs;
+    }
+
+    if (sourceOverride.textureVs.has_value())
+    {
+        pTargetOverride->textureVs = sourceOverride.textureVs;
     }
 
     if (sourceOverride.cogNumber.has_value())
@@ -507,9 +569,34 @@ void applyIndoorSceneFaceOverride(const IndoorSceneFaceAttributeOverride &overri
         face.facetType = *overrideEntry.facetType;
     }
 
+    if (overrideEntry.textureName.has_value())
+    {
+        face.textureName = *overrideEntry.textureName;
+    }
+
     if (overrideEntry.textureFrameTableCog.has_value())
     {
         face.textureFrameTableCog = *overrideEntry.textureFrameTableCog;
+    }
+
+    if (overrideEntry.textureDeltaU.has_value())
+    {
+        face.textureDeltaU = *overrideEntry.textureDeltaU;
+    }
+
+    if (overrideEntry.textureDeltaV.has_value())
+    {
+        face.textureDeltaV = *overrideEntry.textureDeltaV;
+    }
+
+    if (overrideEntry.textureUs.has_value())
+    {
+        face.textureUs = *overrideEntry.textureUs;
+    }
+
+    if (overrideEntry.textureVs.has_value())
+    {
+        face.textureVs = *overrideEntry.textureVs;
     }
 
     if (overrideEntry.cogNumber.has_value())
@@ -1382,6 +1469,20 @@ bool buildIndoorMapStateFromScene(
         if (faceOverride.legacyAttributes.has_value())
         {
             mapDeltaData.faceAttributes[faceOverride.faceIndex] = *faceOverride.legacyAttributes;
+        }
+
+        const IndoorFace &targetFace = indoorMapData.faces[faceOverride.faceIndex];
+
+        if (faceOverride.textureUs.has_value() && faceOverride.textureUs->size() != targetFace.vertexIndices.size())
+        {
+            errorMessage = "scene initial face texture_us override has wrong size";
+            return false;
+        }
+
+        if (faceOverride.textureVs.has_value() && faceOverride.textureVs->size() != targetFace.vertexIndices.size())
+        {
+            errorMessage = "scene initial face texture_vs override has wrong size";
+            return false;
         }
 
         applyIndoorSceneFaceOverride(faceOverride, indoorMapData.faces[faceOverride.faceIndex]);

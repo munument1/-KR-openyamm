@@ -1317,6 +1317,18 @@ std::optional<GameSaveData> GameSession::buildSaveData() const
 
     saveData.outdoorCameraYawRadians = m_outdoorCameraYawRadians;
     saveData.outdoorCameraPitchRadians = m_outdoorCameraPitchRadians;
+
+    const GameplayUiController::HeldInventoryItemState &heldItem = m_gameplayUiController.heldInventoryItem();
+    saveData.heldInventoryItemActive = heldItem.active;
+    if (heldItem.active)
+    {
+        saveData.heldInventoryItem = heldItem.item;
+        saveData.heldInventoryItemGrabCellOffsetX = heldItem.grabCellOffsetX;
+        saveData.heldInventoryItemGrabCellOffsetY = heldItem.grabCellOffsetY;
+        saveData.heldInventoryItemGrabOffsetX = heldItem.grabOffsetX;
+        saveData.heldInventoryItemGrabOffsetY = heldItem.grabOffsetY;
+    }
+
     return saveData;
 }
 
@@ -1324,6 +1336,7 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
 {
     m_turnBasedCombatRuntime.reset();
     m_partyState = buildConfiguredParty(saveData.party, data());
+    restoreHeldInventoryItemFromSaveData(saveData);
 
     if (m_partyState)
     {
@@ -1431,5 +1444,44 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
     m_outdoorCameraYawRadians = saveData.outdoorCameraYawRadians;
     m_outdoorCameraPitchRadians = saveData.outdoorCameraPitchRadians;
     m_pendingMapMove.reset();
+}
+
+void GameSession::restoreHeldInventoryItemFromSaveData(const GameSaveData &saveData)
+{
+    GameplayUiController::HeldInventoryItemState &heldItem = m_gameplayUiController.heldInventoryItem();
+    heldItem = {};
+    if (saveData.heldInventoryItemActive && saveData.heldInventoryItem.objectDescriptionId != 0)
+    {
+        heldItem.active = true;
+        heldItem.item = saveData.heldInventoryItem;
+        heldItem.grabCellOffsetX = saveData.heldInventoryItemGrabCellOffsetX;
+        heldItem.grabCellOffsetY = saveData.heldInventoryItemGrabCellOffsetY;
+        heldItem.grabOffsetX = saveData.heldInventoryItemGrabOffsetX;
+        heldItem.grabOffsetY = saveData.heldInventoryItemGrabOffsetY;
+    }
+
+    auto applyHeldItemQueryState =
+        [&heldItem](Party &party)
+        {
+            if (heldItem.active)
+            {
+                party.setHeldItemForQueries(heldItem.item);
+            }
+            else
+            {
+                party.clearHeldItemForQueries();
+            }
+        };
+
+    if (m_partyState)
+    {
+        applyHeldItemQueryState(*m_partyState);
+    }
+
+    Party *pRuntimeParty = m_pActiveWorldRuntime != nullptr ? m_pActiveWorldRuntime->party() : nullptr;
+    if (pRuntimeParty != nullptr && (!m_partyState || pRuntimeParty != &*m_partyState))
+    {
+        applyHeldItemQueryState(*pRuntimeParty);
+    }
 }
 }

@@ -143,6 +143,34 @@ public:
     }
 };
 
+class PainReflectionTestWorldRuntime : public MonsterSpecialAttackTestWorldRuntime
+{
+public:
+    struct ReflectedDamageRequest
+    {
+        uint32_t actorId = 0;
+        int damage = 0;
+        OpenYAMM::Game::CombatDamageType damageType = OpenYAMM::Game::CombatDamageType::Physical;
+        uint32_t sourcePartyMemberIndex = 0;
+    };
+
+    bool applyReflectedDamageToActor(
+        uint32_t actorId,
+        int damage,
+        OpenYAMM::Game::CombatDamageType damageType,
+        uint32_t sourcePartyMemberIndex) override
+    {
+        reflectedDamageRequests.push_back(ReflectedDamageRequest{
+            actorId,
+            damage,
+            damageType,
+            sourcePartyMemberIndex});
+        return true;
+    }
+
+    std::vector<ReflectedDamageRequest> reflectedDamageRequests;
+};
+
 OpenYAMM::Game::Party makeMonsterSpecialAttackTestParty()
 {
     OpenYAMM::Game::Character member =
@@ -182,6 +210,21 @@ std::string loadSourceFileText(const std::string &relativePath)
     std::ostringstream text;
     text << file.rdbuf();
     return text.str();
+}
+
+std::vector<uint8_t> loadSourceFileBytes(const std::string &relativePath)
+{
+    const std::filesystem::path path = std::filesystem::path(OPENYAMM_SOURCE_DIR) / relativePath;
+    std::ifstream file(path, std::ios::binary);
+    REQUIRE(file.good());
+    file.seekg(0, std::ios::end);
+    const std::streamoff size = file.tellg();
+    REQUIRE(size > 0);
+    std::vector<uint8_t> bytes(static_cast<size_t>(size));
+    file.seekg(0, std::ios::beg);
+    file.read(reinterpret_cast<char *>(bytes.data()), size);
+    REQUIRE(file.good());
+    return bytes;
 }
 
 std::vector<std::vector<std::string>> loadSourceTabSeparatedRows(const std::string &relativePath)
@@ -604,6 +647,35 @@ TEST_CASE("modern outdoor flying keeps camera pitch for forward movement")
     CHECK_GT(movementDriver.state().footZ, startFootZ);
 }
 
+TEST_CASE("outdoor fly command is refused above maximum flight height")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    movementDriver.initialize(boundary.landX, boundary.landY, 0.0f);
+    movementDriver.setFlyingAvailable(true);
+
+    OpenYAMM::Game::OutdoorMoveState state = movementDriver.state();
+    state.footZ = movementDriver.tuning().maxFlightHeight + 512.0f;
+    state.airborne = true;
+    state.verticalVelocity = 0.0f;
+    state.fallStartZ = state.footZ;
+    state.fallDistance = 0.0f;
+    movementDriver.restoreState(state, OpenYAMM::Game::OutdoorPartyMovementState{});
+    movementDriver.setFlyingAvailable(true);
+
+    OpenYAMM::Game::OutdoorMovementInput movementInput = {};
+    movementInput.flyUp = true;
+    movementDriver.update(movementInput, 0.1f);
+
+    CHECK_FALSE(movementDriver.partyMovementState().flying);
+    CHECK_GT(movementDriver.state().footZ, movementDriver.tuning().maxFlightHeight);
+}
+
 TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tilesets")
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;
@@ -712,6 +784,18 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     REQUIRE_MESSAGE(
         sceneLoader.applyOverlayFromText(mergedShadowspireScene, shadowspireOverlayText.str(), sceneError),
         sceneError.c_str());
+    CHECK_EQ(mergedShadowspireScene.environment.masterTile, 2);
+
+    OpenYAMM::Game::OutdoorMapData mergedShadowspire = {};
+    mergedShadowspire.fileName = "out06.odm";
+    mergedShadowspire.masterTile = mergedShadowspireScene.environment.masterTile;
+    mergedShadowspire.tileSetLookupIndices = mergedShadowspireScene.environment.tileSetLookupIndices;
+
+    const std::optional<std::vector<OpenYAMM::Game::TerrainTileDescriptor>> mergedShadowspireDescriptors =
+        OpenYAMM::Game::loadTerrainTileDescriptors(assetFileSystem, mergedShadowspire);
+    REQUIRE(mergedShadowspireDescriptors.has_value());
+    CHECK((*mergedShadowspireDescriptors)[1].textureName == "gdtyl");
+
     REQUIRE_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.size(), 12u);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().tileId, 1);
     CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().walkSoundId, 101u);
@@ -824,6 +908,13 @@ TEST_CASE("map decoration names take precedence over legacy decoration ids")
     CHECK_EQ(nullDecoration.pEntry->internalName, "null");
     CHECK_EQ(nullDecoration.pEntry->spriteId, 0);
 
+    const OpenYAMM::Game::DecorationLookupResult emptyNameDecoration =
+        decorationTable.resolveMapDecoration(13, "");
+    REQUIRE(emptyNameDecoration.pEntry != nullptr);
+    CHECK_EQ(emptyNameDecoration.decorationId, 0);
+    CHECK_EQ(emptyNameDecoration.pEntry->internalName, "null");
+    CHECK_EQ(emptyNameDecoration.pEntry->spriteId, 0);
+
     const OpenYAMM::Game::DecorationLookupResult fallback =
         decorationTable.resolveMapDecoration(13, "missing-decoration-name");
     REQUIRE(fallback.pEntry != nullptr);
@@ -871,6 +962,33 @@ TEST_CASE("map decoration names take precedence over legacy decoration ids")
             pPartyStartEntity->entity.name);
     REQUIRE(out01PartyStart.pEntry != nullptr);
     CHECK_EQ(out01PartyStart.decorationId, 14);
+
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> outa1Scene =
+        sceneLoader.loadFromText(loadSourceFileText("assets_dev/worlds/mm6/maps/outa1.scene.yml"), sceneError);
+    REQUIRE_MESSAGE(outa1Scene.has_value(), sceneError.c_str());
+
+    const OpenYAMM::Game::OutdoorSceneEntity *pEmptyNameEntity = nullptr;
+
+    for (const OpenYAMM::Game::OutdoorSceneEntity &entity : outa1Scene->entities)
+    {
+        if (entity.entityIndex == 608)
+        {
+            pEmptyNameEntity = &entity;
+            break;
+        }
+    }
+
+    REQUIRE(pEmptyNameEntity != nullptr);
+    CHECK(pEmptyNameEntity->entity.name.empty());
+    CHECK_EQ(pEmptyNameEntity->entity.decorationListId, 13);
+
+    const OpenYAMM::Game::DecorationLookupResult outa1EmptyName =
+        decorationTable.resolveMapDecoration(
+            pEmptyNameEntity->entity.decorationListId,
+            pEmptyNameEntity->entity.name);
+    REQUIRE(outa1EmptyName.pEntry != nullptr);
+    CHECK_EQ(outa1EmptyName.decorationId, 0);
+    CHECK_EQ(outa1EmptyName.pEntry->spriteId, 0);
 }
 
 TEST_CASE("mm7 shoals scene overlay combines always dark fog with underwater tint")
@@ -1080,6 +1198,58 @@ TEST_CASE("mm6 Hive forbids Lloyds Beacon but allows saving")
     CHECK(mergedHiveScene.runtimeRestrictions.allowSaveGame);
     CHECK_FALSE(mergedHiveScene.runtimeRestrictions.allowLloydsBeacon);
     CHECK_FALSE(mergedHiveScene.runtimeRestrictions.isArena);
+}
+
+TEST_CASE("mm6 Temple of the Fist switch face uses scene-specific switch texture")
+{
+    const std::vector<uint8_t> mapBytes = loadSourceFileBytes("assets_dev/worlds/mm6/maps/6t2.blv");
+    const OpenYAMM::Game::IndoorMapDataLoader mapLoader = {};
+    std::optional<OpenYAMM::Game::IndoorMapData> mapData = mapLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData.has_value());
+    REQUIRE(mapData->faces.size() > 216);
+    CHECK_FALSE(OpenYAMM::Game::hasFaceAttribute(
+        mapData->faces[216].attributes,
+        OpenYAMM::Game::FaceAttribute::TextureMoveByDoor));
+    CHECK_EQ(mapData->faces[216].textureDeltaU, -560);
+    CHECK_EQ(mapData->faces[216].textureDeltaV, 160);
+
+    OpenYAMM::Game::IndoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::IndoorSceneData> scene =
+        sceneLoader.loadFromText(loadSourceFileText("assets_dev/worlds/mm6/maps/6t2.scene.yml"), sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+    OpenYAMM::Game::IndoorSceneData mergedScene = *scene;
+    REQUIRE(mergedScene.initialState.faceAttributeOverrides.empty());
+
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(
+            mergedScene,
+            loadSourceFileText("assets_dev/worlds/mm6/maps/6t2_1.scene.yml"),
+            sceneError),
+        sceneError.c_str());
+
+    OpenYAMM::Game::MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(
+        OpenYAMM::Game::buildIndoorMapStateFromScene(mergedScene, *mapData, mapDeltaData, sceneError),
+        sceneError.c_str());
+
+    const OpenYAMM::Game::IndoorFace &switchFace = mapData->faces[216];
+    REQUIRE_EQ(switchFace.textureUs.size(), 4);
+    REQUIRE_EQ(switchFace.textureVs.size(), 4);
+    CHECK(OpenYAMM::Game::hasFaceAttribute(
+        switchFace.attributes,
+        OpenYAMM::Game::FaceAttribute::TextureMoveByDoor));
+    CHECK_EQ(switchFace.textureName, "t1swbd");
+    CHECK_EQ(switchFace.textureDeltaU, -560);
+    CHECK_EQ(switchFace.textureDeltaV, 160);
+    CHECK_EQ(switchFace.textureUs[0] + switchFace.textureDeltaU, 32);
+    CHECK_EQ(switchFace.textureUs[1] + switchFace.textureDeltaU, 0);
+    CHECK_EQ(switchFace.textureUs[2] + switchFace.textureDeltaU, 0);
+    CHECK_EQ(switchFace.textureUs[3] + switchFace.textureDeltaU, 32);
+    CHECK_EQ(switchFace.textureVs[0] + switchFace.textureDeltaV, 0);
+    CHECK_EQ(switchFace.textureVs[1] + switchFace.textureDeltaV, 0);
+    CHECK_EQ(switchFace.textureVs[2] + switchFace.textureDeltaV, 32);
+    CHECK_EQ(switchFace.textureVs[3] + switchFace.textureDeltaV, 32);
 }
 
 TEST_CASE("mm7 Temple of the Moon scene keeps MMerge initial door states")
@@ -1571,6 +1741,38 @@ TEST_CASE("zero monster resistance does not reduce incoming melee damage")
     CHECK(observedHitDamages() == std::set<int>{7, 8, 9, 10, 11});
 }
 
+TEST_CASE("incoming monster hits do not add character recovery")
+{
+    constexpr uint32_t ActorId = 64;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->recoverySecondsRemaining = 0.0f;
+
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 1,
+        .attackBonus = 1000,
+        .displayName = "Recovery Test Striker",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        4,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Irresistible,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    CHECK_LT(pMember->health, pMember->maxHealth);
+    CHECK_EQ(pMember->recoverySecondsRemaining, doctest::Approx(0.0f));
+}
+
 TEST_CASE("monster hour of power resistance bonus only affects OE elemental damage types")
 {
     constexpr int Damage = 64;
@@ -1666,6 +1868,92 @@ TEST_CASE("monster non-Attack1 projectile does not apply special attack conditio
     const OpenYAMM::Game::Character *pMember = party.member(0);
     REQUIRE(pMember != nullptr);
     CHECK_FALSE(pMember->conditions.test(static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Paralyzed)));
+}
+
+TEST_CASE("Pain Reflection reflects monster melee damage from party member")
+{
+    constexpr uint32_t ActorId = 178;
+    constexpr int Damage = 12;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    party.applyCharacterBuff(
+        0,
+        OpenYAMM::Game::CharacterBuffId::PainReflection,
+        60.0f,
+        Damage,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::PainReflection),
+        Damage,
+        OpenYAMM::Game::SkillMastery::Expert,
+        0);
+
+    PainReflectionTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 1,
+        .attackBonus = 1000,
+        .displayName = "Reflect Test Striker",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        Damage,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Irresistible,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    REQUIRE_EQ(world.reflectedDamageRequests.size(), 1u);
+    CHECK_EQ(world.reflectedDamageRequests.front().actorId, ActorId);
+    CHECK_EQ(world.reflectedDamageRequests.front().damage, Damage);
+    CHECK(world.reflectedDamageRequests.front().damageType == OpenYAMM::Game::CombatDamageType::Irresistible);
+    CHECK_EQ(world.reflectedDamageRequests.front().sourcePartyMemberIndex, 0u);
+}
+
+TEST_CASE("Pain Reflection reflects monster projectile damage from party member")
+{
+    constexpr uint32_t ActorId = 179;
+    constexpr int Damage = 9;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    party.applyCharacterBuff(
+        0,
+        OpenYAMM::Game::CharacterBuffId::PainReflection,
+        60.0f,
+        Damage,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::PainReflection),
+        Damage,
+        OpenYAMM::Game::SkillMastery::Expert,
+        0);
+
+    PainReflectionTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 1,
+        .attackBonus = 1000,
+        .displayName = "Reflect Test Caster",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordPartyProjectileImpact(
+        ActorId,
+        Damage,
+        1000,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FireBolt),
+        false,
+        OpenYAMM::Game::CombatDamageType::Irresistible,
+        OpenYAMM::Game::GameplayActorAttackAbility::Spell1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    REQUIRE_EQ(world.reflectedDamageRequests.size(), 1u);
+    CHECK_EQ(world.reflectedDamageRequests.front().actorId, ActorId);
+    CHECK_EQ(world.reflectedDamageRequests.front().damage, Damage);
+    CHECK(world.reflectedDamageRequests.front().damageType == OpenYAMM::Game::CombatDamageType::Irresistible);
+    CHECK_EQ(world.reflectedDamageRequests.front().sourcePartyMemberIndex, 0u);
 }
 
 TEST_CASE("Protection from Magic blocks regular monster condition special attacks")
@@ -2988,6 +3276,77 @@ TEST_CASE("outdoor steep bmodel support slides stationary party downhill")
 
     CHECK_LT(resolved.x, state.x);
     CHECK_EQ(resolved.supportKind, OpenYAMM::Game::OutdoorSupportKind::BModelFace);
+}
+
+TEST_CASE("outdoor steep bmodel slope slide does not amplify upward velocity")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+
+    OpenYAMM::Game::OutdoorBModel bmodel = {};
+    bmodel.vertices = {
+        {0, 0, 0},
+        {512, 0, 512},
+        {512, 512, 512},
+        {0, 512, 0},
+    };
+    bmodel.minX = 0;
+    bmodel.maxX = 512;
+    bmodel.minY = 0;
+    bmodel.maxY = 512;
+    bmodel.minZ = 0;
+    bmodel.maxZ = 512;
+
+    OpenYAMM::Game::OutdoorBModelFace steepFace = {};
+    steepFace.vertexIndices = {0, 1, 2, 3};
+    steepFace.polygonType = 4;
+    bmodel.faces = {steepFace};
+    mapData.bmodels = {bmodel};
+
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = 128.0f;
+    state.y = 128.0f;
+    state.footZ = 147.0f;
+    state.verticalVelocity = 300.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::BModelFace;
+    state.supportBModelIndex = 0;
+    state.supportFaceIndex = 0;
+    state.airborne = true;
+    state.fallStartZ = state.footZ;
+
+    OpenYAMM::Game::OutdoorMoveDebugInfo debugInfo = {};
+    movementController.resolveMove(
+        state,
+        -512.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        false,
+        false,
+        512.0f,
+        0.0f,
+        4000.0f,
+        1.0f / 128.0f,
+        nullptr,
+        1.0f,
+        &debugInfo);
+
+    CHECK(debugInfo.slopeSlideActive);
+    CHECK_LE(debugInfo.inputVelocityZBeforeCollision, state.verticalVelocity);
 }
 
 TEST_CASE("outdoor stationary party keeps bmodel edge support instead of jiggling to nearby terrain")

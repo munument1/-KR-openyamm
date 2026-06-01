@@ -7,7 +7,7 @@ elements:
     height: 480
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     notes: Shared dialogue root for common scaling and grouping.
     children:
       - id: DialogueTopBar

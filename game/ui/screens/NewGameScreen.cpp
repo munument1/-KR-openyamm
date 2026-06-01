@@ -28,6 +28,7 @@ using CreationCandidate = NewGameScreen::CreationCandidate;
 
 constexpr float RootWidth = 640.0f;
 constexpr float RootHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr const char *CharacterCreationLayoutPath = "Data/ui/gameplay/character_creation.yml";
 constexpr const char *ContinentSelectionLayoutPath = "Data/ui/gameplay/continent_selection.yml";
 constexpr const char *PcNamesTablePath = "engine/data_tables/english/pc_names.txt";
@@ -449,8 +450,10 @@ std::optional<ResolvedLayoutElement> resolveLayoutElementRecursive(
 
     const UiLayoutManager::LayoutElement &element = *pElement;
     const float baseScale = std::min(
-        static_cast<float>(screenWidth) / RootWidth,
-        static_cast<float>(screenHeight) / RootHeight);
+        std::min(
+            static_cast<float>(screenWidth) / RootWidth,
+            static_cast<float>(screenHeight) / RootHeight),
+        MaxUiScale);
     const float viewportWidth = RootWidth * baseScale;
     const float viewportHeight = RootHeight * baseScale;
     const float viewportX = (static_cast<float>(screenWidth) - viewportWidth) * 0.5f;
@@ -2991,8 +2994,10 @@ void NewGameScreen::drawContinentSelection(float deltaSeconds)
     ensureContinentLayoutLoaded();
 
     const float fallbackScale = std::min(
-        static_cast<float>(frameWidth()) / RootWidth,
-        static_cast<float>(frameHeight()) / RootHeight);
+        std::min(
+            static_cast<float>(frameWidth()) / RootWidth,
+            static_cast<float>(frameHeight()) / RootHeight),
+        MaxUiScale);
     const float fallbackRootX = (static_cast<float>(frameWidth()) - RootWidth * fallbackScale) * 0.5f;
     const float fallbackRootY = (static_cast<float>(frameHeight()) - RootHeight * fallbackScale) * 0.5f;
     const MenuScreenBase::Rect rootRect =
@@ -3077,8 +3082,10 @@ void NewGameScreen::drawScreen(float deltaSeconds)
     }
 
     const float fallbackScale = std::min(
-        static_cast<float>(frameWidth()) / RootWidth,
-        static_cast<float>(frameHeight()) / RootHeight);
+        std::min(
+            static_cast<float>(frameWidth()) / RootWidth,
+            static_cast<float>(frameHeight()) / RootHeight),
+        MaxUiScale);
     const float fallbackRootX = (static_cast<float>(frameWidth()) - RootWidth * fallbackScale) * 0.5f;
     const float fallbackRootY = (static_cast<float>(frameHeight()) - RootHeight * fallbackScale) * 0.5f;
     const MenuScreenBase::Rect rootRect = resolveLayoutRect("CharacterCreationRoot", RootWidth, RootHeight).value_or(

@@ -335,6 +335,58 @@ TEST_CASE("grandmaster fear casts without target and affects hostile actors in s
     CHECK_EQ(worldRuntime.appliedSpellRequests().front().actorIndex, 0u);
 }
 
+TEST_CASE("dragon wing buffet casts without target and resolves push velocity")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+    pCaster->skills["DragonAbility"] = {"DragonAbility", 11, OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    OpenYAMM::Game::GameplayRuntimeActorState hostileActor = {};
+    hostileActor.preciseX = 512.0f;
+    hostileActor.preciseY = 0.0f;
+    hostileActor.preciseZ = 0.0f;
+    hostileActor.radius = 32;
+    hostileActor.height = 128;
+    hostileActor.hostileToParty = true;
+    worldRuntime.addActor(hostileActor);
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet);
+    request.spendMana = false;
+    request.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    CHECK(result.targetKind == OpenYAMM::Game::PartySpellCastTargetKind::None);
+    CHECK(result.effectKind == OpenYAMM::Game::PartySpellCastEffectKind::AreaEffect);
+    REQUIRE_EQ(worldRuntime.appliedSpellRequests().size(), 1u);
+    CHECK_EQ(worldRuntime.appliedSpellRequests().front().actorIndex, 0u);
+
+    const std::optional<bx::Vec3> pushVelocity = OpenYAMM::Game::GameplayActorService::spellPushVelocity(
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet),
+        10,
+        100.0f,
+        0.0f,
+        0.0f,
+        0.0f);
+
+    REQUIRE(pushVelocity.has_value());
+    CHECK(pushVelocity->x == doctest::Approx(560.0f));
+    CHECK(pushVelocity->y == doctest::Approx(0.0f));
+    CHECK(pushVelocity->z == doctest::Approx(0.0f));
+}
+
 TEST_CASE("master fear still requires an actor target")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -437,6 +489,49 @@ TEST_CASE("party spell backend fire bolt spawns projectile")
     CHECK_EQ(worldRuntime.projectileRequests().front().spellId, request.spellId);
     CHECK_EQ(worldRuntime.projectileRequests().front().casterMemberIndex, 0u);
     CHECK_EQ(worldRuntime.projectileRequests().front().targetX, 1024.0f);
+}
+
+TEST_CASE("party spell backend blades targets actor but resolves through projectile impact")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+    const size_t targetActorIndex = seedDefaultSpellTarget(worldRuntime);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+
+    pCaster->skills["EarthMagic"] = {"EarthMagic", 5, OpenYAMM::Game::SkillMastery::Expert};
+
+    OpenYAMM::Game::PartySpellCastRequest missingTargetRequest = {};
+    missingTargetRequest.casterMemberIndex = 0;
+    missingTargetRequest.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Blades);
+
+    const OpenYAMM::Game::PartySpellCastResult missingTargetResult = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        missingTargetRequest);
+
+    CHECK(missingTargetResult.status == OpenYAMM::Game::PartySpellCastStatus::NeedActorTarget);
+    CHECK(worldRuntime.projectileRequests().empty());
+    CHECK(worldRuntime.appliedSpellRequests().empty());
+
+    OpenYAMM::Game::PartySpellCastRequest request = missingTargetRequest;
+    request.targetActorIndex = targetActorIndex;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    REQUIRE_EQ(worldRuntime.projectileRequests().size(), 1u);
+    CHECK_EQ(worldRuntime.projectileRequests().front().spellId, request.spellId);
+    CHECK_EQ(worldRuntime.projectileRequests().front().targetX, 1024.0f);
+    CHECK(worldRuntime.appliedSpellRequests().empty());
 }
 
 TEST_CASE("party spell backend sparks applies no recovery")
@@ -1135,6 +1230,100 @@ TEST_CASE("party spell backend prismatic light damages visible indoor creatures"
     CHECK_EQ(worldRuntime.appliedSpellRequests().front().damage, 32);
     REQUIRE(result.screenOverlayRequest.has_value());
     CHECK_EQ(result.screenOverlayRequest->colorAbgr, 0xffe0ffffu);
+}
+
+TEST_CASE("shared actor direct spell visuals match indoor area spell sprites")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::GameplayActorService service = {};
+    service.bindTables(&gameData.monsterTable, &gameData.spellTable);
+
+    const OpenYAMM::Game::GameplayActorService::DirectSpellImpactResult inferno =
+        service.resolveDirectSpellImpact(
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Inferno),
+            7,
+            26,
+            100,
+            false);
+
+    CHECK(
+        inferno.disposition
+        == OpenYAMM::Game::GameplayActorService::DirectSpellImpactDisposition::ApplyDamage);
+    CHECK(
+        inferno.visualKind
+        == OpenYAMM::Game::GameplayActorService::DirectSpellImpactVisualKind::ActorUpperBody);
+    CHECK_EQ(inferno.damage, 26);
+    CHECK_FALSE(inferno.preferImpactObject);
+
+    const OpenYAMM::Game::GameplayActorService::DirectSpellImpactResult prismatic =
+        service.resolveDirectSpellImpact(
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::PrismaticLight),
+            7,
+            32,
+            100,
+            false);
+
+    CHECK(
+        prismatic.disposition
+        == OpenYAMM::Game::GameplayActorService::DirectSpellImpactDisposition::ApplyDamage);
+    CHECK(
+        prismatic.visualKind
+        == OpenYAMM::Game::GameplayActorService::DirectSpellImpactVisualKind::ActorUpperBody);
+    CHECK_EQ(prismatic.damage, 32);
+    CHECK(prismatic.preferImpactObject);
+}
+
+TEST_CASE("party spell backend inferno damages visible indoor creatures and flashes orange")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+    worldRuntime.setIndoorMap(true);
+
+    OpenYAMM::Game::GameplayRuntimeActorState visibleCreature = {};
+    visibleCreature.preciseX = 512.0f;
+    visibleCreature.preciseY = 0.0f;
+    visibleCreature.preciseZ = 0.0f;
+    visibleCreature.radius = 32;
+    visibleCreature.height = 128;
+    visibleCreature.hostileToParty = false;
+    worldRuntime.addActor(visibleCreature);
+
+    OpenYAMM::Game::GameplayRuntimeActorState hiddenCreature = visibleCreature;
+    hiddenCreature.preciseX = -512.0f;
+    hiddenCreature.hostileToParty = true;
+    worldRuntime.addActor(hiddenCreature);
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Inferno);
+    request.skillLevelOverride = 7;
+    request.skillMasteryOverride = OpenYAMM::Game::SkillMastery::Master;
+    request.spendMana = false;
+    request.applyRecovery = false;
+    request.hasViewTransform = true;
+    request.viewX = 0.0f;
+    request.viewY = 0.0f;
+    request.viewZ = 96.0f;
+    request.viewYawRadians = 0.0f;
+    request.viewPitchRadians = 0.0f;
+    request.viewAspectRatio = 4.0f / 3.0f;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    REQUIRE_EQ(worldRuntime.appliedSpellRequests().size(), 1u);
+    CHECK_EQ(worldRuntime.appliedSpellRequests().front().actorIndex, 0u);
+    CHECK_EQ(worldRuntime.appliedSpellRequests().front().damage, 26);
+    REQUIRE(result.screenOverlayRequest.has_value());
+    CHECK_EQ(result.screenOverlayRequest->colorAbgr, 0xff1838ffu);
+    CHECK_EQ(result.screenOverlayRequest->durationSeconds, doctest::Approx(0.52f));
+    CHECK_EQ(result.screenOverlayRequest->peakAlpha, doctest::Approx(0.60f));
 }
 
 TEST_CASE("party spell backend soul drinker drains visible indoor creatures and heals party")

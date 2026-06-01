@@ -3663,6 +3663,7 @@ void OutdoorRenderer::renderWorldPasses(
     if (view.m_showSpriteObjects || view.m_showActors || view.m_showDecorationBillboards)
     {
         OutdoorBillboardRenderer::renderFxGlowBillboards(view, MainViewId, pViewMatrix);
+        OutdoorBillboardRenderer::renderFxSegmentProjectiles(view, MainViewId, pViewMatrix);
     }
 
     renderPendingSpellAreaPreview(view, MainViewId, cameraPosition);

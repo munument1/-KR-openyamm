@@ -45,6 +45,19 @@ struct FloorSample
     size_t faceIndex = 0;
 };
 
+OutdoorMoveFloorDebugInfo outdoorMoveFloorDebugInfo(const FloorSample &sample)
+{
+    OutdoorMoveFloorDebugInfo info = {};
+    info.hasFloor = sample.hasFloor;
+    info.height = sample.height;
+    info.normalZ = sample.normalZ;
+    info.fromBModel = sample.fromBModel;
+    info.isFluid = sample.isFluid;
+    info.bModelIndex = sample.bModelIndex;
+    info.faceIndex = sample.faceIndex;
+    return info;
+}
+
 enum class FloorSupportMode
 {
     IncludeBModels,
@@ -1885,7 +1898,8 @@ OutdoorMoveState OutdoorMovementController::resolveMove(
     float maxFlightHeight,
     float deltaSeconds,
     std::vector<size_t> *pContactedActorIndices,
-    float jumpLift
+    float jumpLift,
+    OutdoorMoveDebugInfo *pDebugInfo
 ) const
 {
     return resolveMoveForBody(
@@ -1905,7 +1919,8 @@ OutdoorMoveState OutdoorMovementController::resolveMove(
         deltaSeconds,
         pContactedActorIndices,
         std::nullopt,
-        jumpLift);
+        jumpLift,
+        pDebugInfo);
 }
 
 OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
@@ -1925,9 +1940,25 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     float deltaSeconds,
     std::vector<size_t> *pContactedActorIndices,
     const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider,
-    float jumpLift
+    float jumpLift,
+    OutdoorMoveDebugInfo *pDebugInfo
 ) const
 {
+    if (pDebugInfo != nullptr)
+    {
+        *pDebugInfo = {};
+        pDebugInfo->startX = state.x;
+        pDebugInfo->startY = state.y;
+        pDebugInfo->startZ = state.footZ;
+        pDebugInfo->requestedVelocityX = desiredVelocityX;
+        pDebugInfo->requestedVelocityY = desiredVelocityY;
+        pDebugInfo->requestedVelocityZ = desiredVelocityZ;
+        pDebugInfo->flyingActive = flyingActive;
+        pDebugInfo->jumpRequested = jumpRequested;
+        pDebugInfo->flyUpRequested = flyUpRequested;
+        pDebugInfo->flyDownRequested = flyDownRequested;
+    }
+
     const float bodyRadius = std::max(1.0f, body.radius);
     const float bodyHeight = std::max(bodyRadius * 2.0f + 2.0f, body.height);
     const bool bModelGround = outdoorMapUsesBModelGround(*m_pOutdoorMapData);
@@ -1977,6 +2008,15 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         && partyCloseToGround;
     const bool wasAirborne = state.airborne || partyNotTouchingFloor;
     float fallStartZ = state.fallStartZ;
+
+    if (pDebugInfo != nullptr)
+    {
+        pDebugInfo->currentFloor = outdoorMoveFloorDebugInfo(currentFloor);
+        pDebugInfo->wasAirborne = wasAirborne;
+        pDebugInfo->partyNotTouchingFloor = partyNotTouchingFloor;
+        pDebugInfo->partyCloseToGround = partyCloseToGround;
+        pDebugInfo->partyOnSteepBModel = partyOnSteepBModel;
+    }
 
     if (wasAirborne)
     {
@@ -2052,18 +2092,29 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         }
 
         partyInputSpeed.z -= GravityPerSecond * SlopeSlideGravityMultiplier * deltaSeconds;
-        const float normalVelocity = std::fabs(vecDot(partyInputSpeed, slopeNormal));
-        partyInputSpeed = vecAdd(partyInputSpeed, vecScale(slopeNormal, normalVelocity));
+        const float normalVelocity = vecDot(partyInputSpeed, slopeNormal);
+
+        if (normalVelocity < 0.0f)
+        {
+            partyInputSpeed = vecSubtract(partyInputSpeed, vecScale(slopeNormal, normalVelocity));
+        }
+    }
+
+    if (pDebugInfo != nullptr)
+    {
+        pDebugInfo->slopeSlideActive = slopeSlideActive;
+        pDebugInfo->inputVelocityZBeforeCollision = partyInputSpeed.z;
     }
 
     std::optional<FloorSample> steppedBModelFloorSupport;
     const auto runCollisionPass =
         [this, deltaSeconds, &state, pContactedActorIndices, bodyRadius, bodyHeight, &ignoredActorCollider,
             &candidateFaceIndices, partyCloseToGround, wasAirborne, flyingActive, waterWalkActive,
-            &steppedBModelFloorSupport, slopeSlideActive, bModelGround](
+            &steppedBModelFloorSupport, slopeSlideActive, bModelGround, pDebugInfo](
             bx::Vec3 &passPosition,
             bx::Vec3 &passInputSpeed,
-            bool &passPartyNotOnModel)
+            bool &passPartyNotOnModel,
+            int passKind)
     {
         CollisionState collisionState = {};
         collisionState.radiusLo = bodyRadius;
@@ -2074,6 +2125,14 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
 
         for (int attempt = 0; attempt < 5; ++attempt)
         {
+            if (pDebugInfo != nullptr)
+            {
+                pDebugInfo->collisionAttempts++;
+                pDebugInfo->lastCollisionPass = passKind;
+                pDebugInfo->lastPassStart = passPosition;
+                pDebugInfo->lastPassInputVelocity = passInputSpeed;
+            }
+
             std::vector<size_t> candidateSpriteObjectIndices;
             resolveActorCylinderOverlaps(
                 passPosition,
@@ -2183,6 +2242,14 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 newPosLow.z,
                 FloorSupportMode::IncludeBModels);
 
+            if (pDebugInfo != nullptr)
+            {
+                pDebugInfo->lastPassNewLow = newPosLow;
+                pDebugInfo->lastAllNewFloor = outdoorMoveFloorDebugInfo(allNewFloor);
+                pDebugInfo->lastXAdvanceFloor = outdoorMoveFloorDebugInfo(xAdvanceFloor);
+                pDebugInfo->lastYAdvanceFloor = outdoorMoveFloorDebugInfo(yAdvanceFloor);
+            }
+
             passPartyNotOnModel = !xAdvanceFloor.fromBModel && !yAdvanceFloor.fromBModel && !allNewFloor.fromBModel;
 
             if (!passPartyNotOnModel)
@@ -2272,10 +2339,45 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             if (!collisionState.hit)
             {
                 passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastHitKind = 0;
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
                 continue;
             }
 
             const CollisionHit &hit = *collisionState.hit;
+
+            if (pDebugInfo != nullptr)
+            {
+                switch (hit.kind)
+                {
+                    case CollisionHit::Kind::Face:
+                        pDebugInfo->lastHitKind = 1;
+                        break;
+                    case CollisionHit::Kind::Decoration:
+                        pDebugInfo->lastHitKind = 2;
+                        break;
+                    case CollisionHit::Kind::Actor:
+                        pDebugInfo->lastHitKind = 3;
+                        break;
+                    case CollisionHit::Kind::SpriteObject:
+                        pDebugInfo->lastHitKind = 4;
+                        break;
+                }
+
+                pDebugInfo->lastHitBModelIndex = hit.bModelIndex;
+                pDebugInfo->lastHitFaceIndex = hit.faceIndex;
+                pDebugInfo->lastHitColliderIndex = hit.colliderIndex;
+                pDebugInfo->lastHitPolygonType = hit.polygonType;
+                pDebugInfo->lastHitFloorHeight = hit.floorHeight;
+                pDebugInfo->lastHitMoveDistance = hit.moveDistance;
+                pDebugInfo->lastHitAdjustedMoveDistance = collisionState.adjustedMoveDistance;
+                pDebugInfo->lastHitHeightOffset = hit.heightOffset;
+                pDebugInfo->lastHitPoint = hit.collisionPoint;
+                pDebugInfo->lastHitNormal = hit.normal;
+            }
 
             if (hit.kind == CollisionHit::Kind::Actor)
             {
@@ -2285,6 +2387,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 }
 
                 passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
                 continue;
             }
 
@@ -2333,6 +2439,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 if (vecLength(slidePlaneNormal) <= CollisionEpsilon)
                 {
                     passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                    if (pDebugInfo != nullptr)
+                    {
+                        pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                    }
                     continue;
                 }
 
@@ -2345,6 +2455,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 newDirection.z = 0.0f;
                 newDirection = vecNormalize(newDirection);
                 passInputSpeed = vecScale(newDirection, vecDot(newDirection, passInputSpeed));
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
                 continue;
             }
 
@@ -2355,6 +2469,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             if (!pGeometry)
             {
                 passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
                 continue;
             }
 
@@ -2378,6 +2496,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             if (vecLength(slidePlaneNormal) <= CollisionEpsilon)
             {
                 passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
                 continue;
             }
 
@@ -2403,6 +2525,10 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
             }
 
             passInputSpeed = vecScale(newDirection, vecDot(newDirection, passInputSpeed));
+            if (pDebugInfo != nullptr)
+            {
+                pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+            }
 
             if (pGeometry->polygonType == PolygonFloor || pGeometry->polygonType == PolygonInBetweenFloorAndWall)
             {
@@ -2423,12 +2549,21 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                             pGeometry->bModelIndex,
                             pGeometry->faceIndex
                         };
+                        if (pDebugInfo != nullptr)
+                        {
+                            pDebugInfo->steppedBModelFloor =
+                                outdoorMoveFloorDebugInfo(*steppedBModelFloorSupport);
+                        }
                     }
                 }
             }
             else
             {
                 passInputSpeed = vecScale(passInputSpeed, 0.89263916f);
+                if (pDebugInfo != nullptr)
+                {
+                    pDebugInfo->lastPassOutputVelocity = passInputSpeed;
+                }
             }
 
         }
@@ -2437,12 +2572,30 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     const float savedZSpeed = partyInputSpeed.z;
     bx::Vec3 horizontalInputSpeed = {partyInputSpeed.x, partyInputSpeed.y, 0.0f};
     bool partyNotOnModel = !currentFloor.fromBModel;
-    runCollisionPass(partyNewPosition, horizontalInputSpeed, partyNotOnModel);
+    const float horizontalPassStartZ = partyNewPosition.z;
+    runCollisionPass(partyNewPosition, horizontalInputSpeed, partyNotOnModel, 1);
+    const float horizontalPassEndZ = partyNewPosition.z;
+
+    if (pDebugInfo != nullptr)
+    {
+        pDebugInfo->horizontalPassStartZ = horizontalPassStartZ;
+        pDebugInfo->horizontalPassEndZ = horizontalPassEndZ;
+        pDebugInfo->horizontalPassRaisedZ = horizontalPassEndZ > horizontalPassStartZ + CollisionEpsilon;
+    }
 
     if (partyNewPosition.z <= state.footZ)
     {
         bx::Vec3 verticalInputSpeed = {0.0f, 0.0f, savedZSpeed};
-        runCollisionPass(partyNewPosition, verticalInputSpeed, partyNotOnModel);
+        if (pDebugInfo != nullptr)
+        {
+            pDebugInfo->verticalPassRan = true;
+            pDebugInfo->verticalPassStartZ = partyNewPosition.z;
+        }
+        runCollisionPass(partyNewPosition, verticalInputSpeed, partyNotOnModel, 2);
+        if (pDebugInfo != nullptr)
+        {
+            pDebugInfo->verticalPassEndZ = partyNewPosition.z;
+        }
         partyInputSpeed.z = verticalInputSpeed.z;
     }
     else
@@ -2469,12 +2622,21 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         FloorSupportMode::IncludeBModels,
         retainBModelEdgeSupport);
 
+    if (pDebugInfo != nullptr)
+    {
+        pDebugInfo->finalFloor = outdoorMoveFloorDebugInfo(finalFloor);
+    }
+
     if (retainBModelEdgeSupport
         && steppedBModelFloorSupport
         && (!finalFloor.hasFloor || steppedBModelFloorSupport->height >= finalFloor.height)
         && partyNewPosition.z <= steppedBModelFloorSupport->height + GroundSnapHeight)
     {
         finalFloor = *steppedBModelFloorSupport;
+        if (pDebugInfo != nullptr)
+        {
+            pDebugInfo->finalFloor = outdoorMoveFloorDebugInfo(finalFloor);
+        }
     }
 
     const float finalGroundLevel =
@@ -2540,6 +2702,13 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
     result.landedThisFrame = landedThisFrame;
     result.fallDistance = landedThisFrame ? fallDistance : 0.0f;
     result.fallStartZ = result.airborne ? std::max(fallStartZ, result.footZ) : result.footZ;
+    if (pDebugInfo != nullptr)
+    {
+        pDebugInfo->endX = result.x;
+        pDebugInfo->endY = result.y;
+        pDebugInfo->endZ = result.footZ;
+        pDebugInfo->outputVelocityZ = result.verticalVelocity;
+    }
     return result;
 }
 

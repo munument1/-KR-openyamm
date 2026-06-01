@@ -280,6 +280,12 @@ int runApplication(int argc, char **argv)
         return diagnostics.runProfileFullMapLoad(argv[0], arguments[1]);
     }
 
+    if (arguments.size() == 2 && arguments[0] == "--headless-capture-projectile-fx")
+    {
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runCaptureProjectileFx(argv[0], arguments[1]);
+    }
+
     if (arguments.size() == 5 && arguments[0] == "--headless-simulate-actor")
     {
         const std::string mapFileName = arguments[1];

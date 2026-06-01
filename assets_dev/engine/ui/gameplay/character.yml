@@ -7,7 +7,7 @@ elements:
     height: 480
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     notes: Character screen rooted to the classic MM8 composition from the reference screenshot.
     children:
       - id: CharacterTopBar

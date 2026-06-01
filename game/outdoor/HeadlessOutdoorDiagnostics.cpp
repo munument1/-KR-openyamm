@@ -10,6 +10,8 @@
 #include "game/events/EvtEnums.h"
 #include "game/events/EventRuntime.h"
 #include "game/data/GameDataLoader.h"
+#include "game/fx/ParticleRecipes.h"
+#include "game/fx/ParticleSystem.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayCombatController.h"
@@ -55,6 +57,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -1218,6 +1221,253 @@ bool saveTextureAsPng(const OutdoorBitmapTexture &texture, const std::filesystem
     const bool saved = SDL_SavePNG(pSurface, outputPath.string().c_str());
     SDL_DestroySurface(pSurface);
     return saved;
+}
+
+class ProjectileFxCaptureCanvas
+{
+public:
+    ProjectileFxCaptureCanvas(int width, int height)
+        : m_width(width)
+        , m_height(height)
+        , m_pixels(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u, 0)
+    {
+        clear(0xff14110fu);
+    }
+
+    void clear(uint32_t colorAbgr)
+    {
+        const uint8_t red = static_cast<uint8_t>(colorAbgr & 0xffu);
+        const uint8_t green = static_cast<uint8_t>((colorAbgr >> 8) & 0xffu);
+        const uint8_t blue = static_cast<uint8_t>((colorAbgr >> 16) & 0xffu);
+        const uint8_t alpha = static_cast<uint8_t>((colorAbgr >> 24) & 0xffu);
+
+        for (size_t pixelIndex = 0; pixelIndex < m_pixels.size(); pixelIndex += 4u)
+        {
+            m_pixels[pixelIndex + 0u] = blue;
+            m_pixels[pixelIndex + 1u] = green;
+            m_pixels[pixelIndex + 2u] = red;
+            m_pixels[pixelIndex + 3u] = alpha;
+        }
+    }
+
+    void drawCircle(float centerX, float centerY, float radius, uint32_t colorAbgr, float alpha, bool additive)
+    {
+        const int minX = std::max(0, static_cast<int>(std::floor(centerX - radius)));
+        const int maxX = std::min(m_width - 1, static_cast<int>(std::ceil(centerX + radius)));
+        const int minY = std::max(0, static_cast<int>(std::floor(centerY - radius)));
+        const int maxY = std::min(m_height - 1, static_cast<int>(std::ceil(centerY + radius)));
+
+        if (minX > maxX || minY > maxY)
+        {
+            return;
+        }
+
+        const float radiusSquared = std::max(radius * radius, 0.001f);
+
+        for (int y = minY; y <= maxY; ++y)
+        {
+            for (int x = minX; x <= maxX; ++x)
+            {
+                const float dx = static_cast<float>(x) + 0.5f - centerX;
+                const float dy = static_cast<float>(y) + 0.5f - centerY;
+                const float distanceSquared = dx * dx + dy * dy;
+
+                if (distanceSquared > radiusSquared)
+                {
+                    continue;
+                }
+
+                const float falloff = 1.0f - std::sqrt(distanceSquared / radiusSquared);
+                blendPixel(x, y, colorAbgr, std::clamp(alpha * (0.25f + falloff * 0.75f), 0.0f, 1.0f), additive);
+            }
+        }
+    }
+
+    void drawLine(
+        float startX,
+        float startY,
+        float endX,
+        float endY,
+        float width,
+        uint32_t colorAbgr,
+        float alpha,
+        bool additive)
+    {
+        const float dx = endX - startX;
+        const float dy = endY - startY;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        const int steps = std::max(1, static_cast<int>(std::ceil(length * 0.75f)));
+
+        for (int step = 0; step <= steps; ++step)
+        {
+            const float t = static_cast<float>(step) / static_cast<float>(steps);
+            drawCircle(startX + dx * t, startY + dy * t, width * 0.5f, colorAbgr, alpha, additive);
+        }
+    }
+
+    bool savePng(const std::filesystem::path &outputPath) const
+    {
+        SDL_Surface *pSurface = SDL_CreateSurfaceFrom(
+            m_width,
+            m_height,
+            SDL_PIXELFORMAT_BGRA32,
+            const_cast<uint8_t *>(m_pixels.data()),
+            m_width * 4);
+
+        if (pSurface == nullptr)
+        {
+            return false;
+        }
+
+        const bool saved = SDL_SavePNG(pSurface, outputPath.string().c_str());
+        SDL_DestroySurface(pSurface);
+        return saved;
+    }
+
+private:
+    void blendPixel(int x, int y, uint32_t colorAbgr, float alpha, bool additive)
+    {
+        const size_t offset = (static_cast<size_t>(y) * static_cast<size_t>(m_width) + static_cast<size_t>(x)) * 4u;
+        const float sourceRed = static_cast<float>(colorAbgr & 0xffu);
+        const float sourceGreen = static_cast<float>((colorAbgr >> 8) & 0xffu);
+        const float sourceBlue = static_cast<float>((colorAbgr >> 16) & 0xffu);
+
+        if (additive)
+        {
+            m_pixels[offset + 0u] =
+                static_cast<uint8_t>(std::min(255.0f, m_pixels[offset + 0u] + sourceBlue * alpha));
+            m_pixels[offset + 1u] =
+                static_cast<uint8_t>(std::min(255.0f, m_pixels[offset + 1u] + sourceGreen * alpha));
+            m_pixels[offset + 2u] =
+                static_cast<uint8_t>(std::min(255.0f, m_pixels[offset + 2u] + sourceRed * alpha));
+        }
+        else
+        {
+            m_pixels[offset + 0u] =
+                static_cast<uint8_t>(m_pixels[offset + 0u] * (1.0f - alpha) + sourceBlue * alpha);
+            m_pixels[offset + 1u] =
+                static_cast<uint8_t>(m_pixels[offset + 1u] * (1.0f - alpha) + sourceGreen * alpha);
+            m_pixels[offset + 2u] =
+                static_cast<uint8_t>(m_pixels[offset + 2u] * (1.0f - alpha) + sourceRed * alpha);
+        }
+
+        m_pixels[offset + 3u] = 255;
+    }
+
+    int m_width = 0;
+    int m_height = 0;
+    std::vector<uint8_t> m_pixels;
+};
+
+void drawFxParticle(
+    ProjectileFxCaptureCanvas &canvas,
+    const FxParticleState &particle,
+    float originX,
+    float originY,
+    float scale)
+{
+    const float x = originX + particle.x * scale;
+    const float y = originY - particle.y * scale;
+    const bool additive = particle.blendMode == FxParticleBlendMode::Additive;
+    const bool rendererExpandsRoundParticle =
+        additive
+        && (particle.tag == FxParticleTag::Trail || particle.tag == FxParticleTag::Impact)
+        && (particle.material == FxParticleMaterial::SoftBlob || particle.material == FxParticleMaterial::HardBlob);
+    const float rendererSizeScale = rendererExpandsRoundParticle ? 5.04f : 1.0f;
+    const float radius = std::max(2.0f, particle.size * rendererSizeScale * scale * 0.5f);
+    canvas.drawCircle(x, y, radius, particle.startColorAbgr, 0.72f, additive);
+
+    if (particle.tag == FxParticleTag::Impact)
+    {
+        const float velocityScale = scale * 0.12f;
+        const float endX = x + particle.velocityX * velocityScale;
+        const float endY = y - particle.velocityY * velocityScale;
+        canvas.drawLine(x, y, endX, endY, std::max(2.0f, radius * 0.72f), particle.startColorAbgr, 0.45f, additive);
+    }
+}
+
+void drawParticleSystem(
+    ProjectileFxCaptureCanvas &canvas,
+    const ParticleSystem &particles,
+    float originX,
+    float originY,
+    float scale)
+{
+    for (const FxParticleState &particle : particles.particles())
+    {
+        drawFxParticle(canvas, particle, originX, originY, scale);
+    }
+}
+
+void drawHangingProjectileTrailCapture(
+    ProjectileFxCaptureCanvas &canvas,
+    FxRecipes::ProjectileRecipe recipe,
+    float rowY,
+    float startX,
+    float spacing)
+{
+    ParticleSystem particles;
+    float previousX = 0.0f;
+    float previousY = 0.0f;
+
+    for (int step = 0; step < 18; ++step)
+    {
+        const float currentX = startX + static_cast<float>(step) * spacing;
+        FxRecipes::ProjectileSegmentSpawnContext context = {};
+        context.projectileId = static_cast<uint32_t>(1000 + static_cast<int>(recipe));
+        context.hasPreviousPosition = step > 0;
+        context.previousX = previousX;
+        context.previousY = previousY;
+        context.currentX = currentX;
+        context.currentY = 0.0f;
+        FxRecipes::spawnHangingProjectileTrailParticles(particles, context, recipe);
+        previousX = currentX;
+        previousY = 0.0f;
+    }
+
+    drawParticleSystem(canvas, particles, 0.0f, rowY, 1.0f);
+}
+
+void drawSegmentProjectileCapture(
+    ProjectileFxCaptureCanvas &canvas,
+    FxRecipes::ProjectileRecipe recipe,
+    float rowY,
+    float startX,
+    float spacing)
+{
+    const uint32_t colorAbgr = FxRecipes::projectileRecipeColorAbgr(recipe);
+
+    for (int step = 1; step < 18; ++step)
+    {
+        const float previousX = startX + static_cast<float>(step - 1) * spacing;
+        const float currentX = startX + static_cast<float>(step) * spacing;
+        canvas.drawLine(previousX, rowY, currentX, rowY, 18.0f, colorAbgr, 0.68f, true);
+    }
+}
+
+void drawImpactCapture(
+    ProjectileFxCaptureCanvas &canvas,
+    FxRecipes::ProjectileRecipe recipe,
+    const std::string &name,
+    float x,
+    float y)
+{
+    ParticleSystem particles;
+    FxRecipes::ImpactSpawnContext context = {};
+    context.recipe = recipe;
+    context.objectName = name;
+    context.spriteName = name;
+    FxRecipes::spawnImpactParticles(particles, context);
+    drawParticleSystem(canvas, particles, x, y, 0.20f);
+}
+
+bool saveProjectileFxCapture(
+    const std::filesystem::path &outputPath,
+    const std::function<void(ProjectileFxCaptureCanvas &)> &draw)
+{
+    ProjectileFxCaptureCanvas canvas(960, 540);
+    draw(canvas);
+    return canvas.savePng(outputPath);
 }
 
 ActorPreviewAnimationStats analyzeActorPreviewAnimation(
@@ -3419,6 +3669,133 @@ bool executeDialogActionInScenario(
 HeadlessGameplayDiagnostics::HeadlessGameplayDiagnostics(const Engine::ApplicationConfig &config)
     : m_config(config)
 {
+}
+
+int HeadlessGameplayDiagnostics::runCaptureProjectileFx(
+    const std::filesystem::path &basePath,
+    const std::filesystem::path &outputDirectory
+) const
+{
+    static_cast<void>(basePath);
+    std::error_code errorCode;
+    std::filesystem::create_directories(outputDirectory, errorCode);
+
+    if (errorCode)
+    {
+        std::cerr << "Headless diagnostic failed: could not create projectile FX capture directory \""
+                  << outputDirectory.string() << "\": " << errorCode.message() << '\n';
+        return 1;
+    }
+
+    struct CaptureSpec
+    {
+        std::string fileName;
+        std::string description;
+        std::function<void(ProjectileFxCaptureCanvas &)> draw;
+    };
+
+    const std::vector<CaptureSpec> captures = {
+        {
+            "monster_bolt_trails.png",
+            "Rows: fire, air, water, body, mind, dark monster bolt hanging trails.",
+            [](ProjectileFxCaptureCanvas &canvas)
+            {
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterFireBolt, 72.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterAirBolt, 150.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterWaterBolt, 228.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterBodyBolt, 306.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterMindBolt, 384.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::MonsterDarkBolt, 462.0f, 90.0f, 46.0f);
+            }
+        },
+        {
+            "spell_hanging_trails.png",
+            "Rows: Fire Bolt, Fireball, Poison Spray, Acid Burst, Light Bolt, Ice Blast fallout.",
+            [](ProjectileFxCaptureCanvas &canvas)
+            {
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::FireBolt, 72.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::Fireball, 150.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::PoisonSpray, 228.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::AcidBurst, 306.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(canvas, FxRecipes::ProjectileRecipe::LightBolt, 384.0f, 90.0f, 46.0f);
+                drawHangingProjectileTrailCapture(
+                    canvas,
+                    FxRecipes::ProjectileRecipe::IceBlastFallout,
+                    462.0f,
+                    90.0f,
+                    46.0f);
+            }
+        },
+        {
+            "segment_projectiles_and_light_impacts.png",
+            "Rows: Lightning Bolt segment, Sunray segment, then Lightning/Light/Sunray impacts.",
+            [](ProjectileFxCaptureCanvas &canvas)
+            {
+                drawSegmentProjectileCapture(
+                    canvas,
+                    FxRecipes::ProjectileRecipe::LightningBolt,
+                    120.0f,
+                    90.0f,
+                    46.0f);
+                drawSegmentProjectileCapture(canvas, FxRecipes::ProjectileRecipe::Sunray, 230.0f, 90.0f, 46.0f);
+                drawImpactCapture(
+                    canvas,
+                    FxRecipes::ProjectileRecipe::LightningBolt,
+                    "Lightning Bolt",
+                    250.0f,
+                    395.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::LightBolt, "Light Bolt", 480.0f, 395.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::Sunray, "Sunray", 710.0f, 395.0f);
+            }
+        },
+        {
+            "impact_bursts.png",
+            "Grid: Fireball, Meteor, Ice Bolt, Sharpmetal, Harm, Flying Fist impact primitives.",
+            [](ProjectileFxCaptureCanvas &canvas)
+            {
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::Fireball, "Fireball", 180.0f, 170.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::MeteorShower, "Meteor Shower", 480.0f, 170.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::IceBolt, "Ice Bolt", 780.0f, 170.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::Sharpmetal, "Sharpmetal", 180.0f, 390.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::Harm, "Harm", 480.0f, 390.0f);
+                drawImpactCapture(canvas, FxRecipes::ProjectileRecipe::FlyingFist, "Flying Fist", 780.0f, 390.0f);
+            }
+        },
+    };
+
+    std::ofstream manifest(outputDirectory / "README.md");
+
+    if (!manifest)
+    {
+        std::cerr << "Headless diagnostic failed: could not create projectile FX capture manifest in \""
+                  << outputDirectory.string() << "\"\n";
+        return 1;
+    }
+
+    manifest << "# Projectile FX Capture Set\n\n";
+    manifest << "Generated by `openyamm --headless-capture-projectile-fx "
+             << outputDirectory.generic_string() << "`.\n\n";
+    manifest << "These captures are renderer-independent diagnostics generated from the actual OpenYAMM projectile "
+             << "FX recipe and particle emission code. They verify structural parity for trail continuity, "
+             << "segment projectiles, configured colors, and impact primitive layout.\n\n";
+
+    for (const CaptureSpec &capture : captures)
+    {
+        const std::filesystem::path outputPath = outputDirectory / capture.fileName;
+
+        if (!saveProjectileFxCapture(outputPath, capture.draw))
+        {
+            std::cerr << "Headless diagnostic failed: could not save projectile FX capture \""
+                      << outputPath.string() << "\"\n";
+            return 1;
+        }
+
+        manifest << "- `" << capture.fileName << "`: " << capture.description << '\n';
+        std::cout << "Projectile FX capture: " << outputPath.string() << '\n';
+    }
+
+    std::cout << "Projectile FX capture manifest: " << (outputDirectory / "README.md").string() << '\n';
+    return 0;
 }
 
 int HeadlessGameplayDiagnostics::runProfileFullMapLoad(
@@ -13891,6 +14268,123 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 failure = "spell impact never spawned";
             }
 
+            return false;
+        }
+    );
+
+    runCase(
+        "lightning_projectile_uses_fx_only_presentation_and_impact",
+        [&](std::string &failure)
+        {
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pBefore = scenario.world.mapActorState(53);
+
+            if (pBefore == nullptr)
+            {
+                failure = "actor 53 missing";
+                return false;
+            }
+
+            OutdoorWorldRuntime::SpellCastRequest request = {};
+            request.sourceKind = OutdoorWorldRuntime::RuntimeSpellSourceKind::Party;
+            request.sourceId = 1;
+            request.sourcePartyMemberIndex = 0;
+            request.ability = OutdoorWorldRuntime::MonsterAttackAbility::Spell1;
+            request.spellId = spellIdValue(SpellId::LightningBolt);
+            request.skillLevel = 10;
+            request.skillMastery = static_cast<uint32_t>(SkillMastery::Expert);
+            request.damage = 9;
+            request.attackBonus = 9999;
+            request.useActorHitChance = true;
+            request.sourceX = pBefore->preciseX + 2600.0f;
+            request.sourceY = pBefore->preciseY;
+            request.sourceZ = pBefore->preciseZ + 96.0f;
+            request.targetX = pBefore->preciseX;
+            request.targetY = pBefore->preciseY;
+            request.targetZ = pBefore->preciseZ + 96.0f;
+
+            if (!scenario.world.castPartySpell(request))
+            {
+                failure = "party lightning projectile spawn failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::ProjectileState *pProjectile = scenario.world.projectileState(0);
+
+            if (pProjectile == nullptr)
+            {
+                failure = "party lightning projectile state missing";
+                return false;
+            }
+
+            if (pProjectile->visualMode != GameplayProjectileVisualMode::FxOnly)
+            {
+                failure = "party lightning projectile did not use FX-only visual mode";
+                return false;
+            }
+
+            std::vector<GameplayProjectilePresentationState> projectiles;
+            std::vector<GameplayProjectileImpactPresentationState> impacts;
+            scenario.projectileService.collectProjectilePresentationState(projectiles, impacts);
+
+            if (projectiles.size() != 1)
+            {
+                failure = "party lightning presentation state count was " + std::to_string(projectiles.size());
+                return false;
+            }
+
+            if (projectiles.front().visualMode != GameplayProjectileVisualMode::FxOnly)
+            {
+                failure = "party lightning presentation state lost FX-only visual mode";
+                return false;
+            }
+
+            bool sawProjectile = false;
+
+            for (int step = 0; step < 4096; ++step)
+            {
+                scenario.world.updateMapActors(1.0f / 128.0f, request.sourceX, request.sourceY, pBefore->preciseZ);
+                sawProjectile = sawProjectile || scenario.world.projectileCount() > 0;
+
+                if (scenario.world.projectileImpactCount() == 0)
+                {
+                    continue;
+                }
+
+                const OutdoorWorldRuntime::ProjectileImpactState *pImpact =
+                    scenario.world.projectileImpactState(0);
+
+                if (pImpact == nullptr)
+                {
+                    failure = "party lightning impact state missing";
+                    return false;
+                }
+
+                if (pImpact->sourceSpellId != spellIdValue(SpellId::LightningBolt))
+                {
+                    failure = "party lightning impact did not preserve source spell id";
+                    return false;
+                }
+
+                if (pImpact->sourceObjectName.empty() || pImpact->sourceObjectSpriteName.empty())
+                {
+                    failure = "party lightning impact did not preserve source object identity";
+                    return false;
+                }
+
+                return true;
+            }
+
+            failure = sawProjectile
+                ? "party lightning projectile never spawned its FX impact"
+                : "party lightning projectile never appeared";
             return false;
         }
     );

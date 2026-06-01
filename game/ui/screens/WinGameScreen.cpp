@@ -13,6 +13,7 @@ namespace
 {
 constexpr float ReferenceWidth = 640.0f;
 constexpr float ReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr const char *WinBackgroundTexture = "winBG";
 constexpr const char *EndgameFontName = "ENDGAME";
 constexpr uint32_t TextColor = 0xffffffffu;
@@ -110,8 +111,10 @@ void WinGameScreen::drawScreen(float)
     drawPixelsBgra("__wingame_black__", 1, 1, m_blackPixel, fullFrame);
 
     const float scale = std::min(
-        static_cast<float>(frameWidth()) / ReferenceWidth,
-        static_cast<float>(frameHeight()) / ReferenceHeight);
+        std::min(
+            static_cast<float>(frameWidth()) / ReferenceWidth,
+            static_cast<float>(frameHeight()) / ReferenceHeight),
+        MaxUiScale);
     const float viewportWidth = std::round(ReferenceWidth * scale);
     const float viewportHeight = std::round(ReferenceHeight * scale);
     const float viewportX = std::round((static_cast<float>(frameWidth()) - viewportWidth) * 0.5f);

@@ -9,6 +9,7 @@
 #include "game/party/SpellIds.h"
 
 #include <algorithm>
+#include <vector>
 
 using OpenYAMM::Game::GameplayProjectileService;
 using OpenYAMM::Game::SoundId;
@@ -36,6 +37,11 @@ GameplayProjectileService::ProjectileState makeActorProjectile(uint32_t sourceAc
     projectile.sourceId = sourceActorId;
     projectile.damage = 9;
     return projectile;
+}
+
+float storedReferenceRoundParticleSize(float particleSize = 1.0f)
+{
+    return particleSize * 24.0f / 5.04f;
 }
 }
 
@@ -151,7 +157,15 @@ TEST_CASE("sparks projectile keeps lighting but skips emitted particles")
     impactContext.objectName = "Sparks";
     impactContext.spriteName = "spell02";
     OpenYAMM::Game::FxRecipes::spawnImpactParticles(particleSystem, impactContext);
-    CHECK_EQ(particleSystem.particleCount(), 0u);
+    REQUIRE_EQ(particleSystem.particleCount(), 8u);
+
+    for (const OpenYAMM::Game::FxParticleState &particle : particleSystem.particles())
+    {
+        CHECK_EQ(particle.startColorAbgr, 0xff14c8c8u);
+        CHECK_EQ(particle.size, doctest::Approx(24.0f));
+        CHECK_EQ(particle.endSize, doctest::Approx(24.0f));
+        CHECK(particle.tag == OpenYAMM::Game::FxParticleTag::Impact);
+    }
 }
 
 TEST_CASE("energy blaster projectile has no trail particles but keeps dedicated impact fx")
@@ -172,6 +186,332 @@ TEST_CASE("energy blaster projectile has no trail particles but keeps dedicated 
     CHECK_EQ(particleSystem.particleCount(), 0u);
     CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeGlowRadius(recipe), 0.0f);
     CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe));
+}
+
+TEST_CASE("monster elemental bolts use projectile colors and hanging trail recipes")
+{
+    struct Fixture
+    {
+        const char *pObjectName = "";
+        const char *pSpriteName = "";
+        ProjectileRecipe expectedRecipe = ProjectileRecipe::None;
+        uint32_t expectedColorAbgr = 0xffffffffu;
+    };
+
+    const Fixture fixtures[] = {
+        {"air", "spell101", ProjectileRecipe::MonsterAirBolt, 0xffffaa0au},
+        {"earth", "spell102", ProjectileRecipe::MonsterEarthBolt, 0xff0e315cu},
+        {"fire", "spell103", ProjectileRecipe::MonsterFireBolt, 0xff1e3cffu},
+        {"water", "spell104", ProjectileRecipe::MonsterWaterBolt, 0xffd06200u},
+        {"body", "", ProjectileRecipe::MonsterBodyBolt, 0xff50b40au},
+        {"mind", "", ProjectileRecipe::MonsterMindBolt, 0xff05c8c8u},
+        {"spirit", "", ProjectileRecipe::MonsterSpiritBolt, 0xffffaa0au},
+        {"light", "spell106", ProjectileRecipe::MonsterLightBolt, 0xffffffffu},
+        {"dark", "spell107", ProjectileRecipe::MonsterDarkBolt, 0xff7e7e7eu},
+    };
+
+    for (const Fixture &fixture : fixtures)
+    {
+        const ProjectileRecipe recipe = OpenYAMM::Game::FxRecipes::classifyProjectileRecipe(
+            0,
+            fixture.pObjectName,
+            fixture.pSpriteName,
+            0);
+        const OpenYAMM::Game::FxRecipes::ProjectileFxRecipe &fxRecipe =
+            OpenYAMM::Game::FxRecipes::projectileFxRecipe(recipe);
+
+        CHECK(recipe == fixture.expectedRecipe);
+        CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesHangingProjectileTrail(recipe));
+        CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeColorAbgr(recipe), fixture.expectedColorAbgr);
+        CHECK(fxRecipe.trailPrimitive == OpenYAMM::Game::FxRecipes::ProjectileFxPrimitive::HangingTrail);
+        CHECK(fxRecipe.impactPrimitive == OpenYAMM::Game::FxRecipes::ProjectileFxPrimitive::SingleCollisionBurst);
+    }
+}
+
+TEST_CASE("Hanging trail emits first and segment particles from previous and current positions")
+{
+    OpenYAMM::Game::ParticleSystem particleSystem;
+    OpenYAMM::Game::FxRecipes::ProjectileSegmentSpawnContext context = {};
+    context.projectileId = 77;
+    context.currentX = 100.0f;
+    context.currentY = 200.0f;
+    context.currentZ = 300.0f;
+
+    OpenYAMM::Game::FxRecipes::spawnHangingProjectileTrailParticles(
+        particleSystem,
+        context,
+        ProjectileRecipe::MonsterFireBolt);
+
+    REQUIRE_EQ(particleSystem.particleCount(), 2u);
+
+    for (const OpenYAMM::Game::FxParticleState &particle : particleSystem.particles())
+    {
+        CHECK_EQ(particle.startColorAbgr, 0xff1e3cffu);
+        CHECK_EQ(particle.endColorAbgr, 0x001e3cffu);
+        CHECK_EQ(particle.size, doctest::Approx(storedReferenceRoundParticleSize()));
+        CHECK_EQ(particle.endSize, doctest::Approx(storedReferenceRoundParticleSize()));
+        CHECK_GE(particle.lifetimeSeconds, 1.0f);
+        CHECK_LE(particle.lifetimeSeconds, 2.0f);
+        CHECK(particle.motion == OpenYAMM::Game::FxParticleMotion::Ascend);
+        CHECK(particle.tag == OpenYAMM::Game::FxParticleTag::Trail);
+    }
+
+    context.hasPreviousPosition = true;
+    context.previousX = 100.0f;
+    context.previousY = 200.0f;
+    context.previousZ = 300.0f;
+    context.currentX = 132.0f;
+    context.currentY = 220.0f;
+    context.currentZ = 308.0f;
+
+    OpenYAMM::Game::FxRecipes::spawnHangingProjectileTrailParticles(
+        particleSystem,
+        context,
+        ProjectileRecipe::MonsterFireBolt);
+
+    REQUIRE_EQ(particleSystem.particleCount(), 6u);
+    const OpenYAMM::Game::FxParticleState &midpointParticle = particleSystem.particles()[2];
+    const OpenYAMM::Game::FxParticleState &currentParticle = particleSystem.particles()[4];
+
+    CHECK_EQ(midpointParticle.x, doctest::Approx(120.0f));
+    CHECK_EQ(midpointParticle.y, doctest::Approx(210.0f));
+    CHECK_EQ(midpointParticle.z, doctest::Approx(304.0f));
+    CHECK_EQ(currentParticle.x, doctest::Approx(136.0f));
+    CHECK_EQ(currentParticle.y, doctest::Approx(220.0f));
+    CHECK_EQ(currentParticle.z, doctest::Approx(308.0f));
+
+    for (size_t particleIndex = 2; particleIndex < particleSystem.particles().size(); ++particleIndex)
+    {
+        const OpenYAMM::Game::FxParticleState &particle = particleSystem.particles()[particleIndex];
+        CHECK_EQ(particle.size, doctest::Approx(storedReferenceRoundParticleSize()));
+        CHECK_EQ(particle.endSize, doctest::Approx(storedReferenceRoundParticleSize()));
+        CHECK_GE(particle.lifetimeSeconds, 0.75f);
+        CHECK_LE(particle.lifetimeSeconds, 1.25f);
+    }
+}
+
+TEST_CASE("Stun particle sizes use reference particle size units")
+{
+    OpenYAMM::Game::ParticleSystem particleSystem;
+    OpenYAMM::Game::FxRecipes::ProjectileSegmentSpawnContext context = {};
+    context.projectileId = 88;
+    context.currentX = 12.0f;
+    context.currentY = 24.0f;
+    context.currentZ = 36.0f;
+
+    OpenYAMM::Game::FxRecipes::spawnStunTrailParticles(
+        particleSystem,
+        context,
+        ProjectileRecipe::Stun);
+
+    REQUIRE_EQ(particleSystem.particleCount(), 1u);
+    CHECK_EQ(particleSystem.particles()[0].size, doctest::Approx(storedReferenceRoundParticleSize(1.0f)));
+
+    context.hasPreviousPosition = true;
+    context.previousX = context.currentX;
+    context.previousY = context.currentY;
+    context.previousZ = context.currentZ;
+    context.currentX = 44.0f;
+
+    OpenYAMM::Game::FxRecipes::spawnStunTrailParticles(
+        particleSystem,
+        context,
+        ProjectileRecipe::Stun);
+
+    REQUIRE_EQ(particleSystem.particleCount(), 3u);
+    CHECK_EQ(particleSystem.particles()[1].size, doctest::Approx(storedReferenceRoundParticleSize(3.0f)));
+    CHECK_EQ(particleSystem.particles()[2].size, doctest::Approx(storedReferenceRoundParticleSize(2.0f)));
+}
+
+TEST_CASE("Projectile metadata marks particle-only spell projectiles")
+{
+    const ProjectileRecipe particleOnlyRecipes[] = {
+        ProjectileRecipe::FireBolt,
+        ProjectileRecipe::Fireball,
+        ProjectileRecipe::PoisonSpray,
+        ProjectileRecipe::AcidBurst,
+        ProjectileRecipe::LightBolt,
+        ProjectileRecipe::LightningBolt,
+        ProjectileRecipe::Sunray,
+    };
+
+    for (const ProjectileRecipe recipe : particleOnlyRecipes)
+    {
+        const OpenYAMM::Game::FxRecipes::ProjectileFxRecipe &fxRecipe =
+            OpenYAMM::Game::FxRecipes::projectileFxRecipe(recipe);
+
+        CHECK_FALSE(fxRecipe.renderProjectileBillboard);
+    }
+}
+
+TEST_CASE("Segment projectile metadata covers lightning and sunray")
+{
+    struct Fixture
+    {
+        int spellId = 0;
+        const char *pObjectName = "";
+        const char *pSpriteName = "";
+        ProjectileRecipe expectedRecipe = ProjectileRecipe::None;
+        uint32_t expectedColorAbgr = 0xffffffffu;
+        float expectedLightRadius = 0.0f;
+    };
+
+    const Fixture fixtures[] = {
+        {
+            static_cast<int>(SpellId::LightningBolt),
+            "Lightning Bolt",
+            "spell18",
+            ProjectileRecipe::LightningBolt,
+            0xff14c8c8u,
+            256.0f
+        },
+        {
+            static_cast<int>(SpellId::Sunray),
+            "Sunray",
+            "spell87",
+            ProjectileRecipe::Sunray,
+            0xffffffffu,
+            128.0f
+        },
+    };
+
+    for (const Fixture &fixture : fixtures)
+    {
+        const ProjectileRecipe recipe = OpenYAMM::Game::FxRecipes::classifyProjectileRecipe(
+            fixture.spellId,
+            fixture.pObjectName,
+            fixture.pSpriteName,
+            0);
+        const OpenYAMM::Game::FxRecipes::ProjectileFxRecipe &fxRecipe =
+            OpenYAMM::Game::FxRecipes::projectileFxRecipe(recipe);
+
+        CHECK(recipe == fixture.expectedRecipe);
+        CHECK(fxRecipe.trailPrimitive == OpenYAMM::Game::FxRecipes::ProjectileFxPrimitive::SegmentProjectile);
+        CHECK_FALSE(fxRecipe.renderProjectileBillboard);
+        CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeColorAbgr(recipe), fixture.expectedColorAbgr);
+        CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeGlowRadius(recipe), doctest::Approx(
+            fixture.expectedLightRadius));
+    }
+}
+
+TEST_CASE("Normal-sprite projectile families do not get particle-only recipes")
+{
+    struct Fixture
+    {
+        int spellId = 0;
+        const char *pObjectName = "";
+        const char *pSpriteName = "";
+    };
+
+    const Fixture fixtures[] = {
+        {0, "FireArrow", "FrArw"},
+        {static_cast<int>(SpellId::DeadlySwarm), "Deadly Swarm", "spell37"},
+        {static_cast<int>(SpellId::PrismaticLight), "Prismatic Light", "spell84"},
+    };
+
+    for (const Fixture &fixture : fixtures)
+    {
+        const ProjectileRecipe recipe = OpenYAMM::Game::FxRecipes::classifyProjectileRecipe(
+            fixture.spellId,
+            fixture.pObjectName,
+            fixture.pSpriteName,
+            0);
+        const OpenYAMM::Game::FxRecipes::ProjectileFxRecipe &fxRecipe =
+            OpenYAMM::Game::FxRecipes::projectileFxRecipe(recipe);
+
+        CHECK(recipe == ProjectileRecipe::None);
+        CHECK(fxRecipe.renderProjectileBillboard);
+        CHECK_FALSE(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe));
+    }
+}
+
+TEST_CASE("FX-only projectile presentation still spawns dedicated impact state")
+{
+    GameplayProjectileService service;
+    GameplayProjectileService::ProjectileState projectile = makePartyProjectile();
+    projectile.visualMode = OpenYAMM::Game::GameplayProjectileVisualMode::FxOnly;
+    projectile.spellId = static_cast<int>(SpellId::LightningBolt);
+    projectile.objectName = "Lightning Bolt";
+    projectile.objectSpriteName = "spell18";
+    projectile.sectorId = 4;
+
+    service.projectiles().push_back(projectile);
+
+    std::vector<OpenYAMM::Game::GameplayProjectilePresentationState> projectiles;
+    std::vector<OpenYAMM::Game::GameplayProjectileImpactPresentationState> impacts;
+    service.collectProjectilePresentationState(projectiles, impacts);
+
+    REQUIRE_EQ(projectiles.size(), 1u);
+    CHECK(projectiles.front().visualMode == OpenYAMM::Game::GameplayProjectileVisualMode::FxOnly);
+    CHECK_EQ(projectiles.front().objectName, "Lightning Bolt");
+
+    GameplayProjectileService::ProjectileImpactVisualDefinition definition = {};
+    definition.objectName = "Lightning Bolt Impact";
+    definition.objectSpriteName = "spell18c";
+    definition.lifetimeTicks = 16;
+    definition.hasVisual = false;
+
+    const GameplayProjectileService::ProjectileImpactSpawnResult impact =
+        service.spawnProjectileImpactVisual(projectile, definition, 10.0f, 20.0f, 30.0f, false);
+
+    REQUIRE(impact.spawned);
+    REQUIRE(impact.pImpact != nullptr);
+    CHECK_EQ(impact.pImpact->sourceSpellId, static_cast<int>(SpellId::LightningBolt));
+    CHECK_EQ(impact.pImpact->sourceObjectName, "Lightning Bolt");
+    CHECK_EQ(impact.pImpact->sourceObjectSpriteName, "spell18");
+    CHECK_EQ(impact.pImpact->sectorId, 4);
+}
+
+TEST_CASE("Special impact primitives emit expected particle counts")
+{
+    struct Fixture
+    {
+        ProjectileRecipe recipe = ProjectileRecipe::None;
+        const char *pObjectName = "";
+        const char *pSpriteName = "";
+        size_t expectedParticleCount = 0;
+    };
+
+    const Fixture fixtures[] = {
+        {ProjectileRecipe::Fireball, "Fireball", "fire04", 11u},
+        {ProjectileRecipe::FireSpike, "Fire Spike", "spell07", 8u},
+        {ProjectileRecipe::MeteorShower, "Meteor Shower", "spell09", 24u},
+        {ProjectileRecipe::Inferno, "Inferno", "spell10", 8u},
+        {ProjectileRecipe::Incinerate, "Incinerate", "spell11", 20u},
+        {ProjectileRecipe::Implosion, "Implosion", "spell57c", 1u},
+        {ProjectileRecipe::Blades, "Blades", "spell39c", 10u},
+        {ProjectileRecipe::Harm, "Harm", "spell70", 10u},
+        {ProjectileRecipe::FlyingFist, "Flying Fist", "spell76", 10u},
+        {ProjectileRecipe::Sharpmetal, "Shrap Metal", "spell93", 10u},
+    };
+
+    for (const Fixture &fixture : fixtures)
+    {
+        OpenYAMM::Game::ParticleSystem particleSystem;
+        OpenYAMM::Game::FxRecipes::ImpactSpawnContext context = {};
+        context.recipe = fixture.recipe;
+        context.objectName = fixture.pObjectName;
+        context.spriteName = fixture.pSpriteName;
+
+        OpenYAMM::Game::FxRecipes::spawnImpactParticles(particleSystem, context);
+
+        CHECK_EQ(particleSystem.particleCount(), fixture.expectedParticleCount);
+    }
+}
+
+TEST_CASE("Harm recipe separates travel light color from impact blood color")
+{
+    const ProjectileRecipe recipe = OpenYAMM::Game::FxRecipes::classifyProjectileRecipe(
+        static_cast<int>(SpellId::Harm),
+        "Harm",
+        "spell70",
+        0);
+
+    CHECK(recipe == ProjectileRecipe::Harm);
+    CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeColorAbgr(recipe), 0xff0f6464u);
+    CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeLightColorAbgr(recipe), 0xff0f6464u);
+    CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeImpactColorAbgr(recipe), 0xff0000f0u);
+    CHECK_EQ(OpenYAMM::Game::FxRecipes::projectileRecipeGlowRadius(recipe), doctest::Approx(128.0f));
 }
 
 TEST_CASE("fireball and dragon breath impacts add full size red area pulse")

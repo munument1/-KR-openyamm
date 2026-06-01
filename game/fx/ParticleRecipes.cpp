@@ -28,6 +28,27 @@ constexpr float ImpactCloudSizeScale = 1.22f;
 constexpr float LightningTrailParticleSizeScale = 3.0f;
 constexpr float LightningTrailParticleLifetimeScale = 2.0f;
 constexpr float TwoPi = 6.28318530717958647692f;
+constexpr float HangingProjectileTrailLateralOffset = 4.0f;
+constexpr float HangingProjectileTrailInitialLifetimeMinSeconds = 1.0f;
+constexpr float HangingProjectileTrailInitialLifetimeMaxSeconds = 2.0f;
+constexpr float HangingProjectileTrailLifetimeMinSeconds = 0.75f;
+constexpr float HangingProjectileTrailLifetimeMaxSeconds = 1.25f;
+constexpr float ReferenceParticleSizeUnitWorld = 24.0f;
+constexpr float RoundAdditiveParticleRendererScale = 5.04f;
+
+constexpr uint32_t ProjectileFxOrangeyRed = 0xff1e3cffu;
+constexpr uint32_t ProjectileFxMustardYellow = 0xff14c8c8u;
+constexpr uint32_t ProjectileFxMediumGrey = 0xff7e7e7eu;
+constexpr uint32_t ProjectileFxCarolinaBlue = 0xfff1b99eu;
+constexpr uint32_t ProjectileFxGreenTeal = 0xff50b40au;
+constexpr uint32_t ProjectileFxDirtyYellow = 0xff05c8c8u;
+constexpr uint32_t ProjectileFxScienceBlue = 0xffd06200u;
+constexpr uint32_t ProjectileFxCarnabyTan = 0xff0e315cu;
+constexpr uint32_t ProjectileFxAzure = 0xffffaa0au;
+constexpr uint32_t ProjectileFxGreenishBrown = 0xff0f6464u;
+constexpr uint32_t ProjectileFxBloodRed = 0xff0000f0u;
+constexpr uint32_t ProjectileFxRed = 0xff0000ffu;
+constexpr uint32_t ProjectileFxWhite = 0xffffffffu;
 
 struct LayerRecipe
 {
@@ -100,6 +121,19 @@ float projectileTrailParticleSizeMultiplier(ProjectileRecipe recipe)
     return recipe == ProjectileRecipe::Fireball || recipe == ProjectileRecipe::DragonBreath ? 2.0f : 1.0f;
 }
 
+bool isMonsterBoltRecipe(ProjectileRecipe recipe)
+{
+    return recipe == ProjectileRecipe::MonsterAirBolt
+        || recipe == ProjectileRecipe::MonsterEarthBolt
+        || recipe == ProjectileRecipe::MonsterFireBolt
+        || recipe == ProjectileRecipe::MonsterWaterBolt
+        || recipe == ProjectileRecipe::MonsterBodyBolt
+        || recipe == ProjectileRecipe::MonsterMindBolt
+        || recipe == ProjectileRecipe::MonsterSpiritBolt
+        || recipe == ProjectileRecipe::MonsterLightBolt
+        || recipe == ProjectileRecipe::MonsterDarkBolt;
+}
+
 void scaleLayerParticleSize(LayerRecipe &layer, float multiplier)
 {
     layer.startSize *= multiplier;
@@ -117,6 +151,95 @@ uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
 bool containsToken(const std::string &value, const char *pToken)
 {
     return toLowerCopy(value).find(pToken) != std::string::npos;
+}
+
+bool equalsToken(const std::string &value, const char *pToken)
+{
+    return toLowerCopy(value) == pToken;
+}
+
+uint32_t transparentColor(uint32_t colorAbgr)
+{
+    return colorAbgr & 0x00ffffffu;
+}
+
+ProjectileFxRecipe makeProjectileFxRecipe(
+    ProjectileFxPrimitive trailPrimitive,
+    ProjectileFxPrimitive impactPrimitive,
+    ProjectileFxMaterial trailMaterial,
+    ProjectileFxMaterial impactMaterial,
+    uint32_t colorAbgr,
+    uint32_t impactColorAbgr,
+    uint32_t mobileLightColorAbgr,
+    float mobileLightRadius,
+    bool renderProjectileBillboard);
+
+ProjectileFxRecipe makeProjectileFxRecipe(
+    ProjectileFxPrimitive trailPrimitive,
+    ProjectileFxPrimitive impactPrimitive,
+    ProjectileFxMaterial trailMaterial,
+    ProjectileFxMaterial impactMaterial,
+    uint32_t colorAbgr,
+    float mobileLightRadius,
+    bool renderProjectileBillboard)
+{
+    return makeProjectileFxRecipe(
+        trailPrimitive,
+        impactPrimitive,
+        trailMaterial,
+        impactMaterial,
+        colorAbgr,
+        colorAbgr,
+        colorAbgr,
+        mobileLightRadius,
+        renderProjectileBillboard);
+}
+
+ProjectileFxRecipe makeProjectileFxRecipe(
+    ProjectileFxPrimitive trailPrimitive,
+    ProjectileFxPrimitive impactPrimitive,
+    ProjectileFxMaterial trailMaterial,
+    ProjectileFxMaterial impactMaterial,
+    uint32_t colorAbgr,
+    uint32_t impactColorAbgr,
+    uint32_t mobileLightColorAbgr,
+    float mobileLightRadius,
+    bool renderProjectileBillboard)
+{
+    ProjectileFxRecipe recipe = {};
+    recipe.trailPrimitive = trailPrimitive;
+    recipe.impactPrimitive = impactPrimitive;
+    recipe.trailMaterial = trailMaterial;
+    recipe.impactMaterial = impactMaterial;
+    recipe.colorAbgr = colorAbgr;
+    recipe.impactColorAbgr = impactColorAbgr;
+    recipe.mobileLightColorAbgr = mobileLightColorAbgr;
+    recipe.mobileLightRadius = mobileLightRadius;
+    recipe.renderProjectileBillboard = renderProjectileBillboard;
+    return recipe;
+}
+
+FxParticleMaterial materialForProjectileFxMaterial(ProjectileFxMaterial material)
+{
+    switch (material)
+    {
+    case ProjectileFxMaterial::Effpar02:
+        return FxParticleMaterial::Spark;
+    case ProjectileFxMaterial::Effpar03:
+        return FxParticleMaterial::HardBlob;
+    case ProjectileFxMaterial::Effpar01:
+    case ProjectileFxMaterial::None:
+    default:
+        return FxParticleMaterial::SoftBlob;
+    }
+}
+
+float storedReferenceParticleSize(float particleSizeUnit, FxParticleMaterial material)
+{
+    const bool rendererExpandsRoundAdditive =
+        material == FxParticleMaterial::SoftBlob || material == FxParticleMaterial::HardBlob;
+    const float rendererScale = rendererExpandsRoundAdditive ? RoundAdditiveParticleRendererScale : 1.0f;
+    return particleSizeUnit * ReferenceParticleSizeUnitWorld / rendererScale;
 }
 
 float hashToUnit(uint32_t value)
@@ -188,6 +311,11 @@ void emitLayerParticles(
 float lerpFloat(float minValue, float maxValue, float t)
 {
     return minValue + (maxValue - minValue) * std::clamp(t, 0.0f, 1.0f);
+}
+
+float lifetimeFromSeed(uint32_t seed, float minSeconds, float maxSeconds)
+{
+    return lerpFloat(minSeconds, maxSeconds, hashToUnit(seed));
 }
 
 void emitRadialLayerParticles(
@@ -461,12 +589,66 @@ ProjectileRecipe classifyProjectileRecipe(
     const std::string &spriteName,
     uint16_t objectFlags)
 {
+    if (spellId <= 0)
+    {
+        if (equalsToken(objectName, "air") || equalsToken(spriteName, "spell101"))
+        {
+            return ProjectileRecipe::MonsterAirBolt;
+        }
+
+        if (equalsToken(objectName, "earth") || equalsToken(spriteName, "spell102"))
+        {
+            return ProjectileRecipe::MonsterEarthBolt;
+        }
+
+        if (equalsToken(objectName, "fire") || equalsToken(spriteName, "spell103"))
+        {
+            return ProjectileRecipe::MonsterFireBolt;
+        }
+
+        if (equalsToken(objectName, "water") || equalsToken(spriteName, "spell104"))
+        {
+            return ProjectileRecipe::MonsterWaterBolt;
+        }
+
+        if (equalsToken(objectName, "body"))
+        {
+            return ProjectileRecipe::MonsterBodyBolt;
+        }
+
+        if (equalsToken(objectName, "mind"))
+        {
+            return ProjectileRecipe::MonsterMindBolt;
+        }
+
+        if (equalsToken(objectName, "spirit"))
+        {
+            return ProjectileRecipe::MonsterSpiritBolt;
+        }
+
+        if (equalsToken(objectName, "light") || equalsToken(spriteName, "spell106"))
+        {
+            return ProjectileRecipe::MonsterLightBolt;
+        }
+
+        if (equalsToken(objectName, "dark") || equalsToken(spriteName, "spell107"))
+        {
+            return ProjectileRecipe::MonsterDarkBolt;
+        }
+    }
+
     if (spellId == 2
         || containsToken(objectName, "fire bolt")
-        || containsToken(objectName, "fire arrow")
         || containsToken(spriteName, "fire02"))
     {
         return ProjectileRecipe::FireBolt;
+    }
+
+    if (spellId == 7
+        || containsToken(objectName, "fire spike")
+        || containsToken(spriteName, "spell07"))
+    {
+        return ProjectileRecipe::FireSpike;
     }
 
     if (spellId == 6
@@ -476,11 +658,32 @@ ProjectileRecipe classifyProjectileRecipe(
         return ProjectileRecipe::Fireball;
     }
 
+    if (spellId == 8
+        || containsToken(objectName, "immolation")
+        || containsToken(spriteName, "spell08"))
+    {
+        return ProjectileRecipe::Immolation;
+    }
+
     if (spellId == 9
         || containsToken(objectName, "meteor shower")
         || containsToken(spriteName, "spell09"))
     {
         return ProjectileRecipe::MeteorShower;
+    }
+
+    if (spellId == 10
+        || containsToken(objectName, "inferno")
+        || containsToken(spriteName, "spell10"))
+    {
+        return ProjectileRecipe::Inferno;
+    }
+
+    if (spellId == 11
+        || containsToken(objectName, "incinerate")
+        || containsToken(spriteName, "spell11"))
+    {
+        return ProjectileRecipe::Incinerate;
     }
 
     if (spellId == 22
@@ -523,6 +726,11 @@ ProjectileRecipe classifyProjectileRecipe(
         || containsToken(objectName, "ice blast")
         || containsToken(spriteName, "spell26"))
     {
+        if (spellId == 32 && containsToken(objectName, "shard"))
+        {
+            return ProjectileRecipe::IceBlastFallout;
+        }
+
         return ProjectileRecipe::IceBolt;
     }
 
@@ -532,16 +740,17 @@ ProjectileRecipe classifyProjectileRecipe(
         return ProjectileRecipe::PoisonSpray;
     }
 
-    if (spellId == 11 || containsToken(objectName, "incinerate"))
-    {
-        return ProjectileRecipe::FireBolt;
-    }
-
     if (spellId == 29
-        || spellId == 37
         || containsToken(objectName, "acid burst"))
     {
         return ProjectileRecipe::AcidBurst;
+    }
+
+    if (spellId == 87
+        || containsToken(objectName, "sunray")
+        || containsToken(spriteName, "spell87"))
+    {
+        return ProjectileRecipe::Sunray;
     }
 
     if (spellId == 59
@@ -552,19 +761,58 @@ ProjectileRecipe classifyProjectileRecipe(
         return ProjectileRecipe::DarkFireBolt;
     }
 
-    if (spellId == 78
-        || spellId == 84
-        || spellId == 87
-        || spellId == 70
-        || containsToken(objectName, "light bolt")
+    if (spellId == 34
+        || containsToken(objectName, "stun")
+        || containsToken(spriteName, "spell34"))
+    {
+        return ProjectileRecipe::Stun;
+    }
+
+    if (spellId == 39
+        || containsToken(objectName, "blades")
+        || containsToken(spriteName, "spell39"))
+    {
+        return ProjectileRecipe::Blades;
+    }
+
+    if (spellId == 41
+        || containsToken(objectName, "rock blast"))
+    {
+        return ProjectileRecipe::RockBlast;
+    }
+
+    if (spellId == 43
+        || containsToken(objectName, "death blossom"))
+    {
+        return ProjectileRecipe::DeathBlossom;
+    }
+
+    if (spellId == 70
         || containsToken(objectName, "harm")
-        || containsToken(objectName, "prismatic")
-        || containsToken(objectName, "sunray")
-        || containsToken(spriteName, "sp78b")
-        || containsToken(spriteName, "spell84")
-        || containsToken(spriteName, "spell87"))
+        || containsToken(spriteName, "spell70"))
+    {
+        return ProjectileRecipe::Harm;
+    }
+
+    if (spellId == 76
+        || containsToken(objectName, "flying fist")
+        || containsToken(spriteName, "spell76"))
+    {
+        return ProjectileRecipe::FlyingFist;
+    }
+
+    if (spellId == 78
+        || containsToken(objectName, "light bolt")
+        || containsToken(spriteName, "sp78b"))
     {
         return ProjectileRecipe::LightBolt;
+    }
+
+    if (spellId == 79
+        || containsToken(objectName, "destroy undead")
+        || containsToken(spriteName, "spell79"))
+    {
+        return ProjectileRecipe::DestroyUndead;
     }
 
     if (spellId == 97
@@ -587,6 +835,15 @@ ProjectileRecipe classifyProjectileRecipe(
         return ProjectileRecipe::ToxicCloud;
     }
 
+    if (spellId == 93
+        || containsToken(objectName, "shrap metal")
+        || containsToken(objectName, "shrapmetal")
+        || containsToken(objectName, "sharpmetal")
+        || containsToken(spriteName, "spell93"))
+    {
+        return ProjectileRecipe::Sharpmetal;
+    }
+
     if ((objectFlags & ObjectDescTrailFire) != 0)
     {
         return ProjectileRecipe::GenericFireTrail;
@@ -605,12 +862,377 @@ ProjectileRecipe classifyProjectileRecipe(
     return ProjectileRecipe::None;
 }
 
-uint32_t projectileRecipeColorAbgr(ProjectileRecipe recipe)
+const ProjectileFxRecipe &projectileFxRecipe(ProjectileRecipe recipe)
 {
+    static const ProjectileFxRecipe noneRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::None,
+        ProjectileFxPrimitive::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxWhite,
+        0.0f,
+        true);
+    static const ProjectileFxRecipe fireTrailRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        256.0f,
+        false);
+    static const ProjectileFxRecipe fireSpikeRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe fireballRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::FireballSphereBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        256.0f,
+        false);
+    static const ProjectileFxRecipe immolationRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::None,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        0.0f,
+        false);
+    static const ProjectileFxRecipe meteorRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe infernoRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::None,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        0.0f,
+        false);
+    static const ProjectileFxRecipe incinerateRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxOrangeyRed,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe monsterAirRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxAzure,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterEarthRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxCarnabyTan,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterWaterRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxScienceBlue,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterBodyRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxGreenTeal,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterMindRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxDirtyYellow,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterLightRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxWhite,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe monsterDarkRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMediumGrey,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe poisonRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxGreenTeal,
+        256.0f,
+        false);
+    static const ProjectileFxRecipe iceBoltRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxCarolinaBlue,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe iceBlastFalloutRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::None,
+        ProjectileFxCarolinaBlue,
+        0.0f,
+        false);
+    static const ProjectileFxRecipe acidRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::None,
+        ProjectileFxGreenTeal,
+        256.0f,
+        false);
+    static const ProjectileFxRecipe lightBoltRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::Effpar03,
+        ProjectileFxMaterial::Effpar02,
+        ProjectileFxWhite,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe lightningRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::SegmentProjectile,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar02,
+        ProjectileFxMustardYellow,
+        256.0f,
+        false);
+    static const ProjectileFxRecipe sunrayRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::SegmentProjectile,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar03,
+        ProjectileFxWhite,
+        128.0f,
+        false);
+    static const ProjectileFxRecipe sparksRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar02,
+        ProjectileFxMustardYellow,
+        0.0f,
+        true);
+    static const ProjectileFxRecipe starburstRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMustardYellow,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe implosionRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::None,
+        ProjectileFxPrimitive::ImplosionSphere,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMediumGrey,
+        0.0f,
+        false);
+    static const ProjectileFxRecipe stunRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::Stun,
+        ProjectileFxPrimitive::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxWhite,
+        0.0f,
+        false);
+    static const ProjectileFxRecipe rockBlastRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxCarnabyTan,
+        0.0f,
+        true);
+    static const ProjectileFxRecipe bladesRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::MindBlastAfterEffect,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMediumGrey,
+        0.0f,
+        true);
+    static const ProjectileFxRecipe deathBlossomRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::HangingTrail,
+        ProjectileFxPrimitive::RadialCollisionBurst,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMediumGrey,
+        0.0f,
+        true);
+    static const ProjectileFxRecipe harmRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxGreenishBrown,
+        ProjectileFxBloodRed,
+        ProjectileFxGreenishBrown,
+        128.0f,
+        true);
+    static const ProjectileFxRecipe flyingFistRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxBloodRed,
+        256.0f,
+        true);
+    static const ProjectileFxRecipe destroyUndeadRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::None,
+        ProjectileFxPrimitive::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxWhite,
+        64.0f,
+        false);
+    static const ProjectileFxRecipe sharpmetalRecipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::Effpar01,
+        ProjectileFxMediumGrey,
+        0.0f,
+        true);
+
     switch (recipe)
     {
     case ProjectileRecipe::FireBolt:
-        return makeAbgr(255, 58, 24, 232);
+    case ProjectileRecipe::MonsterFireBolt:
+        return fireTrailRecipe;
+    case ProjectileRecipe::FireSpike:
+        return fireSpikeRecipe;
+    case ProjectileRecipe::Fireball:
+        return fireballRecipe;
+    case ProjectileRecipe::Immolation:
+        return immolationRecipe;
+    case ProjectileRecipe::MeteorShower:
+        return meteorRecipe;
+    case ProjectileRecipe::Inferno:
+        return infernoRecipe;
+    case ProjectileRecipe::Incinerate:
+        return incinerateRecipe;
+    case ProjectileRecipe::MonsterAirBolt:
+    case ProjectileRecipe::MonsterSpiritBolt:
+        return monsterAirRecipe;
+    case ProjectileRecipe::MonsterEarthBolt:
+        return monsterEarthRecipe;
+    case ProjectileRecipe::MonsterWaterBolt:
+        return monsterWaterRecipe;
+    case ProjectileRecipe::MonsterBodyBolt:
+        return monsterBodyRecipe;
+    case ProjectileRecipe::MonsterMindBolt:
+        return monsterMindRecipe;
+    case ProjectileRecipe::MonsterLightBolt:
+        return monsterLightRecipe;
+    case ProjectileRecipe::MonsterDarkBolt:
+        return monsterDarkRecipe;
+    case ProjectileRecipe::PoisonSpray:
+        return poisonRecipe;
+    case ProjectileRecipe::AcidBurst:
+        return acidRecipe;
+    case ProjectileRecipe::IceBolt:
+        return iceBoltRecipe;
+    case ProjectileRecipe::IceBlastFallout:
+        return iceBlastFalloutRecipe;
+    case ProjectileRecipe::LightBolt:
+        return lightBoltRecipe;
+    case ProjectileRecipe::Sparks:
+        return sparksRecipe;
+    case ProjectileRecipe::LightningBolt:
+        return lightningRecipe;
+    case ProjectileRecipe::Sunray:
+        return sunrayRecipe;
+    case ProjectileRecipe::Starburst:
+        return starburstRecipe;
+    case ProjectileRecipe::Implosion:
+        return implosionRecipe;
+    case ProjectileRecipe::Stun:
+        return stunRecipe;
+    case ProjectileRecipe::RockBlast:
+        return rockBlastRecipe;
+    case ProjectileRecipe::Blades:
+        return bladesRecipe;
+    case ProjectileRecipe::DeathBlossom:
+        return deathBlossomRecipe;
+    case ProjectileRecipe::Harm:
+        return harmRecipe;
+    case ProjectileRecipe::FlyingFist:
+        return flyingFistRecipe;
+    case ProjectileRecipe::DestroyUndead:
+        return destroyUndeadRecipe;
+    case ProjectileRecipe::Sharpmetal:
+        return sharpmetalRecipe;
+    case ProjectileRecipe::None:
+    case ProjectileRecipe::Cannonball:
+    case ProjectileRecipe::Blaster:
+    case ProjectileRecipe::DragonBreath:
+    case ProjectileRecipe::DarkFireBolt:
+    case ProjectileRecipe::ToxicCloud:
+    case ProjectileRecipe::GenericParticleTrail:
+    case ProjectileRecipe::GenericFireTrail:
+    case ProjectileRecipe::GenericLineTrail:
+    default:
+        return noneRecipe;
+    }
+}
+
+bool projectileRecipeUsesHangingProjectileTrail(ProjectileRecipe recipe)
+{
+    return projectileFxRecipe(recipe).trailPrimitive == ProjectileFxPrimitive::HangingTrail;
+}
+
+uint32_t projectileRecipeColorAbgr(ProjectileRecipe recipe)
+{
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.trailPrimitive != ProjectileFxPrimitive::None
+        || fxRecipe.impactPrimitive != ProjectileFxPrimitive::None)
+    {
+        return fxRecipe.colorAbgr;
+    }
+
+    switch (recipe)
+    {
+    case ProjectileRecipe::FireBolt:
+    case ProjectileRecipe::MonsterFireBolt:
+        return ProjectileFxOrangeyRed;
     case ProjectileRecipe::Fireball:
     case ProjectileRecipe::MeteorShower:
     case ProjectileRecipe::Cannonball:
@@ -624,18 +1246,32 @@ uint32_t projectileRecipeColorAbgr(ProjectileRecipe recipe)
     case ProjectileRecipe::Sparks:
         return makeAbgr(255, 220, 90, 216);
     case ProjectileRecipe::Blaster:
-        return makeAbgr(255, 32, 24, 220);
+        return ProjectileFxRed;
     case ProjectileRecipe::LightningBolt:
-        return makeAbgr(255, 220, 90, 220);
+        return ProjectileFxMustardYellow;
     case ProjectileRecipe::IceBolt:
-        return makeAbgr(180, 220, 255, 210);
+        return ProjectileFxCarolinaBlue;
     case ProjectileRecipe::PoisonSpray:
     case ProjectileRecipe::AcidBurst:
     case ProjectileRecipe::ToxicCloud:
     case ProjectileRecipe::GenericParticleTrail:
-        return makeAbgr(96, 220, 128, 210);
+        return ProjectileFxGreenTeal;
+    case ProjectileRecipe::MonsterAirBolt:
+    case ProjectileRecipe::MonsterSpiritBolt:
+        return ProjectileFxAzure;
+    case ProjectileRecipe::MonsterEarthBolt:
+        return ProjectileFxCarnabyTan;
+    case ProjectileRecipe::MonsterWaterBolt:
+        return ProjectileFxScienceBlue;
+    case ProjectileRecipe::MonsterBodyBolt:
+        return ProjectileFxGreenTeal;
+    case ProjectileRecipe::MonsterMindBolt:
+        return ProjectileFxDirtyYellow;
     case ProjectileRecipe::LightBolt:
-        return makeAbgr(255, 255, 220, 220);
+    case ProjectileRecipe::MonsterLightBolt:
+        return ProjectileFxWhite;
+    case ProjectileRecipe::MonsterDarkBolt:
+        return ProjectileFxMediumGrey;
     case ProjectileRecipe::DarkFireBolt:
         return makeAbgr(180, 96, 255, 220);
     case ProjectileRecipe::GenericLineTrail:
@@ -646,8 +1282,39 @@ uint32_t projectileRecipeColorAbgr(ProjectileRecipe recipe)
     }
 }
 
+uint32_t projectileRecipeImpactColorAbgr(ProjectileRecipe recipe)
+{
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.impactPrimitive != ProjectileFxPrimitive::None)
+    {
+        return fxRecipe.impactColorAbgr;
+    }
+
+    return projectileRecipeColorAbgr(recipe);
+}
+
+uint32_t projectileRecipeLightColorAbgr(ProjectileRecipe recipe)
+{
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.mobileLightRadius > 0.0f)
+    {
+        return fxRecipe.mobileLightColorAbgr;
+    }
+
+    return projectileRecipeColorAbgr(recipe);
+}
+
 float projectileRecipeGlowRadius(ProjectileRecipe recipe)
 {
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.mobileLightRadius > 0.0f)
+    {
+        return fxRecipe.mobileLightRadius;
+    }
+
     switch (recipe)
     {
     case ProjectileRecipe::Fireball:
@@ -667,12 +1334,22 @@ float projectileRecipeGlowRadius(ProjectileRecipe recipe)
         return 0.0f;
     case ProjectileRecipe::LightBolt:
     case ProjectileRecipe::LightningBolt:
+    case ProjectileRecipe::Sunray:
         return 176.0f;
     case ProjectileRecipe::IceBolt:
     case ProjectileRecipe::DarkFireBolt:
     case ProjectileRecipe::ToxicCloud:
         return 152.0f;
     case ProjectileRecipe::FireBolt:
+    case ProjectileRecipe::MonsterAirBolt:
+    case ProjectileRecipe::MonsterEarthBolt:
+    case ProjectileRecipe::MonsterFireBolt:
+    case ProjectileRecipe::MonsterWaterBolt:
+    case ProjectileRecipe::MonsterBodyBolt:
+    case ProjectileRecipe::MonsterMindBolt:
+    case ProjectileRecipe::MonsterSpiritBolt:
+    case ProjectileRecipe::MonsterLightBolt:
+    case ProjectileRecipe::MonsterDarkBolt:
     case ProjectileRecipe::PoisonSpray:
     case ProjectileRecipe::AcidBurst:
     case ProjectileRecipe::GenericFireTrail:
@@ -708,10 +1385,20 @@ float projectileRecipeAnchorOffset(ProjectileRecipe recipe, uint16_t radius, uin
         return std::max(baselineOffset, 14.0f);
     case ProjectileRecipe::IceBolt:
     case ProjectileRecipe::LightBolt:
+    case ProjectileRecipe::Sunray:
     case ProjectileRecipe::Sparks:
     case ProjectileRecipe::LightningBolt:
     case ProjectileRecipe::DarkFireBolt:
     case ProjectileRecipe::FireBolt:
+    case ProjectileRecipe::MonsterAirBolt:
+    case ProjectileRecipe::MonsterEarthBolt:
+    case ProjectileRecipe::MonsterFireBolt:
+    case ProjectileRecipe::MonsterWaterBolt:
+    case ProjectileRecipe::MonsterBodyBolt:
+    case ProjectileRecipe::MonsterMindBolt:
+    case ProjectileRecipe::MonsterSpiritBolt:
+    case ProjectileRecipe::MonsterLightBolt:
+    case ProjectileRecipe::MonsterDarkBolt:
     case ProjectileRecipe::GenericFireTrail:
     case ProjectileRecipe::GenericParticleTrail:
     case ProjectileRecipe::GenericLineTrail:
@@ -742,10 +1429,20 @@ float projectileRecipeBackOffset(ProjectileRecipe recipe, uint16_t radius)
     case ProjectileRecipe::Fireball:
         return 6.0f;
     case ProjectileRecipe::FireBolt:
+    case ProjectileRecipe::MonsterAirBolt:
+    case ProjectileRecipe::MonsterEarthBolt:
+    case ProjectileRecipe::MonsterFireBolt:
+    case ProjectileRecipe::MonsterWaterBolt:
+    case ProjectileRecipe::MonsterBodyBolt:
+    case ProjectileRecipe::MonsterMindBolt:
+    case ProjectileRecipe::MonsterSpiritBolt:
+    case ProjectileRecipe::MonsterLightBolt:
+    case ProjectileRecipe::MonsterDarkBolt:
     case ProjectileRecipe::Sparks:
     case ProjectileRecipe::LightningBolt:
     case ProjectileRecipe::IceBolt:
     case ProjectileRecipe::LightBolt:
+    case ProjectileRecipe::Sunray:
     case ProjectileRecipe::DarkFireBolt:
     case ProjectileRecipe::GenericFireTrail:
     case ProjectileRecipe::GenericParticleTrail:
@@ -758,12 +1455,400 @@ float projectileRecipeBackOffset(ProjectileRecipe recipe, uint16_t radius)
 
 bool projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe recipe)
 {
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+    const ProjectileFxPrimitive impactPrimitive = fxRecipe.impactPrimitive;
+
+    if (impactPrimitive == ProjectileFxPrimitive::RenderSprite)
+    {
+        return false;
+    }
+
+    if (impactPrimitive != ProjectileFxPrimitive::None)
+    {
+        return true;
+    }
+
+    if (fxRecipe.trailPrimitive != ProjectileFxPrimitive::None
+        || fxRecipe.mobileLightRadius > 0.0f
+        || !fxRecipe.renderProjectileBillboard)
+    {
+        return false;
+    }
+
     return recipe != ProjectileRecipe::None;
 }
 
 bool projectileRecipeShowsImpactBillboard(ProjectileRecipe recipe)
 {
-    return recipe == ProjectileRecipe::Fireball || recipe == ProjectileRecipe::DragonBreath;
+    return projectileFxRecipe(recipe).impactPrimitive == ProjectileFxPrimitive::RenderSprite
+        || recipe == ProjectileRecipe::Fireball
+        || recipe == ProjectileRecipe::DragonBreath;
+}
+
+void emitHangingProjectileTrailParticle(
+    ParticleSystem &particleSystem,
+    float x,
+    float y,
+    float z,
+    float xOffset,
+    uint32_t colorAbgr,
+    FxParticleMaterial material,
+    float lifetimeSeconds,
+    uint32_t seed)
+{
+    const float swirl = hashToUnit(seed >> 11) * 2.0f - 1.0f;
+
+    FxParticleState particle = {};
+    particle.x = x + xOffset;
+    particle.y = y;
+    particle.z = z;
+    particle.velocityX = 0.0f;
+    particle.velocityY = 0.0f;
+    particle.velocityZ = 0.0f;
+    particle.size = storedReferenceParticleSize(1.0f, material);
+    particle.endSize = particle.size;
+    particle.drag = 0.0f;
+    particle.rotationRadians = swirl * 0.9f;
+    particle.angularVelocityRadians = swirl * 0.9f;
+    particle.stretch = 1.0f;
+    particle.ageSeconds = 0.0f;
+    particle.lifetimeSeconds = lifetimeSeconds;
+    particle.fadeOutStartSeconds = lifetimeSeconds * 0.70f;
+    particle.startColorAbgr = colorAbgr;
+    particle.endColorAbgr = transparentColor(colorAbgr);
+    particle.motion = FxParticleMotion::Ascend;
+    particle.blendMode = FxParticleBlendMode::Additive;
+    particle.alignment = FxParticleAlignment::CameraFacing;
+    particle.material = material;
+    particle.tag = FxParticleTag::Trail;
+    particleSystem.addParticle(particle);
+}
+
+void spawnHangingProjectileTrailParticles(
+    ParticleSystem &particleSystem,
+    const ProjectileSegmentSpawnContext &context,
+    ProjectileRecipe recipe)
+{
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.trailPrimitive != ProjectileFxPrimitive::HangingTrail)
+    {
+        return;
+    }
+
+    const FxParticleMaterial material = materialForProjectileFxMaterial(fxRecipe.trailMaterial);
+    const uint32_t baseSeed = context.projectileId * 2246822519u;
+
+    if (!context.hasPreviousPosition)
+    {
+        const float lifetimeSeconds = lifetimeFromSeed(
+            baseSeed,
+            HangingProjectileTrailInitialLifetimeMinSeconds,
+            HangingProjectileTrailInitialLifetimeMaxSeconds);
+        emitHangingProjectileTrailParticle(
+            particleSystem,
+            context.currentX,
+            context.currentY,
+            context.currentZ,
+            HangingProjectileTrailLateralOffset,
+            fxRecipe.colorAbgr,
+            material,
+            lifetimeSeconds,
+            baseSeed);
+        emitHangingProjectileTrailParticle(
+            particleSystem,
+            context.currentX,
+            context.currentY,
+            context.currentZ,
+            -HangingProjectileTrailLateralOffset,
+            fxRecipe.colorAbgr,
+            material,
+            lifetimeSeconds,
+            baseSeed ^ 0x9e3779b9u);
+        return;
+    }
+
+    const float midpointX = (context.currentX - context.previousX) * 0.5f + context.previousX;
+    const float midpointY = (context.currentY - context.previousY) * 0.5f + context.previousY;
+    const float midpointZ = (context.currentZ - context.previousZ) * 0.5f + context.previousZ;
+    const float lifetimeSeconds = lifetimeFromSeed(
+        baseSeed,
+        HangingProjectileTrailLifetimeMinSeconds,
+        HangingProjectileTrailLifetimeMaxSeconds);
+
+    emitHangingProjectileTrailParticle(
+        particleSystem,
+        midpointX,
+        midpointY,
+        midpointZ,
+        HangingProjectileTrailLateralOffset,
+        fxRecipe.colorAbgr,
+        material,
+        lifetimeSeconds,
+        baseSeed ^ 0x3c6ef372u);
+    emitHangingProjectileTrailParticle(
+        particleSystem,
+        midpointX,
+        midpointY,
+        midpointZ,
+        -HangingProjectileTrailLateralOffset,
+        fxRecipe.colorAbgr,
+        material,
+        lifetimeSeconds,
+        baseSeed ^ 0xbb67ae85u);
+    emitHangingProjectileTrailParticle(
+        particleSystem,
+        context.currentX,
+        context.currentY,
+        context.currentZ,
+        HangingProjectileTrailLateralOffset,
+        fxRecipe.colorAbgr,
+        material,
+        lifetimeSeconds,
+        baseSeed ^ 0xa54ff53au);
+    emitHangingProjectileTrailParticle(
+        particleSystem,
+        context.currentX,
+        context.currentY,
+        context.currentZ,
+        -HangingProjectileTrailLateralOffset,
+        fxRecipe.colorAbgr,
+        material,
+        lifetimeSeconds,
+        baseSeed ^ 0x510e527fu);
+}
+
+void emitStunTrailParticle(
+    ParticleSystem &particleSystem,
+    float x,
+    float y,
+    float z,
+    float size,
+    float lifetimeSeconds,
+    uint32_t seed)
+{
+    const float swirl = hashToUnit(seed >> 9) * 2.0f - 1.0f;
+
+    FxParticleState particle = {};
+    particle.x = x;
+    particle.y = y;
+    particle.z = z;
+    particle.size = storedReferenceParticleSize(size, FxParticleMaterial::HardBlob);
+    particle.endSize = particle.size;
+    particle.drag = 0.0f;
+    particle.rotationRadians = swirl * 0.7f;
+    particle.angularVelocityRadians = swirl * 1.0f;
+    particle.stretch = 1.0f;
+    particle.ageSeconds = 0.0f;
+    particle.lifetimeSeconds = lifetimeSeconds;
+    particle.fadeOutStartSeconds = lifetimeSeconds * 0.68f;
+    particle.startColorAbgr = ProjectileFxWhite;
+    particle.endColorAbgr = transparentColor(ProjectileFxWhite);
+    particle.motion = FxParticleMotion::StaticFade;
+    particle.blendMode = FxParticleBlendMode::Additive;
+    particle.alignment = FxParticleAlignment::CameraFacing;
+    particle.material = FxParticleMaterial::HardBlob;
+    particle.tag = FxParticleTag::Trail;
+    particleSystem.addParticle(particle);
+}
+
+void spawnStunTrailParticles(
+    ParticleSystem &particleSystem,
+    const ProjectileSegmentSpawnContext &context,
+    ProjectileRecipe recipe)
+{
+    if (projectileFxRecipe(recipe).trailPrimitive != ProjectileFxPrimitive::Stun)
+    {
+        return;
+    }
+
+    const uint32_t baseSeed = context.projectileId * 2246822519u;
+    const float firstLifetime = lifetimeFromSeed(baseSeed, 0.5f, 1.0f);
+
+    if (!context.hasPreviousPosition)
+    {
+        emitStunTrailParticle(
+            particleSystem,
+            context.currentX,
+            context.currentY,
+            context.currentZ,
+            1.0f,
+            firstLifetime,
+            baseSeed);
+        return;
+    }
+
+    const float midpointX = (context.currentX - context.previousX) * 0.5f + context.previousX;
+    const float midpointY = (context.currentY - context.previousY) * 0.5f + context.previousY;
+    const float midpointZ = (context.currentZ - context.previousZ) * 0.5f + context.previousZ;
+    emitStunTrailParticle(
+        particleSystem,
+        midpointX,
+        midpointY,
+        midpointZ,
+        3.0f,
+        firstLifetime,
+        baseSeed ^ 0x3c6ef372u);
+    emitStunTrailParticle(
+        particleSystem,
+        context.currentX,
+        context.currentY,
+        context.currentZ,
+        2.0f,
+        lifetimeFromSeed(baseSeed ^ 0xbb67ae85u, 0.5f, 1.0f),
+        baseSeed ^ 0xbb67ae85u);
+}
+
+void emitCollisionParticle(
+    ParticleSystem &particleSystem,
+    float x,
+    float y,
+    float z,
+    float velocityX,
+    float velocityY,
+    float velocityZ,
+    uint32_t colorAbgr,
+    FxParticleMaterial material,
+    uint32_t seed)
+{
+    const float swirl = hashToUnit(seed >> 9) * 2.0f - 1.0f;
+    const float lifetimeSeconds = lifetimeFromSeed(seed, 1.0f, 2.0f);
+
+    FxParticleState particle = {};
+    particle.x = x;
+    particle.y = y;
+    particle.z = z;
+    particle.velocityX = velocityX;
+    particle.velocityY = velocityY;
+    particle.velocityZ = velocityZ;
+    particle.size = storedReferenceParticleSize(1.0f, material);
+    particle.endSize = particle.size;
+    particle.drag = 1.8f;
+    particle.rotationRadians = swirl * 0.9f;
+    particle.angularVelocityRadians = swirl * 1.4f;
+    particle.stretch = 1.0f;
+    particle.ageSeconds = 0.0f;
+    particle.lifetimeSeconds = lifetimeSeconds;
+    particle.fadeOutStartSeconds = lifetimeSeconds * 0.62f;
+    particle.startColorAbgr = colorAbgr;
+    particle.endColorAbgr = transparentColor(colorAbgr);
+    particle.motion = FxParticleMotion::Burst;
+    particle.blendMode = FxParticleBlendMode::Additive;
+    particle.alignment = FxParticleAlignment::CameraFacing;
+    particle.material = material;
+    particle.tag = FxParticleTag::Impact;
+    particleSystem.addParticle(particle);
+}
+
+void spawnSingleCollisionBurst(
+    ParticleSystem &particleSystem,
+    const ImpactSpawnContext &context,
+    const ProjectileFxRecipe &fxRecipe)
+{
+    const FxParticleMaterial material = materialForProjectileFxMaterial(fxRecipe.impactMaterial);
+    const uint32_t baseSeed = static_cast<uint32_t>(std::hash<std::string>{}(
+        context.objectName + context.spriteName));
+
+    for (uint32_t particleIndex = 0; particleIndex < 10u; ++particleIndex)
+    {
+        const uint32_t seed = baseSeed ^ (particleIndex * 2654435761u);
+        const float velocityX = hashToUnit(seed) * 511.0f - 255.0f;
+        const float velocityY = hashToUnit(seed >> 8) * 511.0f - 255.0f;
+        const float velocityZ = hashToUnit(seed >> 16) * 511.0f - 255.0f;
+        emitCollisionParticle(
+            particleSystem,
+            context.x,
+            context.y,
+            context.z,
+            velocityX,
+            velocityY,
+            velocityZ,
+            fxRecipe.impactColorAbgr,
+            material,
+            seed);
+    }
+}
+
+void spawnRadialCollisionBurst(
+    ParticleSystem &particleSystem,
+    const ImpactSpawnContext &context,
+    const ProjectileFxRecipe &fxRecipe,
+    float radius)
+{
+    const FxParticleMaterial material = materialForProjectileFxMaterial(fxRecipe.impactMaterial);
+    const uint32_t baseSeed = static_cast<uint32_t>(std::hash<std::string>{}(
+        context.objectName + context.spriteName));
+    constexpr float DiagonalScale = 0.70710677f;
+    const float directions[8][2] = {
+        {0.0f, 1.0f},
+        {DiagonalScale, DiagonalScale},
+        {1.0f, 0.0f},
+        {DiagonalScale, -DiagonalScale},
+        {0.0f, -1.0f},
+        {-DiagonalScale, -DiagonalScale},
+        {-1.0f, 0.0f},
+        {-DiagonalScale, DiagonalScale},
+    };
+
+    for (uint32_t particleIndex = 0; particleIndex < 8u; ++particleIndex)
+    {
+        const uint32_t seed = baseSeed ^ (particleIndex * 2654435761u);
+        emitCollisionParticle(
+            particleSystem,
+            context.x,
+            context.y,
+            context.z + 32.0f,
+            directions[particleIndex][0] * radius,
+            directions[particleIndex][1] * radius,
+            radius,
+            fxRecipe.impactColorAbgr,
+            material,
+            seed);
+    }
+}
+
+void spawnFireballSphereBurst(
+    ParticleSystem &particleSystem,
+    const ImpactSpawnContext &context,
+    const ProjectileFxRecipe &fxRecipe)
+{
+    spawnSingleCollisionBurst(particleSystem, context, fxRecipe);
+    emitExpandingFireAreaPulse(particleSystem, context);
+}
+
+void spawnImplosionSphere(ParticleSystem &particleSystem, const ImpactSpawnContext &context)
+{
+    FxParticleState particle = {};
+    particle.x = context.x;
+    particle.y = context.y;
+    particle.z = context.z + 20.0f;
+    particle.size = 132.0f;
+    particle.endSize = 16.0f;
+    particle.ageSeconds = 0.0f;
+    particle.fadeOutStartSeconds = 0.001f;
+    particle.lifetimeSeconds = 0.52f;
+    particle.startColorAbgr = ProjectileFxMediumGrey;
+    particle.endColorAbgr = transparentColor(ProjectileFxMediumGrey);
+    particle.motion = FxParticleMotion::StaticFade;
+    particle.blendMode = FxParticleBlendMode::Additive;
+    particle.alignment = FxParticleAlignment::CameraFacing;
+    particle.material = FxParticleMaterial::Mist;
+    particle.tag = FxParticleTag::Impact;
+    particleSystem.addParticle(particle);
+}
+
+void spawnMindBlastAfterEffect(ParticleSystem &particleSystem, const ImpactSpawnContext &context)
+{
+    ProjectileFxRecipe recipe = makeProjectileFxRecipe(
+        ProjectileFxPrimitive::RenderSprite,
+        ProjectileFxPrimitive::SingleCollisionBurst,
+        ProjectileFxMaterial::None,
+        ProjectileFxMaterial::None,
+        ProjectileFxMediumGrey,
+        0.0f,
+        true);
+    recipe.impactColorAbgr = ProjectileFxMediumGrey;
+    spawnSingleCollisionBurst(particleSystem, context, recipe);
 }
 
 void spawnProjectileTrailParticles(
@@ -1183,11 +2268,13 @@ void spawnProjectileTrailParticles(
         || recipe == ProjectileRecipe::AcidBurst
         || recipe == ProjectileRecipe::ToxicCloud
         || recipe == ProjectileRecipe::GenericParticleTrail
+        || isMonsterBoltRecipe(recipe)
         || (context.objectFlags & ObjectDescTrailParticle) != 0)
     {
         LayerRecipe hazeLayer = {};
         hazeLayer.startColorAbgr = colorAbgr;
-        hazeLayer.endColorAbgr = makeAbgr(96, 220, 128, 0);
+        hazeLayer.endColorAbgr =
+            isMonsterBoltRecipe(recipe) ? transparentColor(colorAbgr) : makeAbgr(96, 220, 128, 0);
         hazeLayer.count = recipe == ProjectileRecipe::ToxicCloud ? 7u : 5u;
         hazeLayer.startOffset = recipe == ProjectileRecipe::ToxicCloud ? 4.0f : 8.0f;
         hazeLayer.offsetStep = recipe == ProjectileRecipe::ToxicCloud ? 7.0f : 6.4f;
@@ -1224,7 +2311,8 @@ void spawnProjectileTrailParticles(
 
         LayerRecipe moteLayer = {};
         moteLayer.startColorAbgr = varyAlpha(colorAbgr, 0.85f);
-        moteLayer.endColorAbgr = makeAbgr(160, 255, 180, 0);
+        moteLayer.endColorAbgr =
+            isMonsterBoltRecipe(recipe) ? transparentColor(colorAbgr) : makeAbgr(160, 255, 180, 0);
         moteLayer.count = 3u;
         moteLayer.startOffset = recipe == ProjectileRecipe::ToxicCloud ? 3.0f : 6.0f;
         moteLayer.offsetStep = recipe == ProjectileRecipe::ToxicCloud ? 5.2f : 4.8f;
@@ -1264,7 +2352,59 @@ void spawnImpactParticles(ParticleSystem &particleSystem, const ImpactSpawnConte
 {
     const ProjectileRecipe recipe = context.recipe;
 
-    if (recipe == ProjectileRecipe::Sparks)
+    const ProjectileFxRecipe &fxRecipe = projectileFxRecipe(recipe);
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::FireballSphereBurst)
+    {
+        spawnFireballSphereBurst(particleSystem, context, fxRecipe);
+        return;
+    }
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::ImplosionSphere)
+    {
+        spawnImplosionSphere(particleSystem, context);
+        return;
+    }
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::MindBlastAfterEffect)
+    {
+        spawnMindBlastAfterEffect(particleSystem, context);
+        return;
+    }
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::SingleCollisionBurst)
+    {
+        spawnSingleCollisionBurst(particleSystem, context, fxRecipe);
+
+        if (recipe == ProjectileRecipe::Incinerate)
+        {
+            spawnSingleCollisionBurst(particleSystem, context, fxRecipe);
+        }
+
+        return;
+    }
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::RadialCollisionBurst)
+    {
+        if (recipe == ProjectileRecipe::MeteorShower)
+        {
+            spawnRadialCollisionBurst(particleSystem, context, fxRecipe, 300.0f);
+            spawnRadialCollisionBurst(particleSystem, context, fxRecipe, 250.0f);
+            spawnRadialCollisionBurst(particleSystem, context, fxRecipe, 200.0f);
+        }
+        else if (recipe == ProjectileRecipe::FireSpike || recipe == ProjectileRecipe::Inferno)
+        {
+            spawnRadialCollisionBurst(particleSystem, context, fxRecipe, 250.0f);
+        }
+        else
+        {
+            spawnRadialCollisionBurst(particleSystem, context, fxRecipe, 200.0f);
+        }
+
+        return;
+    }
+
+    if (fxRecipe.impactPrimitive == ProjectileFxPrimitive::RenderSprite)
     {
         return;
     }

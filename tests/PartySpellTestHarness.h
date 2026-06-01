@@ -9,6 +9,7 @@
 #include <cmath>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace OpenYAMM::Tests
@@ -102,6 +103,16 @@ public:
         float z = 0.0f;
     };
 
+    struct HostileSummonRequest
+    {
+        int16_t monsterId = 0;
+        uint32_t count = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        uint32_t group = 0;
+    };
+
     PartySpellTestWorldRuntime()
     {
         m_mapName = "spell_test.odm";
@@ -122,6 +133,16 @@ public:
         m_pGlobalEventProgram = pGlobalEventProgram;
     }
 
+    void bindMonsterTable(const Game::MonsterTable *pMonsterTable)
+    {
+        m_pMonsterTable = pMonsterTable;
+    }
+
+    void bindMergedBolsterMonsterTable(const Game::MergedBolsterMonsterTable *pBolsterMonsterTable)
+    {
+        m_pBolsterMonsterTable = pBolsterMonsterTable;
+    }
+
     size_t addActor(const Game::GameplayRuntimeActorState &actor)
     {
         m_actors.push_back(actor);
@@ -135,6 +156,11 @@ public:
         m_partyFootZ = footZ;
     }
 
+    void setBountyHuntSpawnPoint(Game::GameplayWorldPoint point)
+    {
+        m_bountyHuntSpawnPoint = point;
+    }
+
     void setCurrentHour(int hour)
     {
         m_currentHour = hour;
@@ -144,6 +170,11 @@ public:
     {
         m_indoorMap = indoorMap;
         m_mapName = indoorMap ? "spell_test.blv" : "spell_test.odm";
+    }
+
+    void setMapName(std::string mapName)
+    {
+        m_mapName = std::move(mapName);
     }
 
     const std::vector<Game::GameplayPartySpellProjectileRequest> &projectileRequests() const
@@ -159,6 +190,11 @@ public:
     const std::vector<FriendlySummonRequest> &friendlySummonRequests() const
     {
         return m_friendlySummonRequests;
+    }
+
+    const std::vector<HostileSummonRequest> &hostileSummonRequests() const
+    {
+        return m_hostileSummonRequests;
     }
 
     const std::vector<size_t> &radiusQueryActorIndices() const
@@ -214,6 +250,28 @@ public:
     const std::string &mapName() const override
     {
         return m_mapName;
+    }
+
+    const Game::MonsterTable *monsterTable() const override
+    {
+        return m_pMonsterTable;
+    }
+
+    const Game::MergedBolsterMonsterTable *mergedBolsterMonsterTable() const override
+    {
+        return m_pBolsterMonsterTable;
+    }
+
+    Game::GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const override
+    {
+        (void)seed;
+
+        if (m_bountyHuntSpawnPoint)
+        {
+            return *m_bountyHuntSpawnPoint;
+        }
+
+        return IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
     }
 
     bool isIndoorMap() const override
@@ -357,6 +415,25 @@ public:
     bool requestTravelAutosave() override
     {
         return false;
+    }
+
+    bool summonHostileMonsterById(
+        int16_t monsterId,
+        uint32_t count,
+        float x,
+        float y,
+        float z,
+        uint32_t group) override
+    {
+        HostileSummonRequest request = {};
+        request.monsterId = monsterId;
+        request.count = count;
+        request.x = x;
+        request.y = y;
+        request.z = z;
+        request.group = group;
+        m_hostileSummonRequests.push_back(request);
+        return true;
     }
 
     void cancelPendingMapTransition() override
@@ -967,12 +1044,16 @@ private:
     Game::EventRuntimeState m_eventRuntimeState = {};
     Game::EventRuntimeState *m_pEventRuntimeState = nullptr;
     const std::optional<Game::ScriptedEventProgram> *m_pGlobalEventProgram = nullptr;
+    const Game::MonsterTable *m_pMonsterTable = nullptr;
+    const Game::MergedBolsterMonsterTable *m_pBolsterMonsterTable = nullptr;
+    std::optional<Game::GameplayWorldPoint> m_bountyHuntSpawnPoint;
     std::vector<Game::GameplayRuntimeActorState> m_actors;
     std::vector<Game::GameplayPartySpellProjectileRequest> m_projectileRequests;
     std::vector<AppliedSpellToActor> m_appliedSpellRequests;
     std::vector<Game::GameplayWorldHit> m_activatedWorldHits;
     std::vector<uint32_t> m_activatedWorldHitSpellIds;
     std::vector<FriendlySummonRequest> m_friendlySummonRequests;
+    std::vector<HostileSummonRequest> m_hostileSummonRequests;
     float m_gameMinutes = 0.0f;
     float m_partyX = 0.0f;
     float m_partyY = 0.0f;

@@ -1768,9 +1768,52 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         {
             return !sample.hasFloor || sample.height < state.footZ - ActorLedgeDropGuardHeight;
         };
+        const auto recordInvalidPosition =
+            [&](
+                IndoorMoveInvalidPositionReason reason,
+                const IndoorFloorSample &debugFloor,
+                const IndoorFloorSample &debugLeadingFloor,
+                const IndoorCeilingSample *pDebugCeiling,
+                std::optional<int16_t> debugEyeSectorId,
+                float debugFootZ)
+        {
+            if (pDebugInfo == nullptr)
+            {
+                return;
+            }
+
+            pDebugInfo->invalidPositionReason = reason;
+            pDebugInfo->invalidCandidatePosition = {candidateX, candidateY, debugFootZ};
+            pDebugInfo->invalidFloorHas = debugFloor.hasFloor;
+            pDebugInfo->invalidFloorFaceIndex =
+                debugFloor.hasFloor ? debugFloor.faceIndex : static_cast<size_t>(-1);
+            pDebugInfo->invalidFloorSectorId = debugFloor.hasFloor ? debugFloor.sectorId : int16_t(-1);
+            pDebugInfo->invalidFloorHeight = debugFloor.hasFloor ? debugFloor.height : 0.0f;
+            pDebugInfo->invalidFloorNormalZ = debugFloor.hasFloor ? debugFloor.normalZ : 0.0f;
+            pDebugInfo->invalidLeadingFloorHas = debugLeadingFloor.hasFloor;
+            pDebugInfo->invalidLeadingFloorFaceIndex =
+                debugLeadingFloor.hasFloor ? debugLeadingFloor.faceIndex : static_cast<size_t>(-1);
+            pDebugInfo->invalidLeadingFloorSectorId =
+                debugLeadingFloor.hasFloor ? debugLeadingFloor.sectorId : int16_t(-1);
+            pDebugInfo->invalidLeadingFloorHeight =
+                debugLeadingFloor.hasFloor ? debugLeadingFloor.height : 0.0f;
+            pDebugInfo->invalidLeadingFloorNormalZ =
+                debugLeadingFloor.hasFloor ? debugLeadingFloor.normalZ : 0.0f;
+            pDebugInfo->invalidCeilingHas = pDebugCeiling != nullptr && pDebugCeiling->hasCeiling;
+            pDebugInfo->invalidCeilingHeight =
+                pDebugCeiling != nullptr && pDebugCeiling->hasCeiling ? pDebugCeiling->height : 0.0f;
+            pDebugInfo->invalidEyeSectorId = debugEyeSectorId.value_or(int16_t(-1));
+        };
 
         if (guardGroundActorAgainstLedgeDrop && floorDropsBelowActorLedgeGuard(floor))
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::ActorLedgeDrop,
+                floor,
+                leadingFootprintFloor,
+                nullptr,
+                std::nullopt,
+                positionFootZ);
             return false;
         }
 
@@ -1795,6 +1838,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
 
             if (guardGroundActorAgainstLedgeDrop && floorDropsBelowActorLedgeGuard(leadingFootprintFloor))
             {
+                recordInvalidPosition(
+                    IndoorMoveInvalidPositionReason::LeadingActorLedgeDrop,
+                    floor,
+                    leadingFootprintFloor,
+                    nullptr,
+                    std::nullopt,
+                    positionFootZ);
                 return false;
             }
 
@@ -1838,6 +1888,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             && !sweptRequest.jumpRequested
             && indoorFloorTooSteepForUphillStep(*m_pIndoorMapData, pMapDeltaData, floor, state.footZ))
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::SteepFloor,
+                floor,
+                leadingFootprintFloor,
+                nullptr,
+                std::nullopt,
+                positionFootZ);
             return false;
         }
 
@@ -1846,6 +1903,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             && !sweptRequest.jumpRequested
             && floor.height > state.footZ + MaximumStepUpFromCurrentFootZ)
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::StepUpTooHigh,
+                floor,
+                leadingFootprintFloor,
+                nullptr,
+                std::nullopt,
+                positionFootZ);
             return false;
         }
 
@@ -1899,6 +1963,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
         {
             if (ceiling.hasCeiling)
             {
+                recordInvalidPosition(
+                    IndoorMoveInvalidPositionReason::CeilingFloorCrush,
+                    floor,
+                    leadingFootprintFloor,
+                    &ceiling,
+                    std::nullopt,
+                    resolvedFootZ);
                 return false;
             }
 
@@ -1916,6 +1987,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
             false);
         if (!eyeSectorId)
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::MissingEyeSector,
+                floor,
+                leadingFootprintFloor,
+                &ceiling,
+                std::nullopt,
+                resolvedFootZ);
             return false;
         }
 
@@ -1944,6 +2022,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 candidateY - currentY,
                 pWallCollision))
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::FaceCollision,
+                floor,
+                leadingFootprintFloor,
+                &ceiling,
+                eyeSectorId,
+                resolvedFootZ);
             return false;
         }
 
@@ -1959,6 +2044,13 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
                 ignoreActorCollisions,
                 pHitActor))
         {
+            recordInvalidPosition(
+                IndoorMoveInvalidPositionReason::ActorCollision,
+                floor,
+                leadingFootprintFloor,
+                &ceiling,
+                eyeSectorId,
+                resolvedFootZ);
             return false;
         }
 

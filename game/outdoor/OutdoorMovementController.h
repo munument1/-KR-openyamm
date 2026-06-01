@@ -46,6 +46,70 @@ struct OutdoorBodyDimensions
     float height = 192.0f;
 };
 
+struct OutdoorMoveFloorDebugInfo
+{
+    bool hasFloor = false;
+    float height = 0.0f;
+    float normalZ = 1.0f;
+    bool fromBModel = false;
+    bool isFluid = false;
+    size_t bModelIndex = 0;
+    size_t faceIndex = 0;
+};
+
+struct OutdoorMoveDebugInfo
+{
+    float startX = 0.0f;
+    float startY = 0.0f;
+    float startZ = 0.0f;
+    float endX = 0.0f;
+    float endY = 0.0f;
+    float endZ = 0.0f;
+    float requestedVelocityX = 0.0f;
+    float requestedVelocityY = 0.0f;
+    float requestedVelocityZ = 0.0f;
+    float inputVelocityZBeforeCollision = 0.0f;
+    float outputVelocityZ = 0.0f;
+    bool flyingActive = false;
+    bool jumpRequested = false;
+    bool flyUpRequested = false;
+    bool flyDownRequested = false;
+    bool wasAirborne = false;
+    bool partyNotTouchingFloor = false;
+    bool partyCloseToGround = false;
+    bool partyOnSteepBModel = false;
+    bool slopeSlideActive = false;
+    bool horizontalPassRaisedZ = false;
+    bool verticalPassRan = false;
+    float horizontalPassStartZ = 0.0f;
+    float horizontalPassEndZ = 0.0f;
+    float verticalPassStartZ = 0.0f;
+    float verticalPassEndZ = 0.0f;
+    int collisionAttempts = 0;
+    int lastCollisionPass = 0;
+    int lastHitKind = 0;
+    size_t lastHitBModelIndex = 0;
+    size_t lastHitFaceIndex = 0;
+    size_t lastHitColliderIndex = 0;
+    uint8_t lastHitPolygonType = 0;
+    float lastHitFloorHeight = 0.0f;
+    float lastHitMoveDistance = 0.0f;
+    float lastHitAdjustedMoveDistance = 0.0f;
+    float lastHitHeightOffset = 0.0f;
+    bx::Vec3 lastHitPoint = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastHitNormal = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastPassStart = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastPassInputVelocity = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastPassNewLow = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 lastPassOutputVelocity = {0.0f, 0.0f, 0.0f};
+    OutdoorMoveFloorDebugInfo currentFloor = {};
+    OutdoorMoveFloorDebugInfo lastAllNewFloor = {};
+    OutdoorMoveFloorDebugInfo lastXAdvanceFloor = {};
+    OutdoorMoveFloorDebugInfo lastYAdvanceFloor = {};
+    OutdoorMoveFloorDebugInfo steppedBModelFloor = {};
+    OutdoorMoveFloorDebugInfo finalFloor = {};
+};
+
 struct OutdoorIgnoredActorCollider
 {
     OutdoorActorCollisionSource source = OutdoorActorCollisionSource::MapDelta;
@@ -102,7 +166,8 @@ public:
         float maxFlightHeight,
         float deltaSeconds,
         std::vector<size_t> *pContactedActorIndices = nullptr,
-        float jumpLift = 1.0f
+        float jumpLift = 1.0f,
+        OutdoorMoveDebugInfo *pDebugInfo = nullptr
     ) const;
     OutdoorMoveState resolveMoveForBody(
         const OutdoorMoveState &state,
@@ -121,7 +186,8 @@ public:
         float deltaSeconds,
         std::vector<size_t> *pContactedActorIndices = nullptr,
         const std::optional<OutdoorIgnoredActorCollider> &ignoredActorCollider = std::nullopt,
-        float jumpLift = 1.0f
+        float jumpLift = 1.0f,
+        OutdoorMoveDebugInfo *pDebugInfo = nullptr
     ) const;
     OutdoorMoveState resolveOutdoorActorMove(
         const OutdoorMoveState &state,

@@ -14,6 +14,7 @@ namespace
 {
 constexpr float HudReferenceWidth = 640.0f;
 constexpr float HudReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr float SpellImpactAoePreviewRadius = 448.0f;
 constexpr float MeteorShowerPreviewRadius = 768.0f;
 
@@ -51,7 +52,7 @@ void GameplaySpellTargetingOverlayRenderer::renderPendingSpellTargetingOverlay(
 
     const GameplayUiViewportRect uiViewport = GameplayHudCommon::computeUiViewportRect(width, height);
     const float baseScale = std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight);
-    const float overlayScale = std::clamp(baseScale, 0.75f, 2.0f);
+    const float overlayScale = std::clamp(baseScale, 0.75f, MaxUiScale);
     const float armLength = std::round(10.0f * overlayScale);
     const float armGap = std::round(4.0f * overlayScale);
     const float stroke = std::max(1.0f, std::round(2.0f * overlayScale));

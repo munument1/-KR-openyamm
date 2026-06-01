@@ -3113,6 +3113,11 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success
                         || serviceResult == HouseServiceRuntime::ShopItemServiceResult::Stolen)
                     {
+                        if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success)
+                        {
+                            view.markHouseShopTransactionPerformed(pDialogueHouseEntry->id);
+                        }
+
                         view.playSpeechReaction(activeMemberIndex, SpeechId::ShopItemBought, true);
                     }
                     else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::TheftCaught)
@@ -3254,6 +3259,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
             }
             else if (serviceResult == HouseServiceRuntime::ShopItemServiceResult::Success)
             {
+                view.markHouseShopTransactionPerformed(pDialogueHouseEntry->id);
+
                 if (view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell)
                 {
                     view.playSpeechReaction(activeMemberIndex, SpeechId::ItemSold, true);
@@ -4046,11 +4053,6 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                             view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
                         view.party()->addGold(goldAmount);
                         view.setStatusBarEvent(formatFoundGoldStatusText(goldAmount));
-
-                        if (view.audioSystem() != nullptr)
-                        {
-                            view.audioSystem()->playCommonSound(SoundId::Gold, GameAudioSystem::PlaybackGroup::Ui);
-                        }
                     }
                     else
                     {
@@ -4205,11 +4207,6 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                                 view.worldRuntime() != nullptr ? view.worldRuntime()->eventRuntimeState() : nullptr);
                             view.party()->addGold(goldAmount);
                             view.setStatusBarEvent(formatFoundGoldStatusText(goldAmount));
-
-                            if (view.audioSystem() != nullptr)
-                            {
-                                view.audioSystem()->playCommonSound(SoundId::Gold, GameAudioSystem::PlaybackGroup::Ui);
-                            }
                         }
                         else
                         {

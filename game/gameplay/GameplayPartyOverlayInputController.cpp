@@ -34,6 +34,7 @@ namespace
 {
 constexpr uint64_t PartyPortraitDoubleClickWindowMs = 500;
 constexpr uint64_t CharacterDismissConfirmWindowMs = 2000;
+constexpr float MaxUiScale = 8.0f;
 constexpr uint32_t DaderossLetterDeliveredQBit = 4;
 constexpr uint32_t EmeraldIslandFinishedQBit = 519;
 
@@ -191,7 +192,7 @@ UtilityOverlayLayout computeUtilityOverlayLayout(int screenWidth, int screenHeig
 {
     const float width = static_cast<float>(std::max(screenWidth, 1));
     const float height = static_cast<float>(std::max(screenHeight, 1));
-    const float scale = std::clamp(std::min(width / 640.0f, height / 480.0f), 0.8f, 2.0f);
+    const float scale = std::clamp(std::min(width / 640.0f, height / 480.0f), 0.8f, MaxUiScale);
 
     UtilityOverlayLayout layout = {};
     layout.panelWidth = std::round(360.0f * scale);
@@ -1889,8 +1890,9 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     constexpr float PortraitGapY = 3.0f;
                     const GameplayUiViewportRect uiViewport =
                         GameplayHudCommon::computeUiViewportRect(screenWidth, screenHeight);
-                    const float baseScale =
-                        std::min(uiViewport.width / 640.0f, uiViewport.height / 480.0f);
+                    const float baseScale = std::min(
+                        std::min(uiViewport.width / 640.0f, uiViewport.height / 480.0f),
+                        MaxUiScale);
 
                     const size_t scrollOffset = std::min(
                         context.characterScreenReadOnly().adventurersInnScrollOffset,

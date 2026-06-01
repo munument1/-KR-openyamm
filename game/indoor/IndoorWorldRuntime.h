@@ -148,6 +148,38 @@ public:
         std::vector<Vertex> vertices;
     };
 
+    struct FireSpikeTrapState
+    {
+        uint32_t trapId = 0;
+        GameplayProjectileService::ProjectileState::SourceKind sourceKind =
+            GameplayProjectileService::ProjectileState::SourceKind::Party;
+        uint32_t sourceId = 0;
+        uint32_t sourcePartyMemberIndex = 0;
+        int16_t sourceMonsterId = 0;
+        bool fromSummonedMonster = false;
+        GameplayProjectileService::MonsterAttackAbility ability =
+            GameplayProjectileService::MonsterAttackAbility::Attack1;
+        uint16_t objectDescriptionId = 0;
+        uint16_t objectSpriteId = 0;
+        uint16_t objectSpriteFrameIndex = 0;
+        uint16_t impactObjectDescriptionId = 0;
+        uint16_t objectFlags = 0;
+        uint16_t radius = 0;
+        uint16_t height = 0;
+        int spellId = 0;
+        int effectSoundId = 0;
+        uint32_t skillLevel = 0;
+        uint32_t skillMastery = 0;
+        std::string objectName;
+        std::string objectSpriteName;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        int16_t sectorId = -1;
+        uint32_t timeSinceCreatedTicks = 0;
+        bool isExpired = false;
+    };
+
     struct Snapshot
     {
         float gameMinutes = 9.0f * 60.0f;
@@ -161,6 +193,7 @@ public:
         std::vector<MapActorAiState> mapActorAiStates;
         std::vector<uint8_t> activatedIndoorSectorMask;
         std::vector<BloodSplatState> bloodSplats;
+        std::vector<FireSpikeTrapState> fireSpikeTraps;
         float actorUpdateAccumulatorSeconds = 0.0f;
         GameplayProjectileService::Snapshot projectileState;
     };
@@ -242,6 +275,7 @@ public:
     float partyX() const override;
     float partyY() const override;
     float partyFootZ() const override;
+    GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const override;
     float gameplayCameraYawRadians() const override;
     float gameplayCameraPitchRadians() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
@@ -615,6 +649,10 @@ private:
         const GameplayProjectileService::ProjectileFrameFacts &facts,
         const GameplayProjectileService::ProjectileFrameResult &frameResult);
     void updateIndoorProjectiles(float deltaSeconds);
+    void updateFireSpikeTraps(float deltaSeconds);
+    void applyFireSpikeTrapTriggerResult(
+        FireSpikeTrapState &trap,
+        const GameplayProjectileService::FireSpikeTrapTriggerResult &result);
     void updateWorldItems(float deltaSeconds);
     bool updateWorldItemsStep(
         float deltaSeconds,
@@ -735,6 +773,7 @@ private:
     uint64_t m_indoorMinimapRevealRevision = 0;
     size_t m_lastIndoorJournalRevealFaceCount = 0;
     size_t m_lastIndoorJournalRevealOutlineCount = 0;
+    std::vector<FireSpikeTrapState> m_fireSpikeTraps;
     mutable RuntimeGeometryCache m_runtimeGeometryCache;
     std::optional<IndoorMovementController> m_actorMovementController;
     ActorPathRuntime m_actorPathRuntime;

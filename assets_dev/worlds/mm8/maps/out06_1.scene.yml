@@ -3,6 +3,9 @@ kind: "outdoor_scene_overlay"
 source:
   geometry_file: "out06.odm"
 environment:
+  # The MMerge ODM has master_tile 0, but Shadowspire's direct terrain ids 1..12 are gray dust in the merged table.
+  ground_tileset_name: "grastyl"
+  master_tile: 2
   weather:
     fog_mode: "daily_random"
     precipitation: "none"

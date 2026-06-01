@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace OpenYAMM::Game
 {
@@ -76,6 +77,13 @@ public:
         int baseDamage,
         int actorCurrentHp,
         bool actorLooksUndead) const;
+    static std::optional<bx::Vec3> spellPushVelocity(
+        uint32_t spellId,
+        uint32_t skillLevel,
+        float actorX,
+        float actorY,
+        float sourceX,
+        float sourceY);
 
     SharedSpellEffectResult tryApplySharedSpellEffect(
         uint32_t spellId,

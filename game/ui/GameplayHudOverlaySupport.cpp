@@ -23,6 +23,7 @@ namespace
 {
 constexpr float HudReferenceWidth = 640.0f;
 constexpr float HudReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr uint16_t HudViewId = 2;
 constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 
@@ -1292,7 +1293,7 @@ void GameplayHudOverlaySupport::renderGameplayMouseLookOverlay(
 
     const GameplayUiViewportRect uiViewport = GameplayHudCommon::computeUiViewportRect(width, height);
     const float baseScale = std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight);
-    const float overlayScale = std::clamp(baseScale, 0.75f, 2.0f);
+    const float overlayScale = std::clamp(baseScale, 0.75f, MaxUiScale);
     const float centerX = std::round(static_cast<float>(width) * 0.5f);
     const float centerY = std::round(static_cast<float>(height) * 0.5f);
     const float armLength = std::round(3.0f * overlayScale);

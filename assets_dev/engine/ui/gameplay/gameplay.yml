@@ -8,7 +8,7 @@ elements:
     z_index: 200
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: Basebar
     notes: Legacy centered base bar kept for stacked overlays above gameplay.
@@ -94,7 +94,7 @@ elements:
     z_index: 200
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: Basebar
     notes: Standard gameplay base bar matching the original centered layout.
@@ -221,7 +221,7 @@ elements:
     z_index: 50
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: topbar
     notes: Standard gameplay top bar.
@@ -478,7 +478,7 @@ elements:
     z_index: 200
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: Basebar_cut
     notes: Gameplay-only centered base bar cropped to current party size.
@@ -555,7 +555,7 @@ elements:
     z_index: 60
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: topbar
     notes: Gameplay command strip at the lower-left screen corner.
@@ -615,7 +615,7 @@ elements:
     z_index: 60
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: topbar
     children:
@@ -657,7 +657,7 @@ elements:
     z_index: 61
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: sp21a10
     notes: Fly buff icon.
@@ -670,7 +670,7 @@ elements:
     z_index: 60
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: topbar
     children:
@@ -890,7 +890,7 @@ elements:
     z_index: 70
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: mapframe
     notes: Gameplay minimap frame in the lower-right corner.
@@ -938,7 +938,7 @@ elements:
     z_index: 90
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     asset:
       default: npcpnl
     notes: MMerge follower panel, moved to the right screen edge and centered vertically for the widescreen HUD.
@@ -1033,7 +1033,7 @@ elements:
     z_index: 95
     scale:
       min: 1.0
-      max: 3.0
+      max: 8.0
     interactive: true
     asset:
       default: npcopenup
@@ -1052,5 +1052,5 @@ elements:
     visible: false
     scale:
       min: 1.0
-      max: 2.0
+      max: 8.0
     notes: Runtime context action popup target; enabled by setting for mobile or desktop testing.

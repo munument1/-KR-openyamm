@@ -30,6 +30,13 @@ void GameplayScreenRuntime::playSpeechReaction(size_t memberIndex, SpeechId spee
     (void)triggerFaceAnimation;
 }
 
+void GameplayScreenRuntime::queueDelayedSpeechReaction(size_t memberIndex, SpeechId speechId, float delaySeconds)
+{
+    (void)memberIndex;
+    (void)speechId;
+    (void)delaySeconds;
+}
+
 uint32_t GameplayScreenRuntime::animationTicks() const
 {
     return 0;

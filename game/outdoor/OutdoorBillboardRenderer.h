@@ -62,6 +62,10 @@ public:
         OutdoorGameView &view,
         uint16_t viewId,
         const float *pViewMatrix);
+    static void renderFxSegmentProjectiles(
+        OutdoorGameView &view,
+        uint16_t viewId,
+        const float *pViewMatrix);
     static void renderSpriteObjectBillboards(
         OutdoorGameView &view,
         uint16_t viewId,

@@ -39,6 +39,12 @@ enum class ControlScheme
     Classic
 };
 
+enum class MonsterProjectileVisuals
+{
+    FxRecipes,
+    Sprites
+};
+
 struct GameSettings
 {
     struct KeyboardSettings
@@ -134,6 +140,7 @@ struct GameSettings
     bool startInMainMenu = false;
     bool bolsterMonsters = false;
     bool indoorPathfinding = true;
+    MonsterProjectileVisuals monsterProjectileVisuals = MonsterProjectileVisuals::FxRecipes;
     BlasterSkillScalingMode blasterSkillScaling = BlasterSkillScalingMode::Default;
     int blasterMinimumRecoveryTicks = 0;
     bool logIndoorVisibility = false;

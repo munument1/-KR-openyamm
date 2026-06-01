@@ -25,6 +25,8 @@ public:
         m_worldRuntime.bindParty(&m_party);
         m_worldRuntime.bindEventRuntimeState(&m_eventRuntimeState);
         m_worldRuntime.bindGlobalEventProgram(&m_gameData.globalEventProgram);
+        m_worldRuntime.bindMonsterTable(&m_gameData.monsterTable);
+        m_worldRuntime.bindMergedBolsterMonsterTable(&m_gameData.mergedBolsterMonsterTable);
         m_worldRuntime.advanceGameMinutes(12.0f * 60.0f);
     }
 

@@ -1,7 +1,11 @@
 #include "game/outdoor/OutdoorMovementDriver.h"
 
+#include "game/debug/GameplayDebugTrace.h"
+
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -12,6 +16,56 @@ constexpr float MaxAccumulatedMovementSeconds = 0.1f;
 constexpr float HardLandingDistance = 512.0f;
 constexpr float EventHoldSeconds = 0.75f;
 constexpr float DamageTickSeconds = 1.0f;
+
+const char *supportKindName(OutdoorSupportKind supportKind)
+{
+    switch (supportKind)
+    {
+        case OutdoorSupportKind::None:
+            return "none";
+        case OutdoorSupportKind::Terrain:
+            return "terrain";
+        case OutdoorSupportKind::BModelFace:
+            return "bmodel";
+    }
+
+    return "unknown";
+}
+
+const char *collisionHitKindName(int kind)
+{
+    switch (kind)
+    {
+        case 0:
+            return "none";
+        case 1:
+            return "face";
+        case 2:
+            return "decoration";
+        case 3:
+            return "actor";
+        case 4:
+            return "sprite_object";
+    }
+
+    return "unknown";
+}
+
+void appendVec3(std::ostream &out, const bx::Vec3 &value)
+{
+    out << "(" << value.x << "," << value.y << "," << value.z << ")";
+}
+
+void appendFloor(std::ostream &out, const char *prefix, const OutdoorMoveFloorDebugInfo &floor)
+{
+    out << " " << prefix << "_has_floor=" << (floor.hasFloor ? "true" : "false")
+        << " " << prefix << "_height=" << floor.height
+        << " " << prefix << "_normal_z=" << floor.normalZ
+        << " " << prefix << "_from_bmodel=" << (floor.fromBModel ? "true" : "false")
+        << " " << prefix << "_fluid=" << (floor.isFluid ? "true" : "false")
+        << " " << prefix << "_bmodel=" << floor.bModelIndex
+        << " " << prefix << "_face=" << floor.faceIndex;
+}
 }
 
 OutdoorMovementDriver::OutdoorMovementDriver(
@@ -134,7 +188,7 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     {
         m_partyMovementState.flying = false;
     }
-    else if (!m_partyMovementState.flying && flyUpPressed)
+    else if (!m_partyMovementState.flying && flyUpPressed && canActivateFlying())
     {
         m_partyMovementState.flying = true;
         m_state.verticalVelocity = 0.0f;
@@ -265,7 +319,9 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
     m_lastEvents = {};
     m_lastConsequences = {};
     const float maxAccumulatedMovementSeconds =
-        input.turnBasedMovementStep ? std::max(deltaSeconds, MaxAccumulatedMovementSeconds) : MaxAccumulatedMovementSeconds;
+        input.turnBasedMovementStep
+            ? std::max(deltaSeconds, MaxAccumulatedMovementSeconds)
+            : MaxAccumulatedMovementSeconds;
     m_movementAccumulatorSeconds =
         std::min(m_movementAccumulatorSeconds + deltaSeconds, maxAccumulatedMovementSeconds);
     float impulseVelocityX = 0.0f;
@@ -291,12 +347,16 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
 
     while (m_movementAccumulatorSeconds >= OutdoorMovementStepSeconds)
     {
+        m_collisionTraceClockSeconds += OutdoorMovementStepSeconds;
         const OutdoorMoveState previousState = m_state;
         const bool jumpRequestedThisStep = m_pendingJumpPress;
         const float jumpVelocityThisStep =
             m_pendingJumpVelocity.value_or(m_tuning.jumpVelocity * speedMultiplier);
         const float jumpLiftThisStep = m_pendingJumpLift;
         std::vector<size_t> contactedActorIndices;
+        const bool traceOutdoorMovement = m_collisionTraceEnabled || gameplayDebugTraceEnabled();
+        OutdoorMoveDebugInfo debugInfo = {};
+        OutdoorMoveDebugInfo *pDebugInfo = traceOutdoorMovement ? &debugInfo : nullptr;
         m_state = m_movementController.resolveMove(
             m_state,
             moveVelocityX + impulseVelocityX,
@@ -312,11 +372,117 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
             m_tuning.maxFlightHeight,
             OutdoorMovementStepSeconds,
             &contactedActorIndices,
-            jumpLiftThisStep
+            jumpLiftThisStep,
+            pDebugInfo
         );
         m_pendingJumpPress = false;
         m_pendingJumpVelocity.reset();
         m_pendingJumpLift = 1.0f;
+
+        if (traceOutdoorMovement)
+        {
+            const float deltaX = m_state.x - previousState.x;
+            const float deltaY = m_state.y - previousState.y;
+            const float deltaZ = m_state.footZ - previousState.footZ;
+            const float horizontalDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+            const bool supportChanged =
+                previousState.supportKind != m_state.supportKind
+                || previousState.supportBModelIndex != m_state.supportBModelIndex
+                || previousState.supportFaceIndex != m_state.supportFaceIndex;
+            const bool suspiciousUpwardMove =
+                deltaZ > 96.0f
+                && !m_partyMovementState.flying
+                && !jumpRequestedThisStep;
+            const bool suspiciousHorizontalRaise =
+                debugInfo.horizontalPassRaisedZ
+                && !debugInfo.verticalPassRan
+                && deltaZ > 32.0f
+                && !m_partyMovementState.flying;
+            const bool periodicProbe = m_collisionTraceClockSeconds >= m_nextCollisionTraceSeconds;
+            const bool suspicious = suspiciousUpwardMove || suspiciousHorizontalRaise;
+
+            if (suspicious || periodicProbe)
+            {
+                std::ostringstream out;
+                out << "outdoor_collision_trace"
+                    << " map=\"" << m_collisionTraceMapName << "\""
+                    << " reason=" << (suspicious ? "suspicious" : "periodic")
+                    << " start=(" << previousState.x
+                    << "," << previousState.y
+                    << "," << previousState.footZ << ")"
+                    << " end=(" << m_state.x
+                    << "," << m_state.y
+                    << "," << m_state.footZ << ")"
+                    << " delta=(" << deltaX << "," << deltaY << "," << deltaZ << ")"
+                    << " horizontal_distance=" << horizontalDistance
+                    << " start_velocity_z=" << previousState.verticalVelocity
+                    << " end_velocity_z=" << m_state.verticalVelocity
+                    << " requested_velocity=("
+                    << debugInfo.requestedVelocityX
+                    << "," << debugInfo.requestedVelocityY
+                    << "," << debugInfo.requestedVelocityZ << ")"
+                    << " input_velocity_z_before_collision=" << debugInfo.inputVelocityZBeforeCollision
+                    << " flying=" << (m_partyMovementState.flying ? "true" : "false")
+                    << " jump_requested=" << (jumpRequestedThisStep ? "true" : "false")
+                    << " fly_up=" << (input.flyUp ? "true" : "false")
+                    << " fly_down=" << (input.flyDown ? "true" : "false")
+                    << " was_airborne=" << (debugInfo.wasAirborne ? "true" : "false")
+                    << " start_airborne=" << (previousState.airborne ? "true" : "false")
+                    << " end_airborne=" << (m_state.airborne ? "true" : "false")
+                    << " party_not_touching_floor="
+                    << (debugInfo.partyNotTouchingFloor ? "true" : "false")
+                    << " party_close_to_ground=" << (debugInfo.partyCloseToGround ? "true" : "false")
+                    << " party_on_steep_bmodel=" << (debugInfo.partyOnSteepBModel ? "true" : "false")
+                    << " slope_slide=" << (debugInfo.slopeSlideActive ? "true" : "false")
+                    << " horizontal_pass_z=("
+                    << debugInfo.horizontalPassStartZ
+                    << "," << debugInfo.horizontalPassEndZ << ")"
+                    << " horizontal_pass_raised_z="
+                    << (debugInfo.horizontalPassRaisedZ ? "true" : "false")
+                    << " vertical_pass_ran=" << (debugInfo.verticalPassRan ? "true" : "false")
+                    << " vertical_pass_z=("
+                    << debugInfo.verticalPassStartZ
+                    << "," << debugInfo.verticalPassEndZ << ")"
+                    << " collision_attempts=" << debugInfo.collisionAttempts
+                    << " last_collision_pass=" << debugInfo.lastCollisionPass
+                    << " last_hit_kind=" << collisionHitKindName(debugInfo.lastHitKind)
+                    << " last_hit_bmodel=" << debugInfo.lastHitBModelIndex
+                    << " last_hit_face=" << debugInfo.lastHitFaceIndex
+                    << " last_hit_collider=" << debugInfo.lastHitColliderIndex
+                    << " last_hit_polygon_type=" << static_cast<int>(debugInfo.lastHitPolygonType)
+                    << " last_hit_floor_height=" << debugInfo.lastHitFloorHeight
+                    << " last_hit_move=" << debugInfo.lastHitMoveDistance
+                    << " last_hit_adjusted=" << debugInfo.lastHitAdjustedMoveDistance
+                    << " last_hit_height_offset=" << debugInfo.lastHitHeightOffset
+                    << " last_hit_point=";
+                appendVec3(out, debugInfo.lastHitPoint);
+                out << " last_hit_normal=";
+                appendVec3(out, debugInfo.lastHitNormal);
+                out << " last_pass_start=";
+                appendVec3(out, debugInfo.lastPassStart);
+                out << " last_pass_input_velocity=";
+                appendVec3(out, debugInfo.lastPassInputVelocity);
+                out << " last_pass_new_low=";
+                appendVec3(out, debugInfo.lastPassNewLow);
+                out << " last_pass_output_velocity=";
+                appendVec3(out, debugInfo.lastPassOutputVelocity);
+                out << " start_support_kind=" << supportKindName(previousState.supportKind)
+                    << " start_support_bmodel=" << previousState.supportBModelIndex
+                    << " start_support_face=" << previousState.supportFaceIndex
+                    << " end_support_kind=" << supportKindName(m_state.supportKind)
+                    << " end_support_bmodel=" << m_state.supportBModelIndex
+                    << " end_support_face=" << m_state.supportFaceIndex
+                    << " support_changed=" << (supportChanged ? "true" : "false");
+                appendFloor(out, "current_floor", debugInfo.currentFloor);
+                appendFloor(out, "all_new_floor", debugInfo.lastAllNewFloor);
+                appendFloor(out, "x_advance_floor", debugInfo.lastXAdvanceFloor);
+                appendFloor(out, "y_advance_floor", debugInfo.lastYAdvanceFloor);
+                appendFloor(out, "stepped_bmodel_floor", debugInfo.steppedBModelFloor);
+                appendFloor(out, "final_floor", debugInfo.finalFloor);
+                gameplayDebugTraceWrite(out.str());
+                m_nextCollisionTraceSeconds = m_collisionTraceClockSeconds + (suspicious ? 0.125f : 1.0f);
+            }
+        }
 
         if (!m_lastEvents.blockedBoundaryEdge.has_value())
         {
@@ -520,6 +686,11 @@ void OutdoorMovementDriver::toggleFlying()
         return;
     }
 
+    if (!m_partyMovementState.flying && !canActivateFlying())
+    {
+        return;
+    }
+
     m_partyMovementState.flying = !m_partyMovementState.flying;
 
     if (m_partyMovementState.flying)
@@ -548,6 +719,11 @@ void OutdoorMovementDriver::toggleFeatherFall()
 
 void OutdoorMovementDriver::setFlying(bool active)
 {
+    if (active && !canActivateFlying())
+    {
+        return;
+    }
+
     m_partyMovementState.flying = active;
 
     if (m_partyMovementState.flying)
@@ -594,6 +770,21 @@ void OutdoorMovementDriver::setSpeedMultiplier(float multiplier)
     m_speedMultiplier = std::clamp(multiplier, 0.1f, 20.0f);
 }
 
+void OutdoorMovementDriver::setCollisionTraceEnabled(bool enabled, std::string mapName)
+{
+    const bool wasEnabled = m_collisionTraceEnabled;
+    const std::string previousMapName = m_collisionTraceMapName;
+    m_collisionTraceEnabled = enabled;
+    m_collisionTraceMapName = std::move(mapName);
+    m_collisionTraceClockSeconds = 0.0f;
+    m_nextCollisionTraceSeconds = 0.0f;
+
+    if (enabled && (!wasEnabled || m_collisionTraceMapName != previousMapName))
+    {
+        gameplayDebugTraceWrite("outdoor_collision_trace_enabled map=\"" + m_collisionTraceMapName + "\"");
+    }
+}
+
 void OutdoorMovementDriver::requestJump(std::optional<float> verticalVelocity, float lift)
 {
     m_pendingJumpPress = true;
@@ -621,6 +812,11 @@ void OutdoorMovementDriver::setFaceAttributes(size_t bModelIndex, size_t faceInd
 void OutdoorMovementDriver::updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries)
 {
     m_movementController.updateFaceGeometries(geometries);
+}
+
+bool OutdoorMovementDriver::canActivateFlying() const
+{
+    return m_flyingAvailable && m_state.footZ <= m_tuning.maxFlightHeight;
 }
 
 }

@@ -33,6 +33,7 @@ using OpenYAMM::Game::RuntimeMechanismState;
 using OpenYAMM::Game::EventRuntimeState;
 using OpenYAMM::Game::applyIndoorMechanismDoorToVertices;
 using OpenYAMM::Game::buildIndoorMechanismAdjustedVertices;
+using OpenYAMM::Game::chooseIndoorBountyHuntSpawnPoint;
 using OpenYAMM::Game::buildIndoorSweptBodyBounds;
 using OpenYAMM::Game::faceAttributeBit;
 using OpenYAMM::Game::indoorSweptBodyBoundsTouchFace;
@@ -194,6 +195,18 @@ TEST_CASE("incremental mechanism vertex update matches full adjusted vertex buil
         CHECK(incrementalVertices[vertexIndex].y == fullVertices[vertexIndex].y);
         CHECK(incrementalVertices[vertexIndex].z == fullVertices[vertexIndex].z);
     }
+}
+
+TEST_CASE("indoor bounty hunt spawn chooses floor supported room face")
+{
+    const IndoorMapData mapData = makeInitialPlacementRoom();
+    const std::optional<bx::Vec3> spawnPoint =
+        chooseIndoorBountyHuntSpawnPoint(mapData, nullptr, nullptr, 1234);
+
+    REQUIRE(spawnPoint.has_value());
+    CHECK_EQ(spawnPoint->x, doctest::Approx(128.0f));
+    CHECK_EQ(spawnPoint->y, doctest::Approx(0.0f));
+    CHECK_EQ(spawnPoint->z, doctest::Approx(0.0f));
 }
 
 TEST_CASE("swept indoor sphere misses face outside polygon")

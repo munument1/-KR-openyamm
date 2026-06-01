@@ -50,6 +50,7 @@ namespace
 constexpr uint16_t HudViewId = 2;
 constexpr float HudReferenceWidth = 640.0f;
 constexpr float HudReferenceHeight = 480.0f;
+constexpr float MaxUiScale = 8.0f;
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr uint32_t BrokenItemTintColorAbgr = 0x800000ffu;
 constexpr uint32_t UnidentifiedItemTintColorAbgr = 0x80ff0000u;
@@ -1225,7 +1226,7 @@ UtilityOverlayRenderLayout computeUtilityOverlayRenderLayout(int screenWidth, in
 {
     const float width = static_cast<float>(std::max(screenWidth, 1));
     const float height = static_cast<float>(std::max(screenHeight, 1));
-    const float scale = std::clamp(std::min(width / 640.0f, height / 480.0f), 0.8f, 2.0f);
+    const float scale = std::clamp(std::min(width / 640.0f, height / 480.0f), 0.8f, MaxUiScale);
 
     UtilityOverlayRenderLayout layout = {};
     layout.scale = scale;
@@ -5772,7 +5773,9 @@ void GameplayPartyOverlayRenderer::renderHeldInventoryItem(GameplayScreenRuntime
     setupHudProjection(width, height);
 
     const GameplayUiViewportRect uiViewport = GameplayHudCommon::computeUiViewportRect(width, height);
-    const float scale = std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight);
+    const float scale = std::min(
+        std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight),
+        MaxUiScale);
     const PointerRenderInput pointerInput = pointerRenderInput(context);
     const float mouseX = pointerInput.mouseX;
     const float mouseY = pointerInput.mouseY;
@@ -7996,7 +7999,9 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
     renderViewportParchmentSidePanels(context, width, height);
 
     const GameplayUiViewportRect uiViewport = GameplayHudCommon::computeUiViewportRect(width, height);
-    const float baseScale = std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight);
+    const float baseScale = std::min(
+        std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight),
+        MaxUiScale);
     const PointerRenderInput pointerInput = pointerRenderInput(context);
     const float characterMouseX = pointerInput.mouseX;
     const float characterMouseY = pointerInput.mouseY;
@@ -9386,7 +9391,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
     {
         const uint32_t pickerColor = makeAbgrColor(255, 255, 155);
         const uint32_t shadowColor = 0xc0000000u;
-        const float overlayScale = std::clamp(baseScale, 0.75f, 2.0f);
+        const float overlayScale = std::clamp(baseScale, 0.75f, MaxUiScale);
         const GameplayRenderedInspectableHudItem *pHoveredItem = nullptr;
 
         for (auto it = context.renderedInspectableHudItems().rbegin();

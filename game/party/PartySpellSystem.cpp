@@ -388,7 +388,10 @@ bool isActorPointInsideSpellView(
 
 bool areaSpellAffectsVisibleCreatures(SpellId spellId)
 {
-    return spellId == SpellId::Fear || spellId == SpellId::PrismaticLight || spellId == SpellId::SoulDrinker;
+    return spellId == SpellId::Fear
+        || spellId == SpellId::Inferno
+        || spellId == SpellId::PrismaticLight
+        || spellId == SpellId::SoulDrinker;
 }
 
 struct BackendSpellRule
@@ -773,7 +776,7 @@ std::optional<BackendSpellRule> resolveBackendSpellRule(uint32_t spellId, SkillM
         case SpellId::StoneSkin:
             return makeBackendSpellRule(spellId, PartySpellCastTargetKind::None, PartySpellCastEffectKind::PartyBuff, SkillMastery::Expert, {5, 5, 5, 5}, {120, 120, 120, 120}, PartyBuffId::Stoneskin);
         case SpellId::Blades:
-            return makeBackendSpellRule(spellId, PartySpellCastTargetKind::Actor, PartySpellCastEffectKind::ActorEffect, SkillMastery::Expert, {}, {}, PartyBuffId::TorchLight, 1, 9, false);
+            return makeBackendSpellRule(spellId, PartySpellCastTargetKind::Actor, PartySpellCastEffectKind::Projectile, SkillMastery::Expert, {}, {}, PartyBuffId::TorchLight, 1, 9, false);
         case SpellId::StoneToFlesh:
             return makeBackendSpellRule(spellId, PartySpellCastTargetKind::CharacterOrWorldTarget, PartySpellCastEffectKind::CharacterRestore, SkillMastery::Expert, {}, {}, PartyBuffId::TorchLight);
         case SpellId::RockBlast:
@@ -2879,6 +2882,14 @@ PartySpellCastResult PartySpellSystem::castSpell(
                     .colorAbgr = makeAbgr(255, 255, 224),
                     .durationSeconds = 0.52f,
                     .peakAlpha = 0.55f
+                };
+            }
+            else if (spellId == SpellId::Inferno && castSucceeded)
+            {
+                result.screenOverlayRequest = PartySpellCastResult::ScreenOverlayRequest{
+                    .colorAbgr = makeAbgr(255, 56, 24),
+                    .durationSeconds = 0.52f,
+                    .peakAlpha = 0.60f
                 };
             }
             else if (spellId == SpellId::Armageddon)

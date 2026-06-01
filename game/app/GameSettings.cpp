@@ -85,6 +85,38 @@ bool parseBlasterSkillScalingValue(const std::string &value, BlasterSkillScaling
     return false;
 }
 
+bool parseMonsterProjectileVisualsValue(const std::string &value, MonsterProjectileVisuals &result)
+{
+    const std::string normalized = toLowerCopy(trimCopy(value));
+
+    if (normalized == "fx_recipes" || normalized == "fx" || normalized == "recipes" || normalized == "particles")
+    {
+        result = MonsterProjectileVisuals::FxRecipes;
+        return true;
+    }
+
+    if (normalized == "sprites" || normalized == "sprite" || normalized == "billboard" || normalized == "legacy")
+    {
+        result = MonsterProjectileVisuals::Sprites;
+        return true;
+    }
+
+    return false;
+}
+
+std::string monsterProjectileVisualsValue(MonsterProjectileVisuals visuals)
+{
+    switch (visuals)
+    {
+        case MonsterProjectileVisuals::Sprites:
+            return "sprites";
+
+        case MonsterProjectileVisuals::FxRecipes:
+        default:
+            return "fx_recipes";
+    }
+}
+
 std::string blasterSkillScalingValue(BlasterSkillScalingMode mode)
 {
     switch (mode)
@@ -875,6 +907,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "features", "monster_projectile_visuals"))
+    {
+        MonsterProjectileVisuals parsed = settings.monsterProjectileVisuals;
+
+        if (parseMonsterProjectileVisualsValue(*value, parsed))
+        {
+            settings.monsterProjectileVisuals = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "features", "blaster_skill_scaling"))
     {
         BlasterSkillScalingMode parsed = settings.blasterSkillScaling;
@@ -1226,6 +1268,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "[features]\n"
         << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << '\n'
+        << "monster_projectile_visuals=" << monsterProjectileVisualsValue(settings.monsterProjectileVisuals) << '\n'
         << "blaster_skill_scaling=" << blasterSkillScalingValue(settings.blasterSkillScaling) << '\n'
         << "blaster_min_recovery=" << blasterMinimumRecoveryTicksValue(settings.blasterMinimumRecoveryTicks) << "\n\n"
         << "[logging]\n"

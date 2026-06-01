@@ -209,6 +209,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.skipEventCutscenes = true;
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
+    settings.monsterProjectileVisuals = OpenYAMM::Game::MonsterProjectileVisuals::Sprites;
     settings.logIndoorVisibility = true;
     settings.fpsTrace = true;
     settings.hitchTrace = true;
@@ -239,6 +240,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK(loadedSettings->skipEventCutscenes);
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
+    CHECK(loadedSettings->monsterProjectileVisuals == OpenYAMM::Game::MonsterProjectileVisuals::Sprites);
     CHECK(loadedSettings->logIndoorVisibility);
     CHECK(loadedSettings->fpsTrace);
     CHECK(loadedSettings->hitchTrace);
@@ -260,6 +262,9 @@ TEST_CASE("settings monster bolster feature defaults off")
 {
     CHECK_FALSE(OpenYAMM::Game::GameSettings::createDefault().bolsterMonsters);
     CHECK(
+        OpenYAMM::Game::GameSettings::createDefault().monsterProjectileVisuals
+        == OpenYAMM::Game::MonsterProjectileVisuals::FxRecipes);
+    CHECK(
         OpenYAMM::Game::GameSettings::createDefault().blasterSkillScaling
         == OpenYAMM::Game::BlasterSkillScalingMode::Default);
     CHECK_EQ(OpenYAMM::Game::GameSettings::createDefault().blasterMinimumRecoveryTicks, 0);
@@ -280,6 +285,7 @@ TEST_CASE("settings monster bolster feature defaults off")
 
     REQUIRE(loadedSettings.has_value());
     CHECK_FALSE(loadedSettings->bolsterMonsters);
+    CHECK(loadedSettings->monsterProjectileVisuals == OpenYAMM::Game::MonsterProjectileVisuals::FxRecipes);
     CHECK(loadedSettings->blasterSkillScaling == OpenYAMM::Game::BlasterSkillScalingMode::Default);
     CHECK_EQ(loadedSettings->blasterMinimumRecoveryTicks, 0);
     CHECK_FALSE(loadedSettings->logIndoorVisibility);

@@ -8,6 +8,7 @@
 #include "game/events/EvtEnums.h"
 #include "game/events/EventProjectileSpells.h"
 #include "game/StringUtils.h"
+#include "game/fx/ParticleRecipes.h"
 #include "game/gameplay/BountyHuntRuntime.h"
 #include "game/gameplay/ChestRuntime.h"
 #include "game/gameplay/CorpseLootRuntime.h"
@@ -28,6 +29,7 @@
 #include "game/indoor/IndoorMovementController.h"
 #include "game/indoor/IndoorPartyRuntime.h"
 #include "game/indoor/IndoorPathfindingBuilder.h"
+#include "game/indoor/IndoorPortalVisibility.h"
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
 #include "game/maps/MapAssetLoader.h"
@@ -1054,12 +1056,34 @@ bool indoorProjectileShouldSettle(const GameplayProjectileService::ProjectileSta
     return projectile.velocityZ == 0.0f && horizontalSpeedSquared <= IndoorProjectileSettledHorizontalSpeedSquared;
 }
 
+GameplayProjectileVisualMode indoorProjectileVisualModeForFxRecipe(
+    int spellId,
+    const std::string &objectName,
+    const std::string &spriteName,
+    uint16_t objectFlags)
+{
+    const FxRecipes::ProjectileRecipe recipe =
+        FxRecipes::classifyProjectileRecipe(spellId, objectName, spriteName, objectFlags);
+    const FxRecipes::ProjectileFxRecipe &fxRecipe = FxRecipes::projectileFxRecipe(recipe);
+
+    return fxRecipe.renderProjectileBillboard
+        ? GameplayProjectileVisualMode::SpriteBillboard
+        : GameplayProjectileVisualMode::FxOnly;
+}
+
+bool indoorMonsterProjectileFxRecipesEnabled(const IndoorGameView *pGameplayView)
+{
+    return pGameplayView == nullptr
+        || pGameplayView->settingsSnapshot().monsterProjectileVisuals == MonsterProjectileVisuals::FxRecipes;
+}
+
 struct IndoorResolvedProjectileDefinition
 {
     uint16_t objectDescriptionId = 0;
     uint16_t objectSpriteId = 0;
     uint16_t impactObjectDescriptionId = 0;
     uint16_t objectFlags = 0;
+    GameplayProjectileVisualMode visualMode = GameplayProjectileVisualMode::SpriteBillboard;
     uint16_t radius = 0;
     uint16_t height = 0;
     int spellId = 0;
@@ -1746,6 +1770,11 @@ bool fillIndoorProjectileDefinitionFromSpell(
 
     definition.spellId = spell.id;
     definition.effectSoundId = spell.effectSoundId;
+    definition.visualMode = indoorProjectileVisualModeForFxRecipe(
+        definition.spellId,
+        definition.objectName,
+        definition.objectSpriteName,
+        definition.objectFlags);
 
     if (isSpellId(static_cast<uint32_t>(std::max(spell.id, 0)), SpellId::Sparks))
     {
@@ -1766,6 +1795,7 @@ bool resolveIndoorMonsterProjectileDefinition(
     const MonsterProjectileTable &projectileTable,
     const ObjectTable &objectTable,
     const SpellTable &spellTable,
+    bool useFxRecipes,
     IndoorResolvedProjectileDefinition &definition)
 {
     definition = {};
@@ -1784,11 +1814,19 @@ bool resolveIndoorMonsterProjectileDefinition(
             return false;
         }
 
-        return fillIndoorProjectileDefinitionFromObject(
+        if (!fillIndoorProjectileDefinitionFromObject(
             pProjectileEntry->objectId,
             pProjectileEntry->impactObjectId,
             objectTable,
-            definition);
+            definition))
+        {
+            return false;
+        }
+
+        definition.visualMode = useFxRecipes
+            ? GameplayProjectileService::monsterProjectileVisualModeForObjectId(pProjectileEntry->objectId)
+            : GameplayProjectileVisualMode::SpriteBillboard;
+        return true;
     }
 
     const std::string &spellName =
@@ -1817,6 +1855,13 @@ bool resolveIndoorMonsterProjectileDefinition(
 
     definition.spellId = pSpellEntry->id;
     definition.effectSoundId = pSpellEntry->effectSoundId;
+    definition.visualMode = useFxRecipes
+        ? indoorProjectileVisualModeForFxRecipe(
+            definition.spellId,
+            definition.objectName,
+            definition.objectSpriteName,
+            definition.objectFlags)
+        : GameplayProjectileVisualMode::SpriteBillboard;
     return true;
 }
 
@@ -1830,6 +1875,7 @@ GameplayProjectileService::ProjectileDefinition buildIndoorGameplayProjectileDef
     result.objectSpriteFrameIndex = objectSpriteFrameIndex;
     result.impactObjectDescriptionId = definition.impactObjectDescriptionId;
     result.objectFlags = definition.objectFlags;
+    result.visualMode = definition.visualMode;
     result.radius = definition.radius;
     result.height = definition.height;
     result.spellId = definition.spellId;
@@ -3655,6 +3701,7 @@ void IndoorWorldRuntime::initialize(
     m_actorCorpsePhysicsActorIndices.clear();
     m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
+    m_fireSpikeTraps.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
@@ -3723,6 +3770,7 @@ void IndoorWorldRuntime::initialize(
     m_actorCorpsePhysicsActorIndices.clear();
     m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
+    m_fireSpikeTraps.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
@@ -5410,6 +5458,7 @@ bool IndoorWorldRuntime::applyIndoorActorProjectileRequest(const ActorProjectile
         projectileAbilityFromActorAbility(projectileRequest.ability);
     IndoorResolvedProjectileDefinition definition = {};
     bool definitionResolved = false;
+    const bool useMonsterProjectileFxRecipes = indoorMonsterProjectileFxRecipesEnabled(m_pGameplayView);
 
     if (actorAbilityIsSpellProjectile(projectileRequest.ability) && projectileRequest.spellId != 0)
     {
@@ -5417,6 +5466,10 @@ bool IndoorWorldRuntime::applyIndoorActorProjectileRequest(const ActorProjectile
         definitionResolved =
             pSpellEntry != nullptr
             && fillIndoorProjectileDefinitionFromSpell(*pSpellEntry, *m_pObjectTable, definition);
+        if (definitionResolved && !useMonsterProjectileFxRecipes)
+        {
+            definition.visualMode = GameplayProjectileVisualMode::SpriteBillboard;
+        }
     }
 
     MonsterTable::MonsterStatsEntry projectileStats = *pStats;
@@ -5433,6 +5486,7 @@ bool IndoorWorldRuntime::applyIndoorActorProjectileRequest(const ActorProjectile
             *m_pMonsterProjectileTable,
             *m_pObjectTable,
             *m_pSpellTable,
+            useMonsterProjectileFxRecipes,
             definition))
     {
         return false;
@@ -6365,13 +6419,7 @@ void IndoorWorldRuntime::populateIndoorProjectileAreaImpact(
                 continue;
             }
 
-            const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
             const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
-
-            if (!indoorActorSectorActivated(actor, &aiState))
-            {
-                continue;
-            }
 
             const float actorRadius =
                 static_cast<float>(std::max<uint16_t>(aiState.collisionRadius, uint16_t(8)));
@@ -7051,6 +7099,245 @@ void IndoorWorldRuntime::updateIndoorProjectiles(float deltaSeconds)
     }
 
     m_pGameplayProjectileService->eraseExpiredProjectiles();
+}
+
+void IndoorWorldRuntime::updateFireSpikeTraps(float deltaSeconds)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (deltaSeconds <= 0.0f
+        || m_pGameplayProjectileService == nullptr
+        || pMapDeltaData == nullptr)
+    {
+        return;
+    }
+
+    syncMapActorAiStates();
+
+    for (FireSpikeTrapState &trap : m_fireSpikeTraps)
+    {
+        if (trap.isExpired)
+        {
+            continue;
+        }
+
+        trap.timeSinceCreatedTicks =
+            m_pGameplayProjectileService->advanceFireSpikeTrapLifetime(trap.timeSinceCreatedTicks, deltaSeconds);
+
+        if (m_pIndoorMapData != nullptr)
+        {
+            RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+            const IndoorFloorSample floorSample =
+                sampleIndoorFloor(
+                    *m_pIndoorMapData,
+                    runtimeGeometry.vertices,
+                    trap.x,
+                    trap.y,
+                    trap.z,
+                    IndoorWorldItemFloorSampleRise,
+                    IndoorWorldItemFloorSampleDrop,
+                    trap.sectorId,
+                    nullptr,
+                    &runtimeGeometry.geometryCache);
+
+            if (floorSample.hasFloor)
+            {
+                trap.z = floorSample.height + 1.0f;
+                trap.sectorId = floorSample.sectorId;
+            }
+        }
+
+        GameplayProjectileService::FireSpikeTrapTriggerInput triggerInput = {};
+        triggerInput.sourceKind = trap.sourceKind;
+        triggerInput.trapId = trap.trapId;
+        triggerInput.trapRadius = trap.radius;
+        triggerInput.skillLevel = trap.skillLevel;
+        triggerInput.skillMastery = trap.skillMastery;
+        triggerInput.x = trap.x;
+        triggerInput.y = trap.y;
+        triggerInput.z = trap.z;
+        triggerInput.actors.reserve(pMapDeltaData->actors.size());
+
+        GameplayProjectileService::ProjectileState trapSource = {};
+        trapSource.sourceKind = trap.sourceKind;
+        trapSource.sourceId = trap.sourceId;
+        trapSource.sourcePartyMemberIndex = trap.sourcePartyMemberIndex;
+        trapSource.sourceMonsterId = trap.sourceMonsterId;
+        trapSource.fromSummonedMonster = trap.fromSummonedMonster;
+        trapSource.ability = trap.ability;
+
+        const size_t actorCount = std::min(pMapDeltaData->actors.size(), m_mapActorAiStates.size());
+
+        for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex)
+        {
+            GameplayRuntimeActorState actorState = {};
+
+            if (!actorRuntimeState(actorIndex, actorState))
+            {
+                continue;
+            }
+
+            const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+            const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+            GameplayProjectileService::FireSpikeTrapActorFacts actorFacts = {};
+            actorFacts.actorIndex = actorIndex;
+            actorFacts.actorId = aiState.actorId;
+            actorFacts.x = actorState.preciseX;
+            actorFacts.y = actorState.preciseY;
+            actorFacts.z = actorState.preciseZ;
+            actorFacts.radius = actorState.radius;
+            actorFacts.height = actorState.height;
+            actorFacts.unavailableForCombat =
+                m_pGameplayActorService != nullptr
+                    ? indoorActorUnavailableForCombat(actor, aiState, *m_pGameplayActorService)
+                    : actorState.isDead || actorState.isInvisible;
+            actorFacts.hostileToParty = actorState.hostileToParty;
+            actorFacts.friendlyToTrapSource = projectileSourceIsFriendlyToActor(trapSource, aiState);
+            triggerInput.actors.push_back(actorFacts);
+        }
+
+        const GameplayProjectileService::FireSpikeTrapTriggerResult triggerResult =
+            m_pGameplayProjectileService->buildFireSpikeTrapTrigger(triggerInput);
+
+        if (triggerResult.triggered)
+        {
+            applyFireSpikeTrapTriggerResult(trap, triggerResult);
+        }
+    }
+
+    std::erase_if(
+        m_fireSpikeTraps,
+        [](const FireSpikeTrapState &trap)
+        {
+            return trap.isExpired;
+        });
+}
+
+void IndoorWorldRuntime::applyFireSpikeTrapTriggerResult(
+    FireSpikeTrapState &trap,
+    const GameplayProjectileService::FireSpikeTrapTriggerResult &result)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (!result.triggered
+        || pMapDeltaData == nullptr
+        || result.actorIndex >= pMapDeltaData->actors.size())
+    {
+        return;
+    }
+
+    if (result.applyActorImpact)
+    {
+        const size_t triggeredActorIndex = result.actorIndex;
+        const int beforeHp = pMapDeltaData->actors[triggeredActorIndex].hp;
+        int appliedDamage = result.damage;
+
+        if (trap.sourceKind == GameplayProjectileService::ProjectileState::SourceKind::Party)
+        {
+            const MonsterTable::MonsterStatsEntry *pStats =
+                m_pMonsterTable != nullptr
+                    ? m_pMonsterTable->findStatsById(
+                        resolveIndoorActorStatsId(pMapDeltaData->actors[triggeredActorIndex]))
+                    : nullptr;
+            const CombatDamageType damageType = GameMechanics::spellCombatDamageType(trap.spellId, m_pSpellTable);
+
+            if (pStats != nullptr)
+            {
+                std::mt19937 rng(
+                    trap.trapId
+                    ^ static_cast<uint32_t>((triggeredActorIndex + 1) * 2654435761u)
+                    ^ static_cast<uint32_t>(std::max(0, result.damage)));
+                appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
+                    result.damage,
+                    damageType,
+                    monsterResistanceForDamageType(*pStats, damageType),
+                    monsterHourOfPowerResistanceBonus(m_mapActorAiStates, triggeredActorIndex),
+                    rng);
+            }
+
+            applyPartyAttackMeleeDamage(
+                triggeredActorIndex,
+                appliedDamage,
+                damageType,
+                {trap.x, trap.y, trap.z});
+
+            if (m_pGameplayCombatController != nullptr)
+            {
+                const uint32_t actorId =
+                    triggeredActorIndex < m_mapActorAiStates.size()
+                        ? m_mapActorAiStates[triggeredActorIndex].actorId
+                        : static_cast<uint32_t>(triggeredActorIndex);
+                m_pGameplayCombatController->recordPartyProjectileActorImpact(
+                    trap.sourceId,
+                    trap.sourcePartyMemberIndex,
+                    actorId,
+                    appliedDamage,
+                    trap.spellId,
+                    true,
+                    beforeHp > 0 && pMapDeltaData->actors[triggeredActorIndex].hp <= 0);
+            }
+        }
+        else
+        {
+            const int16_t resolvedMonsterId = resolveIndoorActorStatsId(pMapDeltaData->actors[triggeredActorIndex]);
+            appliedDamage = applyMonsterDamageEventHooks(
+                triggeredActorIndex,
+                resolvedMonsterId,
+                appliedDamage,
+                CombatDamageType::Physical);
+            MapDeltaActor &targetActor = pMapDeltaData->actors[triggeredActorIndex];
+            targetActor.hp = static_cast<int16_t>(std::max(0, static_cast<int>(targetActor.hp) - appliedDamage));
+
+            if (beforeHp > 0 && targetActor.hp <= 0)
+            {
+                beginMapActorDyingState(triggeredActorIndex, targetActor);
+            }
+            else if (beforeHp > 0 && targetActor.hp < beforeHp)
+            {
+                const GameplayWorldPoint sourcePoint = {trap.x, trap.y, trap.z};
+                beginMapActorHitReaction(triggeredActorIndex, targetActor, &sourcePoint);
+            }
+        }
+    }
+
+    if (result.spawnImpactVisual)
+    {
+        GameplayProjectileService::FireSpikeTrapImpactProjectileInput impactInput = {};
+        impactInput.sourceKind = trap.sourceKind;
+        impactInput.sourceId = trap.sourceId;
+        impactInput.sourcePartyMemberIndex = trap.sourcePartyMemberIndex;
+        impactInput.sourceMonsterId = trap.sourceMonsterId;
+        impactInput.fromSummonedMonster = trap.fromSummonedMonster;
+        impactInput.ability = trap.ability;
+        impactInput.objectDescriptionId = trap.objectDescriptionId;
+        impactInput.objectSpriteId = trap.objectSpriteId;
+        impactInput.objectSpriteFrameIndex = trap.objectSpriteFrameIndex;
+        impactInput.impactObjectDescriptionId = trap.impactObjectDescriptionId;
+        impactInput.objectFlags = trap.objectFlags;
+        impactInput.radius = trap.radius;
+        impactInput.height = trap.height;
+        impactInput.spellId = trap.spellId;
+        impactInput.effectSoundId = trap.effectSoundId;
+        impactInput.skillLevel = trap.skillLevel;
+        impactInput.skillMastery = trap.skillMastery;
+        impactInput.objectName = trap.objectName;
+        impactInput.objectSpriteName = trap.objectSpriteName;
+        impactInput.x = trap.x;
+        impactInput.y = trap.y;
+        impactInput.z = trap.z;
+        impactInput.damage = result.damage;
+
+        GameplayProjectileService::ProjectileState impactSource =
+            m_pGameplayProjectileService->buildFireSpikeTrapImpactProjectile(impactInput);
+        impactSource.sectorId = trap.sectorId;
+        spawnIndoorProjectileImpactVisual(impactSource, {trap.x, trap.y, trap.z}, false);
+    }
+
+    if (result.expireTrap)
+    {
+        trap.isExpired = true;
+    }
 }
 
 bool IndoorWorldRuntime::updateWorldItemsStep(
@@ -8821,6 +9108,22 @@ float IndoorWorldRuntime::partyFootZ() const
     return m_pPartyRuntime != nullptr ? m_pPartyRuntime->partyFootZ() : 0.0f;
 }
 
+GameplayWorldPoint IndoorWorldRuntime::chooseBountyHuntSpawnPoint(uint32_t seed) const
+{
+    if (m_pIndoorMapData != nullptr)
+    {
+        const std::optional<bx::Vec3> point =
+            chooseIndoorBountyHuntSpawnPoint(*m_pIndoorMapData, mapDeltaData(), eventRuntimeState(), seed);
+
+        if (point)
+        {
+            return GameplayWorldPoint{point->x, point->y, point->z};
+        }
+    }
+
+    return IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
+}
+
 float IndoorWorldRuntime::gameplayCameraYawRadians() const
 {
     return m_pRenderer != nullptr ? m_pRenderer->cameraYawRadians() : 0.0f;
@@ -8986,6 +9289,7 @@ void IndoorWorldRuntime::updateTurnBasedPausedActorAnimations(float deltaSeconds
     }
 
     updateIndoorProjectiles(deltaSeconds);
+    updateFireSpikeTraps(deltaSeconds);
 
     MapDeltaData *pMapDeltaData = mapDeltaData();
     if (pMapDeltaData == nullptr)
@@ -9232,6 +9536,7 @@ void IndoorWorldRuntime::updateWorld(float deltaSeconds)
 {
     updateWorldItems(deltaSeconds);
     updateIndoorProjectiles(deltaSeconds);
+    updateFireSpikeTraps(deltaSeconds);
 }
 
 void IndoorWorldRuntime::renderWorld(
@@ -9844,6 +10149,35 @@ void IndoorWorldRuntime::collectProjectilePresentationState(
     }
 
     m_pGameplayProjectileService->collectProjectilePresentationState(projectiles, impacts);
+
+    projectiles.reserve(projectiles.size() + m_fireSpikeTraps.size());
+
+    for (const FireSpikeTrapState &trap : m_fireSpikeTraps)
+    {
+        if (trap.isExpired)
+        {
+            continue;
+        }
+
+        GameplayProjectilePresentationState state = {};
+        state.projectileId = trap.trapId;
+        state.objectDescriptionId = trap.objectDescriptionId;
+        state.objectSpriteId = trap.objectSpriteId;
+        state.objectSpriteFrameIndex = trap.objectSpriteFrameIndex;
+        state.objectFlags = trap.objectFlags;
+        state.radius = trap.radius;
+        state.height = trap.height;
+        state.spellId = trap.spellId;
+        state.objectName = trap.objectName;
+        state.objectSpriteName = trap.objectSpriteName;
+        state.x = trap.x;
+        state.y = trap.y;
+        state.z = trap.z;
+        state.timeSinceCreatedTicks = trap.timeSinceCreatedTicks;
+        state.sectorId = trap.sectorId;
+        state.isSettled = true;
+        projectiles.push_back(std::move(state));
+    }
 }
 
 bool IndoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const
@@ -10230,7 +10564,7 @@ bool IndoorWorldRuntime::actorInspectState(
 
     state.armorClass = armorClass;
 
-    if (m_pActorSpriteFrameTable == nullptr)
+    if (m_pActorSpriteFrameTable == nullptr || animationTicks == 0)
     {
         return true;
     }
@@ -10746,6 +11080,28 @@ bool IndoorWorldRuntime::applyPartySpellToActor(
         }
     }
 
+    if (resolvedSpellId == SpellId::WingBuffet)
+    {
+        const std::optional<bx::Vec3> pushVelocity = GameplayActorService::spellPushVelocity(
+            spellId,
+            skillLevel,
+            aiState.preciseX,
+            aiState.preciseY,
+            partyX,
+            partyY);
+        const GameplayWorldPoint sourcePoint = {partyX, partyY, partyZ};
+
+        beginMapActorHitReaction(actorIndex, actor, &sourcePoint);
+
+        if (pushVelocity && actorIndex < m_mapActorAiStates.size())
+        {
+            m_mapActorAiStates[actorIndex].velocityX = pushVelocity->x;
+            m_mapActorAiStates[actorIndex].velocityY = pushVelocity->y;
+        }
+
+        return true;
+    }
+
     if (damage <= 0)
     {
         return false;
@@ -10958,16 +11314,44 @@ std::vector<size_t> IndoorWorldRuntime::collectVisibleMapActorIndicesWithinRadiu
     }
 
     RuntimeGeometryCache *pRuntimeGeometry = nullptr;
-    int16_t sourceSectorId = -1;
-    const GameplayWorldPoint sourcePoint = {sourceX, sourceY, sourceZ};
+    std::vector<uint8_t> visibleSectorMask;
+    const auto sectorVisibleForRender = [&visibleSectorMask](int16_t sectorId)
+    {
+        if (visibleSectorMask.empty())
+        {
+            return true;
+        }
+
+        return sectorId >= 0
+            && static_cast<size_t>(sectorId) < visibleSectorMask.size()
+            && visibleSectorMask[static_cast<size_t>(sectorId)] != 0;
+    };
 
     if (m_pIndoorMapData != nullptr)
     {
         pRuntimeGeometry = &runtimeGeometryCache();
+        int16_t startSectorId = -1;
 
         if (!pRuntimeGeometry->vertices.empty())
         {
-            sourceSectorId =
+            startSectorId =
+                findIndoorSectorForPoint(
+                    *m_pIndoorMapData,
+                    pRuntimeGeometry->vertices,
+                    {viewX, viewY, viewZ},
+                    &pRuntimeGeometry->geometryCache,
+                    false).value_or(-1);
+        }
+
+        if (startSectorId < 0 && m_pPartyRuntime != nullptr)
+        {
+            const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
+            startSectorId = moveState.eyeSectorId >= 0 ? moveState.eyeSectorId : moveState.sectorId;
+        }
+
+        if (startSectorId < 0 && !pRuntimeGeometry->vertices.empty())
+        {
+            startSectorId =
                 findIndoorSectorForPoint(
                     *m_pIndoorMapData,
                     pRuntimeGeometry->vertices,
@@ -10976,29 +11360,62 @@ std::vector<size_t> IndoorWorldRuntime::collectVisibleMapActorIndicesWithinRadiu
                     false).value_or(-1);
         }
 
-        if (sourceSectorId < 0 && m_pPartyRuntime != nullptr)
+        if (startSectorId >= 0 && !pRuntimeGeometry->vertices.empty())
         {
-            const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
-            sourceSectorId = moveState.eyeSectorId >= 0 ? moveState.eyeSectorId : moveState.sectorId;
+            const float cosPitch = std::cos(viewPitchRadians);
+            const float sinPitch = std::sin(viewPitchRadians);
+            const float cosYaw = std::cos(viewYawRadians);
+            const float sinYaw = std::sin(viewYawRadians);
+            IndoorPortalVisibilityInput input = {};
+            input.pMapData = m_pIndoorMapData;
+            input.pVertices = &pRuntimeGeometry->vertices;
+            input.pPortalVertices = &m_pIndoorMapData->vertices;
+            input.pMapDeltaData = pMapDeltaData;
+            input.cameraPosition = {viewX, viewY, viewZ};
+            input.cameraForward = {cosYaw * cosPitch, sinYaw * cosPitch, sinPitch};
+            input.cameraUp = {0.0f, 0.0f, 1.0f};
+            input.verticalFovDegrees = 60.0f;
+            input.aspectRatio = viewAspectRatio;
+            input.startSectorId = startSectorId;
+            visibleSectorMask = buildIndoorPortalVisibility(input).visibleSectorMask;
         }
     }
 
     for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
     {
         const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
-        const MapActorAiState *pAiState =
-            actorIndex < m_mapActorAiStates.size() ? &m_mapActorAiStates[actorIndex] : nullptr;
-
-        if (!indoorActorSectorActivated(actor, pAiState))
-        {
-            continue;
-        }
 
         GameplayRuntimeActorState actorState = {};
 
         if (!actorRuntimeState(actorIndex, actorState)
             || actorState.isDead
             || actorState.isInvisible)
+        {
+            continue;
+        }
+
+        int16_t actorSectorId = actor.sectorId;
+
+        if (actorIndex < m_mapActorAiStates.size() && m_mapActorAiStates[actorIndex].sectorId >= 0)
+        {
+            actorSectorId = m_mapActorAiStates[actorIndex].sectorId;
+        }
+
+        if (actorSectorId < 0
+            && pRuntimeGeometry != nullptr
+            && m_pIndoorMapData != nullptr
+            && !pRuntimeGeometry->vertices.empty())
+        {
+            actorSectorId =
+                findIndoorSectorForPoint(
+                    *m_pIndoorMapData,
+                    pRuntimeGeometry->vertices,
+                    {actorState.preciseX, actorState.preciseY, actorState.preciseZ},
+                    &pRuntimeGeometry->geometryCache,
+                    false).value_or(-1);
+        }
+
+        if (!sectorVisibleForRender(actorSectorId))
         {
             continue;
         }
@@ -11033,38 +11450,6 @@ std::vector<size_t> IndoorWorldRuntime::collectVisibleMapActorIndicesWithinRadiu
             continue;
         }
 
-        int16_t actorSectorId = actor.sectorId;
-
-        if (actorIndex < m_mapActorAiStates.size() && m_mapActorAiStates[actorIndex].sectorId >= 0)
-        {
-            actorSectorId = m_mapActorAiStates[actorIndex].sectorId;
-        }
-
-        if (actorSectorId < 0
-            && pRuntimeGeometry != nullptr
-            && m_pIndoorMapData != nullptr
-            && !pRuntimeGeometry->vertices.empty())
-        {
-            actorSectorId =
-                findIndoorSectorForPoint(
-                    *m_pIndoorMapData,
-                    pRuntimeGeometry->vertices,
-                    {actorState.preciseX, actorState.preciseY, targetZ},
-                    &pRuntimeGeometry->geometryCache,
-                    false).value_or(-1);
-        }
-
-        const GameplayWorldPoint targetPoint = {actorState.preciseX, actorState.preciseY, targetZ};
-        const bool hasLineOfSight =
-            sourceSectorId >= 0
-            && actorSectorId >= 0
-            && hasIndoorCombatLineOfSight(sourcePoint, sourceSectorId, targetPoint, actorSectorId);
-
-        if (!hasLineOfSight)
-        {
-            continue;
-        }
-
         result.push_back(actorIndex);
     }
 
@@ -11080,14 +11465,124 @@ bool IndoorWorldRuntime::spawnPartyFireSpikeTrap(
     float y,
     float z)
 {
-    (void)casterMemberIndex;
-    (void)spellId;
-    (void)skillLevel;
-    (void)skillMastery;
-    (void)x;
-    (void)y;
-    (void)z;
-    return false;
+    if (m_pGameplayProjectileService == nullptr
+        || m_pObjectTable == nullptr
+        || m_pSpellTable == nullptr
+        || m_pParty == nullptr)
+    {
+        return false;
+    }
+
+    const SpellEntry *pSpellEntry = m_pSpellTable->findById(static_cast<int>(spellId));
+
+    if (pSpellEntry == nullptr || spellIdFromValue(spellId) != SpellId::FireSpike)
+    {
+        return false;
+    }
+
+    IndoorResolvedProjectileDefinition definition = {};
+
+    if (!fillIndoorProjectileDefinitionFromSpell(*pSpellEntry, *m_pObjectTable, definition))
+    {
+        return false;
+    }
+
+    GameplayProjectileService::FireSpikeTrapSpawnLimitInput spawnLimitInput = {};
+    spawnLimitInput.sourceKind = GameplayProjectileService::ProjectileState::SourceKind::Party;
+    spawnLimitInput.sourcePartyMemberIndex = casterMemberIndex;
+    spawnLimitInput.skillMastery = skillMastery;
+    spawnLimitInput.traps.reserve(m_fireSpikeTraps.size());
+
+    for (const FireSpikeTrapState &trap : m_fireSpikeTraps)
+    {
+        GameplayProjectileService::FireSpikeActiveTrapFacts trapFacts = {};
+        trapFacts.sourceKind = trap.sourceKind;
+        trapFacts.sourcePartyMemberIndex = trap.sourcePartyMemberIndex;
+        trapFacts.expired = trap.isExpired;
+        spawnLimitInput.traps.push_back(trapFacts);
+    }
+
+    const GameplayProjectileService::FireSpikeTrapSpawnResult spawnResult =
+        m_pGameplayProjectileService->buildFireSpikeTrapSpawn(spawnLimitInput);
+
+    if (!spawnResult.accepted)
+    {
+        return false;
+    }
+
+    int16_t sectorId = -1;
+    float supportZ = z;
+
+    if (m_pIndoorMapData != nullptr)
+    {
+        RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+        sectorId =
+            resolveIndoorPointSector(
+                m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                &runtimeGeometry.geometryCache,
+                {x, y, z},
+                m_pPartyRuntime != nullptr ? m_pPartyRuntime->movementState().sectorId : int16_t(-1));
+
+        const IndoorFloorSample floorSample =
+            sampleIndoorFloor(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                x,
+                y,
+                z,
+                IndoorInitialActorFloorSampleRise,
+                IndoorInitialActorFloorSampleDrop,
+                sectorId,
+                nullptr,
+                &runtimeGeometry.geometryCache);
+
+        if (floorSample.hasFloor)
+        {
+            supportZ = floorSample.height;
+            sectorId = floorSample.sectorId;
+        }
+    }
+
+    FireSpikeTrapState trap = {};
+    trap.trapId = spawnResult.trapId;
+    trap.sourceKind = GameplayProjectileService::ProjectileState::SourceKind::Party;
+    trap.sourceId = casterMemberIndex + 1;
+    trap.sourcePartyMemberIndex = casterMemberIndex;
+    trap.objectDescriptionId = definition.objectDescriptionId;
+    trap.objectSpriteId = definition.objectSpriteId;
+    trap.objectSpriteFrameIndex = resolveRuntimeProjectileSpriteFrameIndex(
+        m_pProjectileSpriteFrameTable,
+        definition.objectSpriteId,
+        definition.objectSpriteName);
+    trap.impactObjectDescriptionId = definition.impactObjectDescriptionId;
+    trap.objectFlags = definition.objectFlags | ObjectDescBounce;
+    trap.radius = definition.radius;
+    trap.height = definition.height;
+    trap.spellId = definition.spellId;
+    trap.effectSoundId = definition.effectSoundId;
+    trap.skillLevel = skillLevel;
+    trap.skillMastery = skillMastery;
+    trap.objectName = definition.objectName;
+    trap.objectSpriteName = definition.objectSpriteName;
+    trap.x = x;
+    trap.y = y;
+    trap.z = supportZ + 1.0f;
+    trap.sectorId = sectorId;
+
+    GameplayProjectileService::ProjectileState audioSource = {};
+    audioSource.sourceKind = trap.sourceKind;
+    audioSource.sourceId = trap.sourceId;
+    audioSource.effectSoundId = trap.effectSoundId;
+    m_fireSpikeTraps.push_back(std::move(trap));
+
+    if (const std::optional<GameplayProjectileService::ProjectileAudioRequest> audioRequest =
+            m_pGameplayProjectileService->buildProjectileReleaseAudioRequest(audioSource, x, y, supportZ))
+    {
+        pushIndoorProjectileAudioEvent(*audioRequest);
+    }
+
+    return true;
 }
 
 bool IndoorWorldRuntime::summonFriendlyMonsterById(
@@ -11098,7 +11593,6 @@ bool IndoorWorldRuntime::summonFriendlyMonsterById(
     float y,
     float z)
 {
-    (void)durationSeconds;
     if (m_pMonsterTable == nullptr || count == 0)
     {
         return false;
@@ -11126,11 +11620,24 @@ bool IndoorWorldRuntime::summonFriendlyMonsterById(
     }
 
     bool spawnedAny = false;
+    const size_t firstSummonActorIndex = pMapDeltaData->actors.size();
+    const float controlDurationSeconds = std::max(durationSeconds, 1.0f);
+    RuntimeGeometryCache *pRuntimeGeometry = nullptr;
+
+    if (m_pIndoorMapData != nullptr)
+    {
+        pRuntimeGeometry = &runtimeGeometryCache();
+    }
 
     for (uint32_t summonIndex = 0; summonIndex < count; ++summonIndex)
     {
         const float angleRadians = (Pi * 2.0f * summonIndex) / count;
         const float radius = 96.0f + 24.0f * float(summonIndex % 3u);
+        const bx::Vec3 summonPosition = {
+            x + std::cos(angleRadians) * radius,
+            y + std::sin(angleRadians) * radius,
+            z
+        };
         MapDeltaActor actor = {};
         actor.name = pStats->name;
         actor.attributes = defaultActorAttributes(false);
@@ -11141,9 +11648,17 @@ bool IndoorWorldRuntime::summonFriendlyMonsterById(
         actor.radius = pMonsterEntry->radius;
         actor.height = pMonsterEntry->height;
         actor.moveSpeed = static_cast<uint16_t>(pStats->speed);
-        actor.x = int(std::lround(x + std::cos(angleRadians) * radius));
-        actor.y = int(std::lround(y + std::sin(angleRadians) * radius));
-        actor.z = int(std::lround(z));
+        actor.x = int(std::lround(summonPosition.x));
+        actor.y = int(std::lround(summonPosition.y));
+        actor.z = int(std::lround(summonPosition.z));
+        actor.sectorId = pRuntimeGeometry != nullptr
+            ? resolveIndoorPointSector(
+                m_pIndoorMapData,
+                pRuntimeGeometry->vertices,
+                &pRuntimeGeometry->geometryCache,
+                summonPosition,
+                actor.sectorId)
+            : actor.sectorId;
         actor.group = 999u;
         actor.ally = 999u;
         pMapDeltaData->actors.push_back(std::move(actor));
@@ -11151,6 +11666,20 @@ bool IndoorWorldRuntime::summonFriendlyMonsterById(
     }
 
     syncMapActorAiStates();
+
+    for (size_t actorIndex = firstSummonActorIndex;
+        actorIndex < pMapDeltaData->actors.size() && actorIndex < m_mapActorAiStates.size();
+        ++actorIndex)
+    {
+        MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+        aiState.hostileToParty = false;
+        aiState.hasDetectedParty = false;
+        aiState.spellEffects.hostileToParty = false;
+        aiState.spellEffects.hasDetectedParty = false;
+        aiState.spellEffects.controlMode = GameplayActorControlMode::Enslaved;
+        aiState.spellEffects.controlRemainingSeconds = controlDurationSeconds;
+    }
+
     return spawnedAny;
 }
 
@@ -14472,6 +15001,7 @@ IndoorWorldRuntime::Snapshot IndoorWorldRuntime::snapshot() const
     snapshot.mapActorAiStates = m_mapActorAiStates;
     snapshot.activatedIndoorSectorMask = m_activatedIndoorSectorMask;
     snapshot.bloodSplats = m_bloodSplats;
+    snapshot.fireSpikeTraps = m_fireSpikeTraps;
     snapshot.actorUpdateAccumulatorSeconds = m_actorUpdateAccumulatorSeconds;
     if (m_pGameplayProjectileService != nullptr)
     {
@@ -14492,6 +15022,7 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_mapActorAiStates = snapshot.mapActorAiStates;
     m_activatedIndoorSectorMask = snapshot.activatedIndoorSectorMask;
     m_bloodSplats = snapshot.bloodSplats;
+    m_fireSpikeTraps = snapshot.fireSpikeTraps;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
     m_indoorJournalRevealStateValid = false;
@@ -14664,6 +15195,7 @@ void IndoorWorldRuntime::applyMapReentryReset()
     {
         m_pGameplayProjectileService->clearActiveProjectiles();
     }
+    m_fireSpikeTraps.clear();
 
     invalidateRuntimeGeometryCache();
     refreshActivatedIndoorSectors();
@@ -14969,16 +15501,22 @@ bool IndoorWorldRuntime::spawnIndoorProjectileImpactVisual(
         }
     }
 
-    if (m_pObjectTable == nullptr || projectile.impactObjectDescriptionId == 0)
+    std::optional<GameplayProjectileService::ProjectileImpactVisualDefinition> impactDefinition;
+    if (projectile.impactObjectDescriptionId != 0 && m_pObjectTable != nullptr)
     {
-        return false;
-    }
-
-    const std::optional<GameplayProjectileService::ProjectileImpactVisualDefinition> impactDefinition =
-        m_pGameplayProjectileService->buildProjectileImpactVisualDefinition(
+        impactDefinition = m_pGameplayProjectileService->buildProjectileImpactVisualDefinition(
             projectile.impactObjectDescriptionId,
             m_pObjectTable,
             m_pProjectileSpriteFrameTable);
+    }
+    else if (GameplayProjectileService::projectileVisualModeUsesDedicatedFxImpact(projectile))
+    {
+        GameplayProjectileService::ProjectileImpactVisualDefinition fallbackDefinition = {};
+        fallbackDefinition.lifetimeTicks = 32;
+        fallbackDefinition.objectName = projectile.objectName;
+        fallbackDefinition.objectSpriteName = projectile.objectSpriteName;
+        impactDefinition = std::move(fallbackDefinition);
+    }
 
     if (!impactDefinition)
     {

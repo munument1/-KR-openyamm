@@ -336,6 +336,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
         projectile.objectSpriteFrameIndex = request.definition.objectSpriteFrameIndex;
         projectile.impactObjectDescriptionId = request.definition.impactObjectDescriptionId;
         projectile.objectFlags = request.definition.objectFlags;
+        projectile.visualMode = request.definition.visualMode;
         projectile.radius = request.definition.radius;
         projectile.height = request.definition.height;
         projectile.spellId = request.definition.spellId;
@@ -383,6 +384,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     projectile.objectSpriteFrameIndex = request.definition.objectSpriteFrameIndex;
     projectile.impactObjectDescriptionId = request.definition.impactObjectDescriptionId;
     projectile.objectFlags = request.definition.objectFlags;
+    projectile.visualMode = request.definition.visualMode;
     projectile.radius = request.definition.radius;
     projectile.height = request.definition.height;
     projectile.spellId = request.definition.spellId;
@@ -556,6 +558,43 @@ const std::vector<GameplayProjectileService::ProjectileImpactState> &
 GameplayProjectileService::projectileImpacts() const
 {
     return m_projectileImpacts;
+}
+
+GameplayProjectileVisualMode GameplayProjectileService::monsterProjectileVisualModeForObjectId(int objectId)
+{
+    switch (objectId)
+    {
+        case 500:
+        case 505:
+        case 510:
+        case 515:
+        case 520:
+        case 525:
+        case 530:
+        case 535:
+        case 540:
+        case 2060:
+        case 3030:
+            return GameplayProjectileVisualMode::FxOnly;
+
+        default:
+            return GameplayProjectileVisualMode::SpriteBillboard;
+    }
+}
+
+bool GameplayProjectileService::projectileVisualModeUsesDedicatedFxImpact(const ProjectileState &projectile)
+{
+    if (projectile.visualMode != GameplayProjectileVisualMode::FxOnly)
+    {
+        return false;
+    }
+
+    const FxRecipes::ProjectileRecipe recipe = FxRecipes::classifyProjectileRecipe(
+        projectile.spellId,
+        projectile.objectName,
+        projectile.objectSpriteName,
+        projectile.objectFlags);
+    return FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe);
 }
 
 void GameplayProjectileService::advanceProjectileImpactLifetimes(float deltaSeconds)
@@ -1735,6 +1774,7 @@ void GameplayProjectileService::collectProjectilePresentationState(
         state.objectSpriteId = projectile.objectSpriteId;
         state.objectSpriteFrameIndex = projectile.objectSpriteFrameIndex;
         state.objectFlags = projectile.objectFlags;
+        state.visualMode = projectile.visualMode;
         state.radius = projectile.radius;
         state.height = projectile.height;
         state.spellId = projectile.spellId;

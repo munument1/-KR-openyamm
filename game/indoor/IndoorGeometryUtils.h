@@ -198,6 +198,12 @@ IndoorFloorSample sampleIndoorFloorOnFace(
     const std::vector<uint8_t> *pFaceExclusionMask = nullptr,
     IndoorFaceGeometryCache *pGeometryCache = nullptr
 );
+std::optional<bx::Vec3> chooseIndoorBountyHuntSpawnPoint(
+    const IndoorMapData &indoorMapData,
+    const MapDeltaData *pIndoorMapDeltaData,
+    const EventRuntimeState *pEventRuntimeState,
+    uint32_t seed
+);
 IndoorCeilingSample sampleIndoorCeiling(
     const IndoorMapData &indoorMapData,
     const std::vector<IndoorVertex> &vertices,

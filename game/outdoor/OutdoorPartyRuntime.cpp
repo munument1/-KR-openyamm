@@ -178,6 +178,11 @@ void OutdoorPartyRuntime::setMovementSpeedMultiplier(float multiplier)
     m_movementDriver.setSpeedMultiplier(multiplier);
 }
 
+void OutdoorPartyRuntime::setCollisionTraceEnabled(bool enabled, const std::string &mapName)
+{
+    m_movementDriver.setCollisionTraceEnabled(enabled, mapName);
+}
+
 void OutdoorPartyRuntime::syncSpellMovementStatesFromPartyBuffs()
 {
     m_movementDriver.setFeatherFallActive(m_party.hasPartyBuff(PartyBuffId::FeatherFall));

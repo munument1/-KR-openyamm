@@ -53,6 +53,20 @@ TEST_CASE("spellbook ui layout uses canonical school slot mapping")
     CHECK(spellbookSpellLayoutId(GameplayUiController::SpellbookSchool::Light, 12).empty());
 }
 
+TEST_CASE("spellbook remembers selected school after closing")
+{
+    GameplayUiController uiController = {};
+
+    uiController.openSpellbook(GameplayUiController::SpellbookSchool::Body);
+    uiController.spellbook().selectedSpellId = spellIdValue(SpellId::Heal);
+    uiController.closeSpellbook();
+
+    CHECK_FALSE(uiController.spellbook().active);
+    CHECK(uiController.spellbook().hasRememberedSchool);
+    CHECK(uiController.spellbook().school == GameplayUiController::SpellbookSchool::Body);
+    CHECK_EQ(uiController.spellbook().selectedSpellId, 0u);
+}
+
 TEST_CASE("status bar hover text does not replace active event text")
 {
     GameplayUiController uiController = {};

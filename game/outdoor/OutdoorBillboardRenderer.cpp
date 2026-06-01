@@ -5,6 +5,7 @@
 #include "game/events/EventProjectileSpells.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/ParticleSystem.h"
+#include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/outdoor/OutdoorGameView.h"
 #include "game/outdoor/OutdoorFogProfile.h"
@@ -4049,6 +4050,11 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
 
     for (const GameplayProjectilePresentationState &projectile : projectiles)
     {
+        if (projectile.visualMode == GameplayProjectileVisualMode::FxOnly)
+        {
+            continue;
+        }
+
         appendRuntimeDrawItem(
             projectile.projectileId,
             "projectile",
@@ -4379,6 +4385,65 @@ void OutdoorBillboardRenderer::renderFxGlowBillboards(
         {
             ++view.m_outdoorSpriteRenderDiagnostics.fxGlowSubmits;
         }
+    }
+
+    submitColoredVertices(view, viewId, vertices, ColoredAdditiveRenderState);
+}
+
+void OutdoorBillboardRenderer::renderFxSegmentProjectiles(
+    OutdoorGameView &view,
+    uint16_t viewId,
+    const float *pViewMatrix)
+{
+    const std::vector<WorldFxSegmentProjectile> &segments = view.m_worldFxSystem.segmentProjectiles();
+
+    if (segments.empty())
+    {
+        return;
+    }
+
+    const bx::Vec3 cameraForward = {pViewMatrix[2], pViewMatrix[6], pViewMatrix[10]};
+    const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    std::vector<OutdoorGameView::TerrainVertex> vertices;
+    vertices.reserve(segments.size() * 6);
+
+    for (const WorldFxSegmentProjectile &segment : segments)
+    {
+        const bx::Vec3 start = {segment.startX, segment.startY, segment.startZ};
+        const bx::Vec3 end = {segment.endX, segment.endY, segment.endZ};
+        const bx::Vec3 delta = {end.x - start.x, end.y - start.y, end.z - start.z};
+        const float deltaLength = std::sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+
+        if (deltaLength <= 0.001f)
+        {
+            continue;
+        }
+
+        const bx::Vec3 direction = {delta.x / deltaLength, delta.y / deltaLength, delta.z / deltaLength};
+        bx::Vec3 side = {
+            direction.y * cameraForward.z - direction.z * cameraForward.y,
+            direction.z * cameraForward.x - direction.x * cameraForward.z,
+            direction.x * cameraForward.y - direction.y * cameraForward.x
+        };
+        float sideLength = std::sqrt(side.x * side.x + side.y * side.y + side.z * side.z);
+
+        if (sideLength <= 0.001f)
+        {
+            side = cameraUp;
+            sideLength = std::sqrt(side.x * side.x + side.y * side.y + side.z * side.z);
+        }
+
+        const float halfWidth = segment.width * 0.5f / std::max(sideLength, 0.001f);
+        side.x *= halfWidth;
+        side.y *= halfWidth;
+        side.z *= halfWidth;
+
+        vertices.push_back({start.x - side.x, start.y - side.y, start.z - side.z, segment.colorAbgr});
+        vertices.push_back({start.x + side.x, start.y + side.y, start.z + side.z, segment.colorAbgr});
+        vertices.push_back({end.x + side.x, end.y + side.y, end.z + side.z, segment.colorAbgr});
+        vertices.push_back({start.x - side.x, start.y - side.y, start.z - side.z, segment.colorAbgr});
+        vertices.push_back({end.x + side.x, end.y + side.y, end.z + side.z, segment.colorAbgr});
+        vertices.push_back({end.x - side.x, end.y - side.y, end.z - side.z, segment.colorAbgr});
     }
 
     submitColoredVertices(view, viewId, vertices, ColoredAdditiveRenderState);

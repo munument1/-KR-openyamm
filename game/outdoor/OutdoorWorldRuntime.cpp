@@ -1399,6 +1399,7 @@ GameplayProjectileService::ProjectileDefinition buildGameplayProjectileDefinitio
     result.objectSpriteFrameIndex = objectSpriteFrameIndex;
     result.impactObjectDescriptionId = definition.impactObjectDescriptionId;
     result.objectFlags = definition.objectFlags;
+    result.visualMode = definition.visualMode;
     result.radius = definition.radius;
     result.height = definition.height;
     result.spellId = definition.spellId;
@@ -2000,6 +2001,27 @@ bool isProjectileSpellName(const std::string &spellName)
     return isMonsterProjectileSpellName(spellName);
 }
 
+GameplayProjectileVisualMode outdoorProjectileVisualModeForFxRecipe(
+    int spellId,
+    const std::string &objectName,
+    const std::string &spriteName,
+    uint16_t objectFlags)
+{
+    const FxRecipes::ProjectileRecipe recipe =
+        FxRecipes::classifyProjectileRecipe(spellId, objectName, spriteName, objectFlags);
+    const FxRecipes::ProjectileFxRecipe &fxRecipe = FxRecipes::projectileFxRecipe(recipe);
+
+    return fxRecipe.renderProjectileBillboard
+        ? GameplayProjectileVisualMode::SpriteBillboard
+        : GameplayProjectileVisualMode::FxOnly;
+}
+
+bool outdoorMonsterProjectileFxRecipesEnabled(const OutdoorGameView *pGameplayView)
+{
+    return pGameplayView == nullptr
+        || pGameplayView->settingsSnapshot().monsterProjectileVisuals == MonsterProjectileVisuals::FxRecipes;
+}
+
 bool outdoorMonsterSelfBuffSpellName(const std::string &spellName)
 {
     return isMonsterSelfActionSpellName(spellName);
@@ -2019,6 +2041,7 @@ bool resolveProjectileDefinition(
     const MonsterProjectileTable &projectileTable,
     const ObjectTable &objectTable,
     const SpellTable &spellTable,
+    bool useFxRecipes,
     OutdoorWorldRuntime::ResolvedProjectileDefinition &definition)
 {
     definition = {};
@@ -2055,6 +2078,9 @@ bool resolveProjectileDefinition(
         definition.objectDescriptionId = *objectDescriptionId;
         definition.objectSpriteId = pObjectEntry->spriteId;
         definition.objectFlags = pObjectEntry->flags;
+        definition.visualMode = useFxRecipes
+            ? GameplayProjectileService::monsterProjectileVisualModeForObjectId(pProjectileEntry->objectId)
+            : GameplayProjectileVisualMode::SpriteBillboard;
         definition.radius = static_cast<uint16_t>(std::max<int>(pObjectEntry->radius, 16));
         definition.height = static_cast<uint16_t>(std::max<int>(pObjectEntry->height, 16));
         definition.lifetimeTicks = static_cast<uint32_t>(std::max<int>(pObjectEntry->lifetimeTicks, 64));
@@ -2116,6 +2142,13 @@ bool resolveProjectileDefinition(
     definition.effectSoundId = pSpellEntry->effectSoundId;
     definition.objectName = pObjectEntry->internalName;
     definition.objectSpriteName = pObjectEntry->spriteName;
+    definition.visualMode = useFxRecipes
+        ? outdoorProjectileVisualModeForFxRecipe(
+            definition.spellId,
+            definition.objectName,
+            definition.objectSpriteName,
+            definition.objectFlags)
+        : GameplayProjectileVisualMode::SpriteBillboard;
 
     if (pSpellEntry->impactDisplayObjectId > 0)
     {
@@ -2168,6 +2201,11 @@ bool resolveSpellDefinition(
     definition.effectSoundId = spell.effectSoundId;
     definition.objectName = pObjectEntry->internalName;
     definition.objectSpriteName = pObjectEntry->spriteName;
+    definition.visualMode = outdoorProjectileVisualModeForFxRecipe(
+        definition.spellId,
+        definition.objectName,
+        definition.objectSpriteName,
+        definition.objectFlags);
     const SpellId resolvedSpellId = spellIdFromValue(std::max(spell.id, 0));
 
     if (resolvedSpellId == SpellId::Sparks)
@@ -9457,6 +9495,7 @@ bool OutdoorWorldRuntime::spawnProjectileFromMapActor(
             *m_pMonsterProjectileTable,
             *m_pObjectTable,
             *m_pSpellTable,
+            outdoorMonsterProjectileFxRecipesEnabled(m_pInteractionView),
             definition))
     {
         const std::string projectileToken =
@@ -9901,16 +9940,22 @@ void OutdoorWorldRuntime::spawnProjectileImpact(
         pushProjectileAudioEvent(*audioRequest);
     }
 
-    if (projectile.impactObjectDescriptionId == 0 || m_pObjectTable == nullptr)
+    std::optional<GameplayProjectileService::ProjectileImpactVisualDefinition> impactDefinition;
+    if (projectile.impactObjectDescriptionId != 0 && m_pObjectTable != nullptr)
     {
-        return;
-    }
-
-    const std::optional<GameplayProjectileService::ProjectileImpactVisualDefinition> impactDefinition =
-        projectileService().buildProjectileImpactVisualDefinition(
+        impactDefinition = projectileService().buildProjectileImpactVisualDefinition(
             projectile.impactObjectDescriptionId,
             m_pObjectTable,
             m_pProjectileSpriteFrameTable);
+    }
+    else if (GameplayProjectileService::projectileVisualModeUsesDedicatedFxImpact(projectile))
+    {
+        GameplayProjectileService::ProjectileImpactVisualDefinition fallbackDefinition = {};
+        fallbackDefinition.lifetimeTicks = 32;
+        fallbackDefinition.objectName = projectile.objectName;
+        fallbackDefinition.objectSpriteName = projectile.objectSpriteName;
+        impactDefinition = std::move(fallbackDefinition);
+    }
 
     if (!impactDefinition)
     {
@@ -12090,7 +12135,7 @@ bool OutdoorWorldRuntime::actorInspectState(
             break;
     }
 
-    if (m_pActorSpriteFrameTable == nullptr)
+    if (m_pActorSpriteFrameTable == nullptr || animationTicks == 0)
     {
         return true;
     }
@@ -15518,6 +15563,43 @@ Party *OutdoorWorldRuntime::party()
 const Party *OutdoorWorldRuntime::party() const
 {
     return m_pParty;
+}
+
+GameplayWorldPoint OutdoorWorldRuntime::chooseBountyHuntSpawnPoint(uint32_t seed) const
+{
+    if (m_pOutdoorMapData == nullptr)
+    {
+        return IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
+    }
+
+    constexpr int MinCoordinate = -22528;
+    constexpr int MaxCoordinate = 22528;
+    constexpr size_t MaxAttempts = 5;
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<int> coordinateDistribution(MinCoordinate, MaxCoordinate);
+    GameplayWorldPoint fallback = IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
+
+    for (size_t attempt = 0; attempt < MaxAttempts; ++attempt)
+    {
+        const float x = static_cast<float>(coordinateDistribution(rng));
+        const float y = static_cast<float>(coordinateDistribution(rng));
+        const float terrainZ = sampleOutdoorRenderedTerrainHeight(*m_pOutdoorMapData, x, y);
+        GameplayWorldPoint candidate = {};
+        candidate.x = x;
+        candidate.y = y;
+        candidate.z = std::max(
+            terrainZ,
+            sampleOutdoorPlacementFloorHeight(*m_pOutdoorMapData, x, y, terrainZ + 512.0f));
+
+        if (!isOutdoorMonsterWaterTile(*m_pOutdoorMapData, m_outdoorLandMask, x, y))
+        {
+            return candidate;
+        }
+
+        fallback = candidate;
+    }
+
+    return fallback;
 }
 
 float OutdoorWorldRuntime::partyX() const

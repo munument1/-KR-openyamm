@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <random>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -1524,6 +1525,193 @@ IndoorFloorSample sampleIndoorFloorOnFace(
         maxDrop,
         pFaceExclusionMask,
         pGeometryCache);
+}
+
+std::optional<bx::Vec3> chooseIndoorBountyHuntSpawnPoint(
+    const IndoorMapData &indoorMapData,
+    const MapDeltaData *pIndoorMapDeltaData,
+    const EventRuntimeState *pEventRuntimeState,
+    uint32_t seed)
+{
+    if (indoorMapData.sectors.empty() || indoorMapData.faces.empty())
+    {
+        return std::nullopt;
+    }
+
+    constexpr float BountyFloorSampleRise = 96.0f;
+    constexpr float BountyFloorSampleDrop = 512.0f;
+    constexpr float BountyWallFloorSampleRise = 4096.0f;
+    constexpr float BountyWallFloorSampleDrop = 4096.0f;
+    constexpr size_t RandomAttempts = 16;
+    const std::vector<IndoorVertex> vertices =
+        buildIndoorMechanismAdjustedVertices(indoorMapData, pIndoorMapDeltaData, pEventRuntimeState);
+    IndoorFaceGeometryCache geometryCache(indoorMapData.faces.size());
+
+    const auto resolveFloorFace =
+        [&](uint16_t faceId) -> std::optional<bx::Vec3>
+        {
+            const IndoorFaceGeometryData *pGeometry =
+                geometryCache.geometryForFace(indoorMapData, vertices, faceId);
+
+            if (pGeometry == nullptr)
+            {
+                return std::nullopt;
+            }
+
+            const float x = (pGeometry->minX + pGeometry->maxX) * 0.5f;
+            const float y = (pGeometry->minY + pGeometry->maxY) * 0.5f;
+            const IndoorFloorSample floorSample =
+                sampleIndoorFloorOnFace(
+                    indoorMapData,
+                    vertices,
+                    faceId,
+                    x,
+                    y,
+                    pGeometry->maxZ,
+                    BountyFloorSampleRise,
+                    BountyFloorSampleDrop,
+                    nullptr,
+                    &geometryCache);
+
+            if (!floorSample.hasFloor)
+            {
+                return std::nullopt;
+            }
+
+            return bx::Vec3{x, y, floorSample.height};
+        };
+
+    const auto resolveWallFace =
+        [&](uint16_t faceId) -> std::optional<bx::Vec3>
+        {
+            const IndoorFaceGeometryData *pGeometry =
+                geometryCache.geometryForFace(indoorMapData, vertices, faceId);
+
+            if (pGeometry == nullptr)
+            {
+                return std::nullopt;
+            }
+
+            const float x = (pGeometry->minX + pGeometry->maxX) * 0.5f;
+            const float y = (pGeometry->minY + pGeometry->maxY) * 0.5f;
+            const IndoorFloorSample floorSample =
+                sampleIndoorFloor(
+                    indoorMapData,
+                    vertices,
+                    x,
+                    y,
+                    pGeometry->maxZ,
+                    BountyWallFloorSampleRise,
+                    BountyWallFloorSampleDrop,
+                    pGeometry->sectorId <= static_cast<uint16_t>(std::numeric_limits<int16_t>::max())
+                        ? std::optional<int16_t>(static_cast<int16_t>(pGeometry->sectorId))
+                        : std::nullopt,
+                    nullptr,
+                    &geometryCache);
+
+            if (!floorSample.hasFloor)
+            {
+                return std::nullopt;
+            }
+
+            return bx::Vec3{x, y, floorSample.height};
+        };
+
+    std::vector<size_t> floorSectorIds;
+    std::vector<size_t> wallSectorIds;
+    floorSectorIds.reserve(indoorMapData.sectors.size());
+    wallSectorIds.reserve(indoorMapData.sectors.size());
+
+    for (size_t sectorId = 0; sectorId < indoorMapData.sectors.size(); ++sectorId)
+    {
+        const IndoorSector &sector = indoorMapData.sectors[sectorId];
+
+        if (!sector.floorFaceIds.empty())
+        {
+            floorSectorIds.push_back(sectorId);
+        }
+
+        if (!sector.wallFaceIds.empty())
+        {
+            wallSectorIds.push_back(sectorId);
+        }
+    }
+
+    std::mt19937 rng(seed);
+
+    const auto tryRandomFaceFromSectorList =
+        [&](const std::vector<size_t> &sectorIds, bool useFloorFaces) -> std::optional<bx::Vec3>
+        {
+            if (sectorIds.empty())
+            {
+                return std::nullopt;
+            }
+
+            std::uniform_int_distribution<size_t> sectorDistribution(0, sectorIds.size() - 1);
+
+            for (size_t attempt = 0; attempt < RandomAttempts; ++attempt)
+            {
+                const IndoorSector &sector = indoorMapData.sectors[sectorIds[sectorDistribution(rng)]];
+                const std::vector<uint16_t> &faceIds = useFloorFaces ? sector.floorFaceIds : sector.wallFaceIds;
+
+                if (faceIds.empty())
+                {
+                    continue;
+                }
+
+                std::uniform_int_distribution<size_t> faceDistribution(0, faceIds.size() - 1);
+                const std::optional<bx::Vec3> point =
+                    useFloorFaces ? resolveFloorFace(faceIds[faceDistribution(rng)])
+                                  : resolveWallFace(faceIds[faceDistribution(rng)]);
+
+                if (point)
+                {
+                    return point;
+                }
+            }
+
+            return std::nullopt;
+        };
+
+    const auto tryFirstValidFaceFromSectorList =
+        [&](const std::vector<size_t> &sectorIds, bool useFloorFaces) -> std::optional<bx::Vec3>
+        {
+            for (size_t sectorId : sectorIds)
+            {
+                const IndoorSector &sector = indoorMapData.sectors[sectorId];
+                const std::vector<uint16_t> &faceIds = useFloorFaces ? sector.floorFaceIds : sector.wallFaceIds;
+
+                for (uint16_t faceId : faceIds)
+                {
+                    const std::optional<bx::Vec3> point =
+                        useFloorFaces ? resolveFloorFace(faceId) : resolveWallFace(faceId);
+
+                    if (point)
+                    {
+                        return point;
+                    }
+                }
+            }
+
+            return std::nullopt;
+        };
+
+    if (const std::optional<bx::Vec3> point = tryRandomFaceFromSectorList(floorSectorIds, true))
+    {
+        return point;
+    }
+
+    if (const std::optional<bx::Vec3> point = tryFirstValidFaceFromSectorList(floorSectorIds, true))
+    {
+        return point;
+    }
+
+    if (const std::optional<bx::Vec3> point = tryRandomFaceFromSectorList(wallSectorIds, false))
+    {
+        return point;
+    }
+
+    return tryFirstValidFaceFromSectorList(wallSectorIds, false);
 }
 
 IndoorCeilingSample sampleIndoorCeiling(

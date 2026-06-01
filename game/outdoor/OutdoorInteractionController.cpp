@@ -130,6 +130,7 @@ std::optional<uint16_t> outdoorBModelRuntimeCogTriggeredNumber(
     return std::nullopt;
 }
 
+constexpr float OeOutdoorNearClip = 32.0f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float DefaultOutdoorFarClip = 16192.0f;
 
@@ -137,7 +138,9 @@ bool pendingSpellAllowsDeadActorTarget(const GameSession &gameSession)
 {
     const GameplayScreenState::PendingSpellTargetState &pendingSpellTarget =
         gameSession.gameplayScreenState().pendingSpellTarget();
-    return pendingSpellTarget.active && isSpellId(pendingSpellTarget.spellId, SpellId::Reanimate);
+    return pendingSpellTarget.active
+        && (isSpellId(pendingSpellTarget.spellId, SpellId::Reanimate)
+            || isSpellId(pendingSpellTarget.spellId, SpellId::Telekinesis));
 }
 
 bool actorIsInDeathSequence(const OutdoorWorldRuntime::MapActorState &actor)
@@ -1032,7 +1035,7 @@ std::optional<size_t> OutdoorInteractionController::resolveClosestVisibleHostile
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        0.1f,
+        OeOutdoorNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -1165,7 +1168,7 @@ bool OutdoorInteractionController::buildQuickCastInspectRayForScreenPoint(
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        0.1f,
+        OeOutdoorNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -1227,7 +1230,7 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        0.1f,
+        OeOutdoorNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -2463,7 +2466,7 @@ GameplayWorldPickRequest OutdoorInteractionController::buildWorldPickRequest(
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        0.1f,
+        OeOutdoorNearClip,
         DefaultOutdoorFarClip,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right

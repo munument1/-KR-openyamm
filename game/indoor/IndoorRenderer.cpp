@@ -9,6 +9,7 @@
 #include "game/fx/ParticleRenderer.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
+#include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorPortalGraph.h"
@@ -3883,6 +3884,7 @@ void IndoorRenderer::render(
     }
 
     const uint64_t particlesBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    renderFxSegmentProjectiles(MainViewId, viewMatrix);
     ParticleRenderer::renderParticles(
         m_worldFxRenderResources,
         m_worldFxSystem.particles(),
@@ -7626,6 +7628,85 @@ void IndoorRenderer::renderActorPreviewBillboards(
     }
 }
 
+void IndoorRenderer::renderFxSegmentProjectiles(uint16_t viewId, const float *pViewMatrix)
+{
+    const std::vector<WorldFxSegmentProjectile> &segments = m_worldFxSystem.segmentProjectiles();
+
+    if (segments.empty() || !bgfx::isValid(m_programHandle))
+    {
+        return;
+    }
+
+    const bx::Vec3 cameraForward = {pViewMatrix[2], pViewMatrix[6], pViewMatrix[10]};
+    const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    std::vector<TerrainVertex> vertices;
+    vertices.reserve(segments.size() * 6);
+
+    for (const WorldFxSegmentProjectile &segment : segments)
+    {
+        const bx::Vec3 start = {segment.startX, segment.startY, segment.startZ};
+        const bx::Vec3 end = {segment.endX, segment.endY, segment.endZ};
+        const bx::Vec3 delta = {end.x - start.x, end.y - start.y, end.z - start.z};
+        const float deltaLength = std::sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+
+        if (deltaLength <= 0.001f)
+        {
+            continue;
+        }
+
+        const bx::Vec3 direction = {delta.x / deltaLength, delta.y / deltaLength, delta.z / deltaLength};
+        bx::Vec3 side = {
+            direction.y * cameraForward.z - direction.z * cameraForward.y,
+            direction.z * cameraForward.x - direction.x * cameraForward.z,
+            direction.x * cameraForward.y - direction.y * cameraForward.x
+        };
+        float sideLength = std::sqrt(side.x * side.x + side.y * side.y + side.z * side.z);
+
+        if (sideLength <= 0.001f)
+        {
+            side = cameraUp;
+            sideLength = std::sqrt(side.x * side.x + side.y * side.y + side.z * side.z);
+        }
+
+        const float halfWidth = segment.width * 0.5f / std::max(sideLength, 0.001f);
+        side.x *= halfWidth;
+        side.y *= halfWidth;
+        side.z *= halfWidth;
+
+        vertices.push_back({start.x - side.x, start.y - side.y, start.z - side.z, segment.colorAbgr});
+        vertices.push_back({start.x + side.x, start.y + side.y, start.z + side.z, segment.colorAbgr});
+        vertices.push_back({end.x + side.x, end.y + side.y, end.z + side.z, segment.colorAbgr});
+        vertices.push_back({start.x - side.x, start.y - side.y, start.z - side.z, segment.colorAbgr});
+        vertices.push_back({end.x + side.x, end.y + side.y, end.z + side.z, segment.colorAbgr});
+        vertices.push_back({end.x - side.x, end.y - side.y, end.z - side.z, segment.colorAbgr});
+    }
+
+    if (vertices.empty()
+        || bgfx::getAvailTransientVertexBuffer(static_cast<uint32_t>(vertices.size()), TerrainVertex::ms_layout)
+            < vertices.size())
+    {
+        return;
+    }
+
+    bgfx::TransientVertexBuffer transientVertexBuffer = {};
+    bgfx::allocTransientVertexBuffer(
+        &transientVertexBuffer,
+        static_cast<uint32_t>(vertices.size()),
+        TerrainVertex::ms_layout);
+    std::memcpy(transientVertexBuffer.data, vertices.data(), vertices.size() * sizeof(TerrainVertex));
+
+    float modelMatrix[16] = {};
+    bx::mtxIdentity(modelMatrix);
+    bgfx::setTransform(modelMatrix);
+    bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(vertices.size()));
+    bgfx::setState(
+        BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_WRITE_A
+        | BGFX_STATE_DEPTH_TEST_LEQUAL
+        | BGFX_STATE_BLEND_ADD);
+    bgfx::submit(viewId, m_programHandle);
+}
+
 void IndoorRenderer::renderSpriteObjectBillboards(
     uint16_t viewId,
     const float *pViewMatrix,
@@ -8045,6 +8126,11 @@ void IndoorRenderer::renderSpriteObjectBillboards(
 
         for (const GameplayProjectilePresentationState &projectile : projectiles)
         {
+            if (projectile.visualMode == GameplayProjectileVisualMode::FxOnly)
+            {
+                continue;
+            }
+
             appendProjectileDrawItem(
                 projectile.objectSpriteFrameIndex,
                 projectile.objectSpriteId,

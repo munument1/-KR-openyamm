@@ -1248,9 +1248,12 @@ void MenuScreenBase::drawViewportSidePanels(const std::string &textureName, floa
         return;
     }
 
+    constexpr float MaxUiScale = 8.0f;
     const float baseScale = std::min(
-        static_cast<float>(m_frameWidth) / logicalWidth,
-        static_cast<float>(m_frameHeight) / logicalHeight);
+        std::min(
+            static_cast<float>(m_frameWidth) / logicalWidth,
+            static_cast<float>(m_frameHeight) / logicalHeight),
+        MaxUiScale);
     const float viewportWidth = logicalWidth * baseScale;
     const float viewportX = (static_cast<float>(m_frameWidth) - viewportWidth) * 0.5f;
 

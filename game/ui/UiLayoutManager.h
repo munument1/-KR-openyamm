@@ -85,7 +85,7 @@ public:
         std::string bottomToId;
         float bottomGap = 0.0f;
         float minScale = 1.0f;
-        float maxScale = 3.0f;
+        float maxScale = 8.0f;
         bool hasExplicitScale = false;
         int zIndex = 0;
         bool visible = true;

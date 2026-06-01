@@ -570,6 +570,7 @@ public:
     const std::string &mapName() const override;
     const MonsterTable *monsterTable() const override;
     const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const override;
+    GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const override;
     bool isIndoorMap() const override;
     bool isUnderwaterMap() const override;
     bool allowsLloydsBeacon() const override;
@@ -927,6 +928,7 @@ public:
         uint16_t impactObjectDescriptionId = 0;
         uint16_t impactObjectSpriteId = 0;
         uint16_t objectFlags = 0;
+        GameplayProjectileVisualMode visualMode = GameplayProjectileVisualMode::SpriteBillboard;
         uint16_t radius = 0;
         uint16_t height = 0;
         uint32_t lifetimeTicks = 0;

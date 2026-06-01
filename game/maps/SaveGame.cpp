@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 62;
+constexpr uint32_t SaveVersion = 65;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -59,6 +59,9 @@ constexpr uint32_t SaveVersionMonsterBolsterRewards = 59;
 constexpr uint32_t SaveVersionMonsterBolsterDamageDice = 60;
 constexpr uint32_t SaveVersionPendingSoundNames = 61;
 constexpr uint32_t SaveVersionOutdoorRuntimeSaveParity = 62;
+constexpr uint32_t SaveVersionProjectileVisualMode = 63;
+constexpr uint32_t SaveVersionIndoorFireSpikeTraps = 64;
+constexpr uint32_t SaveVersionHeldCursorItem = 65;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1399,6 +1402,7 @@ void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::Snapshot &value)
     writeValue(writer, value.activeCorpseView);
     writeValue(writer, value.mapActorAiStates);
     writeValue(writer, value.bloodSplats);
+    writeValue(writer, value.fireSpikeTraps);
     writeValue(writer, value.actorUpdateAccumulatorSeconds);
     writeValue(writer, value.projectileState);
 }
@@ -1417,6 +1421,7 @@ bool readValue(BinaryReader &reader, IndoorWorldRuntime::Snapshot &value)
             || readValue(reader, value.mapActorSpellEffectStates))
         && (reader.version() < SaveVersionIndoorActorAiStates || readValue(reader, value.mapActorAiStates))
         && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.bloodSplats))
+        && (reader.version() < SaveVersionIndoorFireSpikeTraps || readValue(reader, value.fireSpikeTraps))
         && (reader.version() < SaveVersionIndoorSaveLoadParity
             || readValue(reader, value.actorUpdateAccumulatorSeconds))
         && (reader.version() < SaveVersionFullProjectileState || readValue(reader, value.projectileState));
@@ -2777,6 +2782,7 @@ void writeValue(BinaryWriter &writer, const GameplayProjectileService::Projectil
     writeValue(writer, value.objectSpriteFrameIndex);
     writeValue(writer, value.impactObjectDescriptionId);
     writeValue(writer, value.objectFlags);
+    writeValue(writer, value.visualMode);
     writeValue(writer, value.radius);
     writeValue(writer, value.height);
     writeValue(writer, value.spellId);
@@ -2821,6 +2827,7 @@ bool readValue(BinaryReader &reader, GameplayProjectileService::ProjectileState 
         && readValue(reader, value.objectSpriteFrameIndex)
         && readValue(reader, value.impactObjectDescriptionId)
         && readValue(reader, value.objectFlags)
+        && (reader.version() < SaveVersionProjectileVisualMode || readValue(reader, value.visualMode))
         && readValue(reader, value.radius)
         && readValue(reader, value.height)
         && readValue(reader, value.spellId)
@@ -2951,6 +2958,66 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::FireSpikeTrapState &va
         && readValue(reader, value.x)
         && readValue(reader, value.y)
         && readValue(reader, value.z)
+        && readValue(reader, value.timeSinceCreatedTicks)
+        && readValue(reader, value.isExpired);
+}
+
+void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::FireSpikeTrapState &value)
+{
+    writeValue(writer, value.trapId);
+    writeValue(writer, value.sourceKind);
+    writeValue(writer, value.sourceId);
+    writeValue(writer, value.sourcePartyMemberIndex);
+    writeValue(writer, value.sourceMonsterId);
+    writeValue(writer, value.fromSummonedMonster);
+    writeValue(writer, value.ability);
+    writeValue(writer, value.objectDescriptionId);
+    writeValue(writer, value.objectSpriteId);
+    writeValue(writer, value.objectSpriteFrameIndex);
+    writeValue(writer, value.impactObjectDescriptionId);
+    writeValue(writer, value.objectFlags);
+    writeValue(writer, value.radius);
+    writeValue(writer, value.height);
+    writeValue(writer, value.spellId);
+    writeValue(writer, value.effectSoundId);
+    writeValue(writer, value.skillLevel);
+    writeValue(writer, value.skillMastery);
+    writeValue(writer, value.objectName);
+    writeValue(writer, value.objectSpriteName);
+    writeValue(writer, value.x);
+    writeValue(writer, value.y);
+    writeValue(writer, value.z);
+    writeValue(writer, value.sectorId);
+    writeValue(writer, value.timeSinceCreatedTicks);
+    writeValue(writer, value.isExpired);
+}
+
+bool readValue(BinaryReader &reader, IndoorWorldRuntime::FireSpikeTrapState &value)
+{
+    return readValue(reader, value.trapId)
+        && readValue(reader, value.sourceKind)
+        && readValue(reader, value.sourceId)
+        && readValue(reader, value.sourcePartyMemberIndex)
+        && readValue(reader, value.sourceMonsterId)
+        && readValue(reader, value.fromSummonedMonster)
+        && readValue(reader, value.ability)
+        && readValue(reader, value.objectDescriptionId)
+        && readValue(reader, value.objectSpriteId)
+        && readValue(reader, value.objectSpriteFrameIndex)
+        && readValue(reader, value.impactObjectDescriptionId)
+        && readValue(reader, value.objectFlags)
+        && readValue(reader, value.radius)
+        && readValue(reader, value.height)
+        && readValue(reader, value.spellId)
+        && readValue(reader, value.effectSoundId)
+        && readValue(reader, value.skillLevel)
+        && readValue(reader, value.skillMastery)
+        && readValue(reader, value.objectName)
+        && readValue(reader, value.objectSpriteName)
+        && readValue(reader, value.x)
+        && readValue(reader, value.y)
+        && readValue(reader, value.z)
+        && readValue(reader, value.sectorId)
         && readValue(reader, value.timeSinceCreatedTicks)
         && readValue(reader, value.isExpired);
 }
@@ -3136,6 +3203,12 @@ void writeValue(BinaryWriter &writer, const GameSaveData &value)
     writeValue(writer, value.savedGameMinutes);
     writeValue(writer, value.outdoorCameraYawRadians);
     writeValue(writer, value.outdoorCameraPitchRadians);
+    writeValue(writer, value.heldInventoryItemActive);
+    writeValue(writer, value.heldInventoryItem);
+    writeValue(writer, value.heldInventoryItemGrabCellOffsetX);
+    writeValue(writer, value.heldInventoryItemGrabCellOffsetY);
+    writeValue(writer, value.heldInventoryItemGrabOffsetX);
+    writeValue(writer, value.heldInventoryItemGrabOffsetY);
     writeValue(writer, value.saveName);
     writeValue(writer, value.previewBmp);
 }
@@ -3156,6 +3229,14 @@ bool readValue(BinaryReader &reader, GameSaveData &value)
         && readValue(reader, value.savedGameMinutes)
         && readValue(reader, value.outdoorCameraYawRadians)
         && readValue(reader, value.outdoorCameraPitchRadians)
+        && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItemActive))
+        && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItem))
+        && (reader.version() < SaveVersionHeldCursorItem
+            || readValue(reader, value.heldInventoryItemGrabCellOffsetX))
+        && (reader.version() < SaveVersionHeldCursorItem
+            || readValue(reader, value.heldInventoryItemGrabCellOffsetY))
+        && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItemGrabOffsetX))
+        && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItemGrabOffsetY))
         && readValue(reader, value.saveName)
         && readValue(reader, value.previewBmp);
 }
@@ -3230,7 +3311,7 @@ std::optional<GameSaveData> loadGameDataFromPath(const std::filesystem::path &pa
         return std::nullopt;
     }
 
-    if (version != SaveVersion)
+    if (version > SaveVersion)
     {
         error = "unsupported save version";
         return std::nullopt;

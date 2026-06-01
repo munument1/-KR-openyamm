@@ -39,6 +39,33 @@ const char *indoorMoveBlockKindName(IndoorMoveBlockKind kind)
     return "unknown";
 }
 
+const char *indoorMoveInvalidPositionReasonName(IndoorMoveInvalidPositionReason reason)
+{
+    switch (reason)
+    {
+        case IndoorMoveInvalidPositionReason::None:
+            return "none";
+        case IndoorMoveInvalidPositionReason::ActorLedgeDrop:
+            return "actor_ledge_drop";
+        case IndoorMoveInvalidPositionReason::LeadingActorLedgeDrop:
+            return "leading_actor_ledge_drop";
+        case IndoorMoveInvalidPositionReason::SteepFloor:
+            return "steep_floor";
+        case IndoorMoveInvalidPositionReason::StepUpTooHigh:
+            return "step_up_too_high";
+        case IndoorMoveInvalidPositionReason::CeilingFloorCrush:
+            return "ceiling_floor_crush";
+        case IndoorMoveInvalidPositionReason::MissingEyeSector:
+            return "missing_eye_sector";
+        case IndoorMoveInvalidPositionReason::FaceCollision:
+            return "face_collision";
+        case IndoorMoveInvalidPositionReason::ActorCollision:
+            return "actor_collision";
+    }
+
+    return "unknown";
+}
+
 std::string indoorCollisionTracePoint(const bx::Vec3 &point)
 {
     std::ostringstream out;
@@ -245,6 +272,24 @@ void IndoorPartyRuntime::update(
                     << " hit_adjusted=" << debugInfo.hitAdjustedMoveDistance
                     << " hit_height_offset=" << debugInfo.hitHeightOffset
                     << " response_step=" << indoorCollisionTracePoint(debugInfo.responseStep)
+                    << " invalid_reason="
+                    << indoorMoveInvalidPositionReasonName(debugInfo.invalidPositionReason)
+                    << " invalid_candidate="
+                    << indoorCollisionTracePoint(debugInfo.invalidCandidatePosition)
+                    << " invalid_floor_has=" << (debugInfo.invalidFloorHas ? "true" : "false")
+                    << " invalid_floor=" << debugInfo.invalidFloorFaceIndex
+                    << " invalid_floor_sector=" << debugInfo.invalidFloorSectorId
+                    << " invalid_floor_height=" << debugInfo.invalidFloorHeight
+                    << " invalid_floor_normal_z=" << debugInfo.invalidFloorNormalZ
+                    << " invalid_leading_floor_has="
+                    << (debugInfo.invalidLeadingFloorHas ? "true" : "false")
+                    << " invalid_leading_floor=" << debugInfo.invalidLeadingFloorFaceIndex
+                    << " invalid_leading_floor_sector=" << debugInfo.invalidLeadingFloorSectorId
+                    << " invalid_leading_floor_height=" << debugInfo.invalidLeadingFloorHeight
+                    << " invalid_leading_floor_normal_z=" << debugInfo.invalidLeadingFloorNormalZ
+                    << " invalid_ceiling_has=" << (debugInfo.invalidCeilingHas ? "true" : "false")
+                    << " invalid_ceiling_height=" << debugInfo.invalidCeilingHeight
+                    << " invalid_eye_sector=" << debugInfo.invalidEyeSectorId
                     << " crossed_blocking_face=" << (traceInfo.crossedBlockingFace ? "true" : "false")
                     << " blocking_face=" << traceInfo.blockingFaceIndex
                     << " blocking_face_normal=" << indoorCollisionTracePoint(traceInfo.blockingFaceNormal)
