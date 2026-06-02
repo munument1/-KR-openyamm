@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <vector>
@@ -100,6 +101,24 @@ std::string friendlySaveFileLabel(const std::filesystem::path &path)
     return stem;
 }
 
+std::string normalizeSaveGameConflictName(const std::string &value)
+{
+    size_t begin = 0;
+    size_t end = value.size();
+
+    while (begin < end && std::isspace(static_cast<unsigned char>(value[begin])))
+    {
+        ++begin;
+    }
+
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1])))
+    {
+        --end;
+    }
+
+    return toLowerCopy(value.substr(begin, end - begin));
+}
+
 } // namespace
 
 void clampJournalMapState(GameplayUiController::JournalScreenState &journalScreen)
@@ -184,6 +203,7 @@ void refreshSaveGameSlots(
     saveGameScreen.editActive = false;
     saveGameScreen.editSlotIndex = 0;
     saveGameScreen.editBuffer.clear();
+    saveGameScreen.errorText.clear();
 }
 
 void refreshLoadGameSlots(
@@ -243,5 +263,40 @@ void refreshLoadGameSlots(
     }
 
     loadGameScreen.scrollOffset = 0;
+}
+
+bool saveGameNameConflictsWithExistingSlot(
+    const GameplayUiController::SaveGameScreenState &saveGameScreen,
+    const std::string &saveName,
+    size_t targetSlotIndex)
+{
+    const std::string normalizedSaveName = normalizeSaveGameConflictName(saveName);
+
+    if (normalizedSaveName.empty())
+    {
+        return false;
+    }
+
+    for (size_t slotIndex = 0; slotIndex < saveGameScreen.slots.size(); ++slotIndex)
+    {
+        if (slotIndex == targetSlotIndex)
+        {
+            continue;
+        }
+
+        const GameplayUiController::SaveSlotSummary &slot = saveGameScreen.slots[slotIndex];
+
+        if (!slot.populated)
+        {
+            continue;
+        }
+
+        if (normalizeSaveGameConflictName(slot.fileLabel) == normalizedSaveName)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 } // namespace OpenYAMM::Game

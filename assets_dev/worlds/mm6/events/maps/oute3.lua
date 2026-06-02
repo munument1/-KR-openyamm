@@ -377,15 +377,15 @@ RegisterEvent(101, nil, function()
         RemoveItem(2109) -- Key to Goblinwatch
         SetQBit(QBit(1324)) -- Peter
     end
-    evt.MoveToMap(601, 6871, 177, 1400, 0, 0, 161, 1, "6d01.blv") -- Goblinwatch
+    evt.MoveToMap(601, 6871, 177, 1400, 0, 0, 417, 1, "6d01.blv") -- Goblinwatch
 end)
 
 RegisterEvent(102, nil, function()
-    evt.MoveToMap(16406, -19669, 865, 500, 0, 0, 166, 1, "6d02.blv") -- Abandoned Temple
+    evt.MoveToMap(16406, -19669, 865, 500, 0, 0, 422, 1, "6d02.blv") -- Abandoned Temple
 end)
 
 RegisterEvent(103, nil, function()
-    evt.MoveToMap(-2688, 1216, 1153, 1536, 0, 0, 191, 1, "6d18.blv") -- Gharik's Forge
+    evt.MoveToMap(-2688, 1216, 1153, 1536, 0, 0, 447, 1, "6d18.blv") -- Gharik's Forge
 end)
 
 RegisterEvent(104, nil, function()

@@ -613,6 +613,8 @@ struct GameplayOverlayInteractionState
     GameplayUtilitySpellPointerTarget utilitySpellPressedTarget = {};
     std::array<bool, 39> saveGameEditKeyLatches = {};
     bool saveGameEditBackspaceLatch = false;
+    bool saveGameEditEraseHeld = false;
+    uint64_t saveGameEditEraseNextRepeatTicks = 0;
     uint64_t lastSaveGameSlotClickTicks = 0;
     std::optional<size_t> lastSaveGameClickedSlotIndex = std::nullopt;
     bool journalToggleLatch = false;

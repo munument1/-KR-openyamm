@@ -244,7 +244,7 @@ RegisterEvent(79, "Chest", function()
 end, "Chest")
 
 RegisterEvent(90, nil, function()
-    evt.MoveToMap(4427, 3061, 769, 1024, 0, 0, 178, 1, "6d07.blv") -- Silver Helm Outpost
+    evt.MoveToMap(4427, 3061, 769, 1024, 0, 0, 434, 1, "6d07.blv") -- Silver Helm Outpost
 end)
 
 RegisterEvent(91, nil, function()

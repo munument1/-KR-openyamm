@@ -11,6 +11,7 @@ add_executable(openyamm_unit_tests
     CharacterSheetRegressionTests.cpp
     GameplayActorAiSystemTests.cpp
     GameplayBolsterRuntimeTests.cpp
+    GameplaySaveLoadUiSupportTests.cpp
     GameplayRuleRegressionTests.cpp
     GameplayProjectileServiceTests.cpp
     ImageAssetLoaderTests.cpp
@@ -84,6 +85,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/ReputationRuntime.cpp
     ../game/gameplay/StealingRuntime.cpp
     ../game/gameplay/GameplayProjectileService.cpp
+    ../game/gameplay/GameplaySaveLoadUiSupport.cpp
     ../game/gameplay/TurnBasedCombatRuntime.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
     ../game/gameplay/SavePreviewImage.cpp

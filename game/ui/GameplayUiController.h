@@ -309,6 +309,7 @@ public:
         bool editActive = false;
         size_t editSlotIndex = 0;
         std::string editBuffer;
+        std::string errorText;
         std::vector<SaveSlotSummary> slots;
     };
 

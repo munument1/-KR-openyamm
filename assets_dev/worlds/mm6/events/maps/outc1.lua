@@ -353,11 +353,11 @@ RegisterEvent(86, nil, function()
 end)
 
 RegisterEvent(90, nil, function()
-    evt.MoveToMap(1408, -1664, 1, 1024, 0, 0, 180, 1, "6d08.blv") -- Shadow Guild
+    evt.MoveToMap(1408, -1664, 1, 1024, 0, 0, 436, 1, "6d08.blv") -- Shadow Guild
 end)
 
 RegisterEvent(91, nil, function()
-    evt.MoveToMap(-495, -219, 1, 512, 0, 0, 188, 1, "6d15.blv") -- Icewind Keep
+    evt.MoveToMap(-495, -219, 1, 512, 0, 0, 444, 1, "6d15.blv") -- Icewind Keep
 end)
 
 RegisterEvent(100, "Drink from Well.", function()

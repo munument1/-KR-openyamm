@@ -4047,12 +4047,25 @@ void GameplayPartyOverlayRenderer::renderSaveLoadOverlay(
     if (renderSelectedDetails && !slots.empty())
     {
         const GameplayUiController::SaveSlotSummary &selectedSlot = slots[clampedSelectedIndex];
+        const bool hasSaveGameError =
+            pSaveGameScreen != nullptr
+            && !pSaveGameScreen->errorText.empty();
 
         if (const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pSelectedNameId))
         {
             if (const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved = resolveLayout(pSelectedNameId))
             {
-                context.renderLayoutLabel(*pLayout, *resolved, selectedSlot.locationName);
+                GameplayScreenRuntime::HudLayoutElement labelLayout = *pLayout;
+
+                if (hasSaveGameError)
+                {
+                    labelLayout.textColorAbgr = makeAbgrColor(255, 64, 64);
+                }
+
+                context.renderLayoutLabel(
+                    labelLayout,
+                    *resolved,
+                    hasSaveGameError ? pSaveGameScreen->errorText : selectedSlot.locationName);
             }
         }
 
@@ -4060,7 +4073,8 @@ void GameplayPartyOverlayRenderer::renderSaveLoadOverlay(
         {
             if (const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved = resolveLayout(pPreviewLine1Id))
             {
-                context.renderLayoutLabel(*pLayout, *resolved, selectedSlot.weekdayClockText);
+                const std::string text = hasSaveGameError ? std::string() : selectedSlot.weekdayClockText;
+                context.renderLayoutLabel(*pLayout, *resolved, text);
             }
         }
 
@@ -4068,7 +4082,8 @@ void GameplayPartyOverlayRenderer::renderSaveLoadOverlay(
         {
             if (const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved = resolveLayout(pPreviewLine2Id))
             {
-                context.renderLayoutLabel(*pLayout, *resolved, selectedSlot.dateText);
+                const std::string text = hasSaveGameError ? std::string() : selectedSlot.dateText;
+                context.renderLayoutLabel(*pLayout, *resolved, text);
             }
         }
     }

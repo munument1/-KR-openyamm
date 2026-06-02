@@ -244,6 +244,38 @@ std::string toUpperCopy(const std::string &value)
     return result;
 }
 
+std::string normalizeDungeonEntryLookupName(const std::string &value)
+{
+    const std::string trimmed = trimCopy(value);
+    std::string normalized;
+    normalized.reserve(trimmed.size());
+
+    bool previousWasSpace = true;
+
+    for (char character : trimmed)
+    {
+        const unsigned char unsignedCharacter = static_cast<unsigned char>(character);
+
+        if (std::isalnum(unsignedCharacter))
+        {
+            normalized.push_back(static_cast<char>(std::tolower(unsignedCharacter)));
+            previousWasSpace = false;
+        }
+        else if (!previousWasSpace)
+        {
+            normalized.push_back(' ');
+            previousWasSpace = true;
+        }
+    }
+
+    while (!normalized.empty() && normalized.back() == ' ')
+    {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
 struct LuaExportTablePaths
 {
     std::string mapStats = "engine/data_tables/map_stats.txt";
@@ -686,6 +718,51 @@ std::unordered_map<uint32_t, std::string> loadHouseNames(
     }
 
     return names;
+}
+
+std::unordered_map<std::string, uint32_t> loadCurrentMapDungeonEntryHouseIdsByName(
+    const AssetFileSystem &assetFileSystem,
+    const std::string &virtualPath,
+    const MapStatsEntry *pMapEntry)
+{
+    std::unordered_map<std::string, uint32_t> houseIds;
+
+    if (pMapEntry == nullptr || pMapEntry->id < 0)
+    {
+        return houseIds;
+    }
+
+    std::vector<std::vector<std::string>> rows;
+
+    if (!loadTextTableRows(assetFileSystem, virtualPath, rows))
+    {
+        return houseIds;
+    }
+
+    for (const std::vector<std::string> &row : rows)
+    {
+        if (row.size() <= 5 || row[2] != "Dungeon Ent")
+        {
+            continue;
+        }
+
+        const std::optional<uint32_t> parsedId = parseUint32Field(row[0]);
+        const std::optional<uint32_t> parsedMapId = parseUint32Field(row[3]);
+
+        if (!parsedId || !parsedMapId || *parsedMapId != static_cast<uint32_t>(pMapEntry->id))
+        {
+            continue;
+        }
+
+        const std::string normalizedName = normalizeDungeonEntryLookupName(row[5]);
+
+        if (!normalizedName.empty())
+        {
+            houseIds[normalizedName] = *parsedId;
+        }
+    }
+
+    return houseIds;
 }
 
 std::unordered_map<uint32_t, std::string> loadNpcTexts(
@@ -2011,6 +2088,7 @@ bool exportLegacyProgram(
     const LegacyLuaExportLookups &baseLookups,
     const std::unordered_map<std::string, std::unordered_map<uint32_t, std::string>> &decompiledEventTitles,
     const std::unordered_map<std::string, std::unordered_map<uint32_t, uint32_t>> &decompiledSummonObjectTypes,
+    const std::string &houseDataPath,
     const MapStatsEntry *pMapEntry,
     bool globalScope,
     LegacyEventVersion version)
@@ -2093,6 +2171,10 @@ bool exportLegacyProgram(
         lookups.sourceMapFile = pMapEntry != nullptr && !pMapEntry->fileName.empty()
             ? pMapEntry->fileName
             : outputStem;
+        lookups.currentMapDungeonEntryHouseIdsByName = loadCurrentMapDungeonEntryHouseIdsByName(
+            assetFileSystem,
+            houseDataPath,
+            pMapEntry);
         const auto iterator = lookups.mapNamesByFile.find(toLowerCopy(outputStem));
 
         if (iterator != lookups.mapNamesByFile.end())
@@ -2263,6 +2345,7 @@ int main(int argc, char **argv)
                 lookups,
                 decompiledEventTitles,
                 decompiledSummonObjectTypes,
+                tablePaths.houseData,
                 nullptr,
                 true,
                 tablePaths.legacyEventVersion))
@@ -2316,6 +2399,7 @@ int main(int argc, char **argv)
                 lookups,
                 decompiledEventTitles,
                 decompiledSummonObjectTypes,
+                tablePaths.houseData,
                 &entry,
                 false,
                 tablePaths.legacyEventVersion))

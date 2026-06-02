@@ -338,6 +338,88 @@ std::string toLowerCopy(std::string_view text)
     return lowered;
 }
 
+std::string normalizeDungeonEntryLookupName(std::string_view text)
+{
+    std::string normalized;
+    normalized.reserve(text.size());
+
+    bool previousWasSpace = true;
+
+    for (char character : text)
+    {
+        const unsigned char unsignedCharacter = static_cast<unsigned char>(character);
+
+        if (std::isalnum(unsignedCharacter))
+        {
+            normalized.push_back(static_cast<char>(std::tolower(unsignedCharacter)));
+            previousWasSpace = false;
+        }
+        else if (!previousWasSpace)
+        {
+            normalized.push_back(' ');
+            previousWasSpace = true;
+        }
+    }
+
+    while (!normalized.empty() && normalized.back() == ' ')
+    {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+std::optional<uint32_t> resolveDungeonEntryMoveToMapHouseId(
+    const LegacyLuaExportLookups &lookups,
+    uint32_t sourceHouseId,
+    const std::optional<std::string> &targetMapName)
+{
+    if (sourceHouseId == 0 || !targetMapName || lookups.currentMapDungeonEntryHouseIdsByName.empty())
+    {
+        return std::nullopt;
+    }
+
+    const std::filesystem::path targetPath(*targetMapName);
+
+    if (toLowerCopy(targetPath.extension().string()) != ".blv")
+    {
+        return std::nullopt;
+    }
+
+    const std::string loweredFileName = toLowerCopy(targetPath.filename().string());
+    const auto fileIterator = lookups.mapNamesByFile.find(loweredFileName);
+    std::optional<std::string> targetDisplayName;
+
+    if (fileIterator != lookups.mapNamesByFile.end())
+    {
+        targetDisplayName = fileIterator->second;
+    }
+    else
+    {
+        const auto stemIterator = lookups.mapNamesByFile.find(toLowerCopy(targetPath.stem().string()));
+
+        if (stemIterator != lookups.mapNamesByFile.end())
+        {
+            targetDisplayName = stemIterator->second;
+        }
+    }
+
+    if (!targetDisplayName)
+    {
+        return std::nullopt;
+    }
+
+    const std::string lookupName = normalizeDungeonEntryLookupName(*targetDisplayName);
+    const auto houseIterator = lookups.currentMapDungeonEntryHouseIdsByName.find(lookupName);
+
+    if (houseIterator == lookups.currentMapDungeonEntryHouseIdsByName.end())
+    {
+        return std::nullopt;
+    }
+
+    return houseIterator->second;
+}
+
 std::string sanitizeLuaCommentText(std::string_view text)
 {
     std::string sanitized;
@@ -2170,9 +2252,19 @@ LegacyLuaInstruction decodeInstruction(
         const size_t iconOffset = version == LegacyEventVersion::Mm8 ? 26 : 25;
         const size_t mapNameOffset = version == LegacyEventVersion::Mm8 ? 27 : 26;
         const std::optional<uint8_t> exitPicId = readPayloadValue<uint8_t>(instruction.rawPayload, iconOffset);
+        const std::optional<std::string> mapName = readMoveToMapName(instruction.rawPayload, mapNameOffset);
 
         if (x && y && z && yaw && pitch && zSpeed && houseId && exitPicId)
         {
+            uint32_t transitionHouseId = *houseId;
+            const std::optional<uint32_t> dungeonEntryHouseId =
+                resolveDungeonEntryMoveToMapHouseId(lookups, transitionHouseId, mapName);
+
+            if (dungeonEntryHouseId)
+            {
+                transitionHouseId = *dungeonEntryHouseId;
+            }
+
             decoded.arguments = {
                 static_cast<uint32_t>(*x),
                 static_cast<uint32_t>(*y),
@@ -2180,12 +2272,12 @@ LegacyLuaInstruction decodeInstruction(
                 static_cast<uint32_t>(*yaw),
                 static_cast<uint32_t>(*pitch),
                 static_cast<uint32_t>(*zSpeed),
-                *houseId,
+                transitionHouseId,
                 *exitPicId
             };
         }
 
-        decoded.text = readMoveToMapName(instruction.rawPayload, mapNameOffset);
+        decoded.text = mapName;
     }
 
     if (decoded.operation == LegacyLuaOperation::ShowFace

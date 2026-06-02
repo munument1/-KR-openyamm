@@ -347,23 +347,23 @@ RegisterEvent(83, "House", function()
 end, "House")
 
 RegisterEvent(90, nil, function()
-    evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 169, 1, "6d03.blv") -- Shadow Guild Hideout
+    evt.MoveToMap(-130, -1408, 1, 512, 0, 0, 425, 1, "6d03.blv") -- Shadow Guild Hideout
 end)
 
 RegisterEvent(91, nil, function()
-    evt.MoveToMap(1664, -1896, 1, 1024, 0, 0, 174, 1, "6d05.blv") -- Snergle's Caverns
+    evt.MoveToMap(1664, -1896, 1, 1024, 0, 0, 430, 1, "6d05.blv") -- Snergle's Caverns
 end)
 
 RegisterEvent(92, nil, function()
-    evt.MoveToMap(2716, -256, 1, 1024, 0, 0, 176, 1, "6d06.blv") -- Dragoons' Caverns
+    evt.MoveToMap(2716, -256, 1, 1024, 0, 0, 432, 1, "6d06.blv") -- Dragoons' Caverns
 end)
 
 RegisterEvent(93, nil, function()
-    evt.MoveToMap(128, -151, 1, 512, 0, 0, 184, 1, "6d11.blv") -- Corlagon's Estate
+    evt.MoveToMap(128, -151, 1, 512, 0, 0, 440, 1, "6d11.blv") -- Corlagon's Estate
 end)
 
 RegisterEvent(94, nil, function()
-    evt.MoveToMap(-15592, 120, -191, 0, 0, 0, 162, 1, "6t1.blv") -- Temple of Baa
+    evt.MoveToMap(-15592, 120, -191, 0, 0, 0, 418, 1, "6t1.blv") -- Temple of Baa
 end)
 
 RegisterEvent(97, "Temple Baa", function()

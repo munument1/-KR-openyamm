@@ -59,7 +59,10 @@ void latchControlsEscape(GameplayScreenRuntime &view)
 
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr uint64_t SaveGameDoubleClickWindowMs = 500;
+constexpr uint64_t SaveGameEraseInitialRepeatDelayMs = 350;
+constexpr uint64_t SaveGameEraseRepeatIntervalMs = 65;
 constexpr size_t SaveLoadVisibleSlotCount = 10;
+constexpr const char *pDuplicateSaveGameNameError = "Save name already exists.";
 
 struct SaveGameKeyBinding
 {
@@ -113,6 +116,106 @@ void appendSaveGameTextInput(std::string &buffer, const std::string &textInput)
             buffer.push_back(character);
         }
     }
+}
+
+void resetSaveGameEditInputState(GameplayOverlayInteractionState &state)
+{
+    state.saveGameEditKeyLatches.fill(false);
+    state.saveGameEditBackspaceLatch = false;
+    state.saveGameEditEraseHeld = false;
+    state.saveGameEditEraseNextRepeatTicks = 0;
+}
+
+bool eraseSaveGameEditCharacter(GameplayUiController::SaveGameScreenState &saveGameScreen)
+{
+    if (saveGameScreen.editBuffer.empty())
+    {
+        return false;
+    }
+
+    saveGameScreen.editBuffer.pop_back();
+    saveGameScreen.errorText.clear();
+    return true;
+}
+
+void updateSaveGameEraseRepeat(
+    GameplayUiController::SaveGameScreenState &saveGameScreen,
+    GameplayOverlayInteractionState &state,
+    bool erasePressed,
+    uint64_t nowTicks)
+{
+    if (!erasePressed)
+    {
+        state.saveGameEditBackspaceLatch = false;
+        state.saveGameEditEraseHeld = false;
+        state.saveGameEditEraseNextRepeatTicks = 0;
+        return;
+    }
+
+    if (!state.saveGameEditBackspaceLatch)
+    {
+        const bool erased = eraseSaveGameEditCharacter(saveGameScreen);
+        state.saveGameEditBackspaceLatch = true;
+        state.saveGameEditEraseHeld = erased && !saveGameScreen.editBuffer.empty();
+        state.saveGameEditEraseNextRepeatTicks = nowTicks + SaveGameEraseInitialRepeatDelayMs;
+        return;
+    }
+
+    if (!state.saveGameEditEraseHeld)
+    {
+        return;
+    }
+
+    while (!saveGameScreen.editBuffer.empty() && nowTicks >= state.saveGameEditEraseNextRepeatTicks)
+    {
+        eraseSaveGameEditCharacter(saveGameScreen);
+        state.saveGameEditEraseNextRepeatTicks += SaveGameEraseRepeatIntervalMs;
+    }
+
+    if (saveGameScreen.editBuffer.empty())
+    {
+        state.saveGameEditEraseHeld = false;
+    }
+}
+
+bool commitSaveGameEditAndSave(
+    GameplayScreenRuntime &view,
+    GameplayUiController::SaveGameScreenState &saveGameScreen)
+{
+    if (saveGameScreen.editActive)
+    {
+        if (saveGameScreen.editSlotIndex >= saveGameScreen.slots.size())
+        {
+            return false;
+        }
+
+        if (saveGameNameConflictsWithExistingSlot(
+                saveGameScreen,
+                saveGameScreen.editBuffer,
+                saveGameScreen.editSlotIndex))
+        {
+            saveGameScreen.errorText = pDuplicateSaveGameNameError;
+            view.setStatusBarEvent(saveGameScreen.errorText);
+            return false;
+        }
+
+        saveGameScreen.selectedIndex = saveGameScreen.editSlotIndex;
+        saveGameScreen.slots[saveGameScreen.editSlotIndex].fileLabel =
+            saveGameScreen.editBuffer.empty()
+                ? "Empty"
+                : saveGameScreen.editBuffer;
+        saveGameScreen.editActive = false;
+        saveGameScreen.editBuffer.clear();
+        saveGameScreen.errorText.clear();
+    }
+
+    if (view.trySaveToSelectedGameSlot())
+    {
+        view.refreshSaveGameOverlaySlots();
+        return true;
+    }
+
+    return false;
 }
 
 void appendDigitTextInput(std::string &buffer, const std::string &textInput, size_t maximumLength)
@@ -1796,21 +1899,33 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
         view.interactionState().saveGameToggleLatch = false;
         view.interactionState().saveGameClickLatch = false;
         view.interactionState().saveGamePressedTarget = {};
-        view.interactionState().saveGameEditKeyLatches.fill(false);
-        view.interactionState().saveGameEditBackspaceLatch = false;
+        resetSaveGameEditInputState(view.interactionState());
         return false;
     }
 
-    const bool closePressed =
+    const bool escapePressed =
         pKeyboardState != nullptr
-        && (pKeyboardState[SDL_SCANCODE_ESCAPE] || pKeyboardState[SDL_SCANCODE_RETURN]);
+        && pKeyboardState[SDL_SCANCODE_ESCAPE];
+    const bool commitPressed =
+        pKeyboardState != nullptr
+        && saveGameScreen.editActive
+        && pKeyboardState[SDL_SCANCODE_RETURN];
 
-    if (closePressed)
+    if (escapePressed)
     {
         if (!view.interactionState().saveGameToggleLatch)
         {
             view.closeSaveGameOverlay();
             latchGameplayMenuEscape(view);
+            view.interactionState().saveGameToggleLatch = true;
+        }
+    }
+    else if (commitPressed)
+    {
+        if (!view.interactionState().saveGameToggleLatch)
+        {
+            commitSaveGameEditAndSave(view, saveGameScreen);
+            resetSaveGameEditInputState(view.interactionState());
             view.interactionState().saveGameToggleLatch = true;
         }
     }
@@ -1826,7 +1941,13 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
 
     if (saveGameScreen.editActive && pKeyboardState != nullptr)
     {
+        const std::string textBeforeAppend = saveGameScreen.editBuffer;
         appendSaveGameTextInput(saveGameScreen.editBuffer, input.textInput);
+
+        if (saveGameScreen.editBuffer != textBeforeAppend)
+        {
+            saveGameScreen.errorText.clear();
+        }
 
         const bool shiftPressed =
             pKeyboardState[SDL_SCANCODE_LSHIFT] || pKeyboardState[SDL_SCANCODE_RSHIFT];
@@ -1843,6 +1964,7 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
                     && saveGameScreen.editBuffer.size() < 30)
                 {
                     saveGameScreen.editBuffer.push_back(shiftPressed ? binding.upper : binding.lower);
+                    saveGameScreen.errorText.clear();
                     view.interactionState().saveGameEditKeyLatches[bindingIndex] = true;
                 }
             }
@@ -1852,23 +1974,15 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
             }
         }
 
-        if (pKeyboardState[SDL_SCANCODE_BACKSPACE])
-        {
-            if (!view.interactionState().saveGameEditBackspaceLatch && !saveGameScreen.editBuffer.empty())
-            {
-                saveGameScreen.editBuffer.pop_back();
-                view.interactionState().saveGameEditBackspaceLatch = true;
-            }
-        }
-        else
-        {
-            view.interactionState().saveGameEditBackspaceLatch = false;
-        }
+        updateSaveGameEraseRepeat(
+            saveGameScreen,
+            view.interactionState(),
+            pKeyboardState[SDL_SCANCODE_BACKSPACE] || pKeyboardState[SDL_SCANCODE_DELETE],
+            SDL_GetTicks());
     }
     else
     {
-        view.interactionState().saveGameEditKeyLatches.fill(false);
-        view.interactionState().saveGameEditBackspaceLatch = false;
+        resetSaveGameEditInputState(view.interactionState());
     }
 
     const HudPointerState savePointerState = pointerStateFromInput(input);
@@ -1966,9 +2080,12 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
                     {
                         saveGameScreen.editActive = false;
                         saveGameScreen.editBuffer.clear();
+                        saveGameScreen.errorText.clear();
+                        resetSaveGameEditInputState(view.interactionState());
                     }
 
                     saveGameScreen.selectedIndex = slotIndex;
+                    saveGameScreen.errorText.clear();
                     const uint64_t nowTicks = SDL_GetTicks();
 
                     if (view.interactionState().lastSaveGameClickedSlotIndex == slotIndex
@@ -1980,6 +2097,8 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
                             saveGameScreen.slots[slotIndex].fileLabel == "Empty"
                                 ? std::string()
                                 : saveGameScreen.slots[slotIndex].fileLabel;
+                        saveGameScreen.errorText.clear();
+                        resetSaveGameEditInputState(view.interactionState());
                     }
 
                     view.interactionState().lastSaveGameSlotClickTicks = nowTicks;
@@ -1992,15 +2111,7 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
                 break;
 
             case GameplaySaveLoadPointerTargetType::ConfirmButton:
-                if (saveGameScreen.editActive && saveGameScreen.editSlotIndex < saveGameScreen.slots.size())
-                {
-                    saveGameScreen.slots[saveGameScreen.editSlotIndex].fileLabel =
-                        saveGameScreen.editBuffer.empty()
-                            ? "Empty"
-                            : saveGameScreen.editBuffer;
-                }
-
-                view.trySaveToSelectedGameSlot();
+                commitSaveGameEditAndSave(view, saveGameScreen);
                 break;
 
             case GameplaySaveLoadPointerTargetType::CancelButton:

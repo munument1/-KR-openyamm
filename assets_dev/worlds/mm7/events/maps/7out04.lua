@@ -754,7 +754,7 @@ RegisterEvent(500, nil, function()
 end)
 
 RegisterEvent(501, "Barrel", function()
-    evt.MoveToMap(0, -1589, 225, 512, 0, 0, 128, 1, "7d32.blv") -- Castle Navan
+    evt.MoveToMap(0, -1589, 225, 512, 0, 0, 384, 1, "7d32.blv") -- Castle Navan
 end, "Barrel")
 
 RegisterEvent(502, "Enter Castle Navan", function()
@@ -763,7 +763,7 @@ end, "Enter Castle Navan")
 
 RegisterEvent(503, "Enter Clanker's Laboratory", function()
     if not IsQBitSet(QBit(710)) then -- Archibald in Clankers Lab now
-        evt.MoveToMap(0, -709, 1, 512, 0, 0, 139, 1, "7d12.blv") -- Clanker's Laboratory
+        evt.MoveToMap(0, -709, 1, 512, 0, 0, 395, 1, "7d12.blv") -- Clanker's Laboratory
         evt.SpeakNPC(427) -- Archibald Ironfist
         return
     end

@@ -664,11 +664,11 @@ RegisterEvent(79, "Crate", function()
 end, "Crate")
 
 RegisterEvent(90, nil, function()
-    evt.MoveToMap(-3714, 1250, 1, 0, 0, 0, 182, 1, "6d09.blv") -- Snergle's Iron Mines
+    evt.MoveToMap(-3714, 1250, 1, 0, 0, 0, 438, 1, "6d09.blv") -- Snergle's Iron Mines
 end)
 
 RegisterEvent(91, nil, function()
-    evt.MoveToMap(21169, 1920, -689, 1024, 0, 0, 168, 1, "cd2.blv") -- Castle Darkmoor
+    evt.MoveToMap(21169, 1920, -689, 1024, 0, 0, 424, 1, "cd2.blv") -- Castle Darkmoor
 end)
 
 RegisterEvent(92, "Temple Baa", function()

@@ -21,4 +21,8 @@ void refreshSaveGameSlots(
 void refreshLoadGameSlots(
     GameplayUiController::LoadGameScreenState &loadGameScreen,
     const std::vector<MapStatsEntry> &mapEntries);
+bool saveGameNameConflictsWithExistingSlot(
+    const GameplayUiController::SaveGameScreenState &saveGameScreen,
+    const std::string &saveName,
+    size_t targetSlotIndex);
 } // namespace OpenYAMM::Game

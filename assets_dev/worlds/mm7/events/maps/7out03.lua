@@ -886,11 +886,11 @@ RegisterEvent(501, "Enter The Erathian Sewer", function()
 end, "Enter The Erathian Sewer")
 
 RegisterEvent(502, "Enter Fort Riverstride", function()
-    evt.MoveToMap(64, -448, 1, 512, 0, 0, 137, 1, "7d31.blv") -- Fort Riverstride
+    evt.MoveToMap(64, -448, 1, 512, 0, 0, 393, 1, "7d31.blv") -- Fort Riverstride
 end, "Enter Fort Riverstride")
 
 RegisterEvent(503, "Enter Castle Gryphonheart", function()
-    evt.MoveToMap(768, 0, 1, 1024, 0, 0, 127, 1, "7d33.blv") -- Castle Gryphonheart
+    evt.MoveToMap(768, 0, 1, 1024, 0, 0, 383, 1, "7d33.blv") -- Castle Gryphonheart
 end, "Enter Castle Gryphonheart")
 
 RegisterEvent(504, "Door", function()
@@ -899,11 +899,11 @@ RegisterEvent(504, "Door", function()
         evt.FaceAnimation(FaceAnimation.DoorLocked)
         return
     end
-    evt.MoveToMap(-6314, -618, 1873, 1024, 0, 0, 127, 1, "7d33.blv") -- Castle Gryphonheart
+    evt.MoveToMap(-6314, -618, 1873, 1024, 0, 0, 383, 1, "7d33.blv") -- Castle Gryphonheart
 end, "Door")
 
 RegisterEvent(505, "Enter Fort Riverstride", function()
-    evt.MoveToMap(-1262, 587, -1215, 1024, 0, 0, 137, 1, "7d31.blv") -- Fort Riverstride
+    evt.MoveToMap(-1262, 587, -1215, 1024, 0, 0, 393, 1, "7d31.blv") -- Fort Riverstride
 end, "Enter Fort Riverstride")
 
 RegisterEvent(506, "Enter The Erathian Sewer", function()
