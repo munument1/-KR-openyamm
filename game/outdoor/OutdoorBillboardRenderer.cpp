@@ -937,6 +937,25 @@ void OutdoorBillboardRenderer::processActorPreviewTexturePreload(OutdoorGameView
     }
 }
 
+void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView &view)
+{
+    if (view.m_outdoorActorPreviewBillboardSet)
+    {
+        ActorPreviewBillboardSet &billboardSet = *view.m_outdoorActorPreviewBillboardSet;
+
+        if (!view.m_pendingActorPreviewTexturePreload && billboardSet.texturePreloadFuture.valid())
+        {
+            view.m_pendingActorPreviewTexturePreload = billboardSet.texturePreloadFuture.get();
+            view.m_nextPendingActorPreviewTextureUploadIndex = 0;
+            billboardSet.texturePreloadFuture = {};
+        }
+
+        processActorPreviewTexturePreload(view, std::numeric_limits<size_t>::max());
+    }
+
+    preloadPendingSpriteFrameWarmupsParallel(view);
+}
+
 void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
     OutdoorGameView &view,
     int viewWidth,

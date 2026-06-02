@@ -1969,7 +1969,7 @@ bool IndoorGameView::trySaveToSelectedGameSlot()
     return m_gameSession.gameplayScreenRuntime().trySaveToSelectedGameSlot(
         [this](const GameplayScreenRuntime::PreparedSaveGameRequest &request)
         {
-            return beginSaveWithPreview(request.path, request.saveName, true);
+            return beginSaveWithPreview(request.path, request.saveName, false);
         });
 }
 

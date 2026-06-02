@@ -3138,6 +3138,13 @@ bool OutdoorGameView::initialize(
 
     OutdoorBillboardRenderer::initializeBillboardResources(*this);
     timingLogger.stage("billboard resources initialized");
+
+    if (m_gameSettings.waitForLevelSprites)
+    {
+        OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(*this);
+        timingLogger.stage("level sprite resources preloaded");
+    }
+
     ParticleRenderer::initializeResources(m_worldFxRenderResources);
     timingLogger.stage("particle resources initialized");
 
@@ -4379,7 +4386,7 @@ bool OutdoorGameView::trySaveToSelectedGameSlot()
     return m_gameSession.gameplayScreenRuntime().trySaveToSelectedGameSlot(
         [this](const GameplayScreenRuntime::PreparedSaveGameRequest &request)
         {
-            return beginSaveWithPreview(request.path, request.saveName, true);
+            return beginSaveWithPreview(request.path, request.saveName, false);
         });
 }
 

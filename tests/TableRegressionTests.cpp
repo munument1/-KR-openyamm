@@ -207,6 +207,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.viewDistance = "unlimited";
     settings.outdoorBillboardDepthSlice = 0.0f;
     settings.skipEventCutscenes = true;
+    settings.waitForLevelSprites = false;
     settings.newGameGodLich = true;
     settings.bolsterMonsters = true;
     settings.monsterProjectileVisuals = OpenYAMM::Game::MonsterProjectileVisuals::Sprites;
@@ -238,6 +239,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(0.0f));
     CHECK(loadedSettings->skipEventCutscenes);
+    CHECK_FALSE(loadedSettings->waitForLevelSprites);
     CHECK(loadedSettings->newGameGodLich);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->monsterProjectileVisuals == OpenYAMM::Game::MonsterProjectileVisuals::Sprites);
@@ -299,6 +301,7 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(256.0f));
     CHECK_FALSE(loadedSettings->skipEventCutscenes);
+    CHECK(loadedSettings->waitForLevelSprites);
 
     std::filesystem::remove(path);
 }

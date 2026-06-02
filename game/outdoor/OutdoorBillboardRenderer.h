@@ -18,6 +18,7 @@ public:
     static void queueEventSpellBillboardTextureWarmup(OutdoorGameView &view, const ScriptedEventProgram &eventProgram);
     static void queueRuntimeActorBillboardTextureWarmup(OutdoorGameView &view);
     static void processActorPreviewTexturePreload(OutdoorGameView &view, size_t maxTextureUploads);
+    static void preloadPendingLevelSpriteTextures(OutdoorGameView &view);
     static void preloadPendingSpriteFrameWarmupsParallel(OutdoorGameView &view);
     static void processPendingSpriteFrameWarmups(OutdoorGameView &view, size_t maxSpriteFrames);
     static void prepareKeyboardInteractionBillboardCache(

@@ -794,6 +794,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "wait_for_level_sprites"))
+    {
+        bool parsed = settings.waitForLevelSprites;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.waitForLevelSprites = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "gameplay_ui_layout"))
     {
         settings.gameplayUiLayout = parseGameplayUiLayout(*value);
@@ -1312,6 +1322,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "outdoor_billboard_depth_slice="
         << std::clamp(settings.outdoorBillboardDepthSlice, 0.0f, 8192.0f) << '\n'
         << "skip_event_cutscenes=" << (settings.skipEventCutscenes ? "true" : "false") << '\n'
+        << "wait_for_level_sprites=" << (settings.waitForLevelSprites ? "true" : "false") << '\n'
         << "window_mode=" << windowModeString(settings.windowMode) << '\n'
         << "resolution=" << std::clamp(settings.resolutionWidth, 320, 16384)
         << 'x' << std::clamp(settings.resolutionHeight, 200, 16384) << '\n'

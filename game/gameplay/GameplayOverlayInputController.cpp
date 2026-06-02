@@ -209,13 +209,7 @@ bool commitSaveGameEditAndSave(
         saveGameScreen.errorText.clear();
     }
 
-    if (view.trySaveToSelectedGameSlot())
-    {
-        view.refreshSaveGameOverlaySlots();
-        return true;
-    }
-
-    return false;
+    return view.trySaveToSelectedGameSlot();
 }
 
 void appendDigitTextInput(std::string &buffer, const std::string &textInput, size_t maximumLength)

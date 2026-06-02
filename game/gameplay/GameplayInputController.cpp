@@ -502,10 +502,19 @@ void GameplayInputController::handleSharedGameplayHotkeys(
         context.interactionState().alwaysRunToggleLatch = false;
     }
 
+    const bool combatKeyHeld =
+        isActionHeld(context, KeyboardAction::Combat, config.pInputFrame, config.pKeyboardState)
+        || isScancodeHeld(SDL_SCANCODE_KP_ENTER, config.pInputFrame, config.pKeyboardState);
     const bool combatPressed =
         config.canToggleAlwaysRun
-        && (isActionHeld(context, KeyboardAction::Combat, config.pInputFrame, config.pKeyboardState)
-            || isScancodeHeld(SDL_SCANCODE_KP_ENTER, config.pInputFrame, config.pKeyboardState));
+        && combatKeyHeld;
+
+    if (!config.canToggleAlwaysRun && combatKeyHeld)
+    {
+        context.interactionState().turnBasedToggleLatch = true;
+        return;
+    }
+
     if (combatPressed)
     {
         if (!context.interactionState().turnBasedToggleLatch)
