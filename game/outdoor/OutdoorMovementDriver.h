@@ -23,6 +23,7 @@ struct OutdoorMovementInput
     float pitchRadians = 0.0f;
     bool usePitchForFlyingMovement = true;
     bool turnBasedMovementStep = false;
+    bool turnBasedPhysicsStep = false;
 };
 
 struct OutdoorPartyMovementState

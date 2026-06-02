@@ -37,8 +37,11 @@ void OutdoorPartyRuntime::update(const OutdoorMovementInput &input, float deltaS
 {
     m_movementStatusText.clear();
     m_movementDriver.update(input, deltaSeconds);
-    m_party.updateRecovery(deltaSeconds, m_movementDriver.partyMovementState().running ? 0.5f : 1.0f);
-    m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
+    if (!input.turnBasedPhysicsStep)
+    {
+        m_party.updateRecovery(deltaSeconds, m_movementDriver.partyMovementState().running ? 0.5f : 1.0f);
+        m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
+    }
     syncSpellMovementStatesFromPartyBuffs();
     const OutdoorMovementEffects effects = m_movementDriver.consumePendingEffects();
     m_party.applyMovementEffects(effects);

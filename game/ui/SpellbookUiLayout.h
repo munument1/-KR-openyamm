@@ -25,5 +25,7 @@ const SpellbookSchoolUiDefinition *findSpellbookSchoolUiDefinition(SpellbookScho
 
 const SpellbookSchoolUiDefinition *findSpellbookSchoolUiDefinitionForSpellId(uint32_t spellId);
 
+const char *spellbookSchoolDisplayName(SpellbookSchool school);
+
 std::string spellbookSpellLayoutId(SpellbookSchool school, uint32_t spellOrdinal);
 }

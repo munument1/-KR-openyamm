@@ -3,7 +3,7 @@ screen: SpellInspect
 elements:
   - id: SpellInspectRoot
     anchor: top_left
-    width: 440
+    width: 500
     height: 236
     z_index: 520
     visible: false
@@ -12,9 +12,9 @@ elements:
     children:
       - id: SpellInspectTitle
         anchor: top_center
-        offset_x: 0
+        offset_x: 52
         offset_y: 12
-        width: 260
+        width: 330
         height: 22
         text:
           value: "{title}"
@@ -25,9 +25,9 @@ elements:
 
       - id: SpellInspectBody
         anchor: top_left
-        offset_x: 20
+        offset_x: 126
         offset_y: 42
-        width: 400
+        width: 354
         height: 72
         text:
           value: "{body}"
@@ -38,9 +38,9 @@ elements:
 
       - id: SpellInspectNormal
         anchor: top_left
-        offset_x: 20
+        offset_x: 126
         offset_y: 122
-        width: 400
+        width: 354
         height: 16
         text:
           value: "{normal}"
@@ -51,9 +51,9 @@ elements:
 
       - id: SpellInspectExpert
         anchor: top_left
-        offset_x: 20
+        offset_x: 126
         offset_y: 144
-        width: 400
+        width: 354
         height: 16
         text:
           value: "{expert}"
@@ -64,9 +64,9 @@ elements:
 
       - id: SpellInspectMaster
         anchor: top_left
-        offset_x: 20
+        offset_x: 126
         offset_y: 166
-        width: 400
+        width: 354
         height: 16
         text:
           value: "{master}"
@@ -77,15 +77,54 @@ elements:
 
       - id: SpellInspectGrandmaster
         anchor: top_left
-        offset_x: 20
+        offset_x: 126
         offset_y: 188
-        width: 400
+        width: 354
         height: 16
         text:
           value: "{grandmaster}"
           font: SMALLNUM
           color: white
           align_x: left
+          align_y: middle
+
+      - id: SpellInspectSchool
+        anchor: top_left
+        offset_x: 20
+        offset_y: 44
+        width: 92
+        height: 30
+        text:
+          value: "{school}"
+          font: SMALLNUM
+          color: "#ffff9b"
+          align_x: center
+          align_y: middle
+
+      - id: SpellInspectSpCostLabel
+        anchor: top_left
+        offset_x: 20
+        offset_y: 102
+        width: 92
+        height: 16
+        text:
+          value: "{label}"
+          font: SMALLNUM
+          color: white
+          align_x: center
+          align_y: middle
+
+      - id: SpellInspectSpCostValue
+        anchor: top_left
+        offset_x: 20
+        offset_y: 122
+        width: 92
+        height: 16
+        text:
+          value: "{cost}"
+          font: SMALLNUM
+          color: white
+          align_x: center
           align_y: middle
 
       - id: SpellInspectCorner_UR
@@ -126,7 +165,7 @@ elements:
 
       - id: SpellInspectCorner_TopEdge
         anchor: top_left
-        width: 440
+        width: 500
         height: 10
         z_index: 570
         asset:
@@ -135,7 +174,7 @@ elements:
       - id: SpellInspectCorner_BottomEdge
         anchor: bottom_left
         offset_y: 7
-        width: 440
+        width: 500
         height: 16
         z_index: 570
         asset:

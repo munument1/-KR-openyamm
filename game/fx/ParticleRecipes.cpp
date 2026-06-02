@@ -17,7 +17,8 @@ namespace FxRecipes
 {
 namespace
 {
-constexpr float ProjectileTrailParticleSizeScale = 1.18f;
+constexpr float ProjectileVisualSizeScale = 1.25f;
+constexpr float ProjectileTrailParticleSizeScale = 1.18f * ProjectileVisualSizeScale;
 constexpr float ProjectileTrailParticleDensityScale = 1.33f;
 constexpr float ProjectileTrailParticleLifetimeScale = 2.05f;
 constexpr float ImpactBurstParticleSizeScale = 1.24f;
@@ -1505,7 +1506,7 @@ void emitHangingProjectileTrailParticle(
     particle.velocityX = 0.0f;
     particle.velocityY = 0.0f;
     particle.velocityZ = 0.0f;
-    particle.size = storedReferenceParticleSize(1.0f, material);
+    particle.size = storedReferenceParticleSize(ProjectileVisualSizeScale, material);
     particle.endSize = particle.size;
     particle.drag = 0.0f;
     particle.rotationRadians = swirl * 0.9f;
@@ -1633,7 +1634,7 @@ void emitStunTrailParticle(
     particle.x = x;
     particle.y = y;
     particle.z = z;
-    particle.size = storedReferenceParticleSize(size, FxParticleMaterial::HardBlob);
+    particle.size = storedReferenceParticleSize(size * ProjectileVisualSizeScale, FxParticleMaterial::HardBlob);
     particle.endSize = particle.size;
     particle.drag = 0.0f;
     particle.rotationRadians = swirl * 0.7f;

@@ -506,6 +506,7 @@ bool OutdoorBillboardRenderer::uploadBillboardTexture(OutdoorGameView &view, con
     billboardTexture.height = texture.height;
     billboardTexture.physicalWidth = texture.physicalWidth;
     billboardTexture.physicalHeight = texture.physicalHeight;
+    billboardTexture.pixels = texture.pixels;
     billboardTexture.textureHandle = createBgraTexture2D(
         uint16_t(texture.physicalWidth),
         uint16_t(texture.physicalHeight),
@@ -1893,6 +1894,7 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
         Engine::scalePhysicalPixelsToLogical(textureHeight, view.m_pAssetFileSystem->getAssetScaleTier());
     billboardTexture.physicalWidth = textureWidth;
     billboardTexture.physicalHeight = textureHeight;
+    billboardTexture.pixels = *pixels;
     billboardTexture.textureHandle = createBgraTexture2D(
         uint16_t(textureWidth),
         uint16_t(textureHeight),

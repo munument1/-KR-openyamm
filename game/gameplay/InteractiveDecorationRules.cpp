@@ -12,6 +12,14 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr uint16_t MMergeCrystalAmethystEventId = 65310;
+constexpr uint16_t MMergeCrystalDiamondEventId = 65311;
+constexpr uint16_t MMergeCrystalRubyEventId = 65312;
+constexpr uint16_t MMergeCrystalSapphireEventId = 65313;
+constexpr uint16_t MMergeCrystalMoonstoneEventId = 65314;
+constexpr uint16_t MMergeCrystalPurpleTopazEventId = 65315;
+constexpr uint16_t MMergeCrystalEmeraldEventId = 65316;
+
 std::string normalizeDecorationKey(const std::string &value)
 {
     const std::string lowered = toLowerCopy(value);
@@ -48,6 +56,34 @@ bool decorationMatchesAnyKey(
     }
 
     return false;
+}
+
+std::vector<std::string> collectDecorationKeys(const DecorationEntry &decoration, const std::string &instanceName)
+{
+    std::vector<std::string> keys;
+    keys.reserve(3);
+
+    const std::string hint = normalizeDecorationKey(decoration.hint);
+    const std::string internalName = normalizeDecorationKey(decoration.internalName);
+    const std::string normalizedInstanceName = normalizeDecorationKey(instanceName);
+
+    if (!hint.empty())
+    {
+        keys.push_back(hint);
+    }
+
+    if (!internalName.empty() && std::find(keys.begin(), keys.end(), internalName) == keys.end())
+    {
+        keys.push_back(internalName);
+    }
+
+    if (!normalizedInstanceName.empty()
+        && std::find(keys.begin(), keys.end(), normalizedInstanceName) == keys.end())
+    {
+        keys.push_back(normalizedInstanceName);
+    }
+
+    return keys;
 }
 
 std::optional<int> parseDecorationInternalNumber(const std::string &value)
@@ -119,6 +155,9 @@ uint16_t interactiveDecorationBaseEventId(InteractiveDecorationFamily family)
         case InteractiveDecorationFamily::MightAndMagicSixTrashHeap:
             return 1748;
 
+        case InteractiveDecorationFamily::Crystal:
+            break;
+
         case InteractiveDecorationFamily::None:
             break;
     }
@@ -157,6 +196,9 @@ uint8_t interactiveDecorationEventCount(InteractiveDecorationFamily family)
         case InteractiveDecorationFamily::MightAndMagicSixTrashHeap:
             return 2;
 
+        case InteractiveDecorationFamily::Crystal:
+            return 1;
+
         case InteractiveDecorationFamily::None:
             break;
     }
@@ -166,7 +208,77 @@ uint8_t interactiveDecorationEventCount(InteractiveDecorationFamily family)
 
 bool interactiveDecorationHidesWhenCleared(InteractiveDecorationFamily family)
 {
-    return family == InteractiveDecorationFamily::CampFire;
+    return family == InteractiveDecorationFamily::CampFire
+        || family == InteractiveDecorationFamily::Crystal;
+}
+
+std::optional<uint16_t> resolveCrystalEventId(const std::vector<std::string> &keys)
+{
+    if (decorationMatchesAnyKey(keys, {"crystl0"}))
+    {
+        return MMergeCrystalAmethystEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crclstr"}))
+    {
+        return MMergeCrystalDiamondEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crys5"}))
+    {
+        return MMergeCrystalRubyEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crys6"}))
+    {
+        return MMergeCrystalSapphireEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec09"}))
+    {
+        return MMergeCrystalMoonstoneEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec10", "dec12"}))
+    {
+        return MMergeCrystalPurpleTopazEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec11"}))
+    {
+        return MMergeCrystalEmeraldEventId;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<uint16_t> resolveCrystalEventId(
+    const DecorationEntry &decoration,
+    const std::string &instanceName)
+{
+    std::vector<std::string> keys;
+    keys.reserve(2);
+
+    const std::string hint = normalizeDecorationKey(decoration.hint);
+    const std::string internalName = normalizeDecorationKey(decoration.internalName);
+
+    if (!internalName.empty())
+    {
+        keys.push_back(internalName);
+    }
+
+    if (hint == "crystal")
+    {
+        const std::string normalizedInstanceName = normalizeDecorationKey(instanceName);
+
+        if (!normalizedInstanceName.empty()
+            && std::find(keys.begin(), keys.end(), normalizedInstanceName) == keys.end())
+        {
+            keys.push_back(normalizedInstanceName);
+        }
+    }
+
+    return resolveCrystalEventId(keys);
 }
 }
 
@@ -174,27 +286,11 @@ std::optional<InteractiveDecorationFamily> classifyInteractiveDecorationFamily(
     const DecorationEntry &decoration,
     const std::string &instanceName)
 {
-    std::vector<std::string> keys;
-    keys.reserve(3);
+    const std::vector<std::string> keys = collectDecorationKeys(decoration, instanceName);
 
-    const std::string hint = normalizeDecorationKey(decoration.hint);
-    const std::string internalName = normalizeDecorationKey(decoration.internalName);
-    const std::string normalizedInstanceName = normalizeDecorationKey(instanceName);
-
-    if (!hint.empty())
+    if (resolveCrystalEventId(decoration, instanceName))
     {
-        keys.push_back(hint);
-    }
-
-    if (!internalName.empty() && std::find(keys.begin(), keys.end(), internalName) == keys.end())
-    {
-        keys.push_back(internalName);
-    }
-
-    if (!normalizedInstanceName.empty()
-        && std::find(keys.begin(), keys.end(), normalizedInstanceName) == keys.end())
-    {
-        keys.push_back(normalizedInstanceName);
+        return InteractiveDecorationFamily::Crystal;
     }
 
     if (decorationMatchesAnyKey(keys, {"barrel", "dec03", "dec32"}))
@@ -254,8 +350,14 @@ std::optional<InteractiveDecorationBindingSpec> resolveInteractiveDecorationBind
 
     if (family)
     {
-        const uint16_t baseEventId = interactiveDecorationBaseEventId(*family);
+        uint16_t baseEventId = interactiveDecorationBaseEventId(*family);
         const uint8_t eventCount = interactiveDecorationEventCount(*family);
+
+        if (*family == InteractiveDecorationFamily::Crystal)
+        {
+            const std::optional<uint16_t> crystalEventId = resolveCrystalEventId(decoration, instanceName);
+            baseEventId = crystalEventId.value_or(0);
+        }
 
         if (baseEventId == 0 || eventCount == 0)
         {
@@ -348,6 +450,7 @@ uint8_t initialInteractiveDecorationState(InteractiveDecorationFamily family, ui
 
         case InteractiveDecorationFamily::TrashHeap:
         case InteractiveDecorationFamily::CampFire:
+        case InteractiveDecorationFamily::Crystal:
         case InteractiveDecorationFamily::None:
             break;
     }

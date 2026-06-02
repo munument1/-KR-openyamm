@@ -363,6 +363,78 @@ TEST_CASE("indoor portal visibility uses shared sector boundary for portal clipp
     CHECK_EQ(pAcceptedTrace->targetSectorId, 1);
 }
 
+TEST_CASE("cd1 sector 101 sees sector 88 through diagonal floor-strip portal")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm6" / "maps" / "cd1.blv");
+
+    REQUIRE_FALSE(mapBytes.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    constexpr uint16_t SourceSectorId = 101;
+    constexpr uint16_t TargetSectorId = 88;
+    constexpr uint16_t PortalFaceId = 2248;
+
+    REQUIRE_GT(mapData->sectors.size(), SourceSectorId);
+    REQUIRE_GT(mapData->sectors.size(), TargetSectorId);
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, SourceSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, TargetSectorId);
+
+    IndoorFaceGeometryCache geometryCache(mapData->faces.size());
+    const IndoorFaceGeometryData *pPortalGeometry =
+        geometryCache.geometryForFace(*mapData, mapData->vertices, PortalFaceId);
+    REQUIRE(pPortalGeometry != nullptr);
+    REQUIRE(pPortalGeometry->hasPlane);
+    CHECK_LT(pPortalGeometry->maxZ - pPortalGeometry->minZ, 2.0f);
+    CHECK_GT(pPortalGeometry->normal.z, -0.1f);
+    CHECK_LT(pPortalGeometry->normal.z, 0.1f);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+
+    const bx::Vec3 portalCenter = faceCenter(*mapData, PortalFaceId);
+    const bx::Vec3 targetSectorCenter = sectorBoundsCenter(*mapData, TargetSectorId);
+    IndoorPortalVisibilityInput input = {};
+    input.pMapData = &*mapData;
+    input.pPortalGraph = &portalGraph;
+    input.pVertices = &mapData->vertices;
+    input.pPortalVertices = &mapData->vertices;
+    input.cameraPosition = {
+        portalCenter.x + pPortalGeometry->normal.x * 320.0f,
+        portalCenter.y + pPortalGeometry->normal.y * 320.0f,
+        352.0f
+    };
+    input.cameraForward = {
+        targetSectorCenter.x - input.cameraPosition.x,
+        targetSectorCenter.y - input.cameraPosition.y,
+        0.0f
+    };
+    input.cameraUp = {0.0f, 0.0f, 1.0f};
+    input.verticalFovDegrees = 60.0f;
+    input.aspectRatio = 16.0f / 9.0f;
+    input.startSectorId = SourceSectorId;
+
+    const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+    REQUIRE_GT(result.visibleSectorMask.size(), SourceSectorId);
+    REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+    CHECK_EQ(result.visibleSectorMask[SourceSectorId], 1);
+    CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+    CHECK(findPortalTraceForFace(result, PortalFaceId, "clipped_portal") == nullptr);
+    const IndoorPortalVisibilityTrace *pAcceptedTrace =
+        findPortalTraceForFace(result, PortalFaceId, "accepted");
+    REQUIRE(pAcceptedTrace != nullptr);
+    CHECK_EQ(pAcceptedTrace->sourceSectorId, SourceSectorId);
+    CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+}
+
 TEST_CASE("indoor portal visibility keeps portals with visible vertices in front of the camera")
 {
     IndoorMapData mapData = {};

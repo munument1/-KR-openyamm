@@ -18,7 +18,9 @@ constexpr float IndoorMovementStepSeconds = 1.0f / 128.0f;
 constexpr float DamageTickSeconds = 1.0f;
 constexpr float FallDamageDistance = 512.0f;
 constexpr float MaxAccumulatedMovementSeconds = 0.1f;
-constexpr float DefaultJumpVelocity = 420.0f;
+constexpr float DefaultJumpVelocity = 480.0f;
+constexpr float DefaultJumpLift = 0.0f;
+constexpr float PartyGravityPerSecond = 1280.0f;
 
 const char *indoorMoveBlockKindName(IndoorMoveBlockKind kind)
 {
@@ -95,7 +97,7 @@ void IndoorPartyRuntime::initializeEyePosition(float x, float y, float z, bool r
     m_pendingImpulseVelocityY = 0.0f;
     m_pendingImpulseVelocityZ = 0.0f;
     m_pendingJumpVelocity.reset();
-    m_pendingJumpLift = 1.0f;
+    m_pendingJumpLift = DefaultJumpLift;
     m_burningDamageTimerSeconds = 0.0f;
 }
 
@@ -115,7 +117,7 @@ void IndoorPartyRuntime::teleportEyePosition(float x, float y, float z)
     m_pendingImpulseVelocityY = 0.0f;
     m_pendingImpulseVelocityZ = 0.0f;
     m_pendingJumpVelocity.reset();
-    m_pendingJumpLift = 1.0f;
+    m_pendingJumpLift = DefaultJumpLift;
     m_burningDamageTimerSeconds = 0.0f;
 }
 
@@ -126,7 +128,7 @@ void IndoorPartyRuntime::teleportPartyPosition(float x, float y, float z)
     m_movementAccumulatorSeconds = 0.0f;
     m_pendingJumpRequested = false;
     m_pendingJumpVelocity.reset();
-    m_pendingJumpLift = 1.0f;
+    m_pendingJumpLift = DefaultJumpLift;
     m_burningDamageTimerSeconds = 0.0f;
 }
 
@@ -148,7 +150,8 @@ void IndoorPartyRuntime::update(
     bool jumpRequested,
     bool running,
     float deltaSeconds,
-    bool turnBasedMovementStep)
+    bool turnBasedMovementStep,
+    bool turnBasedPhysicsStep)
 {
     m_movementStatusText.clear();
 
@@ -157,8 +160,11 @@ void IndoorPartyRuntime::update(
         return;
     }
 
-    m_party.updateRecovery(deltaSeconds, running ? 0.5f : 1.0f);
-    m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
+    if (!turnBasedPhysicsStep)
+    {
+        m_party.updateRecovery(deltaSeconds, running ? 0.5f : 1.0f);
+        m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
+    }
 
     const IndoorBodyDimensions body = {};
     m_pendingJumpRequested = m_pendingJumpRequested || jumpRequested;
@@ -203,7 +209,13 @@ void IndoorPartyRuntime::update(
             false,
             false,
             jumpVelocityThisStep,
-            jumpLiftThisStep);
+            jumpLiftThisStep,
+            false,
+            false,
+            false,
+            false,
+            false,
+            PartyGravityPerSecond);
         if (m_movementState.landedThisFrame)
         {
             landingFallDistance = std::max(landingFallDistance, m_movementState.fallDistance);
@@ -309,7 +321,7 @@ void IndoorPartyRuntime::update(
         }
         m_pendingJumpRequested = false;
         m_pendingJumpVelocity.reset();
-        m_pendingJumpLift = 1.0f;
+        m_pendingJumpLift = DefaultJumpLift;
         m_movementAccumulatorSeconds -= IndoorMovementStepSeconds;
     }
 
@@ -443,7 +455,7 @@ void IndoorPartyRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_pendingImpulseVelocityY = snapshot.pendingImpulseVelocityY;
     m_pendingImpulseVelocityZ = snapshot.pendingImpulseVelocityZ;
     m_pendingJumpVelocity.reset();
-    m_pendingJumpLift = 1.0f;
+    m_pendingJumpLift = DefaultJumpLift;
     m_burningDamageTimerSeconds = 0.0f;
     m_alwaysRunEnabled = snapshot.alwaysRunEnabled;
     m_movementController.invalidateRuntimeGeometryCache();
@@ -487,7 +499,7 @@ void IndoorPartyRuntime::requestJump(std::optional<float> verticalVelocity, floa
 {
     m_pendingJumpRequested = true;
     m_pendingJumpVelocity = verticalVelocity;
-    m_pendingJumpLift = std::max(1.0f, lift);
+    m_pendingJumpLift = std::max(0.0f, lift);
 }
 
 void IndoorPartyRuntime::requestSpecialJump(float velocityX, float velocityY, float velocityZ)

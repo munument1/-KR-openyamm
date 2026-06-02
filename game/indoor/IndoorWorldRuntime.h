@@ -278,6 +278,7 @@ public:
     GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const override;
     float gameplayCameraYawRadians() const override;
     float gameplayCameraPitchRadians() const override;
+    bool partyNeedsTurnBasedPhysicsUpdate() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     void setAlwaysRunEnabled(bool enabled) override;
@@ -653,6 +654,7 @@ private:
     void applyFireSpikeTrapTriggerResult(
         FireSpikeTrapState &trap,
         const GameplayProjectileService::FireSpikeTrapTriggerResult &result);
+    void updateImmolation(float deltaSeconds);
     void updateWorldItems(float deltaSeconds);
     bool updateWorldItemsStep(
         float deltaSeconds,
@@ -765,6 +767,8 @@ private:
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     float m_worldItemUpdateAccumulatorSeconds = 0.0f;
+    float m_immolationTickAccumulatorGameMinutes = 0.0f;
+    uint32_t m_immolationTickSequence = 0;
     bool m_scenarioPartyActorCollisionEnabled = true;
     bool m_indoorJournalRevealStateValid = false;
     int16_t m_lastIndoorJournalRevealSectorId = -1;

@@ -1,6 +1,7 @@
 #include "game/gameplay/GameplayProjectileService.h"
 
 #include "game/audio/SoundIds.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/items/ItemEnchantRuntime.h"
@@ -15,6 +16,7 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <sstream>
 
 namespace OpenYAMM::Game
 {
@@ -36,10 +38,194 @@ constexpr float StarburstSpawnBaseHeight = 2500.0f;
 constexpr float StarburstSpawnHeightVariance = 1000.0f;
 constexpr float StarburstTargetSpread = 512.0f;
 
+const char *projectileSourceKindTraceName(GameplayProjectileService::ProjectileState::SourceKind kind)
+{
+    switch (kind)
+    {
+        case GameplayProjectileService::ProjectileState::SourceKind::Actor:
+            return "actor";
+        case GameplayProjectileService::ProjectileState::SourceKind::Event:
+            return "event";
+        case GameplayProjectileService::ProjectileState::SourceKind::Party:
+            return "party";
+    }
+
+    return "unknown";
+}
+
+const char *projectileCollisionKindTraceName(GameplayProjectileService::ProjectileFrameCollisionKind kind)
+{
+    switch (kind)
+    {
+        case GameplayProjectileService::ProjectileFrameCollisionKind::None:
+            return "none";
+        case GameplayProjectileService::ProjectileFrameCollisionKind::Party:
+            return "party";
+        case GameplayProjectileService::ProjectileFrameCollisionKind::Actor:
+            return "actor";
+        case GameplayProjectileService::ProjectileFrameCollisionKind::World:
+            return "world";
+    }
+
+    return "unknown";
+}
+
+void appendProjectileTracePoint(std::ostream &out, const char *pName, float x, float y, float z)
+{
+    out << ' ' << pName << "=(" << x << "," << y << "," << z << ")";
+}
+
+void appendProjectileTraceSummary(
+    std::ostream &out,
+    const GameplayProjectileService::ProjectileState &projectile)
+{
+    out
+        << " id=" << projectile.projectileId
+        << " source_kind=" << projectileSourceKindTraceName(projectile.sourceKind)
+        << " source_id=" << projectile.sourceId
+        << " party_member=" << projectile.sourcePartyMemberIndex
+        << " spell_id=" << projectile.spellId
+        << " object_id=" << projectile.objectDescriptionId
+        << " sprite_id=" << projectile.objectSpriteId
+        << " object=\"" << projectile.objectName << "\""
+        << " sprite=\"" << projectile.objectSpriteName << "\""
+        << " flags=" << projectile.objectFlags
+        << " radius=" << projectile.radius
+        << " height=" << projectile.height
+        << " sector=" << projectile.sectorId
+        << " age_ticks=" << projectile.timeSinceCreatedTicks
+        << " lifetime_ticks=" << projectile.lifetimeTicks
+        << " expired=" << projectile.isExpired
+        << " settled=" << projectile.isSettled;
+    appendProjectileTracePoint(out, "pos", projectile.x, projectile.y, projectile.z);
+    appendProjectileTracePoint(out, "vel", projectile.velocityX, projectile.velocityY, projectile.velocityZ);
+}
+
+void traceProjectileSpawnRequest(
+    const GameplayProjectileService::ProjectileSpawnRequest &request,
+    const char *pReason)
+{
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace
+            << "projectile_spawn_failed reason=" << pReason
+            << " source_kind=" << projectileSourceKindTraceName(request.sourceKind)
+            << " source_id=" << request.sourceId
+            << " spell_id=" << request.definition.spellId
+            << " object_id=" << request.definition.objectDescriptionId
+            << " sprite_id=" << request.definition.objectSpriteId
+            << " object=\"" << request.definition.objectName << "\""
+            << " sprite=\"" << request.definition.objectSpriteName << "\"";
+        appendProjectileTracePoint(trace, "source", request.sourceX, request.sourceY, request.sourceZ);
+        appendProjectileTracePoint(trace, "target", request.targetX, request.targetY, request.targetZ);
+        gameplayProjectileTraceWrite(trace.str());
+    );
+}
+
+void traceProjectileSpawnResult(
+    const char *pKind,
+    const GameplayProjectileService::ProjectileState &projectile,
+    float directionX,
+    float directionY,
+    float directionZ,
+    float speed)
+{
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_spawn kind=" << pKind;
+        appendProjectileTraceSummary(trace, projectile);
+        appendProjectileTracePoint(trace, "source", projectile.sourceX, projectile.sourceY, projectile.sourceZ);
+        appendProjectileTracePoint(trace, "dir", directionX, directionY, directionZ);
+        trace << " speed=" << speed;
+        gameplayProjectileTraceWrite(trace.str());
+    );
+}
+
+void traceProjectileNoCollision(
+    const GameplayProjectileService::ProjectileState &projectile,
+    const GameplayProjectileService::ProjectileFrameFacts &facts,
+    const GameplayProjectileService::ProjectileMotionSegment &motion)
+{
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_frame result=no_collision dt=" << facts.deltaSeconds << " gravity=" << facts.gravity;
+        appendProjectileTraceSummary(trace, projectile);
+        appendProjectileTracePoint(trace, "motion_start", motion.startX, motion.startY, motion.startZ);
+        appendProjectileTracePoint(trace, "motion_end", motion.endX, motion.endY, motion.endZ);
+        gameplayProjectileTraceWrite(trace.str());
+    );
+}
+
+void traceProjectileLifetimeExpired(const GameplayProjectileService::ProjectileState &projectile)
+{
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_frame result=lifetime_expired";
+        appendProjectileTraceSummary(trace, projectile);
+        gameplayProjectileTraceWrite(trace.str());
+    );
+}
+
+void traceProjectileCollisionDecision(
+    const GameplayProjectileService::ProjectileState &projectile,
+    const GameplayProjectileService::ProjectileFrameFacts &facts,
+    const GameplayProjectileService::ProjectileMotionSegment &motion,
+    bool worldCollisionContinues,
+    bool objectCanBounce,
+    bool downwardVelocityOk,
+    bool fastEnoughToBounce,
+    bool canBounce)
+{
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        const GameplayProjectileService::ProjectileFrameCollisionFacts &collision = facts.collision;
+        const GameplayProjectileService::ProjectileBounceSurfaceFacts &surface = collision.bounceSurface;
+        std::ostringstream trace;
+        trace
+            << "projectile_collision_decision"
+            << " kind=" << projectileCollisionKindTraceName(collision.kind)
+            << " collider=\"" << collision.colliderName << "\""
+            << " world_face=" << collision.worldFaceIndex
+            << " actor_index=" << collision.actorIndex
+            << " actor_id=" << collision.actorId
+            << " water=" << collision.waterTerrainImpact
+            << " surface_can_bounce=" << surface.canBounce
+            << " oe_world_continue=" << worldCollisionContinues
+            << " object_can_bounce=" << objectCanBounce
+            << " requires_downward_velocity=" << surface.requiresDownwardVelocity
+            << " downward_velocity_ok=" << downwardVelocityOk
+            << " fast_enough=" << fastEnoughToBounce
+            << " bounce_stop_velocity=" << facts.bounceStopVelocity
+            << " bounce_factor=" << facts.bounceFactor
+            << " ground_damping=" << facts.groundDamping
+            << " result=" << (canBounce ? "bounce" : "impact");
+        appendProjectileTraceSummary(trace, projectile);
+        appendProjectileTracePoint(trace, "motion_start", motion.startX, motion.startY, motion.startZ);
+        appendProjectileTracePoint(trace, "motion_end", motion.endX, motion.endY, motion.endZ);
+        appendProjectileTracePoint(trace, "collision", collision.point.x, collision.point.y, collision.point.z);
+        appendProjectileTracePoint(trace, "normal", surface.normalX, surface.normalY, surface.normalZ);
+        gameplayProjectileTraceWrite(trace.str());
+    );
+}
+
 bool isPrimaryDeathBlossomProjectile(const GameplayProjectileService::ProjectileState &projectile)
 {
     return spellIdFromValue(static_cast<uint32_t>(projectile.spellId)) == SpellId::DeathBlossom
         && toLowerCopy(projectile.objectName) != "shard";
+}
+
+bool projectileContinuesAfterOeWorldImpact(const GameplayProjectileService::ProjectileState &projectile)
+{
+    switch (spellIdFromValue(static_cast<uint32_t>(projectile.spellId)))
+    {
+        case SpellId::FireSpike:
+        case SpellId::Sparks:
+        case SpellId::RockBlast:
+        case SpellId::ToxicCloud:
+            return true;
+
+        default:
+            return false;
+    }
 }
 
 int rollDice(uint32_t rollCount, int diceSides)
@@ -320,6 +506,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     {
         if (!request.allowInstantImpact)
         {
+            traceProjectileSpawnRequest(request, "zero_distance");
             return result;
         }
 
@@ -363,6 +550,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
         result.kind = ProjectileSpawnResult::Kind::InstantImpact;
         result.projectile = std::move(projectile);
         result.speed = request.definition.speed;
+        traceProjectileSpawnResult("instant_impact", result.projectile, 0.0f, 0.0f, 0.0f, result.speed);
         return result;
     }
 
@@ -419,6 +607,7 @@ GameplayProjectileService::ProjectileSpawnResult GameplayProjectileService::spaw
     result.directionY = directionY;
     result.directionZ = directionZ;
     result.speed = request.definition.speed;
+    traceProjectileSpawnResult("spawned", result.projectile, directionX, directionY, directionZ, result.speed);
     return result;
 }
 
@@ -704,6 +893,20 @@ void GameplayProjectileService::applyProjectileMotionEnd(
     projectile.x = motionSegment.endX;
     projectile.y = motionSegment.endY;
     projectile.z = motionSegment.endZ;
+
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_apply_motion_end";
+        appendProjectileTraceSummary(trace, projectile);
+        appendProjectileTracePoint(
+            trace,
+            "motion_start",
+            motionSegment.startX,
+            motionSegment.startY,
+            motionSegment.startZ);
+        appendProjectileTracePoint(trace, "motion_end", motionSegment.endX, motionSegment.endY, motionSegment.endZ);
+        gameplayProjectileTraceWrite(trace.str());
+    );
 }
 
 void GameplayProjectileService::applyProjectileBounce(
@@ -718,6 +921,12 @@ void GameplayProjectileService::applyProjectileBounce(
     float stopVelocity,
     float groundDamping) const
 {
+    const float previousX = projectile.x;
+    const float previousY = projectile.y;
+    const float previousZ = projectile.z;
+    const float previousVelocityX = projectile.velocityX;
+    const float previousVelocityY = projectile.velocityY;
+    const float previousVelocityZ = projectile.velocityZ;
     const float velocityDotNormal =
         projectile.velocityX * normalX
         + projectile.velocityY * normalY
@@ -737,6 +946,22 @@ void GameplayProjectileService::applyProjectileBounce(
 
     projectile.velocityX *= groundDamping;
     projectile.velocityY *= groundDamping;
+
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_apply_bounce";
+        appendProjectileTraceSummary(trace, projectile);
+        appendProjectileTracePoint(trace, "previous_pos", previousX, previousY, previousZ);
+        appendProjectileTracePoint(trace, "previous_vel", previousVelocityX, previousVelocityY, previousVelocityZ);
+        appendProjectileTracePoint(trace, "impact", impactX, impactY, impactZ);
+        appendProjectileTracePoint(trace, "normal", normalX, normalY, normalZ);
+        trace
+            << " velocity_dot_normal=" << velocityDotNormal
+            << " bounce_factor=" << bounceFactor
+            << " stop_velocity=" << stopVelocity
+            << " ground_damping=" << groundDamping;
+        gameplayProjectileTraceWrite(trace.str());
+    );
 }
 
 void GameplayProjectileService::settleProjectile(ProjectileState &projectile) const
@@ -745,6 +970,13 @@ void GameplayProjectileService::settleProjectile(ProjectileState &projectile) co
     projectile.velocityY = 0.0f;
     projectile.velocityZ = 0.0f;
     projectile.isSettled = true;
+
+    GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+        std::ostringstream trace;
+        trace << "projectile_settle";
+        appendProjectileTraceSummary(trace, projectile);
+        gameplayProjectileTraceWrite(trace.str());
+    );
 }
 
 std::vector<GameplayProjectileService::ProjectileSpawnRequest>
@@ -1324,6 +1556,16 @@ GameplayProjectileService::buildProjectileDirectActorImpact(
 
 void GameplayProjectileService::expireProjectile(ProjectileState &projectile) const
 {
+    if (!projectile.isExpired)
+    {
+        GAMEPLAY_PROJECTILE_TRACE_BLOCK(
+            std::ostringstream trace;
+            trace << "projectile_expire";
+            appendProjectileTraceSummary(trace, projectile);
+            gameplayProjectileTraceWrite(trace.str());
+        );
+    }
+
     projectile.isExpired = true;
 }
 
@@ -1374,6 +1616,7 @@ GameplayProjectileService::ProjectileFrameResult GameplayProjectileService::upda
 
         result.logLifetimeExpiry = true;
         result.expireProjectile = true;
+        traceProjectileLifetimeExpired(projectile);
         return result;
     }
 
@@ -1382,15 +1625,32 @@ GameplayProjectileService::ProjectileFrameResult GameplayProjectileService::upda
     if (!facts.hasCollision)
     {
         result.applyMotionEnd = true;
+        traceProjectileNoCollision(projectile, facts, result.motion);
         return result;
     }
 
     const ProjectileBounceSurfaceFacts &bounceSurface = facts.collision.bounceSurface;
+    const bool worldCollisionContinues =
+        facts.collision.kind == ProjectileFrameCollisionKind::World
+        && projectileContinuesAfterOeWorldImpact(projectile);
+    const bool objectCanBounce = (projectile.objectFlags & ObjectDescBounce) != 0 || worldCollisionContinues;
+    const bool downwardVelocityOk = !bounceSurface.requiresDownwardVelocity || projectile.velocityZ < 0.0f;
+    const bool fastEnoughToBounce = std::abs(projectile.velocityZ) >= facts.bounceStopVelocity;
     const bool canBounce =
         bounceSurface.canBounce
-        && (projectile.objectFlags & ObjectDescBounce) != 0
-        && (!bounceSurface.requiresDownwardVelocity || projectile.velocityZ < 0.0f)
-        && std::abs(projectile.velocityZ) >= facts.bounceStopVelocity;
+        && objectCanBounce
+        && downwardVelocityOk
+        && fastEnoughToBounce;
+
+    traceProjectileCollisionDecision(
+        projectile,
+        facts,
+        result.motion,
+        worldCollisionContinues,
+        objectCanBounce,
+        downwardVelocityOk,
+        fastEnoughToBounce,
+        canBounce);
 
     if (canBounce)
     {

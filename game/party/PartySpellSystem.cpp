@@ -654,13 +654,8 @@ float secondsFromMinutes(float minutes)
 
 std::optional<BackendSpellRule> resolveBackendSpellRule(uint32_t spellId, SkillMastery mastery)
 {
-    const uint32_t sparksCount = mastery == SkillMastery::Grandmaster
-        ? 9
-        : mastery == SkillMastery::Master
-        ? 7
-        : mastery == SkillMastery::Expert
-        ? 5
-        : 3;
+    // Temporary projectile collision debugging override.
+    const uint32_t sparksCount = 1;
     const uint32_t poisonSprayCount = mastery == SkillMastery::Grandmaster
         ? 7
         : mastery == SkillMastery::Master

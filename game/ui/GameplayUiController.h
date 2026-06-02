@@ -221,6 +221,9 @@ public:
     {
         bool active = false;
         uint32_t spellId = 0;
+        std::string school;
+        int manaCost = 0;
+        bool hasManaCost = false;
         std::string title;
         std::string body;
         std::string normal;

@@ -256,6 +256,7 @@ private:
         EventRuntimeState &eventRuntimeState,
         const char *reason);
     static std::optional<std::string> resolveEventHintText(const OutdoorGameView &view, uint16_t eventId);
+    static std::optional<std::string> resolveEventHoverText(const OutdoorGameView &view, uint16_t eventId);
     static uint16_t inspectEventId(const OutdoorGameView &view, const OutdoorGameView::InspectHit &inspectHit);
     static std::vector<uint32_t> resolveOpenedChestIds(
         const OutdoorGameView &view,
@@ -289,7 +290,7 @@ private:
         const bx::Vec3 &rayDirection,
         float &distance);
     static bool hitTestActorBillboard(
-        const OutdoorGameView &view,
+        OutdoorGameView &view,
         const OutdoorWorldRuntime::MapActorState *pRuntimeActor,
         int actorX,
         int actorY,

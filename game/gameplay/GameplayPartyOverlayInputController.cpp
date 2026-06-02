@@ -38,6 +38,11 @@ constexpr float MaxUiScale = 8.0f;
 constexpr uint32_t DaderossLetterDeliveredQBit = 4;
 constexpr uint32_t EmeraldIslandFinishedQBit = 519;
 
+void latchGameplayMenuEscape(GameplayScreenRuntime &context)
+{
+    context.interactionState().menuToggleLatch = true;
+}
+
 struct HudPointerState
 {
     float x = 0.0f;
@@ -715,6 +720,7 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             context.utilitySpellOverlay() = {};
             context.resetUtilitySpellOverlayInteractionState();
             context.setStatusBarEvent("Spell cancelled", 2.0f);
+            latchGameplayMenuEscape(context);
             context.interactionState().closeOverlayLatch = true;
         }
 
@@ -1278,6 +1284,7 @@ void GameplayPartyOverlayInputController::handleSpellbookOverlayInput(
         if (!context.interactionState().closeOverlayLatch)
         {
             context.closeSpellbookOverlay();
+            latchGameplayMenuEscape(context);
             context.interactionState().closeOverlayLatch = true;
         }
     }
@@ -1734,6 +1741,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             context.characterScreen().dollJewelryOverlayOpen = false;
             context.characterScreen().adventurersInnRosterOverlayOpen = false;
             clearPendingCharacterDismiss();
+            latchGameplayMenuEscape(context);
             context.interactionState().closeOverlayLatch = true;
         }
     }

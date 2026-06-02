@@ -473,6 +473,10 @@ public:
     {
         return false;
     }
+    virtual bool partyNeedsTurnBasedPhysicsUpdate() const
+    {
+        return false;
+    }
     virtual void syncSpellMovementStatesFromPartyBuffs() = 0;
     virtual void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) = 0;
     virtual void setAlwaysRunEnabled(bool enabled) = 0;

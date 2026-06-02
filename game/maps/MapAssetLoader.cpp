@@ -103,6 +103,63 @@ void pumpMapLoadProgress(const MapLoadProgressPump &progressPump)
     }
 }
 
+bool isMergedLegacyIndoorLight(const IndoorLight &light)
+{
+    return light.radius > 0
+        && light.brightness > 0
+        && light.id == 0
+        && light.red == 0
+        && light.green == 0
+        && light.blue == 0;
+}
+
+bool hasMergedLegacyIndoorLightData(const IndoorMapData &mapData)
+{
+    if (mapData.version != 8)
+    {
+        return false;
+    }
+
+    bool foundLegacyLight = false;
+
+    for (const IndoorLight &light : mapData.lights)
+    {
+        if (light.radius <= 0 || light.brightness <= 0)
+        {
+            continue;
+        }
+
+        if (light.id != 0 || light.red != 0 || light.green != 0 || light.blue != 0)
+        {
+            return false;
+        }
+
+        foundLegacyLight = true;
+    }
+
+    return foundLegacyLight;
+}
+
+void normalizeMergedMm6IndoorStaticLights(const MapStatsEntry &map, IndoorMapData &mapData)
+{
+    if (normalizeWorldId(map.worldId) != "mm6" && !hasMergedLegacyIndoorLightData(mapData))
+    {
+        return;
+    }
+
+    for (IndoorLight &light : mapData.lights)
+    {
+        if (!isMergedLegacyIndoorLight(light))
+        {
+            continue;
+        }
+
+        light.red = 255;
+        light.green = 255;
+        light.blue = 255;
+    }
+}
+
 std::string engineDataTablePath(std::string_view fileName)
 {
     return "engine/data_tables/" + std::string(fileName);
@@ -4125,6 +4182,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
     {
         const IndoorMapDataLoader indoorMapDataLoader;
         assetInfo.indoorMapData = indoorMapDataLoader.loadFromBytes(*geometryBytes);
+        if (assetInfo.indoorMapData)
+        {
+            normalizeMergedMm6IndoorStaticLights(map, *assetInfo.indoorMapData);
+        }
         logStageComplete("indoor geometry parsed");
 
         if (assetInfo.indoorMapData)

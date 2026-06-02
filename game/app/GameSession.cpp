@@ -730,6 +730,11 @@ void GameSession::updateGameplay(
         {
             turnBasedMovementStep = m_turnBasedCombatRuntime.noteMovementInput(worldInput);
             worldMovementDeltaSeconds = m_turnBasedCombatRuntime.movementDeltaSecondsForFrame(deltaSeconds);
+            if (!turnBasedMovementStep && pWorldRuntime->partyNeedsTurnBasedPhysicsUpdate())
+            {
+                worldInput.turnBasedPhysicsStep = true;
+                worldMovementDeltaSeconds = deltaSeconds;
+            }
         }
 
         const uint64_t worldMovementBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;

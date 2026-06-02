@@ -3,6 +3,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/party/SkillData.h"
+#include "game/party/SpellSchool.h"
 #include "game/tables/ItemTable.h"
 #include "game/ui/GameplayHudCommon.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -30,6 +31,47 @@ constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 uint32_t packHudColorAbgr(uint8_t red, uint8_t green, uint8_t blue)
 {
     return 0xff000000u | (uint32_t(blue) << 16) | (uint32_t(green) << 8) | uint32_t(red);
+}
+
+int spellInspectManaCostForMastery(const SpellEntry &spellEntry, SkillMastery mastery)
+{
+    switch (mastery)
+    {
+        case SkillMastery::Expert:
+            return spellEntry.expertManaCost;
+        case SkillMastery::Master:
+            return spellEntry.masterManaCost;
+        case SkillMastery::Grandmaster:
+            return spellEntry.grandmasterManaCost;
+        case SkillMastery::Normal:
+        case SkillMastery::None:
+        default:
+            return spellEntry.normalManaCost;
+    }
+}
+
+SkillMastery spellInspectCasterMasteryForSpell(const Character *pCaster, uint32_t spellId)
+{
+    if (pCaster == nullptr)
+    {
+        return SkillMastery::Normal;
+    }
+
+    const std::optional<std::string> skillName = resolveMagicSkillName(spellId);
+
+    if (!skillName)
+    {
+        return SkillMastery::Normal;
+    }
+
+    const CharacterSkill *pSkill = pCaster->findSkill(*skillName);
+
+    if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+    {
+        return SkillMastery::Normal;
+    }
+
+    return pSkill->mastery;
 }
 
 const char *activeBuffLayoutId(
@@ -1250,6 +1292,16 @@ void GameplayHudOverlaySupport::updateSpellInspectOverlay(
 
         overlay.active = true;
         overlay.spellId = spellId;
+        const SpellbookSchoolUiDefinition *pSpellSchoolDefinition = findSpellbookSchoolUiDefinitionForSpellId(spellId);
+        const GameplayUiController::SpellbookSchool spellSchool =
+            pSpellSchoolDefinition != nullptr ? pSpellSchoolDefinition->school : context.spellbookReadOnly().school;
+        const Character *pActiveMember =
+            context.partyReadOnly() != nullptr ? context.partyReadOnly()->activeMember() : nullptr;
+        const SkillMastery casterMastery = spellInspectCasterMasteryForSpell(pActiveMember, spellId);
+
+        overlay.school = spellbookSchoolDisplayName(spellSchool);
+        overlay.manaCost = std::max(0, spellInspectManaCostForMastery(*pSpellEntry, casterMastery));
+        overlay.hasManaCost = true;
         overlay.title = pSpellEntry->name;
         overlay.body = pSpellEntry->description;
         overlay.normal = pSpellEntry->normalText.empty() ? "" : "Normal: " + pSpellEntry->normalText;

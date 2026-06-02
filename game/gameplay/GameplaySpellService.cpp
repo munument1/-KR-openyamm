@@ -788,7 +788,7 @@ void GameplaySpellService::applySuccessFeedback(
         }
     }
 
-    if (!spellName.empty())
+    if (!spellName.empty() && result.effectKind != PartySpellCastEffectKind::Telekinesis)
     {
         runtime.setStatusBarEvent("Cast " + spellName);
     }

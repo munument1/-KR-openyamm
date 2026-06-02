@@ -38,6 +38,13 @@ namespace
 constexpr float InspectRayEpsilon = 0.0001f;
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float PartyAttackProjectileSourceHeight = 192.0f / 3.0f;
+constexpr uint16_t MMergeCrystalAmethystEventId = 65310;
+constexpr uint16_t MMergeCrystalDiamondEventId = 65311;
+constexpr uint16_t MMergeCrystalRubyEventId = 65312;
+constexpr uint16_t MMergeCrystalSapphireEventId = 65313;
+constexpr uint16_t MMergeCrystalMoonstoneEventId = 65314;
+constexpr uint16_t MMergeCrystalPurpleTopazEventId = 65315;
+constexpr uint16_t MMergeCrystalEmeraldEventId = 65316;
 
 std::array<float, 3> outdoorBModelRuntimeOffset(
     const EventRuntimeState *pEventRuntimeState,
@@ -199,7 +206,8 @@ uint16_t resolveOutdoorEntityScriptEventId(uint16_t eventIdSecondary)
 
 bool interactiveDecorationHidesWhenCleared(OutdoorGameView::InteractiveDecorationFamily family)
 {
-    return family == OutdoorGameView::InteractiveDecorationFamily::CampFire;
+    return family == OutdoorGameView::InteractiveDecorationFamily::CampFire
+        || family == OutdoorGameView::InteractiveDecorationFamily::Crystal;
 }
 
 bool shouldUseHouseTradeItemReaction(
@@ -317,9 +325,7 @@ bool decorationMatchesAnyKey(
     return false;
 }
 
-std::optional<OutdoorGameView::InteractiveDecorationFamily> classifyInteractiveDecorationFamily(
-    const DecorationEntry &decoration,
-    const std::string &instanceName)
+std::vector<std::string> collectDecorationKeys(const DecorationEntry &decoration, const std::string &instanceName)
 {
     std::vector<std::string> keys;
     keys.reserve(3);
@@ -342,6 +348,89 @@ std::optional<OutdoorGameView::InteractiveDecorationFamily> classifyInteractiveD
         && std::find(keys.begin(), keys.end(), normalizedInstanceName) == keys.end())
     {
         keys.push_back(normalizedInstanceName);
+    }
+
+    return keys;
+}
+
+std::optional<uint16_t> resolveCrystalEventId(const std::vector<std::string> &keys)
+{
+    if (decorationMatchesAnyKey(keys, {"crystl0"}))
+    {
+        return MMergeCrystalAmethystEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crclstr"}))
+    {
+        return MMergeCrystalDiamondEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crys5"}))
+    {
+        return MMergeCrystalRubyEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"crys6"}))
+    {
+        return MMergeCrystalSapphireEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec09"}))
+    {
+        return MMergeCrystalMoonstoneEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec10", "dec12"}))
+    {
+        return MMergeCrystalPurpleTopazEventId;
+    }
+
+    if (decorationMatchesAnyKey(keys, {"dec11"}))
+    {
+        return MMergeCrystalEmeraldEventId;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<uint16_t> resolveCrystalEventId(
+    const DecorationEntry &decoration,
+    const std::string &instanceName)
+{
+    std::vector<std::string> keys;
+    keys.reserve(2);
+
+    const std::string hint = normalizeDecorationKey(decoration.hint);
+    const std::string internalName = normalizeDecorationKey(decoration.internalName);
+
+    if (!internalName.empty())
+    {
+        keys.push_back(internalName);
+    }
+
+    if (hint == "crystal")
+    {
+        const std::string normalizedInstanceName = normalizeDecorationKey(instanceName);
+
+        if (!normalizedInstanceName.empty()
+            && std::find(keys.begin(), keys.end(), normalizedInstanceName) == keys.end())
+        {
+            keys.push_back(normalizedInstanceName);
+        }
+    }
+
+    return resolveCrystalEventId(keys);
+}
+
+std::optional<OutdoorGameView::InteractiveDecorationFamily> classifyInteractiveDecorationFamily(
+    const DecorationEntry &decoration,
+    const std::string &instanceName)
+{
+    const std::vector<std::string> keys = collectDecorationKeys(decoration, instanceName);
+
+    if (resolveCrystalEventId(decoration, instanceName))
+    {
+        return OutdoorGameView::InteractiveDecorationFamily::Crystal;
     }
 
     if (decorationMatchesAnyKey(keys, {"barrel", "dec03", "dec32"}))
@@ -419,8 +508,14 @@ std::optional<DirectInteractiveDecorationBindingSpec> resolveDirectInteractiveDe
 
     if (family)
     {
-        const uint16_t baseEventId = interactiveDecorationBaseEventId(*family);
+        uint16_t baseEventId = interactiveDecorationBaseEventId(*family);
         const uint8_t eventCount = interactiveDecorationEventCount(*family);
+
+        if (*family == OutdoorGameView::InteractiveDecorationFamily::Crystal)
+        {
+            const std::optional<uint16_t> crystalEventId = resolveCrystalEventId(decoration, instanceName);
+            baseEventId = crystalEventId.value_or(0);
+        }
 
         if (baseEventId == 0 || eventCount == 0)
         {
@@ -498,6 +593,9 @@ uint16_t interactiveDecorationBaseEventId(OutdoorGameView::InteractiveDecoration
         case OutdoorGameView::InteractiveDecorationFamily::Cask:
             return 288;
 
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
+            break;
+
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
     }
@@ -523,6 +621,9 @@ uint8_t interactiveDecorationEventCount(OutdoorGameView::InteractiveDecorationFa
 
         case OutdoorGameView::InteractiveDecorationFamily::Cask:
             return 2;
+
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
+            return 1;
 
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
@@ -558,6 +659,7 @@ uint8_t initialInteractiveDecorationState(
 
         case OutdoorGameView::InteractiveDecorationFamily::TrashHeap:
         case OutdoorGameView::InteractiveDecorationFamily::CampFire:
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
     }
@@ -1967,6 +2069,55 @@ std::optional<std::string> OutdoorInteractionController::resolveEventHintText(
     return std::nullopt;
 }
 
+std::optional<std::string> OutdoorInteractionController::resolveEventHoverText(
+    const OutdoorGameView &view,
+    uint16_t eventId)
+{
+    const std::optional<std::string> hint = resolveEventHintText(view, eventId);
+
+    if (hint && !hint->empty())
+    {
+        return hint;
+    }
+
+    if (eventId == 0 || view.m_pOutdoorSceneRuntime == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram> &localEventProgram =
+        view.m_pOutdoorSceneRuntime->localEventProgram();
+
+    if (localEventProgram)
+    {
+        const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+            localEventProgram->getContextActionMetadata(eventId);
+
+        if (metadata && metadata->targetName && !metadata->targetName->empty())
+        {
+            return metadata->targetName;
+        }
+    }
+
+    const std::optional<ScriptedEventProgram> &globalEventProgram =
+        view.m_pOutdoorSceneRuntime->globalEventProgram();
+
+    if (!globalEventProgram)
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<ScriptedEventProgram::ContextActionMetadata> metadata =
+        globalEventProgram->getContextActionMetadata(eventId);
+
+    if (metadata && metadata->targetName && !metadata->targetName->empty())
+    {
+        return metadata->targetName;
+    }
+
+    return std::nullopt;
+}
+
 uint16_t OutdoorInteractionController::inspectEventId(
     const OutdoorGameView &view,
     const OutdoorGameView::InspectHit &inspectHit)
@@ -2169,7 +2320,7 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
 
         if (directEventId)
         {
-            const std::optional<std::string> directEventHint = resolveEventHintText(view, *directEventId);
+            const std::optional<std::string> directEventHint = resolveEventHoverText(view, *directEventId);
 
             if (directEventHint && !directEventHint->empty())
             {
@@ -2202,12 +2353,12 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
             return interactiveText;
         }
 
-        return resolveEventHintText(view, resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary));
+        return resolveEventHoverText(view, resolveOutdoorEntityScriptEventId(inspectHit.eventIdSecondary));
     }
 
     if (inspectHit.kind == "face")
     {
-        return resolveEventHintText(view, inspectHit.cogTriggeredNumber);
+        return resolveEventHoverText(view, inspectHit.cogTriggeredNumber);
     }
 
     return std::nullopt;
@@ -3199,7 +3350,7 @@ bool OutdoorInteractionController::hitTestDecorationBillboard(
 
 
 bool OutdoorInteractionController::hitTestActorBillboard(
-    const OutdoorGameView &view,
+    OutdoorGameView &view,
     const OutdoorWorldRuntime::MapActorState *pRuntimeActor,
     int actorX,
     int actorY,
@@ -3273,10 +3424,53 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
     const OutdoorBitmapTexture *pBitmapTexture =
         findActorBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId);
+    int bitmapWidth = 0;
+    int bitmapHeight = 0;
+    int bitmapPhysicalWidth = 0;
+    int bitmapPhysicalHeight = 0;
+    const std::vector<uint8_t> *pBitmapPixels = nullptr;
 
-    if (pBitmapTexture == nullptr || pBitmapTexture->width <= 0 || pBitmapTexture->height <= 0
-        || pBitmapTexture->physicalWidth <= 0 || pBitmapTexture->physicalHeight <= 0
-        || pBitmapTexture->pixels.empty())
+    if (pBitmapTexture != nullptr
+        && pBitmapTexture->width > 0
+        && pBitmapTexture->height > 0
+        && pBitmapTexture->physicalWidth > 0
+        && pBitmapTexture->physicalHeight > 0
+        && !pBitmapTexture->pixels.empty())
+    {
+        bitmapWidth = pBitmapTexture->width;
+        bitmapHeight = pBitmapTexture->height;
+        bitmapPhysicalWidth = pBitmapTexture->physicalWidth;
+        bitmapPhysicalHeight = pBitmapTexture->physicalHeight;
+        pBitmapPixels = &pBitmapTexture->pixels;
+    }
+    else
+    {
+        const OutdoorGameView::BillboardTextureHandle *pTextureHandle =
+            view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
+
+        if (pTextureHandle == nullptr
+            || pTextureHandle->width <= 0
+            || pTextureHandle->height <= 0
+            || pTextureHandle->physicalWidth <= 0
+            || pTextureHandle->physicalHeight <= 0
+            || pTextureHandle->pixels.empty())
+        {
+            return false;
+        }
+
+        bitmapWidth = pTextureHandle->width;
+        bitmapHeight = pTextureHandle->height;
+        bitmapPhysicalWidth = pTextureHandle->physicalWidth;
+        bitmapPhysicalHeight = pTextureHandle->physicalHeight;
+        pBitmapPixels = &pTextureHandle->pixels;
+    }
+
+    if (bitmapWidth <= 0
+        || bitmapHeight <= 0
+        || bitmapPhysicalWidth <= 0
+        || bitmapPhysicalHeight <= 0
+        || pBitmapPixels == nullptr
+        || pBitmapPixels->empty())
     {
         return false;
     }
@@ -3284,8 +3478,8 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     usedBillboardHit = true;
 
     const float spriteScale = std::max(pFrame->scale * heightScale, 0.01f);
-    const float worldWidth = static_cast<float>(pBitmapTexture->width) * spriteScale;
-    const float worldHeight = static_cast<float>(pBitmapTexture->height) * spriteScale;
+    const float worldWidth = static_cast<float>(bitmapWidth) * spriteScale;
+    const float worldHeight = static_cast<float>(bitmapHeight) * spriteScale;
     const float halfWidth = worldWidth * 0.5f;
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
@@ -3355,17 +3549,17 @@ bool OutdoorInteractionController::hitTestActorBillboard(
         }
 
         const int pixelX = std::clamp(
-            static_cast<int>(std::floor(normalizedU * static_cast<float>(pBitmapTexture->physicalWidth))),
+            static_cast<int>(std::floor(normalizedU * static_cast<float>(bitmapPhysicalWidth))),
             0,
-            pBitmapTexture->physicalWidth - 1);
+            bitmapPhysicalWidth - 1);
         const int pixelY = std::clamp(
-            static_cast<int>(std::floor(normalizedV * static_cast<float>(pBitmapTexture->physicalHeight))),
+            static_cast<int>(std::floor(normalizedV * static_cast<float>(bitmapPhysicalHeight))),
             0,
-            pBitmapTexture->physicalHeight - 1);
+            bitmapPhysicalHeight - 1);
         const size_t pixelOffset = static_cast<size_t>(
-            (pixelY * pBitmapTexture->physicalWidth + pixelX) * 4);
+            (pixelY * bitmapPhysicalWidth + pixelX) * 4);
 
-        if (pixelOffset + 3 >= pBitmapTexture->pixels.size() || pBitmapTexture->pixels[pixelOffset + 3] == 0)
+        if (pixelOffset + 3 >= pBitmapPixels->size() || (*pBitmapPixels)[pixelOffset + 3] == 0)
         {
             return false;
         }

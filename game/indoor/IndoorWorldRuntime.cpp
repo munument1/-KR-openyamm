@@ -77,6 +77,7 @@ const std::optional<ScriptedEventProgram> &emptyScriptedEventProgram()
 }
 
 constexpr float Pi = 3.14159265358979323846f;
+constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CameraVerticalFovRadians = Pi / 3.0f;
 constexpr float SpecialJumpAngleUnitsPerTurn = 2048.0f;
 constexpr uint32_t RawContainingItemSize = 0x24;
@@ -100,6 +101,10 @@ constexpr float ActorInertiaReferenceFrameRate = 60.0f;
 constexpr float ActorStopVelocitySquared = 400.0f;
 constexpr float ActorKnockbackVelocityStep = 50.0f;
 constexpr int ActorMaxKnockbackSteps = 10;
+constexpr float ImmolationTickGameMinutes = 5.0f;
+constexpr float ImmolationEffectRange = 307.0f;
+constexpr float ImmolationEffectRangeSquared = ImmolationEffectRange * ImmolationEffectRange;
+constexpr size_t ImmolationMaxAffectedActors = 100;
 constexpr bool IndoorActorPathfindingEnabled = true;
 constexpr size_t IndoorActorPathNodeLimit = 8000;
 constexpr size_t IndoorActorPathPlanBudgetPerStep = 2;
@@ -122,6 +127,21 @@ constexpr float TurnBasedIdleDecisionMinSeconds = 1.0f;
 constexpr float TurnBasedIdleDecisionMaxSeconds = 2.0f;
 constexpr float TurnBasedIdleBoredFallbackSeconds = 2.0f;
 constexpr uint32_t TurnBasedIdleFidgetChancePercent = 50u;
+
+int rollImmolationDamage(uint32_t skillLevel, uint32_t seed)
+{
+    const uint32_t diceCount = std::max<uint32_t>(1, skillLevel);
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<int> die(1, 6);
+    int damage = 0;
+
+    for (uint32_t diceIndex = 0; diceIndex < diceCount; ++diceIndex)
+    {
+        damage += die(rng);
+    }
+
+    return damage;
+}
 
 uint32_t turnBasedActorIdleDecisionSeed(uint32_t actorId, uint32_t counter)
 {
@@ -3702,6 +3722,8 @@ void IndoorWorldRuntime::initialize(
     m_activatedIndoorSectorMask.clear();
     m_bloodSplats.clear();
     m_fireSpikeTraps.clear();
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    m_immolationTickSequence = 0;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_indoorJournalRevealStateValid = false;
@@ -9135,6 +9157,11 @@ float IndoorWorldRuntime::gameplayCameraPitchRadians() const
     return m_pRenderer != nullptr ? m_pRenderer->cameraPitchRadians() : 0.0f;
 }
 
+bool IndoorWorldRuntime::partyNeedsTurnBasedPhysicsUpdate() const
+{
+    return m_pPartyRuntime != nullptr && !m_pPartyRuntime->movementState().grounded;
+}
+
 void IndoorWorldRuntime::syncSpellMovementStatesFromPartyBuffs()
 {
     if (m_pPartyRuntime != nullptr)
@@ -9535,9 +9562,113 @@ bool IndoorWorldRuntime::turnBasedActorActionInProgress() const
 
 void IndoorWorldRuntime::updateWorld(float deltaSeconds)
 {
+    updateImmolation(deltaSeconds);
     updateWorldItems(deltaSeconds);
     updateIndoorProjectiles(deltaSeconds);
     updateFireSpikeTraps(deltaSeconds);
+}
+
+void IndoorWorldRuntime::updateImmolation(float deltaSeconds)
+{
+    const PartyBuffState *pBuff = m_pParty != nullptr ? m_pParty->partyBuff(PartyBuffId::Immolation) : nullptr;
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    if (pBuff == nullptr || m_pPartyRuntime == nullptr || pMapDeltaData == nullptr)
+    {
+        m_immolationTickAccumulatorGameMinutes = 0.0f;
+        return;
+    }
+
+    if (deltaSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    m_immolationTickAccumulatorGameMinutes += deltaSeconds * GameMinutesPerRealSecond;
+
+    if (m_immolationTickAccumulatorGameMinutes < ImmolationTickGameMinutes)
+    {
+        return;
+    }
+
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    ++m_immolationTickSequence;
+
+    const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
+    const float partyX = moveState.x;
+    const float partyY = moveState.y;
+    const float partyZ = moveState.footZ;
+    const GameplayWorldPoint source = {partyX, partyY, partyZ};
+    const uint32_t spellId = spellIdValue(SpellId::Immolation);
+    const uint32_t skillLevel = std::max<uint32_t>(1, pBuff->skillLevel != 0 ? pBuff->skillLevel : pBuff->power);
+    const CombatDamageType damageType = GameMechanics::spellCombatDamageType(spellId, m_pSpellTable);
+    GameplayActorService fallbackActorService = {};
+    const GameplayActorService &actorService =
+        m_pGameplayActorService != nullptr ? *m_pGameplayActorService : fallbackActorService;
+    size_t affectedActors = 0;
+
+    for (size_t actorIndex = 0;
+        actorIndex < pMapDeltaData->actors.size()
+            && actorIndex < m_mapActorAiStates.size()
+            && affectedActors < ImmolationMaxAffectedActors;
+        ++actorIndex)
+    {
+        MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+        const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+
+        if (indoorActorUnavailableForCombat(actor, aiState, actorService))
+        {
+            continue;
+        }
+
+        const float deltaX = aiState.preciseX - partyX;
+        const float deltaY = aiState.preciseY - partyY;
+        const float deltaZ = aiState.preciseZ - partyZ;
+
+        if (deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ > ImmolationEffectRangeSquared)
+        {
+            continue;
+        }
+
+        ++affectedActors;
+        spawnImmediateSpellImpactVisual(actorIndex, spellId);
+
+        const uint32_t seed =
+            aiState.actorId * 2654435761u
+            ^ m_immolationTickSequence * 2246822519u
+            ^ skillLevel * 3266489917u;
+        const int damage = rollImmolationDamage(skillLevel, seed);
+        int appliedDamage = damage;
+        const int16_t resolvedMonsterId = resolveIndoorActorStatsId(actor);
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(resolvedMonsterId) : nullptr;
+
+        if (pStats != nullptr)
+        {
+            std::mt19937 rng(seed ^ 0x9e3779b9u);
+            appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
+                damage,
+                damageType,
+                monsterResistanceForDamageType(*pStats, damageType),
+                monsterHourOfPowerResistanceBonus(m_mapActorAiStates, actorIndex),
+                rng);
+        }
+
+        const int beforeHp = actor.hp;
+        const bool applied = applyPartyAttackMeleeDamage(actorIndex, appliedDamage, damageType, source);
+
+        if (applied && m_pGameplayCombatController != nullptr)
+        {
+            m_pGameplayCombatController->recordPartyProjectileActorImpact(
+                0,
+                pBuff->casterMemberIndex,
+                aiState.actorId,
+                appliedDamage,
+                static_cast<int>(spellId),
+                true,
+                beforeHp > 0 && actor.hp <= 0);
+        }
+    }
 }
 
 void IndoorWorldRuntime::renderWorld(
@@ -15029,6 +15160,8 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_fireSpikeTraps = snapshot.fireSpikeTraps;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    m_immolationTickSequence = 0;
     m_indoorJournalRevealStateValid = false;
     ++m_indoorMinimapRevealRevision;
     m_cachedGameplayMinimapLinesValid = false;

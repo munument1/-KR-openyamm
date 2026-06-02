@@ -816,6 +816,7 @@ public:
     bool partyIsAirborneForRest() const override;
     bool partyIsFlyingForEventChecks() const override;
     bool partyIsActivelyFlyingForHud() const override;
+    bool partyNeedsTurnBasedPhysicsUpdate() const override;
     void syncSpellMovementStatesFromPartyBuffs() override;
     void requestPartyJump(float verticalVelocity = 0.0f, float lift = 1.0f) override;
     bool specialJump(uint32_t encodedHorizontalVelocity, uint32_t verticalVelocity) override;
@@ -1140,6 +1141,7 @@ private:
         float z,
         uint32_t seed);
     void updateWorldItems(float deltaSeconds);
+    void updateImmolation(float deltaSeconds);
     void updateFireSpikeTraps(float deltaSeconds, float partyX, float partyY, float partyZ);
     void applyFireSpikeTrapTriggerResult(
         FireSpikeTrapState &trap,
@@ -1292,6 +1294,8 @@ private:
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_actorAiTraceAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
+    float m_immolationTickAccumulatorGameMinutes = 0.0f;
+    uint32_t m_immolationTickSequence = 0;
     bool m_actorAiUpdateQueued = false;
     float m_queuedActorAiDeltaSeconds = 0.0f;
     float m_queuedActorAiPartyX = 0.0f;

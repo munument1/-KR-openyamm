@@ -47,6 +47,16 @@ bool hasPendingInputPrompt(const GameplayScreenRuntime &view)
         && pRuntimeState->pendingInputPrompt->kind == EventRuntimeState::PendingInputPrompt::Kind::InputString;
 }
 
+void latchGameplayMenuEscape(GameplayScreenRuntime &view)
+{
+    view.interactionState().menuToggleLatch = true;
+}
+
+void latchControlsEscape(GameplayScreenRuntime &view)
+{
+    view.interactionState().controlsToggleLatch = true;
+}
+
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr uint64_t SaveGameDoubleClickWindowMs = 500;
 constexpr size_t SaveLoadVisibleSlotCount = 10;
@@ -737,6 +747,7 @@ bool GameplayOverlayInputController::handleRestOverlayInput(
         if (!view.interactionState().closeOverlayLatch)
         {
             finishOrCloseRestScreen();
+            latchGameplayMenuEscape(view);
             view.interactionState().closeOverlayLatch = true;
         }
     }
@@ -1115,6 +1126,7 @@ bool GameplayOverlayInputController::handleControlsOverlayInput(
         if (!view.interactionState().controlsToggleLatch)
         {
             view.closeControlsOverlay();
+            latchGameplayMenuEscape(view);
             view.interactionState().controlsToggleLatch = true;
         }
     }
@@ -1460,6 +1472,7 @@ bool GameplayOverlayInputController::handleKeyboardOverlayInput(
         if (!view.interactionState().keyboardToggleLatch)
         {
             view.closeKeyboardOverlayToControls();
+            latchControlsEscape(view);
             view.interactionState().keyboardToggleLatch = true;
         }
     }
@@ -1665,6 +1678,7 @@ bool GameplayOverlayInputController::handleVideoOptionsOverlayInput(
         if (!view.interactionState().videoOptionsToggleLatch)
         {
             view.closeVideoOptionsOverlay();
+            latchControlsEscape(view);
             view.interactionState().videoOptionsToggleLatch = true;
         }
     }
@@ -1796,6 +1810,7 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
         if (!view.interactionState().saveGameToggleLatch)
         {
             view.closeSaveGameOverlay();
+            latchGameplayMenuEscape(view);
             view.interactionState().saveGameToggleLatch = true;
         }
     }
@@ -2206,6 +2221,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
         if (!view.interactionState().closeOverlayLatch)
         {
             view.closeJournalOverlay();
+            latchGameplayMenuEscape(view);
             view.interactionState().closeOverlayLatch = true;
         }
     }
@@ -2828,6 +2844,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                 if (target.type == GameplayDialoguePointerTargetType::CloseButton)
                 {
                     view.handleDialogueCloseRequest();
+                    latchGameplayMenuEscape(view);
                 }
             });
 
@@ -2838,6 +2855,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
             if (!view.interactionState().closeOverlayLatch)
             {
                 view.handleDialogueCloseRequest();
+                latchGameplayMenuEscape(view);
                 view.interactionState().closeOverlayLatch = true;
             }
         }
@@ -3688,6 +3706,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
             else if (target.type == GameplayDialoguePointerTargetType::CloseButton)
             {
                 view.handleDialogueCloseRequest();
+                latchGameplayMenuEscape(view);
             }
         });
 
@@ -3698,6 +3717,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
         if (!view.interactionState().closeOverlayLatch)
         {
             view.handleDialogueCloseRequest();
+            latchGameplayMenuEscape(view);
             view.interactionState().closeOverlayLatch = true;
         }
     }
@@ -4280,6 +4300,7 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                 view.interactionState().chestSelectionIndex = 0;
             }
 
+            latchGameplayMenuEscape(view);
             view.interactionState().closeOverlayLatch = true;
         }
     }
@@ -4307,6 +4328,7 @@ bool GameplayOverlayInputController::handleQuickReferenceOverlayInput(
         if (!view.interactionState().closeOverlayLatch)
         {
             view.closeQuickReferenceOverlay();
+            latchGameplayMenuEscape(view);
             view.interactionState().closeOverlayLatch = true;
             return true;
         }

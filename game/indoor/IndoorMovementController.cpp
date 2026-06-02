@@ -43,7 +43,8 @@ int indoorMovementSubstepCount(
     float desiredVelocityY,
     bool jumpRequested,
     float deltaSeconds,
-    float jumpVelocity
+    float jumpVelocity,
+    float gravityPerSecond
 )
 {
     const float horizontalVelocity =
@@ -51,7 +52,7 @@ int indoorMovementSubstepCount(
     const float horizontalDistance = horizontalVelocity * deltaSeconds;
     const float jumpSpeed = jumpRequested ? jumpVelocity : 0.0f;
     const float verticalSpeed = std::max(std::fabs(state.verticalVelocity), jumpSpeed);
-    const float verticalDistance = verticalSpeed * deltaSeconds + GravityPerSecond * deltaSeconds * deltaSeconds;
+    const float verticalDistance = verticalSpeed * deltaSeconds + gravityPerSecond * deltaSeconds * deltaSeconds;
     const float movementDistance = std::max(horizontalDistance, verticalDistance);
 
     if (movementDistance <= IndoorMovementSubstepDistance)
@@ -1294,7 +1295,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
     bool preventGroundActorLedgeDrop,
     bool allowUnsupportedPathRecovery,
     bool allowBlockedWallRecovery,
-    bool requireWalkableSupport
+    bool requireWalkableSupport,
+    float gravityPerSecond
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1308,7 +1310,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
         desiredVelocityY,
         jumpRequested,
         deltaSeconds,
-        jumpVelocity);
+        jumpVelocity,
+        gravityPerSecond);
 
     if (substepCount <= 1)
     {
@@ -1331,7 +1334,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
             allowBlockedWallRecovery,
-            requireWalkableSupport);
+            requireWalkableSupport,
+            gravityPerSecond);
     }
 
     const RuntimeGeometryCache &runtimeCache = runtimeGeometryCache();
@@ -1366,7 +1370,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
             allowBlockedWallRecovery,
-            requireWalkableSupport);
+            requireWalkableSupport,
+            gravityPerSecond);
     }
 
     IndoorMoveState currentState = state;
@@ -1396,7 +1401,8 @@ IndoorMoveState IndoorMovementController::resolveMove(
             preventGroundActorLedgeDrop,
             allowUnsupportedPathRecovery,
             allowBlockedWallRecovery,
-            requireWalkableSupport);
+            requireWalkableSupport,
+            gravityPerSecond);
 
         if (currentState.landedThisFrame)
         {
@@ -1566,7 +1572,8 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
     bool preventGroundActorLedgeDrop,
     bool allowUnsupportedPathRecovery,
     bool allowBlockedWallRecovery,
-    bool requireWalkableSupport
+    bool requireWalkableSupport,
+    float gravityPerSecond
 ) const
 {
     if (m_pIndoorMapData == nullptr || deltaSeconds <= 0.0f)
@@ -1707,7 +1714,7 @@ IndoorMoveState IndoorMovementController::resolveMoveSingleStep(
 
     if (!candidateGrounded && !flying)
     {
-        candidateVerticalVelocity -= GravityPerSecond * deltaSeconds;
+        candidateVerticalVelocity -= gravityPerSecond * deltaSeconds;
         candidateFootZ += candidateVerticalVelocity * deltaSeconds;
     }
     else if (flying)

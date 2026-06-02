@@ -152,8 +152,22 @@ std::optional<std::string> ItemRuntime::raceRestriction(const ItemDefinition &it
             return "Vampire";
 
         case 514:
-        case 532:
             return "DarkElf";
+
+        case 532:
+            return "DarkElfOrElf";
+
+        case 1333:
+            return "Goblin";
+
+        case 1334:
+            return "Human";
+
+        case 1335:
+            return "DarkElfOrElf";
+
+        case 1336:
+            return "Dwarf";
 
         default:
             return std::nullopt;
@@ -168,8 +182,33 @@ bool ItemRuntime::characterMeetsClassRestriction(const Character &character, con
 
 bool ItemRuntime::characterMeetsRaceRestriction(const Character &character, const ItemDefinition &itemDefinition)
 {
-    const std::optional<std::string> restriction = raceRestriction(itemDefinition);
-    return !restriction || matchesClassOrPromotion(character.className, *restriction);
+    switch (itemDefinition.itemId)
+    {
+        case 504:
+            return character.raceId == 3;
+
+        case 508:
+            return character.raceId == 1;
+
+        case 514:
+            return character.raceId == 2;
+
+        case 532:
+        case 1335:
+            return character.raceId == 2 || character.raceId == 7;
+
+        case 1333:
+            return character.raceId == 8;
+
+        case 1334:
+            return character.raceId == 0;
+
+        case 1336:
+            return character.raceId == 9;
+
+        default:
+            return true;
+    }
 }
 
 bool ItemRuntime::canCharacterIdentifyItem(const Character &character, const ItemDefinition &itemDefinition)

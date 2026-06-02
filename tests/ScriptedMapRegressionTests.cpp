@@ -7714,6 +7714,36 @@ TEST_CASE("mm8 abandoned temple buttons resolve SetLight by authored light group
     CHECK(runtimeState.indoorLightsEnabled.find(2u) == runtimeState.indoorLightsEnabled.end());
 }
 
+TEST_CASE("mm6 merged indoor maps normalize legacy static lights to visible white")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "oracle.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapData.has_value());
+
+    const OpenYAMM::Game::IndoorMapData &mapData = *pLoadedMap->indoorMapData;
+    REQUIRE_EQ(mapData.version, 8);
+    REQUIRE_GT(mapData.lights.size(), 62u);
+
+    for (size_t lightId = 52; lightId <= 62; ++lightId)
+    {
+        const OpenYAMM::Game::IndoorLight &light = mapData.lights[lightId];
+        CHECK_GT(light.radius, 0);
+        CHECK_GT(light.brightness, 0);
+        CHECK_EQ(light.red, 255);
+        CHECK_EQ(light.green, 255);
+        CHECK_EQ(light.blue, 255);
+    }
+}
+
 TEST_CASE("mm6 darkmoor actor previews preload random encounter tier textures")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();

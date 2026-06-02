@@ -37,7 +37,8 @@ public:
         bool jumpRequested,
         bool running,
         float deltaSeconds,
-        bool turnBasedMovementStep = false);
+        bool turnBasedMovementStep = false,
+        bool turnBasedPhysicsStep = false);
     void setActorColliders(const std::vector<IndoorActorCollision> &actorColliders);
     void setDecorationColliders(const std::vector<IndoorCylinderCollision> &decorationColliders);
     void setSpriteObjectColliders(const std::vector<IndoorCylinderCollision> &spriteObjectColliders);
@@ -59,7 +60,7 @@ public:
     void setCollisionTraceEnabled(bool enabled, std::string mapName);
     bool alwaysRunEnabled() const;
     void syncSpellMovementStatesFromPartyBuffs();
-    void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
+    void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 0.0f);
     void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
 
 private:
@@ -78,7 +79,7 @@ private:
     float m_pendingImpulseVelocityY = 0.0f;
     float m_pendingImpulseVelocityZ = 0.0f;
     std::optional<float> m_pendingJumpVelocity;
-    float m_pendingJumpLift = 1.0f;
+    float m_pendingJumpLift = 0.0f;
     float m_burningDamageTimerSeconds = 0.0f;
     std::string m_movementStatusText;
 };

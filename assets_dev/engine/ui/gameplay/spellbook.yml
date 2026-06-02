@@ -119,6 +119,32 @@ elements:
         z_index: 10
         asset:
           default: sbd000
+      - id: SpellbookSelectLabel
+        anchor: top_left
+        offset_x: 55
+        offset_y: 10
+        width: 184
+        height: 22
+        z_index: 90
+        text:
+          value: "{label}"
+          font: Lucida
+          color: "#28180c"
+          align_x: left
+          align_y: middle
+      - id: SpellbookCasterName
+        anchor: top_right
+        offset_x: -69
+        offset_y: 14
+        width: 172
+        height: 22
+        z_index: 90
+        text:
+          value: "{label}"
+          font: Lucida
+          color: "#28180c"
+          align_x: right
+          align_y: middle
       - id: SpellbookSchoolButtonFire
         anchor: top_right
         offset_x: 0

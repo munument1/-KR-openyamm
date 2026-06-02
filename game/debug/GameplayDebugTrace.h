@@ -16,6 +16,8 @@ void configureGameplayDebugTrace(bool enabled, const std::string &filePath, bool
 void configureGameplayCombatTrace(bool enabled, const std::string &filePath, bool append);
 bool gameplayCombatTraceEnabled();
 void gameplayCombatTraceWrite(const std::string &message);
+bool gameplayProjectileTraceEnabled();
+void gameplayProjectileTraceWrite(const std::string &message);
 std::string gameplayDebugTraceWorldHitSummary(const GameplayWorldHit &hit);
 bool gameplayDebugTraceItemLooksQuestRelevant(uint32_t itemId, const ItemTable *pItemTable);
 std::string gameplayDebugTraceItemSummary(uint32_t itemId, const ItemTable *pItemTable);
@@ -55,6 +57,24 @@ const char *gameplayDebugTraceMechanismActionName(uint32_t action);
     do \
     { \
         if (::OpenYAMM::Game::gameplayCombatTraceEnabled()) \
+        { \
+            __VA_ARGS__ \
+        } \
+    } while (false)
+
+#define GAMEPLAY_PROJECTILE_TRACE(message) \
+    do \
+    { \
+        if (::OpenYAMM::Game::gameplayProjectileTraceEnabled()) \
+        { \
+            ::OpenYAMM::Game::gameplayProjectileTraceWrite(message); \
+        } \
+    } while (false)
+
+#define GAMEPLAY_PROJECTILE_TRACE_BLOCK(...) \
+    do \
+    { \
+        if (::OpenYAMM::Game::gameplayProjectileTraceEnabled()) \
         { \
             __VA_ARGS__ \
         } \

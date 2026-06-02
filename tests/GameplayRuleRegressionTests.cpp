@@ -6557,6 +6557,58 @@ TEST_CASE("indoor support sampling includes mechanism floor faces omitted from s
     CHECK_EQ(state.footZ, doctest::Approx(0.0f));
 }
 
+TEST_CASE("indoor party key jump uses OpenEnroth impulse and gravity")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-512, -512, 0},
+        {512, -512, 0},
+        {512, 512, 0},
+        {-512, 512, 0},
+    };
+
+    OpenYAMM::Game::IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    mapData.faces = {floor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -512;
+    sector.maxX = 512;
+    sector.minY = -512;
+    sector.maxY = 512;
+    sector.minZ = 0;
+    sector.maxZ = 512;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::IndoorPartyRuntime partyRuntime(std::move(controller), itemTable);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    partyRuntime.initializeEyePosition(0.0f, 0.0f, body.height);
+
+    const OpenYAMM::Game::IndoorMoveState grounded = partyRuntime.movementState();
+    REQUIRE(grounded.grounded);
+    REQUIRE_EQ(grounded.footZ, doctest::Approx(0.0f));
+
+    partyRuntime.update(0.0f, 0.0f, true, false, 1.0f / 128.0f);
+    const OpenYAMM::Game::IndoorMoveState jumped = partyRuntime.movementState();
+
+    CHECK_FALSE(jumped.grounded);
+    CHECK_EQ(jumped.verticalVelocity, doctest::Approx(470.0f));
+    CHECK_EQ(jumped.footZ, doctest::Approx(470.0f / 128.0f));
+}
+
 TEST_CASE("indoor support sampling does not treat side-opening doors as carry platforms")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};

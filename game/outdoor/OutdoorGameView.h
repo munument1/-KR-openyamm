@@ -259,6 +259,7 @@ private:
         int height = 0;
         int physicalWidth = 0;
         int physicalHeight = 0;
+        std::vector<uint8_t> pixels;
         bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
     };
 
@@ -479,6 +480,7 @@ public:
         TrashHeap,
         CampFire,
         Cask,
+        Crystal,
     };
 
     struct InteractiveDecorationBinding
@@ -519,6 +521,10 @@ private:
     void preloadSpriteFrameTextures(const SpriteFrameTable &spriteFrameTable, uint16_t spriteFrameIndex);
     void queueSpriteFrameWarmup(uint16_t spriteFrameIndex);
     void updateHouseVideoPlayback(float deltaSeconds);
+    const GameplayWorldHit &rightMouseInspectWorldHit(
+        int width,
+        int height,
+        const GameplayInputFrame &input);
     std::optional<std::string> findCachedAssetPath(const std::string &directoryPath, const std::string &fileName);
     std::optional<std::vector<uint8_t>> readCachedBinaryFile(const std::string &assetPath);
     std::optional<std::array<uint8_t, 256 * 3>> loadCachedActPalette(int16_t paletteId);
@@ -756,6 +762,10 @@ private:
     bool m_cachedHoverInspectHitValid;
     uint64_t m_lastHoverInspectUpdateNanoseconds;
     InspectHit m_cachedHoverInspectHit;
+    bool m_cachedRightMouseInspectHitValid = false;
+    uint64_t m_lastRightMouseInspectUpdateNanoseconds = 0;
+    GameplayWorldPickRequest m_cachedRightMouseInspectPickRequest = {};
+    GameplayWorldHit m_cachedRightMouseInspectHit = {};
     OutdoorPartyRuntime *m_pOutdoorPartyRuntime;
     const Engine::AssetFileSystem *m_pAssetFileSystem;
     GameSettings m_gameSettings = GameSettings::createDefault();

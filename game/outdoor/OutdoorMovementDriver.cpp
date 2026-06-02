@@ -556,7 +556,10 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         m_state.fallDistance = 0.0f;
     }
 
-    if (m_state.supportOnWater && !m_partyMovementState.waterWalk && !m_partyMovementState.flying)
+    if (!input.turnBasedPhysicsStep
+        && m_state.supportOnWater
+        && !m_partyMovementState.waterWalk
+        && !m_partyMovementState.flying)
     {
         m_waterDamageTimerSeconds += deltaSeconds;
 
@@ -572,7 +575,7 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         m_waterDamageTimerSeconds = 0.0f;
     }
 
-    if (m_state.supportOnBurning && !m_partyMovementState.flying)
+    if (!input.turnBasedPhysicsStep && m_state.supportOnBurning && !m_partyMovementState.flying)
     {
         m_burningDamageTimerSeconds += deltaSeconds;
 

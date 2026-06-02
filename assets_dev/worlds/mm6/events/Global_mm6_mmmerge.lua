@@ -62,8 +62,149 @@ RegisterGlobalNpcEnterHook(65301, "MMerge Enroth grandmaster teacher topics", fu
     end
 end)
 
+local SeerPilgrimageCompletedQBit = 1230
+local SeerPilgrimageStateVariable = 0x7002
+local SeerPilgrimageStateMonthMask = 4096
+local SeerPilgrimageMinutesPerDay = 24 * 60
+local SeerPilgrimageDaysPerMonth = 28
+local SeerPilgrimageMonthsPerYear = 12
+local SeerPilgrimageDaysPerYear = SeerPilgrimageDaysPerMonth * SeerPilgrimageMonthsPerYear
+
+local seerPilgrimageByMonth = {
+    {month = "January", stat = "Might", map = "Bootleg Bay"},
+    {month = "February", stat = "Intellect", map = "Misty Islands"},
+    {month = "March", stat = "Personality", map = "Silver Cove"},
+    {month = "April", stat = "Endurance", map = "Frozen Highlands"},
+    {month = "May", stat = "Accuracy", map = "Free Haven"},
+    {month = "June", stat = "Speed", map = "Mire of the Damned"},
+    {month = "July", stat = "Luck", map = "New Sorpigal"},
+    {month = "August", stat = "Fire", map = "Kriegspire"},
+    {month = "September", stat = "Air", map = "Castle Ironfist"},
+    {month = "October", stat = "Water", map = "Kriegspire"},
+    {month = "November", stat = "Earth", map = "Eel Infested Waters"},
+    {month = "December", stat = "Magic", map = "Blackshire"},
+}
+
+local seerPilgrimageMonthBits = {
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+    2048,
+}
+
+local function currentSeerPilgrimage()
+    local dayIndex = math.floor(CurrentGameMinutes() / SeerPilgrimageMinutesPerDay)
+    local yearIndex = math.floor(dayIndex / SeerPilgrimageDaysPerYear)
+    local yearDay = dayIndex % SeerPilgrimageDaysPerYear
+    local monthIndex = math.floor(yearDay / SeerPilgrimageDaysPerMonth) + 1
+    return yearIndex, monthIndex, seerPilgrimageByMonth[monthIndex]
+end
+
+local function currentSeerPilgrimageMask(yearIndex)
+    local packedState = GetPartyVariable(SeerPilgrimageStateVariable)
+    local storedYear = math.floor(packedState / SeerPilgrimageStateMonthMask)
+    if storedYear ~= yearIndex then
+        return 0
+    end
+    return packedState % SeerPilgrimageStateMonthMask
+end
+
+local function setCurrentSeerPilgrimageMask(yearIndex, monthMask)
+    SetPartyVariable(SeerPilgrimageStateVariable, yearIndex * SeerPilgrimageStateMonthMask + monthMask)
+end
+
+ReplaceGlobalEvent(1354, "Pilgrimage", function()
+    local yearIndex, monthIndex, pilgrimage = currentSeerPilgrimage()
+    local monthMask = currentSeerPilgrimageMask(yearIndex)
+    local monthBit = seerPilgrimageMonthBits[monthIndex]
+
+    if IsQBitSet(QBit(SeerPilgrimageCompletedQBit)) then
+        if math.floor(monthMask / monthBit) % 2 == 1 then
+            evt.SetMessage("You must wait until the new month to undergo a pilgrimage.")
+            return
+        end
+
+        ClearQBit(QBit(SeerPilgrimageCompletedQBit))
+        setCurrentSeerPilgrimageMask(yearIndex, monthMask + monthBit)
+        AddValue(Experience, 0)
+    end
+
+    evt.SetMessage(string.format(
+        "This is %s, the month of %s.\nJourney to the Shrine of %s and pray there to be rewarded.",
+        pilgrimage.month,
+        pilgrimage.stat,
+        pilgrimage.map))
+end)
+
 RegisterGlobalEvent(1358, "I lost it", function()
     MM6.RecoverLostItem()
+end)
+
+local function showSeerHint(textId, autonoteId)
+    evt.SetMessage(Game.NPCText[textId])
+    if autonoteId then
+        SetAutonote(autonoteId)
+    end
+end
+
+ReplaceGlobalEvent(1359, "Hint", function()
+    evt.ForPlayer(Players.All)
+
+    if IsQBitSet(QBit(1105)) then
+        showSeerHint(2127, 479)
+        return
+    end
+
+    if IsQBitSet(QBit(1106)) then
+        showSeerHint(2119, 478)
+        return
+    end
+
+    if not IsAtLeast(BaseLevel, 25) then
+        showSeerHint(2120, 477)
+        return
+    end
+
+    if not HasAward(Award(57)) or not HasAward(Award(58)) or not HasAward(Award(59)) or
+        not HasAward(Award(60)) or not HasAward(Award(61)) or not HasAward(Award(62)) then
+        showSeerHint(2122, 476)
+        return
+    end
+
+    if not IsQBitSet(QBit(1192)) then
+        showSeerHint(2124, 475)
+        return
+    end
+
+    if not HasAward(Award(75)) then
+        showSeerHint(2125, 474)
+        return
+    end
+
+    if HasAward(Award(78)) then
+        showSeerHint(2131)
+        return
+    end
+
+    if HasItem(2164) then
+        showSeerHint(2130, 471)
+        return
+    end
+
+    if HasItem(1666) or HasItem(1667) then
+        showSeerHint(2129, 472)
+        return
+    end
+
+    showSeerHint(2126, 473)
 end)
 
 AppendGlobalEvent(1327, function()

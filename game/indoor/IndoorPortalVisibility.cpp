@@ -17,6 +17,10 @@ namespace
 constexpr float VisibilityEpsilon = 0.001f;
 constexpr float FrustumClipEpsilon = 5.0f;
 constexpr float NearPortalSlack = 128.0f;
+constexpr float DegenerateVerticalPortalMaxNormalZ = 0.1f;
+constexpr float DegeneratePortalMaxHeight = 8.0f;
+constexpr float SynthesizedPortalMinWidth = 8.0f;
+constexpr float SynthesizedPortalMinHeight = 16.0f;
 
 float dotVec(const bx::Vec3 &left, const bx::Vec3 &right)
 {
@@ -346,6 +350,117 @@ bool portalNormalSupportsSharedBoundaryPolygon(const bx::Vec3 &normal)
     constexpr float AxisAlignedPortalNormalThreshold = 0.95f;
     const float dominantComponent = std::max(std::fabs(normal.x), std::max(std::fabs(normal.y), std::fabs(normal.z)));
     return dominantComponent >= AxisAlignedPortalNormalThreshold;
+}
+
+std::vector<bx::Vec3> sectorBoundsCorners(const IndoorSector &sector)
+{
+    return {
+        {static_cast<float>(sector.minX), static_cast<float>(sector.minY), static_cast<float>(sector.minZ)},
+        {static_cast<float>(sector.minX), static_cast<float>(sector.minY), static_cast<float>(sector.maxZ)},
+        {static_cast<float>(sector.minX), static_cast<float>(sector.maxY), static_cast<float>(sector.minZ)},
+        {static_cast<float>(sector.minX), static_cast<float>(sector.maxY), static_cast<float>(sector.maxZ)},
+        {static_cast<float>(sector.maxX), static_cast<float>(sector.minY), static_cast<float>(sector.minZ)},
+        {static_cast<float>(sector.maxX), static_cast<float>(sector.minY), static_cast<float>(sector.maxZ)},
+        {static_cast<float>(sector.maxX), static_cast<float>(sector.maxY), static_cast<float>(sector.minZ)},
+        {static_cast<float>(sector.maxX), static_cast<float>(sector.maxY), static_cast<float>(sector.maxZ)}
+    };
+}
+
+void projectSectorBoundsToPortalPlaneAxes(
+    const IndoorSector &sector,
+    const bx::Vec3 &horizontalAxis,
+    float &minHorizontal,
+    float &maxHorizontal,
+    float &minZ,
+    float &maxZ)
+{
+    const std::vector<bx::Vec3> corners = sectorBoundsCorners(sector);
+    minHorizontal = maxHorizontal = dotVec(horizontalAxis, corners.front());
+    minZ = maxZ = corners.front().z;
+
+    for (const bx::Vec3 &corner : corners)
+    {
+        const float horizontal = dotVec(horizontalAxis, corner);
+        minHorizontal = std::min(minHorizontal, horizontal);
+        maxHorizontal = std::max(maxHorizontal, horizontal);
+        minZ = std::min(minZ, corner.z);
+        maxZ = std::max(maxZ, corner.z);
+    }
+}
+
+bool buildDegenerateVerticalPortalBoundaryPolygon(
+    const IndoorMapData &mapData,
+    const IndoorFaceGeometryData &geometry,
+    int16_t sectorAId,
+    int16_t sectorBId,
+    std::vector<bx::Vec3> &portalPolygon)
+{
+    if (!geometry.hasPlane
+        || std::fabs(geometry.normal.z) > DegenerateVerticalPortalMaxNormalZ
+        || geometry.maxZ - geometry.minZ > DegeneratePortalMaxHeight
+        || sectorAId < 0
+        || sectorBId < 0
+        || static_cast<size_t>(sectorAId) >= mapData.sectors.size()
+        || static_cast<size_t>(sectorBId) >= mapData.sectors.size())
+    {
+        return false;
+    }
+
+    const bx::Vec3 horizontalNormal = normalizeVec({geometry.normal.x, geometry.normal.y, 0.0f});
+    if (lengthVec(horizontalNormal) <= VisibilityEpsilon || geometry.vertices.empty())
+    {
+        return false;
+    }
+
+    const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
+    const bx::Vec3 horizontalAxis = normalizeVec(crossVec(up, horizontalNormal));
+    if (lengthVec(horizontalAxis) <= VisibilityEpsilon)
+    {
+        return false;
+    }
+
+    const IndoorSector &sectorA = mapData.sectors[static_cast<size_t>(sectorAId)];
+    const IndoorSector &sectorB = mapData.sectors[static_cast<size_t>(sectorBId)];
+    float minHorizontalA = 0.0f;
+    float maxHorizontalA = 0.0f;
+    float minZA = 0.0f;
+    float maxZA = 0.0f;
+    float minHorizontalB = 0.0f;
+    float maxHorizontalB = 0.0f;
+    float minZB = 0.0f;
+    float maxZB = 0.0f;
+
+    projectSectorBoundsToPortalPlaneAxes(sectorA, horizontalAxis, minHorizontalA, maxHorizontalA, minZA, maxZA);
+    projectSectorBoundsToPortalPlaneAxes(sectorB, horizontalAxis, minHorizontalB, maxHorizontalB, minZB, maxZB);
+
+    float minHorizontal = 0.0f;
+    float maxHorizontal = 0.0f;
+    float minZ = 0.0f;
+    float maxZ = 0.0f;
+    if (!rangeOverlap(minHorizontalA, maxHorizontalA, minHorizontalB, maxHorizontalB, minHorizontal, maxHorizontal)
+        || !rangeOverlap(minZA, maxZA, minZB, maxZB, minZ, maxZ)
+        || maxHorizontal - minHorizontal < SynthesizedPortalMinWidth
+        || maxZ - minZ < SynthesizedPortalMinHeight)
+    {
+        return false;
+    }
+
+    const float planeDistance = -dotVec(horizontalNormal, geometry.vertices.front());
+    const auto pointOnPortalPlane =
+        [horizontalNormal, horizontalAxis, planeDistance](float horizontal, float z)
+    {
+        return addVec(
+            addVec(scaleVec(horizontalAxis, horizontal), {0.0f, 0.0f, z}),
+            scaleVec(horizontalNormal, -planeDistance));
+    };
+
+    portalPolygon = {
+        pointOnPortalPlane(minHorizontal, minZ),
+        pointOnPortalPlane(minHorizontal, maxZ),
+        pointOnPortalPlane(maxHorizontal, maxZ),
+        pointOnPortalPlane(maxHorizontal, minZ)
+    };
+    return true;
 }
 
 bool buildSharedSectorBoundaryPortalPolygon(
@@ -702,6 +817,16 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
             bool usingSharedBoundaryPortalPolygon = false;
 
             if (buildSharedSectorBoundaryPortalPolygon(
+                    mapData,
+                    *pGeometry,
+                    currentNode.sectorId,
+                    connectedSectorId,
+                    sharedBoundaryPortalPolygon))
+            {
+                pVisibilityPortalPolygon = &sharedBoundaryPortalPolygon;
+                usingSharedBoundaryPortalPolygon = true;
+            }
+            else if (buildDegenerateVerticalPortalBoundaryPolygon(
                     mapData,
                     *pGeometry,
                     currentNode.sectorId,

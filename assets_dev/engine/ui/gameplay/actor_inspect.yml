@@ -23,22 +23,6 @@ elements:
           align_x: center
           align_y: middle
 
-      - id: ActorInspectHealthBarBackground
-        anchor: top
-        offset_x: 0
-        offset_y: 42
-        width: 296
-        height: 10
-        asset:
-          default: IB-8pxbar
-
-      - id: ActorInspectHealthBarFill
-        anchor: top
-        offset_x: 0
-        offset_y: 44
-        width: 292
-        height: 6
-
       - id: ActorInspectPreviewFrame
         anchor: top_left
         offset_x: 18

@@ -67,6 +67,13 @@ constexpr int JournalMapBaseZoom = 384;
 constexpr float JournalMainIconAnimationFps = 10.0f;
 constexpr float JournalMapWorldHalfExtent = 32768.0f;
 constexpr char JournalMapTextureCacheName[] = "__journal_map_composited__";
+constexpr float ActorInspectMonsterHpBarMaxWidth = 200.0f;
+constexpr float ActorInspectMonsterHpBarMinWidth = 25.0f;
+constexpr float ActorInspectMonsterHpBarHeight = 10.0f;
+constexpr float ActorInspectMonsterHpFillHeight = 6.0f;
+constexpr float ActorInspectMonsterHpCapWidth = 5.0f;
+constexpr float ActorInspectMonsterHpTopOffsetY = 32.0f;
+constexpr float ActorInspectMonsterHpFillOffsetY = 34.0f;
 constexpr float Pi = 3.14159265358979323846f;
 
 struct PointerRenderInput
@@ -2528,21 +2535,34 @@ std::string monsterSpellMasteryAbbreviation(SkillMastery mastery)
 std::string formatMonsterInspectSpellText(
     const std::string &spellName,
     uint32_t skillLevel,
-    SkillMastery skillMastery)
+    SkillMastery skillMastery,
+    const SpellTable *pSpellTable)
 {
     if (spellName.empty() || spellName == "0")
     {
         return "";
     }
 
+    std::string displayName = spellName;
+
+    if (pSpellTable != nullptr)
+    {
+        const SpellEntry *pSpellEntry = pSpellTable->findByName(spellName);
+
+        if (pSpellEntry != nullptr && !pSpellEntry->shortName.empty())
+        {
+            displayName = pSpellEntry->shortName;
+        }
+    }
+
     const std::string mastery = monsterSpellMasteryAbbreviation(skillMastery);
 
     if (skillLevel == 0 || mastery.empty())
     {
-        return spellName;
+        return displayName;
     }
 
-    return spellName + " " + mastery + std::to_string(skillLevel);
+    return displayName + " " + mastery + std::to_string(skillLevel);
 }
 
 std::string joinNonEmptyTexts(const std::vector<std::string> &parts)
@@ -5740,6 +5760,120 @@ void GameplayPartyOverlayRenderer::renderSpellbookOverlay(GameplayScreenRuntime 
             submitTexturedQuad(*texture, resolved->x, resolved->y, resolved->width, resolved->height);
         }
     }
+
+    const Party *pParty = context.partyReadOnly();
+    const Character *pActiveMember = pParty != nullptr ? pParty->activeMember() : nullptr;
+    const SpellEntry *pSelectedSpell =
+        context.spellTable() != nullptr && spellbook.selectedSpellId != 0
+            ? context.spellTable()->findById(static_cast<int>(spellbook.selectedSpellId))
+            : nullptr;
+    const bool hasSelectedSpell =
+        pSelectedSpell != nullptr && context.activeMemberKnowsSpell(static_cast<uint32_t>(pSelectedSpell->id));
+
+    const auto resolveSpellbookLayout =
+        [&context, width, height](const char *pLayoutId) -> std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement>
+        {
+            const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
+
+            if (pLayout == nullptr)
+            {
+                return std::nullopt;
+            }
+
+            return context.resolveHudLayoutElement(pLayoutId, width, height, pLayout->width, pLayout->height);
+        };
+
+    const auto renderSpellbookTopLabel =
+        [&context, &resolveSpellbookLayout](const char *pLayoutId, const std::string &text)
+        {
+            const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
+            const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolved =
+                resolveSpellbookLayout(pLayoutId);
+
+            if (pLayout == nullptr || !resolved || text.empty())
+            {
+                return;
+            }
+
+            const std::optional<GameplayScreenRuntime::HudFontHandle> font = context.findHudFont(pLayout->fontName);
+
+            if (!font)
+            {
+                context.renderLayoutLabel(*pLayout, *resolved, text);
+                return;
+            }
+
+            float fontScale = resolved->scale * std::max(0.1f, pLayout->textScale);
+
+            if (fontScale >= 1.0f)
+            {
+                fontScale = snappedHudFontScale(fontScale);
+            }
+            else
+            {
+                fontScale = std::max(0.5f, fontScale);
+            }
+
+            const float labelWidth = context.measureHudTextWidth(*font, text) * fontScale;
+            const float labelHeight = static_cast<float>(font->fontHeight) * fontScale;
+            float textX = resolved->x + pLayout->textPadX * resolved->scale;
+            float textY = resolved->y + pLayout->textPadY * resolved->scale;
+
+            switch (pLayout->textAlignX)
+            {
+                case UiLayoutManager::TextAlignX::Center:
+                    textX = resolved->x + (resolved->width - labelWidth) * 0.5f + pLayout->textPadX * resolved->scale;
+                    break;
+                case UiLayoutManager::TextAlignX::Right:
+                    textX = resolved->x + resolved->width - labelWidth + pLayout->textPadX * resolved->scale;
+                    break;
+                case UiLayoutManager::TextAlignX::Left:
+                default:
+                    break;
+            }
+
+            switch (pLayout->textAlignY)
+            {
+                case UiLayoutManager::TextAlignY::Middle:
+                    textY = resolved->y + (resolved->height - labelHeight) * 0.5f + pLayout->textPadY * resolved->scale;
+                    break;
+                case UiLayoutManager::TextAlignY::Bottom:
+                    textY = resolved->y + resolved->height - labelHeight + pLayout->textPadY * resolved->scale;
+                    break;
+                case UiLayoutManager::TextAlignY::Top:
+                default:
+                    break;
+            }
+
+            textX = std::round(textX);
+            textY = std::round(textY);
+
+            const uint32_t shadowColor = makeAbgrColor(255, 255, 255);
+            const uint32_t textColor = makeAbgrColor(40, 24, 12);
+            bgfx::TextureHandle shadowTexture = context.ensureHudFontMainTextureColor(*font, shadowColor);
+            bgfx::TextureHandle textTexture = context.ensureHudFontMainTextureColor(*font, textColor);
+
+            if (!bgfx::isValid(shadowTexture))
+            {
+                shadowTexture = font->mainTextureHandle;
+            }
+
+            if (!bgfx::isValid(textTexture))
+            {
+                textTexture = font->mainTextureHandle;
+            }
+
+            const float shadowOffset = std::max(1.0f, std::round(resolved->scale));
+            context.renderHudFontLayer(*font, shadowTexture, text, textX + shadowOffset, textY + shadowOffset, fontScale);
+            context.renderHudFontLayer(*font, textTexture, text, textX, textY, fontScale);
+        };
+
+    renderSpellbookTopLabel(
+        "SpellbookSelectLabel",
+        hasSelectedSpell ? "Select " + pSelectedSpell->name : std::string());
+    renderSpellbookTopLabel(
+        "SpellbookCasterName",
+        pActiveMember != nullptr ? pActiveMember->name : std::string());
 }
 
 void GameplayPartyOverlayRenderer::renderHeldInventoryItem(GameplayScreenRuntime &context, int width, int height)
@@ -7118,6 +7252,9 @@ void GameplayPartyOverlayRenderer::renderSpellInspectOverlay(GameplayScreenRunti
         };
 
     renderSingleLine("SpellInspectTitle", overlay.title);
+    renderSingleLine("SpellInspectSchool", overlay.school);
+    renderSingleLine("SpellInspectSpCostLabel", overlay.hasManaCost ? "SP Cost" : "");
+    renderSingleLine("SpellInspectSpCostValue", overlay.hasManaCost ? std::to_string(overlay.manaCost) : "");
 
     if (pBodyFont != nullptr)
     {
@@ -9764,6 +9901,7 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
     const GameplayUiController::ActorInspectOverlayState &actorInspect = context.actorInspectOverlayReadOnly();
     IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
     const MonsterTable *pMonsterTable = context.monsterTable();
+    const SpellTable *pSpellTable = context.spellTable();
 
     if (!actorInspect.active
         || pWorldRuntime == nullptr
@@ -9788,19 +9926,36 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         return;
     }
 
+    const std::vector<std::string> attackRows = {
+        pStats->attack1Type,
+        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()};
+    const std::vector<std::string> damageRows = {
+        formatMonsterDamageText(actorState.attack1Damage),
+        (actorState.attack2Chance > 0 || actorState.attack2Damage.diceRolls > 0)
+            ? formatMonsterDamageText(actorState.attack2Damage)
+            : std::string()};
+    const std::vector<std::string> spellRows = {
+        actorState.hasSpell1
+            ? formatMonsterInspectSpellText(
+                actorState.spell1Name,
+                actorState.spell1SkillLevel,
+                actorState.spell1SkillMastery,
+                pSpellTable)
+            : std::string(),
+        actorState.hasSpell2
+            ? formatMonsterInspectSpellText(
+                actorState.spell2Name,
+                actorState.spell2SkillLevel,
+                actorState.spell2SkillMastery,
+                pSpellTable)
+            : std::string()};
     const GameplayScreenRuntime::HudLayoutElement *pRootLayout =
         context.findHudLayoutElement("ActorInspectRoot");
     const GameplayScreenRuntime::HudLayoutElement *pPreviewLayout =
         context.findHudLayoutElement("ActorInspectPreviewFrame");
-    const GameplayScreenRuntime::HudLayoutElement *pHealthBarBackgroundLayout =
-        context.findHudLayoutElement("ActorInspectHealthBarBackground");
-    const GameplayScreenRuntime::HudLayoutElement *pHealthBarFillLayout =
-        context.findHudLayoutElement("ActorInspectHealthBarFill");
 
     if (pRootLayout == nullptr
-        || pPreviewLayout == nullptr
-        || pHealthBarBackgroundLayout == nullptr
-        || pHealthBarFillLayout == nullptr)
+        || pPreviewLayout == nullptr)
     {
         return;
     }
@@ -9809,7 +9964,77 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
     const float baseScale = std::min(uiViewport.width / HudReferenceWidth, uiViewport.height / HudReferenceHeight);
     const float popupScale = std::clamp(baseScale, pRootLayout->minScale, pRootLayout->maxScale);
     const float rootWidth = pRootLayout->width * popupScale;
-    const float rootHeight = pRootLayout->height * popupScale;
+    const float compactStatLineAdvance = 16.0f;
+    const auto inspectValueRows =
+        [](const std::vector<std::string> &rows)
+        {
+            std::vector<std::string> result;
+
+            for (const std::string &row : rows)
+            {
+                if (!row.empty() && row != "-" && row != "0")
+                {
+                    result.push_back(row);
+                }
+            }
+
+            if (result.empty())
+            {
+                result.push_back("-");
+            }
+
+            return result;
+        };
+    const auto visualLineCountForLayout =
+        [&context, popupScale, &inspectValueRows](const char *pLayoutId, const std::vector<std::string> &rows)
+        {
+            const GameplayScreenRuntime::HudLayoutElement *pLayout = context.findHudLayoutElement(pLayoutId);
+            const std::vector<std::string> displayRows = inspectValueRows(rows);
+
+            if (pLayout == nullptr)
+            {
+                return displayRows.size();
+            }
+
+            const std::optional<GameplayScreenRuntime::HudFontHandle> font = context.findHudFont(pLayout->fontName);
+
+            if (!font)
+            {
+                return displayRows.size();
+            }
+
+            float fontScale = popupScale * std::max(0.1f, pLayout->textScale);
+
+            if (fontScale >= 1.0f)
+            {
+                fontScale = snappedHudFontScale(fontScale);
+            }
+            else
+            {
+                fontScale = std::max(0.5f, fontScale);
+            }
+
+            const float textPad = std::abs(pLayout->textPadX * popupScale) * 2.0f;
+            const float wrapWidth = std::max(1.0f, pLayout->width * popupScale - textPad)
+                / std::max(0.1f, fontScale);
+            size_t lineCount = 0;
+
+            for (const std::string &row : displayRows)
+            {
+                const std::vector<std::string> wrappedLines =
+                    context.wrapHudTextToWidth(*font, row, wrapWidth);
+                lineCount += std::max<size_t>(1, wrappedLines.size());
+            }
+
+            return std::max<size_t>(1, lineCount);
+        };
+    const size_t extraAttackLines = visualLineCountForLayout("ActorInspectAttackValue", attackRows) - 1;
+    const size_t extraDamageLines = visualLineCountForLayout("ActorInspectDamageValue", damageRows) - 1;
+    const size_t extraSpellLines = visualLineCountForLayout("ActorInspectSpellValue", spellRows) - 1;
+    const float rootHeight =
+        (pRootLayout->height
+            + static_cast<float>(extraAttackLines + extraDamageLines + extraSpellLines) * compactStatLineAdvance)
+        * popupScale;
     const float popupGap = 12.0f * popupScale;
     float rootX = actorInspect.sourceX + actorInspect.sourceWidth + popupGap;
 
@@ -9945,7 +10170,9 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
             || !pLayout->visible
             || pLayout->primaryAsset.empty()
             || toLowerCopy(pLayout->id) == "actorinspectroot"
-            || toLowerCopy(pLayout->id) == "actorinspectpreviewframe")
+            || toLowerCopy(pLayout->id) == "actorinspectpreviewframe"
+            || toLowerCopy(pLayout->id) == "actorinspecthealthbarbackground"
+            || toLowerCopy(pLayout->id) == "actorinspecthealthbarfill")
         {
             continue;
         }
@@ -9962,40 +10189,84 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         context.submitHudTexturedQuad(*texture, resolved->x, resolved->y, resolved->width, resolved->height);
     }
 
-    const float healthRatio = actorState.maxHp > 0
-        ? std::clamp(static_cast<float>(actorState.currentHp) / static_cast<float>(actorState.maxHp), 0.0f, 1.0f)
-        : 0.0f;
-    uint32_t healthBarColor = makeAbgrColor(0, 255, 0);
+    if (actorState.maxHp > 0)
+    {
+        const float actorMaxHp = static_cast<float>(actorState.maxHp);
+        const float barLength =
+            actorMaxHp <= ActorInspectMonsterHpBarMinWidth
+                ? ActorInspectMonsterHpBarMinWidth
+                : std::min(actorMaxHp, ActorInspectMonsterHpBarMaxWidth);
+        const int clampedCurrentHp = std::clamp(actorState.currentHp, 0, actorState.maxHp);
+        const float filledLength = actorState.currentHp < actorState.maxHp
+            ? std::floor(barLength * static_cast<float>(clampedCurrentHp) / actorMaxHp)
+            : barLength;
+        const char *pFillTextureName = "mhp_grn";
 
-    if (healthRatio < 0.25f)
-    {
-        healthBarColor = makeAbgrColor(255, 0, 0);
-    }
-    else if (healthRatio < 0.5f)
-    {
-        healthBarColor = makeAbgrColor(255, 255, 0);
-    }
+        if (actorState.currentHp <= actorMaxHp * 0.34f)
+        {
+            pFillTextureName = "mhp_red";
+        }
+        else if (actorState.currentHp <= actorMaxHp * 0.67f)
+        {
+            pFillTextureName = "mhp_yel";
+        }
 
-    if (const std::optional<GameplayResolvedHudLayoutElement> healthBackgroundRect =
-            resolveLayout("ActorInspectHealthBarBackground"))
-    {
-        submitSolidQuad(
-            healthBackgroundRect->x,
-            healthBackgroundRect->y,
-            healthBackgroundRect->width,
-            healthBackgroundRect->height,
-            makeAbgrColor(32, 32, 32, 220));
-    }
+        const float barWidth = std::round(barLength * popupScale);
+        const float barHeight = std::round(ActorInspectMonsterHpBarHeight * popupScale);
+        const float fillWidth = std::round(filledLength * popupScale);
+        const float fillHeight = std::round(ActorInspectMonsterHpFillHeight * popupScale);
+        const float capWidth = std::round(ActorInspectMonsterHpCapWidth * popupScale);
+        const float barX = std::round(rootRect.x + (rootRect.width - barWidth) * 0.5f);
+        const float barY = std::round(rootRect.y + ActorInspectMonsterHpTopOffsetY * popupScale);
+        const float fillY = std::round(rootRect.y + ActorInspectMonsterHpFillOffsetY * popupScale);
+        const float barU1 = barLength / ActorInspectMonsterHpBarMaxWidth;
+        const float fillU1 = filledLength / ActorInspectMonsterHpBarMaxWidth;
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> backgroundBarTexture =
+            context.gameplayUiRuntime().ensureHudTextureLoaded("mhp_bg");
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> fillBarTexture =
+            context.gameplayUiRuntime().ensureHudTextureLoaded(pFillTextureName);
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> leftCapTexture =
+            context.gameplayUiRuntime().ensureHudTextureLoaded("mhp_capl");
+        const std::optional<GameplayScreenRuntime::HudTextureHandle> rightCapTexture =
+            context.gameplayUiRuntime().ensureHudTextureLoaded("mhp_capr");
 
-    if (const std::optional<GameplayResolvedHudLayoutElement> healthFillRect =
-            resolveLayout("ActorInspectHealthBarFill"))
-    {
-        submitSolidQuad(
-            healthFillRect->x,
-            healthFillRect->y,
-            healthFillRect->width * healthRatio,
-            healthFillRect->height,
-            healthBarColor);
+        if (backgroundBarTexture)
+        {
+            context.gameplayUiRuntime().submitHudTexturedQuad(
+                backgroundBarTexture->textureHandle,
+                barX,
+                barY,
+                barWidth,
+                barHeight,
+                0.0f,
+                0.0f,
+                barU1,
+                1.0f);
+        }
+
+        if (fillBarTexture && filledLength > 0.0f)
+        {
+            context.gameplayUiRuntime().submitHudTexturedQuad(
+                fillBarTexture->textureHandle,
+                barX,
+                fillY,
+                fillWidth,
+                fillHeight,
+                0.0f,
+                0.0f,
+                fillU1,
+                1.0f);
+        }
+
+        if (leftCapTexture)
+        {
+            context.submitHudTexturedQuad(*leftCapTexture, barX - capWidth, barY, capWidth, barHeight);
+        }
+
+        if (rightCapTexture)
+        {
+            context.submitHudTexturedQuad(*rightCapTexture, barX + barWidth, barY, capWidth, barHeight);
+        }
     }
 
     if (previewRect)
@@ -10092,27 +10363,6 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
             previewBorderColor);
     }
 
-    const std::string attackText = joinNonEmptyTexts({
-        pStats->attack1Type,
-        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()});
-    const std::string damageText = joinNonEmptyTexts({
-        formatMonsterDamageText(actorState.attack1Damage),
-        (actorState.attack2Chance > 0 || actorState.attack2Damage.diceRolls > 0)
-            ? formatMonsterDamageText(actorState.attack2Damage)
-            : std::string()});
-    const std::string spellText = joinNonEmptyTexts({
-        actorState.hasSpell1
-            ? formatMonsterInspectSpellText(
-                actorState.spell1Name,
-                actorState.spell1SkillLevel,
-                actorState.spell1SkillMastery)
-            : std::string(),
-        actorState.hasSpell2
-            ? formatMonsterInspectSpellText(
-                actorState.spell2Name,
-                actorState.spell2SkillLevel,
-                actorState.spell2SkillMastery)
-            : std::string()});
     std::vector<std::string> activeEffects;
 
     if (actorState.isDead)
@@ -10229,8 +10479,9 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
     }
 
     const std::string effectsText = activeEffects.empty() ? "None" : joinNonEmptyTexts(activeEffects);
+    const float dynamicStatLineAdvance = compactStatLineAdvance * popupScale;
     const auto renderTextForLayout =
-        [&context, &resolveLayout](const char *pLayoutId, const std::string &text)
+        [&context, &resolveLayout](const char *pLayoutId, const std::string &text, float yOffset = 0.0f)
         {
             const GameplayScreenRuntime::HudLayoutElement *pLayout =
                 context.findHudLayoutElement(pLayoutId);
@@ -10241,27 +10492,80 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
                 return;
             }
 
-            context.renderLayoutLabel(*pLayout, *resolved, text);
+            GameplayResolvedHudLayoutElement adjusted = *resolved;
+            adjusted.y += yOffset;
+            context.renderLayoutLabel(*pLayout, adjusted, text);
+        };
+    const auto wrappedLinesForLayout =
+        [&context, popupScale](const GameplayScreenRuntime::HudLayoutElement &layout, const std::string &text)
+        {
+            const std::optional<GameplayScreenRuntime::HudFontHandle> font = context.findHudFont(layout.fontName);
+
+            if (!font)
+            {
+                return std::vector<std::string> {text};
+            }
+
+            float fontScale = popupScale * std::max(0.1f, layout.textScale);
+
+            if (fontScale >= 1.0f)
+            {
+                fontScale = snappedHudFontScale(fontScale);
+            }
+            else
+            {
+                fontScale = std::max(0.5f, fontScale);
+            }
+
+            const float textPad = std::abs(layout.textPadX * popupScale) * 2.0f;
+            const float wrapWidth = std::max(1.0f, layout.width * popupScale - textPad)
+                / std::max(0.1f, fontScale);
+            std::vector<std::string> lines = context.wrapHudTextToWidth(*font, text, wrapWidth);
+
+            if (lines.empty())
+            {
+                lines.push_back(text);
+            }
+
+            return lines;
+        };
+    const auto renderMultilineTextForLayout =
+        [&context, &resolveLayout, &inspectValueRows, &wrappedLinesForLayout, dynamicStatLineAdvance](
+            const char *pLayoutId,
+            const std::vector<std::string> &rows,
+            float yOffset)
+        {
+            const GameplayScreenRuntime::HudLayoutElement *pLayout =
+                context.findHudLayoutElement(pLayoutId);
+            const std::optional<GameplayResolvedHudLayoutElement> resolved = resolveLayout(pLayoutId);
+
+            if (pLayout == nullptr || !resolved)
+            {
+                return 0.0f;
+            }
+
+            float lineOffset = 0.0f;
+
+            for (const std::string &row : inspectValueRows(rows))
+            {
+                const std::vector<std::string> wrappedLines = wrappedLinesForLayout(*pLayout, row);
+
+                for (const std::string &line : wrappedLines)
+                {
+                    GameplayResolvedHudLayoutElement adjusted = *resolved;
+                    adjusted.y += yOffset + lineOffset;
+                    context.renderLayoutLabel(*pLayout, adjusted, line);
+                    lineOffset += dynamicStatLineAdvance;
+                }
+            }
+
+            return std::max(dynamicStatLineAdvance, lineOffset);
         };
 
     for (const char *pLabelId : {
              "ActorInspectHitPointsLabel",
              "ActorInspectArmorClassLabel",
-             "ActorInspectAttackLabel",
-             "ActorInspectDamageLabel",
-             "ActorInspectSpellLabel",
-             "ActorInspectEffectsHeader",
-             "ActorInspectResistancesHeader",
-             "ActorInspectResistanceFireLabel",
-             "ActorInspectResistanceAirLabel",
-             "ActorInspectResistanceWaterLabel",
-             "ActorInspectResistanceEarthLabel",
-             "ActorInspectResistanceMindLabel",
-             "ActorInspectResistanceSpiritLabel",
-             "ActorInspectResistanceBodyLabel",
-             "ActorInspectResistanceLightLabel",
-             "ActorInspectResistanceDarkLabel",
-             "ActorInspectResistancePhysicalLabel"})
+             "ActorInspectEffectsHeader"})
     {
         const GameplayScreenRuntime::HudLayoutElement *pLayout =
             context.findHudLayoutElement(pLabelId);
@@ -10280,19 +10584,95 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         "ActorInspectHitPointsValue",
         std::to_string(std::max(0, actorState.currentHp)) + " / " + std::to_string(std::max(0, actorState.maxHp)));
     renderTextForLayout("ActorInspectArmorClassValue", std::to_string(actorState.armorClass));
-    renderTextForLayout("ActorInspectAttackValue", attackText);
-    renderTextForLayout("ActorInspectDamageValue", damageText);
-    renderTextForLayout("ActorInspectSpellValue", spellText);
+    if (const GameplayScreenRuntime::HudLayoutElement *pAttackLabel =
+            context.findHudLayoutElement("ActorInspectAttackLabel"))
+    {
+        renderTextForLayout("ActorInspectAttackLabel", pAttackLabel->labelText);
+    }
+
+    const float attackHeight = renderMultilineTextForLayout("ActorInspectAttackValue", attackRows, 0.0f);
+    const float damageOffset = std::max(0.0f, attackHeight - dynamicStatLineAdvance);
+
+    if (const GameplayScreenRuntime::HudLayoutElement *pDamageLabel =
+            context.findHudLayoutElement("ActorInspectDamageLabel"))
+    {
+        renderTextForLayout("ActorInspectDamageLabel", pDamageLabel->labelText, damageOffset);
+    }
+
+    const float damageHeight = renderMultilineTextForLayout("ActorInspectDamageValue", damageRows, damageOffset);
+    const float spellOffset = damageOffset + std::max(0.0f, damageHeight - dynamicStatLineAdvance);
+
+    if (const GameplayScreenRuntime::HudLayoutElement *pSpellLabel =
+            context.findHudLayoutElement("ActorInspectSpellLabel"))
+    {
+        renderTextForLayout("ActorInspectSpellLabel", pSpellLabel->labelText, spellOffset);
+    }
+
+    const float spellHeight = renderMultilineTextForLayout("ActorInspectSpellValue", spellRows, spellOffset);
+    const float resistanceOffset = spellOffset + std::max(0.0f, spellHeight - dynamicStatLineAdvance);
     renderTextForLayout("ActorInspectEffectsBody", effectsText);
-    renderTextForLayout("ActorInspectResistanceFireValue", formatMonsterResistanceText(pStats->fireResistance));
-    renderTextForLayout("ActorInspectResistanceAirValue", formatMonsterResistanceText(pStats->airResistance));
-    renderTextForLayout("ActorInspectResistanceWaterValue", formatMonsterResistanceText(pStats->waterResistance));
-    renderTextForLayout("ActorInspectResistanceEarthValue", formatMonsterResistanceText(pStats->earthResistance));
-    renderTextForLayout("ActorInspectResistanceMindValue", formatMonsterResistanceText(pStats->mindResistance));
-    renderTextForLayout("ActorInspectResistanceSpiritValue", formatMonsterResistanceText(pStats->spiritResistance));
-    renderTextForLayout("ActorInspectResistanceBodyValue", formatMonsterResistanceText(pStats->bodyResistance));
-    renderTextForLayout("ActorInspectResistanceLightValue", formatMonsterResistanceText(pStats->lightResistance));
-    renderTextForLayout("ActorInspectResistanceDarkValue", formatMonsterResistanceText(pStats->darkResistance));
-    renderTextForLayout("ActorInspectResistancePhysicalValue", formatMonsterResistanceText(pStats->physicalResistance));
+
+    for (const char *pLabelId : {
+             "ActorInspectResistancesHeader",
+             "ActorInspectResistanceFireLabel",
+             "ActorInspectResistanceAirLabel",
+             "ActorInspectResistanceWaterLabel",
+             "ActorInspectResistanceEarthLabel",
+             "ActorInspectResistanceMindLabel",
+             "ActorInspectResistanceSpiritLabel",
+             "ActorInspectResistanceBodyLabel",
+             "ActorInspectResistanceLightLabel",
+             "ActorInspectResistanceDarkLabel",
+             "ActorInspectResistancePhysicalLabel"})
+    {
+        const GameplayScreenRuntime::HudLayoutElement *pLayout =
+            context.findHudLayoutElement(pLabelId);
+
+        if (pLayout != nullptr)
+        {
+            renderTextForLayout(pLabelId, pLayout->labelText, resistanceOffset);
+        }
+    }
+
+    renderTextForLayout(
+        "ActorInspectResistanceFireValue",
+        formatMonsterResistanceText(pStats->fireResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceAirValue",
+        formatMonsterResistanceText(pStats->airResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceWaterValue",
+        formatMonsterResistanceText(pStats->waterResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceEarthValue",
+        formatMonsterResistanceText(pStats->earthResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceMindValue",
+        formatMonsterResistanceText(pStats->mindResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceSpiritValue",
+        formatMonsterResistanceText(pStats->spiritResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceBodyValue",
+        formatMonsterResistanceText(pStats->bodyResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceLightValue",
+        formatMonsterResistanceText(pStats->lightResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistanceDarkValue",
+        formatMonsterResistanceText(pStats->darkResistance),
+        resistanceOffset);
+    renderTextForLayout(
+        "ActorInspectResistancePhysicalValue",
+        formatMonsterResistanceText(pStats->physicalResistance),
+        resistanceOffset);
 }
 } // namespace OpenYAMM::Game

@@ -75,6 +75,7 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float CombatTargetPanelDurationSeconds = 4.0f;
+constexpr uint64_t RightMouseInspectRefreshNanoseconds = 33333333ULL;
 
 uint32_t makeCombatHudColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
 {
@@ -1013,6 +1014,9 @@ uint16_t interactiveDecorationBaseEventId(OutdoorGameView::InteractiveDecoration
         case OutdoorGameView::InteractiveDecorationFamily::Cask:
             return 288;
 
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
+            break;
+
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
     }
@@ -1039,6 +1043,9 @@ uint8_t interactiveDecorationEventCount(OutdoorGameView::InteractiveDecorationFa
         case OutdoorGameView::InteractiveDecorationFamily::Cask:
             return 2;
 
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
+            return 1;
+
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
     }
@@ -1048,7 +1055,8 @@ uint8_t interactiveDecorationEventCount(OutdoorGameView::InteractiveDecorationFa
 
 bool interactiveDecorationHidesWhenCleared(OutdoorGameView::InteractiveDecorationFamily family)
 {
-    return family == OutdoorGameView::InteractiveDecorationFamily::CampFire;
+    return family == OutdoorGameView::InteractiveDecorationFamily::CampFire
+        || family == OutdoorGameView::InteractiveDecorationFamily::Crystal;
 }
 
 uint32_t makeInteractiveDecorationSeed(const OutdoorEntity &entity, size_t entityIndex)
@@ -1078,6 +1086,7 @@ uint8_t initialInteractiveDecorationState(
 
         case OutdoorGameView::InteractiveDecorationFamily::TrashHeap:
         case OutdoorGameView::InteractiveDecorationFamily::CampFire:
+        case OutdoorGameView::InteractiveDecorationFamily::Crystal:
         case OutdoorGameView::InteractiveDecorationFamily::None:
             break;
     }
@@ -3965,6 +3974,10 @@ void OutdoorGameView::shutdown()
     m_cachedHoverInspectHitValid = false;
     m_lastHoverInspectUpdateNanoseconds = 0;
     m_cachedHoverInspectHit = {};
+    m_cachedRightMouseInspectHitValid = false;
+    m_lastRightMouseInspectUpdateNanoseconds = 0;
+    m_cachedRightMouseInspectPickRequest = {};
+    m_cachedRightMouseInspectHit = {};
     screenRuntime.eventDialogSelectionIndex() = 0;
     screenRuntime.activeEventDialog() = {};
     gameplayMouseLookState.clear();
@@ -4233,6 +4246,51 @@ bool OutdoorGameView::hasActiveEventDialog() const
     return m_gameSession.gameplayScreenRuntime().activeEventDialog().isActive;
 }
 
+const GameplayWorldHit &OutdoorGameView::rightMouseInspectWorldHit(
+    int width,
+    int height,
+    const GameplayInputFrame &input)
+{
+    if (!input.rightMouseButton.held
+        || m_pOutdoorWorldRuntime == nullptr
+        || !m_outdoorMapData.has_value()
+        || width <= 0
+        || height <= 0)
+    {
+        m_cachedRightMouseInspectHitValid = false;
+        m_lastRightMouseInspectUpdateNanoseconds = 0;
+        m_cachedRightMouseInspectPickRequest = {};
+        m_cachedRightMouseInspectHit = {};
+        return m_cachedRightMouseInspectHit;
+    }
+
+    const uint64_t nowNanoseconds = SDL_GetTicksNS();
+    const bool refresh =
+        !m_cachedRightMouseInspectHitValid
+        || m_lastRightMouseInspectUpdateNanoseconds == 0
+        || nowNanoseconds < m_lastRightMouseInspectUpdateNanoseconds
+        || nowNanoseconds - m_lastRightMouseInspectUpdateNanoseconds >= RightMouseInspectRefreshNanoseconds;
+
+    if (refresh)
+    {
+        m_cachedRightMouseInspectPickRequest =
+            m_pOutdoorWorldRuntime->buildWorldPickRequest(
+                GameplayWorldPickRequestInput{
+                    .screenX = input.pointerX,
+                    .screenY = input.pointerY,
+                    .screenWidth = width,
+                    .screenHeight = height,
+                    .includeRay = true,
+                });
+        m_cachedRightMouseInspectHit =
+            m_pOutdoorWorldRuntime->pickMouseInteractionTarget(m_cachedRightMouseInspectPickRequest);
+        m_cachedRightMouseInspectHitValid = true;
+        m_lastRightMouseInspectUpdateNanoseconds = nowNanoseconds;
+    }
+
+    return m_cachedRightMouseInspectHit;
+}
+
 void OutdoorGameView::updateItemInspectOverlayState(int width, int height, const GameplayInputFrame &input)
 {
     GameplayScreenRuntime &overlayContext = m_gameSession.gameplayScreenRuntime();
@@ -4289,16 +4347,7 @@ void OutdoorGameView::updateItemInspectOverlayState(int width, int height, const
         return;
     }
 
-    const GameplayWorldPickRequest pickRequest =
-        m_pOutdoorWorldRuntime->buildWorldPickRequest(
-            GameplayWorldPickRequestInput{
-                .screenX = input.pointerX,
-                .screenY = input.pointerY,
-                .screenWidth = width,
-                .screenHeight = height,
-                .includeRay = true,
-            });
-    const GameplayWorldHit worldHit = m_pOutdoorWorldRuntime->pickMouseInteractionTarget(pickRequest);
+    const GameplayWorldHit &worldHit = rightMouseInspectWorldHit(width, height, input);
 
     if (worldHit.kind == GameplayWorldHitKind::WorldItem && worldHit.worldItem)
     {
@@ -4390,6 +4439,10 @@ void OutdoorGameView::clearWorldInteractionInputLatches()
     m_cachedHoverInspectHitValid = false;
     m_lastHoverInspectUpdateNanoseconds = 0;
     m_cachedHoverInspectHit = {};
+    m_cachedRightMouseInspectHitValid = false;
+    m_lastRightMouseInspectUpdateNanoseconds = 0;
+    m_cachedRightMouseInspectPickRequest = {};
+    m_cachedRightMouseInspectHit = {};
     screenRuntime.clearStatusBarHoverText();
 }
 
@@ -4526,7 +4579,7 @@ bool OutdoorGameView::tryCastSpellRequest(const PartySpellCastRequest &request, 
         m_worldFxSystem.triggerPartySpellFx(resolution.castResult);
         m_gameSession.gameplaySpellService().clearPendingTargetSelection(
             screenRuntime,
-            "Cast " + spellName);
+            isSpellId(resolvedRequest.spellId, SpellId::Telekinesis) ? std::string() : "Cast " + spellName);
         return true;
     }
 
@@ -4538,6 +4591,7 @@ bool OutdoorGameView::tryCastSpellRequest(const PartySpellCastRequest &request, 
             resolution.castResult.targetKind,
             spellName);
         m_cachedHoverInspectHitValid = false;
+        m_cachedRightMouseInspectHitValid = false;
         return true;
     }
 
@@ -4976,16 +5030,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
         return;
     }
 
-    const GameplayWorldPickRequest pickRequest =
-        m_pOutdoorWorldRuntime->buildWorldPickRequest(
-            GameplayWorldPickRequestInput{
-                .screenX = input.pointerX,
-                .screenY = input.pointerY,
-                .screenWidth = width,
-                .screenHeight = height,
-                .includeRay = true,
-            });
-    const GameplayWorldHit worldHit = m_pOutdoorWorldRuntime->pickMouseInteractionTarget(pickRequest);
+    const GameplayWorldHit &worldHit = rightMouseInspectWorldHit(width, height, input);
 
     if (worldHit.kind != GameplayWorldHitKind::Actor || !worldHit.actor)
     {
@@ -5077,7 +5122,10 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
     }
 
     float viewProjectionMatrix[16] = {};
-    bx::mtxMul(viewProjectionMatrix, pickRequest.viewMatrix.data(), pickRequest.projectionMatrix.data());
+    bx::mtxMul(
+        viewProjectionMatrix,
+        m_cachedRightMouseInspectPickRequest.viewMatrix.data(),
+        m_cachedRightMouseInspectPickRequest.projectionMatrix.data());
 
     const float halfExtent = static_cast<float>(std::max<uint16_t>(pActorState->radius, 64));
     const float actorHeight = static_cast<float>(std::max<uint16_t>(pActorState->height, 128));

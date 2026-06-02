@@ -174,6 +174,62 @@ struct DialogueBodyTextMetrics
     float textHeight = 0.0f;
 };
 
+float snappedHudFontScale(float scale);
+
+float dialogueTitleLineAdvance(const GameplayScreenRuntime::HudFontHandle &font, float fontScale)
+{
+    return static_cast<float>(std::max(1, font.fontHeight - 3)) * fontScale;
+}
+
+float renderWrappedCenteredDialogueTitle(
+    GameplayScreenRuntime &view,
+    const GameplayScreenRuntime::HudLayoutElement &layout,
+    const GameplayScreenRuntime::ResolvedHudLayoutElement &resolved,
+    const std::string &label)
+{
+    if (label.empty())
+    {
+        return 0.0f;
+    }
+
+    const std::optional<GameplayScreenRuntime::HudFontHandle> font = view.findHudFont(layout.fontName);
+
+    if (!font)
+    {
+        view.renderLayoutLabel(layout, resolved, label);
+        return resolved.height;
+    }
+
+    const float fontScale = snappedHudFontScale(resolved.scale * std::max(0.1f, layout.textScale));
+    const float textWidthScaled =
+        std::max(0.0f, resolved.width - std::abs(layout.textPadX * resolved.scale) * 2.0f);
+    const float textWrapWidth = textWidthScaled / std::max(1.0f, fontScale);
+    std::vector<std::string> wrappedLines = view.wrapHudTextToWidth(*font, label, textWrapWidth);
+
+    if (wrappedLines.empty())
+    {
+        wrappedLines.push_back(label);
+    }
+
+    const float lineHeight = static_cast<float>(font->fontHeight) * fontScale;
+    const float lineAdvance = dialogueTitleLineAdvance(*font, fontScale);
+    const float textHeight = lineHeight + static_cast<float>(wrappedLines.size() - 1) * lineAdvance;
+    const float startY = resolved.y + std::max(0.0f, (resolved.height - textHeight) * 0.5f);
+    GameplayScreenRuntime::HudLayoutElement lineLayout = layout;
+    lineLayout.textAlignX = UiLayoutManager::TextAlignX::Center;
+    lineLayout.textAlignY = UiLayoutManager::TextAlignY::Middle;
+
+    for (size_t lineIndex = 0; lineIndex < wrappedLines.size(); ++lineIndex)
+    {
+        GameplayScreenRuntime::ResolvedHudLayoutElement resolvedLine = resolved;
+        resolvedLine.y = startY + static_cast<float>(lineIndex) * lineAdvance;
+        resolvedLine.height = lineHeight;
+        view.renderLayoutLabel(lineLayout, resolvedLine, wrappedLines[lineIndex]);
+    }
+
+    return textHeight;
+}
+
 PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &view)
 {
     PointerRenderInput input = {};
@@ -1571,9 +1627,12 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
     const float panelScale = resolvedEventDialog->scale;
     const float panelPaddingX = 10.0f * panelScale;
     const float panelPaddingY = 10.0f * panelScale;
+    const float titleBoundsInset = 4.0f * panelScale;
     const float panelInnerX = resolvedEventDialog->x + panelPaddingX;
     const float panelInnerY = resolvedEventDialog->y + panelPaddingY;
     const float panelInnerWidth = resolvedEventDialog->width - panelPaddingX * 2.0f;
+    const float titleBoundsX = std::round(resolvedEventDialog->x + titleBoundsInset);
+    const float titleBoundsWidth = std::max(1.0f, resolvedEventDialog->width - titleBoundsInset * 2.0f);
     const float sectionGap = 8.0f * panelScale;
     const float houseTitleToPortraitGap = 2.0f * panelScale;
     float contentY = panelInnerY;
@@ -1623,9 +1682,9 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
         ? resolvedPortraitTemplate->x
         : std::round(panelInnerX + (panelInnerWidth - portraitAreaWidth) * 0.5f);
     const float portraitBaseY = resolvedPortraitTemplate ? resolvedPortraitTemplate->y : panelInnerY;
-    const float nameWidth = resolvedNpcNameTemplate ? resolvedNpcNameTemplate->width : panelInnerWidth;
+    const float nameWidth = titleBoundsWidth;
     const float nameHeight = resolvedNpcNameTemplate ? resolvedNpcNameTemplate->height : 20.0f * panelScale;
-    const float nameX = resolvedNpcNameTemplate ? resolvedNpcNameTemplate->x : panelInnerX;
+    const float nameX = titleBoundsX;
     const float nameScale = resolvedNpcNameTemplate ? resolvedNpcNameTemplate->scale : panelScale;
     const float nameOffsetY = resolvedNpcNameTemplate && resolvedPortraitTemplate
         ? (resolvedNpcNameTemplate->y - resolvedPortraitTemplate->y)
@@ -1637,9 +1696,9 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
     if ((pHostHouseEntry != nullptr || isTransitionDialog) && pEffectiveHouseTitleLayout != nullptr)
     {
         GameplayScreenRuntime::ResolvedHudLayoutElement resolvedHouseTitle = {};
-        resolvedHouseTitle.x = resolvedHouseTitleTemplate ? resolvedHouseTitleTemplate->x : panelInnerX;
+        resolvedHouseTitle.x = titleBoundsX;
         resolvedHouseTitle.y = resolvedHouseTitleTemplate ? resolvedHouseTitleTemplate->y : contentY;
-        resolvedHouseTitle.width = resolvedHouseTitleTemplate ? resolvedHouseTitleTemplate->width : panelInnerWidth;
+        resolvedHouseTitle.width = titleBoundsWidth;
         resolvedHouseTitle.height = resolvedHouseTitleTemplate ? resolvedHouseTitleTemplate->height : 20.0f * panelScale;
         resolvedHouseTitle.scale = resolvedHouseTitleTemplate ? resolvedHouseTitleTemplate->scale : panelScale;
 
@@ -1651,7 +1710,13 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                     : (!view.activeEventDialog().houseTitle.empty()
                         ? view.activeEventDialog().houseTitle
                         : pHostHouseEntry->name);
-            view.renderLayoutLabel(*pEffectiveHouseTitleLayout, resolvedHouseTitle, houseTitle);
+            const float renderedTitleHeight =
+                renderWrappedCenteredDialogueTitle(
+                    view,
+                    *pEffectiveHouseTitleLayout,
+                    resolvedHouseTitle,
+                    houseTitle);
+            resolvedHouseTitle.height = std::max(resolvedHouseTitle.height, renderedTitleHeight);
         }
 
         contentY += resolvedHouseTitle.height + houseTitleToPortraitGap;
@@ -1791,8 +1856,9 @@ void GameplayDialogueRenderer::renderDialogueEventPanel(
                 resolvedName.width = cardNameWidth;
                 resolvedName.height = nameHeight;
                 resolvedName.scale = nameScale;
-                view.renderLayoutLabel(*pNpcNameLayout, resolvedName, name);
-                nextY = resolvedName.y + resolvedName.height;
+                const float renderedNameHeight =
+                    renderWrappedCenteredDialogueTitle(view, *pNpcNameLayout, resolvedName, name);
+                nextY = resolvedName.y + std::max(resolvedName.height, renderedNameHeight);
             }
 
             return nextY;

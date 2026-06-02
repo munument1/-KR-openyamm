@@ -145,6 +145,7 @@ def remap_scene_file(
 ) -> tuple[int, set[int]]:
     text = path.read_text(encoding="utf-8")
     source_decoration_ids = read_scene_decoration_ids(source_path) if source_path is not None else None
+    source_decoration_names = read_scene_decoration_names(source_path) if source_path is not None else None
     used_unmapped: set[int] = set()
     changed_count = 0
     decoration_index = 0
@@ -164,7 +165,12 @@ def remap_scene_file(
         else:
             decoration_id = current_decoration_id
 
-        replacement_id = remap.get(decoration_id)
+        source_name = (
+            source_decoration_names[decoration_index - 1]
+            if source_decoration_names is not None and decoration_index - 1 < len(source_decoration_names)
+            else ""
+        )
+        replacement_id = 0 if normalize_name(source_name) == "null" else remap.get(decoration_id)
 
         if replacement_id is None:
             if decoration_id not in mmerge_decorations:
@@ -185,17 +191,56 @@ def remap_scene_file(
     return changed_count, used_unmapped
 
 
-def read_scene_decoration_ids(path: Path | None) -> list[int] | None:
+def read_scene_entity_field_values(path: Path | None, field_name: str) -> list[str] | None:
     if path is None:
         return None
 
     if not path.exists():
         return None
 
+    values: list[str] = []
+    in_entities = False
+    field_pattern = re.compile(rf"^\s*{re.escape(field_name)}:\s+(.*)\s*$")
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line == "entities:":
+            in_entities = True
+            continue
+
+        if in_entities and line and not line.startswith(" "):
+            break
+
+        if not in_entities:
+            continue
+
+        match = field_pattern.match(line)
+
+        if match is None:
+            continue
+
+        value = match.group(1).strip()
+
+        if value.startswith("\"") and value.endswith("\""):
+            value = value[1:-1]
+
+        values.append(value)
+
+    return values
+
+
+def read_scene_decoration_names(path: Path | None) -> list[str] | None:
+    return read_scene_entity_field_values(path, "name")
+
+
+def read_scene_decoration_ids(path: Path | None) -> list[int] | None:
+    values = read_scene_entity_field_values(path, "decoration_list_id")
+    if values is None:
+        return None
+
     decoration_ids: list[int] = []
 
-    for match in re.finditer(r"^\s*decoration_list_id:\s+(\d+)\s*$", path.read_text(encoding="utf-8"), re.MULTILINE):
-        decoration_ids.append(int(match.group(1)))
+    for value in values:
+        decoration_ids.append(int(value))
 
     return decoration_ids
 

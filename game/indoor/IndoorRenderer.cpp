@@ -11599,7 +11599,8 @@ void IndoorRenderer::updateCameraFromInput(
             jumpRequested,
             running,
             deltaSeconds,
-            input.turnBasedMovementStep);
+            input.turnBasedMovementStep,
+            input.turnBasedPhysicsStep);
         const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
         m_cameraPositionX = moveState.x;
         m_cameraPositionY = moveState.y;

@@ -17,6 +17,7 @@
 #include "game/items/ItemRuntime.h"
 #include "game/indoor/IndoorPartyRuntime.h"
 #include "game/indoor/IndoorRenderer.h"
+#include "game/party/SpellIds.h"
 #include "game/party/SkillData.h"
 #include "game/party/SpellSchool.h"
 #include "game/scene/IndoorSceneRuntime.h"
@@ -1935,7 +1936,7 @@ bool IndoorGameView::tryCastSpellRequest(
         worldRuntime()->applyPendingSpellCastWorldEffects(resolution.castResult);
         m_gameSession.gameplaySpellService().clearPendingTargetSelection(
             screenRuntime,
-            "Cast " + spellName);
+            isSpellId(resolvedRequest.spellId, SpellId::Telekinesis) ? std::string() : "Cast " + spellName);
         return true;
     }
 

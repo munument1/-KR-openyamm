@@ -21,6 +21,7 @@ enum class InteractiveDecorationFamily : uint8_t
     LargeBag,
     Bucket,
     MightAndMagicSixTrashHeap,
+    Crystal,
 };
 
 struct InteractiveDecorationBindingSpec

@@ -596,6 +596,7 @@ TEST_CASE("party rejects a race restricted artifact for the wrong member")
 
     pMember->equipment = {};
     pMember->className = "Knight";
+    pMember->raceId = 0;
     OpenYAMM::Game::InventoryItem glomenmail =
         OpenYAMM::Game::ItemGenerator::makeInventoryItem(
             514,
@@ -613,7 +614,7 @@ TEST_CASE("party rejects a race restricted artifact for the wrong member")
         heldReplacement));
     CHECK_EQ(party.lastStatus(), "cannot equip");
 
-    pMember->className = "Patriarch";
+    pMember->raceId = 2;
 
     REQUIRE(party.tryEquipItemOnMember(
         0,
@@ -623,6 +624,48 @@ TEST_CASE("party rejects a race restricted artifact for the wrong member")
         false,
         heldReplacement));
     CHECK_EQ(pMember->equipment.armor, 514u);
+}
+
+TEST_CASE("forge gauntlets require a dwarf race member")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::ItemDefinition *pForgeGauntlets = gameData.itemTable.get(1336);
+    REQUIRE(pForgeGauntlets != nullptr);
+    CHECK_EQ(pForgeGauntlets->name, "Forge Gauntlets");
+
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+
+    OpenYAMM::Game::InventoryItem forgeGauntlets =
+        OpenYAMM::Game::ItemGenerator::makeInventoryItem(
+            1336,
+            gameData.itemTable,
+            OpenYAMM::Game::ItemGenerationMode::ChestLoot);
+    forgeGauntlets.identified = true;
+    std::optional<OpenYAMM::Game::InventoryItem> heldReplacement;
+
+    pMember->equipment = {};
+    pMember->className = "Knight";
+    pMember->raceId = 0;
+    CHECK_FALSE(party.tryEquipItemOnMember(
+        0,
+        OpenYAMM::Game::EquipmentSlot::Gauntlets,
+        forgeGauntlets,
+        std::nullopt,
+        false,
+        heldReplacement));
+    CHECK_EQ(party.lastStatus(), "cannot equip");
+
+    pMember->raceId = 9;
+    REQUIRE(party.tryEquipItemOnMember(
+        0,
+        OpenYAMM::Game::EquipmentSlot::Gauntlets,
+        forgeGauntlets,
+        std::nullopt,
+        false,
+        heldReplacement));
+    CHECK_EQ(pMember->equipment.gauntlets, 1336u);
 }
 
 TEST_CASE("equip rules respect class restricted artifacts")

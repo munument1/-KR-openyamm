@@ -76,6 +76,39 @@ const SpellbookSchoolUiDefinition *findSpellbookSchoolUiDefinitionForSpellId(uin
     return nullptr;
 }
 
+const char *spellbookSchoolDisplayName(SpellbookSchool school)
+{
+    switch (school)
+    {
+        case SpellbookSchool::Fire:
+            return "Fire Magic";
+        case SpellbookSchool::Air:
+            return "Air Magic";
+        case SpellbookSchool::Water:
+            return "Water Magic";
+        case SpellbookSchool::Earth:
+            return "Earth Magic";
+        case SpellbookSchool::Spirit:
+            return "Spirit Magic";
+        case SpellbookSchool::Mind:
+            return "Mind Magic";
+        case SpellbookSchool::Body:
+            return "Body Magic";
+        case SpellbookSchool::Light:
+            return "Light Magic";
+        case SpellbookSchool::Dark:
+            return "Dark Magic";
+        case SpellbookSchool::DarkElf:
+            return "Dark Elf Ability";
+        case SpellbookSchool::Vampire:
+            return "Vampire Ability";
+        case SpellbookSchool::Dragon:
+            return "Dragon Ability";
+    }
+
+    return "";
+}
+
 std::string spellbookSpellLayoutId(SpellbookSchool school, uint32_t spellOrdinal)
 {
     const SpellbookSchoolUiDefinition *pDefinition = findSpellbookSchoolUiDefinition(school);

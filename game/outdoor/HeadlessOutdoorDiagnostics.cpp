@@ -523,6 +523,16 @@ struct GameApplicationTestAccess
         return application.m_gameSession.gameplayScreenRuntime().activeEventDialog();
     }
 
+    static void setActiveEventDialogVideo(
+        GameApplication &application,
+        const std::string &videoName,
+        const std::string &videoDirectory)
+    {
+        EventDialogContent &dialog = application.m_gameSession.gameplayScreenRuntime().activeEventDialog();
+        dialog.videoName = videoName;
+        dialog.videoDirectory = videoDirectory;
+    }
+
     static void setEventDialogSelectionIndex(GameApplication &application, size_t selectionIndex)
     {
         application.m_gameSession.gameplayScreenRuntime().eventDialogSelectionIndex() = selectionIndex;
@@ -17730,11 +17740,16 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            GameApplicationTestAccess::setActiveEventDialogVideo(
+                application,
+                "test_transition_movie",
+                "Videos/Transitions");
+
             GameApplicationTestAccess::handleDialogueCloseRequest(application);
 
             if (GameApplicationTestAccess::hasActiveEventDialog(application))
             {
-                failure = "map transition cancel did not close the active dialog";
+                failure = "map transition cancel did not close the active dialog with video";
                 return false;
             }
 

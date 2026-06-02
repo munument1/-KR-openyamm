@@ -20,6 +20,7 @@ constexpr float MaxParticleUpdateAccumulationSeconds = 0.25f;
 constexpr float DefaultProjectileTrailCooldownSeconds = 1.0f / 30.0f;
 constexpr float HangingProjectileTrailCooldownSeconds = 2.0f / 128.0f;
 constexpr float SparksProjectileTrailCooldownSeconds = 0.10f;
+constexpr float ProjectileFxVisualSizeScale = 1.25f;
 constexpr float PartySpellFxRingRadius = 28.0f;
 constexpr float ImpactLightRadiusScale = 1.18f;
 constexpr float ImpactLightIntensityScale = 1.35f;
@@ -695,7 +696,7 @@ void WorldFxSystem::syncProjectileTrails(GameSession &session, bool refreshSpati
                             anchoredX,
                             anchoredY,
                             projectileCenterZ,
-                            20.0f,
+                            20.0f * ProjectileFxVisualSizeScale,
                             fxRecipe.colorAbgr);
                     }
 

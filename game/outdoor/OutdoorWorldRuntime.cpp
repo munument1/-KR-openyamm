@@ -58,6 +58,25 @@ constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CollisionEpsilon = 0.01f;
 constexpr float OutdoorMechanismGeometryRefreshStepSeconds = 1.0f / 30.0f;
 constexpr uint32_t OutdoorEnvironmentFlagNoTerrain = 0x08;
+constexpr float ImmolationTickGameMinutes = 5.0f;
+constexpr float ImmolationEffectRange = 307.0f;
+constexpr float ImmolationEffectRangeSquared = ImmolationEffectRange * ImmolationEffectRange;
+constexpr size_t ImmolationMaxAffectedActors = 100;
+
+int rollImmolationDamage(uint32_t skillLevel, uint32_t seed)
+{
+    const uint32_t diceCount = std::max<uint32_t>(1, skillLevel);
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<int> die(1, 6);
+    int damage = 0;
+
+    for (uint32_t diceIndex = 0; diceIndex < diceCount; ++diceIndex)
+    {
+        damage += die(rng);
+    }
+
+    return damage;
+}
 
 std::string resolveSpawnedMapActorName(
     const MonsterTable &monsterTable,
@@ -4954,6 +4973,8 @@ void OutdoorWorldRuntime::initialize(
     m_outdoorFaceGridHeight = 0;
     m_outdoorMovementController.reset();
     m_actorUpdateAccumulatorSeconds = 0.0f;
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    m_immolationTickSequence = 0;
     m_nextWorldItemId = 1;
     m_armageddonState = {};
 
@@ -6310,6 +6331,8 @@ void OutdoorWorldRuntime::stopTurnBasedActorMovement()
 
 void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
 {
+    updateImmolation(deltaSeconds);
+
     if (m_pOutdoorMapDeltaData != nullptr && m_pPartyRuntime != nullptr)
     {
         updateOutdoorJournalRevealMask(*m_pPartyRuntime, *m_pOutdoorMapDeltaData);
@@ -6385,6 +6408,105 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
         {
             refreshOutdoorModelMechanismGeometry();
             m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
+        }
+    }
+}
+
+void OutdoorWorldRuntime::updateImmolation(float deltaSeconds)
+{
+    const PartyBuffState *pBuff = m_pParty != nullptr ? m_pParty->partyBuff(PartyBuffId::Immolation) : nullptr;
+
+    if (pBuff == nullptr || m_pPartyRuntime == nullptr)
+    {
+        m_immolationTickAccumulatorGameMinutes = 0.0f;
+        return;
+    }
+
+    if (deltaSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    m_immolationTickAccumulatorGameMinutes += deltaSeconds * GameMinutesPerRealSecond;
+
+    if (m_immolationTickAccumulatorGameMinutes < ImmolationTickGameMinutes)
+    {
+        return;
+    }
+
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    ++m_immolationTickSequence;
+
+    const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
+    const float partyX = moveState.x;
+    const float partyY = moveState.y;
+    const float partyZ = moveState.footZ;
+    const uint32_t spellId = spellIdValue(SpellId::Immolation);
+    const uint32_t skillLevel = std::max<uint32_t>(1, pBuff->skillLevel != 0 ? pBuff->skillLevel : pBuff->power);
+    const CombatDamageType damageType = GameMechanics::spellCombatDamageType(spellId, m_pSpellTable);
+    size_t affectedActors = 0;
+
+    for (size_t actorIndex = 0; actorIndex < m_mapActors.size() && affectedActors < ImmolationMaxAffectedActors;
+        ++actorIndex)
+    {
+        MapActorState &actor = m_mapActors[actorIndex];
+
+        if (isActorUnavailableForCombat(actor))
+        {
+            continue;
+        }
+
+        const float deltaX = actor.preciseX - partyX;
+        const float deltaY = actor.preciseY - partyY;
+        const float deltaZ = actor.preciseZ - partyZ;
+
+        if (deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ > ImmolationEffectRangeSquared)
+        {
+            continue;
+        }
+
+        ++affectedActors;
+        spawnImmediateSpellVisual(
+            spellId,
+            actor.preciseX,
+            actor.preciseY,
+            actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
+            true,
+            true);
+
+        const uint32_t seed =
+            actor.actorId * 2654435761u
+            ^ m_immolationTickSequence * 2246822519u
+            ^ skillLevel * 3266489917u;
+        const int damage = rollImmolationDamage(skillLevel, seed);
+        int appliedDamage = damage;
+        const MonsterTable::MonsterStatsEntry *pStats =
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+
+        if (pStats != nullptr)
+        {
+            std::mt19937 rng(seed ^ 0x9e3779b9u);
+            appliedDamage = GameMechanics::resolveMonsterIncomingDamage(
+                damage,
+                damageType,
+                monsterResistanceForDamageType(*pStats, damageType),
+                monsterHourOfPowerResistanceBonus(actor),
+                rng);
+        }
+
+        const int beforeHp = actor.currentHp;
+        const bool applied = applyPartyAttackToMapActor(actorIndex, appliedDamage, partyX, partyY, partyZ);
+
+        if (applied && m_pGameplayCombatController != nullptr)
+        {
+            m_pGameplayCombatController->recordPartyProjectileActorImpact(
+                0,
+                pBuff->casterMemberIndex,
+                actor.actorId,
+                appliedDamage,
+                static_cast<int>(spellId),
+                true,
+                beforeHp > 0 && actor.currentHp <= 0);
         }
     }
 }
@@ -6660,6 +6782,8 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
         }
     }
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
+    m_immolationTickAccumulatorGameMinutes = 0.0f;
+    m_immolationTickSequence = 0;
     m_sessionChestSeed = snapshot.sessionChestSeed;
     m_nextActorId = snapshot.nextActorId;
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
@@ -10896,6 +11020,7 @@ OutdoorWorldRuntime::ProjectileFrameWorldFacts OutdoorWorldRuntime::collectProje
             };
             worldFacts.frame.collision.colliderName = worldFacts.collision.colliderName;
             worldFacts.frame.collision.actorIndex = worldFacts.collision.actorIndex;
+            worldFacts.frame.collision.worldFaceIndex = worldFacts.collision.faceIndex;
             worldFacts.frame.collision.bounceSurface = buildProjectileBounceSurfaceFacts(worldFacts.collision);
             worldFacts.frame.collision.waterTerrainImpact = worldFacts.collision.waterTerrainImpact;
 
@@ -10983,9 +11108,7 @@ GameplayProjectileService::ProjectileBounceSurfaceFacts OutdoorWorldRuntime::bui
 
     const OutdoorFaceGeometryData &face = m_outdoorFaces[collision.faceIndex];
 
-    if (!face.hasPlane
-        || face.normal.z <= 0.35f
-        || (!face.isWalkable && face.normal.z <= 0.6f))
+    if (!face.hasPlane)
     {
         return facts;
     }
@@ -15643,6 +15766,13 @@ bool OutdoorWorldRuntime::partyIsFlyingForEventChecks() const
 bool OutdoorWorldRuntime::partyIsActivelyFlyingForHud() const
 {
     return m_pPartyRuntime != nullptr && m_pPartyRuntime->partyMovementState().activelyFlying;
+}
+
+bool OutdoorWorldRuntime::partyNeedsTurnBasedPhysicsUpdate() const
+{
+    return m_pPartyRuntime != nullptr
+        && m_pPartyRuntime->movementState().airborne
+        && !m_pPartyRuntime->partyMovementState().flying;
 }
 
 void OutdoorWorldRuntime::syncSpellMovementStatesFromPartyBuffs()

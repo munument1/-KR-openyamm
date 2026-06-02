@@ -158,13 +158,14 @@ public:
         IndoorMoveDebugInfo *pDebugInfo = nullptr,
         bool flyingActive = false,
         bool ignoreActorCollisions = false,
-        float jumpVelocity = 420.0f,
-        float jumpLift = 1.0f,
+        float jumpVelocity = 480.0f,
+        float jumpLift = 0.0f,
         bool lockVerticalPosition = false,
         bool preventGroundActorLedgeDrop = false,
         bool allowUnsupportedPathRecovery = false,
         bool allowBlockedWallRecovery = false,
-        bool requireWalkableSupport = false
+        bool requireWalkableSupport = false,
+        float gravityPerSecond = 960.0f
     ) const;
     IndoorMoveState resolveFlyingActorMove(
         const IndoorMoveState &state,
@@ -374,7 +375,8 @@ private:
         bool preventGroundActorLedgeDrop,
         bool allowUnsupportedPathRecovery,
         bool allowBlockedWallRecovery,
-        bool requireWalkableSupport
+        bool requireWalkableSupport,
+        float gravityPerSecond
     ) const;
     bool collidesAtPosition(
         const std::vector<IndoorVertex> &vertices,

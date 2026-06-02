@@ -1011,12 +1011,14 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     const std::string &textureName,
     int &width,
     int &height,
+    bool applyTransparencyKey,
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> &directoryAssetPathsByPath,
     std::unordered_map<std::string, std::optional<std::string>> &bitmapPathByKey,
     std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelsByKey
 )
 {
-    const std::string cacheKey = directoryPath + "|" + toLowerCopy(textureName);
+    const std::string cacheKey =
+        directoryPath + "|" + toLowerCopy(textureName) + "|" + (applyTransparencyKey ? "transparent" : "opaque");
     const auto cachedPixelsIt = pixelsByKey.find(cacheKey);
 
     if (cachedPixelsIt != pixelsByKey.end())
@@ -1053,8 +1055,12 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         return std::nullopt;
     }
 
+    Engine::ImageDecodeOptions decodeOptions = {};
+    decodeOptions.applyPaletteZeroTransparencyKey = applyTransparencyKey;
+    decodeOptions.applyTealTransparencyKey = applyTransparencyKey;
+
     const std::optional<Engine::ImagePixelsBgra> image =
-        Engine::decodeImagePixelsBgra(*bitmapBytes, *bitmapPath);
+        Engine::decodeImagePixelsBgra(*bitmapBytes, *bitmapPath, decodeOptions);
 
     if (!image)
     {
@@ -1156,10 +1162,11 @@ void appendDecorationScriptBillboardTextures(
             const std::optional<std::vector<uint8_t>> pixels =
                 loadBitmapPixelsBgra(
                     assetFileSystem,
-                    "Data/bitmaps",
+                    "Data/sprites",
                     textureName,
                     textureWidth,
                     textureHeight,
+                    true,
                     directoryAssetPathsByPath,
                     bitmapPathByKey,
                     pixelsByKey);
@@ -1247,6 +1254,7 @@ void appendIndoorScriptTextures(
                 textureName,
                 textureWidth,
                 textureHeight,
+                false,
                 directoryAssetPathsByPath,
                 bitmapPathByKey,
                 pixelsByKey);

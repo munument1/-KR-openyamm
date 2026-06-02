@@ -88,6 +88,32 @@ std::ofstream *gameplayTraceFileStream()
     return pOutput.get();
 }
 
+std::ofstream *projectileTraceFileStream()
+{
+    static std::unique_ptr<std::ofstream> pOutput = []() -> std::unique_ptr<std::ofstream>
+    {
+        const std::string filePath = environmentString("OPENYAMM_PROJECTILE_TRACE_FILE");
+
+        if (filePath.empty())
+        {
+            return nullptr;
+        }
+
+        const bool append = environmentFlagEnabled("OPENYAMM_PROJECTILE_TRACE_APPEND");
+        const std::ios::openmode mode = std::ios::out | (append ? std::ios::app : std::ios::trunc);
+        std::unique_ptr<std::ofstream> pStream = std::make_unique<std::ofstream>(filePath, mode);
+
+        if (!*pStream)
+        {
+            std::cerr << "ProjectileTrace: failed to open trace file \"" << filePath << "\"\n";
+            return nullptr;
+        }
+
+        return pStream;
+    }();
+    return pOutput.get();
+}
+
 std::mutex &gameplayTraceOutputMutex()
 {
     static std::mutex mutex;
@@ -266,6 +292,27 @@ void gameplayCombatTraceWrite(const std::string &message)
 
     *state.pOutput << "[CombatTrace] " << message << '\n';
     state.pOutput->flush();
+}
+
+bool gameplayProjectileTraceEnabled()
+{
+    static const bool enabled =
+        environmentFlagEnabled("OPENYAMM_PROJECTILE_TRACE")
+        || !environmentString("OPENYAMM_PROJECTILE_TRACE_FILE").empty();
+    return enabled;
+}
+
+void gameplayProjectileTraceWrite(const std::string &message)
+{
+    const std::string line = "[GameplayTrace] " + message;
+    std::lock_guard<std::mutex> lock(gameplayTraceOutputMutex());
+    std::cout << line << '\n';
+
+    if (std::ofstream *pOutput = projectileTraceFileStream())
+    {
+        *pOutput << line << '\n';
+        pOutput->flush();
+    }
 }
 
 std::string gameplayDebugTraceWorldHitSummary(const GameplayWorldHit &hit)
