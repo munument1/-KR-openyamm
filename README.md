@@ -1,25 +1,23 @@
 # OpenYAMM
 
-OpenYAMM is a modern C++ reimplementation of the Might and Magic VIII game engine.
+OpenYAMM is Open Yet Another Might and Magic: a modern C++ reimplementation of
+Might and Magic VI, VII, and VIII, inspired by MMMerge and built on an engine
+that started from Might and Magic VIII.
 
-The goal is to keep the original game data and gameplay feel while providing a clean,
-maintainable, cross-platform engine with modern rendering, audio, UI, save/load, tooling,
-and editor support.
+The goal is to keep the original game data and gameplay feel while providing a
+clean, maintainable, cross-platform engine with modern rendering, audio, UI,
+save/load, tooling, and editor support.
 
 ## Status
 
-OpenYAMM is in active development. It currently includes:
+OpenYAMM is playable across Might and Magic VI, VII, and VIII, including
+continent travel between the games. Windows, Linux, and Android builds are
+supported.
 
-- outdoor and indoor gameplay runtime work
-- map loading and rendering
-- party, inventory, combat, spells, projectiles, shops, houses, chests, dialogue, quests, and save/load systems
-- SDL3 audio with music, sound effects, and video playback
-- bgfx rendering
-- data-driven gameplay tables and UI layouts
-- regression tests and headless diagnostics
-- an editor target for map and content workflows
-
-Expect missing features, bugs, and ongoing data compatibility work.
+Main stories, promotions, quests, mechanics, spells, travel, dialogue, shops,
+houses, chests, combat, projectiles, inventory, party state, save/load, audio,
+video, and UI systems are implemented. Development is still active, with ongoing
+work on polish, compatibility, tooling, and editor workflows.
 
 ## Features
 
@@ -34,8 +32,6 @@ Expect missing features, bugs, and ongoing data compatibility work.
 - unit and regression test coverage for gameplay systems
 
 ## Assets
-
-OpenYAMM requires game assets from a legally owned copy of Might and Magic VIII.
 
 Development assets are loaded from:
 
@@ -146,3 +142,11 @@ No license has been declared yet.
 
 ![Editor screenshot 1](res/editor_1.webp)
 ![Editor screenshot 2](res/editor_2.webp)
+
+## Credits
+
+OpenYAMM builds on years of work and research from the Might and Magic community,
+with thanks due to:
+
+- the OpenEnroth development team
+- Rodril and all MMMerge contributors
