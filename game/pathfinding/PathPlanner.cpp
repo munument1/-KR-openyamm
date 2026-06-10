@@ -354,7 +354,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
         return result;
     }
 
-    if (map.canReachDirectly(start, target, request.object))
+    if (request.allowDirect && map.canReachDirectly(start, target, request.object))
     {
         result.status = PathPlanStatus::Success;
         result.debug.directReachable = true;
@@ -430,7 +430,8 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
 
         const float closeEnoughDistance = stepSize * 4.0f;
 
-        if (distance3d(currentPoint, target) <= closeEnoughDistance
+        if ((request.allowDirect || openNode.nodeIndex != 0)
+            && distance3d(currentPoint, target) <= closeEnoughDistance
             && map.canReachDirectly(currentPoint, target, request.object))
         {
             result.status = PathPlanStatus::Success;

@@ -128,6 +128,7 @@ struct GameplayActorInspectState
 {
     std::string displayName;
     std::string previewTextureName;
+    size_t uniqueActorIndex = static_cast<size_t>(-1);
     int16_t monsterId = 0;
     int16_t previewPaletteId = 0;
     int previewYOffset = -40;

@@ -10,6 +10,7 @@
 #include "game/maps/MapDeltaData.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -270,6 +271,17 @@ bx::Vec3 sectorBoundsCenter(const IndoorMapData &mapData, uint16_t sectorId)
     };
 }
 
+bx::Vec3 rotateAroundZ(const bx::Vec3 &value, float radians)
+{
+    const float cosAngle = std::cos(radians);
+    const float sinAngle = std::sin(radians);
+    return {
+        value.x * cosAngle - value.y * sinAngle,
+        value.x * sinAngle + value.y * cosAngle,
+        value.z
+    };
+}
+
 std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 {
     std::ifstream input(path, std::ios::binary);
@@ -433,6 +445,187 @@ TEST_CASE("cd1 sector 101 sees sector 88 through diagonal floor-strip portal")
     REQUIRE(pAcceptedTrace != nullptr);
     CHECK_EQ(pAcceptedTrace->sourceSectorId, SourceSectorId);
     CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+}
+
+TEST_CASE("d19 necromancer guild side room stays visible through open sector 3 doors")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> mapBytes =
+        readBinaryFile(sourceRoot / "assets_dev" / "worlds" / "mm8" / "maps" / "d19.blv");
+    const std::string sceneText =
+        readTextFile(sourceRoot / "assets_dev" / "worlds" / "mm8" / "maps" / "d19.scene.yml");
+
+    REQUIRE_FALSE(mapBytes.empty());
+    REQUIRE_FALSE(sceneText.empty());
+
+    const IndoorMapDataLoader mapDataLoader = {};
+    std::optional<IndoorMapData> mapData = mapDataLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData);
+
+    std::string sceneError;
+    const IndoorSceneYmlLoader sceneLoader = {};
+    std::optional<IndoorSceneData> sceneData = sceneLoader.loadFromText(sceneText, sceneError);
+    REQUIRE_MESSAGE(sceneData, sceneError);
+
+    MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(buildIndoorMapStateFromScene(*sceneData, *mapData, mapDeltaData, sceneError), sceneError);
+
+    constexpr uint16_t SourceSectorId = 2;
+    constexpr uint16_t TargetSectorId = 3;
+    constexpr uint16_t PortalFaceId = 3772;
+    constexpr uint16_t LobbySectorId = 1;
+    constexpr uint16_t LobbyPortalFaceId = 258;
+    constexpr uint32_t LeftDoorId = 61;
+    constexpr uint32_t RightDoorId = 62;
+
+    REQUIRE_LT(PortalFaceId, mapData->faces.size());
+    const IndoorFace &portalFace = mapData->faces[PortalFaceId];
+    REQUIRE_EQ(portalFace.roomNumber, SourceSectorId);
+    REQUIRE_EQ(portalFace.roomBehindNumber, TargetSectorId);
+    REQUIRE_LT(LobbyPortalFaceId, mapData->faces.size());
+    const IndoorFace &lobbyPortalFace = mapData->faces[LobbyPortalFaceId];
+    REQUIRE_EQ(lobbyPortalFace.roomNumber, LobbySectorId);
+    REQUIRE_EQ(lobbyPortalFace.roomBehindNumber, SourceSectorId);
+
+    const MapDeltaDoor *pLeftDoor = findDoorById(mapDeltaData, LeftDoorId);
+    const MapDeltaDoor *pRightDoor = findDoorById(mapDeltaData, RightDoorId);
+    REQUIRE(pLeftDoor != nullptr);
+    REQUIRE(pRightDoor != nullptr);
+
+    const IndoorPortalGraph portalGraph = buildIndoorPortalGraph(*mapData, &mapDeltaData);
+    const IndoorPortalLink *pPortalLink = findIndoorPortalLinkByFaceId(portalGraph, PortalFaceId);
+    REQUIRE(pPortalLink != nullptr);
+
+    std::optional<EventRuntimeState> eventRuntimeState = EventRuntimeState{};
+    RuntimeMechanismState leftDoorState = {};
+    leftDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    leftDoorState.currentDistance = 0.0f;
+    eventRuntimeState->mechanisms[LeftDoorId] = leftDoorState;
+
+    RuntimeMechanismState rightDoorState = {};
+    rightDoorState.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    rightDoorState.currentDistance = 0.0f;
+    eventRuntimeState->mechanisms[RightDoorId] = rightDoorState;
+
+    const std::vector<IndoorVertex> adjustedVertices =
+        buildIndoorMechanismAdjustedVertices(*mapData, &mapDeltaData, &*eventRuntimeState);
+
+    const bx::Vec3 portalCenter = faceCenter(*mapData, PortalFaceId);
+    const bx::Vec3 cameraPosition = {
+        portalCenter.x - 320.0f,
+        portalCenter.y - 256.0f,
+        portalCenter.z
+    };
+    const bx::Vec3 baseForward = {
+        portalCenter.x - cameraPosition.x,
+        portalCenter.y - cameraPosition.y,
+        portalCenter.z - cameraPosition.z
+    };
+    const float yawOffsets[] = {-0.08f, -0.04f, 0.0f, 0.04f, 0.08f};
+
+    for (float yawOffset : yawOffsets)
+    {
+        IndoorPortalVisibilityInput input = {};
+        input.pMapData = &*mapData;
+        input.pPortalGraph = &portalGraph;
+        input.pVertices = &adjustedVertices;
+        input.pPortalVertices = &mapData->vertices;
+        input.pMapDeltaData = &mapDeltaData;
+        input.pEventRuntimeState = &eventRuntimeState;
+        input.cameraPosition = cameraPosition;
+        input.cameraForward = rotateAroundZ(baseForward, yawOffset);
+        input.cameraUp = {0.0f, 0.0f, 1.0f};
+        input.verticalFovDegrees = 60.0f;
+        input.aspectRatio = 16.0f / 9.0f;
+        input.startSectorId = SourceSectorId;
+
+        const IndoorPortalVisibilityResult result = buildIndoorPortalVisibility(input);
+
+        INFO("yawOffset=" << yawOffset);
+        REQUIRE_GT(result.visibleSectorMask.size(), TargetSectorId);
+        CHECK_EQ(result.visibleSectorMask[TargetSectorId], 1);
+        CHECK(findPortalTraceForFace(result, PortalFaceId, "child_frustum_small") == nullptr);
+        const IndoorPortalVisibilityTrace *pAcceptedTrace =
+            findPortalTraceForFace(result, PortalFaceId, "accepted");
+        REQUIRE(pAcceptedTrace != nullptr);
+        CHECK_EQ(pAcceptedTrace->sourceSectorId, SourceSectorId);
+        CHECK_EQ(pAcceptedTrace->targetSectorId, TargetSectorId);
+    }
+
+    const bx::Vec3 lobbyPortalCenter = faceCenter(*mapData, LobbyPortalFaceId);
+    bool foundBackChain = false;
+    const float cameraXOffsets[] = {-480.0f, -320.0f, -160.0f, 0.0f, 160.0f, 320.0f, 480.0f};
+    const float cameraYOffsets[] = {-480.0f, -320.0f, -160.0f, 0.0f, 160.0f, 320.0f, 480.0f};
+    const float backYawOffsets[] = {-0.16f, -0.08f, 0.0f, 0.08f, 0.16f};
+
+    for (float cameraXOffset : cameraXOffsets)
+    {
+        for (float cameraYOffset : cameraYOffsets)
+        {
+            for (float yawOffset : backYawOffsets)
+            {
+                IndoorPortalVisibilityInput backInput = {};
+                backInput.pMapData = &*mapData;
+                backInput.pPortalGraph = &portalGraph;
+                backInput.pVertices = &adjustedVertices;
+                backInput.pPortalVertices = &mapData->vertices;
+                backInput.pMapDeltaData = &mapDeltaData;
+                backInput.pEventRuntimeState = &eventRuntimeState;
+                backInput.cameraPosition = {
+                    portalCenter.x + cameraXOffset,
+                    portalCenter.y + cameraYOffset,
+                    portalCenter.z
+                };
+                const bx::Vec3 backForward = {
+                    lobbyPortalCenter.x - backInput.cameraPosition.x,
+                    lobbyPortalCenter.y - backInput.cameraPosition.y,
+                    lobbyPortalCenter.z - backInput.cameraPosition.z
+                };
+                backInput.cameraForward = rotateAroundZ(backForward, yawOffset);
+                backInput.cameraUp = {0.0f, 0.0f, 1.0f};
+                backInput.verticalFovDegrees = 60.0f;
+                backInput.aspectRatio = 16.0f / 9.0f;
+                backInput.startSectorId = TargetSectorId;
+
+                const IndoorPortalVisibilityResult backResult = buildIndoorPortalVisibility(backInput);
+                const IndoorPortalVisibilityTrace *pEntryTrace =
+                    findPortalTraceForFace(backResult, PortalFaceId, "accepted");
+                const IndoorPortalVisibilityTrace *pLobbyTrace =
+                    findPortalTraceForFace(backResult, LobbyPortalFaceId, "accepted");
+
+                if (pEntryTrace == nullptr
+                    || pEntryTrace->sourceSectorId != TargetSectorId
+                    || pEntryTrace->targetSectorId != SourceSectorId
+                    || pLobbyTrace == nullptr
+                    || pLobbyTrace->sourceSectorId != SourceSectorId
+                    || pLobbyTrace->targetSectorId != LobbySectorId)
+                {
+                    continue;
+                }
+
+                INFO("cameraXOffset=" << cameraXOffset);
+                INFO("cameraYOffset=" << cameraYOffset);
+                INFO("yawOffset=" << yawOffset);
+                REQUIRE_GT(backResult.visibleSectorMask.size(), LobbySectorId);
+                CHECK_EQ(backResult.visibleSectorMask[LobbySectorId], 1);
+                CHECK(findPortalTraceForFace(backResult, LobbyPortalFaceId, "child_frustum_small") == nullptr);
+                foundBackChain = true;
+                break;
+            }
+
+            if (foundBackChain)
+            {
+                break;
+            }
+        }
+
+        if (foundBackChain)
+        {
+            break;
+        }
+    }
+
+    CHECK(foundBackChain);
 }
 
 TEST_CASE("indoor portal visibility keeps portals with visible vertices in front of the camera")

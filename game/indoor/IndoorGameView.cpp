@@ -38,6 +38,7 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -1969,7 +1970,7 @@ bool IndoorGameView::trySaveToSelectedGameSlot()
     return m_gameSession.gameplayScreenRuntime().trySaveToSelectedGameSlot(
         [this](const GameplayScreenRuntime::PreparedSaveGameRequest &request)
         {
-            return beginSaveWithPreview(request.path, request.saveName, false);
+            return beginSaveWithPreview(request.path, request.saveName, true);
         });
 }
 
@@ -2268,6 +2269,7 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
             "actor_inspect world=indoor map=\""
             + (m_pIndoorSceneRuntime != nullptr ? m_pIndoorSceneRuntime->worldRuntime().mapName() : std::string())
             + "\" actor_index=" + std::to_string(pick->runtimeActorIndex)
+            + " unique_actor=" + std::to_string(inspectState.uniqueActorIndex)
             + " name=\"" + inspectState.displayName + "\""
             + " monster_id=" + std::to_string(inspectState.monsterId)
             + " current_hp=" + std::to_string(inspectState.currentHp)
@@ -2285,6 +2287,15 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
                     + "," + std::to_string(runtimeActorState.preciseY)
                     + "," + std::to_string(runtimeActorState.preciseZ) + ")"
                 : ""));
+
+        std::cout << "[ActorInspect] world=indoor map=\""
+            << (m_pIndoorSceneRuntime != nullptr ? m_pIndoorSceneRuntime->worldRuntime().mapName() : std::string())
+            << "\" actor_index=" << pick->runtimeActorIndex
+            << " unique_actor=" << inspectState.uniqueActorIndex
+            << " name=\"" << inspectState.displayName << "\"\n";
+        screenRuntime.setStatusBarEvent(
+            "Actor unique_actor=" + std::to_string(inspectState.uniqueActorIndex),
+            4.0f);
     }
 
     if (input.rightMouseButton.pressed && !inspectState.isDead)

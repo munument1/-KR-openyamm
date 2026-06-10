@@ -117,6 +117,9 @@ constexpr double IndoorPathFailedRetrySeconds = 3.0;
 constexpr double IndoorPathDirectCheckIntervalSeconds = 0.25;
 constexpr double IndoorPathMinReplanIntervalSeconds = 1.0;
 constexpr double IndoorPathShortcutCheckIntervalSeconds = 0.5;
+constexpr double IndoorPathDirectSuppressAfterBlockedSeconds = 1.0;
+constexpr double IndoorActorPositionRecoveryIntervalSeconds = 0.25;
+constexpr double IndoorActorPositionRecoveryRetrySeconds = 15.0;
 constexpr float IndoorPathSpatialGridCellSize = 256.0f;
 constexpr float IndoorPathIgnoreActorCollisionMinTargetDistance = 768.0f;
 constexpr float IndoorGroundPathMinWaypointReachDistance = 32.0f;
@@ -167,6 +170,63 @@ bool indoorActorIsTerminalCorpse(
     return actor.hp <= 0
         || aiState.motionState == ActorAiMotionState::Dying
         || aiState.motionState == ActorAiMotionState::Dead;
+}
+
+const char *indoorActorAiMotionStateName(ActorAiMotionState state)
+{
+    switch (state)
+    {
+        case ActorAiMotionState::Standing: return "standing";
+        case ActorAiMotionState::Wandering: return "wandering";
+        case ActorAiMotionState::Pursuing: return "pursuing";
+        case ActorAiMotionState::Fleeing: return "fleeing";
+        case ActorAiMotionState::Stunned: return "stunned";
+        case ActorAiMotionState::Attacking: return "attacking";
+        case ActorAiMotionState::Dying: return "dying";
+        case ActorAiMotionState::Dead: return "dead";
+    }
+
+    return "unknown";
+}
+
+const char *indoorActorAiMovementActionName(ActorAiMovementAction action)
+{
+    switch (action)
+    {
+        case ActorAiMovementAction::None: return "none";
+        case ActorAiMovementAction::Stand: return "stand";
+        case ActorAiMovementAction::Move: return "move";
+        case ActorAiMovementAction::Pursue: return "pursue";
+        case ActorAiMovementAction::Flee: return "flee";
+        case ActorAiMovementAction::Wander: return "wander";
+    }
+
+    return "unknown";
+}
+
+const char *indoorActorAiTargetKindName(ActorAiTargetKind kind)
+{
+    switch (kind)
+    {
+        case ActorAiTargetKind::None: return "none";
+        case ActorAiTargetKind::Party: return "party";
+        case ActorAiTargetKind::Actor: return "actor";
+    }
+
+    return "unknown";
+}
+
+const ActorAiUpdate *findIndoorActorAiUpdate(const ActorAiFrameResult &result, size_t actorIndex)
+{
+    for (const ActorAiUpdate &update : result.actorUpdates)
+    {
+        if (update.actorIndex == actorIndex)
+        {
+            return &update;
+        }
+    }
+
+    return nullptr;
 }
 
 bool indoorActorCorpsePhysicsNeedsStep(
@@ -342,6 +402,37 @@ const char *indoorMoveBlockKindName(IndoorMoveBlockKind kind)
             return "party";
         case IndoorMoveBlockKind::InvalidPosition:
             return "invalid_position";
+    }
+
+    return "unknown";
+}
+
+const char *indoorMoveInvalidPositionReasonName(IndoorMoveInvalidPositionReason reason)
+{
+    switch (reason)
+    {
+        case IndoorMoveInvalidPositionReason::None:
+            return "none";
+        case IndoorMoveInvalidPositionReason::ActorLedgeDrop:
+            return "actor_ledge_drop";
+        case IndoorMoveInvalidPositionReason::LeadingActorLedgeDrop:
+            return "leading_actor_ledge_drop";
+        case IndoorMoveInvalidPositionReason::LostGroundSupport:
+            return "lost_ground_support";
+        case IndoorMoveInvalidPositionReason::SteepFloor:
+            return "steep_floor";
+        case IndoorMoveInvalidPositionReason::StepUpTooHigh:
+            return "step_up_too_high";
+        case IndoorMoveInvalidPositionReason::CeilingFloorCrush:
+            return "ceiling_floor_crush";
+        case IndoorMoveInvalidPositionReason::MissingEyeSector:
+            return "missing_eye_sector";
+        case IndoorMoveInvalidPositionReason::FaceCollision:
+            return "face_collision";
+        case IndoorMoveInvalidPositionReason::ActorCollision:
+            return "actor_collision";
+        case IndoorMoveInvalidPositionReason::UnsupportedStepUp:
+            return "unsupported_step_up";
     }
 
     return "unknown";
@@ -3309,7 +3400,9 @@ IndoorWorldRuntime::MapActorAiState buildIndoorMapActorAiState(
     const float recoverySeconds = indoorMonsterRecoverySeconds(pStats != nullptr ? pStats->recovery : 100);
 
     IndoorWorldRuntime::MapActorAiState state = {};
-    state.actorId = static_cast<uint32_t>(actorIndex);
+    const size_t sourceActorIndex =
+        actor.diagnosticSourceActorIndex != static_cast<size_t>(-1) ? actor.diagnosticSourceActorIndex : actorIndex;
+    state.actorId = static_cast<uint32_t>(sourceActorIndex);
     state.monsterId = resolvedMonsterId;
     state.displayName = pMonsterTable != nullptr ? resolveMapDeltaActorName(*pMonsterTable, actor) : actor.name;
     state.bolsterRewardMultiplier = std::max(1.0f, actor.bolsterRewardMultiplier);
@@ -3726,6 +3819,11 @@ void IndoorWorldRuntime::initialize(
     m_immolationTickSequence = 0;
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
+    m_actorPathRuntimeSeconds = 0.0;
+    m_actorPathPlansThisStep = 0;
+    m_nextActorPathPlanSeconds = 0.0;
+    m_nextPositionRecoveryBatchSeconds = 0.0;
+    m_positionRecoveryBatchActive = false;
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
@@ -3795,6 +3893,11 @@ void IndoorWorldRuntime::initialize(
     m_fireSpikeTraps.clear();
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = 0.0f;
+    m_actorPathRuntimeSeconds = 0.0;
+    m_actorPathPlansThisStep = 0;
+    m_nextActorPathPlanSeconds = 0.0;
+    m_nextPositionRecoveryBatchSeconds = 0.0;
+    m_positionRecoveryBatchActive = false;
     m_indoorJournalRevealStateValid = false;
     m_indoorMinimapRevealRevision = 0;
     m_cachedGameplayMinimapLinesValid = false;
@@ -4942,6 +5045,14 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
 
     m_actorPathRuntimeSeconds += ActorUpdateStepSeconds;
     m_actorPathPlansThisStep = 0;
+    m_positionRecoveryBatchActive = m_actorPathRuntimeSeconds >= m_nextPositionRecoveryBatchSeconds;
+
+    if (m_positionRecoveryBatchActive)
+    {
+        m_nextPositionRecoveryBatchSeconds =
+            m_actorPathRuntimeSeconds + IndoorActorPositionRecoveryIntervalSeconds;
+    }
+
     IndoorMovementController &movementController = actorMovementController();
     const uint64_t colliderBeginTickCount = pDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     std::vector<IndoorActorCollision> actorColliders = actorMovementCollidersForActorMovement(
@@ -5158,7 +5269,6 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
             && indoorActorPathfindingEnabled()
             && !aiState.canFly
             && update.movementIntent.action == ActorAiMovementAction::Pursue
-            && update.movementIntent.meleePursuitActive
             && update.movementIntent.applyMovement
             && !update.movementIntent.inMeleeRange;
 
@@ -5284,6 +5394,7 @@ std::vector<bool> IndoorWorldRuntime::applyIndoorActorAiFrameResult(
     }
 
     applyIndoorActorCorpsePhysicsSteps(movementController, actorPhysicsApplied, pDiagnostics);
+    m_positionRecoveryBatchActive = false;
 
     for (const DeferredMeleeAttackRequest &deferredAttackRequest : deferredMeleeAttackRequests)
     {
@@ -7362,6 +7473,403 @@ void IndoorWorldRuntime::applyFireSpikeTrapTriggerResult(
     }
 }
 
+bool IndoorWorldRuntime::recoverInvalidIndoorActorPosition(
+    size_t actorIndex,
+    const IndoorBodyDimensions &body,
+    IndoorMoveState &state,
+    bool allowNearestFloorCenter,
+    const IndoorMovementController &movementController)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+
+    const bool missingSector = state.sectorId < 0 || state.eyeSectorId < 0;
+
+    if (pMapDeltaData == nullptr
+        || m_pIndoorMapData == nullptr
+        || actorIndex >= pMapDeltaData->actors.size()
+        || actorIndex >= m_mapActorAiStates.size())
+    {
+        return false;
+    }
+
+    if (!m_positionRecoveryBatchActive)
+    {
+        return false;
+    }
+
+    RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+
+    if (runtimeGeometry.vertices.empty())
+    {
+        return false;
+    }
+
+    struct RecoveryCandidate
+    {
+        IndoorMoveState state = {};
+        float score = std::numeric_limits<float>::infinity();
+        const char *reason = "none";
+    };
+
+    constexpr float RecoveryMaxVerticalDistance = 8192.0f;
+    constexpr float RecoveryBelowFloorPenalty = 100000000.0f;
+    const float originalX = state.x;
+    const float originalY = state.y;
+    const float originalZ = state.footZ;
+    const float sameXYMinimumCorrection = body.height * 0.5f;
+    std::optional<RecoveryCandidate> bestCandidate;
+
+    const IndoorMoveState resolvedSupportState = movementController.resolveGroundedSupportState(state, body);
+    const bool recoveredStaleSupport =
+        state.grounded
+        && (std::fabs(resolvedSupportState.x - state.x) > 0.001f
+            || std::fabs(resolvedSupportState.y - state.y) > 0.001f
+            || std::fabs(resolvedSupportState.footZ - state.footZ) > 0.001f
+            || resolvedSupportState.sectorId != state.sectorId
+            || resolvedSupportState.eyeSectorId != state.eyeSectorId
+            || resolvedSupportState.supportFaceIndex != state.supportFaceIndex
+            || resolvedSupportState.grounded != state.grounded);
+
+    if (recoveredStaleSupport)
+    {
+        const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+        state = resolvedSupportState;
+
+        std::cout << "[IndoorActorRecovery] actor=" << actorIndex
+            << " actor_id=" << aiState.actorId
+            << " result=recovered"
+            << " reason=stale_support"
+            << " old=(" << originalX << ',' << originalY << ',' << originalZ << ')'
+            << " new=(" << state.x << ',' << state.y << ',' << state.footZ << ')'
+            << " sector=" << state.sectorId
+            << " eye_sector=" << state.eyeSectorId
+            << " support=" << (state.supportFaceIndex == static_cast<size_t>(-1)
+                ? -1
+                : static_cast<int>(state.supportFaceIndex))
+            << '\n';
+
+        return true;
+    }
+
+    if (!missingSector && state.grounded)
+    {
+        return false;
+    }
+
+    if (!missingSector)
+    {
+        const IndoorFloorSample currentSectorFloor =
+            sampleIndoorFloor(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                originalX,
+                originalY,
+                originalZ,
+                RecoveryMaxVerticalDistance,
+                0.0f,
+                state.sectorId,
+                nullptr,
+                &runtimeGeometry.geometryCache);
+
+        if ((!currentSectorFloor.hasFloor || !currentSectorFloor.isWalkable) && !allowNearestFloorCenter)
+        {
+            return false;
+        }
+
+        if (currentSectorFloor.hasFloor
+            && currentSectorFloor.isWalkable
+            && !allowNearestFloorCenter
+            && (currentSectorFloor.height < originalZ + sameXYMinimumCorrection
+                || currentSectorFloor.height > originalZ + body.height))
+        {
+            return false;
+        }
+    }
+
+    const auto considerCandidate =
+        [&](const IndoorFloorSample &sample, float x, float y, float score, const char *reason)
+    {
+        if (!sample.hasFloor || !sample.isWalkable || sample.sectorId < 0)
+        {
+            return;
+        }
+
+        const float eyeZ = sample.height + body.height;
+        const std::optional<int16_t> eyeSectorId =
+            findIndoorSectorForPoint(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                {x, y, eyeZ},
+                &runtimeGeometry.geometryCache,
+                false);
+
+        if (!eyeSectorId)
+        {
+            return;
+        }
+
+        RecoveryCandidate candidate = {};
+        candidate.state.x = x;
+        candidate.state.y = y;
+        candidate.state.footZ = sample.height;
+        candidate.state.eyeHeight = body.height;
+        candidate.state.verticalVelocity = 0.0f;
+        candidate.state.sectorId = sample.sectorId;
+        candidate.state.eyeSectorId = *eyeSectorId;
+        candidate.state.supportFaceIndex = sample.faceIndex;
+        candidate.state.grounded = true;
+        candidate.state.fallStartZ = candidate.state.footZ;
+        candidate.score = score;
+        candidate.reason = reason;
+
+        if (!bestCandidate || candidate.score < bestCandidate->score)
+        {
+            bestCandidate = candidate;
+        }
+    };
+
+    const auto evaluateFaceAtOriginalXY = [&](uint16_t faceId)
+    {
+        const IndoorFloorSample sample =
+            sampleIndoorFloorOnFace(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                faceId,
+                originalX,
+                originalY,
+                originalZ,
+                RecoveryMaxVerticalDistance,
+                missingSector ? RecoveryMaxVerticalDistance : 0.0f,
+                nullptr,
+                &runtimeGeometry.geometryCache);
+
+        if (!sample.hasFloor)
+        {
+            return;
+        }
+
+        const float deltaZ = sample.height - originalZ;
+
+        if (!missingSector && (deltaZ < sameXYMinimumCorrection || deltaZ > body.height))
+        {
+            return;
+        }
+
+        const float score = deltaZ >= -1.0f ? deltaZ : RecoveryBelowFloorPenalty + std::abs(deltaZ);
+        considerCandidate(sample, originalX, originalY, score, "same_xy_floor");
+    };
+
+    for (const IndoorSector &sector : m_pIndoorMapData->sectors)
+    {
+        for (uint16_t faceId : sector.floorFaceIds)
+        {
+            evaluateFaceAtOriginalXY(faceId);
+        }
+
+        if ((sector.flags & 0x8) != 0)
+        {
+            for (uint16_t faceId : sector.portalFaceIds)
+            {
+                evaluateFaceAtOriginalXY(faceId);
+            }
+        }
+    }
+
+    if (!bestCandidate && allowNearestFloorCenter)
+    {
+        const auto evaluateFaceCenter = [&](uint16_t faceId)
+        {
+            const IndoorFaceGeometryData *pGeometry =
+                runtimeGeometry.geometryCache.geometryForFace(
+                    *m_pIndoorMapData,
+                    runtimeGeometry.vertices,
+                    faceId);
+
+            if (pGeometry == nullptr || pGeometry->vertices.empty())
+            {
+                return;
+            }
+
+            float centerX = 0.0f;
+            float centerY = 0.0f;
+
+            for (const bx::Vec3 &vertex : pGeometry->vertices)
+            {
+                centerX += vertex.x;
+                centerY += vertex.y;
+            }
+
+            const float invVertexCount = 1.0f / static_cast<float>(pGeometry->vertices.size());
+            centerX *= invVertexCount;
+            centerY *= invVertexCount;
+
+            const IndoorFloorSample sample =
+                sampleIndoorFloorOnFace(
+                    *m_pIndoorMapData,
+                    runtimeGeometry.vertices,
+                    faceId,
+                    centerX,
+                    centerY,
+                    originalZ,
+                    RecoveryMaxVerticalDistance,
+                    RecoveryMaxVerticalDistance,
+                    nullptr,
+                    &runtimeGeometry.geometryCache);
+
+            if (!sample.hasFloor)
+            {
+                return;
+            }
+
+            const float deltaX = centerX - originalX;
+            const float deltaY = centerY - originalY;
+            const float deltaZ = sample.height - originalZ;
+            const float score = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ * 0.01f;
+            considerCandidate(sample, centerX, centerY, score, "nearest_floor_center");
+        };
+
+        for (const IndoorSector &sector : m_pIndoorMapData->sectors)
+        {
+            for (uint16_t faceId : sector.floorFaceIds)
+            {
+                evaluateFaceCenter(faceId);
+            }
+
+            if ((sector.flags & 0x8) != 0)
+            {
+                for (uint16_t faceId : sector.portalFaceIds)
+                {
+                    evaluateFaceCenter(faceId);
+                }
+            }
+        }
+    }
+
+    const bool logRecovery = logIndoorPathfindingEnabled();
+
+    if (!bestCandidate)
+    {
+        if (logRecovery)
+        {
+            const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+            std::cout << "[IndoorActorRecovery] actor=" << actorIndex
+                << " actor_id=" << aiState.actorId
+                << " result=failed"
+                << " old=(" << originalX << ',' << originalY << ',' << originalZ << ')'
+                << " old_sector=" << state.sectorId
+                << " old_eye_sector=" << state.eyeSectorId
+                << '\n';
+        }
+
+        return false;
+    }
+
+    const RecoveryCandidate candidate = *bestCandidate;
+
+    if (std::strcmp(candidate.reason, "nearest_floor_center") == 0)
+    {
+        const IndoorCollisionTraceInfo trace =
+            movementController.traceCollisionIssues(state, candidate.state, body);
+
+        if (trace.crossedBlockingFace)
+        {
+            if (logRecovery)
+            {
+                const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+                std::cout << "[IndoorActorRecovery] actor=" << actorIndex
+                    << " actor_id=" << aiState.actorId
+                    << " result=failed"
+                    << " reason=blocked_nearest_floor_center"
+                    << " old=(" << originalX << ',' << originalY << ',' << originalZ << ')'
+                    << " new=(" << candidate.state.x << ',' << candidate.state.y << ','
+                        << candidate.state.footZ << ')'
+                    << " old_sector=" << state.sectorId
+                    << " old_eye_sector=" << state.eyeSectorId
+                    << '\n';
+            }
+
+            return false;
+        }
+    }
+
+    const MapActorAiState &aiState = m_mapActorAiStates[actorIndex];
+    state = candidate.state;
+
+    std::cout << "[IndoorActorRecovery] actor=" << actorIndex
+        << " actor_id=" << aiState.actorId
+        << " result=recovered"
+        << " reason=" << candidate.reason
+        << " old=(" << originalX << ',' << originalY << ',' << originalZ << ')'
+        << " new=(" << state.x << ',' << state.y << ',' << state.footZ << ')'
+        << " sector=" << state.sectorId
+        << " eye_sector=" << state.eyeSectorId
+        << " support=" << (state.supportFaceIndex == static_cast<size_t>(-1)
+            ? -1
+            : static_cast<int>(state.supportFaceIndex))
+        << '\n';
+
+    return true;
+}
+
+bool IndoorWorldRuntime::actorNeedsIndoorPositionRecovery(
+    const IndoorMoveState &state,
+    const IndoorBodyDimensions &body,
+    bool actorCanFly
+) const
+{
+    if (!m_positionRecoveryBatchActive)
+    {
+        return false;
+    }
+
+    if (state.sectorId < 0 || state.eyeSectorId < 0)
+    {
+        return true;
+    }
+
+    if (actorCanFly)
+    {
+        return false;
+    }
+
+    if (state.grounded)
+    {
+        return state.supportFaceIndex != static_cast<size_t>(-1)
+            && (m_pIndoorMapData == nullptr || state.supportFaceIndex >= m_pIndoorMapData->faces.size());
+    }
+
+    if (m_pIndoorMapData == nullptr || state.sectorId < 0)
+    {
+        return false;
+    }
+
+    RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+
+    if (runtimeGeometry.vertices.empty())
+    {
+        return false;
+    }
+
+    constexpr float RecoveryProbeMaxRise = 8192.0f;
+    const float minimumBelowFloorCorrection = body.height * 0.5f;
+    const IndoorFloorSample floor =
+        sampleIndoorFloor(
+            *m_pIndoorMapData,
+            runtimeGeometry.vertices,
+            state.x,
+            state.y,
+            state.footZ,
+            RecoveryProbeMaxRise,
+            0.0f,
+            state.sectorId,
+            nullptr,
+            &runtimeGeometry.geometryCache);
+
+    return floor.hasFloor
+        && floor.isWalkable
+        && floor.height >= state.footZ + minimumBelowFloorCorrection;
+}
+
 bool IndoorWorldRuntime::updateWorldItemsStep(
     float deltaSeconds,
     const std::vector<IndoorVertex> &vertices,
@@ -7666,17 +8174,14 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             pStats->speed,
             aiState.spellEffects.slowMoveMultiplier,
             aiState.spellEffects.darkGraspRemainingSeconds > 0.0f);
-    const float oldX = aiState.preciseX;
-    const float oldY = aiState.preciseY;
-    const float oldZ = aiState.preciseZ;
     IndoorBodyDimensions body = {};
     body.radius = collisionRadius;
     body.height = collisionHeight;
 
     IndoorMoveState moveState = {};
-    moveState.x = oldX;
-    moveState.y = oldY;
-    moveState.footZ = oldZ;
+    moveState.x = aiState.preciseX;
+    moveState.y = aiState.preciseY;
+    moveState.footZ = aiState.preciseZ;
     moveState.eyeHeight = body.height;
     moveState.verticalVelocity = aiState.velocityZ;
     moveState.sectorId = aiState.sectorId;
@@ -7684,15 +8189,52 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     moveState.supportFaceIndex = aiState.supportFaceIndex;
     moveState.grounded = aiState.grounded;
 
-    if (moveState.sectorId < 0 || moveState.eyeSectorId < 0)
+    const bool actorCanFly = indoorActorCanUseFlyingPhysics(pStats, actor, aiState);
+    const bool shouldTryPositionRecovery =
+        actorNeedsIndoorPositionRecovery(moveState, body, actorCanFly)
+        && m_actorPathRuntimeSeconds >= aiState.nextPositionRecoveryAttemptSeconds;
+
+    if (shouldTryPositionRecovery)
     {
-        moveState = movementController.initializeStateFromEyePosition(oldX, oldY, oldZ + body.height, body);
-        moveState.verticalVelocity = aiState.velocityZ;
+        aiState.nextPositionRecoveryAttemptSeconds =
+            m_actorPathRuntimeSeconds + IndoorActorPositionRecoveryRetrySeconds;
+        const bool allowNearestFloorCenterRecovery = moveState.sectorId < 0 || moveState.eyeSectorId < 0;
+
+        if (recoverInvalidIndoorActorPosition(
+                actorIndex,
+                body,
+                moveState,
+                allowNearestFloorCenterRecovery,
+                movementController))
+        {
+            aiState.preciseX = moveState.x;
+            aiState.preciseY = moveState.y;
+            aiState.preciseZ = moveState.footZ;
+            aiState.velocityX = 0.0f;
+            aiState.velocityY = 0.0f;
+            aiState.velocityZ = 0.0f;
+            aiState.sectorId = moveState.sectorId;
+            aiState.eyeSectorId = moveState.eyeSectorId;
+            aiState.supportFaceIndex = moveState.supportFaceIndex;
+            aiState.grounded = moveState.grounded;
+            movementController.updateActorColliderPosition(
+                actorIndex,
+                aiState.sectorId,
+                aiState.preciseX,
+                aiState.preciseY,
+                aiState.preciseZ);
+            actor.x = static_cast<int>(std::lround(aiState.preciseX));
+            actor.y = static_cast<int>(std::lround(aiState.preciseY));
+            actor.z = static_cast<int>(std::lround(aiState.preciseZ));
+            actor.sectorId = aiState.sectorId;
+        }
     }
 
+    const float oldX = moveState.x;
+    const float oldY = moveState.y;
+    const float oldZ = moveState.footZ;
     const float movementIntentSpeed =
         update.movementIntent.moveSpeed > 0.0f ? update.movementIntent.moveSpeed : effectiveMoveSpeed;
-    const bool actorCanFly = indoorActorCanUseFlyingPhysics(pStats, actor, aiState);
     ActorMovementIntent movementIntent = update.movementIntent;
     const bool actorPathfindingEnabled = IndoorActorPathfindingEnabled && indoorActorPathfindingEnabled();
     bool actorPathPlanPending =
@@ -7711,11 +8253,11 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     const bool actorPathCanUseIntent =
         movementIntent.action == ActorAiMovementAction::Pursue
-        && movementIntent.meleePursuitActive
         && movementIntent.applyMovement
         && !movementIntent.inMeleeRange;
     ActorPathResolveResult pathResult = {};
     bool pathDirectFallbackActive = false;
+    bool actorPathMapAvailable = false;
 
     if (pDiagnostics != nullptr)
     {
@@ -7737,6 +8279,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     if (actorPathfindingEnabled && actorPathCanUseIntent)
     {
         std::shared_ptr<const PathMap> pathMap = indoorPathMap();
+        actorPathMapAvailable = pathMap != nullptr;
 
         if (pathMap != nullptr)
         {
@@ -7780,6 +8323,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             pathRequest.directCheckIntervalSeconds = IndoorPathDirectCheckIntervalSeconds;
             pathRequest.minReplanIntervalSeconds = IndoorPathMinReplanIntervalSeconds;
             pathRequest.shortcutCheckIntervalSeconds = IndoorPathShortcutCheckIntervalSeconds;
+            pathRequest.allowDirect = m_actorPathRuntimeSeconds >= aiState.suppressDirectPathUntilSeconds;
             pathRequest.allowPlan =
                 movementIntent.action == ActorAiMovementAction::Pursue
                 &&
@@ -8165,6 +8709,8 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
 
     IndoorMoveState finalMoveState = resolvedMoveState;
     const IndoorMoveState attemptedFinalMoveState = finalMoveState;
+    float velocityBaselineX = oldX;
+    float velocityBaselineY = oldY;
     bool flyingVoidBoundaryBlocked = false;
     const char *flyingVoidBoundaryBlockReason = "none";
 
@@ -8238,6 +8784,20 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         }
     }
 
+    if (!actorCanFly
+        && moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::InvalidPosition
+        && moveDebugInfo.invalidPositionReason == IndoorMoveInvalidPositionReason::MissingEyeSector)
+    {
+        IndoorMoveState recoveredMoveState = moveState;
+
+        if (recoverInvalidIndoorActorPosition(actorIndex, body, recoveredMoveState, true, movementController))
+        {
+            finalMoveState = recoveredMoveState;
+            velocityBaselineX = finalMoveState.x;
+            velocityBaselineY = finalMoveState.y;
+        }
+    }
+
     const auto appendMonsterTriggerFace =
         [this, pMapDeltaData, &monsterTriggerFaceIndices](const IndoorMoveDebugInfo &debugInfo)
     {
@@ -8283,13 +8843,31 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
         static_cast<size_t>(
             std::unique(contactedActorIndices.begin(), contactedActorIndices.end()) - contactedActorIndices.begin());
 
-    const float deltaX = finalMoveState.x - oldX;
-    const float deltaY = finalMoveState.y - oldY;
+    const float deltaX = finalMoveState.x - velocityBaselineX;
+    const float deltaY = finalMoveState.y - velocityBaselineY;
     const float actualMoveDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
     const bool wantedHorizontalMove =
         std::abs(movementIntent.desiredMoveX) > 0.001f
         || std::abs(movementIntent.desiredMoveY) > 0.001f;
     const bool movedHorizontally = actualMoveDistance > 0.001f;
+    const bool directPathSuppressed = m_actorPathRuntimeSeconds < aiState.suppressDirectPathUntilSeconds;
+    const bool directMovementHitSupportOrWall =
+        moveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
+        || moveDebugInfo.invalidPositionReason == IndoorMoveInvalidPositionReason::LostGroundSupport
+        || verticalMoveDebugInfo.primaryBlockKind == IndoorMoveBlockKind::Wall
+        || verticalMoveDebugInfo.invalidPositionReason == IndoorMoveInvalidPositionReason::LostGroundSupport;
+    const bool directMovementFailed =
+        actorPathCanUseIntent
+        && pathResult.directReachable
+        && !pathResult.pathActive
+        && wantedHorizontalMove
+        && (!movedHorizontally || directMovementHitSupportOrWall);
+
+    if (directMovementFailed)
+    {
+        aiState.suppressDirectPathUntilSeconds =
+            m_actorPathRuntimeSeconds + IndoorPathDirectSuppressAfterBlockedSeconds;
+    }
 
     if (pDiagnostics != nullptr)
     {
@@ -8330,12 +8908,19 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             << " monster_id=" << aiState.monsterId
             << " name=\"" << aiState.displayName << '"'
             << " can_fly=" << (actorCanFly ? 1 : 0)
+            << " path_enabled=" << (actorPathfindingEnabled ? 1 : 0)
+            << " path_can_use=" << (actorPathCanUseIntent ? 1 : 0)
+            << " path_map=" << (actorPathMapAvailable ? 1 : 0)
+            << " melee_pursuit=" << (movementIntent.meleePursuitActive ? 1 : 0)
+            << " in_melee=" << (movementIntent.inMeleeRange ? 1 : 0)
             << " path_active=" << (pathResult.pathActive ? 1 : 0)
             << " path_status=" << pathPlanStatusName(pathResult.planStatus)
             << " path_failed=" << (pathResult.failed ? 1 : 0)
             << " path_cooldown=" << (pathResult.cooldown ? 1 : 0)
             << " path_deferred=" << (pathResult.deferred ? 1 : 0)
             << " path_discarded=" << (pathResult.discarded ? 1 : 0)
+            << " path_direct=" << (pathResult.directReachable ? 1 : 0)
+            << " path_direct_suppressed=" << (directPathSuppressed ? 1 : 0)
             << " path_direct_fallback=" << (pathDirectFallbackActive ? 1 : 0)
             << " wanted=" << (wantedHorizontalMove ? 1 : 0)
             << " moved=" << (movedHorizontally ? 1 : 0)
@@ -8368,6 +8953,7 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             << " contacts=" << contactedActorCount
             << " ignore_actor_collision=" << (ignoreActorCollisionForMovement ? 1 : 0)
             << " block=" << indoorMoveBlockKindName(moveDebugInfo.primaryBlockKind)
+            << " invalid_reason=" << indoorMoveInvalidPositionReasonName(moveDebugInfo.invalidPositionReason)
             << " hit_face="
             << (moveDebugInfo.hitFaceIndex == static_cast<size_t>(-1)
                 ? -1
@@ -8382,8 +8968,10 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
             << " response_tried=" << (moveDebugInfo.collisionResponseTried ? 1 : 0)
             << " response_ok=" << (moveDebugInfo.collisionResponseSucceeded ? 1 : 0)
             << " response_step=(" << moveDebugInfo.responseStep.x << ',' << moveDebugInfo.responseStep.y
-            << ',' << moveDebugInfo.responseStep.z << ')'
+                << ',' << moveDebugInfo.responseStep.z << ')'
             << " vertical_block=" << indoorMoveBlockKindName(verticalMoveDebugInfo.primaryBlockKind)
+            << " vertical_invalid_reason="
+            << indoorMoveInvalidPositionReasonName(verticalMoveDebugInfo.invalidPositionReason)
             << " vertical_hit_face="
             << (verticalMoveDebugInfo.hitFaceIndex == static_cast<size_t>(-1)
                 ? -1
@@ -8615,6 +9203,45 @@ void IndoorWorldRuntime::applyIndoorActorMovementIntegration(
     }
 }
 
+const GameplayMonsterBolsterResult &IndoorWorldRuntime::resolvedActorBolster(
+    const MapActorAiState &aiState,
+    const MonsterTable::MonsterStatsEntry &stats,
+    const MonsterEntry *pMonsterEntry
+) const
+{
+    const int partyLevel =
+        m_bolsterMonstersEnabled ? gameplayBolsterAveragePartyLevel(m_pParty) : 0;
+    const uint32_t mapId = m_map ? m_map->id : 0;
+
+    if (aiState.bolsterCacheValid
+        && aiState.bolsterCacheEnabled == m_bolsterMonstersEnabled
+        && aiState.bolsterCacheMonsterId == aiState.monsterId
+        && aiState.bolsterCachePartyLevel == partyLevel
+        && aiState.bolsterCacheMapId == mapId)
+    {
+        return aiState.bolsterCache;
+    }
+
+    aiState.bolsterCache =
+        resolveGameplayMonsterBolster(
+            GameplayBolsterRuntimeContext{
+                .pMap = m_map ? &*m_map : nullptr,
+                .pMonsterTable = m_pMonsterTable,
+                .pBolsterMapTable = m_pMergedBolsterMapTable,
+                .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
+                .pParty = m_pParty,
+                .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
+            },
+            stats,
+            pMonsterEntry);
+    aiState.bolsterCacheValid = true;
+    aiState.bolsterCacheEnabled = m_bolsterMonstersEnabled;
+    aiState.bolsterCacheMonsterId = aiState.monsterId;
+    aiState.bolsterCachePartyLevel = partyLevel;
+    aiState.bolsterCacheMapId = mapId;
+    return aiState.bolsterCache;
+}
+
 std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     size_t actorIndex,
     bool active,
@@ -8648,18 +9275,7 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     const uint16_t radius = aiState.collisionRadius;
     const uint16_t height = aiState.collisionHeight;
     const MonsterEntry *pMonsterEntry = resolveRuntimeMonsterEntry(*m_pMonsterTable, actor);
-    const GameplayMonsterBolsterResult bolster =
-        resolveGameplayMonsterBolster(
-            GameplayBolsterRuntimeContext{
-                .pMap = m_map ? &*m_map : nullptr,
-                .pMonsterTable = m_pMonsterTable,
-                .pBolsterMapTable = m_pMergedBolsterMapTable,
-                .pBolsterMonsterTable = m_pMergedBolsterMonsterTable,
-                .pParty = m_pParty,
-                .bolsterMonstersEnabled = m_bolsterMonstersEnabled,
-            },
-            *pStats,
-            pMonsterEntry);
+    const GameplayMonsterBolsterResult &bolster = resolvedActorBolster(aiState, *pStats, pMonsterEntry);
     const bool actorInvisible = (actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0;
     const bool defaultHostile = defaultActorHostileToParty(actor, m_pMonsterTable);
     const bool hasEffectOverride =
@@ -9274,6 +9890,61 @@ void IndoorWorldRuntime::updateActorAi(float deltaSeconds)
         const uint64_t aiSystemBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
         const ActorAiFrameResult actorAiResult = actorAiSystem.updateActors(actorAiFacts);
         recordDiagnostics(m_actorAiPerformanceDiagnostics.aiSystemNanoseconds, aiSystemBeginTickCount);
+
+        if (logIndoorPathfindingEnabled() && pMapDeltaData->actors.size() == 1)
+        {
+            const auto traceActorDecision =
+                [&actorAiResult](const ActorAiFacts &facts, const char *pBucket)
+            {
+                const ActorAiUpdate *pUpdate = findIndoorActorAiUpdate(actorAiResult, facts.actorIndex);
+
+                if (pUpdate == nullptr)
+                {
+                    return;
+                }
+
+                std::cout << "[IndoorActorAi] decision actor=" << facts.actorIndex
+                    << " actor_id=" << facts.actorId
+                    << " bucket=" << pBucket
+                    << " active=" << (facts.world.active ? 1 : 0)
+                    << " motion_before=" << indoorActorAiMotionStateName(facts.runtime.motionState)
+                    << " motion_after="
+                    << (pUpdate->state.motionState
+                        ? indoorActorAiMotionStateName(*pUpdate->state.motionState)
+                        : "unchanged")
+                    << " movement_action=" << indoorActorAiMovementActionName(pUpdate->movementIntent.action)
+                    << " apply_movement=" << (pUpdate->movementIntent.applyMovement ? 1 : 0)
+                    << " melee_pursuit=" << (pUpdate->movementIntent.meleePursuitActive ? 1 : 0)
+                    << " in_melee=" << (pUpdate->movementIntent.inMeleeRange ? 1 : 0)
+                    << " desired_dir=(" << pUpdate->movementIntent.desiredMoveX
+                    << ',' << pUpdate->movementIntent.desiredMoveY
+                    << ',' << pUpdate->movementIntent.desiredMoveZ << ')'
+                    << " move_dir=(" << pUpdate->movementIntent.moveDirectionX
+                    << ',' << pUpdate->movementIntent.moveDirectionY << ')'
+                    << " target_kind=" << indoorActorAiTargetKindName(facts.target.currentKind)
+                    << " target_edge=" << facts.target.currentEdgeDistance
+                    << " target_pos=(" << facts.target.currentPosition.x
+                    << ',' << facts.target.currentPosition.y
+                    << ',' << facts.target.currentPosition.z << ')'
+                    << " party_distance=" << facts.movement.distanceToParty
+                    << " movement_allowed=" << (facts.movement.movementAllowed ? 1 : 0)
+                    << " can_fly=" << (facts.stats.canFly ? 1 : 0)
+                    << " sector=" << facts.world.sectorId
+                    << " floor_z=" << facts.world.floorZ
+                    << " portal_path=" << (facts.world.portalPathToParty ? 1 : 0)
+                    << '\n';
+            };
+
+            for (const ActorAiFacts &facts : actorAiFacts.activeActors)
+            {
+                traceActorDecision(facts, "active");
+            }
+
+            for (const ActorAiFacts &facts : actorAiFacts.backgroundActors)
+            {
+                traceActorDecision(facts, "background");
+            }
+        }
 
         const uint64_t applyBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
         const std::vector<bool> spellEffectsAppliedMask =
@@ -10588,6 +11259,9 @@ bool IndoorWorldRuntime::actorInspectState(
     }
 
     state.displayName = resolveMapDeltaActorName(*m_pMonsterTable, actor);
+    state.uniqueActorIndex = actor.diagnosticSourceActorIndex != static_cast<size_t>(-1)
+        ? actor.diagnosticSourceActorIndex
+        : actorIndex;
     state.monsterId = resolvedMonsterId;
     state.previewYOffset = monsterInspectPreviewYOffset(resolvedMonsterId);
     state.currentHp = std::max(0, static_cast<int>(actor.hp));
@@ -11771,6 +12445,7 @@ bool IndoorWorldRuntime::summonFriendlyMonsterById(
             z
         };
         MapDeltaActor actor = {};
+        actor.diagnosticSourceActorIndex = pMapDeltaData->actors.size();
         actor.name = pStats->name;
         actor.attributes = defaultActorAttributes(false);
         actor.hp = int16_t(std::clamp(pStats->hitPoints, 0, 32767));
@@ -11856,6 +12531,7 @@ bool IndoorWorldRuntime::summonHostileMonsterById(
         const float angleRadians = (Pi * 2.0f * summonIndex) / count;
         const float radius = 96.0f + 24.0f * float(summonIndex % 3u);
         MapDeltaActor actor = {};
+        actor.diagnosticSourceActorIndex = pMapDeltaData->actors.size();
         actor.name = pStats->name;
         actor.attributes = defaultActorAttributes(true);
         actor.hp = int16_t(std::clamp(pStats->hitPoints, 0, 32767));
@@ -12415,17 +13091,6 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
 
     const bool terminalCorpse = indoorActorIsTerminalCorpse(actor, aiState);
     const bool actorCanFly = indoorActorCanUseFlyingPhysics(pStats, actor, aiState);
-    const bool airborne = !actorCanFly && !aiState.grounded;
-    const bool hasVelocity =
-        std::abs(aiState.velocityX) > 0.001f
-        || std::abs(aiState.velocityY) > 0.001f
-        || std::abs(aiState.velocityZ) > 0.001f;
-
-    if (!airborne && !hasVelocity)
-    {
-        return false;
-    }
-
     IndoorBodyDimensions body = {};
     body.radius = static_cast<float>(aiState.collisionRadius);
     body.height = static_cast<float>(aiState.collisionHeight);
@@ -12440,6 +13105,59 @@ bool IndoorWorldRuntime::applyIndoorActorPhysicsStep(IndoorMovementController &m
     moveState.eyeSectorId = aiState.eyeSectorId;
     moveState.supportFaceIndex = aiState.supportFaceIndex;
     moveState.grounded = aiState.grounded;
+
+    const bool shouldTryPositionRecovery =
+        actorNeedsIndoorPositionRecovery(moveState, body, actorCanFly)
+        && m_actorPathRuntimeSeconds >= aiState.nextPositionRecoveryAttemptSeconds;
+    if (shouldTryPositionRecovery)
+    {
+        aiState.nextPositionRecoveryAttemptSeconds =
+            m_actorPathRuntimeSeconds + IndoorActorPositionRecoveryRetrySeconds;
+    }
+
+    const bool recoveredPosition =
+        shouldTryPositionRecovery
+        && recoverInvalidIndoorActorPosition(
+            actorIndex,
+            body,
+            moveState,
+            moveState.sectorId < 0 || moveState.eyeSectorId < 0,
+            movementController);
+
+    if (recoveredPosition)
+    {
+        aiState.preciseX = moveState.x;
+        aiState.preciseY = moveState.y;
+        aiState.preciseZ = moveState.footZ;
+        aiState.velocityX = 0.0f;
+        aiState.velocityY = 0.0f;
+        aiState.velocityZ = 0.0f;
+        aiState.sectorId = moveState.sectorId;
+        aiState.eyeSectorId = moveState.eyeSectorId;
+        aiState.supportFaceIndex = moveState.supportFaceIndex;
+        aiState.grounded = moveState.grounded;
+        movementController.updateActorColliderPosition(
+            actorIndex,
+            aiState.sectorId,
+            aiState.preciseX,
+            aiState.preciseY,
+            aiState.preciseZ);
+        actor.x = static_cast<int>(std::lround(aiState.preciseX));
+        actor.y = static_cast<int>(std::lround(aiState.preciseY));
+        actor.z = static_cast<int>(std::lround(aiState.preciseZ));
+        actor.sectorId = aiState.sectorId;
+    }
+
+    const bool airborne = !actorCanFly && !aiState.grounded;
+    const bool hasVelocity =
+        std::abs(aiState.velocityX) > 0.001f
+        || std::abs(aiState.velocityY) > 0.001f
+        || std::abs(aiState.velocityZ) > 0.001f;
+
+    if (!airborne && !hasVelocity)
+    {
+        return recoveredPosition;
+    }
 
     const IndoorMoveState resolvedMoveState =
         movementController.resolveMove(
@@ -14303,6 +15021,7 @@ bool IndoorWorldRuntime::summonMonsters(
         const float angleRadians = (Pi * 2.0f * static_cast<float>(summonIndex)) / static_cast<float>(count);
         const float radius = 96.0f + 24.0f * static_cast<float>(summonIndex % 3u);
         MapDeltaActor actor = {};
+        actor.diagnosticSourceActorIndex = pMapDeltaData->actors.size();
         actor.name = pStats->name;
         actor.attributes = defaultActorAttributes(hostileToParty);
         actor.hp = static_cast<int16_t>(std::clamp(pStats->hitPoints, 0, 32767));
@@ -16066,6 +16785,7 @@ void IndoorWorldRuntime::materializeInitialMonsterSpawns()
                     spawnOrdinal,
                     m_sessionChestSeed);
             MapDeltaActor actor = {};
+            actor.diagnosticSourceActorIndex = pMapDeltaData->actors.size();
             actor.name = pStats->name;
             actor.attributes = spawn.attributes;
             actor.hp = static_cast<int16_t>(std::clamp(pStats->hitPoints, 0, 32767));

@@ -50,6 +50,7 @@ struct InventoryItemUseResult
     uint32_t spellId = 0;
     uint32_t spellSkillLevelOverride = 0;
     SkillMastery spellSkillMasteryOverride = SkillMastery::None;
+    bool spellBypassRequiredMastery = false;
     std::string statusText;
     std::optional<SpeechId> speechId;
     std::optional<SoundId> soundId;

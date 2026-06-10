@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 65;
+constexpr uint32_t SaveVersion = 66;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -62,6 +62,7 @@ constexpr uint32_t SaveVersionOutdoorRuntimeSaveParity = 62;
 constexpr uint32_t SaveVersionProjectileVisualMode = 63;
 constexpr uint32_t SaveVersionIndoorFireSpikeTraps = 64;
 constexpr uint32_t SaveVersionHeldCursorItem = 65;
+constexpr uint32_t SaveVersionActorDiagnosticSource = 66;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -2116,11 +2117,16 @@ void writeValue(BinaryWriter &writer, const MapDeltaActor &value)
     writeValue(writer, value.ally);
     writeValue(writer, value.uniqueNameIndex);
     writeValue(writer, value.bolsterRewardMultiplier);
+    const uint64_t diagnosticSourceActorIndex =
+        value.diagnosticSourceActorIndex != static_cast<size_t>(-1)
+            ? static_cast<uint64_t>(value.diagnosticSourceActorIndex)
+            : std::numeric_limits<uint64_t>::max();
+    writeValue(writer, diagnosticSourceActorIndex);
 }
 
 bool readValue(BinaryReader &reader, MapDeltaActor &value)
 {
-    return readValue(reader, value.name)
+    if (!(readValue(reader, value.name)
         && readValue(reader, value.npcId)
         && readValue(reader, value.attributes)
         && readValue(reader, value.hp)
@@ -2140,7 +2146,30 @@ bool readValue(BinaryReader &reader, MapDeltaActor &value)
         && readValue(reader, value.group)
         && readValue(reader, value.ally)
         && readValue(reader, value.uniqueNameIndex)
-        && (reader.version() < SaveVersionMonsterBolsterRewards || readValue(reader, value.bolsterRewardMultiplier));
+        && (reader.version() < SaveVersionMonsterBolsterRewards || readValue(reader, value.bolsterRewardMultiplier))))
+    {
+        return false;
+    }
+
+    if (reader.version() >= SaveVersionActorDiagnosticSource)
+    {
+        uint64_t diagnosticSourceActorIndex = std::numeric_limits<uint64_t>::max();
+
+        if (!readValue(reader, diagnosticSourceActorIndex))
+        {
+            return false;
+        }
+
+        value.diagnosticSourceActorIndex = static_cast<size_t>(-1);
+
+        if (diagnosticSourceActorIndex != std::numeric_limits<uint64_t>::max()
+            && diagnosticSourceActorIndex <= static_cast<uint64_t>(std::numeric_limits<size_t>::max()))
+        {
+            value.diagnosticSourceActorIndex = static_cast<size_t>(diagnosticSourceActorIndex);
+        }
+    }
+
+    return true;
 }
 
 void writeValue(BinaryWriter &writer, const MapDeltaSpriteObject &value)

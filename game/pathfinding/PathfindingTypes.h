@@ -121,6 +121,7 @@ struct PathPlanRequest
     size_t nodeLimit = 8000;
     uint32_t mapRevision = 0;
     bool allowPartialPath = false;
+    bool allowDirect = true;
 };
 
 struct PathPlanDebugInfo

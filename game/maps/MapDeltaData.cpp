@@ -106,6 +106,7 @@ bool parseActorVector(const ByteReader &reader, size_t offset, MapDeltaData &map
     {
         const size_t actorOffset = actorDataOffset + static_cast<size_t>(actorIndex) * ActorRecordSize;
         MapDeltaActor actor = {};
+        actor.diagnosticSourceActorIndex = actorIndex;
         actor.name = reader.readFixedString(actorOffset, ActorNameSize);
 
         if (!reader.readInt16(actorOffset + ActorNpcIdOffset, actor.npcId)

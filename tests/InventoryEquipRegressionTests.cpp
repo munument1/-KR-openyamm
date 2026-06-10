@@ -111,6 +111,7 @@ TEST_CASE("inventory item use spell scroll prepares a master cast")
     CHECK_EQ(result.spellId, OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TorchLight));
     CHECK_EQ(result.spellSkillLevelOverride, 5u);
     CHECK(result.spellSkillMasteryOverride == OpenYAMM::Game::SkillMastery::Master);
+    CHECK(result.spellBypassRequiredMastery);
     CHECK(result.consumed);
 }
 

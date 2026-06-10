@@ -3,6 +3,7 @@
 #include "engine/AssetScaleTier.h"
 #include "game/app/GameApplication.h"
 #include "game/app/GameSettings.h"
+#include "game/app/GprofControl.h"
 #include "game/app/OpenYammMain.h"
 #include "game/outdoor/HeadlessOutdoorDiagnostics.h"
 #include "game/scenario/ScenarioHeadlessCommand.h"
@@ -21,6 +22,7 @@ extern "C"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -49,6 +51,7 @@ bool parseCommonArguments(
     bool hasAssetScaleArgument = false;
     bool hasMapOverrideArgument = false;
     bool hasWorldArgument = false;
+    bool hasLoadUniqueActorArgument = false;
     worldArgumentProvided = false;
     assetScaleArgumentProvided = false;
 
@@ -101,6 +104,56 @@ bool parseCommonArguments(
             config.activeWorldId = argv[argumentIndex + 1];
             hasWorldArgument = true;
             worldArgumentProvided = true;
+            ++argumentIndex;
+            continue;
+        }
+
+        if (argument == "--load-unique-actor")
+        {
+            if (hasLoadUniqueActorArgument || argumentIndex + 1 >= argc)
+            {
+                std::cerr << "Usage: --load-unique-actor <actor-index>\n";
+                return false;
+            }
+
+            const std::string value = argv[argumentIndex + 1];
+            if (value.empty())
+            {
+                std::cerr << "Invalid --load-unique-actor value: " << value << '\n';
+                return false;
+            }
+
+            for (char ch : value)
+            {
+                if (!std::isdigit(static_cast<unsigned char>(ch)))
+                {
+                    std::cerr << "Invalid --load-unique-actor value: " << value << '\n';
+                    return false;
+                }
+            }
+
+            size_t parsedCharacters = 0;
+            unsigned long long parsedActorIndex = 0;
+
+            try
+            {
+                parsedActorIndex = std::stoull(value, &parsedCharacters, 10);
+            }
+            catch (const std::exception &)
+            {
+                std::cerr << "Invalid --load-unique-actor value: " << value << '\n';
+                return false;
+            }
+
+            if (parsedCharacters != value.size()
+                || parsedActorIndex > static_cast<unsigned long long>(std::numeric_limits<size_t>::max()))
+            {
+                std::cerr << "Invalid --load-unique-actor value: " << value << '\n';
+                return false;
+            }
+
+            config.loadUniqueActorIndex = static_cast<size_t>(parsedActorIndex);
+            hasLoadUniqueActorArgument = true;
             ++argumentIndex;
             continue;
         }
@@ -183,6 +236,7 @@ void applySettingsConfigOverridesIfConfigured(
 
 int runApplication(int argc, char **argv)
 {
+    setGprofProfilingEnabled(false);
     av_log_set_level(AV_LOG_ERROR);
 
     OpenYAMM::Engine::ApplicationConfig config = OpenYAMM::Engine::ApplicationConfig::createDefault();

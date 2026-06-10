@@ -4,6 +4,7 @@
 #include "game/events/EventRuntime.h"
 #include "game/events/ISceneEventContext.h"
 #include "game/gameplay/GameplayActorAiTypes.h"
+#include "game/gameplay/GameplayBolsterRuntime.h"
 #include "game/gameplay/GameplayProjectileService.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/ui/GameplayOverlayTypes.h"
@@ -110,6 +111,8 @@ public:
         float crowdStandRemainingSeconds = 0.0f;
         float crowdProbeEdgeDistance = 0.0f;
         float crowdProbeElapsedSeconds = 0.0f;
+        double suppressDirectPathUntilSeconds = 0.0;
+        double nextPositionRecoveryAttemptSeconds = 0.0;
         uint32_t idleDecisionCount = 0;
         uint32_t pursueDecisionCount = 0;
         uint32_t attackDecisionCount = 0;
@@ -117,6 +120,12 @@ public:
         int8_t crowdSideSign = 0;
         bool attackImpactTriggered = false;
         bool suppressLowHealthFlee = false;
+        mutable bool bolsterCacheValid = false;
+        mutable bool bolsterCacheEnabled = false;
+        mutable int16_t bolsterCacheMonsterId = 0;
+        mutable int bolsterCachePartyLevel = 0;
+        mutable uint32_t bolsterCacheMapId = 0;
+        mutable GameplayMonsterBolsterResult bolsterCache = {};
     };
 
     struct ActorInspectPreviewAnimationState
@@ -626,6 +635,16 @@ private:
         const ActorAiUpdate &update,
         const GameplayActorAiSystem &actorAiSystem,
         IndoorActorAiPerformanceDiagnostics *pDiagnostics = nullptr);
+    bool recoverInvalidIndoorActorPosition(
+        size_t actorIndex,
+        const IndoorBodyDimensions &body,
+        IndoorMoveState &state,
+        bool allowNearestFloorCenter,
+        const IndoorMovementController &movementController);
+    bool actorNeedsIndoorPositionRecovery(
+        const IndoorMoveState &state,
+        const IndoorBodyDimensions &body,
+        bool actorCanFly) const;
     bool applyIndoorActorProjectileRequest(const ActorProjectileRequest &projectileRequest);
     bool addBloodSplat(uint32_t sourceActorId, float x, float y, float z, float radius);
     void bakeBloodSplatGeometry(BloodSplatState &splat) const;
@@ -668,6 +687,10 @@ private:
         IndoorFaceGeometryCache &geometryCache,
         const std::vector<uint8_t> &spellEffectOverrideMask
     ) const;
+    const GameplayMonsterBolsterResult &resolvedActorBolster(
+        const MapActorAiState &aiState,
+        const MonsterTable::MonsterStatsEntry &stats,
+        const MonsterEntry *pMonsterEntry) const;
     bool indoorActorCanApplyPartyMeleeImpact(size_t actorIndex) const;
     ChestViewState buildChestView(uint32_t chestId) const;
     void activateChestView(uint32_t chestId);
@@ -784,6 +807,8 @@ private:
     double m_actorPathRuntimeSeconds = 0.0;
     size_t m_actorPathPlansThisStep = 0;
     double m_nextActorPathPlanSeconds = 0.0;
+    double m_nextPositionRecoveryBatchSeconds = 0.0;
+    bool m_positionRecoveryBatchActive = false;
     IndoorActorAiPerformanceDiagnostics m_actorAiPerformanceDiagnostics;
     uint32_t m_lastActorAiPerformanceLogTick = 0;
     bool m_cachedGameplayMinimapLinesValid = false;

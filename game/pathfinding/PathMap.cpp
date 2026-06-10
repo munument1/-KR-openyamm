@@ -347,6 +347,71 @@ bool segmentIntersectsFacet(
     return pointInsideFacet(outPoint, facet, normal);
 }
 
+bool facetBlocksBodyOverlap(const PathFacet &facet, const PathPoint &normal)
+{
+    if (facet.kind == PathFacetKind::Floor
+        || facet.kind == PathFacetKind::Ceiling
+        || facet.kind == PathFacetKind::Portal
+        || facet.walkableFloor)
+    {
+        return false;
+    }
+
+    if (facet.kind != PathFacetKind::Wall && std::fabs(normal.z) >= 0.5f)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool segmentMovesIntoFacetBodyOverlap(
+    const PathPoint &from,
+    const PathPoint &to,
+    const PathFacet &facet,
+    const PathPoint &normal,
+    float radius,
+    PathPoint &outPoint
+)
+{
+    if (radius <= PathEpsilon || !facetBlocksBodyOverlap(facet, normal))
+    {
+        return false;
+    }
+
+    const float fromSignedDistance = pointDot(normal, pointSubtract(from, facet.vertices.front()));
+    const float toSignedDistance = pointDot(normal, pointSubtract(to, facet.vertices.front()));
+    const float fromDistance = std::fabs(fromSignedDistance);
+    const float toDistance = std::fabs(toSignedDistance);
+
+    if (toDistance > radius + PathEpsilon)
+    {
+        return false;
+    }
+
+    const PathPoint projectedPoint = pointSubtract(to, pointScale(normal, toSignedDistance));
+
+    if (!pointInsideFacet(projectedPoint, facet, normal))
+    {
+        return false;
+    }
+
+    const bool startedInsideWallRadius = fromDistance <= radius + 0.5f;
+    const bool stayedOnSameSide =
+        fromSignedDistance == 0.0f
+        || toSignedDistance == 0.0f
+        || (fromSignedDistance > 0.0f) == (toSignedDistance > 0.0f);
+    const bool didNotMoveTowardWall = toDistance >= fromDistance - 0.5f;
+
+    if (startedInsideWallRadius && stayedOnSameSide && didNotMoveTowardWall)
+    {
+        return false;
+    }
+
+    outPoint = projectedPoint;
+    return true;
+}
+
 bool facetIsNonBlocking(const PathFacet &facet)
 {
     return !facet.blocking
@@ -838,12 +903,13 @@ PathTraceResult PathMap::traceLine(
     }
 
     PathTraceResult result = {};
+    std::vector<size_t> candidates;
 
     for (size_t traceIndex = 0; traceIndex < traceCount; ++traceIndex)
     {
         const std::pair<PathPoint, PathPoint> &trace = traces[traceIndex];
         const PathBounds bounds = segmentBounds(trace.first, trace.second, radius);
-        const std::vector<size_t> candidates = candidateFacetsForBounds(bounds);
+        candidateFacetsForBounds(bounds, candidates);
 
         for (size_t facetIndex : candidates)
         {
@@ -863,6 +929,22 @@ PathTraceResult PathMap::traceLine(
             PathPoint hitPoint = {};
 
             if (segmentIntersectsFacet(trace.first, trace.second, facet, geometry.normal, hitPoint))
+            {
+                result.blocked = true;
+                result.facetIndex = facetIndex;
+                result.point = hitPoint;
+                return result;
+            }
+
+            if (traceIndex == 0
+                && checkBody
+                && segmentMovesIntoFacetBodyOverlap(
+                    trace.first,
+                    trace.second,
+                    facet,
+                    geometry.normal,
+                    radius,
+                    hitPoint))
             {
                 result.blocked = true;
                 result.facetIndex = facetIndex;
@@ -1039,25 +1121,25 @@ bool PathMap::canReachDirectly(const PathPoint &from, const PathPoint &to, const
     return traceWalkSegment(from, to, object);
 }
 
-std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) const
+void PathMap::candidateFacetsForBounds(const PathBounds &bounds, std::vector<size_t> &candidates) const
 {
+    candidates.clear();
+
     if (!boundsAreFinite(bounds))
     {
-        return {};
+        return;
     }
 
     struct CandidateScratch
     {
         std::vector<uint32_t> marks;
         uint32_t markId = 0;
-        std::vector<size_t> candidates;
     };
 
     thread_local CandidateScratch scratch;
 
     if (m_gridCellSize <= PathEpsilon || m_spatialGrid.empty())
     {
-        std::vector<size_t> candidates;
         candidates.reserve(m_facets.size());
 
         for (size_t index = 0; index < m_geometry.size(); ++index)
@@ -1068,7 +1150,7 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
             }
         }
 
-        return candidates;
+        return;
     }
 
     if (scratch.marks.size() != m_geometry.size())
@@ -1085,7 +1167,6 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
         ++scratch.markId;
     }
 
-    scratch.candidates.clear();
     const int32_t minCellX = gridCoordinate(bounds.minX);
     const int32_t maxCellX = gridCoordinate(bounds.maxX);
     const int32_t minCellY = gridCoordinate(bounds.minY);
@@ -1097,7 +1178,6 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
         || static_cast<int64_t>(maxCellY) - static_cast<int64_t>(minCellY) > MaxPathGridCellSpan
         || static_cast<int64_t>(maxCellZ) - static_cast<int64_t>(minCellZ) > MaxPathGridCellSpan)
     {
-        std::vector<size_t> candidates;
         candidates.reserve(m_facets.size());
 
         for (size_t index = 0; index < m_geometry.size(); ++index)
@@ -1108,7 +1188,7 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
             }
         }
 
-        return candidates;
+        return;
     }
 
     for (int32_t cellX = minCellX; cellX <= maxCellX; ++cellX)
@@ -1136,15 +1216,13 @@ std::vector<size_t> PathMap::candidateFacetsForBounds(const PathBounds &bounds) 
                         if (facetIndex < scratch.marks.size() && scratch.marks[facetIndex] != scratch.markId)
                         {
                             scratch.marks[facetIndex] = scratch.markId;
-                            scratch.candidates.push_back(facetIndex);
+                            candidates.push_back(facetIndex);
                         }
                     }
                 }
             }
         }
     }
-
-    return scratch.candidates;
 }
 
 std::vector<size_t> PathMap::candidateFloorFacetsForPoint(float x, float y) const

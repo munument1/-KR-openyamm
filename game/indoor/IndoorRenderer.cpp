@@ -2636,6 +2636,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     input.verticalFovDegrees = 60.0f;
     input.aspectRatio = aspectRatio;
     input.startSectorId = startSectorId;
+    input.collectPortalTraces = m_logIndoorVisibilityDiagnostics;
 
     const uint64_t visibilityBuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
     const IndoorPortalVisibilityResult visibility = buildIndoorPortalVisibility(input);
@@ -2664,7 +2665,15 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     cache.aspectRatio = aspectRatio;
     cache.visibleSectorMask = visibility.visibleSectorMask;
     cache.visibleSectorFrustums = visibility.frustumsBySector;
-    cache.portalTraces = visibility.portalTraces;
+    cache.acceptedPortals = visibility.acceptedPortals;
+    if (m_logIndoorVisibilityDiagnostics)
+    {
+        cache.portalTraces = visibility.portalTraces;
+    }
+    else
+    {
+        cache.portalTraces.clear();
+    }
     return cache.visibleSectorMask;
 }
 
@@ -3271,14 +3280,14 @@ std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sec
 
     const PortalVisibilityCache &renderPortalCache = m_renderPortalVisibilityCache;
 
-    for (const IndoorPortalVisibilityTrace &trace : renderPortalCache.portalTraces)
+    for (const IndoorAcceptedPortalVisibility &portal : renderPortalCache.acceptedPortals)
     {
-        if (!trace.accepted || !portalFaceOnScreen(trace.faceId))
+        if (!portalFaceOnScreen(portal.faceId))
         {
             continue;
         }
 
-        appendSectorId(trace.targetSectorId);
+        appendSectorId(portal.targetSectorId);
     }
 
     return sectorIds;
@@ -3853,7 +3862,6 @@ void IndoorRenderer::render(
         viewMatrix,
         eye,
         renderVisibleSectorMask,
-        renderVisibleSectorFrustums,
         lightingFrame,
         settings.spriteOutline,
         pContextActionState,
@@ -3871,7 +3879,6 @@ void IndoorRenderer::render(
         viewMatrix,
         eye,
         renderVisibleSectorMask,
-        renderVisibleSectorFrustums,
         lightingFrame,
         settings.spriteOutline,
         pContextActionState,
@@ -6974,7 +6981,6 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
-    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
     const GameplayContextActionState *pContextActionState,
@@ -7116,11 +7122,6 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
             if (!billboardSphereInFrustum(center, radius, frustumPlanes))
-            {
-                continue;
-            }
-
-            if (!sphereIntersectsVisibleSectorFrustums(billboard.sectorId, center, radius, visibleSectorFrustums))
             {
                 continue;
             }
@@ -7712,7 +7713,6 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const float *pViewMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
-    const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
     const GameplayContextActionState *pContextActionState,
@@ -7761,7 +7761,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     const std::array<IndoorVisibilityPlane, 4> frustumPlanes =
         buildIndoorBillboardFrustumPlanes(cameraPosition, m_cameraYawRadians, m_cameraPitchRadians, aspectRatio);
     const auto spriteBillboardVisible =
-        [&frustumPlanes, &visibleSectorFrustums](int16_t sectorId, float x, float y, float z,
+        [&frustumPlanes](float x, float y, float z,
             const SpriteFrameEntry &frame,
             const BillboardTextureHandle &texture) -> bool
         {
@@ -7781,8 +7781,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             };
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
-            return billboardSphereInFrustum(center, radius, frustumPlanes)
-                && sphereIntersectsVisibleSectorFrustums(sectorId, center, radius, visibleSectorFrustums);
+            return billboardSphereInFrustum(center, radius, frustumPlanes);
         };
 
     struct BillboardDrawItem
@@ -7915,7 +7914,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 return;
             }
 
-            if (!spriteBillboardVisible(sectorId, x, y, z, *pFrame, *pTexture))
+            if (!spriteBillboardVisible(x, y, z, *pFrame, *pTexture))
             {
                 if (forceLog)
                 {
@@ -7994,7 +7993,6 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             }
 
             if (!spriteBillboardVisible(
-                    billboard.sectorId,
                     static_cast<float>(billboard.x),
                     static_cast<float>(billboard.y),
                     static_cast<float>(billboard.z),
@@ -8063,7 +8061,6 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 }
 
                 if (!spriteBillboardVisible(
-                        billboard.sectorId,
                         static_cast<float>(billboard.x),
                         static_cast<float>(billboard.y),
                         static_cast<float>(billboard.z),

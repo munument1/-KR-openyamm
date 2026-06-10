@@ -147,6 +147,11 @@ void traceRuntimeValueChange(
     int32_t currentValue,
     const char *pOperation)
 {
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
     if (previousValue == currentValue)
     {
         return;
@@ -169,6 +174,11 @@ void traceIndexedRuntimeValueChange(
     int32_t currentValue,
     const char *pOperation)
 {
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
     traceRuntimeValueChange(
         runtimeState,
         eventName,
@@ -186,6 +196,11 @@ void traceNamedRuntimeValueChange(
     int32_t currentValue,
     const char *pOperation)
 {
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
     traceRuntimeValueChange(
         runtimeState,
         eventName,
@@ -6766,6 +6781,11 @@ void tracePendingInputPromptCreated(
     const EventRuntimeState::PendingInputPrompt &prompt,
     const char *pSource)
 {
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
     const char *pContextKind = "none";
 
     if (runtimeState.pendingDialogueContext)

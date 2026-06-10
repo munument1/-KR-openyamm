@@ -1,6 +1,7 @@
 #include "game/app/GameApplication.h"
 
 #include "game/StringUtils.h"
+#include "game/app/GprofControl.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayHeldItemController.h"
@@ -265,6 +266,235 @@ void preloadMapGameplaySounds(
     {
         preloadSoundOnce(audioSystem, preloadedSounds, worldSound(spriteObject.soundId));
     }
+}
+
+size_t findMapDeltaActorFilterIndex(const MapDeltaData &mapDeltaData, size_t uniqueActorIndex)
+{
+    for (size_t actorIndex = 0; actorIndex < mapDeltaData.actors.size(); ++actorIndex)
+    {
+        if (mapDeltaData.actors[actorIndex].diagnosticSourceActorIndex == uniqueActorIndex)
+        {
+            return actorIndex;
+        }
+    }
+
+    if (uniqueActorIndex < mapDeltaData.actors.size())
+    {
+        return uniqueActorIndex;
+    }
+
+    return static_cast<size_t>(-1);
+}
+
+bool filterMapDeltaDataToActorIndex(
+    MapDeltaData &mapDeltaData,
+    size_t selectedActorIndex,
+    size_t uniqueActorIndex,
+    const std::string &mapFileName,
+    const char *pSceneKind)
+{
+    if (selectedActorIndex >= mapDeltaData.actors.size())
+    {
+        std::cerr
+            << "GameApplication: --load-unique-actor " << uniqueActorIndex
+            << " is out of range for " << pSceneKind << " map " << mapFileName
+            << " actor_count=" << mapDeltaData.actors.size() << '\n';
+        return false;
+    }
+
+    MapDeltaActor selectedActor = mapDeltaData.actors[selectedActorIndex];
+    selectedActor.diagnosticSourceActorIndex = uniqueActorIndex;
+    mapDeltaData.actors.clear();
+    mapDeltaData.actors.push_back(selectedActor);
+
+    std::cout
+        << "[ActorLoadFilter] map=\"" << mapFileName << "\" scene=" << pSceneKind
+        << " unique_actor=" << uniqueActorIndex
+        << " loaded_actor_count=1\n";
+    GAMEPLAY_DEBUG_TRACE(
+        "actor_load_filter map=\"" + mapFileName + "\""
+        + " scene=" + std::string(pSceneKind)
+        + " unique_actor=" + std::to_string(uniqueActorIndex)
+        + " loaded_actor_count=1");
+    return true;
+}
+
+size_t findIndoorRuntimeActorFilterIndex(
+    const IndoorWorldRuntime::Snapshot &snapshot,
+    size_t uniqueActorIndex)
+{
+    for (size_t actorIndex = 0; actorIndex < snapshot.mapActorAiStates.size(); ++actorIndex)
+    {
+        if (snapshot.mapActorAiStates[actorIndex].actorId == uniqueActorIndex)
+        {
+            return actorIndex;
+        }
+    }
+
+    return static_cast<size_t>(-1);
+}
+
+template <typename T>
+void filterVectorToActorIndex(std::vector<T> &values, size_t selectedActorIndex)
+{
+    if (selectedActorIndex >= values.size())
+    {
+        values.clear();
+        return;
+    }
+
+    T selectedValue = values[selectedActorIndex];
+    values.clear();
+    values.push_back(std::move(selectedValue));
+}
+
+template <typename T>
+void filterCorpseViewsToActorIndex(
+    std::vector<std::optional<T>> &corpseViews,
+    std::optional<T> &activeCorpseView,
+    size_t selectedActorIndex)
+{
+    std::optional<T> selectedCorpseView;
+
+    if (selectedActorIndex < corpseViews.size())
+    {
+        selectedCorpseView = corpseViews[selectedActorIndex];
+
+        if (selectedCorpseView)
+        {
+            selectedCorpseView->sourceIndex = 0;
+        }
+    }
+
+    corpseViews.clear();
+    corpseViews.push_back(selectedCorpseView);
+
+    if (activeCorpseView && activeCorpseView->sourceIndex == selectedActorIndex)
+    {
+        activeCorpseView->sourceIndex = 0;
+    }
+    else
+    {
+        activeCorpseView.reset();
+    }
+}
+
+size_t findOutdoorRuntimeActorFilterIndex(
+    const OutdoorWorldRuntime::Snapshot &snapshot,
+    size_t uniqueActorIndex)
+{
+    for (size_t actorIndex = 0; actorIndex < snapshot.mapActors.size(); ++actorIndex)
+    {
+        if (snapshot.mapActors[actorIndex].actorId == uniqueActorIndex)
+        {
+            return actorIndex;
+        }
+    }
+
+    return static_cast<size_t>(-1);
+}
+
+bool filterOutdoorRuntimeToUniqueActor(
+    OutdoorWorldRuntime &worldRuntime,
+    size_t uniqueActorIndex,
+    const std::string &mapFileName)
+{
+    MapDeltaData *pMapDeltaData = worldRuntime.mapDeltaData();
+
+    if (pMapDeltaData == nullptr)
+    {
+        std::cerr
+            << "GameApplication: --load-unique-actor cannot filter outdoor map "
+            << mapFileName << " without map delta actors\n";
+        return false;
+    }
+
+    OutdoorWorldRuntime::Snapshot snapshot = worldRuntime.snapshot();
+    size_t selectedRuntimeActorIndex = findOutdoorRuntimeActorFilterIndex(snapshot, uniqueActorIndex);
+
+    if (selectedRuntimeActorIndex == static_cast<size_t>(-1))
+    {
+        selectedRuntimeActorIndex = findMapDeltaActorFilterIndex(*pMapDeltaData, uniqueActorIndex);
+    }
+
+    if (selectedRuntimeActorIndex == static_cast<size_t>(-1))
+    {
+        std::cerr
+            << "GameApplication: --load-unique-actor " << uniqueActorIndex
+            << " is out of range for outdoor runtime map " << mapFileName
+            << " actor_count=" << snapshot.mapActors.size() << '\n';
+        return false;
+    }
+
+    if (!filterMapDeltaDataToActorIndex(
+            *pMapDeltaData,
+            selectedRuntimeActorIndex,
+            uniqueActorIndex,
+            mapFileName,
+            "outdoor"))
+    {
+        return false;
+    }
+
+    filterVectorToActorIndex(snapshot.mapActors, selectedRuntimeActorIndex);
+    filterCorpseViewsToActorIndex(
+        snapshot.mapActorCorpseViews,
+        snapshot.activeCorpseView,
+        selectedRuntimeActorIndex);
+    worldRuntime.restoreSnapshot(snapshot);
+    return true;
+}
+
+bool filterIndoorRuntimeToUniqueActor(
+    IndoorWorldRuntime &worldRuntime,
+    size_t uniqueActorIndex,
+    const std::string &mapFileName)
+{
+    MapDeltaData *pMapDeltaData = worldRuntime.mapDeltaData();
+
+    if (pMapDeltaData == nullptr)
+    {
+        std::cerr
+            << "GameApplication: --load-unique-actor cannot filter indoor map "
+            << mapFileName << " without map delta actors\n";
+        return false;
+    }
+
+    IndoorWorldRuntime::Snapshot snapshot = worldRuntime.snapshot();
+    size_t selectedRuntimeActorIndex = findIndoorRuntimeActorFilterIndex(snapshot, uniqueActorIndex);
+
+    if (selectedRuntimeActorIndex == static_cast<size_t>(-1))
+    {
+        selectedRuntimeActorIndex = findMapDeltaActorFilterIndex(*pMapDeltaData, uniqueActorIndex);
+    }
+
+    if (selectedRuntimeActorIndex == static_cast<size_t>(-1))
+    {
+        std::cerr
+            << "GameApplication: --load-unique-actor " << uniqueActorIndex
+            << " is out of range for indoor runtime map " << mapFileName
+            << " actor_count=" << snapshot.mapActorAiStates.size() << '\n';
+        return false;
+    }
+
+    if (!filterMapDeltaDataToActorIndex(
+            *pMapDeltaData,
+            selectedRuntimeActorIndex,
+            uniqueActorIndex,
+            mapFileName,
+            "indoor"))
+    {
+        return false;
+    }
+
+    filterVectorToActorIndex(snapshot.mapActorAiStates, selectedRuntimeActorIndex);
+    filterVectorToActorIndex(snapshot.mapActorSpellEffectStates, selectedRuntimeActorIndex);
+    filterCorpseViewsToActorIndex(
+        snapshot.mapActorCorpseViews,
+        snapshot.activeCorpseView,
+        selectedRuntimeActorIndex);
+    worldRuntime.restoreSnapshot(snapshot);
+    return true;
 }
 
 bool mapLoadTimingEnabled()
@@ -5016,6 +5246,12 @@ void GameApplication::loadOrCreateSettings()
         std::cerr << "GameApplication: failed to write " << path.string() << ": " << error << '\n';
     }
 
+    if (m_config.loadUniqueActorIndex.has_value())
+    {
+        m_settings.indoorPathfinding = true;
+        m_settings.logIndoorPathfinding = true;
+    }
+
     m_config.windowWidth = m_settings.resolutionWidth;
     m_config.windowHeight = m_settings.resolutionHeight;
     m_config.windowMode = engineWindowModeForSettings(m_settings.windowMode);
@@ -5562,6 +5798,15 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             m_pOutdoorWorldRuntime->applyEventRuntimeState(true);
             m_pOutdoorPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
         }
+
+        if (m_config.loadUniqueActorIndex.has_value()
+            && !filterOutdoorRuntimeToUniqueActor(
+                *m_pOutdoorWorldRuntime,
+                *m_config.loadUniqueActorIndex,
+                selectedMap->map.fileName))
+        {
+            return false;
+        }
         timingLogger.stage("outdoor on-load events applied");
 
         preloadMapGameplaySounds(
@@ -5706,6 +5951,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameDataLoader.getNpcDialogTable()
         );
         timingLogger.stage("indoor runtime initialized");
+
         if (restoreSavedIndoorState && pSavedIndoorState != nullptr)
         {
             pIndoorSceneRuntime->restoreSnapshot(*pSavedIndoorState);
@@ -5763,6 +6009,15 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
                 pIndoorSceneRuntime->sceneEventContext());
             pIndoorSceneRuntime->worldRuntime().applyEventRuntimeState(true);
             pIndoorSceneRuntime->party().applyEventRuntimeState(*pEventRuntimeState, false);
+        }
+
+        if (m_config.loadUniqueActorIndex.has_value()
+            && !filterIndoorRuntimeToUniqueActor(
+                pIndoorSceneRuntime->worldRuntime(),
+                *m_config.loadUniqueActorIndex,
+                selectedMap->map.fileName))
+        {
+            return false;
         }
 
         preloadMapGameplaySounds(
@@ -7597,6 +7852,12 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
     if (pWorldRuntime != nullptr && m_pMapSceneRuntime != nullptr && selectedMap)
     {
+        if (!m_gprofGameplayProfilingStarted)
+        {
+            setGprofProfilingEnabled(true);
+            m_gprofGameplayProfilingStarted = true;
+        }
+
         const GameplaySharedInputFrameResult &sharedInput = m_gameSession.sharedInputFrameResult();
         const bool pendingSpellTargetActive = m_gameSession.gameplayScreenState().pendingSpellTarget().active;
         const bool gameplayWorldPaused =

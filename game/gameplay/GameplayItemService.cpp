@@ -507,6 +507,7 @@ bool GameplayItemService::tryUseHeldItemOnPartyMember(
             request.spellId = useResult.spellId;
             request.skillLevelOverride = useResult.spellSkillLevelOverride;
             request.skillMasteryOverride = useResult.spellSkillMasteryOverride;
+            request.bypassRequiredMastery = useResult.spellBypassRequiredMastery;
             request.spendMana = false;
             request.applyRecovery = true;
 

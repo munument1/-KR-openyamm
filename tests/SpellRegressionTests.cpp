@@ -1832,3 +1832,41 @@ TEST_CASE("party spell scroll override cast uses fixed master skill without mana
     CHECK(party.hasPartyBuff(OpenYAMM::Game::PartyBuffId::Haste));
     CHECK_EQ(pCaster->spellPoints, initialSpellPoints);
 }
+
+TEST_CASE("party spell scroll override bypasses required spell mastery")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+    const size_t targetActorIndex = seedDefaultSpellTarget(worldRuntime);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+
+    pCaster->skills.clear();
+    const int initialSpellPoints = pCaster->spellPoints;
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Incinerate);
+    request.targetActorIndex = targetActorIndex;
+    request.skillLevelOverride = 5;
+    request.skillMasteryOverride = OpenYAMM::Game::SkillMastery::Master;
+    request.bypassRequiredMastery = true;
+    request.spendMana = false;
+    request.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    REQUIRE_EQ(worldRuntime.projectileRequests().size(), 1u);
+    CHECK_EQ(worldRuntime.projectileRequests().front().spellId, request.spellId);
+    CHECK_EQ(worldRuntime.projectileRequests().front().skillLevel, 5u);
+    CHECK(worldRuntime.projectileRequests().front().skillMastery == OpenYAMM::Game::SkillMastery::Master);
+    CHECK_EQ(pCaster->spellPoints, initialSpellPoints);
+}

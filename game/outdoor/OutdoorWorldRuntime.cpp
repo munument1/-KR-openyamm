@@ -2903,7 +2903,9 @@ OutdoorWorldRuntime::MapActorState buildMapActorState(
 )
 {
     OutdoorWorldRuntime::MapActorState state = {};
-    state.actorId = actorId;
+    state.actorId = actor.diagnosticSourceActorIndex != static_cast<size_t>(-1)
+        ? static_cast<uint32_t>(actor.diagnosticSourceActorIndex)
+        : actorId;
     state.monsterId = resolveMapActorMonsterId(actor);
     state.npcId = actor.npcId;
     state.uniqueNameId = static_cast<uint32_t>(std::max(0, actor.uniqueNameIndex));
@@ -12139,6 +12141,7 @@ bool OutdoorWorldRuntime::actorInspectState(
 
     state = {};
     state.displayName = pActor->displayName;
+    state.uniqueActorIndex = pActor->actorId;
     state.monsterId = pActor->monsterId;
     state.previewYOffset = monsterInspectPreviewYOffset(pActor->monsterId);
     state.currentHp = pActor->currentHp;

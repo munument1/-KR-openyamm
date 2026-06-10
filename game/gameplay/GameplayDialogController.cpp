@@ -217,6 +217,11 @@ std::string dialogActionsJson(const EventDialogContent &dialog)
 
 void traceDialogState(const EventDialogContent &dialog, const std::string &reason)
 {
+    if (!gameplayDebugTraceEnabled() || gameplayDebugTraceSuppressed())
+    {
+        return;
+    }
+
     GAMEPLAY_DEBUG_TRACE(
         "dialog_state reason=" + reason
         + " active=" + (dialog.isActive ? "true" : "false")

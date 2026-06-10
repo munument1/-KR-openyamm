@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string_view>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -17,10 +18,13 @@ namespace
 constexpr float VisibilityEpsilon = 0.001f;
 constexpr float FrustumClipEpsilon = 5.0f;
 constexpr float NearPortalSlack = 128.0f;
+constexpr float ClippedPortalRecoverySlack = 512.0f;
+constexpr float SharedBoundaryClippedPortalRecoverySlack = 1024.0f;
 constexpr float DegenerateVerticalPortalMaxNormalZ = 0.1f;
 constexpr float DegeneratePortalMaxHeight = 8.0f;
 constexpr float SynthesizedPortalMinWidth = 8.0f;
 constexpr float SynthesizedPortalMinHeight = 16.0f;
+constexpr uint16_t DegenerateChildFrustumRecoveryMaxDepth = 1;
 
 float dotVec(const bx::Vec3 &left, const bx::Vec3 &right)
 {
@@ -268,7 +272,10 @@ bool hasAncestorSector(
     return false;
 }
 
-bool cameraNearPortal(const bx::Vec3 &cameraPosition, const std::vector<bx::Vec3> &portalPolygon)
+bool cameraNearPortal(
+    const bx::Vec3 &cameraPosition,
+    const std::vector<bx::Vec3> &portalPolygon,
+    float slack = NearPortalSlack)
 {
     if (portalPolygon.empty())
     {
@@ -288,12 +295,12 @@ bool cameraNearPortal(const bx::Vec3 &cameraPosition, const std::vector<bx::Vec3
         maxBounds.z = std::max(maxBounds.z, point.z);
     }
 
-    return cameraPosition.x >= minBounds.x - NearPortalSlack
-        && cameraPosition.x <= maxBounds.x + NearPortalSlack
-        && cameraPosition.y >= minBounds.y - NearPortalSlack
-        && cameraPosition.y <= maxBounds.y + NearPortalSlack
-        && cameraPosition.z >= minBounds.z - NearPortalSlack
-        && cameraPosition.z <= maxBounds.z + NearPortalSlack;
+    return cameraPosition.x >= minBounds.x - slack
+        && cameraPosition.x <= maxBounds.x + slack
+        && cameraPosition.y >= minBounds.y - slack
+        && cameraPosition.y <= maxBounds.y + slack
+        && cameraPosition.z >= minBounds.z - slack
+        && cameraPosition.z <= maxBounds.z + slack;
 }
 
 bool rangeOverlap(float leftMin, float leftMax, float rightMin, float rightMax, float &overlapMin, float &overlapMax)
@@ -580,6 +587,56 @@ bool sectorHasPortalGraphLinks(const IndoorPortalGraph &portalGraph, int16_t sec
         && !portalGraph.sectors[static_cast<size_t>(sectorId)].portalLinkIds.empty();
 }
 
+bool sameVisibilityPlane(const IndoorVisibilityPlane &left, const IndoorVisibilityPlane &right)
+{
+    return left.normal.x == right.normal.x
+        && left.normal.y == right.normal.y
+        && left.normal.z == right.normal.z
+        && left.distance == right.distance;
+}
+
+bool sameVisibilityFrustum(const IndoorVisibilityFrustum &left, const IndoorVisibilityFrustum &right)
+{
+    if (left.size() != right.size())
+    {
+        return false;
+    }
+
+    for (size_t index = 0; index < left.size(); ++index)
+    {
+        if (!sameVisibilityPlane(left[index], right[index]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void appendUniqueSectorFrustum(
+    IndoorPortalVisibilityResult &result,
+    int16_t sectorId,
+    const IndoorVisibilityFrustum &frustum)
+{
+    if (sectorId < 0 || static_cast<size_t>(sectorId) >= result.frustumsBySector.size())
+    {
+        return;
+    }
+
+    std::vector<IndoorVisibilityFrustum> &sectorFrustums =
+        result.frustumsBySector[static_cast<size_t>(sectorId)];
+
+    for (const IndoorVisibilityFrustum &existingFrustum : sectorFrustums)
+    {
+        if (sameVisibilityFrustum(existingFrustum, frustum))
+        {
+            return;
+        }
+    }
+
+    sectorFrustums.push_back(frustum);
+}
+
 void appendRootVisibilityNode(
     IndoorPortalVisibilityResult &result,
     int16_t sectorId,
@@ -603,22 +660,25 @@ void appendRootVisibilityNode(
     result.visibleSectorMask[static_cast<size_t>(sectorId)] = 1;
     result.nodeIndicesBySector[static_cast<size_t>(sectorId)].push_back(rootNodeIndex);
 
-    if (static_cast<size_t>(sectorId) < result.frustumsBySector.size())
-    {
-        result.frustumsBySector[static_cast<size_t>(sectorId)].push_back(rootFrustumPlanes);
-    }
+    appendUniqueSectorFrustum(result, sectorId, rootFrustumPlanes);
 }
 
 void appendPortalTrace(
     IndoorPortalVisibilityResult &result,
+    bool collectTrace,
     int16_t sourceSectorId,
     int16_t targetSectorId,
     uint16_t faceId,
     uint16_t portalLinkId,
     uint16_t depth,
     bool accepted,
-    const std::string &reason)
+    std::string_view reason)
 {
+    if (!collectTrace)
+    {
+        return;
+    }
+
     result.portalTraces.push_back({
         .sourceSectorId = sourceSectorId,
         .targetSectorId = targetSectorId,
@@ -626,7 +686,18 @@ void appendPortalTrace(
         .portalLinkId = portalLinkId,
         .depth = depth,
         .accepted = accepted,
-        .reason = reason,
+        .reason = std::string(reason),
+    });
+}
+
+void appendAcceptedPortalVisibility(
+    IndoorPortalVisibilityResult &result,
+    int16_t targetSectorId,
+    uint16_t faceId)
+{
+    result.acceptedPortals.push_back({
+        .targetSectorId = targetSectorId,
+        .faceId = faceId,
     });
 }
 }
@@ -701,6 +772,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 ++result.invalidPortalCount;
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     -1,
                     0,
@@ -730,6 +802,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 ++result.invalidPortalCount;
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     connectedSectorId,
                     faceId,
@@ -753,7 +826,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
             {
                 ++result.rejectedPortalCount;
                 ++result.invalidPortalCount;
-                const std::string reason =
+                const char *reason =
                     static_cast<int16_t>(faceId) == currentNode.entryPortalFaceId
                         ? "entry_portal"
                         : ((!face.isPortal && !hasFaceAttribute(effectiveAttributes, FaceAttribute::IsPortal))
@@ -761,6 +834,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                             : "portal_hidden_override");
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     connectedSectorId,
                     faceId,
@@ -777,12 +851,13 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
             {
                 ++result.rejectedPortalCount;
                 ++result.ancestorRejectedPortalCount;
-                const std::string reason =
+                const char *reason =
                     connectedSectorId < 0 || static_cast<size_t>(connectedSectorId) >= mapData.sectors.size()
                         ? "invalid_target_sector"
                         : "ancestor_sector";
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     connectedSectorId,
                     faceId,
@@ -802,6 +877,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 ++result.invalidPortalCount;
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     connectedSectorId,
                     faceId,
@@ -847,6 +923,7 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 ++result.directionRejectedPortalCount;
                 appendPortalTrace(
                     result,
+                    input.collectPortalTraces,
                     currentNode.sectorId,
                     connectedSectorId,
                     faceId,
@@ -857,30 +934,50 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
                 continue;
             }
 
-            const std::vector<bx::Vec3> clippedPortal =
+            const bool recoverDegenerateChildFrustum =
+                currentNode.depth <= DegenerateChildFrustumRecoveryMaxDepth;
+            std::vector<bx::Vec3> clippedPortal =
                 nearPortal
                 ? visibilityPortalPolygon
                 : clipPolygonToFrustum(visibilityPortalPolygon, currentNode.frustumPlanes);
+            bool recoveredClippedPortal = false;
 
             if (clippedPortal.size() < 3)
             {
-                ++result.rejectedPortalCount;
-                ++result.clippedPortalRejectedCount;
-                appendPortalTrace(
-                    result,
-                    currentNode.sectorId,
-                    connectedSectorId,
-                    faceId,
-                    portalLinkId,
-                    currentNode.depth,
-                    false,
-                    nearPortal
-                        ? "near_portal_small"
-                        : (usingSharedBoundaryPortalPolygon ? "clipped_shared_boundary" : "clipped_portal"));
-                continue;
+                const float clippedPortalRecoverySlack =
+                    usingSharedBoundaryPortalPolygon
+                    ? SharedBoundaryClippedPortalRecoverySlack
+                    : ClippedPortalRecoverySlack;
+                if (!nearPortal
+                    && (!usingSharedBoundaryPortalPolygon || currentNode.depth > 0)
+                    && recoverDegenerateChildFrustum
+                    && cameraNearPortal(input.cameraPosition, visibilityPortalPolygon, clippedPortalRecoverySlack))
+                {
+                    clippedPortal = visibilityPortalPolygon;
+                    recoveredClippedPortal = true;
+                }
+                else
+                {
+                    ++result.rejectedPortalCount;
+                    ++result.clippedPortalRejectedCount;
+                    appendPortalTrace(
+                        result,
+                        input.collectPortalTraces,
+                        currentNode.sectorId,
+                        connectedSectorId,
+                        faceId,
+                        portalLinkId,
+                        currentNode.depth,
+                        false,
+                        nearPortal
+                            ? "near_portal_small"
+                            : (usingSharedBoundaryPortalPolygon ? "clipped_shared_boundary" : "clipped_portal"));
+                    continue;
+                }
             }
 
             std::vector<IndoorVisibilityPlane> childFrustumPlanes;
+            bool appendParentSectorFrustum = recoveredClippedPortal;
             if (std::fabs(pGeometry->normal.z) > 0.999f || nearPortal)
             {
                 childFrustumPlanes = rootFrustumPlanes;
@@ -888,22 +985,36 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
             else
             {
                 childFrustumPlanes = buildPortalFrustumPlanes(input.cameraPosition, clippedPortal);
+                if (childFrustumPlanes.size() < 3 && recoverDegenerateChildFrustum)
+                {
+                    appendParentSectorFrustum = true;
+                    childFrustumPlanes = buildPortalFrustumPlanes(input.cameraPosition, visibilityPortalPolygon);
+                }
             }
 
             if (childFrustumPlanes.size() < 3)
             {
-                ++result.rejectedPortalCount;
-                ++result.clippedPortalRejectedCount;
-                appendPortalTrace(
-                    result,
-                    currentNode.sectorId,
-                    connectedSectorId,
-                    faceId,
-                    portalLinkId,
-                    currentNode.depth,
-                    false,
-                    "child_frustum_small");
-                continue;
+                if (recoverDegenerateChildFrustum)
+                {
+                    childFrustumPlanes = currentNode.frustumPlanes;
+                    appendParentSectorFrustum = false;
+                }
+                else
+                {
+                    ++result.rejectedPortalCount;
+                    ++result.clippedPortalRejectedCount;
+                    appendPortalTrace(
+                        result,
+                        input.collectPortalTraces,
+                        currentNode.sectorId,
+                        connectedSectorId,
+                        faceId,
+                        portalLinkId,
+                        currentNode.depth,
+                        false,
+                        "child_frustum_small");
+                    continue;
+                }
             }
 
             IndoorVisibilityNode childNode = {};
@@ -916,11 +1027,16 @@ IndoorPortalVisibilityResult buildIndoorPortalVisibility(const IndoorPortalVisib
             const uint16_t childNodeIndex = static_cast<uint16_t>(result.nodes.size());
             result.nodes.push_back(std::move(childNode));
             result.nodeIndicesBySector[static_cast<size_t>(connectedSectorId)].push_back(childNodeIndex);
-            result.frustumsBySector[static_cast<size_t>(connectedSectorId)].push_back(
-                result.nodes.back().frustumPlanes);
+            appendUniqueSectorFrustum(result, connectedSectorId, result.nodes.back().frustumPlanes);
+            if (appendParentSectorFrustum)
+            {
+                appendUniqueSectorFrustum(result, connectedSectorId, currentNode.frustumPlanes);
+            }
             result.visibleSectorMask[static_cast<size_t>(connectedSectorId)] = 1;
+            appendAcceptedPortalVisibility(result, connectedSectorId, faceId);
             appendPortalTrace(
                 result,
+                input.collectPortalTraces,
                 currentNode.sectorId,
                 connectedSectorId,
                 faceId,

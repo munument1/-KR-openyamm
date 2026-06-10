@@ -85,6 +85,29 @@ TEST_CASE("actor path runtime keeps direct movement when target is reachable")
     CHECK_FALSE(result.planned);
 }
 
+TEST_CASE("actor path runtime can force planning after direct movement is rejected")
+{
+    PathMap map;
+    map.setFacets({
+        makeRuntimeFloor(-48.0f, 192.0f, -48.0f, 48.0f, 0.0f)
+    });
+
+    ActorPathResolveRequest request = makeRuntimeRequest();
+    request.source = {0.0f, 0.0f, 0.0f};
+    request.target = {144.0f, 0.0f, 0.0f};
+    request.mapRevision = map.revision();
+    request.allowDirect = false;
+
+    ActorPathRuntime runtime;
+    const ActorPathResolveResult result = runtime.resolveWaypoint(map, request);
+
+    CHECK_FALSE(result.directReachable);
+    REQUIRE(result.pathActive);
+    CHECK(result.planned);
+    CHECK_EQ(result.waypointIndex, 0);
+    CHECK(std::fabs(result.waypoint.x - request.target.x) > 0.001f);
+}
+
 TEST_CASE("actor path runtime plans a waypoint when direct movement is blocked")
 {
     PathMap map;

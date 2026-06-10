@@ -1275,11 +1275,7 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
                 appendedSourceIndices[sourceIndex] = 1;
                 const CachedLightSource &source = pStaticCache->sources[sourceIndex];
 
-                if (!sphereIntersectsVisibleSectorFrustums(
-                        input.pVisibleSectorFrustums,
-                        source.sectorId,
-                        source.position,
-                        source.radius))
+                if (source.radius <= 0.0f || source.intensity <= 0.0f)
                 {
                     return;
                 }
@@ -1309,6 +1305,15 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
                     && source.decorationDecorVarIndex < input.pEventRuntimeState->decorVars.size()
                     && input.pEventRuntimeState->decorVars[source.decorationDecorVarIndex]
                         == source.decorationClearedState)
+                {
+                    return;
+                }
+
+                if (!sphereIntersectsVisibleSectorFrustums(
+                        input.pVisibleSectorFrustums,
+                        source.sectorId,
+                        source.position,
+                        source.radius))
                 {
                     return;
                 }

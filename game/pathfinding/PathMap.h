@@ -92,7 +92,7 @@ private:
         size_t operator()(const FloorCellKey &key) const;
     };
 
-    std::vector<size_t> candidateFacetsForBounds(const PathBounds &bounds) const;
+    void candidateFacetsForBounds(const PathBounds &bounds, std::vector<size_t> &candidates) const;
     std::vector<size_t> candidateFloorFacetsForPoint(float x, float y) const;
     bool traceWalkSegmentInternal(
         const PathPoint &from,

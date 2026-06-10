@@ -253,6 +253,8 @@ private:
     std::vector<MonsterEntry> m_entries;
     std::unordered_map<std::string, int16_t> m_entryIndexByInternalName;
     std::vector<MonsterDisplayNameEntry> m_displayNames;
+    std::vector<size_t> m_displayNameIndexById;
+    std::unordered_map<std::string, size_t> m_displayNameIndexByPictureName;
     std::vector<std::string> m_uniqueNames;
     std::unordered_map<int, MonsterStatsEntry> m_statsById;
     std::unordered_map<int, std::vector<MonsterDeathDropEntry>> m_deathDropsByMonsterId;

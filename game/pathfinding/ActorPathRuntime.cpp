@@ -222,7 +222,9 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypointInternal(
     result.reachedWaypointCount += advanceReachedWaypoints(state, request);
 
     const double directInterval = std::max(0.01, request.directCheckIntervalSeconds);
-    const bool directCheckDue = !state.directCheckValid || request.nowSeconds >= state.nextDirectCheckSeconds;
+    const bool directCheckDue =
+        request.allowDirect
+        && (!state.directCheckValid || request.nowSeconds >= state.nextDirectCheckSeconds);
 
     if (directCheckDue)
     {
@@ -488,6 +490,7 @@ bool ActorPathRuntime::queuePlan(
     planRequest.preferredSourceFacetSourceId = request.preferredSourceFacetSourceId;
     planRequest.nodeLimit = request.nodeLimit;
     planRequest.mapRevision = static_cast<uint32_t>(request.mapRevision);
+    planRequest.allowDirect = request.allowDirect;
 
     if (m_workers.empty())
     {
@@ -631,7 +634,9 @@ size_t ActorPathRuntime::advanceShortcutWaypoints(
     const ActorPathResolveRequest &request
 ) const
 {
-    if (!pathCanStillBeFollowed(state) || request.nowSeconds < state.nextShortcutCheckSeconds)
+    if (!pathCanStillBeFollowed(state)
+        || !request.allowDirect
+        || request.nowSeconds < state.nextShortcutCheckSeconds)
     {
         return 0;
     }

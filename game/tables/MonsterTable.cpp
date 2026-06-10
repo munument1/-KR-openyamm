@@ -901,7 +901,10 @@ bool MonsterTable::loadEntriesFromRows(const std::vector<std::vector<std::string
 
 bool MonsterTable::loadDisplayNamesFromRows(const std::vector<std::vector<std::string>> &rows)
 {
+    constexpr size_t MissingDisplayNameIndex = static_cast<size_t>(-1);
     m_displayNames.clear();
+    m_displayNameIndexById.clear();
+    m_displayNameIndexByPictureName.clear();
 
     for (const std::vector<std::string> &row : rows)
     {
@@ -920,6 +923,32 @@ bool MonsterTable::loadDisplayNamesFromRows(const std::vector<std::vector<std::s
         entry.displayName = row[1];
         entry.pictureName = toLowerCopy(row[2]);
         m_displayNames.push_back(std::move(entry));
+    }
+
+    size_t maxDisplayNameId = 0;
+
+    for (const MonsterDisplayNameEntry &entry : m_displayNames)
+    {
+        maxDisplayNameId = std::max(maxDisplayNameId, static_cast<size_t>(entry.id));
+    }
+
+    m_displayNameIndexById.assign(maxDisplayNameId + 1, MissingDisplayNameIndex);
+    m_displayNameIndexByPictureName.reserve(m_displayNames.size());
+
+    for (size_t index = 0; index < m_displayNames.size(); ++index)
+    {
+        const size_t displayNameId = static_cast<size_t>(m_displayNames[index].id);
+
+        if (displayNameId < m_displayNameIndexById.size()
+            && m_displayNameIndexById[displayNameId] == MissingDisplayNameIndex)
+        {
+            m_displayNameIndexById[displayNameId] = index;
+        }
+
+        if (!m_displayNames[index].pictureName.empty())
+        {
+            m_displayNameIndexByPictureName.emplace(m_displayNames[index].pictureName, index);
+        }
     }
 
     return !m_displayNames.empty();
@@ -1212,30 +1241,32 @@ const MonsterTable::MonsterStatsEntry *MonsterTable::findStatsByPictureName(cons
 
 const MonsterTable::MonsterDisplayNameEntry *MonsterTable::findDisplayEntryById(int id) const
 {
-    for (const MonsterDisplayNameEntry &entry : m_displayNames)
+    if (id < 0 || static_cast<size_t>(id) >= m_displayNameIndexById.size())
     {
-        if (entry.id == id)
-        {
-            return &entry;
-        }
+        return nullptr;
     }
 
-    return nullptr;
+    const size_t index = m_displayNameIndexById[static_cast<size_t>(id)];
+
+    if (index >= m_displayNames.size())
+    {
+        return nullptr;
+    }
+
+    return &m_displayNames[index];
 }
 
 std::optional<std::string> MonsterTable::findDisplayNameByInternalName(const std::string &internalName) const
 {
     const std::string normalizedName = toLowerCopy(internalName);
+    const auto iterator = m_displayNameIndexByPictureName.find(normalizedName);
 
-    for (const MonsterDisplayNameEntry &entry : m_displayNames)
+    if (iterator == m_displayNameIndexByPictureName.end() || iterator->second >= m_displayNames.size())
     {
-        if (entry.pictureName == normalizedName)
-        {
-            return entry.displayName;
-        }
+        return std::nullopt;
     }
 
-    return std::nullopt;
+    return m_displayNames[iterator->second].displayName;
 }
 
 std::optional<std::string> MonsterTable::getUniqueName(int32_t uniqueNameIndex) const

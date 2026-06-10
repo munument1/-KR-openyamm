@@ -4,6 +4,7 @@
 #include "game/outdoor/OutdoorMapData.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -60,6 +61,7 @@ struct MapDeltaActor
     uint32_t group = 0;
     uint32_t ally = 0;
     int32_t uniqueNameIndex = 0;
+    size_t diagnosticSourceActorIndex = static_cast<size_t>(-1);
     float bolsterRewardMultiplier = 1.0f;
 };
 

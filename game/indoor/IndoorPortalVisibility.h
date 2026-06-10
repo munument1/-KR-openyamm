@@ -43,6 +43,12 @@ struct IndoorPortalVisibilityTrace
     std::string reason;
 };
 
+struct IndoorAcceptedPortalVisibility
+{
+    int16_t targetSectorId = -1;
+    uint16_t faceId = 0;
+};
+
 struct IndoorPortalVisibilityInput
 {
     const IndoorMapData *pMapData = nullptr;
@@ -59,6 +65,7 @@ struct IndoorPortalVisibilityInput
     int16_t startSectorId = -1;
     uint16_t maxNodes = 256;
     uint16_t maxDepth = 32;
+    bool collectPortalTraces = true;
 };
 
 struct IndoorPortalVisibilityResult
@@ -67,6 +74,7 @@ struct IndoorPortalVisibilityResult
     std::vector<IndoorVisibilityNode> nodes;
     std::vector<std::vector<uint16_t>> nodeIndicesBySector;
     std::vector<std::vector<IndoorVisibilityFrustum>> frustumsBySector;
+    std::vector<IndoorAcceptedPortalVisibility> acceptedPortals;
     std::vector<IndoorPortalVisibilityTrace> portalTraces;
     uint32_t portalCandidateCount = 0;
     uint32_t acceptedPortalCount = 0;

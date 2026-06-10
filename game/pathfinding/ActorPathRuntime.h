@@ -39,6 +39,7 @@ struct ActorPathResolveRequest
     double minReplanIntervalSeconds = 1.0;
     double shortcutCheckIntervalSeconds = 0.5;
     bool allowPlan = true;
+    bool allowDirect = true;
 };
 
 struct ActorPathResolveResult

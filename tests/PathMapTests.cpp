@@ -186,6 +186,23 @@ TEST_CASE("path map body-radius forward trace rejects wall clearance before cent
     CHECK_EQ(body.facetIndex, 0u);
 }
 
+TEST_CASE("path map body-radius trace rejects parallel movement into a wall")
+{
+    PathMap map;
+    map.setFacets({
+        makeWall(0.0f, -100.0f, 100.0f, 0.0f, 100.0f)
+    });
+
+    const PathTraceResult clear =
+        map.traceLine({10.0f, 0.0f, 50.0f}, {10.0f, 40.0f, 50.0f}, 12.0f, true);
+    CHECK_FALSE(clear.blocked);
+
+    const PathTraceResult blocked =
+        map.traceLine({13.0f, 0.0f, 50.0f}, {11.0f, 40.0f, 50.0f}, 12.0f, true);
+    CHECK(blocked.blocked);
+    CHECK_EQ(blocked.facetIndex, 0u);
+}
+
 TEST_CASE("path map spatial grid preserves floor and trace queries")
 {
     PathMap map;

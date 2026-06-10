@@ -876,6 +876,7 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
             result.spellId = *spellId;
             result.spellSkillLevelOverride = 5;
             result.spellSkillMasteryOverride = SkillMastery::Master;
+            result.spellBypassRequiredMastery = true;
             return result;
         }
 
@@ -901,6 +902,7 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
             result.spellId = spellIdValue(SpellId::TownPortal);
             result.spellSkillLevelOverride = 5;
             result.spellSkillMasteryOverride = SkillMastery::Master;
+            result.spellBypassRequiredMastery = true;
             return result;
         }
 

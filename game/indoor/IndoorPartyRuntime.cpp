@@ -51,6 +51,8 @@ const char *indoorMoveInvalidPositionReasonName(IndoorMoveInvalidPositionReason 
             return "actor_ledge_drop";
         case IndoorMoveInvalidPositionReason::LeadingActorLedgeDrop:
             return "leading_actor_ledge_drop";
+        case IndoorMoveInvalidPositionReason::LostGroundSupport:
+            return "lost_ground_support";
         case IndoorMoveInvalidPositionReason::SteepFloor:
             return "steep_floor";
         case IndoorMoveInvalidPositionReason::StepUpTooHigh:
@@ -63,6 +65,8 @@ const char *indoorMoveInvalidPositionReasonName(IndoorMoveInvalidPositionReason 
             return "face_collision";
         case IndoorMoveInvalidPositionReason::ActorCollision:
             return "actor_collision";
+        case IndoorMoveInvalidPositionReason::UnsupportedStepUp:
+            return "unsupported_step_up";
     }
 
     return "unknown";

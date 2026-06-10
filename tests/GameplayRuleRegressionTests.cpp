@@ -6557,6 +6557,91 @@ TEST_CASE("indoor support sampling includes mechanism floor faces omitted from s
     CHECK_EQ(state.footZ, doctest::Approx(0.0f));
 }
 
+TEST_CASE("indoor support sampling ignores tiny mechanism caps over sector floors")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {0, 0, 0},
+        {1024, 0, 0},
+        {1024, 1024, 0},
+        {0, 1024, 0},
+        {492, 492, 24},
+        {532, 492, 24},
+        {532, 532, 24},
+        {492, 532, 24},
+    };
+
+    OpenYAMM::Game::IndoorFace staticFloor = {};
+    staticFloor.vertexIndices = {0, 1, 2, 3};
+    staticFloor.facetType = 3;
+    staticFloor.roomNumber = 1;
+
+    OpenYAMM::Game::IndoorFace mechanismCap = {};
+    mechanismCap.vertexIndices = {4, 5, 6, 7};
+    mechanismCap.facetType = 3;
+    mechanismCap.roomNumber = 1;
+
+    mapData.faces = {staticFloor, mechanismCap};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 2;
+    sector.nonBspFaceCount = 2;
+    sector.minX = 0;
+    sector.maxX = 1024;
+    sector.minY = 0;
+    sector.maxY = 1024;
+    sector.minZ = 0;
+    sector.maxZ = 256;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0, 1};
+    sector.nonBspFaceIds = sector.faceIds;
+    mapData.sectors = {dummySector, sector};
+
+    OpenYAMM::Game::MapDeltaDoor cageDoor = {};
+    cageDoor.doorId = 73;
+    cageDoor.directionZ = 65536;
+    cageDoor.moveLength = 256;
+    cageDoor.openSpeed = 150;
+    cageDoor.closeSpeed = 150;
+    cageDoor.state = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Open);
+    cageDoor.vertexIds = {4, 5, 6, 7};
+    cageDoor.faceIds = {1};
+    cageDoor.xOffsets = {492, 532, 532, 492};
+    cageDoor.yOffsets = {492, 492, 532, 532};
+    cageDoor.zOffsets = {24, 24, 24, 24};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    mapDeltaData->doors.push_back(cageDoor);
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+    const OpenYAMM::Game::IndoorMoveState state =
+        controller.initializeStateFromEyePosition(512.0f, 512.0f, 184.0f, body);
+
+    CHECK(state.grounded);
+    CHECK_EQ(state.supportFaceIndex, 0u);
+    CHECK_EQ(state.footZ, doctest::Approx(0.0f));
+
+    OpenYAMM::Game::IndoorMoveState staleState = {};
+    staleState.x = 512.0f;
+    staleState.y = 512.0f;
+    staleState.footZ = 24.0f;
+    staleState.eyeHeight = body.height;
+    staleState.sectorId = 1;
+    staleState.eyeSectorId = 1;
+    staleState.supportFaceIndex = 1;
+    staleState.grounded = true;
+
+    const OpenYAMM::Game::IndoorMoveState resolvedState =
+        controller.resolveGroundedSupportState(staleState, body);
+
+    CHECK(resolvedState.grounded);
+    CHECK_EQ(resolvedState.supportFaceIndex, 0u);
+    CHECK_EQ(resolvedState.footZ, doctest::Approx(0.0f));
+}
+
 TEST_CASE("indoor party key jump uses OpenEnroth impulse and gravity")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
@@ -7160,6 +7245,73 @@ TEST_CASE("indoor airborne movement does not endpoint-collide with steep floor-l
     CHECK(moved.y > initial.y + 1.0f);
     CHECK(moved.footZ < initial.footZ);
     CHECK_NE(debugInfo.hitFaceIndex, 1u);
+}
+
+TEST_CASE("indoor falling unsupported actor cannot snap upward onto higher floor")
+{
+    OpenYAMM::Game::IndoorMapData mapData = {};
+    mapData.vertices = {
+        {-256, -256, 112},
+        {256, -256, 112},
+        {256, 256, 112},
+        {-256, 256, 112},
+    };
+
+    OpenYAMM::Game::IndoorFace higherFloor = {};
+    higherFloor.vertexIndices = {0, 1, 2, 3};
+    higherFloor.facetType = 3;
+    higherFloor.roomNumber = 1;
+    mapData.faces = {higherFloor};
+
+    OpenYAMM::Game::IndoorSector dummySector = {};
+    OpenYAMM::Game::IndoorSector sector = {};
+    sector.floorCount = 1;
+    sector.faceCount = 1;
+    sector.nonBspFaceCount = 1;
+    sector.minX = -256;
+    sector.maxX = 256;
+    sector.minY = -256;
+    sector.maxY = 256;
+    sector.minZ = 0;
+    sector.maxZ = 320;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    sector.nonBspFaceIds = {0};
+    mapData.sectors = {dummySector, sector};
+
+    std::optional<OpenYAMM::Game::MapDeltaData> mapDeltaData = OpenYAMM::Game::MapDeltaData{};
+    std::optional<OpenYAMM::Game::EventRuntimeState> eventRuntimeState = OpenYAMM::Game::EventRuntimeState{};
+    OpenYAMM::Game::IndoorMovementController controller(mapData, &mapDeltaData, &eventRuntimeState);
+    const OpenYAMM::Game::IndoorBodyDimensions body = {};
+
+    OpenYAMM::Game::IndoorMoveState initial = {};
+    initial.x = 0.0f;
+    initial.y = 0.0f;
+    initial.footZ = 88.0f;
+    initial.eyeHeight = body.height;
+    initial.verticalVelocity = -120.0f;
+    initial.sectorId = 1;
+    initial.eyeSectorId = 1;
+    initial.supportFaceIndex = static_cast<size_t>(-1);
+    initial.grounded = false;
+
+    OpenYAMM::Game::IndoorMoveDebugInfo debugInfo = {};
+    const OpenYAMM::Game::IndoorMoveState moved =
+        controller.resolveMove(
+            initial,
+            body,
+            0.0f,
+            0.0f,
+            false,
+            1.0f / 128.0f,
+            nullptr,
+            std::nullopt,
+            false,
+            &debugInfo);
+
+    CHECK_FALSE(moved.grounded);
+    CHECK_LE(moved.footZ, initial.footZ);
+    CHECK_EQ(debugInfo.invalidPositionReason, OpenYAMM::Game::IndoorMoveInvalidPositionReason::UnsupportedStepUp);
 }
 
 TEST_CASE("indoor flying actor horizontal pass does not inherit uphill sloped face vertical response")

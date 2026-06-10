@@ -376,7 +376,6 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
-        const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled,
         const GameplayContextActionState *pContextActionState = nullptr,
@@ -388,7 +387,6 @@ private:
         const float *pViewMatrix,
         const bx::Vec3 &cameraPosition,
         const std::vector<uint8_t> &visibleSectorMask,
-        const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled,
         const GameplayContextActionState *pContextActionState = nullptr,
@@ -510,6 +508,7 @@ private:
         float aspectRatio = 1.0f;
         std::vector<uint8_t> visibleSectorMask;
         std::vector<std::vector<IndoorVisibilityFrustum>> visibleSectorFrustums;
+        std::vector<IndoorAcceptedPortalVisibility> acceptedPortals;
         std::vector<IndoorPortalVisibilityTrace> portalTraces;
 
         void clear()
@@ -518,6 +517,7 @@ private:
             sectorId = -1;
             visibleSectorMask.clear();
             visibleSectorFrustums.clear();
+            acceptedPortals.clear();
             portalTraces.clear();
         }
     };

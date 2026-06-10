@@ -58,6 +58,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
+#include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -4386,7 +4387,7 @@ bool OutdoorGameView::trySaveToSelectedGameSlot()
     return m_gameSession.gameplayScreenRuntime().trySaveToSelectedGameSlot(
         [this](const GameplayScreenRuntime::PreparedSaveGameRequest &request)
         {
-            return beginSaveWithPreview(request.path, request.saveName, false);
+            return beginSaveWithPreview(request.path, request.saveName, true);
         });
 }
 
@@ -5086,6 +5087,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
             GAMEPLAY_DEBUG_TRACE(
                 "actor_inspect world=outdoor map=\"" + m_pOutdoorWorldRuntime->mapName() + "\""
                 + " actor_index=" + std::to_string(runtimeActorIndex)
+                + " unique_actor=" + std::to_string(inspectState.uniqueActorIndex)
                 + " name=\"" + inspectState.displayName + "\""
                 + " monster_id=" + std::to_string(inspectState.monsterId)
                 + " current_hp=" + std::to_string(inspectState.currentHp)
@@ -5102,6 +5104,14 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
                 + " actor_pos=(" + std::to_string(pActorState->preciseX)
                 + "," + std::to_string(pActorState->preciseY)
                 + "," + std::to_string(pActorState->preciseZ) + ")");
+
+            std::cout << "[ActorInspect] world=outdoor map=\"" << m_pOutdoorWorldRuntime->mapName() << "\""
+                << " actor_index=" << runtimeActorIndex
+                << " unique_actor=" << inspectState.uniqueActorIndex
+                << " name=\"" << inspectState.displayName << "\"\n";
+            overlayContext.setStatusBarEvent(
+                "Actor unique_actor=" + std::to_string(inspectState.uniqueActorIndex),
+                4.0f);
 
             if (!pActorState->isDead)
             {

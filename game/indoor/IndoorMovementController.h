@@ -74,12 +74,14 @@ enum class IndoorMoveInvalidPositionReason
     None,
     ActorLedgeDrop,
     LeadingActorLedgeDrop,
+    LostGroundSupport,
     SteepFloor,
     StepUpTooHigh,
     CeilingFloorCrush,
     MissingEyeSector,
     FaceCollision,
-    ActorCollision
+    ActorCollision,
+    UnsupportedStepUp
 };
 
 struct IndoorMoveDebugInfo
@@ -197,6 +199,10 @@ public:
     void invalidateRuntimeGeometryCache();
     void applyMechanismGeometryUpdate(const std::vector<uint32_t> &changedDoorIds);
     bool supportFaceIsBurning(size_t faceIndex) const;
+    IndoorMoveState resolveGroundedSupportState(
+        const IndoorMoveState &state,
+        const IndoorBodyDimensions &body
+    ) const;
 
 private:
     IndoorFloorSample sampleSupportedFloor(
@@ -212,6 +218,18 @@ private:
         const std::vector<uint8_t> *pFaceExclusionMask
     ) const;
     IndoorFloorSample sampleSupportedFloorOnFace(
+        const std::vector<IndoorVertex> &vertices,
+        IndoorFaceGeometryCache &geometryCache,
+        size_t faceIndex,
+        float x,
+        float y,
+        float z,
+        float maxRise,
+        float maxDrop,
+        const IndoorBodyDimensions &body,
+        const std::vector<uint8_t> *pFaceExclusionMask
+    ) const;
+    IndoorFloorSample sampleCurrentSupportFloor(
         const std::vector<IndoorVertex> &vertices,
         IndoorFaceGeometryCache &geometryCache,
         size_t faceIndex,

@@ -1116,8 +1116,10 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     sceneData.initialState.actors.reserve(actorsNode.size());
 
-    for (const YAML::Node &actorNode : actorsNode)
+    for (size_t actorIndex = 0; actorIndex < actorsNode.size(); ++actorIndex)
     {
+        const YAML::Node actorNode = actorsNode[actorIndex];
+
         if (!actorNode.IsMap())
         {
             errorMessage = "actor entry must be a map";
@@ -1125,6 +1127,7 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         }
 
         MapDeltaActor actor = {};
+        actor.diagnosticSourceActorIndex = actorIndex;
 
         if (!readScalarNode(actorNode, "name", actor.name, errorMessage)
             || !readScalarNode(actorNode, "npc_id", actor.npcId, errorMessage)
