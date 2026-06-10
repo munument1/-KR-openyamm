@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -224,6 +225,31 @@ private:
     void clearHudResources();
     void clearPortraitRuntime();
 
+    struct HudLayoutResolutionCacheKey
+    {
+        std::string layoutId;
+        int screenWidth = 0;
+        int screenHeight = 0;
+        float fallbackWidth = 0.0f;
+        float fallbackHeight = 0.0f;
+
+        bool operator==(const HudLayoutResolutionCacheKey &other) const
+        {
+            return layoutId == other.layoutId
+                && screenWidth == other.screenWidth
+                && screenHeight == other.screenHeight
+                && fallbackWidth == other.fallbackWidth
+                && fallbackHeight == other.fallbackHeight;
+        }
+    };
+
+    struct HudLayoutResolutionCacheKeyHash
+    {
+        size_t operator()(const HudLayoutResolutionCacheKey &key) const;
+    };
+
+    void clearHudLayoutLookupCaches() const;
+
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
     bool m_layoutsLoaded = false;
     bool m_assetsPreloaded = false;
@@ -232,6 +258,11 @@ private:
     const GameDataRepository *m_pDataRepository = nullptr;
     GameplayAssetLoadCache m_assetLoadCache;
     UiLayoutManager m_layoutManager;
+    mutable std::unordered_map<std::string, const UiLayoutManager::LayoutElement *> m_hudLayoutElementLookupCache;
+    mutable std::unordered_map<
+        HudLayoutResolutionCacheKey,
+        std::optional<GameplayResolvedHudLayoutElement>,
+        HudLayoutResolutionCacheKeyHash> m_hudLayoutResolutionCache;
     std::vector<GameplayHudTextureData> m_hudTextureHandles;
     std::unordered_map<std::string, size_t> m_hudTextureIndexByName;
     std::vector<GameplayHudFontData> m_hudFontHandles;

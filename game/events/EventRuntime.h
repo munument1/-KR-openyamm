@@ -410,6 +410,7 @@ struct EventRuntimeState
     std::unordered_map<uint32_t, std::string> outdoorModelFacetTextureOverrides;
     std::unordered_map<uint32_t, SpriteOverride> spriteOverrides;
     std::unordered_map<uint32_t, bool> indoorLightsEnabled;
+    uint64_t indoorLightRevision = 0;
     std::optional<bool> snowEnabled;
     std::optional<bool> rainEnabled;
     std::optional<std::string> outdoorSkyTextureOverride;

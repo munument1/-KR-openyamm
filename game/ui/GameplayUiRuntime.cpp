@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cctype>
+#include <functional>
 #include <optional>
 #include <utility>
 
@@ -21,6 +22,12 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+template <typename T>
+void hashCombine(size_t &seed, const T &value)
+{
+    seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
+}
+
 bool canUseBgfxResources()
 {
     return Engine::BgfxContext::isBgfxInitialized();
@@ -299,12 +306,32 @@ const bgfx::VertexLayout &gameplayHudQuadVertexLayout()
 }
 }
 
+size_t GameplayUiRuntime::HudLayoutResolutionCacheKeyHash::operator()(
+    const HudLayoutResolutionCacheKey &key) const
+{
+    size_t seed = 0;
+    hashCombine(seed, key.layoutId);
+    hashCombine(seed, key.screenWidth);
+    hashCombine(seed, key.screenHeight);
+    hashCombine(seed, key.fallbackWidth);
+    hashCombine(seed, key.fallbackHeight);
+    return seed;
+}
+
+void GameplayUiRuntime::clearHudLayoutLookupCaches() const
+{
+    m_hudLayoutElementLookupCache.clear();
+    m_hudLayoutResolutionCache.clear();
+}
+
 void GameplayUiRuntime::clear()
 {
     shutdownHouseVideoPlayer();
     clearPortraitRuntime();
     clearHudResources();
     m_layoutManager.clear();
+    clearHudLayoutLookupCaches();
+    m_hudLayoutRuntimeWidthOverrides.clear();
     m_hudLayoutRuntimeHeightOverrides.clear();
     m_renderedInspectableHudItems.clear();
     m_renderedInspectableHudScreenState = GameplayHudScreenState::Gameplay;
@@ -364,6 +391,7 @@ bool GameplayUiRuntime::ensureGameplayLayoutsLoaded(const GameplayUiController &
     }
 
     m_layoutManager.clear();
+    clearHudLayoutLookupCaches();
 
     const bool loaded = uiController.loadGameplayLayouts(
         *m_pAssetFileSystem,
@@ -374,9 +402,11 @@ bool GameplayUiRuntime::ensureGameplayLayoutsLoaded(const GameplayUiController &
 
     if (!loaded)
     {
+        clearHudLayoutLookupCaches();
         return false;
     }
 
+    clearHudLayoutLookupCaches();
     m_layoutsLoaded = true;
     return true;
 }
@@ -733,21 +763,34 @@ void GameplayUiRuntime::clearHudLayoutRuntimeHeightOverrides()
 {
     m_hudLayoutRuntimeWidthOverrides.clear();
     m_hudLayoutRuntimeHeightOverrides.clear();
+    m_hudLayoutResolutionCache.clear();
 }
 
 void GameplayUiRuntime::setHudLayoutRuntimeWidthOverride(const std::string &layoutId, float width)
 {
     m_hudLayoutRuntimeWidthOverrides[toLowerCopy(layoutId)] = width;
+    m_hudLayoutResolutionCache.clear();
 }
 
 void GameplayUiRuntime::setHudLayoutRuntimeHeightOverride(const std::string &layoutId, float height)
 {
     m_hudLayoutRuntimeHeightOverrides[toLowerCopy(layoutId)] = height;
+    m_hudLayoutResolutionCache.clear();
 }
 
 const UiLayoutManager::LayoutElement *GameplayUiRuntime::findHudLayoutElement(const std::string &layoutId) const
 {
-    return m_layoutManager.findElement(layoutId);
+    const std::unordered_map<std::string, const UiLayoutManager::LayoutElement *>::const_iterator cachedIterator =
+        m_hudLayoutElementLookupCache.find(layoutId);
+
+    if (cachedIterator != m_hudLayoutElementLookupCache.end())
+    {
+        return cachedIterator->second;
+    }
+
+    const UiLayoutManager::LayoutElement *pElement = m_layoutManager.findElement(layoutId);
+    m_hudLayoutElementLookupCache.emplace(layoutId, pElement);
+    return pElement;
 }
 
 int GameplayUiRuntime::defaultHudLayoutZIndexForScreen(const std::string &screen) const
@@ -767,15 +810,36 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayUiRuntime::resolveHudLay
     float fallbackWidth,
     float fallbackHeight) const
 {
-    return GameplayHudCommon::resolveHudLayoutElement(
-        m_layoutManager,
-        m_hudLayoutRuntimeWidthOverrides,
-        m_hudLayoutRuntimeHeightOverrides,
-        layoutId,
-        screenWidth,
-        screenHeight,
-        fallbackWidth,
-        fallbackHeight);
+    HudLayoutResolutionCacheKey cacheKey = {};
+    cacheKey.layoutId = layoutId;
+    cacheKey.screenWidth = screenWidth;
+    cacheKey.screenHeight = screenHeight;
+    cacheKey.fallbackWidth = fallbackWidth;
+    cacheKey.fallbackHeight = fallbackHeight;
+
+    const std::unordered_map<
+        HudLayoutResolutionCacheKey,
+        std::optional<GameplayResolvedHudLayoutElement>,
+        HudLayoutResolutionCacheKeyHash>::const_iterator cachedIterator =
+            m_hudLayoutResolutionCache.find(cacheKey);
+
+    if (cachedIterator != m_hudLayoutResolutionCache.end())
+    {
+        return cachedIterator->second;
+    }
+
+    std::optional<GameplayResolvedHudLayoutElement> resolved =
+        GameplayHudCommon::resolveHudLayoutElement(
+            m_layoutManager,
+            m_hudLayoutRuntimeWidthOverrides,
+            m_hudLayoutRuntimeHeightOverrides,
+            layoutId,
+            screenWidth,
+            screenHeight,
+            fallbackWidth,
+            fallbackHeight);
+    m_hudLayoutResolutionCache.emplace(std::move(cacheKey), resolved);
+    return resolved;
 }
 
 std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureHudTextureLoaded(const std::string &textureName)

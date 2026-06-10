@@ -7495,13 +7495,24 @@ int luaSetLight(lua_State *pLuaState)
         {
             for (uint32_t lightId : resolvedLightIds)
             {
-                pRuntimeState->indoorLightsEnabled[lightId] = enabled;
+                const auto iterator = pRuntimeState->indoorLightsEnabled.find(lightId);
+                if (iterator == pRuntimeState->indoorLightsEnabled.end() || iterator->second != enabled)
+                {
+                    pRuntimeState->indoorLightsEnabled[lightId] = enabled;
+                    ++pRuntimeState->indoorLightRevision;
+                }
             }
             return 0;
         }
     }
 
-    pRuntimeState->indoorLightsEnabled[eventReferenceId(rawReferenceId)] = enabled;
+    const uint32_t lightId = eventReferenceId(rawReferenceId);
+    const auto iterator = pRuntimeState->indoorLightsEnabled.find(lightId);
+    if (iterator == pRuntimeState->indoorLightsEnabled.end() || iterator->second != enabled)
+    {
+        pRuntimeState->indoorLightsEnabled[lightId] = enabled;
+        ++pRuntimeState->indoorLightRevision;
+    }
     return 0;
 }
 

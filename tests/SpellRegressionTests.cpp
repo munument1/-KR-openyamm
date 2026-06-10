@@ -12,6 +12,8 @@
 #include "tests/PartySpellTestHarness.h"
 #include "tests/RegressionGameData.h"
 
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <optional>
 
@@ -71,6 +73,11 @@ uint32_t findFirstWeaponItemId(const OpenYAMM::Game::ItemTable &itemTable)
     }
 
     return 0;
+}
+
+float spellRecoverySecondsFromTicks(int ticks)
+{
+    return std::max(0.0f, static_cast<float>(ticks) / 128.0f * 2.133333333333333f);
 }
 }
 
@@ -534,37 +541,59 @@ TEST_CASE("party spell backend blades targets actor but resolves through project
     CHECK(worldRuntime.appliedSpellRequests().empty());
 }
 
-TEST_CASE("party spell backend sparks applies no recovery")
+TEST_CASE("party spell backend sparks uses mastery projectiles and recovery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
-    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
-    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
-    worldRuntime.bindParty(&party);
 
-    OpenYAMM::Game::Character *pCaster = party.member(0);
-    REQUIRE(pCaster != nullptr);
+    struct SparksCase
+    {
+        OpenYAMM::Game::SkillMastery mastery = OpenYAMM::Game::SkillMastery::None;
+        size_t projectileCount = 0;
+        int recoveryTicks = 0;
+    };
 
-    pCaster->skills["AirMagic"] = {"AirMagic", 5, OpenYAMM::Game::SkillMastery::Normal};
-    pCaster->spellPoints = 20;
+    const std::array<SparksCase, 4> cases = {{
+        {OpenYAMM::Game::SkillMastery::Normal, 3, 110},
+        {OpenYAMM::Game::SkillMastery::Expert, 5, 100},
+        {OpenYAMM::Game::SkillMastery::Master, 7, 90},
+        {OpenYAMM::Game::SkillMastery::Grandmaster, 9, 80},
+    }};
 
-    OpenYAMM::Game::PartySpellCastRequest request = {};
-    request.casterMemberIndex = 0;
-    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Sparks);
-    request.hasTargetPoint = true;
-    request.targetX = 1024.0f;
-    request.targetY = 0.0f;
-    request.targetZ = 0.0f;
+    for (const SparksCase &testCase : cases)
+    {
+        INFO("mastery=" << static_cast<int>(testCase.mastery));
 
-    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
-        party,
-        worldRuntime,
-        gameData.spellTable,
-        request);
+        OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+        OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+        worldRuntime.bindParty(&party);
 
-    REQUIRE(result.succeeded());
-    CHECK_EQ(result.recoverySeconds, 0.0f);
-    CHECK_EQ(pCaster->recoverySecondsRemaining, 0.0f);
-    CHECK_EQ(worldRuntime.projectileRequests().size(), 3u);
+        OpenYAMM::Game::Character *pCaster = party.member(0);
+        REQUIRE(pCaster != nullptr);
+
+        pCaster->skills["AirMagic"] = {"AirMagic", 5, testCase.mastery};
+        pCaster->spellPoints = 20;
+
+        OpenYAMM::Game::PartySpellCastRequest request = {};
+        request.casterMemberIndex = 0;
+        request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Sparks);
+        request.hasTargetPoint = true;
+        request.targetX = 1024.0f;
+        request.targetY = 0.0f;
+        request.targetZ = 0.0f;
+
+        const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+            party,
+            worldRuntime,
+            gameData.spellTable,
+            request);
+
+        REQUIRE(result.succeeded());
+
+        const float expectedRecoverySeconds = spellRecoverySecondsFromTicks(testCase.recoveryTicks);
+        CHECK(result.recoverySeconds == doctest::Approx(expectedRecoverySeconds));
+        CHECK(pCaster->recoverySecondsRemaining == doctest::Approx(expectedRecoverySeconds));
+        CHECK_EQ(worldRuntime.projectileRequests().size(), testCase.projectileCount);
+    }
 }
 
 TEST_CASE("party spell backend lets wands bypass learned mastery requirements")

@@ -1,4 +1,4 @@
-$input v_texcoord0, v_worldPosition, v_texcoord1, v_screenspace, v_flowInfo
+$input v_texcoord0, v_worldPosition, v_texcoord1, v_screenspace, v_flowInfo, v_color0
 
 #include "common.sh"
 
@@ -13,7 +13,7 @@ uniform vec4 u_indoorSkyProjectionParams;
 
 vec3 getIndoorLighting(vec3 worldPosition)
 {
-    vec3 lighting = u_indoorLightParams.yzw;
+    vec3 lighting = u_indoorLightParams.yzw + v_color0.rgb * 2.0;
 
     for (int i = 0; i < 12; ++i)
     {

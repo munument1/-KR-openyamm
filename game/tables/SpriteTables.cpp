@@ -417,6 +417,17 @@ bool parseDecorationFlagsCell(const std::vector<std::string> &row, size_t index,
     return true;
 }
 
+std::string parseLegacyOptionalTextCell(const std::vector<std::string> &row, size_t index)
+{
+    if (index >= row.size())
+    {
+        return {};
+    }
+
+    const std::string trimmed = trimCopy(row[index]);
+    return toLowerCopy(trimmed) == "null" ? std::string() : trimmed;
+}
+
 }
 
 bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows)
@@ -441,7 +452,7 @@ bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows
 
         DecorationEntry entry = {};
         entry.internalName = row.size() > 1 ? toLowerCopy(trimCopy(row[1])) : std::string();
-        entry.hint = row.size() > 2 ? trimCopy(row[2]) : std::string();
+        entry.hint = parseLegacyOptionalTextCell(row, 2);
 
         if (!parseInt16Cell(row, 3, entry.type)
             || !parseInt16Cell(row, 4, entry.radius)

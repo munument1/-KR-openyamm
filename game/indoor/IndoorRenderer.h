@@ -41,6 +41,16 @@ struct GameplayInputFrame;
 struct PartySpellCastResult;
 class IndoorSceneRuntime;
 
+struct BakedStaticLightSource
+{
+    bx::Vec3 position = {0.0f, 0.0f, 0.0f};
+    float radius = 0.0f;
+    uint8_t red = 255;
+    uint8_t green = 255;
+    uint8_t blue = 255;
+    float alpha = 1.0f;
+};
+
 class IndoorRenderer
 {
 public:
@@ -163,6 +173,7 @@ private:
         float flowVPerSecond;
         float lavaFlow;
         float fluidFlow;
+        uint32_t bakedLightAbgr;
 
         static void init();
         static bgfx::VertexLayout ms_layout;
@@ -179,6 +190,17 @@ private:
 
         static void init();
         static bgfx::VertexLayout ms_layout;
+    };
+
+    struct BillboardLightingCacheEntry
+    {
+        bx::Vec3 position = {0.0f, 0.0f, 0.0f};
+        std::array<float, 3> staticDetailRgb = {0.0f, 0.0f, 0.0f};
+        float sampleClockSeconds = -1.0f;
+        uint64_t lightRevision = 0;
+        int16_t sectorId = -1;
+        bool coloredLights = true;
+        bool valid = false;
     };
 
     struct TexturedBatch
@@ -312,7 +334,11 @@ private:
         const OutdoorBitmapTexture &texture,
         const std::vector<size_t> *pFaceIndices,
         const std::optional<MapDeltaData> &indoorMapDeltaData,
-        const std::optional<EventRuntimeState> &eventRuntimeState
+        const std::optional<EventRuntimeState> &eventRuntimeState,
+        bool coloredLights = true,
+        const DecorationBillboardSet *pDecorationBillboardSet = nullptr,
+        const std::vector<BakedStaticLightSource> *pBakedStaticLightSources = nullptr,
+        bool allowBakedLightSubdivision = true
     );
     static std::vector<TexturedVertex> buildFaceTexturedVertices(
         const IndoorMapData &indoorMapData,
@@ -320,7 +346,29 @@ private:
         const OutdoorBitmapTexture &texture,
         size_t faceIndex,
         const std::optional<MapDeltaData> &indoorMapDeltaData,
-        const std::optional<EventRuntimeState> &eventRuntimeState
+        const std::optional<EventRuntimeState> &eventRuntimeState,
+        bool coloredLights = true,
+        const DecorationBillboardSet *pDecorationBillboardSet = nullptr,
+        const std::vector<BakedStaticLightSource> *pBakedStaticLightSources = nullptr,
+        bool allowBakedLightSubdivision = true
+    );
+    static bool bakedStaticLightMayAffectTriangle(
+        const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
+        const TexturedVertex (&triangleVertices)[3]
+    );
+    static float texturedVertexDistanceSquared(const TexturedVertex &first, const TexturedVertex &second);
+    static TexturedVertex interpolateTexturedVertex(const TexturedVertex &first, const TexturedVertex &second);
+    static void refreshBakedStaticLight(
+        const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
+        bool coloredLights,
+        TexturedVertex &vertex
+    );
+    static void appendBakedStaticLightSubdividedTriangle(
+        std::vector<TexturedVertex> &vertices,
+        const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
+        bool coloredLights,
+        const TexturedVertex (&triangleVertices)[3],
+        int depth
     );
     static std::vector<TerrainVertex> buildWireframeVertices(
         const IndoorMapData &indoorMapData,
@@ -392,6 +440,19 @@ private:
         const GameplayContextActionState *pContextActionState = nullptr,
         LightingStats *pLightingStats = nullptr
     );
+    std::array<float, 4> billboardLightingUniform(
+        const IndoorLightingFrame &lightingFrame,
+        const SpriteFrameEntry &frame,
+        const bx::Vec3 &position,
+        int16_t sectorId,
+        uint64_t cacheKey,
+        LightingStats *pLightingStats);
+    std::array<float, 3> cachedBillboardStaticDetailLighting(
+        const IndoorLightingFrame &lightingFrame,
+        const bx::Vec3 &position,
+        int16_t sectorId,
+        uint64_t cacheKey,
+        LightingStats *pLightingStats);
     void renderContextActionGeometryHighlight(
         uint16_t viewId,
         const GameplayContextActionState *pContextActionState);
@@ -424,6 +485,7 @@ private:
         size_t *pDirtyBatchCount = nullptr);
     static void rebuildTexturedBatchBounds(TexturedBatch &batch);
     std::vector<size_t> collectMovingMechanismFaceIndices() const;
+    std::vector<uint8_t> collectMechanismFaceMask() const;
     struct IndoorPerformanceDiagnostics
     {
         uint64_t visibilityCalls = 0;
@@ -602,7 +664,9 @@ private:
     std::unordered_map<BillboardTextureLookupKey, size_t, BillboardTextureLookupKeyHash>
         m_billboardTextureIndexByKey;
     uint64_t m_texturedBatchVisualRevision = std::numeric_limits<uint64_t>::max();
+    bool m_bakedStaticColoredLights = true;
     uint32_t m_indoorLightingSelectionFrame = 0;
+    std::unordered_map<uint64_t, BillboardLightingCacheEntry> m_billboardLightingCache;
     WorldFxRenderResources m_worldFxRenderResources;
     WorldFxSystem m_worldFxSystem;
     IndoorLightingRuntime m_indoorLightingRuntime;

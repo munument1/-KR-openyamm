@@ -109,7 +109,11 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
 
     if (config.canRenderHudOverlays)
     {
-        if (config.renderDialogueBelowHud || config.renderDialogueAboveHud || config.renderDebugDialogueFallback)
+        const bool activeOrPendingDialog =
+            overlayContext.activeEventDialog().isActive || overlayContext.hasPendingEventDialog();
+
+        if ((config.renderDialogueBelowHud || config.renderDialogueAboveHud || config.renderDebugDialogueFallback)
+            && activeOrPendingDialog)
         {
             overlayContext.ensurePendingEventDialogPresented(true);
         }
@@ -183,7 +187,8 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
         return;
     }
 
-    if (config.renderDebugDialogueFallback)
+    if (config.renderDebugDialogueFallback
+        && (overlayContext.activeEventDialog().isActive || overlayContext.hasPendingEventDialog()))
     {
         overlayContext.ensurePendingEventDialogPresented(true);
 

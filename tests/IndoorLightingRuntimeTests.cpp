@@ -19,6 +19,7 @@ using OpenYAMM::Game::IndoorLight;
 using OpenYAMM::Game::IndoorLightingFrame;
 using OpenYAMM::Game::IndoorLightingFrameInput;
 using OpenYAMM::Game::IndoorLightingRuntime;
+using OpenYAMM::Game::IndoorLightingSampleFilter;
 using OpenYAMM::Game::IndoorLightSelectionHistory;
 using OpenYAMM::Game::IndoorLightSelectionBounds;
 using OpenYAMM::Game::IndoorMapData;
@@ -513,6 +514,56 @@ TEST_CASE("indoor lighting selects static lights from the requested sector")
     CHECK_EQ(firstSectorDrawLights.positions[0], doctest::Approx(100.0f));
 }
 
+TEST_CASE("indoor lighting samples static detail and dynamic contributions separately")
+{
+    IndoorLightingFrame frame = {};
+    frame.ambient = 0.25f;
+    frame.lightIndicesBySector.resize(1);
+    frame.dynamicLightIndicesBySector.resize(1);
+
+    IndoorRenderLight staticLight = {};
+    staticLight.position = {0.0f, 0.0f, 0.0f};
+    staticLight.radius = 256.0f;
+    staticLight.colorAbgr = 0xff0000ffu;
+    staticLight.intensity = 1.0f;
+    staticLight.sectorId = 0;
+    staticLight.kind = IndoorRenderLightKind::Static;
+    frame.lightIndicesBySector[0].push_back(static_cast<uint32_t>(frame.lights.size()));
+    frame.lights.push_back(staticLight);
+
+    IndoorRenderLight fxLight = {};
+    fxLight.position = {0.0f, 0.0f, 0.0f};
+    fxLight.radius = 256.0f;
+    fxLight.colorAbgr = 0xffff0000u;
+    fxLight.intensity = 1.0f;
+    fxLight.sectorId = 0;
+    fxLight.kind = IndoorRenderLightKind::Fx;
+    frame.dynamicLightIndicesBySector[0].push_back(static_cast<uint32_t>(frame.lights.size()));
+    frame.lights.push_back(fxLight);
+
+    const std::array<float, 3> staticOnly =
+        IndoorLightingRuntime::sampleLightingRgbForSectors(
+            frame,
+            {0.0f, 0.0f, 0.0f},
+            0,
+            -1,
+            nullptr,
+            IndoorLightingSampleFilter::StaticDetailOnly);
+    const std::array<float, 3> dynamicOnly =
+        IndoorLightingRuntime::sampleLightingRgbForSectors(
+            frame,
+            {0.0f, 0.0f, 0.0f},
+            0,
+            -1,
+            nullptr,
+            IndoorLightingSampleFilter::DynamicOnly);
+
+    CHECK(staticOnly[0] > frame.ambient);
+    CHECK(staticOnly[2] == doctest::Approx(frame.ambient));
+    CHECK(dynamicOnly[0] == doctest::Approx(frame.ambient));
+    CHECK(dynamicOnly[2] > frame.ambient);
+}
+
 TEST_CASE("indoor lighting filters visible-sector static lights by clipped frustum")
 {
     IndoorMapData map = {};
@@ -707,14 +758,25 @@ TEST_CASE("indoor lighting does not scan unrelated sector FX candidates for loca
     CHECK_EQ(stats.maxCandidatesPerSelection, 1u);
 }
 
-TEST_CASE("indoor lighting reserves draw slots for FX when authored lights dominate score")
+TEST_CASE("indoor lighting can omit baked static lights from live draw selection")
 {
     IndoorLightingFrame frame = {};
     frame.ambient = 0.25f;
     frame.lightIndicesBySector.resize(1);
     frame.dynamicLightIndicesBySector.resize(1);
 
-    for (size_t index = 0; index < MaxIndoorDrawLights + 4; ++index)
+    IndoorRenderLight torchLight = {};
+    torchLight.position = {128.0f, 0.0f, 0.0f};
+    torchLight.radius = 256.0f;
+    torchLight.colorAbgr = 0xffffffffu;
+    torchLight.intensity = 1.0f;
+    torchLight.sectorId = 0;
+    torchLight.kind = IndoorRenderLightKind::Torch;
+    torchLight.stableId = 900;
+    frame.dynamicLightIndicesBySector[0].push_back(static_cast<uint32_t>(frame.lights.size()));
+    frame.lights.push_back(torchLight);
+
+    for (size_t index = 0; index < MaxIndoorDrawLights; ++index)
     {
         IndoorRenderLight staticLight = {};
         staticLight.position = {128.0f, 0.0f, 0.0f};
@@ -728,7 +790,18 @@ TEST_CASE("indoor lighting reserves draw slots for FX when authored lights domin
         frame.lights.push_back(staticLight);
     }
 
-    for (size_t index = 0; index < 3; ++index)
+    IndoorRenderLight decorationLight = {};
+    decorationLight.position = {128.0f, 0.0f, 0.0f};
+    decorationLight.radius = 256.0f;
+    decorationLight.colorAbgr = 0xffffffffu;
+    decorationLight.intensity = 20.0f;
+    decorationLight.sectorId = 0;
+    decorationLight.kind = IndoorRenderLightKind::Decoration;
+    decorationLight.stableId = 950;
+    frame.lightIndicesBySector[0].push_back(static_cast<uint32_t>(frame.lights.size()));
+    frame.lights.push_back(decorationLight);
+
+    for (size_t index = 0; index < 7; ++index)
     {
         IndoorRenderLight fxLight = {};
         fxLight.position = {128.0f, 0.0f, 0.0f};
@@ -755,20 +828,39 @@ TEST_CASE("indoor lighting reserves draw slots for FX when authored lights domin
             {1.0f, 0.0f, 0.0f},
             0,
             -1,
-            bounds);
+            bounds,
+            nullptr,
+            nullptr,
+            false);
 
+    bool selectedTorch = false;
+    size_t selectedStaticCount = 0;
+    size_t selectedDecorationCount = 0;
     size_t selectedFxCount = 0;
 
     for (size_t index = 0; index < drawLights.lightCount; ++index)
     {
-        if (drawLights.stableIds[index] >= 100 && drawLights.stableIds[index] < 103)
+        selectedTorch = selectedTorch || drawLights.stableIds[index] == 900;
+
+        if (drawLights.stableIds[index] >= 1 && drawLights.stableIds[index] <= MaxIndoorDrawLights)
+        {
+            ++selectedStaticCount;
+        }
+        else if (drawLights.stableIds[index] == 950)
+        {
+            ++selectedDecorationCount;
+        }
+        else if (drawLights.stableIds[index] >= 100 && drawLights.stableIds[index] < 107)
         {
             ++selectedFxCount;
         }
     }
 
-    CHECK_EQ(drawLights.lightCount, MaxIndoorDrawLights);
-    CHECK_EQ(selectedFxCount, 3u);
+    CHECK_EQ(drawLights.lightCount, 8u);
+    CHECK(selectedTorch);
+    CHECK_EQ(selectedStaticCount, 0u);
+    CHECK_EQ(selectedDecorationCount, 0u);
+    CHECK_EQ(selectedFxCount, 7u);
 }
 
 TEST_CASE("indoor lighting keeps previous stable light selection when scores are close")

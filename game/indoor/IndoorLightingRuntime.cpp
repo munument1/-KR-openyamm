@@ -120,6 +120,21 @@ bool isStaticDetailLight(IndoorRenderLightKind kind)
     return kind == IndoorRenderLightKind::Static || kind == IndoorRenderLightKind::Decoration;
 }
 
+bool sampleFilterIncludesLight(IndoorLightingSampleFilter filter, IndoorRenderLightKind kind)
+{
+    switch (filter)
+    {
+        case IndoorLightingSampleFilter::All:
+            return true;
+        case IndoorLightingSampleFilter::StaticDetailOnly:
+            return isStaticDetailLight(kind);
+        case IndoorLightingSampleFilter::DynamicOnly:
+            return !isStaticDetailLight(kind);
+    }
+
+    return true;
+}
+
 IndoorRenderLight indoorLightFromRenderLight(const RenderLight &source)
 {
     IndoorRenderLight light = {};
@@ -404,7 +419,8 @@ void addLightingSample(
     const IndoorLightingFrame &frame,
     const bx::Vec3 &position,
     uint32_t lightIndex,
-    std::array<float, 3> &rgb)
+    std::array<float, 3> &rgb,
+    IndoorLightingSampleFilter filter)
 {
     if (lightIndex >= frame.lights.size())
     {
@@ -412,6 +428,12 @@ void addLightingSample(
     }
 
     const IndoorRenderLight &light = frame.lights[lightIndex];
+
+    if (!sampleFilterIncludesLight(filter, light.kind))
+    {
+        return;
+    }
+
     const std::array<float, 3> contribution = lightContributionAtPoint(light, position);
     rgb[0] += contribution[0];
     rgb[1] += contribution[1];
@@ -422,7 +444,8 @@ void addSectorLightingSample(
     const IndoorLightingFrame &frame,
     const bx::Vec3 &position,
     int16_t sectorId,
-    std::array<float, 3> &rgb)
+    std::array<float, 3> &rgb,
+    IndoorLightingSampleFilter filter)
 {
     if (sectorId < 0)
     {
@@ -433,7 +456,7 @@ void addSectorLightingSample(
     {
         for (uint32_t lightIndex : frame.lightIndicesBySector[static_cast<size_t>(sectorId)])
         {
-            addLightingSample(frame, position, lightIndex, rgb);
+            addLightingSample(frame, position, lightIndex, rgb, filter);
         }
     }
 
@@ -444,7 +467,7 @@ void addSectorLightingSample(
 
     for (uint32_t lightIndex : frame.dynamicLightIndicesBySector[static_cast<size_t>(sectorId)])
     {
-        addLightingSample(frame, position, lightIndex, rgb);
+        addLightingSample(frame, position, lightIndex, rgb, filter);
     }
 }
 
@@ -728,7 +751,8 @@ float IndoorLightingRuntime::ambientFromMinAmbientLightLevel(int minAmbientLight
 std::array<float, 3> IndoorLightingRuntime::sampleLightingRgb(
     const IndoorLightingFrame &frame,
     const bx::Vec3 &position,
-    LightingStats *pStats)
+    LightingStats *pStats,
+    IndoorLightingSampleFilter filter)
 {
     if (pStats != nullptr)
     {
@@ -739,7 +763,7 @@ std::array<float, 3> IndoorLightingRuntime::sampleLightingRgb(
 
     for (uint32_t lightIndex = 0; lightIndex < frame.lights.size(); ++lightIndex)
     {
-        addLightingSample(frame, position, lightIndex, rgb);
+        addLightingSample(frame, position, lightIndex, rgb, filter);
     }
 
     return clampedLightingSample(rgb);
@@ -750,7 +774,8 @@ std::array<float, 3> IndoorLightingRuntime::sampleLightingRgbForSectors(
     const bx::Vec3 &position,
     int16_t sectorId,
     int16_t backSectorId,
-    LightingStats *pStats)
+    LightingStats *pStats,
+    IndoorLightingSampleFilter filter)
 {
     if (pStats != nullptr)
     {
@@ -759,21 +784,21 @@ std::array<float, 3> IndoorLightingRuntime::sampleLightingRgbForSectors(
 
     if (sectorId < 0 && backSectorId < 0)
     {
-        return sampleLightingRgb(frame, position, nullptr);
+        return sampleLightingRgb(frame, position, nullptr, filter);
     }
 
     std::array<float, 3> rgb = {frame.ambient, frame.ambient, frame.ambient};
 
     for (uint32_t lightIndex : frame.globalLightIndices)
     {
-        addLightingSample(frame, position, lightIndex, rgb);
+        addLightingSample(frame, position, lightIndex, rgb, filter);
     }
 
-    addSectorLightingSample(frame, position, sectorId, rgb);
+    addSectorLightingSample(frame, position, sectorId, rgb, filter);
 
     if (backSectorId != sectorId)
     {
-        addSectorLightingSample(frame, position, backSectorId, rgb);
+        addSectorLightingSample(frame, position, backSectorId, rgb, filter);
     }
 
     return clampedLightingSample(rgb);
@@ -783,10 +808,20 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForPoint(
     const IndoorLightingFrame &frame,
     const bx::Vec3 &position,
     const bx::Vec3 &viewForward,
-    LightingStats *pStats)
+    LightingStats *pStats,
+    bool includeStaticLights)
 {
     IndoorLightSelectionBounds bounds = {};
-    return selectDrawLightSetForBounds(frame, position, viewForward, -1, -1, bounds, pStats);
+    return selectDrawLightSetForBounds(
+        frame,
+        position,
+        viewForward,
+        -1,
+        -1,
+        bounds,
+        pStats,
+        nullptr,
+        includeStaticLights);
 }
 
 IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForSectors(
@@ -796,7 +831,8 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForSectors(
     int16_t sectorId,
     int16_t backSectorId,
     LightingStats *pStats,
-    const IndoorLightSelectionHistory *pPreviousSelection)
+    const IndoorLightSelectionHistory *pPreviousSelection,
+    bool includeStaticLights)
 {
     IndoorLightSelectionBounds bounds = {};
     return selectDrawLightSetForBounds(
@@ -807,7 +843,8 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForSectors(
         backSectorId,
         bounds,
         pStats,
-        pPreviousSelection);
+        pPreviousSelection,
+        includeStaticLights);
 }
 
 IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForBounds(
@@ -818,7 +855,8 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForBounds(
     int16_t backSectorId,
     const IndoorLightSelectionBounds &bounds,
     LightingStats *pStats,
-    const IndoorLightSelectionHistory *pPreviousSelection)
+    const IndoorLightSelectionHistory *pPreviousSelection,
+    bool includeStaticLights)
 {
     CandidateLightList candidateLightIndices = {};
 
@@ -867,6 +905,11 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForBounds(
 
         const IndoorRenderLight &light = frame.lights[lightIndex];
 
+        if (!includeStaticLights && isStaticDetailLight(light.kind))
+        {
+            continue;
+        }
+
         if (!lightTouchesBounds(light, bounds))
         {
             continue;
@@ -914,15 +957,15 @@ IndoorDrawLightSet IndoorLightingRuntime::selectDrawLightSetForBounds(
     selectRankedLightsUpToBudget(
         selectedLightIndices,
         selectedLightCount,
-        rankedStaticLights,
-        rankedStaticLightCount,
-        MaxIndoorStaticLightsPerDraw);
-    selectRankedLightsUpToBudget(
-        selectedLightIndices,
-        selectedLightCount,
         rankedFxLights,
         rankedFxLightCount,
         MaxIndoorFxLightsPerDraw);
+    selectRankedLightsUpToBudget(
+        selectedLightIndices,
+        selectedLightCount,
+        rankedStaticLights,
+        rankedStaticLightCount,
+        MaxIndoorStaticLightsPerDraw);
     selectRankedLightsUpToBudget(
         selectedLightIndices,
         selectedLightCount,
@@ -1151,6 +1194,8 @@ IndoorLightingFrame IndoorLightingRuntime::buildFrame(const IndoorLightingFrameI
 {
     IndoorLightingFrame frame = {};
     frame.ambient = ambientFromMinAmbientLightLevel(0);
+    frame.indoorLightRevision = input.pEventRuntimeState != nullptr ? input.pEventRuntimeState->indoorLightRevision : 0;
+    frame.coloredLights = input.coloredLights;
 
     if (input.pMapData != nullptr)
     {

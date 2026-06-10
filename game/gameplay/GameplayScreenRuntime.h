@@ -215,6 +215,7 @@ public:
     void openFollowerNpcDialogue(size_t followerSlotIndex);
     void openFollowerNpcDialogueByIndex(size_t followerIndex);
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);
+    bool hasPendingEventDialog() const;
     void ensurePendingEventDialogPresented(
         bool allowNpcFallbackContent,
         const DialogContextBuilder &contextBuilder,

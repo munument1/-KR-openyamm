@@ -1886,6 +1886,16 @@ void GameplayScreenRuntime::ensurePendingEventDialogPresented(bool allowNpcFallb
     ensurePendingEventDialogPresented(allowNpcFallbackContent, {}, {});
 }
 
+bool GameplayScreenRuntime::hasPendingEventDialog() const
+{
+    const EventRuntimeState *pEventRuntimeState =
+        worldRuntime() != nullptr ? worldRuntime()->eventRuntimeState() : nullptr;
+
+    return pEventRuntimeState != nullptr
+        && pEventRuntimeState->pendingDialogueContext
+        && pEventRuntimeState->pendingDialogueContext->kind != DialogueContextKind::None;
+}
+
 void GameplayScreenRuntime::ensurePendingEventDialogPresented(
     bool allowNpcFallbackContent,
     const DialogContextBuilder &contextBuilder,
@@ -3107,7 +3117,8 @@ std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> GameplayScreenRun
     }
 
     const std::optional<HudTextureHandle> basebarTexture =
-        const_cast<GameplayScreenRuntime *>(this)->gameplayUiRuntime().ensureHudTextureLoaded(pBasebarLayout->primaryAsset);
+        const_cast<GameplayScreenRuntime *>(this)
+            ->gameplayUiRuntime().ensureHudTextureLoaded(pBasebarLayout->primaryAsset);
     const std::optional<HudTextureHandle> faceMaskTexture = const_cast<GameplayScreenRuntime *>(this)
         ->gameplayUiRuntime().ensureHudTextureLoaded(pPartyStripLayout->primaryAsset);
 

@@ -39,9 +39,18 @@ struct IndoorRenderLight
     uint32_t stableId = 0;
 };
 
+enum class IndoorLightingSampleFilter : uint8_t
+{
+    All,
+    StaticDetailOnly,
+    DynamicOnly,
+};
+
 struct IndoorLightingFrame
 {
     float ambient = 1.0f;
+    uint64_t indoorLightRevision = 0;
+    bool coloredLights = true;
     std::vector<IndoorRenderLight> lights;
     std::vector<std::vector<uint32_t>> lightIndicesBySector;
     std::vector<std::vector<uint32_t>> dynamicLightIndicesBySector;
@@ -100,18 +109,21 @@ public:
     static std::array<float, 3> sampleLightingRgb(
         const IndoorLightingFrame &frame,
         const bx::Vec3 &position,
-        LightingStats *pStats = nullptr);
+        LightingStats *pStats = nullptr,
+        IndoorLightingSampleFilter filter = IndoorLightingSampleFilter::All);
     static std::array<float, 3> sampleLightingRgbForSectors(
         const IndoorLightingFrame &frame,
         const bx::Vec3 &position,
         int16_t sectorId,
         int16_t backSectorId = -1,
-        LightingStats *pStats = nullptr);
+        LightingStats *pStats = nullptr,
+        IndoorLightingSampleFilter filter = IndoorLightingSampleFilter::All);
     static IndoorDrawLightSet selectDrawLightSetForPoint(
         const IndoorLightingFrame &frame,
         const bx::Vec3 &position,
         const bx::Vec3 &viewForward,
-        LightingStats *pStats = nullptr);
+        LightingStats *pStats = nullptr,
+        bool includeStaticLights = true);
     static IndoorDrawLightSet selectDrawLightSetForSectors(
         const IndoorLightingFrame &frame,
         const bx::Vec3 &referencePosition,
@@ -119,7 +131,8 @@ public:
         int16_t sectorId,
         int16_t backSectorId,
         LightingStats *pStats = nullptr,
-        const IndoorLightSelectionHistory *pPreviousSelection = nullptr);
+        const IndoorLightSelectionHistory *pPreviousSelection = nullptr,
+        bool includeStaticLights = true);
     static IndoorDrawLightSet selectDrawLightSetForBounds(
         const IndoorLightingFrame &frame,
         const bx::Vec3 &referencePosition,
@@ -128,7 +141,8 @@ public:
         int16_t backSectorId,
         const IndoorLightSelectionBounds &bounds,
         LightingStats *pStats = nullptr,
-        const IndoorLightSelectionHistory *pPreviousSelection = nullptr);
+        const IndoorLightSelectionHistory *pPreviousSelection = nullptr,
+        bool includeStaticLights = true);
 
 private:
     struct CachedLightSource
