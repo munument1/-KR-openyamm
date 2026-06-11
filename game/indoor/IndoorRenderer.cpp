@@ -123,6 +123,7 @@ bool indoorFaceSuppressedForContextAction(
     const IndoorMapData &indoorMapData,
     size_t faceIndex,
     const IndoorFace &face,
+    uint32_t attributes,
     const std::optional<GameplayEventTargetContextActionMetadata> &metadata,
     const std::vector<uint32_t> &openedChestIds)
 {
@@ -132,6 +133,11 @@ bool indoorFaceSuppressedForContextAction(
     }
 
     if (metadata && !metadata->hidden)
+    {
+        return false;
+    }
+
+    if (face.facetType == 3 && hasFaceAttribute(attributes, FaceAttribute::Clickable) && face.cogTriggered != 0)
     {
         return false;
     }
@@ -3795,6 +3801,11 @@ void IndoorRenderer::render(
         const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
         const uint64_t mechanismBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
         const uint64_t simulationBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+        const EventRuntimeState *pPreviousEventRuntimeState = runtimeEventRuntimeState();
+        const std::unordered_map<uint32_t, RuntimeMechanismState> previousMechanisms =
+            pPreviousEventRuntimeState != nullptr
+                ? pPreviousEventRuntimeState->mechanisms
+                : std::unordered_map<uint32_t, RuntimeMechanismState>();
         const bool simulationAdvanced = m_pSceneRuntime->advanceSimulation(deltaMilliseconds);
 
         if (collectDiagnostics)
@@ -3819,6 +3830,8 @@ void IndoorRenderer::render(
                     SDL_GetTicksNS() - mechanismProbeBeginTickCount;
             }
 
+            const std::vector<uint32_t> changedDoorIds = collectChangedMechanismDoorIds(previousMechanisms);
+
             if (mechanismsStillMoving)
             {
                 if (collectDiagnostics)
@@ -3826,22 +3839,33 @@ void IndoorRenderer::render(
                     ++m_indoorPerformanceDiagnostics.movingFrames;
                 }
 
-                if (!updateMovingMechanismGeometryResources() && collectDiagnostics)
+                uint64_t texturedBuildNanoseconds = 0;
+                uint64_t uploadNanoseconds = 0;
+
+                if (!updateMechanismGeometryResourcesForDoorIds(
+                        changedDoorIds,
+                        texturedBuildNanoseconds,
+                        uploadNanoseconds)
+                    && collectDiagnostics)
                 {
                     ++m_indoorPerformanceDiagnostics.movingUpdateFailures;
                 }
             }
             else
             {
-                const uint64_t rebuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
-                rebuildDerivedGeometryResources();
-
-                if (collectDiagnostics)
+                if (!changedDoorIds.empty())
                 {
-                    ++m_indoorPerformanceDiagnostics.movingFullRebuilds;
-                    ++m_indoorPerformanceDiagnostics.mechanismSettleFullRebuilds;
-                    m_indoorPerformanceDiagnostics.fullRebuildNanoseconds +=
-                        SDL_GetTicksNS() - rebuildBeginTickCount;
+                    uint64_t texturedBuildNanoseconds = 0;
+                    uint64_t uploadNanoseconds = 0;
+
+                    if (!updateMechanismGeometryResourcesForDoorIds(
+                            changedDoorIds,
+                            texturedBuildNanoseconds,
+                            uploadNanoseconds)
+                        && collectDiagnostics)
+                    {
+                        ++m_indoorPerformanceDiagnostics.movingUpdateFailures;
+                    }
                 }
             }
 
@@ -6115,6 +6139,11 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
             }
 
             const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+            const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+            const uint32_t effectiveAttributes =
+                mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size()
+                    ? mapDeltaData->faceAttributes[faceIndex]
+                    : face.attributes;
 
             if (!indoorFaceHasActualEvent(m_pSceneRuntime, face)
                 || !isFaceVisible(faceIndex, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage())
@@ -6122,6 +6151,7 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
                     *m_indoorMapData,
                     faceIndex,
                     face,
+                    effectiveAttributes,
                     eventTarget.contextActionMetadata,
                     eventTarget.openedChestIds))
             {
@@ -6133,12 +6163,6 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
             {
                 return true;
             }
-
-            const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-            const uint32_t effectiveAttributes =
-                mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size()
-                    ? mapDeltaData->faceAttributes[faceIndex]
-                    : face.attributes;
 
             return indoorFaceIsInteractionActivatable(effectiveAttributes, eventTarget.triggeredEventId);
         }
@@ -9106,6 +9130,7 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
                 *m_indoorMapData,
                 faceIndex,
                 face,
+                eventTarget.attributes,
                 eventTarget.contextActionMetadata,
                 eventTarget.openedChestIds))
         {
@@ -9367,6 +9392,80 @@ std::vector<size_t> IndoorRenderer::collectMovingMechanismFaceIndices() const
             pEventRuntimeState->mechanisms.find(door.doorId);
 
         if (iterator == pEventRuntimeState->mechanisms.end() || !iterator->second.isMoving)
+        {
+            continue;
+        }
+
+        for (uint16_t faceId : door.faceIds)
+        {
+            if (faceId >= seen.size() || seen[faceId])
+            {
+                continue;
+            }
+
+            seen[faceId] = true;
+            faceIndices.push_back(faceId);
+        }
+    }
+
+    return faceIndices;
+}
+
+std::vector<uint32_t> IndoorRenderer::collectChangedMechanismDoorIds(
+    const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms) const
+{
+    std::vector<uint32_t> doorIds;
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+
+    if (!mapDeltaData || pEventRuntimeState == nullptr)
+    {
+        return doorIds;
+    }
+
+    for (const MapDeltaDoor &door : mapDeltaData->doors)
+    {
+        RuntimeMechanismState baseMechanism = {};
+        baseMechanism.state = door.state;
+        baseMechanism.timeSinceTriggeredMs = static_cast<float>(door.timeSinceTriggered);
+        baseMechanism.currentDistance = EventRuntime::calculateMechanismDistance(door, baseMechanism);
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator previousIterator =
+            previousMechanisms.find(door.doorId);
+        const RuntimeMechanismState &previousMechanism =
+            previousIterator != previousMechanisms.end() ? previousIterator->second : baseMechanism;
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator currentIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+        const RuntimeMechanismState &currentMechanism =
+            currentIterator != pEventRuntimeState->mechanisms.end() ? currentIterator->second : baseMechanism;
+
+        if (std::abs(currentMechanism.currentDistance - previousMechanism.currentDistance) > 0.0001f
+            || currentMechanism.isMoving != previousMechanism.isMoving)
+        {
+            doorIds.push_back(door.doorId);
+        }
+    }
+
+    return doorIds;
+}
+
+std::vector<size_t> IndoorRenderer::collectMechanismFaceIndicesForDoorIds(
+    const std::vector<uint32_t> &doorIds) const
+{
+    std::vector<size_t> faceIndices;
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+
+    if (!mapDeltaData || !m_indoorMapData || doorIds.empty())
+    {
+        return faceIndices;
+    }
+
+    std::vector<bool> seen(m_indoorMapData->faces.size(), false);
+
+    for (const MapDeltaDoor &door : mapDeltaData->doors)
+    {
+        if (std::find(doorIds.begin(), doorIds.end(), door.doorId) == doorIds.end())
         {
             continue;
         }
@@ -9657,6 +9756,42 @@ bool IndoorRenderer::updateMovingMechanismFaceVertices(
 )
 {
     const std::vector<size_t> faceIndices = collectMovingMechanismFaceIndices();
+    return updateMechanismFaceVertices(
+        faceIndices,
+        texturedBuildNanoseconds,
+        uploadNanoseconds,
+        pUpdatedFaceCount,
+        pDirtyBatchCount);
+}
+
+bool IndoorRenderer::updateMechanismFaceVertices(
+    const std::vector<size_t> &faceIndices,
+    uint64_t &texturedBuildNanoseconds,
+    uint64_t &uploadNanoseconds,
+    size_t *pUpdatedFaceCount,
+    size_t *pDirtyBatchCount
+)
+{
+    if (!m_indoorMapData || !m_indoorTextureSet)
+    {
+        return false;
+    }
+
+    if (faceIndices.empty())
+    {
+        if (pUpdatedFaceCount != nullptr)
+        {
+            *pUpdatedFaceCount = 0;
+        }
+
+        if (pDirtyBatchCount != nullptr)
+        {
+            *pDirtyBatchCount = 0;
+        }
+
+        return true;
+    }
+
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::vector<BakedStaticLightSource> bakedStaticLightSources =
         buildBakedStaticLightSources(
@@ -9985,15 +10120,53 @@ bool IndoorRenderer::rebuildDerivedGeometryResources()
 
 bool IndoorRenderer::updateMovingMechanismGeometryResources()
 {
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+
+    if (!mapDeltaData || pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<uint32_t> doorIds;
+
+    for (const MapDeltaDoor &door : mapDeltaData->doors)
+    {
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+
+        if (mechanismIterator != pEventRuntimeState->mechanisms.end() && mechanismIterator->second.isMoving)
+        {
+            doorIds.push_back(door.doorId);
+        }
+    }
+
+    uint64_t texturedBuildNanoseconds = 0;
+    uint64_t uploadNanoseconds = 0;
+    return updateMechanismGeometryResourcesForDoorIds(doorIds, texturedBuildNanoseconds, uploadNanoseconds);
+}
+
+bool IndoorRenderer::updateMechanismGeometryResourcesForDoorIds(
+    const std::vector<uint32_t> &doorIds,
+    uint64_t &texturedBuildNanoseconds,
+    uint64_t &uploadNanoseconds,
+    size_t *pUpdatedFaceCount,
+    size_t *pDirtyBatchCount)
+{
     if (!m_indoorMapData)
     {
         return false;
     }
 
+    if (doorIds.empty())
+    {
+        return true;
+    }
+
     const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
     const uint64_t renderVerticesBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
 
-    if (!updateMovingMechanismRenderVertices())
+    if (!updateMechanismRenderVerticesForDoorIds(doorIds))
     {
         return false;
     }
@@ -10006,6 +10179,7 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
 
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
     {
+        clearPortalVisibilityCaches();
         ++m_inspectGeometryRevision;
         m_cachedInspectHitValid = false;
         return true;
@@ -10027,17 +10201,19 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
         return rebuilt;
     }
 
-    uint64_t texturedBuildNanoseconds = 0;
-    uint64_t uploadNanoseconds = 0;
     size_t updatedFaceCount = 0;
     size_t dirtyBatchCount = 0;
+    size_t *pActualUpdatedFaceCount = pUpdatedFaceCount != nullptr ? pUpdatedFaceCount : &updatedFaceCount;
+    size_t *pActualDirtyBatchCount = pDirtyBatchCount != nullptr ? pDirtyBatchCount : &dirtyBatchCount;
     const uint64_t faceUpdateBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
+    const std::vector<size_t> faceIndices = collectMechanismFaceIndicesForDoorIds(doorIds);
 
-    if (!updateMovingMechanismFaceVertices(
+    if (!updateMechanismFaceVertices(
+            faceIndices,
             texturedBuildNanoseconds,
             uploadNanoseconds,
-            &updatedFaceCount,
-            &dirtyBatchCount))
+            pActualUpdatedFaceCount,
+            pActualDirtyBatchCount))
     {
         const uint64_t rebuildBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
         const bool rebuilt = rebuildDerivedGeometryResources();
@@ -10059,16 +10235,43 @@ bool IndoorRenderer::updateMovingMechanismGeometryResources()
             SDL_GetTicksNS() - faceUpdateBeginTickCount;
         m_indoorPerformanceDiagnostics.movingFaceBuildNanoseconds += texturedBuildNanoseconds;
         m_indoorPerformanceDiagnostics.movingFaceUploadNanoseconds += uploadNanoseconds;
-        m_indoorPerformanceDiagnostics.movingUpdatedFaces += updatedFaceCount;
-        m_indoorPerformanceDiagnostics.movingDirtyBatches += dirtyBatchCount;
+        m_indoorPerformanceDiagnostics.movingUpdatedFaces += *pActualUpdatedFaceCount;
+        m_indoorPerformanceDiagnostics.movingDirtyBatches += *pActualDirtyBatchCount;
     }
 
+    clearPortalVisibilityCaches();
     ++m_inspectGeometryRevision;
     m_cachedInspectHitValid = false;
     return true;
 }
 
 bool IndoorRenderer::updateMovingMechanismRenderVertices()
+{
+    const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+
+    if (!mapDeltaData || pEventRuntimeState == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<uint32_t> doorIds;
+
+    for (const MapDeltaDoor &door : mapDeltaData->doors)
+    {
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+
+        if (mechanismIterator != pEventRuntimeState->mechanisms.end() && mechanismIterator->second.isMoving)
+        {
+            doorIds.push_back(door.doorId);
+        }
+    }
+
+    return updateMechanismRenderVerticesForDoorIds(doorIds);
+}
+
+bool IndoorRenderer::updateMechanismRenderVerticesForDoorIds(const std::vector<uint32_t> &doorIds)
 {
     if (!m_indoorMapData)
     {
@@ -10087,20 +10290,27 @@ bool IndoorRenderer::updateMovingMechanismRenderVertices()
         return true;
     }
 
-    if (!mapDeltaData || pEventRuntimeState == nullptr)
+    if (!mapDeltaData || pEventRuntimeState == nullptr || doorIds.empty())
     {
         return true;
     }
 
     for (const MapDeltaDoor &door : mapDeltaData->doors)
     {
-        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
-            pEventRuntimeState->mechanisms.find(door.doorId);
-
-        if (mechanismIterator == pEventRuntimeState->mechanisms.end() || !mechanismIterator->second.isMoving)
+        if (std::find(doorIds.begin(), doorIds.end(), door.doorId) == doorIds.end())
         {
             continue;
         }
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+            pEventRuntimeState->mechanisms.find(door.doorId);
+        RuntimeMechanismState baseMechanism = {};
+        baseMechanism.state = door.state;
+        baseMechanism.timeSinceTriggeredMs = static_cast<float>(door.timeSinceTriggered);
+        baseMechanism.currentDistance = EventRuntime::calculateMechanismDistance(door, baseMechanism);
+
+        const RuntimeMechanismState &mechanism =
+            mechanismIterator != pEventRuntimeState->mechanisms.end() ? mechanismIterator->second : baseMechanism;
 
         const size_t movableVertexCount = std::min(
             door.vertexIds.size(),
@@ -10112,7 +10322,7 @@ bool IndoorRenderer::updateMovingMechanismRenderVertices()
             continue;
         }
 
-        const float distance = mechanismIterator->second.currentDistance;
+        const float distance = mechanism.currentDistance;
         const float directionX = static_cast<float>(door.directionX) / 65536.0f;
         const float directionY = static_cast<float>(door.directionY) / 65536.0f;
         const float directionZ = static_cast<float>(door.directionZ) / 65536.0f;

@@ -483,9 +483,25 @@ private:
         uint64_t &uploadNanoseconds,
         size_t *pUpdatedFaceCount = nullptr,
         size_t *pDirtyBatchCount = nullptr);
+    bool updateMechanismFaceVertices(
+        const std::vector<size_t> &faceIndices,
+        uint64_t &texturedBuildNanoseconds,
+        uint64_t &uploadNanoseconds,
+        size_t *pUpdatedFaceCount = nullptr,
+        size_t *pDirtyBatchCount = nullptr);
+    bool updateMechanismGeometryResourcesForDoorIds(
+        const std::vector<uint32_t> &doorIds,
+        uint64_t &texturedBuildNanoseconds,
+        uint64_t &uploadNanoseconds,
+        size_t *pUpdatedFaceCount = nullptr,
+        size_t *pDirtyBatchCount = nullptr);
     static void rebuildTexturedBatchBounds(TexturedBatch &batch);
+    std::vector<uint32_t> collectChangedMechanismDoorIds(
+        const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms) const;
     std::vector<size_t> collectMovingMechanismFaceIndices() const;
+    std::vector<size_t> collectMechanismFaceIndicesForDoorIds(const std::vector<uint32_t> &doorIds) const;
     std::vector<uint8_t> collectMechanismFaceMask() const;
+    bool updateMechanismRenderVerticesForDoorIds(const std::vector<uint32_t> &doorIds);
     struct IndoorPerformanceDiagnostics
     {
         uint64_t visibilityCalls = 0;
