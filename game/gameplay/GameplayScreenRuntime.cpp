@@ -962,6 +962,11 @@ const std::string &GameplayScreenRuntime::statusBarHoverText() const
     return uiController().statusBar().hoverText;
 }
 
+void GameplayScreenRuntime::updateStatusBarEvent(float deltaSeconds) const
+{
+    uiController().updateStatusBarEvent(deltaSeconds);
+}
+
 GameplayContextActionState &GameplayScreenRuntime::contextActionState() const
 {
     return uiController().contextActionState();
@@ -1132,9 +1137,12 @@ bool GameplayScreenRuntime::activeMemberHasSpellbookSchool(GameplayUiController:
     return pSkill != nullptr && pSkill->level > 0 && pSkill->mastery != SkillMastery::None;
 }
 
-void GameplayScreenRuntime::setStatusBarEvent(const std::string &text, float durationSeconds)
+void GameplayScreenRuntime::setStatusBarEvent(
+    const std::string &text,
+    float durationSeconds,
+    GameplayUiController::StatusBarEventPriority priority)
 {
-    uiController().setStatusBarEvent(text, durationSeconds);
+    uiController().setStatusBarEvent(text, durationSeconds, priority);
 }
 
 void GameplayScreenRuntime::openRestOverlay(bool enforceWorldRestrictions)

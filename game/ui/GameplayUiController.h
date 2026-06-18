@@ -119,6 +119,12 @@ public:
         LloydsBeacon,
     };
 
+    enum class StatusBarEventPriority : uint8_t
+    {
+        Normal = 0,
+        High,
+    };
+
     struct HeldInventoryItemState
     {
         bool active = false;
@@ -428,6 +434,7 @@ public:
         std::string hoverText;
         std::string eventText;
         float eventRemainingSeconds = 0.0f;
+        StatusBarEventPriority eventPriority = StatusBarEventPriority::Normal;
     };
 
     struct EventDialogState
@@ -576,7 +583,10 @@ public:
     void closeUtilitySpellOverlay();
     void beginHouseBankInput(uint32_t houseId, HouseBankInputMode mode);
     void clearHouseBankState();
-    void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
+    void setStatusBarEvent(
+        const std::string &text,
+        float durationSeconds = 2.0f,
+        StatusBarEventPriority priority = StatusBarEventPriority::Normal);
     bool statusBarEventActive() const;
     void setStatusBarHoverText(const std::string &text);
     void clearStatusBarHoverText();

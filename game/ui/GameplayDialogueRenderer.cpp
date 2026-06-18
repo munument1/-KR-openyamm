@@ -47,15 +47,7 @@ std::optional<std::string> pendingInputPromptHint(const GameplayScreenRuntime &v
         return std::nullopt;
     }
 
-    std::string promptText = pRuntimeState->pendingInputPrompt->text.value_or(std::string());
-
-    if (!promptText.empty() && !std::isspace(static_cast<unsigned char>(promptText.back())))
-    {
-        promptText.push_back(' ');
-    }
-
-    promptText.push_back('_');
-    return promptText;
+    return std::string("Answer: _");
 }
 
 constexpr uint16_t HudViewId = 2;

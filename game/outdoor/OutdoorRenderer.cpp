@@ -3189,6 +3189,7 @@ void OutdoorRenderer::renderWorldPasses(
         }
 
         if (showTerrain
+            && !(view.m_outdoorMapData.has_value() && view.m_outdoorMapData->noTerrain)
             && bgfx::isValid(view.m_outdoorTexturedFogProgramHandle)
             && bgfx::isValid(view.m_terrainTextureAtlasHandle)
             && bgfx::isValid(view.m_terrainTextureSamplerHandle)

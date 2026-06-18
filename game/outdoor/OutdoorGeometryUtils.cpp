@@ -84,7 +84,22 @@ bool isOutdoorWalkablePolygonType(uint8_t polygonType)
 
 bool outdoorMapUsesBModelGround(const OutdoorMapData &outdoorMapData)
 {
-    return outdoorMapData.noTerrain && !outdoorMapData.bmodels.empty();
+    if (!outdoorMapData.noTerrain || outdoorMapData.bmodels.empty() || outdoorMapData.heightMap.empty())
+    {
+        return false;
+    }
+
+    const uint8_t firstHeightSample = outdoorMapData.heightMap.front();
+
+    for (uint8_t heightSample : outdoorMapData.heightMap)
+    {
+        if (heightSample != firstHeightSample)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z)

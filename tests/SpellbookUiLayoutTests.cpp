@@ -100,3 +100,29 @@ TEST_CASE("status bar hover text can clear while event text is active")
     CHECK_EQ(uiController.statusBar().eventText, "You found gold!");
     CHECK(uiController.statusBar().hoverText.empty());
 }
+
+TEST_CASE("high priority status bar event resists normal overwrite until expiry")
+{
+    GameplayUiController uiController = {};
+
+    uiController.setStatusBarEvent(
+        "You have killed all of the Ogres",
+        2.0f,
+        GameplayUiController::StatusBarEventPriority::High);
+    uiController.setStatusBarEvent("You are burning!", 2.0f);
+
+    CHECK(uiController.statusBarEventActive());
+    CHECK_EQ(uiController.statusBar().eventText, "You have killed all of the Ogres");
+
+    uiController.setStatusBarEvent(
+        "Another quest update",
+        2.0f,
+        GameplayUiController::StatusBarEventPriority::High);
+    CHECK_EQ(uiController.statusBar().eventText, "Another quest update");
+
+    uiController.updateStatusBarEvent(2.0f);
+    CHECK_FALSE(uiController.statusBarEventActive());
+
+    uiController.setStatusBarEvent("You are burning!", 2.0f);
+    CHECK_EQ(uiController.statusBar().eventText, "You are burning!");
+}

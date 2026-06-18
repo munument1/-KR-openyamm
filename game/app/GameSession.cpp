@@ -744,7 +744,7 @@ void GameSession::updateGameplay(
             worldMovementBeginTickCount);
 
         const bool gameplayWorldPaused =
-            standardWorldInputBlocked
+            modalWorldInputBlocked
             || pendingSpellTargetActive
             || m_sharedWorldInteractionBlockedThisFrame;
 

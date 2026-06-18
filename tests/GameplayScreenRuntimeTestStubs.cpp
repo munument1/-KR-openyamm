@@ -69,10 +69,19 @@ void GameplayScreenRuntime::playCommonUiSound(SoundId soundId)
     (void)soundId;
 }
 
-void GameplayScreenRuntime::setStatusBarEvent(const std::string &text, float durationSeconds)
+void GameplayScreenRuntime::setStatusBarEvent(
+    const std::string &text,
+    float durationSeconds,
+    GameplayUiController::StatusBarEventPriority priority)
 {
     (void)text;
     (void)durationSeconds;
+    (void)priority;
+}
+
+void GameplayScreenRuntime::updateStatusBarEvent(float deltaSeconds) const
+{
+    (void)deltaSeconds;
 }
 
 const GameSettings &GameplayScreenRuntime::settingsSnapshot() const

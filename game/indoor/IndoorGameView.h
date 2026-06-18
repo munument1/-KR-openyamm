@@ -76,7 +76,11 @@ public:
     bool activateMapActorDialogue(size_t actorIndex);
     GameplayUiController::HeldInventoryItemState &heldInventoryItem();
     const GameplayUiController::HeldInventoryItemState &heldInventoryItem() const;
-    void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
+    void setStatusBarEvent(
+        const std::string &text,
+        float durationSeconds = 2.0f,
+        GameplayUiController::StatusBarEventPriority priority =
+            GameplayUiController::StatusBarEventPriority::Normal);
     void executeActiveDialogAction() override;
     bool tryCastSpellRequest(
         const PartySpellCastRequest &request,

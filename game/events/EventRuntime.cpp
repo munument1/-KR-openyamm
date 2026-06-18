@@ -4416,6 +4416,7 @@ struct LuaExecutionContext
     PartySelector selector = {};
     std::optional<std::string> pendingMessageText;
     std::optional<bool> canShowTopicVisible;
+    size_t initialMessageCount = 0;
     uint16_t currentEventId = 0;
     bool readonly = false;
     bool preservePendingOutputsOnBegin = false;
@@ -6776,6 +6777,12 @@ bool appendPendingMessageText(lua_State *pLuaState, EventRuntimeState &runtimeSt
     return true;
 }
 
+bool currentLuaHandlerHasAddedMessage(lua_State *pLuaState, const EventRuntimeState &runtimeState)
+{
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    return pExecutionContext != nullptr && runtimeState.messages.size() > pExecutionContext->initialMessageCount;
+}
+
 void tracePendingInputPromptCreated(
     const EventRuntimeState &runtimeState,
     const EventRuntimeState::PendingInputPrompt &prompt,
@@ -6888,7 +6895,7 @@ int luaAskQuestion(lua_State *pLuaState)
     }
 
     if (!appendPendingMessageText(pLuaState, *pRuntimeState)
-        && pRuntimeState->messages.empty()
+        && !currentLuaHandlerHasAddedMessage(pLuaState, *pRuntimeState)
         && prompt.text
         && !prompt.text->empty())
     {
@@ -6963,7 +6970,7 @@ int luaAskQuestionWithAnswerSteps(lua_State *pLuaState)
     }
 
     if (!appendPendingMessageText(pLuaState, *pRuntimeState)
-        && pRuntimeState->messages.empty()
+        && !currentLuaHandlerHasAddedMessage(pLuaState, *pRuntimeState)
         && prompt.text
         && !prompt.text->empty())
     {
@@ -8169,6 +8176,8 @@ bool invokeLuaHandler(
     session.pExecutionContext = &executionContext;
     lua_State *pLuaState = session.lua.state();
     session.lua.pushRegistryReference(handlerReference);
+    executionContext.initialMessageCount =
+        executionContext.pRuntimeState != nullptr ? executionContext.pRuntimeState->messages.size() : 0u;
 
     if (continueStep)
     {

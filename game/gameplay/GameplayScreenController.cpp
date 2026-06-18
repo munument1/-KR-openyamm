@@ -128,17 +128,7 @@ void GameplayScreenController::updateSharedFrameState(
         journalScreen.hoverAnimationElapsedSeconds += std::max(0.0f, deltaSeconds);
     }
 
-    float &statusBarRemainingSeconds = context.statusBarEventRemainingSeconds();
-
-    if (statusBarRemainingSeconds > 0.0f)
-    {
-        statusBarRemainingSeconds = std::max(0.0f, statusBarRemainingSeconds - deltaSeconds);
-
-        if (statusBarRemainingSeconds <= 0.0f)
-        {
-            context.statusBarEventText().clear();
-        }
-    }
+    context.updateStatusBarEvent(deltaSeconds);
 
     updateRestOverlayProgress(context, deltaSeconds);
 

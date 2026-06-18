@@ -530,7 +530,10 @@ void GameplayUiController::clearHouseBankState()
     resolvedState().houseBankState = {};
 }
 
-void GameplayUiController::setStatusBarEvent(const std::string &text, float durationSeconds)
+void GameplayUiController::setStatusBarEvent(
+    const std::string &text,
+    float durationSeconds,
+    StatusBarEventPriority priority)
 {
     if (text.empty())
     {
@@ -538,8 +541,15 @@ void GameplayUiController::setStatusBarEvent(const std::string &text, float dura
     }
 
     State &state = resolvedState();
+
+    if (statusBarEventActive() && priority < state.statusBar.eventPriority)
+    {
+        return;
+    }
+
     state.statusBar.eventText = text;
     state.statusBar.eventRemainingSeconds = std::max(0.0f, durationSeconds);
+    state.statusBar.eventPriority = priority;
 }
 
 bool GameplayUiController::statusBarEventActive() const
@@ -591,6 +601,7 @@ void GameplayUiController::updateStatusBarEvent(float deltaSeconds)
         }
 
         state.statusBar.eventText.clear();
+        state.statusBar.eventPriority = StatusBarEventPriority::Normal;
     }
 }
 

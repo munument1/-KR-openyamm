@@ -508,6 +508,36 @@ bool initializeTestAssetFileSystem(OpenYAMM::Engine::AssetFileSystem &assetFileS
 }
 }
 
+TEST_CASE("outdoor no-terrain maps keep authored heightfield collision when terrain has relief")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.noTerrain = true;
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    mapData.bmodels.push_back({});
+
+    CHECK(OpenYAMM::Game::outdoorMapUsesBModelGround(mapData));
+
+    const size_t centerIndex =
+        static_cast<size_t>(64 * OpenYAMM::Game::OutdoorMapData::TerrainWidth + 64);
+    mapData.heightMap[centerIndex] = 32;
+
+    CHECK_FALSE(OpenYAMM::Game::outdoorMapUsesBModelGround(mapData));
+
+    const float x = OpenYAMM::Game::outdoorGridCornerWorldX(64);
+    const float y = OpenYAMM::Game::outdoorGridCornerWorldY(64);
+    const OpenYAMM::Game::OutdoorSupportFloorSample support =
+        OpenYAMM::Game::sampleOutdoorSupportFloor(mapData, x, y, 4096.0f, 5.0f, 5.0f);
+
+    CHECK(support.hasFloor);
+    CHECK_FALSE(support.fromBModel);
+    CHECK_GT(support.height, 0.0f);
+}
+
 TEST_CASE("party ground movement blocks water entry without water walk")
 {
     const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
@@ -5183,6 +5213,63 @@ TEST_CASE("lua AskQuestion uses existing map message as dialog body")
     CHECK(dialog.title.empty());
     REQUIRE_EQ(dialog.lines.size(), 1u);
     CHECK_EQ(dialog.lines[0], "Restricted area - Keep out.");
+}
+
+TEST_CASE("lua AskQuestion uses question text when prior dialogue messages are stale")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.global[165] = function(continueStep)\n"
+        "    evt._BeginEvent(165)\n"
+        "    if continueStep ~= nil then return end\n"
+        "    evt.AskQuestion(165, 2, 599, 4, 102, 103, \"What is there when\\nYou enter a room?\", {\"in\", \"inside\"})\n"
+        "    return nil\n"
+        "end\n",
+        "@SyntheticQuestionWithStaleDialogue.lua",
+        OpenYAMM::Game::ScriptedEventScope::Global);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntimeState::PendingDialogueContext context = {};
+    context.kind = OpenYAMM::Game::DialogueContextKind::NpcTalk;
+    context.sourceId = 22;
+    runtimeState.pendingDialogueContext = context;
+    runtimeState.messages.push_back("Ah, the gratings are returned to their original place.");
+    const size_t previousMessageCount = runtimeState.messages.size();
+
+    REQUIRE(eventRuntime.executeNpcTopicEventById(
+        std::nullopt,
+        scriptedProgram,
+        165,
+        runtimeState,
+        nullptr,
+        nullptr));
+    REQUIRE(runtimeState.pendingInputPrompt.has_value());
+    REQUIRE_EQ(runtimeState.messages.size(), previousMessageCount + 1u);
+    CHECK_EQ(runtimeState.messages.back(), "What is there when\nYou enter a room?");
+
+    if (!runtimeState.pendingDialogueContext)
+    {
+        runtimeState.pendingDialogueContext = context;
+    }
+
+    const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+        runtimeState,
+        previousMessageCount,
+        true,
+        &scriptedProgram,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        0.0f);
+    CHECK(dialog.isActive);
+    REQUIRE_FALSE(dialog.lines.empty());
+    CHECK_EQ(dialog.lines[0], "What is there when");
 }
 
 TEST_CASE("lua on-load runtime preserves preseeded named globals")

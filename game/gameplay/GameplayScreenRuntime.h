@@ -163,6 +163,7 @@ public:
     std::string &statusBarEventText() const;
     float &statusBarEventRemainingSeconds() const;
     const std::string &statusBarHoverText() const;
+    void updateStatusBarEvent(float deltaSeconds) const;
     void setStatusBarHoverText(const std::string &text) const;
     void clearStatusBarHoverText() const;
     GameplayContextActionState &contextActionState() const;
@@ -180,7 +181,11 @@ public:
     bool isReadOnlyAdventurersInnCharacterViewActive() const;
     bool activeMemberKnowsSpell(uint32_t spellId) const;
     bool activeMemberHasSpellbookSchool(GameplayUiController::SpellbookSchool school) const;
-    void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
+    void setStatusBarEvent(
+        const std::string &text,
+        float durationSeconds = 2.0f,
+        GameplayUiController::StatusBarEventPriority priority =
+            GameplayUiController::StatusBarEventPriority::Normal);
     void openRestOverlay(bool enforceWorldRestrictions = true);
     void beginRestAction(GameplayUiController::RestMode mode, float minutes, bool consumeFood, bool innRest);
     void startRestAction(GameplayUiController::RestMode mode, float minutes);

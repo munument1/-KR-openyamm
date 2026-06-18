@@ -5550,7 +5550,10 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
 
     for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
     {
-        view.setStatusBarEvent(statusMessage);
+        view.setStatusBarEvent(
+            statusMessage,
+            2.0f,
+            GameplayUiController::StatusBarEventPriority::High);
     }
     pEventRuntimeState->statusMessages.clear();
     OutdoorInteractionController::applyGrantedEventItemsToHeldInventory(view);
@@ -5977,7 +5980,10 @@ bool OutdoorInteractionController::tryTriggerLocalEventById(OutdoorGameView &vie
 
     for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
     {
-        view.setStatusBarEvent(statusMessage);
+        view.setStatusBarEvent(
+            statusMessage,
+            2.0f,
+            GameplayUiController::StatusBarEventPriority::High);
     }
     pEventRuntimeState->statusMessages.clear();
     OutdoorInteractionController::applyGrantedEventItemsToHeldInventory(view);

@@ -507,7 +507,11 @@ public:
     GameAudioSystem *audioSystem() const;
     const GameDataRepository &data() const;
     float gameplayCameraYawRadians() const override;
-    void setStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
+    void setStatusBarEvent(
+        const std::string &text,
+        float durationSeconds = 2.0f,
+        GameplayUiController::StatusBarEventPriority priority =
+            GameplayUiController::StatusBarEventPriority::Normal);
     void executeActiveDialogAction() override;
     GameSettings &mutableSettings();
     std::array<uint8_t, SDL_SCANCODE_COUNT> &previousKeyboardState();

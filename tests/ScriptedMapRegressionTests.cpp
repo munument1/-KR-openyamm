@@ -8064,6 +8064,18 @@ TEST_CASE("d06 indoor actor loader preserves Blackwell Cooper guaranteed key dro
     REQUIRE(sceneLoadedMap.indoorMapDeltaData.has_value());
     REQUIRE_GT(sceneLoadedMap.indoorMapDeltaData->actors.size(), 0u);
     CHECK_EQ(sceneLoadedMap.indoorMapDeltaData->actors[0].carriedItemId, 619u);
+
+    REQUIRE(sceneLoadedMap.indoorMapData.has_value());
+    REQUIRE_GT(sceneLoadedMap.indoorMapData->faces.size(), 1625u);
+    REQUIRE_GT(sceneLoadedMap.indoorMapDeltaData->faceAttributes.size(), 1625u);
+
+    const OpenYAMM::Game::IndoorFace &submarineEntryFace = sceneLoadedMap.indoorMapData->faces[1625];
+    const uint32_t submarineEntryAttributes = sceneLoadedMap.indoorMapDeltaData->faceAttributes[1625];
+
+    CHECK_EQ(submarineEntryFace.cogTriggered, 451u);
+    CHECK_EQ(submarineEntryFace.facetType, 3u);
+    CHECK(OpenYAMM::Game::hasFaceAttribute(submarineEntryAttributes, OpenYAMM::Game::FaceAttribute::Clickable));
+    CHECK_FALSE(OpenYAMM::Game::hasFaceAttribute(submarineEntryAttributes, OpenYAMM::Game::FaceAttribute::HasHint));
 }
 
 TEST_CASE("d06 submarine event plays cutscene and moves to small sub pen")

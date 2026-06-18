@@ -5002,9 +5002,12 @@ const std::array<uint8_t, SDL_SCANCODE_COUNT> &OutdoorGameView::previousKeyboard
     return m_gameSession.previousKeyboardState();
 }
 
-void OutdoorGameView::setStatusBarEvent(const std::string &text, float durationSeconds)
+void OutdoorGameView::setStatusBarEvent(
+    const std::string &text,
+    float durationSeconds,
+    GameplayUiController::StatusBarEventPriority priority)
 {
-    m_gameSession.gameplayScreenRuntime().setStatusBarEvent(text, durationSeconds);
+    m_gameSession.gameplayScreenRuntime().setStatusBarEvent(text, durationSeconds, priority);
 }
 
 void OutdoorGameView::updateActorInspectOverlayState(int width, int height, const GameplayInputFrame &input)

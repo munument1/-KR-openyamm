@@ -121,7 +121,8 @@ void OutdoorGameplayInputController::updateCameraFromInput(
     const bool lookDownPressed = input.action(KeyboardAction::LookDown).held;
     const bool centerViewPressed = input.action(KeyboardAction::CenterView).held;
 
-    const bool allowCameraMovementInput = !hasActiveLootView && !hasPendingSpellCast && !gameplayMouseLookState.cursorModeActive;
+    const bool allowWorldSimulation = !hasActiveLootView && !hasPendingSpellCast;
+    const bool allowCameraMovementInput = allowWorldSimulation && !gameplayMouseLookState.cursorModeActive;
     const float keyboardYawSpeed = 1.75f;
 
     if (classicControls && allowCameraMovementInput)
@@ -141,16 +142,16 @@ void OutdoorGameplayInputController::updateCameraFromInput(
     {
         if (view.m_pOutdoorPartyRuntime)
         {
-            if (allowCameraMovementInput)
+            if (allowWorldSimulation)
             {
                 const OutdoorMovementInput movementInput = {
-                    moveForwardPressed,
-                    moveBackwardPressed,
-                    strafeLeftPressed,
-                    strafeRightPressed,
-                    jumpPressed,
-                    flyUpPressed,
-                    flyDownPressed,
+                    allowCameraMovementInput && moveForwardPressed,
+                    allowCameraMovementInput && moveBackwardPressed,
+                    allowCameraMovementInput && strafeLeftPressed,
+                    allowCameraMovementInput && strafeRightPressed,
+                    allowCameraMovementInput && jumpPressed,
+                    allowCameraMovementInput && flyUpPressed,
+                    allowCameraMovementInput && flyDownPressed,
                     runWalkModifier,
                     turboSpeed,
                     view.m_cameraYawRadians,
@@ -173,7 +174,10 @@ void OutdoorGameplayInputController::updateCameraFromInput(
                     {
                         for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
                         {
-                            view.setStatusBarEvent(statusMessage);
+                            view.setStatusBarEvent(
+                                statusMessage,
+                                2.0f,
+                                GameplayUiController::StatusBarEventPriority::High);
                         }
 
                         pEventRuntimeState->statusMessages.clear();

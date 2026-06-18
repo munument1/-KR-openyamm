@@ -5018,24 +5018,7 @@ void GameApplication::updatePendingInputPrompt()
         }
     }
 
-    const IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime();
-    const EventRuntimeState *pRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
-    std::string promptText;
-
-    if (pRuntimeState != nullptr
-        && pRuntimeState->pendingInputPrompt
-        && pRuntimeState->pendingInputPrompt->text
-        && !pRuntimeState->pendingInputPrompt->text->empty())
-    {
-        promptText = *pRuntimeState->pendingInputPrompt->text;
-
-        if (!promptText.empty() && !std::isspace(static_cast<unsigned char>(promptText.back())))
-        {
-            promptText.push_back(' ');
-        }
-    }
-
-    const std::string statusText = promptText + m_pendingInputText + "_";
+    const std::string statusText = "Answer: " + m_pendingInputText + "_";
 
     if (statusText != m_pendingInputStatusText)
     {

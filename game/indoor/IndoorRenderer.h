@@ -91,7 +91,8 @@ public:
         GameSession &gameSession,
         const GameplayInputFrame &input,
         float deltaSeconds,
-        bool allowWorldInput = true);
+        bool allowWorldInput = true,
+        bool allowWorldSimulation = true);
     void updateWorldMovement(
         const GameplayInputFrame &input,
         float deltaSeconds,

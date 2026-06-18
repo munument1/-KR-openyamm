@@ -3732,7 +3732,8 @@ void IndoorRenderer::render(
     GameSession &gameSession,
     const GameplayInputFrame &input,
     float deltaSeconds,
-    bool allowWorldInput)
+    bool allowWorldInput,
+    bool allowWorldSimulation)
 {
     if (!m_isInitialized)
     {
@@ -3796,7 +3797,7 @@ void IndoorRenderer::render(
     const float deltaMilliseconds = deltaSeconds * 1000.0f;
     m_elapsedTime += std::max(deltaSeconds, 0.0f);
 
-    if (allowWorldInput && m_pSceneRuntime != nullptr && !gameSession.turnBasedCombatRuntime().active())
+    if (allowWorldSimulation && m_pSceneRuntime != nullptr && !gameSession.turnBasedCombatRuntime().active())
     {
         const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
         const uint64_t mechanismBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
@@ -3873,6 +3874,15 @@ void IndoorRenderer::render(
             {
                 m_indoorPerformanceDiagnostics.mechanismTotalNanoseconds +=
                     SDL_GetTicksNS() - mechanismBeginTickCount;
+            }
+
+            if (bgfx::getRendererType() != bgfx::RendererType::Noop
+                && m_indoorTextureSet
+                && texturedBatchesNeedFullRebuild()
+                && !rebuildDerivedGeometryResources()
+                && collectDiagnostics)
+            {
+                ++m_indoorPerformanceDiagnostics.movingUpdateFailures;
             }
         }
     }

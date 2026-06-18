@@ -1210,13 +1210,18 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
             && !sharedInputFrameResult.journalInputConsumed
             && !sharedInputFrameResult.worldInputBlocked
             && !pendingSpellTargetActive;
+        const bool allowWorldSimulation =
+            !sharedInputFrameResult.journalInputConsumed
+            && !sharedInputFrameResult.worldInputBlocked
+            && !pendingSpellTargetActive;
         m_pIndoorRenderer->render(
             width,
             height,
             m_gameSession,
             input,
             deltaSeconds,
-            allowWorldInput);
+            allowWorldInput,
+            allowWorldSimulation);
     }
 
     if (captureSavePreviewThisFrame)
@@ -1792,9 +1797,12 @@ bool IndoorGameView::activateMapActorDialogue(size_t actorIndex)
     return true;
 }
 
-void IndoorGameView::setStatusBarEvent(const std::string &text, float durationSeconds)
+void IndoorGameView::setStatusBarEvent(
+    const std::string &text,
+    float durationSeconds,
+    GameplayUiController::StatusBarEventPriority priority)
 {
-    m_gameSession.gameplayScreenRuntime().setStatusBarEvent(text, durationSeconds);
+    m_gameSession.gameplayScreenRuntime().setStatusBarEvent(text, durationSeconds, priority);
 }
 
 void IndoorGameView::updateDialogueVideoPlayback(float deltaSeconds)
@@ -1848,7 +1856,10 @@ void IndoorGameView::presentPendingEventFeedback()
     {
         for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
         {
-            setStatusBarEvent(statusMessage);
+            setStatusBarEvent(
+                statusMessage,
+                2.0f,
+                GameplayUiController::StatusBarEventPriority::High);
         }
 
         pEventRuntimeState->statusMessages.clear();
