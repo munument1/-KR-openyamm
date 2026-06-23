@@ -131,6 +131,7 @@ add_library(openyamm_game STATIC
     outdoor/OutdoorGeometryUtils.cpp
     outdoor/OutdoorMovementController.cpp
     outdoor/OutdoorMovementDriver.cpp
+    outdoor/OutdoorPathfindingBuilder.cpp
     outdoor/OutdoorPartyRuntime.cpp
     outdoor/OutdoorWorldRuntime.cpp
     party/Party.cpp

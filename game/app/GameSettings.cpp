@@ -917,6 +917,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "features", "outdoor_pathfinding"))
+    {
+        bool parsed = settings.outdoorPathfinding;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.outdoorPathfinding = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "features", "monster_projectile_visuals"))
     {
         MonsterProjectileVisuals parsed = settings.monsterProjectileVisuals;
@@ -964,6 +974,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         if (parseBoolValue(*value, parsed))
         {
             settings.logIndoorPathfinding = parsed;
+        }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "logging", "outdoor_pathfinding"))
+    {
+        bool parsed = settings.logOutdoorPathfinding;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.logOutdoorPathfinding = parsed;
         }
     }
 
@@ -1278,12 +1298,14 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "[features]\n"
         << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << '\n'
+        << "outdoor_pathfinding=" << (settings.outdoorPathfinding ? "true" : "false") << '\n'
         << "monster_projectile_visuals=" << monsterProjectileVisualsValue(settings.monsterProjectileVisuals) << '\n'
         << "blaster_skill_scaling=" << blasterSkillScalingValue(settings.blasterSkillScaling) << '\n'
         << "blaster_min_recovery=" << blasterMinimumRecoveryTicksValue(settings.blasterMinimumRecoveryTicks) << "\n\n"
         << "[logging]\n"
         << "indoor_visibility=" << (settings.logIndoorVisibility ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.logIndoorPathfinding ? "true" : "false") << '\n'
+        << "outdoor_pathfinding=" << (settings.logOutdoorPathfinding ? "true" : "false") << '\n'
         << "fps_trace=" << (settings.fpsTrace ? "true" : "false") << '\n'
         << "performance_trace=" << (settings.performanceTrace ? "true" : "false") << '\n'
         << "hitch_trace=" << (settings.hitchTrace ? "true" : "false") << '\n'

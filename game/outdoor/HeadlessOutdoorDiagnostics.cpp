@@ -32,6 +32,7 @@
 #include "game/items/ItemRuntime.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/outdoor/OutdoorMovementController.h"
+#include "game/outdoor/OutdoorPathfindingBuilder.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
@@ -62,6 +63,7 @@
 #include <limits>
 #include <optional>
 #include <sstream>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -839,6 +841,39 @@ bool isOutdoorPositionWaterForDiagnostics(
 {
     return isOutdoorTerrainWater(outdoorMapData, x, y)
         || isOutdoorLandMaskWaterForDiagnostics(outdoorLandMask, x, y);
+}
+
+OutdoorBModel createOutdoorDiagnosticPathfindingWall(
+    float wallX,
+    float centerY,
+    float groundZ,
+    float halfLength,
+    float height)
+{
+    OutdoorBModel bModel = {};
+    bModel.name = "diagnostic_pathfinding_wall";
+    bModel.minX = static_cast<int>(std::lround(wallX));
+    bModel.maxX = bModel.minX;
+    bModel.minY = static_cast<int>(std::lround(centerY - halfLength));
+    bModel.maxY = static_cast<int>(std::lround(centerY + halfLength));
+    bModel.minZ = static_cast<int>(std::lround(groundZ));
+    bModel.maxZ = static_cast<int>(std::lround(groundZ + height));
+    bModel.boundingCenterX = bModel.minX;
+    bModel.boundingCenterY = static_cast<int>(std::lround(centerY));
+    bModel.boundingCenterZ = static_cast<int>(std::lround(groundZ + height * 0.5f));
+    bModel.boundingRadius = static_cast<int>(std::lround(std::max(halfLength, height)));
+    bModel.vertices = {
+        {bModel.minX, bModel.minY, bModel.minZ},
+        {bModel.minX, bModel.maxY, bModel.minZ},
+        {bModel.minX, bModel.maxY, bModel.maxZ},
+        {bModel.minX, bModel.minY, bModel.maxZ},
+    };
+
+    OutdoorBModelFace face = {};
+    face.vertexIndices = {0, 1, 2, 3};
+    face.polygonType = 0x1;
+    bModel.faces.push_back(std::move(face));
+    return bModel;
 }
 
 SyntheticOutdoorWaterBoundaryScenario createSyntheticOutdoorWaterBoundaryScenario()
@@ -12530,6 +12565,315 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
 
             return true;
+        }
+    );
+
+    runCase(
+        "outdoor_pathfinding_movement_routes_ground_actor_around_bmodel_obstacle",
+        [&](std::string &failure)
+        {
+            if (!selectedMap->outdoorMapData
+                || !selectedMap->outdoorMapDeltaData
+                || selectedMap->outdoorMapDeltaData->actors.size() <= 53)
+            {
+                failure = "selected map has insufficient outdoor data";
+                return false;
+            }
+
+            const MonsterTable &monsterTable = gameDataLoader.getMonsterTable();
+            int16_t hostileMeleeMonsterId = 0;
+
+            for (int monsterId = 1; monsterId < 2000; ++monsterId)
+            {
+                const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(int16_t(monsterId));
+                const MonsterEntry *pEntry = monsterTable.findById(int16_t(monsterId));
+
+                if (pStats == nullptr
+                    || pEntry == nullptr
+                    || !monsterTable.isHostileToParty(int16_t(monsterId))
+                    || pStats->canFly
+                    || pStats->movementType == MonsterTable::MonsterMovementType::Stationary
+                    || pStats->attackStyle != MonsterTable::MonsterAttackStyle::MeleeOnly
+                    || pStats->speed <= 0
+                    || pEntry->radius == 0
+                    || pEntry->height == 0)
+                {
+                    continue;
+                }
+
+                hostileMeleeMonsterId = int16_t(monsterId);
+                break;
+            }
+
+            if (hostileMeleeMonsterId == 0)
+            {
+                failure = "could not find hostile melee pathfinding test monster";
+                return false;
+            }
+
+            const MonsterEntry *pMonsterEntry = monsterTable.findById(hostileMeleeMonsterId);
+
+            if (pMonsterEntry == nullptr)
+            {
+                failure = "selected hostile melee monster entry missing";
+                return false;
+            }
+
+            constexpr float PathDistance = 2048.0f;
+            constexpr float WallOffset = PathDistance * 0.5f;
+            constexpr float WallHalfLength = 768.0f;
+            constexpr float DetourOffset = WallHalfLength + 512.0f;
+            const float halfTile = static_cast<float>(OutdoorMapData::TerrainTileSize) * 0.5f;
+            std::optional<std::pair<float, float>> placement;
+
+            for (int tileY = 32; tileY <= 94 && !placement; ++tileY)
+            {
+                for (int tileX = 32; tileX <= 90; ++tileX)
+                {
+                    const float startX = outdoorGridCornerWorldX(tileX) + halfTile;
+                    const float startY = outdoorGridCornerWorldY(tileY) - halfTile;
+                    const std::array<std::pair<float, float>, 4> requiredLandPoints = {{
+                        {startX, startY},
+                        {startX + PathDistance, startY},
+                        {startX + WallOffset, startY + DetourOffset},
+                        {startX + WallOffset, startY - DetourOffset},
+                    }};
+                    bool placementValid = true;
+
+                    for (const std::pair<float, float> &point : requiredLandPoints)
+                    {
+                        if (isOutdoorPositionWaterForDiagnostics(
+                                *selectedMap->outdoorMapData,
+                                selectedMap->outdoorLandMask,
+                                point.first,
+                                point.second)
+                            || outdoorTerrainSlopeTooHigh(*selectedMap->outdoorMapData, point.first, point.second))
+                        {
+                            placementValid = false;
+                            break;
+                        }
+                    }
+
+                    if (placementValid)
+                    {
+                        placement = std::make_pair(startX, startY);
+                        break;
+                    }
+                }
+            }
+
+            if (!placement)
+            {
+                failure = "could not find a flat land corridor for outdoor pathfinding regression";
+                return false;
+            }
+
+            const float startX = placement->first;
+            const float startY = placement->second;
+            const float partyX = startX + PathDistance;
+            const float partyY = startY;
+            const float startZ = sampleOutdoorPlacementFloorHeight(
+                *selectedMap->outdoorMapData,
+                startX,
+                startY,
+                sampleOutdoorRenderedTerrainHeight(*selectedMap->outdoorMapData, startX, startY) + 512.0f);
+            const float partyZ = sampleOutdoorPlacementFloorHeight(
+                *selectedMap->outdoorMapData,
+                partyX,
+                partyY,
+                sampleOutdoorRenderedTerrainHeight(*selectedMap->outdoorMapData, partyX, partyY) + 512.0f);
+            const float wallX = startX + WallOffset;
+            const float wallZ = sampleOutdoorPlacementFloorHeight(
+                *selectedMap->outdoorMapData,
+                wallX,
+                startY,
+                sampleOutdoorRenderedTerrainHeight(*selectedMap->outdoorMapData, wallX, startY) + 512.0f);
+
+            MapAssetInfo modifiedMap = *selectedMap;
+            modifiedMap.outdoorMapData = *selectedMap->outdoorMapData;
+            modifiedMap.outdoorMapDeltaData = *selectedMap->outdoorMapDeltaData;
+            modifiedMap.outdoorMapDeltaData->locationInfo.lastRespawnDay = 1;
+            modifiedMap.outdoorMapData->bmodels.push_back(
+                createOutdoorDiagnosticPathfindingWall(
+                    wallX,
+                    startY,
+                    wallZ - 64.0f,
+                    WallHalfLength,
+                    896.0f));
+
+            MapDeltaActor &pathActor = modifiedMap.outdoorMapDeltaData->actors[53];
+            pathActor.monsterInfoId = hostileMeleeMonsterId;
+            pathActor.monsterId = hostileMeleeMonsterId;
+            pathActor.attributes = static_cast<uint32_t>(EvtActorAttribute::Aggressor);
+            pathActor.hostilityType = 4;
+            pathActor.group = 0;
+            pathActor.ally = 0;
+            pathActor.hp = 1;
+            pathActor.radius = pMonsterEntry->radius;
+            pathActor.height = pMonsterEntry->height;
+            pathActor.x = static_cast<int>(std::lround(startX));
+            pathActor.y = static_cast<int>(std::lround(startY));
+            pathActor.z = static_cast<int>(std::lround(startZ));
+
+            for (size_t actorIndex = 0; actorIndex < modifiedMap.outdoorMapDeltaData->actors.size(); ++actorIndex)
+            {
+                if (actorIndex == 53)
+                {
+                    continue;
+                }
+
+                MapDeltaActor &otherActor = modifiedMap.outdoorMapDeltaData->actors[actorIndex];
+                otherActor.x = pathActor.x - 40000 - static_cast<int>(actorIndex) * 64;
+                otherActor.y = pathActor.y - 40000 - static_cast<int>(actorIndex) * 64;
+                otherActor.z = pathActor.z;
+            }
+
+            OutdoorPathMapBuildOptions pathMapOptions = {};
+            pathMapOptions.terrainMode = OutdoorPathTerrainMode::LandOnly;
+            OutdoorPathMapBuildResult pathMapBuild =
+                OutdoorPathfindingBuilder::buildPathMap(
+                    *modifiedMap.outdoorMapData,
+                    &*modifiedMap.outdoorMapDeltaData,
+                    nullptr,
+                    pathMapOptions,
+                    modifiedMap.outdoorLandMask ? &*modifiedMap.outdoorLandMask : nullptr);
+            PathObject pathObject = {};
+            pathObject.radius = static_cast<float>(pathActor.radius);
+            pathObject.stepLength = 64.0f;
+            pathObject.stepHeight = 128.0f;
+            const PathPoint pathSource = {startX, startY, startZ};
+            const PathPoint pathTarget = {partyX, partyY, partyZ};
+            const PathWalkSegmentDebug directDebug =
+                pathMapBuild.pathMap.debugTraceWalkSegment(pathSource, pathTarget, pathObject);
+
+            if (directDebug.success)
+            {
+                std::ostringstream stream;
+                stream << "synthetic outdoor pathfinding wall did not block direct path"
+                       << " source_bmodel_faces=" << pathMapBuild.sourceBModelFaceCount
+                       << " bmodel_facets=" << pathMapBuild.bModelPathFacetCount
+                       << " skipped_bmodel_faces=" << pathMapBuild.skippedBModelFaceCount
+                       << " path_facets=" << pathMapBuild.pathFacetCount
+                       << " samples=" << directDebug.sampleCount;
+                failure = stream.str();
+                return false;
+            }
+
+            if (directDebug.rejectReason != PathWalkRejectReason::Blocked)
+            {
+                std::ostringstream stream;
+                stream << "synthetic outdoor pathfinding direct path failed for non-obstacle reason"
+                       << " reason=" << static_cast<int>(directDebug.rejectReason)
+                       << " sample=" << directDebug.sampleIndex
+                       << " sample_count=" << directDebug.sampleCount
+                       << " source_bmodel_faces=" << pathMapBuild.sourceBModelFaceCount
+                       << " bmodel_facets=" << pathMapBuild.bModelPathFacetCount
+                       << " skipped_bmodel_faces=" << pathMapBuild.skippedBModelFaceCount;
+                failure = stream.str();
+                return false;
+            }
+
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            scenario.world.setOutdoorPathfindingSettings(true, false);
+
+            const OutdoorWorldRuntime::MapActorState *pBefore = scenario.world.mapActorState(53);
+
+            if (pBefore == nullptr || !pBefore->hostileToParty || pBefore->moveSpeed == 0)
+            {
+                std::ostringstream stream;
+                stream << "synthetic pathfinding actor did not initialize as a mobile hostile actor";
+
+                if (pBefore == nullptr)
+                {
+                    stream << " actor_missing=1";
+                }
+                else
+                {
+                    stream << " monster_id=" << pBefore->monsterId
+                           << " hostile=" << (pBefore->hostileToParty ? 1 : 0)
+                           << " move_speed=" << pBefore->moveSpeed
+                           << " radius=" << pBefore->radius
+                           << " height=" << pBefore->height;
+                }
+
+                failure = stream.str();
+                return false;
+            }
+
+            const std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> initialDebug =
+                scenario.world.debugActorDecisionInfo(53, partyX, partyY, partyZ);
+
+            if (!initialDebug || !initialDebug->targetCanSense)
+            {
+                failure = "synthetic pathfinding actor cannot sense the party";
+                return false;
+            }
+
+            bool sawPathfindingState = false;
+            bool sawLateralDetour = false;
+            bool crossedWall = false;
+            bool sawPursuing = false;
+
+            for (int step = 0; step < 1536; ++step)
+            {
+                scenario.world.updateMapActors(1.0f / 128.0f, partyX, partyY, partyZ);
+                const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(53);
+
+                if (pActor == nullptr)
+                {
+                    failure = "synthetic pathfinding actor disappeared";
+                    return false;
+                }
+
+                sawPathfindingState =
+                    sawPathfindingState
+                    || scenario.world.debugActorPathfindingActive(53)
+                    || scenario.world.debugActorPathfindingPending(53);
+                sawPursuing = sawPursuing || pActor->aiState == OutdoorWorldRuntime::ActorAiState::Pursuing;
+                sawLateralDetour = sawLateralDetour || std::abs(pActor->preciseY - startY) > 96.0f;
+                crossedWall = crossedWall || pActor->preciseX > wallX + 128.0f;
+
+                if (sawPathfindingState && sawLateralDetour && crossedWall)
+                {
+                    return true;
+                }
+            }
+
+            if (!sawPathfindingState)
+            {
+                const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(53);
+                std::ostringstream stream;
+                stream << "outdoor actor never requested or followed a pathfinding plan";
+
+                if (pActor != nullptr)
+                {
+                    stream << " ai_state=" << static_cast<int>(pActor->aiState)
+                           << " saw_pursuing=" << (sawPursuing ? 1 : 0)
+                           << " movement_initialized=" << (pActor->movementStateInitialized ? 1 : 0)
+                           << " x_delta=" << (pActor->preciseX - startX)
+                           << " y_delta=" << (pActor->preciseY - startY)
+                           << " crossed_wall=" << (crossedWall ? 1 : 0);
+                }
+
+                failure = stream.str();
+                return false;
+            }
+
+            if (!sawLateralDetour)
+            {
+                failure = "outdoor pathfinding actor did not take a lateral detour around the obstacle";
+                return false;
+            }
+
+            failure = "outdoor pathfinding actor did not cross past the blocking obstacle";
+            return false;
         }
     );
 

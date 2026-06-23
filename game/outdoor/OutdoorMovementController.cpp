@@ -1494,6 +1494,23 @@ bool isSteepBModelSlideFace(const OutdoorFaceGeometryData &geometry)
     return geometry.maxZ - geometry.minZ >= MaxSmallSlopeHeight;
 }
 
+bool actorCanStepUpWithinCurrentBModel(
+    const std::optional<OutdoorMoveState> &preferredState,
+    const OutdoorFaceGeometryData &geometry,
+    float height,
+    float maxFloorRise)
+{
+    if (!preferredState
+        || preferredState->airborne
+        || preferredState->supportKind != OutdoorSupportKind::BModelFace
+        || preferredState->supportBModelIndex != geometry.bModelIndex)
+    {
+        return false;
+    }
+
+    return height <= preferredState->footZ - GroundSnapHeight + maxFloorRise + CollisionEpsilon;
+}
+
 std::optional<FloorSample> queryBModelFootprintSupportFloor(
     const std::vector<OutdoorFaceGeometryData> &faces,
     const std::vector<size_t> *pCandidateFaceIndices,
@@ -1636,7 +1653,8 @@ FloorSample queryFloorLevel(
         }
 
         if (supportMode == FloorSupportMode::ActorConditionalBModels
-            && z - GroundSnapHeight + CollisionEpsilon < height)
+            && z - GroundSnapHeight + CollisionEpsilon < height
+            && !actorCanStepUpWithinCurrentBModel(preferredState, geometry, height, maxFloorRise))
         {
             return;
         }
@@ -2710,6 +2728,43 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         pDebugInfo->outputVelocityZ = result.verticalVelocity;
     }
     return result;
+}
+
+bool OutdoorMovementController::hasNonFluidBModelActorSupport(
+    const OutdoorMoveState &state,
+    float bodyRadius,
+    float x,
+    float y,
+    float z,
+    float maxFloorRise) const
+{
+    if (m_pOutdoorMapData == nullptr)
+    {
+        return false;
+    }
+
+    const float radius = std::max(1.0f, bodyRadius);
+    std::vector<size_t> candidateFaceIndices;
+    collectFaceCandidates(
+        x - std::max(radius, FloorCheckSlack),
+        y - std::max(radius, FloorCheckSlack),
+        x + std::max(radius, FloorCheckSlack),
+        y + std::max(radius, FloorCheckSlack),
+        candidateFaceIndices);
+    const FloorSample floor = queryFloorLevel(
+        *m_pOutdoorMapData,
+        m_faces,
+        state,
+        &candidateFaceIndices,
+        radius,
+        std::max(0.0f, maxFloorRise),
+        x,
+        y,
+        z,
+        FloorSupportMode::ActorConditionalBModels,
+        true);
+
+    return floor.hasFloor && floor.fromBModel && !floor.isFluid;
 }
 
 std::optional<MapBoundaryEdge> OutdoorMovementController::detectBoundaryBlock(

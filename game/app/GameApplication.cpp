@@ -5264,6 +5264,9 @@ void GameApplication::applyCurrentSettingsToActiveRuntime()
     if (m_pOutdoorWorldRuntime != nullptr)
     {
         m_pOutdoorWorldRuntime->setBolsterMonstersEnabled(m_settings.bolsterMonsters);
+        m_pOutdoorWorldRuntime->setOutdoorPathfindingSettings(
+            m_settings.outdoorPathfinding,
+            m_settings.logOutdoorPathfinding);
     }
 
     if (m_pOutdoorPartyRuntime != nullptr)

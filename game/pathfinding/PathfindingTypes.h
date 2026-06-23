@@ -120,6 +120,7 @@ struct PathPlanRequest
     int32_t preferredSourceFacetSourceId = -1;
     size_t nodeLimit = 8000;
     uint32_t mapRevision = 0;
+    float sourceSnapDistance = 0.0f;
     bool allowPartialPath = false;
     bool allowDirect = true;
 };

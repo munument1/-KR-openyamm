@@ -141,11 +141,13 @@ struct GameSettings
     bool startInMainMenu = false;
     bool bolsterMonsters = false;
     bool indoorPathfinding = true;
+    bool outdoorPathfinding = false;
     MonsterProjectileVisuals monsterProjectileVisuals = MonsterProjectileVisuals::FxRecipes;
     BlasterSkillScalingMode blasterSkillScaling = BlasterSkillScalingMode::Default;
     int blasterMinimumRecoveryTicks = 0;
     bool logIndoorVisibility = false;
     bool logIndoorPathfinding = false;
+    bool logOutdoorPathfinding = false;
     bool fpsTrace = false;
     bool performanceTrace = false;
     bool hitchTrace = false;

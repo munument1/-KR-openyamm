@@ -24,6 +24,7 @@
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorGameplayInputController.h"
 #include "game/outdoor/OutdoorInteractionController.h"
+#include "game/outdoor/OutdoorPathfindingBuilder.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/EventSpellBuffs.h"
 #include "game/scene/OutdoorSceneRuntime.h"
@@ -269,6 +270,151 @@ const char *actorAiTargetKindName(ActorAiTargetKind kind)
             return "party";
         case ActorAiTargetKind::Actor:
             return "actor";
+    }
+
+    return "unknown";
+}
+
+const char *pathPlanStatusName(PathPlanStatus status)
+{
+    switch (status)
+    {
+        case PathPlanStatus::NotRequested:
+            return "not_requested";
+        case PathPlanStatus::Success:
+            return "success";
+        case PathPlanStatus::Partial:
+            return "partial";
+        case PathPlanStatus::NoRoute:
+            return "no_route";
+        case PathPlanStatus::NodeLimitExceeded:
+            return "node_limit";
+        case PathPlanStatus::StaleRevision:
+            return "stale_revision";
+    }
+
+    return "unknown";
+}
+
+const char *pathDiscardReasonName(ActorPathDiscardReason reason)
+{
+    switch (reason)
+    {
+        case ActorPathDiscardReason::None:
+            return "none";
+        case ActorPathDiscardReason::StaleGeneration:
+            return "stale_generation";
+        case ActorPathDiscardReason::StaleTarget:
+            return "stale_target";
+        case ActorPathDiscardReason::StaleSource:
+            return "stale_source";
+    }
+
+    return "unknown";
+}
+
+const char *pathFacetKindName(PathFacetKind kind)
+{
+    switch (kind)
+    {
+        case PathFacetKind::Generic:
+            return "generic";
+        case PathFacetKind::Floor:
+            return "floor";
+        case PathFacetKind::Wall:
+            return "wall";
+        case PathFacetKind::Ceiling:
+            return "ceiling";
+        case PathFacetKind::Portal:
+            return "portal";
+    }
+
+    return "unknown";
+}
+
+int pathFacetLogIndex(size_t facetIndex)
+{
+    return facetIndex == static_cast<size_t>(-1) ? -1 : static_cast<int>(facetIndex);
+}
+
+int pathFacetSourceId(const PathMap &pathMap, size_t facetIndex)
+{
+    const std::vector<PathFacet> &facets = pathMap.facets();
+
+    if (facetIndex == static_cast<size_t>(-1) || facetIndex >= facets.size())
+    {
+        return -1;
+    }
+
+    return facets[facetIndex].sourceId;
+}
+
+const char *pathFacetKind(const PathMap &pathMap, size_t facetIndex)
+{
+    const std::vector<PathFacet> &facets = pathMap.facets();
+
+    if (facetIndex == static_cast<size_t>(-1) || facetIndex >= facets.size())
+    {
+        return "none";
+    }
+
+    return pathFacetKindName(facets[facetIndex].kind);
+}
+
+void appendPathFloorSampleDebug(
+    std::ostream &stream,
+    const char *label,
+    const PathMap &pathMap,
+    const PathFloorSample &sample)
+{
+    stream << ' ' << label
+        << "=(has=" << (sample.hasFloor ? 1 : 0)
+        << ",void=" << (sample.inVoid ? 1 : 0)
+        << ",z=" << sample.z
+        << ",normal_z=" << sample.normalZ
+        << ",facet=" << (sample.hasFloor ? pathFacetLogIndex(sample.facetIndex) : -1)
+        << ",source=" << (sample.hasFloor ? pathFacetSourceId(pathMap, sample.facetIndex) : -1)
+        << ",kind=" << (sample.hasFloor ? pathFacetKind(pathMap, sample.facetIndex) : "none")
+        << ')';
+}
+
+void appendPathFloorQueryDebug(
+    std::ostream &stream,
+    const char *label,
+    const PathMap &pathMap,
+    const PathFloorQueryDebug &debug)
+{
+    stream << ' ' << label
+        << "=(pos=" << debug.position.x << ',' << debug.position.y << ',' << debug.position.z
+        << ",has=" << (debug.result.hasFloor ? 1 : 0)
+        << ",void=" << (debug.result.inVoid ? 1 : 0)
+        << ",z=" << debug.result.z
+        << ",normal_z=" << debug.result.normalZ
+        << ",facet=" << (debug.result.hasFloor ? pathFacetLogIndex(debug.result.facetIndex) : -1)
+        << ",source=" << (debug.result.hasFloor ? pathFacetSourceId(pathMap, debug.result.facetIndex) : -1)
+        << ",kind=" << (debug.result.hasFloor ? pathFacetKind(pathMap, debug.result.facetIndex) : "none")
+        << ",candidates=" << debug.candidateCount
+        << ",invalid=" << debug.invalidFacetCount
+        << ",non_walkable=" << debug.nonWalkableCount
+        << ",bounds_reject=" << debug.boundsRejectCount
+        << ",polygon_reject=" << debug.polygonRejectCount
+        << ",below=" << debug.belowCount
+        << ",above=" << debug.aboveCount;
+    appendPathFloorSampleDebug(stream, "best_below", pathMap, debug.bestBelow);
+    appendPathFloorSampleDebug(stream, "best_above", pathMap, debug.bestAbove);
+    stream << ')';
+}
+
+const char *outdoorSupportKindName(OutdoorSupportKind kind)
+{
+    switch (kind)
+    {
+        case OutdoorSupportKind::None:
+            return "none";
+        case OutdoorSupportKind::Terrain:
+            return "terrain";
+        case OutdoorSupportKind::BModelFace:
+            return "bmodel";
     }
 
     return "unknown";
@@ -741,6 +887,24 @@ constexpr std::array<std::array<int, 3>, 6> EncounterDifficultyTierWeights = {{
 constexpr float GroundSnapHeight = 1.0f;
 constexpr float OeNonFlyingActorRadius = 40.0f;
 constexpr float ActorUpdateStepSeconds = 1.0f / 128.0f;
+constexpr bool OutdoorActorPathfindingEnabled = true;
+constexpr size_t OutdoorActorPathNodeLimit = 8000;
+constexpr size_t OutdoorActorPathPlanBudgetPerStep = 2;
+constexpr size_t OutdoorActorPathWorkerCount = 2;
+constexpr double OutdoorActorPathPlanIntervalSeconds = 0.1;
+constexpr float OutdoorGroundPathStepLength = 64.0f;
+constexpr float OutdoorGroundPathStepHeight = 128.0f;
+constexpr float OutdoorGroundPathSourceSnapDistance = static_cast<float>(OutdoorMapData::TerrainTileSize);
+constexpr float OutdoorGroundPathPlanningRange = 12000.0f;
+constexpr float OutdoorFlyingPathPlanningRange = 6000.0f;
+constexpr double OutdoorPathFailedRetrySeconds = 3.0;
+constexpr double OutdoorPathDirectCheckIntervalSeconds = 0.25;
+constexpr double OutdoorPathMinReplanIntervalSeconds = 1.0;
+constexpr double OutdoorPathShortcutCheckIntervalSeconds = 0.5;
+constexpr float OutdoorPathSpatialGridCellSize = 512.0f;
+constexpr float OutdoorGroundPathMinWaypointReachDistance = 48.0f;
+constexpr float OutdoorGroundPathMaxWaypointReachDistance = 128.0f;
+constexpr float OutdoorActorWaterRestrictionBModelSupportRise = 128.0f;
 constexpr float MaxAccumulatedActorUpdateSeconds = 0.1f;
 constexpr float ProjectileUpdateStepSeconds = 1.0f / 60.0f;
 constexpr int MaxProjectileUpdateStepsPerFrame = 4;
@@ -1834,8 +1998,8 @@ bool findNearbyLandDirection(
     float &directionX,
     float &directionY)
 {
-    const float gridX = 64.0f - (actorX / static_cast<float>(OutdoorMapData::TerrainTileSize));
-    const float gridY = 64.0f - (actorY / static_cast<float>(OutdoorMapData::TerrainTileSize));
+    const float gridX = outdoorWorldToGridXFloat(actorX);
+    const float gridY = outdoorWorldToGridYFloat(actorY);
     const int tileX = std::clamp(static_cast<int>(std::floor(gridX)), 0, OutdoorMapData::TerrainWidth - 2);
     const int tileY = std::clamp(static_cast<int>(std::floor(gridY)), 0, OutdoorMapData::TerrainHeight - 2);
     float bestDistanceSquared = std::numeric_limits<float>::max();
@@ -1902,6 +2066,21 @@ enum class OutdoorWaterRestrictionResult
     BlockedByWater,
 };
 
+const char *outdoorWaterRestrictionResultName(OutdoorWaterRestrictionResult result)
+{
+    switch (result)
+    {
+        case OutdoorWaterRestrictionResult::None:
+            return "none";
+        case OutdoorWaterRestrictionResult::RedirectedToLand:
+            return "redirected_to_land";
+        case OutdoorWaterRestrictionResult::BlockedByWater:
+            return "blocked_by_water";
+    }
+
+    return "unknown";
+}
+
 void rotateDirectionClockwise(float &directionX, float &directionY, float radians)
 {
     const float cosine = std::cos(radians);
@@ -1915,8 +2094,10 @@ void rotateDirectionClockwise(float &directionX, float &directionY, float radian
 OutdoorWaterRestrictionResult applyOutdoorWaterRestriction(
     const OutdoorMapData &outdoorMapData,
     const std::optional<std::vector<uint8_t>> &outdoorLandMask,
+    const OutdoorMovementController *pMovementController,
     const MonsterTable::MonsterStatsEntry *pStats,
     OutdoorWorldRuntime::MapActorState &actor,
+    float bodyRadius,
     float moveSpeed,
     float &desiredMoveX,
     float &desiredMoveY,
@@ -1931,7 +2112,24 @@ OutdoorWaterRestrictionResult applyOutdoorWaterRestriction(
         return OutdoorWaterRestrictionResult::None;
     }
 
-    const bool onWater = isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, actor.preciseX, actor.preciseY);
+    const auto hasNonFluidBModelSupport =
+        [pMovementController, &actor, bodyRadius](float x, float y) -> bool
+    {
+        return pMovementController != nullptr
+            && actor.movementStateInitialized
+            && !actor.movementState.airborne
+            && pMovementController->hasNonFluidBModelActorSupport(
+                actor.movementState,
+                bodyRadius,
+                x,
+                y,
+                actor.movementState.footZ,
+                OutdoorActorWaterRestrictionBModelSupportRise);
+    };
+
+    const bool onWater =
+        isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, actor.preciseX, actor.preciseY)
+        && !hasNonFluidBModelSupport(actor.preciseX, actor.preciseY);
 
     if (onWater)
     {
@@ -1964,7 +2162,8 @@ OutdoorWaterRestrictionResult applyOutdoorWaterRestriction(
     const float candidateX = actor.preciseX + moveDeltaX;
     const float candidateY = actor.preciseY + moveDeltaY;
 
-    if (!isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, candidateX, candidateY))
+    if (!isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, candidateX, candidateY)
+        || hasNonFluidBModelSupport(candidateX, candidateY))
     {
         return OutdoorWaterRestrictionResult::None;
     }
@@ -1987,7 +2186,8 @@ OutdoorWaterRestrictionResult applyOutdoorWaterRestriction(
     const float rotatedCandidateY = actor.preciseY + desiredMoveY * moveSpeed * ActorUpdateStepSeconds;
 
     if (length2d(desiredMoveX, desiredMoveY) <= 0.001f
-        || isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, rotatedCandidateX, rotatedCandidateY))
+        || (isOutdoorMonsterWaterTile(outdoorMapData, outdoorLandMask, rotatedCandidateX, rotatedCandidateY)
+            && !hasNonFluidBModelSupport(rotatedCandidateX, rotatedCandidateY)))
     {
         desiredMoveX = 0.0f;
         desiredMoveY = 0.0f;
@@ -2008,6 +2208,20 @@ void faceDirection(OutdoorWorldRuntime::MapActorState &actor, float deltaX, floa
     }
 
     actor.yawRadians = std::atan2(deltaY, deltaX);
+}
+
+void faceMoveDirection(OutdoorWorldRuntime::MapActorState &actor, float directionX, float directionY)
+{
+    const float directionLength = length2d(directionX, directionY);
+
+    if (directionLength <= 0.01f)
+    {
+        return;
+    }
+
+    actor.moveDirectionX = directionX / directionLength;
+    actor.moveDirectionY = directionY / directionLength;
+    actor.yawRadians = std::atan2(actor.moveDirectionY, actor.moveDirectionX);
 }
 
 float monsterRecoverySeconds(int recoveryTicks)
@@ -4974,6 +5188,16 @@ void OutdoorWorldRuntime::initialize(
     m_outdoorFaceGridWidth = 0;
     m_outdoorFaceGridHeight = 0;
     m_outdoorMovementController.reset();
+    m_outdoorPathMapValid = false;
+    m_outdoorLandPathMapValid = false;
+    m_outdoorPathfindingEnabled = false;
+    m_logOutdoorPathfinding = false;
+    m_outdoorPathMapSnapshot.reset();
+    m_outdoorLandPathMapSnapshot.reset();
+    m_actorPathRuntime.clear();
+    m_actorPathRuntimeSeconds = 0.0;
+    m_actorPathPlansThisStep = 0;
+    m_nextActorPathPlanSeconds = 0.0;
     m_actorUpdateAccumulatorSeconds = 0.0f;
     m_immolationTickAccumulatorGameMinutes = 0.0f;
     m_immolationTickSequence = 0;
@@ -8592,6 +8816,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntent(
         actorIndex,
         pStats,
         activeActorMask,
+        movementIntent.action,
         movementIntent.moveSpeed,
         movementIntent.desiredMoveZ,
         movementIntent.meleePursuitActive,
@@ -9025,6 +9250,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     size_t actorIndex,
     const MonsterTable::MonsterStatsEntry *pStats,
     const std::vector<bool> &activeActorMask,
+    ActorAiMovementAction movementAction,
     float moveSpeed,
     float desiredMoveZ,
     bool meleePursuitActive,
@@ -9043,19 +9269,271 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     }
 
     MapActorState &actor = m_mapActors[actorIndex];
+    PathPoint movementTarget = {targetPosition.x, targetPosition.y, targetPosition.z};
+    const float collisionRadius = actorCollisionRadius(actor, pStats);
+    const bool actorPathfindingEnabled = OutdoorActorPathfindingEnabled && outdoorActorPathfindingEnabled();
+    bool actorPathPlanPending =
+        actorPathfindingEnabled && m_actorPathRuntime.actorHasPendingPlan(actorIndex);
+    bool actorPathActiveBeforeResolve =
+        actorPathfindingEnabled && m_actorPathRuntime.actorHasActivePath(actorIndex);
+    const bool actorPathCanUseIntent =
+        movementAction == ActorAiMovementAction::Pursue
+        && moveSpeed > 0.0f
+        && !inMeleeRange
+        && actor.movementStateInitialized
+        && m_outdoorMovementController
+        && m_pOutdoorMapData != nullptr;
+    ActorPathResolveResult pathResult = {};
+    ActorPathResolveRequest pathRequest = {};
+    PathObject pathObject = {};
+    std::shared_ptr<const PathMap> pathDebugMap;
+    bool actorPathMapAvailable = false;
+    bool pathRequestReady = false;
+    bool pathWaterCapable = false;
+
+    if (!actorPathfindingEnabled)
+    {
+        m_actorPathRuntime.setWorkerCount(0);
+    }
+
+    if (actorPathfindingEnabled && !actorPathCanUseIntent && (actorPathPlanPending || actorPathActiveBeforeResolve))
+    {
+        m_actorPathRuntime.resetActor(actorIndex);
+        actorPathPlanPending = false;
+        actorPathActiveBeforeResolve = false;
+    }
+
+    if (actorPathfindingEnabled && actorPathCanUseIntent)
+    {
+        const bool waterCapable = pStats->canFly || canMonsterWalkOnWater(pStats);
+        std::shared_ptr<const PathMap> pathMap = outdoorPathMap(!waterCapable);
+        actorPathMapAvailable = pathMap != nullptr;
+        pathWaterCapable = waterCapable;
+        pathDebugMap = pathMap;
+
+        if (pathMap != nullptr)
+        {
+            m_actorPathRuntime.setWorkerCount(OutdoorActorPathWorkerCount);
+
+            pathObject = {};
+            pathObject.canFly = pStats->canFly;
+            pathObject.radius = collisionRadius;
+            pathObject.stepLength =
+                pStats->canFly ? std::max(collisionRadius, 24.0f) : OutdoorGroundPathStepLength;
+            pathObject.stepHeight = OutdoorGroundPathStepHeight;
+
+            pathRequest = {};
+            pathRequest.actorIndex = actorIndex;
+            pathRequest.source = {
+                actor.movementState.x,
+                actor.movementState.y,
+                actor.movementState.footZ
+            };
+            pathRequest.target = movementTarget;
+            pathRequest.object = pathObject;
+            pathRequest.preferredSourceFacetSourceId =
+                !pStats->canFly
+                    && actor.movementState.supportKind == OutdoorSupportKind::BModelFace
+                        ? OutdoorPathfindingBuilder::bModelSourceId(
+                            actor.movementState.supportBModelIndex,
+                            actor.movementState.supportFaceIndex)
+                        : -1;
+            pathRequest.nodeLimit = OutdoorActorPathNodeLimit;
+            pathRequest.mapRevision = pathMap->revision();
+            pathRequest.sourceSnapDistance = waterCapable ? 0.0f : OutdoorGroundPathSourceSnapDistance;
+            pathRequest.planningRange =
+                pStats->canFly ? OutdoorFlyingPathPlanningRange : OutdoorGroundPathPlanningRange;
+            pathRequest.waypointReachDistance =
+                pStats->canFly
+                    ? std::max(collisionRadius, OutdoorGroundPathMinWaypointReachDistance)
+                    : std::clamp(
+                        collisionRadius * 0.5f,
+                        OutdoorGroundPathMinWaypointReachDistance,
+                        OutdoorGroundPathMaxWaypointReachDistance);
+            pathRequest.nowSeconds = m_actorPathRuntimeSeconds;
+            pathRequest.failedRetrySeconds = OutdoorPathFailedRetrySeconds;
+            pathRequest.directCheckIntervalSeconds = OutdoorPathDirectCheckIntervalSeconds;
+            pathRequest.minReplanIntervalSeconds = OutdoorPathMinReplanIntervalSeconds;
+            pathRequest.shortcutCheckIntervalSeconds = OutdoorPathShortcutCheckIntervalSeconds;
+            pathRequest.allowPartialPath = !waterCapable;
+            pathRequest.allowDirect = pStats->canFly;
+            pathRequest.allowPlan =
+                m_actorPathPlansThisStep < OutdoorActorPathPlanBudgetPerStep
+                && m_actorPathRuntimeSeconds >= m_nextActorPathPlanSeconds;
+            pathRequestReady = true;
+
+            pathResult = m_actorPathRuntime.resolveWaypoint(pathMap, pathRequest);
+
+            if (pathResult.planned || pathResult.queued)
+            {
+                ++m_actorPathPlansThisStep;
+                m_nextActorPathPlanSeconds =
+                    m_actorPathRuntimeSeconds + OutdoorActorPathPlanIntervalSeconds;
+            }
+
+            if (pathResult.pathActive)
+            {
+                const float waypointDeltaX = pathResult.waypoint.x - actor.movementState.x;
+                const float waypointDeltaY = pathResult.waypoint.y - actor.movementState.y;
+                const float waypointDistance = length2d(waypointDeltaX, waypointDeltaY);
+
+                if (waypointDistance > 0.001f)
+                {
+                    desiredMoveX = waypointDeltaX / waypointDistance;
+                    desiredMoveY = waypointDeltaY / waypointDistance;
+                    movementTarget = pathResult.waypoint;
+                }
+            }
+
+            if (logOutdoorPathfindingEnabled()
+                && (pathResult.planned || pathResult.queued || pathResult.discarded || pathResult.failed))
+            {
+                std::cout << "[OutdoorPathfinding] plan actor=" << actorIndex
+                    << " actor_id=" << actor.actorId
+                    << " monster_id=" << actor.monsterId
+                    << " name=\"" << actor.displayName << '"'
+                    << " map_available=" << (actorPathMapAvailable ? 1 : 0)
+                    << " water_capable=" << (waterCapable ? 1 : 0)
+                    << " status=" << pathPlanStatusName(pathResult.planStatus)
+                    << " planned=" << (pathResult.planned ? 1 : 0)
+                    << " queued=" << (pathResult.queued ? 1 : 0)
+                    << " active=" << (pathResult.pathActive ? 1 : 0)
+                    << " waypoints=" << pathResult.waypointCount
+                    << " waypoint_index=" << pathResult.waypointIndex
+                    << " direct=" << (pathResult.directReachable ? 1 : 0)
+                    << " discarded=" << (pathResult.discarded ? 1 : 0)
+                    << " discard_reason=" << pathDiscardReasonName(pathResult.discardReason)
+                    << " failed=" << (pathResult.failed ? 1 : 0)
+                    << " nodes=" << pathResult.analyzedNodeCount
+                    << " source=(" << pathRequest.source.x << ',' << pathRequest.source.y
+                    << ',' << pathRequest.source.z << ')'
+                    << " target=(" << pathRequest.target.x << ',' << pathRequest.target.y
+                    << ',' << pathRequest.target.z << ')'
+                    << " revision=" << pathRequest.mapRevision
+                    << " allow_partial=" << (pathRequest.allowPartialPath ? 1 : 0)
+                    << " source_snap=" << pathRequest.sourceSnapDistance
+                    << " preferred_source=" << pathRequest.preferredSourceFacetSourceId
+                    << " radius=" << pathObject.radius
+                    << " step_length=" << pathObject.stepLength
+                    << " step_height=" << pathObject.stepHeight;
+
+                if (pathResult.planned || pathResult.failed || pathResult.discarded)
+                {
+                    const PathPlanDebugInfo &debug = pathResult.planDebug;
+                    std::cout << " plan_source=(" << debug.requestSource.x << ','
+                        << debug.requestSource.y << ',' << debug.requestSource.z << ')'
+                        << " plan_target=(" << debug.requestTarget.x << ','
+                        << debug.requestTarget.y << ',' << debug.requestTarget.z << ')'
+                        << " snapped_source=(" << debug.snappedSource.x << ','
+                        << debug.snappedSource.y << ',' << debug.snappedSource.z << ')'
+                        << " snapped_target=(" << debug.snappedTarget.x << ','
+                        << debug.snappedTarget.y << ',' << debug.snappedTarget.z << ')'
+                        << " source_valid=" << (debug.sourceValid ? 1 : 0)
+                        << " target_valid=" << (debug.targetValid ? 1 : 0)
+                        << " plan_direct=" << (debug.directReachable ? 1 : 0)
+                        << " preferred_source_snap=" << (debug.preferredSourceSnapUsed ? 1 : 0)
+                        << " source_facet=" << pathFacetLogIndex(debug.sourceFloorFacet)
+                        << " source_face=" << pathFacetSourceId(*pathMap, debug.sourceFloorFacet)
+                        << " source_kind=" << pathFacetKind(*pathMap, debug.sourceFloorFacet)
+                        << " target_facet=" << pathFacetLogIndex(debug.targetFloorFacet)
+                        << " target_face=" << pathFacetSourceId(*pathMap, debug.targetFloorFacet)
+                        << " target_kind=" << pathFacetKind(*pathMap, debug.targetFloorFacet)
+                        << " best=(" << debug.bestPoint.x << ',' << debug.bestPoint.y
+                        << ',' << debug.bestPoint.z << ')'
+                        << " best_facet=" << pathFacetLogIndex(debug.bestFloorFacet)
+                        << " best_face=" << pathFacetSourceId(*pathMap, debug.bestFloorFacet)
+                        << " best_kind=" << pathFacetKind(*pathMap, debug.bestFloorFacet)
+                        << " best_dist2d=" << debug.bestDistance2d
+                        << " best_dist3d=" << debug.bestDistance3d
+                        << " candidates=" << debug.generatedCandidates
+                        << " accepted=" << debug.acceptedCandidates
+                        << " reject_no_floor=" << debug.rejectedNoFloor
+                        << " reject_step=" << debug.rejectedStepHeight
+                        << " reject_walk=" << debug.rejectedWalkSegment
+                        << " reject_fly=" << debug.rejectedFlyingInvalid
+                        << " reject_dup=" << debug.rejectedDuplicate
+                        << " reopened=" << debug.reopenedCandidates
+                        << " skipped_closed=" << debug.skippedClosedNodes
+                        << " max_step_dz=" << debug.maxRejectedStepDeltaZ
+                        << " max_step_from=(" << debug.maxStepRejectFrom.x << ','
+                        << debug.maxStepRejectFrom.y << ',' << debug.maxStepRejectFrom.z << ')'
+                        << " max_step_to=(" << debug.maxStepRejectTo.x << ','
+                        << debug.maxStepRejectTo.y << ',' << debug.maxStepRejectTo.z << ')';
+
+                    const PathFloorQueryDebug sourceRawFloor =
+                        pathMap->debugFloorQuery(pathRequest.source);
+                    const PathFloorQueryDebug sourceStepFloor =
+                        pathMap->debugFloorQuery({
+                            pathRequest.source.x,
+                            pathRequest.source.y,
+                            pathRequest.source.z + pathObject.stepHeight
+                        });
+                    const PathFloorQueryDebug targetRawFloor =
+                        pathMap->debugFloorQuery(pathRequest.target);
+                    const PathFloorQueryDebug targetStepFloor =
+                        pathMap->debugFloorQuery({
+                            pathRequest.target.x,
+                            pathRequest.target.y,
+                            pathRequest.target.z + pathObject.stepHeight
+                        });
+
+                    appendPathFloorQueryDebug(std::cout, "source_raw_floor", *pathMap, sourceRawFloor);
+                    appendPathFloorQueryDebug(std::cout, "source_step_floor", *pathMap, sourceStepFloor);
+                    appendPathFloorQueryDebug(std::cout, "target_raw_floor", *pathMap, targetRawFloor);
+                    appendPathFloorQueryDebug(std::cout, "target_step_floor", *pathMap, targetStepFloor);
+                }
+
+                if (pathResult.pathActive)
+                {
+                    std::cout << " waypoint=(" << pathResult.waypoint.x << ','
+                        << pathResult.waypoint.y << ',' << pathResult.waypoint.z << ')';
+                }
+
+                std::cout << '\n';
+            }
+        }
+    }
+
+    const float desiredBeforeWaterX = desiredMoveX;
+    const float desiredBeforeWaterY = desiredMoveY;
+    const float candidateBeforeWaterX = actor.preciseX + desiredBeforeWaterX * moveSpeed * ActorUpdateStepSeconds;
+    const float candidateBeforeWaterY = actor.preciseY + desiredBeforeWaterY * moveSpeed * ActorUpdateStepSeconds;
+    bool actorWaterBefore = false;
+    bool candidateWaterBefore = false;
+    bool candidateWaterAfter = false;
+    OutdoorWaterRestrictionResult waterRestrictionResult = OutdoorWaterRestrictionResult::None;
 
     if (m_pOutdoorMapData != nullptr)
     {
-        applyOutdoorWaterRestriction(
-        *m_pOutdoorMapData,
-        m_outdoorLandMask,
-        pStats,
-        actor,
-        moveSpeed,
-        desiredMoveX,
-        desiredMoveY,
-        nextAiState,
-        nextAnimation);
+        actorWaterBefore =
+            isOutdoorMonsterWaterTile(*m_pOutdoorMapData, m_outdoorLandMask, actor.preciseX, actor.preciseY);
+        candidateWaterBefore =
+            isOutdoorMonsterWaterTile(
+                *m_pOutdoorMapData,
+                m_outdoorLandMask,
+                candidateBeforeWaterX,
+                candidateBeforeWaterY);
+        waterRestrictionResult = applyOutdoorWaterRestriction(
+            *m_pOutdoorMapData,
+            m_outdoorLandMask,
+            m_outdoorMovementController ? &*m_outdoorMovementController : nullptr,
+            pStats,
+            actor,
+            collisionRadius,
+            moveSpeed,
+            desiredMoveX,
+            desiredMoveY,
+            nextAiState,
+            nextAnimation);
+
+        const float candidateAfterWaterX = actor.preciseX + desiredMoveX * moveSpeed * ActorUpdateStepSeconds;
+        const float candidateAfterWaterY = actor.preciseY + desiredMoveY * moveSpeed * ActorUpdateStepSeconds;
+        candidateWaterAfter =
+            isOutdoorMonsterWaterTile(
+                *m_pOutdoorMapData,
+                m_outdoorLandMask,
+                candidateAfterWaterX,
+                candidateAfterWaterY);
     }
 
     float effectiveDesiredMoveZ = desiredMoveZ;
@@ -9064,12 +9542,12 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     {
         const float actorTargetZ =
             actor.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
-        const float verticalTargetDelta = targetPosition.z - actorTargetZ;
+        const float verticalTargetDelta = movementTarget.z - actorTargetZ;
 
         if (std::abs(verticalTargetDelta) > 8.0f)
         {
             const float horizontalDistance =
-                length2d(targetPosition.x - actor.preciseX, targetPosition.y - actor.preciseY);
+                length2d(movementTarget.x - actor.preciseX, movementTarget.y - actor.preciseY);
             const float distance = length3d(horizontalDistance, 0.0f, verticalTargetDelta);
 
             if (distance > 0.001f)
@@ -9079,9 +9557,20 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
         }
     }
 
+    if (moveSpeed > 0.0f && (std::abs(desiredMoveX) > 0.001f || std::abs(desiredMoveY) > 0.001f))
+    {
+        faceMoveDirection(actor, desiredMoveX, desiredMoveY);
+    }
+
     actor.velocityX = desiredMoveX * moveSpeed;
     actor.velocityY = desiredMoveY * moveSpeed;
     actor.velocityZ = pStats->canFly ? effectiveDesiredMoveZ * moveSpeed : 0.0f;
+    const float movementStartX = actor.preciseX;
+    const float movementStartY = actor.preciseY;
+    const float movementStartZ = actor.preciseZ;
+    const OutdoorMoveState movementStartState = actor.movementState;
+    const bool wantedHorizontalMove =
+        std::abs(desiredMoveX) > 0.001f || std::abs(desiredMoveY) > 0.001f;
 
     if (m_pOutdoorMapData != nullptr)
     {
@@ -9167,6 +9656,121 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
         }
     }
 
+    const float actualMoveX = actor.preciseX - movementStartX;
+    const float actualMoveY = actor.preciseY - movementStartY;
+    const float actualMoveZ = actor.preciseZ - movementStartZ;
+    const float actualMoveDistance = length2d(actualMoveX, actualMoveY);
+    const bool movedHorizontally = actualMoveDistance > 0.001f;
+    bool actorWaterAfter = false;
+
+    if (movedHorizontally && wantedHorizontalMove)
+    {
+        faceMoveDirection(actor, actualMoveX, actualMoveY);
+    }
+
+    if (m_pOutdoorMapData != nullptr)
+    {
+        actorWaterAfter =
+            isOutdoorMonsterWaterTile(*m_pOutdoorMapData, m_outdoorLandMask, actor.preciseX, actor.preciseY);
+    }
+
+    const bool pathMovementInteresting =
+        pathResult.pathActive
+        || pathResult.failed
+        || pathResult.cooldown
+        || pathResult.deferred
+        || pathResult.discarded
+        || pathResult.reachedWaypointCount > 0
+        || pathResult.shortcutWaypointCount > 0
+        || pathResult.stalledWaypointCount > 0;
+    const bool waterRestrictionInteresting = waterRestrictionResult != OutdoorWaterRestrictionResult::None;
+    const bool blockedInteresting = wantedHorizontalMove && !movedHorizontally;
+
+    if (logOutdoorPathfindingEnabled()
+        && (pathMovementInteresting || waterRestrictionInteresting || blockedInteresting))
+    {
+        std::cout << "[OutdoorPathfinding] move actor=" << actorIndex
+            << " actor_id=" << actor.actorId
+            << " monster_id=" << actor.monsterId
+            << " name=\"" << actor.displayName << '"'
+            << " action=" << actorAiMovementActionName(movementAction)
+            << " path_enabled=" << (actorPathfindingEnabled ? 1 : 0)
+            << " path_can_use=" << (actorPathCanUseIntent ? 1 : 0)
+            << " path_map=" << (actorPathMapAvailable ? 1 : 0)
+            << " water_capable=" << (pathWaterCapable ? 1 : 0)
+            << " melee_pursuit=" << (meleePursuitActive ? 1 : 0)
+            << " in_melee=" << (inMeleeRange ? 1 : 0)
+            << " path_active=" << (pathResult.pathActive ? 1 : 0)
+            << " path_status=" << pathPlanStatusName(pathResult.planStatus)
+            << " path_failed=" << (pathResult.failed ? 1 : 0)
+            << " path_cooldown=" << (pathResult.cooldown ? 1 : 0)
+            << " path_deferred=" << (pathResult.deferred ? 1 : 0)
+            << " path_discarded=" << (pathResult.discarded ? 1 : 0)
+            << " path_direct=" << (pathResult.directReachable ? 1 : 0)
+            << " reached=" << pathResult.reachedWaypointCount
+            << " shortcut=" << pathResult.shortcutWaypointCount
+            << " stalled=" << pathResult.stalledWaypointCount
+            << " wanted=" << (wantedHorizontalMove ? 1 : 0)
+            << " moved_flag=" << (moved ? 1 : 0)
+            << " moved_horizontal=" << (movedHorizontally ? 1 : 0)
+            << " desired_before_water=(" << desiredBeforeWaterX << ',' << desiredBeforeWaterY << ')'
+            << " desired_after_water=(" << desiredMoveX << ',' << desiredMoveY << ')'
+            << " velocity=(" << actor.velocityX << ',' << actor.velocityY << ',' << actor.velocityZ << ')'
+            << " start=(" << movementStartX << ',' << movementStartY << ',' << movementStartZ << ')'
+            << " final=(" << actor.preciseX << ',' << actor.preciseY << ',' << actor.preciseZ << ')'
+            << " delta=(" << actualMoveX << ',' << actualMoveY << ',' << actualMoveZ << ')'
+            << " dist=" << actualMoveDistance
+            << " water_result=" << outdoorWaterRestrictionResultName(waterRestrictionResult)
+            << " actor_water_before=" << (actorWaterBefore ? 1 : 0)
+            << " candidate_water_before=" << (candidateWaterBefore ? 1 : 0)
+            << " candidate_water_after=" << (candidateWaterAfter ? 1 : 0)
+            << " actor_water_after=" << (actorWaterAfter ? 1 : 0)
+            << " start_support=" << outdoorSupportKindName(movementStartState.supportKind)
+            << " start_support_bmodel=" << movementStartState.supportBModelIndex
+            << " start_support_face=" << movementStartState.supportFaceIndex
+            << " start_support_fluid=" << (movementStartState.supportIsFluid ? 1 : 0)
+            << " start_support_water=" << (movementStartState.supportOnWater ? 1 : 0)
+            << " start_airborne=" << (movementStartState.airborne ? 1 : 0)
+            << " final_support=" << outdoorSupportKindName(actor.movementState.supportKind)
+            << " final_support_bmodel=" << actor.movementState.supportBModelIndex
+            << " final_support_face=" << actor.movementState.supportFaceIndex
+            << " final_support_fluid=" << (actor.movementState.supportIsFluid ? 1 : 0)
+            << " final_support_water=" << (actor.movementState.supportOnWater ? 1 : 0)
+            << " final_airborne=" << (actor.movementState.airborne ? 1 : 0)
+            << " contacts=" << contactedActorCount
+            << " target=(" << targetPosition.x << ',' << targetPosition.y << ',' << targetPosition.z << ')'
+            << " target_edge=" << targetEdgeDistance;
+
+        if (pathRequestReady)
+        {
+            std::cout << " path_source=(" << pathRequest.source.x << ','
+                << pathRequest.source.y << ',' << pathRequest.source.z << ')'
+                << " path_target=(" << pathRequest.target.x << ','
+                << pathRequest.target.y << ',' << pathRequest.target.z << ')'
+                << " source_snap=" << pathRequest.sourceSnapDistance
+                << " allow_partial=" << (pathRequest.allowPartialPath ? 1 : 0);
+        }
+
+        if (pathResult.pathActive)
+        {
+            std::cout << " waypoint=(" << pathResult.waypoint.x << ','
+                << pathResult.waypoint.y << ',' << pathResult.waypoint.z << ')';
+        }
+
+        if (pathDebugMap != nullptr)
+        {
+            const PathFloorQueryDebug startPathFloor =
+                pathDebugMap->debugFloorQuery({movementStartX, movementStartY, movementStartZ});
+            const PathFloorQueryDebug finalPathFloor =
+                pathDebugMap->debugFloorQuery({actor.preciseX, actor.preciseY, actor.preciseZ});
+
+            appendPathFloorQueryDebug(std::cout, "start_path_floor", *pathDebugMap, startPathFloor);
+            appendPathFloorQueryDebug(std::cout, "final_path_floor", *pathDebugMap, finalPathFloor);
+        }
+
+        std::cout << '\n';
+    }
+
     ActorAiFacts movementFacts = {};
     movementFacts.actorIndex = actorIndex;
     movementFacts.actorId = actor.actorId;
@@ -9183,7 +9787,13 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     movementFacts.runtime.pursueDecisionCount = actor.pursueDecisionCount;
     movementFacts.runtime.crowdEscapeAttempts = actor.crowdEscapeAttempts;
     movementFacts.runtime.crowdSideSign = actor.crowdSideSign;
+    movementFacts.runtime.yawRadians = actor.yawRadians;
     movementFacts.movement.position = GameplayWorldPoint{actor.preciseX, actor.preciseY, actor.preciseZ};
+    movementFacts.movement.moveDirectionX = actor.moveDirectionX;
+    movementFacts.movement.moveDirectionY = actor.moveDirectionY;
+    movementFacts.movement.velocityX = actor.velocityX;
+    movementFacts.movement.velocityY = actor.velocityY;
+    movementFacts.movement.velocityZ = actor.velocityZ;
     movementFacts.movement.contactedActorCount = contactedActorCount;
 
     if (!contactedActorIndices.empty())
@@ -9512,6 +10122,14 @@ void OutdoorWorldRuntime::updateMapActors(float deltaSeconds, float partyX, floa
 
     while (m_actorUpdateAccumulatorSeconds >= ActorUpdateStepSeconds)
     {
+        m_actorPathRuntimeSeconds += ActorUpdateStepSeconds;
+        m_actorPathPlansThisStep = 0;
+
+        if (!OutdoorActorPathfindingEnabled || !outdoorActorPathfindingEnabled())
+        {
+            m_actorPathRuntime.setWorkerCount(0);
+        }
+
         const std::vector<bool> activeActorMask = selectOutdoorActiveActors(partyX, partyY, partyZ);
         const ActorAiFrameFacts actorAiFacts =
             collectOutdoorActorAiFrameFacts(ActorUpdateStepSeconds, partyX, partyY, partyZ, activeActorMask);
@@ -10330,6 +10948,7 @@ void OutdoorWorldRuntime::rebuildOutdoorFaceGeometryCache()
 
     if (m_pOutdoorMapData == nullptr)
     {
+        invalidateOutdoorPathMaps(true);
         return;
     }
 
@@ -10362,6 +10981,7 @@ void OutdoorWorldRuntime::rebuildOutdoorFaceGeometryCache()
     }
 
     buildOutdoorFaceSpatialIndex();
+    invalidateOutdoorPathMaps(true);
 }
 
 void OutdoorWorldRuntime::collectOutdoorFaceCandidates(
@@ -10448,6 +11068,102 @@ const OutdoorFaceGeometryData *OutdoorWorldRuntime::outdoorFace(size_t faceIndex
     return &m_outdoorFaces[faceIndex];
 }
 
+void OutdoorWorldRuntime::invalidateOutdoorPathMaps(bool clearActorPaths)
+{
+    m_outdoorPathMapValid = false;
+    m_outdoorLandPathMapValid = false;
+    m_outdoorPathMapSnapshot.reset();
+    m_outdoorLandPathMapSnapshot.reset();
+
+    if (clearActorPaths)
+    {
+        m_actorPathRuntime.clear();
+    }
+
+    if (logOutdoorPathfindingEnabled())
+    {
+        std::cout << "[OutdoorPathfinding] path_map_dirty map=\"" << m_mapName
+            << "\" clear_actor_paths=" << (clearActorPaths ? 1 : 0)
+            << '\n';
+    }
+}
+
+std::shared_ptr<const PathMap> OutdoorWorldRuntime::outdoorPathMap(bool landOnly)
+{
+    if (m_pOutdoorMapData == nullptr)
+    {
+        return nullptr;
+    }
+
+    bool &pathMapValid = landOnly ? m_outdoorLandPathMapValid : m_outdoorPathMapValid;
+    std::shared_ptr<const PathMap> &pathMapSnapshot =
+        landOnly ? m_outdoorLandPathMapSnapshot : m_outdoorPathMapSnapshot;
+
+    if (!pathMapValid || pathMapSnapshot == nullptr)
+    {
+        OutdoorPathMapBuildOptions options = {};
+        options.terrainMode = landOnly ? OutdoorPathTerrainMode::LandOnly : OutdoorPathTerrainMode::Full;
+        options.spatialGridCellSize = OutdoorPathSpatialGridCellSize;
+        OutdoorPathMapBuildResult buildResult =
+            OutdoorPathfindingBuilder::buildPathMap(
+                *m_pOutdoorMapData,
+                m_pOutdoorMapDeltaData,
+                &m_outdoorFaces,
+                options,
+                m_outdoorLandMask ? &*m_outdoorLandMask : nullptr);
+
+        pathMapSnapshot = std::make_shared<PathMap>(std::move(buildResult.pathMap));
+        pathMapValid = true;
+
+        if (logOutdoorPathfindingEnabled())
+        {
+            std::cout << "[OutdoorPathfinding] map_build map=\"" << m_mapName
+                << "\" mode=" << (landOnly ? "land" : "full")
+                << " terrain_triangles=" << buildResult.terrainTriangleCount
+                << " skipped_water_triangles=" << buildResult.skippedWaterTerrainTriangleCount
+                << " source_bmodel_faces=" << buildResult.sourceBModelFaceCount
+                << " bmodel_facets=" << buildResult.bModelPathFacetCount
+                << " skipped_bmodel_faces=" << buildResult.skippedBModelFaceCount
+                << " path_facets=" << buildResult.pathFacetCount
+                << " revision=" << pathMapSnapshot->revision()
+                << '\n';
+        }
+    }
+
+    return pathMapSnapshot;
+}
+
+void OutdoorWorldRuntime::setOutdoorPathfindingSettings(bool enabled, bool logEnabled)
+{
+    m_outdoorPathfindingEnabled = enabled;
+    m_logOutdoorPathfinding = logEnabled;
+}
+
+bool OutdoorWorldRuntime::outdoorActorPathfindingEnabled() const
+{
+    if (m_pInteractionView != nullptr)
+    {
+        return m_pInteractionView->settingsSnapshot().outdoorPathfinding;
+    }
+
+    return m_outdoorPathfindingEnabled;
+}
+
+bool OutdoorWorldRuntime::logOutdoorPathfindingEnabled() const
+{
+    if (!outdoorActorPathfindingEnabled())
+    {
+        return false;
+    }
+
+    if (m_pInteractionView != nullptr)
+    {
+        return m_pInteractionView->settingsSnapshot().logOutdoorPathfinding;
+    }
+
+    return m_logOutdoorPathfinding;
+}
+
 void OutdoorWorldRuntime::syncOutdoorFaceGeometryAttributesFromMapDelta()
 {
     if (m_pOutdoorMapData == nullptr || m_pOutdoorMapDeltaData == nullptr)
@@ -10492,6 +11208,8 @@ void OutdoorWorldRuntime::syncOutdoorFaceGeometryAttributesFromMapDelta()
             m_pPartyRuntime->setFaceAttributes(geometry.bModelIndex, geometry.faceIndex, attributes);
         }
     }
+
+    invalidateOutdoorPathMaps(false);
 }
 
 void OutdoorWorldRuntime::setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry)
@@ -10569,6 +11287,8 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
     {
         m_pPartyRuntime->updateFaceGeometries(updatedGeometries);
     }
+
+    invalidateOutdoorPathMaps(false);
 }
 
 void OutdoorWorldRuntime::setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes)
@@ -10591,6 +11311,8 @@ void OutdoorWorldRuntime::setOutdoorFaceGeometryAttributes(size_t bModelIndex, s
     {
         m_pPartyRuntime->setFaceAttributes(bModelIndex, faceIndex, attributes);
     }
+
+    invalidateOutdoorPathMaps(false);
 }
 
 bool OutdoorWorldRuntime::hasClearOutdoorLineOfSight(const bx::Vec3 &start, const bx::Vec3 &end) const
@@ -12732,6 +13454,26 @@ std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> OutdoorWorldRuntime::
     info.attackInProgress = attackInProgress;
     info.friendlyNearParty = engagement.friendlyNearParty;
     return info;
+}
+
+bool OutdoorWorldRuntime::debugActorPathfindingActive(size_t actorIndex) const
+{
+    if (!outdoorActorPathfindingEnabled())
+    {
+        return false;
+    }
+
+    return m_actorPathRuntime.actorHasActivePath(actorIndex);
+}
+
+bool OutdoorWorldRuntime::debugActorPathfindingPending(size_t actorIndex) const
+{
+    if (!outdoorActorPathfindingEnabled())
+    {
+        return false;
+    }
+
+    return m_actorPathRuntime.actorHasPendingPlan(actorIndex);
 }
 
 bool OutdoorWorldRuntime::debugSpawnMapActorProjectile(

@@ -11,6 +11,8 @@
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/pathfinding/ActorPathRuntime.h"
+#include "game/pathfinding/PathMap.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
@@ -24,6 +26,7 @@
 
 #include <optional>
 #include <random>
+#include <memory>
 #include <string>
 #include <utility>
 #include <unordered_map>
@@ -590,6 +593,7 @@ public:
     void advanceGameMinutes(float minutes) override;
     void updateMapActors(float deltaSeconds, float partyX, float partyY, float partyZ);
     void queueActorAiUpdate(float deltaSeconds, float partyX, float partyY, float partyZ);
+    void setOutdoorPathfindingSettings(bool enabled, bool logEnabled);
 
     void applyEventRuntimeState(bool syncPersistentHostilityMasks = false) override;
     bool updateTimers(
@@ -626,6 +630,8 @@ public:
         float partyY,
         float partyZ
     ) const;
+    bool debugActorPathfindingActive(size_t actorIndex) const;
+    bool debugActorPathfindingPending(size_t actorIndex) const;
     bool debugSpawnMapActorProjectile(
         size_t actorIndex,
         MonsterAttackAbility ability,
@@ -1289,6 +1295,16 @@ private:
     size_t m_outdoorFaceGridWidth = 0;
     size_t m_outdoorFaceGridHeight = 0;
     std::optional<OutdoorMovementController> m_outdoorMovementController;
+    bool m_outdoorPathMapValid = false;
+    bool m_outdoorLandPathMapValid = false;
+    bool m_outdoorPathfindingEnabled = false;
+    bool m_logOutdoorPathfinding = false;
+    std::shared_ptr<const PathMap> m_outdoorPathMapSnapshot;
+    std::shared_ptr<const PathMap> m_outdoorLandPathMapSnapshot;
+    ActorPathRuntime m_actorPathRuntime;
+    double m_actorPathRuntimeSeconds = 0.0;
+    size_t m_actorPathPlansThisStep = 0;
+    double m_nextActorPathPlanSeconds = 0.0;
     float m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
@@ -1321,6 +1337,10 @@ private:
     uint64_t m_bloodSplatRevision = 0;
     ArmageddonState m_armageddonState = {};
 
+    void invalidateOutdoorPathMaps(bool clearActorPaths);
+    std::shared_ptr<const PathMap> outdoorPathMap(bool landOnly);
+    bool outdoorActorPathfindingEnabled() const;
+    bool logOutdoorPathfindingEnabled() const;
     void updateGameplayScreenOverlay(float deltaSeconds);
     void updateActorFrameGlobalEffects(float deltaSeconds, float partyX, float partyY, float partyZ);
     std::vector<bool> selectOutdoorActiveActors(float partyX, float partyY, float partyZ) const;
@@ -1391,6 +1411,7 @@ private:
         size_t actorIndex,
         const MonsterTable::MonsterStatsEntry *pStats,
         const std::vector<bool> &activeActorMask,
+        ActorAiMovementAction movementAction,
         float moveSpeed,
         float desiredMoveZ,
         bool meleePursuitActive,

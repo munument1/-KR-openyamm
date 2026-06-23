@@ -207,6 +207,13 @@ public:
         const OutdoorMoveState &currentState,
         float desiredVelocityX,
         float desiredVelocityY) const;
+    bool hasNonFluidBModelActorSupport(
+        const OutdoorMoveState &state,
+        float bodyRadius,
+        float x,
+        float y,
+        float z,
+        float maxFloorRise) const;
     void setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders);
     void setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
     void updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries);

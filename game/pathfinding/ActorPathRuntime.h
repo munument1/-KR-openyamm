@@ -31,6 +31,7 @@ struct ActorPathResolveRequest
     int32_t preferredSourceFacetSourceId = -1;
     size_t nodeLimit = 8000;
     size_t mapRevision = 0;
+    float sourceSnapDistance = 0.0f;
     float planningRange = 12000.0f;
     float waypointReachDistance = 0.0f;
     double nowSeconds = 0.0;
@@ -40,6 +41,7 @@ struct ActorPathResolveRequest
     double shortcutCheckIntervalSeconds = 0.5;
     bool allowPlan = true;
     bool allowDirect = true;
+    bool allowPartialPath = false;
 };
 
 struct ActorPathResolveResult
@@ -109,13 +111,21 @@ private:
     bool pathIsStale(const ActorPathState &state, const ActorPathResolveRequest &request) const;
     bool pathCanStillBeFollowed(const ActorPathState &state) const;
     void resetWaypointProgress(ActorPathState &state, const ActorPathResolveRequest &request) const;
-    size_t advanceReachedWaypoints(ActorPathState &state, const ActorPathResolveRequest &request) const;
+    size_t advanceReachedWaypoints(
+        const PathMap &pathMap,
+        ActorPathState &state,
+        const ActorPathResolveRequest &request
+    ) const;
     size_t advanceShortcutWaypoints(
         const PathMap &pathMap,
         ActorPathState &state,
         const ActorPathResolveRequest &request
     ) const;
-    size_t advanceStalledWaypoint(ActorPathState &state, const ActorPathResolveRequest &request) const;
+    size_t advanceStalledWaypoint(
+        const PathMap &pathMap,
+        ActorPathState &state,
+        const ActorPathResolveRequest &request
+    ) const;
     bool consumeCompletedPlan(
         ActorPathState &state,
         const ActorPathResolveRequest &request,

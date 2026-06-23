@@ -178,7 +178,8 @@ PathPoint snapGroundPoint(
     bool &valid,
     PathFloorSample *pFloorSample = nullptr,
     int32_t preferredSourceFacetSourceId = -1,
-    bool *pPreferredSnapUsed = nullptr
+    bool *pPreferredSnapUsed = nullptr,
+    float requestedNearbySnapDistance = 0.0f
 )
 {
     const PathFloorSample floor = map.floorAt({point.x, point.y, point.z + object.stepHeight});
@@ -224,7 +225,8 @@ PathPoint snapGroundPoint(
 
         PathFloorSample nearbyFloor = {};
         bool nearbyValid = false;
-        const float nearbySnapDistance = std::max(sourceSnapDistance, object.radius + object.stepLength);
+        const float nearbySnapDistance =
+            std::max({sourceSnapDistance, object.radius + object.stepLength, requestedNearbySnapDistance});
         const PathPoint nearbySnapped =
             map.snapToNearestWalkableFloor(
                 {point.x, point.y, point.z + object.stepHeight},
@@ -318,7 +320,8 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
                 startValid,
                 &startFloor,
                 request.preferredSourceFacetSourceId,
-                &preferredSourceSnapUsed);
+                &preferredSourceSnapUsed,
+                request.sourceSnapDistance);
         result.debug.preferredSourceSnapUsed = preferredSourceSnapUsed;
         target = snapGroundPoint(map, request.target, request.object, targetValid, &targetFloor);
     }
@@ -345,7 +348,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
         result.debug.targetFloorFacet = targetFloor.facetIndex;
     }
 
-    if (!startValid || !targetValid)
+    if (!startValid || (!targetValid && !request.allowPartialPath))
     {
         result.debug.bestPoint = start;
         result.debug.bestDistance2d = distance2d(start, target);
@@ -354,7 +357,7 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
         return result;
     }
 
-    if (request.allowDirect && map.canReachDirectly(start, target, request.object))
+    if (request.allowDirect && targetValid && map.canReachDirectly(start, target, request.object))
     {
         result.status = PathPlanStatus::Success;
         result.debug.directReachable = true;
@@ -424,13 +427,25 @@ PathPlanResult PathPlanner::plan(const PathMap &map, const PathPlanRequest &requ
 
         if (result.analyzedNodeCount > request.nodeLimit)
         {
+            if (request.allowPartialPath && bestPartialNodeIndex != 0)
+            {
+                result.waypoints = rebuildPathToNode(nodes, bestPartialNodeIndex);
+
+                if (!result.waypoints.empty())
+                {
+                    result.status = PathPlanStatus::Partial;
+                    return result;
+                }
+            }
+
             result.status = PathPlanStatus::NodeLimitExceeded;
             return result;
         }
 
         const float closeEnoughDistance = stepSize * 4.0f;
 
-        if ((request.allowDirect || openNode.nodeIndex != 0)
+        if (targetValid
+            && (request.allowDirect || openNode.nodeIndex != 0)
             && distance3d(currentPoint, target) <= closeEnoughDistance
             && map.canReachDirectly(currentPoint, target, request.object))
         {

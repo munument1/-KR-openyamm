@@ -10,6 +10,8 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr size_t MaxShortcutWaypointScan = 24;
+constexpr size_t MaxGroundShortcutWaypointScan = 6;
+constexpr float MaxGroundShortcutStepMultiplier = 6.0f;
 constexpr double WaypointStallSeconds = 0.35;
 constexpr float WaypointProgressEpsilon = 2.0f;
 constexpr float RecoverySourceReachDistance = 4.0f;
@@ -219,7 +221,7 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypointInternal(
         state = {};
     }
 
-    result.reachedWaypointCount += advanceReachedWaypoints(state, request);
+    result.reachedWaypointCount += advanceReachedWaypoints(pathMap, state, request);
 
     const double directInterval = std::max(0.01, request.directCheckIntervalSeconds);
     const bool directCheckDue =
@@ -288,9 +290,9 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypointInternal(
         }
     }
 
-    result.reachedWaypointCount += advanceReachedWaypoints(state, request);
+    result.reachedWaypointCount += advanceReachedWaypoints(pathMap, state, request);
     result.shortcutWaypointCount += advanceShortcutWaypoints(pathMap, state, request);
-    result.stalledWaypointCount += advanceStalledWaypoint(state, request);
+    result.stalledWaypointCount += advanceStalledWaypoint(pathMap, state, request);
 
     if (state.waypointIndex < state.waypoints.size())
     {
@@ -384,7 +386,9 @@ bool ActorPathRuntime::installPlanResult(
     result.waypointCount = planResult.waypoints.size();
     const bool hadActivePath = pathCanStillBeFollowed(state);
 
-    const bool usablePlan = planResult.status == PathPlanStatus::Success;
+    const bool usablePlan =
+        planResult.status == PathPlanStatus::Success
+        || (request.allowPartialPath && planResult.status == PathPlanStatus::Partial);
 
     if (!usablePlan || planResult.waypoints.empty())
     {
@@ -490,7 +494,9 @@ bool ActorPathRuntime::queuePlan(
     planRequest.preferredSourceFacetSourceId = request.preferredSourceFacetSourceId;
     planRequest.nodeLimit = request.nodeLimit;
     planRequest.mapRevision = static_cast<uint32_t>(request.mapRevision);
+    planRequest.sourceSnapDistance = request.sourceSnapDistance;
     planRequest.allowDirect = request.allowDirect;
+    planRequest.allowPartialPath = request.allowPartialPath;
 
     if (m_workers.empty())
     {
@@ -591,6 +597,7 @@ void ActorPathRuntime::resetWaypointProgress(
 }
 
 size_t ActorPathRuntime::advanceReachedWaypoints(
+    const PathMap &pathMap,
     ActorPathState &state,
     const ActorPathResolveRequest &request
 ) const
@@ -607,6 +614,15 @@ size_t ActorPathRuntime::advanceReachedWaypoints(
                     ? RecoveryBestReachDistance
                     : request.waypointReachDistance)))
     {
+        if (state.waypointIndex + 1 < state.waypoints.size()
+            && !pathMap.canReachDirectly(
+                request.source,
+                state.waypoints[state.waypointIndex + 1],
+                request.object))
+        {
+            break;
+        }
+
         ++state.waypointIndex;
 
         if (state.recoverySourceWaypointActive && state.waypointIndex > 0)
@@ -641,11 +657,6 @@ size_t ActorPathRuntime::advanceShortcutWaypoints(
         return 0;
     }
 
-    if (!request.object.canFly)
-    {
-        return 0;
-    }
-
     if (state.recoverySourceWaypointActive || state.recoveryBestWaypointActive)
     {
         return 0;
@@ -655,11 +666,23 @@ size_t ActorPathRuntime::advanceShortcutWaypoints(
     state.nextShortcutCheckSeconds = request.nowSeconds + intervalSeconds;
 
     const size_t originalIndex = state.waypointIndex;
+    const size_t maxShortcutWaypointScan =
+        request.object.canFly ? MaxShortcutWaypointScan : MaxGroundShortcutWaypointScan;
     const size_t lastCandidateIndex =
-        std::min(state.waypoints.size() - 1, originalIndex + MaxShortcutWaypointScan);
+        std::min(state.waypoints.size() - 1, originalIndex + maxShortcutWaypointScan);
+    const float maxGroundShortcutDistance =
+        std::max(request.object.stepLength, 1.0f) * MaxGroundShortcutStepMultiplier;
+    const float maxGroundShortcutDistanceSquared =
+        maxGroundShortcutDistance * maxGroundShortcutDistance;
 
     for (size_t index = lastCandidateIndex; index > originalIndex; --index)
     {
+        if (!request.object.canFly
+            && distanceSquared2d(request.source, state.waypoints[index]) > maxGroundShortcutDistanceSquared)
+        {
+            continue;
+        }
+
         if (!pathMap.canReachDirectly(request.source, state.waypoints[index], request.object))
         {
             continue;
@@ -674,6 +697,7 @@ size_t ActorPathRuntime::advanceShortcutWaypoints(
 }
 
 size_t ActorPathRuntime::advanceStalledWaypoint(
+    const PathMap &pathMap,
     ActorPathState &state,
     const ActorPathResolveRequest &request
 ) const
@@ -707,6 +731,15 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
     const bool stalled = request.nowSeconds - state.lastWaypointProgressSeconds >= WaypointStallSeconds;
 
     if (!nearWaypoint || !stalled)
+    {
+        return 0;
+    }
+
+    if (state.waypointIndex + 1 < state.waypoints.size()
+        && !pathMap.canReachDirectly(
+            request.source,
+            state.waypoints[state.waypointIndex + 1],
+            request.object))
     {
         return 0;
     }
@@ -780,6 +813,9 @@ void ActorPathRuntime::workerLoop()
         planRequest.preferredSourceFacetSourceId = job.request.preferredSourceFacetSourceId;
         planRequest.nodeLimit = job.request.nodeLimit;
         planRequest.mapRevision = static_cast<uint32_t>(job.request.mapRevision);
+        planRequest.sourceSnapDistance = job.request.sourceSnapDistance;
+        planRequest.allowDirect = job.request.allowDirect;
+        planRequest.allowPartialPath = job.request.allowPartialPath;
 
         CompletedPlanJob completedJob = {};
         completedJob.jobId = job.jobId;

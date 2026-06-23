@@ -998,7 +998,7 @@ bool PathMap::traceWalkSegmentInternal(
     }
 
     const float distance = xyDistance(from, to);
-    const float sampleStep = std::max(24.0f, object.stepLength);
+    const float sampleStep = 2.0f;
     const size_t sampleCount = std::max<size_t>(1, static_cast<size_t>(std::ceil(distance / sampleStep)));
     const float stepHeight = std::max(0.0f, object.stepHeight);
 
@@ -1099,6 +1099,18 @@ bool PathMap::traceWalkSegmentInternal(
 
         previousPoint = probe;
         previousFloor = floor;
+    }
+
+    if (!walkStepDeltaAllowed(previousFloor.z, to.z, object))
+    {
+        if (pDebug != nullptr)
+        {
+            pDebug->rejectReason = PathWalkRejectReason::StepHeight;
+            pDebug->failedFloor = previousFloor;
+            pDebug->stepDeltaZ = std::fabs(to.z - previousFloor.z);
+        }
+
+        return false;
     }
 
     if (pDebug != nullptr)
