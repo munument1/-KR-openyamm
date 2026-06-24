@@ -1213,7 +1213,8 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
         const bool allowWorldSimulation =
             !sharedInputFrameResult.journalInputConsumed
             && !sharedInputFrameResult.worldInputBlocked
-            && !pendingSpellTargetActive;
+            && !pendingSpellTargetActive
+            && !input.rightMouseButton.held;
         m_pIndoorRenderer->render(
             width,
             height,

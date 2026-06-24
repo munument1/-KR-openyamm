@@ -633,7 +633,7 @@ bool shouldSkipSpriteObjectInspectTarget(const SpriteObjectBillboard &object, co
 constexpr uint16_t SkyViewId = 0;
 constexpr uint16_t MainViewId = 1;
 constexpr uint16_t HudViewId = 2;
-constexpr float OeOutdoorNearClip = 32.0f;
+constexpr float OutdoorCameraNearClip = 4.0f;
 constexpr float DefaultOutdoorFarClip = 16192.0f;
 constexpr float RuntimeProjectileRenderDistance = 12288.0f;
 constexpr float DecorationBillboardRenderDistance = 18000.0f;
@@ -3457,7 +3457,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
         wireframeProjectionMatrix,
         CameraVerticalFovDegrees,
         wireframeAspectRatio,
-        OeOutdoorNearClip,
+        OutdoorCameraNearClip,
         farClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -3473,13 +3473,18 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     bgfx::touch(MainViewId);
     captureFrameTimingStage(matrixStageNanoseconds);
 
+    const bool rightMouseInspectPauseActive = input.rightMouseButton.held;
+    const bool worldFxPaused = gameplayMouseLookState.cursorModeActive || rightMouseInspectPauseActive;
     m_worldFxSystem.setShadowsEnabled(m_gameSettings.shadows);
-    m_worldFxSystem.updateParticles(deltaSeconds, gameplayMouseLookState.cursorModeActive);
+    m_worldFxSystem.updateParticles(deltaSeconds, worldFxPaused);
 
     if (!gameplayMouseLookState.cursorModeActive)
     {
         const bool refreshSpatialFx = m_outdoorSpatialFxRuntime.beginFrame(*this, deltaSeconds);
-        m_worldFxSystem.syncProjectileFx(m_gameSession, deltaSeconds, refreshSpatialFx);
+        m_worldFxSystem.syncProjectileFx(
+            m_gameSession,
+            rightMouseInspectPauseActive ? 0.0f : deltaSeconds,
+            refreshSpatialFx);
         m_outdoorSpatialFxRuntime.syncSpatialFx(*this, refreshSpatialFx);
     }
     captureFrameTimingStage(fxStageNanoseconds);

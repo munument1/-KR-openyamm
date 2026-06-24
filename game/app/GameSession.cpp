@@ -18,6 +18,9 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr uint32_t BlazenStormlanceRosterUnlockQBit = 435;
+constexpr uint32_t RescuedBlazenStormlanceQBit = 1542;
+
 uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
 {
     return count != 0 ? totalNanoseconds / count : 0;
@@ -106,6 +109,21 @@ void migrateSavedRuntimeFollowersToParty(
     {
         party.addHiredNpcFollower(follower);
     }
+}
+
+void migrateBlazenRescueRosterUnlock(Party &party)
+{
+    if (!party.hasQuestBit(RescuedBlazenStormlanceQBit)
+        || party.hasQuestBit(BlazenStormlanceRosterUnlockQBit))
+    {
+        return;
+    }
+
+    party.setQuestBit(BlazenStormlanceRosterUnlockQBit, true);
+    GAMEPLAY_DEBUG_TRACE(
+        "save_migration name=blazen_rescue_roster_unlock"
+        " source_qbit=" + std::to_string(RescuedBlazenStormlanceQBit)
+        + " restored_qbit=" + std::to_string(BlazenStormlanceRosterUnlockQBit));
 }
 
 void synchronizeGameplayActiveMemberToReadyMember(
@@ -714,6 +732,7 @@ void GameSession::updateGameplay(
             && m_overlayInteractionState.gameplayHudPressedTarget.type != GameplayHudPointerTargetType::None;
         const bool gameplayCursorModeActive = m_sharedInputFrameResult.mouseLookPolicy.cursorModeActive;
         const bool pendingSpellTargetActive = m_gameplayScreenState.pendingSpellTarget().active;
+        const bool rightMouseInspectPauseActive = input.rightMouseButton.held;
         const bool modalWorldInputBlocked =
             m_sharedInputFrameResult.journalInputConsumed
             || m_sharedInputFrameResult.worldInputBlocked
@@ -723,10 +742,11 @@ void GameSession::updateGameplay(
             || modalWorldInputBlocked;
         const bool allowWorldMovementInput =
             !standardWorldInputBlocked
-            && !pendingSpellTargetActive;
-        float worldMovementDeltaSeconds = deltaSeconds;
+            && !pendingSpellTargetActive
+            && !rightMouseInspectPauseActive;
+        float worldMovementDeltaSeconds = rightMouseInspectPauseActive ? 0.0f : deltaSeconds;
         bool turnBasedMovementStep = false;
-        if (m_turnBasedCombatRuntime.active())
+        if (m_turnBasedCombatRuntime.active() && !rightMouseInspectPauseActive)
         {
             turnBasedMovementStep = m_turnBasedCombatRuntime.noteMovementInput(worldInput);
             worldMovementDeltaSeconds = m_turnBasedCombatRuntime.movementDeltaSecondsForFrame(deltaSeconds);
@@ -746,7 +766,8 @@ void GameSession::updateGameplay(
         const bool gameplayWorldPaused =
             modalWorldInputBlocked
             || pendingSpellTargetActive
-            || m_sharedWorldInteractionBlockedThisFrame;
+            || m_sharedWorldInteractionBlockedThisFrame
+            || rightMouseInspectPauseActive;
 
         const Party *pTurnBasedParty = pWorldRuntime->party();
         const bool turnBasedWorldPaused =
@@ -826,7 +847,7 @@ void GameSession::updateGameplay(
             interactionFrameBeginTickCount);
     }
 
-    if (deltaSeconds > 0.0f)
+    if (deltaSeconds > 0.0f && !input.rightMouseButton.held)
     {
         const uint64_t projectileCooldownBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameplayProjectileService.updateProjectileImpactPresentation(deltaSeconds);
@@ -1345,6 +1366,8 @@ void GameSession::restoreFromSaveData(const GameSaveData &saveData)
 
     if (m_partyState)
     {
+        migrateBlazenRescueRosterUnlock(*m_partyState);
+
         if (saveData.currentSceneKind == SceneKind::Outdoor && saveData.hasOutdoorRuntimeState)
         {
             migrateSavedRuntimeFollowersToParty(*m_partyState, saveData.outdoorWorld.eventRuntimeState);

@@ -491,8 +491,8 @@ RegisterEvent(490, "Door", function()
 end, "Door")
 
 RegisterEvent(494, "Tree", function()
-    if evt.CheckItemsCount(DecorVar(23), 1) then
-        evt.RemoveItems(DecorVar(23))
+    if evt.CheckItemsCount(221, 271, 1) then
+        evt.RemoveItems(221, 271, 1)
         AddValue(InventoryItem(220), 220) -- Potion Bottle
     end
 end, "Tree")

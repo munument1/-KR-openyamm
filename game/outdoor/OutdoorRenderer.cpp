@@ -4252,8 +4252,10 @@ void OutdoorRenderer::renderOutdoorSky(
         view.m_cachedSkyVertices.resize(vertexCount);
     }
 
+    const float skyLeftX = 0.0f;
+    const float skyRightX = static_cast<float>(viewWidth);
     const OutdoorSkyVertex topLeft = computeOutdoorSkyVertex(
-        0.0f,
+        skyLeftX,
         0.0f,
         static_cast<float>(viewWidth),
         static_cast<float>(viewHeight),
@@ -4265,7 +4267,7 @@ void OutdoorRenderer::renderOutdoorSky(
         static_cast<float>(pTexture->physicalWidth),
         static_cast<float>(pTexture->physicalHeight));
     const OutdoorSkyVertex bottomLeft = computeOutdoorSkyVertex(
-        0.0f,
+        skyLeftX,
         skyBottomY,
         static_cast<float>(viewWidth),
         static_cast<float>(viewHeight),
@@ -4277,7 +4279,7 @@ void OutdoorRenderer::renderOutdoorSky(
         static_cast<float>(pTexture->physicalWidth),
         static_cast<float>(pTexture->physicalHeight));
     const OutdoorSkyVertex bottomRight = computeOutdoorSkyVertex(
-        static_cast<float>(viewWidth - 1),
+        skyRightX,
         skyBottomY,
         static_cast<float>(viewWidth),
         static_cast<float>(viewHeight),
@@ -4289,7 +4291,7 @@ void OutdoorRenderer::renderOutdoorSky(
         static_cast<float>(pTexture->physicalWidth),
         static_cast<float>(pTexture->physicalHeight));
     const OutdoorSkyVertex topRight = computeOutdoorSkyVertex(
-        static_cast<float>(viewWidth - 1),
+        skyRightX,
         0.0f,
         static_cast<float>(viewWidth),
         static_cast<float>(viewHeight),
@@ -4449,7 +4451,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 opaqueSkyTintAbgr};
             pVertices[2] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 lowerSkyTopY,
                 1.0f,
                 0.5f,
@@ -4469,7 +4471,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 transparentSkyTintAbgr};
             pVertices[4] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 lowerSkyTopY,
                 1.0f,
                 0.5f,
@@ -4479,7 +4481,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 opaqueSkyTintAbgr};
             pVertices[5] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 0.0f,
                 1.0f,
                 0.5f,
@@ -4511,7 +4513,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 opaqueSkyTintAbgr};
             pVertices[subSkyOffset + 2] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 static_cast<float>(viewHeight),
                 1.0f,
                 0.5f,
@@ -4531,7 +4533,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 opaqueSkyTintAbgr};
             pVertices[subSkyOffset + 4] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 static_cast<float>(viewHeight),
                 1.0f,
                 0.5f,
@@ -4541,7 +4543,7 @@ void OutdoorRenderer::renderOutdoorSky(
                 1.0f,
                 opaqueSkyTintAbgr};
             pVertices[subSkyOffset + 5] = {
-                static_cast<float>(viewWidth - 1),
+                skyRightX,
                 lowerSkyTopY,
                 1.0f,
                 0.5f,

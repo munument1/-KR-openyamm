@@ -242,7 +242,15 @@ constexpr uint32_t OverduneNpcId = 7;
 constexpr uint32_t AndoverPotbelloNpcId = 786;
 constexpr uint32_t BlazenRosterId = 35;
 constexpr uint32_t OverduneRosterId = 4;
+constexpr uint32_t EbonestItemId = 539;
 constexpr uint32_t GemOfRestorationItemId = 623;
+constexpr uint32_t RedReagentItemId = 200;
+constexpr uint32_t BlueReagentItemId = 205;
+constexpr uint32_t YellowReagentItemId = 210;
+constexpr uint32_t PureSpeedItemId = 265;
+constexpr uint32_t PureSpeedAcceptedQBitId = 113;
+constexpr uint32_t PureSpeedCompletedQBitId = 114;
+constexpr uint32_t RescuedBlazenQBitId = 1542;
 constexpr uint32_t WealthyHatItemId = 1433;
 constexpr uint32_t SalSharktoothGroupId = 54;
 constexpr uint32_t FrankFairchildNpcId = 788;
@@ -4169,8 +4177,17 @@ TEST_CASE("blazen cure unlocks roster entry in ravenshore inn")
     REQUIRE(harness.executeGlobalEvent(54));
 
     CHECK(harness.party().hasQuestBit(435));
+    CHECK(harness.party().hasQuestBit(RescuedBlazenQBitId));
     CHECK_FALSE(harness.eventRuntimeState().npcHouseOverrides.contains(BlazenJoinNpcId));
     CHECK_EQ(harness.party().inventoryItemCount(GemOfRestorationItemId), 0);
+
+    REQUIRE(harness.party().grantItemToMember(0, EbonestItemId));
+    harness.eventRuntimeState().messages.clear();
+    REQUIRE(harness.executeGlobalEvent(59));
+    REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+    CHECK(
+        harness.eventRuntimeState().messages.back().find("You found my father and Ebonest?")
+        != std::string::npos);
 
     harness.eventRuntimeState().messages.clear();
     harness.openHouseDialog(AdventurersInnHouseId);
@@ -5749,6 +5766,89 @@ TEST_CASE("repeat promotion events include first member")
 
         CHECK(harness.eventRuntimeState().portraitFxRequests.empty());
     }
+}
+
+TEST_CASE("mm8 pure speed ingredient turn-in consumes full reagent counts")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    for (size_t memberIndex = 0; memberIndex < harness.party().memberCount(); ++memberIndex)
+    {
+        OpenYAMM::Game::Character *pMember = harness.party().member(memberIndex);
+
+        REQUIRE(pMember != nullptr);
+        pMember->inventory.clear();
+    }
+
+    harness.party().setQuestBit(PureSpeedAcceptedQBitId, true);
+    harness.party().grantItem(RedReagentItemId, 4);
+    harness.party().grantItem(BlueReagentItemId, 2);
+    harness.party().grantItem(YellowReagentItemId, 1);
+
+    REQUIRE(harness.executeGlobalEvent(181));
+
+    CHECK_EQ(harness.party().inventoryItemCount(RedReagentItemId), 0);
+    CHECK_EQ(harness.party().inventoryItemCount(BlueReagentItemId), 0);
+    CHECK_EQ(harness.party().inventoryItemCount(YellowReagentItemId), 0);
+    CHECK_EQ(harness.party().inventoryItemCount(PureSpeedItemId), 1);
+    CHECK_FALSE(harness.party().hasQuestBit(PureSpeedAcceptedQBitId));
+    CHECK(harness.party().hasQuestBit(PureSpeedCompletedQBitId));
+}
+
+TEST_CASE("mm8 Balthazar axe completion promotes minotaurs through Tessalar topic")
+{
+    constexpr uint32_t TessalarNpcId = 58;
+    constexpr uint32_t BalthazarAxeItemId = 541;
+    constexpr uint32_t AuthenticationCertificateItemId = 732;
+    constexpr uint32_t FindBalthazarsAxeQBit = 76;
+    constexpr uint32_t BalthazarAxeCompletedQBit = 87;
+    constexpr uint32_t MinotaurLordPromotionQBit = 1545;
+    constexpr uint32_t RecoveredBalthazarsAxeAward = 29;
+    constexpr uint32_t TessalarQuestEventId = 71;
+    constexpr uint32_t RepeatMinotaurPromotionEventId = 740;
+
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setMemberClassName(0, "Minotaur"));
+    REQUIRE(harness.party().setMemberClassName(1, "Knight"));
+    REQUIRE(harness.party().grantItemToMember(0, BalthazarAxeItemId));
+    REQUIRE(harness.party().grantItemToMember(0, AuthenticationCertificateItemId));
+    harness.party().setQuestBit(FindBalthazarsAxeQBit, true);
+    harness.party().setNpcTopicOverride(TessalarNpcId, 0, TessalarQuestEventId);
+    harness.eventRuntimeState().npcTopicOverrides[TessalarNpcId][0] = TessalarQuestEventId;
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(TessalarNpcId);
+    const std::optional<size_t> questActionIndex =
+        findActionIndexByKindAndId(dialog, OpenYAMM::Game::EventDialogActionKind::NpcTopic, TessalarQuestEventId);
+    REQUIRE(questActionIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*questActionIndex);
+
+    CHECK(dialogContainsText(resultDialog, "You have found the Axe of Balthazar"));
+    CHECK_FALSE(dialogContainsText(resultDialog, "That topic does not have an event yet."));
+
+    const OpenYAMM::Game::Character *pMinotaur = harness.party().member(0);
+    const OpenYAMM::Game::Character *pKnight = harness.party().member(1);
+
+    REQUIRE(pMinotaur != nullptr);
+    REQUIRE(pKnight != nullptr);
+    CHECK_EQ(pMinotaur->className, "MinotaurLord");
+    CHECK_EQ(pKnight->className, "Knight");
+    CHECK_EQ(pMinotaur->experience, 35000u);
+    CHECK_EQ(pKnight->experience, 25000u);
+    CHECK(harness.party().hasQuestBit(MinotaurLordPromotionQBit));
+    CHECK(harness.party().hasQuestBit(BalthazarAxeCompletedQBit));
+    CHECK_FALSE(harness.party().hasQuestBit(FindBalthazarsAxeQBit));
+    CHECK(harness.party().hasAward(1, RecoveredBalthazarsAxeAward));
+    CHECK_EQ(harness.party().inventoryItemCount(BalthazarAxeItemId), 0);
+    CHECK_EQ(harness.party().inventoryItemCount(AuthenticationCertificateItemId), 0);
+    CHECK_EQ(harness.eventRuntimeState().npcTopicOverrides[TessalarNpcId][0], RepeatMinotaurPromotionEventId);
+    CHECK(portraitFxContainsMember(
+        harness.eventRuntimeState(),
+        OpenYAMM::Game::PortraitFxEventKind::QuestComplete,
+        0));
 }
 
 TEST_CASE("mm8 lich promotion only requires jars from necromancers")

@@ -1458,6 +1458,35 @@ FormattedSelector formatSelector(
     return {std::to_string(rawValue)};
 }
 
+uint32_t packedItemRangeMin(uint32_t packedRange)
+{
+    return packedRange & 0xffffu;
+}
+
+uint32_t packedItemRangeMax(uint32_t packedRange)
+{
+    const uint32_t minimumItemId = packedItemRangeMin(packedRange);
+    const uint32_t maximumItemId = packedRange >> 16;
+    return maximumItemId >= minimumItemId ? maximumItemId : minimumItemId;
+}
+
+std::string formatItemRangeFunctionCall(const char *pFunctionName, const LegacyLuaInstruction &instruction)
+{
+    const uint32_t minimumItemId = packedItemRangeMin(instruction.arguments[0]);
+    const uint32_t maximumItemId = packedItemRangeMax(instruction.arguments[0]);
+
+    std::ostringstream stream;
+    stream << "evt." << pFunctionName << "(" << minimumItemId << ", " << maximumItemId;
+
+    if (instruction.arguments.size() >= 2)
+    {
+        stream << ", " << instruction.arguments[1];
+    }
+
+    stream << ")";
+    return stream.str();
+}
+
 bool selectorValueMatches(const FormattedSelector &selector, uint32_t value)
 {
     return value == selector.index
@@ -3403,10 +3432,8 @@ bool formatReadableConditionInstruction(
                 return false;
             }
 
-            const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
-            condition = "evt.CheckItemsCount(" + selector.expression + ", "
-                + std::to_string(instruction.arguments[1]) + ")";
-            comment = resolveSelectorComment(selector, lookups);
+            condition = formatItemRangeFunctionCall("CheckItemsCount", instruction);
+            comment = std::nullopt;
             return true;
         }
 
@@ -3567,11 +3594,10 @@ bool emitReadableActionInstruction(
         case LegacyLuaOperation::RemoveItems:
             if (!instruction.arguments.empty())
             {
-                const FormattedSelector selector = formatSelector(instruction.arguments[0], lookups.qbitRemaps);
                 emitIndentedLineWithComment(
                     stream,
-                    "evt.RemoveItems(" + selector.expression + ")",
-                    resolveSelectorComment(selector, lookups),
+                    formatItemRangeFunctionCall("RemoveItems", instruction),
+                    std::nullopt,
                     indentLevel);
                 return true;
             }
@@ -5440,7 +5466,6 @@ bool tryEmitReadablePartyMemberLoop(
         std::optional<uint8_t> afterLoopStep;
         std::optional<uint8_t> commonFailureStep;
         std::string commonFailureBlock;
-        std::vector<std::string> memberBodies;
         std::vector<std::string> normalizedBodies;
         std::vector<uint8_t> mergedVisited = visited;
 
@@ -5630,7 +5655,6 @@ bool tryEmitReadablePartyMemberLoop(
             memberBody << currentFailureBlock;
             emitIndentedLineWithComment(memberBody, "end", std::nullopt, indentLevel + 2);
             emitIndentedLineWithComment(memberBody, "end", std::nullopt, indentLevel + 1);
-            memberBodies.push_back(memberBody.str());
             normalizedBodies.push_back(normalizePartyMemberLoopBody(memberBody.str()));
 
             for (uint8_t visitedStep : failureVisited)
@@ -5658,23 +5682,18 @@ bool tryEmitReadablePartyMemberLoop(
             }
         }
 
-        if (allBodiesEqual)
+        if (!allBodiesEqual)
         {
-            emitIndentedLineWithComment(
-                stream,
-                "for _, player in ipairs(" + playerList + ") do",
-                std::nullopt,
-                indentLevel);
-            stream << normalizedBodies.front();
-            emitIndentedLineWithComment(stream, "end", std::nullopt, indentLevel);
+            return false;
         }
-        else
-        {
-            for (const std::string &memberBody : memberBodies)
-            {
-                stream << memberBody;
-            }
-        }
+
+        emitIndentedLineWithComment(
+            stream,
+            "for _, player in ipairs(" + playerList + ") do",
+            std::nullopt,
+            indentLevel);
+        stream << normalizedBodies.front();
+        emitIndentedLineWithComment(stream, "end", std::nullopt, indentLevel);
 
         visited = std::move(mergedVisited);
         currentStep = afterLoopStep;
@@ -5708,7 +5727,6 @@ bool tryEmitReadablePartyMemberLoop(
             return false;
         }
 
-        std::vector<std::string> memberBodies;
         std::vector<std::string> normalizedBodies;
 
         for (size_t memberIndex = 0; memberIndex < memberSteps.size(); ++memberIndex)
@@ -5832,7 +5850,6 @@ bool tryEmitReadablePartyMemberLoop(
                 emitIndentedLineWithComment(memberBody, "end", std::nullopt, indentLevel + 1);
             }
 
-            memberBodies.push_back(memberBody.str());
             normalizedBodies.push_back(normalizePartyMemberLoopBody(memberBody.str()));
         }
 
@@ -5852,23 +5869,18 @@ bool tryEmitReadablePartyMemberLoop(
             }
         }
 
-        if (allBodiesEqual)
+        if (!allBodiesEqual)
         {
-            emitIndentedLineWithComment(
-                stream,
-                "for _, player in ipairs(" + playerList + ") do",
-                std::nullopt,
-                indentLevel);
-            stream << normalizedBodies.front();
-            emitIndentedLineWithComment(stream, "end", std::nullopt, indentLevel);
+            return false;
         }
-        else
-        {
-            for (const std::string &memberBody : memberBodies)
-            {
-                stream << memberBody;
-            }
-        }
+
+        emitIndentedLineWithComment(
+            stream,
+            "for _, player in ipairs(" + playerList + ") do",
+            std::nullopt,
+            indentLevel);
+        stream << normalizedBodies.front();
+        emitIndentedLineWithComment(stream, "end", std::nullopt, indentLevel);
 
         currentStep = afterLoopStep;
         return true;
@@ -8948,8 +8960,7 @@ void emitNormalInstruction(
             {
                 emitIndentedLineWithComment(
                     stream,
-                    "if evt.CheckItemsCount(" + std::to_string(instruction.arguments[0]) + ", "
-                    + std::to_string(instruction.arguments[1]) + ") then return "
+                    "if " + formatItemRangeFunctionCall("CheckItemsCount", instruction) + " then return "
                     + std::to_string(*instruction.jumpTargetStep) + " end",
                     std::nullopt,
                     2);
@@ -8959,7 +8970,11 @@ void emitNormalInstruction(
         case LegacyLuaOperation::RemoveItems:
             if (!instruction.arguments.empty())
             {
-                emitIndentedLineWithComment(stream, "evt.RemoveItems(" + std::to_string(instruction.arguments[0]) + ")", std::nullopt, 2);
+                emitIndentedLineWithComment(
+                    stream,
+                    formatItemRangeFunctionCall("RemoveItems", instruction),
+                    std::nullopt,
+                    2);
             }
             break;
 

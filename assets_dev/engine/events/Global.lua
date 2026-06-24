@@ -972,67 +972,83 @@ RegisterGlobalEvent(71, "Quest", function()
         return
     end
     evt.SetMessage("You have found the Axe of Balthazar!\nHave you presented it to Dadeross? Ah, you have authentication from Dadeross!\nThe Rite’s of Purity will begin immediately! You proven yourselves worthy, and our now members of our herd!\nThe Minotaurs who travel with you are promoted to Minotaur Lord.\nThe others in your group will be taught what skills we have that maybe useful to them.")
-        evt.ForPlayer(player)
-        if IsAtLeast(ClassId, 20) then
-            SetValue(ClassId, 21)
-            AddValue(Experience, 35000)
-            SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
-            RemoveItem(541) -- Axe of Balthazar
-            RemoveItem(732) -- Certificate of Authentication
-        else
-            AddValue(Experience, 25000)
-            SetAward(Award(29)) -- Recovered Axe of Balthazar.
-        end
-        evt.ForPlayer(player)
-        if IsAtLeast(ClassId, 20) then
-            SetValue(ClassId, 21)
-            AddValue(Experience, 35000)
-            SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
-            RemoveItem(541) -- Axe of Balthazar
-            RemoveItem(732) -- Certificate of Authentication
-        else
-            AddValue(Experience, 25000)
-            SetAward(Award(29)) -- Recovered Axe of Balthazar.
-        end
-        evt.ForPlayer(player)
-        if IsAtLeast(ClassId, 20) then
-            SetValue(ClassId, 21)
-            AddValue(Experience, 35000)
-            SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
-            RemoveItem(541) -- Axe of Balthazar
-            RemoveItem(732) -- Certificate of Authentication
-        else
-            AddValue(Experience, 25000)
-            SetAward(Award(29)) -- Recovered Axe of Balthazar.
-        end
-        evt.ForPlayer(player)
-        if IsAtLeast(ClassId, 20) then
-            SetValue(ClassId, 21)
-            AddValue(Experience, 35000)
-            SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
-            RemoveItem(541) -- Axe of Balthazar
-            RemoveItem(732) -- Certificate of Authentication
-        else
-            AddValue(Experience, 25000)
-            SetAward(Award(29)) -- Recovered Axe of Balthazar.
-        end
-        evt.ForPlayer(player)
-        if IsAtLeast(ClassId, 20) then
-            SetValue(ClassId, 21)
-            AddValue(Experience, 35000)
-            SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
-            RemoveItem(541) -- Axe of Balthazar
-            RemoveItem(732) -- Certificate of Authentication
-            evt.ForPlayer(Players.All)
-        else
-            AddValue(Experience, 25000)
-            SetAward(Award(29)) -- Recovered Axe of Balthazar.
-        end
+    evt.ForPlayer(Players.Member0)
+    if IsAtLeast(ClassId, 20) then
+        goto step_18
+    end
+    AddValue(Experience, 25000)
+    SetAward(Award(29)) -- Recovered Axe of Balthazar.
+    goto step_23
+    ::step_18::
+    SetValue(ClassId, 21)
+    AddValue(Experience, 35000)
+    SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
+    RemoveItem(541) -- Axe of Balthazar
+    RemoveItem(732) -- Certificate of Authentication
+    ::step_23::
+    evt.ForPlayer(Players.Member1)
+    if IsAtLeast(ClassId, 20) then
+        goto step_28
+    end
+    AddValue(Experience, 25000)
+    SetAward(Award(29)) -- Recovered Axe of Balthazar.
+    goto step_33
+    ::step_28::
+    SetValue(ClassId, 21)
+    AddValue(Experience, 35000)
+    SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
+    RemoveItem(541) -- Axe of Balthazar
+    RemoveItem(732) -- Certificate of Authentication
+    ::step_33::
+    evt.ForPlayer(Players.Member2)
+    if IsAtLeast(ClassId, 20) then
+        goto step_38
+    end
+    AddValue(Experience, 25000)
+    SetAward(Award(29)) -- Recovered Axe of Balthazar.
+    goto step_43
+    ::step_38::
+    SetValue(ClassId, 21)
+    AddValue(Experience, 35000)
+    SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
+    RemoveItem(541) -- Axe of Balthazar
+    RemoveItem(732) -- Certificate of Authentication
+    ::step_43::
+    evt.ForPlayer(Players.Member3)
+    if IsAtLeast(ClassId, 20) then
+        goto step_48
+    end
+    AddValue(Experience, 25000)
+    SetAward(Award(29)) -- Recovered Axe of Balthazar.
+    goto step_53
+    ::step_48::
+    SetValue(ClassId, 21)
+    AddValue(Experience, 35000)
+    SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
+    RemoveItem(541) -- Axe of Balthazar
+    RemoveItem(732) -- Certificate of Authentication
+    ::step_53::
+    evt.ForPlayer(Players.Member4)
+    if IsAtLeast(ClassId, 20) then
+        goto step_58
+    end
+    AddValue(Experience, 25000)
+    SetAward(Award(29)) -- Recovered Axe of Balthazar.
+    goto step_64
+    ::step_58::
+    SetValue(ClassId, 21)
+    AddValue(Experience, 35000)
+    SetQBit(QBit(1545)) -- Promoted to Minotaur Lord.
+    RemoveItem(541) -- Axe of Balthazar
+    RemoveItem(732) -- Certificate of Authentication
+    evt.ForPlayer(Players.All)
+    ::step_64::
     ClearQBit(QBit(76)) -- Find the Axe of Balthazar, in the Dark Dwarf Mines. Have the Axe authenticated by Dadeross. Return the axe to Tessalar, heir to the leadership of the Minotaur Herd.
     SetQBit(QBit(87))
     RemoveItem(541) -- Axe of Balthazar
     RemoveItem(732) -- Certificate of Authentication
     evt.SetNPCTopic(58, 0, 740) -- Tessalar topic 0: Promote Minotuars
+    do return end
 end)
 RegisterCanShowTopic(71, function()
     evt._BeginCanShowTopic(71)
@@ -2351,22 +2367,22 @@ RegisterGlobalEvent(180, "Ingredients", function()
 end)
 
 RegisterGlobalEvent(181, "Do you have the Ingredients?", function()
-    if not evt.CheckItemsCount(DecorVar(2), 4) then
+    if not evt.CheckItemsCount(200, 204, 4) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 2) then
+    if not evt.CheckItemsCount(205, 209, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 1) then
+    if not evt.CheckItemsCount(210, 214, 1) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("The ingredients!")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 4)
+    evt.RemoveItems(205, 209, 2)
+    evt.RemoveItems(210, 214, 1)
     ClearQBit(QBit(113)) -- Bring Thistle on the Dagger Wound Islands the basic ingredients for a potion of Pure Speed.
     SetQBit(QBit(114)) -- returned ingredients for a potion of Pure Speed
     AddValue(InventoryItem(265), 265) -- Pure Speed
@@ -2661,22 +2677,22 @@ RegisterGlobalEvent(202, "Ingredients", function()
 end)
 
 RegisterGlobalEvent(203, "Do you have the Ingredients?", function()
-    if not evt.CheckItemsCount(DecorVar(2), 2) then
+    if not evt.CheckItemsCount(200, 204, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 3) then
+    if not evt.CheckItemsCount(205, 209, 3) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 3) then
+    if not evt.CheckItemsCount(210, 214, 3) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("Excellent!")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 2)
+    evt.RemoveItems(205, 209, 3)
+    evt.RemoveItems(210, 214, 3)
     ClearQBit(QBit(115)) -- Bring Rihansi in Alvar the basic ingredients for a potion of Pure Luck.
     SetQBit(QBit(116)) -- returned ingredients for a potion of Pure Luck
     AddValue(InventoryItem(264), 264) -- Pure Luck
@@ -2777,22 +2793,22 @@ RegisterGlobalEvent(211, "Ingredients", function()
 end)
 
 RegisterGlobalEvent(212, "Do you have the Ingredients?", function()
-    if not evt.CheckItemsCount(DecorVar(2), 2) then
+    if not evt.CheckItemsCount(200, 204, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 4) then
+    if not evt.CheckItemsCount(205, 209, 4) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 1) then
+    if not evt.CheckItemsCount(210, 214, 1) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("Excellent!")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 2)
+    evt.RemoveItems(205, 209, 4)
+    evt.RemoveItems(210, 214, 1)
     ClearQBit(QBit(121)) -- Bring Talion in the Ironsand Desert the basic ingredients for a potion of Pure Endurance.
     SetQBit(QBit(122)) -- returned ingredients for a potion of Pure Endurance
     AddValue(InventoryItem(267), 267) -- Pure Endurance
@@ -3059,22 +3075,22 @@ RegisterGlobalEvent(233, "War between the Guild and Temple", function()
 end)
 
 RegisterGlobalEvent(234, "Do you have the Ingredients?", function()
-    if not evt.CheckItemsCount(DecorVar(2), 1) then
+    if not evt.CheckItemsCount(200, 204, 1) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 2) then
+    if not evt.CheckItemsCount(205, 209, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 4) then
+    if not evt.CheckItemsCount(210, 214, 4) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("You have returned with the ingredients, holding up you end of the bargain.\nHere is your Potion of Pure Intellect.")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 1)
+    evt.RemoveItems(205, 209, 2)
+    evt.RemoveItems(210, 214, 4)
     ClearQBit(QBit(123)) -- Bring Kelvin in Shadowspire the basic ingredients for a potion of Pure Intellect.
     SetQBit(QBit(124)) -- returned ingredients for a potion of Pure Intellect
     AddValue(InventoryItem(266), 266) -- Pure Intellect
@@ -3143,22 +3159,22 @@ RegisterGlobalEvent(239, "Ingredients", function()
 end)
 
 RegisterGlobalEvent(240, "Thanks for the Ingredients", function()
-    if not evt.CheckItemsCount(DecorVar(2), 1) then
+    if not evt.CheckItemsCount(200, 204, 1) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 4) then
+    if not evt.CheckItemsCount(205, 209, 4) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 2) then
+    if not evt.CheckItemsCount(210, 214, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("Ah, you learned the recipe or are very lucky!\nHere is your potion!")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 1)
+    evt.RemoveItems(205, 209, 4)
+    evt.RemoveItems(210, 214, 2)
     ClearQBit(QBit(125)) -- Bring Castigeir in Murmurwoods the basic ingredients for a potion of Pure Personality.
     SetQBit(QBit(126)) -- returned ingredients for a potion of Pure Personallity
     AddValue(InventoryItem(268), 268) -- Pure Personality
@@ -3222,22 +3238,22 @@ RegisterGlobalEvent(245, "Ingredients", function()
 end)
 
 RegisterGlobalEvent(246, "Do you have the Ingredients?", function()
-    if not evt.CheckItemsCount(DecorVar(2), 2) then
+    if not evt.CheckItemsCount(200, 204, 2) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(7), 1) then
+    if not evt.CheckItemsCount(205, 209, 1) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
-    if not evt.CheckItemsCount(DecorVar(12), 4) then
+    if not evt.CheckItemsCount(210, 214, 4) then
         evt.SetMessage("You are missing all or some of the needed ingredients.")
         return
     end
     evt.SetMessage("Ah, the right ingredients always do the trick! Here is your potion.")
-    evt.RemoveItems(DecorVar(2))
-    evt.RemoveItems(DecorVar(7))
-    evt.RemoveItems(DecorVar(12))
+    evt.RemoveItems(200, 204, 2)
+    evt.RemoveItems(205, 209, 1)
+    evt.RemoveItems(210, 214, 4)
     ClearQBit(QBit(133)) -- returned ingredients for a potion of Pure Accuracy
     SetQBit(QBit(134)) -- Gave Gem of Restoration to Blazen Stormlance
     AddValue(InventoryItem(269), 269) -- Pure Accuracy

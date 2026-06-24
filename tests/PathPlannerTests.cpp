@@ -146,6 +146,52 @@ TEST_CASE("path planner can return best partial route when requested")
     CHECK(result.waypoints.back().x < request.target.x);
 }
 
+TEST_CASE("path planner can return partial route toward target with no floor")
+{
+    PathMap map;
+    map.setFacets({
+        makePlannerFloor(-48.0f, 192.0f, -48.0f, 48.0f, 0.0f)
+    });
+
+    PathPlanRequest request = makeRequest();
+    request.source = {0.0f, 0.0f, 0.0f};
+    request.target = {240.0f, 0.0f, 0.0f};
+    request.allowPartialPath = true;
+
+    PathPlanner planner;
+    const PathPlanResult result = planner.plan(map, request);
+
+    CHECK(result.status == PathPlanStatus::Partial);
+    REQUIRE_FALSE(result.waypoints.empty());
+    CHECK(result.waypoints.back().x > request.source.x);
+    CHECK(result.waypoints.back().x < request.target.x);
+}
+
+TEST_CASE("path planner can recover source from nearby no-floor position when requested")
+{
+    PathMap map;
+    map.setFacets({
+        makePlannerFloor(-48.0f, 192.0f, -48.0f, 48.0f, 0.0f)
+    });
+
+    PathPlanRequest request = makeRequest();
+    request.source = {240.0f, 0.0f, 0.0f};
+    request.target = {0.0f, 0.0f, 0.0f};
+
+    PathPlanner planner;
+    const PathPlanResult blockedResult = planner.plan(map, request);
+    CHECK(blockedResult.status == PathPlanStatus::NoRoute);
+
+    request.sourceSnapDistance = 96.0f;
+    const PathPlanResult recoveredResult = planner.plan(map, request);
+
+    CHECK(recoveredResult.status == PathPlanStatus::Success);
+    CHECK(recoveredResult.debug.sourceValid);
+    CHECK(recoveredResult.debug.preferredSourceSnapUsed);
+    CHECK(recoveredResult.debug.snappedSource.x < request.source.x);
+    REQUIRE_FALSE(recoveredResult.waypoints.empty());
+}
+
 TEST_CASE("path planner accepts stairs within step height")
 {
     PathMap map;

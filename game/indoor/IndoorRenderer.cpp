@@ -3890,11 +3890,16 @@ void IndoorRenderer::render(
     const uint64_t worldFxBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
     m_worldFxSystem.setShadowsEnabled(settings.shadows);
-    m_worldFxSystem.updateParticles(deltaSeconds, m_gameplayCursorMode);
+    const GameplayInputFrame *pGameplayInputFrame = gameSession.currentGameplayInputFrame();
+    const bool rightMouseInspectPauseActive =
+        pGameplayInputFrame != nullptr
+        && pGameplayInputFrame->rightMouseButton.held;
+    const bool worldFxPaused = m_gameplayCursorMode || rightMouseInspectPauseActive;
+    m_worldFxSystem.updateParticles(deltaSeconds, worldFxPaused);
     if (!m_gameplayCursorMode)
     {
         m_worldFxSystem.clearSpatialFx();
-        m_worldFxSystem.syncProjectileFx(gameSession, deltaSeconds, true);
+        m_worldFxSystem.syncProjectileFx(gameSession, rightMouseInspectPauseActive ? 0.0f : deltaSeconds, true);
     }
 
     if (collectRenderDiagnostics)

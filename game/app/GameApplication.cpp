@@ -7846,11 +7846,13 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
         const GameplaySharedInputFrameResult &sharedInput = m_gameSession.sharedInputFrameResult();
         const bool pendingSpellTargetActive = m_gameSession.gameplayScreenState().pendingSpellTarget().active;
+        const bool rightMouseInspectPauseActive = m_gameInputSystem.frame().rightMouseButton.held;
         const bool gameplayWorldPaused =
             sharedInput.worldInputBlocked
             || pendingSpellTargetActive
             || m_gameSession.sharedWorldInteractionBlockedThisFrame()
-            || debugConsoleFreezesGameplay;
+            || debugConsoleFreezesGameplay
+            || rightMouseInspectPauseActive;
 
         if (!gameplayWorldPaused)
         {

@@ -116,6 +116,32 @@ const OpenYAMM::Game::GameplayChestItemState *firstChestItem(const OpenYAMM::Gam
     return nullptr;
 }
 
+const OpenYAMM::Game::GameplayChestItemState *firstGoldChestItem(
+    const OpenYAMM::Game::GameplayChestViewState &view)
+{
+    const auto isGold =
+        [](const OpenYAMM::Game::GameplayChestItemState &item)
+        {
+            return item.isGold;
+        };
+
+    const auto itemIt = std::find_if(view.items.begin(), view.items.end(), isGold);
+
+    if (itemIt != view.items.end())
+    {
+        return &*itemIt;
+    }
+
+    const auto hiddenItemIt = std::find_if(view.hiddenItems.begin(), view.hiddenItems.end(), isGold);
+
+    if (hiddenItemIt != view.hiddenItems.end())
+    {
+        return &*hiddenItemIt;
+    }
+
+    return nullptr;
+}
+
 bool chestViewContainsItemId(const OpenYAMM::Game::GameplayChestViewState &view, uint32_t itemId)
 {
     const auto matchesItem =
@@ -189,10 +215,28 @@ void writeRawChestItemId(OpenYAMM::Game::MapDeltaChest &chest, size_t recordInde
     std::memcpy(chest.rawItems.data() + recordIndex * RecordSize, &rawItemId, sizeof(rawItemId));
 }
 
-OpenYAMM::Game::OutdoorSceneData loadOut01Scene()
+void writeRawChestItemInt32(
+    OpenYAMM::Game::MapDeltaChest &chest,
+    size_t recordIndex,
+    size_t fieldOffset,
+    int32_t value)
+{
+    constexpr size_t RecordSize = 36;
+
+    REQUIRE_LE(fieldOffset + sizeof(value), RecordSize);
+
+    if (chest.rawItems.size() < (recordIndex + 1) * RecordSize)
+    {
+        chest.rawItems.resize((recordIndex + 1) * RecordSize, 0);
+    }
+
+    std::memcpy(chest.rawItems.data() + recordIndex * RecordSize + fieldOffset, &value, sizeof(value));
+}
+
+OpenYAMM::Game::OutdoorSceneData loadOutdoorScene(const char *pRelativeScenePath)
 {
     const std::filesystem::path scenePath =
-        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm8/maps/out01.scene.yml";
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / pRelativeScenePath;
     std::ifstream sceneFile(scenePath);
     REQUIRE(sceneFile.good());
 
@@ -205,6 +249,11 @@ OpenYAMM::Game::OutdoorSceneData loadOut01Scene()
         sceneLoader.loadFromText(sceneText.str(), errorMessage);
     REQUIRE_MESSAGE(sceneData.has_value(), errorMessage.c_str());
     return *sceneData;
+}
+
+OpenYAMM::Game::OutdoorSceneData loadOut01Scene()
+{
+    return loadOutdoorScene("assets_dev/worlds/mm8/maps/out01.scene.yml");
 }
 
 int chestItemValue(
@@ -343,6 +392,81 @@ TEST_CASE("chest loot random generation follows item identification rule")
     CHECK_EQ(identifiedItem->objectDescriptionId, *identifiedItemId);
     CHECK_FALSE(unidentifiedItem->identified);
     CHECK(identifiedItem->identified);
+}
+
+TEST_CASE("fixed chest gold with authored amount materializes as lootable gold")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeChestTestParty(gameData);
+    OpenYAMM::Game::ChestTable chestTable = makeChestTable(9, 9);
+    OpenYAMM::Game::MapDeltaChest chest = {};
+    chest.chestTypeId = 0;
+    chest.inventoryMatrix.assign(140, 0);
+
+    constexpr uint32_t LargeGoldItemId = 189;
+    constexpr uint32_t GoldAmount = 1234;
+    writeRawChestItemId(chest, 0, static_cast<int32_t>(LargeGoldItemId));
+    writeRawChestItemInt32(chest, 0, 0x0c, static_cast<int32_t>(GoldAmount));
+
+    const OpenYAMM::Game::GameplayChestViewState view =
+        OpenYAMM::Game::buildMaterializedChestView(
+            0,
+            chest,
+            3,
+            0,
+            1234,
+            &chestTable,
+            &gameData.itemTable,
+            &party);
+
+    const OpenYAMM::Game::GameplayChestItemState *pGoldItem = firstGoldChestItem(view);
+    REQUIRE(pGoldItem != nullptr);
+    CHECK_EQ(pGoldItem->itemId, LargeGoldItemId);
+    CHECK_EQ(pGoldItem->goldAmount, GoldAmount);
+    CHECK_EQ(pGoldItem->goldRollCount, 1u);
+}
+
+TEST_CASE("fixed chest gold with zero authored amount receives deterministic legacy fallback")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeChestTestParty(gameData);
+    OpenYAMM::Game::ChestTable chestTable = makeChestTable(9, 9);
+    OpenYAMM::Game::MapDeltaChest chest = {};
+    chest.chestTypeId = 0;
+    chest.inventoryMatrix.assign(140, 0);
+
+    constexpr uint32_t LargeGoldItemId = 189;
+    writeRawChestItemId(chest, 0, static_cast<int32_t>(LargeGoldItemId));
+
+    const OpenYAMM::Game::GameplayChestViewState firstView =
+        OpenYAMM::Game::buildMaterializedChestView(
+            0,
+            chest,
+            6,
+            0,
+            1234,
+            &chestTable,
+            &gameData.itemTable,
+            &party);
+    const OpenYAMM::Game::GameplayChestViewState secondView =
+        OpenYAMM::Game::buildMaterializedChestView(
+            0,
+            chest,
+            6,
+            0,
+            1234,
+            &chestTable,
+            &gameData.itemTable,
+            &party);
+
+    const OpenYAMM::Game::GameplayChestItemState *pFirstGoldItem = firstGoldChestItem(firstView);
+    const OpenYAMM::Game::GameplayChestItemState *pSecondGoldItem = firstGoldChestItem(secondView);
+    REQUIRE(pFirstGoldItem != nullptr);
+    REQUIRE(pSecondGoldItem != nullptr);
+    CHECK_EQ(pFirstGoldItem->itemId, LargeGoldItemId);
+    CHECK_GE(pFirstGoldItem->goldAmount, 2000u);
+    CHECK_LE(pFirstGoldItem->goldAmount, 5000u);
+    CHECK_EQ(pFirstGoldItem->goldAmount, pSecondGoldItem->goldAmount);
 }
 
 TEST_CASE("chest materialization keeps unplaced guaranteed items hidden instead of dropping them")
@@ -670,6 +794,33 @@ TEST_CASE("outdoor Dagger Wound chests retain authored Cure Disease scrolls")
         INFO("chestId=" << chestId);
         CHECK(chestViewContainsItemId(view, cureDiseaseScrollId));
     }
+}
+
+TEST_CASE("outdoor Ravage Roaming pirate treasure fixed gold materializes as lootable gold")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::OutdoorSceneData sceneData =
+        loadOutdoorScene("assets_dev/worlds/mm8/maps/out08.scene.yml");
+    REQUIRE_GT(sceneData.initialState.chests.size(), 10u);
+
+    OpenYAMM::Game::Party party = makeChestTestParty(gameData);
+    OpenYAMM::Game::ChestTable chestTable = makeChestTable(9, 9);
+
+    const OpenYAMM::Game::GameplayChestViewState view =
+        OpenYAMM::Game::buildMaterializedChestView(
+            10,
+            sceneData.initialState.chests[10],
+            3,
+            8,
+            12345,
+            &chestTable,
+            &gameData.itemTable,
+            &party);
+
+    const OpenYAMM::Game::GameplayChestItemState *pGoldItem = firstGoldChestItem(view);
+    REQUIRE(pGoldItem != nullptr);
+    CHECK_GT(pGoldItem->goldAmount, 0u);
+    CHECK(chestViewContainsItemId(view, 503));
 }
 
 TEST_CASE("outdoor Dagger Wound chest events materialize authored Cure Disease scrolls")

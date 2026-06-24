@@ -121,7 +121,7 @@ void OutdoorGameplayInputController::updateCameraFromInput(
     const bool lookDownPressed = input.action(KeyboardAction::LookDown).held;
     const bool centerViewPressed = input.action(KeyboardAction::CenterView).held;
 
-    const bool allowWorldSimulation = !hasActiveLootView && !hasPendingSpellCast;
+    const bool allowWorldSimulation = !hasActiveLootView && !hasPendingSpellCast && !input.rightMouseButton.held;
     const bool allowCameraMovementInput = allowWorldSimulation && !gameplayMouseLookState.cursorModeActive;
     const float keyboardYawSpeed = 1.75f;
 

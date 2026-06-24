@@ -4,6 +4,7 @@
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemGenerator.h"
 #include "game/party/Party.h"
+#include "game/StringUtils.h"
 #include "game/tables/ChestTable.h"
 #include "game/tables/ItemTable.h"
 
@@ -23,6 +24,7 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr size_t ChestItemRecordSize = 36;
+constexpr size_t ChestItemGoldAmountOffset = 0x0c;
 constexpr int RandomChestItemMinLevel = 1;
 constexpr int RandomChestItemMaxLevel = 7;
 constexpr int SpawnableItemTreasureLevels = 6;
@@ -306,6 +308,57 @@ int generateGoldAmount(int treasureLevel, std::mt19937 &rng)
     }
 }
 
+bool readChestItemRecordInt32(
+    const MapDeltaChest &chest,
+    size_t recordIndex,
+    size_t fieldOffset,
+    int32_t &value)
+{
+    if (fieldOffset + sizeof(int32_t) > ChestItemRecordSize
+        || chest.rawItems.size() < recordIndex * ChestItemRecordSize + fieldOffset + sizeof(int32_t))
+    {
+        return false;
+    }
+
+    std::memcpy(
+        &value,
+        chest.rawItems.data() + recordIndex * ChestItemRecordSize + fieldOffset,
+        sizeof(int32_t));
+    return true;
+}
+
+bool itemDefinitionIsGold(const ItemDefinition &itemDefinition)
+{
+    return toLowerCopy(itemDefinition.equipStat) == "gold";
+}
+
+std::optional<int> legacyGoldHeapFallbackTreasureLevel(uint32_t itemId, int normalizedMapTreasureLevel)
+{
+    switch (itemId)
+    {
+        case 187:
+        case 197:
+        case 999:
+        case 1799:
+            return std::clamp(normalizedMapTreasureLevel, 1, 2);
+
+        case 188:
+        case 198:
+        case 1000:
+        case 1800:
+            return std::clamp(normalizedMapTreasureLevel, 3, 4);
+
+        case 189:
+        case 199:
+        case 1001:
+        case 1801:
+            return std::clamp(normalizedMapTreasureLevel, 5, 6);
+
+        default:
+            return std::nullopt;
+    }
+}
+
 std::pair<int, int> remapTreasureLevelRange(int itemTreasureLevel, int mapTreasureLevel)
 {
     static constexpr int mapping[7][7][2] = {
@@ -390,6 +443,13 @@ GameplayChestViewState buildMaterializedChestView(
                     return generatedItems;
                 }
 
+                const ItemDefinition *pItemDefinition = pItemTable->get(uint32_t(rawItemId));
+
+                if (pItemDefinition == nullptr)
+                {
+                    return generatedItems;
+                }
+
                 GameplayChestItemState item = {};
                 item.item = ItemGenerator::makeInventoryItem(
                     uint32_t(rawItemId),
@@ -397,6 +457,44 @@ GameplayChestViewState buildMaterializedChestView(
                     ItemGenerationMode::ChestLoot);
                 item.itemId = item.item.objectDescriptionId;
                 item.quantity = item.item.quantity;
+
+                if (itemDefinitionIsGold(*pItemDefinition))
+                {
+                    int32_t rawGoldAmount = 0;
+                    uint32_t goldAmount = 0;
+
+                    if (readChestItemRecordInt32(chest, recordIndex, ChestItemGoldAmountOffset, rawGoldAmount)
+                        && rawGoldAmount > 0)
+                    {
+                        goldAmount = uint32_t(rawGoldAmount);
+                    }
+
+                    if (goldAmount == 0)
+                    {
+                        const std::optional<int> fallbackTreasureLevel =
+                            legacyGoldHeapFallbackTreasureLevel(uint32_t(rawItemId), normalizedMapTreasureLevel);
+
+                        if (fallbackTreasureLevel.has_value())
+                        {
+                            std::mt19937 rng(makeChestSeed(
+                                sessionChestSeed,
+                                mapId,
+                                chestId,
+                                uint32_t(recordIndex)));
+                            goldAmount = uint32_t(std::max(0, generateGoldAmount(*fallbackTreasureLevel, rng)));
+                        }
+                    }
+
+                    if (goldAmount == 0)
+                    {
+                        return generatedItems;
+                    }
+
+                    item.goldAmount = goldAmount;
+                    item.goldRollCount = 1u;
+                    item.isGold = true;
+                }
+
                 resolveChestItemSize(item, pItemTable);
                 generatedItems.push_back(item);
                 return generatedItems;

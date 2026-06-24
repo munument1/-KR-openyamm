@@ -30,6 +30,7 @@ add_executable(openyamm_unit_tests
     MonsterTableRegressionTests.cpp
     MergedBaseTablesTests.cpp
     OutdoorLightingRuntimeTests.cpp
+    OutdoorPathfindingBuilderTests.cpp
     PartyRegressionTests.cpp
     PathMapTests.cpp
     PathPlannerTests.cpp
@@ -161,6 +162,7 @@ add_executable(openyamm_unit_tests
     ../game/outdoor/OutdoorMapData.cpp
     ../game/outdoor/OutdoorMovementController.cpp
     ../game/outdoor/OutdoorMovementDriver.cpp
+    ../game/outdoor/OutdoorPathfindingBuilder.cpp
     ../game/outdoor/OutdoorPartyRuntime.cpp
     ../game/pathfinding/ActorPathRuntime.cpp
     ../game/pathfinding/PathMap.cpp

@@ -483,6 +483,37 @@ TEST_CASE("legacy lua exporter keeps mm8 lich jar checks on necromancers")
     CHECK(repeatPromotionLua.find("if not IsAtLeast(ClassId, 44) then") == std::string::npos);
 }
 
+TEST_CASE("legacy lua exporter preserves mm8 reagent item ranges")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm8/_legacy/events/Global.EVT");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Global,
+        OpenYAMM::Game::LegacyEventVersion::Mm8);
+
+    const std::string pureSpeedLua = extractLuaEvent(lua, "RegisterGlobalEvent(181");
+    INFO(pureSpeedLua);
+    CHECK(pureSpeedLua.find("evt.CheckItemsCount(200, 204, 4)") != std::string::npos);
+    CHECK(pureSpeedLua.find("evt.CheckItemsCount(205, 209, 2)") != std::string::npos);
+    CHECK(pureSpeedLua.find("evt.CheckItemsCount(210, 214, 1)") != std::string::npos);
+    CHECK(pureSpeedLua.find("evt.RemoveItems(200, 204, 4)") != std::string::npos);
+    CHECK(pureSpeedLua.find("evt.RemoveItems(205, 209, 2)") != std::string::npos);
+    CHECK(pureSpeedLua.find("evt.RemoveItems(210, 214, 1)") != std::string::npos);
+    CHECK(pureSpeedLua.find("DecorVar(") == std::string::npos);
+}
+
 TEST_CASE("legacy lua exporter preserves mm8 indoor light group ids")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

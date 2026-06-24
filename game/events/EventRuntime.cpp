@@ -1046,6 +1046,67 @@ bool removeInventoryItemFromTargets(Party &party, const std::vector<size_t> &tar
     return false;
 }
 
+void normalizeItemRange(uint32_t &minimumItemId, uint32_t &maximumItemId)
+{
+    if (maximumItemId < minimumItemId)
+    {
+        std::swap(minimumItemId, maximumItemId);
+    }
+}
+
+int32_t inventoryItemCountInRange(
+    const EventRuntimeState &runtimeState,
+    const Party *pParty,
+    uint32_t minimumItemId,
+    uint32_t maximumItemId,
+    const std::optional<size_t> &memberIndex)
+{
+    normalizeItemRange(minimumItemId, maximumItemId);
+
+    int32_t totalCount = 0;
+
+    for (uint32_t itemId = minimumItemId; itemId <= maximumItemId; ++itemId)
+    {
+        totalCount += EventRuntime::getInventoryItemCount(runtimeState, pParty, itemId, memberIndex);
+
+        if (itemId == std::numeric_limits<uint32_t>::max())
+        {
+            break;
+        }
+    }
+
+    return totalCount;
+}
+
+void appendRemovedInventoryItemsInRange(
+    EventRuntimeState &runtimeState,
+    const Party *pParty,
+    uint32_t minimumItemId,
+    uint32_t maximumItemId,
+    uint32_t quantity)
+{
+    normalizeItemRange(minimumItemId, maximumItemId);
+
+    uint32_t remainingQuantity = quantity;
+
+    for (uint32_t itemId = minimumItemId; itemId <= maximumItemId && remainingQuantity > 0; ++itemId)
+    {
+        int32_t itemCount = EventRuntime::getInventoryItemCount(runtimeState, pParty, itemId, std::nullopt);
+
+        while (itemCount > 0 && remainingQuantity > 0)
+        {
+            runtimeState.removedItemIds.push_back(itemId);
+            --itemCount;
+            --remainingQuantity;
+        }
+
+        if (itemId == std::numeric_limits<uint32_t>::max())
+        {
+            break;
+        }
+    }
+}
+
 std::optional<CharacterCondition> conditionForEvtVariable(EvtVariable variableId)
 {
     switch (variableId)
@@ -2554,8 +2615,8 @@ int32_t EventRuntime::getVariableValue(
             && variable.rawId <= 449
             && pParty != nullptr)
         {
-            const uint32_t rosterId = variable.rawId - 399;
-            return pParty->hasRosterMember(rosterId) ? 1 : 0;
+            const uint32_t rosterId = variable.rawId - 400;
+            return (pParty->hasQuestBit(variable.rawId) || pParty->hasRosterMember(rosterId)) ? 1 : 0;
         }
 
         if (variable.kind == VariableKind::QBits && pParty != nullptr)
@@ -6051,12 +6112,28 @@ int luaFaceExpression(lua_State *pLuaState)
 int luaCheckItemsCount(lua_State *pLuaState)
 {
     const EventRuntimeState *pRuntimeState = readableRuntimeState(pLuaState);
+    const Party *pParty = readableParty(pLuaState);
+    const int argumentCount = lua_gettop(pLuaState);
+
+    if (argumentCount >= 3)
+    {
+        const uint32_t minimumItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+        const uint32_t maximumItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
+        const int32_t requiredCount = static_cast<int32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 3)));
+        const int32_t currentCount =
+            inventoryItemCountInRange(*pRuntimeState, pParty, minimumItemId, maximumItemId, std::nullopt);
+        lua_pushboolean(pLuaState, currentCount >= requiredCount);
+        return 1;
+    }
+
+    const uint32_t itemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const int32_t requiredCount = static_cast<int32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
     const int32_t currentCount = EventRuntime::getInventoryItemCount(
         *pRuntimeState,
-        readableParty(pLuaState),
-        static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1)),
+        pParty,
+        itemId,
         singleTargetMemberIndex(selectedTargetMemberIndices(pLuaState)));
-    lua_pushboolean(pLuaState, currentCount >= static_cast<int32_t>(luaL_checkinteger(pLuaState, 2)));
+    lua_pushboolean(pLuaState, currentCount >= requiredCount);
     return 1;
 }
 
@@ -7283,7 +7360,19 @@ int luaGiveItem(lua_State *pLuaState)
 int luaRemoveItems(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
-    pRuntimeState->removedItemIds.push_back(static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1)));
+    const int argumentCount = lua_gettop(pLuaState);
+
+    if (argumentCount >= 3)
+    {
+        const uint32_t minimumItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+        const uint32_t maximumItemId = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 2)));
+        const uint32_t quantity = static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 3)));
+        appendRemovedInventoryItemsInRange(*pRuntimeState, readableParty(pLuaState), minimumItemId, maximumItemId, quantity);
+        return 0;
+    }
+
+    pRuntimeState->removedItemIds.push_back(
+        static_cast<uint32_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1))));
     return 0;
 }
 

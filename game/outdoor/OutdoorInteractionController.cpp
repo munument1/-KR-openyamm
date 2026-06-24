@@ -137,7 +137,7 @@ std::optional<uint16_t> outdoorBModelRuntimeCogTriggeredNumber(
     return std::nullopt;
 }
 
-constexpr float OeOutdoorNearClip = 32.0f;
+constexpr float OutdoorCameraNearClip = 4.0f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
 constexpr float DefaultOutdoorFarClip = 16192.0f;
 
@@ -1137,7 +1137,7 @@ std::optional<size_t> OutdoorInteractionController::resolveClosestVisibleHostile
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        OeOutdoorNearClip,
+        OutdoorCameraNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -1270,7 +1270,7 @@ bool OutdoorInteractionController::buildQuickCastInspectRayForScreenPoint(
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        OeOutdoorNearClip,
+        OutdoorCameraNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -1332,7 +1332,7 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        OeOutdoorNearClip,
+        OutdoorCameraNearClip,
         200000.0f,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
@@ -2617,7 +2617,7 @@ GameplayWorldPickRequest OutdoorInteractionController::buildWorldPickRequest(
         projectionMatrix,
         CameraVerticalFovDegrees,
         aspectRatio,
-        OeOutdoorNearClip,
+        OutdoorCameraNearClip,
         DefaultOutdoorFarClip,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
