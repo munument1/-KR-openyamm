@@ -663,3 +663,51 @@ TEST_CASE("new sorpigal bridge path terrain waypoint can step onto bridge ramp")
     CHECK_EQ(state.supportKind, OutdoorSupportKind::BModelFace);
     CHECK(state.footZ > 1.0f);
 }
+
+TEST_CASE("ravenshore house stairs move party onto bmodel support")
+{
+    REQUIRE_MESSAGE(regressionMapLoaderLoaded(), regressionMapLoaderFailure());
+
+    OpenYAMM::Game::GameDataLoader gameDataLoader = regressionMapLoader().gameDataLoader;
+    REQUIRE(gameDataLoader.loadMapByFileNameForHeadlessGameplay(regressionMapLoader().assetFileSystem, "out02.odm"));
+    const std::optional<OpenYAMM::Game::MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+    REQUIRE(selectedMap.has_value());
+    REQUIRE(selectedMap->outdoorMapData.has_value());
+
+    const OutdoorMovementController controller(
+        *selectedMap->outdoorMapData,
+        selectedMap->outdoorLandMask,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state =
+        controller.initializeState(12323.1f, -7892.64f, 1.0f);
+    REQUIRE_EQ(state.supportKind, OutdoorSupportKind::Terrain);
+
+    for (int step = 0; step < 256 && state.y < -7297.5f; ++step)
+    {
+        state =
+            controller.resolveMove(
+                state,
+                3.68373f,
+                383.982f,
+                0.0f,
+                false,
+                false,
+                false,
+                false,
+                false,
+                512.0f,
+                0.0f,
+                4000.0f,
+                1.0f / 128.0f);
+    }
+
+    INFO("final position=" << state.x << "," << state.y << "," << state.footZ
+        << " support=" << static_cast<int>(state.supportKind)
+        << " bmodel=" << state.supportBModelIndex
+        << " face=" << state.supportFaceIndex);
+    CHECK_EQ(state.supportKind, OutdoorSupportKind::BModelFace);
+    CHECK(state.footZ > 1.0f);
+}

@@ -28,6 +28,7 @@ constexpr float BModelEdgeSupportHeightSlack = 32.0f;
 constexpr float BModelEdgeSupportMoveSlack = 2.0f;
 constexpr float BModelEdgeSupportVelocitySlack = 1.0f;
 constexpr float BModelGroundSupportRise = 128.0f;
+constexpr float BModelStepHeight = 128.0f;
 constexpr float SlopeSlideGravityMultiplier = 4.0f;
 // OE outdoor party gravity is -2 * dtTicks * Gravity, with default Gravity = 5 and dt at 128 Hz.
 constexpr float GravityPerSecond = 1280.0f;
@@ -2141,6 +2142,76 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         const float minMoveDistance =
             slopeSlideActive ? SlopeSlideMinMoveDistance : CollisionMinMoveDistance;
 
+        auto bModelFloorCanStepTo =
+            [&](const FloorSample &floor) -> bool
+        {
+            if (passKind != 1)
+            {
+                return false;
+            }
+
+            if (!floor.hasFloor || !floor.fromBModel)
+            {
+                return false;
+            }
+
+            const OutdoorFaceGeometryData *pGeometry = findFaceGeometry(floor.bModelIndex, floor.faceIndex);
+
+            if (pGeometry == nullptr
+                || !outdoorFaceBlocksMovement(*pGeometry)
+                || !pGeometry->isWalkable
+                || pGeometry->notAStep)
+            {
+                return false;
+            }
+
+            const float floorRise = floor.height - passPosition.z;
+            return floorRise > 0.0f && floorRise < BModelStepHeight;
+        };
+
+        auto selectBModelStepFloor =
+            [&](const FloorSample &allNewFloor,
+                const FloorSample &xAdvanceFloor,
+                const FloorSample &yAdvanceFloor) -> std::optional<FloorSample>
+        {
+            std::optional<FloorSample> selectedFloor;
+
+            auto inspectFloor =
+                [&](const FloorSample &floor)
+            {
+                if (!bModelFloorCanStepTo(floor))
+                {
+                    return;
+                }
+
+                if (!selectedFloor || floor.height > selectedFloor->height)
+                {
+                    selectedFloor = floor;
+                }
+            };
+
+            inspectFloor(allNewFloor);
+            inspectFloor(xAdvanceFloor);
+            inspectFloor(yAdvanceFloor);
+            return selectedFloor;
+        };
+
+        auto applyBModelStepFloor =
+            [&](const std::optional<FloorSample> &floor)
+        {
+            if (!floor)
+            {
+                return;
+            }
+
+            passPosition.z = std::max(passPosition.z, floor->height);
+            steppedBModelFloorSupport = *floor;
+            if (pDebugInfo != nullptr)
+            {
+                pDebugInfo->steppedBModelFloor = outdoorMoveFloorDebugInfo(*steppedBModelFloorSupport);
+            }
+        };
+
         for (int attempt = 0; attempt < 5; ++attempt)
         {
             if (pDebugInfo != nullptr)
@@ -2225,6 +2296,17 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 newPosLow.y,
                 newPosLow.z,
                 FloorSupportMode::IncludeBModels);
+            const FloorSample allNewStepFloor = queryFloorLevel(
+                *m_pOutdoorMapData,
+                m_faces,
+                state,
+                &candidateFaceIndices,
+                bodyRadius,
+                BModelStepHeight,
+                newPosLow.x,
+                newPosLow.y,
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
             collectFaceCandidates(
                 newPosLow.x - std::max(bodyRadius, FloorCheckSlack),
                 passPosition.y - std::max(bodyRadius, FloorCheckSlack),
@@ -2238,6 +2320,17 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 &candidateFaceIndices,
                 bodyRadius,
                 FloorSelectionHeightTolerance,
+                newPosLow.x,
+                passPosition.y,
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
+            const FloorSample xAdvanceStepFloor = queryFloorLevel(
+                *m_pOutdoorMapData,
+                m_faces,
+                state,
+                &candidateFaceIndices,
+                bodyRadius,
+                BModelStepHeight,
                 newPosLow.x,
                 passPosition.y,
                 newPosLow.z,
@@ -2259,6 +2352,19 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 newPosLow.y,
                 newPosLow.z,
                 FloorSupportMode::IncludeBModels);
+            const FloorSample yAdvanceStepFloor = queryFloorLevel(
+                *m_pOutdoorMapData,
+                m_faces,
+                state,
+                &candidateFaceIndices,
+                bodyRadius,
+                BModelStepHeight,
+                passPosition.x,
+                newPosLow.y,
+                newPosLow.z,
+                FloorSupportMode::IncludeBModels);
+            const std::optional<FloorSample> bModelStepFloor =
+                selectBModelStepFloor(allNewStepFloor, xAdvanceStepFloor, yAdvanceStepFloor);
 
             if (pDebugInfo != nullptr)
             {
@@ -2268,7 +2374,11 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 pDebugInfo->lastYAdvanceFloor = outdoorMoveFloorDebugInfo(yAdvanceFloor);
             }
 
-            passPartyNotOnModel = !xAdvanceFloor.fromBModel && !yAdvanceFloor.fromBModel && !allNewFloor.fromBModel;
+            passPartyNotOnModel =
+                !xAdvanceFloor.fromBModel
+                && !yAdvanceFloor.fromBModel
+                && !allNewFloor.fromBModel
+                && !bModelStepFloor;
 
             if (!passPartyNotOnModel)
             {
@@ -2348,11 +2458,13 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 }
 
                 passPosition.z = collisionState.newPositionLo.z - collisionState.radiusLo;
+                applyBModelStepFloor(bModelStepFloor);
                 break;
             }
 
             collisionState.totalMoveDistance += collisionState.adjustedMoveDistance;
             passPosition = newPosLow;
+            applyBModelStepFloor(bModelStepFloor);
 
             if (!collisionState.hit)
             {
@@ -2554,7 +2666,7 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
                 {
                     const float floorRise = hit.floorHeight - passPosition.z;
 
-                    if (!pGeometry->notAStep && floorRise > 0.0f && floorRise < 128.0f)
+                    if (!pGeometry->notAStep && floorRise > 0.0f && floorRise < BModelStepHeight)
                     {
                         passPosition.z = hit.floorHeight;
                         steppedBModelFloorSupport = FloorSample{
@@ -2828,7 +2940,7 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
     const float bodyRadius = std::max(1.0f, body.radius);
     const float bodyHeight = std::max(bodyRadius * 2.0f + 2.0f, body.height);
     const bool bModelGround = outdoorMapUsesBModelGround(*m_pOutdoorMapData);
-    const float maxStepHeight = 128.0f;
+    const float maxStepHeight = BModelStepHeight;
     std::vector<size_t> candidateFaceIndices;
     collectFaceCandidates(
         state.x - std::max(bodyRadius, FloorCheckSlack),
