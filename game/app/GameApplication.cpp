@@ -2791,6 +2791,7 @@ void GameApplication::registerDebugConsoleCommands()
                 << "global get|set|clear <name> [value], global dump [filter], "
                 << "mapvar get|set|clear <index> [value], mapvar dump, "
                 << "award get|set|clear <id>, award dump [active|all|filter], "
+                << "arcomage win <house-id|mm8>, "
                 << "player add <class-id|class-name> [name], hire <profession-id>, gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
@@ -3701,6 +3702,87 @@ void GameApplication::registerDebugConsoleCommands()
             }
 
             return commandResult(false, "Usage: award get|set|clear <id> | award dump [active|all|filter]");
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "arcomage",
+        .description = "Simulate Arcomage results using the same party bookkeeping as a finished match.",
+        .usage = "arcomage win <house-id|mm8>",
+        .callback = [this, activeParty, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 2 || toLowerCopy(context.args[0]) != "win")
+            {
+                return commandResult(false, "Usage: arcomage win <house-id|mm8>");
+            }
+
+            Party *pParty = activeParty();
+
+            if (pParty == nullptr)
+            {
+                return commandResult(false, "No active party.");
+            }
+
+            std::vector<uint32_t> houseIds;
+            const std::string target = toLowerCopy(context.args[1]);
+
+            if (target == "mm8" || target == "jadame")
+            {
+                for (uint32_t houseId = 228; houseId <= 238; ++houseId)
+                {
+                    houseIds.push_back(houseId);
+                }
+            }
+            else
+            {
+                const std::optional<int32_t> parsedHouseId = parseInt32Argument(context.args[1]);
+
+                if (!parsedHouseId || *parsedHouseId <= 0)
+                {
+                    return commandResult(false, "Invalid Arcomage house id.");
+                }
+
+                houseIds.push_back(static_cast<uint32_t>(*parsedHouseId));
+            }
+
+            int totalGoldReward = 0;
+            size_t firstWinCount = 0;
+            std::ostringstream out;
+            out << "Arcomage wins:";
+
+            for (uint32_t houseId : houseIds)
+            {
+                const HouseEntry *pHouseEntry = m_gameDataLoader.getHouseTable().get(houseId);
+                const ArcomageTavernRule *pRule = m_gameDataLoader.getArcomageLibrary().ruleForHouse(houseId);
+
+                if (pHouseEntry == nullptr || pRule == nullptr)
+                {
+                    return commandResult(false, "Unknown Arcomage tavern house id: " + std::to_string(houseId));
+                }
+
+                const bool firstWin = !pParty->hasArcomageWinAt(houseId);
+                const int goldReward = firstWin ? static_cast<int>(pHouseEntry->priceMultiplier * 100.0f) : 0;
+                const uint32_t firstWinAwardId = pRule->firstWinAwardId;
+                pParty->recordArcomageWin(houseId, goldReward, firstWinAwardId);
+
+                totalGoldReward += goldReward;
+                firstWinCount += firstWin ? 1u : 0u;
+                out << ' ' << houseId << (firstWin ? "(first)" : "(repeat)");
+            }
+
+            if (m_pMapSceneRuntime != nullptr)
+            {
+                synchronizeSessionFromRuntime();
+            }
+            else
+            {
+                m_gameSession.setPartyState(*pParty);
+            }
+
+            out << "; first_wins=" << firstWinCount
+                << "; gold=" << totalGoldReward
+                << "; qbit174=" << boolString(pParty->hasQuestBit(174))
+                << "; award41=" << boolString(pParty->hasAward(41));
+            return commandResult(true, out.str());
         }});
 
     m_debugConsole.registerCommand({
@@ -4745,6 +4827,8 @@ bool GameApplication::processPendingDebugMapJump()
             "Indoor debug jump used the fallback start because this BLV has no Party Start marker.");
     }
 
+    m_debugConsole.setEnabled(false);
+    m_gameSession.requestRelativeMouseMotionReset();
     return true;
 }
 

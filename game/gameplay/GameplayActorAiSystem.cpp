@@ -2409,6 +2409,7 @@ void applyActiveMovementCommit(
     const GameplayWorldPoint movementTargetPosition = actorMovementTargetPosition(actor);
     update.movementIntent.targetPosition = movementTargetPosition;
     update.movementIntent.targetEdgeDistance = actor.target.currentEdgeDistance;
+    update.movementIntent.targetHasAttackLineOfSight = actor.target.currentHasAttackLineOfSight;
     update.movementIntent.inMeleeRange = actor.movement.inMeleeRange;
 
     if (actor.stats.canFly)

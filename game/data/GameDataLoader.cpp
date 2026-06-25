@@ -39,6 +39,26 @@ bool mapLoadTimingEnabled()
     return pValue != nullptr && std::string_view(pValue) != "0" && std::string_view(pValue) != "false";
 }
 
+void updateBitmapAlphaInfo(OutdoorBitmapTexture &texture, const std::vector<uint8_t> &pixels)
+{
+    for (size_t offset = 3; offset < pixels.size(); offset += 4)
+    {
+        const uint8_t alpha = pixels[offset];
+        if (alpha < 255)
+        {
+            texture.hasTransparentPixels = true;
+        }
+        if (alpha > 0 && alpha < 255)
+        {
+            texture.hasPartialAlphaPixels = true;
+        }
+        if (texture.hasTransparentPixels && texture.hasPartialAlphaPixels)
+        {
+            return;
+        }
+    }
+}
+
 class GameDataLoadTimingLogger
 {
 public:
@@ -1182,6 +1202,7 @@ void appendDecorationScriptBillboardTextures(
             texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, decorationAssetScaleTier);
             texture.physicalWidth = textureWidth;
             texture.physicalHeight = textureHeight;
+            updateBitmapAlphaInfo(texture, *pixels);
             texture.pixels = *pixels;
             billboardSet->textures.push_back(std::move(texture));
         }
@@ -1270,6 +1291,7 @@ void appendIndoorScriptTextures(
         texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, textureAssetScaleTier);
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
+        updateBitmapAlphaInfo(texture, *pixels);
         texture.pixels = *pixels;
         indoorTextureSet->textures.push_back(std::move(texture));
     }

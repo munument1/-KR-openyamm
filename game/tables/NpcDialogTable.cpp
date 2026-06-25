@@ -347,23 +347,55 @@ bool NpcDialogTable::loadTextsFromRows(const std::vector<std::vector<std::string
 {
     m_texts.clear();
 
+    uint32_t pendingId = 0;
+    std::string pendingText;
+    bool hasPendingText = false;
+
+    auto appendPendingText = [this, &pendingId, &pendingText, &hasPendingText]()
+    {
+        if (hasPendingText)
+        {
+            m_texts[pendingId] = pendingText;
+        }
+    };
+
+    auto appendContinuationText = [&pendingText, &hasPendingText](const std::vector<std::string> &row)
+    {
+        if (!hasPendingText || row.empty())
+        {
+            return;
+        }
+
+        if (!pendingText.empty())
+        {
+            pendingText += '\n';
+        }
+
+        pendingText += row.front();
+    };
+
     for (const std::vector<std::string> &row : rows)
     {
-        if (row.size() <= 1)
+        if (row.empty())
         {
             continue;
         }
 
         uint32_t id = 0;
 
-        if (!parseUnsigned(row[0], id))
+        if (parseUnsigned(row[0], id))
         {
+            appendPendingText();
+            pendingId = id;
+            pendingText = row.size() > 1 ? row[1] : std::string();
+            hasPendingText = true;
             continue;
         }
 
-        m_texts[id] = row[1];
+        appendContinuationText(row);
     }
 
+    appendPendingText();
     return !m_texts.empty();
 }
 

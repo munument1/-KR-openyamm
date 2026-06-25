@@ -680,6 +680,7 @@ TEST_CASE("shared actor AI pursues instead of firing blocked ranged attacks")
     CHECK(*update.state.motionState == ActorAiMotionState::Pursuing);
     CHECK(update.movementIntent.action == ActorAiMovementAction::Pursue);
     CHECK(update.movementIntent.applyMovement);
+    CHECK_FALSE(update.movementIntent.targetHasAttackLineOfSight);
     CHECK_FALSE(update.attackRequest.has_value());
 }
 
@@ -1229,6 +1230,7 @@ TEST_CASE("shared actor AI orbits during ranged recovery instead of closing to m
     CHECK(update.movementIntent.applyMovement);
     CHECK(update.movementIntent.action == ActorAiMovementAction::Pursue);
     CHECK_FALSE(update.movementIntent.meleePursuitActive);
+    CHECK(update.movementIntent.targetHasAttackLineOfSight);
     CHECK(std::abs(update.movementIntent.desiredMoveY) > 0.9f);
     CHECK(update.movementIntent.desiredMoveX < 0.0f);
     CHECK(std::abs(update.movementIntent.desiredMoveX) < 0.25f);

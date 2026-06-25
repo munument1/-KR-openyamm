@@ -2414,6 +2414,7 @@ void OutdoorRenderer::createBModelTextureBatches(
 
             animationHandle.frameTextureHandles.push_back(textureHandle);
             animationHandle.frameLengthTicks.push_back(frame.frameLengthTicks);
+            animationHandle.frameHasPartialAlphaPixels.push_back(pFrameTexture->hasPartialAlphaPixels);
         }
 
         if (!animationHandle.frameTextureHandles.empty())
@@ -3471,6 +3472,9 @@ void OutdoorRenderer::renderWorldPasses(
                     {
                         continue;
                     }
+                    const bool blendPartialAlpha =
+                        frameIndex < animation.frameHasPartialAlphaPixels.size()
+                        && animation.frameHasPartialAlphaPixels[frameIndex];
 
                     uint32_t effectiveAttributes = batch.baseAttributes;
 
@@ -3574,12 +3578,16 @@ void OutdoorRenderer::renderWorldPasses(
                         cameraPosition,
                         worldFogParameters);
                     applySecretPulseUniforms(view);
-                    bgfx::setState(
+                    uint64_t state =
                         BGFX_STATE_WRITE_RGB
                         | BGFX_STATE_WRITE_A
                         | BGFX_STATE_WRITE_Z
-                        | BGFX_STATE_DEPTH_TEST_LEQUAL
-                    );
+                        | BGFX_STATE_DEPTH_TEST_LEQUAL;
+                    if (blendPartialAlpha)
+                    {
+                        state |= BGFX_STATE_BLEND_ALPHA;
+                    }
+                    bgfx::setState(state);
                     bgfx::submit(MainViewId, view.m_outdoorTexturedFogProgramHandle);
                 }
             }

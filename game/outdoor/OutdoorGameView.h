@@ -236,6 +236,7 @@ private:
         std::string textureName;
         std::vector<bgfx::TextureHandle> frameTextureHandles;
         std::vector<uint32_t> frameLengthTicks;
+        std::vector<bool> frameHasPartialAlphaPixels;
         uint32_t animationLengthTicks = 0;
     };
 

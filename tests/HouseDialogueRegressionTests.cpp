@@ -52,6 +52,10 @@ constexpr uint32_t SilverCoveTownHallHouseId = 211;
 constexpr uint32_t RavenshoreBountyHunterGuildHouseId = 895;
 constexpr uint32_t GarroteGorgeBountyHunterGuildHouseId = 523;
 constexpr uint32_t ArcomageDeckItemId = 1453;
+constexpr uint32_t DreadPirateStanleyNpcId = 108;
+constexpr uint32_t PirateRestHouseId = 236;
+constexpr uint32_t FalseReportItemId = 602;
+constexpr uint32_t DeliverFalseReportQBitId = 117;
 constexpr uint32_t WindlingBoatHouseId = 479;
 constexpr uint32_t SmokeBoatHouseId = 481;
 constexpr uint32_t WindBoatHouseId = 483;
@@ -709,6 +713,40 @@ uint64_t fnv1a64(const std::vector<uint8_t> &bytes)
 
     return hash;
 }
+}
+
+TEST_CASE("dread pirate stanley false report keeps multiline npc text")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const std::optional<std::string> reportText = gameData.npcDialogTable.getText(777);
+
+    REQUIRE(reportText.has_value());
+    CHECK(reportText->find("Tell Arion Hunter") != std::string::npos);
+    CHECK(reportText->find("Give me the reports") != std::string::npos);
+    CHECK(reportText->find("You make me sick!") != std::string::npos);
+
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::EventDialogContent freshDialog =
+        harness.openNpcDialogue(DreadPirateStanleyNpcId, PirateRestHouseId);
+
+    CHECK_EQ(freshDialog.title, "Dread Pirate Stanley");
+    CHECK_FALSE(dialogHasActionLabel(freshDialog, "Report!"));
+
+    harness.party().setQuestBit(DeliverFalseReportQBitId, true);
+    REQUIRE(harness.party().grantItemToMember(0, FalseReportItemId));
+
+    const OpenYAMM::Game::EventDialogContent questDialog =
+        harness.openNpcDialogue(DreadPirateStanleyNpcId, PirateRestHouseId);
+    const std::optional<size_t> reportIndex = findActionIndexByLabel(questDialog, "Report!");
+
+    REQUIRE(reportIndex.has_value());
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*reportIndex);
+
+    CHECK(dialogContainsText(resultDialog, "Tell Arion Hunter"));
+    CHECK(dialogContainsText(resultDialog, "Give me the reports"));
+    CHECK(dialogContainsText(resultDialog, "You make me sick!"));
+    CHECK_FALSE(harness.party().hasQuestBit(DeliverFalseReportQBitId));
+    CHECK_EQ(harness.party().inventoryItemCount(FalseReportItemId), 0);
 }
 
 TEST_CASE("generic actor dialog resolves lizardman portraits")
@@ -5566,7 +5604,7 @@ TEST_CASE("event beacon actual stat checks include temporary bonuses")
 
     REQUIRE(harness.executeGlobalEvent(544));
     REQUIRE_FALSE(harness.eventRuntimeState().statusMessages.empty());
-    CHECK_EQ(harness.eventRuntimeState().statusMessages.back(), "You win!");
+    CHECK_EQ(harness.eventRuntimeState().statusMessages.back(), "You win!\n+3 Skill Points");
 }
 
 TEST_CASE("event beacon actual stat checks include equipped item bonuses")
@@ -5584,7 +5622,7 @@ TEST_CASE("event beacon actual stat checks include equipped item bonuses")
 
     REQUIRE(harness.executeGlobalEvent(544));
     REQUIRE_FALSE(harness.eventRuntimeState().statusMessages.empty());
-    CHECK_EQ(harness.eventRuntimeState().statusMessages.back(), "You win!");
+    CHECK_EQ(harness.eventRuntimeState().statusMessages.back(), "You win!\n+3 Skill Points");
 }
 
 TEST_CASE("promotion champion event primary knight")

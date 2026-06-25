@@ -126,15 +126,15 @@ RegisterGlobalEvent(15, "Portals of Stone", function()
 end)
 
 RegisterGlobalEvent(16, "Fredrick Talimere", function()
-    evt.SetMessage("That rude man?")
+    evt.SetMessage("That rude man?\nHe's more concerned with that Abandoned Temple than he is with the life that goes on around him!\nMy Granda warned him that the Temple is a place of great Evil.\nHe never listened.\nNow Granda isn't with us anymore and we have no one but Brekish Onefang to remind us of the past.")
 end)
 
 RegisterGlobalEvent(17, "Mountain of Fire", function()
-    evt.SetMessage("We have offended the Ancients!")
+    evt.SetMessage("We have offended the Ancients!\nWhy else would they call up the Mountain of Fire!\nThe Prophecies tell of a time when the oceans would boil!\nThis is the beginning of the end!")
 end)
 
 RegisterGlobalEvent(18, "Prophecies", function()
-    evt.SetMessage("There are many Prophecies that tell of the destruction of Jadame and the entire world!")
+    evt.SetMessage("There are many Prophecies that tell of the destruction of Jadame and the entire world!\n Most tell of a time when the world will be consumed by that which created it.\nPerhaps the Ancients have decided to wipe us all out!")
 end)
 
 RegisterGlobalEvent(19, "Quest", function()
@@ -144,7 +144,7 @@ RegisterGlobalEvent(19, "Quest", function()
         SetQBit(QBit(135)) -- Find the Prophecies of the Snake for Pascella Tisk.
         return
     end
-    evt.SetMessage("You have found the Prophecies of the Snake!")
+    evt.SetMessage("You have found the Prophecies of the Snake!\nPerhaps the details of our future can be found in its writings!\nPlease take this reward for your assistance!")
     RemoveItem(652) -- Prophecies of the Snake
     ClearQBit(QBit(135)) -- Find the Prophecies of the Snake for Pascella Tisk.
     evt.ForPlayer(Players.Member0)
@@ -417,7 +417,7 @@ RegisterGlobalEvent(37, "Curse of Stone", function()
 end)
 
 RegisterGlobalEvent(38, "Thanks for your help!", function()
-    evt.SetMessage("Thanks again for your assistance with the Basilisk curse!")
+    evt.SetMessage("Thanks again for your assistance with the Basilisk curse!\nHurry back to Alvar!\nWe must do what we can to save Jadame.")
 end)
 
 RegisterGlobalEvent(39, "Thanks for your help!", function()
@@ -638,7 +638,7 @@ RegisterCanShowTopic(50, function()
 end)
 
 RegisterGlobalEvent(51, "Skeletal Dragons", function()
-    evt.SetMessage("My father believed that the Necromancers of Shadowspire were attempting to create an undead Dragon.")
+    evt.SetMessage("My father believed that the Necromancers of Shadowspire were attempting to create an undead Dragon.\nThis would be a truly horrid beast. He believed is was his personal duty to stop them.")
 end)
 
 RegisterGlobalEvent(52, "Promotion to Champion", function()
@@ -659,7 +659,7 @@ RegisterGlobalEvent(54, "Cure", function()
         return
     end
     evt.ForPlayer(Players.All)
-    evt.SetMessage("The Cleric sent you back with the Gem of Restoration?")
+    evt.SetMessage("The Cleric sent you back with the Gem of Restoration?\nI am free of this place!\nSearch me out if you wish for me to ever travel with you!\nIt would be my pleasure to join you in your journeys!\nI will wait for you at the Adventurer's Inn in Ravenshore.")
     RemoveItem(623) -- Gem of Restoration
     ClearQBit(QBit(217)) -- Gem of Restoration - I lost it
     AddValue(Experience, 15000)
@@ -685,7 +685,7 @@ end)
 RegisterGlobalEvent(58, "Promotion to Champion", function()
     evt.ForPlayer(Players.All)
     if not HasItem(539) then -- Ebonest
-        evt.SetMessage("You have found Blazen Stormlance? But where is Ebonest?")
+        evt.SetMessage("You have found Blazen Stormlance? But where is Ebonest?\nReturn to me when you have the spear and you will be promoted!")
         return
     end
     if not IsQBitSet(QBit(22)) then -- Allied with Dragons. Return Dragon Egg to Dragons done.
@@ -750,13 +750,13 @@ RegisterGlobalEvent(59, "My Father", function()
             AddValue(Experience, 5000)
             evt.SetNPCTopic(49, 0, 611) -- Leane Stormlance topic 0: Roster Join Event
         else
-            evt.SetMessage("You found Ebonest?")
+            evt.SetMessage("You found Ebonest?\nWhat of my father?\nWhere is he?\nI thought you were going to return when you had found both my father and the spear.")
         end
         return
     elseif HasItem(539) then -- Ebonest
-        evt.SetMessage("You found Ebonest?")
+        evt.SetMessage("You found Ebonest?\nWhat of my father?\nWhere is he?\nI thought you were going to return when you had found both my father and the spear.")
     else
-        evt.SetMessage("Have you found my father?")
+        evt.SetMessage("Have you found my father?\nOr the spear Ebonest?\nWe must get it back to Charles Quixote!")
     end
 end)
 
@@ -1099,7 +1099,7 @@ end)
 
 RegisterGlobalEvent(75, "Hurry!", function()
     if not IsQBitSet(QBit(87)) then
-        evt.SetMessage("You have found Balthazar's Axe and I have authenticated it!")
+        evt.SetMessage("You have found Balthazar's Axe and I have authenticated it!\nHurry back to Tessalar so that the Rites of Purity may begin!")
         return
     end
     evt.SetMessage("Ah, you returned Balthazar's Axe with my certificate to Tessalar!\nThe Rites of Purity have begun.\nSoon Lord Masul will wield his father's axe as his own!\nGreatness will return to my herd!")
@@ -1161,7 +1161,7 @@ end)
 
 RegisterGlobalEvent(80, "Prophecies of the Sun", function()
     evt.ForPlayer(Players.All)
-    evt.SetMessage("The Prophecies of the Sun have never been found.")
+    evt.SetMessage("The Prophecies of the Sun have never been found.\nThey may not event exist. The Prophecies were written by our greatest prophet.\nIf they are found it is our hope they will be returned to us!")
 end)
 RegisterCanShowTopic(80, function()
     evt._BeginCanShowTopic(80)
@@ -1184,10 +1184,10 @@ end)
 RegisterGlobalEvent(81, "Quest", function()
     evt.ForPlayer(Players.All)
     if not HasItem(626) then -- Prophecies of the Sun
-        evt.SetMessage("Have you found this Lair of the Feathered Serpent and the Prophecies of the Sun?")
+        evt.SetMessage("Have you found this Lair of the Feathered Serpent and the Prophecies of the Sun?\nDo not waste my time!\nThe world is ending and you waste time with useless conversation!\nReturn to me when you have found the Prophecies and have taken them to the Temple of the Sun.")
         return
     end
-    evt.SetMessage("You have found the lost Prophecies of the Sun?")
+    evt.SetMessage("You have found the lost Prophecies of the Sun?\nMay the Light forever shine upon you and may the Prophet guide your steps.\nWith these we may be able to find the answer to what has befallen Jadame! ")
     for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
         evt.ForPlayer(player)
         if IsAtLeast(ClassId, 4) then
@@ -1264,7 +1264,7 @@ end)
 
 RegisterGlobalEvent(88, "The Lost Book of Khel", function()
     evt.ForPlayer(Players.All)
-    evt.SetMessage("the Lost Book of Khel is rumored to hold the secrets to the ultimate powers of the dark art of necromancy.")
+    evt.SetMessage("the Lost Book of Khel is rumored to hold the secrets to the ultimate powers of the dark art of necromancy.\nIt may be good that no one knows where it is!")
 end)
 RegisterCanShowTopic(88, function()
     evt._BeginCanShowTopic(88)
@@ -1348,7 +1348,7 @@ RegisterGlobalEvent(90, "Return of Korbu", function()
     elseif HasItem(612) then -- Sarcophagus of Korbu
         evt.SetMessage("You return to us with the Sarcophagus of Korbu, but where are his remains? We cannot complete the act of reanimation without them!\nReturn to us when you have both the Sarcophagus and his remains!")
     else
-        evt.SetMessage("We need to consult Korbu!")
+        evt.SetMessage("We need to consult Korbu!\nYou have agreed to bring us his remains and his Sarcophagus!\nDo not bother us until you have these items!")
     end
 end)
 RegisterCanShowTopic(90, function()
@@ -1364,7 +1364,7 @@ RegisterCanShowTopic(90, function()
 end)
 
 RegisterGlobalEvent(91, "Thanks for your help!", function()
-    evt.SetMessage("Thank you for finding the Prophecies of the Sun.")
+    evt.SetMessage("Thank you for finding the Prophecies of the Sun.\nMay the Sun always light you way and provide you with protection!")
 end)
 
 RegisterGlobalEvent(92, "Thanks for your help!", function()
@@ -1372,7 +1372,7 @@ RegisterGlobalEvent(92, "Thanks for your help!", function()
 end)
 
 RegisterGlobalEvent(93, "Thanks for your help!", function()
-    evt.SetMessage("We need to consult Korbu!")
+    evt.SetMessage("We need to consult Korbu!\nYou have agreed to bring us his remains and his Sarcophagus!\nDo not bother us until you have these items!")
 end)
 
 RegisterGlobalEvent(94, "Alliance", function()
@@ -2289,7 +2289,7 @@ RegisterCanShowTopic(175, function()
 end)
 
 RegisterGlobalEvent(176, "Have you stopped the epidemic?", function()
-    evt.SetMessage("The Yellow Fever epidemic is over!")
+    evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
     ClearQBit(QBit(101)) -- Deliver Cure Disease Scrolls to the six huts on the outer Dagger Wound Islands. Return to Aislen on Dagger Wound Island.
     AddValue(Gold, 1500)
     evt.ForPlayer(Players.All)
@@ -2331,7 +2331,7 @@ RegisterGlobalEvent(178, "Do you have the antidote?", function()
         evt.SetMessage("Without the Anointed Herb Potion we cannot remove the poison from our water supply!")
         return
     end
-    evt.SetMessage("Thank you!")
+    evt.SetMessage("Thank you!\nI will go introduce this to the water supply!")
     RemoveItem(616) -- Anointed Herb Potion
     evt.ForPlayer(Players.All)
     AddValue(Experience, 7500)
@@ -2346,7 +2346,7 @@ RegisterGlobalEvent(178, "Do you have the antidote?", function()
 end)
 
 RegisterGlobalEvent(179, "Potion of Pure Speed", function()
-    evt.SetMessage("Perhaps you can bring me the basic ingredients for a Potion of Pure speed?")
+    evt.SetMessage("Perhaps you can bring me the basic ingredients for a Potion of Pure speed?\nWith them I can make this incredible potion and finish my studies in alchemy!\nI will reward you well for your assistance!")
     SetQBit(QBit(113)) -- Bring Thistle on the Dagger Wound Islands the basic ingredients for a potion of Pure Speed.
     evt.SetNPCTopic(68, 0, 0) -- Thistle topic 0 cleared
 end)
@@ -2368,18 +2368,18 @@ end)
 
 RegisterGlobalEvent(181, "Do you have the Ingredients?", function()
     if not evt.CheckItemsCount(200, 204, 4) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 1) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
-    evt.SetMessage("The ingredients!")
+    evt.SetMessage("The ingredients!\nThank you!\nTake this as a reward!")
     evt.RemoveItems(200, 204, 4)
     evt.RemoveItems(205, 209, 2)
     evt.RemoveItems(210, 214, 1)
@@ -2403,7 +2403,7 @@ RegisterCanShowTopic(181, function()
 end)
 
 RegisterGlobalEvent(182, "Quest", function()
-    evt.SetMessage("I believe I may know how to stop the destructive force of the mountain of fire!")
+    evt.SetMessage("I believe I may know how to stop the destructive force of the mountain of fire!\nI have found an ancient spell that should give me the power to send the mountain of fire back into the sea! To complete the spell I need an ancient relic called the Idol of the Snake.\nWith this item of power I should be able to complete the spell.")
     SetQBit(QBit(111)) -- Bring Hiss on the Dagger Wound Islands the Idol of the Snake from the Abandoned Temple.
     evt.SetNPCTopic(69, 0, 183) -- Hiss topic 0: Do you have the Idol?
 end)
@@ -2422,7 +2422,7 @@ end)
 RegisterGlobalEvent(183, "Do you have the Idol?", function()
     evt.ForPlayer(Players.All)
     if not HasItem(630) then -- Idol of the Snake
-        evt.SetMessage("Where is the Idol?")
+        evt.SetMessage("Where is the Idol?\nDo not waste my time unless you have it!")
         return
     end
     evt.SetMessage("Thank you for returning with the Idol.\nUpon further study I discovered that the entire spell was useless.\nStill, this is not your fault and you deserve some reward for returning to me!")
@@ -2514,7 +2514,7 @@ RegisterCanShowTopic(188, function()
 end)
 
 RegisterGlobalEvent(189, "Report has been delivered?", function()
-    evt.SetMessage("You delivered the report to Stanley?")
+    evt.SetMessage("You delivered the report to Stanley?\nThis is will at least buy us sometime before he becomes suspicious of the activities here in Ravenshore and those of the Merchants in Alvar.")
     evt.ForPlayer(Players.All)
     AddValue(Experience, 10000)
     evt.SetNPCTopic(4, 1, 299) -- Arion Hunter topic 1: Fate of Jadame
@@ -2559,7 +2559,7 @@ RegisterGlobalEvent(192, "500 Gold!", function()
         AddValue(Gold, 500)
         return
     end
-    evt.SetMessage("You do not have any Naga Hides!")
+    evt.SetMessage("You do not have any Naga Hides!\nYou waste my time!")
 end)
 
 RegisterGlobalEvent(193, "Quest", function()
@@ -2582,7 +2582,7 @@ end)
 RegisterGlobalEvent(194, "Eclipse", function()
     evt.ForPlayer(Players.All)
     if not HasItem(516) then -- Eclipse
-        evt.SetMessage("Where is Eclipse?")
+        evt.SetMessage("Where is Eclipse?\nReturn to me when you have found the shield!")
         return
     end
     evt.SetMessage("You have recovered the shield, Eclipse?\nThe Temple is grateful for you help in recovering this potent artifact.\nPlease, continue to carry the shield with our blessing.")
@@ -2599,7 +2599,7 @@ RegisterGlobalEvent(194, "Eclipse", function()
 end)
 
 RegisterGlobalEvent(195, "Delicacy", function()
-    evt.SetMessage("Royal Wasp Jelly is a delicacy!")
+    evt.SetMessage("Royal Wasp Jelly is a delicacy!\nThe upper caste of Merchants enjoys this tasty treat with almost every meal!")
 end)
 
 RegisterGlobalEvent(196, "1000 Gold!", function()
@@ -2631,7 +2631,7 @@ RegisterGlobalEvent(198, "Quest", function()
         evt.SetNPCTopic(76, 0, 200) -- Keldon topic 0: It's safe to travel again!
         return
     elseif IsQBitSet(QBit(129)) then -- Kill all Ogres in the Alvar canyon area and in Ogre Fortress and return to Keldon in Alvar.
-        evt.SetMessage("You have not defeated all of the Ogres!")
+        evt.SetMessage("You have not defeated all of the Ogres!\nThe roads will not be safe until they are destroyed!")
     else
         evt.SetMessage("The forces of the Ogre Mage, Zog moved into this area right around the time that the bright flash traveled across the night sky.\nThey harass and even kill travelers who seek to reach the city of Alvar. It would be of great service to Alvar if you were to eliminate all of the Ogres that harass the roads to Alvar and the Ogres in the fortress near the city of Alvar.\nReturn to me when you have killed all of the ogres in this region, and I will reward you.")
         SetQBit(QBit(129)) -- Kill all Ogres in the Alvar canyon area and in Ogre Fortress and return to Keldon in Alvar.
@@ -2639,7 +2639,7 @@ RegisterGlobalEvent(198, "Quest", function()
 end)
 
 RegisterGlobalEvent(199, "Bounty for Ogre Ears", function()
-    evt.SetMessage("I pay 500 gold for Ogre Ears.")
+    evt.SetMessage("I pay 500 gold for Ogre Ears.\nThe Merchant Guild of Alvar supports me in paying this bounty to anyone who can kill and ogre.")
     evt.ForPlayer(Players.All)
     if HasItem(653) then -- Ogre Ear
         evt.ForPlayer(Players.Member0)
@@ -2656,7 +2656,7 @@ RegisterGlobalEvent(200, "It's safe to travel again!", function()
 end)
 
 RegisterGlobalEvent(201, "Potion of Pure Luck", function()
-    evt.SetMessage("A Potion of Pure Luck would be of great assistance to any merchant.")
+    evt.SetMessage("A Potion of Pure Luck would be of great assistance to any merchant.\nOne could stumble upon any number of great deals if his Luck was at its highest!\nBring me the basic ingredients for a Potion of Pure Luck and I will reward you well!")
     SetQBit(QBit(115)) -- Bring Rihansi in Alvar the basic ingredients for a potion of Pure Luck.
     evt.SetNPCTopic(74, 0, 0) -- Rihansi topic 0 cleared
 end)
@@ -2678,18 +2678,18 @@ end)
 
 RegisterGlobalEvent(203, "Do you have the Ingredients?", function()
     if not evt.CheckItemsCount(200, 204, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 3) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 3) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
-    evt.SetMessage("Excellent!")
+    evt.SetMessage("Excellent!\nWith this I can brew another Potion of Pure Luck.\nTake this potion as your reward!")
     evt.RemoveItems(200, 204, 2)
     evt.RemoveItems(205, 209, 3)
     evt.RemoveItems(210, 214, 3)
@@ -2734,7 +2734,7 @@ RegisterGlobalEvent(206, "Survival!", function()
 end)
 
 RegisterGlobalEvent(207, "Quest", function()
-    evt.SetMessage("The survivors in this region need Potions of Fire Resistance!")
+    evt.SetMessage("The survivors in this region need Potions of Fire Resistance!\nWith them we can survive until a place is found for us to move to!\nTake these potions!\nUnfortunately they are all I have!\nDeliver them to the six southernmost houses that remain standing in the village of Rust!")
     SetQBit(QBit(142)) -- Deliver Fire Resistance Potions to the six southernmost houses of Rust. Return to Hobert in Rust.
     AddValue(InventoryItem(256), 256) -- Fire Resistance
     AddValue(InventoryItem(256), 256) -- Fire Resistance
@@ -2755,10 +2755,10 @@ end)
 
 RegisterGlobalEvent(208, "Not enough potions?", function()
     if not IsQBitSet(QBit(149)) then -- Southern houses of Rust all have Potions of Fire Resistance.
-        evt.SetMessage("You have not delivered Potions of Fire Resistance to all of the houses!")
+        evt.SetMessage("You have not delivered Potions of Fire Resistance to all of the houses!\nIf the lake of fire grows in size everyone will perish!")
         return
     end
-    evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+    evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
     evt.ForPlayer(Players.Member0)
     AddValue(Gold, 1500)
     evt.ForPlayer(Players.All)
@@ -2794,18 +2794,18 @@ end)
 
 RegisterGlobalEvent(212, "Do you have the Ingredients?", function()
     if not evt.CheckItemsCount(200, 204, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 4) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 1) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
-    evt.SetMessage("Excellent!")
+    evt.SetMessage("Excellent!\nWith this I can brew another Potion of Pure Luck.\nTake this potion as your reward!")
     evt.RemoveItems(200, 204, 2)
     evt.RemoveItems(205, 209, 4)
     evt.RemoveItems(210, 214, 1)
@@ -2829,7 +2829,7 @@ RegisterCanShowTopic(212, function()
 end)
 
 RegisterGlobalEvent(213, "Quest", function()
-    evt.SetMessage("The Dragonbane Flower has many medicinal uses.")
+    evt.SetMessage("The Dragonbane Flower has many medicinal uses.\nIt also has some uses that are less than medicinal.\nFrom this flower we can distill a poison that is deadly to Dragons.\nWith it we should be able to make quick work of the Dragon vermin that infest this region.\nFind this flower and return to me with it.\nYou will not be disappointed by my reward.")
     SetQBit(QBit(150)) -- Find a Dragonbane Flower for Calindril in Garrote Gorge.
     evt.SetNPCTopic(87, 0, 214) -- Calindril topic 0: Poison!
 end)
@@ -2848,7 +2848,7 @@ end)
 RegisterGlobalEvent(214, "Poison!", function()
     evt.ForPlayer(Players.All)
     if not HasItem(636) then -- Dragonbane Flower
-        evt.SetMessage("I asked for the Dragonbane Flower and you return empty handed.")
+        evt.SetMessage("I asked for the Dragonbane Flower and you return empty handed.\nWhy waste my time?")
         return
     end
     SetQBit(QBit(151)) -- Found Dragonbane for Dragon Hunters
@@ -2859,7 +2859,7 @@ RegisterGlobalEvent(214, "Poison!", function()
     evt.ForPlayer(Players.All)
     AddValue(Experience, 10000)
     SetAutonote(501) -- Found the Dragonbane flower for Calindril in the Garrote Gorge Dragon Hunter's Fort.
-    evt.SetMessage("The Dragons of Garrote Gorge are susceptible to a poison that can be distilled from the rare dragonbane flower.")
+    evt.SetMessage("The Dragons of Garrote Gorge are susceptible to a poison that can be distilled from the rare dragonbane flower.\nThe flower also is the only means of an antidote for the Dragons.")
     evt.SetNPCTopic(87, 0, 215) -- Calindril topic 0: Thanks for your help!
 end)
 
@@ -2887,7 +2887,7 @@ end)
 RegisterGlobalEvent(217, "Poison!", function()
     evt.ForPlayer(Players.All)
     if not HasItem(636) then -- Dragonbane Flower
-        evt.SetMessage("I asked for the Dragonbane Flower and you return empty handed.")
+        evt.SetMessage("I asked for the Dragonbane Flower and you return empty handed.\nWhy waste my time?")
         return
     end
     SetQBit(QBit(153)) -- Found Dragonbane for Dragons
@@ -2898,7 +2898,7 @@ RegisterGlobalEvent(217, "Poison!", function()
     evt.ForPlayer(Players.All)
     AddValue(Experience, 10000)
     SetAutonote(502) -- Found the Dragonbane flower for Balion Tearwing in Garrote Gorge.
-    evt.SetMessage("The Dragons of Garrote Gorge are susceptible to a poison that can be distilled from the rare dragonbane flower.")
+    evt.SetMessage("The Dragons of Garrote Gorge are susceptible to a poison that can be distilled from the rare dragonbane flower.\nThe flower also is the only means of an antidote for the Dragons.")
     evt.SetNPCTopic(89, 0, 218) -- Balion Tearwing topic 0: Thanks for your help!
 end)
 
@@ -2917,7 +2917,7 @@ RegisterGlobalEvent(219, "Quest", function()
         evt.SetNPCTopic(90, 0, 220) -- Avalon topic 0: At last!
         return
     elseif IsQBitSet(QBit(154)) then -- Kill all the Dragons in the Garrote Gorge wilderness area. Return to Avalon in Garrote Gorge.
-        evt.SetMessage("You have not slain all of the vermin.")
+        evt.SetMessage("You have not slain all of the vermin.\nI have reports here that tell of Dragons still in the region.\nReturn when you have slain them all!")
     else
         evt.SetMessage("You seek to gain the favor of Charles Quixote?\nHelp us in his crusade against the Dragons of Garrote Gorge. If all of the Dragons in the region and in the Dragon Cave are slain, Charles Quixote will be sure to hear of your name! Return to me when they are all dead!\nI will reward you well.")
         SetQBit(QBit(154)) -- Kill all the Dragons in the Garrote Gorge wilderness area. Return to Avalon in Garrote Gorge.
@@ -2936,7 +2936,7 @@ RegisterCanShowTopic(219, function()
 end)
 
 RegisterGlobalEvent(220, "At last!", function()
-    evt.SetMessage("You have slain the vermin!")
+    evt.SetMessage("You have slain the vermin!\nHere is the reward that I promised!\nI will also personally mention your assistance to Charles Quixote!")
 end)
 
 RegisterGlobalEvent(221, "Quest", function()
@@ -2950,7 +2950,7 @@ RegisterGlobalEvent(221, "Quest", function()
         evt.SetNPCTopic(91, 0, 222) -- Jerin Flame-eye topic 0: Land is ours yet again!
         return
     elseif IsQBitSet(QBit(157)) then -- Kill all the Dragon Hunter's in the Garrote Gorge wilderness area. Return to Jerin Flame-eye in the Garrote Gorge Dragon Caves.
-        evt.SetMessage("You have not slain all of the Dragon hunters.")
+        evt.SetMessage("You have not slain all of the Dragon hunters.\nA Flight returned just moments ago and reported seeing them out on the plains.\nReturn when you have slain them all!")
     else
         evt.SetMessage("You seek the favor of Deftclaw Redreaver?\nDon't we all?\nIf you were to kill all of the Dragon hunters in the Garrote Gorge wilderness, I would be certain to mention you to him.\nI would also be in the position to offer you a generous reward!")
         SetQBit(QBit(157)) -- Kill all the Dragon Hunter's in the Garrote Gorge wilderness area. Return to Jerin Flame-eye in the Garrote Gorge Dragon Caves.
@@ -2969,11 +2969,11 @@ RegisterCanShowTopic(221, function()
 end)
 
 RegisterGlobalEvent(222, "Land is ours yet again!", function()
-    evt.SetMessage("The infernal dragon hunters of Charles Quixote are dead? Fantastic!")
+    evt.SetMessage("The infernal dragon hunters of Charles Quixote are dead? Fantastic!\nWe can once again enjoy the peace of Garrote Gorge without fear.\nHere is your promised reward!\nI will go speak with Deftclaw Redreaver of your bravery this instant!")
 end)
 
 RegisterGlobalEvent(223, "Quest", function()
-    evt.SetMessage("The Drum of Victory needs to be recovered if we are to ever defeat the Dragons in this region.")
+    evt.SetMessage("The Drum of Victory needs to be recovered if we are to ever defeat the Dragons in this region.\nIf you were to recover the Drum I would reward you well!")
     SetQBit(QBit(160)) -- Find the Legendary Drum of Victory. Return it to Zelim in Garrote Gorge.
     evt.SetNPCTopic(92, 0, 225) -- Zelim topic 0: Where is the drum?
 end)
@@ -2985,10 +2985,10 @@ end)
 RegisterGlobalEvent(225, "Where is the drum?", function()
     evt.ForPlayer(Players.All)
     if not HasItem(615) then -- Drum of Victory
-        evt.SetMessage("Return when you have the Drum of Victory.")
+        evt.SetMessage("Return when you have the Drum of Victory.\nYou waste your time and mine otherwise!")
         return
     end
-    evt.SetMessage("You have returned with the Drum of Victory!")
+    evt.SetMessage("You have returned with the Drum of Victory!\nCharles will be grateful for its return!\nHere is your promised reward.")
     evt.ForPlayer(Players.Member0)
     AddValue(Gold, 1500)
     evt.ForPlayer(Players.All)
@@ -3034,7 +3034,7 @@ RegisterGlobalEvent(229, "Quest", function()
 end)
 
 RegisterGlobalEvent(230, "Puzzle History", function()
-    evt.SetMessage("I ask you to recover the Puzzle Box and you return with nothing.")
+    evt.SetMessage("I ask you to recover the Puzzle Box and you return with nothing.\nSo you reward is nothing.\nReturn with the box!")
 end)
 
 RegisterGlobalEvent(231, "Hours of Enjoyment!", function()
@@ -3071,20 +3071,20 @@ RegisterCanShowTopic(232, function()
 end)
 
 RegisterGlobalEvent(233, "War between the Guild and Temple", function()
-    evt.SetMessage("Centuries ago the largest battle to date between the Guild of Necromancers and the Temple of the Sun was fought on this spot!")
+    evt.SetMessage("Centuries ago the largest battle to date between the Guild of Necromancers and the Temple of the Sun was fought on this spot!\nSo much magical energy was released that the very ground was scorched and is black to this very day!")
 end)
 
 RegisterGlobalEvent(234, "Do you have the Ingredients?", function()
     if not evt.CheckItemsCount(200, 204, 1) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 4) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     evt.SetMessage("You have returned with the ingredients, holding up you end of the bargain.\nHere is your Potion of Pure Intellect.")
@@ -3111,19 +3111,19 @@ RegisterCanShowTopic(234, function()
 end)
 
 RegisterGlobalEvent(235, "Quest", function()
-    evt.SetMessage("We seek to put to rest the soul of the Nosferatu called Korbu.")
+    evt.SetMessage("We seek to put to rest the soul of the Nosferatu called Korbu.\nWe have heard rumors that the vampires of Shadowspire seek to resurrect this ancient evil.\nThere is a Vial of Grave Dirt kept hidden in the Vampire Crypt in the region of Shadowspire that is instrumental in bringing Korbu back to life.\nFind us this vial and return it to us.\nWe will always be in your debt and we will reward you well.")
     SetQBit(QBit(164)) -- Find a Vial of Grave Dirt. Return it to Halien in Shadowspire.
     evt.SetNPCTopic(95, 0, 237) -- Hallien topic 0: Do you have the vial?
 end)
 
 RegisterGlobalEvent(236, "Vial of Grave Dirt", function()
-    evt.SetMessage("Korbu scattered vials of the dirt from his original grave to safe guard himself.")
+    evt.SetMessage("Korbu scattered vials of the dirt from his original grave to safe guard himself.\nThis way he could always gain access to the dirt and move his crypt if he needed to.")
 end)
 
 RegisterGlobalEvent(237, "Do you have the vial?", function()
     evt.ForPlayer(Players.All)
     if not HasItem(614) then -- Vial of Grave Earth
-        evt.SetMessage("Where is the Vial of Grave Dirt?")
+        evt.SetMessage("Where is the Vial of Grave Dirt?\nDo not bother me until you have it!")
         return
     end
     evt.SetMessage("Ah, once we perform the Rites of Purification upon this dirt, Korbu will rest eternally.\nWe are in your debt and here is your reward as promised!")
@@ -3160,15 +3160,15 @@ end)
 
 RegisterGlobalEvent(240, "Thanks for the Ingredients", function()
     if not evt.CheckItemsCount(200, 204, 1) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 4) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     evt.SetMessage("Ah, you learned the recipe or are very lucky!\nHere is your potion!")
@@ -3195,11 +3195,11 @@ RegisterCanShowTopic(240, function()
 end)
 
 RegisterGlobalEvent(241, "Ancient Wyverns", function()
-    evt.SetMessage("Wyverns are one of the toughest creatures that roam the continent of Jadame.")
+    evt.SetMessage("Wyverns are one of the toughest creatures that roam the continent of Jadame.\nThe Ancient Wyvern can even slay the mightiest adventurer with one blow.\nThe horn of the Ancient Wyvern is said to have many medicinal any magical properties.\nThere are many people who pay well for ground wyvern horn.")
 end)
 
 RegisterGlobalEvent(242, "Bounty for Horn of the Wyvern", function()
-    evt.SetMessage("I will buy Wyvern horns from you for 1500 gold!")
+    evt.SetMessage("I will buy Wyvern horns from you for 1500 gold!\nI grind these horns up and sell them throughout Jadame.\nSomeday I hope to be able to ship them over sea to Enroth and Erathia.\nThat of course depends on whether the Pirates of Regna are still a problem to shipping or not!")
     evt.SetNPCTopic(85, 1, 243) -- Xevius topic 1: 1500 gold!
 end)
 
@@ -3239,15 +3239,15 @@ end)
 
 RegisterGlobalEvent(246, "Do you have the Ingredients?", function()
     if not evt.CheckItemsCount(200, 204, 2) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(205, 209, 1) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     if not evt.CheckItemsCount(210, 214, 4) then
-        evt.SetMessage("You are missing all or some of the needed ingredients.")
+        evt.SetMessage("You are missing all or some of the needed ingredients.\nReturn when you have them all.")
         return
     end
     evt.SetMessage("Ah, the right ingredients always do the trick! Here is your potion.")
@@ -3274,7 +3274,7 @@ RegisterCanShowTopic(246, function()
 end)
 
 RegisterGlobalEvent(247, "Dread Pirate Stanley's Treasure", function()
-    evt.SetMessage("The legendary Pirate Stanley is rumored to have stolen hundreds and thousands of gold pieces from the Merchants of Alvar.")
+    evt.SetMessage("The legendary Pirate Stanley is rumored to have stolen hundreds and thousands of gold pieces from the Merchants of Alvar.\nNo one has ever found where he has hidden his treasure.\nSome say it isn't even hidden on the Island of Regna.")
 end)
 
 RegisterGlobalEvent(248, "Riches", function()
@@ -3283,18 +3283,18 @@ end)
 
 RegisterGlobalEvent(249, "Quest", function()
     if not IsQBitSet(QBit(168)) then -- Found the treasure of the Dread Pirate Stanley!
-        evt.SetMessage("You have not found the treasure of the Dread Pirate Stanley!")
+        evt.SetMessage("You have not found the treasure of the Dread Pirate Stanley!\n")
         SetQBit(QBit(236)) -- Find the treasure of the Dread Pirate Stanley.
         return
     end
     AddValue(Experience, 15500)
-    evt.SetMessage("He who finds the treasure of the Dread Pirate Stanley will be a rich person!")
+    evt.SetMessage("He who finds the treasure of the Dread Pirate Stanley will be a rich person!\nWill that person be you?")
     ClearQBit(QBit(236)) -- Find the treasure of the Dread Pirate Stanley.
     evt.SetNPCTopic(96, 0, 0) -- One-Eye topic 0 cleared
 end)
 
 RegisterGlobalEvent(250, "Buy Tobersk Fruit for 200 gold", function()
-    evt.SetMessage("Tobersk fruit is native only to the Dagger Wound Island region.")
+    evt.SetMessage("Tobersk fruit is native only to the Dagger Wound Island region.\nHere the mild winters and humid summers provide the perfect conditions for the Tobersk fruit to achieve the correct levels of sugar and juice.\nThe pulp masters in Ravenshore pay good money for the tobersk fruit.")
     ClearQBit(QBit(251)) -- Bought Item pulp
     if IsAtLeast(Gold, 200) then
         if not IsAtLeast(Gold, 200) then
@@ -3359,7 +3359,7 @@ RegisterGlobalEvent(251, "Sell Tobersk Brandy", function()
 end)
 
 RegisterGlobalEvent(252, "Buy Tobersk Pulp for 300 gold", function()
-    evt.SetMessage("Tobersk fruit is processed in Ravenshore into tobersk pulp.")
+    evt.SetMessage("Tobersk fruit is processed in Ravenshore into tobersk pulp.\nIts from this pulp that the master brewers in Alvar distill tobersk brandy.")
     ClearQBit(QBit(250)) -- Bought Item fruit
     if IsAtLeast(Gold, 300) then
         if not IsAtLeast(Gold, 300) then
@@ -3489,7 +3489,7 @@ RegisterGlobalEvent(255, "Sell Tobersk Pulp", function()
 end)
 
 RegisterGlobalEvent(256, "Buy Heartwood of Jadame for 1000 gold", function()
-    evt.SetMessage("The Heartwood of Jadame is used by the vampires of the Shadowspire region in the construction of their coffins.")
+    evt.SetMessage("The Heartwood of Jadame is used by the vampires of the Shadowspire region in the construction of their coffins.\nThe Heartwood's durability provides the coffin's owner with many years of rest during the daylight hours.")
     ClearQBit(QBit(255)) -- Bought Sunfish
     if IsAtLeast(Gold, 1000) then
         if not IsAtLeast(Gold, 1000) then
@@ -3588,7 +3588,7 @@ end)
 RegisterGlobalEvent(259, "Sell Heartwood of Jadame", function()
     evt.ForPlayer(Players.All)
     if not HasItem(646) then return end -- Heartwood of Jadame
-    evt.SetMessage("The Heartwood of Jadame is used by the Vampires of the Shadowspire region in the construction of their coffins.")
+    evt.SetMessage("The Heartwood of Jadame is used by the Vampires of the Shadowspire region in the construction of their coffins.\nThe Heartwood's durability provides the coffin's owner with many years of rest during the daylight hours.")
     RemoveItem(646) -- Heartwood of Jadame
     ClearQBit(QBit(262)) -- Can't keep buying heartwood
     evt.ForPlayer(Players.Current)
@@ -3684,7 +3684,7 @@ RegisterGlobalEvent(261, "Sell Pirate Amulets", function()
 end)
 
 RegisterGlobalEvent(262, "Buy Silver Dust of the Sea for 5000 gold", function()
-    evt.SetMessage("Purchase Silver Dust of the Sea made by the Necromancers of Shadowspire. It is used by the smugglers of Ravenshore to hide their boats.")
+    evt.SetMessage("Purchase Silver Dust of the Sea made by the Necromancers of Shadowspire. It is used by the smugglers of Ravenshore to hide their boats.\nIt provides the boats with a limited form of invisibility.")
     ClearQBit(QBit(267)) -- Can't keep buying Ground Wyvern horn
     if IsAtLeast(Gold, 5000) then
         if not IsAtLeast(Gold, 5000) then
@@ -3783,7 +3783,7 @@ end)
 RegisterGlobalEvent(265, "Sell Silver Dust of the Sea", function()
     evt.ForPlayer(Players.All)
     if not HasItem(649) then return end -- Silver Dust of the Sea
-    evt.SetMessage("Purchase Silver Dust of the Sea made by the necromancers of Shadowspire. It is used by the Smuggler's of Ravenshore to hide their boats.")
+    evt.SetMessage("Purchase Silver Dust of the Sea made by the necromancers of Shadowspire. It is used by the Smuggler's of Ravenshore to hide their boats.\nIt provides the boats with a limited form of invisibility.")
     RemoveItem(649) -- Silver Dust of the Sea
     ClearQBit(QBit(265)) -- Can't keep buying Silver Dust of the Sea
     evt.ForPlayer(Players.Current)
@@ -4120,7 +4120,7 @@ end)
 
 RegisterGlobalEvent(290, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(102)) then -- Delivered cure to hut 1
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4142,7 +4142,7 @@ RegisterGlobalEvent(290, "Yellow Fever", function()
                             if IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4168,7 +4168,7 @@ end)
 
 RegisterGlobalEvent(291, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(103)) then -- Delivered cure to hut 2
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4190,7 +4190,7 @@ RegisterGlobalEvent(291, "Yellow Fever", function()
                             if IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4216,7 +4216,7 @@ end)
 
 RegisterGlobalEvent(292, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(104)) then -- Delivered cure to hut 3
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4238,7 +4238,7 @@ RegisterGlobalEvent(292, "Yellow Fever", function()
                             if IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4264,7 +4264,7 @@ end)
 
 RegisterGlobalEvent(293, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(105)) then -- Delivered cure to hut 4
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4286,7 +4286,7 @@ RegisterGlobalEvent(293, "Yellow Fever", function()
                             if IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4312,7 +4312,7 @@ end)
 
 RegisterGlobalEvent(294, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(106)) then -- Delivered cure to hut 5
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4334,7 +4334,7 @@ RegisterGlobalEvent(294, "Yellow Fever", function()
                             if IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4360,7 +4360,7 @@ end)
 
 RegisterGlobalEvent(295, "Yellow Fever", function()
     if IsQBitSet(QBit(108)) then -- Yellow Fever epidemic cured!
-        evt.SetMessage("The Yellow Fever epidemic is over!")
+        evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
         return
     elseif IsQBitSet(QBit(107)) then -- Delivered cure to hut 6
         evt.SetMessage("Thanks for the cure! Be sure to deliver scrolls to those who still suffer from the Yellow Fever.")
@@ -4382,7 +4382,7 @@ RegisterGlobalEvent(295, "Yellow Fever", function()
                             if IsQBitSet(QBit(106)) then -- Delivered cure to hut 5
                                 evt.ForPlayer(Players.All)
                                 AddValue(Experience, 1500)
-                                evt.SetMessage("The Yellow Fever epidemic is over!")
+                                evt.SetMessage("The Yellow Fever epidemic is over!\nThank you for your help!")
                                 SetQBit(QBit(108)) -- Yellow Fever epidemic cured!
                                 return
                             end
@@ -4428,7 +4428,7 @@ RegisterCanShowTopic(297, function()
 end)
 
 RegisterGlobalEvent(298, "Report!", function()
-    evt.SetMessage("You're new aren't you?")
+    evt.SetMessage("You're new aren't you?\nTell Arion Hunter that I expect more of his rabble than the likes of you!\nGive me the reports and leave my sight!\nYou make me sick!")
     ClearQBit(QBit(117)) -- Deliver fake report to the Dread Pirate Stanley in the Pirate's Rest Tavern on the Island of Regna.
     evt.ForPlayer(Players.All)
     RemoveItem(602) -- False Report
@@ -4459,10 +4459,10 @@ end)
 
 RegisterGlobalEvent(299, "Fate of Jadame", function()
     if not IsQBitSet(QBit(57)) then -- The Pirates invaded Ravenshore
-        evt.SetMessage("Who knows the fate of Jadame now.")
+        evt.SetMessage("Who knows the fate of Jadame now.\nPerhaps you will find a way to save us from destruction?")
         return
     end
-    evt.SetMessage("Jadame owes you a great debt!")
+    evt.SetMessage("Jadame owes you a great debt!\nYou have saved the entire world from total destruction!")
 end)
 
 RegisterGlobalEvent(417, "Puddle Thain", function()
@@ -4481,7 +4481,7 @@ RegisterGlobalEvent(419, "Tristen Stillwater", function()
 end)
 
 RegisterGlobalEvent(420, "Aerie Luodrin", function()
-    evt.SetMessage("Aerie Luodrin currently dwells in Ravenshore.")
+    evt.SetMessage("Aerie Luodrin currently dwells in Ravenshore.\nShe is a most dedicated student of the uses of the Sword and can instruct you to and Expert skill level with the weapon.")
     SetAutonote(92) -- You may receive Expert Sword training from Aerie Luodrin in the city of Ravenshore.
 end)
 
@@ -4501,7 +4501,7 @@ RegisterGlobalEvent(423, "Lori Vespers", function()
 end)
 
 RegisterGlobalEvent(424, "Jobber", function()
-    evt.SetMessage("Master Jobber can instruct students of the Dagger to Mastery.")
+    evt.SetMessage("Master Jobber can instruct students of the Dagger to Mastery.\nHe lives in the city of Ravenshore.")
     SetAutonote(96) -- Master Jobber teaches Master Dagger. He lives in the city of Ravenshore.
 end)
 
@@ -4516,7 +4516,7 @@ RegisterGlobalEvent(426, "Herald Foestryke", function()
 end)
 
 RegisterGlobalEvent(427, "Jasp Hunter", function()
-    evt.SetMessage("Jasp Hunter is the Master instructor of the axe.")
+    evt.SetMessage("Jasp Hunter is the Master instructor of the axe.\nHe can teach you the skills that will lead to Mastery of the axe.\nHis home is in the seaside city of Ravenshore.")
     SetAutonote(99) -- Jasp Hunter is the Master Axe instructor. His home is in the seaside city of Ravenshore.
 end)
 
@@ -4526,27 +4526,27 @@ RegisterGlobalEvent(428, "Garic Senjac", function()
 end)
 
 RegisterGlobalEvent(429, "Matric Townsaver", function()
-    evt.SetMessage("Matric Townsaver defended the city of Ravenshore against many Regnan Pirate raids.")
+    evt.SetMessage("Matric Townsaver defended the city of Ravenshore against many Regnan Pirate raids.\nHis skill and instruction of the uses of the spear allowed the townsfolk to push the Pirates back. He can instruct you to Expert skill level with the spear.")
     SetAutonote(101) -- Matric Townsaver teaches Expert Spear from his home in Ravenshore.
 end)
 
 RegisterGlobalEvent(430, "Ashandra Withersmythe", function()
-    evt.SetMessage("Ashandra Withersmythe is the Master teacher of the Spear.")
+    evt.SetMessage("Ashandra Withersmythe is the Master teacher of the Spear.\nHer instruction of the ways of the Spear will lead you to Mastery of the weapon.\nShe lives in the merchant city of Alvar.")
     SetAutonote(102) -- Ashandra Withersmythe is the Master teacher of the Spear. She lives in the merchant city of Alvar.
 end)
 
 RegisterGlobalEvent(431, "Yarrow", function()
-    evt.SetMessage("Yarrow is the Grand Master of the Spear.")
+    evt.SetMessage("Yarrow is the Grand Master of the Spear.\nHer keen eye and stalking ability have aided her in attaining this level of skill.\nShe uses the Spear to stalk the poisonous couatl of the jungles of the Dagger Wound Islands.")
     SetAutonote(103) -- Yarrow is the Grand Master of the Spear. You can find her on the Dagger Wound Islands.
 end)
 
 RegisterGlobalEvent(432, "Shivan Keeneye", function()
-    evt.SetMessage("Shivan Keeneye is an Expert shot with the Bow.")
+    evt.SetMessage("Shivan Keeneye is an Expert shot with the Bow.\nHer teachings can lead you to an Expert skill level with this ranged weapon.\nShe lives in the village of Blood Drop on the Dagger Wound Islands.")
     SetAutonote(104) -- Shivan Keeneye, the Expert Bow teacher lives in the village of Blood Drop on the Dagger Wound Islands.
 end)
 
 RegisterGlobalEvent(433, "Oberic Nosewort", function()
-    evt.SetMessage("Master Oberic Nosewort teaches students of the bow in his home in Ravenshore.")
+    evt.SetMessage("Master Oberic Nosewort teaches students of the bow in his home in Ravenshore.\nIf you seek Mastery of this weapon you must seek him out there.")
     SetAutonote(105) -- Master Bow teacher Oberic Nosewort lives in Ravenshore city
 end)
 
@@ -4586,7 +4586,7 @@ RegisterGlobalEvent(440, "Peryn Reaverston", function()
 end)
 
 RegisterGlobalEvent(441, "Thadin", function()
-    evt.SetMessage("The Lizardman Thadin is the Expert instructor of the use of Leather armor.")
+    evt.SetMessage("The Lizardman Thadin is the Expert instructor of the use of Leather armor.\nHis instruction will give you an Expert skill level with this armor.\nYou can find him on the Island of Dagger Wound.")
     SetAutonote(116) -- Thadin is the Expert Leather instructor. You can find him on the Island of Dagger Wound.
 end)
 
@@ -4596,22 +4596,22 @@ RegisterGlobalEvent(442, "Shamus Hollyfield", function()
 end)
 
 RegisterGlobalEvent(443, "Medwari Elmsmire", function()
-    evt.SetMessage("Medwari Elmsmire makes the finest Leather armor in the realm.")
+    evt.SetMessage("Medwari Elmsmire makes the finest Leather armor in the realm.\nShe also holds the title of Grand Master of Leather Armor and can instruct you at her home in the village of Rust in the Ironsand Desert.")
     SetAutonote(118) -- Medwari Elmsmire, the Grand Master of Leather makes her home in the village of Rust in the Ironsand Desert.
 end)
 
 RegisterGlobalEvent(444, "Tobren Forgewright", function()
-    evt.SetMessage("Tobren Forgewright assisted the city of Ravenshore in the First Pirate War.")
+    evt.SetMessage("Tobren Forgewright assisted the city of Ravenshore in the First Pirate War.\nHer forge glowed for four weeks straight as she made chain armor for the defenders of Ravenshore.\nShe still teaches Expert use of the armor from her home in the seaside port of Ravenshore.")
     SetAutonote(119) -- Tobren Forgewright the Expert Chain teacher lives in the seaside port of Ravenshore.
 end)
 
 RegisterGlobalEvent(445, "Halian Eversmyle", function()
-    evt.SetMessage("Halian Eversmyle learned all the skills he could from the Grand Master of Chain armor and then fled to the city of Alvar where he teaches Mastery of this armor to the Merchants of Alvar.")
+    evt.SetMessage("Halian Eversmyle learned all the skills he could from the Grand Master of Chain armor and then fled to the city of Alvar where he teaches Mastery of this armor to the Merchants of Alvar.\nHe will instruct you to Mastery as well.")
     SetAutonote(120) -- Master Chain instructor, Halian Eversmyle, can be found in the city of Alvar.
 end)
 
 RegisterGlobalEvent(446, "Seline Burnkindle", function()
-    evt.SetMessage("Grand Master Seline Burnkindle teaches ways of using chain armor to its greatest advantage.")
+    evt.SetMessage("Grand Master Seline Burnkindle teaches ways of using chain armor to its greatest advantage.\nShe lives among the Pirates of Regna.")
     SetAutonote(121) -- Grand Master of Chain, Seline Burnkindle, teaches from her home on the island of Renga.
 end)
 
@@ -4621,7 +4621,7 @@ RegisterGlobalEvent(447, "Bone", function()
 end)
 
 RegisterGlobalEvent(448, "Botham", function()
-    evt.SetMessage("Master Botham was one of the finest warriors in the First Pirate War.")
+    evt.SetMessage("Master Botham was one of the finest warriors in the First Pirate War.\nRavenshore owes him a debt of gratitude.\nBotham and his fellow swordsman led the charge against the first wave of Regnans.\nTheir Plate armor deflected all but the most serious blows.\nHe still teaches Mastery of Plate armor from his home.")
     SetAutonote(123) -- The Master Plate instructor, Botham, lives in the city of Ravenshore.
 end)
 
@@ -4671,7 +4671,7 @@ RegisterGlobalEvent(457, "Gregory Mist", function()
 end)
 
 RegisterGlobalEvent(458, "Black Current", function()
-    evt.SetMessage("Black Current was once a powerful mage in this region.")
+    evt.SetMessage("Black Current was once a powerful mage in this region.\nHer ambition for power outgrew her caution and she attempted to conquer the Plane of Water.\nShe summoned a gate to the plane and stepped through.\nShe was never heard from again.\nShe was the Grand Master of Water Magic.\nIf she still lives you may find her in the Plane of Water.")
     SetAutonote(133) -- Black Current, the Grand Master teacher of Water Magic may be found on the Plane of Water.
 end)
 
@@ -4686,7 +4686,7 @@ RegisterGlobalEvent(460, "Dorothy Sablewood", function()
 end)
 
 RegisterGlobalEvent(461, "Griven", function()
-    evt.SetMessage("Grand Master Griven passed into the Plane of Earth after teaching his final lesson to Dorothy Sablewood.")
+    evt.SetMessage("Grand Master Griven passed into the Plane of Earth after teaching his final lesson to Dorothy Sablewood.\nPerhaps he lives there to this day.\nWho knows what transpires in an elemental plane?")
     SetAutonote(136) -- The Grand Master instructor of Air Magic, Griven, may be found on the Plane of Air.
 end)
 
@@ -4796,7 +4796,7 @@ RegisterGlobalEvent(482, "Raven Quicktoungue", function()
 end)
 
 RegisterGlobalEvent(483, "Evandar Lotts", function()
-    evt.SetMessage("Evandar Lotts teaches the Expert skills of Repairing Items.")
+    evt.SetMessage("Evandar Lotts teaches the Expert skills of Repairing Items.\nHe dwells in the seaside city of Ravenshore.")
     SetAutonote(167) -- Evandar Lotts teaches the Expert skills of Repairing Items. He dwells in the seaside city of Ravenshore.
 end)
 
@@ -4991,11 +4991,11 @@ RegisterGlobalEvent(503, nil, function()
 end)
 
 RegisterGlobalEvent(504, nil, function()
-    evt.SetMessage("The signal rocket on the west side of the island should be set of to warn ships off from approaching to close to that side of the island.")
+    evt.SetMessage("The signal rocket on the west side of the island should be set of to warn ships off from approaching to close to that side of the island.\nThe reefs off the west coast have proven deadly in the past.")
 end)
 
 RegisterGlobalEvent(505, nil, function()
-    evt.SetMessage("Beware the marshes of the southern tip of the island.")
+    evt.SetMessage("Beware the marshes of the southern tip of the island.\nThe dragon flies that pester our town spawn there!\n")
 end)
 
 RegisterGlobalEvent(506, nil, function()
@@ -5039,7 +5039,7 @@ RegisterGlobalEvent(513, nil, function()
         evt.SetNPCTopic(461, 1, 0) -- Lunius Shador topic 1 cleared
         return
     end
-    evt.SetMessage("This 1000 gold will go a long way to keeping zombies off the roads.")
+    evt.SetMessage("This 1000 gold will go a long way to keeping zombies off the roads.\nThank you for your contribution.")
     if not IsAtLeast(Gold, 1000) then
         return
     end
@@ -5056,7 +5056,7 @@ RegisterGlobalEvent(514, nil, function()
 end)
 
 RegisterGlobalEvent(515, nil, function()
-    evt.SetMessage("Excellent!")
+    evt.SetMessage("Excellent!\nHere is a crate of Arrowheads.\nPip Hillier in Erathia pays the best prices for these. Be sure to see him!")
     ClearQBit(QBit(764)) -- Bought Item 3
     if IsAtLeast(Gold, 200) then
         if not IsAtLeast(Gold, 200) then
@@ -5216,7 +5216,7 @@ RegisterGlobalEvent(543, "Game of Might", function()
         return
     elseif IsAtLeast(ActualMight, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(31))
     else
         evt.StatusText("You have failed the game!")
@@ -5229,7 +5229,7 @@ RegisterGlobalEvent(544, "Game of Endurance", function()
         return
     elseif IsAtLeast(ActualEndurance, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(32))
     else
         evt.StatusText("You have failed the game!")
@@ -5242,7 +5242,7 @@ RegisterGlobalEvent(545, "Game of Intellect", function()
         return
     elseif IsAtLeast(ActualIntellect, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(33))
     else
         evt.StatusText("You have failed the game!")
@@ -5255,7 +5255,7 @@ RegisterGlobalEvent(546, "Game of Personality", function()
         return
     elseif IsAtLeast(ActualPersonality, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(34))
     else
         evt.StatusText("You have failed the game!")
@@ -5268,7 +5268,7 @@ RegisterGlobalEvent(547, "Game of Accuracy", function()
         return
     elseif IsAtLeast(ActualAccuracy, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(35))
     else
         evt.StatusText("You have failed the game!")
@@ -5281,7 +5281,7 @@ RegisterGlobalEvent(548, "Game of Speed", function()
         return
     elseif IsAtLeast(ActualSpeed, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(36))
     else
         evt.StatusText("You have failed the game!")
@@ -5294,7 +5294,7 @@ RegisterGlobalEvent(549, "Game of Luck", function()
         return
     elseif IsAtLeast(ActualLuck, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(37))
     else
         evt.StatusText("You have failed the game!")
@@ -5307,7 +5307,7 @@ RegisterGlobalEvent(550, "Contest of Might", function()
         return
     elseif IsAtLeast(ActualMight, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(38))
     else
         evt.StatusText("You have failed the contest!")
@@ -5320,7 +5320,7 @@ RegisterGlobalEvent(551, "Contest of Endurance", function()
         return
     elseif IsAtLeast(ActualEndurance, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(39))
     else
         evt.StatusText("You have failed the contest!")
@@ -5333,7 +5333,7 @@ RegisterGlobalEvent(552, "Contest of Intellect", function()
         return
     elseif IsAtLeast(ActualIntellect, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(40))
     else
         evt.StatusText("You have failed the contest!")
@@ -5346,7 +5346,7 @@ RegisterGlobalEvent(553, "Contest of Personality", function()
         return
     elseif IsAtLeast(ActualPersonality, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(41))
     else
         evt.StatusText("You have failed the contest!")
@@ -5359,7 +5359,7 @@ RegisterGlobalEvent(554, "Contest of Accuracy", function()
         return
     elseif IsAtLeast(ActualAccuracy, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(42))
     else
         evt.StatusText("You have failed the contest!")
@@ -5372,7 +5372,7 @@ RegisterGlobalEvent(555, "Contest of Speed", function()
         return
     elseif IsAtLeast(ActualSpeed, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(43))
     else
         evt.StatusText("You have failed the contest!")
@@ -5385,7 +5385,7 @@ RegisterGlobalEvent(556, "Contest of Luck", function()
         return
     elseif IsAtLeast(ActualLuck, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(44))
     else
         evt.StatusText("You have failed the contest!")
@@ -5398,7 +5398,7 @@ RegisterGlobalEvent(557, "Test of Might", function()
         return
     elseif IsAtLeast(ActualMight, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(45))
     else
         evt.StatusText("You have failed the test!")
@@ -5411,7 +5411,7 @@ RegisterGlobalEvent(558, "Test of Endurance", function()
         return
     elseif IsAtLeast(ActualEndurance, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(46))
     else
         evt.StatusText("You have failed the test!")
@@ -5424,7 +5424,7 @@ RegisterGlobalEvent(559, "Test of Intellect", function()
         return
     elseif IsAtLeast(ActualIntellect, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(47))
     else
         evt.StatusText("You have failed the test!")
@@ -5437,7 +5437,7 @@ RegisterGlobalEvent(560, "Test of Personality", function()
         return
     elseif IsAtLeast(ActualPersonality, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(48))
     else
         evt.StatusText("You have failed the test!")
@@ -5450,7 +5450,7 @@ RegisterGlobalEvent(561, "Test of Accuracy", function()
         return
     elseif IsAtLeast(ActualAccuracy, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(49))
     else
         evt.StatusText("You have failed the test!")
@@ -5463,7 +5463,7 @@ RegisterGlobalEvent(562, "Test of Speed", function()
         return
     elseif IsAtLeast(ActualSpeed, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(50))
     else
         evt.StatusText("You have failed the test!")
@@ -5476,7 +5476,7 @@ RegisterGlobalEvent(563, "Test of Luck", function()
         return
     elseif IsAtLeast(ActualLuck, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(51))
     else
         evt.StatusText("You have failed the test!")
@@ -5489,7 +5489,7 @@ RegisterGlobalEvent(564, "Challenge of Might", function()
         return
     elseif IsAtLeast(ActualMight, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(52))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5502,7 +5502,7 @@ RegisterGlobalEvent(565, "Challenge of Endurance", function()
         return
     elseif IsAtLeast(ActualEndurance, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(53))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5515,7 +5515,7 @@ RegisterGlobalEvent(566, "Challenge of Intellect", function()
         return
     elseif IsAtLeast(ActualIntellect, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(54))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5528,7 +5528,7 @@ RegisterGlobalEvent(567, "Challenge of Personality", function()
         return
     elseif IsAtLeast(ActualPersonality, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(55))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5541,7 +5541,7 @@ RegisterGlobalEvent(568, "Challenge of Accuracy", function()
         return
     elseif IsAtLeast(ActualAccuracy, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(56))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5554,7 +5554,7 @@ RegisterGlobalEvent(569, "Challenge of Speed", function()
         return
     elseif IsAtLeast(ActualSpeed, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(57))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5567,7 +5567,7 @@ RegisterGlobalEvent(570, "Challenge of Luck", function()
         return
     elseif IsAtLeast(ActualLuck, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(58))
     else
         evt.StatusText("You have failed the challenge!")
@@ -5583,7 +5583,7 @@ RegisterGlobalEvent(571, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5598,7 +5598,7 @@ RegisterGlobalEvent(571, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(148)) then -- Delivered potion to house 6
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 7500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5629,7 +5629,7 @@ RegisterGlobalEvent(572, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5644,7 +5644,7 @@ RegisterGlobalEvent(572, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(148)) then -- Delivered potion to house 6
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 1500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5675,7 +5675,7 @@ RegisterGlobalEvent(573, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5690,7 +5690,7 @@ RegisterGlobalEvent(573, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(148)) then -- Delivered potion to house 6
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 1500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5721,7 +5721,7 @@ RegisterGlobalEvent(574, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5736,7 +5736,7 @@ RegisterGlobalEvent(574, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(148)) then -- Delivered potion to house 6
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 1500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5767,7 +5767,7 @@ RegisterGlobalEvent(575, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5782,7 +5782,7 @@ RegisterGlobalEvent(575, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(148)) then -- Delivered potion to house 6
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 1500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5813,7 +5813,7 @@ RegisterGlobalEvent(576, "Fire Resistance Potion", function()
     else
         evt.ForPlayer(Players.All)
         if not HasItem(256) then -- Fire Resistance
-            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!")
+            evt.SetMessage("I an defenseless against the onslaught of the sea of fire!\nI need a Potion of Fire Resistance!")
             return
         end
         RemoveItem(256) -- Fire Resistance
@@ -5828,7 +5828,7 @@ RegisterGlobalEvent(576, "Fire Resistance Potion", function()
                     if IsQBitSet(QBit(147)) then -- Delivered potion to house 5
                         evt.ForPlayer(Players.All)
                         AddValue(Experience, 1500)
-                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.")
+                        evt.SetMessage("Thanks for providing Potions of Fire Resistance to the southernmost houses here in Rust.\nPerhaps we can survive until a new home can be found for us!")
                         SetQBit(QBit(149)) -- Southern houses of Rust all have Potions of Fire Resistance.
                         return
                     end
@@ -5948,7 +5948,7 @@ end)
 
 RegisterGlobalEvent(585, "Travel between the Islands", function()
     if not IsQBitSet(QBit(2)) then -- Activate Area 1 teleporters 5 and 6.
-        evt.SetMessage("We used to travel freely between the islands using the bridges.")
+        evt.SetMessage("We used to travel freely between the islands using the bridges.\nThese bridges were destroyed when the mountain of fire erupted.\nMany families are trapped on the outer islands.\nWe don’t even know if the people who live there are still alive.")
         return
     end
     evt.SetMessage("With the Portals of Stone repaired, we can at least check on the outer islands and those who live there.\nWe are in your debt for fixing the Portals of Stone.")
@@ -5959,7 +5959,7 @@ RegisterGlobalEvent(586, "The boat dock", function()
         evt.SetMessage("The boat dock on the northernmost island is the only way to travel between Dagger Wound and the mainland.\nWith the bridges destroyed, we cannot get to the boat dock and those arriving from Ravenshore cannot get to the village of Blood Drop!")
         return
     end
-    evt.SetMessage("We can get to the boat docks?")
+    evt.SetMessage("We can get to the boat docks?\nBut we have to go through the Abandoned Temple?\nWell that's something.\nAt least we can get to the boats.")
 end)
 
 RegisterGlobalEvent(587, "Kreegans", function()
@@ -6093,7 +6093,7 @@ end)
 
 RegisterGlobalEvent(597, "Arcomage Tournament", function()
     if IsQBitSet(QBit(174)) then -- Won all Arcomage games
-        evt.SetMessage("Congratulations!")
+        evt.SetMessage("Congratulations!\nYou have become the Arcomage Champion!\nThe prize is waiting in the chest right outside my house.")
         ClearQBit(QBit(173)) -- Win a game of Arcomage in all eleven taverns, then return to Tonk Blueswan in Ravenshore.
         ClearQBit(QBit(174)) -- Won all Arcomage games
         evt.ForPlayer(Players.All)
@@ -6205,7 +6205,7 @@ RegisterGlobalEvent(657, "The Stranger", function()
 end)
 
 RegisterGlobalEvent(658, "Night of the Crystal", function()
-    evt.SetMessage("A wanderer came into town.")
+    evt.SetMessage("A wanderer came into town.\nSeveral ruffians sought to relieve this traveler of whatever wealth he possibly possessed. The wanderer barely paid any of them much notice.\nWith a small flick of his wrist all fell before him.\nThen he walked to the town square and summoned the giant crystal that you'll find there today.")
 end)
 
 RegisterGlobalEvent(659, "The Crystal", function()
@@ -6213,7 +6213,7 @@ RegisterGlobalEvent(659, "The Crystal", function()
 end)
 
 RegisterGlobalEvent(660, "Wandering Mage", function()
-    evt.SetMessage("When the mage came into town I didn’t think much of it.")
+    evt.SetMessage("When the mage came into town I didn’t think much of it.\nThis is Ravenshore.\nEveryone who travels the roads of Jadame comes through here at some time or another.\nI guess I should have paid more attention to him.\nSeems he caused quite a stir in the town square.")
 end)
 
 RegisterGlobalEvent(661, "Pirate Raids", function()
@@ -6221,7 +6221,7 @@ RegisterGlobalEvent(661, "Pirate Raids", function()
 end)
 
 RegisterGlobalEvent(662, "Regnans", function()
-    evt.SetMessage("The Regnans are the worst slime to ever set foot on the shore of Jadame. They keep the peoples of this continent from trading with Erathia and Enroth.")
+    evt.SetMessage("The Regnans are the worst slime to ever set foot on the shore of Jadame. They keep the peoples of this continent from trading with Erathia and Enroth.\nWhat choice do we have?\nEven the Merchants of Alvar couldn’t muster a fleet to deal with the pirates.\nRumor says that there are smugglers around that have found ways around the pirate blockades.")
 end)
 
 RegisterGlobalEvent(663, "Empire of the Endless Ocean", function()
@@ -6229,11 +6229,11 @@ RegisterGlobalEvent(663, "Empire of the Endless Ocean", function()
 end)
 
 RegisterGlobalEvent(664, "Ogres and Bandits", function()
-    evt.SetMessage("Over the last few weeks there have been reports of bandits and Ogres robbing travelers on all of the major roads of Jadame. Times just seem to be getting worse.")
+    evt.SetMessage("Over the last few weeks there have been reports of bandits and Ogres robbing travelers on all of the major roads of Jadame. Times just seem to be getting worse.\nBetween the Regnan Pirates and these bandits it seems that no one is safe to travel by any means.")
 end)
 
 RegisterGlobalEvent(665, "Overland Travel", function()
-    evt.SetMessage("Several of the warriors got together to go take care of the ogres that were camping on the road to Ravenshore.")
+    evt.SetMessage("Several of the warriors got together to go take care of the ogres that were camping on the road to Ravenshore.\nThat’s when we first had word of the fortress they were constructing to the southwest of here.\nSince the fortress was completed the roads to the south and west have not been safe.")
 end)
 
 RegisterGlobalEvent(666, "Smugglers", function()
@@ -6241,7 +6241,7 @@ RegisterGlobalEvent(666, "Smugglers", function()
 end)
 
 RegisterGlobalEvent(667, "Wererats!", function()
-    evt.SetMessage("Wererats!")
+    evt.SetMessage("Wererats!\nThey are the worst of scum!\nThe pick through our trash at night!\nAlways scurrying around in the dark!\nNever seen when the sun is up.\nGives one the shivers it does!")
 end)
 
 RegisterGlobalEvent(668, "Cyclopes of Ironsand", function()
@@ -6249,15 +6249,15 @@ RegisterGlobalEvent(668, "Cyclopes of Ironsand", function()
 end)
 
 RegisterGlobalEvent(669, "Sea of Fire", function()
-    evt.SetMessage("The sea of fire took us all by surprise.")
+    evt.SetMessage("The sea of fire took us all by surprise.\nIt spread through the eastern half of the village like wildfire.\nLuckily its growth seems to have slowed.\nStill I don’t know how much longer any of us can last.")
 end)
 
 RegisterGlobalEvent(670, "Find us a home!", function()
-    evt.SetMessage("We need to find a new place to live!")
+    evt.SetMessage("We need to find a new place to live!\nThere is no way any people could live under these conditions.\nEven the Cyclopes will be forced to move.\nThere are legends that talk about the ancient homeland that we traveled here from.\nThe stories say that it was lush and green.\nIf we only had such a place to return to.")
 end)
 
 RegisterGlobalEvent(671, "Ore Traders", function()
-    evt.SetMessage("There are traders in Alvar and Shadowspire that trade for the different types of ore that can be found all over Jadame.")
+    evt.SetMessage("There are traders in Alvar and Shadowspire that trade for the different types of ore that can be found all over Jadame.\nThey use the ore to create items that they are more than happy to trade for more ore!")
 end)
 
 RegisterGlobalEvent(672, "Vault of Time", function()
@@ -6446,7 +6446,7 @@ RegisterGlobalEvent(701, "The Family Tomb", function()
 end)
 
 RegisterGlobalEvent(702, "Have you found the shield?", function()
-    evt.SetMessage("Have you found the shield?")
+    evt.SetMessage("Have you found the shield?\nThe recovery of Eclipse is very important to the Temple of the Sun!\nYou must help us find it!")
 end)
 RegisterCanShowTopic(702, function()
     evt._BeginCanShowTopic(702)
@@ -6461,7 +6461,7 @@ RegisterCanShowTopic(702, function()
 end)
 
 RegisterGlobalEvent(703, "Use Eclipse well!", function()
-    evt.SetMessage("Thanks again for recovering the shield Eclipse!")
+    evt.SetMessage("Thanks again for recovering the shield Eclipse!\nI hope it has proven helpful in your adventures.")
 end)
 
 RegisterGlobalEvent(706, "Come with Us", function()
@@ -6736,7 +6736,7 @@ end)
 RegisterGlobalEvent(733, "Promote Dark Elves", function()
     evt.ForPlayer(Players.Member0)
     if IsQBitSet(QBit(1537)) then -- Promoted to Elf Patriarch.
-        evt.SetMessage("Cauri told me of how you helped her with the curse of the Basilisk.")
+        evt.SetMessage("Cauri told me of how you helped her with the curse of the Basilisk.\nShe has instructed me to promote any Dark Elves that travel with you to Patriarch.")
         ClearQBit(QBit(39)) -- Find Cauri Blackthorne then return to Dantillion in Murmurwoods with information of her location. - Dark Elf Promotion to Patriarch
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
@@ -6749,7 +6749,7 @@ RegisterGlobalEvent(733, "Promote Dark Elves", function()
         end
         return
     elseif HasAward(Award(20)) then -- Rescued Cauri Blackthorne.
-        evt.SetMessage("Cauri told me of how you helped her with the curse of the Basilisk.")
+        evt.SetMessage("Cauri told me of how you helped her with the curse of the Basilisk.\nShe has instructed me to promote any Dark Elves that travel with you to Patriarch.")
         ClearQBit(QBit(39)) -- Find Cauri Blackthorne then return to Dantillion in Murmurwoods with information of her location. - Dark Elf Promotion to Patriarch
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
@@ -6791,14 +6791,14 @@ RegisterGlobalEvent(734, "Promote Trolls", function()
             end
         end
     else
-        evt.SetMessage("You cannot be promoted until the Ancient Troll Home has been found!")
+        evt.SetMessage("You cannot be promoted until the Ancient Troll Home has been found!\nReturn here when you have found it and talk with Volog.")
     end
 end)
 
 RegisterGlobalEvent(735, "Promote Knights", function()
     evt.ForPlayer(Players.Member0)
     if IsQBitSet(QBit(1540)) then -- Promoted to Champion.
-        evt.SetMessage("Thanks for you help recovering the spear Ebonest!")
+        evt.SetMessage("Thanks for you help recovering the spear Ebonest!\nI can promote any Knights that travel with you to Champion.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 16) then
@@ -6811,7 +6811,7 @@ RegisterGlobalEvent(735, "Promote Knights", function()
         ClearQBit(QBit(70)) -- Find Blazen Stormlance and recover the spear Ebonest. Return to Leane Stormlance in Garrote Gorge and deliver Ebonest to Charles Quixote.
         return
     elseif IsQBitSet(QBit(1541)) then -- Returned Ebonest to Charles Quixote.
-        evt.SetMessage("Thanks for you help recovering the spear Ebonest!")
+        evt.SetMessage("Thanks for you help recovering the spear Ebonest!\nI can promote any Knights that travel with you to Champion.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 16) then
@@ -6823,7 +6823,7 @@ RegisterGlobalEvent(735, "Promote Knights", function()
         end
         ClearQBit(QBit(70)) -- Find Blazen Stormlance and recover the spear Ebonest. Return to Leane Stormlance in Garrote Gorge and deliver Ebonest to Charles Quixote.
     else
-        evt.SetMessage("You cannot be promoted to Champion until you have proven yourself worthy!")
+        evt.SetMessage("You cannot be promoted to Champion until you have proven yourself worthy!\n")
     end
 end)
 
@@ -6860,7 +6860,7 @@ end)
 RegisterGlobalEvent(737, "Promote Clerics", function()
     evt.ForPlayer(Players.Member0)
     if IsQBitSet(QBit(1546)) then -- Promoted to Cleric of the Sun.
-        evt.SetMessage("You are always welcome here!")
+        evt.SetMessage("You are always welcome here!\nOf course I will promote any Clerics that travel with you to Priest of the Sun!\n")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 4) then
@@ -6872,7 +6872,7 @@ RegisterGlobalEvent(737, "Promote Clerics", function()
         end
         return
     elseif HasAward(Award(31)) then -- Found the lost Prophecies of the Sun and returned them to the Temple of the Sun.
-        evt.SetMessage("You are always welcome here!")
+        evt.SetMessage("You are always welcome here!\nOf course I will promote any Clerics that travel with you to Priest of the Sun!\n")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 4) then
@@ -6933,14 +6933,14 @@ RegisterGlobalEvent(738, "Promote Necromancers", function()
             end
         end
     else
-        evt.SetMessage("You have not recovered the Lost Book of Kehl!")
+        evt.SetMessage("You have not recovered the Lost Book of Kehl!\nThere will be no promotions until you return with the book!\nSpeak with Vetrinus Taleshire.")
     end
 end)
 
 RegisterGlobalEvent(739, "Promote Vampires", function()
     evt.ForPlayer(Players.Member0)
     if IsQBitSet(QBit(1547)) then -- Promoted to Nosferatu.
-        evt.SetMessage("Any Vampires among you will be promoted to Nosferatu!")
+        evt.SetMessage("Any Vampires among you will be promoted to Nosferatu!\nI remember those who helped in the recovery of the Remains of Korbu.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 40) then
@@ -6952,7 +6952,7 @@ RegisterGlobalEvent(739, "Promote Vampires", function()
         end
         return
     elseif HasAward(Award(33)) then -- Found the Sarcophagus and Remains of Korbu.
-        evt.SetMessage("Any Vampires among you will be promoted to Nosferatu!")
+        evt.SetMessage("Any Vampires among you will be promoted to Nosferatu!\nI remember those who helped in the recovery of the Remains of Korbu.")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 40) then
@@ -6963,14 +6963,14 @@ RegisterGlobalEvent(739, "Promote Vampires", function()
             end
         end
     else
-        evt.SetMessage("You have not found Korbu and until you have I refuse to promote any of you!")
+        evt.SetMessage("You have not found Korbu and until you have I refuse to promote any of you!\nBegone!")
     end
 end)
 
 RegisterGlobalEvent(740, "Promote Minotuars", function()
     evt.ForPlayer(Players.Member0)
     if IsQBitSet(QBit(1545)) then -- Promoted to Minotaur Lord.
-        evt.SetMessage("The Herd of Masul is in debt to you.")
+        evt.SetMessage("The Herd of Masul is in debt to you.\nAny Minotaurs in your party are promoted to Minotaur Lord!")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 20) then
@@ -6982,7 +6982,7 @@ RegisterGlobalEvent(740, "Promote Minotuars", function()
         end
         return
     elseif HasAward(Award(29)) then -- Recovered Axe of Balthazar.
-        evt.SetMessage("The Herd of Masul is in debt to you.")
+        evt.SetMessage("The Herd of Masul is in debt to you.\nAny Minotaurs in your party are promoted to Minotaur Lord!")
         for _, player in ipairs({Players.Member0, Players.Member1, Players.Member2, Players.Member3, Players.Member4}) do
             evt.ForPlayer(player)
             if IsAtLeast(ClassId, 20) then
@@ -6993,12 +6993,12 @@ RegisterGlobalEvent(740, "Promote Minotuars", function()
             end
         end
     else
-        evt.SetMessage("You have not found the Axe of Balthazar!")
+        evt.SetMessage("You have not found the Axe of Balthazar!\nYou are not worthy of promotion!")
     end
 end)
 
 RegisterGlobalEvent(741, "Thank you!", function()
-    evt.SetMessage("My father sent you to rescue me?")
+    evt.SetMessage("My father sent you to rescue me?\nI am grateful.\nI will return to my father and let him know of your assistance!")
     evt.ForPlayer(Players.All)
     AddValue(Experience, 5000)
     evt.SetNPCTopic(102, 0, 0) -- Irabelle Hunter topic 0 cleared
@@ -7031,7 +7031,7 @@ RegisterGlobalEvent(743, "Travel with you!", function()
         evt.SetMessage("When you have grown and learned more of the ways of the world, then it would be my pleasure to travel with you.\nUntil then I have studies to complete here.")
         return
     end
-    evt.SetMessage("Certainly!")
+    evt.SetMessage("Certainly!\nTraveling with you would be an honor!")
     evt.SetNPCTopic(50, 0, 626) -- Dervish Chevron topic 0: Roster Join Event
 end)
 
@@ -7220,7 +7220,7 @@ RegisterGlobalEvent(756, nil, function()
 end)
 
 RegisterGlobalEvent(757, nil, function()
-    evt.SetMessage("Welcome to Emerald Island!")
+    evt.SetMessage("Welcome to Emerald Island!\nI'll be your docent for your stay on the island.\nIt is my duty to see that you understand the rules of both the island and the contest.\nFor the duration of your stay on Emerald Island please refrain from gross violations of civilized behavior.")
     evt.SetNPCTopic(342, 0, 758) -- Margaret the Docent topic 0: Emerald Island
 end)
 
@@ -7276,7 +7276,7 @@ end)
 
 RegisterGlobalEvent(763, nil, function()
     if not IsAtLeast(Gold, 500) then
-        evt.SetMessage("It would help if you had the 500 gold pieces.")
+        evt.SetMessage("It would help if you had the 500 gold pieces.\nPlease don't try and cheat me out of my instrument.")
         return
     end
     if not IsAtLeast(Gold, 500) then
@@ -7313,7 +7313,7 @@ RegisterGlobalEvent(766, nil, function()
 end)
 
 RegisterGlobalEvent(767, nil, function()
-    evt.SetMessage("We have reason to believe that whoever is in charge of Harmondale in the next few months will have an unprecedented opportunity to shape the future.")
+    evt.SetMessage("We have reason to believe that whoever is in charge of Harmondale in the next few months will have an unprecedented opportunity to shape the future.\nThat is why I am here today--to make sure the shape of the future is pleasing to my associates.\nI'm sure you understand.")
 end)
 RegisterCanShowTopic(767, function()
     evt._BeginCanShowTopic(767)
@@ -7405,7 +7405,7 @@ RegisterCanShowTopic(771, function()
 end)
 
 RegisterGlobalEvent(772, nil, function()
-    evt.SetMessage("This Temple is a pretty nasty place.")
+    evt.SetMessage("This Temple is a pretty nasty place.\nYou should probably watch your back around here-- you never know what might want to kill you.")
 end)
 
 RegisterGlobalEvent(773, nil, function()
@@ -7425,11 +7425,11 @@ RegisterGlobalEvent(774, nil, function()
 end)
 
 RegisterGlobalEvent(775, nil, function()
-    evt.SetMessage("You should have listened to me; I warned you this was a nasty place.")
+    evt.SetMessage("You should have listened to me; I warned you this was a nasty place.\nNow get out of here before I decide to take something else from you.")
 end)
 
 RegisterGlobalEvent(776, nil, function()
-    evt.SetMessage("I take this to mean you don't wish to accept my proposal.")
+    evt.SetMessage("I take this to mean you don't wish to accept my proposal.\nI believe our business is concluded.")
     evt.SetNPCTopic(345, 2, 0) -- Mr. Malwick topic 2 cleared
 end)
 RegisterCanShowTopic(776, function()
@@ -7463,7 +7463,7 @@ RegisterCanShowTopic(777, function()
 end)
 
 RegisterGlobalEvent(778, nil, function()
-    evt.SetMessage("The toughest band of contestants have apparently hid out in the Temple of the Moon.")
+    evt.SetMessage("The toughest band of contestants have apparently hid out in the Temple of the Moon.\nI think they might be wanting to ambush any group that tries to go there.")
 end)
 
 RegisterGlobalEvent(779, nil, function()
@@ -7525,7 +7525,7 @@ RegisterGlobalEvent(785, nil, function()
         evt.SetMessage("No news on the missing people yet?")
         return
     end
-    evt.SetMessage("There really is a dragon on the island?")
+    evt.SetMessage("There really is a dragon on the island?\nI thought everyone was referring to the dragonflies everywhere.\nI'll warn everyone to stay away from that cave so we don't lose anyone else.")
     RemoveItem(1460) -- Contestant's Shield
     SetAward(Award(2)) -- Found the missing contestants on Emerald Island
     AddValue(Experience, 1000)
@@ -7568,7 +7568,7 @@ RegisterGlobalEvent(792, nil, function()
 end)
 
 RegisterGlobalEvent(793, nil, function()
-    evt.SetMessage("You have decided to listen to my tour about the points of interest on Emerald Island.")
+    evt.SetMessage("You have decided to listen to my tour about the points of interest on Emerald Island.\nIf you decide that you no longer want me to point out areas of interest then select Tour Off.")
     ClearQBit(QBit(529)) -- No more docent babble
     evt.SetNPCTopic(342, 2, 792) -- Margaret the Docent topic 2: Tour Off
     evt.MoveNPC(342, 0) -- Margaret the Docent -> removed
@@ -7641,7 +7641,7 @@ RegisterGlobalEvent(797, nil, function()
         evt.SetNPCTopic(354, 0, 0) -- William Lasker topic 0 cleared
         evt.SetNPCGreeting(354, 154) -- William Lasker greeting: Greetings Rogues, how may I be of service?
     elseif HasItem(0) then -- 0
-        evt.SetMessage("Um…The weight needs to go in the box in the lower gatehouse—not here.")
+        evt.SetMessage("Um…The weight needs to go in the box in the lower gatehouse—not here.\nGo back to Watchtower 6 and put the weight in the right box!")
         return
     elseif IsQBitSet(QBit(568)) then -- Watchtower 6. Taken the weight from the upper gatehouse. Spy promo quest
         evt.SetMessage("Hmm.\nRemoving the weight from the upper gatehouse was a start, but where is it now?!?\nThe plan won’t work unless you put the weight in the lower gatehouse!\nGo back to Watchtower 6 and put the weight in the right box!")
@@ -7803,7 +7803,7 @@ RegisterGlobalEvent(805, nil, function()
             SetQBit(QBit(1685)) -- Replacement for NPCs ¹54 ver. 7
             return
         end
-        evt.SetMessage("Where do you think you're taking me?")
+        evt.SetMessage("Where do you think you're taking me?\nI have a rich family-- you'll be in a lot of trouble if you don't let me go!")
     else
         evt.SetMessage("It should be impossible for you to see this right now.\nIf you are reading this, tell Bryan that the event and/or logic of this quest is messed up because you should either be good attempting the Hero quest, or evil attempting the Villain quest and you are apparently neither.")
     end
@@ -7824,7 +7824,7 @@ RegisterGlobalEvent(806, nil, function()
             evt.SetNPCTopic(357, 0, 807) -- William Setag topic 0: Villain
             evt.MoveNPC(393, 1158) -- Alice Hargreaves -> Alice Hargreaves
         else
-            evt.SetMessage("I cannot improve upon training you do not already have.")
+            evt.SetMessage("I cannot improve upon training you do not already have.\nYou must be promoted to Crusader before I can train you in the ways of villainy.")
             return
         end
     else
@@ -7866,7 +7866,7 @@ RegisterGlobalEvent(808, nil, function()
 end)
 
 RegisterGlobalEvent(809, nil, function()
-    evt.SetMessage("You have not finished your journey.")
+    evt.SetMessage("You have not finished your journey.\nReturn to me only when you have completed your task.")
 end)
 
 RegisterGlobalEvent(810, nil, function()
@@ -7897,7 +7897,7 @@ RegisterGlobalEvent(811, nil, function()
         SetQBit(QBit(540)) -- Go to the Temple of Baa in Avlee and kill the High Priest of Baa, then return to Bartholomew Hume in Harmondale.
         evt.SetNPCTopic(377, 0, 812) -- Bartholomew Hume topic 0: Master
     else
-        evt.SetMessage("A fork approaches in your path.")
+        evt.SetMessage("A fork approaches in your path.\nI will only train you after you've chosen to walk the lighter path.")
         return
     end
 end)
@@ -7931,7 +7931,7 @@ end)
 RegisterGlobalEvent(813, nil, function()
     if IsQBitSet(QBit(1572)) then -- Promoted to Initiate
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
-            evt.SetMessage("[Stephan Sand sneers] YOU want ME to teach you something?")
+            evt.SetMessage("[Stephan Sand sneers] YOU want ME to teach you something?\nYou sniveling do-gooders make my knife arm twitch!\nGet out of my sight before I REALLY teach you about fighting!")
             return
         elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
             evt.SetMessage("An agent of mine has sent me a message I need deciphered.\nThe cipher relies on knowing which word of which a certain book to match it against.\nIf you wish to become a Ninja, this is what you must do: Infiltrate the School of Wizardry and find out what the third word of the famed Scroll of Waves is.\nUse it to decipher the message, then do what the message tells you to do.\nIt is the key to enter the Tomb of the Master.\nYou'll find the tomb in Southern Erathia.\n[Stephan hands you a scrap of paper] Here is the encoded message.")
@@ -7945,7 +7945,7 @@ RegisterGlobalEvent(813, nil, function()
         end
     elseif IsQBitSet(QBit(1573)) then -- Promoted to Honorary Initiate
         if IsQBitSet(QBit(611)) then -- Chose the path of Light
-            evt.SetMessage("[Stephan Sand sneers] YOU want ME to teach you something?")
+            evt.SetMessage("[Stephan Sand sneers] YOU want ME to teach you something?\nYou sniveling do-gooders make my knife arm twitch!\nGet out of my sight before I REALLY teach you about fighting!")
             return
         elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
             evt.SetMessage("An agent of mine has sent me a message I need deciphered.\nThe cipher relies on knowing which word of which a certain book to match it against.\nIf you wish to become a Ninja, this is what you must do: Infiltrate the School of Wizardry and find out what the third word of the famed Scroll of Waves is.\nUse it to decipher the message, then do what the message tells you to do.\nIt is the key to enter the Tomb of the Master.\nYou'll find the tomb in Southern Erathia.\n[Stephan hands you a scrap of paper] Here is the encoded message.")
@@ -8056,7 +8056,7 @@ end)
 
 RegisterGlobalEvent(818, nil, function()
     if not IsQBitSet(QBit(570)) then -- Destroyed critter generator in dungeon. Warrior Mage promo quest.
-        evt.SetMessage("You haven't sabotaged the machine yet.")
+        evt.SetMessage("You haven't sabotaged the machine yet.\nYou must finish this before I'll promote you to Warrior Mage.")
         return
     end
     evt.SetMessage("Very Good.\nYou have passed the test.\nNow the creatures are sealed away and won't be able to prey on the dwarves any longer, and you have proven your ability in both sorcery and steel.\nI am proud to declare all Archers amongst you Warrior Mages, and everyone else Honorary Warrior Mages.\nCongratulations!\nNow get out.\nI already weary of your company.")
@@ -8210,15 +8210,15 @@ RegisterGlobalEvent(825, nil, function()
         SetQBit(QBit(547)) -- Raid the Elven Treasury at Castle Navan in the Tularean Forest and return to Frederick Org in Erathia.
         evt.SetNPCTopic(382, 0, 826) -- Frederick Org topic 0: Black Knight
     elseif IsQBitSet(QBit(611)) then -- Chose the path of Light
-        evt.SetMessage("Bah!")
+        evt.SetMessage("Bah!\nYou do-gooders are worthless!\nIt is impossible for me to teach anything more to you!\n")
     else
-        evt.SetMessage("It's true that I am the one you go to when you're looking to be promoted to Black Knight status.")
+        evt.SetMessage("It's true that I am the one you go to when you're looking to be promoted to Black Knight status.\nBut how can you become a Black Knight when you haven't even decided whether or not you're evil?\nReturn to me when you have fully committed to Darkness.\nOnly then will I resume your training.")
     end
 end)
 
 RegisterGlobalEvent(826, nil, function()
     if not IsQBitSet(QBit(572)) then -- Robbed Elven treasury. Black Knight promo quest.
-        evt.SetMessage("Robbery not complete?")
+        evt.SetMessage("Robbery not complete?\nNo.\nDon't come to me and report failure.\nDon't come and tell me you lost your nerve.\nGet out there and rob that treasury!\nFailure is not an option!")
         return
     end
     evt.SetMessage("All RIGHT!\nThat robbery was brilliant!\nI am very proud of you.\nKeep the loot--it's your reward for a job well done.\nI can safely say the Cavaliers among you have become Black Knights today, and I'll throw in an Honorary Black Knight title for the rest of you.\nYou've done well, my students!")
@@ -8247,7 +8247,7 @@ RegisterGlobalEvent(827, nil, function()
             SetQBit(QBit(548)) -- Calm the trees in the Tularean Forest by speaking to the Oldest Tree then return to Lysander Sweet in the Bracada Desert.
             evt.SetNPCTopic(383, 0, 828) -- Lysander Sweet topic 0: Ranger Lord
         elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
-            evt.SetMessage("[Lysander frowns] You've chosen the path of darkness.")
+            evt.SetMessage("[Lysander frowns] You've chosen the path of darkness.\nI refuse to teach such as you--you would only use my lessons to further your selfish goals.\nMay Heaven have mercy on your souls.")
         else
             evt.SetMessage("I would like to be your teacher--I really would, but I'm not sure you're cut out to be a Ranger Lord.\nSoon you must make a decision of the heart.\nIf you choose the Path of Light, return to me.\nI would be honored to be your teacher.")
         end
@@ -8258,7 +8258,7 @@ RegisterGlobalEvent(827, nil, function()
             SetQBit(QBit(548)) -- Calm the trees in the Tularean Forest by speaking to the Oldest Tree then return to Lysander Sweet in the Bracada Desert.
             evt.SetNPCTopic(383, 0, 828) -- Lysander Sweet topic 0: Ranger Lord
         elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
-            evt.SetMessage("[Lysander frowns] You've chosen the path of darkness.")
+            evt.SetMessage("[Lysander frowns] You've chosen the path of darkness.\nI refuse to teach such as you--you would only use my lessons to further your selfish goals.\nMay Heaven have mercy on your souls.")
         else
             evt.SetMessage("I would like to be your teacher--I really would, but I'm not sure you're cut out to be a Ranger Lord.\nSoon you must make a decision of the heart.\nIf you choose the Path of Light, return to me.\nI would be honored to be your teacher.")
         end
@@ -8394,7 +8394,7 @@ RegisterGlobalEvent(835, nil, function()
         evt.SetMessage("Oh, the forest is still very angry.\nThe grapevines say the thieves have not left their hiding place.\nYou will catch the thieves for us, won't you?")
         return
     end
-    evt.SetMessage("Ahhh!")
+    evt.SetMessage("Ahhh!\n[The tree sighs happily]\nYou have the heart!\nThe forest sings with joy!\nTonight we will recite the song of the ancestors.\nWill you stay and recite with us?")
     RemoveItem(1402) -- Heart of the Wood
     ClearQBit(QBit(729)) -- Heart of Wood - I lost it
     AddValue(Experience, 5000)
@@ -8435,7 +8435,7 @@ end)
 
 RegisterGlobalEvent(837, nil, function()
     if not IsQBitSet(QBit(574)) then -- Purified the Altar of Evil. Priest of Light promo quest.
-        evt.SetMessage("You must visit Evenmorn island and purify the Altar of Darkness in the Church of the Moon.")
+        evt.SetMessage("You must visit Evenmorn island and purify the Altar of Darkness in the Church of the Moon.\nOnly then can I promote you to Priests of the Light.")
         return
     end
     evt.SetMessage("Your bravery has advanced our faith tremendously, Priests.\nIt's with a glad heart that I can hereby promote all Priests to Priests of the Light, and all honorary Priests to Honorary Priests of the Light.\nThank you so much for your help!")
@@ -8508,7 +8508,7 @@ end)
 
 RegisterGlobalEvent(841, nil, function()
     if not IsQBitSet(QBit(575)) then -- Defaced the Altar of Good. Priest of Dark promo quest.
-        evt.SetMessage("You must visit Evenmorn island and defile the Altar of Light in the Church of the Sun.")
+        evt.SetMessage("You must visit Evenmorn island and defile the Altar of Light in the Church of the Sun.\nOnly then can I promote you to Priests of the Dark.")
         return
     end
     evt.SetMessage("Your bravery has advanced our faith tremendously, Priests.\nIt's with pleasure that I can hereby promote all Priests to Priests of the Dark, and all honorary Priests to Honorary Priests of the Dark.\nThank you so much for your help!")
@@ -8632,7 +8632,7 @@ RegisterGlobalEvent(846, nil, function()
         elseif IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("Having chosen the path of Light, you are not suited to become Liches.\nThe Ritual would reject you, and you would die a real death.\nIf that is what you want, you certainly don't need my help…")
         else
-            evt.SetMessage("Only followers of the Dark Path can become Liches.")
+            evt.SetMessage("Only followers of the Dark Path can become Liches.\nYou have not yet chosen the path.\nReturn when you choose Darkness.")
         end
         return
     elseif IsQBitSet(QBit(1620)) then -- Promoted to Honorary Wizard
@@ -8643,7 +8643,7 @@ RegisterGlobalEvent(846, nil, function()
         elseif IsQBitSet(QBit(611)) then -- Chose the path of Light
             evt.SetMessage("Having chosen the path of Light, you are not suited to become Liches.\nThe Ritual would reject you, and you would die a real death.\nIf that is what you want, you certainly don't need my help…")
         else
-            evt.SetMessage("Only followers of the Dark Path can become Liches.")
+            evt.SetMessage("Only followers of the Dark Path can become Liches.\nYou have not yet chosen the path.\nReturn when you choose Darkness.")
         end
     else
         evt.SetMessage("If you haven't even become Wizards yet, you aren't ready to become Liches.\nTrouble me not 'til you're qualified.")
@@ -8733,7 +8733,7 @@ RegisterGlobalEvent(850, nil, function()
     elseif IsQBitSet(QBit(612)) then -- Chose the path of Dark
         evt.SetMessage("Servants of Darkness, I am sorry I promoted you earlier.\nI am ashamed I didn't notice the darkness in your souls until it was too late.\nLeave me.")
     else
-        evt.SetMessage("I am dedicated to the service of the Light.")
+        evt.SetMessage("I am dedicated to the service of the Light.\nI will not promote you further until you are as dedicated as I.\nCome back to me when you choose the Light.")
     end
 end)
 
@@ -8791,7 +8791,7 @@ end)
 RegisterGlobalEvent(853, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1449) then -- Dragon Egg
-        evt.SetMessage("You need to bring me a dragon's egg so you I can hatch your familiar.")
+        evt.SetMessage("You need to bring me a dragon's egg so you I can hatch your familiar.\nThere is no way around this.\nTry looking in the Land of the Giants for a dragon cave-- perhaps there you can find an egg.")
         return
     end
     evt.SetMessage("[Tor looks at you in astonishment] You really found a dragon egg!\nIt's been more than a century since any Warlock has both needed and found a dragon familiar!\nThis will go down in the history books, that's for sure!\nMy spell book!\nI need my book!\nAh, here it is.\n[Tor chants a spell from the book, then taps the egg three times.\nThe egg hatches, and a baby dragon crawls out of the shell]\nThere you are!\nAwww, isn't he cute?\nCongratulations!\nNo longer are you simple Great Druids, but Warlocks!\nOf course, that's just an honorary title if you weren't a natural Great Druid to begin with, but nonetheless, something to be proud of.\n")
@@ -8935,13 +8935,13 @@ RegisterGlobalEvent(854, nil, function()
     ::step_81::
     if IsQBitSet(QBit(583)) then -- Placed Golem head
         SetQBit(QBit(586)) -- Finished constructing Golem with normal head
-        evt.SetMessage("You have all the parts together!")
+        evt.SetMessage("You have all the parts together!\nNow you just have to return to Master Grey for the animation process.")
         evt.SetNPCTopic(395, 1, 0) -- Golem topic 1 cleared
         return
     end
     if IsQBitSet(QBit(584)) then -- Placed Golem Abbey normal head
         SetQBit(QBit(585)) -- Finished constructing Golem with Abbey normal head
-        evt.SetMessage("You have all the parts together!")
+        evt.SetMessage("You have all the parts together!\nNow you just have to return to Master Grey for the animation process.")
         evt.SetNPCTopic(395, 1, 0) -- Golem topic 1 cleared
         return
     end
@@ -9207,7 +9207,7 @@ RegisterGlobalEvent(866, nil, function()
         return
     end
     if not IsQBitSet(QBit(593)) then -- Gave Loren to Catherine
-        evt.SetMessage("I've received word that you met with the Queen.")
+        evt.SetMessage("I've received word that you met with the Queen.\nI hope it went well.")
         return
     end
     evt.SetMessage("The queen is very pleased with you!\nThe rescue operation went well, and Loren can no longer be held as a bargaining chip for that wicked King Parson!\nWhen the current Harmondale conflict is over, I'm sure the Queen will reward you for your aid.")
@@ -9251,7 +9251,7 @@ RegisterCanShowTopic(868, function()
 end)
 
 RegisterGlobalEvent(869, nil, function()
-    evt.SetMessage("I've learned from Queen Catherine that you betrayed us with the old false prisoner trick.")
+    evt.SetMessage("I've learned from Queen Catherine that you betrayed us with the old false prisoner trick.\n[Lady Ellen curtsies respectfully] Your skills in the art of deception are formidable.\nI will be sure not to be tricked so easily by your sincere manner again.")
 end)
 RegisterCanShowTopic(869, function()
     evt._BeginCanShowTopic(869)
@@ -9271,7 +9271,7 @@ RegisterGlobalEvent(870, nil, function()
         return
     end
     if not IsQBitSet(QBit(592)) then -- Gave plans to elfking
-        evt.SetMessage("Messengers have informed me of your visit with my King.")
+        evt.SetMessage("Messengers have informed me of your visit with my King.\nI hope you can see now why we are the rightful rulers of Harmondale.\n")
         return
     end
     evt.SetMessage("I've heard of your daring infiltration of Fort Riverstride, and I am impressed!\nOur strategists are analyzing the plans now, and they say the information will be very useful in any assault they mount against the Fort.\nYou have Avlee's gratitude!")
@@ -9394,7 +9394,7 @@ RegisterGlobalEvent(875, nil, function()
 end)
 
 RegisterGlobalEvent(876, nil, function()
-    evt.SetMessage("[The Queen's eyes narrow] What's this?")
+    evt.SetMessage("[The Queen's eyes narrow] What's this?\nYou're admitting to treachery?\nHow noble.\nGuards!\nOff with their heads!")
     ClearQBit(QBit(1695)) -- Replacement for NPCs ¹71 ver. 7
     ClearQBit(QBit(1696)) -- Replacement for NPCs ¹72 ver. 7
     ClearQBit(QBit(590)) -- Rescue Loren Steel from the Tularean Caves in the Tularean Forest and return him to Queen Catherine.
@@ -9471,7 +9471,7 @@ RegisterGlobalEvent(878, nil, function()
         evt.SetNPCTopic(408, 3, 0) -- Queen Catherine topic 3 cleared
         return
     elseif IsAtLeast(Counter(2), 672) then
-        evt.SetMessage("King Parson is beyond the date when he could have used those false papers.")
+        evt.SetMessage("King Parson is beyond the date when he could have used those false papers.\nDon't bother taking them to him--it doesn't matter anymore.\n")
         RemoveItem(1508) -- False Riverstride Plans
         RemoveItem(1507) -- Riverstride Plans
         evt.SetNPCTopic(408, 2, 0) -- Queen Catherine topic 2 cleared
@@ -9666,7 +9666,7 @@ RegisterGlobalEvent(885, nil, function()
         evt.SetNPCTopic(409, 2, 0) -- ElfKing topic 2 cleared
         evt.SetNPCTopic(409, 3, 0) -- ElfKing topic 3 cleared
     elseif IsQBitSet(QBit(602)) then -- Told Catherine about fake prisoner
-        evt.SetMessage("You told Queen Catherine about the imposter?!? I can't believe my ears!")
+        evt.SetMessage("You told Queen Catherine about the imposter?!? I can't believe my ears!\nWhy did you do it?\nWhy?\n[The King stands and points at the door] Get out!")
         evt.ForPlayer(Players.All)
         ClearQBit(QBit(1696)) -- Replacement for NPCs ¹72 ver. 7
         ClearQBit(QBit(1695)) -- Replacement for NPCs ¹71 ver. 7
@@ -9675,7 +9675,7 @@ RegisterGlobalEvent(885, nil, function()
         evt.SetNPCTopic(409, 3, 0) -- ElfKing topic 3 cleared
         return
     elseif IsAtLeast(Counter(1), 672) then
-        evt.SetMessage("The execution date for Loren Steel has passed.")
+        evt.SetMessage("The execution date for Loren Steel has passed.\nDon't bother bringing the imposter to the Queen--she'll be too suspicious for our ruse to succeed.\nHe'll be leaving you now.")
         ClearQBit(QBit(1696)) -- Replacement for NPCs ¹72 ver. 7
         ClearQBit(QBit(1695)) -- Replacement for NPCs ¹71 ver. 7
         evt.SetNPCTopic(409, 2, 0) -- ElfKing topic 2 cleared
@@ -9746,7 +9746,7 @@ end)
 RegisterGlobalEvent(890, nil, function()
     evt.ForPlayer(Players.All)
     if HasItem(1436) then -- Gryphonheart's Trumpet
-        evt.SetMessage("You were wise to return the Trumpet to me.")
+        evt.SetMessage("You were wise to return the Trumpet to me.\nNow I can use it to help shore up the weak side in this conflict and promote peace.\nThank you.\n")
         SetQBit(QBit(659)) -- Gave artifact to arbiter
         AddValue(Experience, 12500)
         RemoveItem(1436) -- Gryphonheart's Trumpet
@@ -9797,7 +9797,7 @@ RegisterGlobalEvent(892, nil, function()
         return
     end
     if not IsQBitSet(QBit(630)) then -- Killed Good MM3 Person
-        evt.SetMessage("Tolberti has a mission of great importance.")
+        evt.SetMessage("Tolberti has a mission of great importance.\nEverything we've staked so far rests on its completion.\nPrepare well for his task or you will certainly fail.")
         return
     end
     if not IsQBitSet(QBit(632)) then -- Got Hive part
@@ -9808,7 +9808,7 @@ RegisterGlobalEvent(892, nil, function()
         evt.SetMessage("You will need to visit the craft that brought Kastore and his men to Erathia to continue.\nGo west of Avlee, and make sure to be properly outfitted.")
         return
     end
-    evt.SetMessage("Bring the Oscillation Overthruster back to Kastore with all possible speed!")
+    evt.SetMessage("Bring the Oscillation Overthruster back to Kastore with all possible speed!\nEvery moment you dally allows a chance for failure!")
 end)
 
 RegisterGlobalEvent(893, nil, function()
@@ -9850,10 +9850,10 @@ RegisterGlobalEvent(894, nil, function()
         return
     end
     if not IsQBitSet(QBit(633)) then -- Got the sci-fi part
-        evt.SetMessage("To the west of Avlee lies the craft that Resurectra and her associates used to come to Erathia.")
+        evt.SetMessage("To the west of Avlee lies the craft that Resurectra and her associates used to come to Erathia.\nVisit the ship and retrieve the Oscillation Overthruster to insure our victory.\nMake sure to be properly outfitted for the journey.")
         return
     end
-    evt.SetMessage("Bring the Oscillation Overthruster back to Resurectra immediately!")
+    evt.SetMessage("Bring the Oscillation Overthruster back to Resurectra immediately!\nEvery moment wastes valuable time!")
 end)
 
 RegisterGlobalEvent(895, nil, function()
@@ -10022,7 +10022,7 @@ end)
 RegisterGlobalEvent(904, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1404) then -- Case of Soul Jars
-        evt.SetMessage("Be well prepared when you go for the jars.")
+        evt.SetMessage("Be well prepared when you go for the jars.\nTheir security won't be so lax if you have to retreat and return.\n")
         return
     end
     evt.SetMessage("[Sir Caneghem looks at the jars curiously, as though observing a poisonous snake behind glass] So these are soul jars.\nI expected something more…impressive, I suppose.\nGood job!\n[he takes the case of jars] I will make sure these jars are never seen again.")
@@ -10196,7 +10196,7 @@ RegisterGlobalEvent(912, nil, function()
         evt.SetMessage("You don't have to be nice about getting the jars from them--just get the jars any way you can.\nWe can renegotiate peace with them if we must, just like we renegotiate the price for each purchase of soul jars.")
         return
     end
-    evt.SetMessage("[Maximus takes the case of jars with obvious delight] Nice work.")
+    evt.SetMessage("[Maximus takes the case of jars with obvious delight] Nice work.\nI won't even ask what you had to do to get them.\nSuccess speaks for itself.\n")
     RemoveItem(1404) -- Case of Soul Jars
     ClearQBit(QBit(743)) -- Lich Jar Case - I lost it
     AddValue(History(20), 0)
@@ -10232,7 +10232,7 @@ RegisterGlobalEvent(914, nil, function()
         evt.SetMessage("This is a simple task--get a move on!\nOnce again, the laboratory on an island east of Pierpont in the Tularean Forest.\nGet the shield lowered, and your part of the job is done.")
         return
     end
-    evt.SetMessage("It's good to see we can count on you.")
+    evt.SetMessage("It's good to see we can count on you.\nSo few of our allies are as reliable and capable as yourselves.\nThank you very much for your aid.")
     AddValue(History(23), 0)
     SubtractValue(ReputationInCurrentLocation, 5)
     evt.ForPlayer(Players.All)
@@ -10382,7 +10382,7 @@ RegisterGlobalEvent(920, nil, function()
         evt.SetNPCGroupNews(82, 84) -- NPC group 82 "Peasents in the village area" -> news 84: "I heard there was a gate built to the Ancients!  I wonder what they look like."
         evt.SetNPCGroupNews(83, 84) -- NPC group 83 "Peasents in the Dock area" -> news 84: "I heard there was a gate built to the Ancients!  I wonder what they look like."
     else
-        evt.SetMessage("Don't forget you'll need the wetsuits to get to the Lincoln.")
+        evt.SetMessage("Don't forget you'll need the wetsuits to get to the Lincoln.\nThese suits are in the chest outside this throne room and the Lincoln is in the sea west of Avlee.\nReturn here with the Overthruster as soon as possible.")
     end
 end)
 
@@ -10499,7 +10499,7 @@ end)
 RegisterGlobalEvent(930, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1450) then -- Lantern of Light
-        evt.SetMessage("Have you found the Lantern of Light?")
+        evt.SetMessage("Have you found the Lantern of Light?\nWe're certain it was lost in the maze of Barrows in the Barrow Downs.")
         return
     end
     evt.SetMessage("Thank you, Lords of Harmondale.\nThe Lantern's return will bolster our faith and allows us to continue our services.\nPlease take this small reward as a token of our gratitude.")
@@ -10523,7 +10523,7 @@ end)
 RegisterGlobalEvent(932, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1430) then -- Haldar's Remains
-        evt.SetMessage("Did you find Haldar's Remains?")
+        evt.SetMessage("Did you find Haldar's Remains?\nHis soul must be in sheer agony!\nPlease find the jar with his remains!")
         return
     end
     evt.SetMessage("Thank you for returning my \"brother's\" remains!\nHe was a promising Warlock and his life was ended to soon.\nNow that I have his remains, I will attempt to bring him back as a Lich, and together we will seek greater power and glory!")
@@ -10575,7 +10575,7 @@ RegisterGlobalEvent(936, nil, function()
         evt.SetMessage("Did Lord Markham refuse to give you the Quill, or have you not even visited him yet?\nHis Manor is in Tatalia, please don't forget to help me.")
         return
     end
-    evt.SetMessage("The actual Peacock feather that was used to sign the Treaty of Pierpont.")
+    evt.SetMessage("The actual Peacock feather that was used to sign the Treaty of Pierpont.\nMy collection is complete!\nI will be sure to record your activities and deeds correctly and justly so that all will know you as the true Lords of Harmondale!")
     RemoveItem(1405) -- Parson's Quill
     SetAward(Award(38)) -- Returned Parson's Quill to Norbert Thrush
     AddValue(Experience, 5000)
@@ -10735,18 +10735,18 @@ end)
 
 RegisterGlobalEvent(945, nil, function()
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 411, 0, false) then -- monster 411 "Troglodyte Drone"; all matching actors defeated
-        evt.SetMessage("There are still troglodytes roaming the lower mine levels.")
+        evt.SetMessage("There are still troglodytes roaming the lower mine levels.\nPlease remove them!")
         return
     end
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 412, 0, false) then -- monster 412 "Troglodyte Soldier"; all matching actors defeated
-        evt.SetMessage("There are still troglodytes roaming the lower mine levels.")
+        evt.SetMessage("There are still troglodytes roaming the lower mine levels.\nPlease remove them!")
         return
     end
     if not evt.CheckMonstersKilled(ActorKillCheck.MonsterId, 413, 0, false) then -- monster 413 "Troglodyte Queen"; all matching actors defeated
-        evt.SetMessage("There are still troglodytes roaming the lower mine levels.")
+        evt.SetMessage("There are still troglodytes roaming the lower mine levels.\nPlease remove them!")
         return
     end
-    evt.SetMessage("They're gone?")
+    evt.SetMessage("They're gone?\nRouted back into the connecting tunnels to Nighon!\nExcellent!\nWe can get back to mining immediately!\nThank you so much for your help; take this as a reward for your services.")
     AddValue(Gold, 2500)
     evt.ForPlayer(Players.All)
     AddValue(Experience, 5000)
@@ -10804,7 +10804,7 @@ RegisterGlobalEvent(947, nil, function()
         evt.SetNPCTopic(623, 0, 0) -- Seth Drakkson topic 0 cleared
         evt.SetNPCGreeting(623, 281) -- Seth Drakkson greeting: Good work on those griffins, my lords. It is always a pleasure to see you.
     else
-        evt.SetMessage("You haven't killed off all the griffins in either Erathia or the Bracada Desert.")
+        evt.SetMessage("You haven't killed off all the griffins in either Erathia or the Bracada Desert.\nIt is imperative that you finish this task to prevent their invasion.")
         return
     end
 end)
@@ -10853,7 +10853,7 @@ RegisterGlobalEvent(1064, nil, function()
         evt.SetMessage("Don't forget there is a reward for the Seasons' Stole if you are able to find it and return it to me.")
         return
     end
-    evt.SetMessage("Excellent!")
+    evt.SetMessage("Excellent!\nThis most certainly is the Seasons' Stole.\nHere is your reward; you've done both the School of Sorcery and myself a great service.")
     RemoveItem(1440) -- Season's Stole
     AddValue(Experience, 7500)
     evt.ForPlayer(Players.Current)
@@ -11448,7 +11448,7 @@ RegisterGlobalEvent(1170, nil, function()
         evt.SetMessage("Back when I was in the army, I was assigned to scout out the watchtowers in Deyja.\n<chuckling> It's no good trying to go through the front door, so I usually looked around for another way in.\nThose Necromancers are so cowardly, they always have an escape route.\nAnd a way out is also a way in...")
         return
     end
-    evt.SetMessage("Glad you found the way in the back door.")
+    evt.SetMessage("Glad you found the way in the back door.\nYou probably avoided a really nasty ambush that way.\nI hope my advice was useful!")
 end)
 RegisterCanShowTopic(1170, function()
     evt._BeginCanShowTopic(1170)
@@ -11511,9 +11511,9 @@ end)
 
 RegisterGlobalEvent(1174, nil, function()
     if IsQBitSet(QBit(1564)) then -- Promoted to Assassin
-        evt.SetMessage("The dragon is fallen--and at your hands!")
+        evt.SetMessage("The dragon is fallen--and at your hands!\nYou are a hero!")
     elseif IsQBitSet(QBit(1565)) then -- Promoted to Honorary Assassin
-        evt.SetMessage("The dragon is fallen--and at your hands!")
+        evt.SetMessage("The dragon is fallen--and at your hands!\nYou are a hero!")
     else
         evt.SetMessage("Until recently, our local dragon Wromthrax the Heartless has confined his depredations to the hills in the south--eating goats, farm animals, and stray dogs.\nBut he has developed a taste for elvish blood, and now hunts us as well.\nIf you should care to confront him, his cave is in the north, west of the Mercenary Guild in the mountains.\nHe isn't always there.\nBe careful--he is mighty.")
         return
@@ -11603,7 +11603,7 @@ RegisterGlobalEvent(1181, nil, function()
     elseif IsQBitSet(QBit(1575)) then -- Promoted to Honorary Master
         evt.SetMessage("Glad to hear the Baa cult has gone missing, instead of my sheep!\nGood job!")
     else
-        evt.SetMessage("Lots of sheep have gone missing since the Baa cult moved in--and I mean lots.")
+        evt.SetMessage("Lots of sheep have gone missing since the Baa cult moved in--and I mean lots.\nNo doubt they were taken to the Baa temple for sacrifice.\nI'm going to go broke if someone doesn't do something about those cultists!")
         return
     end
 end)
@@ -11646,7 +11646,7 @@ RegisterGlobalEvent(1185, nil, function()
 end)
 
 RegisterGlobalEvent(1186, nil, function()
-    evt.SetMessage("Arena fighting is available to anyone who wants to practice against any kind of opponent.")
+    evt.SetMessage("Arena fighting is available to anyone who wants to practice against any kind of opponent.\nYou can get to the arena by visiting a stable on any Sunday and asking them to take you there.\n")
 end)
 
 RegisterGlobalEvent(1187, nil, function()
@@ -11654,11 +11654,11 @@ RegisterGlobalEvent(1187, nil, function()
 end)
 
 RegisterGlobalEvent(1188, nil, function()
-    evt.SetMessage("Every graveyard or ancestral burial place seems to have a haunted house nearby--and ours is no exception.")
+    evt.SetMessage("Every graveyard or ancestral burial place seems to have a haunted house nearby--and ours is no exception.\nThere is a mansion near one of the plateaus on the surface in the northwest.\nIt is most certainly haunted.")
 end)
 
 RegisterGlobalEvent(1189, nil, function()
-    evt.SetMessage("Fear the touch of the Ghost as you fear the loss of your life.")
+    evt.SetMessage("Fear the touch of the Ghost as you fear the loss of your life.\nIt inflicts terrible spiritual wounds and drains your youth before your eyes!")
 end)
 
 RegisterGlobalEvent(1190, nil, function()
@@ -11744,11 +11744,11 @@ end)
 
 RegisterGlobalEvent(1202, nil, function()
     if HasItem(1289) then -- Divine Intervention
-        evt.SetMessage("Divine intervention has been found and copied?")
+        evt.SetMessage("Divine intervention has been found and copied?\nA miracle!\nI never expected to see it in my lifetime!\n")
     elseif IsQBitSet(QBit(1621)) then -- Promoted to Archmage
-        evt.SetMessage("Divine intervention has been found and copied?")
+        evt.SetMessage("Divine intervention has been found and copied?\nA miracle!\nI never expected to see it in my lifetime!\n")
     elseif IsQBitSet(QBit(1622)) then -- Promoted to Honorary Archmage
-        evt.SetMessage("Divine intervention has been found and copied?")
+        evt.SetMessage("Divine intervention has been found and copied?\nA miracle!\nI never expected to see it in my lifetime!\n")
     else
         evt.SetMessage("Our astrologers have determined that the missing Divine Intervention text lies somewhere deep under the ground.\nUnder Deyja, to be precise.\nThey fear that the current incarnation of the text has fallen into the Breeding Pit--the Necromancer's version of our Proving Grounds.\nOh, what must we have done to offend the Gods so?\nWe will never retrieve the text from that forsaken place!")
         return
@@ -11757,11 +11757,11 @@ end)
 
 RegisterGlobalEvent(1203, nil, function()
     if HasItem(1289) then -- Divine Intervention
-        evt.SetMessage("All the grandmasters are very pleased with you.")
+        evt.SetMessage("All the grandmasters are very pleased with you.\nYou have done our profession a great service!")
     elseif IsQBitSet(QBit(1621)) then -- Promoted to Archmage
-        evt.SetMessage("All the grandmasters are very pleased with you.")
+        evt.SetMessage("All the grandmasters are very pleased with you.\nYou have done our profession a great service!")
     elseif IsQBitSet(QBit(1622)) then -- Promoted to Honorary Archmage
-        evt.SetMessage("All the grandmasters are very pleased with you.")
+        evt.SetMessage("All the grandmasters are very pleased with you.\nYou have done our profession a great service!")
     else
         evt.SetMessage("The spell of Divine Intervention, the highest of the school of Light magic, has been missing for centuries.\nIt is a curse, we believe, for our lack of devotion and faith to the Light.\nWe struggle, and some go forth to find the spell, from time to time, but none have been successful.\nEach time they find it, fate cruelly snatches it from our hands.\nOur Grandmasters have been bereft of this final, great spell for as long as anyone alive can remember.")
         return
@@ -11817,7 +11817,7 @@ RegisterGlobalEvent(1213, nil, function()
     if IsQBitSet(QBit(713)) then -- Placed item 617 in out14(statue)
         if IsQBitSet(QBit(714)) then -- Place item 618 in out13(statue)
             if not IsQBitSet(QBit(715)) then -- Place item 619 in out06(statue)
-                evt.SetMessage("All three statuettes are not placed.")
+                evt.SetMessage("All three statuettes are not placed.\nI cannot reward partial success.\nReturn when you have placed all three.")
                 return
             end
             evt.SetMessage("Great work!\nThe Druids are so pleased, they threw in a little extra for your fine performance.\nTake this… you most certainly deserve it.")
@@ -11832,7 +11832,7 @@ RegisterGlobalEvent(1213, nil, function()
             return
         end
     end
-    evt.SetMessage("All three statuettes are not placed.")
+    evt.SetMessage("All three statuettes are not placed.\nI cannot reward partial success.\nReturn when you have placed all three.")
 end)
 
 RegisterGlobalEvent(1214, nil, function()
@@ -11879,7 +11879,7 @@ RegisterGlobalEvent(1217, nil, function()
         evt.SetMessage("You must claim a victory at ALL 13 taverns.\nUntil you do, you cannot be declared ArcoMage Champion.")
         return
     end
-    evt.SetMessage("Congratulations!")
+    evt.SetMessage("Congratulations!\nYou have become the ArcoMage Champion!\nThe prize is waiting in the chest right outside my house.")
     ClearQBit(QBit(717)) -- Win a game of Arcomage in all thirteen taverns, then return to Gina Barnes in Erathia.
     AddValue(Gold, 100000)
     SubtractValue(ReputationInCurrentLocation, 10)
@@ -11908,7 +11908,7 @@ RegisterGlobalEvent(1221, nil, function()
 end)
 
 RegisterGlobalEvent(1222, nil, function()
-    evt.SetMessage("Dwarves live under the ground of the Barrow Downs--a barren collection of ancient gravesites built by their race centuries ago to honor fallen kings and heroes.")
+    evt.SetMessage("Dwarves live under the ground of the Barrow Downs--a barren collection of ancient gravesites built by their race centuries ago to honor fallen kings and heroes.\nNot all of the barrows can be reached on the surface--many are magically connected to each other through a system of teleporters and traps that protect the graves from those who would rob them.\nIf you look closely at the walls you should see markings that might help you navigate.")
 end)
 
 RegisterGlobalEvent(1223, nil, function()
@@ -11921,10 +11921,10 @@ end)
 
 RegisterGlobalEvent(1224, nil, function()
     if not IsQBitSet(QBit(610)) then -- Built Castle to Level 2 (rescued dwarf guy)
-        evt.SetMessage("Bracada leased the land where we started the Red Dwarf Mine to us a few years ago.")
+        evt.SetMessage("Bracada leased the land where we started the Red Dwarf Mine to us a few years ago.\nThat was until the Medusas came and took the mines from our people.\nOnly the Gods know what horrors go on in there now.\nThe mines were in the Northeast corner of Bracada.")
         return
     end
-    evt.SetMessage("Thank you for delivering our people from the medusas!")
+    evt.SetMessage("Thank you for delivering our people from the medusas!\nThe Dwarves of Stone City will not forget you!")
 end)
 
 RegisterGlobalEvent(1225, nil, function()
@@ -11932,7 +11932,7 @@ RegisterGlobalEvent(1225, nil, function()
         evt.SetMessage("When the Medusas took the Red Dwarf Mines from us, not everyone escaped.\nThere are still several statues in the mines.\nThey can be rescued if their statues haven't been broken yet, but you would have to fight through the Medusas to do it.")
         return
     end
-    evt.SetMessage("We owe you much for your daring rescue of our people.")
+    evt.SetMessage("We owe you much for your daring rescue of our people.\nRebuilding your castle was the least we could do for you.")
 end)
 
 RegisterGlobalEvent(1226, nil, function()
@@ -11959,7 +11959,7 @@ RegisterGlobalEvent(1229, nil, function()
         evt.SetMessage("It's good to see someone in Harmondale again, my lords.\nThe castle's been standing empty since the War, except for the goblins.\nBut they don't count, I suppose.")
         return
     end
-    evt.SetMessage("It's good to see the Castle rebuilt and those loathsome goblin bandits evicted.")
+    evt.SetMessage("It's good to see the Castle rebuilt and those loathsome goblin bandits evicted.\nThings are looking better around here since you took over!")
 end)
 
 RegisterGlobalEvent(1230, nil, function()
@@ -11975,18 +11975,18 @@ RegisterGlobalEvent(1232, nil, function()
         evt.SetMessage("Did you notice that covered bridge on the way from Harmondale to Steadwick?\nIt's called Fort Riverstride, and it protects us from surprise Elvish attacks coming through Harmondale.\nThere's so many traps and tricks inside there, they say it will never fall without the help of treachery.\n")
         return
     end
-    evt.SetMessage("I've heard Fort Riverstride was taken with the aid of treachery!")
+    evt.SetMessage("I've heard Fort Riverstride was taken with the aid of treachery!\nWhat a shame that those wretches were able to wring concessions from the Queen in exchange for the return of what was already ours!")
 end)
 
 RegisterGlobalEvent(1233, nil, function()
     if IsQBitSet(QBit(596)) then -- Gave artifact to humans
-        evt.SetMessage("Looks like the trophy fell into the hands of Erathia.")
+        evt.SetMessage("Looks like the trophy fell into the hands of Erathia.\nI hear there was quite a fight over it! ")
         return
     elseif IsQBitSet(QBit(597)) then -- Gave artifact to elves
-        evt.SetMessage("Looks like the trophy fell into the hands of Avlee.")
+        evt.SetMessage("Looks like the trophy fell into the hands of Avlee.\nI hear there was quite a fight over it! ")
         return
     elseif IsQBitSet(QBit(659)) then -- Gave artifact to arbiter
-        evt.SetMessage("Looks like the trophy fell into the hands of the Arbiter.")
+        evt.SetMessage("Looks like the trophy fell into the hands of the Arbiter.\nI hear there was quite a fight over it! ")
     else
         evt.SetMessage("There's an artifact that Avlee and Erathia have been fighting over for decades.\nBoth claim it was made by their people, and have lost the thing to raids against one another many times.\nIt isn't even magical--just a trophy.\nFifteen years ago, the trophy was lost during a raid, and no one knows where it went.\nRecently, rumors have been flying, and the hunt's been on to figure out where it went.\nIf they find it--watch out!\nBlood will be spilt. ")
         return
@@ -12009,7 +12009,7 @@ RegisterGlobalEvent(1234, nil, function()
         evt.SetMessage("Because of all the tension in the air, Erathia and Avlee hired an arbiter to help them work out their differences.\nHe's staying in the \"House of Stars\" on the eastern edge of Harmondale territory.\nMaybe he has some advice for you.")
         return
     end
-    evt.SetMessage("The death of Judge Grey was a blow to all of us.")
+    evt.SetMessage("The death of Judge Grey was a blow to all of us.\nI hope his replacement does his legacy justice.")
 end)
 RegisterCanShowTopic(1234, function()
     evt._BeginCanShowTopic(1234)
@@ -12058,7 +12058,7 @@ RegisterGlobalEvent(1238, nil, function()
 end)
 
 RegisterGlobalEvent(1239, nil, function()
-    evt.SetMessage("What you see on the surface in Deyja is only a small part of the true Kingdom of Death.")
+    evt.SetMessage("What you see on the surface in Deyja is only a small part of the true Kingdom of Death.\nThere is an underground city they call the Pit.\nIt can be reached from the surface only by way of the Hall of the Pit in Northern Deyja.\n")
 end)
 
 RegisterGlobalEvent(1240, nil, function()
@@ -12109,7 +12109,7 @@ end)
 
 RegisterGlobalEvent(1245, nil, function()
     if not IsQBitSet(QBit(752)) then -- Talked to Roland
-        evt.SetMessage("Rumors have been trickling out of Nighon that King Roland of Enroth may still be alive.")
+        evt.SetMessage("Rumors have been trickling out of Nighon that King Roland of Enroth may still be alive.\nSome Warlocks have said that they personally saw him when they met with the foul Kreegan.\nThe rumors also say that the Kreegan are keeping him in a cage and mistreating him horribly.")
         return
     end
     evt.SetMessage("They say you are being credited with rescuing King Roland!\nThat's quite a feather in your cap, my lords!\nQUITE a feather!")
@@ -12241,7 +12241,7 @@ RegisterGlobalEvent(1257, nil, function()
 end)
 
 RegisterGlobalEvent(1258, nil, function()
-    evt.SetMessage("Here's your crate of Griffin Feathers.")
+    evt.SetMessage("Here's your crate of Griffin Feathers.\nRobert Belknap in the Tularean Forest pays the best prices for these feathers.\nBe sure to give him my regards when you see him.")
     ClearQBit(QBit(762)) -- Bought Item 1
     if IsAtLeast(Gold, 200) then
         if not IsAtLeast(Gold, 200) then
@@ -12275,7 +12275,7 @@ end)
 RegisterGlobalEvent(1259, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1494) then return end -- Crate of Arrowheads
-    evt.SetMessage("Rydric has sent me another shipment of Arrowheads.")
+    evt.SetMessage("Rydric has sent me another shipment of Arrowheads.\nWonderful!\nHere's your payment.")
     RemoveItem(1494) -- Crate of Arrowheads
     evt.ForPlayer(Players.Current)
     if IsAtLeast(DayOfWeek, 0) then
@@ -12305,7 +12305,7 @@ RegisterGlobalEvent(1259, nil, function()
 end)
 
 RegisterGlobalEvent(1260, nil, function()
-    evt.SetMessage("Here's your crate of Tularean Wood.")
+    evt.SetMessage("Here's your crate of Tularean Wood.\nBe sure to take it to Rydric in Harmondale.\nHe will pay you well for them.")
     ClearQBit(QBit(763)) -- Bought Item 2
     if IsAtLeast(Gold, 200) then
         if not IsAtLeast(Gold, 200) then
@@ -12339,7 +12339,7 @@ end)
 RegisterGlobalEvent(1261, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1495) then return end -- Crate of Griffin Feathers
-    evt.SetMessage("Pip Hillier sends another shipment of Griffin Feathers.")
+    evt.SetMessage("Pip Hillier sends another shipment of Griffin Feathers.\nHere's your payment.\nEnjoy the day!")
     RemoveItem(1495) -- Crate of Griffin Feathers
     evt.ForPlayer(Players.Current)
     if IsAtLeast(DayOfWeek, 0) then
@@ -12423,7 +12423,7 @@ RegisterGlobalEvent(1263, nil, function()
 end)
 
 RegisterGlobalEvent(1264, nil, function()
-    evt.SetMessage("Be sure to take this crate of Glass Bottles to Infernon in Avlee.")
+    evt.SetMessage("Be sure to take this crate of Glass Bottles to Infernon in Avlee.\nHe bottles the finest Enrothian Wine.")
     ClearQBit(QBit(765)) -- Bought Item 4
     if IsAtLeast(Gold, 2000) then
         if not IsAtLeast(Gold, 2000) then
@@ -12477,7 +12477,7 @@ RegisterGlobalEvent(1265, nil, function()
 end)
 
 RegisterGlobalEvent(1266, nil, function()
-    evt.SetMessage("Here's your crate of Enrothian Wine.")
+    evt.SetMessage("Here's your crate of Enrothian Wine.\nTake this to Calindra Goldensight in Tatalia and she will pay you well! ")
     ClearQBit(QBit(766)) -- Bought Item 5
     if IsAtLeast(Gold, 2000) then
         if not IsAtLeast(Gold, 2000) then
@@ -12512,7 +12512,7 @@ end)
 RegisterGlobalEvent(1267, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(1498) then return end -- Crate of Glass Bottles
-    evt.SetMessage("Arvin Beneclowd sends me another shipment of Glass Bottles.")
+    evt.SetMessage("Arvin Beneclowd sends me another shipment of Glass Bottles.\nTime to bottle some more Enrothian Wine.\nHere's your payment.")
     RemoveItem(1498) -- Crate of Glass Bottles
     evt.ForPlayer(Players.Current)
     if IsAtLeast(Counter(8), 24) then
@@ -12596,7 +12596,7 @@ RegisterGlobalEvent(1283, nil, function()
         return
     elseif IsAtLeast(ActualMight, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(31))
     else
         evt.StatusText("You have failed the game!")
@@ -12609,7 +12609,7 @@ RegisterGlobalEvent(1284, nil, function()
         return
     elseif IsAtLeast(ActualEndurance, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(32))
     else
         evt.StatusText("You have failed the game!")
@@ -12622,7 +12622,7 @@ RegisterGlobalEvent(1285, nil, function()
         return
     elseif IsAtLeast(ActualIntellect, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(33))
     else
         evt.StatusText("You have failed the game!")
@@ -12635,7 +12635,7 @@ RegisterGlobalEvent(1286, nil, function()
         return
     elseif IsAtLeast(ActualPersonality, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(34))
     else
         evt.StatusText("You have failed the game!")
@@ -12648,7 +12648,7 @@ RegisterGlobalEvent(1287, nil, function()
         return
     elseif IsAtLeast(ActualAccuracy, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(35))
     else
         evt.StatusText("You have failed the game!")
@@ -12661,7 +12661,7 @@ RegisterGlobalEvent(1288, nil, function()
         return
     elseif IsAtLeast(ActualSpeed, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(36))
     else
         evt.StatusText("You have failed the game!")
@@ -12674,7 +12674,7 @@ RegisterGlobalEvent(1289, nil, function()
         return
     elseif IsAtLeast(ActualLuck, 25) then
         AddValue(SkillPoints, 3)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+3 Skill Points")
         SetPlayerBit(PlayerBit(37))
     else
         evt.StatusText("You have failed the game!")
@@ -12687,7 +12687,7 @@ RegisterGlobalEvent(1290, nil, function()
         return
     elseif IsAtLeast(ActualMight, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(38))
     else
         evt.StatusText("You have failed the contest!")
@@ -12700,7 +12700,7 @@ RegisterGlobalEvent(1291, nil, function()
         return
     elseif IsAtLeast(ActualEndurance, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(39))
     else
         evt.StatusText("You have failed the contest!")
@@ -12713,7 +12713,7 @@ RegisterGlobalEvent(1292, nil, function()
         return
     elseif IsAtLeast(ActualIntellect, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(40))
     else
         evt.StatusText("You have failed the contest!")
@@ -12726,7 +12726,7 @@ RegisterGlobalEvent(1293, nil, function()
         return
     elseif IsAtLeast(ActualPersonality, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(41))
     else
         evt.StatusText("You have failed the contest!")
@@ -12739,7 +12739,7 @@ RegisterGlobalEvent(1294, nil, function()
         return
     elseif IsAtLeast(ActualAccuracy, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(42))
     else
         evt.StatusText("You have failed the contest!")
@@ -12752,7 +12752,7 @@ RegisterGlobalEvent(1295, nil, function()
         return
     elseif IsAtLeast(ActualSpeed, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(43))
     else
         evt.StatusText("You have failed the contest!")
@@ -12765,7 +12765,7 @@ RegisterGlobalEvent(1296, nil, function()
         return
     elseif IsAtLeast(ActualLuck, 50) then
         AddValue(SkillPoints, 5)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+5 Skill Points")
         SetPlayerBit(PlayerBit(44))
     else
         evt.StatusText("You have failed the contest!")
@@ -12778,7 +12778,7 @@ RegisterGlobalEvent(1297, nil, function()
         return
     elseif IsAtLeast(ActualMight, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(45))
     else
         evt.StatusText("You have failed the test!")
@@ -12791,7 +12791,7 @@ RegisterGlobalEvent(1298, nil, function()
         return
     elseif IsAtLeast(ActualEndurance, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(46))
     else
         evt.StatusText("You have failed the test!")
@@ -12804,7 +12804,7 @@ RegisterGlobalEvent(1299, nil, function()
         return
     elseif IsAtLeast(ActualIntellect, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(47))
     else
         evt.StatusText("You have failed the test!")
@@ -12817,7 +12817,7 @@ RegisterGlobalEvent(1300, nil, function()
         return
     elseif IsAtLeast(ActualPersonality, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(48))
     else
         evt.StatusText("You have failed the test!")
@@ -12830,7 +12830,7 @@ RegisterGlobalEvent(1301, nil, function()
         return
     elseif IsAtLeast(ActualAccuracy, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(49))
     else
         evt.StatusText("You have failed the test!")
@@ -12843,7 +12843,7 @@ RegisterGlobalEvent(1302, nil, function()
         return
     elseif IsAtLeast(ActualSpeed, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(50))
     else
         evt.StatusText("You have failed the test!")
@@ -12856,7 +12856,7 @@ RegisterGlobalEvent(1303, nil, function()
         return
     elseif IsAtLeast(ActualLuck, 100) then
         AddValue(SkillPoints, 7)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+7 Skill Points")
         SetPlayerBit(PlayerBit(51))
     else
         evt.StatusText("You have failed the test!")
@@ -12869,7 +12869,7 @@ RegisterGlobalEvent(1304, nil, function()
         return
     elseif IsAtLeast(ActualMight, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(52))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12882,7 +12882,7 @@ RegisterGlobalEvent(1305, nil, function()
         return
     elseif IsAtLeast(ActualEndurance, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(53))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12895,7 +12895,7 @@ RegisterGlobalEvent(1306, nil, function()
         return
     elseif IsAtLeast(ActualIntellect, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(54))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12908,7 +12908,7 @@ RegisterGlobalEvent(1307, nil, function()
         return
     elseif IsAtLeast(ActualPersonality, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(55))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12921,7 +12921,7 @@ RegisterGlobalEvent(1308, nil, function()
         return
     elseif IsAtLeast(ActualAccuracy, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(56))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12934,7 +12934,7 @@ RegisterGlobalEvent(1309, nil, function()
         return
     elseif IsAtLeast(ActualSpeed, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(57))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12947,7 +12947,7 @@ RegisterGlobalEvent(1310, nil, function()
         return
     elseif IsAtLeast(ActualLuck, 200) then
         AddValue(SkillPoints, 10)
-        evt.StatusText("You win!")
+        evt.StatusText("You win!\n+10 Skill Points")
         SetPlayerBit(PlayerBit(58))
     else
         evt.StatusText("You have failed the challenge!")
@@ -12955,7 +12955,7 @@ RegisterGlobalEvent(1310, nil, function()
 end)
 
 RegisterGlobalEvent(1311, nil, function()
-    evt.SetMessage("What!")
+    evt.SetMessage("What!\nYou wouldn't believe this fabrication would you?\nI would never dream of sabotaging your rule here!\nGaahh!\nPrepare to die!")
     evt.SetMonGroupBit(84, MonsterBits.Invisible, 1)
     evt.SetMonGroupBit(85, MonsterBits.Invisible, 0)
 end)
@@ -12994,7 +12994,7 @@ RegisterGlobalEvent(1314, nil, function()
 end)
 
 RegisterGlobalEvent(1315, nil, function()
-    evt.SetMessage("Don't try to say I didn't pay you!")
+    evt.SetMessage("Don't try to say I didn't pay you!\nYou got your gold!\n")
 end)
 
 RegisterGlobalEvent(1316, nil, function()
@@ -13007,7 +13007,7 @@ end)
 RegisterGlobalEvent(1317, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2163) then -- Goblinwatch Code
-        evt.SetMessage("How can you find the combination to that lock by standing around here?")
+        evt.SetMessage("How can you find the combination to that lock by standing around here?\nGet going!")
         return
     end
     evt.SetMessage("Ah, thank you for taking care of that little detail for us.\nHere's your gold!\nFeel free to return to Goblinwatch any time to finish clearing out the rest of the monsters.\nWe can't pay you, but you can have anything you find there.\n")
@@ -13034,7 +13034,7 @@ RegisterGlobalEvent(1319, nil, function()
         evt.SetMessage("Without the Chime of Harmony, I'm not authorized to pay the reward money.\n")
         return
     end
-    evt.SetMessage("Good work!")
+    evt.SetMessage("Good work!\nHere's your gold!\nI can't thank you enough for ruining that temple.\nNow the road to Ironfist will be safe for travel again.")
     RemoveItem(2095) -- Chime of Harmony
     AddValue(Experience, 10000)
     SetAward(Award(96)) -- Returned with the Chime of Harmony
@@ -13046,11 +13046,11 @@ RegisterGlobalEvent(1319, nil, function()
 end)
 
 RegisterGlobalEvent(1320, nil, function()
-    evt.SetMessage("The road to Ironfist is much safer thanks to you.")
+    evt.SetMessage("The road to Ironfist is much safer thanks to you.\nYou have our gratitude.")
 end)
 
 RegisterGlobalEvent(1321, nil, function()
-    evt.SetMessage("The proprietor of the Howling Moon is George Caniss.")
+    evt.SetMessage("The proprietor of the Howling Moon is George Caniss.\nIt's a wonderful place.\nTell him I said hi!")
 end)
 
 RegisterGlobalEvent(1322, nil, function()
@@ -13155,7 +13155,7 @@ end)
 RegisterGlobalEvent(1329, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2075) then -- Dragon Claw
-        evt.SetMessage("There is no use returning to me to talk about your quest.")
+        evt.SetMessage("There is no use returning to me to talk about your quest.\nI cannot change the rules or your quest.\nLongfang awaits your avenging sword.\nNow get to it!")
         return
     end
     evt.SetMessage("Well done!\nOne less horrible monster in the world is a good thing.\nI hereby officially promote all crusaders to heroes, and all honorary crusaders to the status of honorary hero! May you long continue to live up to the title!")
@@ -13177,7 +13177,7 @@ RegisterGlobalEvent(1329, nil, function()
 end)
 
 RegisterGlobalEvent(1330, nil, function()
-    evt.SetMessage("It is always good to speak with heroes of the realm!")
+    evt.SetMessage("It is always good to speak with heroes of the realm!\nCome back in some less troubled time and we'll swap tales of honor and courage by the fire!")
 end)
 
 RegisterGlobalEvent(1331, nil, function()
@@ -13215,7 +13215,7 @@ RegisterGlobalEvent(1335, nil, function()
 end)
 
 RegisterGlobalEvent(1337, nil, function()
-    evt.SetMessage("Thanks for bringing me home.")
+    evt.SetMessage("Thanks for bringing me home.\nI owe you a favor!")
 end)
 
 RegisterGlobalEvent(1338, nil, function()
@@ -13246,7 +13246,7 @@ RegisterGlobalEvent(1340, nil, function()
 end)
 
 RegisterGlobalEvent(1341, nil, function()
-    evt.SetMessage("I hope you know what you're doing.")
+    evt.SetMessage("I hope you know what you're doing.\nEveryone says my uncle is quite treacherous.")
 end)
 
 RegisterGlobalEvent(1343, nil, function()
@@ -13304,7 +13304,7 @@ RegisterGlobalEvent(1346, nil, function()
 end)
 
 RegisterGlobalEvent(1347, nil, function()
-    evt.SetMessage("Your work in capturing the Prince of Thieves has been quite beneficial to me.")
+    evt.SetMessage("Your work in capturing the Prince of Thieves has been quite beneficial to me.\nYou have my full support on the High Council.")
 end)
 
 RegisterGlobalEvent(1348, nil, function()
@@ -13429,7 +13429,7 @@ RegisterGlobalEvent(1359, nil, function()
             return
         end
         if not IsQBitSet(QBit(1192)) then -- NPC
-            evt.SetMessage("It appears that Slicker Silvertongue is a traitor on the Council.")
+            evt.SetMessage("It appears that Slicker Silvertongue is a traitor on the Council.\nYou will need proof to convince Regent Humphrey and have Slicker removed from the Council.\nGo to the Superior Temple of Baa in Kriegspire and return with proof associating Slicker with the Temple of Baa.")
             SetAutonote(475) -- It appears that Slicker Silvertongue is a traitor on the Council. You will need proof to convince Regent Humphrey and have Slicker removed from the Council. Go to the Superior Temple of Baa in Kriegspire and return with proof associating Slicker with the Temple of Baa.
             return
         end
@@ -13518,7 +13518,7 @@ RegisterGlobalEvent(1366, nil, function()
 end)
 
 RegisterGlobalEvent(1367, nil, function()
-    evt.SetMessage("Thanks again for getting the hourglass for me!")
+    evt.SetMessage("Thanks again for getting the hourglass for me!\nIf only I could remember where I put it.\n<sighs>\nYou have my support in the council for as long as you need it.")
 end)
 
 RegisterGlobalEvent(1368, nil, function()
@@ -13641,7 +13641,7 @@ RegisterGlobalEvent(1379, nil, function()
 end)
 
 RegisterGlobalEvent(1380, nil, function()
-    evt.SetMessage("Congratulations!")
+    evt.SetMessage("Congratulations!\nI know you’ll make fine cavaliers.\nI only wish I had my youth again to serve with Osric in a campaign against the devils.")
     evt.SetNPCTopic(792, 0, 0) -- Chadwick Blackpoole topic 0 cleared
 end)
 
@@ -13713,7 +13713,7 @@ RegisterGlobalEvent(1386, nil, function()
 end)
 
 RegisterGlobalEvent(1387, nil, function()
-    evt.SetMessage("Place the memory Crystals into the modules above.")
+    evt.SetMessage("Place the memory Crystals into the modules above.\nAll four Crystals are necessary to activate the Oracle.")
 end)
 
 RegisterGlobalEvent(1389, nil, function()
@@ -13822,7 +13822,7 @@ RegisterGlobalEvent(1395, nil, function()
 end)
 
 RegisterGlobalEvent(1396, nil, function()
-    evt.SetMessage("You must pray at the center of the Circle of Stone during an equinox or solstice to complete the Ceremony of the Sun and be promoted to great druid.")
+    evt.SetMessage("You must pray at the center of the Circle of Stone during an equinox or solstice to complete the Ceremony of the Sun and be promoted to great druid.\nThere is nothing I can do for you to be promoted until then.")
 end)
 
 RegisterGlobalEvent(1397, nil, function()
@@ -13832,7 +13832,7 @@ RegisterGlobalEvent(1397, nil, function()
 end)
 
 RegisterGlobalEvent(1398, nil, function()
-    evt.SetMessage("You must be standing before the altar of the Moon at midnight on any full moon to complete the Ceremony of the Moon and be promoted to arch druid.")
+    evt.SetMessage("You must be standing before the altar of the Moon at midnight on any full moon to complete the Ceremony of the Moon and be promoted to arch druid.\nThere is nothing I can do for you to be promoted until then.")
 end)
 
 RegisterGlobalEvent(1399, nil, function()
@@ -13851,7 +13851,7 @@ RegisterGlobalEvent(1401, nil, function()
 end)
 
 RegisterGlobalEvent(1402, nil, function()
-    evt.SetMessage("I was looking out my window when the weather broke and the snow vanished!")
+    evt.SetMessage("I was looking out my window when the weather broke and the snow vanished!\nA miracle!\nA genuine miracle!\nYou have done my people and me a great service.\n<Slapping his chest> Count Erik Von Stromgard as your friend forever!\n")
     ClearQBit(QBit(1144)) -- End winter for Lord Stromgard at Castle Stromgard, and return to him with the good news. - NPC
     SetQBit(QBit(1199)) -- NPC
     AddValue(655595, 10)
@@ -13884,7 +13884,7 @@ end)
 RegisterGlobalEvent(1405, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2106) then -- Dragon Tower Keys
-        evt.SetMessage("No key—No reward.")
+        evt.SetMessage("No key—No reward.\nOur deal is simple and straightforward.\nFetch the key from my old keep and return once you have it.\n")
         return
     end
     evt.SetMessage("Very good!\nYou got the key, and hopefully slew a large number of those loathsome beasts.\nI hereby promote all archers to the status of warrior mage, and all non-archers to honorary warrior mage.")
@@ -13930,7 +13930,7 @@ RegisterGlobalEvent(1410, nil, function()
 end)
 
 RegisterGlobalEvent(1411, nil, function()
-    evt.SetMessage("Curses!")
+    evt.SetMessage("Curses!\nFoiled again!")
 end)
 
 RegisterGlobalEvent(1413, nil, function()
@@ -13981,12 +13981,12 @@ RegisterGlobalEvent(1415, nil, function()
         ClearQBit(QBit(1224)) -- Find a cure for Slicker Silvertongue in the Superior Temple of Baa east of Castle Kriegspire and return to Wilbur Humphrey with the good news. - Wilbur Humphrey
         SetQBit(QBit(1225)) -- Bring the the letter detailing Silvertongue's treason to the High Council in Free Haven. - NPC
     elseif HasItem(2105) then -- Cloak of Baa
-        evt.SetMessage("Please hurry in your quest to find Slicker Silvertongue's cure!")
+        evt.SetMessage("Please hurry in your quest to find Slicker Silvertongue's cure!\nI am sure the poor man must be suffering horribly under their dreadful mind control spell!")
         return
     else
         evt.ForPlayer(Players.Current)
         AddValue(InventoryItem(2105), 2105) -- Cloak of Baa
-        evt.SetMessage("Please hurry in your quest to find Slicker Silvertongue's cure!")
+        evt.SetMessage("Please hurry in your quest to find Slicker Silvertongue's cure!\nI am sure the poor man must be suffering horribly under their dreadful mind control spell!")
         return
     end
 end)
@@ -15144,7 +15144,7 @@ RegisterGlobalEvent(1427, nil, function()
             RemoveItem(2085) -- Bone
             AddValue(Gold, 1000)
             SubtractValue(131307, 2)
-            evt.SetMessage("Hmm...")
+            evt.SetMessage("Hmm...\nA leg bone of a human?\nThis will do nicely.\nThis bone is certainly worth 1000 gold.\n")
             return
         end
     end
@@ -15158,7 +15158,7 @@ RegisterGlobalEvent(1428, nil, function()
         if HasItem(2090) then -- Lodestone
             RemoveItem(2090) -- Lodestone
             AddValue(Gold, 5)
-            evt.SetMessage("Thank you!")
+            evt.SetMessage("Thank you!\nYou're too generous– this will make a lovely gift.\nHere's the 5 gold I owe you.")
             return
         end
     end
@@ -15204,7 +15204,7 @@ RegisterGlobalEvent(1431, nil, function()
             return
         end
     end
-    evt.SetMessage("My favorite wine is the stuff they give you for winning at the circus.")
+    evt.SetMessage("My favorite wine is the stuff they give you for winning at the circus.\nI'll pay 300 gold for any keg of wine from the circus that you can bring me.")
 end)
 
 RegisterGlobalEvent(1432, nil, function()
@@ -15228,7 +15228,7 @@ RegisterGlobalEvent(1433, nil, function()
         if HasItem(2097) then -- Four Leaf Clover
             RemoveItem(2097) -- Four Leaf Clover
             AddValue(Gold, 25)
-            evt.SetMessage("Hurray!")
+            evt.SetMessage("Hurray!\nThis is much easier and much less embarrasing than going to the circus and losing!\nHere's 25 gold!")
             return
         end
     end
@@ -15281,7 +15281,7 @@ RegisterGlobalEvent(1438, nil, function()
 end)
 
 RegisterGlobalEvent(1439, nil, function()
-    evt.SetMessage("Hello!")
+    evt.SetMessage("Hello!\nI've got great suits of armor that I'll trade for golden pyramids or kegs of wine.")
 end)
 
 RegisterGlobalEvent(1440, nil, function()
@@ -15379,27 +15379,27 @@ RegisterGlobalEvent(1448, nil, function()
             local randomStep = PickRandomOption(1448, 24, {24, 27, 30, 33, 36, 39})
             if randomStep == 24 then
                 AddValue(InventoryItem(2056), 2056) -- Diamond
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             elseif randomStep == 27 then
                 AddValue(InventoryItem(2065), 2065) -- Sapphire
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             elseif randomStep == 30 then
                 AddValue(InventoryItem(2064), 2064) -- Emerald
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             elseif randomStep == 33 then
                 AddValue(InventoryItem(2063), 2063) -- Sunstone
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             elseif randomStep == 36 then
                 AddValue(InventoryItem(2059), 2059) -- Ruby
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             elseif randomStep == 39 then
                 AddValue(InventoryItem(2062), 2062) -- Purple Topaz
-                evt.SetMessage("Thanks for the lamp!")
+                evt.SetMessage("Thanks for the lamp!\nHere are your stones.")
                 return
             end
             return
@@ -15441,11 +15441,11 @@ RegisterGlobalEvent(1580, nil, function()
 end)
 
 RegisterGlobalEvent(1581, nil, function()
-    evt.SetMessage("No one can use a shield like Bronwyn Meck in Blackshire.")
+    evt.SetMessage("No one can use a shield like Bronwyn Meck in Blackshire.\nThat's the person to talk to if you want to master the shield.")
 end)
 
 RegisterGlobalEvent(1582, nil, function()
-    evt.SetMessage("Arlen Sailor runs the best school in the art of wearing leather armor.")
+    evt.SetMessage("Arlen Sailor runs the best school in the art of wearing leather armor.\nHe normally holds his classes near Castle Stone.")
 end)
 
 RegisterGlobalEvent(1583, nil, function()
@@ -15489,7 +15489,7 @@ RegisterGlobalEvent(1592, nil, function()
 end)
 
 RegisterGlobalEvent(1593, nil, function()
-    evt.SetMessage("Su Lang Manchu was my teacher in dark magic.")
+    evt.SetMessage("Su Lang Manchu was my teacher in dark magic.\nHe maintains a small house in a village in Paradise Valley.")
 end)
 
 RegisterGlobalEvent(1594, nil, function()
@@ -15525,7 +15525,7 @@ RegisterGlobalEvent(1601, nil, function()
 end)
 
 RegisterGlobalEvent(1602, nil, function()
-    evt.SetMessage("John Tuck can teach you to master the learning skill.")
+    evt.SetMessage("John Tuck can teach you to master the learning skill.\nI believe he's still living in Silver Cove.")
 end)
 
 RegisterGlobalEvent(1603, nil, function()
@@ -15559,7 +15559,7 @@ end)
 RegisterGlobalEvent(1606, nil, function()
     evt.ForPlayer(Players.All)
     if not HasItem(2123) then -- Enemies List
-        evt.SetMessage("Keep searching– the lives of the mayor and myself could very well be in your hands.")
+        evt.SetMessage("Keep searching– the lives of the mayor and myself could very well be in your hands.\nWe can’t take action against them without proof.")
         return
     end
     evt.SetMessage("Just as I suspected!\nI’m surprised the Mayor was number three on their enemies list.\nI suppose he IS a tad incompetent, but he’s not a bad person.\nThanks again, please accept this gold and my gratitude as your reward.")
@@ -15575,7 +15575,7 @@ RegisterGlobalEvent(1606, nil, function()
 end)
 
 RegisterGlobalEvent(1607, nil, function()
-    evt.SetMessage("I think I might just allow the Fraternal Order of Silver to police the areas around Mist.")
+    evt.SetMessage("I think I might just allow the Fraternal Order of Silver to police the areas around Mist.\nMaybe they’d be able to hunt down all the evil people and leave this island a paradise.")
 end)
 
 RegisterGlobalEvent(1608, nil, function()
@@ -15594,7 +15594,7 @@ RegisterGlobalEvent(1610, nil, function()
         evt.SetMessage("Did the curse frighten you away as well?\nI can understand.\nBaa is patient, however.\nShould you work up the courage to find the candelabra, I’m still prepared to compensate you for it.")
         return
     end
-    evt.SetMessage("Excellent!")
+    evt.SetMessage("Excellent!\nBaa be praised!\nI see you were not frightened of the curse after all.\nHere is your reward and thank you again for your assistance.")
     RemoveItem(2069) -- Candelabra
     SetAward(Award(81)) -- Retrieved the Baa Candelabra
     AddValue(Experience, 2000)
@@ -15614,7 +15614,7 @@ RegisterGlobalEvent(1612, nil, function()
         evt.SetMessage("My niece, Melody, has been kidnapped from her home in Mist and locked in a Silver Helm outpost near there.\nShe’s one of the few people who know that I’ve been murdered.\nI’m sure Gerrard has her locked up for that reason, but I believe he wants to force her into marriage to eliminate any opposition to his leadership of the Fraternal Order of Silver.")
         return
     end
-    evt.SetMessage("Thank you for saving my niece.")
+    evt.SetMessage("Thank you for saving my niece.\nBehind this wall is a secret area I’ve kept hidden from even Gerrard all these years.\nYou are welcome to take whatever you want; I’d prefer you have this than Gerrard.")
 end)
 
 RegisterGlobalEvent(1613, nil, function()
@@ -15706,7 +15706,7 @@ RegisterGlobalEvent(1622, nil, function()
         evt.SetMessage("No one has returned with proof that they’ve killed the spider queen, so the reward is still available.")
         return
     end
-    evt.SetMessage("What a gruesome trophy!")
+    evt.SetMessage("What a gruesome trophy!\nThis heart proves you’ve defeated the wicked spider queen.\nHopefully now the spiders won’t plague New Sorpigal anymore.\nHere is the reward I promised.")
     RemoveItem(2101) -- Spider Queen's Heart
     SetAward(Award(84)) -- Killed the Spider Queen
     AddValue(Experience, 3000)
@@ -15727,7 +15727,7 @@ RegisterGlobalEvent(1624, nil, function()
         evt.SetMessage("I’m glad to see you again, but the Celestial Order is still in the Monolith.")
         return
     end
-    evt.SetMessage("Thank you for your help!")
+    evt.SetMessage("Thank you for your help!\nPlease allow me to compensate you for your efforts.\nWe can rest more safely knowing that Cedric and his renegade druids are no longer polluting that sacred area. ")
     ClearQBit(QBit(1155)) -- Deface the altar in the Monolith west of Silver Cove and return to Eleanor Vanderbilt in Silver Cove. - NPC
     AddValue(131307, 2)
     AddValue(Gold, 3000)
@@ -15744,7 +15744,7 @@ RegisterGlobalEvent(1625, nil, function()
         if HasItem(2094) then -- Cobra Egg
             RemoveItem(2094) -- Cobra Egg
             AddValue(Gold, 300)
-            evt.SetMessage("Excellent specimen!")
+            evt.SetMessage("Excellent specimen!\nI should be able to hatch this in no time and help my flagging business.\nHere is my payment for this wonderful egg.\nI’ll buy any more cobra eggs you have as long as they are in demand.")
             return
         end
     end
@@ -15769,7 +15769,7 @@ RegisterGlobalEvent(1629, nil, function()
         evt.SetMessage("You must hurry and destroy the crystal before Baa claims it.\nI’m not sure how long it will take, so time is of the essence.")
         return
     end
-    evt.SetMessage("Good work!")
+    evt.SetMessage("Good work!\nI’m glad you made it in time.\nI don’t like to think about what Baa would have done with that crystal.\nYou have done all of Enroth a great service.")
     ClearQBit(QBit(1158)) -- Destroy the crystal in the Temple of the Fist and return to Winston Schezar in Bootleg Bay. - NPC
     AddValue(Gold, 3000)
     AddValue(131307, 2)
@@ -15812,7 +15812,7 @@ RegisterGlobalEvent(1633, nil, function()
 end)
 
 RegisterGlobalEvent(1634, nil, function()
-    evt.SetMessage("Could you help me get out of here?")
+    evt.SetMessage("Could you help me get out of here?\nI need to get back to my wife in Blackshire.")
     SetQBit(QBit(1702)) -- Replacement for NPCs ¹108 ver. 6
 end)
 
@@ -15847,10 +15847,10 @@ end)
 
 RegisterGlobalEvent(1638, nil, function()
     if not IsQBitSet(QBit(1703)) then -- Replacement for NPCs ¹193 ver. 6
-        evt.SetMessage("Have you found Sharry yet?")
+        evt.SetMessage("Have you found Sharry yet?\nNo?\nI’m sure she’s wherever the Shadow Guild is hiding out.\nFind them and you’ll find her.")
         return
     end
-    evt.SetMessage("Thank you so much for saving Sharry!")
+    evt.SetMessage("Thank you so much for saving Sharry!\nI can’t tell you how much this means to both New Sorpigal and myself.\nYou have our gratitude forever.")
     ClearQBit(QBit(1703)) -- Replacement for NPCs ¹193 ver. 6
     ClearQBit(QBit(1162)) -- Rescue Sharry from the Shadow Guild Hideout and return with her to Frank Fairchild in New Sorpigal. - NPC
     AddValue(Gold, 2000)
@@ -15866,7 +15866,7 @@ RegisterGlobalEvent(1639, nil, function()
         evt.SetMessage("I'm so tired of the Shadow Guild, but I don't have any substantial proof of their activities.\nI'd love to have something I could show to Anthony Stone proving the Shadow Guild is up to no good down here.")
         return
     end
-    evt.SetMessage("Interesting.")
+    evt.SetMessage("Interesting.\nThe Dragoons were hired by the Shadow Guild.\nI’m certain Anthony Stone will want to hear about this.\nI’ll present this letter when I see him next. Thank you for this.\nI’m sure he will want to take action against the Shadow Guild now that we have some proof of their deeds.")
     RemoveItem(2124) -- Orders from the Shadow Guild
     AddValue(Experience, 5000)
     evt.ForPlayer(Players.Current)
@@ -15876,7 +15876,7 @@ RegisterGlobalEvent(1639, nil, function()
 end)
 
 RegisterGlobalEvent(1640, nil, function()
-    evt.SetMessage("Thank you for rescuing me from these horrible ruffians!")
+    evt.SetMessage("Thank you for rescuing me from these horrible ruffians!\nI’d like to go back home to New Sorpigal now.")
     SetQBit(QBit(1703)) -- Replacement for NPCs ¹193 ver. 6
 end)
 
@@ -15888,7 +15888,7 @@ end)
 
 RegisterGlobalEvent(1642, nil, function()
     if not IsQBitSet(QBit(1704)) then -- Replacement for NPCs ¹195 ver. 6
-        evt.SetMessage("You didn’t find poor Angela?")
+        evt.SetMessage("You didn’t find poor Angela?\nSomething horrible must have happened to her!")
         return
     end
     evt.SetMessage("She’s alive!\nThank you so much for finding Angela!\nIf I weren’t so happy to see her, she’d be in a lot of trouble.\nPlease take this as a reward for all you’ve done.")
@@ -15920,7 +15920,7 @@ RegisterGlobalEvent(1645, nil, function()
         evt.SetMessage("Oh dear!\nYou haven’t found her yet?\nSurely she must have been sacrificed or eaten or something.\nPlease try to find her, or at least avenge her death.")
         return
     end
-    evt.SetMessage("Wonderful!")
+    evt.SetMessage("Wonderful!\nShe’s not dead after all!\nThank you for all your trouble.\nI hope you will accept this token of my gratitude.")
     evt.MoveNPC(940, 1400) -- Sherell Ivanaveh -> House
     ClearQBit(QBit(1705)) -- Replacement for NPCs ¹155 ver. 6
     ClearQBit(QBit(1164)) -- Rescue Sherell from the cannibals on the islands east of Free Haven and return with her to Carlo Tormini in Free Haven. - NPC
@@ -15945,7 +15945,7 @@ end)
 
 RegisterGlobalEvent(1648, nil, function()
     if not IsQBitSet(QBit(1041)) then -- 17 D17, given when wolf altar is destroyed.
-        evt.SetMessage("Is there no hope for us?")
+        evt.SetMessage("Is there no hope for us?\nPlease promise me you’ll keep searching for a way to reverse the curse and turn us back to normal people.")
         return
     end
     evt.SetMessage("Thank you!\nWe can now sleep at night without worrying about what kinds of foul acts we will commit as monsters!\nIt’s a tragedy that our lord was a werewolf himself; he’ll be sorely missed.\nPlease accept this for your help, and for believing in us.")
@@ -15981,7 +15981,7 @@ RegisterGlobalEvent(1654, nil, function()
         evt.SetMessage("The werewolf leader possesses the Pearl of Putrescence, the opposite of my Pearl of Purity.\nWith this pearl, he has been able to cause the curse.\nI was never able to kill him in my retreat.\nI will be able to rest in peace knowing that he has been defeated.")
         return
     end
-    evt.SetMessage("Thank you for defeating the werewolf leader.")
+    evt.SetMessage("Thank you for defeating the werewolf leader.\nI wish that I had been strong enough to stop this from happening.\nPlease accept my thanks for allowing my spirit to move on.\nI will take the pearl away so that it may no longer cause any harm to the people of Enroth.")
     RemoveItem(2078) -- Pearl of Putrescence
     AddValue(Experience, 5000)
     SetAward(Award(93)) -- Broke the Blackshire Curse
@@ -16006,7 +16006,7 @@ RegisterGlobalEvent(1655, nil, function()
 end)
 
 RegisterGlobalEvent(1660, nil, function()
-    evt.SetMessage("You no goblin!")
+    evt.SetMessage("You no goblin!\nYou leave!\nWe take castle to watch over humans!\nYou no more kill us!")
 end)
 
 RegisterGlobalEvent(1661, nil, function()
@@ -16086,7 +16086,7 @@ RegisterGlobalEvent(1673, nil, function()
         evt.SetMessage("As patient as I am, I would like to see the channels I use to sustain me opened again.\nPlease do not fail.")
         return
     end
-    evt.SetMessage("Thank you for your assistance.")
+    evt.SetMessage("Thank you for your assistance.\nI am grateful to you for returning my source of sustenance to me.\nI need to recharge what little power I have left now that I am able to again.")
     if IsQBitSet(QBit(1383)) then return end -- NPC
     ClearQBit(QBit(1169)) -- Unward the doors in the Hall of the Fire Lord and return to the Lord of Fire, also in the Hall of the Fire Lord. - NPC
     SetQBit(QBit(1383)) -- NPC
@@ -16177,7 +16177,7 @@ RegisterGlobalEvent(1688, nil, function()
         evt.SetMessage("I am only allowed to vote on the issues that Lord Temper specifically instructs me on.\nGarner his approval, and on his recommendation, I will vote in your favor.")
         return
     end
-    evt.SetMessage("Osric has instructed me to vote for your cause.")
+    evt.SetMessage("Osric has instructed me to vote for your cause.\nI give you my full support in his name.")
 end)
 
 RegisterGlobalEvent(1689, nil, function()
@@ -16192,7 +16192,7 @@ end)
 RegisterGlobalEvent(1690, nil, function()
     evt.ForPlayer(Players.All)
     if not HasAward(Award(60)) then -- Captured the Prince of Thieves
-        evt.SetMessage("Lord Stone has not authorized me to vote in your behalf.")
+        evt.SetMessage("Lord Stone has not authorized me to vote in your behalf.\nYou will need to take this matter up with him.")
         return
     end
     evt.SetMessage("Anthony backs your request to visit the Oracle, and I give you my vote on his behalf.")

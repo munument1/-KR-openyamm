@@ -827,9 +827,15 @@ TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tiles
     CHECK((*mergedShadowspireDescriptors)[1].textureName == "gdtyl");
 
     REQUIRE_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.size(), 12u);
-    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().tileId, 1);
-    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().walkSoundId, 101u);
-    CHECK_EQ(mergedShadowspireScene.terrainFootstepSoundOverrides.front().runSoundId, 62u);
+    for (size_t overrideIndex = 0; overrideIndex < mergedShadowspireScene.terrainFootstepSoundOverrides.size();
+        ++overrideIndex)
+    {
+        const OpenYAMM::Game::OutdoorSceneTerrainFootstepSoundOverride &overrideEntry =
+            mergedShadowspireScene.terrainFootstepSoundOverrides[overrideIndex];
+        CHECK_EQ(overrideEntry.tileId, overrideIndex + 1);
+        CHECK_EQ(overrideEntry.walkSoundId, 95u);
+        CHECK_EQ(overrideEntry.runSoundId, 56u);
+    }
 }
 
 TEST_CASE("outdoor scene overlays apply partial environment flags")

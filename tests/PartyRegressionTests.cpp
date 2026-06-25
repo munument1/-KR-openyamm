@@ -463,6 +463,25 @@ TEST_CASE("party records mm7 arcomage champion qbit after all antagarich taverns
     CHECK(party.hasQuestBit(750));
 }
 
+TEST_CASE("party records mm8 arcomage champion qbit after all jadame taverns")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    party.recordArcomageWin(227, 0, 0);
+    CHECK_FALSE(party.hasQuestBit(174));
+
+    for (uint32_t houseId = 228; houseId < 238; ++houseId)
+    {
+        party.recordArcomageWin(houseId, 0, 0);
+    }
+
+    CHECK_FALSE(party.hasQuestBit(174));
+
+    party.recordArcomageWin(238, 0, 0);
+    CHECK(party.hasQuestBit(174));
+}
+
 TEST_CASE("party item ownership queries include the held item")
 {
     OpenYAMM::Game::Party party = makeInventoryParty();

@@ -8823,6 +8823,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntent(
         movementIntent.inMeleeRange,
         movementIntent.targetPosition,
         movementIntent.targetEdgeDistance,
+        movementIntent.targetHasAttackLineOfSight,
         actorAiSystem,
         nextAiState,
         nextAnimation,
@@ -9257,6 +9258,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     bool inMeleeRange,
     const GameplayWorldPoint &targetPosition,
     float targetEdgeDistance,
+    bool targetHasAttackLineOfSight,
     const GameplayActorAiSystem &actorAiSystem,
     ActorAiState &nextAiState,
     ActorAnimation &nextAnimation,
@@ -9276,9 +9278,12 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
         actorPathfindingEnabled && m_actorPathRuntime.actorHasPendingPlan(actorIndex);
     bool actorPathActiveBeforeResolve =
         actorPathfindingEnabled && m_actorPathRuntime.actorHasActivePath(actorIndex);
+    const bool actorPathCanUsePursuit =
+        meleePursuitActive || !targetHasAttackLineOfSight;
     const bool actorPathCanUseIntent =
         movementAction == ActorAiMovementAction::Pursue
         && moveSpeed > 0.0f
+        && actorPathCanUsePursuit
         && !inMeleeRange
         && actor.movementStateInitialized
         && m_outdoorMovementController
@@ -9699,6 +9704,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
             << " path_map=" << (actorPathMapAvailable ? 1 : 0)
             << " water_capable=" << (pathWaterCapable ? 1 : 0)
             << " melee_pursuit=" << (meleePursuitActive ? 1 : 0)
+            << " target_los=" << (targetHasAttackLineOfSight ? 1 : 0)
             << " in_melee=" << (inMeleeRange ? 1 : 0)
             << " path_active=" << (pathResult.pathActive ? 1 : 0)
             << " path_status=" << pathPlanStatusName(pathResult.planStatus)

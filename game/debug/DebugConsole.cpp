@@ -1615,6 +1615,7 @@ void DebugConsole::renderHelpText() const
     ImGui::BulletText("qbit dump [active|all|filter]");
     ImGui::BulletText("npc greeting get|reset|set <npc-id> [greeting-id]");
     ImGui::BulletText("award dump [active|all|filter]");
+    ImGui::BulletText("arcomage win <house-id|mm8>");
     ImGui::BulletText("item search <text>");
     ImGui::BulletText("item give <id|text> [qty]");
     ImGui::BulletText("gold get|add|set <amount>");

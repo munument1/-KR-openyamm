@@ -1418,6 +1418,7 @@ private:
         bool inMeleeRange,
         const GameplayWorldPoint &targetPosition,
         float targetEdgeDistance,
+        bool targetHasAttackLineOfSight,
         const GameplayActorAiSystem &actorAiSystem,
         ActorAiState &nextAiState,
         ActorAnimation &nextAnimation,

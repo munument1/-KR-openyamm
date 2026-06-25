@@ -33,6 +33,9 @@ namespace
 constexpr uint32_t OeMaxCharacterExperience = 4000000000u;
 constexpr uint32_t ArcomageChampionAwardId = 41;
 constexpr size_t ArcomageTavernCount = 11;
+constexpr uint32_t Mm8ArcomageChampionQBit = 174;
+constexpr uint32_t FirstMm8ArcomageHouseId = 228;
+constexpr uint32_t LastMm8ArcomageHouseId = 238;
 constexpr uint32_t Mm7ArcomageChampionQBit = 750;
 constexpr uint32_t FirstMm7ArcomageHouseId = 240;
 constexpr uint32_t LastMm7ArcomageHouseId = 252;
@@ -130,6 +133,19 @@ int partyWideUtilitySkillScore(const Character &member, const std::string &skill
 bool hasWonAllMm7ArcomageTaverns(const std::unordered_set<uint32_t> &wonHouseIds)
 {
     for (uint32_t houseId = FirstMm7ArcomageHouseId; houseId <= LastMm7ArcomageHouseId; ++houseId)
+    {
+        if (!wonHouseIds.contains(houseId))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool hasWonAllMm8ArcomageTaverns(const std::unordered_set<uint32_t> &wonHouseIds)
+{
+    for (uint32_t houseId = FirstMm8ArcomageHouseId; houseId <= LastMm8ArcomageHouseId; ++houseId)
     {
         if (!wonHouseIds.contains(houseId))
         {
@@ -6191,6 +6207,11 @@ void Party::recordArcomageWin(uint32_t houseId, int goldReward, uint32_t firstWi
         if (m_arcomageWonHouseIds.size() >= ArcomageTavernCount)
         {
             addAward(ArcomageChampionAwardId);
+        }
+
+        if (hasWonAllMm8ArcomageTaverns(m_arcomageWonHouseIds))
+        {
+            setQuestBit(Mm8ArcomageChampionQBit, true);
         }
 
         if (hasWonAllMm7ArcomageTaverns(m_arcomageWonHouseIds))

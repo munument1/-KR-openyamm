@@ -322,6 +322,7 @@ struct ActorMovementIntent
     float actionSeconds = 0.0f;
     float moveSpeed = 0.0f;
     float targetEdgeDistance = 0.0f;
+    bool targetHasAttackLineOfSight = false;
     bool updateYaw = false;
     bool clearVelocity = false;
     bool applyMovement = false;
