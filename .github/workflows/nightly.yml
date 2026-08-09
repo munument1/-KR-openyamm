@@ -61,6 +61,7 @@ jobs:
           update: true
           install: >-
             git
+            make
             mingw-w64-ucrt-x86_64-toolchain
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
@@ -140,7 +141,7 @@ jobs:
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder ostree
+          sudo apt-get install --no-install-recommends -y elfutils flatpak flatpak-builder ostree
 
       - name: Build Flatpak bundle
         run: |
