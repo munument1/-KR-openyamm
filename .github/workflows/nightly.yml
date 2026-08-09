@@ -1,0 +1,254 @@
+name: Nightly releases
+
+run-name: Nightly build for ${{ github.sha }}
+
+on:
+  schedule:
+    - cron: "27 3 * * *"
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Update the public nightly prerelease after both builds succeed
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openyamm-nightly
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x64 release
+    runs-on: windows-latest
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Check out release sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /CMakeLists.txt
+            /settings_release.ini
+            /cmake/
+            /engine/
+            /game/
+            /packaging/
+            /tools/openyamm_shaderc_stubs.cpp
+            /assets_dev/engine/
+            /assets_dev/worlds/mm6/
+            /assets_dev/worlds/mm7/
+            /assets_dev/worlds/mm8/
+            /assets_dev/worlds/mmmerge/
+
+      - name: Install MSYS2 UCRT64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Configure release build
+        run: >-
+          cmake -S . -B build-nightly-windows -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DOPENYAMM_BUILD_DESKTOP_EXECUTABLE=ON
+          -DOPENYAMM_BUILD_TESTS=OFF
+          -DOPENYAMM_BUILD_EDITOR=OFF
+          -DOPENYAMM_BUILD_TOOLS=OFF
+
+      - name: Build Windows package
+        run: >-
+          cmake --build build-nightly-windows
+          --target openyamm_windows_release_zip
+          --parallel 4
+
+      - name: Prepare Windows artifact
+        run: |
+          archive="build-nightly-windows/release/OpenYAMM-windows-Release.zip"
+          output="OpenYAMM-nightly-windows-x64.zip"
+          test -s "$archive"
+          cmake -E tar tf "$archive" > windows-package-contents.txt
+          grep -Fxq "OpenYAMM/openyamm.exe" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/settings.ini" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/assets/engine.zip" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/assets/worlds/mm6.zip" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/assets/worlds/mm7.zip" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/assets/worlds/mm8.zip" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/assets/worlds/mmmerge.zip" windows-package-contents.txt
+          mkdir -p dist
+          cp "$archive" "dist/$output"
+          test "$(stat -c '%s' "dist/$output")" -lt 2147483648
+          (cd dist && sha256sum "$output" > "$output.sha256")
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-nightly-windows-x64
+          path: |
+            dist/OpenYAMM-nightly-windows-x64.zip
+            dist/OpenYAMM-nightly-windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  flatpak:
+    name: Flatpak x86_64 release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /CMakeLists.txt
+            /settings_release.ini
+            /cmake/
+            /engine/
+            /game/
+            /packaging/
+            /tools/openyamm_shaderc_stubs.cpp
+            /assets_dev/engine/
+            /assets_dev/worlds/mm6/
+            /assets_dev/worlds/mm7/
+            /assets_dev/worlds/mm8/
+            /assets_dev/worlds/mmmerge/
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder ostree
+
+      - name: Build Flatpak bundle
+        run: |
+          mkdir -p dist
+          packaging/flatpak/build_flatpak.sh \
+            --output-dir="$GITHUB_WORKSPACE/build-nightly-flatpak" \
+            --bundle="$GITHUB_WORKSPACE/dist/OpenYAMM-nightly-x86_64.flatpak" \
+            --branch=nightly \
+            --no-install \
+            --add-flathub \
+            --install-deps \
+            --jobs=4
+
+      - name: Prepare Flatpak artifact
+        run: |
+          output="OpenYAMM-nightly-x86_64.flatpak"
+          test -s "dist/$output"
+          test "$(stat -c '%s' "dist/$output")" -lt 2147483648
+          (cd dist && sha256sum "$output" > "$output.sha256")
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-nightly-flatpak-x86_64
+          path: |
+            dist/OpenYAMM-nightly-x86_64.flatpak
+            dist/OpenYAMM-nightly-x86_64.flatpak.sha256
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Update nightly prerelease
+    if: github.event_name == 'schedule' || inputs.publish_release == true
+    needs:
+      - windows
+      - flatpak
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download nightly artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        run: |
+          cd release-assets
+          sha256sum -c OpenYAMM-nightly-windows-x64.zip.sha256
+          sha256sum -c OpenYAMM-nightly-x86_64.flatpak.sha256
+          test "$(stat -c '%s' OpenYAMM-nightly-windows-x64.zip)" -lt 2147483648
+          test "$(stat -c '%s' OpenYAMM-nightly-x86_64.flatpak)" -lt 2147483648
+
+      - name: Update nightly tag and prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short_sha="${GITHUB_SHA:0:12}"
+          built_at="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          commit_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+          printf '%s\n' \
+            '# OpenYAMM nightly build' \
+            '' \
+            "Automated Windows and Flatpak packages from commit [$short_sha]($commit_url)." \
+            "Built: $built_at" \
+            '' \
+            '- `OpenYAMM-nightly-windows-x64.zip` — unsigned Windows x64 release' \
+            '- `OpenYAMM-nightly-x86_64.flatpak` — x86_64 Flatpak bundle' \
+            '- Matching `.sha256` files verify each download' \
+            '' \
+            'Nightlies are development snapshots and may be unstable. Existing saves should be backed up.' \
+            > nightly-release-notes.md
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/nightly" >/dev/null 2>&1; then
+            gh api \
+              --method PATCH \
+              "repos/$GITHUB_REPOSITORY/git/refs/tags/nightly" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true \
+              >/dev/null
+          else
+            gh api \
+              --method POST \
+              "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/nightly' \
+              -f sha="$GITHUB_SHA" \
+              >/dev/null
+          fi
+
+          if gh release view nightly --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit nightly \
+              --repo "$GITHUB_REPOSITORY" \
+              --title 'OpenYAMM nightly' \
+              --notes-file nightly-release-notes.md \
+              --prerelease
+          else
+            gh release create nightly \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title 'OpenYAMM nightly' \
+              --notes-file nightly-release-notes.md \
+              --prerelease
+          fi
+
+          gh release upload nightly release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
