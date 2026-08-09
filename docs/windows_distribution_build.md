@@ -26,6 +26,7 @@ Install the build packages:
 ```bash
 pacman -S --needed \
   git \
+  make \
   mingw-w64-ucrt-x86_64-toolchain \
   mingw-w64-ucrt-x86_64-cmake \
   mingw-w64-ucrt-x86_64-ninja \
@@ -83,6 +84,9 @@ cmake -S . -B build-windows-release -G Ninja \
 ```
 
 The first configure step needs internet access because CMake fetches dependencies.
+
+OpenYAMM configures bx's optional directory-reader implementation off for MinGW because MinGW-w64's `dirent` does not
+provide the `d_type` field it requires. No manual patching under the build directory is needed.
 
 ## Build
 

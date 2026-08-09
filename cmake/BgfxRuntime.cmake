@@ -220,6 +220,12 @@ function(openyamm_configure_bgfx_runtime)
                 BGFX_CONFIG_RENDERER_OPENGL=${openyammBgfxOpenGlVersion}
                 BGFX_CONFIG_RENDERER_OPENGLES=${openyammBgfxOpenGlesVersion}
         )
+
+        if (MINGW)
+            # MinGW-w64's dirent does not expose d_type, which bx's optional directory reader requires.
+            target_compile_definitions(openyamm_bgfx PRIVATE BX_CONFIG_CRT_DIRECTORY_READER=0)
+        endif()
+
         target_link_libraries(openyamm_bgfx PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 
         if (ANDROID)

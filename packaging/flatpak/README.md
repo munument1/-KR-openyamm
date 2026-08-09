@@ -8,7 +8,8 @@ This local Flatpak packaging uses the same asset layout as the Windows release p
 The build script creates those zips fresh from `assets_dev/` in the staged Flatpak source tree, so local root
 `assets/*.zip` files do not have to be regenerated before building Flatpak packages.
 
-Build and install locally after the Flatpak runtime and SDK are installed:
+Build and install locally after Flatpak, `flatpak-builder`, `ostree`, `elfutils`, and the Flatpak runtime and SDK are
+installed. `elfutils` provides the `eu-strip` and `eu-elfcompress` tools used when finalizing release binaries.
 
 ```sh
 packaging/flatpak/build_flatpak.sh
