@@ -93,6 +93,15 @@ jobs:
           -DOPENYAMM_BUILD_TESTS=OFF
           -DOPENYAMM_BUILD_EDITOR=OFF
           -DOPENYAMM_BUILD_TOOLS=OFF
+          -DSDL_ALSA=OFF
+          -DSDL_JACK=OFF
+          -DSDL_KMSDRM=OFF
+          -DSDL_PIPEWIRE=OFF
+          -DSDL_PULSEAUDIO=OFF
+          -DSDL_SNDIO=OFF
+          -DSDL_UNIX_CONSOLE_BUILD=ON
+          -DSDL_WAYLAND=OFF
+          -DSDL_X11=OFF
 
       - name: Build host shader compiler
         run: cmake --build build --target openyamm_shaderc --parallel 4
