@@ -298,11 +298,19 @@ jobs:
       contents: write
 
     steps:
-      - name: Download nightly artifacts
-        uses: actions/download-artifact@v7
+      - name: Download packaged nightly artifacts
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
+          pattern: openyamm-nightly-*
           merge-multiple: true
+
+      - name: Download Windows package without extracting it
+        uses: actions/download-artifact@v8
+        with:
+          name: OpenYAMM-nightly-windows-x64.zip
+          path: release-assets
+          skip-decompress: true
 
       - name: Verify release assets
         run: |
