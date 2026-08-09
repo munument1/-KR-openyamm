@@ -11,9 +11,9 @@ uniform vec4 u_secretPulseParams;
 uniform vec4 u_indoorSkyParams;
 uniform vec4 u_indoorSkyProjectionParams;
 
-vec3 getIndoorLighting(vec3 worldPosition)
+vec3 getIndoorLighting(vec3 worldPosition, vec3 vertexLighting)
 {
-    vec3 lighting = u_indoorLightParams.yzw + v_color0.rgb * 2.0;
+    vec3 lighting = u_indoorLightParams.yzw + vertexLighting * 2.0;
 
     for (int i = 0; i < 12; ++i)
     {
@@ -91,7 +91,7 @@ void main()
         discard;
     }
 
-    vec3 color = textureColor.rgb * getIndoorLighting(v_worldPosition);
+    vec3 color = textureColor.rgb * getIndoorLighting(v_worldPosition, v_color0.rgb);
 
     if (v_texcoord1.x > 0.5 && u_secretPulseParams.x > 0.5)
     {
