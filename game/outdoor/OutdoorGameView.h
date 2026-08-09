@@ -523,7 +523,10 @@ public:
 private:
     float effectiveCameraYawRadians() const;
     float effectiveCameraPitchRadians() const;
-    void preloadSpriteFrameTextures(const SpriteFrameTable &spriteFrameTable, uint16_t spriteFrameIndex);
+    void preloadSpriteFrameTextures(
+        const SpriteFrameTable &spriteFrameTable,
+        uint16_t spriteFrameIndex,
+        const char *pLoadPhase = "warmup");
     void queueSpriteFrameWarmup(uint16_t spriteFrameIndex);
     void updateHouseVideoPlayback(float deltaSeconds);
     const GameplayWorldHit &rightMouseInspectWorldHit(
@@ -655,6 +658,7 @@ private:
     std::array<float, 4> m_cachedOutdoorFxLightParams = {};
     LightingStats m_outdoorLightingStats = {};
     float m_lastOutdoorLightingStatsLogElapsedTime = 0.0f;
+    uint64_t m_performanceTraceLogNanosecondsThisFrame = 0;
     struct OutdoorSpriteRenderDiagnostics
     {
         uint64_t decorationItems = 0;

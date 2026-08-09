@@ -1,6 +1,9 @@
 #include "game/outdoor/OutdoorMovementDriver.h"
 
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/gameplay/GameplayRuntimeInterfaces.h"
+
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -176,8 +179,12 @@ void OutdoorMovementDriver::restoreState(
     m_speedMultiplier = 1.0f;
 }
 
-void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float deltaSeconds)
+void OutdoorMovementDriver::update(
+    const OutdoorMovementInput &input,
+    float deltaSeconds,
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics)
 {
+    const uint64_t totalBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     const bool jumpPressed = input.jump && !m_jumpHeld;
     m_jumpHeld = input.jump;
     m_pendingJumpPress = m_pendingJumpPress || jumpPressed;
@@ -345,8 +352,18 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         }
     }
 
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->movementInputNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
+    }
+
     while (m_movementAccumulatorSeconds >= OutdoorMovementStepSeconds)
     {
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            ++pPerformanceDiagnostics->movementStepCount;
+        }
+
         m_collisionTraceClockSeconds += OutdoorMovementStepSeconds;
         const OutdoorMoveState previousState = m_state;
         const bool jumpRequestedThisStep = m_pendingJumpPress;
@@ -357,6 +374,7 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         const bool traceOutdoorMovement = m_collisionTraceEnabled || gameplayDebugTraceEnabled();
         OutdoorMoveDebugInfo debugInfo = {};
         OutdoorMoveDebugInfo *pDebugInfo = traceOutdoorMovement ? &debugInfo : nullptr;
+        const uint64_t collisionBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         m_state = m_movementController.resolveMove(
             m_state,
             moveVelocityX + impulseVelocityX,
@@ -375,10 +393,17 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
             jumpLiftThisStep,
             pDebugInfo
         );
+
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->movementCollisionNanoseconds += SDL_GetTicksNS() - collisionBeginTickCount;
+        }
+
         m_pendingJumpPress = false;
         m_pendingJumpVelocity.reset();
         m_pendingJumpLift = 1.0f;
 
+        const uint64_t traceBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         if (traceOutdoorMovement)
         {
             const float deltaX = m_state.x - previousState.x;
@@ -484,6 +509,12 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
             }
         }
 
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->movementTraceNanoseconds += SDL_GetTicksNS() - traceBeginTickCount;
+        }
+
+        const uint64_t contactsBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
         if (!m_lastEvents.blockedBoundaryEdge.has_value())
         {
             m_lastEvents.blockedBoundaryEdge = m_movementController.detectBoundaryBlock(
@@ -539,9 +570,15 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
             m_lastEvents.landingFallDistance = std::max(m_lastEvents.landingFallDistance, m_state.fallDistance);
         }
 
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->movementContactsNanoseconds += SDL_GetTicksNS() - contactsBeginTickCount;
+        }
+
         m_movementAccumulatorSeconds -= OutdoorMovementStepSeconds;
     }
 
+    const uint64_t consequencesBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     m_lastEvents.startedFalling = m_startedFallingEventSeconds > 0.0f;
     m_lastEvents.landed = m_landedEventSeconds > 0.0f;
     m_lastEvents.enteredWater = m_enteredWaterEventSeconds > 0.0f;
@@ -638,6 +675,13 @@ void OutdoorMovementDriver::update(const OutdoorMovementInput &input, float delt
         m_partyMovementState.flying
         && m_state.airborne
         && (requestedMovementSpeedSquared > 0.01f || input.flyUp || input.flyDown);
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->movementConsequencesNanoseconds +=
+            SDL_GetTicksNS() - consequencesBeginTickCount;
+        pPerformanceDiagnostics->movementDriverNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
+    }
 }
 
 const OutdoorMoveState &OutdoorMovementDriver::state() const

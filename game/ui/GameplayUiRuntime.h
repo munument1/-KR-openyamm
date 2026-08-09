@@ -51,9 +51,80 @@ struct GameplayHudLoopingAnimationState
     uint32_t lastSourceTicks = 0;
 };
 
+enum class GameplayUiAssetLoadKind : uint8_t
+{
+    HudTexture,
+    ItemIcon,
+    HudFont,
+    SolidTexture,
+    DynamicTexture,
+    HudTextureColor,
+    HudTextureColorModulated,
+    HudFontColor,
+};
+
+struct GameplayUiAssetLoadPerformanceEvent
+{
+    GameplayUiAssetLoadKind kind = GameplayUiAssetLoadKind::HudTexture;
+    std::string name;
+    uint64_t loadNanoseconds = 0;
+    uint32_t colorAbgr = 0;
+    int width = 0;
+    int height = 0;
+    bool success = false;
+    bool hasColor = false;
+};
+
+struct GameplayUiOverlayFramePerformanceDiagnostics
+{
+    bool collected = false;
+    uint64_t totalNanoseconds = 0;
+    uint64_t beginInspectableFrameNanoseconds = 0;
+    uint64_t pendingDialogNanoseconds = 0;
+    uint64_t screenFxNanoseconds = 0;
+    uint64_t chestBelowNanoseconds = 0;
+    uint64_t inventoryBelowNanoseconds = 0;
+    uint64_t dialogueBelowNanoseconds = 0;
+    uint64_t characterBelowNanoseconds = 0;
+    uint64_t hudArtNanoseconds = 0;
+    uint64_t hudNanoseconds = 0;
+    uint64_t chestAboveNanoseconds = 0;
+    uint64_t inventoryAboveNanoseconds = 0;
+    uint64_t characterAboveNanoseconds = 0;
+    uint64_t dialogueAboveNanoseconds = 0;
+    uint64_t restNanoseconds = 0;
+    uint64_t menuNanoseconds = 0;
+    uint64_t controlsNanoseconds = 0;
+    uint64_t keyboardNanoseconds = 0;
+    uint64_t videoOptionsNanoseconds = 0;
+    uint64_t saveGameNanoseconds = 0;
+    uint64_t loadGameNanoseconds = 0;
+    uint64_t journalNanoseconds = 0;
+    uint64_t quickReferenceNanoseconds = 0;
+    uint64_t spellbookNanoseconds = 0;
+    uint64_t heldItemNanoseconds = 0;
+    uint64_t itemInspectNanoseconds = 0;
+    uint64_t mouseLookNanoseconds = 0;
+    uint64_t deferredInventoryNanoseconds = 0;
+    uint64_t utilitySpellNanoseconds = 0;
+    uint64_t characterInspectNanoseconds = 0;
+    uint64_t buffInspectNanoseconds = 0;
+    uint64_t characterDetailNanoseconds = 0;
+    uint64_t actorInspectNanoseconds = 0;
+    uint64_t spellInspectNanoseconds = 0;
+    uint64_t readableScrollNanoseconds = 0;
+};
+
 class GameplayUiRuntime
 {
 public:
+    void beginPerformanceFrame(bool enabled);
+    const std::vector<GameplayUiAssetLoadPerformanceEvent> &performanceAssetLoadEvents() const;
+    size_t performanceAssetLoadEventOverflowCount() const;
+    void setLastOverlayFramePerformanceDiagnostics(
+        const GameplayUiOverlayFramePerformanceDiagnostics &diagnostics);
+    const GameplayUiOverlayFramePerformanceDiagnostics &lastOverlayFramePerformanceDiagnostics() const;
+
     void clear();
     void bindDataRepository(const GameDataRepository *pDataRepository);
     void bindAssetFileSystem(const Engine::AssetFileSystem *pAssetFileSystem);
@@ -225,6 +296,15 @@ public:
     bool renderHouseVideoFrame(float x, float y, float quadWidth, float quadHeight) const;
 
 private:
+    void recordPerformanceAssetLoad(
+        GameplayUiAssetLoadKind kind,
+        const std::string &name,
+        uint64_t loadNanoseconds,
+        bool success,
+        int width,
+        int height,
+        bool hasColor = false,
+        uint32_t colorAbgr = 0);
     void clearHudResources();
     void clearPortraitRuntime();
 
@@ -258,6 +338,10 @@ private:
     bool m_assetsPreloaded = false;
     bool m_portraitRuntimeLoaded = false;
     bool m_houseVideoPlayerInitialized = false;
+    bool m_performanceFrameEnabled = false;
+    size_t m_performanceAssetLoadEventOverflowCount = 0;
+    std::vector<GameplayUiAssetLoadPerformanceEvent> m_performanceAssetLoadEvents;
+    GameplayUiOverlayFramePerformanceDiagnostics m_lastOverlayFramePerformanceDiagnostics = {};
     const GameDataRepository *m_pDataRepository = nullptr;
     GameplayAssetLoadCache m_assetLoadCache;
     UiLayoutManager m_layoutManager;

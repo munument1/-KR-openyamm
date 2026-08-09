@@ -39,6 +39,17 @@ double dailyStartOffsetGameMinutes(const ScriptedEventTimerDefinition &definitio
         + static_cast<double>(definition.startSecond) / 60.0;
 }
 
+double nextExactAlarmGameMinutes(double startGameMinutes, double periodGameMinutes, double currentGameMinutes)
+{
+    if (startGameMinutes > currentGameMinutes)
+    {
+        return startGameMinutes;
+    }
+
+    const double elapsedPeriods = std::floor((currentGameMinutes - startGameMinutes) / periodGameMinutes) + 1.0;
+    return startGameMinutes + elapsedPeriods * periodGameMinutes;
+}
+
 ScriptedEventTimerState initializeTimer(
     const ScriptedEventTimerDefinition &definition,
     double currentGameMinutes,
@@ -63,31 +74,27 @@ ScriptedEventTimerState initializeTimer(
         return state;
     }
 
-    const bool hasLastVisit = lastVisitTime != 0;
-    const double lastVisitGameMinutes = legacyTimerGameMinutesFromTicks(lastVisitTime);
+    const double periodGameMinutes = calendarPeriodGameMinutes(definition.scheduleKind);
 
-    if (definition.scheduleKind == ScriptedEventTimerScheduleKind::Daily)
+    // Legacy OnTimer records are normal Timer calls. OnLongTimer records are refill timers and follow the
+    // first-visit/last-visit path below.
+    if (definition.triggerKind == ScriptedEventTimerTriggerKind::Timer)
     {
-        if (!hasLastVisit)
+        if (definition.scheduleKind == ScriptedEventTimerScheduleKind::Daily)
         {
-            state.nextAlarmGameMinutes = currentGameMinutes;
-            state.initialCalendarFirePending = true;
+            state.nextAlarmGameMinutes = nextExactAlarmGameMinutes(
+                dailyStartOffsetGameMinutes(definition),
+                periodGameMinutes,
+                currentGameMinutes);
             return state;
         }
 
-        const double lastVisitDay = std::floor(lastVisitGameMinutes / GameMinutesPerDay);
-        double alarmGameMinutes = lastVisitDay * GameMinutesPerDay + dailyStartOffsetGameMinutes(definition);
-
-        if (alarmGameMinutes < lastVisitGameMinutes)
-        {
-            alarmGameMinutes += GameMinutesPerDay;
-        }
-
-        state.nextAlarmGameMinutes = alarmGameMinutes;
+        state.nextAlarmGameMinutes = currentGameMinutes + periodGameMinutes;
         return state;
     }
 
-    const double periodGameMinutes = calendarPeriodGameMinutes(definition.scheduleKind);
+    const bool hasLastVisit = lastVisitTime != 0;
+    const double lastVisitGameMinutes = legacyTimerGameMinutesFromTicks(lastVisitTime);
     state.nextAlarmGameMinutes = hasLastVisit
         ? lastVisitGameMinutes + periodGameMinutes
         : currentGameMinutes;
@@ -125,12 +132,12 @@ void advanceTimerAfterFire(ScriptedEventTimerState &state, double currentGameMin
 
     const double periodGameMinutes = calendarPeriodGameMinutes(definition.scheduleKind);
 
-    if (state.initialCalendarFirePending && definition.scheduleKind == ScriptedEventTimerScheduleKind::Daily)
+    if (state.initialCalendarFirePending)
     {
-        state.nextAlarmGameMinutes = dailyStartOffsetGameMinutes(definition);
+        state.nextAlarmGameMinutes = currentGameMinutes + periodGameMinutes;
+        state.initialCalendarFirePending = false;
+        return;
     }
-
-    state.initialCalendarFirePending = false;
 
     while (state.nextAlarmGameMinutes <= currentGameMinutes)
     {

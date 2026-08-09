@@ -1360,6 +1360,11 @@ struct BitmapTextureRequest
     int16_t paletteId = 0;
 };
 
+void appendSpriteFrameTextures(
+    std::vector<BitmapTextureRequest> &textureRequests,
+    const SpriteFrameTable &spriteFrameTable,
+    uint16_t spriteFrameIndex);
+
 struct IndexedBitmapData
 {
     int width = 0;
@@ -1986,6 +1991,7 @@ template <typename EntityType>
 std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::vector<EntityType> &entities,
+    const std::string &worldId,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2011,7 +2017,7 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         return std::nullopt;
     }
 
-    std::vector<std::string> textureNames;
+    std::vector<BitmapTextureRequest> textureRequests;
 
     for (size_t entityIndex = 0; entityIndex < entities.size(); ++entityIndex)
     {
@@ -2052,16 +2058,10 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
 
         if (pDecoration->spriteId != 0)
         {
-            const std::vector<std::string> billboardTextureNames =
-                billboardSet.spriteFrameTable.collectTextureNames(pDecoration->spriteId);
-
-            for (const std::string &textureName : billboardTextureNames)
-            {
-                if (std::find(textureNames.begin(), textureNames.end(), textureName) == textureNames.end())
-                {
-                    textureNames.push_back(textureName);
-                }
-            }
+            appendSpriteFrameTextures(
+                textureRequests,
+                billboardSet.spriteFrameTable,
+                pDecoration->spriteId);
         }
     }
 
@@ -2073,7 +2073,7 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
     const Engine::AssetScaleTier decorationAssetScaleTier =
         assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Decorations);
 
-    for (const std::string &textureName : textureNames)
+    for (const BitmapTextureRequest &textureRequest : textureRequests)
     {
         pumpMapLoadProgress(progressPump);
         int textureWidth = 0;
@@ -2082,12 +2082,14 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
             loadBitmapPixelsBgra(
                 assetFileSystem,
                 "Data/sprites",
-                textureName,
+                textureRequest.textureName,
                 textureWidth,
                 textureHeight,
                 false,
                 true,
-                bitmapLoadCache
+                bitmapLoadCache,
+                textureRequest.paletteId,
+                worldId
             );
 
         if (!pixels || textureWidth <= 0 || textureHeight <= 0)
@@ -2096,7 +2098,8 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         }
 
         OutdoorBitmapTexture texture = {};
-        texture.textureName = textureName;
+        texture.textureName = textureRequest.textureName;
+        texture.paletteId = textureRequest.paletteId;
         texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, decorationAssetScaleTier);
         texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, decorationAssetScaleTier);
         texture.physicalWidth = textureWidth;
@@ -2290,6 +2293,7 @@ std::optional<OutdoorActorCollisionSet> buildOutdoorActorCollisionSet(
 std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const OutdoorMapData &outdoorMapData,
+    const std::string &worldId,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2299,6 +2303,7 @@ std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
         buildDecorationBillboardSet(
             assetFileSystem,
             outdoorMapData.entities,
+            worldId,
             bitmapLoadCache,
             progressPump,
             pSharedCache);
@@ -2330,6 +2335,7 @@ std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
 std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const IndoorMapData &indoorMapData,
+    const std::string &worldId,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2339,6 +2345,7 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
         buildDecorationBillboardSet(
             assetFileSystem,
             indoorMapData.entities,
+            worldId,
             bitmapLoadCache,
             progressPump,
             pSharedCache);
@@ -4138,6 +4145,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     buildOutdoorDecorationBillboardSet(
                         assetFileSystem,
                         *assetInfo.outdoorMapData,
+                        map.worldId,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache);
@@ -4300,6 +4308,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     buildIndoorDecorationBillboardSet(
                         assetFileSystem,
                         *assetInfo.indoorMapData,
+                        map.worldId,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache);

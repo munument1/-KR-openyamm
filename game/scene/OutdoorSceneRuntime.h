@@ -50,7 +50,10 @@ public:
     const OutdoorWorldRuntime &worldRuntime() const;
     const std::optional<ScriptedEventProgram> &localEventProgram() const override;
     const std::optional<ScriptedEventProgram> &globalEventProgram() const override;
-    AdvanceFrameResult advanceFrame(const OutdoorMovementInput &movementInput, float deltaSeconds);
+    AdvanceFrameResult advanceFrame(
+        const OutdoorMovementInput &movementInput,
+        float deltaSeconds,
+        GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics = nullptr);
     bool executeEventById(
         const std::optional<ScriptedEventProgram> &localEventProgram,
         uint16_t eventId,

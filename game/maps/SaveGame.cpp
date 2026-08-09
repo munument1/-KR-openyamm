@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 67;
+constexpr uint32_t SaveVersion = 68;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -64,6 +64,7 @@ constexpr uint32_t SaveVersionIndoorFireSpikeTraps = 64;
 constexpr uint32_t SaveVersionHeldCursorItem = 65;
 constexpr uint32_t SaveVersionActorDiagnosticSource = 66;
 constexpr uint32_t SaveVersionLegacyEvtTimers = 67;
+constexpr uint32_t SaveVersionHiredNpcFollowerIdentity = 68;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1795,6 +1796,8 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState::HiredNpcFollower 
     writeValue(writer, value.professionId);
     writeValue(writer, value.weeklyCost);
     writeValue(writer, value.abilityUsedDay);
+    writeValue(writer, value.name);
+    writeValue(writer, value.pictureId);
 }
 
 bool readValue(BinaryReader &reader, EventRuntimeState::HiredNpcFollower &value)
@@ -1802,7 +1805,9 @@ bool readValue(BinaryReader &reader, EventRuntimeState::HiredNpcFollower &value)
     return readValue(reader, value.npcId)
         && readValue(reader, value.professionId)
         && readValue(reader, value.weeklyCost)
-        && (reader.version() < SaveVersionHiredNpcFollowerAbilityUseDay || readValue(reader, value.abilityUsedDay));
+        && (reader.version() < SaveVersionHiredNpcFollowerAbilityUseDay || readValue(reader, value.abilityUsedDay))
+        && (reader.version() < SaveVersionHiredNpcFollowerIdentity || readValue(reader, value.name))
+        && (reader.version() < SaveVersionHiredNpcFollowerIdentity || readValue(reader, value.pictureId));
 }
 
 void writeValue(BinaryWriter &writer, const EventRuntimeState::SavedLocation &value)

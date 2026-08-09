@@ -24,7 +24,7 @@ OpenYAMM::Game::ScriptedEventTimerDefinition makeLegacyTimer(
 }
 }
 
-TEST_CASE("legacy daily timer fires once on first visit and advances to its clock time")
+TEST_CASE("legacy daily refill timer fires once on first visit and restarts its full period")
 {
     OpenYAMM::Game::ScriptedEventTimerDefinition definition =
         makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily);
@@ -58,13 +58,78 @@ TEST_CASE("legacy daily timer fires once on first visit and advances to its cloc
         }));
     CHECK_EQ(executionCount, 1);
     CHECK_FALSE(states[0].initialCalendarFirePending);
-    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(1440.0 + 1.0 / 60.0));
+    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(1980.5));
 }
 
-TEST_CASE("legacy daily timer uses the first matching alarm after last visit")
+TEST_CASE("legacy exact daily timer waits for S'ton's ten o'clock alarm")
 {
     OpenYAMM::Game::ScriptedEventTimerDefinition definition =
         makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily);
+    definition.triggerKind = OpenYAMM::Game::ScriptedEventTimerTriggerKind::Timer;
+    definition.eventId = 500;
+    definition.sourceEventId = 500;
+    definition.startHour = 10;
+
+    std::vector<OpenYAMM::Game::ScriptedEventTimerState> states =
+        OpenYAMM::Game::reconcileScriptedEventTimers({}, {definition}, 540.0, 0, false);
+    REQUIRE_EQ(states.size(), 1u);
+    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(600.0));
+    CHECK_FALSE(states[0].initialCalendarFirePending);
+
+    int executionCount = 0;
+    CHECK_FALSE(OpenYAMM::Game::updateScriptedEventTimers(
+        states,
+        599.99,
+        [&executionCount](const OpenYAMM::Game::ScriptedEventTimerDefinition &)
+        {
+            ++executionCount;
+            return true;
+        }));
+    CHECK_EQ(executionCount, 0);
+
+    CHECK(OpenYAMM::Game::updateScriptedEventTimers(
+        states,
+        600.0,
+        [&executionCount](const OpenYAMM::Game::ScriptedEventTimerDefinition &)
+        {
+            ++executionCount;
+            return true;
+        }));
+    CHECK_EQ(executionCount, 1);
+    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(2040.0));
+}
+
+TEST_CASE("legacy exact daily timer advances past an alarm that already elapsed")
+{
+    OpenYAMM::Game::ScriptedEventTimerDefinition definition =
+        makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily);
+    definition.triggerKind = OpenYAMM::Game::ScriptedEventTimerTriggerKind::Timer;
+    definition.startHour = 10;
+
+    const std::vector<OpenYAMM::Game::ScriptedEventTimerState> states =
+        OpenYAMM::Game::reconcileScriptedEventTimers({}, {definition}, 650.0, 0, false);
+    REQUIRE_EQ(states.size(), 1u);
+    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(2040.0));
+}
+
+TEST_CASE("legacy normal calendar timer waits a complete period on first visit")
+{
+    OpenYAMM::Game::ScriptedEventTimerDefinition definition =
+        makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Weekly);
+    definition.triggerKind = OpenYAMM::Game::ScriptedEventTimerTriggerKind::Timer;
+
+    const std::vector<OpenYAMM::Game::ScriptedEventTimerState> states =
+        OpenYAMM::Game::reconcileScriptedEventTimers({}, {definition}, 100.0, 0, false);
+    REQUIRE_EQ(states.size(), 1u);
+    CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(10180.0));
+    CHECK_FALSE(states[0].initialCalendarFirePending);
+}
+
+TEST_CASE("legacy exact daily timer uses the next clock alarm after the current time")
+{
+    OpenYAMM::Game::ScriptedEventTimerDefinition definition =
+        makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily);
+    definition.triggerKind = OpenYAMM::Game::ScriptedEventTimerTriggerKind::Timer;
     definition.startHour = 12;
 
     const int64_t morningVisit = OpenYAMM::Game::legacyTimerTicksFromGameMinutes(600.0);

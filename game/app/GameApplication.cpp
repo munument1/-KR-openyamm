@@ -83,6 +83,31 @@ uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
     return nanoseconds / 1000ULL;
 }
 
+const char *gameplayUiAssetLoadKindName(GameplayUiAssetLoadKind kind)
+{
+    switch (kind)
+    {
+        case GameplayUiAssetLoadKind::HudTexture:
+            return "hud_texture";
+        case GameplayUiAssetLoadKind::ItemIcon:
+            return "item_icon";
+        case GameplayUiAssetLoadKind::HudFont:
+            return "hud_font";
+        case GameplayUiAssetLoadKind::SolidTexture:
+            return "solid_texture";
+        case GameplayUiAssetLoadKind::DynamicTexture:
+            return "dynamic_texture";
+        case GameplayUiAssetLoadKind::HudTextureColor:
+            return "hud_texture_color";
+        case GameplayUiAssetLoadKind::HudTextureColorModulated:
+            return "hud_texture_color_modulated";
+        case GameplayUiAssetLoadKind::HudFontColor:
+            return "hud_font_color";
+    }
+
+    return "unknown";
+}
+
 #if defined(__ANDROID__)
 bool isAndroidFingerEvent(const SDL_Event &event)
 {
@@ -221,6 +246,20 @@ void preloadMapGameplaySounds(
     const MapAssetInfo &map)
 {
     constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
+    constexpr std::array<SoundId, 12> OutdoorFootstepSoundIds = {
+        SoundId::RunCarpet,
+        SoundId::RunDirt,
+        SoundId::RunGrass,
+        SoundId::RunRoad,
+        SoundId::RunStone,
+        SoundId::RunWood,
+        SoundId::WalkCarpet,
+        SoundId::WalkDirt,
+        SoundId::WalkGrass,
+        SoundId::WalkRoad,
+        SoundId::WalkStone,
+        SoundId::WalkWood,
+    };
     const MapDeltaData *pMapDeltaData = nullptr;
 
     if (map.indoorMapDeltaData)
@@ -234,6 +273,29 @@ void preloadMapGameplaySounds(
 
     std::unordered_set<uint64_t> preloadedSounds;
     std::unordered_set<int16_t> preloadedMonsterIds;
+
+    if (map.outdoorMapData)
+    {
+        for (SoundId soundId : OutdoorFootstepSoundIds)
+        {
+            preloadSoundOnce(audioSystem, preloadedSounds, engineSound(static_cast<uint32_t>(soundId)));
+        }
+
+        for (const OutdoorTerrainFootstepSoundOverride &overrideEntry :
+             map.outdoorMapData->terrainFootstepSoundOverrides)
+        {
+            preloadSoundOnce(audioSystem, preloadedSounds, engineSound(overrideEntry.walkSoundId));
+            preloadSoundOnce(audioSystem, preloadedSounds, engineSound(overrideEntry.runSoundId));
+        }
+    }
+    else if (map.indoorMapData)
+    {
+        preloadSoundOnce(
+            audioSystem,
+            preloadedSounds,
+            engineSound(static_cast<uint32_t>(SoundId::WalkStoneHall)));
+    }
+
     const auto preloadMonsterId = [&](int16_t monsterId)
     {
         if (monsterId <= 0 || !preloadedMonsterIds.insert(monsterId).second)
@@ -6483,14 +6545,14 @@ void GameApplication::renderLoadingOverlayProgress(int progressPercent)
     bgfx::frame();
 }
 
-void GameApplication::logFramePerformanceDiagnostics(uint32_t currentTick)
+bool GameApplication::logFramePerformanceDiagnostics(uint32_t currentTick)
 {
     constexpr uint32_t LogIntervalMs = 1000;
 
     if (!m_framePerformanceDiagnostics.hasActivity()
         || currentTick - m_lastFramePerformanceLogTick < LogIntervalMs)
     {
-        return;
+        return false;
     }
 
     m_lastFramePerformanceLogTick = currentTick;
@@ -6508,7 +6570,8 @@ void GameApplication::logFramePerformanceDiagnostics(uint32_t currentTick)
         + diagnostics.renderGameplayUiNanoseconds
         + diagnostics.audioNanoseconds
         + diagnostics.postWorldNanoseconds
-        + diagnostics.debugConsoleRenderNanoseconds;
+        + diagnostics.debugConsoleRenderNanoseconds
+        + diagnostics.performanceTraceLogNanoseconds;
     const uint64_t untrackedNanoseconds =
         diagnostics.totalNanoseconds > measuredNanoseconds
             ? diagnostics.totalNanoseconds - measuredNanoseconds
@@ -6560,9 +6623,348 @@ void GameApplication::logFramePerformanceDiagnostics(uint32_t currentTick)
               << " avg_debug_console_render_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                   diagnostics.debugConsoleRenderNanoseconds,
                   diagnostics.frames))
+              << " avg_performance_trace_log_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.performanceTraceLogNanoseconds,
+                  diagnostics.frames))
               << '\n';
 
     m_framePerformanceDiagnostics = {};
+    return true;
+}
+
+void GameApplication::logFrameHitchDiagnostics(const FramePerformanceDiagnostics &diagnostics) const
+{
+    const uint64_t measuredNanoseconds =
+        diagnostics.pendingDebugMapJumpNanoseconds
+        + diagnostics.debugConsoleBeginNanoseconds
+        + diagnostics.inputNanoseconds
+        + diagnostics.activeScreenNanoseconds
+        + diagnostics.pendingStateNanoseconds
+        + diagnostics.gameplayUpdateNanoseconds
+        + diagnostics.worldUpdateNanoseconds
+        + diagnostics.renderWorldNanoseconds
+        + diagnostics.renderGameplayUiNanoseconds
+        + diagnostics.audioNanoseconds
+        + diagnostics.postWorldNanoseconds
+        + diagnostics.debugConsoleRenderNanoseconds
+        + diagnostics.performanceTraceLogNanoseconds;
+    const uint64_t untrackedNanoseconds =
+        diagnostics.totalNanoseconds > measuredNanoseconds
+            ? diagnostics.totalNanoseconds - measuredNanoseconds
+            : 0;
+    const char *pSceneKind =
+        m_pMapSceneRuntime != nullptr ? sceneKindName(m_pMapSceneRuntime->kind()) : "none";
+
+    std::cout << "[GameFrameHitchDetail]"
+              << " map=\"" << m_gameSession.currentMapFileName() << "\""
+              << " scene=" << pSceneKind
+              << " total_us=" << nanosecondsToMicroseconds(diagnostics.totalNanoseconds)
+              << " untracked_us=" << nanosecondsToMicroseconds(untrackedNanoseconds)
+              << " pending_debug_jump_us="
+              << nanosecondsToMicroseconds(diagnostics.pendingDebugMapJumpNanoseconds)
+              << " debug_console_begin_us="
+              << nanosecondsToMicroseconds(diagnostics.debugConsoleBeginNanoseconds)
+              << " input_us=" << nanosecondsToMicroseconds(diagnostics.inputNanoseconds)
+              << " active_screen_us=" << nanosecondsToMicroseconds(diagnostics.activeScreenNanoseconds)
+              << " pending_state_us=" << nanosecondsToMicroseconds(diagnostics.pendingStateNanoseconds)
+              << " gameplay_update_us=" << nanosecondsToMicroseconds(diagnostics.gameplayUpdateNanoseconds)
+              << " world_update_us=" << nanosecondsToMicroseconds(diagnostics.worldUpdateNanoseconds)
+              << " render_world_us=" << nanosecondsToMicroseconds(diagnostics.renderWorldNanoseconds)
+              << " render_gameplay_ui_us="
+              << nanosecondsToMicroseconds(diagnostics.renderGameplayUiNanoseconds)
+              << " audio_us=" << nanosecondsToMicroseconds(diagnostics.audioNanoseconds)
+              << " post_world_us=" << nanosecondsToMicroseconds(diagnostics.postWorldNanoseconds)
+              << " debug_console_render_us="
+              << nanosecondsToMicroseconds(diagnostics.debugConsoleRenderNanoseconds)
+              << " performance_trace_log_us="
+              << nanosecondsToMicroseconds(diagnostics.performanceTraceLogNanoseconds)
+              << '\n';
+
+    const GameplayUpdateFramePerformanceDiagnostics &gameplayUpdate =
+        m_gameSession.lastGameplayUpdateFramePerformanceDiagnostics();
+
+    if (gameplayUpdate.collected && gameplayUpdate.totalNanoseconds != 0)
+    {
+        const uint64_t gameplayUpdateMeasuredNanoseconds =
+            gameplayUpdate.sharedFrameStateNanoseconds
+            + gameplayUpdate.worldInteractionStateNanoseconds
+            + gameplayUpdate.activeMemberSyncNanoseconds
+            + gameplayUpdate.sharedInputNanoseconds
+            + gameplayUpdate.worldMovementNanoseconds
+            + gameplayUpdate.actorAiNanoseconds
+            + gameplayUpdate.combatEventsNanoseconds
+            + gameplayUpdate.interactionFrameNanoseconds
+            + gameplayUpdate.projectileAndCooldownNanoseconds
+            + gameplayUpdate.preloadNanoseconds
+            + gameplayUpdate.performanceTraceLogNanoseconds;
+        const uint64_t gameplayUpdateUntrackedNanoseconds =
+            gameplayUpdate.totalNanoseconds > gameplayUpdateMeasuredNanoseconds
+                ? gameplayUpdate.totalNanoseconds - gameplayUpdateMeasuredNanoseconds
+                : 0;
+
+        std::cout << "[GameplayUpdateHitchDetail]"
+                  << " total_us=" << nanosecondsToMicroseconds(gameplayUpdate.totalNanoseconds)
+                  << " untracked_us=" << nanosecondsToMicroseconds(gameplayUpdateUntrackedNanoseconds)
+                  << " shared_frame_state_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.sharedFrameStateNanoseconds)
+                  << " world_interaction_state_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.worldInteractionStateNanoseconds)
+                  << " active_member_sync_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.activeMemberSyncNanoseconds)
+                  << " shared_input_us=" << nanosecondsToMicroseconds(gameplayUpdate.sharedInputNanoseconds)
+                  << " world_movement_us=" << nanosecondsToMicroseconds(gameplayUpdate.worldMovementNanoseconds)
+                  << " actor_ai_us=" << nanosecondsToMicroseconds(gameplayUpdate.actorAiNanoseconds)
+                  << " combat_events_us=" << nanosecondsToMicroseconds(gameplayUpdate.combatEventsNanoseconds)
+                  << " interaction_frame_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.interactionFrameNanoseconds)
+                  << " projectile_cooldown_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.projectileAndCooldownNanoseconds)
+                  << " preload_us=" << nanosecondsToMicroseconds(gameplayUpdate.preloadNanoseconds)
+                  << " performance_trace_log_us="
+                  << nanosecondsToMicroseconds(gameplayUpdate.performanceTraceLogNanoseconds)
+                  << '\n';
+    }
+
+    const GameplayWorldMovementFrameDiagnostics &movement = gameplayUpdate.worldMovement;
+
+    if (movement.collected)
+    {
+        const uint64_t controllerUntrackedNanoseconds =
+            movement.controllerNanoseconds > movement.sceneAdvanceNanoseconds
+                ? movement.controllerNanoseconds - movement.sceneAdvanceNanoseconds
+                : 0;
+        const uint64_t sceneMeasuredNanoseconds =
+            movement.actorColliderBuildNanoseconds
+            + movement.partyUpdateNanoseconds
+            + movement.timerNanoseconds
+            + movement.partyEventApplyNanoseconds
+            + movement.pressurePlateNanoseconds
+            + movement.boundaryTransitionNanoseconds
+            + movement.actorQueueAndContactsNanoseconds;
+        const uint64_t sceneUntrackedNanoseconds =
+            movement.sceneAdvanceNanoseconds > sceneMeasuredNanoseconds
+                ? movement.sceneAdvanceNanoseconds - sceneMeasuredNanoseconds
+                : 0;
+        const uint64_t partyMeasuredNanoseconds =
+            movement.movementDriverNanoseconds
+            + movement.partyRecoveryNanoseconds
+            + movement.partyTimedStateNanoseconds
+            + movement.partySpellStateNanoseconds
+            + movement.partyEffectsNanoseconds;
+        const uint64_t partyUntrackedNanoseconds =
+            movement.partyUpdateNanoseconds > partyMeasuredNanoseconds
+                ? movement.partyUpdateNanoseconds - partyMeasuredNanoseconds
+                : 0;
+        const uint64_t movementMeasuredNanoseconds =
+            movement.movementInputNanoseconds
+            + movement.movementCollisionNanoseconds
+            + movement.movementTraceNanoseconds
+            + movement.movementContactsNanoseconds
+            + movement.movementConsequencesNanoseconds;
+        const uint64_t movementUntrackedNanoseconds =
+            movement.movementDriverNanoseconds > movementMeasuredNanoseconds
+                ? movement.movementDriverNanoseconds - movementMeasuredNanoseconds
+                : 0;
+        const uint64_t timerMeasuredNanoseconds =
+            movement.timerEventExecutionNanoseconds + movement.timerEventApplyNanoseconds;
+        const uint64_t timerUntrackedNanoseconds =
+            movement.timerNanoseconds > timerMeasuredNanoseconds
+                ? movement.timerNanoseconds - timerMeasuredNanoseconds
+                : 0;
+
+        std::cout << "[OutdoorMovementHitchDetail]"
+                  << " total_us=" << nanosecondsToMicroseconds(movement.totalNanoseconds)
+                  << " controller_us=" << nanosecondsToMicroseconds(movement.controllerNanoseconds)
+                  << " controller_untracked_us="
+                  << nanosecondsToMicroseconds(controllerUntrackedNanoseconds)
+                  << " scene_advance_us=" << nanosecondsToMicroseconds(movement.sceneAdvanceNanoseconds)
+                  << " scene_untracked_us=" << nanosecondsToMicroseconds(sceneUntrackedNanoseconds)
+                  << " actor_collider_build_us="
+                  << nanosecondsToMicroseconds(movement.actorColliderBuildNanoseconds)
+                  << " party_update_us=" << nanosecondsToMicroseconds(movement.partyUpdateNanoseconds)
+                  << " party_untracked_us=" << nanosecondsToMicroseconds(partyUntrackedNanoseconds)
+                  << " movement_driver_us=" << nanosecondsToMicroseconds(movement.movementDriverNanoseconds)
+                  << " movement_untracked_us=" << nanosecondsToMicroseconds(movementUntrackedNanoseconds)
+                  << " movement_input_us=" << nanosecondsToMicroseconds(movement.movementInputNanoseconds)
+                  << " movement_collision_us="
+                  << nanosecondsToMicroseconds(movement.movementCollisionNanoseconds)
+                  << " movement_trace_us=" << nanosecondsToMicroseconds(movement.movementTraceNanoseconds)
+                  << " movement_contacts_us=" << nanosecondsToMicroseconds(movement.movementContactsNanoseconds)
+                  << " movement_consequences_us="
+                  << nanosecondsToMicroseconds(movement.movementConsequencesNanoseconds)
+                  << " party_recovery_us=" << nanosecondsToMicroseconds(movement.partyRecoveryNanoseconds)
+                  << " party_timed_state_us="
+                  << nanosecondsToMicroseconds(movement.partyTimedStateNanoseconds)
+                  << " party_spell_state_us="
+                  << nanosecondsToMicroseconds(movement.partySpellStateNanoseconds)
+                  << " party_effects_us=" << nanosecondsToMicroseconds(movement.partyEffectsNanoseconds)
+                  << " timer_us=" << nanosecondsToMicroseconds(movement.timerNanoseconds)
+                  << " timer_untracked_us=" << nanosecondsToMicroseconds(timerUntrackedNanoseconds)
+                  << " timer_event_execution_us="
+                  << nanosecondsToMicroseconds(movement.timerEventExecutionNanoseconds)
+                  << " timer_event_apply_us="
+                  << nanosecondsToMicroseconds(movement.timerEventApplyNanoseconds)
+                  << " party_event_apply_us="
+                  << nanosecondsToMicroseconds(movement.partyEventApplyNanoseconds)
+                  << " pressure_plate_us=" << nanosecondsToMicroseconds(movement.pressurePlateNanoseconds)
+                  << " boundary_transition_us="
+                  << nanosecondsToMicroseconds(movement.boundaryTransitionNanoseconds)
+                  << " actor_queue_contacts_us="
+                  << nanosecondsToMicroseconds(movement.actorQueueAndContactsNanoseconds)
+                  << " movement_steps=" << movement.movementStepCount
+                  << " timer_events_fired=" << movement.timerEventsFired
+                  << " timer_event_ids=";
+
+        if (movement.storedTimerEventIdCount == 0)
+        {
+            std::cout << "none";
+        }
+        else
+        {
+            for (size_t eventIndex = 0; eventIndex < movement.storedTimerEventIdCount; ++eventIndex)
+            {
+                if (eventIndex != 0)
+                {
+                    std::cout << ',';
+                }
+
+                std::cout << movement.timerEventIds[eventIndex];
+            }
+        }
+
+        std::cout << '\n';
+    }
+
+    const GameplayUiFramePerformanceDiagnostics &gameplayUi =
+        m_gameSession.lastGameplayUiFramePerformanceDiagnostics();
+    const GameplayUiOverlayFramePerformanceDiagnostics &overlays = gameplayUi.overlays;
+
+    if (gameplayUi.collected && gameplayUi.totalNanoseconds != 0)
+    {
+        const uint64_t gameplayUiMeasuredNanoseconds =
+            gameplayUi.worldUiRenderStateNanoseconds
+            + gameplayUi.standardUiNanoseconds
+            + gameplayUi.pendingSpellOverlayNanoseconds;
+        const uint64_t gameplayUiUntrackedNanoseconds =
+            gameplayUi.totalNanoseconds > gameplayUiMeasuredNanoseconds
+                ? gameplayUi.totalNanoseconds - gameplayUiMeasuredNanoseconds
+                : 0;
+        const uint64_t overlayMeasuredNanoseconds =
+            overlays.beginInspectableFrameNanoseconds
+            + overlays.pendingDialogNanoseconds
+            + overlays.screenFxNanoseconds
+            + overlays.chestBelowNanoseconds
+            + overlays.inventoryBelowNanoseconds
+            + overlays.dialogueBelowNanoseconds
+            + overlays.characterBelowNanoseconds
+            + overlays.hudArtNanoseconds
+            + overlays.hudNanoseconds
+            + overlays.chestAboveNanoseconds
+            + overlays.inventoryAboveNanoseconds
+            + overlays.characterAboveNanoseconds
+            + overlays.dialogueAboveNanoseconds
+            + overlays.restNanoseconds
+            + overlays.menuNanoseconds
+            + overlays.controlsNanoseconds
+            + overlays.keyboardNanoseconds
+            + overlays.videoOptionsNanoseconds
+            + overlays.saveGameNanoseconds
+            + overlays.loadGameNanoseconds
+            + overlays.journalNanoseconds
+            + overlays.quickReferenceNanoseconds
+            + overlays.spellbookNanoseconds
+            + overlays.heldItemNanoseconds
+            + overlays.itemInspectNanoseconds
+            + overlays.mouseLookNanoseconds
+            + overlays.deferredInventoryNanoseconds
+            + overlays.utilitySpellNanoseconds
+            + overlays.characterInspectNanoseconds
+            + overlays.buffInspectNanoseconds
+            + overlays.characterDetailNanoseconds
+            + overlays.actorInspectNanoseconds
+            + overlays.spellInspectNanoseconds
+            + overlays.readableScrollNanoseconds;
+        const uint64_t overlayUntrackedNanoseconds =
+            overlays.totalNanoseconds > overlayMeasuredNanoseconds
+                ? overlays.totalNanoseconds - overlayMeasuredNanoseconds
+                : 0;
+
+        std::cout << "[GameplayUiHitchDetail]"
+                  << " total_us=" << nanosecondsToMicroseconds(gameplayUi.totalNanoseconds)
+                  << " untracked_us=" << nanosecondsToMicroseconds(gameplayUiUntrackedNanoseconds)
+                  << " world_ui_state_us="
+                  << nanosecondsToMicroseconds(gameplayUi.worldUiRenderStateNanoseconds)
+                  << " standard_ui_us=" << nanosecondsToMicroseconds(gameplayUi.standardUiNanoseconds)
+                  << " pending_spell_overlay_us="
+                  << nanosecondsToMicroseconds(gameplayUi.pendingSpellOverlayNanoseconds)
+                  << " overlays_total_us=" << nanosecondsToMicroseconds(overlays.totalNanoseconds)
+                  << " overlays_untracked_us=" << nanosecondsToMicroseconds(overlayUntrackedNanoseconds)
+                  << " inspect_frame_us="
+                  << nanosecondsToMicroseconds(overlays.beginInspectableFrameNanoseconds)
+                  << " pending_dialog_us=" << nanosecondsToMicroseconds(overlays.pendingDialogNanoseconds)
+                  << " screen_fx_us=" << nanosecondsToMicroseconds(overlays.screenFxNanoseconds)
+                  << " chest_below_us=" << nanosecondsToMicroseconds(overlays.chestBelowNanoseconds)
+                  << " inventory_below_us=" << nanosecondsToMicroseconds(overlays.inventoryBelowNanoseconds)
+                  << " dialogue_below_us=" << nanosecondsToMicroseconds(overlays.dialogueBelowNanoseconds)
+                  << " character_below_us=" << nanosecondsToMicroseconds(overlays.characterBelowNanoseconds)
+                  << " hud_art_us=" << nanosecondsToMicroseconds(overlays.hudArtNanoseconds)
+                  << " hud_us=" << nanosecondsToMicroseconds(overlays.hudNanoseconds)
+                  << " chest_above_us=" << nanosecondsToMicroseconds(overlays.chestAboveNanoseconds)
+                  << " inventory_above_us=" << nanosecondsToMicroseconds(overlays.inventoryAboveNanoseconds)
+                  << " character_above_us=" << nanosecondsToMicroseconds(overlays.characterAboveNanoseconds)
+                  << " dialogue_above_us=" << nanosecondsToMicroseconds(overlays.dialogueAboveNanoseconds)
+                  << " rest_us=" << nanosecondsToMicroseconds(overlays.restNanoseconds)
+                  << " menu_us=" << nanosecondsToMicroseconds(overlays.menuNanoseconds)
+                  << " controls_us=" << nanosecondsToMicroseconds(overlays.controlsNanoseconds)
+                  << " keyboard_us=" << nanosecondsToMicroseconds(overlays.keyboardNanoseconds)
+                  << " video_options_us=" << nanosecondsToMicroseconds(overlays.videoOptionsNanoseconds)
+                  << " save_game_us=" << nanosecondsToMicroseconds(overlays.saveGameNanoseconds)
+                  << " load_game_us=" << nanosecondsToMicroseconds(overlays.loadGameNanoseconds)
+                  << " journal_us=" << nanosecondsToMicroseconds(overlays.journalNanoseconds)
+                  << " quick_reference_us=" << nanosecondsToMicroseconds(overlays.quickReferenceNanoseconds)
+                  << " spellbook_us=" << nanosecondsToMicroseconds(overlays.spellbookNanoseconds)
+                  << " held_item_us=" << nanosecondsToMicroseconds(overlays.heldItemNanoseconds)
+                  << " item_inspect_us=" << nanosecondsToMicroseconds(overlays.itemInspectNanoseconds)
+                  << " mouse_look_us=" << nanosecondsToMicroseconds(overlays.mouseLookNanoseconds)
+                  << " deferred_inventory_us="
+                  << nanosecondsToMicroseconds(overlays.deferredInventoryNanoseconds)
+                  << " utility_spell_us=" << nanosecondsToMicroseconds(overlays.utilitySpellNanoseconds)
+                  << " character_inspect_us="
+                  << nanosecondsToMicroseconds(overlays.characterInspectNanoseconds)
+                  << " buff_inspect_us=" << nanosecondsToMicroseconds(overlays.buffInspectNanoseconds)
+                  << " character_detail_us="
+                  << nanosecondsToMicroseconds(overlays.characterDetailNanoseconds)
+                  << " actor_inspect_us=" << nanosecondsToMicroseconds(overlays.actorInspectNanoseconds)
+                  << " spell_inspect_us=" << nanosecondsToMicroseconds(overlays.spellInspectNanoseconds)
+                  << " readable_scroll_us=" << nanosecondsToMicroseconds(overlays.readableScrollNanoseconds)
+                  << '\n';
+    }
+
+    const GameplayUiRuntime &uiRuntime = m_gameSession.gameplayUiRuntime();
+
+    for (const GameplayUiAssetLoadPerformanceEvent &event : uiRuntime.performanceAssetLoadEvents())
+    {
+        std::cout << "[UiAssetLoadPerf]"
+                  << " kind=" << gameplayUiAssetLoadKindName(event.kind)
+                  << " name=\"" << event.name << "\""
+                  << " load_us=" << nanosecondsToMicroseconds(event.loadNanoseconds)
+                  << " result=" << (event.success ? "loaded" : "failed")
+                  << " size=" << event.width << 'x' << event.height;
+
+        if (event.hasColor)
+        {
+            std::cout << " color_abgr=" << event.colorAbgr;
+        }
+
+        std::cout << '\n';
+    }
+
+    if (uiRuntime.performanceAssetLoadEventOverflowCount() != 0)
+    {
+        std::cout << "[UiAssetLoadPerf] overflow="
+                  << uiRuntime.performanceAssetLoadEventOverflowCount()
+                  << '\n';
+    }
 }
 
 void GameApplication::pumpLoadingOverlayAnimation()
@@ -7714,9 +8116,12 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 {
     const bool collectFrameDiagnostics = m_config.performanceTrace;
     const uint64_t frameBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
+    std::optional<FramePerformanceDiagnostics> frameDiagnosticsAtStart;
 
     if (collectFrameDiagnostics)
     {
+        frameDiagnosticsAtStart = m_framePerformanceDiagnostics;
+        m_gameSession.beginFramePerformanceDiagnostics(true);
         ++m_framePerformanceDiagnostics.frames;
     }
 
@@ -7734,7 +8139,71 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         if (collectFrameDiagnostics)
         {
             m_framePerformanceDiagnostics.totalNanoseconds += SDL_GetTicksNS() - frameBeginTickCount;
-            logFramePerformanceDiagnostics(SDL_GetTicks());
+            FramePerformanceDiagnostics currentFrameDiagnostics = {};
+            currentFrameDiagnostics.frames =
+                m_framePerformanceDiagnostics.frames - frameDiagnosticsAtStart->frames;
+            currentFrameDiagnostics.totalNanoseconds =
+                m_framePerformanceDiagnostics.totalNanoseconds - frameDiagnosticsAtStart->totalNanoseconds;
+            currentFrameDiagnostics.pendingDebugMapJumpNanoseconds =
+                m_framePerformanceDiagnostics.pendingDebugMapJumpNanoseconds
+                - frameDiagnosticsAtStart->pendingDebugMapJumpNanoseconds;
+            currentFrameDiagnostics.debugConsoleBeginNanoseconds =
+                m_framePerformanceDiagnostics.debugConsoleBeginNanoseconds
+                - frameDiagnosticsAtStart->debugConsoleBeginNanoseconds;
+            currentFrameDiagnostics.inputNanoseconds =
+                m_framePerformanceDiagnostics.inputNanoseconds - frameDiagnosticsAtStart->inputNanoseconds;
+            currentFrameDiagnostics.activeScreenNanoseconds =
+                m_framePerformanceDiagnostics.activeScreenNanoseconds
+                - frameDiagnosticsAtStart->activeScreenNanoseconds;
+            currentFrameDiagnostics.pendingStateNanoseconds =
+                m_framePerformanceDiagnostics.pendingStateNanoseconds
+                - frameDiagnosticsAtStart->pendingStateNanoseconds;
+            currentFrameDiagnostics.gameplayUpdateNanoseconds =
+                m_framePerformanceDiagnostics.gameplayUpdateNanoseconds
+                - frameDiagnosticsAtStart->gameplayUpdateNanoseconds;
+            currentFrameDiagnostics.worldUpdateNanoseconds =
+                m_framePerformanceDiagnostics.worldUpdateNanoseconds
+                - frameDiagnosticsAtStart->worldUpdateNanoseconds;
+            currentFrameDiagnostics.renderWorldNanoseconds =
+                m_framePerformanceDiagnostics.renderWorldNanoseconds
+                - frameDiagnosticsAtStart->renderWorldNanoseconds;
+            currentFrameDiagnostics.renderGameplayUiNanoseconds =
+                m_framePerformanceDiagnostics.renderGameplayUiNanoseconds
+                - frameDiagnosticsAtStart->renderGameplayUiNanoseconds;
+            currentFrameDiagnostics.audioNanoseconds =
+                m_framePerformanceDiagnostics.audioNanoseconds - frameDiagnosticsAtStart->audioNanoseconds;
+            currentFrameDiagnostics.postWorldNanoseconds =
+                m_framePerformanceDiagnostics.postWorldNanoseconds
+                - frameDiagnosticsAtStart->postWorldNanoseconds;
+            currentFrameDiagnostics.debugConsoleRenderNanoseconds =
+                m_framePerformanceDiagnostics.debugConsoleRenderNanoseconds
+                - frameDiagnosticsAtStart->debugConsoleRenderNanoseconds;
+            currentFrameDiagnostics.performanceTraceLogNanoseconds =
+                m_framePerformanceDiagnostics.performanceTraceLogNanoseconds
+                - frameDiagnosticsAtStart->performanceTraceLogNanoseconds;
+            currentFrameDiagnostics.activeScreenFrames =
+                m_framePerformanceDiagnostics.activeScreenFrames - frameDiagnosticsAtStart->activeScreenFrames;
+            currentFrameDiagnostics.gameplayWorldFrames =
+                m_framePerformanceDiagnostics.gameplayWorldFrames - frameDiagnosticsAtStart->gameplayWorldFrames;
+            const uint64_t performanceLogBeginTickCount = SDL_GetTicksNS();
+            const bool loggedPerformanceDiagnostics = logFramePerformanceDiagnostics(SDL_GetTicks());
+            const uint64_t performanceLogNanoseconds = SDL_GetTicksNS() - performanceLogBeginTickCount;
+            currentFrameDiagnostics.performanceTraceLogNanoseconds += performanceLogNanoseconds;
+            currentFrameDiagnostics.totalNanoseconds += performanceLogNanoseconds;
+
+            if (!loggedPerformanceDiagnostics)
+            {
+                m_framePerformanceDiagnostics.performanceTraceLogNanoseconds += performanceLogNanoseconds;
+                m_framePerformanceDiagnostics.totalNanoseconds += performanceLogNanoseconds;
+            }
+
+            const uint64_t hitchThresholdNanoseconds = static_cast<uint64_t>(
+                std::max(0.1f, m_settings.hitchThresholdMilliseconds) * 1000000.0f);
+
+            if (currentFrameDiagnostics.totalNanoseconds >= hitchThresholdNanoseconds)
+            {
+                logFrameHitchDiagnostics(currentFrameDiagnostics);
+            }
         }
     };
 

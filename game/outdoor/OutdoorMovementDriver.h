@@ -8,6 +8,8 @@
 
 namespace OpenYAMM::Game
 {
+struct GameplayWorldMovementFrameDiagnostics;
+
 struct OutdoorMovementInput
 {
     bool forward = false;
@@ -105,7 +107,10 @@ public:
 
     void initialize(float x, float y, float footZHint);
     void restoreState(const OutdoorMoveState &state, const OutdoorPartyMovementState &partyMovementState);
-    void update(const OutdoorMovementInput &input, float deltaSeconds);
+    void update(
+        const OutdoorMovementInput &input,
+        float deltaSeconds,
+        GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics = nullptr);
     void setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders);
     void setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
     void updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries);

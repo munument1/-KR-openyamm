@@ -6,6 +6,7 @@
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
 
+#include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
 
@@ -35,6 +36,7 @@ bool canUseBgfxResources()
 
 constexpr int32_t MergedYawUnitsPerTurn = 2048;
 constexpr int32_t DegreesPerTurn = 360;
+constexpr size_t MaxPerformanceAssetLoadEvents = 32;
 struct TownPortalDestinationOverride
 {
     uint32_t mapId = 0;
@@ -318,6 +320,75 @@ size_t GameplayUiRuntime::HudLayoutResolutionCacheKeyHash::operator()(
     return seed;
 }
 
+void GameplayUiRuntime::beginPerformanceFrame(bool enabled)
+{
+    m_performanceFrameEnabled = enabled;
+
+    if (!enabled)
+    {
+        return;
+    }
+
+    m_performanceAssetLoadEvents.clear();
+    m_performanceAssetLoadEventOverflowCount = 0;
+    m_lastOverlayFramePerformanceDiagnostics = {};
+}
+
+const std::vector<GameplayUiAssetLoadPerformanceEvent> &GameplayUiRuntime::performanceAssetLoadEvents() const
+{
+    return m_performanceAssetLoadEvents;
+}
+
+size_t GameplayUiRuntime::performanceAssetLoadEventOverflowCount() const
+{
+    return m_performanceAssetLoadEventOverflowCount;
+}
+
+void GameplayUiRuntime::setLastOverlayFramePerformanceDiagnostics(
+    const GameplayUiOverlayFramePerformanceDiagnostics &diagnostics)
+{
+    m_lastOverlayFramePerformanceDiagnostics = diagnostics;
+}
+
+const GameplayUiOverlayFramePerformanceDiagnostics &
+GameplayUiRuntime::lastOverlayFramePerformanceDiagnostics() const
+{
+    return m_lastOverlayFramePerformanceDiagnostics;
+}
+
+void GameplayUiRuntime::recordPerformanceAssetLoad(
+    GameplayUiAssetLoadKind kind,
+    const std::string &name,
+    uint64_t loadNanoseconds,
+    bool success,
+    int width,
+    int height,
+    bool hasColor,
+    uint32_t colorAbgr)
+{
+    if (!m_performanceFrameEnabled)
+    {
+        return;
+    }
+
+    if (m_performanceAssetLoadEvents.size() >= MaxPerformanceAssetLoadEvents)
+    {
+        ++m_performanceAssetLoadEventOverflowCount;
+        return;
+    }
+
+    m_performanceAssetLoadEvents.push_back(GameplayUiAssetLoadPerformanceEvent{
+        .kind = kind,
+        .name = name,
+        .loadNanoseconds = loadNanoseconds,
+        .colorAbgr = colorAbgr,
+        .width = width,
+        .height = height,
+        .success = success,
+        .hasColor = hasColor,
+    });
+}
+
 void GameplayUiRuntime::clearHudLayoutLookupCaches() const
 {
     m_hudLayoutElementLookupCache.clear();
@@ -342,6 +413,10 @@ void GameplayUiRuntime::clear()
     m_hudRenderBackend = {};
     m_flyBuffIconAnimationState = {};
     m_assetLoadCache = {};
+    m_performanceFrameEnabled = false;
+    m_performanceAssetLoadEvents.clear();
+    m_performanceAssetLoadEventOverflowCount = 0;
+    m_lastOverlayFramePerformanceDiagnostics = {};
     m_pAssetFileSystem = nullptr;
     m_layoutsLoaded = false;
     m_assetsPreloaded = false;
@@ -679,12 +754,31 @@ bool GameplayUiRuntime::loadHudTexture(const std::string &textureName)
         return false;
     }
 
-    return GameplayHudCommon::loadHudTexture(
+    const bool cacheMiss =
+        m_performanceFrameEnabled
+        && GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName) == nullptr;
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bool loaded = GameplayHudCommon::loadHudTexture(
         m_pAssetFileSystem,
         m_assetLoadCache,
         textureName,
         m_hudTextureHandles,
         m_hudTextureIndexByName);
+
+    if (cacheMiss)
+    {
+        const GameplayHudTextureData *pTexture =
+            GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName);
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::HudTexture,
+            textureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            loaded,
+            pTexture != nullptr ? pTexture->physicalWidth : 0,
+            pTexture != nullptr ? pTexture->physicalHeight : 0);
+    }
+
+    return loaded;
 }
 
 bool GameplayUiRuntime::loadItemIconTexture(const std::string &textureName)
@@ -694,13 +788,32 @@ bool GameplayUiRuntime::loadItemIconTexture(const std::string &textureName)
         return false;
     }
 
-    return GameplayHudCommon::loadHudTexture(
+    const bool cacheMiss =
+        m_performanceFrameEnabled
+        && GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName) == nullptr;
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bool loaded = GameplayHudCommon::loadHudTexture(
         m_pAssetFileSystem,
         m_assetLoadCache,
         textureName,
         m_hudTextureHandles,
         m_hudTextureIndexByName,
         GameplayHudBitmapTransparencyMode::ItemIcon);
+
+    if (cacheMiss)
+    {
+        const GameplayHudTextureData *pTexture =
+            GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName);
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::ItemIcon,
+            textureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            loaded,
+            pTexture != nullptr ? pTexture->physicalWidth : 0,
+            pTexture != nullptr ? pTexture->physicalHeight : 0);
+    }
+
+    return loaded;
 }
 
 bool GameplayUiRuntime::loadHudFont(const std::string &fontName)
@@ -710,11 +823,28 @@ bool GameplayUiRuntime::loadHudFont(const std::string &fontName)
         return false;
     }
 
-    return GameplayHudCommon::loadHudFont(
+    const bool cacheMiss =
+        m_performanceFrameEnabled && GameplayHudCommon::findHudFont(m_hudFontHandles, fontName) == nullptr;
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bool loaded = GameplayHudCommon::loadHudFont(
         m_pAssetFileSystem,
         m_assetLoadCache,
         fontName,
         m_hudFontHandles);
+
+    if (cacheMiss)
+    {
+        const GameplayHudFontData *pFont = GameplayHudCommon::findHudFont(m_hudFontHandles, fontName);
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::HudFont,
+            fontName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            loaded,
+            pFont != nullptr ? pFont->atlasWidth : 0,
+            pFont != nullptr ? pFont->atlasHeight : 0);
+    }
+
+    return loaded;
 }
 
 std::optional<std::vector<uint8_t>> GameplayUiRuntime::loadHudBitmapPixelsBgraCached(
@@ -977,6 +1107,8 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureSolidHudTexture
         return result;
     }
 
+    const uint64_t loadBeginTickCount = m_performanceFrameEnabled ? SDL_GetTicksNS() : 0;
+
     const std::array<uint8_t, 4> pixel = {
         static_cast<uint8_t>((abgrColor >> 16) & 0xffu),
         static_cast<uint8_t>((abgrColor >> 8) & 0xffu),
@@ -1001,6 +1133,19 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureSolidHudTexture
 
     if (!bgfx::isValid(textureHandle.textureHandle))
     {
+        if (m_performanceFrameEnabled)
+        {
+            recordPerformanceAssetLoad(
+                GameplayUiAssetLoadKind::SolidTexture,
+                cacheTextureName,
+                SDL_GetTicksNS() - loadBeginTickCount,
+                false,
+                1,
+                1,
+                true,
+                abgrColor);
+        }
+
         return std::nullopt;
     }
 
@@ -1013,6 +1158,20 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureSolidHudTexture
     result.width = m_hudTextureHandles.back().width;
     result.height = m_hudTextureHandles.back().height;
     result.textureHandle = m_hudTextureHandles.back().textureHandle;
+
+    if (m_performanceFrameEnabled)
+    {
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::SolidTexture,
+            cacheTextureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            true,
+            1,
+            1,
+            true,
+            abgrColor);
+    }
+
     return result;
 }
 
@@ -1022,13 +1181,36 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureDynamicHudTextu
     int height,
     const std::vector<uint8_t> &bgraPixels)
 {
-    return GameplayHudCommon::ensureDynamicHudTexture(
+    const GameplayHudTextureData *pExistingTexture =
+        m_performanceFrameEnabled
+            ? GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, textureName)
+            : nullptr;
+    const bool createsResource =
+        m_performanceFrameEnabled
+        && (pExistingTexture == nullptr
+            || pExistingTexture->physicalWidth != width
+            || pExistingTexture->physicalHeight != height);
+    const uint64_t loadBeginTickCount = createsResource ? SDL_GetTicksNS() : 0;
+    const std::optional<GameplayHudTextureHandle> result = GameplayHudCommon::ensureDynamicHudTexture(
         textureName,
         width,
         height,
         bgraPixels,
         m_hudTextureHandles,
         m_hudTextureIndexByName);
+
+    if (createsResource)
+    {
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::DynamicTexture,
+            textureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            result.has_value(),
+            width,
+            height);
+    }
+
+    return result;
 }
 
 const std::vector<uint8_t> *GameplayUiRuntime::hudTexturePixels(
@@ -1186,7 +1368,35 @@ bgfx::TextureHandle GameplayUiRuntime::ensureHudTextureColor(
         return invalidHandle;
     }
 
-    return GameplayHudCommon::ensureHudTextureColor(*pTexture, colorAbgr, m_hudTextureColorTextureHandles);
+    const bool cacheMiss =
+        m_performanceFrameEnabled
+        && std::none_of(
+            m_hudTextureColorTextureHandles.begin(),
+            m_hudTextureColorTextureHandles.end(),
+            [&texture, colorAbgr](const GameplayHudTextureColorTextureData &entry)
+            {
+                return entry.textureName == texture.textureName
+                    && entry.colorAbgr == colorAbgr
+                    && entry.colorMode == GameplayHudTextureColorMode::Solid;
+            });
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bgfx::TextureHandle result =
+        GameplayHudCommon::ensureHudTextureColor(*pTexture, colorAbgr, m_hudTextureColorTextureHandles);
+
+    if (cacheMiss)
+    {
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::HudTextureColor,
+            texture.textureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            bgfx::isValid(result),
+            pTexture->physicalWidth,
+            pTexture->physicalHeight,
+            true,
+            colorAbgr);
+    }
+
+    return result;
 }
 
 bgfx::TextureHandle GameplayUiRuntime::ensureHudTextureColorModulated(
@@ -1201,10 +1411,37 @@ bgfx::TextureHandle GameplayUiRuntime::ensureHudTextureColorModulated(
         return BGFX_INVALID_HANDLE;
     }
 
-    return GameplayHudCommon::ensureHudTextureColorModulated(
+    const bool cacheMiss =
+        m_performanceFrameEnabled
+        && std::none_of(
+            m_hudTextureColorTextureHandles.begin(),
+            m_hudTextureColorTextureHandles.end(),
+            [&texture, colorAbgr](const GameplayHudTextureColorTextureData &entry)
+            {
+                return entry.textureName == texture.textureName
+                    && entry.colorAbgr == colorAbgr
+                    && entry.colorMode == GameplayHudTextureColorMode::Modulated;
+            });
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bgfx::TextureHandle result = GameplayHudCommon::ensureHudTextureColorModulated(
         *pTexture,
         colorAbgr,
         m_hudTextureColorTextureHandles);
+
+    if (cacheMiss)
+    {
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::HudTextureColorModulated,
+            texture.textureName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            bgfx::isValid(result),
+            pTexture->physicalWidth,
+            pTexture->physicalHeight,
+            true,
+            colorAbgr);
+    }
+
+    return result;
 }
 
 bgfx::TextureHandle GameplayUiRuntime::ensureHudFontMainTextureColor(
@@ -1219,7 +1456,34 @@ bgfx::TextureHandle GameplayUiRuntime::ensureHudFontMainTextureColor(
         return invalidHandle;
     }
 
-    return GameplayHudCommon::ensureHudFontMainTextureColor(*pFont, colorAbgr, m_hudFontColorTextureHandles);
+    const bool cacheMiss =
+        m_performanceFrameEnabled
+        && colorAbgr != 0xffffffffu
+        && std::none_of(
+            m_hudFontColorTextureHandles.begin(),
+            m_hudFontColorTextureHandles.end(),
+            [&font, colorAbgr](const GameplayHudFontColorTextureData &entry)
+            {
+                return entry.fontName == font.fontName && entry.colorAbgr == colorAbgr;
+            });
+    const uint64_t loadBeginTickCount = cacheMiss ? SDL_GetTicksNS() : 0;
+    const bgfx::TextureHandle result =
+        GameplayHudCommon::ensureHudFontMainTextureColor(*pFont, colorAbgr, m_hudFontColorTextureHandles);
+
+    if (cacheMiss)
+    {
+        recordPerformanceAssetLoad(
+            GameplayUiAssetLoadKind::HudFontColor,
+            font.fontName,
+            SDL_GetTicksNS() - loadBeginTickCount,
+            bgfx::isValid(result),
+            pFont->atlasWidth,
+            pFont->atlasHeight,
+            true,
+            colorAbgr);
+    }
+
+    return result;
 }
 
 void GameplayUiRuntime::addRenderedInspectableHudItem(const GameplayRenderedInspectableHudItem &item)

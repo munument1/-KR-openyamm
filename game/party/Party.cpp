@@ -3924,6 +3924,21 @@ void Party::applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const
         if (follower.npcId != 0)
         {
             runtimeState.unavailableNpcIds.insert(follower.npcId);
+
+            if (!follower.name.empty())
+            {
+                runtimeState.npcNameOverrides[follower.npcId] = follower.name;
+            }
+
+            if (follower.pictureId != 0)
+            {
+                runtimeState.npcPictureOverrides[follower.npcId] = follower.pictureId;
+            }
+
+            if (follower.professionId != 0)
+            {
+                runtimeState.npcProfessionOverrides[follower.npcId] = follower.professionId;
+            }
         }
     }
 }

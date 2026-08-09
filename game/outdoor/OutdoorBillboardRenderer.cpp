@@ -104,8 +104,10 @@ bool timingEnvironmentFlagEnabled(const char *pName)
 
 bool actorRenderHitchLoggingEnabled()
 {
-    return timingEnvironmentFlagEnabled("OPENYAMM_MAP_LOAD_TIMING")
+    static const bool enabled =
+        timingEnvironmentFlagEnabled("OPENYAMM_MAP_LOAD_TIMING")
         || timingEnvironmentFlagEnabled("OPENYAMM_ACTOR_RENDER_TIMING");
+    return enabled;
 }
 
 float outdoorBillboardDepthSliceSize(const OutdoorGameView &view)
@@ -866,12 +868,12 @@ void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &vie
 
     if (view.m_pOutdoorSceneRuntime != nullptr && view.m_pOutdoorSceneRuntime->localEventProgram())
     {
-        queueEventSpellBillboardTextureWarmup(view, *view.m_pOutdoorSceneRuntime->localEventProgram());
+        queueEventBillboardTextureWarmup(view, *view.m_pOutdoorSceneRuntime->localEventProgram());
     }
 
     if (view.m_pOutdoorSceneRuntime != nullptr && view.m_pOutdoorSceneRuntime->globalEventProgram())
     {
-        queueEventSpellBillboardTextureWarmup(view, *view.m_pOutdoorSceneRuntime->globalEventProgram());
+        queueEventBillboardTextureWarmup(view, *view.m_pOutdoorSceneRuntime->globalEventProgram());
     }
 
     queueRuntimeActorBillboardTextureWarmup(view);
@@ -954,6 +956,33 @@ void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView
     }
 
     preloadPendingSpriteFrameWarmupsParallel(view);
+
+    // Saved state and on-load events can change actor visuals after the map asset set was predicted.
+    // Sweep the final runtime actors while the loading screen is still active.
+    if (view.m_pOutdoorWorldRuntime == nullptr || !view.m_outdoorActorPreviewBillboardSet)
+    {
+        return;
+    }
+
+    const SpriteFrameTable &spriteFrameTable = view.m_outdoorActorPreviewBillboardSet->spriteFrameTable;
+
+    for (size_t actorIndex = 0; actorIndex < view.m_pOutdoorWorldRuntime->mapActorCount(); ++actorIndex)
+    {
+        const OutdoorWorldRuntime::MapActorState *pActorState =
+            view.m_pOutdoorWorldRuntime->mapActorState(actorIndex);
+
+        if (pActorState == nullptr)
+        {
+            continue;
+        }
+
+        view.preloadSpriteFrameTextures(spriteFrameTable, pActorState->spriteFrameIndex, nullptr);
+
+        for (uint16_t actionSpriteFrameIndex : pActorState->actionSpriteFrameIndices)
+        {
+            view.preloadSpriteFrameTextures(spriteFrameTable, actionSpriteFrameIndex, nullptr);
+        }
+    }
 }
 
 void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
@@ -1409,7 +1438,7 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
         });
 }
 
-void OutdoorBillboardRenderer::queueEventSpellBillboardTextureWarmup(
+void OutdoorBillboardRenderer::queueEventBillboardTextureWarmup(
     OutdoorGameView &view,
     const ScriptedEventProgram &eventProgram)
 {
@@ -1495,6 +1524,42 @@ void OutdoorBillboardRenderer::queueEventSpellBillboardTextureWarmup(
 
         queueSpellObjectSpriteFrame(pSpellEntry->displayObjectId);
         queueSpellObjectSpriteFrame(pSpellEntry->impactDisplayObjectId);
+    }
+
+    const SpriteFrameTable *pEventSpriteFrameTable = nullptr;
+
+    if (view.m_outdoorDecorationBillboardSet)
+    {
+        pEventSpriteFrameTable = &view.m_outdoorDecorationBillboardSet->spriteFrameTable;
+    }
+    else if (view.m_outdoorSpriteObjectBillboardSet)
+    {
+        pEventSpriteFrameTable = &view.m_outdoorSpriteObjectBillboardSet->spriteFrameTable;
+    }
+    else if (view.m_outdoorActorPreviewBillboardSet)
+    {
+        pEventSpriteFrameTable = &view.m_outdoorActorPreviewBillboardSet->spriteFrameTable;
+    }
+
+    if (pEventSpriteFrameTable == nullptr)
+    {
+        return;
+    }
+
+    for (const std::string &spriteName : eventProgram.spriteNames())
+    {
+        if (spriteName.empty() || spriteName == "0")
+        {
+            continue;
+        }
+
+        const std::optional<uint16_t> spriteFrameIndex =
+            pEventSpriteFrameTable->findFrameIndexBySpriteName(spriteName);
+
+        if (spriteFrameIndex)
+        {
+            view.queueSpriteFrameWarmup(*spriteFrameIndex);
+        }
     }
 }
 
@@ -1881,7 +1946,8 @@ void OutdoorBillboardRenderer::processPendingSpriteFrameWarmups(OutdoorGameView 
 const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureSpriteBillboardTexture(
     OutdoorGameView &view,
     const std::string &textureName,
-    int16_t paletteId)
+    int16_t paletteId,
+    const char *pLoadPhase)
 {
     const OutdoorGameView::BillboardTextureHandle *pExistingTexture = view.findBillboardTexture(textureName, paletteId);
 
@@ -1897,7 +1963,8 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
 
     const std::string normalizedTextureName = toLowerCopy(textureName);
     const std::string warningKey = std::to_string(paletteId) + ":" + normalizedTextureName;
-    const bool logCacheMiss = view.m_runtimeBillboardLoadWarningKeys.insert(warningKey).second;
+    const bool logCacheMiss =
+        pLoadPhase != nullptr && view.m_runtimeBillboardLoadWarningKeys.insert(warningKey).second;
     const uint64_t loadBeginTickNanoseconds = logCacheMiss ? SDL_GetTicksNS() : 0;
     const auto logLoadResult = [&](const char *pResult, int width, int height)
     {
@@ -1906,7 +1973,7 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
             return;
         }
 
-        std::cerr << "[AssetLoadWarning] kind=sprite phase=render scene=outdoor"
+        std::cerr << "[AssetLoadWarning] kind=sprite phase=" << pLoadPhase << " scene=outdoor"
                   << " map=\"" << (view.m_map ? view.m_map->fileName : std::string()) << "\""
                   << " texture=\"" << normalizedTextureName << "\""
                   << " palette=" << paletteId
@@ -2316,7 +2383,14 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         std::sin(view.m_cameraPitchRadians)
     };
     const uint32_t animationTimeTicks = currentAnimationTicks();
-    const uint64_t actorRenderStartTickCount = SDL_GetTicksNS();
+    const bool collectRenderDiagnostics =
+        view.m_gameSettings.performanceTrace || actorRenderHitchLoggingEnabled();
+    const uint64_t actorRenderStartTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    const uint64_t renderHitchLogThresholdNanoseconds =
+        view.m_gameSettings.performanceTrace
+            ? static_cast<uint64_t>(
+                std::max(0.1f, view.m_gameSettings.hitchThresholdMilliseconds) * 1000000.0f)
+            : RenderHitchLogThresholdNanoseconds;
     uint64_t gatherStageNanoseconds = 0;
     uint64_t placeholderStageNanoseconds = 0;
     uint64_t sortStageNanoseconds = 0;
@@ -2766,11 +2840,14 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         }
     }
 
-    gatherStageNanoseconds += SDL_GetTicksNS() - actorRenderStartTickCount;
+    if (collectRenderDiagnostics)
+    {
+        gatherStageNanoseconds += SDL_GetTicksNS() - actorRenderStartTickCount;
+    }
 
     if (!placeholderVertices.empty())
     {
-        const uint64_t placeholderStageStartTickCount = SDL_GetTicksNS();
+        const uint64_t placeholderStageStartTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
         if (bgfx::getAvailTransientVertexBuffer(
                 static_cast<uint32_t>(placeholderVertices.size()),
@@ -2799,7 +2876,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             bgfx::submit(viewId, view.m_programHandle);
         }
 
-        placeholderStageNanoseconds += SDL_GetTicksNS() - placeholderStageStartTickCount;
+        if (collectRenderDiagnostics)
+        {
+            placeholderStageNanoseconds += SDL_GetTicksNS() - placeholderStageStartTickCount;
+        }
     }
 
     if (!bgfx::isValid(view.m_outdoorLitBillboardProgramHandle)
@@ -2808,16 +2888,17 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         || !bgfx::isValid(view.m_outdoorBillboardOutlineParamsUniformHandle)
         || !bgfx::isValid(view.m_outdoorBillboardAmbientUniformHandle))
     {
-        const uint64_t totalActorRenderNanoseconds = SDL_GetTicksNS() - actorRenderStartTickCount;
+        const uint64_t totalActorRenderNanoseconds =
+            collectRenderDiagnostics ? SDL_GetTicksNS() - actorRenderStartTickCount : 0;
 
-        if (actorRenderHitchLoggingEnabled() && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
+        if (collectRenderDiagnostics && totalActorRenderNanoseconds >= renderHitchLogThresholdNanoseconds)
         {
-            std::cout << "Actor render hitch: total_ms="
-                      << static_cast<double>(totalActorRenderNanoseconds) / 1000000.0
-                      << " gather_ms=" << static_cast<double>(gatherStageNanoseconds) / 1000000.0
-                      << " placeholder_ms=" << static_cast<double>(placeholderStageNanoseconds) / 1000000.0
-                      << " sort_ms=" << static_cast<double>(sortStageNanoseconds) / 1000000.0
-                      << " submit_ms=" << static_cast<double>(submitStageNanoseconds) / 1000000.0
+            std::cout << "[OutdoorActorRenderHitchDetail]"
+                      << " total_us=" << totalActorRenderNanoseconds / 1000ULL
+                      << " gather_us=" << gatherStageNanoseconds / 1000ULL
+                      << " placeholder_us=" << placeholderStageNanoseconds / 1000ULL
+                      << " sort_us=" << sortStageNanoseconds / 1000ULL
+                      << " submit_us=" << submitStageNanoseconds / 1000ULL
                       << " draw_items=" << drawItems.size()
                       << " placeholder_vertices=" << placeholderVertices.size()
                       << " texture_groups=" << textureGroupCount
@@ -2828,7 +2909,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         return;
     }
 
-    const uint64_t sortStageStartTickCount = SDL_GetTicksNS();
+    const uint64_t sortStageStartTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     std::sort(
         drawItems.begin(),
         drawItems.end(),
@@ -2841,7 +2922,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
             return left.distanceSquared > right.distanceSquared;
         });
-    sortStageNanoseconds += SDL_GetTicksNS() - sortStageStartTickCount;
+    if (collectRenderDiagnostics)
+    {
+        sortStageNanoseconds += SDL_GetTicksNS() - sortStageStartTickCount;
+    }
 
     if (view.m_gameSettings.performanceTrace)
     {
@@ -2906,7 +2990,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 return;
             }
 
-            const uint64_t submitStageStartTickCount = SDL_GetTicksNS();
+            const uint64_t submitStageStartTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
             const uint32_t batchVertexCount = static_cast<uint32_t>(batch.vertices.size());
 
             if (bgfx::getAvailTransientVertexBuffer(
@@ -2958,7 +3042,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 }
             }
 
-            submitStageNanoseconds += SDL_GetTicksNS() - submitStageStartTickCount;
+            if (collectRenderDiagnostics)
+            {
+                submitStageNanoseconds += SDL_GetTicksNS() - submitStageStartTickCount;
+            }
             resetBillboardBatch(batch);
         };
 
@@ -3104,7 +3191,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             if (bgfx::getAvailTransientVertexBuffer(vertexCount, OutdoorGameView::LitBillboardVertex::ms_layout)
                 >= vertexCount)
             {
-                const uint64_t outlineSubmitStageStartTickCount = SDL_GetTicksNS();
+                const uint64_t outlineSubmitStageStartTickCount =
+                    collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
                 bgfx::TransientVertexBuffer outlineTransientVertexBuffer = {};
                 bgfx::allocTransientVertexBuffer(
                     &outlineTransientVertexBuffer,
@@ -3134,7 +3222,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     HoveredActorOutlineThicknessPixels);
                 bgfx::setState(BillboardAlphaRenderState);
                 bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
-                submitStageNanoseconds += SDL_GetTicksNS() - outlineSubmitStageStartTickCount;
+                if (collectRenderDiagnostics)
+                {
+                    submitStageNanoseconds += SDL_GetTicksNS() - outlineSubmitStageStartTickCount;
+                }
 
                 if (view.m_gameSettings.performanceTrace)
                 {
@@ -3165,7 +3256,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 return;
             }
 
-            const uint64_t submitStageStartTickCount = SDL_GetTicksNS();
+            const uint64_t submitStageStartTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
             bgfx::TransientVertexBuffer transientVertexBuffer = {};
             bgfx::allocTransientVertexBuffer(
                 &transientVertexBuffer,
@@ -3205,7 +3296,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     ++view.m_outdoorSpriteRenderDiagnostics.decorationSubmits;
                 }
             }
-            submitStageNanoseconds += SDL_GetTicksNS() - submitStageStartTickCount;
+            if (collectRenderDiagnostics)
+            {
+                submitStageNanoseconds += SDL_GetTicksNS() - submitStageStartTickCount;
+            }
         };
 
     const float depthSliceSize = outdoorBillboardDepthSliceSize(view);
@@ -3380,16 +3474,17 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     submitColoredVertices(view, viewId, healthBarVertices, ColoredAlphaRenderState);
 
-    const uint64_t totalActorRenderNanoseconds = SDL_GetTicksNS() - actorRenderStartTickCount;
+    const uint64_t totalActorRenderNanoseconds =
+        collectRenderDiagnostics ? SDL_GetTicksNS() - actorRenderStartTickCount : 0;
 
-    if (actorRenderHitchLoggingEnabled() && totalActorRenderNanoseconds >= RenderHitchLogThresholdNanoseconds)
+    if (collectRenderDiagnostics && totalActorRenderNanoseconds >= renderHitchLogThresholdNanoseconds)
     {
-        std::cout << "Actor render hitch: total_ms="
-                  << static_cast<double>(totalActorRenderNanoseconds) / 1000000.0
-                  << " gather_ms=" << static_cast<double>(gatherStageNanoseconds) / 1000000.0
-                  << " placeholder_ms=" << static_cast<double>(placeholderStageNanoseconds) / 1000000.0
-                  << " sort_ms=" << static_cast<double>(sortStageNanoseconds) / 1000000.0
-                  << " submit_ms=" << static_cast<double>(submitStageNanoseconds) / 1000000.0
+        std::cout << "[OutdoorActorRenderHitchDetail]"
+                  << " total_us=" << totalActorRenderNanoseconds / 1000ULL
+                  << " gather_us=" << gatherStageNanoseconds / 1000ULL
+                  << " placeholder_us=" << placeholderStageNanoseconds / 1000ULL
+                  << " sort_us=" << sortStageNanoseconds / 1000ULL
+                  << " submit_us=" << submitStageNanoseconds / 1000ULL
                   << " draw_items=" << drawItems.size()
                   << " placeholder_vertices=" << placeholderVertices.size()
                   << " texture_groups=" << textureGroupCount

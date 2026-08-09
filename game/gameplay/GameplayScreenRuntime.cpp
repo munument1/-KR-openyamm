@@ -2899,7 +2899,7 @@ GameplayScreenRuntime::SharedUiBootstrapResult GameplayScreenRuntime::initialize
     result.layoutsLoaded = ensureGameplayLayoutsLoaded();
     result.portraitRuntimeLoaded = ensurePortraitRuntimeLoaded();
 
-    if (result.layoutsLoaded && config.preloadReferencedAssets)
+    if (result.layoutsLoaded)
     {
         preloadReferencedAssets();
     }

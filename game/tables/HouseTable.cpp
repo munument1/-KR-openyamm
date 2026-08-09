@@ -472,7 +472,7 @@ std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &hous
 
     if (houseType == "Thieves guild")
     {
-        return {"Stealing", "DisarmTraps", "Perception"};
+        return {"Dagger", "Merchant", "IdentifyItem", "Perception", "DisarmTraps"};
     }
 
     if (houseType == "Merc Guild")

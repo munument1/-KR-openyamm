@@ -3085,6 +3085,8 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             follower.npcId = offer.npcId;
             follower.professionId = pNpc->professionId;
             follower.weeklyCost = pProfession->weeklyCost;
+            follower.name = pNpc->name;
+            follower.pictureId = pNpc->pictureId;
             context.eventRuntimeState.hiredNpcFollowers.push_back(follower);
             context.eventRuntimeState.unavailableNpcIds.insert(offer.npcId);
             context.eventRuntimeState.npcHouseOverrides.erase(offer.npcId);

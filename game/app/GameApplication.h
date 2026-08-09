@@ -129,6 +129,7 @@ private:
         uint64_t audioNanoseconds = 0;
         uint64_t postWorldNanoseconds = 0;
         uint64_t debugConsoleRenderNanoseconds = 0;
+        uint64_t performanceTraceLogNanoseconds = 0;
         uint64_t activeScreenFrames = 0;
         uint64_t gameplayWorldFrames = 0;
 
@@ -241,7 +242,8 @@ private:
     std::vector<std::string> resolvePendingInputAnswers(
         const EventRuntimeState::PendingInputPrompt &prompt) const;
     void renderFrame(int width, int height, float mouseWheelDelta, float deltaSeconds);
-    void logFramePerformanceDiagnostics(uint32_t currentTick);
+    bool logFramePerformanceDiagnostics(uint32_t currentTick);
+    void logFrameHitchDiagnostics(const FramePerformanceDiagnostics &diagnostics) const;
 
     Engine::ApplicationConfig m_config;
     Engine::EngineApplication m_engineApplication;

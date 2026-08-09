@@ -1155,10 +1155,48 @@ void GameplayScreenController::renderSharedOverlays(
     int height,
     const GameplayScreenRenderConfig &config)
 {
-    GameplayUiOverlayOrchestrator::renderStandardOverlays(context, width, height, config.base);
+    const bool collectPerformanceDiagnostics = context.settingsSnapshot().performanceTrace;
+    const uint64_t totalBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+    std::optional<GameplayUiOverlayFramePerformanceDiagnostics> diagnostics;
+
+    if (collectPerformanceDiagnostics)
+    {
+        diagnostics.emplace();
+    }
+
+    GameplayUiOverlayOrchestrator::renderStandardOverlays(
+        context,
+        width,
+        height,
+        config.base,
+        diagnostics.has_value() ? &*diagnostics : nullptr);
+    uint64_t stageBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+    const auto recordStage =
+        [&](uint64_t GameplayUiOverlayFramePerformanceDiagnostics::*pField)
+        {
+            if (!diagnostics.has_value())
+            {
+                return;
+            }
+
+            const uint64_t nowTickCount = SDL_GetTicksNS();
+            diagnostics.value().*pField += nowTickCount - stageBeginTickCount;
+            stageBeginTickCount = nowTickCount;
+        };
+    const auto finishDiagnostics =
+        [&]()
+        {
+            if (diagnostics.has_value())
+            {
+                diagnostics->collected = true;
+                diagnostics->totalNanoseconds = SDL_GetTicksNS() - totalBeginTickCount;
+                context.gameplayUiRuntime().setLastOverlayFramePerformanceDiagnostics(*diagnostics);
+            }
+        };
 
     if (!config.base.canRenderHudOverlays)
     {
+        finishDiagnostics();
         return;
     }
 
@@ -1167,40 +1205,50 @@ void GameplayScreenController::renderSharedOverlays(
         GameplayHudOverlayRenderer::renderInventoryNestedOverlay(context, width, height, false);
         GameplayPartyOverlayRenderer::renderItemInspectOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::deferredInventoryNanoseconds);
 
     if (config.renderUtilitySpellOverlay)
     {
         GameplayPartyOverlayRenderer::renderUtilitySpellOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::utilitySpellNanoseconds);
 
     if (config.renderCharacterInspectOverlay)
     {
         GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::characterInspectNanoseconds);
 
     if (config.renderBuffInspectOverlay)
     {
         GameplayPartyOverlayRenderer::renderBuffInspectOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::buffInspectNanoseconds);
 
     if (config.renderCharacterDetailOverlay)
     {
         GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::characterDetailNanoseconds);
 
     if (config.renderActorInspectOverlay)
     {
         GameplayPartyOverlayRenderer::renderActorInspectOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::actorInspectNanoseconds);
 
     if (config.renderSpellInspectOverlay)
     {
         GameplayPartyOverlayRenderer::renderSpellInspectOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::spellInspectNanoseconds);
 
     if (config.renderReadableScrollOverlay)
     {
         GameplayPartyOverlayRenderer::renderReadableScrollOverlay(context, width, height);
     }
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::readableScrollNanoseconds);
+
+    finishDiagnostics();
 }
 } // namespace OpenYAMM::Game

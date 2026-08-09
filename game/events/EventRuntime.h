@@ -571,7 +571,8 @@ public:
         ISceneEventContext *pSceneEventContext = nullptr,
         std::optional<uint8_t> continueStep = std::nullopt,
         bool allowGlobalFallback = true,
-        std::optional<ScriptedEventScope> requiredScope = std::nullopt
+        std::optional<ScriptedEventScope> requiredScope = std::nullopt,
+        bool preservePendingOutputsOnBegin = false
     ) const;
     bool executeNpcTopicEventById(
         const std::optional<ScriptedEventProgram> &localProgram,

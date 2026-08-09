@@ -933,7 +933,8 @@ bool IndoorSceneRuntime::updateTimers(float deltaGameMinutes)
                 &m_worldRuntime,
                 std::nullopt,
                 true,
-                definition.scope);
+                definition.scope,
+                true);
 
             if (executed)
             {

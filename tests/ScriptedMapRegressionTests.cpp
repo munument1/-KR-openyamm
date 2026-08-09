@@ -8088,6 +8088,69 @@ TEST_CASE("full gameplay map load preloads object sprites that are not placed in
     CHECK(foundAnimationEnd);
 }
 
+TEST_CASE("full gameplay New Sorpigal load prepares actor animation textures")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "oute3.odm",
+        OpenYAMM::Game::MapLoadPurpose::FullGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->outdoorActorPreviewBillboardSet.has_value());
+
+    const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
+        *pLoadedMap->outdoorActorPreviewBillboardSet;
+    REQUIRE(billboardSet.texturePreloadFuture.valid());
+    const std::shared_ptr<std::vector<OpenYAMM::Game::OutdoorBitmapTexture>> pTextures =
+        billboardSet.texturePreloadFuture.get();
+    REQUIRE(pTextures != nullptr);
+
+    const auto textureLoaded =
+        [&pTextures](const std::string &textureName, int16_t paletteId)
+        {
+            return std::any_of(
+                pTextures->begin(),
+                pTextures->end(),
+                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == textureName && texture.paletteId == paletteId;
+                });
+        };
+
+    CHECK(textureLoaded("pfemwae2", 788));
+    CHECK(textureLoaded("pmanwae2", 799));
+    CHECK(textureLoaded("guawalf2", 748));
+    CHECK(textureLoaded("pmn2sta0", 802));
+    CHECK(textureLoaded("pmn2sta0", 803));
+
+    REQUIRE(pLoadedMap->outdoorDecorationBillboardSet.has_value());
+    const OpenYAMM::Game::DecorationBillboardSet &decorationSet =
+        *pLoadedMap->outdoorDecorationBillboardSet;
+    const auto decorationTextureLoaded =
+        [&decorationSet](const std::string &textureName, int16_t paletteId)
+        {
+            return std::any_of(
+                decorationSet.textures.begin(),
+                decorationSet.textures.end(),
+                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == textureName && texture.paletteId == paletteId;
+                });
+        };
+
+    CHECK(decorationTextureLoaded("swrdstn", 546));
+    CHECK(decorationTextureLoaded("fla3__06", 546));
+    CHECK(decorationTextureLoaded("bigbarel", 547));
+    CHECK(decorationTextureLoaded("shp1", 547));
+    CHECK(decorationTextureLoaded("searka06", 873));
+    CHECK(decorationTextureLoaded("searkb05", 873));
+}
+
 TEST_CASE("mm6 darkmoor indoor decoration billboards keep editor room ownership")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();

@@ -105,8 +105,24 @@ void migrateSavedRuntimeFollowersToParty(
         return;
     }
 
-    for (const HiredNpcFollower &follower : eventRuntimeState->hiredNpcFollowers)
+    for (const HiredNpcFollower &savedFollower : eventRuntimeState->hiredNpcFollowers)
     {
+        HiredNpcFollower follower = savedFollower;
+
+        const std::unordered_map<uint32_t, std::string>::const_iterator nameIt =
+            eventRuntimeState->npcNameOverrides.find(follower.npcId);
+        if (follower.name.empty() && nameIt != eventRuntimeState->npcNameOverrides.end())
+        {
+            follower.name = nameIt->second;
+        }
+
+        const std::unordered_map<uint32_t, uint32_t>::const_iterator pictureIt =
+            eventRuntimeState->npcPictureOverrides.find(follower.npcId);
+        if (follower.pictureId == 0 && pictureIt != eventRuntimeState->npcPictureOverrides.end())
+        {
+            follower.pictureId = pictureIt->second;
+        }
+
         party.addHiredNpcFollower(follower);
     }
 }
@@ -231,6 +247,9 @@ void GameSession::clear()
     m_outdoorCameraPitchRadians = 0.0f;
     m_currentSavePath.reset();
     m_pendingMapMove.reset();
+    m_framePerformanceDiagnosticsEnabled = false;
+    m_lastGameplayUpdateFramePerformanceDiagnostics = {};
+    m_lastGameplayUiFramePerformanceDiagnostics = {};
 }
 
 const std::optional<Party> &GameSession::partyState() const
@@ -459,14 +478,48 @@ void GameSession::bindCurrentGameplayInputFrame(const GameplayInputFrame *pInput
     m_pCurrentGameplayInputFrame = pInputFrame;
 }
 
-void GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const
+void GameSession::beginFramePerformanceDiagnostics(bool enabled)
+{
+    if (!enabled)
+    {
+        if (m_framePerformanceDiagnosticsEnabled)
+        {
+            m_framePerformanceDiagnosticsEnabled = false;
+            m_lastGameplayUpdateFramePerformanceDiagnostics = {};
+            m_lastGameplayUiFramePerformanceDiagnostics = {};
+            m_gameplayUiRuntime.beginPerformanceFrame(false);
+        }
+
+        return;
+    }
+
+    m_framePerformanceDiagnosticsEnabled = true;
+    m_lastGameplayUpdateFramePerformanceDiagnostics = {};
+    m_lastGameplayUpdateFramePerformanceDiagnostics.collected = true;
+    m_lastGameplayUiFramePerformanceDiagnostics = {};
+    m_lastGameplayUiFramePerformanceDiagnostics.collected = true;
+    m_gameplayUiRuntime.beginPerformanceFrame(true);
+}
+
+const GameplayUpdateFramePerformanceDiagnostics &
+GameSession::lastGameplayUpdateFramePerformanceDiagnostics() const
+{
+    return m_lastGameplayUpdateFramePerformanceDiagnostics;
+}
+
+const GameplayUiFramePerformanceDiagnostics &GameSession::lastGameplayUiFramePerformanceDiagnostics() const
+{
+    return m_lastGameplayUiFramePerformanceDiagnostics;
+}
+
+bool GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const
 {
     constexpr uint32_t LogIntervalMs = 1000;
 
     if (!m_gameplayUpdatePerformanceDiagnostics.hasActivity()
         || currentTick - m_lastGameplayUpdatePerformanceLogTick < LogIntervalMs)
     {
-        return;
+        return false;
     }
 
     m_lastGameplayUpdatePerformanceLogTick = currentTick;
@@ -482,7 +535,8 @@ void GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) 
         + diagnostics.combatEventsNanoseconds
         + diagnostics.interactionFrameNanoseconds
         + diagnostics.projectileAndCooldownNanoseconds
-        + diagnostics.preloadNanoseconds;
+        + diagnostics.preloadNanoseconds
+        + diagnostics.performanceTraceLogNanoseconds;
     const uint64_t untrackedNanoseconds =
         diagnostics.totalNanoseconds > measuredNanoseconds
             ? diagnostics.totalNanoseconds - measuredNanoseconds
@@ -528,9 +582,13 @@ void GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) 
               << " avg_preload_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                   diagnostics.preloadNanoseconds,
                   diagnostics.frames))
+              << " avg_performance_trace_log_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                  diagnostics.performanceTraceLogNanoseconds,
+                  diagnostics.frames))
               << '\n';
 
     m_gameplayUpdatePerformanceDiagnostics = {};
+    return true;
 }
 
 void GameSession::logTurnBasedFrameTraceIfNeeded(
@@ -620,11 +678,13 @@ void GameSession::updateGameplay(
     }
 
     const auto recordDiagnostics =
-        [&](uint64_t &field, uint64_t beginTickCount)
+        [&](uint64_t &aggregateField, uint64_t &frameField, uint64_t beginTickCount)
     {
         if (collectPerformanceDiagnostics)
         {
-            field += SDL_GetTicksNS() - beginTickCount;
+            const uint64_t elapsedNanoseconds = SDL_GetTicksNS() - beginTickCount;
+            aggregateField += elapsedNanoseconds;
+            frameField += elapsedNanoseconds;
         }
     };
 
@@ -643,6 +703,7 @@ void GameSession::updateGameplay(
         frameUpdateConfig);
     recordDiagnostics(
         m_gameplayUpdatePerformanceDiagnostics.sharedFrameStateNanoseconds,
+        m_lastGameplayUpdateFramePerformanceDiagnostics.sharedFrameStateNanoseconds,
         sharedFrameStateBeginTickCount);
 
     IGameplayWorldRuntime *pWorldRuntime = activeWorldRuntime();
@@ -661,6 +722,7 @@ void GameSession::updateGameplay(
             });
     recordDiagnostics(
         m_gameplayUpdatePerformanceDiagnostics.worldInteractionStateNanoseconds,
+        m_lastGameplayUpdateFramePerformanceDiagnostics.worldInteractionStateNanoseconds,
         worldInteractionStateBeginTickCount);
 
     if (pWorldRuntime != nullptr)
@@ -677,6 +739,7 @@ void GameSession::updateGameplay(
             m_turnBasedCombatRuntime);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.activeMemberSyncNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.activeMemberSyncNanoseconds,
             activeMemberSyncBeginTickCount);
 
         const Party *pParty = pWorldRuntime->party();
@@ -711,7 +774,10 @@ void GameSession::updateGameplay(
                     .processSharedGameplayHotkeys = true,
                     .processQuickCast = true,
                 });
-        recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.sharedInputNanoseconds, sharedInputBeginTickCount);
+        recordDiagnostics(
+            m_gameplayUpdatePerformanceDiagnostics.sharedInputNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.sharedInputNanoseconds,
+            sharedInputBeginTickCount);
 
         GameplayInputFrame worldInput = input;
 
@@ -761,7 +827,19 @@ void GameSession::updateGameplay(
         pWorldRuntime->updateWorldMovement(worldInput, worldMovementDeltaSeconds, allowWorldMovementInput);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.worldMovementNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.worldMovementNanoseconds,
             worldMovementBeginTickCount);
+
+        if (collectPerformanceDiagnostics)
+        {
+            const GameplayWorldMovementFrameDiagnostics *pWorldMovementDiagnostics =
+                pWorldRuntime->lastWorldMovementFrameDiagnostics();
+
+            if (pWorldMovementDiagnostics != nullptr)
+            {
+                m_lastGameplayUpdateFramePerformanceDiagnostics.worldMovement = *pWorldMovementDiagnostics;
+            }
+        }
 
         const bool gameplayWorldPaused =
             modalWorldInputBlocked
@@ -800,7 +878,10 @@ void GameSession::updateGameplay(
 
             const uint64_t actorAiBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
             pWorldRuntime->updateActorAi(deltaSeconds);
-            recordDiagnostics(m_gameplayUpdatePerformanceDiagnostics.actorAiNanoseconds, actorAiBeginTickCount);
+            recordDiagnostics(
+                m_gameplayUpdatePerformanceDiagnostics.actorAiNanoseconds,
+                m_lastGameplayUpdateFramePerformanceDiagnostics.actorAiNanoseconds,
+                actorAiBeginTickCount);
         }
         else if (turnBasedWorldPaused)
         {
@@ -830,6 +911,7 @@ void GameSession::updateGameplay(
         }
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.combatEventsNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.combatEventsNanoseconds,
             combatEventsBeginTickCount);
 
         const bool worldInputBlocked = modalWorldInputBlocked || m_sharedWorldInteractionBlockedThisFrame;
@@ -844,6 +926,7 @@ void GameSession::updateGameplay(
             worldInputBlocked);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.interactionFrameNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.interactionFrameNanoseconds,
             interactionFrameBeginTickCount);
     }
 
@@ -854,6 +937,7 @@ void GameSession::updateGameplay(
         GameplayActionController::updateCooldowns(m_gameplayScreenState, deltaSeconds);
         recordDiagnostics(
             m_gameplayUpdatePerformanceDiagnostics.projectileAndCooldownNanoseconds,
+            m_lastGameplayUpdateFramePerformanceDiagnostics.projectileAndCooldownNanoseconds,
             projectileCooldownBeginTickCount);
     }
 
@@ -862,9 +946,25 @@ void GameSession::updateGameplay(
 
     if (collectPerformanceDiagnostics)
     {
-        m_gameplayUpdatePerformanceDiagnostics.preloadNanoseconds += SDL_GetTicksNS() - preloadBeginTickCount;
-        m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
-        logGameplayUpdatePerformanceDiagnostics(SDL_GetTicks());
+        const uint64_t preloadNanoseconds = SDL_GetTicksNS() - preloadBeginTickCount;
+        m_gameplayUpdatePerformanceDiagnostics.preloadNanoseconds += preloadNanoseconds;
+        m_lastGameplayUpdateFramePerformanceDiagnostics.preloadNanoseconds += preloadNanoseconds;
+        const uint64_t totalNanoseconds = SDL_GetTicksNS() - totalBeginTickCount;
+        m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += totalNanoseconds;
+        m_lastGameplayUpdateFramePerformanceDiagnostics.totalNanoseconds += totalNanoseconds;
+        const uint64_t performanceLogBeginTickCount = SDL_GetTicksNS();
+        const bool loggedPerformanceDiagnostics = logGameplayUpdatePerformanceDiagnostics(SDL_GetTicks());
+        const uint64_t performanceLogNanoseconds = SDL_GetTicksNS() - performanceLogBeginTickCount;
+        m_lastGameplayUpdateFramePerformanceDiagnostics.performanceTraceLogNanoseconds +=
+            performanceLogNanoseconds;
+        m_lastGameplayUpdateFramePerformanceDiagnostics.totalNanoseconds += performanceLogNanoseconds;
+
+        if (!loggedPerformanceDiagnostics)
+        {
+            m_gameplayUpdatePerformanceDiagnostics.performanceTraceLogNanoseconds +=
+                performanceLogNanoseconds;
+            m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += performanceLogNanoseconds;
+        }
     }
 }
 
@@ -882,17 +982,47 @@ void GameSession::consumePendingGameplayAudioRequests()
 
 void GameSession::renderGameplayUi(int width, int height)
 {
+    const bool collectPerformanceDiagnostics = m_framePerformanceDiagnosticsEnabled;
+    const uint64_t totalBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+    const auto recordDiagnostics =
+        [&](uint64_t &field, uint64_t beginTickCount)
+        {
+            if (collectPerformanceDiagnostics)
+            {
+                field += SDL_GetTicksNS() - beginTickCount;
+            }
+        };
+    const auto finishDiagnostics =
+        [&]()
+        {
+            if (!collectPerformanceDiagnostics)
+            {
+                return;
+            }
+
+            m_lastGameplayUiFramePerformanceDiagnostics.totalNanoseconds =
+                SDL_GetTicksNS() - totalBeginTickCount;
+            m_lastGameplayUiFramePerformanceDiagnostics.overlays =
+                m_gameplayUiRuntime.lastOverlayFramePerformanceDiagnostics();
+        };
+
     IGameplayWorldRuntime *pWorldRuntime = activeWorldRuntime();
 
     if (pWorldRuntime == nullptr)
     {
+        finishDiagnostics();
         return;
     }
 
+    const uint64_t uiRenderStateBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     const GameplayWorldUiRenderState uiRenderState = pWorldRuntime->gameplayUiRenderState(width, height);
+    recordDiagnostics(
+        m_lastGameplayUiFramePerformanceDiagnostics.worldUiRenderStateNanoseconds,
+        uiRenderStateBeginTickCount);
 
     if (!uiRenderState.renderGameplayHud)
     {
+        finishDiagnostics();
         return;
     }
 
@@ -901,6 +1031,7 @@ void GameSession::renderGameplayUi(int width, int height)
     const GameplayScreenState::PendingSpellTargetState &pendingSpellCast =
         m_gameplayScreenState.pendingSpellTarget();
 
+    const uint64_t standardUiBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     GameplayScreenController::renderStandardUi(
         m_gameplayScreenRuntime,
         width,
@@ -915,14 +1046,19 @@ void GameSession::renderGameplayUi(int width, int height)
             .renderActorInspectOverlay = uiRenderState.renderActorInspectOverlay,
             .renderDebugFallbacks = uiRenderState.renderDebugFallbacks,
         });
+    recordDiagnostics(
+        m_lastGameplayUiFramePerformanceDiagnostics.standardUiNanoseconds,
+        standardUiBeginTickCount);
 
     const GameplayInputFrame *pInputFrame = currentGameplayInputFrame();
 
     if (pInputFrame == nullptr)
     {
+        finishDiagnostics();
         return;
     }
 
+    const uint64_t pendingSpellOverlayBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
     if (pendingSpellCast.active)
     {
         GameplaySpellTargetingOverlayRenderer::renderPendingSpellTargetingOverlay(
@@ -934,6 +1070,10 @@ void GameSession::renderGameplayUi(int width, int height)
             pInputFrame->pointerX,
             pInputFrame->pointerY);
     }
+    recordDiagnostics(
+        m_lastGameplayUiFramePerformanceDiagnostics.pendingSpellOverlayNanoseconds,
+        pendingSpellOverlayBeginTickCount);
+    finishDiagnostics();
 }
 
 const GameplaySharedInputFrameResult &GameSession::sharedInputFrameResult() const

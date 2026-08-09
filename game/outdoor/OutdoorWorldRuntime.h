@@ -599,7 +599,8 @@ public:
         float deltaSeconds,
         const EventRuntime &eventRuntime,
         const std::optional<ScriptedEventProgram> &localEventProgram,
-        const std::optional<ScriptedEventProgram> &globalEventProgram
+        const std::optional<ScriptedEventProgram> &globalEventProgram,
+        GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics = nullptr
     );
     bool isChestOpened(uint32_t chestId) const;
     size_t mapActorCount() const override;
@@ -830,6 +831,7 @@ public:
         const GameplayInputFrame &input,
         float deltaSeconds,
         bool allowWorldInput) override;
+    const GameplayWorldMovementFrameDiagnostics *lastWorldMovementFrameDiagnostics() const override;
     void updateActorAi(float deltaSeconds) override;
     void updateTurnBasedPausedActorAnimations(float deltaSeconds) override;
     size_t turnBasedPendingWorldActionCount() const override;
@@ -1286,6 +1288,7 @@ private:
     const SpriteFrameTable *m_pProjectileSpriteFrameTable = nullptr;
     WorldFxSystem *m_pWorldFxSystem = nullptr;
     OutdoorGameView *m_pInteractionView = nullptr;
+    GameplayWorldMovementFrameDiagnostics m_lastWorldMovementFrameDiagnostics = {};
     std::optional<std::vector<uint8_t>> m_outdoorLandMask;
     std::vector<OutdoorFaceGeometryData> m_outdoorFaces;
     std::vector<std::vector<size_t>> m_outdoorFaceGridCells;

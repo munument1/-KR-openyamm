@@ -10,6 +10,7 @@
 namespace OpenYAMM::Game
 {
 class ItemTable;
+struct GameplayWorldMovementFrameDiagnostics;
 
 class OutdoorPartyRuntime
 {
@@ -24,7 +25,10 @@ public:
 
     void initialize(float x, float y, float footZHint, bool resetParty = true);
     void teleportTo(float x, float y, float footZHint);
-    void update(const OutdoorMovementInput &input, float deltaSeconds);
+    void update(
+        const OutdoorMovementInput &input,
+        float deltaSeconds,
+        GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics = nullptr);
     void setActorColliders(const std::vector<OutdoorActorCollision> &actorColliders);
     void setFaceAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
     void updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries);

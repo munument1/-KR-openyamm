@@ -1166,6 +1166,8 @@ TEST_CASE("generated follower actor state hides and survives save data round tri
     follower.professionId = 52;
     follower.weeklyCost = 300;
     follower.abilityUsedDay = 7;
+    follower.name = "Aaron";
+    follower.pictureId = 123;
     runtimeState.hiredNpcFollowers.push_back(follower);
 
     REQUIRE(OpenYAMM::Game::hideGeneratedNpcActor(runtimeState, 1184, &emeraldIsland));
@@ -1200,6 +1202,8 @@ TEST_CASE("generated follower actor state hides and survives save data round tri
     CHECK_EQ(loadedState.hiredNpcFollowers.front().professionId, 52u);
     CHECK_EQ(loadedState.hiredNpcFollowers.front().weeklyCost, 300u);
     CHECK_EQ(loadedState.hiredNpcFollowers.front().abilityUsedDay, 7u);
+    CHECK_EQ(loadedState.hiredNpcFollowers.front().name, "Aaron");
+    CHECK_EQ(loadedState.hiredNpcFollowers.front().pictureId, 123u);
     CHECK((loadedState.actorSetMasks.at(4) & invisibleBit) != 0);
 }
 
@@ -1505,6 +1509,7 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(pBardProfession->joins);
 
     OpenYAMM::Tests::HouseDialogueTestHarness generatedBardHarness(gameData);
+    generatedBardHarness.party().addGold(10000);
     constexpr uint32_t GeneratedBardNpcId = 20004;
     generatedBardHarness.eventRuntimeState().npcNameOverrides[GeneratedBardNpcId] = "Christine";
     generatedBardHarness.eventRuntimeState().npcPictureOverrides[GeneratedBardNpcId] = 1;
@@ -1518,6 +1523,19 @@ TEST_CASE("merged NPC profession suite supplies follower, profession, and news a
     CHECK(findActionIndexByLabel(dialog, "Join").has_value());
     CHECK(findActionIndexByLabel(dialog, "More Info").has_value());
     CHECK_FALSE(dialogHasAction(dialog, OpenYAMM::Game::EventDialogActionKind::NpcProfessionAction, "Bard"));
+
+    const std::optional<size_t> generatedBardHireIndex = findActionIndexByLabel(dialog, "Join");
+    REQUIRE(generatedBardHireIndex.has_value());
+    const OpenYAMM::Game::EventDialogContent generatedBardOffer =
+        generatedBardHarness.executeAndPresent(*generatedBardHireIndex);
+    const std::optional<size_t> generatedBardAcceptIndex = findActionIndexByLabel(generatedBardOffer, "Yes");
+    REQUIRE(generatedBardAcceptIndex.has_value());
+    generatedBardHarness.executeAndPresent(*generatedBardAcceptIndex);
+
+    const OpenYAMM::Game::Party::Snapshot generatedBardParty = generatedBardHarness.party().snapshot();
+    REQUIRE_EQ(generatedBardParty.hiredNpcFollowers.size(), 1u);
+    CHECK_EQ(generatedBardParty.hiredNpcFollowers.front().name, "Christine");
+    CHECK_EQ(generatedBardParty.hiredNpcFollowers.front().pictureId, 1u);
 
     const OpenYAMM::Game::NpcEntry *pPaul = gameData.npcDialogTable.getNpc(PaulHapsburgNpcId);
     REQUIRE(pPaul != nullptr);
@@ -3242,7 +3260,7 @@ TEST_CASE("dwi guild skill learning")
     CHECK(pSorcerer->hasSkill("AirMagic"));
 }
 
-TEST_CASE("mm6 skill guilds require membership and expose learning only")
+TEST_CASE("mm6 skill guilds require membership and expose their original skills")
 {
     constexpr uint16_t BuccaneersLairMembershipVariable = 0x8010u;
 
@@ -3253,10 +3271,9 @@ TEST_CASE("mm6 skill guilds require membership and expose learning only")
         gameData.houseTable.get(BuccaneersLairHouseId);
     REQUIRE(pBuccaneersLair != nullptr);
     CHECK_EQ(OpenYAMM::Game::resolveHouseServiceType(*pBuccaneersLair), OpenYAMM::Game::HouseServiceType::Guild);
-    CHECK(std::find(
-        pBuccaneersLair->offeredSkills.begin(),
-        pBuccaneersLair->offeredSkills.end(),
-        "Stealing") != pBuccaneersLair->offeredSkills.end());
+    CHECK_EQ(
+        pBuccaneersLair->offeredSkills,
+        std::vector<std::string>({"Dagger", "Merchant", "IdentifyItem", "Perception", "DisarmTraps"}));
 
     const std::vector<OpenYAMM::Game::HouseActionOption> nonMemberActions =
         OpenYAMM::Game::buildHouseActionOptions(
@@ -3298,6 +3315,24 @@ TEST_CASE("mm6 skill guilds require membership and expose learning only")
     REQUIRE(learn.has_value());
     CHECK(learn->enabled);
     CHECK_FALSE(findHouseActionById(memberActions, OpenYAMM::Game::HouseActionId::GuildBuySpellbooks).has_value());
+
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+    pMember->className = "Ranger";
+    harness.worldRuntime().advanceGameMinutes(6.0f * 60.0f);
+
+    const OpenYAMM::Game::EventDialogContent &memberDialog = harness.openHouseDialog(BuccaneersLairHouseId);
+    const std::optional<size_t> learnSkillsIndex = findActionIndexByLabel(memberDialog, "Learn Skills");
+    REQUIRE(learnSkillsIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &skillDialog = harness.executeAndPresent(*learnSkillsIndex);
+    CHECK(findActionIndexByLabelPrefix(skillDialog, "Learn Dagger ").has_value());
+    CHECK(findActionIndexByLabelPrefix(skillDialog, "Learn Merchant ").has_value());
+    CHECK(findActionIndexByLabelPrefix(skillDialog, "Learn Identify Item ").has_value());
+    CHECK(findActionIndexByLabelPrefix(skillDialog, "Learn Perception ").has_value());
+    CHECK(findActionIndexByLabelPrefix(skillDialog, "Learn Disarm Traps ").has_value());
+    CHECK_FALSE(findActionIndexByLabelPrefix(skillDialog, "Learn Repair Item ").has_value());
+    CHECK_FALSE(findActionIndexByLabelPrefix(skillDialog, "Learn Stealing ").has_value());
 
     const OpenYAMM::Game::HouseEntry *pBerserkersFury =
         gameData.houseTable.get(BerserkersFuryHouseId);

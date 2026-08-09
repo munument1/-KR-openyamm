@@ -37,6 +37,7 @@
 #include "game/ui/GameplayOverlayTypes.h"
 #include "game/ui/WizardEyeMinimapRules.h"
 
+#include <SDL3/SDL.h>
 #include <bx/math.h>
 
 #include <algorithm>
@@ -6318,7 +6319,38 @@ void OutdoorWorldRuntime::updateWorldMovement(
         return;
     }
 
-    OutdoorGameplayInputController::updateCameraFromInput(*m_pInteractionView, input, deltaSeconds);
+    const bool collectPerformanceDiagnostics = m_pInteractionView->settingsSnapshot().performanceTrace;
+    const uint64_t beginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics =
+        collectPerformanceDiagnostics ? &m_lastWorldMovementFrameDiagnostics : nullptr;
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        *pPerformanceDiagnostics = {};
+        pPerformanceDiagnostics->collected = true;
+    }
+    else if (m_lastWorldMovementFrameDiagnostics.collected)
+    {
+        m_lastWorldMovementFrameDiagnostics = {};
+    }
+
+    OutdoorGameplayInputController::updateCameraFromInput(
+        *m_pInteractionView,
+        input,
+        deltaSeconds,
+        pPerformanceDiagnostics);
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        const uint64_t elapsedNanoseconds = SDL_GetTicksNS() - beginTickCount;
+        pPerformanceDiagnostics->controllerNanoseconds = elapsedNanoseconds;
+        pPerformanceDiagnostics->totalNanoseconds = elapsedNanoseconds;
+    }
+}
+
+const GameplayWorldMovementFrameDiagnostics *OutdoorWorldRuntime::lastWorldMovementFrameDiagnostics() const
+{
+    return m_lastWorldMovementFrameDiagnostics.collected ? &m_lastWorldMovementFrameDiagnostics : nullptr;
 }
 
 void OutdoorWorldRuntime::updateActorAi(float deltaSeconds)
@@ -12561,7 +12593,8 @@ bool OutdoorWorldRuntime::updateTimers(
     float deltaSeconds,
     const EventRuntime &eventRuntime,
     const std::optional<ScriptedEventProgram> &localEventProgram,
-    const std::optional<ScriptedEventProgram> &globalEventProgram
+    const std::optional<ScriptedEventProgram> &globalEventProgram,
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics
 )
 {
     if (!m_eventRuntimeState || deltaSeconds <= 0.0f)
@@ -12587,14 +12620,28 @@ bool OutdoorWorldRuntime::updateTimers(
     return updateScriptedEventTimers(
         m_timers,
         static_cast<double>(m_gameMinutes),
-        [this, &eventRuntime, &localEventProgram, &globalEventProgram](
+        [this, &eventRuntime, &localEventProgram, &globalEventProgram, pPerformanceDiagnostics](
             const ScriptedEventTimerDefinition &definition)
         {
+            if (pPerformanceDiagnostics != nullptr)
+            {
+                ++pPerformanceDiagnostics->timerEventsFired;
+
+                if (pPerformanceDiagnostics->storedTimerEventIdCount
+                    < pPerformanceDiagnostics->timerEventIds.size())
+                {
+                    pPerformanceDiagnostics->timerEventIds[pPerformanceDiagnostics->storedTimerEventIdCount] =
+                        definition.eventId;
+                    ++pPerformanceDiagnostics->storedTimerEventIdCount;
+                }
+            }
+
             GAMEPLAY_DEBUG_TRACE(
                 "timer_event_fired world=outdoor event_id=" + std::to_string(definition.eventId)
                 + " source_event_id=" + std::to_string(definition.sourceEventId)
                 + " trigger_step=" + std::to_string(definition.triggerStep));
 
+            const uint64_t executionBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
             const bool executed = eventRuntime.executeEventById(
                 localEventProgram,
                 globalEventProgram,
@@ -12604,11 +12651,24 @@ bool OutdoorWorldRuntime::updateTimers(
                 this,
                 std::nullopt,
                 true,
-                definition.scope);
+                definition.scope,
+                true);
+
+            if (pPerformanceDiagnostics != nullptr)
+            {
+                pPerformanceDiagnostics->timerEventExecutionNanoseconds +=
+                    SDL_GetTicksNS() - executionBeginTickCount;
+            }
 
             if (executed)
             {
+                const uint64_t applyBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
                 applyEventRuntimeState();
+
+                if (pPerformanceDiagnostics != nullptr)
+                {
+                    pPerformanceDiagnostics->timerEventApplyNanoseconds += SDL_GetTicksNS() - applyBeginTickCount;
+                }
             }
 
             return executed;

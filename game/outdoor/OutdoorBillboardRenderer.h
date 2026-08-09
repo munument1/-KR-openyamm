@@ -15,7 +15,7 @@ class OutdoorBillboardRenderer
 {
 public:
     static void initializeBillboardResources(OutdoorGameView &view);
-    static void queueEventSpellBillboardTextureWarmup(OutdoorGameView &view, const ScriptedEventProgram &eventProgram);
+    static void queueEventBillboardTextureWarmup(OutdoorGameView &view, const ScriptedEventProgram &eventProgram);
     static void queueRuntimeActorBillboardTextureWarmup(OutdoorGameView &view);
     static void processActorPreviewTexturePreload(OutdoorGameView &view, size_t maxTextureUploads);
     static void preloadPendingLevelSpriteTextures(OutdoorGameView &view);
@@ -31,7 +31,8 @@ public:
     static const OutdoorGameView::BillboardTextureHandle *ensureSpriteBillboardTexture(
         OutdoorGameView &view,
         const std::string &textureName,
-        int16_t paletteId);
+        int16_t paletteId,
+        const char *pLoadPhase = "render");
     static void invalidateRenderAssets(OutdoorGameView &view);
     static void destroyRenderAssets(OutdoorGameView &view);
     static void renderDecorationBillboards(

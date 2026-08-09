@@ -1,6 +1,9 @@
 #include "game/outdoor/OutdoorPartyRuntime.h"
 
+#include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/tables/ItemTable.h"
+
+#include <SDL3/SDL.h>
 
 namespace OpenYAMM::Game
 {
@@ -33,16 +36,41 @@ void OutdoorPartyRuntime::teleportTo(float x, float y, float footZHint)
     m_movementDriver.initialize(x, y, footZHint);
 }
 
-void OutdoorPartyRuntime::update(const OutdoorMovementInput &input, float deltaSeconds)
+void OutdoorPartyRuntime::update(
+    const OutdoorMovementInput &input,
+    float deltaSeconds,
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics)
 {
     m_movementStatusText.clear();
-    m_movementDriver.update(input, deltaSeconds);
+    m_movementDriver.update(input, deltaSeconds, pPerformanceDiagnostics);
+
+    uint64_t stageBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     if (!input.turnBasedPhysicsStep)
     {
         m_party.updateRecovery(deltaSeconds, m_movementDriver.partyMovementState().running ? 0.5f : 1.0f);
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->partyRecoveryNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+            stageBeginTickCount = SDL_GetTicksNS();
+        }
+
         m_party.advanceTimedStates(deltaSeconds * GameSecondsPerRealSecond);
     }
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->partyTimedStateNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        stageBeginTickCount = SDL_GetTicksNS();
+    }
+
     syncSpellMovementStatesFromPartyBuffs();
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->partySpellStateNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        stageBeginTickCount = SDL_GetTicksNS();
+    }
+
     const OutdoorMovementEffects effects = m_movementDriver.consumePendingEffects();
     m_party.applyMovementEffects(effects);
 
@@ -53,6 +81,11 @@ void OutdoorPartyRuntime::update(const OutdoorMovementInput &input, float deltaS
     else if (effects.waterDamageTicks > 0)
     {
         m_movementStatusText = "You are drowning!";
+    }
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->partyEffectsNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
     }
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/ui/GameplayUiRuntime.h"
+
 namespace OpenYAMM::Game
 {
 struct GameplayInputFrame;
@@ -63,6 +65,7 @@ public:
         GameplayScreenRuntime &overlayContext,
         int width,
         int height,
-        const GameplayUiOverlayRenderConfig &config);
+        const GameplayUiOverlayRenderConfig &config,
+        GameplayUiOverlayFramePerformanceDiagnostics *pPerformanceDiagnostics = nullptr);
 };
 } // namespace OpenYAMM::Game

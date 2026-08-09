@@ -35,6 +35,34 @@ namespace OpenYAMM::Game
 {
 struct GameplayInputFrame;
 
+struct GameplayUpdateFramePerformanceDiagnostics
+{
+    bool collected = false;
+    uint64_t totalNanoseconds = 0;
+    uint64_t sharedFrameStateNanoseconds = 0;
+    uint64_t worldInteractionStateNanoseconds = 0;
+    uint64_t activeMemberSyncNanoseconds = 0;
+    uint64_t sharedInputNanoseconds = 0;
+    uint64_t worldMovementNanoseconds = 0;
+    uint64_t actorAiNanoseconds = 0;
+    uint64_t combatEventsNanoseconds = 0;
+    uint64_t interactionFrameNanoseconds = 0;
+    uint64_t projectileAndCooldownNanoseconds = 0;
+    uint64_t preloadNanoseconds = 0;
+    uint64_t performanceTraceLogNanoseconds = 0;
+    GameplayWorldMovementFrameDiagnostics worldMovement = {};
+};
+
+struct GameplayUiFramePerformanceDiagnostics
+{
+    bool collected = false;
+    uint64_t totalNanoseconds = 0;
+    uint64_t worldUiRenderStateNanoseconds = 0;
+    uint64_t standardUiNanoseconds = 0;
+    uint64_t pendingSpellOverlayNanoseconds = 0;
+    GameplayUiOverlayFramePerformanceDiagnostics overlays = {};
+};
+
 class GameSession
 {
 public:
@@ -104,6 +132,9 @@ public:
         const GameplayInputFrame &input,
         float deltaSeconds,
         bool collectPerformanceDiagnostics = false);
+    void beginFramePerformanceDiagnostics(bool enabled);
+    const GameplayUpdateFramePerformanceDiagnostics &lastGameplayUpdateFramePerformanceDiagnostics() const;
+    const GameplayUiFramePerformanceDiagnostics &lastGameplayUiFramePerformanceDiagnostics() const;
     void clearSharedInputFrameResult();
     void consumePendingGameplayAudioRequests();
     void renderGameplayUi(int width, int height);
@@ -205,6 +236,7 @@ private:
         uint64_t interactionFrameNanoseconds = 0;
         uint64_t projectileAndCooldownNanoseconds = 0;
         uint64_t preloadNanoseconds = 0;
+        uint64_t performanceTraceLogNanoseconds = 0;
 
         bool hasActivity() const
         {
@@ -228,7 +260,7 @@ private:
         int pendingActions = 0;
     };
 
-    void logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const;
+    bool logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) const;
     void logTurnBasedFrameTraceIfNeeded(
         bool actorAiUpdate,
         bool gameplayPaused,
@@ -280,6 +312,9 @@ private:
     SettingsChangedCallback m_settingsChangedCallback;
     mutable GameplayUpdatePerformanceDiagnostics m_gameplayUpdatePerformanceDiagnostics;
     mutable uint32_t m_lastGameplayUpdatePerformanceLogTick = 0;
+    bool m_framePerformanceDiagnosticsEnabled = false;
+    GameplayUpdateFramePerformanceDiagnostics m_lastGameplayUpdateFramePerformanceDiagnostics = {};
+    GameplayUiFramePerformanceDiagnostics m_lastGameplayUiFramePerformanceDiagnostics = {};
     TurnBasedFrameTraceState m_turnBasedFrameTraceState;
 };
 }

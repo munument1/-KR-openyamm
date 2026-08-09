@@ -31,6 +31,39 @@ struct GameplayWorldUiRenderState
     bool renderDebugFallbacks = false;
 };
 
+struct GameplayWorldMovementFrameDiagnostics
+{
+    static constexpr size_t MaxTimerEventIds = 8;
+
+    bool collected = false;
+    uint64_t totalNanoseconds = 0;
+    uint64_t controllerNanoseconds = 0;
+    uint64_t sceneAdvanceNanoseconds = 0;
+    uint64_t actorColliderBuildNanoseconds = 0;
+    uint64_t partyUpdateNanoseconds = 0;
+    uint64_t movementDriverNanoseconds = 0;
+    uint64_t movementInputNanoseconds = 0;
+    uint64_t movementCollisionNanoseconds = 0;
+    uint64_t movementTraceNanoseconds = 0;
+    uint64_t movementContactsNanoseconds = 0;
+    uint64_t movementConsequencesNanoseconds = 0;
+    uint64_t partyRecoveryNanoseconds = 0;
+    uint64_t partyTimedStateNanoseconds = 0;
+    uint64_t partySpellStateNanoseconds = 0;
+    uint64_t partyEffectsNanoseconds = 0;
+    uint64_t timerNanoseconds = 0;
+    uint64_t timerEventExecutionNanoseconds = 0;
+    uint64_t timerEventApplyNanoseconds = 0;
+    uint64_t partyEventApplyNanoseconds = 0;
+    uint64_t pressurePlateNanoseconds = 0;
+    uint64_t boundaryTransitionNanoseconds = 0;
+    uint64_t actorQueueAndContactsNanoseconds = 0;
+    uint32_t movementStepCount = 0;
+    uint32_t timerEventsFired = 0;
+    size_t storedTimerEventIdCount = 0;
+    std::array<uint16_t, MaxTimerEventIds> timerEventIds = {};
+};
+
 struct GameplayChestItemState
 {
     InventoryItem item = {};
@@ -485,6 +518,10 @@ public:
         const GameplayInputFrame &input,
         float deltaSeconds,
         bool allowWorldInput) = 0;
+    virtual const GameplayWorldMovementFrameDiagnostics *lastWorldMovementFrameDiagnostics() const
+    {
+        return nullptr;
+    }
     virtual void setScenarioPartyActorCollisionEnabled(bool enabled)
     {
         (void)enabled;

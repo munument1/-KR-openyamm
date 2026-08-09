@@ -23,7 +23,8 @@ constexpr float Pi = 3.14159265358979323846f;
 void OutdoorGameplayInputController::updateCameraFromInput(
     OutdoorGameView &view,
     const GameplayInputFrame &input,
-    float deltaSeconds)
+    float deltaSeconds,
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics)
 {
     const float displayDeltaSeconds = std::max(deltaSeconds, 0.000001f);
     const float instantaneousFramesPerSecond = 1.0f / displayDeltaSeconds;
@@ -163,7 +164,10 @@ void OutdoorGameplayInputController::updateCameraFromInput(
                 if (view.m_pOutdoorSceneRuntime != nullptr)
                 {
                     const OutdoorSceneRuntime::AdvanceFrameResult frameAdvanceResult =
-                        view.m_pOutdoorSceneRuntime->advanceFrame(movementInput, deltaSeconds);
+                        view.m_pOutdoorSceneRuntime->advanceFrame(
+                            movementInput,
+                            deltaSeconds,
+                            pPerformanceDiagnostics);
 
                     EventRuntimeState *pEventRuntimeState =
                         view.m_pOutdoorWorldRuntime != nullptr

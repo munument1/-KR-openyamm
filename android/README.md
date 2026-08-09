@@ -81,3 +81,27 @@ OPENYAMM_ANDROID_UNINSTALL_ON_SIGNATURE_MISMATCH=0 android/run_release_emulator.
 Before each public update, bump `openyamm.android.versionName` and
 `openyamm.android.versionCode` in `android/gradle.properties`. See
 `android/WEB_HOSTING_CHECKLIST.md` for the hosted APK checklist.
+
+## Nightly CI Signing
+
+The nightly GitHub Actions workflow builds the release APK with the same release path. Configure these repository
+secrets before running it:
+
+- `OPENYAMM_ANDROID_KEYSTORE_BASE64`: the release keystore encoded as one-line base64
+- `OPENYAMM_ANDROID_KEYSTORE_PASSWORD`: the keystore password
+
+The workflow expects the release script's default `openyamm` key alias and uses the keystore password as the key
+password. A keystore created by `android/build_release_apk.sh` has those defaults. On Linux, encode it with:
+
+```sh
+base64 -w 0 android/keystores/openyamm-release.jks
+```
+
+On Windows PowerShell, use:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("android\keystores\openyamm-release.jks"))
+```
+
+Keep the keystore and secrets backed up. Every published update for `org.openyamm.android` must use the same signing
+key; replacing it requires users to uninstall the existing app before installing the new build.

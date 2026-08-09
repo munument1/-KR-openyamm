@@ -15959,6 +15959,93 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
     );
 
     runCase(
+        "event_dagger_wound_ston_daily_timer_fires_at_ten_o_clock",
+        [&](std::string &failure)
+        {
+            GameDataLoader daggerWoundLoader;
+
+            if (!daggerWoundLoader.loadForHeadlessGameplay(assetFileSystem)
+                || !daggerWoundLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "out01.odm"))
+            {
+                failure = "could not load Dagger Wound Island gameplay data";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &loadedMap = daggerWoundLoader.getSelectedMap();
+
+            if (!loadedMap || !loadedMap->outdoorMapData || !loadedMap->outdoorMapDeltaData
+                || !loadedMap->localEventProgram || !loadedMap->eventRuntimeState)
+            {
+                failure = "Dagger Wound Island runtime data or local event program is missing";
+                return false;
+            }
+
+            MapAssetInfo daggerWoundMap = *loadedMap;
+            daggerWoundMap.outdoorMapDeltaData->locationTime.lastVisitTime = 0;
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(daggerWoundLoader, daggerWoundMap, scenario)
+                || scenario.pEventRuntimeState == nullptr)
+            {
+                failure = "Dagger Wound Island scenario init failed";
+                return false;
+            }
+
+            constexpr uint32_t StonTalkedQBit = 232;
+            scenario.party.setQuestBit(StonTalkedQBit, false);
+            scenario.pEventRuntimeState->pendingDialogueContext.reset();
+            scenario.world.prepareTimers(daggerWoundMap.localEventProgram, daggerWoundMap.globalEventProgram);
+
+            if (scenario.world.gameMinutes() != 9.0f * 60.0f)
+            {
+                failure = "Dagger Wound Island did not start at 09:00";
+                return false;
+            }
+
+            scenario.world.updateTimers(
+                119.0f,
+                scenario.eventRuntime,
+                daggerWoundMap.localEventProgram,
+                daggerWoundMap.globalEventProgram);
+
+            if (scenario.party.hasQuestBit(StonTalkedQBit)
+                || scenario.pEventRuntimeState->pendingDialogueContext)
+            {
+                failure = "S'ton's timer fired before 10:00";
+                return false;
+            }
+
+            if (!scenario.world.updateTimers(
+                    1.0f,
+                    scenario.eventRuntime,
+                    daggerWoundMap.localEventProgram,
+                    daggerWoundMap.globalEventProgram))
+            {
+                failure = "S'ton's timer did not execute at 10:00";
+                return false;
+            }
+
+            if (!scenario.party.hasQuestBit(StonTalkedQBit)
+                || !scenario.pEventRuntimeState->pendingDialogueContext
+                || scenario.pEventRuntimeState->pendingDialogueContext->kind != DialogueContextKind::NpcTalk
+                || scenario.pEventRuntimeState->pendingDialogueContext->sourceId != 27)
+            {
+                failure = "S'ton's timer did not open S'ton's NPC dialogue at 10:00: qbit="
+                    + std::to_string(scenario.party.hasQuestBit(StonTalkedQBit))
+                    + " pending=" + std::to_string(scenario.pEventRuntimeState->pendingDialogueContext.has_value())
+                    + " source="
+                    + std::to_string(
+                        scenario.pEventRuntimeState->pendingDialogueContext
+                            ? scenario.pEventRuntimeState->pendingDialogueContext->sourceId
+                            : 0);
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
         "save_game_roundtrip_restores_party_world_and_movement_state",
         [&](std::string &failure)
         {
@@ -17344,6 +17431,168 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (!dialogHasActionLabel(dialog, "OK") || !dialogHasActionLabel(dialog, "Close"))
             {
                 failure = "map transition dialog did not expose the standard OK / Close actions";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    Engine::ApplicationConfig mm6HirelingTravelConfig = m_config;
+    mm6HirelingTravelConfig.activeWorldId = "mm6";
+    SharedHeadlessApplicationSession mm6HirelingTravelSession(mm6HirelingTravelConfig);
+
+    runCase(
+        "app_transport_transition_preserves_hired_npc_followers",
+        [&](std::string &failure)
+        {
+            const std::string previousWorldId = assetFileSystem.getActiveWorldId();
+            if (!assetFileSystem.switchActiveWorld("mm6"))
+            {
+                failure = "could not activate MM6 assets";
+                return false;
+            }
+
+            struct ActiveWorldRestore
+            {
+                Engine::AssetFileSystem &assetFileSystem;
+                std::string worldId;
+
+                ~ActiveWorldRestore()
+                {
+                    assetFileSystem.switchActiveWorld(worldId);
+                }
+            } activeWorldRestore = {assetFileSystem, previousWorldId};
+
+            SDL_Environment *pEnvironment = SDL_GetEnvironment();
+            if (pEnvironment == nullptr
+                || !SDL_SetEnvironmentVariable(pEnvironment, "SDL_AUDIODRIVER", "dummy", true))
+            {
+                failure = "could not force dummy audio driver for MM6 travel regression";
+                return false;
+            }
+
+            if (!GameApplicationTestAccess::loadGameData(mm6HirelingTravelSession.application, assetFileSystem))
+            {
+                failure = "could not load MM6 gameplay data";
+                return false;
+            }
+
+            mm6HirelingTravelSession.isGameDataLoaded = true;
+            GameApplicationTestAccess::setBootSeededDwiOnNextRendererInit(
+                mm6HirelingTravelSession.application,
+                true);
+            if (!GameApplicationTestAccess::initializeStartupSession(mm6HirelingTravelSession.application, false))
+            {
+                failure = "could not initialize New Sorpigal startup runtime";
+                return false;
+            }
+
+            GameApplication &application = mm6HirelingTravelSession.application;
+            GameDataLoader &loader = GameApplicationTestAccess::gameDataLoader(application);
+            OutdoorWorldRuntime *pWorld = GameApplicationTestAccess::outdoorWorldRuntime(application);
+            OutdoorPartyRuntime *pPartyRuntime = GameApplicationTestAccess::outdoorPartyRuntime(application);
+            const HouseEntry *pStable = loader.getHouseTable().get(470);
+
+            if (pWorld == nullptr || pPartyRuntime == nullptr || pStable == nullptr)
+            {
+                failure = "New Sorpigal stable travel state is incomplete";
+                return false;
+            }
+
+            Party &party = pPartyRuntime->party();
+            EventRuntimeState *pEventRuntimeState = pWorld->eventRuntimeState();
+
+            if (pEventRuntimeState == nullptr)
+            {
+                failure = "New Sorpigal event runtime state is missing";
+                return false;
+            }
+
+            constexpr uint32_t FollowerNpcId = 1184;
+            HiredNpcFollower follower = {FollowerNpcId, 20, 300};
+            follower.name = "Generated Merchant";
+            follower.pictureId = 123;
+            party.addHiredNpcFollower(follower);
+            party.applyGlobalNpcStateTo(*pEventRuntimeState);
+            party.addGold(10000);
+
+            const std::vector<HouseActionOption> actions = buildHouseActionOptions(
+                *pStable,
+                &party,
+                &loader.getClassSkillTable(),
+                pWorld,
+                pWorld->gameMinutes(),
+                DialogueMenuId::None);
+            const std::vector<HouseActionOption>::const_iterator routeIt = std::find_if(
+                actions.begin(),
+                actions.end(),
+                [](const HouseActionOption &option)
+                {
+                    return option.id == HouseActionId::TransportRoute
+                        && option.label.find("Castle Ironfist") != std::string::npos;
+                });
+
+            if (routeIt == actions.end())
+            {
+                failure = "New Sorpigal stable has no Castle Ironfist route today";
+                return false;
+            }
+
+            const HouseActionResult result = performHouseAction(
+                *routeIt,
+                *pStable,
+                party,
+                &loader.getClassSkillTable(),
+                pWorld,
+                &loader.getNpcDialogTable());
+
+            if (!result.succeeded || !pEventRuntimeState->pendingMapMove)
+            {
+                failure = "New Sorpigal stable route did not request travel";
+                return false;
+            }
+
+            if (!GameApplicationTestAccess::processPendingMapMove(application))
+            {
+                failure = "New Sorpigal to Castle Ironfist transition failed";
+                return false;
+            }
+
+            const IMapSceneRuntime *pArrivingScene = GameApplicationTestAccess::mapSceneRuntime(application);
+            if (pArrivingScene == nullptr
+                || toLowerCopy(std::filesystem::path(pArrivingScene->currentMapFileName()).filename().string())
+                    != "outd3.odm")
+            {
+                failure = "stable travel did not arrive at Castle Ironfist";
+                return false;
+            }
+
+            const Party::Snapshot arrivingParty = pArrivingScene->party().snapshot();
+            const bool followerStillHired = std::find_if(
+                arrivingParty.hiredNpcFollowers.begin(),
+                arrivingParty.hiredNpcFollowers.end(),
+                [](const HiredNpcFollower &entry)
+                {
+                    return entry.npcId == FollowerNpcId;
+                }) != arrivingParty.hiredNpcFollowers.end();
+
+            if (!followerStillHired)
+            {
+                failure = "hired NPC follower disappeared during stable travel";
+                return false;
+            }
+
+            const EventRuntimeState *pArrivingRuntimeState = pArrivingScene->eventRuntimeState();
+            if (pArrivingRuntimeState == nullptr
+                || pArrivingRuntimeState->npcNameOverrides.find(FollowerNpcId)
+                    == pArrivingRuntimeState->npcNameOverrides.end()
+                || pArrivingRuntimeState->npcNameOverrides.at(FollowerNpcId) != follower.name
+                || pArrivingRuntimeState->npcPictureOverrides.find(FollowerNpcId)
+                    == pArrivingRuntimeState->npcPictureOverrides.end()
+                || pArrivingRuntimeState->npcPictureOverrides.at(FollowerNpcId) != follower.pictureId)
+            {
+                failure = "generated hired NPC identity disappeared during stable travel";
                 return false;
             }
 

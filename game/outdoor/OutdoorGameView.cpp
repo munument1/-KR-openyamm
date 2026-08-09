@@ -3069,7 +3069,6 @@ bool OutdoorGameView::initialize(
                         ? m_pOutdoorPartyRuntime->party().members().size()
                         : 0,
                 .initializeHouseVideoPlayer = true,
-                .preloadReferencedAssets = false,
             });
     timingLogger.stage("shared ui runtime initialized");
 
@@ -3373,10 +3372,12 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     const GameplayUiController::SaveGameScreenState &saveGameScreen = overlayContext.saveGameScreenState();
     const GameplayUiController::LoadGameScreenState &loadGameScreen = overlayContext.loadGameScreenState();
     const uint64_t frameIndex = ++m_renderFrameIndex;
-    const bool frameTimingEnabled =
+    const bool mapLoadFrameTimingEnabled =
         mapLoadTimingEnabled()
         && m_renderableStartTickNanoseconds != 0
         && SDL_GetTicksNS() - m_renderableStartTickNanoseconds <= OutdoorFrameTimingWindowNanoseconds;
+    const bool performanceFrameTimingEnabled = m_gameSettings.performanceTrace;
+    const bool frameTimingEnabled = mapLoadFrameTimingEnabled || performanceFrameTimingEnabled;
     const uint64_t frameStartTickNanoseconds = frameTimingEnabled ? SDL_GetTicksNS() : 0;
     uint64_t stageStartTickNanoseconds = frameStartTickNanoseconds;
     uint64_t overlayStageNanoseconds = 0;
@@ -3385,6 +3386,10 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     uint64_t fxStageNanoseconds = 0;
     uint64_t worldRenderStageNanoseconds = 0;
     uint64_t audioStageNanoseconds = 0;
+    if (performanceFrameTimingEnabled)
+    {
+        m_performanceTraceLogNanosecondsThisFrame = 0;
+    }
     const auto captureFrameTimingStage =
         [&](uint64_t &stageNanoseconds)
         {
@@ -3536,7 +3541,7 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     {
         const uint64_t frameTotalNanoseconds = SDL_GetTicksNS() - frameStartTickNanoseconds;
 
-        if (frameTotalNanoseconds >= OutdoorFrameTimingLogThresholdNanoseconds)
+        if (mapLoadFrameTimingEnabled && frameTotalNanoseconds >= OutdoorFrameTimingLogThresholdNanoseconds)
         {
             const std::string mapFileName = m_map.has_value() ? m_map->fileName : std::string();
             std::cerr
@@ -3552,6 +3557,34 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
                 << " fx_ms=" << millisecondsFromNanoseconds(fxStageNanoseconds)
                 << " world_render_ms=" << millisecondsFromNanoseconds(worldRenderStageNanoseconds)
                 << " audio_ms=" << millisecondsFromNanoseconds(audioStageNanoseconds)
+                << " camera_input=" << (cameraMotionInput ? 1 : 0)
+                << " sprite_warmup_processed=" << (processSpriteWarmupsThisFrame ? 1 : 0)
+                << " pending_warmups_before=" << pendingSpriteWarmupsBefore
+                << " pending_warmups_after=" << pendingSpriteWarmupsAfter
+                << " pending_actor_texture_uploads_before=" << pendingActorTextureUploadsBefore
+                << " pending_actor_texture_uploads_after=" << pendingActorTextureUploadsAfter
+                << '\n';
+        }
+
+        const uint64_t performanceHitchThresholdNanoseconds = static_cast<uint64_t>(
+            std::max(0.1f, m_gameSettings.hitchThresholdMilliseconds) * 1000000.0f);
+
+        if (performanceFrameTimingEnabled && frameTotalNanoseconds >= performanceHitchThresholdNanoseconds)
+        {
+            const std::string mapFileName = m_map.has_value() ? m_map->fileName : std::string();
+            std::cout
+                << "[OutdoorRenderHitchDetail]"
+                << " map=\"" << mapFileName << "\""
+                << " frame=" << frameIndex
+                << " total_us=" << frameTotalNanoseconds / 1000ULL
+                << " overlay_us=" << overlayStageNanoseconds / 1000ULL
+                << " sprite_warmup_us=" << spriteWarmupStageNanoseconds / 1000ULL
+                << " matrix_us=" << matrixStageNanoseconds / 1000ULL
+                << " fx_us=" << fxStageNanoseconds / 1000ULL
+                << " world_render_us=" << worldRenderStageNanoseconds / 1000ULL
+                << " audio_us=" << audioStageNanoseconds / 1000ULL
+                << " performance_trace_log_us="
+                << m_performanceTraceLogNanosecondsThisFrame / 1000ULL
                 << " camera_input=" << (cameraMotionInput ? 1 : 0)
                 << " sprite_warmup_processed=" << (processSpriteWarmupsThisFrame ? 1 : 0)
                 << " pending_warmups_before=" << pendingSpriteWarmupsBefore
@@ -5320,7 +5353,10 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorGameView::findBillboardTex
     return &m_billboardTextureHandles[normalizedIterator->second];
 }
 
-void OutdoorGameView::preloadSpriteFrameTextures(const SpriteFrameTable &spriteFrameTable, uint16_t spriteFrameIndex)
+void OutdoorGameView::preloadSpriteFrameTextures(
+    const SpriteFrameTable &spriteFrameTable,
+    uint16_t spriteFrameIndex,
+    const char *pLoadPhase)
 {
     if (spriteFrameIndex == 0)
     {
@@ -5350,7 +5386,8 @@ void OutdoorGameView::preloadSpriteFrameTextures(const SpriteFrameTable &spriteF
             OutdoorBillboardRenderer::ensureSpriteBillboardTexture(
                 *this,
                 resolvedTexture.textureName,
-                pFrame->paletteId);
+                pFrame->paletteId,
+                pLoadPhase);
         }
 
         if (!SpriteFrameTable::hasFlag(pFrame->flags, SpriteFrameFlag::HasMore))

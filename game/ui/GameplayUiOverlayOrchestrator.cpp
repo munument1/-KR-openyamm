@@ -13,6 +13,8 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/GameplayPartyOverlayRenderer.h"
 
+#include <SDL3/SDL.h>
+
 namespace OpenYAMM::Game
 {
 GameplayUiOverlayInputResult GameplayUiOverlayOrchestrator::handleStandardOverlayInput(
@@ -103,9 +105,40 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
     GameplayScreenRuntime &overlayContext,
     int width,
     int height,
-    const GameplayUiOverlayRenderConfig &config)
+    const GameplayUiOverlayRenderConfig &config,
+    GameplayUiOverlayFramePerformanceDiagnostics *pPerformanceDiagnostics)
 {
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        *pPerformanceDiagnostics = {};
+        pPerformanceDiagnostics->collected = true;
+    }
+
+    const uint64_t totalBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
+    uint64_t stageBeginTickCount = totalBeginTickCount;
+    const auto recordStage =
+        [&](uint64_t GameplayUiOverlayFramePerformanceDiagnostics::*pField)
+        {
+            if (pPerformanceDiagnostics == nullptr)
+            {
+                return;
+            }
+
+            const uint64_t nowTickCount = SDL_GetTicksNS();
+            pPerformanceDiagnostics->*pField += nowTickCount - stageBeginTickCount;
+            stageBeginTickCount = nowTickCount;
+        };
+    const auto finishDiagnostics =
+        [&]()
+        {
+            if (pPerformanceDiagnostics != nullptr)
+            {
+                pPerformanceDiagnostics->totalNanoseconds = SDL_GetTicksNS() - totalBeginTickCount;
+            }
+        };
+
     overlayContext.beginRenderedInspectableHudFrame();
+    recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::beginInspectableFrameNanoseconds);
 
     if (config.canRenderHudOverlays)
     {
@@ -117,73 +150,99 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
         {
             overlayContext.ensurePendingEventDialogPresented(true);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::pendingDialogNanoseconds);
 
         overlayContext.fxService().renderGameplayScreenOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::screenFxNanoseconds);
 
         if (config.renderChestBelowHud)
         {
             GameplayHudOverlayRenderer::renderChestPanel(overlayContext, width, height, false);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::chestBelowNanoseconds);
 
         if (config.renderInventoryBelowHud)
         {
             GameplayHudOverlayRenderer::renderInventoryNestedOverlay(overlayContext, width, height, false);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::inventoryBelowNanoseconds);
 
         if (config.renderDialogueBelowHud && overlayContext.activeEventDialog().isActive)
         {
             GameplayDialogueRenderer::renderDialogueOverlay(overlayContext, width, height, false);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::dialogueBelowNanoseconds);
 
         if (config.renderCharacterBelowHud)
         {
             GameplayPartyOverlayRenderer::renderCharacterOverlay(overlayContext, width, height, false);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::characterBelowNanoseconds);
 
         GameplayUiRenderer::renderGameplayHudArt(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::hudArtNanoseconds);
         GameplayHudRenderer::renderGameplayHud(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::hudNanoseconds);
 
         if (config.renderChestAboveHud)
         {
             GameplayHudOverlayRenderer::renderChestPanel(overlayContext, width, height, true);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::chestAboveNanoseconds);
 
         if (config.renderInventoryAboveHud)
         {
             GameplayHudOverlayRenderer::renderInventoryNestedOverlay(overlayContext, width, height, true);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::inventoryAboveNanoseconds);
 
         if (config.renderCharacterAboveHud)
         {
             GameplayPartyOverlayRenderer::renderCharacterOverlay(overlayContext, width, height, true);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::characterAboveNanoseconds);
 
         if (config.renderDialogueAboveHud && overlayContext.activeEventDialog().isActive)
         {
             GameplayDialogueRenderer::renderDialogueOverlay(overlayContext, width, height, true);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::dialogueAboveNanoseconds);
 
         GameplayPartyOverlayRenderer::renderRestOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::restNanoseconds);
         GameplayPartyOverlayRenderer::renderMenuOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::menuNanoseconds);
         GameplayPartyOverlayRenderer::renderControlsOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::controlsNanoseconds);
         GameplayPartyOverlayRenderer::renderKeyboardOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::keyboardNanoseconds);
         GameplayPartyOverlayRenderer::renderVideoOptionsOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::videoOptionsNanoseconds);
         GameplayPartyOverlayRenderer::renderSaveGameOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::saveGameNanoseconds);
         GameplayPartyOverlayRenderer::renderLoadGameOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::loadGameNanoseconds);
         GameplayPartyOverlayRenderer::renderJournalOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::journalNanoseconds);
         GameplayPartyOverlayRenderer::renderQuickReferenceOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::quickReferenceNanoseconds);
         GameplayPartyOverlayRenderer::renderSpellbookOverlay(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::spellbookNanoseconds);
         GameplayPartyOverlayRenderer::renderHeldInventoryItem(overlayContext, width, height);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::heldItemNanoseconds);
         if (config.renderItemInspectOverlay)
         {
             GameplayPartyOverlayRenderer::renderItemInspectOverlay(overlayContext, width, height);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::itemInspectNanoseconds);
         GameplayHudOverlaySupport::renderGameplayMouseLookOverlay(
             overlayContext,
             width,
             height,
             config.renderGameplayMouseLookOverlay);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::mouseLookNanoseconds);
 
+        finishDiagnostics();
         return;
     }
 
@@ -191,11 +250,15 @@ void GameplayUiOverlayOrchestrator::renderStandardOverlays(
         && (overlayContext.activeEventDialog().isActive || overlayContext.hasPendingEventDialog()))
     {
         overlayContext.ensurePendingEventDialogPresented(true);
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::pendingDialogNanoseconds);
 
         if (overlayContext.activeEventDialog().isActive)
         {
             GameplayDebugOverlayRenderer::renderEventDialogPanel(overlayContext, width, height);
         }
+        recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::dialogueAboveNanoseconds);
     }
+
+    finishDiagnostics();
 }
 } // namespace OpenYAMM::Game

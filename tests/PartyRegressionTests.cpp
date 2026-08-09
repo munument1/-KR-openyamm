@@ -186,6 +186,45 @@ TEST_CASE("party keeps global hired followers when applying a map-local event ru
     CHECK(syncedRuntimeState.unavailableNpcIds.contains(1003u));
 }
 
+TEST_CASE("party carries generated hired follower identity into a new map runtime")
+{
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+
+    OpenYAMM::Game::HiredNpcFollower follower = {};
+    follower.npcId = 1184;
+    follower.professionId = 20;
+    follower.weeklyCost = 300;
+    follower.name = "Generated Merchant";
+    follower.pictureId = 123;
+    party.addHiredNpcFollower(follower);
+
+    OpenYAMM::Game::EventRuntimeState destinationRuntimeState = {};
+    party.applyGlobalNpcStateTo(destinationRuntimeState);
+
+    REQUIRE_EQ(destinationRuntimeState.hiredNpcFollowers.size(), 1u);
+    CHECK_EQ(destinationRuntimeState.npcNameOverrides.at(1184), "Generated Merchant");
+    CHECK_EQ(destinationRuntimeState.npcPictureOverrides.at(1184), 123u);
+    CHECK_EQ(destinationRuntimeState.npcProfessionOverrides.at(1184), 20u);
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "generated_follower_roundtrip.odm";
+    saveData.party = party.snapshot();
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_generated_party_follower_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    REQUIRE_EQ(loaded->party.hiredNpcFollowers.size(), 1u);
+    CHECK_EQ(loaded->party.hiredNpcFollowers.front().name, "Generated Merchant");
+    CHECK_EQ(loaded->party.hiredNpcFollowers.front().pictureId, 123u);
+}
+
 TEST_CASE("current quest journal entries come from party qbits and non-empty quest text")
 {
     OpenYAMM::Game::JournalQuestTable questTable = {};

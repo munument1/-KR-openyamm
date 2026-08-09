@@ -1412,6 +1412,7 @@ void OutdoorRenderer::applyOutdoorFxLightUniforms(OutdoorGameView &view, const b
     if (view.m_gameSettings.performanceTrace
         && view.m_elapsedTime - view.m_lastOutdoorLightingStatsLogElapsedTime >= 2.0f)
     {
+        const uint64_t performanceLogBeginTickCount = SDL_GetTicksNS();
         const LightingStats &stats = view.m_outdoorLightingStats;
         std::cout << "[OutdoorLightingPerf]"
                   << " input=" << stats.inputLights
@@ -1475,6 +1476,7 @@ void OutdoorRenderer::applyOutdoorFxLightUniforms(OutdoorGameView &view, const b
         resetLightingStats(view.m_outdoorLightingStats);
         view.m_outdoorSpriteRenderDiagnostics = {};
         view.m_lastOutdoorLightingStatsLogElapsedTime = view.m_elapsedTime;
+        view.m_performanceTraceLogNanosecondsThisFrame += SDL_GetTicksNS() - performanceLogBeginTickCount;
     }
 }
 

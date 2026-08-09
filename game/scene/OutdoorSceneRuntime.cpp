@@ -2,6 +2,8 @@
 #include "game/FaceEnums.h"
 #include "game/debug/GameplayDebugTrace.h"
 
+#include <SDL3/SDL.h>
+
 #include <cmath>
 
 namespace OpenYAMM::Game
@@ -247,12 +249,27 @@ const std::optional<ScriptedEventProgram> &OutdoorSceneRuntime::globalEventProgr
 
 OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
     const OutdoorMovementInput &movementInput,
-    float deltaSeconds)
+    float deltaSeconds,
+    GameplayWorldMovementFrameDiagnostics *pPerformanceDiagnostics)
 {
+    const uint64_t totalBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     AdvanceFrameResult result = {};
     const OutdoorMoveState previousMoveState = m_pPartyRuntime->movementState();
+
+    uint64_t stageBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     m_pPartyRuntime->setActorColliders(buildRuntimeActorColliders(*m_pWorldRuntime));
-    m_pPartyRuntime->update(movementInput, deltaSeconds);
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->actorColliderBuildNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        stageBeginTickCount = SDL_GetTicksNS();
+    }
+
+    m_pPartyRuntime->update(movementInput, deltaSeconds, pPerformanceDiagnostics);
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->partyUpdateNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        stageBeginTickCount = SDL_GetTicksNS();
+    }
 
     EventRuntimeState *pEventRuntimeState = m_pWorldRuntime->eventRuntimeState();
 
@@ -265,14 +282,31 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
             deltaSeconds,
             m_eventRuntime,
             m_localEventProgram,
-            m_globalEventProgram))
+            m_globalEventProgram,
+            pPerformanceDiagnostics))
     {
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->timerNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+            stageBeginTickCount = SDL_GetTicksNS();
+        }
+
         m_pPartyRuntime->applyEventRuntimeState(*m_pWorldRuntime->eventRuntimeState(), false);
         result.shouldOpenEventDialog = true;
+
+        if (pPerformanceDiagnostics != nullptr)
+        {
+            pPerformanceDiagnostics->partyEventApplyNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        }
+    }
+    else if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->timerNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
     }
 
     const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
 
+    stageBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     if (pEventRuntimeState != nullptr && enteredPressurePlateFace(previousMoveState, moveState))
     {
         const OutdoorMapData *pMapData = m_pWorldRuntime->mapData();
@@ -334,6 +368,12 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
         }
     }
 
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->pressurePlateNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+    }
+
+    stageBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
     if (pEventRuntimeState != nullptr
         && !pEventRuntimeState->pendingDialogueContext.has_value()
         && !pEventRuntimeState->pendingMapMove.has_value()
@@ -405,8 +445,21 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
         }
     }
 
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->boundaryTransitionNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        stageBeginTickCount = SDL_GetTicksNS();
+    }
+
     m_pWorldRuntime->queueActorAiUpdate(deltaSeconds, moveState.x, moveState.y, moveState.footZ);
     notifyFriendlyActorContacts(*m_pWorldRuntime, moveState, m_pPartyRuntime->movementEvents());
+
+    if (pPerformanceDiagnostics != nullptr)
+    {
+        pPerformanceDiagnostics->actorQueueAndContactsNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+        pPerformanceDiagnostics->sceneAdvanceNanoseconds += SDL_GetTicksNS() - totalBeginTickCount;
+    }
+
     return result;
 }
 

@@ -70,7 +70,6 @@ public:
         const Engine::AssetFileSystem *pAssetFileSystem = nullptr;
         size_t portraitMemberCount = 0;
         bool initializeHouseVideoPlayer = false;
-        bool preloadReferencedAssets = true;
     };
     struct SharedUiBootstrapResult
     {

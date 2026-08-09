@@ -6542,6 +6542,20 @@ int luaAddFollowerNpc(lua_State *pLuaState)
     follower.professionId = professionId;
     follower.weeklyCost = weeklyCost;
 
+    const std::unordered_map<uint32_t, std::string>::const_iterator nameIt =
+        pRuntimeState->npcNameOverrides.find(npcId);
+    if (nameIt != pRuntimeState->npcNameOverrides.end())
+    {
+        follower.name = nameIt->second;
+    }
+
+    const std::unordered_map<uint32_t, uint32_t>::const_iterator pictureIt =
+        pRuntimeState->npcPictureOverrides.find(npcId);
+    if (pictureIt != pRuntimeState->npcPictureOverrides.end())
+    {
+        follower.pictureId = pictureIt->second;
+    }
+
     const auto iterator = std::find_if(
         pRuntimeState->hiredNpcFollowers.begin(),
         pRuntimeState->hiredNpcFollowers.end(),
@@ -8738,7 +8752,8 @@ bool EventRuntime::executeEventById(
     ISceneEventContext *pSceneEventContext,
     std::optional<uint8_t> continueStep,
     bool allowGlobalFallback,
-    std::optional<ScriptedEventScope> requiredScope
+    std::optional<ScriptedEventScope> requiredScope,
+    bool preservePendingOutputsOnBegin
 ) const
 {
     if (eventId == 0)
@@ -8757,6 +8772,7 @@ bool EventRuntime::executeEventById(
     executionContext.pParty = pParty;
     executionContext.pSceneEventContext = pSceneEventContext;
     executionContext.currentEventId = eventId;
+    executionContext.preservePendingOutputsOnBegin = preservePendingOutputsOnBegin;
 
     const bool allowLocalScope = !requiredScope || *requiredScope == ScriptedEventScope::Map;
     const bool allowGlobalScope = !requiredScope || *requiredScope == ScriptedEventScope::Global;
