@@ -61,6 +61,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 202, triggerStep = 7, origin = "legacy", triggerKind = "timer", scheduleKind = "weekly" },
     },
 })
 
@@ -272,4 +273,8 @@ end, "Enter the Cave")
 RegisterEvent(504, "Enter the Cave", function()
     evt.MoveToMap(19341, 21323, 1, 256, 0, 0, 0, 0, "mdt12.blv") -- The Dragon Caves
 end, "Enter the Cave")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 0)
+end)
 

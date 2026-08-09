@@ -197,6 +197,84 @@ bool usesBlackTransparencyKey(std::string_view textureName)
     const std::string normalizedName = toLowerCopy(std::string(textureName));
     return normalizedName.rfind("mapdir", 0) == 0 || normalizedName.rfind("micon", 0) == 0;
 }
+
+bgfx::TextureHandle ensureHudTextureColorWithMode(
+    const GameplayHudTextureData &texture,
+    uint32_t colorAbgr,
+    GameplayHudTextureColorMode colorMode,
+    std::vector<GameplayHudTextureColorTextureData> &colorTextures)
+{
+    if (colorAbgr == 0xffffffffu)
+    {
+        return texture.textureHandle;
+    }
+
+    for (const GameplayHudTextureColorTextureData &textureHandle : colorTextures)
+    {
+        if (textureHandle.textureName == texture.textureName
+            && textureHandle.colorAbgr == colorAbgr
+            && textureHandle.colorMode == colorMode)
+        {
+            return textureHandle.textureHandle;
+        }
+    }
+
+    if (texture.bgraPixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
+    {
+        return BGFX_INVALID_HANDLE;
+    }
+
+    std::vector<uint8_t> tintedPixels = texture.bgraPixels;
+    const uint8_t red = static_cast<uint8_t>(colorAbgr & 0xff);
+    const uint8_t green = static_cast<uint8_t>((colorAbgr >> 8) & 0xff);
+    const uint8_t blue = static_cast<uint8_t>((colorAbgr >> 16) & 0xff);
+    const uint8_t alpha = static_cast<uint8_t>((colorAbgr >> 24) & 0xff);
+
+    for (size_t pixelIndex = 0; pixelIndex + 3 < tintedPixels.size(); pixelIndex += 4)
+    {
+        const uint8_t sourceAlpha = tintedPixels[pixelIndex + 3];
+
+        if (colorMode == GameplayHudTextureColorMode::Modulated)
+        {
+            tintedPixels[pixelIndex + 0] = static_cast<uint8_t>(
+                (static_cast<uint32_t>(tintedPixels[pixelIndex + 0]) * blue) / 255u);
+            tintedPixels[pixelIndex + 1] = static_cast<uint8_t>(
+                (static_cast<uint32_t>(tintedPixels[pixelIndex + 1]) * green) / 255u);
+            tintedPixels[pixelIndex + 2] = static_cast<uint8_t>(
+                (static_cast<uint32_t>(tintedPixels[pixelIndex + 2]) * red) / 255u);
+        }
+        else if (sourceAlpha != 0)
+        {
+            tintedPixels[pixelIndex + 0] = blue;
+            tintedPixels[pixelIndex + 1] = green;
+            tintedPixels[pixelIndex + 2] = red;
+        }
+
+        tintedPixels[pixelIndex + 3] = static_cast<uint8_t>(
+            (static_cast<uint32_t>(sourceAlpha) * alpha) / 255u);
+    }
+
+    const bgfx::TextureHandle textureHandle = createBgraTexture2D(
+        static_cast<uint16_t>(texture.physicalWidth),
+        static_cast<uint16_t>(texture.physicalHeight),
+        tintedPixels.data(),
+        static_cast<uint32_t>(tintedPixels.size()),
+        TextureFilterProfile::Ui,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+
+    if (!bgfx::isValid(textureHandle))
+    {
+        return BGFX_INVALID_HANDLE;
+    }
+
+    GameplayHudTextureColorTextureData tintedTextureHandle = {};
+    tintedTextureHandle.textureName = texture.textureName;
+    tintedTextureHandle.colorAbgr = colorAbgr;
+    tintedTextureHandle.colorMode = colorMode;
+    tintedTextureHandle.textureHandle = textureHandle;
+    colorTextures.push_back(std::move(tintedTextureHandle));
+    return colorTextures.back().textureHandle;
+}
 } // namespace
 
 GameplayUiViewportRect GameplayHudCommon::computeUiViewportRect(int screenWidth, int screenHeight)
@@ -1149,64 +1227,23 @@ bgfx::TextureHandle GameplayHudCommon::ensureHudTextureColor(
     uint32_t colorAbgr,
     std::vector<GameplayHudTextureColorTextureData> &colorTextures)
 {
-    if (colorAbgr == 0xffffffffu)
-    {
-        return texture.textureHandle;
-    }
+    return ensureHudTextureColorWithMode(
+        texture,
+        colorAbgr,
+        GameplayHudTextureColorMode::Solid,
+        colorTextures);
+}
 
-    for (const GameplayHudTextureColorTextureData &textureHandle : colorTextures)
-    {
-        if (textureHandle.textureName == texture.textureName && textureHandle.colorAbgr == colorAbgr)
-        {
-            return textureHandle.textureHandle;
-        }
-    }
-
-    if (texture.bgraPixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
-    {
-        return BGFX_INVALID_HANDLE;
-    }
-
-    std::vector<uint8_t> tintedPixels = texture.bgraPixels;
-    const uint8_t red = static_cast<uint8_t>(colorAbgr & 0xff);
-    const uint8_t green = static_cast<uint8_t>((colorAbgr >> 8) & 0xff);
-    const uint8_t blue = static_cast<uint8_t>((colorAbgr >> 16) & 0xff);
-    const uint8_t alpha = static_cast<uint8_t>((colorAbgr >> 24) & 0xff);
-
-    for (size_t pixelIndex = 0; pixelIndex + 3 < tintedPixels.size(); pixelIndex += 4)
-    {
-        const uint8_t sourceAlpha = tintedPixels[pixelIndex + 3];
-
-        if (sourceAlpha == 0)
-        {
-            continue;
-        }
-
-        tintedPixels[pixelIndex + 0] = blue;
-        tintedPixels[pixelIndex + 1] = green;
-        tintedPixels[pixelIndex + 2] = red;
-        tintedPixels[pixelIndex + 3] = static_cast<uint8_t>((static_cast<uint32_t>(sourceAlpha) * alpha) / 255u);
-    }
-
-    const bgfx::TextureHandle textureHandle = createBgraTexture2D(
-        static_cast<uint16_t>(texture.physicalWidth),
-        static_cast<uint16_t>(texture.physicalHeight),
-        tintedPixels.data(),
-        static_cast<uint32_t>(tintedPixels.size()),
-        TextureFilterProfile::Ui,
-        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-
-    if (!bgfx::isValid(textureHandle))
-    {
-        return BGFX_INVALID_HANDLE;
-    }
-
-    GameplayHudTextureColorTextureData tintedTextureHandle = {};
-    tintedTextureHandle.textureName = texture.textureName;
-    tintedTextureHandle.colorAbgr = colorAbgr;
-    tintedTextureHandle.textureHandle = textureHandle;
-    colorTextures.push_back(std::move(tintedTextureHandle));
-    return colorTextures.back().textureHandle;
+bgfx::TextureHandle GameplayHudCommon::ensureHudTextureColorModulated(
+    const GameplayHudTextureData &texture,
+    uint32_t colorAbgr,
+    std::vector<GameplayHudTextureColorTextureData> &colorTextures)
+{
+    return ensureHudTextureColorWithMode(
+        texture,
+        colorAbgr,
+        GameplayHudTextureColorMode::Modulated,
+        colorTextures);
 }
 
 bgfx::TextureHandle GameplayHudCommon::ensureHudFontMainTextureColor(

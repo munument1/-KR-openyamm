@@ -86,8 +86,10 @@ SetMapMetadata({
     spriteNames = {"0", "7tree01", "7tree07", "7tree13", "7tree14", "7tree15", "7tree16", "7tree17", "7tree18", "7tree22", "7tree24", "7tree30", "tree37", "v77dec24"},
     castSpellIds = {2, 6, 15, 43},
     timers = {
-    { eventId = 51, repeating = true, intervalGameMinutes = 7.5, remainingGameMinutes = 7.5 },
-    { eventId = 229, repeating = true, intervalGameMinutes = 2.5, remainingGameMinutes = 2.5 },
+    { eventId = 51, sourceEventId = 51, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 15 },
+    { eventId = 65533, sourceEventId = 218, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65532, sourceEventId = 223, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 229, sourceEventId = 229, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 5 },
     },
 })
 
@@ -1317,5 +1319,14 @@ RegisterEvent(65534, "", function()
         evt.SetFacetBit(16, FacetBits.Invisible, 1)
         return
     end
+end)
+
+RegisterEvent(65533, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(1))
+end)
+
+RegisterEvent(65532, "", function()
+    SetValue(MapVar(21), 0)
 end)
 

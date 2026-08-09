@@ -1,5 +1,5 @@
-Decoration Data			Descriptor							Comments	
-#	InternalName	Hint	Type	Radius	Height	LightRadius	LightRed	LightGreen	LightBlue	SoundId	Flags	SpriteId	Comments
+Decoration Data			Descriptor							Comments	Map aliases
+#	InternalName	Hint	Type	Radius	Height	LightRadius	LightRed	LightGreen	LightBlue	SoundId	Flags	SpriteId	Comments	MapAliases
 
 1	null	null	0	8	8	0	0	0	0	0	0	0	-
 2	6Pending	test	0	16	16	16	0	0	0	0	0	16819	-
@@ -151,13 +151,13 @@ Decoration Data			Descriptor							Comments
 148	Bucket	bucket	0	29	40	0	0	0	0	0	0	17880	-
 149	Bonecage	bone cage	0	29	40	0	0	0	0	0	0	17879	-
 150	Corinth	column	0	29	40	0	0	0	0	0	0	17881	-
-151	floursac	sack	0	49	40	0	0	0	0	0	0	17882	-
+151	floursac	sack	0	49	40	0	0	0	0	0	0	17882	-	FlourSack
 152	hngncge2	hanging cage	0	29	40	0	0	0	0	0	0	17883	-
 153	sta1a	Statue	0	29	40	0	0	0	0	-22938	0	17829	-
 154	SHP	Ship	0	378	512	0	0	0	0	-22937	SlowLoop	17832	-
 155	bag_A	bag	0	30	40	0	0	0	0	0	0	17876	-
-156	bigbarel	barrel	0	30	40	0	0	0	0	0	0	17878	-
-157	smlbarel	keg	0	30	40	0	0	0	0	0	0	17789	-
+156	bigbarel	barrel	0	30	40	0	0	0	0	0	0	17878	-	Barrel
+157	smlbarel	keg	0	30	40	0	0	0	0	0	0	17789	-	Keg
 158	sklplrev	skull pile	0	30	40	0	0	0	0	0	0	17788	-
 159	ckfyr00	fire	0	30	40	0	0	0	0	-22942	0	17790	-
 160	cmpfyr00	fire	0	30	40	0	0	0	0	-22942	0	17796	-

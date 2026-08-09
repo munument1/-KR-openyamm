@@ -26,7 +26,8 @@ public:
         const std::optional<OutdoorBModelTextureSet> &outdoorBModelTextureSet);
     static const OutdoorGameView::SkyTextureHandle *ensureSkyTexture(
         OutdoorGameView &view,
-        const std::string &textureName);
+        const std::string &textureName,
+        bool warnOnCacheMiss = true);
     static void invalidateSkyResources(OutdoorGameView &view);
     static void destroySkyResources(OutdoorGameView &view);
 

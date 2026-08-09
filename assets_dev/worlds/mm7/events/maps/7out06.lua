@@ -102,6 +102,8 @@ SetMapMetadata({
     spriteNames = {"0"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 457, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 461, triggerStep = 10, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -625,5 +627,14 @@ RegisterEvent(503, nil, function()
     if IsQBitSet(QBit(611)) or IsQBitSet(QBit(612)) then -- Chose the path of Light
         evt.MoveToMap(-6790, 1095, 33, 0, 0, 0, 0, 0, "7d25.blv") -- Celeste
     end
+end)
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(21), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(13))
 end)
 

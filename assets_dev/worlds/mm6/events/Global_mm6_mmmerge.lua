@@ -1,5 +1,21 @@
 -- MMMerge global supplement: MM6 quest follower behavior and topic overlays.
 
+local function searchFlourSack()
+    local food = math.random(0, 2)
+
+    if food > 0 then
+        AddValue(Food, food)
+        evt.StatusText("You found " .. food .. " food!")
+    else
+        evt.StatusText("Empty sack")
+    end
+
+    evt.ChangeEvent(0)
+end
+
+ReplaceGlobalEvent(1741, "Flour Sack", searchFlourSack, "Flour Sack")
+ReplaceGlobalEvent(1742, "Flour Sack", searchFlourSack, "Flour Sack")
+
 local enrothGrandmasterTeacherTopics = {
     {npc = 1043, slot = 3, topic = 302}, -- GM Staff
     {npc = 837, slot = 3, topic = 305}, -- GM Sword

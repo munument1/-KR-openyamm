@@ -819,8 +819,25 @@ bool EvtProgram::parseInstruction(const std::vector<uint8_t> &record, EvtInstruc
 
         case EvtOpcode::OnTimer:
         case EvtOpcode::OnLongTimer:
+        {
+            if (record.size() < 12)
+            {
+                return false;
+            }
+
+            LegacyTimerDescriptor descriptor = {};
+            descriptor.yearly = *tryReadU8(2);
+            descriptor.monthly = *tryReadU8(3);
+            descriptor.weekly = *tryReadU8(4);
+            descriptor.startHour = *tryReadU8(5);
+            descriptor.startMinute = *tryReadU8(6);
+            descriptor.startSecond = *tryReadU8(7);
+            descriptor.intervalHalfMinutes = *tryReadU16(8);
+            descriptor.reserved = *tryReadU16(10);
+            instruction.timerDescriptor = descriptor;
             instruction.listValues.assign(record.begin() + 2, record.end());
             break;
+        }
 
         case EvtOpcode::CheckItemsCount:
             if (const std::optional<uint32_t> value = tryReadU32(2))

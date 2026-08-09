@@ -1189,6 +1189,24 @@ bgfx::TextureHandle GameplayUiRuntime::ensureHudTextureColor(
     return GameplayHudCommon::ensureHudTextureColor(*pTexture, colorAbgr, m_hudTextureColorTextureHandles);
 }
 
+bgfx::TextureHandle GameplayUiRuntime::ensureHudTextureColorModulated(
+    const GameplayHudTextureHandle &texture,
+    uint32_t colorAbgr)
+{
+    const GameplayHudTextureData *pTexture =
+        GameplayHudCommon::findHudTexture(m_hudTextureHandles, m_hudTextureIndexByName, texture.textureName);
+
+    if (pTexture == nullptr)
+    {
+        return BGFX_INVALID_HANDLE;
+    }
+
+    return GameplayHudCommon::ensureHudTextureColorModulated(
+        *pTexture,
+        colorAbgr,
+        m_hudTextureColorTextureHandles);
+}
+
 bgfx::TextureHandle GameplayUiRuntime::ensureHudFontMainTextureColor(
     const GameplayHudFontHandle &font,
     uint32_t colorAbgr)

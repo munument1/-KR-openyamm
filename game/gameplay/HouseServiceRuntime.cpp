@@ -90,7 +90,8 @@ bool isShopItemFamilyAllowed(const HouseEntry &houseEntry, const ItemDefinition 
             itemDefinition.equipStat == "Weapon"
             || itemDefinition.equipStat == "Weapon1or2"
             || itemDefinition.equipStat == "Weapon2"
-            || itemDefinition.equipStat == "Missile";
+            || itemDefinition.equipStat == "Missile"
+            || itemDefinition.equipStat == "Bow";
     }
 
     if (isHouseType(houseEntry, "Armor Shop"))
@@ -106,15 +107,15 @@ bool isShopItemFamilyAllowed(const HouseEntry &houseEntry, const ItemDefinition 
 
     if (isHouseType(houseEntry, "Magic Shop"))
     {
-        return itemDefinition.equipStat == "Ring"
-            || itemDefinition.equipStat == "Amulet"
-            || itemDefinition.equipStat == "WeaponW"
-            || itemDefinition.equipStat == "Gem";
+        return (itemDefinition.skillGroup == "Misc" && itemDefinition.equipStat != "Mscroll")
+            || itemDefinition.equipStat == "Book";
     }
 
     if (isHouseType(houseEntry, "Alchemist"))
     {
-        return itemDefinition.equipStat == "Reagent" || itemDefinition.equipStat == "Bottle";
+        return itemDefinition.equipStat == "Reagent"
+            || itemDefinition.equipStat == "Herb"
+            || itemDefinition.equipStat == "Bottle";
     }
 
     return false;
@@ -152,7 +153,8 @@ bool isWeaponItem(const ItemDefinition &itemDefinition)
     return itemDefinition.equipStat == "Weapon"
         || itemDefinition.equipStat == "Weapon1or2"
         || itemDefinition.equipStat == "Weapon2"
-        || itemDefinition.equipStat == "Missile";
+        || itemDefinition.equipStat == "Missile"
+        || itemDefinition.equipStat == "Bow";
 }
 
 bool itemSkillGroupIs(const ItemDefinition &itemDefinition, const char *pSkillGroup)
@@ -175,7 +177,7 @@ bool itemMatchesHouseRuleType(const ItemDefinition &itemDefinition, uint32_t ite
             return itemDefinition.equipStat == "Weapon2" || itemDefinition.equipStat == "Weapon1or2";
 
         case ItemTypeMissile:
-            return itemDefinition.equipStat == "Missile";
+            return itemDefinition.equipStat == "Missile" || itemDefinition.equipStat == "Bow";
 
         case ItemTypeArmor:
         case ItemTypeArmorAny:
@@ -219,7 +221,7 @@ bool itemMatchesHouseRuleType(const ItemDefinition &itemDefinition, uint32_t ite
 
         case ItemTypeReagent:
         case ItemTypeReagentAny:
-            return itemDefinition.equipStat == "Reagent";
+            return itemDefinition.equipStat == "Reagent" || itemDefinition.equipStat == "Herb";
 
         case ItemTypePotion:
         case ItemTypePotionAny:
@@ -227,17 +229,13 @@ bool itemMatchesHouseRuleType(const ItemDefinition &itemDefinition, uint32_t ite
 
         case ItemTypeScroll:
         case ItemTypeScrollAny:
-            return itemDefinition.equipStat == "Scroll";
+            return itemDefinition.equipStat == "Sscroll";
 
         case ItemTypeBook:
             return itemDefinition.equipStat == "Book";
 
         case ItemTypeMisc:
-            return itemDefinition.equipStat == "Misc"
-                || itemDefinition.equipStat == "Ring"
-                || itemDefinition.equipStat == "Amulet"
-                || itemDefinition.equipStat == "WeaponW"
-                || itemDefinition.equipStat == "Gem";
+            return itemDefinition.skillGroup == "Misc";
 
         case ItemTypeSword:
             return itemSkillGroupIs(itemDefinition, "Sword");

@@ -439,15 +439,7 @@ public:
         std::string representativePictureName;
     };
 
-    struct TimerState
-    {
-        uint16_t eventId = 0;
-        bool repeating = false;
-        float intervalGameMinutes = 0.0f;
-        float remainingGameMinutes = 0.0f;
-        std::optional<int> targetHour;
-        bool hasFired = false;
-    };
+    using TimerState = ScriptedEventTimerState;
 
     struct AudioEvent
     {
@@ -501,6 +493,8 @@ public:
     {
         float gameMinutes = 0.0f;
         MapDeltaLocationInfo locationInfo = {};
+        MapDeltaLocationTime locationTime = {};
+        bool hasLocationTime = false;
         AtmosphereState atmosphere = {};
         std::vector<TimerState> timers;
         std::vector<MapActorState> mapActors;
@@ -579,6 +573,7 @@ public:
     bool allowsLloydsBeacon() const override;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void stampLastVisitTime();
     void applyMapReentryReset() override;
     float currentGameMinutes() const override;
     float gameMinutes() const override;
@@ -596,6 +591,10 @@ public:
     void setOutdoorPathfindingSettings(bool enabled, bool logEnabled);
 
     void applyEventRuntimeState(bool syncPersistentHostilityMasks = false) override;
+    void prepareTimers(
+        const std::optional<ScriptedEventProgram> &localEventProgram,
+        const std::optional<ScriptedEventProgram> &globalEventProgram
+    );
     bool updateTimers(
         float deltaSeconds,
         const EventRuntime &eventRuntime,
@@ -1251,6 +1250,8 @@ private:
     AtmosphereState m_atmosphereState = {};
     std::optional<OutdoorWeatherProfile> m_outdoorWeatherProfile;
     std::vector<TimerState> m_timers;
+    bool m_timerDefinitionsInitialized = false;
+    bool m_resetLegacyTimersOnInitialize = false;
     std::vector<MapActorState> m_mapActors;
     std::vector<SpawnPointState> m_spawnPoints;
     std::vector<MapDeltaChest> m_chests;
@@ -1431,6 +1432,11 @@ private:
         const std::vector<bool> &activeActorMask);
     void applyActorFrameSideEffects(float deltaSeconds, float partyX, float partyY, float partyZ);
     void advanceGameMinutesInternal(float minutes);
+    void initializeTimers(
+        const std::optional<ScriptedEventProgram> &localEventProgram,
+        const std::optional<ScriptedEventProgram> &globalEventProgram,
+        double registrationGameMinutes
+    );
     void applyInitialWeatherProfile();
     bool applyMergedWeatherProfile();
     void applyDailyWeatherRollover(int weatherDayIndex);

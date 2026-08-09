@@ -1427,11 +1427,13 @@ void GameAudioSystem::stopBackgroundMusicImmediate()
     }
 
     m_pendingMusicTrack = 0;
+    m_pendingMusicDecodeDelaySeconds = 0.0f;
     m_backgroundMusicPaused = false;
 
     if (m_activeMusicInstanceId != 0)
     {
         m_audioSystem.stopClip(m_activeMusicInstanceId);
+        m_audioSystem.clearQueuedAudio();
     }
 
     m_activeMusicTrack = 0;

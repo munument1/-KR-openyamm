@@ -8,6 +8,7 @@
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/maps/SaveGame.h"
 #include "game/party/PartySpellSystem.h"
@@ -20,6 +21,7 @@
 #include "tests/RegressionGameData.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -62,6 +64,7 @@ constexpr uint32_t WindBoatHouseId = 483;
 constexpr uint32_t NewSorpigalStableHouseId = 470;
 constexpr uint32_t NewSorpigalBoatHouseId = 496;
 constexpr uint32_t BuccaneersLairHouseId = 191;
+constexpr uint32_t SeeingEyeHouseId = 97;
 
 class TempleConditionTimeSceneContext : public OpenYAMM::Game::ISceneEventContext
 {
@@ -2478,6 +2481,11 @@ TEST_CASE("dwi shop service menu structure")
 
     const OpenYAMM::Game::EventDialogContent &equipmentDialog = harness.executeAndPresent(*equipmentIndex);
 
+    CHECK(harness.uiController().inventoryNestedOverlay().active);
+    CHECK_EQ(
+        harness.uiController().inventoryNestedOverlay().mode,
+        OpenYAMM::Game::GameplayUiController::InventoryNestedOverlayMode::ShopDisplay);
+    CHECK_EQ(harness.uiController().inventoryNestedOverlay().houseId, 1u);
     CHECK(dialogHasActionLabel(equipmentDialog, "Sell"));
     CHECK(dialogHasActionLabel(equipmentDialog, "Identify"));
     CHECK(dialogHasActionLabel(equipmentDialog, "Repair"));
@@ -2492,6 +2500,27 @@ TEST_CASE("dwi shop service menu structure")
     CHECK(equipmentDialog.actions[*sellIndex].enabled);
     CHECK(equipmentDialog.actions[*identifyIndex].enabled);
     CHECK(equipmentDialog.actions[*repairIndex].enabled);
+
+    harness.executeAndPresent(*sellIndex);
+    CHECK_EQ(
+        harness.uiController().inventoryNestedOverlay().mode,
+        OpenYAMM::Game::GameplayUiController::InventoryNestedOverlayMode::ShopSell);
+
+    const OpenYAMM::Game::EventDialogContent &returnedEquipmentDialog = harness.closeAndPresent();
+    CHECK(harness.uiController().inventoryNestedOverlay().active);
+    CHECK_EQ(
+        harness.uiController().inventoryNestedOverlay().mode,
+        OpenYAMM::Game::GameplayUiController::InventoryNestedOverlayMode::ShopDisplay);
+    CHECK(dialogHasActionLabel(returnedEquipmentDialog, "Sell"));
+    CHECK(dialogHasActionLabel(returnedEquipmentDialog, "Identify"));
+    CHECK(dialogHasActionLabel(returnedEquipmentDialog, "Repair"));
+
+    const OpenYAMM::Game::EventDialogContent &returnedRootDialog = harness.closeAndPresent();
+    CHECK_FALSE(harness.uiController().inventoryNestedOverlay().active);
+    CHECK(dialogHasActionLabel(returnedRootDialog, "Buy Standard"));
+    CHECK(dialogHasActionLabel(returnedRootDialog, "Buy Special"));
+    CHECK(dialogHasActionLabel(returnedRootDialog, "Display Equipment"));
+    CHECK(dialogHasActionLabel(returnedRootDialog, "Learn Skills"));
 }
 
 TEST_CASE("house service shop standard stock generates and buys")
@@ -2743,6 +2772,166 @@ TEST_CASE("house service shop sell accepts matching item")
         statusText));
     CHECK_GT(harness.party().gold(), initialGold);
     CHECK_LT(harness.party().inventoryItemCount(), initialInventoryCount);
+}
+
+TEST_CASE("New Sorpigal magic shop identifies and repairs OE Misc item families")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pHouseEntry = gameData.houseTable.get(SeeingEyeHouseId);
+    REQUIRE(pHouseEntry != nullptr);
+    REQUIRE_EQ(pHouseEntry->type, "Magic Shop");
+
+    OpenYAMM::Game::Party &party = harness.party();
+    const size_t memberIndex = party.activeMemberIndex();
+    OpenYAMM::Game::Character *pMember = party.member(memberIndex);
+    REQUIRE(pMember != nullptr);
+    party.addGold(10000000);
+
+    constexpr std::array<const char *, 10> miscEquipStats = {
+        "Book",
+        "WeaponW",
+        "Helm",
+        "Boots",
+        "Gauntlets",
+        "Ring",
+        "Amulet",
+        "Belt",
+        "Cloak",
+        "Sscroll",
+    };
+    const std::vector<OpenYAMM::Game::ItemDefinition> &itemDefinitions = gameData.itemTable.entries();
+
+    for (const char *pEquipStat : miscEquipStats)
+    {
+        INFO("equip stat: " << pEquipStat);
+
+        const std::vector<OpenYAMM::Game::ItemDefinition>::const_iterator definitionIt = std::find_if(
+            itemDefinitions.begin(),
+            itemDefinitions.end(),
+            [pEquipStat](const OpenYAMM::Game::ItemDefinition &definition)
+            {
+                return definition.itemId != 0
+                    && definition.equipStat == pEquipStat
+                    && definition.rarity == OpenYAMM::Game::ItemRarity::Common
+                    && OpenYAMM::Game::ItemRuntime::requiresIdentification(definition);
+            });
+        REQUIRE(definitionIt != itemDefinitions.end());
+
+        OpenYAMM::Game::InventoryItem item = {};
+        item.objectDescriptionId = definitionIt->itemId;
+        item.width = definitionIt->inventoryWidth;
+        item.height = definitionIt->inventoryHeight;
+        item.identified = false;
+        REQUIRE(pMember->addInventoryItem(item));
+
+        const auto itemIt = std::find_if(
+            pMember->inventory.begin(),
+            pMember->inventory.end(),
+            [&item](const OpenYAMM::Game::InventoryItem &candidate)
+            {
+                return candidate.objectDescriptionId == item.objectDescriptionId && !candidate.identified;
+            });
+        REQUIRE(itemIt != pMember->inventory.end());
+        const uint8_t gridX = itemIt->gridX;
+        const uint8_t gridY = itemIt->gridY;
+
+        std::string statusText;
+        OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult serviceResult =
+            OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::None;
+        REQUIRE(OpenYAMM::Game::HouseServiceRuntime::tryIdentifyInventoryItem(
+            party,
+            gameData.itemTable,
+            gameData.standardItemEnchantTable,
+            gameData.specialItemEnchantTable,
+            *pHouseEntry,
+            memberIndex,
+            gridX,
+            gridY,
+            statusText,
+            &serviceResult));
+        CHECK(serviceResult == OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::Success);
+
+        OpenYAMM::Game::InventoryItem *pIdentifiedItem = nullptr;
+
+        for (OpenYAMM::Game::InventoryItem &candidate : pMember->inventory)
+        {
+            if (candidate.gridX == gridX && candidate.gridY == gridY)
+            {
+                pIdentifiedItem = &candidate;
+                break;
+            }
+        }
+
+        REQUIRE(pIdentifiedItem != nullptr);
+        pIdentifiedItem->broken = true;
+
+        REQUIRE(OpenYAMM::Game::HouseServiceRuntime::tryRepairInventoryItem(
+            party,
+            gameData.itemTable,
+            gameData.standardItemEnchantTable,
+            gameData.specialItemEnchantTable,
+            *pHouseEntry,
+            memberIndex,
+            gridX,
+            gridY,
+            statusText,
+            &serviceResult));
+        CHECK(serviceResult == OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::Success);
+
+        OpenYAMM::Game::InventoryItem removedItem = {};
+        REQUIRE(party.takeItemFromMemberInventoryCell(memberIndex, gridX, gridY, removedItem));
+    }
+}
+
+TEST_CASE("shop item families recognize merged world item type names")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    struct ShopItemFamilyCase
+    {
+        const char *pShopType;
+        const char *pEquipStat;
+        bool accepted;
+    };
+
+    constexpr std::array<ShopItemFamilyCase, 9> cases = {{
+        {"Weapon Shop", "Weapon", true},
+        {"Weapon Shop", "Missile", true},
+        {"Weapon Shop", "Bow", true},
+        {"Weapon Shop", "Ring", false},
+        {"Armor Shop", "Helm", true},
+        {"Armor Shop", "Weapon", false},
+        {"Alchemist", "Reagent", true},
+        {"Alchemist", "Herb", true},
+        {"Alchemist", "Ring", false},
+    }};
+    const std::vector<OpenYAMM::Game::ItemDefinition> &itemDefinitions = gameData.itemTable.entries();
+
+    for (const ShopItemFamilyCase &testCase : cases)
+    {
+        INFO("shop type: " << testCase.pShopType << ", equip stat: " << testCase.pEquipStat);
+
+        const std::vector<OpenYAMM::Game::ItemDefinition>::const_iterator definitionIt = std::find_if(
+            itemDefinitions.begin(),
+            itemDefinitions.end(),
+            [&testCase](const OpenYAMM::Game::ItemDefinition &definition)
+            {
+                return definition.itemId != 0 && definition.equipStat == testCase.pEquipStat;
+            });
+        REQUIRE(definitionIt != itemDefinitions.end());
+
+        OpenYAMM::Game::HouseEntry houseEntry = {};
+        houseEntry.type = testCase.pShopType;
+        OpenYAMM::Game::InventoryItem item = {};
+        item.objectDescriptionId = definitionIt->itemId;
+        CHECK_EQ(
+            OpenYAMM::Game::HouseServiceRuntime::canSellItemToHouse(
+                gameData.itemTable,
+                houseEntry,
+                item),
+            testCase.accepted);
+    }
 }
 
 TEST_CASE("dwi temple service participant identity")

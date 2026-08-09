@@ -81,10 +81,11 @@ const char *restModeTraceName(GameplayUiController::RestMode mode)
     return "unknown";
 }
 
-bool isHouseInventoryServiceOverlay(const GameplayUiController::InventoryNestedOverlayState &overlay)
+bool isHouseInventoryOverlay(const GameplayUiController::InventoryNestedOverlayState &overlay)
 {
     return overlay.active
-        && (overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+        && (overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopDisplay
+            || overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
             || overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
             || overlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair);
 }
@@ -1039,7 +1040,7 @@ bool GameplayScreenRuntime::trySelectPartyMember(size_t memberIndex, bool requir
     if (pEventRuntimeState != nullptr
         && activeEventDialog().isActive
         && !houseShopOverlay().active
-        && !isHouseInventoryServiceOverlay(inventoryNestedOverlay()))
+        && !isHouseInventoryOverlay(inventoryNestedOverlay()))
     {
         presentPendingEventDialog(pEventRuntimeState->messages.size(), true);
     }
@@ -1351,7 +1352,13 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
         return;
     }
 
-    if (inventoryNestedOverlay().active && currentHudScreenState() == GameplayHudScreenState::Dialogue)
+    const bool shopInventoryOverlayActive =
+        currentHudScreenState() == GameplayHudScreenState::Dialogue
+        && isHouseInventoryOverlay(inventoryNestedOverlay());
+
+    if (inventoryNestedOverlay().active
+        && currentHudScreenState() == GameplayHudScreenState::Dialogue
+        && !shopInventoryOverlayActive)
     {
         closeInventoryNestedOverlay();
         return;
@@ -1365,7 +1372,8 @@ void GameplayScreenRuntime::handleDialogueCloseRequest()
 
     EventDialogContent &dialog = activeEventDialog();
 
-    if (dialog.isActive
+    if (!shopInventoryOverlayActive
+        && dialog.isActive
         && dialog.presentation != EventDialogPresentation::Transition
         && !dialog.videoName.empty())
     {

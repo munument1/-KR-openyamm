@@ -50,4 +50,6 @@ uint32_t makeInteractiveDecorationSeed(
     int z);
 
 uint8_t initialInteractiveDecorationState(InteractiveDecorationFamily family, uint32_t seed);
+
+bool interactiveDecorationIsCleared(uint8_t state, uint8_t eventCount, bool hideWhenCleared);
 }

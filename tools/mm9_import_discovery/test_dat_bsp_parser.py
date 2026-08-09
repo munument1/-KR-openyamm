@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from convert_abc_model import (
     AbcModel,
     AnimBinding,
+    Face,
+    FaceVertex,
     Lod,
     ModelAnimation,
     NodeInfo,
@@ -35,6 +37,7 @@ from generate_mm9_events import (
     map_lua_text,
     synthetic_mm9_sound_bytes,
 )
+from classify_mm9_maps import MapMetrics, classify_metrics
 from transcode_mm9_dat_to_odm import (
     BinaryReader,
     DatWorld,
@@ -64,6 +67,7 @@ from transcode_mm9_dat_to_odm import (
     WorldLeaf,
     abc_static_model_half_dims_lt,
     abc_static_model_translation_lt,
+    bake_abc_model_instance,
     build_outdoor_mechanism_interactive_face_lines,
     build_mm9_party_start_point_lines,
     build_classic_party_start_entities,
@@ -73,6 +77,7 @@ from transcode_mm9_dat_to_odm import (
     classify_face_role,
     export_mm9_lights,
     export_mm9_party_start_points,
+    floor_y_near_position_lt,
     is_plant_foliage_texture,
     is_plant_model_source,
     is_rail_helper_texture,
@@ -165,6 +170,37 @@ def dummy_dat_world(objects: list[WorldObject]) -> DatWorld:
 
 
 class DatBspParserTests(unittest.TestCase):
+    def test_bootcamp_classifies_as_outdoor_despite_portal_helpers(self) -> None:
+        recommendation, confidence, reason = classify_metrics(MapMetrics(
+            map_id="bootcamp",
+            dat_file="BOOTCAMP.dat",
+            current_export="blv+bsp.yml",
+            model_count=168,
+            object_count=591,
+            source_polies=16450,
+            visible_candidate_polies=5018,
+            helper_polies=10555,
+            terrain_polies=4080,
+            sky_water_polies=0,
+            invisible_polies=0,
+            visbsp_polies=2015,
+            physicsbsp_polies=8540,
+            visbsp_leaves=937,
+            visbsp_leaf_entries=0,
+            user_portals=10,
+            total_leaves=0,
+            total_leaf_entries=0,
+            largest_model_name="PhysicsBSP",
+            largest_model_polies=8540,
+            recommendation="",
+            confidence="",
+            reason="",
+        ))
+
+        self.assertEqual(recommendation, "outdoor_like")
+        self.assertEqual(confidence, "high")
+        self.assertIn("known MM9 exterior", reason)
+
     def test_physics_bsp_is_hidden_but_collidable(self) -> None:
         attributes = classify_face_attributes("PhysicsBSP", "LEVELTEXTURES/MISC/INVISIBLE", LT_SURFACE_FLAG_INVISIBLE)
 
@@ -598,7 +634,66 @@ class DatBspParserTests(unittest.TestCase):
 
         self.assertEqual((vertex.x, vertex.y, vertex.z), (5, 9, 7))
 
-    def test_abc_static_model_helpers_use_first_anim_binding(self) -> None:
+    def test_baked_model_visual_offset_lifts_exported_z(self) -> None:
+        model = AbcModel(
+            name="tree",
+            version=13,
+            command_string="",
+            internal_radius=0.0,
+            lod_distances=[],
+            pieces=[
+                Piece(
+                    name="bark",
+                    material_index=0,
+                    specular_power=0.0,
+                    specular_scale=0.0,
+                    lod_weight=0.0,
+                    lods=[
+                        Lod(
+                            faces=[
+                                Face([
+                                    FaceVertex((0.0, 0.0), 0),
+                                    FaceVertex((1.0, 0.0), 1),
+                                    FaceVertex((0.0, 1.0), 2),
+                                ])
+                            ],
+                            vertices=[
+                                Vertex((0.0, -2.0, 0.0), (0.0, 1.0, 0.0), []),
+                                Vertex((1.0, -2.0, 0.0), (0.0, 1.0, 0.0), []),
+                                Vertex((0.0, -2.0, 1.0), (0.0, 1.0, 0.0), []),
+                            ],
+                        )
+                    ],
+                )
+            ],
+            nodes=[],
+            animations=[],
+            sockets=[],
+            anim_bindings=[],
+        )
+
+        bmodel = bake_abc_model_instance(
+            model,
+            7,
+            "Prop",
+            "Tree",
+            "models/props/PlantsandTrees/Tree05.abc",
+            "skins/props/PlantsandTrees/TreeBark3.dtx",
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            1.0,
+            1.0,
+            {},
+            {},
+            {},
+            set(),
+            99,
+            (0.0, 2.0, 0.0),
+        )
+
+        self.assertEqual([vertex.z for vertex in bmodel.vertices], [0, 0, 0])
+
+    def test_abc_static_model_helpers_use_first_anim_binding_when_world_missing(self) -> None:
         model = AbcModel(
             name="test",
             version=13,
@@ -617,6 +712,26 @@ class DatBspParserTests(unittest.TestCase):
         self.assertEqual(abc_static_model_translation_lt(model), (1.0, 2.0, 3.0))
         self.assertEqual(abc_static_model_half_dims_lt(model), (10.0, 20.0, 30.0))
 
+    def test_abc_static_model_helpers_prefer_world_anim_binding(self) -> None:
+        model = AbcModel(
+            name="test",
+            version=13,
+            command_string="",
+            internal_radius=0.0,
+            lod_distances=[],
+            pieces=[],
+            nodes=[],
+            animations=[],
+            sockets=[],
+            anim_bindings=[
+                AnimBinding(name="Static_Model", extents=(10.0, 20.0, 30.0), origin=(1.0, 2.0, 3.0)),
+                AnimBinding(name="World", extents=(40.0, 50.0, 60.0), origin=(4.0, 5.0, 6.0)),
+            ],
+        )
+
+        self.assertEqual(abc_static_model_translation_lt(model), (4.0, 5.0, 6.0))
+        self.assertEqual(abc_static_model_half_dims_lt(model), (40.0, 50.0, 60.0))
+
     def test_move_position_to_floor_uses_lithtech_y_up_dims(self) -> None:
         triangle = LtFloorTriangle((
             (-10.0, 0.0, -10.0),
@@ -628,6 +743,17 @@ class DatBspParserTests(unittest.TestCase):
 
         self.assertEqual(status, "snapped")
         self.assertAlmostEqual(moved[1], 25.1)
+
+    def test_near_floor_query_finds_terrain_above_embedded_prop(self) -> None:
+        triangle = LtFloorTriangle((
+            (-10.0, 100.0, -10.0),
+            (10.0, 100.0, -10.0),
+            (-10.0, 100.0, 10.0),
+        ))
+
+        floor_y = floor_y_near_position_lt([0.0, 40.0, 0.0], [triangle], max_vertical_distance=128.0)
+
+        self.assertEqual(floor_y, 100.0)
 
     def test_floor_support_triangles_skip_navigation_and_water_helpers(self) -> None:
         dat_world = DatWorld(

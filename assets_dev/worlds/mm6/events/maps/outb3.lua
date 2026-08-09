@@ -44,6 +44,7 @@ SetMapMetadata({
     spriteNames = {"ped03"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 102, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
     },
 })
 
@@ -274,4 +275,8 @@ RegisterEvent(108, "rock", function()
         return
     end
 end, "rock")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 20)
+end)
 

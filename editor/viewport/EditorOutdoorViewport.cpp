@@ -81,6 +81,19 @@ struct BitmapLoadCache
     std::unordered_map<int16_t, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesById;
 };
 
+bool bgraPixelsHavePartialAlpha(const std::vector<uint8_t> &pixels)
+{
+    for (size_t offset = 3; offset < pixels.size(); offset += 4)
+    {
+        const uint8_t alpha = pixels[offset];
+        if (alpha > 0 && alpha < 255)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 struct IndoorEditorMechanismTextureState
 {
     const Game::MapDeltaDoor *pDoor = nullptr;
@@ -6578,6 +6591,7 @@ void EditorOutdoorViewport::ensureGeometryBuffers(const EditorSession &session)
             batch.key = textureName;
             batch.textureWidth = textureWidth;
             batch.textureHeight = textureHeight;
+            batch.hasPartialAlphaPixels = bgraPixelsHavePartialAlpha(*texturePixels);
 
             if (bgfx::isValid(batch.vertexBufferHandle) && bgfx::isValid(batch.textureHandle))
             {
@@ -6857,6 +6871,7 @@ void EditorOutdoorViewport::ensureGeometryBuffers(const EditorSession &session)
             bgfx::copy(texturePixels->data(), static_cast<uint32_t>(texturePixels->size())));
         batch.vertexCount = static_cast<uint32_t>(vertices.size());
         batch.bmodelIndex = bmodelIndex;
+        batch.hasPartialAlphaPixels = bgraPixelsHavePartialAlpha(*texturePixels);
 
         if (const auto originIt = previewOriginByBModel.find(bmodelIndex); originIt != previewOriginByBModel.end())
         {
@@ -10144,12 +10159,17 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
             bgfx::setTransform(transform);
             bgfx::setVertexBuffer(0, batch.vertexBufferHandle);
             bgfx::setTexture(0, m_textureSamplerHandle, batch.textureHandle);
-            bgfx::setState(
+            uint64_t state =
                 BGFX_STATE_WRITE_RGB
                     | BGFX_STATE_WRITE_A
                     | BGFX_STATE_WRITE_Z
                     | BGFX_STATE_DEPTH_TEST_LESS
-                    | BGFX_STATE_MSAA);
+                    | BGFX_STATE_MSAA;
+            if (batch.hasPartialAlphaPixels)
+            {
+                state |= BGFX_STATE_BLEND_ALPHA;
+            }
+            bgfx::setState(state);
             bgfx::submit(EditorSceneViewId, m_texturedProgramHandle);
         }
 
@@ -10307,12 +10327,17 @@ void EditorOutdoorViewport::submitStaticGeometry(const EditorSession &session) c
             bgfx::setTransform(transform);
             bgfx::setVertexBuffer(0, batch.vertexBufferHandle);
             bgfx::setTexture(0, m_textureSamplerHandle, batch.textureHandle);
-            bgfx::setState(
+            uint64_t state =
                 BGFX_STATE_WRITE_RGB
                     | BGFX_STATE_WRITE_A
                     | BGFX_STATE_WRITE_Z
                     | BGFX_STATE_DEPTH_TEST_LESS
-                    | BGFX_STATE_MSAA);
+                    | BGFX_STATE_MSAA;
+            if (batch.hasPartialAlphaPixels)
+            {
+                state |= BGFX_STATE_BLEND_ALPHA;
+            }
+            bgfx::setState(state);
             bgfx::submit(EditorSceneViewId, m_texturedProgramHandle);
         }
     }

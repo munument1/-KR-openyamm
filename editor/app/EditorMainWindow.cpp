@@ -13846,21 +13846,26 @@ void EditorMainWindow::renderEntityInspector(EditorSession &session, size_t enti
     {
         if (beginInspectorPropertyTable("EntityFields"))
         {
-            const uint16_t originalDecorationListId = entity.entity.decorationListId;
+            const Game::DecorationLookupResult initialDecoration = session.decorationTable().resolveMapDecoration(
+                entity.entity.decorationListId,
+                entity.entity.name);
+            uint16_t selectedDecorationListId = initialDecoration.decorationId;
             const bool decorationChanged = renderDecorationSelector(
                 session,
                 "Decoration",
-                entity.entity.decorationListId,
+                selectedDecorationListId,
                 false);
             changed = decorationChanged || changed;
 
             if (decorationChanged)
             {
-                if (const Game::DecorationEntry *pDecoration = session.decorationTable().get(entity.entity.decorationListId))
+                entity.entity.decorationListId = selectedDecorationListId;
+
+                if (const Game::DecorationEntry *pDecoration = session.decorationTable().get(selectedDecorationListId))
                 {
                     entity.entity.name = pDecoration->internalName;
                 }
-                else if (entity.entity.decorationListId != originalDecorationListId)
+                else
                 {
                     entity.entity.name.clear();
                 }
@@ -13869,13 +13874,17 @@ void EditorMainWindow::renderEntityInspector(EditorSession &session, size_t enti
             renderInspectorReadOnlyField("Entity Index", std::to_string(entity.entityIndex));
             changed = editStringField(session, "Name", entity.entity.name, 128) || changed;
             renderInspectorReadOnlyField("Decoration List Id", std::to_string(entity.entity.decorationListId));
+            const Game::DecorationLookupResult resolvedDecoration = session.decorationTable().resolveMapDecoration(
+                entity.entity.decorationListId,
+                entity.entity.name);
+            renderInspectorReadOnlyField(
+                "Resolved Decoration Id",
+                std::to_string(resolvedDecoration.decorationId));
             renderInspectorReadOnlyField(
                 "Resolved Hint",
-                [&session, &entity]()
-                {
-                    const Game::DecorationEntry *pDecoration = session.decorationTable().get(entity.entity.decorationListId);
-                    return pDecoration != nullptr && !pDecoration->hint.empty() ? pDecoration->hint : std::string("<none>");
-                }());
+                resolvedDecoration.pEntry != nullptr && !resolvedDecoration.pEntry->hint.empty()
+                    ? resolvedDecoration.pEntry->hint
+                    : std::string("<none>"));
             ImGui::EndTable();
         }
         endInspectorSectionBlock();
@@ -14900,21 +14909,25 @@ void EditorMainWindow::renderIndoorEntityInspector(EditorSession &session, size_
     {
         if (beginInspectorPropertyTable("IndoorEntityOverviewFields"))
         {
-            const uint16_t originalDecorationListId = entity.decorationListId;
+            const Game::DecorationLookupResult initialDecoration =
+                session.decorationTable().resolveMapDecoration(entity.decorationListId, entity.name);
+            uint16_t selectedDecorationListId = initialDecoration.decorationId;
             const bool decorationChanged = renderDecorationSelector(
                 session,
                 "Decoration",
-                entity.decorationListId,
+                selectedDecorationListId,
                 false);
             changed = decorationChanged || changed;
 
             if (decorationChanged)
             {
-                if (const Game::DecorationEntry *pDecoration = session.decorationTable().get(entity.decorationListId))
+                entity.decorationListId = selectedDecorationListId;
+
+                if (const Game::DecorationEntry *pDecoration = session.decorationTable().get(selectedDecorationListId))
                 {
                     entity.name = pDecoration->internalName;
                 }
-                else if (entity.decorationListId != originalDecorationListId)
+                else
                 {
                     entity.name.clear();
                 }
@@ -14923,15 +14936,16 @@ void EditorMainWindow::renderIndoorEntityInspector(EditorSession &session, size_
             renderInspectorReadOnlyField("Entity Index", std::to_string(entityIndex));
             changed = editStringField(session, "Name", entity.name, 128) || changed;
             renderInspectorReadOnlyField("Decoration List Id", std::to_string(entity.decorationListId));
+            const Game::DecorationLookupResult resolvedDecoration =
+                session.decorationTable().resolveMapDecoration(entity.decorationListId, entity.name);
+            renderInspectorReadOnlyField(
+                "Resolved Decoration Id",
+                std::to_string(resolvedDecoration.decorationId));
             renderInspectorReadOnlyField(
                 "Resolved Hint",
-                [&session, &entity]()
-                {
-                    const Game::DecorationEntry *pDecoration = session.decorationTable().get(entity.decorationListId);
-                    return pDecoration != nullptr && !pDecoration->hint.empty()
-                        ? pDecoration->hint
-                        : std::string("<none>");
-                }());
+                resolvedDecoration.pEntry != nullptr && !resolvedDecoration.pEntry->hint.empty()
+                    ? resolvedDecoration.pEntry->hint
+                    : std::string("<none>"));
 
             Game::IndoorFaceGeometryCache geometryCache(indoorGeometry.faces.size());
             const std::optional<uint16_t> roomId =

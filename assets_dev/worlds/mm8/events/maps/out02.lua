@@ -127,10 +127,10 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
-    { eventId = 131, repeating = true, intervalGameMinutes = 7.5, remainingGameMinutes = 7.5 },
-    { eventId = 132, repeating = true, intervalGameMinutes = 10, remainingGameMinutes = 10 },
-    { eventId = 478, repeating = true, intervalGameMinutes = 7.5, remainingGameMinutes = 7.5 },
-    { eventId = 479, repeating = true, intervalGameMinutes = 10, remainingGameMinutes = 10 },
+    { eventId = 131, sourceEventId = 131, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 15 },
+    { eventId = 132, sourceEventId = 132, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 20 },
+    { eventId = 478, sourceEventId = 478, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 15 },
+    { eventId = 479, sourceEventId = 479, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 20 },
     },
 })
 

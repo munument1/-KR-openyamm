@@ -69,6 +69,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 454, sourceEventId = 454, triggerStep = 0, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
     },
 })
 

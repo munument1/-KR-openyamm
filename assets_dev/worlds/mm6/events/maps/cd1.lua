@@ -66,7 +66,7 @@ SetMapMetadata({
     spriteNames = {"crysdisc"},
     castSpellIds = {6},
     timers = {
-    { eventId = 70, repeating = true, intervalGameMinutes = 10, remainingGameMinutes = 10 },
+    { eventId = 70, sourceEventId = 70, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 20 },
     },
 })
 

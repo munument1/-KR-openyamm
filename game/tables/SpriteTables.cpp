@@ -434,6 +434,7 @@ bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows
 {
     m_entries.clear();
     m_entryIndexByInternalName.clear();
+    m_entryIndexByMapAlias.clear();
 
     for (const std::vector<std::string> &row : rows)
     {
@@ -472,6 +473,48 @@ bool DecorationTable::loadRows(const std::vector<std::vector<std::string>> &rows
         if (!m_entries.back().internalName.empty())
         {
             m_entryIndexByInternalName[m_entries.back().internalName] = static_cast<uint16_t>(m_entries.size() - 1);
+        }
+
+        if (row.size() > 14)
+        {
+            const uint16_t entryId = static_cast<uint16_t>(m_entries.size() - 1);
+            const std::string aliases = row[14];
+            size_t aliasBegin = 0;
+
+            while (aliasBegin < aliases.size())
+            {
+                size_t aliasEnd = aliases.find('|', aliasBegin);
+
+                if (aliasEnd == std::string::npos)
+                {
+                    aliasEnd = aliases.size();
+                }
+
+                const std::string alias = toLowerCopy(trimCopy(aliases.substr(aliasBegin, aliasEnd - aliasBegin)));
+
+                if (!alias.empty())
+                {
+                    const auto [iterator, inserted] = m_entryIndexByMapAlias.emplace(alias, entryId);
+
+                    if (!inserted && iterator->second != entryId)
+                    {
+                        return false;
+                    }
+                }
+
+                aliasBegin = aliasEnd + 1;
+            }
+        }
+    }
+
+    for (const auto &[alias, entryId] : m_entryIndexByMapAlias)
+    {
+        const std::unordered_map<std::string, uint16_t>::const_iterator internalNameIterator =
+            m_entryIndexByInternalName.find(alias);
+
+        if (internalNameIterator != m_entryIndexByInternalName.end() && internalNameIterator->second != entryId)
+        {
+            return false;
         }
     }
 
@@ -536,7 +579,23 @@ DecorationLookupResult DecorationTable::resolveMapDecoration(
         return DecorationLookupResult{*namedDecorationId, get(*namedDecorationId)};
     }
 
-    return DecorationLookupResult{decorationId, get(decorationId)};
+    const DecorationEntry *pRawEntry = get(decorationId);
+    const bool rawEntryIsPending =
+        pRawEntry == nullptr || toLowerCopy(trimCopy(pRawEntry->internalName)) == "pending";
+
+    if (rawEntryIsPending)
+    {
+        const std::string normalizedName = toLowerCopy(trimCopy(internalName));
+        const std::unordered_map<std::string, uint16_t>::const_iterator aliasIterator =
+            m_entryIndexByMapAlias.find(normalizedName);
+
+        if (aliasIterator != m_entryIndexByMapAlias.end())
+        {
+            return DecorationLookupResult{aliasIterator->second, get(aliasIterator->second)};
+        }
+    }
+
+    return DecorationLookupResult{decorationId, pRawEntry};
 }
 
 bool SpriteFrameTable::loadFromBytes(const std::vector<uint8_t> &bytes)

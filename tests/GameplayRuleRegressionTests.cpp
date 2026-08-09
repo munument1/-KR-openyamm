@@ -19,6 +19,7 @@
 #include "game/indoor/IndoorMovementController.h"
 #include "game/indoor/IndoorPartyRuntime.h"
 #include "game/items/InventoryItemMixingRuntime.h"
+#include "game/items/InventoryItemUseRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
@@ -41,6 +42,7 @@
 #include "tests/PartySpellTestHarness.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -960,6 +962,30 @@ TEST_CASE("map decoration names take precedence over legacy decoration ids")
     CHECK_EQ(fallback.decorationId, 13);
     CHECK_EQ(fallback.pEntry->internalName, "pending");
 
+    const OpenYAMM::Game::DecorationLookupResult mm6Barrel =
+        decorationTable.resolveMapDecoration(13, "Barrel");
+    REQUIRE(mm6Barrel.pEntry != nullptr);
+    CHECK_EQ(mm6Barrel.decorationId, 155);
+    CHECK_EQ(mm6Barrel.pEntry->internalName, "bigbarel");
+
+    const OpenYAMM::Game::DecorationLookupResult mm6Keg =
+        decorationTable.resolveMapDecoration(13, "Keg");
+    REQUIRE(mm6Keg.pEntry != nullptr);
+    CHECK_EQ(mm6Keg.decorationId, 156);
+    CHECK_EQ(mm6Keg.pEntry->internalName, "smlbarel");
+
+    const OpenYAMM::Game::DecorationLookupResult mm6FlourSack =
+        decorationTable.resolveMapDecoration(13, "FlourSack");
+    REQUIRE(mm6FlourSack.pEntry != nullptr);
+    CHECK_EQ(mm6FlourSack.decorationId, 150);
+    CHECK_EQ(mm6FlourSack.pEntry->internalName, "floursac");
+
+    const OpenYAMM::Game::DecorationLookupResult mm7Barrel =
+        decorationTable.resolveMapDecoration(267, "Barrel");
+    REQUIRE(mm7Barrel.pEntry != nullptr);
+    CHECK_EQ(mm7Barrel.decorationId, 267);
+    CHECK_EQ(mm7Barrel.pEntry->internalName, "7dec24");
+
     const OpenYAMM::Game::DecorationLookupResult mm7BeaconFire =
         decorationTable.resolveMapDecoration(305, "dec61");
     REQUIRE(mm7BeaconFire.pEntry != nullptr);
@@ -1028,6 +1054,189 @@ TEST_CASE("map decoration names take precedence over legacy decoration ids")
     REQUIRE(outa1EmptyName.pEntry != nullptr);
     CHECK_EQ(outa1EmptyName.decorationId, 0);
     CHECK_EQ(outa1EmptyName.pEntry->spriteId, 0);
+}
+
+TEST_CASE("mm6 Dragoons Caverns legacy prop names resolve through merged decoration aliases")
+{
+    const std::vector<uint8_t> mapBytes =
+        loadSourceFileBytes("assets_dev/worlds/mm6/maps/6d06.blv");
+    const OpenYAMM::Game::IndoorMapDataLoader mapLoader = {};
+    const std::optional<OpenYAMM::Game::IndoorMapData> mapData = mapLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData.has_value());
+    REQUIRE_GT(mapData->entities.size(), 98u);
+
+    OpenYAMM::Game::DecorationTable decorationTable;
+    REQUIRE(decorationTable.loadRows(loadSourceTabSeparatedRows("assets_dev/engine/data_tables/decoration_data.txt")));
+
+    struct ExpectedProp
+    {
+        size_t entityIndex = 0;
+        const char *pLegacyName = nullptr;
+        uint16_t decorationId = 0;
+        const char *pInternalName = nullptr;
+        uint16_t spriteId = 0;
+    };
+
+    const std::array<ExpectedProp, 8> expectedProps = {{
+        {91, "FlourSack", 150, "floursac", 17882},
+        {92, "FlourSack", 150, "floursac", 17882},
+        {93, "FlourSack", 150, "floursac", 17882},
+        {94, "FlourSack", 150, "floursac", 17882},
+        {95, "FlourSack", 150, "floursac", 17882},
+        {96, "Barrel", 155, "bigbarel", 17878},
+        {97, "Barrel", 155, "bigbarel", 17878},
+        {98, "Keg", 156, "smlbarel", 17789},
+    }};
+
+    for (const ExpectedProp &expected : expectedProps)
+    {
+        const OpenYAMM::Game::IndoorEntity &entity = mapData->entities[expected.entityIndex];
+        CHECK_EQ(entity.decorationListId, 13);
+        CHECK_EQ(entity.name, expected.pLegacyName);
+
+        const OpenYAMM::Game::DecorationLookupResult resolved =
+            decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+        REQUIRE(resolved.pEntry != nullptr);
+        CHECK_EQ(resolved.decorationId, expected.decorationId);
+        CHECK_EQ(resolved.pEntry->internalName, expected.pInternalName);
+        CHECK_EQ(resolved.pEntry->spriteId, expected.spriteId);
+    }
+}
+
+TEST_CASE("mm6 Dragoons Caverns flour sack states use MMMerge food search and clear")
+{
+    const std::vector<uint8_t> mapBytes =
+        loadSourceFileBytes("assets_dev/worlds/mm6/maps/6d06.blv");
+    const OpenYAMM::Game::IndoorMapDataLoader mapLoader = {};
+    const std::optional<OpenYAMM::Game::IndoorMapData> mapData = mapLoader.loadFromBytes(mapBytes);
+    REQUIRE(mapData.has_value());
+    REQUIRE_GT(mapData->entities.size(), 93u);
+
+    const OpenYAMM::Game::IndoorEntity &entity = mapData->entities[93];
+    CHECK_EQ(entity.name, "FlourSack");
+    CHECK_EQ(entity.decorationListId, 13u);
+    CHECK_EQ(entity.scriptEventId(), 0u);
+
+    OpenYAMM::Game::DecorationTable decorationTable;
+    REQUIRE(decorationTable.loadRows(loadSourceTabSeparatedRows("assets_dev/engine/data_tables/decoration_data.txt")));
+
+    const OpenYAMM::Game::DecorationLookupResult decoration =
+        decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+    REQUIRE(decoration.pEntry != nullptr);
+    CHECK_EQ(decoration.decorationId, 150u);
+    CHECK_EQ(decoration.pEntry->internalName, "floursac");
+    CHECK_EQ(decoration.pEntry->hint, "sack");
+
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> bindingSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(*decoration.pEntry, entity.name);
+    REQUIRE(bindingSpec.has_value());
+    CHECK_EQ(bindingSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::FlourSack);
+    CHECK_EQ(bindingSpec->baseEventId, 1741u);
+    CHECK_EQ(bindingSpec->eventCount, 2u);
+    CHECK(bindingSpec->hideWhenCleared);
+    CHECK_FALSE(OpenYAMM::Game::interactiveDecorationIsCleared(
+        0,
+        bindingSpec->eventCount,
+        bindingSpec->hideWhenCleared));
+    CHECK(OpenYAMM::Game::interactiveDecorationIsCleared(
+        bindingSpec->eventCount,
+        bindingSpec->eventCount,
+        bindingSpec->hideWhenCleared));
+
+    const uint8_t initialState =
+        OpenYAMM::Game::initialInteractiveDecorationState(bindingSpec->family, 93u);
+    REQUIRE_EQ(initialState, 1u);
+
+    const std::string globalSource =
+        loadSourceFileText("assets_dev/engine/scripts/common/event_support.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/engine/events/common/cross_continents_common.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/worlds/mm6/events/common/mm6_common.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/engine/events/Global.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/worlds/mm6/events/Global_mm6_mmmerge.lua");
+    std::string globalError;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            globalSource,
+            "@events/Global.lua + events/Global_mm6_mmmerge.lua",
+            OpenYAMM::Game::ScriptedEventScope::Global,
+            globalError);
+    REQUIRE_MESSAGE(globalProgram.has_value(), globalError.c_str());
+    CHECK_EQ(globalProgram->getHint(1741).value_or(""), "Flour Sack");
+    CHECK_EQ(globalProgram->getHint(1742).value_or(""), "Flour Sack");
+
+    for (uint8_t storedState : {uint8_t{0}, initialState})
+    {
+        OpenYAMM::Game::Party party = {};
+        party.seed(createRegressionPartySeed());
+        party.clearPendingAudioRequests();
+        const int initialFood = party.food();
+
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        runtimeState.decorVars[0] = storedState;
+        OpenYAMM::Game::EventRuntimeState::ActiveDecorationContext context = {};
+        context.decorVarIndex = 0;
+        context.baseEventId = bindingSpec->baseEventId;
+        context.currentEventId = static_cast<uint16_t>(bindingSpec->baseEventId + storedState);
+        context.eventCount = bindingSpec->eventCount;
+        context.hideWhenCleared = bindingSpec->hideWhenCleared;
+        runtimeState.activeDecorationContext = context;
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt,
+            globalProgram,
+            context.currentEventId,
+            runtimeState,
+            &party));
+        const int foundFood = party.food() - initialFood;
+        CHECK_GE(foundFood, 0);
+        CHECK_LE(foundFood, 2);
+        REQUIRE_EQ(runtimeState.statusMessages.size(), 1u);
+        CHECK_EQ(
+            runtimeState.statusMessages.front(),
+            foundFood > 0 ? "You found " + std::to_string(foundFood) + " food!" : "Empty sack");
+        CHECK_EQ(runtimeState.decorVars[0], bindingSpec->eventCount);
+        CHECK(OpenYAMM::Game::interactiveDecorationIsCleared(
+            runtimeState.decorVars[0],
+            bindingSpec->eventCount,
+            bindingSpec->hideWhenCleared));
+        CHECK(std::none_of(
+            party.pendingAudioRequests().begin(),
+            party.pendingAudioRequests().end(),
+            [](const OpenYAMM::Game::Party::PendingAudioRequest &request)
+            {
+                return request.kind == OpenYAMM::Game::Party::PendingAudioRequest::Kind::Sound
+                    && request.soundId == OpenYAMM::Game::SoundId::Eat;
+            }));
+    }
+}
+
+TEST_CASE("food inventory items explicitly retain the eating sound")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    party.clearPendingAudioRequests();
+
+    OpenYAMM::Game::InventoryItem apple = {};
+    apple.objectDescriptionId = 1432;
+    const int initialFood = party.food();
+
+    const OpenYAMM::Game::InventoryItemUseResult result =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+            party,
+            0,
+            apple,
+            gameData.itemTable,
+            nullptr);
+
+    REQUIRE(result.handled);
+    CHECK(result.consumed);
+    CHECK_EQ(result.action, OpenYAMM::Game::InventoryItemUseAction::EatFoodItem);
+    REQUIRE(result.soundId.has_value());
+    CHECK_EQ(*result.soundId, OpenYAMM::Game::SoundId::Eat);
+    CHECK_EQ(party.food(), initialFood + 1);
+    CHECK(party.pendingAudioRequests().empty());
 }
 
 TEST_CASE("mm7 shoals scene overlay combines always dark fog with underwater tint")
@@ -4936,6 +5145,7 @@ TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decoration
     CHECK_EQ(flourSackSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::FlourSack);
     CHECK_EQ(flourSackSpec->baseEventId, 1741u);
     CHECK_EQ(flourSackSpec->eventCount, 2u);
+    CHECK(flourSackSpec->hideWhenCleared);
     CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(flourSackSpec->family, 13u), 1u);
 
     const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> largeBagSpec =

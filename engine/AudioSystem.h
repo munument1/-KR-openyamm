@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Engine
@@ -50,6 +51,7 @@ public:
     void resumeClip(uint64_t instanceId);
     void setClipVolume(uint64_t instanceId, float volume);
     bool isClipPlaying(uint64_t instanceId) const;
+    void clearQueuedAudio();
     void stopAll();
     void update(const ListenerState &listenerState);
 
@@ -95,6 +97,7 @@ private:
     SDL_AudioSpec m_outputSpec = {};
     uint64_t m_nextInstanceId = 1;
     std::unordered_map<std::string, std::shared_ptr<AudioClip>> m_clipCache;
+    std::unordered_set<std::string> m_playbackCacheMissWarningPaths;
     std::vector<PlayingInstance> m_playingInstances;
 };
 }

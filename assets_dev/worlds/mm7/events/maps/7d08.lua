@@ -68,12 +68,12 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
-    { eventId = 151, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
-    { eventId = 152, repeating = true, intervalGameMinutes = 2.5, remainingGameMinutes = 2.5 },
-    { eventId = 153, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
-    { eventId = 154, repeating = true, intervalGameMinutes = 1.5, remainingGameMinutes = 1.5 },
-    { eventId = 155, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
-    { eventId = 156, repeating = true, intervalGameMinutes = 1, remainingGameMinutes = 1 },
+    { eventId = 151, sourceEventId = 151, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 4 },
+    { eventId = 152, sourceEventId = 152, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 5 },
+    { eventId = 153, sourceEventId = 153, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 4 },
+    { eventId = 154, sourceEventId = 154, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 3 },
+    { eventId = 155, sourceEventId = 155, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 4 },
+    { eventId = 156, sourceEventId = 156, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 2 },
     },
 })
 

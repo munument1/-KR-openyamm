@@ -528,23 +528,29 @@ end
 
 local function removeTimersForEvent(timers, eventId)
     if timers == nil then
-        return
+        return {}
     end
 
     local writeIndex = 1
+    local removedHandlerIds = {}
 
     for readIndex = 1, #timers do
         local timer = timers[readIndex]
+        local sourceEventId = timer ~= nil and (timer.sourceEventId or timer.eventId) or nil
 
-        if timer == nil or timer.eventId ~= eventId then
+        if timer == nil or sourceEventId ~= eventId then
             timers[writeIndex] = timer
             writeIndex = writeIndex + 1
+        elseif timer.eventId ~= nil and timer.eventId ~= eventId then
+            table.insert(removedHandlerIds, timer.eventId)
         end
     end
 
     for index = writeIndex, #timers do
         timers[index] = nil
     end
+
+    return removedHandlerIds
 end
 
 function support.packSelector(tag, index)
@@ -812,7 +818,25 @@ function support.removeScopeEvent(scopeName, tableName, eventId)
 
     removeArrayValue(meta.onLoad, eventId)
     removeArrayValue(meta.onLeave, eventId)
-    removeTimersForEvent(meta.timers, eventId)
+
+    local removedHandlerIds = removeTimersForEvent(meta.timers, eventId)
+    for _, handlerEventId in ipairs(removedHandlerIds) do
+        local stillReferenced = false
+
+        for _, timer in ipairs(meta.timers) do
+            if timer ~= nil and timer.eventId == handlerEventId then
+                stillReferenced = true
+                break
+            end
+        end
+
+        if not stillReferenced then
+            evt[tableName][handlerEventId] = nil
+            meta.title[handlerEventId] = nil
+            meta.hint[handlerEventId] = nil
+            meta.summary[handlerEventId] = nil
+        end
+    end
 end
 
 function support.removeMapEvent(eventId)
@@ -1015,9 +1039,12 @@ function support.registerMapTimerEvent(eventId, intervalSeconds, handler, title,
     local remainingGameMinutes = (initialDelaySeconds or intervalSeconds or 0) / 60
     table.insert(meta.timers, {
         eventId = eventId,
+        sourceEventId = eventId,
+        origin = "native",
+        scheduleKind = "relative",
         repeating = true,
         intervalGameMinutes = intervalGameMinutes,
-        remainingGameMinutes = remainingGameMinutes,
+        initialDelayGameMinutes = remainingGameMinutes,
     })
 end
 
@@ -1040,9 +1067,12 @@ function support.registerGlobalTimerEvent(eventId, intervalSeconds, handler, tit
     local remainingGameMinutes = (initialDelaySeconds or intervalSeconds or 0) / 60
     table.insert(meta.timers, {
         eventId = eventId,
+        sourceEventId = eventId,
+        origin = "native",
+        scheduleKind = "relative",
         repeating = true,
         intervalGameMinutes = intervalGameMinutes,
-        remainingGameMinutes = remainingGameMinutes,
+        initialDelayGameMinutes = remainingGameMinutes,
     })
 end
 

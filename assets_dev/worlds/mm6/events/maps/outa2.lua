@@ -42,6 +42,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 100, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
     },
 })
 
@@ -179,4 +180,8 @@ RegisterEvent(200, "Obelisk", function(continueStep)
     evt.SetMessage("The surface of the obelisk is blood warm to the touch.  A message swims into view as you remove your hand:                                                                                                                                                            nhrh_aherheatvdi")
     evt._PressAnyKey(200, 2)
 end, "Obelisk")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 10)
+end)
 

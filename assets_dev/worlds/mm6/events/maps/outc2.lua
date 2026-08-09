@@ -138,7 +138,10 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {6},
     timers = {
-    { eventId = 209, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 161, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 65534, sourceEventId = 162, triggerStep = 10, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 65533, sourceEventId = 163, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 209, sourceEventId = 209, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -802,4 +805,16 @@ RegisterEvent(261, "Shrine of Accuracy", function()
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Accuracy")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 8)
+end)
+
+RegisterEvent(65534, "", function()
+    SetValue(MapVar(6), 0)
+end)
+
+RegisterEvent(65533, "", function()
+    SetValue(MapVar(3), 30)
+end)
 

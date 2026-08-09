@@ -6138,12 +6138,9 @@ void EditorSession::ensureOutdoorDerivedCaches() const
             for (size_t entityIndex = 0; entityIndex < indoorGeometry.entities.size(); ++entityIndex)
             {
                 const Game::IndoorEntity &entity = indoorGeometry.entities[entityIndex];
-                const Game::DecorationEntry *pDecoration = m_decorationTable.get(entity.decorationListId);
-
-                if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
-                {
-                    pDecoration = m_decorationTable.findByInternalName(entity.name);
-                }
+                const Game::DecorationLookupResult decoration =
+                    m_decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+                const Game::DecorationEntry *pDecoration = decoration.pEntry;
 
                 if (pDecoration == nullptr || pDecoration->spriteId == 0)
                 {
@@ -6619,12 +6616,9 @@ void EditorSession::ensureOutdoorDerivedCaches() const
 
         if (m_hasDecorationTable)
         {
-            const Game::DecorationEntry *pDecoration = m_decorationTable.get(entity.decorationListId);
-
-            if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
-            {
-                pDecoration = m_decorationTable.findByInternalName(entity.name);
-            }
+            const Game::DecorationLookupResult decoration =
+                m_decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+            const Game::DecorationEntry *pDecoration = decoration.pEntry;
 
             if (pDecoration != nullptr && pDecoration->spriteId != 0)
             {

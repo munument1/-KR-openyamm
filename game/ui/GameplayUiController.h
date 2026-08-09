@@ -73,6 +73,7 @@ public:
     {
         None,
         ChestTransfer,
+        ShopDisplay,
         ShopSell,
         ShopIdentify,
         ShopRepair

@@ -2,6 +2,7 @@
 
 #include "tools/LegacyLuaExport.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -33,6 +34,52 @@ std::string extractLuaEvent(const std::string &lua, const std::string &eventRegi
     }
 
     return lua.substr(eventStart, eventEnd - eventStart);
+}
+
+std::string extractTimerMetadata(
+    const std::string &lua,
+    uint16_t sourceEventId,
+    size_t occurrence = 0)
+{
+    const std::string sourceText = "sourceEventId = " + std::to_string(sourceEventId);
+    size_t sourcePosition = 0;
+
+    for (size_t index = 0; index <= occurrence; ++index)
+    {
+        sourcePosition = lua.find(sourceText, sourcePosition);
+        REQUIRE(sourcePosition != std::string::npos);
+        ++sourcePosition;
+    }
+
+    const size_t lineStart = lua.rfind('{', sourcePosition);
+    const size_t lineEnd = lua.find('\n', sourcePosition);
+    REQUIRE(lineStart != std::string::npos);
+    REQUIRE(lineEnd != std::string::npos);
+    return lua.substr(lineStart, lineEnd - lineStart);
+}
+
+void appendTimerRecord(
+    std::vector<uint8_t> &evtBytes,
+    uint16_t eventId,
+    uint8_t step,
+    OpenYAMM::Game::EvtOpcode opcode,
+    const std::array<uint8_t, 10> &descriptor)
+{
+    evtBytes.push_back(14);
+    evtBytes.push_back(static_cast<uint8_t>(eventId & 0xffu));
+    evtBytes.push_back(static_cast<uint8_t>(eventId >> 8));
+    evtBytes.push_back(step);
+    evtBytes.push_back(static_cast<uint8_t>(opcode));
+    evtBytes.insert(evtBytes.end(), descriptor.begin(), descriptor.end());
+}
+
+void appendExitRecord(std::vector<uint8_t> &evtBytes, uint16_t eventId, uint8_t step)
+{
+    evtBytes.push_back(4);
+    evtBytes.push_back(static_cast<uint8_t>(eventId & 0xffu));
+    evtBytes.push_back(static_cast<uint8_t>(eventId >> 8));
+    evtBytes.push_back(step);
+    evtBytes.push_back(static_cast<uint8_t>(OpenYAMM::Game::EvtOpcode::Exit));
 }
 }
 
@@ -108,7 +155,7 @@ TEST_CASE("legacy lua exporter separates timer continuation from direct event bo
         OpenYAMM::Game::LegacyLuaExportScope::Map,
         OpenYAMM::Game::LegacyEventVersion::Mm7);
 
-    const size_t timerLineMatch = lua.find("intervalGameMinutes = 2.5");
+    const size_t timerLineMatch = lua.find("intervalHalfMinutes = 5");
     REQUIRE(timerLineMatch != std::string::npos);
     const size_t timerLineStart = lua.rfind('{', timerLineMatch);
     const size_t timerLineEnd = lua.find('\n', timerLineMatch);
@@ -145,6 +192,204 @@ TEST_CASE("legacy lua exporter separates timer continuation from direct event bo
     CHECK(timerEventLua.find("evt.MoveToMap(1232, 6896, -384") == std::string::npos);
     CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 13891") != std::string::npos);
     CHECK(timerEventLua.find("evt.CastSpell(6, 7, 4, 14618") != std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter emits New Sorpigal first-visit fountain refill timer")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/OUTE3.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm6/_legacy/events/OutE3.str");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.mapName = "New Sorpigal";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm6);
+
+    const std::string fountainTimer = extractTimerMetadata(lua, 130);
+    INFO(fountainTimer);
+    CHECK(fountainTimer.find("eventId = 130") != std::string::npos);
+    CHECK(fountainTimer.find("triggerStep = 0") != std::string::npos);
+    CHECK(fountainTimer.find("origin = \"legacy\"") != std::string::npos);
+    CHECK(fountainTimer.find("triggerKind = \"long\"") != std::string::npos);
+    CHECK(fountainTimer.find("scheduleKind = \"daily\"") != std::string::npos);
+    CHECK(fountainTimer.find("startHour = 0") != std::string::npos);
+    CHECK(fountainTimer.find("startMinute = 0") != std::string::npos);
+    CHECK(fountainTimer.find("startSecond = 1") != std::string::npos);
+
+    const std::string dragonTowerTimer = extractTimerMetadata(lua, 230);
+    INFO(dragonTowerTimer);
+    CHECK(dragonTowerTimer.find("triggerKind = \"timer\"") != std::string::npos);
+    CHECK(dragonTowerTimer.find("scheduleKind = \"interval\"") != std::string::npos);
+    CHECK(dragonTowerTimer.find("intervalHalfMinutes = 10") != std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter preserves every repeated long timer trigger")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d14.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm7/_legacy/events/7d14.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        {},
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const std::string weeklyTimer = extractTimerMetadata(lua, 196, 0);
+    const std::string firstYearlyTimer = extractTimerMetadata(lua, 196, 1);
+    const std::string secondYearlyTimer = extractTimerMetadata(lua, 196, 2);
+    INFO(weeklyTimer);
+    INFO(firstYearlyTimer);
+    INFO(secondYearlyTimer);
+    CHECK(weeklyTimer.find("triggerStep = 22") != std::string::npos);
+    CHECK(weeklyTimer.find("scheduleKind = \"weekly\"") != std::string::npos);
+    CHECK(firstYearlyTimer.find("triggerStep = 25") != std::string::npos);
+    CHECK(firstYearlyTimer.find("scheduleKind = \"yearly\"") != std::string::npos);
+    CHECK(secondYearlyTimer.find("triggerStep = 26") != std::string::npos);
+    CHECK(secondYearlyTimer.find("scheduleKind = \"yearly\"") != std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter decodes the complete timer interval word")
+{
+    const std::vector<uint8_t> evtBytes = {
+        14,
+        77, 0,
+        0, static_cast<uint8_t>(OpenYAMM::Game::EvtOpcode::OnTimer),
+        0, 0, 0, 0, 0, 0,
+        1, 2,
+        0, 0,
+    };
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        {},
+        {},
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const std::string timer = extractTimerMetadata(lua, 77);
+    INFO(timer);
+    CHECK(timer.find("intervalHalfMinutes = 513") != std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter preserves calendar precedence and daily offsets")
+{
+    std::vector<uint8_t> evtBytes;
+    appendTimerRecord(
+        evtBytes,
+        70,
+        0,
+        OpenYAMM::Game::EvtOpcode::OnLongTimer,
+        {2, 3, 4, 25, 61, 59, 0, 0, 0, 0});
+    appendTimerRecord(
+        evtBytes,
+        71,
+        0,
+        OpenYAMM::Game::EvtOpcode::OnLongTimer,
+        {0, 7, 8, 0, 0, 0, 0, 0, 0, 0});
+    appendTimerRecord(
+        evtBytes,
+        72,
+        0,
+        OpenYAMM::Game::EvtOpcode::OnLongTimer,
+        {0, 0, 9, 0, 0, 0, 0, 0, 0, 0});
+    appendTimerRecord(
+        evtBytes,
+        73,
+        0,
+        OpenYAMM::Game::EvtOpcode::OnLongTimer,
+        {0, 0, 0, 27, 61, 59, 0, 0, 0, 0});
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        {},
+        {},
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    CHECK(extractTimerMetadata(lua, 70).find("scheduleKind = \"yearly\"") != std::string::npos);
+    CHECK(extractTimerMetadata(lua, 71).find("scheduleKind = \"monthly\"") != std::string::npos);
+    CHECK(extractTimerMetadata(lua, 72).find("scheduleKind = \"weekly\"") != std::string::npos);
+
+    const std::string daily = extractTimerMetadata(lua, 73);
+    CHECK(daily.find("scheduleKind = \"daily\"") != std::string::npos);
+    CHECK(daily.find("startHour = 27") != std::string::npos);
+    CHECK(daily.find("startMinute = 61") != std::string::npos);
+    CHECK(daily.find("startSecond = 59") != std::string::npos);
+}
+
+TEST_CASE("legacy lua exporter emits every mixed timer trigger in one event")
+{
+    std::vector<uint8_t> evtBytes;
+    appendTimerRecord(
+        evtBytes,
+        80,
+        0,
+        OpenYAMM::Game::EvtOpcode::OnTimer,
+        {0, 0, 0, 0, 0, 0, 2, 0, 0, 0});
+    appendExitRecord(evtBytes, 80, 1);
+    appendTimerRecord(
+        evtBytes,
+        80,
+        2,
+        OpenYAMM::Game::EvtOpcode::OnLongTimer,
+        {0, 0, 1, 0, 0, 0, 0, 0, 0, 0});
+    appendExitRecord(evtBytes, 80, 3);
+    appendTimerRecord(
+        evtBytes,
+        80,
+        4,
+        OpenYAMM::Game::EvtOpcode::OnTimer,
+        {0, 0, 0, 0, 0, 0, 4, 0, 0, 0});
+    appendExitRecord(evtBytes, 80, 5);
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        {},
+        {},
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm7);
+
+    const std::string first = extractTimerMetadata(lua, 80, 0);
+    const std::string second = extractTimerMetadata(lua, 80, 1);
+    const std::string third = extractTimerMetadata(lua, 80, 2);
+    CHECK(first.find("triggerStep = 0") != std::string::npos);
+    CHECK(first.find("triggerKind = \"timer\"") != std::string::npos);
+    CHECK(second.find("triggerStep = 2") != std::string::npos);
+    CHECK(second.find("triggerKind = \"long\"") != std::string::npos);
+    CHECK(third.find("triggerStep = 4") != std::string::npos);
+    CHECK(third.find("triggerKind = \"timer\"") != std::string::npos);
 }
 
 TEST_CASE("legacy lua exporter prefers house names over stale mouseover hints for house events")

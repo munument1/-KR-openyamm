@@ -84,7 +84,9 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {6},
     timers = {
-    { eventId = 209, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 100, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 65534, sourceEventId = 101, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 209, sourceEventId = 209, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -512,4 +514,12 @@ RegisterEvent(261, "Shrine of Endurance", function()
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Endurance")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    SetValue(MapVar(3), 0)
+end)
 

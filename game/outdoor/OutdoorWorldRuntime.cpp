@@ -2930,28 +2930,6 @@ std::vector<int> parseCsvIntegers(const std::optional<std::string> &note)
     return values;
 }
 
-void appendTimersFromProgram(
-    const std::optional<ScriptedEventProgram> &program,
-    std::vector<OutdoorWorldRuntime::TimerState> &timers
-)
-{
-    if (!program)
-    {
-        return;
-    }
-
-    for (const ScriptedEventProgram::TimerTrigger &trigger : program->timerTriggers())
-    {
-        OutdoorWorldRuntime::TimerState timer = {};
-        timer.eventId = trigger.eventId;
-        timer.repeating = trigger.repeating;
-        timer.targetHour = trigger.targetHour;
-        timer.intervalGameMinutes = trigger.intervalGameMinutes;
-        timer.remainingGameMinutes = trigger.remainingGameMinutes;
-        timers.push_back(std::move(timer));
-    }
-}
-
 const MapEncounterInfo *getEncounterInfo(const MapStatsEntry &map, int encounterSlot)
 {
     if (encounterSlot == 1)
@@ -4909,14 +4887,10 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
         }
     }
 
-    pushAudioEvent(
-        static_cast<uint32_t>(SoundId::OpenChest),
-        chestId,
-        "chest_open",
-        0.0f,
-        0.0f,
-        0.0f,
-        false);
+    if (m_pParty != nullptr)
+    {
+        m_pParty->requestSound(SoundId::OpenChest);
+    }
 }
 
 void OutdoorWorldRuntime::setPendingEventSourcePoint(std::optional<GameplayWorldPoint> point)
@@ -5130,6 +5104,8 @@ void OutdoorWorldRuntime::initialize(
     m_atmosphereState = buildAtmosphereSourceState(map, outdoorMapData, outdoorMapDeltaData);
     m_outdoorWeatherProfile = outdoorWeatherProfile;
     m_timers.clear();
+    m_timerDefinitionsInitialized = false;
+    m_resetLegacyTimersOnInitialize = false;
     m_mapActors.clear();
     m_spawnPoints.clear();
     m_mapActorCorpseViews.clear();
@@ -6927,6 +6903,8 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
     if (m_pOutdoorMapDeltaData != nullptr)
     {
         snapshot.locationInfo = m_pOutdoorMapDeltaData->locationInfo;
+        snapshot.locationTime = m_pOutdoorMapDeltaData->locationTime;
+        snapshot.hasLocationTime = true;
     }
     snapshot.atmosphere = m_atmosphereState;
     snapshot.timers = m_timers;
@@ -6989,9 +6967,15 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     if (m_pOutdoorMapDeltaData != nullptr)
     {
         m_pOutdoorMapDeltaData->locationInfo = snapshot.locationInfo;
+        if (snapshot.hasLocationTime)
+        {
+            m_pOutdoorMapDeltaData->locationTime = snapshot.locationTime;
+        }
     }
     m_atmosphereState = snapshot.atmosphere;
     m_timers = snapshot.timers;
+    m_timerDefinitionsInitialized = false;
+    m_resetLegacyTimersOnInitialize = false;
     m_mapActors = snapshot.mapActors;
     m_chests = snapshot.chests;
     m_materializedChestViews = snapshot.materializedChestViews;
@@ -7061,8 +7045,20 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     applyEventRuntimeState(true);
 }
 
+void OutdoorWorldRuntime::stampLastVisitTime()
+{
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        m_pOutdoorMapDeltaData->locationTime.lastVisitTime =
+            legacyTimerTicksFromGameMinutes(static_cast<double>(m_gameMinutes));
+    }
+}
+
 void OutdoorWorldRuntime::applyMapReentryReset()
 {
+    m_timerDefinitionsInitialized = false;
+    m_resetLegacyTimersOnInitialize = true;
+
     for (MapActorState &actor : m_mapActors)
     {
         const bool canAct =
@@ -12574,13 +12570,13 @@ bool OutdoorWorldRuntime::updateTimers(
     }
 
     const float deltaGameMinutes = deltaSeconds * GameMinutesPerRealSecond;
+    const double registrationGameMinutes = static_cast<double>(m_gameMinutes);
     advanceGameMinutesInternal(deltaGameMinutes);
     refreshAtmosphereState();
 
-    if (m_timers.empty())
+    if (!m_timerDefinitionsInitialized)
     {
-        appendTimersFromProgram(localEventProgram, m_timers);
-        appendTimersFromProgram(globalEventProgram, m_timers);
+        initializeTimers(localEventProgram, globalEventProgram, registrationGameMinutes);
     }
 
     if (m_timers.empty())
@@ -12588,50 +12584,67 @@ bool OutdoorWorldRuntime::updateTimers(
         return false;
     }
 
-    bool executedAny = false;
-
-    for (TimerState &timer : m_timers)
-    {
-        if (timer.hasFired && !timer.repeating)
+    return updateScriptedEventTimers(
+        m_timers,
+        static_cast<double>(m_gameMinutes),
+        [this, &eventRuntime, &localEventProgram, &globalEventProgram](
+            const ScriptedEventTimerDefinition &definition)
         {
-            continue;
-        }
+            GAMEPLAY_DEBUG_TRACE(
+                "timer_event_fired world=outdoor event_id=" + std::to_string(definition.eventId)
+                + " source_event_id=" + std::to_string(definition.sourceEventId)
+                + " trigger_step=" + std::to_string(definition.triggerStep));
 
-        timer.remainingGameMinutes -= deltaGameMinutes;
-
-        if (timer.remainingGameMinutes > 0.0f)
-        {
-            continue;
-        }
-
-        GAMEPLAY_DEBUG_TRACE(
-            "timer_event_fired world=outdoor event_id=" + std::to_string(timer.eventId)
-            + " repeating=" + (timer.repeating ? std::string("true") : std::string("false"))
-            + " interval_game_minutes=" + std::to_string(timer.intervalGameMinutes));
-
-        if (eventRuntime.executeEventById(
+            const bool executed = eventRuntime.executeEventById(
                 localEventProgram,
                 globalEventProgram,
-                timer.eventId,
+                definition.eventId,
                 *m_eventRuntimeState,
                 m_pParty,
-                this))
-        {
-            executedAny = true;
-            applyEventRuntimeState();
-        }
+                this,
+                std::nullopt,
+                true,
+                definition.scope);
 
-        if (timer.repeating)
-        {
-            timer.remainingGameMinutes += std::max(0.5f, timer.intervalGameMinutes);
-        }
-        else
-        {
-            timer.hasFired = true;
-        }
-    }
+            if (executed)
+            {
+                applyEventRuntimeState();
+            }
 
-    return executedAny;
+            return executed;
+        });
+}
+
+void OutdoorWorldRuntime::prepareTimers(
+    const std::optional<ScriptedEventProgram> &localEventProgram,
+    const std::optional<ScriptedEventProgram> &globalEventProgram
+)
+{
+    initializeTimers(
+        localEventProgram,
+        globalEventProgram,
+        static_cast<double>(m_gameMinutes));
+}
+
+void OutdoorWorldRuntime::initializeTimers(
+    const std::optional<ScriptedEventProgram> &localEventProgram,
+    const std::optional<ScriptedEventProgram> &globalEventProgram,
+    double registrationGameMinutes
+)
+{
+    const std::vector<ScriptedEventTimerDefinition> definitions =
+        scriptedEventTimerDefinitionsFromPrograms(localEventProgram, globalEventProgram);
+    const int64_t lastVisitTime = m_pOutdoorMapDeltaData != nullptr
+        ? m_pOutdoorMapDeltaData->locationTime.lastVisitTime
+        : 0;
+    m_timers = reconcileScriptedEventTimers(
+        m_timers,
+        definitions,
+        registrationGameMinutes,
+        lastVisitTime,
+        m_resetLegacyTimersOnInitialize);
+    m_timerDefinitionsInitialized = true;
+    m_resetLegacyTimersOnInitialize = false;
 }
 
 bool OutdoorWorldRuntime::isChestOpened(uint32_t chestId) const

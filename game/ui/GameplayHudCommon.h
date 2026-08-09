@@ -66,10 +66,17 @@ struct GameplayHudFontColorTextureData
     bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
 };
 
+enum class GameplayHudTextureColorMode
+{
+    Solid,
+    Modulated,
+};
+
 struct GameplayHudTextureColorTextureData
 {
     std::string textureName;
     uint32_t colorAbgr = 0xffffffffu;
+    GameplayHudTextureColorMode colorMode = GameplayHudTextureColorMode::Solid;
     bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
 };
 
@@ -210,6 +217,10 @@ public:
         int &opaqueMaxX,
         int &opaqueMaxY);
     static bgfx::TextureHandle ensureHudTextureColor(
+        const GameplayHudTextureData &texture,
+        uint32_t colorAbgr,
+        std::vector<GameplayHudTextureColorTextureData> &colorTextures);
+    static bgfx::TextureHandle ensureHudTextureColorModulated(
         const GameplayHudTextureData &texture,
         uint32_t colorAbgr,
         std::vector<GameplayHudTextureColorTextureData> &colorTextures);

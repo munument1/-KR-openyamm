@@ -1060,9 +1060,10 @@ void GameplayScreenController::renderStandardUi(
         && (pWorldRuntime->activeChestView() != nullptr || pWorldRuntime->activeCorpseView() != nullptr);
     const bool renderChestUi =
         hasActiveLootView && pWorldRuntime != nullptr && pWorldRuntime->activeChestView() != nullptr;
-    const bool deferDialogueInventoryServiceOverlay =
+    const bool deferDialogueShopInventoryOverlay =
         context.inventoryNestedOverlay().active
-        && (context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+        && (context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopDisplay
+            || context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
             || context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
             || context.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair)
         && context.currentHudScreenState() == GameplayHudScreenState::Dialogue;
@@ -1079,16 +1080,16 @@ void GameplayScreenController::renderStandardUi(
                     .renderGameplayMouseLookOverlay = config.renderGameplayMouseLookOverlay,
                     .renderChestBelowHud = renderChestUi,
                     .renderChestAboveHud = renderChestUi,
-                    .renderInventoryBelowHud = !deferDialogueInventoryServiceOverlay,
+                    .renderInventoryBelowHud = !deferDialogueShopInventoryOverlay,
                     .renderInventoryAboveHud = renderChestUi,
                     .renderDialogueBelowHud = true,
                     .renderDialogueAboveHud = true,
                     .renderCharacterBelowHud = true,
                     .renderCharacterAboveHud = true,
-                    .renderItemInspectOverlay = !deferDialogueInventoryServiceOverlay,
+                    .renderItemInspectOverlay = !deferDialogueShopInventoryOverlay,
                     .renderDebugDialogueFallback = config.renderDebugFallbacks,
                 },
-            .renderDeferredInventoryOverlay = deferDialogueInventoryServiceOverlay,
+            .renderDeferredInventoryOverlay = deferDialogueShopInventoryOverlay,
             .renderActorInspectOverlay = config.renderActorInspectOverlay,
         });
 

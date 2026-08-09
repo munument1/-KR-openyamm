@@ -14,6 +14,7 @@
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
+#include "game/indoor/IndoorRenderRevision.h"
 #include "game/render/TextureFiltering.h"
 #include "game/scene/IndoorSceneRuntime.h"
 #include "game/SpriteObjectDefs.h"
@@ -959,12 +960,9 @@ void buildIndoorInteractiveDecorationBindingCaches(
             continue;
         }
 
-        const DecorationEntry *pDecoration = pBillboardSet->decorationTable.get(entity.decorationListId);
-
-        if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
-        {
-            pDecoration = pBillboardSet->decorationTable.findByInternalName(entity.name);
-        }
+        const DecorationLookupResult decoration =
+            pBillboardSet->decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+        const DecorationEntry *pDecoration = decoration.pEntry;
 
         if (pDecoration == nullptr)
         {
@@ -1030,7 +1028,7 @@ std::optional<uint16_t> resolveIndoorInteractiveDecorationEventId(
 {
     uint8_t state = eventRuntimeState.decorVars[binding.decorVarIndex];
 
-    if (binding.hideWhenCleared && state == binding.eventCount)
+    if (interactiveDecorationIsCleared(state, binding.eventCount, binding.hideWhenCleared))
     {
         return std::nullopt;
     }
@@ -1985,10 +1983,57 @@ bool decorationBillboardVisibleForBakedLighting(
     return iterator == pEventRuntimeState->spriteOverrides.end() || !iterator->second.hidden;
 }
 
+BakedStaticLightSource bakedStaticLightSourceForIndoorLight(const IndoorLight &light)
+{
+    BakedStaticLightSource source = {};
+    source.position = {
+        static_cast<float>(light.x),
+        static_cast<float>(light.y),
+        static_cast<float>(light.z)
+    };
+    source.radius = static_cast<float>(light.radius);
+    source.red = light.red;
+    source.green = light.green;
+    source.blue = light.blue;
+    source.alpha = static_cast<float>(IndoorBakedStaticLightAlpha) / 255.0f;
+    return source;
+}
+
+std::vector<uint8_t> bakedStaticLightEnabledStates(
+    const IndoorMapData &indoorMapData,
+    const EventRuntimeState *pEventRuntimeState)
+{
+    std::vector<uint8_t> enabledStates(indoorMapData.lights.size(), 0);
+
+    for (size_t lightId = 0; lightId < indoorMapData.lights.size(); ++lightId)
+    {
+        const IndoorLight &light = indoorMapData.lights[lightId];
+        enabledStates[lightId] =
+            light.radius > 0
+                && IndoorLightingRuntime::isBlvLightEnabledByState(
+                    static_cast<uint32_t>(light.attributes),
+                    pEventRuntimeState,
+                    lightId)
+                    ? 1
+                    : 0;
+    }
+
+    return enabledStates;
+}
+
+bool bakedStaticLightAffectsPoint(const BakedStaticLightSource &source, const bx::Vec3 &point)
+{
+    const float dx = source.position.x - point.x;
+    const float dy = source.position.y - point.y;
+    const float dz = source.position.z - point.z;
+    return dx * dx + dy * dy + dz * dz <= source.radius * source.radius;
+}
+
 std::vector<BakedStaticLightSource> buildBakedStaticLightSources(
     const IndoorMapData &indoorMapData,
     const EventRuntimeState *pEventRuntimeState,
-    const DecorationBillboardSet *pDecorationBillboardSet)
+    const DecorationBillboardSet *pDecorationBillboardSet,
+    bool includeInactiveSources)
 {
     std::vector<BakedStaticLightSource> sources;
     sources.reserve(indoorMapData.lights.size()
@@ -1999,26 +2044,16 @@ std::vector<BakedStaticLightSource> buildBakedStaticLightSources(
         const IndoorLight &light = indoorMapData.lights[lightId];
 
         if (light.radius <= 0
-            || !IndoorLightingRuntime::isBlvLightEnabledByState(
-                static_cast<uint32_t>(light.attributes),
-                pEventRuntimeState,
-                lightId))
+            || (!includeInactiveSources
+                && !IndoorLightingRuntime::isBlvLightEnabledByState(
+                    static_cast<uint32_t>(light.attributes),
+                    pEventRuntimeState,
+                    lightId)))
         {
             continue;
         }
 
-        BakedStaticLightSource source = {};
-        source.position = {
-            static_cast<float>(light.x),
-            static_cast<float>(light.y),
-            static_cast<float>(light.z)
-        };
-        source.radius = static_cast<float>(light.radius);
-        source.red = light.red;
-        source.green = light.green;
-        source.blue = light.blue;
-        source.alpha = static_cast<float>(IndoorBakedStaticLightAlpha) / 255.0f;
-        sources.push_back(source);
+        sources.push_back(bakedStaticLightSourceForIndoorLight(light));
     }
 
     if (pDecorationBillboardSet == nullptr)
@@ -2031,7 +2066,8 @@ std::vector<BakedStaticLightSource> buildBakedStaticLightSources(
         const DecorationEntry *pDecoration = pDecorationBillboardSet->decorationTable.get(billboard.decorationId);
 
         if (pDecoration == nullptr
-            || !decorationBillboardVisibleForBakedLighting(billboard, pEventRuntimeState))
+            || (!includeInactiveSources
+                && !decorationBillboardVisibleForBakedLighting(billboard, pEventRuntimeState)))
         {
             continue;
         }
@@ -2412,6 +2448,7 @@ void IndoorRenderer::refreshBakedStaticLight(
 void IndoorRenderer::appendBakedStaticLightSubdividedTriangle(
     std::vector<TexturedVertex> &vertices,
     const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
+    const std::vector<BakedStaticLightSource> &bakedStaticLightSubdivisionSources,
     bool coloredLights,
     const TexturedVertex (&triangleVertices)[3],
     int depth)
@@ -2426,7 +2463,7 @@ void IndoorRenderer::appendBakedStaticLightSubdividedTriangle(
     if (depth >= IndoorBakedStaticLightSubdivisionMaxDepth
         || maxEdgeSquared <= subdivisionEdgeSquared
         || !bakedStaticLightMayAffectTriangle(
-            bakedStaticLightSources,
+            bakedStaticLightSubdivisionSources,
             triangleVertices))
     {
         vertices.push_back(triangleVertices[0]);
@@ -2472,12 +2509,14 @@ void IndoorRenderer::appendBakedStaticLightSubdividedTriangle(
     appendBakedStaticLightSubdividedTriangle(
         vertices,
         bakedStaticLightSources,
+        bakedStaticLightSubdivisionSources,
         coloredLights,
         firstChild,
         depth + 1);
     appendBakedStaticLightSubdividedTriangle(
         vertices,
         bakedStaticLightSources,
+        bakedStaticLightSubdivisionSources,
         coloredLights,
         secondChild,
         depth + 1);
@@ -2936,6 +2975,8 @@ bool IndoorRenderer::initialize(
         return false;
     }
 
+    ensureBloodSplatTexture();
+
     if (!indoorMapData.vertices.empty())
     {
         int minX = indoorMapData.vertices.front().x;
@@ -3304,6 +3345,7 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
             + diagnostics.renderViewSetupNanoseconds
             + diagnostics.renderVisibilityNanoseconds
             + diagnostics.renderLightingNanoseconds
+            + diagnostics.renderBakedLightingRefreshNanoseconds
             + diagnostics.renderInspectNanoseconds
             + diagnostics.renderTexturedSubmitNanoseconds
             + diagnostics.renderBloodSplatsNanoseconds
@@ -3388,6 +3430,14 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
                   << " avg_lighting_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                       diagnostics.renderLightingNanoseconds,
                       diagnostics.renderFrames))
+                  << " baked_lighting_refreshes=" << diagnostics.renderBakedLightingRefreshes
+                  << " avg_baked_lighting_refresh_us=" << nanosecondsToMicroseconds(averageNanoseconds(
+                      diagnostics.renderBakedLightingRefreshNanoseconds,
+                      diagnostics.renderBakedLightingRefreshes))
+                  << " baked_lighting_refreshed_vertices="
+                  << diagnostics.renderBakedLightingRefreshedVertices
+                  << " baked_lighting_uploaded_batches="
+                  << diagnostics.renderBakedLightingUploadedBatches
                   << " lighting_input=" << lightingStats.inputLights
                   << " lighting_static=" << lightingStats.inputStaticLights
                   << " lighting_dynamic=" << lightingStats.inputDynamicLights
@@ -3757,11 +3807,8 @@ void IndoorRenderer::render(
     const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
     m_logIndoorVisibilityDiagnostics = settings.logIndoorVisibility;
     m_logIndoorPerformanceDiagnostics = settings.performanceTrace;
-    if (m_bakedStaticColoredLights != settings.coloredLights)
-    {
-        m_bakedStaticColoredLights = settings.coloredLights;
-        m_texturedBatchVisualRevision = std::numeric_limits<uint64_t>::max();
-    }
+    const bool bakedStaticColorModeChanged = m_bakedStaticColoredLights != settings.coloredLights;
+    m_bakedStaticColoredLights = settings.coloredLights;
     const bool collectRenderDiagnostics = m_logIndoorPerformanceDiagnostics;
     const uint64_t renderBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
@@ -3884,6 +3931,34 @@ void IndoorRenderer::render(
             {
                 ++m_indoorPerformanceDiagnostics.movingUpdateFailures;
             }
+        }
+    }
+
+    if (bgfx::getRendererType() != bgfx::RendererType::Noop
+        && m_indoorTextureSet
+        && !texturedBatchesNeedFullRebuild()
+        && (bakedStaticColorModeChanged
+            || m_bakedStaticLightRevision != currentBakedStaticLightRevision()))
+    {
+        const uint64_t refreshBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+        size_t refreshedVertexCount = 0;
+        size_t uploadedBatchCount = 0;
+
+        if (!refreshBakedStaticLighting(
+                bakedStaticColorModeChanged,
+                refreshedVertexCount,
+                uploadedBatchCount))
+        {
+            std::cerr << "IndoorRenderer: failed to refresh baked static lighting\n";
+        }
+
+        if (collectRenderDiagnostics)
+        {
+            ++m_indoorPerformanceDiagnostics.renderBakedLightingRefreshes;
+            m_indoorPerformanceDiagnostics.renderBakedLightingRefreshNanoseconds +=
+                SDL_GetTicksNS() - refreshBeginTickCount;
+            m_indoorPerformanceDiagnostics.renderBakedLightingRefreshedVertices += refreshedVertexCount;
+            m_indoorPerformanceDiagnostics.renderBakedLightingUploadedBatches += uploadedBatchCount;
         }
     }
 
@@ -5117,13 +5192,11 @@ std::optional<std::string> IndoorRenderer::resolveEntityDecorationHoverStatusTex
         return std::nullopt;
     }
 
-    const DecorationEntry *pDecoration =
-        m_indoorDecorationBillboardSet->decorationTable.get(inspectHit.decorationListId);
-
-    if ((pDecoration == nullptr || pDecoration->hint.empty()) && !inspectHit.name.empty())
-    {
-        pDecoration = m_indoorDecorationBillboardSet->decorationTable.findByInternalName(inspectHit.name);
-    }
+    const DecorationLookupResult decoration =
+        m_indoorDecorationBillboardSet->decorationTable.resolveMapDecoration(
+            inspectHit.decorationListId,
+            inspectHit.name);
+    const DecorationEntry *pDecoration = decoration.pEntry;
 
     if (pDecoration != nullptr && !pDecoration->hint.empty())
     {
@@ -6248,6 +6321,7 @@ void IndoorRenderer::shutdown()
     m_pAssetFileSystem = nullptr;
     m_pItemTable = nullptr;
     m_spriteLoadCache = {};
+    m_runtimeBillboardLoadWarningKeys.clear();
     m_indoorTextureSet.reset();
     m_map.reset();
     m_monsterTable.reset();
@@ -6303,7 +6377,9 @@ void IndoorRenderer::shutdown()
         m_indoorLightingSelectionCache.clear();
         m_indoorLightingSelectionFrame = 0;
         m_faceBatchIndices.clear();
-        m_texturedBatchVisualRevision = std::numeric_limits<uint64_t>::max();
+        m_texturedBatchGeometryRevision = std::numeric_limits<uint64_t>::max();
+        m_bakedStaticLightRevision = std::numeric_limits<uint64_t>::max();
+        m_bakedStaticLightEnabledStates.clear();
         m_elapsedTime = 0.0f;
         m_framesPerSecond = 0.0f;
         m_wireframeVertexCount = 0;
@@ -6717,6 +6793,26 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
         return pExistingTexture;
     }
 
+    const BillboardTextureLookupKey warningKey = makeBillboardTextureLookupKey(textureName, paletteId);
+    const bool logCacheMiss = m_runtimeBillboardLoadWarningKeys.insert(warningKey).second;
+    const uint64_t loadBeginTickNanoseconds = logCacheMiss ? SDL_GetTicksNS() : 0;
+    const auto logLoadResult = [&](const char *pResult, int width, int height)
+    {
+        if (!logCacheMiss)
+        {
+            return;
+        }
+
+        std::cerr << "[AssetLoadWarning] kind=sprite phase=render scene=indoor"
+                  << " map=\"" << (m_map ? m_map->fileName : std::string()) << "\""
+                  << " texture=\"" << warningKey.textureName << "\""
+                  << " palette=" << paletteId
+                  << " result=" << pResult
+                  << " load_us=" << (SDL_GetTicksNS() - loadBeginTickNanoseconds) / 1000
+                  << " size=" << width << 'x' << height
+                  << '\n';
+    };
+
     int textureWidth = 0;
     int textureHeight = 0;
     const std::optional<std::vector<uint8_t>> pixels =
@@ -6731,6 +6827,7 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
 
     if (!pixels || textureWidth <= 0 || textureHeight <= 0)
     {
+        logLoadResult("failed", textureWidth, textureHeight);
         return nullptr;
     }
 
@@ -6752,11 +6849,13 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
 
     if (!bgfx::isValid(billboardTexture.textureHandle))
     {
+        logLoadResult("failed", textureWidth, textureHeight);
         return nullptr;
     }
 
     m_billboardTextureHandles.push_back(std::move(billboardTexture));
     registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
+    logLoadResult("loaded", textureWidth, textureHeight);
     return &m_billboardTextureHandles.back();
 }
 
@@ -7038,6 +7137,24 @@ void IndoorRenderer::renderDecorationBillboards(
 
         if (!m_indoorDecorationBillboardSet || !eventRuntimeState.has_value())
         {
+            return billboard.spriteId;
+        }
+
+        const std::optional<IndoorInteractiveDecorationBinding> binding =
+            resolveIndoorInteractiveDecorationBinding(
+                m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                m_indoorInteractiveDecorationEventCountsByEntity,
+                m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                billboard.entityIndex);
+
+        if (binding
+            && interactiveDecorationIsCleared(
+                eventRuntimeState->decorVars[binding->decorVarIndex],
+                binding->eventCount,
+                binding->hideWhenCleared))
+        {
+            hidden = true;
             return billboard.spriteId;
         }
 
@@ -9226,27 +9343,23 @@ const bgfx::TextureHandle *IndoorRenderer::findIndoorTextureHandle(const std::st
     return nullptr;
 }
 
-uint64_t IndoorRenderer::currentTexturedBatchVisualRevision() const
+uint64_t IndoorRenderer::currentTexturedBatchGeometryRevision() const
 {
     const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-    uint64_t revision = mapDeltaData ? mapDeltaData->surfaceRevision : 0;
+    return indoorRenderRevisions(
+        mapDeltaData ? mapDeltaData->surfaceRevision : 0,
+        pEventRuntimeState != nullptr ? pEventRuntimeState->outdoorSurfaceRevision : 0,
+        pEventRuntimeState != nullptr ? pEventRuntimeState->indoorLightRevision : 0).texturedBatchGeometry;
+}
 
-    if (pEventRuntimeState != nullptr)
-    {
-        revision ^=
-            pEventRuntimeState->outdoorSurfaceRevision
-            + 0x9e3779b97f4a7c15ull
-            + (revision << 6)
-            + (revision >> 2);
-        revision ^=
-            pEventRuntimeState->indoorLightRevision
-            + 0x9e3779b97f4a7c15ull
-            + (revision << 6)
-            + (revision >> 2);
-    }
-
-    return revision;
+uint64_t IndoorRenderer::currentBakedStaticLightRevision() const
+{
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+    return indoorRenderRevisions(
+        0,
+        0,
+        pEventRuntimeState != nullptr ? pEventRuntimeState->indoorLightRevision : 0).bakedStaticLighting;
 }
 
 void IndoorRenderer::rebuildTexturedBatchBounds(TexturedBatch &batch)
@@ -9286,7 +9399,8 @@ void IndoorRenderer::rebuildTexturedBatchBounds(TexturedBatch &batch)
 
 bool IndoorRenderer::texturedBatchesNeedFullRebuild() const
 {
-    return m_texturedBatches.empty() || m_texturedBatchVisualRevision != currentTexturedBatchVisualRevision();
+    return m_texturedBatches.empty()
+        || m_texturedBatchGeometryRevision != currentTexturedBatchGeometryRevision();
 }
 
 void IndoorRenderer::rebuildMechanismBindings()
@@ -9535,7 +9649,12 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         m_faceBatchIndices.clear();
         m_faceVertexOffsets.clear();
         m_faceVertexCounts.clear();
-        m_texturedBatchVisualRevision = currentTexturedBatchVisualRevision();
+        m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
+        m_bakedStaticLightRevision = currentBakedStaticLightRevision();
+        m_bakedStaticLightEnabledStates =
+            m_indoorMapData
+                ? bakedStaticLightEnabledStates(*m_indoorMapData, runtimeEventRuntimeState())
+                : std::vector<uint8_t>();
         return true;
     }
 
@@ -9553,7 +9672,14 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         buildBakedStaticLightSources(
             *m_indoorMapData,
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
-            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr);
+            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+            false);
+    const std::vector<BakedStaticLightSource> bakedStaticLightSubdivisionSources =
+        buildBakedStaticLightSources(
+            *m_indoorMapData,
+            eventRuntimeState ? &eventRuntimeState.value() : nullptr,
+            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+            true);
 
     for (size_t faceIndex = 0; faceIndex < m_indoorMapData->faces.size(); ++faceIndex)
     {
@@ -9716,6 +9842,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             m_bakedStaticColoredLights,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             &bakedStaticLightSources,
+            &bakedStaticLightSubdivisionSources,
             allowBakedLightSubdivision
         );
         texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
@@ -9759,7 +9886,163 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         }
     }
 
-    m_texturedBatchVisualRevision = currentTexturedBatchVisualRevision();
+    m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
+    m_bakedStaticLightRevision = currentBakedStaticLightRevision();
+    m_bakedStaticLightEnabledStates =
+        bakedStaticLightEnabledStates(*m_indoorMapData, runtimeEventRuntimeState());
+    return true;
+}
+
+bool IndoorRenderer::refreshBakedStaticLighting(
+    bool refreshAllVertices,
+    size_t &refreshedVertexCount,
+    size_t &uploadedBatchCount)
+{
+    refreshedVertexCount = 0;
+    uploadedBatchCount = 0;
+
+    if (!m_indoorMapData)
+    {
+        return false;
+    }
+
+    const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
+    std::vector<uint8_t> enabledStates =
+        bakedStaticLightEnabledStates(*m_indoorMapData, pEventRuntimeState);
+    std::vector<BakedStaticLightSource> changedLightSources;
+
+    if (enabledStates.size() != m_bakedStaticLightEnabledStates.size())
+    {
+        refreshAllVertices = true;
+    }
+    else if (!refreshAllVertices)
+    {
+        for (size_t lightId = 0; lightId < enabledStates.size(); ++lightId)
+        {
+            if (enabledStates[lightId] == m_bakedStaticLightEnabledStates[lightId])
+            {
+                continue;
+            }
+
+            changedLightSources.push_back(
+                bakedStaticLightSourceForIndoorLight(m_indoorMapData->lights[lightId]));
+        }
+    }
+
+    if (!refreshAllVertices && changedLightSources.empty())
+    {
+        m_bakedStaticLightEnabledStates = std::move(enabledStates);
+        m_bakedStaticLightRevision = currentBakedStaticLightRevision();
+        return true;
+    }
+
+    const std::vector<BakedStaticLightSource> activeLightSources =
+        buildBakedStaticLightSources(
+            *m_indoorMapData,
+            pEventRuntimeState,
+            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+            false);
+
+    for (TexturedBatch &batch : m_texturedBatches)
+    {
+        if (!refreshAllVertices && batch.hasBounds)
+        {
+            bool batchAffectedByChangedLight = false;
+
+            for (const BakedStaticLightSource &source : changedLightSources)
+            {
+                if (pointAabbDistanceSquared(source.position, batch.boundsMin, batch.boundsMax)
+                    <= source.radius * source.radius)
+                {
+                    batchAffectedByChangedLight = true;
+                    break;
+                }
+            }
+
+            if (!batchAffectedByChangedLight)
+            {
+                continue;
+            }
+        }
+
+        const std::vector<BakedStaticLightSource> *pBatchActiveLightSources = &activeLightSources;
+        std::vector<BakedStaticLightSource> batchActiveLightSources;
+
+        if (batch.hasBounds)
+        {
+            batchActiveLightSources.reserve(activeLightSources.size());
+
+            for (const BakedStaticLightSource &source : activeLightSources)
+            {
+                if (pointAabbDistanceSquared(source.position, batch.boundsMin, batch.boundsMax)
+                    <= source.radius * source.radius)
+                {
+                    batchActiveLightSources.push_back(source);
+                }
+            }
+
+            pBatchActiveLightSources = &batchActiveLightSources;
+        }
+
+        bool batchChanged = false;
+
+        for (TexturedVertex &vertex : batch.vertices)
+        {
+            if (!refreshAllVertices)
+            {
+                const bx::Vec3 position = {vertex.x, vertex.y, vertex.z};
+                bool affectedByChangedLight = false;
+
+                for (const BakedStaticLightSource &source : changedLightSources)
+                {
+                    if (bakedStaticLightAffectsPoint(source, position))
+                    {
+                        affectedByChangedLight = true;
+                        break;
+                    }
+                }
+
+                if (!affectedByChangedLight)
+                {
+                    continue;
+                }
+            }
+
+            ++refreshedVertexCount;
+            const uint32_t bakedLightAbgr =
+                bakedStaticLightAbgrForPoint(
+                    *pBatchActiveLightSources,
+                    m_bakedStaticColoredLights,
+                    {vertex.x, vertex.y, vertex.z});
+
+            if (vertex.bakedLightAbgr != bakedLightAbgr)
+            {
+                vertex.bakedLightAbgr = bakedLightAbgr;
+                batchChanged = true;
+            }
+        }
+
+        if (!batchChanged)
+        {
+            continue;
+        }
+
+        if (!bgfx::isValid(batch.vertexBufferHandle))
+        {
+            return false;
+        }
+
+        bgfx::update(
+            batch.vertexBufferHandle,
+            0,
+            bgfx::copy(
+                batch.vertices.data(),
+                static_cast<uint32_t>(batch.vertices.size() * sizeof(TexturedVertex))));
+        ++uploadedBatchCount;
+    }
+
+    m_bakedStaticLightEnabledStates = std::move(enabledStates);
+    m_bakedStaticLightRevision = currentBakedStaticLightRevision();
     return true;
 }
 
@@ -9812,7 +10095,8 @@ bool IndoorRenderer::updateMechanismFaceVertices(
         buildBakedStaticLightSources(
             *m_indoorMapData,
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
-            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr);
+            m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+            false);
     std::vector<uint8_t> dirtyBatchBounds(m_texturedBatches.size(), 0);
     size_t updatedFaceCount = 0;
 
@@ -9868,6 +10152,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
                 m_bakedStaticColoredLights,
                 m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
                 &bakedStaticLightSources,
+                nullptr,
                 false
             );
             texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
@@ -9916,6 +10201,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
             m_bakedStaticColoredLights,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             &bakedStaticLightSources,
+            nullptr,
             false
         );
         texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
@@ -10022,6 +10308,9 @@ void IndoorRenderer::destroyDerivedGeometryResources()
     m_faceBatchIndices.clear();
     m_faceVertexOffsets.clear();
     m_faceVertexCounts.clear();
+    m_texturedBatchGeometryRevision = std::numeric_limits<uint64_t>::max();
+    m_bakedStaticLightRevision = std::numeric_limits<uint64_t>::max();
+    m_bakedStaticLightEnabledStates.clear();
 }
 
 void IndoorRenderer::destroyIndoorTextureHandles()
@@ -10453,6 +10742,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildTexturedVertice
     bool coloredLights,
     const DecorationBillboardSet *pDecorationBillboardSet,
     const std::vector<BakedStaticLightSource> *pBakedStaticLightSources,
+    const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources,
     bool allowBakedLightSubdivision
 )
 {
@@ -10490,6 +10780,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildTexturedVertice
                 coloredLights,
                 pDecorationBillboardSet,
                 pBakedStaticLightSources,
+                pBakedStaticLightSubdivisionSources,
                 allowBakedLightSubdivision
             );
 
@@ -10512,6 +10803,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
     bool coloredLights,
     const DecorationBillboardSet *pDecorationBillboardSet,
     const std::vector<BakedStaticLightSource> *pBakedStaticLightSources,
+    const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources,
     bool allowBakedLightSubdivision
 )
 {
@@ -10545,6 +10837,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
     }
 
     std::vector<BakedStaticLightSource> localBakedStaticLightSources;
+    std::vector<BakedStaticLightSource> localBakedStaticLightSubdivisionSources;
 
     if (pBakedStaticLightSources == nullptr)
     {
@@ -10552,8 +10845,27 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
             buildBakedStaticLightSources(
                 indoorMapData,
                 eventRuntimeState ? &eventRuntimeState.value() : nullptr,
-                pDecorationBillboardSet);
+                pDecorationBillboardSet,
+                false);
         pBakedStaticLightSources = &localBakedStaticLightSources;
+    }
+
+    if (pBakedStaticLightSubdivisionSources == nullptr)
+    {
+        if (allowBakedLightSubdivision)
+        {
+            localBakedStaticLightSubdivisionSources =
+                buildBakedStaticLightSources(
+                    indoorMapData,
+                    eventRuntimeState ? &eventRuntimeState.value() : nullptr,
+                    pDecorationBillboardSet,
+                    true);
+            pBakedStaticLightSubdivisionSources = &localBakedStaticLightSubdivisionSources;
+        }
+        else
+        {
+            pBakedStaticLightSubdivisionSources = pBakedStaticLightSources;
+        }
     }
 
     const bx::Vec3 faceNormal = computeFaceNormal(transformedVertices, face);
@@ -10775,6 +11087,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
             appendBakedStaticLightSubdividedTriangle(
                 vertices,
                 *pBakedStaticLightSources,
+                *pBakedStaticLightSubdivisionSources,
                 coloredLights,
                 triangleVertices,
                 0);
@@ -11029,6 +11342,25 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
     for (size_t entityIndex = 0; entityIndex < indoorMapData.entities.size(); ++entityIndex)
     {
         const IndoorEntity &entity = indoorMapData.entities[entityIndex];
+        const std::optional<IndoorInteractiveDecorationBinding> binding =
+            eventRuntimeState
+                ? resolveIndoorInteractiveDecorationBinding(
+                    m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                    m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                    m_indoorInteractiveDecorationEventCountsByEntity,
+                    m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    entityIndex)
+                : std::nullopt;
+
+        if (binding
+            && interactiveDecorationIsCleared(
+                eventRuntimeState->decorVars[binding->decorVarIndex],
+                binding->eventCount,
+                binding->hideWhenCleared))
+        {
+            continue;
+        }
+
         const bx::Vec3 minBounds = {
             static_cast<float>(entity.x - 24),
             static_cast<float>(entity.y - 24),
@@ -11110,6 +11442,24 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
                     return billboard.spriteId;
                 }
 
+                const std::optional<IndoorInteractiveDecorationBinding> binding =
+                    resolveIndoorInteractiveDecorationBinding(
+                        m_indoorInteractiveDecorationDecorVarIndicesByEntity,
+                        m_indoorInteractiveDecorationBaseEventIdsByEntity,
+                        m_indoorInteractiveDecorationEventCountsByEntity,
+                        m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                        billboard.entityIndex);
+
+                if (binding
+                    && interactiveDecorationIsCleared(
+                        eventRuntimeState->decorVars[binding->decorVarIndex],
+                        binding->eventCount,
+                        binding->hideWhenCleared))
+                {
+                    hidden = true;
+                    return billboard.spriteId;
+                }
+
                 const uint32_t overrideKey = billboard.spriteOverrideKey();
                 const auto overrideIterator = eventRuntimeState->spriteOverrides.find(overrideKey);
 
@@ -11166,13 +11516,11 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
         const auto decorationHasHint =
             [this](const DecorationBillboard &billboard)
             {
-                const DecorationEntry *pDecoration =
-                    m_indoorDecorationBillboardSet->decorationTable.get(billboard.decorationId);
-
-                if ((pDecoration == nullptr || pDecoration->hint.empty()) && !billboard.name.empty())
-                {
-                    pDecoration = m_indoorDecorationBillboardSet->decorationTable.findByInternalName(billboard.name);
-                }
+                const DecorationLookupResult decoration =
+                    m_indoorDecorationBillboardSet->decorationTable.resolveMapDecoration(
+                        billboard.decorationId,
+                        billboard.name);
+                const DecorationEntry *pDecoration = decoration.pEntry;
 
                 return pDecoration != nullptr && !pDecoration->hint.empty();
             };

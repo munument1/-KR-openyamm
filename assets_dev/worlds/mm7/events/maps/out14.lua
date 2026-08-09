@@ -95,6 +95,8 @@ SetMapMetadata({
     spriteNames = {"0", "7tree13", "7tree14", "7tree15", "7tree16", "7tree17", "7tree18", "7tree22", "7tree24", "7tree30", "tree37"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 203, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 204, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -662,4 +664,13 @@ end, "Enter the Temple of Baa")
 RegisterEvent(503, "Enter the Hall under the Hill", function()
     evt.MoveToMap(-1114, 2778, 1, 1280, 0, 0, 159, 1, "7d22.blv") -- The Hall under the Hill
 end, "Enter the Hall under the Hill")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(21), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(23))
+end)
 

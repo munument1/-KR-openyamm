@@ -208,7 +208,8 @@ uint8_t interactiveDecorationEventCount(InteractiveDecorationFamily family)
 
 bool interactiveDecorationHidesWhenCleared(InteractiveDecorationFamily family)
 {
-    return family == InteractiveDecorationFamily::CampFire
+    return family == InteractiveDecorationFamily::FlourSack
+        || family == InteractiveDecorationFamily::CampFire
         || family == InteractiveDecorationFamily::Crystal;
 }
 
@@ -456,5 +457,10 @@ uint8_t initialInteractiveDecorationState(InteractiveDecorationFamily family, ui
     }
 
     return 0;
+}
+
+bool interactiveDecorationIsCleared(uint8_t state, uint8_t eventCount, bool hideWhenCleared)
+{
+    return hideWhenCleared && eventCount != 0 && state == eventCount;
 }
 }

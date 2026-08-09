@@ -2282,6 +2282,15 @@ SetMapMetadata({
     },
     timers = {
         { eventId = 10, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
+        {
+            eventId = 65000,
+            sourceEventId = 10,
+            triggerStep = 4,
+            origin = "legacy",
+            triggerKind = "long",
+            scheduleKind = "daily",
+            startSecond = 1,
+        },
     },
 })
 
@@ -2290,6 +2299,9 @@ end, "Generated hint")
 
 RegisterEvent(11, "Kept", function()
 end, "Kept hint")
+
+RegisterEvent(65000, "", function()
+end)
 
 RemoveMapEvent(10)
 ReplaceMapEvent(11, "Overlay", function()
@@ -2324,13 +2336,14 @@ end, "Overlay hint")
 
     for (const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &timer : localEventProgram->timerTriggers())
     {
-        if (timer.eventId == 10)
+        if (timer.sourceEventId == 10)
         {
             hasRemovedTimer = true;
         }
     }
 
     CHECK_FALSE(hasRemovedTimer);
+    CHECK_FALSE(localEventProgram->hasEvent(65000));
     CHECK(localEventProgram->hasEvent(11));
     const std::optional<std::string> replacementSummary = localEventProgram->summarizeEvent(11);
     const std::optional<std::string> replacementHint = localEventProgram->getHint(11);
@@ -2339,6 +2352,152 @@ end, "Overlay hint")
     CHECK_EQ(*replacementSummary, "Overlay");
     CHECK_EQ(*replacementHint, "Overlay hint");
     CHECK_FALSE(localEventProgram->getContextActionMetadata(11).has_value());
+}
+
+TEST_CASE("scripted event program normalizes legacy and native timer metadata")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+
+    const std::string luaSource =
+        *supportLua
+        + R"lua(
+
+SetMapMetadata({
+    timers = {
+        {
+            eventId = 20,
+            sourceEventId = 19,
+            triggerStep = 7,
+            origin = "legacy",
+            triggerKind = "long",
+            scheduleKind = "daily",
+            startHour = 24,
+            startMinute = 2,
+            startSecond = 3,
+        },
+        {
+            eventId = 40,
+            sourceEventId = 40,
+            origin = "native",
+            scheduleKind = "relative",
+            repeating = true,
+            intervalGameMinutes = 1,
+            initialDelayGameMinutes = 1,
+        },
+        {
+            eventId = 40,
+            sourceEventId = 40,
+            origin = "native",
+            scheduleKind = "relative",
+            repeating = true,
+            intervalGameMinutes = 2,
+            initialDelayGameMinutes = 2,
+        },
+    },
+})
+
+RegisterEvent(20, "Legacy timer", function()
+end)
+
+RegisterEvent(40, "Duplicate native timers", function()
+end)
+
+RegisterMapTimerEvent(30, 300, function()
+end, "Native timer", nil, 120)
+
+)lua";
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> program =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            luaSource,
+            "@events/maps/timer_metadata.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(program.has_value(), error.c_str());
+    REQUIRE_EQ(program->timerTriggers().size(), 4u);
+
+    const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &legacy = program->timerTriggers()[0];
+    CHECK_EQ(legacy.scope, OpenYAMM::Game::ScriptedEventScope::Map);
+    CHECK_EQ(legacy.origin, OpenYAMM::Game::ScriptedEventTimerOrigin::Legacy);
+    CHECK_EQ(legacy.triggerKind, OpenYAMM::Game::ScriptedEventTimerTriggerKind::LongTimer);
+    CHECK_EQ(legacy.scheduleKind, OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily);
+    CHECK_EQ(legacy.eventId, 20);
+    CHECK_EQ(legacy.sourceEventId, 19);
+    CHECK_EQ(legacy.triggerStep, 7);
+    CHECK_EQ(legacy.startHour, 24);
+    CHECK_EQ(legacy.startMinute, 2);
+    CHECK_EQ(legacy.startSecond, 3);
+    CHECK(legacy.repeating);
+
+    const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &firstDuplicate = program->timerTriggers()[1];
+    const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &secondDuplicate = program->timerTriggers()[2];
+    CHECK_EQ(firstDuplicate.registrationIndex, 1u);
+    CHECK_EQ(secondDuplicate.registrationIndex, 2u);
+    CHECK_FALSE(OpenYAMM::Game::sameScriptedEventTimerIdentity(firstDuplicate, secondDuplicate));
+
+    const OpenYAMM::Game::ScriptedEventProgram::TimerTrigger &native = program->timerTriggers()[3];
+    CHECK_EQ(native.origin, OpenYAMM::Game::ScriptedEventTimerOrigin::Native);
+    CHECK_EQ(native.scheduleKind, OpenYAMM::Game::ScriptedEventTimerScheduleKind::Relative);
+    CHECK_EQ(native.eventId, 30);
+    CHECK_EQ(native.sourceEventId, 30);
+    CHECK_EQ(native.registrationIndex, 1u);
+    CHECK(native.repeating);
+    CHECK_EQ(native.intervalGameMinutes, doctest::Approx(5.0));
+    CHECK_EQ(native.initialDelayGameMinutes, doctest::Approx(2.0));
+}
+
+TEST_CASE("scoped timer dispatch does not fall through an event id collision")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+
+    const std::string localLua = *supportLua + R"lua(
+RegisterEvent(50, "Local", function()
+    SetValue(MapVar(1), 1)
+end)
+)lua";
+    const std::string globalLua = *supportLua + R"lua(
+RegisterGlobalEvent(50, "Global", function()
+    SetValue(MapVar(1), 2)
+end)
+)lua";
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            localLua,
+            "@events/maps/timer_scope_local.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localProgram.has_value(), error.c_str());
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            globalLua,
+            "@events/Global.lua",
+            OpenYAMM::Game::ScriptedEventScope::Global,
+            error);
+    REQUIRE_MESSAGE(globalProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    REQUIRE(eventRuntime.executeEventById(
+        localProgram,
+        globalProgram,
+        50,
+        runtimeState,
+        &party,
+        nullptr,
+        std::nullopt,
+        true,
+        OpenYAMM::Game::ScriptedEventScope::Global));
+    CHECK_EQ(runtimeState.mapVars[1], 2u);
 }
 
 TEST_CASE("scripted event program reads context action metadata")
@@ -2925,7 +3084,7 @@ TEST_CASE("mm8 mmmerge out13 cannon sequence advances through every reusable sta
             foundCannonTimer = true;
             CHECK(timer.repeating);
             CHECK_EQ(timer.intervalGameMinutes, doctest::Approx(1.0f));
-            CHECK_EQ(timer.remainingGameMinutes, doctest::Approx(1.0f));
+            CHECK_EQ(timer.initialDelayGameMinutes, doctest::Approx(1.0f));
         }
     }
     CHECK(foundCannonTimer);
@@ -5191,7 +5350,7 @@ TEST_CASE("mm6 outdoor mmmerge supplements unlock local town portal destinations
                 ++dragonTowerTimerCount;
                 CHECK(timer.repeating);
                 CHECK_EQ(timer.intervalGameMinutes, 5.0f);
-                CHECK_EQ(timer.remainingGameMinutes, 5.0f);
+                CHECK_EQ(timer.initialDelayGameMinutes, 5.0f);
             }
         }
         CHECK_EQ(dragonTowerTimerCount, 1u);
@@ -7828,6 +7987,105 @@ TEST_CASE("mm6 darkmoor actor previews preload random encounter tier textures")
         requireTierTexture(*pEncounter, 'B');
         requireTierTexture(*pEncounter, 'C');
     }
+
+    constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
+
+    for (int16_t summonMonsterId : SummonWispMonsterIds)
+    {
+        const OpenYAMM::Game::MonsterEntry *pMonsterEntry =
+            mapLoader.gameDataLoader.getMonsterTable().findById(summonMonsterId);
+        REQUIRE(pMonsterEntry != nullptr);
+
+        for (const std::string &spriteName : pMonsterEntry->spriteNames)
+        {
+            if (spriteName.empty() || spriteName == "null")
+            {
+                continue;
+            }
+
+            const std::optional<uint16_t> spriteFrameIndex =
+                billboardSet.spriteFrameTable.findFrameIndexBySpriteName(spriteName);
+            REQUIRE(spriteFrameIndex.has_value());
+            const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+                billboardSet.spriteFrameTable.getFrame(*spriteFrameIndex, 0);
+            REQUIRE(pFrame != nullptr);
+            const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+                OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, 0);
+            CHECK(textureLoaded(resolvedTexture.textureName, pFrame->paletteId));
+        }
+    }
+}
+
+TEST_CASE("full gameplay map load preloads object sprites that are not placed in the map")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "6d01.blv",
+        OpenYAMM::Game::MapLoadPurpose::FullGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorMapDeltaData.has_value());
+    REQUIRE(pLoadedMap->indoorSpriteObjectBillboardSet.has_value());
+
+    const OpenYAMM::Game::ObjectTable &objectTable = mapLoader.gameDataLoader.getObjectTable();
+    const std::optional<uint16_t> objectDescriptionId = objectTable.findDescriptionIdByObjectId(10030);
+    REQUIRE(objectDescriptionId.has_value());
+    const OpenYAMM::Game::ObjectEntry *pObjectEntry = objectTable.get(*objectDescriptionId);
+    REQUIRE(pObjectEntry != nullptr);
+    REQUIRE_EQ(pObjectEntry->spriteId, 844);
+
+    const bool objectAlreadyPlaced = std::any_of(
+        pLoadedMap->indoorMapDeltaData->spriteObjects.begin(),
+        pLoadedMap->indoorMapDeltaData->spriteObjects.end(),
+        [objectDescriptionId](const OpenYAMM::Game::MapDeltaSpriteObject &object)
+        {
+            return object.objectDescriptionId == *objectDescriptionId;
+        });
+    REQUIRE_FALSE(objectAlreadyPlaced);
+
+    const OpenYAMM::Game::SpriteObjectBillboardSet &billboardSet =
+        *pLoadedMap->indoorSpriteObjectBillboardSet;
+    bool foundAnimationEnd = false;
+    bool checkedTexture = false;
+
+    for (size_t frameOffset = 0; frameOffset < 64; ++frameOffset)
+    {
+        const uint16_t frameIndex = static_cast<uint16_t>(pObjectEntry->spriteId + frameOffset);
+        const OpenYAMM::Game::SpriteFrameEntry *pFrame = billboardSet.spriteFrameTable.getFrame(frameIndex, 0);
+        REQUIRE(pFrame != nullptr);
+
+        for (int octant = 0; octant < 8; ++octant)
+        {
+            const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+                OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, octant);
+            const bool textureLoaded = std::any_of(
+                billboardSet.textures.begin(),
+                billboardSet.textures.end(),
+                [&resolvedTexture, pFrame](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == resolvedTexture.textureName
+                        && texture.paletteId == pFrame->paletteId;
+                });
+            CHECK_MESSAGE(textureLoaded, resolvedTexture.textureName.c_str());
+            checkedTexture = true;
+        }
+
+        if (!OpenYAMM::Game::SpriteFrameTable::hasFlag(
+                pFrame->flags,
+                OpenYAMM::Game::SpriteFrameFlag::HasMore))
+        {
+            foundAnimationEnd = true;
+            break;
+        }
+    }
+
+    CHECK(checkedTexture);
+    CHECK(foundAnimationEnd);
 }
 
 TEST_CASE("mm6 darkmoor indoor decoration billboards keep editor room ownership")

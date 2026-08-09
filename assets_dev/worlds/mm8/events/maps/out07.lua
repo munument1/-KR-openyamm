@@ -72,8 +72,8 @@ SetMapMetadata({
     spriteNames = {"0"},
     castSpellIds = {},
     timers = {
-    { eventId = 451, repeating = true, intervalGameMinutes = 15, remainingGameMinutes = 15 },
-    { eventId = 452, repeating = true, intervalGameMinutes = 12.5, remainingGameMinutes = 12.5 },
+    { eventId = 451, sourceEventId = 451, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 30 },
+    { eventId = 452, sourceEventId = 452, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 25 },
     },
 })
 

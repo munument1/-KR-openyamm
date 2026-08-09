@@ -415,6 +415,7 @@ private:
         std::string key;
         int textureWidth = 0;
         int textureHeight = 0;
+        bool hasPartialAlphaPixels = false;
     };
 
     struct ProceduralBatch

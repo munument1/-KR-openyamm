@@ -156,6 +156,9 @@ public:
         const std::string &text,
         float maxWidth) const;
     bgfx::TextureHandle ensureHudTextureColor(const GameplayHudTextureHandle &texture, uint32_t colorAbgr);
+    bgfx::TextureHandle ensureHudTextureColorModulated(
+        const GameplayHudTextureHandle &texture,
+        uint32_t colorAbgr);
     bgfx::TextureHandle ensureHudFontMainTextureColor(const GameplayHudFontHandle &font, uint32_t colorAbgr);
     void addRenderedInspectableHudItem(const GameplayRenderedInspectableHudItem &item);
     bool isOpaqueHudPixelAtPoint(const GameplayRenderedInspectableHudItem &item, float x, float y);

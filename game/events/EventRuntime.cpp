@@ -8737,7 +8737,8 @@ bool EventRuntime::executeEventById(
     Party *pParty,
     ISceneEventContext *pSceneEventContext,
     std::optional<uint8_t> continueStep,
-    bool allowGlobalFallback
+    bool allowGlobalFallback,
+    std::optional<ScriptedEventScope> requiredScope
 ) const
 {
     if (eventId == 0)
@@ -8757,9 +8758,11 @@ bool EventRuntime::executeEventById(
     executionContext.pSceneEventContext = pSceneEventContext;
     executionContext.currentEventId = eventId;
 
+    const bool allowLocalScope = !requiredScope || *requiredScope == ScriptedEventScope::Map;
+    const bool allowGlobalScope = !requiredScope || *requiredScope == ScriptedEventScope::Global;
     const auto localIterator = m_luaSessionCache->localScope.handlers.find(eventId);
 
-    if (localIterator != m_luaSessionCache->localScope.handlers.end())
+    if (allowLocalScope && localIterator != m_luaSessionCache->localScope.handlers.end())
     {
         const size_t openedChestBeginIndex = runtimeState.openedChestIds.size();
         GAMEPLAY_DEBUG_TRACE(
@@ -8785,12 +8788,12 @@ bool EventRuntime::executeEventById(
         return invoked;
     }
 
-    if (localProgram && localProgram->isHintOnlyEvent(eventId))
+    if (allowLocalScope && localProgram && localProgram->isHintOnlyEvent(eventId))
     {
         return true;
     }
 
-    if (!allowGlobalFallback)
+    if (!allowGlobalFallback || !allowGlobalScope)
     {
         return false;
     }

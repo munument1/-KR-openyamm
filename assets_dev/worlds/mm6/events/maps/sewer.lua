@@ -45,7 +45,8 @@ SetMapMetadata({
     spriteNames = {"0"},
     castSpellIds = {90},
     timers = {
-    { eventId = 34, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 19, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 34, sourceEventId = 34, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -174,14 +175,12 @@ RegisterEvent(19, "Well", function()
     if not IsAtLeast(MapVar(4), 1) then
         evt.StatusText("Refreshing!")
         SetAutonote(459) -- +10 Hit points restored south west of the main Sewer chamber.
-        SetValue(MapVar(4), 20)
         return
     end
     SubtractValue(MapVar(4), 1)
     AddValue(CurrentHealth, 10)
     evt.StatusText("+10 Hit points restored.")
     SetAutonote(459) -- +10 Hit points restored south west of the main Sewer chamber.
-    SetValue(MapVar(4), 20)
 end, "Well")
 
 RegisterEvent(20, "Exit", function()
@@ -255,5 +254,9 @@ RegisterEvent(34, nil, function()
     evt.CastSpell(90, 6, 1, 2624, 1216, 142, -2304, 6016, 142) -- Toxic Cloud
     evt.CastSpell(90, 6, 1, 1536, 6144, 142, 1536, 4000, 142) -- Toxic Cloud
     evt.CastSpell(90, 6, 1, 384, 3328, 1700, 384, 3328, 0) -- Toxic Cloud
+end)
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(4), 20)
 end)
 

@@ -7,10 +7,10 @@ import struct
 from pathlib import Path
 
 
-HEADER_GROUP = "Decoration Data\t\t\tDescriptor\t\t\t\t\t\t\tComments\t"
+HEADER_GROUP = "Decoration Data\t\t\tDescriptor\t\t\t\t\t\t\tComments\tMap aliases"
 HEADER_COLUMNS = (
     "#\tInternalName\tHint\tType\tRadius\tHeight\tLightRadius\tLightRed\tLightGreen\tLightBlue\t"
-    "SoundId\tFlags\tSpriteId\tComments"
+    "SoundId\tFlags\tSpriteId\tComments\tMapAliases"
 )
 
 
@@ -59,6 +59,7 @@ def parse_text_overrides(text_path: Path, preserve_flags: bool, number_offset: i
                 "hint": parts[2].strip(),
                 "flags": parts[11].strip() if preserve_flags else "",
                 "comments": parts[13].strip(),
+                "map_aliases": parts[14].strip() if len(parts) > 14 else "",
             }
         else:
             overrides[number] = {
@@ -66,6 +67,7 @@ def parse_text_overrides(text_path: Path, preserve_flags: bool, number_offset: i
                 "hint": parts[2].strip() if len(parts) > 2 else "",
                 "flags": parts[10].strip() if preserve_flags else "",
                 "comments": parts[11].strip() if len(parts) > 11 else "",
+                "map_aliases": "",
             }
 
     return overrides
@@ -175,6 +177,7 @@ def main() -> int:
         hint = override.get("hint") or str(binary_row["hint"])
         flags = format_flags(override.get("flags", ""), int(binary_row["flags"]))
         comments = override.get("comments", "")
+        map_aliases = override.get("map_aliases", "")
 
         lines.append(
             "\t".join(
@@ -193,6 +196,7 @@ def main() -> int:
                     flags,
                     str(binary_row["sprite_id"]),
                     comments,
+                    map_aliases,
                 ]
             )
         )

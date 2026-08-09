@@ -130,6 +130,11 @@ SetMapMetadata({
     spriteNames = {"0", "7tree19", "7tree20", "7tree21", "7tree25", "7tree28", "7tree30", "tree26", "tree27", "tree37"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 202, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 204, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65533, sourceEventId = 208, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65532, sourceEventId = 209, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65531, sourceEventId = 210, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -921,4 +926,28 @@ end, "Enter")
 RegisterEvent(509, "Enter", function()
     evt.MoveToMap(-104, 128, 1, 0, 0, 0, 0, 0, "mdt14.blv") -- The Bandit Caves
 end, "Enter")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(21), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(5))
+end)
+
+RegisterEvent(65533, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(6))
+end)
+
+RegisterEvent(65532, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(4))
+end)
+
+RegisterEvent(65531, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(7))
+end)
 

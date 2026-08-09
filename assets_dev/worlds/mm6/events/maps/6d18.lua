@@ -69,13 +69,13 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
-    { eventId = 54, repeating = true, intervalGameMinutes = 1, remainingGameMinutes = 1 },
-    { eventId = 56, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
-    { eventId = 57, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
-    { eventId = 58, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
-    { eventId = 59, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
-    { eventId = 60, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
-    { eventId = 61, repeating = true, intervalGameMinutes = 0.5, remainingGameMinutes = 0.5 },
+    { eventId = 54, sourceEventId = 54, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 2 },
+    { eventId = 56, sourceEventId = 56, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
+    { eventId = 57, sourceEventId = 57, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
+    { eventId = 58, sourceEventId = 58, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
+    { eventId = 59, sourceEventId = 59, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
+    { eventId = 60, sourceEventId = 60, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
+    { eventId = 61, sourceEventId = 61, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 1 },
     },
 })
 

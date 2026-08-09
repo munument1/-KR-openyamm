@@ -162,6 +162,25 @@ public:
         return m_uiController.eventDialog().content;
     }
 
+    const Game::EventDialogContent &closeAndPresent()
+    {
+        Game::GameplayDialogController::Context context = buildContext();
+        const Game::GameplayDialogController::CloseDialogRequestResult result =
+            m_controller.handleDialogueCloseRequest(context);
+
+        if (result.shouldOpenPendingEventDialog)
+        {
+            return presentPendingDialog(result.previousMessageCount, result.allowNpcFallbackContent);
+        }
+
+        if (result.shouldCloseActiveDialog)
+        {
+            m_uiController.clearEventDialog();
+        }
+
+        return m_uiController.eventDialog().content;
+    }
+
     const Game::EventDialogContent &refreshCurrentHouseDialog()
     {
         const uint32_t houseId = m_eventRuntimeState.dialogueState.hostHouseId;

@@ -2,7 +2,7 @@
 -- generated from legacy EVT/STR
 
 SetMapMetadata({
-    onLoad = {100, 65535, 65534, 65533, 65532, 65531, 65530, 65529, 65528, 65527, 65526, 232},
+    onLoad = {100, 65533, 65532, 65531, 65530, 65529, 65528, 65527, 65526, 65525, 65524, 232},
     onLeave = {},
     openedChestIds = {
     [75] = {1},
@@ -110,7 +110,10 @@ SetMapMetadata({
     spriteNames = {"6tree06", "swrdstx"},
     castSpellIds = {6},
     timers = {
-    { eventId = 230, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 109, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 110, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 130, sourceEventId = 130, triggerStep = 0, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 230, sourceEventId = 230, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -734,51 +737,59 @@ RegisterEvent(261, "Shrine of Luck", function()
 end, "Shrine of Luck")
 
 RegisterEvent(65535, "", function()
+    SetValue(MapVar(71), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    SetValue(MapVar(72), 8)
+end)
+
+RegisterEvent(65533, "", function()
     if not IsAtLeast(MapVar(11), 1) then return end
     evt.SetSprite(298, 1, "6tree06")
 end)
 
-RegisterEvent(65534, "", function()
+RegisterEvent(65532, "", function()
     if not IsAtLeast(MapVar(12), 1) then return end
     evt.SetSprite(299, 1, "6tree06")
 end)
 
-RegisterEvent(65533, "", function()
+RegisterEvent(65531, "", function()
     if not IsAtLeast(MapVar(13), 1) then return end
     evt.SetSprite(300, 1, "6tree06")
 end)
 
-RegisterEvent(65532, "", function()
+RegisterEvent(65530, "", function()
     if not IsAtLeast(MapVar(14), 1) then return end
     evt.SetSprite(301, 1, "6tree06")
 end)
 
-RegisterEvent(65531, "", function()
+RegisterEvent(65529, "", function()
     if not IsAtLeast(MapVar(15), 1) then return end
     evt.SetSprite(467, 1, "6tree06")
 end)
 
-RegisterEvent(65530, "", function()
+RegisterEvent(65528, "", function()
     if not IsAtLeast(MapVar(16), 1) then return end
     evt.SetSprite(303, 1, "6tree06")
 end)
 
-RegisterEvent(65529, "", function()
+RegisterEvent(65527, "", function()
     if not IsAtLeast(MapVar(17), 1) then return end
     evt.SetSprite(302, 1, "6tree06")
 end)
 
-RegisterEvent(65528, "", function()
+RegisterEvent(65526, "", function()
     if not IsAtLeast(MapVar(18), 1) then return end
     evt.SetSprite(305, 1, "6tree06")
 end)
 
-RegisterEvent(65527, "", function()
+RegisterEvent(65525, "", function()
     if not IsAtLeast(MapVar(19), 1) then return end
     evt.SetSprite(304, 1, "6tree06")
 end)
 
-RegisterEvent(65526, "", function()
+RegisterEvent(65524, "", function()
     if not IsQBitSet(QBit(1326)) then return end -- NPC
     evt.SetSprite(339, 1, "swrdstx")
 end)

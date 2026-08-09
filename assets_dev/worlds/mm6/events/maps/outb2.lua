@@ -73,7 +73,8 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {6},
     timers = {
-    { eventId = 210, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 104, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 210, sourceEventId = 210, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -852,4 +853,8 @@ RegisterEvent(261, "Shrine of Magic", function()
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Magic")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 20)
+end)
 

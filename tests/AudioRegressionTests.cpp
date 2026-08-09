@@ -182,6 +182,35 @@ TEST_CASE("background music pause remains active across cutscene track requests"
     CHECK_FALSE(audioSystem.isBackgroundMusicPaused());
 }
 
+TEST_CASE("map music starts after replacing an in-flight menu music decode")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    OpenYAMM::Game::GameAudioSystem audioSystem;
+    std::string failure;
+
+    REQUIRE_MESSAGE(
+        initializeRegressionAudioSystem(gameData, assetFileSystem, audioSystem, failure),
+        failure.c_str());
+
+    audioSystem.setBackgroundMusicTrack(14);
+    audioSystem.stopBackgroundMusicImmediate();
+    audioSystem.setBackgroundMusicTrack(38);
+
+    constexpr int MaxUpdateAttempts = 10000;
+
+    for (int attempt = 0;
+         attempt < MaxUpdateAttempts && audioSystem.currentBackgroundMusicTrack() != 38;
+         ++attempt)
+    {
+        audioSystem.update(0.0f, 0.0f, 0.0f, 0.001f);
+        SDL_Delay(1);
+    }
+
+    CHECK_EQ(audioSystem.currentBackgroundMusicTrack(), 38);
+    audioSystem.shutdown();
+}
+
 TEST_CASE("spellbook speech audio resolves for success failure and store closed")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

@@ -3137,6 +3137,15 @@ bool OutdoorGameView::initialize(
     }
     timingLogger.stage("world render resources initialized");
 
+    if (m_pOutdoorWorldRuntime != nullptr)
+    {
+        OutdoorRenderer::ensureSkyTexture(
+            *this,
+            m_pOutdoorWorldRuntime->atmosphereState().skyTextureName,
+            false);
+        timingLogger.stage("initial sky resource preloaded");
+    }
+
     OutdoorBillboardRenderer::initializeBillboardResources(*this);
     timingLogger.stage("billboard resources initialized");
 
@@ -5338,7 +5347,10 @@ void OutdoorGameView::preloadSpriteFrameTextures(const SpriteFrameTable &spriteF
                 continue;
             }
 
-            OutdoorBillboardRenderer::ensureSpriteBillboardTexture(*this, resolvedTexture.textureName, pFrame->paletteId);
+            OutdoorBillboardRenderer::ensureSpriteBillboardTexture(
+                *this,
+                resolvedTexture.textureName,
+                pFrame->paletteId);
         }
 
         if (!SpriteFrameTable::hasFlag(pFrame->flags, SpriteFrameFlag::HasMore))

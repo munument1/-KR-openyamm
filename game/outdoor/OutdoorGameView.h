@@ -701,6 +701,7 @@ private:
     std::unordered_map<std::string, size_t> m_decorationBitmapTextureIndexByName;
     std::vector<SkyTextureHandle> m_skyTextureHandles;
     std::unordered_map<std::string, size_t> m_skyTextureIndexByName;
+    std::unordered_set<std::string> m_runtimeSkyLoadWarningNames;
     std::vector<ForcePerspectiveVertex> m_cachedSkyVertices;
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
@@ -709,6 +710,7 @@ private:
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
+    std::unordered_set<std::string> m_runtimeBillboardLoadWarningKeys;
     std::vector<uint16_t> m_pendingSpriteFrameWarmups;
     std::vector<bool> m_queuedSpriteFrameWarmups;
     size_t m_nextPendingSpriteFrameWarmupIndex;

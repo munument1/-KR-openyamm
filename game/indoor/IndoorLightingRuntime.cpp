@@ -78,13 +78,9 @@ std::vector<size_t> buildIndoorInteractiveDecorationDecorVarIndices(
             continue;
         }
 
-        const DecorationEntry *pDecoration =
-            pDecorationBillboardSet->decorationTable.get(entity.decorationListId);
-
-        if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
-        {
-            pDecoration = pDecorationBillboardSet->decorationTable.findByInternalName(entity.name);
-        }
+        const DecorationLookupResult decoration =
+            pDecorationBillboardSet->decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+        const DecorationEntry *pDecoration = decoration.pEntry;
 
         if (pDecoration == nullptr)
         {

@@ -67,6 +67,9 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {6, 18},
     timers = {
+    { eventId = 65535, sourceEventId = 196, triggerStep = 22, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 196, triggerStep = 25, origin = "legacy", triggerKind = "long", scheduleKind = "yearly" },
+    { eventId = 65533, sourceEventId = 196, triggerStep = 26, origin = "legacy", triggerKind = "long", scheduleKind = "yearly" },
     },
 })
 
@@ -290,4 +293,20 @@ end, "Door")
 RegisterEvent(501, "Leave the School of Sorcery", function()
     evt.MoveToMap(1530, -16578, 1377, 512, 0, 0, 0, 0, "7out06.odm") -- The Bracada Desert
 end, "Leave the School of Sorcery")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(4), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearQBit(QBit(657)) -- Membership to the School of Sorcery Scroll Shop
+    evt.SetNPCTopic(620, 1, 926) -- Eric Swarrel topic 1: Book Shop
+end)
+
+RegisterEvent(65533, "", function()
+    evt.ForPlayer(Players.All)
+    ClearQBit(QBit(657)) -- Membership to the School of Sorcery Scroll Shop
+    evt.SetNPCTopic(620, 1, 926) -- Eric Swarrel topic 1: Book Shop
+end)
 

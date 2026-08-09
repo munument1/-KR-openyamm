@@ -27,6 +27,11 @@ SKY_MODEL_PREFIXES = ("tod_sky", "sky")
 TERRAIN_MODEL_PREFIXES = ("terrain", "ground", "cliff")
 WATER_MODEL_PREFIXES = ("ocean", "bluewater", "water")
 INVISIBLE_TEXTURE_STEMS = {"invisible", "soundonly", "greenscreen", "firethrough"}
+KNOWN_OUTDOOR_DAT_MAPS = {
+    # Bootcamp is an exterior/training-island map. Its DAT carries UserPortal and VisBSP helper data, but the map
+    # should stay on the outdoor ODM shell path rather than the BLV prototype path.
+    "bootcamp",
+}
 
 
 @dataclass
@@ -136,6 +141,13 @@ def current_export_kind(map_dir: Path, map_id: str) -> str:
 
 
 def classify_metrics(metrics: MapMetrics) -> tuple[str, str, str]:
+    if metrics.map_id in KNOWN_OUTDOOR_DAT_MAPS:
+        return (
+            "outdoor_like",
+            "high",
+            "known MM9 exterior map; keep on the ODM shell path despite DAT portal/VisBSP helper data",
+        )
+
     if metrics.user_portals >= 5 and metrics.visbsp_leaves >= 250:
         return (
             "dat_bsp_portal_like",

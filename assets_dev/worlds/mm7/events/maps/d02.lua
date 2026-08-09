@@ -64,6 +64,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 451, triggerStep = 4, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -207,14 +208,16 @@ RegisterEvent(451, "Take a Drink", function()
         AddValue(BodyResistanceBonus, 25)
         SetValue(MapVar(16), 1)
         evt.StatusText("Refreshing")
-        SetValue(MapVar(16), 0)
         return
     end
     evt.StatusText("Refreshing")
-    SetValue(MapVar(16), 0)
 end, "Take a Drink")
 
 RegisterEvent(501, "Leave the Maze", function()
     evt.MoveToMap(-11822, 21398, 3201, 1664, 0, 0, 0, 0, "out10.odm") -- Mount Nighon
 end, "Leave the Maze")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(16), 0)
+end)
 

@@ -5,6 +5,7 @@
 #include "engine/AssetFileSystem.h"
 #include "engine/AudioSystem.h"
 #include "game/FaceEnums.h"
+#include "game/audio/SoundIds.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/events/EventDialogContent.h"
 #include "game/events/EvtEnums.h"
@@ -79,6 +80,17 @@ GameplayActorService buildBoundGameplayActorService(const GameDataLoader &gameDa
 bool textContains(const std::string &text, const std::string &needle)
 {
     return text.find(needle) != std::string::npos;
+}
+
+size_t pendingPartySoundCount(const Party &party, SoundId soundId)
+{
+    return static_cast<size_t>(std::count_if(
+        party.pendingAudioRequests().begin(),
+        party.pendingAudioRequests().end(),
+        [soundId](const Party::PendingAudioRequest &request)
+        {
+            return request.kind == Party::PendingAudioRequest::Kind::Sound && request.soundId == soundId;
+        }));
 }
 
 struct OutdoorTestDirection
@@ -8620,6 +8632,12 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
+                if (pendingPartySoundCount(scenario.party, SoundId::OpenChest) != 1)
+                {
+                    failure = "indoor chest should queue exactly one open sound";
+                    return false;
+                }
+
                 if (pChestView->items.size() != 1 || pChestView->items[0].itemId != fixedItemId)
                 {
                     failure = "indoor chest materialized the wrong items";
@@ -9143,6 +9161,12 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 if (pChestView == nullptr)
                 {
                     failure = "event 100 did not open a chest";
+                    return false;
+                }
+
+                if (pendingPartySoundCount(scenario.party, SoundId::OpenChest) != 1)
+                {
+                    failure = "outdoor chest should queue exactly one open sound";
                     return false;
                 }
 
@@ -15231,7 +15255,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
                 foundTrackerTimer = timerTrigger.repeating
                     && std::fabs(timerTrigger.intervalGameMinutes - 2.5f) < 0.001f
-                    && std::fabs(timerTrigger.remainingGameMinutes - 2.5f) < 0.001f;
+                    && std::fabs(timerTrigger.initialDelayGameMinutes - 2.5f) < 0.001f;
                 break;
             }
 
@@ -15782,6 +15806,151 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (!sawQuestFx)
             {
                 failure = "outdoor timer qbit set did not queue portrait fx";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "event_new_sorpigal_fountain_refills_on_first_legacy_timer_poll",
+        [&](std::string &failure)
+        {
+            GameDataLoader fountainMapLoader;
+
+            if (!fountainMapLoader.loadForHeadlessGameplay(assetFileSystem)
+                || !fountainMapLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+            {
+                failure = "could not load New Sorpigal gameplay data";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &loadedMap = fountainMapLoader.getSelectedMap();
+
+            if (!loadedMap || !loadedMap->outdoorMapData || !loadedMap->outdoorMapDeltaData
+                || !loadedMap->localEventProgram || !loadedMap->eventRuntimeState)
+            {
+                failure = "New Sorpigal runtime data or local event program is missing";
+                return false;
+            }
+
+            MapAssetInfo fountainMap = *loadedMap;
+            fountainMap.outdoorMapDeltaData->locationTime.lastVisitTime = 0;
+            fountainMap.outdoorMapDeltaData->eventVariables.mapVars.fill(0);
+            fountainMap.eventRuntimeState->mapVars.fill(0);
+
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(fountainMapLoader, fountainMap, scenario)
+                || scenario.pEventRuntimeState == nullptr)
+            {
+                failure = "New Sorpigal scenario init failed";
+                return false;
+            }
+
+            scenario.world.prepareTimers(fountainMap.localEventProgram, fountainMap.globalEventProgram);
+
+            if (!scenario.eventRuntime.executeOnLoadEvents(
+                    fountainMap.localEventProgram,
+                    fountainMap.globalEventProgram,
+                    *scenario.pEventRuntimeState,
+                    &scenario.party,
+                    &scenario.world))
+            {
+                failure = "New Sorpigal on-load events failed";
+                return false;
+            }
+
+            scenario.world.applyEventRuntimeState();
+            scenario.party.applyEventRuntimeState(*scenario.pEventRuntimeState, false);
+
+            if (scenario.pEventRuntimeState->mapVars[51] != 0
+                || scenario.pEventRuntimeState->mapVars[52] != 0)
+            {
+                failure = "fountain counters changed before the first timer poll";
+                return false;
+            }
+
+            if (scenario.world.updateTimers(
+                    0.5f,
+                    scenario.eventRuntime,
+                    fountainMap.localEventProgram,
+                    fountainMap.globalEventProgram))
+            {
+                failure = "legacy timer fired before the 30-game-second guard elapsed";
+                return false;
+            }
+
+            if (!scenario.world.updateTimers(
+                    0.5f,
+                    scenario.eventRuntime,
+                    fountainMap.localEventProgram,
+                    fountainMap.globalEventProgram))
+            {
+                failure = "first eligible New Sorpigal timer poll did not execute";
+                return false;
+            }
+
+            if (scenario.pEventRuntimeState->mapVars[51] != 30
+                || scenario.pEventRuntimeState->mapVars[52] != 30)
+            {
+                failure = "New Sorpigal timer did not reset both fountain counters to 30";
+                return false;
+            }
+
+            Character *pActiveMember = scenario.party.activeMember();
+
+            if (pActiveMember == nullptr)
+            {
+                failure = "New Sorpigal scenario has no active party member";
+                return false;
+            }
+
+            pActiveMember->health = 1;
+            const int healthBeforeDrink = pActiveMember->health;
+            scenario.pEventRuntimeState->statusMessages.clear();
+
+            if (!executeLocalEventInScenario(fountainMapLoader, fountainMap, scenario, 131))
+            {
+                failure = "New Sorpigal fountain event 131 failed";
+                return false;
+            }
+
+            if (scenario.pEventRuntimeState->mapVars[51] != 29
+                || pActiveMember->health != healthBeforeDrink + 5)
+            {
+                failure = "first fountain drink did not consume one charge and restore 5 HP: counter="
+                    + std::to_string(scenario.pEventRuntimeState->mapVars[51])
+                    + " health=" + std::to_string(pActiveMember->health)
+                    + " expected_health=" + std::to_string(healthBeforeDrink + 5);
+                return false;
+            }
+
+            if (scenario.pEventRuntimeState->statusMessages.empty()
+                || scenario.pEventRuntimeState->statusMessages.back() != "+5 Hit points restored.")
+            {
+                failure = "first fountain drink used the wrong status path";
+                return false;
+            }
+
+            for (int drinkIndex = 1; drinkIndex < 30; ++drinkIndex)
+            {
+                if (!executeLocalEventInScenario(fountainMapLoader, fountainMap, scenario, 131))
+                {
+                    failure = "could not consume all New Sorpigal fountain charges";
+                    return false;
+                }
+            }
+
+            scenario.pEventRuntimeState->statusMessages.clear();
+
+            if (!executeLocalEventInScenario(fountainMapLoader, fountainMap, scenario, 131)
+                || scenario.pEventRuntimeState->mapVars[51] != 0
+                || scenario.pEventRuntimeState->statusMessages.empty()
+                || scenario.pEventRuntimeState->statusMessages.back() != "Refreshing!")
+            {
+                failure = "exhausted New Sorpigal fountain did not report Refreshing!";
                 return false;
             }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/events/ScriptedEventTimer.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -10,23 +12,10 @@ struct lua_State;
 
 namespace OpenYAMM::Game
 {
-enum class ScriptedEventScope
-{
-    Map,
-    Global,
-};
-
 class ScriptedEventProgram
 {
 public:
-    struct TimerTrigger
-    {
-        uint16_t eventId = 0;
-        bool repeating = false;
-        int targetHour = 0;
-        float intervalGameMinutes = 0.0f;
-        float remainingGameMinutes = 0.0f;
-    };
+    using TimerTrigger = ScriptedEventTimerDefinition;
 
     struct ContextActionMetadata
     {
@@ -92,4 +81,8 @@ private:
     std::vector<uint32_t> m_castSpellIds;
     std::vector<TimerTrigger> m_timerTriggers;
 };
+
+std::vector<ScriptedEventTimerDefinition> scriptedEventTimerDefinitionsFromPrograms(
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram);
 }

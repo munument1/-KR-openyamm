@@ -1895,6 +1895,27 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
         return nullptr;
     }
 
+    const std::string normalizedTextureName = toLowerCopy(textureName);
+    const std::string warningKey = std::to_string(paletteId) + ":" + normalizedTextureName;
+    const bool logCacheMiss = view.m_runtimeBillboardLoadWarningKeys.insert(warningKey).second;
+    const uint64_t loadBeginTickNanoseconds = logCacheMiss ? SDL_GetTicksNS() : 0;
+    const auto logLoadResult = [&](const char *pResult, int width, int height)
+    {
+        if (!logCacheMiss)
+        {
+            return;
+        }
+
+        std::cerr << "[AssetLoadWarning] kind=sprite phase=render scene=outdoor"
+                  << " map=\"" << (view.m_map ? view.m_map->fileName : std::string()) << "\""
+                  << " texture=\"" << normalizedTextureName << "\""
+                  << " palette=" << paletteId
+                  << " result=" << pResult
+                  << " load_us=" << (SDL_GetTicksNS() - loadBeginTickNanoseconds) / 1000
+                  << " size=" << width << 'x' << height
+                  << '\n';
+    };
+
     int textureWidth = 0;
     int textureHeight = 0;
     const std::optional<std::vector<uint8_t>> pixels =
@@ -1902,13 +1923,16 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
 
     if (!pixels || textureWidth <= 0 || textureHeight <= 0)
     {
+        logLoadResult("failed", textureWidth, textureHeight);
         return nullptr;
     }
 
     OutdoorGameView::BillboardTextureHandle billboardTexture = {};
     billboardTexture.textureName = toLowerCopy(textureName);
     billboardTexture.paletteId = paletteId;
-    billboardTexture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, view.m_pAssetFileSystem->getAssetScaleTier());
+    billboardTexture.width = Engine::scalePhysicalPixelsToLogical(
+        textureWidth,
+        view.m_pAssetFileSystem->getAssetScaleTier());
     billboardTexture.height =
         Engine::scalePhysicalPixelsToLogical(textureHeight, view.m_pAssetFileSystem->getAssetScaleTier());
     billboardTexture.physicalWidth = textureWidth;
@@ -1924,12 +1948,14 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
 
     if (!bgfx::isValid(billboardTexture.textureHandle))
     {
+        logLoadResult("failed", textureWidth, textureHeight);
         return nullptr;
     }
 
     view.m_billboardTextureHandles.push_back(std::move(billboardTexture));
     view.m_billboardTextureIndexByPalette[paletteId][view.m_billboardTextureHandles.back().textureName] =
         view.m_billboardTextureHandles.size() - 1;
+    logLoadResult("loaded", textureWidth, textureHeight);
     return &view.m_billboardTextureHandles.back();
 }
 
@@ -1942,6 +1968,7 @@ void OutdoorBillboardRenderer::invalidateRenderAssets(OutdoorGameView &view)
 
     view.m_billboardTextureHandles.clear();
     view.m_billboardTextureIndexByPalette.clear();
+    view.m_runtimeBillboardLoadWarningKeys.clear();
     view.m_spriteLoadCache.directoryAssetPathsByPath.clear();
     view.m_spriteLoadCache.assetPathByKey.clear();
     view.m_spriteLoadCache.binaryFilesByPath.clear();

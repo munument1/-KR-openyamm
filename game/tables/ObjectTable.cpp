@@ -353,4 +353,9 @@ std::optional<uint16_t> ObjectTable::findDescriptionIdByObjectId(int16_t objectI
 
     return descriptionIt->second;
 }
+
+const std::vector<ObjectEntry> &ObjectTable::entries() const
+{
+    return m_entries;
+}
 }

@@ -85,6 +85,7 @@ public:
 private:
     std::vector<DecorationEntry> m_entries;
     std::unordered_map<std::string, uint16_t> m_entryIndexByInternalName;
+    std::unordered_map<std::string, uint16_t> m_entryIndexByMapAlias;
 };
 
 struct SpriteFrameEntry

@@ -777,9 +777,36 @@ std::unordered_map<uint32_t, std::string> loadNpcTexts(
         return texts;
     }
 
+    uint32_t pendingId = 0;
+    std::string pendingText;
+    bool hasPendingText = false;
+
+    auto appendPendingText = [&texts, &pendingId, &pendingText, &hasPendingText]()
+    {
+        if (hasPendingText)
+        {
+            texts[pendingId] = pendingText;
+        }
+    };
+
+    auto appendContinuationText = [&pendingText, &hasPendingText](const std::vector<std::string> &row)
+    {
+        if (!hasPendingText || row.empty())
+        {
+            return;
+        }
+
+        if (!pendingText.empty())
+        {
+            pendingText += '\n';
+        }
+
+        pendingText += row.front();
+    };
+
     for (const std::vector<std::string> &row : rows)
     {
-        if (row.size() <= 1)
+        if (row.empty())
         {
             continue;
         }
@@ -788,12 +815,17 @@ std::unordered_map<uint32_t, std::string> loadNpcTexts(
 
         if (!parsedId)
         {
+            appendContinuationText(row);
             continue;
         }
 
-        texts[*parsedId] = row[1];
+        appendPendingText();
+        pendingId = *parsedId;
+        pendingText = row.size() > 1 ? row[1] : std::string();
+        hasPendingText = true;
     }
 
+    appendPendingText();
     return texts;
 }
 

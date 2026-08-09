@@ -300,6 +300,31 @@ std::optional<uint32_t> readOptionalUnsignedField(lua_State *pLuaState, int tabl
     return value;
 }
 
+std::optional<double> readOptionalNumberField(lua_State *pLuaState, int tableIndex, const char *pFieldName)
+{
+    const int absoluteTableIndex = lua_absindex(pLuaState, tableIndex);
+    lua_getfield(pLuaState, absoluteTableIndex, pFieldName);
+
+    std::optional<double> value;
+
+    if (lua_isnumber(pLuaState, -1))
+    {
+        value = static_cast<double>(lua_tonumber(pLuaState, -1));
+    }
+
+    lua_pop(pLuaState, 1);
+    return value;
+}
+
+bool readBooleanField(lua_State *pLuaState, int tableIndex, const char *pFieldName)
+{
+    const int absoluteTableIndex = lua_absindex(pLuaState, tableIndex);
+    lua_getfield(pLuaState, absoluteTableIndex, pFieldName);
+    const bool value = lua_toboolean(pLuaState, -1) != 0;
+    lua_pop(pLuaState, 1);
+    return value;
+}
+
 std::optional<ScriptedEventProgram::ContextActionMetadata> readContextActionMetadata(
     lua_State *pLuaState,
     int tableIndex)
@@ -363,9 +388,43 @@ std::unordered_map<uint16_t, ScriptedEventProgram::ContextActionMetadata> readCo
     return values;
 }
 
-std::vector<ScriptedEventProgram::TimerTrigger> readTimerTriggers(lua_State *pLuaState, int tableIndex)
+ScriptedEventTimerScheduleKind timerScheduleKindFromString(const std::string &value)
+{
+    if (value == "interval")
+    {
+        return ScriptedEventTimerScheduleKind::Interval;
+    }
+
+    if (value == "daily")
+    {
+        return ScriptedEventTimerScheduleKind::Daily;
+    }
+
+    if (value == "weekly")
+    {
+        return ScriptedEventTimerScheduleKind::Weekly;
+    }
+
+    if (value == "monthly")
+    {
+        return ScriptedEventTimerScheduleKind::Monthly;
+    }
+
+    if (value == "yearly")
+    {
+        return ScriptedEventTimerScheduleKind::Yearly;
+    }
+
+    return ScriptedEventTimerScheduleKind::Relative;
+}
+
+std::vector<ScriptedEventProgram::TimerTrigger> readTimerTriggers(
+    lua_State *pLuaState,
+    int tableIndex,
+    ScriptedEventScope scope)
 {
     std::vector<ScriptedEventProgram::TimerTrigger> timers;
+    std::unordered_map<uint16_t, uint32_t> nativeRegistrationCounts;
     lua_getfield(pLuaState, tableIndex, "timers");
 
     if (lua_istable(pLuaState, -1))
@@ -380,38 +439,82 @@ std::vector<ScriptedEventProgram::TimerTrigger> readTimerTriggers(lua_State *pLu
             if (lua_istable(pLuaState, -1))
             {
                 ScriptedEventProgram::TimerTrigger timer = {};
+                const int timerTableIndex = lua_absindex(pLuaState, -1);
+                timer.scope = scope;
 
-                lua_getfield(pLuaState, -1, "eventId");
-                if (lua_isinteger(pLuaState, -1))
+                if (const std::optional<uint32_t> eventId =
+                        readOptionalUnsignedField(pLuaState, timerTableIndex, "eventId"))
                 {
-                    timer.eventId = static_cast<uint16_t>(lua_tointeger(pLuaState, -1));
+                    timer.eventId = static_cast<uint16_t>(*eventId);
                 }
-                lua_pop(pLuaState, 1);
 
-                lua_getfield(pLuaState, -1, "repeating");
-                timer.repeating = lua_toboolean(pLuaState, -1) != 0;
-                lua_pop(pLuaState, 1);
-
-                lua_getfield(pLuaState, -1, "targetHour");
-                if (lua_isinteger(pLuaState, -1))
+                if (const std::optional<uint32_t> sourceEventId =
+                        readOptionalUnsignedField(pLuaState, timerTableIndex, "sourceEventId"))
                 {
-                    timer.targetHour = static_cast<int>(lua_tointeger(pLuaState, -1));
+                    timer.sourceEventId = static_cast<uint16_t>(*sourceEventId);
                 }
-                lua_pop(pLuaState, 1);
-
-                lua_getfield(pLuaState, -1, "intervalGameMinutes");
-                if (lua_isnumber(pLuaState, -1))
+                else
                 {
-                    timer.intervalGameMinutes = static_cast<float>(lua_tonumber(pLuaState, -1));
+                    timer.sourceEventId = timer.eventId;
                 }
-                lua_pop(pLuaState, 1);
 
-                lua_getfield(pLuaState, -1, "remainingGameMinutes");
-                if (lua_isnumber(pLuaState, -1))
+                const std::string origin =
+                    readOptionalStringField(pLuaState, timerTableIndex, "origin").value_or("native");
+                timer.origin = origin == "legacy"
+                    ? ScriptedEventTimerOrigin::Legacy
+                    : ScriptedEventTimerOrigin::Native;
+
+                const std::string scheduleKind =
+                    readOptionalStringField(pLuaState, timerTableIndex, "scheduleKind").value_or("relative");
+                timer.scheduleKind = timerScheduleKindFromString(scheduleKind);
+
+                if (timer.origin == ScriptedEventTimerOrigin::Legacy)
                 {
-                    timer.remainingGameMinutes = static_cast<float>(lua_tonumber(pLuaState, -1));
+                    if (timer.scheduleKind == ScriptedEventTimerScheduleKind::Relative)
+                    {
+                        timer.scheduleKind = ScriptedEventTimerScheduleKind::Daily;
+                    }
+
+                    const std::string triggerKind =
+                        readOptionalStringField(pLuaState, timerTableIndex, "triggerKind").value_or("timer");
+                    timer.triggerKind = triggerKind == "long"
+                        ? ScriptedEventTimerTriggerKind::LongTimer
+                        : ScriptedEventTimerTriggerKind::Timer;
+                    timer.repeating = true;
+
+                    if (const std::optional<uint32_t> triggerStep =
+                            readOptionalUnsignedField(pLuaState, timerTableIndex, "triggerStep"))
+                    {
+                        timer.triggerStep = static_cast<uint8_t>(*triggerStep);
+                    }
+
+                    if (const std::optional<uint32_t> intervalHalfMinutes =
+                            readOptionalUnsignedField(pLuaState, timerTableIndex, "intervalHalfMinutes"))
+                    {
+                        timer.intervalHalfMinutes = static_cast<uint16_t>(*intervalHalfMinutes);
+                    }
+
+                    timer.startHour = static_cast<int>(
+                        readOptionalUnsignedField(pLuaState, timerTableIndex, "startHour").value_or(0));
+                    timer.startMinute = static_cast<int>(
+                        readOptionalUnsignedField(pLuaState, timerTableIndex, "startMinute").value_or(0));
+                    timer.startSecond = static_cast<int>(
+                        readOptionalUnsignedField(pLuaState, timerTableIndex, "startSecond").value_or(0));
                 }
-                lua_pop(pLuaState, 1);
+                else
+                {
+                    timer.registrationIndex = ++nativeRegistrationCounts[timer.sourceEventId];
+                    timer.repeating = readBooleanField(pLuaState, timerTableIndex, "repeating");
+                    timer.intervalGameMinutes =
+                        readOptionalNumberField(pLuaState, timerTableIndex, "intervalGameMinutes").value_or(0.0);
+                    timer.initialDelayGameMinutes =
+                        readOptionalNumberField(pLuaState, timerTableIndex, "initialDelayGameMinutes")
+                            .value_or(
+                                readOptionalNumberField(
+                                    pLuaState,
+                                    timerTableIndex,
+                                    "remainingGameMinutes").value_or(timer.intervalGameMinutes));
+                }
 
                 if (timer.eventId != 0)
                 {
@@ -467,7 +570,7 @@ bool ScriptedEventProgram::populateMetadataFromLua(
     program.m_textureNames = readStringArrayFromField(pLuaState, -1, "textureNames");
     program.m_spriteNames = readStringArrayFromField(pLuaState, -1, "spriteNames");
     program.m_castSpellIds = readIntegerArrayFromField<uint32_t>(pLuaState, -1, "castSpellIds");
-    program.m_timerTriggers = readTimerTriggers(pLuaState, -1);
+    program.m_timerTriggers = readTimerTriggers(pLuaState, -1, scope);
     lua_pop(pLuaState, 3);
     return true;
 }
@@ -617,5 +720,30 @@ std::optional<ScriptedEventProgram::ContextActionMetadata> ScriptedEventProgram:
     return iterator != m_contextActionsByEventId.end()
         ? std::optional<ContextActionMetadata>(iterator->second)
         : std::nullopt;
+}
+
+std::vector<ScriptedEventTimerDefinition> scriptedEventTimerDefinitionsFromPrograms(
+    const std::optional<ScriptedEventProgram> &localProgram,
+    const std::optional<ScriptedEventProgram> &globalProgram)
+{
+    std::vector<ScriptedEventTimerDefinition> definitions;
+
+    const auto appendDefinitions =
+        [&definitions](const std::optional<ScriptedEventProgram> &program)
+        {
+            if (!program)
+            {
+                return;
+            }
+
+            definitions.insert(
+                definitions.end(),
+                program->timerTriggers().begin(),
+                program->timerTriggers().end());
+        };
+
+    appendDefinitions(localProgram);
+    appendDefinitions(globalProgram);
+    return definitions;
 }
 }

@@ -3544,6 +3544,17 @@ GameplayDialogController::PresentPendingDialogResult GameplayDialogController::p
         context.eventRuntimeState.dialogueState.hostHouseId = originalContext.sourceId;
     }
 
+    if (originalContext.kind == DialogueContextKind::HouseService
+        && pPendingHouseEntry != nullptr
+        && resolveHouseServiceType(*pPendingHouseEntry) == HouseServiceType::Shop
+        && !context.eventRuntimeState.dialogueState.menuStack.empty()
+        && context.eventRuntimeState.dialogueState.menuStack.back() == DialogueMenuId::ShopEquipment)
+    {
+        context.uiController.openInventoryNestedOverlay(
+            GameplayUiController::InventoryNestedOverlayMode::ShopDisplay,
+            pPendingHouseEntry->id);
+    }
+
     context.selectionIndex = 0;
 
     if (pPendingHouseEntry == nullptr || resolveHouseServiceType(*pPendingHouseEntry) != HouseServiceType::Bank)
@@ -3656,6 +3667,31 @@ GameplayDialogController::CloseDialogRequestResult GameplayDialogController::han
         cancelMapTransition(context);
         result.shouldCloseActiveDialog = true;
         return result;
+    }
+
+    if (context.uiController.inventoryNestedOverlay().active && context.dialogueHudActive)
+    {
+        const GameplayUiController::InventoryNestedOverlayState inventoryOverlay =
+            context.uiController.inventoryNestedOverlay();
+
+        switch (inventoryOverlay.mode)
+        {
+            case GameplayUiController::InventoryNestedOverlayMode::ShopSell:
+            case GameplayUiController::InventoryNestedOverlayMode::ShopIdentify:
+            case GameplayUiController::InventoryNestedOverlayMode::ShopRepair:
+                context.uiController.openInventoryNestedOverlay(
+                    GameplayUiController::InventoryNestedOverlayMode::ShopDisplay,
+                    inventoryOverlay.houseId);
+                return result;
+
+            case GameplayUiController::InventoryNestedOverlayMode::ShopDisplay:
+                context.uiController.closeInventoryNestedOverlay();
+                break;
+
+            default:
+                context.uiController.closeInventoryNestedOverlay();
+                return result;
+        }
     }
 
     if (!context.eventRuntimeState.dialogueState.menuStack.empty())

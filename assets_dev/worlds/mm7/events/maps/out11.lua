@@ -74,6 +74,7 @@ SetMapMetadata({
     spriteNames = {"0", "7tree13", "7tree14", "7tree15", "7tree16", "7tree17", "7tree18", "7tree22", "7tree24", "7tree30", "tree37"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 321, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -428,4 +429,9 @@ end, "Enter Dwarven Barrow")
 RegisterEvent(505, "Enter Dwarven Barrow", function()
     evt.MoveToMap(-384, -983, 1, 256, 0, 0, 61, 4, "mdk01.blv") -- Barrow VII
 end, "Enter Dwarven Barrow")
+
+RegisterEvent(65535, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(18))
+end)
 

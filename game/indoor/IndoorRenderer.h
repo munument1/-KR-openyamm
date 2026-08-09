@@ -31,6 +31,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -339,6 +340,7 @@ private:
         bool coloredLights = true,
         const DecorationBillboardSet *pDecorationBillboardSet = nullptr,
         const std::vector<BakedStaticLightSource> *pBakedStaticLightSources = nullptr,
+        const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources = nullptr,
         bool allowBakedLightSubdivision = true
     );
     static std::vector<TexturedVertex> buildFaceTexturedVertices(
@@ -351,6 +353,7 @@ private:
         bool coloredLights = true,
         const DecorationBillboardSet *pDecorationBillboardSet = nullptr,
         const std::vector<BakedStaticLightSource> *pBakedStaticLightSources = nullptr,
+        const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources = nullptr,
         bool allowBakedLightSubdivision = true
     );
     static bool bakedStaticLightMayAffectTriangle(
@@ -367,6 +370,7 @@ private:
     static void appendBakedStaticLightSubdividedTriangle(
         std::vector<TexturedVertex> &vertices,
         const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
+        const std::vector<BakedStaticLightSource> &bakedStaticLightSubdivisionSources,
         bool coloredLights,
         const TexturedVertex (&triangleVertices)[3],
         int depth
@@ -474,11 +478,16 @@ private:
     const std::optional<EventRuntimeState> &runtimeEventRuntimeStateStorage() const;
     EventRuntimeState *runtimeEventRuntimeState();
     const EventRuntimeState *runtimeEventRuntimeState() const;
-    uint64_t currentTexturedBatchVisualRevision() const;
+    uint64_t currentTexturedBatchGeometryRevision() const;
+    uint64_t currentBakedStaticLightRevision() const;
     bool texturedBatchesNeedFullRebuild() const;
     void rebuildIndoorRenderMemberships();
     void rebuildMechanismBindings();
     bool rebuildAllTexturedBatches(uint64_t &texturedBuildNanoseconds);
+    bool refreshBakedStaticLighting(
+        bool refreshAllVertices,
+        size_t &refreshedVertexCount,
+        size_t &uploadedBatchCount);
     bool updateMovingMechanismFaceVertices(
         uint64_t &texturedBuildNanoseconds,
         uint64_t &uploadNanoseconds,
@@ -536,6 +545,10 @@ private:
         uint64_t renderViewSetupNanoseconds = 0;
         uint64_t renderVisibilityNanoseconds = 0;
         uint64_t renderLightingNanoseconds = 0;
+        uint64_t renderBakedLightingRefreshNanoseconds = 0;
+        uint64_t renderBakedLightingRefreshes = 0;
+        uint64_t renderBakedLightingRefreshedVertices = 0;
+        uint64_t renderBakedLightingUploadedBatches = 0;
         uint64_t renderInspectNanoseconds = 0;
         uint64_t renderTexturedSubmitNanoseconds = 0;
         uint64_t renderBloodSplatsNanoseconds = 0;
@@ -680,7 +693,11 @@ private:
     std::vector<BillboardTextureHandle> m_billboardTextureHandles;
     std::unordered_map<BillboardTextureLookupKey, size_t, BillboardTextureLookupKeyHash>
         m_billboardTextureIndexByKey;
-    uint64_t m_texturedBatchVisualRevision = std::numeric_limits<uint64_t>::max();
+    std::unordered_set<BillboardTextureLookupKey, BillboardTextureLookupKeyHash>
+        m_runtimeBillboardLoadWarningKeys;
+    uint64_t m_texturedBatchGeometryRevision = std::numeric_limits<uint64_t>::max();
+    uint64_t m_bakedStaticLightRevision = std::numeric_limits<uint64_t>::max();
+    std::vector<uint8_t> m_bakedStaticLightEnabledStates;
     bool m_bakedStaticColoredLights = true;
     uint32_t m_indoorLightingSelectionFrame = 0;
     std::unordered_map<uint64_t, BillboardLightingCacheEntry> m_billboardLightingCache;

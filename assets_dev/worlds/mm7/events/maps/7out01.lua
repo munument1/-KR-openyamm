@@ -61,6 +61,10 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {43},
     timers = {
+    { eventId = 111, sourceEventId = 111, triggerStep = 0, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 65535, sourceEventId = 114, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 65534, sourceEventId = 115, triggerStep = 11, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 220, sourceEventId = 220, triggerStep = 0, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -452,5 +456,13 @@ RegisterEvent(220, nil, function()
         evt.SummonMonsters(1, 2, 5, 16, 16352, 90, 71, 0) -- encounter slot 1 "Dragonfly" tier B, count 5, pos=(16, 16352, 90), actor group 71, no unique actor name
         evt.SummonMonsters(1, 1, 10, 480, 18288, 6, 71, 0) -- encounter slot 1 "Dragonfly" tier A, count 10, pos=(480, 18288, 6), actor group 71, no unique actor name
     end
+end)
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(4), 8)
+end)
+
+RegisterEvent(65534, "", function()
+    SetValue(MapVar(5), 0)
 end)
 

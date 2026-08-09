@@ -83,6 +83,7 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 452, triggerStep = 11, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -424,4 +425,9 @@ end, "Enter Castle Lambent")
 RegisterEvent(504, "Temple of Light", function()
     evt.EnterHouse(316) -- Temple of Light
 end, "Temple of Light")
+
+RegisterEvent(65535, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(30))
+end)
 

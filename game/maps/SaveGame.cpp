@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 66;
+constexpr uint32_t SaveVersion = 67;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -63,6 +63,7 @@ constexpr uint32_t SaveVersionProjectileVisualMode = 63;
 constexpr uint32_t SaveVersionIndoorFireSpikeTraps = 64;
 constexpr uint32_t SaveVersionHeldCursorItem = 65;
 constexpr uint32_t SaveVersionActorDiagnosticSource = 66;
+constexpr uint32_t SaveVersionLegacyEvtTimers = 67;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -2324,17 +2325,77 @@ bool readValue(BinaryReader &reader, MapDeltaData &value)
         && readValue(reader, value.locationTime);
 }
 
-void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::TimerState &value)
+void writeValue(BinaryWriter &writer, const ScriptedEventTimerDefinition &value)
 {
+    writeValue(writer, value.scope);
+    writeValue(writer, value.origin);
+    writeValue(writer, value.triggerKind);
+    writeValue(writer, value.scheduleKind);
     writeValue(writer, value.eventId);
+    writeValue(writer, value.sourceEventId);
+    writeValue(writer, value.triggerStep);
+    writeValue(writer, value.registrationIndex);
     writeValue(writer, value.repeating);
+    writeValue(writer, value.intervalHalfMinutes);
+    writeValue(writer, value.startHour);
+    writeValue(writer, value.startMinute);
+    writeValue(writer, value.startSecond);
     writeValue(writer, value.intervalGameMinutes);
-    writeValue(writer, value.remainingGameMinutes);
-    writeValue(writer, value.targetHour);
-    writeValue(writer, value.hasFired);
+    writeValue(writer, value.initialDelayGameMinutes);
 }
 
-bool readValue(BinaryReader &reader, OutdoorWorldRuntime::TimerState &value)
+bool readValue(BinaryReader &reader, ScriptedEventTimerDefinition &value)
+{
+    return readValue(reader, value.scope)
+        && readValue(reader, value.origin)
+        && readValue(reader, value.triggerKind)
+        && readValue(reader, value.scheduleKind)
+        && readValue(reader, value.eventId)
+        && readValue(reader, value.sourceEventId)
+        && readValue(reader, value.triggerStep)
+        && readValue(reader, value.registrationIndex)
+        && readValue(reader, value.repeating)
+        && readValue(reader, value.intervalHalfMinutes)
+        && readValue(reader, value.startHour)
+        && readValue(reader, value.startMinute)
+        && readValue(reader, value.startSecond)
+        && readValue(reader, value.intervalGameMinutes)
+        && readValue(reader, value.initialDelayGameMinutes);
+}
+
+void writeValue(BinaryWriter &writer, const ScriptedEventTimerState &value)
+{
+    writeValue(writer, value.definition);
+    writeValue(writer, value.nextAlarmGameMinutes);
+    writeValue(writer, value.eligibleGameMinutes);
+    writeValue(writer, value.hasFired);
+    writeValue(writer, value.initialCalendarFirePending);
+    writeValue(writer, value.migratedFromLegacySave);
+    writeValue(writer, value.migratedRemainingGameMinutes);
+}
+
+bool readValue(BinaryReader &reader, ScriptedEventTimerState &value)
+{
+    return readValue(reader, value.definition)
+        && readValue(reader, value.nextAlarmGameMinutes)
+        && readValue(reader, value.eligibleGameMinutes)
+        && readValue(reader, value.hasFired)
+        && readValue(reader, value.initialCalendarFirePending)
+        && readValue(reader, value.migratedFromLegacySave)
+        && readValue(reader, value.migratedRemainingGameMinutes);
+}
+
+struct LegacyOutdoorTimerState
+{
+    uint16_t eventId = 0;
+    bool repeating = false;
+    float intervalGameMinutes = 0.0f;
+    float remainingGameMinutes = 0.0f;
+    std::optional<int> targetHour;
+    bool hasFired = false;
+};
+
+bool readValue(BinaryReader &reader, LegacyOutdoorTimerState &value)
 {
     return readValue(reader, value.eventId)
         && readValue(reader, value.repeating)
@@ -2344,17 +2405,17 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::TimerState &value)
         && readValue(reader, value.hasFired);
 }
 
-void writeValue(BinaryWriter &writer, const IndoorSceneRuntime::TimerState &value)
+struct LegacyIndoorTimerState
 {
-    writeValue(writer, value.eventId);
-    writeValue(writer, value.repeating);
-    writeValue(writer, value.targetHour);
-    writeValue(writer, value.intervalGameMinutes);
-    writeValue(writer, value.remainingGameMinutes);
-    writeValue(writer, value.hasFired);
-}
+    uint16_t eventId = 0;
+    bool repeating = false;
+    int targetHour = 0;
+    float intervalGameMinutes = 0.0f;
+    float remainingGameMinutes = 0.0f;
+    bool hasFired = false;
+};
 
-bool readValue(BinaryReader &reader, IndoorSceneRuntime::TimerState &value)
+bool readValue(BinaryReader &reader, LegacyIndoorTimerState &value)
 {
     return readValue(reader, value.eventId)
         && readValue(reader, value.repeating)
@@ -2362,6 +2423,91 @@ bool readValue(BinaryReader &reader, IndoorSceneRuntime::TimerState &value)
         && readValue(reader, value.intervalGameMinutes)
         && readValue(reader, value.remainingGameMinutes)
         && readValue(reader, value.hasFired);
+}
+
+ScriptedEventTimerState migrateLegacyTimerState(
+    uint16_t eventId,
+    bool repeating,
+    float intervalGameMinutes,
+    float remainingGameMinutes,
+    bool hasFired,
+    uint32_t registrationIndex)
+{
+    ScriptedEventTimerState state = {};
+    state.definition.scope = ScriptedEventScope::Map;
+    state.definition.origin = ScriptedEventTimerOrigin::Native;
+    state.definition.scheduleKind = ScriptedEventTimerScheduleKind::Relative;
+    state.definition.eventId = eventId;
+    state.definition.sourceEventId = eventId;
+    state.definition.registrationIndex = registrationIndex;
+    state.definition.repeating = repeating;
+    state.definition.intervalGameMinutes = intervalGameMinutes;
+    state.hasFired = hasFired;
+    state.migratedFromLegacySave = true;
+    state.migratedRemainingGameMinutes = remainingGameMinutes;
+    return state;
+}
+
+bool readOutdoorTimerStates(BinaryReader &reader, std::vector<ScriptedEventTimerState> &values)
+{
+    if (reader.version() >= SaveVersionLegacyEvtTimers)
+    {
+        return readValue(reader, values);
+    }
+
+    std::vector<LegacyOutdoorTimerState> legacyValues;
+    if (!readValue(reader, legacyValues))
+    {
+        return false;
+    }
+
+    values.clear();
+    values.reserve(legacyValues.size());
+
+    for (size_t index = 0; index < legacyValues.size(); ++index)
+    {
+        const LegacyOutdoorTimerState &legacyValue = legacyValues[index];
+        values.push_back(migrateLegacyTimerState(
+            legacyValue.eventId,
+            legacyValue.repeating,
+            legacyValue.intervalGameMinutes,
+            legacyValue.remainingGameMinutes,
+            legacyValue.hasFired,
+            static_cast<uint32_t>(index + 1)));
+    }
+
+    return true;
+}
+
+bool readIndoorTimerStates(BinaryReader &reader, std::vector<ScriptedEventTimerState> &values)
+{
+    if (reader.version() >= SaveVersionLegacyEvtTimers)
+    {
+        return readValue(reader, values);
+    }
+
+    std::vector<LegacyIndoorTimerState> legacyValues;
+    if (!readValue(reader, legacyValues))
+    {
+        return false;
+    }
+
+    values.clear();
+    values.reserve(legacyValues.size());
+
+    for (size_t index = 0; index < legacyValues.size(); ++index)
+    {
+        const LegacyIndoorTimerState &legacyValue = legacyValues[index];
+        values.push_back(migrateLegacyTimerState(
+            legacyValue.eventId,
+            legacyValue.repeating,
+            legacyValue.intervalGameMinutes,
+            legacyValue.remainingGameMinutes,
+            legacyValue.hasFired,
+            static_cast<uint32_t>(index + 1)));
+    }
+
+    return true;
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &value)
@@ -3113,6 +3259,8 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::Snapshot &value
 {
     writeValue(writer, value.gameMinutes);
     writeValue(writer, value.locationInfo);
+    writeValue(writer, value.locationTime);
+    writeValue(writer, value.hasLocationTime);
     writeValue(writer, value.atmosphere);
     writeValue(writer, value.timers);
     writeValue(writer, value.mapActors);
@@ -3150,8 +3298,10 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
 {
     const bool loaded = readValue(reader, value.gameMinutes)
         && (reader.version() < SaveVersionOutdoorLocationInfo || readValue(reader, value.locationInfo))
+        && (reader.version() < SaveVersionLegacyEvtTimers || readValue(reader, value.locationTime))
+        && (reader.version() < SaveVersionLegacyEvtTimers || readValue(reader, value.hasLocationTime))
         && readValue(reader, value.atmosphere)
-        && readValue(reader, value.timers)
+        && readOutdoorTimerStates(reader, value.timers)
         && readValue(reader, value.mapActors)
         && readValue(reader, value.chests)
         && readValue(reader, value.openedChestFlags)
@@ -3210,7 +3360,7 @@ bool readValue(BinaryReader &reader, IndoorSceneRuntime::Snapshot &value)
         && readValue(reader, value.eventRuntimeState)
         && (reader.version() < 20 || readValue(reader, value.worldRuntime))
         && (reader.version() < 20 || readValue(reader, value.partyRuntime))
-        && (reader.version() < SaveVersionIndoorSaveLoadParity || readValue(reader, value.timers))
+        && (reader.version() < SaveVersionIndoorSaveLoadParity || readIndoorTimerStates(reader, value.timers))
         && (reader.version() < SaveVersionIndoorSaveLoadParity
             || readValue(reader, value.lastProcessedPartyMoveStateForFaceTriggers))
         && readValue(reader, value.mechanismAccumulatorMilliseconds);

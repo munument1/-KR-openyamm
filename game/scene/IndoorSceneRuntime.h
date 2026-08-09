@@ -29,15 +29,7 @@ class SpellTable;
 class IndoorSceneRuntime : public IMapSceneRuntime
 {
 public:
-    struct TimerState
-    {
-        uint16_t eventId = 0;
-        bool repeating = false;
-        int targetHour = 0;
-        float intervalGameMinutes = 0.0f;
-        float remainingGameMinutes = 0.0f;
-        bool hasFired = false;
-    };
+    using TimerState = ScriptedEventTimerState;
 
     struct Snapshot
     {
@@ -119,7 +111,9 @@ public:
     const IndoorWorldRuntime &worldRuntime() const;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
+    void stampLastVisitTime();
     void applyMapReentryReset();
+    void prepareTimers();
     bool advanceSimulation(float deltaMilliseconds);
     bool activateEvent(
         uint16_t eventId,
@@ -134,6 +128,7 @@ private:
     };
 
     bool updateTimers(float deltaGameMinutes);
+    void initializeTimers(double registrationGameMinutes);
     bool updatePartyFaceTriggers();
     void updateMechanismAudio(
         const std::unordered_map<uint32_t, RuntimeMechanismState> &previousMechanisms,
@@ -151,6 +146,8 @@ private:
     IndoorPartyRuntime m_partyRuntime;
     IndoorWorldRuntime m_worldRuntime;
     std::vector<TimerState> m_timers;
+    bool m_timerDefinitionsInitialized = false;
+    bool m_resetLegacyTimersOnInitialize = false;
     std::optional<IndoorMoveState> m_lastProcessedPartyMoveStateForFaceTriggers;
     std::optional<size_t> m_lastPartyFloorFaceForPressurePlateTriggers;
     std::unordered_map<uint32_t, MechanismAudioState> m_mechanismAudioStates;

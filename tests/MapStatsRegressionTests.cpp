@@ -141,6 +141,39 @@ TEST_CASE("map stats normalize non-audio redbook track")
     CHECK_EQ(pEscatonsPalace->redbookTrack, 0);
 }
 
+TEST_CASE("MM6 named locations use their matching soundtrack tracks")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    struct ExpectedTrack
+    {
+        const char *pMapFileName;
+        int track;
+    };
+
+    constexpr std::array<ExpectedTrack, 13> ExpectedTracks = {{
+        {"outa1.odm", 40}, // Sweet Water
+        {"outb3.odm", 41}, // Dragonsand
+        {"outc1.odm", 47}, // Frozen Highlands
+        {"outc2.odm", 51}, // Free Haven
+        {"outc3.odm", 48}, // Mire of the Damned
+        {"outd1.odm", 39}, // Silver Cove
+        {"outd3.odm", 37}, // Castle Ironfist
+        {"oute3.odm", 38}, // New Sorpigal
+        {"6d15.blv", 43}, // Icewind Keep
+        {"6d17.blv", 42}, // Lair of the Wolf
+        {"6t6.blv", 50}, // Supreme Temple of Baa
+        {"cd3.blv", 49}, // Castle Kriegspire
+        {"pyramid.blv", 46}, // Tomb of VARN
+    }};
+
+    for (const ExpectedTrack &expected : ExpectedTracks)
+    {
+        const OpenYAMM::Game::MapStatsEntry *pMap = mapStats.findByFileName(expected.pMapFileName);
+        REQUIRE(pMap != nullptr);
+        CHECK_EQ(pMap->redbookTrack, expected.track);
+    }
+}
+
 TEST_CASE("map stats parse base stealing fine")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();

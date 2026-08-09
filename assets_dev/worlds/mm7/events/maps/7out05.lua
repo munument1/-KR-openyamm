@@ -93,6 +93,9 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 202, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 204, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65533, sourceEventId = 205, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -541,4 +544,18 @@ RegisterEvent(504, "Enter Watchtower 6", function()
     end
     evt.MoveToMap(190, 4946, -511, 1024, 0, 0, 397, 1, "7d15.blv") -- Watchtower 6
 end, "Enter Watchtower 6")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(21), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(11))
+end)
+
+RegisterEvent(65533, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(12))
+end)
 

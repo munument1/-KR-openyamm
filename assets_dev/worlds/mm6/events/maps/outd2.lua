@@ -64,6 +64,8 @@ SetMapMetadata({
     spriteNames = {"ped05"},
     castSpellIds = {},
     timers = {
+    { eventId = 104, sourceEventId = 104, triggerStep = 0, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 219, sourceEventId = 219, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "weekly" },
     },
 })
 

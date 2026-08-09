@@ -100,6 +100,23 @@ Run the editor:
 ./build/editor/openyamm-editor
 ```
 
+## Nightly Builds
+
+The [Nightly releases](https://github.com/pjasicek/openyamm/actions/workflows/nightly.yml) GitHub Actions workflow
+builds unsigned Windows x64 and x86_64 Flatpak packages every day at 03:27 UTC. After both packages pass structural and
+checksum checks, the workflow updates the rolling
+[nightly prerelease](https://github.com/pjasicek/openyamm/releases/tag/nightly). The same workflow can be run manually,
+with publishing optionally disabled so the packages remain short-lived workflow artifacts.
+
+Extract the Windows zip and run `openyamm.exe`. Install or update the Flatpak bundle with:
+
+```sh
+flatpak install --user --reinstall OpenYAMM-nightly-x86_64.flatpak
+```
+
+Nightly packages are development snapshots and may be unstable. Back up existing saves before using them. Publishing
+packaged game assets remains subject to the asset distribution rights noted in the Windows distribution documentation.
+
 ## Useful CMake Options
 
 ```text

@@ -386,7 +386,25 @@ TEST_CASE("outdoor location reset metadata survives save data round trip")
     saveData.outdoorWorld.locationInfo.lastRespawnDay = 124;
     saveData.outdoorWorld.locationInfo.reputation = -7;
     saveData.outdoorWorld.locationInfo.alertStatus = 1;
+    saveData.outdoorWorld.locationTime.lastVisitTime = 987654;
+    saveData.outdoorWorld.locationTime.skyTextureName = "plansky";
+    saveData.outdoorWorld.hasLocationTime = true;
+
+    OpenYAMM::Game::ScriptedEventTimerState timer = {};
+    timer.definition.scope = OpenYAMM::Game::ScriptedEventScope::Map;
+    timer.definition.origin = OpenYAMM::Game::ScriptedEventTimerOrigin::Legacy;
+    timer.definition.triggerKind = OpenYAMM::Game::ScriptedEventTimerTriggerKind::LongTimer;
+    timer.definition.scheduleKind = OpenYAMM::Game::ScriptedEventTimerScheduleKind::Daily;
+    timer.definition.eventId = 65000;
+    timer.definition.sourceEventId = 130;
+    timer.definition.triggerStep = 7;
+    timer.definition.repeating = true;
+    timer.definition.startSecond = 1;
+    timer.nextAlarmGameMinutes = 1440.0 + 1.0 / 60.0;
+    timer.eligibleGameMinutes = 540.5;
+    saveData.outdoorWorld.timers.push_back(timer);
     saveData.outdoorWorldStates["out02.odm"] = saveData.outdoorWorld;
+    saveData.outdoorWorldStates["legacy_absent.odm"] = {};
 
     const std::filesystem::path savePath =
         std::filesystem::temp_directory_path() / "openyamm_outdoor_location_info_roundtrip.oysav";
@@ -403,8 +421,22 @@ TEST_CASE("outdoor location reset metadata survives save data round trip")
     CHECK_EQ(loaded->outdoorWorld.locationInfo.lastRespawnDay, 124);
     CHECK_EQ(loaded->outdoorWorld.locationInfo.reputation, -7);
     CHECK_EQ(loaded->outdoorWorld.locationInfo.alertStatus, 1);
+    CHECK(loaded->outdoorWorld.hasLocationTime);
+    CHECK_EQ(loaded->outdoorWorld.locationTime.lastVisitTime, 987654);
+    CHECK_EQ(loaded->outdoorWorld.locationTime.skyTextureName, "plansky");
+    REQUIRE_EQ(loaded->outdoorWorld.timers.size(), 1u);
+    CHECK_EQ(loaded->outdoorWorld.timers[0].definition.eventId, 65000);
+    CHECK_EQ(loaded->outdoorWorld.timers[0].definition.sourceEventId, 130);
+    CHECK_EQ(loaded->outdoorWorld.timers[0].definition.triggerStep, 7);
+    CHECK_EQ(
+        loaded->outdoorWorld.timers[0].definition.triggerKind,
+        OpenYAMM::Game::ScriptedEventTimerTriggerKind::LongTimer);
+    CHECK_EQ(loaded->outdoorWorld.timers[0].nextAlarmGameMinutes, doctest::Approx(1440.0 + 1.0 / 60.0));
     REQUIRE(loaded->outdoorWorldStates.contains("out02.odm"));
     CHECK_EQ(loaded->outdoorWorldStates.at("out02.odm").locationInfo.lastRespawnDay, 124);
+    CHECK_EQ(loaded->outdoorWorldStates.at("out02.odm").locationTime.lastVisitTime, 987654);
+    REQUIRE(loaded->outdoorWorldStates.contains("legacy_absent.odm"));
+    CHECK_FALSE(loaded->outdoorWorldStates.at("legacy_absent.odm").hasLocationTime);
 }
 
 TEST_CASE("party ever owned item ids survive save data round trip")

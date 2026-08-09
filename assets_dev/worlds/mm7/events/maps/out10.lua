@@ -85,6 +85,8 @@ SetMapMetadata({
     spriteNames = {},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 204, triggerStep = 14, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65534, sourceEventId = 206, triggerStep = 10, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -405,5 +407,15 @@ end)
 
 RegisterEvent(505, nil, function()
     evt.MoveToMap(11471, -3498, 2814, 414, 0, 0, 150, 1, "7d07.blv") -- Thunderfist Mountain
+end)
+
+RegisterEvent(65535, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(17))
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(14))
 end)
 

@@ -408,7 +408,8 @@ void GameplayUiController::openInventoryNestedOverlay(InventoryNestedOverlayMode
 
     State &state = resolvedState();
     closeHouseShopOverlay();
-    if (mode == InventoryNestedOverlayMode::ShopSell
+    if (mode == InventoryNestedOverlayMode::ShopDisplay
+        || mode == InventoryNestedOverlayMode::ShopSell
         || mode == InventoryNestedOverlayMode::ShopIdentify
         || mode == InventoryNestedOverlayMode::ShopRepair)
     {

@@ -61,7 +61,7 @@ SetMapMetadata({
     spriteNames = {"torchnf"},
     castSpellIds = {},
     timers = {
-    { eventId = 41, repeating = true, intervalGameMinutes = 7.5, remainingGameMinutes = 7.5 },
+    { eventId = 41, sourceEventId = 41, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 15 },
     },
 })
 

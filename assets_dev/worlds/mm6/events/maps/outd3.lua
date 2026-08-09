@@ -2,7 +2,7 @@
 -- generated from legacy EVT/STR
 
 SetMapMetadata({
-    onLoad = {65535},
+    onLoad = {65534},
     onLeave = {},
     openedChestIds = {
     [76] = {2},
@@ -82,7 +82,8 @@ SetMapMetadata({
     spriteNames = {"swrdstx"},
     castSpellIds = {98},
     timers = {
-    { eventId = 200, repeating = true, intervalGameMinutes = 30, remainingGameMinutes = 30 },
+    { eventId = 65535, sourceEventId = 102, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 200, sourceEventId = 200, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 60 },
     },
 })
 
@@ -565,6 +566,10 @@ RegisterEvent(261, "Shrine of Electricity", function()
 end, "Shrine of Electricity")
 
 RegisterEvent(65535, "", function()
+    SetValue(MapVar(26), 30)
+end)
+
+RegisterEvent(65534, "", function()
     if not IsQBitSet(QBit(1327)) then return end -- NPC
     evt.SetSprite(232, 1, "swrdstx")
 end)

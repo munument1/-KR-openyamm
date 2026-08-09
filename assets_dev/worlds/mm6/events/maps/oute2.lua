@@ -70,7 +70,8 @@ SetMapMetadata({
     spriteNames = {"6tree06"},
     castSpellIds = {6},
     timers = {
-    { eventId = 210, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65527, sourceEventId = 109, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 210, sourceEventId = 210, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -497,5 +498,9 @@ end)
 RegisterEvent(65528, "", function()
     if not IsAtLeast(MapVar(9), 1) then return end
     evt.SetSprite(141, 1, "6tree06")
+end)
+
+RegisterEvent(65527, "", function()
+    SetValue(MapVar(11), 20)
 end)
 

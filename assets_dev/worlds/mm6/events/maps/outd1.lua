@@ -2,7 +2,7 @@
 -- generated from legacy EVT/STR
 
 SetMapMetadata({
-    onLoad = {65535, 65534, 65533, 223, 226},
+    onLoad = {65532, 65531, 65530, 223, 226},
     onLeave = {},
     openedChestIds = {
     [100] = {1},
@@ -103,7 +103,10 @@ SetMapMetadata({
     spriteNames = {"swrdstx"},
     castSpellIds = {6},
     timers = {
-    { eventId = 209, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 162, triggerStep = 8, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 0, startMinute = 0, startSecond = 1 },
+    { eventId = 65534, sourceEventId = 164, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 65533, sourceEventId = 165, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
+    { eventId = 209, sourceEventId = 209, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -634,16 +637,28 @@ RegisterEvent(261, "Shrine of Personality", function()
 end, "Shrine of Personality")
 
 RegisterEvent(65535, "", function()
+    SetValue(MapVar(2), 20)
+end)
+
+RegisterEvent(65534, "", function()
+    SetValue(MapVar(3), 8)
+end)
+
+RegisterEvent(65533, "", function()
+    SetValue(MapVar(4), 8)
+end)
+
+RegisterEvent(65532, "", function()
     if not IsQBitSet(QBit(1334)) then return end -- NPC
     evt.SetSprite(359, 1, "swrdstx")
 end)
 
-RegisterEvent(65534, "", function()
+RegisterEvent(65531, "", function()
     if not IsQBitSet(QBit(1335)) then return end -- NPC
     evt.SetSprite(360, 1, "swrdstx")
 end)
 
-RegisterEvent(65533, "", function()
+RegisterEvent(65530, "", function()
     if not IsQBitSet(QBit(1336)) then return end -- NPC
     evt.SetSprite(361, 1, "swrdstx")
 end)

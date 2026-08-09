@@ -41,111 +41,6 @@ bool hasMovingMechanism(const EventRuntimeState &eventRuntimeState)
     return false;
 }
 
-void appendTimersFromProgram(
-    const std::optional<ScriptedEventProgram> &program,
-    std::vector<IndoorSceneRuntime::TimerState> &timers)
-{
-    if (!program)
-    {
-        return;
-    }
-
-    for (const ScriptedEventProgram::TimerTrigger &trigger : program->timerTriggers())
-    {
-        IndoorSceneRuntime::TimerState timer = {};
-        timer.eventId = trigger.eventId;
-        timer.repeating = trigger.repeating;
-        timer.targetHour = trigger.targetHour;
-        timer.intervalGameMinutes = trigger.intervalGameMinutes;
-        timer.remainingGameMinutes = trigger.remainingGameMinutes;
-        timers.push_back(std::move(timer));
-    }
-}
-
-std::vector<IndoorSceneRuntime::TimerState> timersFromPrograms(
-    const std::optional<ScriptedEventProgram> &localProgram,
-    const std::optional<ScriptedEventProgram> &globalProgram)
-{
-    std::vector<IndoorSceneRuntime::TimerState> timers;
-    appendTimersFromProgram(localProgram, timers);
-    appendTimersFromProgram(globalProgram, timers);
-    return timers;
-}
-
-bool sameTimerSchedule(
-    const IndoorSceneRuntime::TimerState &left,
-    const IndoorSceneRuntime::TimerState &right)
-{
-    constexpr float TimerIntervalEpsilon = 0.001f;
-
-    return left.repeating == right.repeating
-        && left.targetHour == right.targetHour
-        && std::fabs(left.intervalGameMinutes - right.intervalGameMinutes) <= TimerIntervalEpsilon;
-}
-
-std::vector<IndoorSceneRuntime::TimerState> reconcileSavedTimersWithProgram(
-    const std::vector<IndoorSceneRuntime::TimerState> &savedTimers,
-    const std::optional<ScriptedEventProgram> &localProgram,
-    const std::optional<ScriptedEventProgram> &globalProgram,
-    const std::string &mapFileName)
-{
-    std::vector<IndoorSceneRuntime::TimerState> currentTimers = timersFromPrograms(localProgram, globalProgram);
-
-    if (currentTimers.empty() || savedTimers.empty())
-    {
-        return savedTimers.empty() ? currentTimers : savedTimers;
-    }
-
-    std::vector<bool> usedSavedTimers(savedTimers.size(), false);
-
-    for (IndoorSceneRuntime::TimerState &currentTimer : currentTimers)
-    {
-        size_t matchedIndex = static_cast<size_t>(-1);
-
-        for (size_t savedIndex = 0; savedIndex < savedTimers.size(); ++savedIndex)
-        {
-            if (!usedSavedTimers[savedIndex] && savedTimers[savedIndex].eventId == currentTimer.eventId)
-            {
-                matchedIndex = savedIndex;
-                break;
-            }
-        }
-
-        if (matchedIndex == static_cast<size_t>(-1))
-        {
-            for (size_t savedIndex = 0; savedIndex < savedTimers.size(); ++savedIndex)
-            {
-                if (!usedSavedTimers[savedIndex] && sameTimerSchedule(savedTimers[savedIndex], currentTimer))
-                {
-                    matchedIndex = savedIndex;
-                    break;
-                }
-            }
-        }
-
-        if (matchedIndex == static_cast<size_t>(-1))
-        {
-            continue;
-        }
-
-        const IndoorSceneRuntime::TimerState savedTimer = savedTimers[matchedIndex];
-        usedSavedTimers[matchedIndex] = true;
-        currentTimer.remainingGameMinutes = savedTimer.remainingGameMinutes;
-        currentTimer.hasFired = savedTimer.hasFired;
-
-        if (savedTimer.eventId != currentTimer.eventId)
-        {
-            GAMEPLAY_DEBUG_TRACE(
-                "timer_state_reconciled world=indoor map=\"" + mapFileName + "\""
-                + " saved_event_id=" + std::to_string(savedTimer.eventId)
-                + " current_event_id=" + std::to_string(currentTimer.eventId)
-                + " interval_game_minutes=" + std::to_string(currentTimer.intervalGameMinutes));
-        }
-    }
-
-    return currentTimers;
-}
-
 bool hasPersistedDecorationState(const std::optional<MapDeltaData> &mapDeltaData)
 {
     if (!mapDeltaData)
@@ -197,13 +92,9 @@ void seedIndoorInteractiveDecorationRuntimeStateIfNeeded(
             continue;
         }
 
-        const DecorationEntry *pDecoration =
-            pDecorationBillboardSet->decorationTable.get(entity.decorationListId);
-
-        if ((pDecoration == nullptr || pDecoration->spriteId == 0) && !entity.name.empty())
-        {
-            pDecoration = pDecorationBillboardSet->decorationTable.findByInternalName(entity.name);
-        }
+        const DecorationLookupResult decoration =
+            pDecorationBillboardSet->decorationTable.resolveMapDecoration(entity.decorationListId, entity.name);
+        const DecorationEntry *pDecoration = decoration.pEntry;
 
         if (pDecoration == nullptr)
         {
@@ -698,14 +589,6 @@ void IndoorSceneRuntime::advanceGameMinutes(float minutes)
     }
 
     m_worldRuntime.advanceGameMinutes(minutes);
-
-    for (TimerState &timer : m_timers)
-    {
-        if (!timer.hasFired || timer.repeating)
-        {
-            timer.remainingGameMinutes -= minutes;
-        }
-    }
 }
 
 const std::optional<MapDeltaData> &IndoorSceneRuntime::mapDeltaData() const
@@ -788,7 +671,9 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     {
         m_partyRuntime.party().applyGlobalNpcStateTo(*m_eventRuntimeState);
     }
-    m_timers = reconcileSavedTimersWithProgram(snapshot.timers, m_localEventProgram, m_globalEventProgram, m_mapFileName);
+    m_timers = snapshot.timers;
+    m_timerDefinitionsInitialized = false;
+    m_resetLegacyTimersOnInitialize = false;
     m_lastProcessedPartyMoveStateForFaceTriggers = snapshot.lastProcessedPartyMoveStateForFaceTriggers;
     m_lastPartyFloorFaceForPressurePlateTriggers = snapshot.lastPartyFloorFaceForPressurePlateTriggers;
     if (!m_lastPartyFloorFaceForPressurePlateTriggers
@@ -802,9 +687,25 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_mechanismAccumulatorMilliseconds = snapshot.mechanismAccumulatorMilliseconds;
 }
 
+void IndoorSceneRuntime::stampLastVisitTime()
+{
+    if (m_mapDeltaData)
+    {
+        m_mapDeltaData->locationTime.lastVisitTime =
+            legacyTimerTicksFromGameMinutes(static_cast<double>(m_worldRuntime.gameMinutes()));
+    }
+}
+
 void IndoorSceneRuntime::applyMapReentryReset()
 {
     m_worldRuntime.applyMapReentryReset();
+    m_timerDefinitionsInitialized = false;
+    m_resetLegacyTimersOnInitialize = true;
+}
+
+void IndoorSceneRuntime::prepareTimers()
+{
+    initializeTimers(static_cast<double>(m_worldRuntime.gameMinutes()));
 }
 
 bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
@@ -815,13 +716,14 @@ bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
     }
 
     const float deltaGameMinutes = deltaMilliseconds * SecondsPerMillisecond * GameMinutesPerRealSecond;
-    bool stateChanged = updateTimers(deltaGameMinutes);
-    stateChanged = updatePartyFaceTriggers() || stateChanged;
 
     if (deltaGameMinutes > 0.0f)
     {
         m_worldRuntime.advanceGameMinutes(deltaGameMinutes);
     }
+
+    bool stateChanged = updateTimers(deltaGameMinutes);
+    stateChanged = updatePartyFaceTriggers() || stateChanged;
 
     if (!hasMovingMechanism(*m_eventRuntimeState))
     {
@@ -1002,10 +904,9 @@ bool IndoorSceneRuntime::updateTimers(float deltaGameMinutes)
         return false;
     }
 
-    if (m_timers.empty())
+    if (!m_timerDefinitionsInitialized)
     {
-        appendTimersFromProgram(m_localEventProgram, m_timers);
-        appendTimersFromProgram(m_globalEventProgram, m_timers);
+        initializeTimers(static_cast<double>(m_worldRuntime.gameMinutes()) - deltaGameMinutes);
     }
 
     if (m_timers.empty())
@@ -1013,51 +914,52 @@ bool IndoorSceneRuntime::updateTimers(float deltaGameMinutes)
         return false;
     }
 
-    bool executedAny = false;
-
-    for (TimerState &timer : m_timers)
-    {
-        if (timer.hasFired && !timer.repeating)
+    return updateScriptedEventTimers(
+        m_timers,
+        static_cast<double>(m_worldRuntime.gameMinutes()),
+        [this](const ScriptedEventTimerDefinition &definition)
         {
-            continue;
-        }
+            GAMEPLAY_DEBUG_TRACE(
+                "timer_event_fired world=indoor event_id=" + std::to_string(definition.eventId)
+                + " source_event_id=" + std::to_string(definition.sourceEventId)
+                + " trigger_step=" + std::to_string(definition.triggerStep));
 
-        timer.remainingGameMinutes -= deltaGameMinutes;
-
-        if (timer.remainingGameMinutes > 0.0f)
-        {
-            continue;
-        }
-
-        GAMEPLAY_DEBUG_TRACE(
-            "timer_event_fired world=indoor event_id=" + std::to_string(timer.eventId)
-            + " repeating=" + (timer.repeating ? std::string("true") : std::string("false"))
-            + " interval_game_minutes=" + std::to_string(timer.intervalGameMinutes));
-
-        if (m_eventRuntime.executeEventById(
+            const bool executed = m_eventRuntime.executeEventById(
                 m_localEventProgram,
                 m_globalEventProgram,
-                timer.eventId,
+                definition.eventId,
                 *m_eventRuntimeState,
                 &m_partyRuntime.party(),
-                &m_worldRuntime))
-        {
-            executedAny = true;
-            m_worldRuntime.applyEventRuntimeState();
-            m_partyRuntime.party().applyEventRuntimeState(*m_eventRuntimeState, false);
-        }
+                &m_worldRuntime,
+                std::nullopt,
+                true,
+                definition.scope);
 
-        if (timer.repeating)
-        {
-            timer.remainingGameMinutes += std::max(0.5f, timer.intervalGameMinutes);
-        }
-        else
-        {
-            timer.hasFired = true;
-        }
-    }
+            if (executed)
+            {
+                m_worldRuntime.applyEventRuntimeState();
+                m_partyRuntime.party().applyEventRuntimeState(*m_eventRuntimeState, false);
+            }
 
-    return executedAny;
+            return executed;
+        });
+}
+
+void IndoorSceneRuntime::initializeTimers(double registrationGameMinutes)
+{
+    const std::vector<ScriptedEventTimerDefinition> definitions =
+        scriptedEventTimerDefinitionsFromPrograms(m_localEventProgram, m_globalEventProgram);
+    const int64_t lastVisitTime = m_mapDeltaData
+        ? m_mapDeltaData->locationTime.lastVisitTime
+        : 0;
+    m_timers = reconcileScriptedEventTimers(
+        m_timers,
+        definitions,
+        registrationGameMinutes,
+        lastVisitTime,
+        m_resetLegacyTimersOnInitialize);
+    m_timerDefinitionsInitialized = true;
+    m_resetLegacyTimersOnInitialize = false;
 }
 
 bool IndoorSceneRuntime::activateEvent(

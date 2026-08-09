@@ -80,6 +80,18 @@ enum class EvtOpcode : uint8_t
     IsNpcInParty = 68
 };
 
+struct LegacyTimerDescriptor
+{
+    uint8_t yearly = 0;
+    uint8_t monthly = 0;
+    uint8_t weekly = 0;
+    uint8_t startHour = 0;
+    uint8_t startMinute = 0;
+    uint8_t startSecond = 0;
+    uint16_t intervalHalfMinutes = 0;
+    uint16_t reserved = 0;
+};
+
 struct EvtInstruction
 {
     uint8_t step = 0;
@@ -93,6 +105,7 @@ struct EvtInstruction
     std::optional<uint32_t> value2;
     std::optional<uint32_t> value3;
     std::optional<std::string> stringValue;
+    std::optional<LegacyTimerDescriptor> timerDescriptor;
     std::vector<uint8_t> listValues;
 };
 

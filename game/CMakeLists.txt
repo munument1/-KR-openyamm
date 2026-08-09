@@ -30,6 +30,7 @@ add_library(openyamm_game STATIC
     events/EventDialogContent.cpp
     events/EventRuntime.cpp
     events/ScriptedEventProgram.cpp
+    events/ScriptedEventTimer.cpp
     tables/FaceAnimationTable.cpp
     fx/ParticleRecipes.cpp
     fx/ParticleRenderer.cpp

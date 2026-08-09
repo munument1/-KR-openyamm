@@ -403,6 +403,10 @@ class BakedModelInstance:
     bmodel_name: str
     kind: str
     destructible: bool = False
+    placement_kind: str = ""
+    source_position_lt: list[float] = field(default_factory=list)
+    bake_position_lt: list[float] = field(default_factory=list)
+    visual_offset_lt: list[float] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -415,6 +419,48 @@ class FaceRole:
 @dataclass(frozen=True)
 class LtFloorTriangle:
     vertices: tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]
+
+
+@dataclass(frozen=True)
+class LtModelBounds:
+    min: tuple[float, float, float]
+    max: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class LtModelPlacementInfo:
+    bounds: LtModelBounds
+    binding_origin: tuple[float, float, float]
+    binding_extents: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class LtPlacementSupport:
+    source_object_index: int
+    source_name: str
+    center: tuple[float, float, float]
+    half_extents: tuple[float, float, float]
+
+
+@dataclass
+class BakedModelWorkItem:
+    object_index: int
+    source_class: str
+    source_name: str
+    source_model: str
+    source_skin: str
+    position_lt: list[float]
+    raw_position_lt: list[float]
+    rotation_lt: list[float]
+    uniform_scale: float
+    visual_offset_lt: tuple[float, float, float]
+    placement_kind: str
+    abc_model: AbcModel
+    placement_info: LtModelPlacementInfo | None
+    plant_or_tree_source: bool
+    move_to_floor: bool
+    solid: bool
+    ray_hit: bool
 
 
 def read_world_tree_layout(reader: BinaryReader, current_byte: int, current_bit: int) -> tuple[int, int]:
@@ -1514,7 +1560,7 @@ def is_plant_foliage_texture(texture_name: str) -> bool:
 
 def is_plant_model_source(model_name: str) -> bool:
     model = texture_key(model_name)
-    return "/plantsandtrees/" in model
+    return "plantsandtrees/" in model
 
 
 def should_skip_face_role(face_role: FaceRole) -> bool:
@@ -1703,15 +1749,205 @@ def transform_model_vertex_to_odm(
 
 
 def abc_static_model_translation_lt(abc_model: AbcModel) -> tuple[float, float, float]:
-    if not abc_model.anim_bindings:
+    placement_info = abc_static_model_placement_info(abc_model)
+    if placement_info is None:
         return (0.0, 0.0, 0.0)
-    return tuple(float(value) for value in abc_model.anim_bindings[0].origin)
+    return placement_info.binding_origin
 
 
 def abc_static_model_half_dims_lt(abc_model: AbcModel) -> tuple[float, float, float] | None:
+    placement_info = abc_static_model_placement_info(abc_model)
+    if placement_info is None:
+        return None
+    return placement_info.binding_extents
+
+
+def abc_lod0_bounds_lt(abc_model: AbcModel) -> LtModelBounds | None:
+    rows: list[tuple[float, float, float]] = []
+    for piece in abc_model.pieces:
+        if not piece.lods:
+            continue
+        rows.extend(tuple(float(value) for value in vertex.position) for vertex in piece.lods[0].vertices)
+
+    if not rows:
+        return None
+
+    return LtModelBounds(
+        min=tuple(min(row[index] for row in rows) for index in range(3)),
+        max=tuple(max(row[index] for row in rows) for index in range(3)),
+    )
+
+
+def abc_static_model_placement_binding(abc_model: AbcModel) -> Any | None:
     if not abc_model.anim_bindings:
         return None
-    return tuple(max(0.0, float(value)) for value in abc_model.anim_bindings[0].extents)
+
+    for binding in abc_model.anim_bindings:
+        if binding.name.lower() == "world":
+            return binding
+    return abc_model.anim_bindings[0]
+
+
+def abc_static_model_placement_info(abc_model: AbcModel) -> LtModelPlacementInfo | None:
+    bounds = abc_lod0_bounds_lt(abc_model)
+    binding = abc_static_model_placement_binding(abc_model)
+    if bounds is None and binding is None:
+        return None
+
+    if binding is None:
+        assert bounds is not None
+        half_extents = tuple(max(0.0, (bounds.max[index] - bounds.min[index]) * 0.5) for index in range(3))
+        return LtModelPlacementInfo(bounds=bounds, binding_origin=(0.0, 0.0, 0.0), binding_extents=half_extents)
+
+    binding_origin = tuple(float(value) for value in binding.origin)
+    binding_extents = tuple(max(0.0, float(value)) for value in binding.extents)
+    if bounds is None:
+        bounds = LtModelBounds(
+            min=tuple(binding_origin[index] - binding_extents[index] for index in range(3)),
+            max=tuple(binding_origin[index] + binding_extents[index] for index in range(3)),
+        )
+
+    return LtModelPlacementInfo(bounds=bounds, binding_origin=binding_origin, binding_extents=binding_extents)
+
+
+def lt_model_bounds_half_extents(bounds: LtModelBounds) -> tuple[float, float, float]:
+    return tuple(max(0.0, (bounds.max[index] - bounds.min[index]) * 0.5) for index in range(3))
+
+
+def vec3_list_property(value: Any) -> list[float] | None:
+    if isinstance(value, list) and len(value) >= 3:
+        return [float(value[index]) for index in range(3)]
+    return None
+
+
+def explicit_dims_extents_lt(properties: dict[str, Any]) -> tuple[float, float, float] | None:
+    dims = vec3_list_property(properties.get("dims"))
+    if dims is None:
+        return None
+    return tuple(max(0.5, abs(dims[index])) for index in range(3))
+
+
+def placement_extents_lt(
+    properties: dict[str, Any],
+    placement_info: LtModelPlacementInfo | None,
+) -> tuple[float, float, float]:
+    explicit = explicit_dims_extents_lt(properties)
+    if explicit is not None:
+        return explicit
+    if placement_info is not None and all(value > 0.0 for value in placement_info.binding_extents):
+        return placement_info.binding_extents
+    if placement_info is not None:
+        return lt_model_bounds_half_extents(placement_info.bounds)
+    return (64.0, 64.0, 64.0)
+
+
+def placement_half_dims_lt(
+    properties: dict[str, Any],
+    placement_info: LtModelPlacementInfo | None,
+    uniform_scale: float,
+) -> tuple[float, float, float]:
+    scale = abs(uniform_scale)
+    return tuple(value * scale for value in placement_extents_lt(properties, placement_info))
+
+
+def placement_skip_key(value: Any) -> str:
+    return str(value or "").lower()
+
+
+def object_skips_floor_placement(source_class: str, source_name: str) -> bool:
+    class_name = placement_skip_key(source_class)
+    name = placement_skip_key(source_name)
+    return (
+        "terrain" in class_name
+        or "physicsbsp" in class_name
+        or "visbsp" in class_name
+        or "airail" in class_name
+        or "sky" in class_name
+        or "trigger" in class_name
+        or "volumebrush" in class_name
+        or "terrain" in name
+        or "physicsbsp" in name
+        or "visbsp" in name
+        or "rail" in name
+        or "sky" in name
+        or "trigger" in name
+    )
+
+
+def is_plant_or_tree_prop_source(source_class: str, source_model: str) -> bool:
+    return source_class.lower() == "prop" and is_plant_model_source(source_model)
+
+
+def is_decorative_plant_or_tree_prop(
+    source_class: str,
+    source_model: str,
+    properties: dict[str, Any],
+    move_to_floor: bool,
+) -> bool:
+    if source_class.lower() != "prop" or move_to_floor:
+        return False
+    if not truthy_property(properties.get("rayhit"), False):
+        return False
+    if truthy_property(properties.get("solid"), False):
+        return False
+    if not truthy_property(properties.get("visible"), True):
+        return False
+    return is_plant_model_source(source_model)
+
+
+def source_model_is_authored_floor_contact(source_model: str) -> bool:
+    normalized = normalize_model_source_key(source_model)
+    return normalized in {
+        "props/barstool1.abc",
+        "props/chair.abc",
+        "props/chair02.abc",
+        "props/chair03.abc",
+        "props/chair_fordesk02.abc",
+        "props/table01.abc",
+        "props/table_bench.abc",
+        "props/tableround.abc",
+        "props/tabletrestle.abc",
+    }
+
+
+def transformed_model_aabb_lt(
+    position: list[float],
+    rotation: list[float],
+    uniform_scale: float,
+    bounds: LtModelBounds,
+    model_translation_lt: tuple[float, float, float],
+) -> LtModelBounds:
+    quat = lt_rotation_to_odm_quat(rotation)
+    min_values: list[float] | None = None
+    max_values: list[float] | None = None
+    scale = abs(uniform_scale)
+    for x in (bounds.min[0], bounds.max[0]):
+        for y in (bounds.min[1], bounds.max[1]):
+            for z in (bounds.min[2], bounds.max[2]):
+                local = lt_to_odm(
+                    (
+                        x + model_translation_lt[0],
+                        y + model_translation_lt[1],
+                        z + model_translation_lt[2],
+                    ),
+                    scale,
+                )
+                rotated = rotate_vec_by_quat((float(local.x), float(local.y), float(local.z)), quat)
+                world = [
+                    float(position[0]) + rotated[0],
+                    float(position[1]) + rotated[2],
+                    float(position[2]) + rotated[1],
+                ]
+                if min_values is None or max_values is None:
+                    min_values = list(world)
+                    max_values = list(world)
+                else:
+                    for index in range(3):
+                        min_values[index] = min(min_values[index], world[index])
+                        max_values[index] = max(max_values[index], world[index])
+
+    assert min_values is not None and max_values is not None
+    return LtModelBounds(min=tuple(min_values), max=tuple(max_values))
 
 
 def truthy_property(value: Any, default: bool = False) -> bool:
@@ -1890,6 +2126,192 @@ def move_position_to_floor_lt(
         moved_position[1] = best_floor_y + half_dims_lt[1] + placement_bias
         return moved_position, "snapped"
     return moved_position, "already_supported"
+
+
+def floor_y_under_position_lt(
+    position: list[float],
+    floor_triangles: list[LtFloorTriangle],
+    max_drop_distance: float = 10000.0,
+) -> float | None:
+    best_floor_y: float | None = None
+    for triangle in floor_triangles:
+        floor_y = intersect_vertical_floor_lt(position, triangle, max_drop_distance)
+        if floor_y is None:
+            continue
+        if best_floor_y is None or floor_y > best_floor_y:
+            best_floor_y = floor_y
+    return best_floor_y
+
+
+def intersect_vertical_floor_any_direction_lt(
+    position: list[float],
+    triangle: LtFloorTriangle,
+    max_vertical_distance: float,
+) -> float | None:
+    if len(position) != 3:
+        return None
+
+    origin = (float(position[0]), float(position[1]), float(position[2]))
+    a, b, c = triangle.vertices
+    normal = vec_cross(vec_sub_lt(b, a), vec_sub_lt(c, a))
+    if abs(normal[1]) <= 0.000001:
+        return None
+
+    floor_y = a[1] - (normal[0] * (origin[0] - a[0]) + normal[2] * (origin[2] - a[2])) / normal[1]
+    if abs(origin[1] - floor_y) > max_vertical_distance:
+        return None
+
+    hit = (origin[0], floor_y, origin[2])
+    if not point_inside_triangle_lt(hit, triangle):
+        return None
+    return floor_y
+
+
+def floor_y_near_position_lt(
+    position: list[float],
+    floor_triangles: list[LtFloorTriangle],
+    max_vertical_distance: float = 10000.0,
+) -> float | None:
+    best_floor_y: float | None = None
+    best_distance: float | None = None
+    for triangle in floor_triangles:
+        floor_y = intersect_vertical_floor_any_direction_lt(position, triangle, max_vertical_distance)
+        if floor_y is None:
+            continue
+        distance = abs(float(position[1]) - floor_y)
+        if (
+            best_distance is None
+            or distance < best_distance - 0.0001
+            or (abs(distance - best_distance) <= 0.0001 and (best_floor_y is None or floor_y > best_floor_y))
+        ):
+            best_floor_y = floor_y
+            best_distance = distance
+    return best_floor_y
+
+
+def move_position_to_model_support_lt(
+    position: list[float],
+    source_object_index: int,
+    half_dims_lt: tuple[float, float, float],
+    model_supports: list[LtPlacementSupport],
+    max_drop_distance: float = 10000.0,
+    placement_bias: float = 0.1,
+) -> tuple[list[float], str, float | None]:
+    best_support: LtPlacementSupport | None = None
+    best_distance: float | None = None
+
+    for support in model_supports:
+        if support.source_object_index == source_object_index:
+            continue
+        if support.half_extents[0] + 0.1 < half_dims_lt[0]:
+            continue
+        if support.half_extents[2] + 0.1 < half_dims_lt[2]:
+            continue
+        if position[0] < support.center[0] - support.half_extents[0]:
+            continue
+        if position[0] > support.center[0] + support.half_extents[0]:
+            continue
+        if position[2] < support.center[2] - support.half_extents[2]:
+            continue
+        if position[2] > support.center[2] + support.half_extents[2]:
+            continue
+
+        floor_y = support.center[1] + support.half_extents[1]
+        distance = float(position[1]) - floor_y
+        if floor_y > float(position[1]) + 0.1:
+            continue
+        if distance < -0.000001 or distance > max_drop_distance:
+            continue
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_support = support
+
+    if best_support is None or best_distance is None:
+        return position, "no_support", None
+
+    floor_y = best_support.center[1] + best_support.half_extents[1]
+    moved_position = [float(position[0]), float(position[1]), float(position[2])]
+    if best_distance > half_dims_lt[1]:
+        moved_position[1] = floor_y + half_dims_lt[1] + placement_bias
+        return moved_position, "snapped", best_distance
+    return moved_position, "already_supported", best_distance
+
+
+def model_support_for_work_item(work_item: BakedModelWorkItem) -> LtPlacementSupport | None:
+    if work_item.plant_or_tree_source or work_item.placement_info is None:
+        return None
+
+    if not (work_item.solid or work_item.ray_hit):
+        return None
+
+    model_translation_lt = tuple(
+        work_item.placement_info.binding_origin[index] + work_item.visual_offset_lt[index]
+        for index in range(3)
+    )
+    bounds = transformed_model_aabb_lt(
+        work_item.position_lt,
+        work_item.rotation_lt,
+        work_item.uniform_scale,
+        work_item.placement_info.bounds,
+        model_translation_lt,
+    )
+    center = tuple((bounds.min[index] + bounds.max[index]) * 0.5 for index in range(3))
+    half_extents = tuple((bounds.max[index] - bounds.min[index]) * 0.5 for index in range(3))
+    if object_skips_floor_placement(work_item.source_class, work_item.source_name):
+        return None
+    return LtPlacementSupport(
+        source_object_index=work_item.object_index,
+        source_name=work_item.source_name,
+        center=center,
+        half_extents=half_extents,
+    )
+
+
+def build_model_supports(work_items: list[BakedModelWorkItem]) -> list[LtPlacementSupport]:
+    supports: list[LtPlacementSupport] = []
+    for work_item in work_items:
+        support = model_support_for_work_item(work_item)
+        if support is not None:
+            supports.append(support)
+    return supports
+
+
+def apply_model_support_floor_pass(
+    work_items: list[BakedModelWorkItem],
+    properties_by_object_index: dict[int, dict[str, Any]],
+    floor_triangles: list[LtFloorTriangle],
+) -> None:
+    model_supports = build_model_supports(work_items)
+    for work_item in work_items:
+        properties = properties_by_object_index.get(work_item.object_index, {})
+        if not work_item.move_to_floor:
+            continue
+        if object_skips_floor_placement(work_item.source_class, work_item.source_name):
+            continue
+        half_dims = placement_half_dims_lt(properties, work_item.placement_info, work_item.uniform_scale)
+        world_position, world_status = move_position_to_floor_lt(work_item.raw_position_lt, half_dims, floor_triangles)
+        model_position, model_status, model_distance = move_position_to_model_support_lt(
+            work_item.raw_position_lt,
+            work_item.object_index,
+            half_dims,
+            model_supports,
+        )
+        use_model = False
+        if model_status in {"snapped", "already_supported"}:
+            if world_status not in {"snapped", "already_supported"}:
+                use_model = True
+            elif work_item.source_class.lower() == "prop":
+                use_model = True
+            else:
+                world_distance = max(0.0, float(work_item.raw_position_lt[1]) - float(world_position[1]))
+                use_model = model_distance is not None and model_distance < world_distance
+
+        if use_model:
+            work_item.position_lt = model_position
+            work_item.placement_kind = f"move_to_floor_model_{model_status}"
+        elif world_status in {"snapped", "already_supported"}:
+            work_item.position_lt = world_position
+            work_item.placement_kind = f"move_to_floor_world_{world_status}"
 
 
 def bmodel_name_for_baked_object(source_object_index: int, source_name: str, kind: str) -> str:
@@ -2073,6 +2495,7 @@ def bake_abc_model_instance(
     alias_metadata: dict[str, dict[str, Any]],
     used_aliases: set[str],
     source_model_index: int,
+    visual_offset_lt: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> OdmBModel:
     kind = baked_model_kind(source_class, source_model)
     bmodel = OdmBModel(
@@ -2084,7 +2507,8 @@ def bake_abc_model_instance(
     )
 
     source_poly_index = 0
-    model_translation_lt = abc_static_model_translation_lt(abc_model)
+    binding_translation_lt = abc_static_model_translation_lt(abc_model)
+    model_translation_lt = tuple(binding_translation_lt[index] + visual_offset_lt[index] for index in range(3))
     for piece in abc_model.pieces:
         if not piece.lods:
             continue
@@ -2254,6 +2678,12 @@ def transcode_geometry(
         "baked_model_move_to_floor_already_supported": 0,
         "baked_model_move_to_floor_no_support": 0,
         "baked_model_move_to_floor_missing_dims": 0,
+        "baked_model_move_to_floor_defaulted": 0,
+        "baked_model_move_to_floor_model_snapped": 0,
+        "baked_model_move_to_floor_model_already_supported": 0,
+        "baked_model_visual_ground_lift": 0,
+        "baked_model_visual_terrain_offset": 0,
+        "baked_model_visual_floor_lift": 0,
     }
 
     for model_index, model in enumerate(dat_world.world_models):
@@ -2371,9 +2801,12 @@ def transcode_geometry(
         model_index = build_case_insensitive_file_index(extracted_root / "MODELS" / "MODELS", ".abc")
         abc_cache: dict[Path, AbcModel] = {}
         floor_triangles = build_floor_support_triangles(dat_world)
+        work_items: list[BakedModelWorkItem] = []
+        properties_by_object_index: dict[int, dict[str, Any]] = {}
 
         for object_index, world_object in enumerate(dat_world.objects):
             properties = object_property_map(world_object)
+            properties_by_object_index[object_index] = properties
             source_model = properties.get("filename")
             position = properties.get("pos")
             if not isinstance(source_model, str) or not source_model:
@@ -2417,17 +2850,19 @@ def transcode_geometry(
                     continue
                 abc_cache[model_path] = abc_model
 
-            bake_position = position
-            if truthy_property(properties.get("movetofloor"), False):
+            placement_info = abc_static_model_placement_info(abc_model)
+            raw_position = [float(position[0]), float(position[1]), float(position[2])]
+            bake_position = list(raw_position)
+            visual_offset_lt = [0.0, 0.0, 0.0]
+            move_to_floor_property = properties.get("movetofloor")
+            move_to_floor = truthy_property(move_to_floor_property, True)
+            if move_to_floor_property is None:
+                stats["baked_model_move_to_floor_defaulted"] += 1
+
+            if move_to_floor and not object_skips_floor_placement(source_class, source_name):
                 stats["baked_model_move_to_floor_requested"] += 1
-                half_dims = abc_static_model_half_dims_lt(abc_model)
-                if half_dims is not None:
-                    half_dims = (
-                        half_dims[0] * float(uniform_scale),
-                        half_dims[1] * float(uniform_scale),
-                        half_dims[2] * float(uniform_scale),
-                    )
-                bake_position, floor_status = move_position_to_floor_lt(position, half_dims, floor_triangles)
+                half_dims = placement_half_dims_lt(properties, placement_info, float(uniform_scale))
+                bake_position, floor_status = move_position_to_floor_lt(raw_position, half_dims, floor_triangles)
                 if floor_status == "snapped":
                     stats["baked_model_move_to_floor_snapped"] += 1
                 elif floor_status == "already_supported":
@@ -2437,23 +2872,134 @@ def transcode_geometry(
                 elif floor_status == "missing_dims":
                     stats["baked_model_move_to_floor_missing_dims"] += 1
 
+            plant_or_tree_source = is_plant_or_tree_prop_source(source_class, normalized_source_model)
+            if (
+                placement_info is not None
+                and plant_or_tree_source
+                and truthy_property(properties.get("visible"), True)
+            ):
+                model_height = max(0.0, placement_info.bounds.max[1] - placement_info.bounds.min[1])
+                scale_y = abs(float(uniform_scale))
+                ground_lift = max(0.0, -placement_info.bounds.min[1])
+                visual_offset_y = ground_lift
+                terrain_floor_y = floor_y_near_position_lt(
+                    raw_position,
+                    floor_triangles,
+                    max(512.0, model_height * scale_y),
+                )
+                if terrain_floor_y is not None:
+                    model_translation_lt = tuple(
+                        placement_info.binding_origin[index] + (
+                            visual_offset_y if index == 1 else visual_offset_lt[index]
+                        )
+                        for index in range(3)
+                    )
+                    bounds = transformed_model_aabb_lt(
+                        bake_position,
+                        rotation,
+                        float(uniform_scale),
+                        placement_info.bounds,
+                        model_translation_lt,
+                    )
+                    terrain_delta = terrain_floor_y - bounds.min[1]
+                    if abs(terrain_delta) > 0.25 and scale_y > 0.000001:
+                        visual_offset_y = max(0.0, visual_offset_y + terrain_delta / scale_y)
+                        stats["baked_model_visual_terrain_offset"] += 1
+                    else:
+                        stats["baked_model_visual_ground_lift"] += 1
+                elif ground_lift > 0.0:
+                    stats["baked_model_visual_ground_lift"] += 1
+                visual_offset_lt[1] = visual_offset_y
+
+            if (
+                placement_info is not None
+                and source_model_is_authored_floor_contact(normalized_source_model)
+                and not move_to_floor
+                and truthy_property(properties.get("visible"), True)
+                and truthy_property(properties.get("rayhit"), False)
+            ):
+                floor_y = floor_y_under_position_lt(raw_position, floor_triangles, max_drop_distance=10000.0)
+                if floor_y is not None:
+                    model_translation_lt = tuple(
+                        placement_info.binding_origin[index] + visual_offset_lt[index]
+                        for index in range(3)
+                    )
+                    bounds = transformed_model_aabb_lt(
+                        raw_position,
+                        rotation,
+                        float(uniform_scale),
+                        placement_info.bounds,
+                        model_translation_lt,
+                    )
+                    bottom_y = bounds.min[1]
+                    scale_y = abs(float(uniform_scale))
+                    if bottom_y < floor_y - 0.25 and scale_y > 0.000001:
+                        visual_offset_lt[1] += (floor_y - bottom_y + 0.1) / scale_y
+                        stats["baked_model_visual_floor_lift"] += 1
+
+            work_items.append(BakedModelWorkItem(
+                object_index=object_index,
+                source_class=source_class,
+                source_name=source_name,
+                source_model=normalized_source_model,
+                source_skin=source_skin,
+                position_lt=bake_position,
+                raw_position_lt=raw_position,
+                rotation_lt=rotation,
+                uniform_scale=float(uniform_scale),
+                visual_offset_lt=tuple(visual_offset_lt),
+                placement_kind="move_to_floor_world" if bake_position != raw_position else "",
+                abc_model=abc_model,
+                placement_info=placement_info,
+                plant_or_tree_source=plant_or_tree_source,
+                move_to_floor=move_to_floor,
+                solid=truthy_property(properties.get("solid"), False),
+                ray_hit=truthy_property(properties.get("rayhit"), False),
+            ))
+
+        apply_model_support_floor_pass(work_items, properties_by_object_index, floor_triangles)
+        apply_model_support_floor_pass(work_items, properties_by_object_index, floor_triangles)
+
+        for work_item in work_items:
+            if work_item.move_to_floor and work_item.placement_info is not None:
+                floor_y = floor_y_under_position_lt(work_item.position_lt, floor_triangles)
+                if floor_y is not None:
+                    model_translation_lt = tuple(
+                        work_item.placement_info.binding_origin[index] + work_item.visual_offset_lt[index]
+                        for index in range(3)
+                    )
+                    bounds = transformed_model_aabb_lt(
+                        work_item.position_lt,
+                        work_item.rotation_lt,
+                        work_item.uniform_scale,
+                        work_item.placement_info.bounds,
+                        model_translation_lt,
+                    )
+                    scale_y = abs(work_item.uniform_scale)
+                    if bounds.min[1] < floor_y - 0.25 and scale_y > 0.000001:
+                        visual_offset = list(work_item.visual_offset_lt)
+                        visual_offset[1] += (floor_y - bounds.min[1] + 0.1) / scale_y
+                        work_item.visual_offset_lt = tuple(visual_offset)
+                        stats["baked_model_visual_floor_lift"] += 1
+
             source_model_index = len(dat_world.world_models) + len(baked_model_instances)
             bmodel = bake_abc_model_instance(
-                abc_model,
-                object_index,
-                source_class,
-                source_name,
-                normalized_source_model,
-                source_skin,
-                bake_position,
-                rotation,
-                float(uniform_scale),
+                work_item.abc_model,
+                work_item.object_index,
+                work_item.source_class,
+                work_item.source_name,
+                work_item.source_model,
+                work_item.source_skin,
+                work_item.position_lt,
+                work_item.rotation_lt,
+                work_item.uniform_scale,
                 scale,
                 texture_sizes,
                 aliases_by_source,
                 alias_metadata,
                 used_aliases,
                 source_model_index,
+                work_item.visual_offset_lt,
             )
             if not bmodel.faces:
                 stats["baked_model_empty"] += 1
@@ -2461,21 +3007,29 @@ def transcode_geometry(
 
             bmodels.append(bmodel)
             bmodel_index = len(bmodels) - 1
-            kind = baked_model_kind(source_class, normalized_source_model)
+            kind = baked_model_kind(work_item.source_class, work_item.source_model)
             destructible = kind == "destructible_prop"
             baked_model_instances.append(BakedModelInstance(
-                source_object_index=object_index,
-                source_class=source_class,
-                source_name=source_name,
-                source_model=normalized_source_model,
-                source_skin=source_skin,
+                source_object_index=work_item.object_index,
+                source_class=work_item.source_class,
+                source_name=work_item.source_name,
+                source_model=work_item.source_model,
+                source_skin=work_item.source_skin,
                 bmodel_index=bmodel_index,
                 bmodel_name=bmodel.name,
                 kind=kind,
                 destructible=destructible,
+                placement_kind=work_item.placement_kind,
+                source_position_lt=list(work_item.raw_position_lt),
+                bake_position_lt=list(work_item.position_lt),
+                visual_offset_lt=list(work_item.visual_offset_lt),
             ))
             stats["baked_model_instances"] += 1
             stats["baked_model_faces"] += len(bmodel.faces)
+            if work_item.placement_kind == "move_to_floor_model_snapped":
+                stats["baked_model_move_to_floor_model_snapped"] += 1
+            elif work_item.placement_kind == "move_to_floor_model_already_supported":
+                stats["baked_model_move_to_floor_model_already_supported"] += 1
             if destructible:
                 stats["baked_model_destructible_props"] += 1
             elif kind == "chest":
@@ -3047,6 +3601,26 @@ def build_baked_model_instance_lines(baked_instances: list[BakedModelInstance]) 
             f"    kind: {yaml_scalar(instance.kind)}",
             f"    destructible: {yaml_scalar(instance.destructible)}",
         ])
+        if instance.placement_kind:
+            lines.append(f"    placement_kind: {yaml_scalar(instance.placement_kind)}")
+        if instance.source_position_lt:
+            lines.append(
+                "    source_position_lt: ["
+                + ", ".join(f"{value:.8g}" for value in instance.source_position_lt)
+                + "]"
+            )
+        if instance.bake_position_lt:
+            lines.append(
+                "    bake_position_lt: ["
+                + ", ".join(f"{value:.8g}" for value in instance.bake_position_lt)
+                + "]"
+            )
+        if instance.visual_offset_lt and any(abs(value) > 0.000001 for value in instance.visual_offset_lt):
+            lines.append(
+                "    visual_offset_lt: ["
+                + ", ".join(f"{value:.8g}" for value in instance.visual_offset_lt)
+                + "]"
+            )
     return lines
 
 

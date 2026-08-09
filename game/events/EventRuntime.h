@@ -570,7 +570,8 @@ public:
         Party *pParty = nullptr,
         ISceneEventContext *pSceneEventContext = nullptr,
         std::optional<uint8_t> continueStep = std::nullopt,
-        bool allowGlobalFallback = true
+        bool allowGlobalFallback = true,
+        std::optional<ScriptedEventScope> requiredScope = std::nullopt
     ) const;
     bool executeNpcTopicEventById(
         const std::optional<ScriptedEventProgram> &localProgram,

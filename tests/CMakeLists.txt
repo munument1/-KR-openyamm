@@ -21,6 +21,7 @@ add_executable(openyamm_unit_tests
     IndoorPathfindingBuilderTests.cpp
     IndoorPortalGraphTests.cpp
     IndoorPortalVisibilityTests.cpp
+    IndoorRenderRevisionTests.cpp
     InventoryEquipRegressionTests.cpp
     LegacyLuaExportTests.cpp
     MapStatsRegressionTests.cpp
@@ -36,6 +37,7 @@ add_executable(openyamm_unit_tests
     PathPlannerTests.cpp
     RegressionMapLoader.cpp
     ScreenManagerTests.cpp
+    ScriptedEventTimerTests.cpp
     SpellRegressionTests.cpp
     RegressionGameData.cpp
     SpellbookUiLayoutTests.cpp
@@ -64,6 +66,7 @@ add_executable(openyamm_unit_tests
     ../game/events/EventRuntime.cpp
     ../game/events/EventDialogContent.cpp
     ../game/events/ScriptedEventProgram.cpp
+    ../game/events/ScriptedEventTimer.cpp
     ../game/gameplay/ChestRuntime.cpp
     ../game/gameplay/GameplayBolsterRuntime.cpp
     ../game/gameplay/GameplayActorAiSystem.cpp

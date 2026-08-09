@@ -209,6 +209,7 @@ constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
 constexpr uint32_t EnvironmentFlagRedFog = 0x80;
 constexpr uint32_t MapWeatherFoggy = 0x01;
 constexpr size_t MaxActorTexturePreloadWorkerCount = 2;
+constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
 
 bool decodeOutdoorMapExtra(
     const MapDeltaLocationTime &locationTime,
@@ -821,8 +822,6 @@ void collectSummonMonsterSpriteFamilies(
     std::unordered_set<std::string> &neededWorldPrefixedMonsterSpriteNames,
     const MonsterTable &monsterTable)
 {
-    static constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
-
     for (int16_t monsterId : SummonWispMonsterIds)
     {
         appendMonsterSpriteFamilies(
@@ -1516,6 +1515,11 @@ void appendBitmapTextureRequestIfMissing(
     int16_t paletteId
 )
 {
+    if (textureName.empty())
+    {
+        return;
+    }
+
     const auto requestIt = std::find_if(
         textureRequests.begin(),
         textureRequests.end(),
@@ -2389,20 +2393,22 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
     return billboardSet;
 }
 
+void appendSpriteFrameTextures(
+    std::vector<BitmapTextureRequest> &textureRequests,
+    const SpriteFrameTable &spriteFrameTable,
+    uint16_t spriteFrameIndex);
+
 std::optional<SpriteObjectBillboardSet> buildSpriteObjectBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const ObjectTable &objectTable,
     const std::optional<MapDeltaData> &mapDeltaData,
+    bool preloadAllObjectSprites,
+    const std::string &worldId,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
 )
 {
-    if (!mapDeltaData || mapDeltaData->spriteObjects.empty())
-    {
-        return std::nullopt;
-    }
-
     SpriteObjectBillboardSet billboardSet = {};
 
     const std::optional<SpriteFrameTable> spriteFrameTable =
@@ -2415,103 +2421,84 @@ std::optional<SpriteObjectBillboardSet> buildSpriteObjectBillboardSet(
 
     billboardSet.spriteFrameTable = *spriteFrameTable;
 
-    std::vector<std::string> textureNames;
+    std::vector<BitmapTextureRequest> textureRequests;
 
-    for (size_t objectIndex = 0; objectIndex < mapDeltaData->spriteObjects.size(); ++objectIndex)
+    // OE initializes every object descriptor once at startup, not only objects already placed in the current map.
+    // Do the equivalent before gameplay so newly spawned spell missiles, impacts, and dropped objects cannot trigger
+    // bitmap decoding and GPU upload on their first rendered frame.
+    if (preloadAllObjectSprites)
     {
-        const MapDeltaSpriteObject &spriteObject = mapDeltaData->spriteObjects[objectIndex];
-        const ObjectEntry *pObjectEntry = objectTable.get(spriteObject.objectDescriptionId);
-
-        if (pObjectEntry == nullptr || (pObjectEntry->flags & 0x0001) != 0 || pObjectEntry->spriteId == 0)
+        for (const ObjectEntry &objectEntry : objectTable.entries())
         {
-            continue;
-        }
-
-        if (hasContainingItemPayload(spriteObject.rawContainingItem)
-            && (pObjectEntry->flags & ObjectDescUnpickable) == 0)
-        {
-            continue;
-        }
-
-        const SpriteFrameEntry *pFrame =
-            billboardSet.spriteFrameTable.getFrame(pObjectEntry->spriteId, uint32_t(spriteObject.timeSinceCreated) * 8);
-
-        SpriteObjectBillboard billboard = {};
-        billboard.index = objectIndex;
-        billboard.spriteFrameIndex = pObjectEntry->spriteId;
-        billboard.objectDescriptionId = spriteObject.objectDescriptionId;
-        billboard.objectSpriteId = pObjectEntry->spriteId;
-        billboard.attributes = spriteObject.attributes;
-        billboard.soundId = spriteObject.soundId;
-        billboard.x = spriteObject.x;
-        billboard.y = spriteObject.y;
-        billboard.z = spriteObject.z;
-        billboard.radius = pObjectEntry->radius;
-        billboard.height = pObjectEntry->height;
-        billboard.sectorId = spriteObject.sectorId;
-        billboard.temporaryLifetime = spriteObject.temporaryLifetime;
-        billboard.glowRadiusMultiplier = spriteObject.glowRadiusMultiplier;
-        billboard.spellId = spriteObject.spellId;
-        billboard.spellLevel = spriteObject.spellLevel;
-        billboard.spellSkill = spriteObject.spellSkill;
-        billboard.spellCasterPid = spriteObject.spellCasterPid;
-        billboard.spellTargetPid = spriteObject.spellTargetPid;
-        billboard.timeSinceCreatedTicks = uint32_t(spriteObject.timeSinceCreated) * 8;
-        billboard.objectName = pObjectEntry->internalName;
-        billboardSet.billboards.push_back(std::move(billboard));
-
-        if (pFrame == nullptr)
-        {
-            continue;
-        }
-
-        const std::vector<std::string> billboardTextureNames =
-            billboardSet.spriteFrameTable.collectTextureNames(pObjectEntry->spriteId);
-
-        for (const std::string &textureName : billboardTextureNames)
-        {
-            appendTextureNameIfMissing(textureNames, textureName);
+            appendSpriteFrameTextures(textureRequests, billboardSet.spriteFrameTable, objectEntry.spriteId);
         }
     }
 
-    if (billboardSet.billboards.empty())
+    if (mapDeltaData)
     {
-        return std::nullopt;
+        for (size_t objectIndex = 0; objectIndex < mapDeltaData->spriteObjects.size(); ++objectIndex)
+        {
+            const MapDeltaSpriteObject &spriteObject = mapDeltaData->spriteObjects[objectIndex];
+            const ObjectEntry *pObjectEntry = objectTable.get(spriteObject.objectDescriptionId);
+
+            if (pObjectEntry == nullptr || (pObjectEntry->flags & 0x0001) != 0 || pObjectEntry->spriteId == 0)
+            {
+                continue;
+            }
+
+            if (hasContainingItemPayload(spriteObject.rawContainingItem)
+                && (pObjectEntry->flags & ObjectDescUnpickable) == 0)
+            {
+                continue;
+            }
+
+            appendSpriteFrameTextures(textureRequests, billboardSet.spriteFrameTable, pObjectEntry->spriteId);
+
+            SpriteObjectBillboard billboard = {};
+            billboard.index = objectIndex;
+            billboard.spriteFrameIndex = pObjectEntry->spriteId;
+            billboard.objectDescriptionId = spriteObject.objectDescriptionId;
+            billboard.objectSpriteId = pObjectEntry->spriteId;
+            billboard.attributes = spriteObject.attributes;
+            billboard.soundId = spriteObject.soundId;
+            billboard.x = spriteObject.x;
+            billboard.y = spriteObject.y;
+            billboard.z = spriteObject.z;
+            billboard.radius = pObjectEntry->radius;
+            billboard.height = pObjectEntry->height;
+            billboard.sectorId = spriteObject.sectorId;
+            billboard.temporaryLifetime = spriteObject.temporaryLifetime;
+            billboard.glowRadiusMultiplier = spriteObject.glowRadiusMultiplier;
+            billboard.spellId = spriteObject.spellId;
+            billboard.spellLevel = spriteObject.spellLevel;
+            billboard.spellSkill = spriteObject.spellSkill;
+            billboard.spellCasterPid = spriteObject.spellCasterPid;
+            billboard.spellTargetPid = spriteObject.spellTargetPid;
+            billboard.timeSinceCreatedTicks = uint32_t(spriteObject.timeSinceCreated) * 8;
+            billboard.objectName = pObjectEntry->internalName;
+            billboardSet.billboards.push_back(std::move(billboard));
+        }
     }
 
     const Engine::AssetScaleTier spriteAssetScaleTier =
         assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Sprites);
 
-    for (const std::string &textureName : textureNames)
+    for (const BitmapTextureRequest &textureRequest : textureRequests)
     {
         pumpMapLoadProgress(progressPump);
-        int textureWidth = 0;
-        int textureHeight = 0;
-        const std::optional<std::vector<uint8_t>> pixels =
-            loadBitmapPixelsBgra(
+        OutdoorBitmapTexture texture =
+            decodeActorBitmapTextureRequest(
                 assetFileSystem,
-                "Data/sprites",
-                textureName,
-                textureWidth,
-                textureHeight,
-                false,
-                true,
-                bitmapLoadCache
-            );
+                textureRequest,
+                spriteAssetScaleTier,
+                worldId,
+                bitmapLoadCache);
 
-        if (!pixels || textureWidth <= 0 || textureHeight <= 0)
+        if (texture.pixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
         {
             continue;
         }
 
-        OutdoorBitmapTexture texture = {};
-        texture.textureName = textureName;
-        texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, spriteAssetScaleTier);
-        texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, spriteAssetScaleTier);
-        texture.physicalWidth = textureWidth;
-        texture.physicalHeight = textureHeight;
-        updateBitmapAlphaInfo(texture, *pixels);
-        texture.pixels = *pixels;
         billboardSet.textures.push_back(std::move(texture));
     }
 
@@ -2530,9 +2517,9 @@ std::optional<SpriteObjectBillboardSet> buildSpriteObjectBillboardSet(
         const auto textureIt = std::find_if(
             billboardSet.textures.begin(),
             billboardSet.textures.end(),
-            [&resolvedTexture](const OutdoorBitmapTexture &texture)
+            [&resolvedTexture, pFrame](const OutdoorBitmapTexture &texture)
             {
-                return texture.textureName == resolvedTexture.textureName;
+                return texture.textureName == resolvedTexture.textureName && texture.paletteId == pFrame->paletteId;
             }
         );
 
@@ -2760,6 +2747,20 @@ void appendMonsterActionTextures(
     for (uint16_t spriteFrameIndex : actionSpriteFrameIndices)
     {
         appendSpriteFrameTextures(textureRequests, spriteFrameTable, spriteFrameIndex);
+    }
+}
+
+void appendSummonMonsterTextures(
+    std::vector<BitmapTextureRequest> &textureRequests,
+    const SpriteFrameTable &spriteFrameTable,
+    const MonsterTable &monsterTable)
+{
+    for (int16_t monsterId : SummonWispMonsterIds)
+    {
+        appendMonsterActionTextures(
+            textureRequests,
+            spriteFrameTable,
+            buildMonsterActionSpriteFrameIndices(spriteFrameTable, monsterTable.findById(monsterId)));
     }
 }
 
@@ -3088,8 +3089,9 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
     }
 
     appendSpawnActors(billboardSet, textureRequests, map, monsterTable, spawns, pOutdoorMapData);
+    appendSummonMonsterTextures(textureRequests, billboardSet.spriteFrameTable, monsterTable);
 
-    if (billboardSet.billboards.empty())
+    if (billboardSet.billboards.empty() && textureRequests.empty())
     {
         return std::nullopt;
     }
@@ -4149,6 +4151,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         objectTable,
                         assetInfo.outdoorMapDeltaData,
+                        purpose == MapLoadPurpose::FullGameplay,
+                        map.worldId,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache
@@ -4327,6 +4331,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         objectTable,
                         assetInfo.indoorMapDeltaData,
+                        purpose == MapLoadPurpose::FullGameplay,
+                        map.worldId,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache

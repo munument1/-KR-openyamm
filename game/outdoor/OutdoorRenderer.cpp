@@ -2648,13 +2648,15 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     }
 
     createBModelTextureBatches(view, outdoorMapData, outdoorBModelTextureSet);
+    ensureBloodSplatTexture(view);
 
     return true;
 }
 
 const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
     OutdoorGameView &view,
-    const std::string &textureName)
+    const std::string &textureName,
+    bool warnOnCacheMiss)
 {
     if (textureName.empty())
     {
@@ -2664,10 +2666,30 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
     const std::string normalizedTextureName = toLowerCopy(textureName);
     const auto cachedTextureIt = view.m_skyTextureIndexByName.find(normalizedTextureName);
 
-    if (cachedTextureIt != view.m_skyTextureIndexByName.end() && cachedTextureIt->second < view.m_skyTextureHandles.size())
+    if (cachedTextureIt != view.m_skyTextureIndexByName.end()
+        && cachedTextureIt->second < view.m_skyTextureHandles.size())
     {
         return &view.m_skyTextureHandles[cachedTextureIt->second];
     }
+
+    const bool logCacheMiss =
+        warnOnCacheMiss && view.m_runtimeSkyLoadWarningNames.insert(normalizedTextureName).second;
+    const uint64_t loadBeginTickNanoseconds = logCacheMiss ? SDL_GetTicksNS() : 0;
+    const auto logLoadResult = [&](const char *pResult, int width, int height)
+    {
+        if (!logCacheMiss)
+        {
+            return;
+        }
+
+        std::cerr << "[AssetLoadWarning] kind=sky phase=render scene=outdoor"
+                  << " map=\"" << (view.m_map ? view.m_map->fileName : std::string()) << "\""
+                  << " texture=\"" << normalizedTextureName << "\""
+                  << " result=" << pResult
+                  << " load_us=" << (SDL_GetTicksNS() - loadBeginTickNanoseconds) / 1000
+                  << " size=" << width << 'x' << height
+                  << '\n';
+    };
 
     std::optional<std::string> bitmapPath = view.findCachedAssetPath("sky_textures", textureName + ".png");
 
@@ -2678,6 +2700,7 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
 
     if (!bitmapPath)
     {
+        logLoadResult("failed", 0, 0);
         return nullptr;
     }
 
@@ -2685,6 +2708,7 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
 
     if (!bitmapBytes || bitmapBytes->empty())
     {
+        logLoadResult("failed", 0, 0);
         return nullptr;
     }
 
@@ -2693,6 +2717,7 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
 
     if (!image)
     {
+        logLoadResult("failed", 0, 0);
         return nullptr;
     }
 
@@ -2751,11 +2776,13 @@ const OutdoorGameView::SkyTextureHandle *OutdoorRenderer::ensureSkyTexture(
 
     if (!bgfx::isValid(textureHandle.textureHandle))
     {
+        logLoadResult("failed", textureWidth, textureHeight);
         return nullptr;
     }
 
     view.m_skyTextureHandles.push_back(std::move(textureHandle));
     view.m_skyTextureIndexByName[view.m_skyTextureHandles.back().textureName] = view.m_skyTextureHandles.size() - 1;
+    logLoadResult("loaded", textureWidth, textureHeight);
     return &view.m_skyTextureHandles.back();
 }
 
@@ -3116,6 +3143,7 @@ void OutdoorRenderer::invalidateSkyResources(OutdoorGameView &view)
 
     view.m_skyTextureHandles.clear();
     view.m_skyTextureIndexByName.clear();
+    view.m_runtimeSkyLoadWarningNames.clear();
 }
 
 void OutdoorRenderer::destroySkyResources(OutdoorGameView &view)

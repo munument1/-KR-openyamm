@@ -108,7 +108,9 @@ SetMapMetadata({
     spriteNames = {"0", "7tree07", "7tree08", "7tree09", "7tree25", "7tree30", "tree26", "tree27", "tree37"},
     castSpellIds = {},
     timers = {
-    { eventId = 403, repeating = true, intervalGameMinutes = 5, remainingGameMinutes = 5 },
+    { eventId = 65535, sourceEventId = 202, triggerStep = 7, origin = "legacy", triggerKind = "long", scheduleKind = "weekly" },
+    { eventId = 65534, sourceEventId = 204, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 403, sourceEventId = 403, triggerStep = 0, origin = "legacy", triggerKind = "timer", scheduleKind = "interval", intervalHalfMinutes = 10 },
     },
 })
 
@@ -769,4 +771,13 @@ RegisterEvent(503, "Enter Clanker's Laboratory", function()
     end
     evt.SpeakNPC(427) -- Archibald Ironfist
 end, "Enter Clanker's Laboratory")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(21), 0)
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(8))
+end)
 

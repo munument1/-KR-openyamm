@@ -1730,28 +1730,6 @@ bool isCanShowTopicEvent(const EvtEvent &event)
     return false;
 }
 
-bool hasOnLoadTrigger(const EvtEvent &event)
-{
-    return std::any_of(
-        event.instructions.begin(),
-        event.instructions.end(),
-        [](const EvtInstruction &instruction)
-        {
-            return instruction.opcode == EvtOpcode::OnMapReload;
-        });
-}
-
-bool hasOnLeaveTrigger(const EvtEvent &event)
-{
-    return std::any_of(
-        event.instructions.begin(),
-        event.instructions.end(),
-        [](const EvtInstruction &instruction)
-        {
-            return instruction.opcode == EvtOpcode::OnMapLeave;
-        });
-}
-
 bool isIgnoredSourceNormalOpcode(EvtOpcode opcode)
 {
     switch (opcode)
@@ -1778,19 +1756,24 @@ bool isIgnoredSourceNormalOpcode(EvtOpcode opcode)
 
 std::optional<uint8_t> firstSourceNormalStep(const EvtEvent &event)
 {
+    std::optional<uint8_t> firstStep;
+
     for (const EvtInstruction &instruction : event.instructions)
     {
-        if (!isIgnoredSourceNormalOpcode(instruction.opcode))
+        if (!isIgnoredSourceNormalOpcode(instruction.opcode)
+            && (!firstStep || instruction.step < *firstStep))
         {
-            return instruction.step;
+            firstStep = instruction.step;
         }
     }
 
-    return std::nullopt;
+    return firstStep;
 }
 
-std::optional<uint8_t> firstSourceNormalStepAtOrAfter(const EvtEvent &event, uint8_t minimumStep)
+std::optional<uint8_t> firstSourceNormalStepAtOrAfter(const EvtEvent &event, int minimumStep)
 {
+    std::optional<uint8_t> firstStep;
+
     for (const EvtInstruction &instruction : event.instructions)
     {
         if (instruction.step < minimumStep || isIgnoredSourceNormalOpcode(instruction.opcode))
@@ -1798,47 +1781,35 @@ std::optional<uint8_t> firstSourceNormalStepAtOrAfter(const EvtEvent &event, uin
             continue;
         }
 
-        return instruction.step;
-    }
-
-    return std::nullopt;
-}
-
-std::optional<uint8_t> triggerContinuationStep(const EvtEvent &event, EvtOpcode triggerOpcode)
-{
-    for (const EvtInstruction &instruction : event.instructions)
-    {
-        if (instruction.opcode == triggerOpcode)
+        if (!firstStep || instruction.step < *firstStep)
         {
-            return firstSourceNormalStepAtOrAfter(event, static_cast<uint8_t>(instruction.step + 1));
+            firstStep = instruction.step;
         }
     }
 
-    return std::nullopt;
+    return firstStep;
 }
 
-bool hasSupportedOnTimerSchedule(const EvtEvent &event)
+std::optional<uint8_t> triggerContinuationStep(
+    const EvtEvent &event,
+    const EvtInstruction &triggerInstruction)
 {
-    for (const EvtInstruction &instruction : event.instructions)
-    {
-        if (instruction.opcode != EvtOpcode::OnTimer)
-        {
-            continue;
-        }
-
-        if ((instruction.listValues.size() > 6 && instruction.listValues[6] > 0)
-            || (instruction.listValues.size() > 3 && instruction.listValues[3] > 0))
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return firstSourceNormalStepAtOrAfter(event, static_cast<int>(triggerInstruction.step) + 1);
 }
 
-bool triggerNeedsSyntheticEntry(const EvtEvent &event, EvtOpcode triggerOpcode)
+bool isSyntheticTriggerOpcode(EvtOpcode opcode)
 {
-    const std::optional<uint8_t> continuationStep = triggerContinuationStep(event, triggerOpcode);
+    return opcode == EvtOpcode::OnMapReload
+        || opcode == EvtOpcode::OnMapLeave
+        || opcode == EvtOpcode::OnTimer
+        || opcode == EvtOpcode::OnLongTimer;
+}
+
+bool triggerNeedsSyntheticEntry(
+    const EvtEvent &event,
+    const EvtInstruction &triggerInstruction)
+{
+    const std::optional<uint8_t> continuationStep = triggerContinuationStep(event, triggerInstruction);
     const std::optional<uint8_t> firstNormalStep = firstSourceNormalStep(event);
 
     return continuationStep && firstNormalStep && *continuationStep != *firstNormalStep;
@@ -1848,6 +1819,7 @@ struct SyntheticTriggerEvent
 {
     uint16_t syntheticEventId = 0;
     uint16_t sourceEventId = 0;
+    uint8_t triggerStep = 0;
     uint8_t continuationStep = 0;
     EvtOpcode triggerOpcode = EvtOpcode::Invalid;
 };
@@ -1887,16 +1859,13 @@ std::vector<SyntheticTriggerEvent> collectSyntheticTriggerEvents(const EvtProgra
         };
 
     const auto addSyntheticTrigger =
-        [&syntheticEvents, &reserveSyntheticEventId](const EvtEvent &event, EvtOpcode triggerOpcode)
+        [&syntheticEvents, &reserveSyntheticEventId](
+            const EvtEvent &event,
+            const EvtInstruction &triggerInstruction)
         {
-            if (triggerOpcode == EvtOpcode::OnTimer && !hasSupportedOnTimerSchedule(event))
-            {
-                return;
-            }
+            const std::optional<uint8_t> continuationStep = triggerContinuationStep(event, triggerInstruction);
 
-            const std::optional<uint8_t> continuationStep = triggerContinuationStep(event, triggerOpcode);
-
-            if (!continuationStep || !triggerNeedsSyntheticEntry(event, triggerOpcode))
+            if (!continuationStep || !triggerNeedsSyntheticEntry(event, triggerInstruction))
             {
                 return;
             }
@@ -1904,16 +1873,21 @@ std::vector<SyntheticTriggerEvent> collectSyntheticTriggerEvents(const EvtProgra
             SyntheticTriggerEvent syntheticEvent = {};
             syntheticEvent.syntheticEventId = reserveSyntheticEventId();
             syntheticEvent.sourceEventId = event.eventId;
+            syntheticEvent.triggerStep = triggerInstruction.step;
             syntheticEvent.continuationStep = *continuationStep;
-            syntheticEvent.triggerOpcode = triggerOpcode;
+            syntheticEvent.triggerOpcode = triggerInstruction.opcode;
             syntheticEvents.push_back(syntheticEvent);
         };
 
     for (const EvtEvent &event : evtProgram.getEvents())
     {
-        addSyntheticTrigger(event, EvtOpcode::OnMapReload);
-        addSyntheticTrigger(event, EvtOpcode::OnMapLeave);
-        addSyntheticTrigger(event, EvtOpcode::OnTimer);
+        for (const EvtInstruction &instruction : event.instructions)
+        {
+            if (isSyntheticTriggerOpcode(instruction.opcode))
+            {
+                addSyntheticTrigger(event, instruction);
+            }
+        }
     }
 
     return syntheticEvents;
@@ -1922,11 +1896,14 @@ std::vector<SyntheticTriggerEvent> collectSyntheticTriggerEvents(const EvtProgra
 std::optional<uint16_t> findSyntheticTriggerEventId(
     const std::vector<SyntheticTriggerEvent> &syntheticEvents,
     uint16_t sourceEventId,
-    EvtOpcode triggerOpcode)
+    EvtOpcode triggerOpcode,
+    uint8_t triggerStep)
 {
     for (const SyntheticTriggerEvent &event : syntheticEvents)
     {
-        if (event.sourceEventId == sourceEventId && event.triggerOpcode == triggerOpcode)
+        if (event.sourceEventId == sourceEventId
+            && event.triggerOpcode == triggerOpcode
+            && event.triggerStep == triggerStep)
         {
             return event.syntheticEventId;
         }
@@ -1941,14 +1918,12 @@ std::optional<uint8_t> firstSyntheticTriggerLabelStep(const EvtEvent &event)
 
     for (const EvtInstruction &instruction : event.instructions)
     {
-        if (instruction.opcode != EvtOpcode::OnMapReload
-            && instruction.opcode != EvtOpcode::OnMapLeave
-            && instruction.opcode != EvtOpcode::OnTimer)
+        if (!isSyntheticTriggerOpcode(instruction.opcode))
         {
             continue;
         }
 
-        if (!triggerNeedsSyntheticEntry(event, instruction.opcode))
+        if (!triggerNeedsSyntheticEntry(event, instruction))
         {
             continue;
         }
@@ -12349,21 +12324,27 @@ void emitMetadata(
 
     for (const EvtEvent &event : evtProgram.getEvents())
     {
-        if (!hasOnLoadTrigger(event))
+        for (const EvtInstruction &instruction : event.instructions)
         {
-            continue;
+            if (instruction.opcode != EvtOpcode::OnMapReload)
+            {
+                continue;
+            }
+
+            if (wroteEntry)
+            {
+                stream << ", ";
+            }
+
+            const std::optional<uint16_t> syntheticEventId = findSyntheticTriggerEventId(
+                syntheticTriggerEvents,
+                event.eventId,
+                instruction.opcode,
+                instruction.step);
+
+            stream << syntheticEventId.value_or(event.eventId);
+            wroteEntry = true;
         }
-
-        if (wroteEntry)
-        {
-            stream << ", ";
-        }
-
-        const std::optional<uint16_t> syntheticEventId =
-            findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnMapReload);
-
-        stream << syntheticEventId.value_or(event.eventId);
-        wroteEntry = true;
     }
 
     stream << "},\n";
@@ -12373,21 +12354,27 @@ void emitMetadata(
 
     for (const EvtEvent &event : evtProgram.getEvents())
     {
-        if (!hasOnLeaveTrigger(event))
+        for (const EvtInstruction &instruction : event.instructions)
         {
-            continue;
+            if (instruction.opcode != EvtOpcode::OnMapLeave)
+            {
+                continue;
+            }
+
+            if (wroteEntry)
+            {
+                stream << ", ";
+            }
+
+            const std::optional<uint16_t> syntheticEventId = findSyntheticTriggerEventId(
+                syntheticTriggerEvents,
+                event.eventId,
+                instruction.opcode,
+                instruction.step);
+
+            stream << syntheticEventId.value_or(event.eventId);
+            wroteEntry = true;
         }
-
-        if (wroteEntry)
-        {
-            stream << ", ";
-        }
-
-        const std::optional<uint16_t> syntheticEventId =
-            findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnMapLeave);
-
-        stream << syntheticEventId.value_or(event.eventId);
-        wroteEntry = true;
     }
 
     stream << "},\n";
@@ -12486,41 +12473,53 @@ void emitMetadata(
     {
         for (const EvtInstruction &instruction : event.instructions)
         {
-            if (instruction.opcode != EvtOpcode::OnTimer)
+            if ((instruction.opcode != EvtOpcode::OnTimer
+                    && instruction.opcode != EvtOpcode::OnLongTimer)
+                || !instruction.timerDescriptor)
             {
                 continue;
             }
 
-            if (instruction.listValues.size() > 6 && instruction.listValues[6] > 0)
+            const LegacyTimerDescriptor &descriptor = *instruction.timerDescriptor;
+            const std::optional<uint16_t> syntheticEventId = findSyntheticTriggerEventId(
+                syntheticTriggerEvents,
+                event.eventId,
+                instruction.opcode,
+                instruction.step);
+
+            stream << "    { eventId = " << syntheticEventId.value_or(event.eventId)
+                   << ", sourceEventId = " << event.eventId
+                   << ", triggerStep = " << static_cast<unsigned>(instruction.step)
+                   << ", origin = \"legacy\""
+                   << ", triggerKind = \""
+                   << (instruction.opcode == EvtOpcode::OnLongTimer ? "long" : "timer") << "\"";
+
+            if (descriptor.intervalHalfMinutes != 0)
             {
-                const float intervalGameMinutes = static_cast<float>(instruction.listValues[6]) * 0.5f;
-                const std::optional<uint16_t> syntheticEventId =
-                    findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnTimer);
-                stream << "    { eventId = " << syntheticEventId.value_or(event.eventId)
-                       << ", repeating = true"
-                       << ", intervalGameMinutes = " << intervalGameMinutes
-                       << ", remainingGameMinutes = " << intervalGameMinutes << " },\n";
-                break;
+                stream << ", scheduleKind = \"interval\""
+                       << ", intervalHalfMinutes = " << descriptor.intervalHalfMinutes;
+            }
+            else if (descriptor.yearly != 0)
+            {
+                stream << ", scheduleKind = \"yearly\"";
+            }
+            else if (descriptor.monthly != 0)
+            {
+                stream << ", scheduleKind = \"monthly\"";
+            }
+            else if (descriptor.weekly != 0)
+            {
+                stream << ", scheduleKind = \"weekly\"";
+            }
+            else
+            {
+                stream << ", scheduleKind = \"daily\""
+                       << ", startHour = " << static_cast<unsigned>(descriptor.startHour)
+                       << ", startMinute = " << static_cast<unsigned>(descriptor.startMinute)
+                       << ", startSecond = " << static_cast<unsigned>(descriptor.startSecond);
             }
 
-            if (instruction.listValues.size() > 3 && instruction.listValues[3] > 0)
-            {
-                float remainingGameMinutes = static_cast<float>(instruction.listValues[3]) * 60.0f - 9.0f * 60.0f;
-
-                if (remainingGameMinutes < 0.0f)
-                {
-                    remainingGameMinutes += 24.0f * 60.0f;
-                }
-
-                const std::optional<uint16_t> syntheticEventId =
-                    findSyntheticTriggerEventId(syntheticTriggerEvents, event.eventId, EvtOpcode::OnTimer);
-                stream << "    { eventId = " << syntheticEventId.value_or(event.eventId)
-                       << ", repeating = false"
-                       << ", targetHour = " << static_cast<int>(instruction.listValues[3])
-                       << ", intervalGameMinutes = " << (static_cast<float>(instruction.listValues[3]) * 60.0f)
-                       << ", remainingGameMinutes = " << remainingGameMinutes << " },\n";
-                break;
-            }
+            stream << " },\n";
         }
     }
 

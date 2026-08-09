@@ -1720,11 +1720,15 @@ TEST_CASE("indoor scene runtime state survives save round trip")
     snapshot.worldRuntime.actorUpdateAccumulatorSeconds = 0.125f;
 
     OpenYAMM::Game::IndoorSceneRuntime::TimerState timer = {};
-    timer.eventId = 88;
-    timer.repeating = true;
-    timer.targetHour = 12;
-    timer.intervalGameMinutes = 30.0f;
-    timer.remainingGameMinutes = 12.5f;
+    timer.definition.scope = OpenYAMM::Game::ScriptedEventScope::Map;
+    timer.definition.origin = OpenYAMM::Game::ScriptedEventTimerOrigin::Native;
+    timer.definition.scheduleKind = OpenYAMM::Game::ScriptedEventTimerScheduleKind::Relative;
+    timer.definition.eventId = 88;
+    timer.definition.sourceEventId = 88;
+    timer.definition.registrationIndex = 1;
+    timer.definition.repeating = true;
+    timer.definition.intervalGameMinutes = 30.0;
+    timer.nextAlarmGameMinutes = 12.5;
     timer.hasFired = true;
     snapshot.timers.push_back(timer);
     OpenYAMM::Game::IndoorMoveState moveState = {};
@@ -1821,8 +1825,8 @@ TEST_CASE("indoor scene runtime state survives save round trip")
     CHECK_EQ(loadedSnapshot.worldRuntime.actorUpdateAccumulatorSeconds, 0.125f);
 
     REQUIRE_EQ(loadedSnapshot.timers.size(), 1u);
-    CHECK_EQ(loadedSnapshot.timers[0].eventId, 88);
-    CHECK_EQ(loadedSnapshot.timers[0].remainingGameMinutes, 12.5f);
+    CHECK_EQ(loadedSnapshot.timers[0].definition.eventId, 88);
+    CHECK_EQ(loadedSnapshot.timers[0].nextAlarmGameMinutes, 12.5);
     REQUIRE(loadedSnapshot.lastProcessedPartyMoveStateForFaceTriggers.has_value());
     CHECK_EQ(loadedSnapshot.lastProcessedPartyMoveStateForFaceTriggers->supportFaceIndex, 4u);
     CHECK_EQ(loadedSnapshot.mechanismAccumulatorMilliseconds, 16.0f);

@@ -104,6 +104,7 @@ void AudioSystem::shutdown()
 {
     stopAll();
     m_clipCache.clear();
+    m_playbackCacheMissWarningPaths.clear();
 
     if (m_pAudioStream != nullptr)
     {
@@ -121,7 +122,20 @@ void AudioSystem::shutdown()
 
 uint64_t AudioSystem::playClip(const std::string &virtualPath, const PlaybackOptions &options)
 {
+    const bool playbackCacheMiss =
+        m_pAssetFileSystem != nullptr && !virtualPath.empty() && !m_clipCache.contains(virtualPath);
+    const uint64_t loadBeginTickNanoseconds = playbackCacheMiss ? SDL_GetTicksNS() : 0;
     std::shared_ptr<AudioClip> pClip = loadClip(virtualPath);
+
+    if (playbackCacheMiss && m_playbackCacheMissWarningPaths.insert(virtualPath).second)
+    {
+        std::cerr << "[AssetLoadWarning] kind=audio phase=play"
+                  << " path=\"" << virtualPath << "\""
+                  << " result=" << (pClip != nullptr ? "loaded" : "failed")
+                  << " load_us=" << (SDL_GetTicksNS() - loadBeginTickNanoseconds) / 1000
+                  << " frames=" << (pClip != nullptr ? pClip->frameCount : 0)
+                  << '\n';
+    }
 
     if (pClip == nullptr || pClip->frameCount == 0)
     {
@@ -203,14 +217,18 @@ bool AudioSystem::isClipPlaying(uint64_t instanceId) const
         });
 }
 
-void AudioSystem::stopAll()
+void AudioSystem::clearQueuedAudio()
 {
-    m_playingInstances.clear();
-
     if (m_pAudioStream != nullptr && isAudioSubsystemInitialized())
     {
         SDL_ClearAudioStream(m_pAudioStream);
     }
+}
+
+void AudioSystem::stopAll()
+{
+    m_playingInstances.clear();
+    clearQueuedAudio();
 }
 
 void AudioSystem::update(const ListenerState &listenerState)

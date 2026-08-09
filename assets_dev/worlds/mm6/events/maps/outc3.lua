@@ -66,6 +66,7 @@ SetMapMetadata({
     spriteNames = {"ped04"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 100, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "monthly" },
     },
 })
 
@@ -782,4 +783,8 @@ RegisterEvent(261, "Shrine of Speed", function()
     end
     evt.StatusText("You pray at the shrine.")
 end, "Shrine of Speed")
+
+RegisterEvent(65535, "", function()
+    SetValue(MapVar(6), 8)
+end)
 

@@ -32,6 +32,7 @@ public:
     const ObjectEntry *get(uint16_t objectDescriptionId) const;
     const ObjectEntry *findByObjectId(int16_t objectId) const;
     std::optional<uint16_t> findDescriptionIdByObjectId(int16_t objectId) const;
+    const std::vector<ObjectEntry> &entries() const;
 
 private:
     std::vector<ObjectEntry> m_entries;

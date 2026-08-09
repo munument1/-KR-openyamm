@@ -1226,6 +1226,7 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
             party.addFood(1);
             result.handled = true;
             result.consumed = true;
+            result.soundId = SoundId::Eat;
             return result;
         }
 

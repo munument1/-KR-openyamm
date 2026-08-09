@@ -97,6 +97,8 @@ SetMapMetadata({
     spriteNames = {"0"},
     castSpellIds = {},
     timers = {
+    { eventId = 65535, sourceEventId = 202, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
+    { eventId = 65534, sourceEventId = 203, triggerStep = 9, origin = "legacy", triggerKind = "long", scheduleKind = "daily", startHour = 1, startMinute = 0, startSecond = 0 },
     },
 })
 
@@ -565,4 +567,14 @@ end, "Enter Lord Markham's Manor")
 RegisterEvent(505, "Enter the Cave", function()
     evt.MoveToMap(-2568, -143, 97, 257, 0, 0, 0, 0, "mdt09.blv") -- Wromthrax's Cave
 end, "Enter the Cave")
+
+RegisterEvent(65535, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(21))
+end)
+
+RegisterEvent(65534, "", function()
+    evt.ForPlayer(Players.All)
+    ClearPlayerBit(PlayerBit(20))
+end)
 

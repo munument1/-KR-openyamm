@@ -220,6 +220,7 @@ void preloadMapGameplaySounds(
     const SpellTable &spellTable,
     const MapAssetInfo &map)
 {
+    constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
     const MapDeltaData *pMapDeltaData = nullptr;
 
     if (map.indoorMapDeltaData)
@@ -231,40 +232,60 @@ void preloadMapGameplaySounds(
         pMapDeltaData = &*map.outdoorMapDeltaData;
     }
 
-    if (pMapDeltaData == nullptr)
-    {
-        return;
-    }
-
     std::unordered_set<uint64_t> preloadedSounds;
     std::unordered_set<int16_t> preloadedMonsterIds;
-
-    for (const MapDeltaActor &actor : pMapDeltaData->actors)
+    const auto preloadMonsterId = [&](int16_t monsterId)
     {
-        const std::array<int16_t, 2> candidateMonsterIds = {
-            actor.monsterInfoId > 0 ? actor.monsterInfoId : actor.monsterId,
-            actor.monsterId
-        };
-
-        for (int16_t monsterId : candidateMonsterIds)
+        if (monsterId <= 0 || !preloadedMonsterIds.insert(monsterId).second)
         {
-            if (monsterId <= 0 || !preloadedMonsterIds.insert(monsterId).second)
-            {
-                continue;
-            }
+            return;
+        }
 
-            const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(monsterId);
+        const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(monsterId);
 
-            if (pStats != nullptr)
+        if (pStats != nullptr)
+        {
+            preloadMonsterStatsSounds(audioSystem, preloadedSounds, spellTable, *pStats);
+        }
+    };
+
+    if (pMapDeltaData != nullptr)
+    {
+        for (const MapDeltaActor &actor : pMapDeltaData->actors)
+        {
+            const std::array<int16_t, 2> candidateMonsterIds = {
+                actor.monsterInfoId > 0 ? actor.monsterInfoId : actor.monsterId,
+                actor.monsterId
+            };
+
+            for (int16_t monsterId : candidateMonsterIds)
             {
-                preloadMonsterStatsSounds(audioSystem, preloadedSounds, spellTable, *pStats);
+                preloadMonsterId(monsterId);
             }
+        }
+
+        for (const MapDeltaSpriteObject &spriteObject : pMapDeltaData->spriteObjects)
+        {
+            preloadSoundOnce(audioSystem, preloadedSounds, worldSound(spriteObject.soundId));
         }
     }
 
-    for (const MapDeltaSpriteObject &spriteObject : pMapDeltaData->spriteObjects)
+    const ActorPreviewBillboardSet *pActorBillboardSet =
+        map.indoorActorPreviewBillboardSet
+            ? &*map.indoorActorPreviewBillboardSet
+            : (map.outdoorActorPreviewBillboardSet ? &*map.outdoorActorPreviewBillboardSet : nullptr);
+
+    if (pActorBillboardSet != nullptr)
     {
-        preloadSoundOnce(audioSystem, preloadedSounds, worldSound(spriteObject.soundId));
+        for (const ActorPreviewBillboard &billboard : pActorBillboardSet->billboards)
+        {
+            preloadMonsterId(billboard.monsterId);
+        }
+    }
+
+    for (int16_t summonMonsterId : SummonWispMonsterIds)
+    {
+        preloadMonsterId(summonMonsterId);
     }
 }
 
@@ -5827,6 +5848,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         }
         if (outdoorTimedRespawn && pSavedOutdoorState != nullptr)
         {
+            outdoorTimeSnapshot.locationTime = pSavedOutdoorState->locationTime;
+            outdoorTimeSnapshot.hasLocationTime = pSavedOutdoorState->hasLocationTime;
             outdoorTimeSnapshot.fullyRevealedCells = pSavedOutdoorState->fullyRevealedCells;
             outdoorTimeSnapshot.partiallyRevealedCells = pSavedOutdoorState->partiallyRevealedCells;
             if (outdoorTimeSnapshot.eventRuntimeState)
@@ -5845,6 +5868,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             *m_pOutdoorWorldRuntime,
             selectedMap->map,
             m_gameDataLoader.getMergedContinentSettingTable());
+        m_pOutdoorWorldRuntime->prepareTimers(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram);
 
         if (EventRuntimeState *pEventRuntimeState = m_pOutdoorWorldRuntime->eventRuntimeState())
         {
@@ -5992,6 +6018,10 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         {
             indoorMapDeltaDataForRuntime->locationInfo = indoorLocationInfo;
             indoorMapDeltaDataForRuntime->locationInfo.lastRespawnDay = 0;
+            if (pSavedIndoorState != nullptr && pSavedIndoorState->mapDeltaData)
+            {
+                indoorMapDeltaDataForRuntime->locationTime = pSavedIndoorState->mapDeltaData->locationTime;
+            }
         }
 
         std::unique_ptr<IndoorSceneRuntime> pIndoorSceneRuntime = std::make_unique<IndoorSceneRuntime>(
@@ -6056,6 +6086,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             pIndoorSceneRuntime->worldRuntime(),
             selectedMap->map,
             m_gameDataLoader.getMergedContinentSettingTable());
+        pIndoorSceneRuntime->prepareTimers();
 
         timingLogger.stage("indoor saved state restored");
 
@@ -6609,6 +6640,16 @@ bool GameApplication::applyCurrentSessionToRuntime(bool initializeView)
 
 void GameApplication::captureCurrentSceneState()
 {
+    if (m_pMapSceneRuntime != nullptr && m_pMapSceneRuntime->kind() == SceneKind::Indoor)
+    {
+        IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+        pIndoorRuntime->stampLastVisitTime();
+    }
+    else if (m_pOutdoorWorldRuntime != nullptr)
+    {
+        m_pOutdoorWorldRuntime->stampLastVisitTime();
+    }
+
     synchronizeSessionFromRuntime();
 }
 
@@ -7025,7 +7066,7 @@ bool GameApplication::quickSaveToPath(
         return false;
     }
 
-    synchronizeSessionFromRuntime();
+    captureCurrentSceneState();
     std::optional<GameSaveData> saveData = m_gameSession.buildSaveData();
 
     if (!saveData)
@@ -7447,6 +7488,7 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
         return false;
     }
 
+    m_gameAudioSystem.stopBackgroundMusicImmediate();
     m_screenManager.setActiveScreen(nullptr);
     shutdownRenderer();
     m_gameSession.clear();
@@ -7556,6 +7598,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(
         return false;
     }
 
+    m_gameAudioSystem.stopBackgroundMusicImmediate();
     m_screenManager.setActiveScreen(nullptr);
     beginLoadingOverlay();
     shutdownRenderer();
@@ -8293,6 +8336,7 @@ void GameApplication::closeTransientGameplayUiForMapMove()
     }
 
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    m_gameAudioSystem.resumeBackgroundMusic();
     screenRuntime.stopHouseVideoPlayback();
     screenRuntime.closeHouseShopOverlay();
     screenRuntime.closeInventoryNestedOverlay();

@@ -3089,11 +3089,6 @@ void Party::addGold(int amount)
 void Party::addFood(int amount)
 {
     m_food = std::max(0, m_food + amount);
-
-    if (amount > 0)
-    {
-        queueSound(SoundId::Eat);
-    }
 }
 
 void Party::requestSound(SoundId soundId)

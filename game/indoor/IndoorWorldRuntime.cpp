@@ -16145,6 +16145,11 @@ void IndoorWorldRuntime::activateChestView(uint32_t chestId)
                 + "," + std::to_string(item.gridY) + ")");
         }
     }
+
+    if (m_pParty != nullptr)
+    {
+        m_pParty->requestSound(SoundId::OpenChest);
+    }
 }
 
 bool IndoorWorldRuntime::attemptOpenChest(uint32_t chestId, bool openedByTelekinesis)

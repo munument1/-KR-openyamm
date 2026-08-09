@@ -17,15 +17,13 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t BrokenItemTintColorAbgr = 0x800000ffu;
-constexpr uint32_t UnidentifiedItemTintColorAbgr = 0x80ff0000u;
+constexpr uint32_t BrokenItemTintColorAbgr = 0xff0000ffu;
+constexpr uint32_t ShopUnidentifiedItemTintColorAbgr = 0xff00e100u;
 
 enum class ItemTintContext
 {
-    None,
     Inventory,
-    ShopIdentify,
-    ShopRepair,
+    ShopInventory,
 };
 
 struct GoldHeapVisual
@@ -89,34 +87,14 @@ uint32_t itemTintColorAbgr(
     const bool isBroken = pItemState->broken;
     const bool isUnidentified = !pItemState->identified && ItemRuntime::requiresIdentification(*pItemDefinition);
 
-    switch (context)
+    if (isBroken)
     {
-        case ItemTintContext::Inventory:
-            if (isBroken)
-            {
-                return BrokenItemTintColorAbgr;
-            }
+        return BrokenItemTintColorAbgr;
+    }
 
-            break;
-
-        case ItemTintContext::ShopIdentify:
-            if (isUnidentified)
-            {
-                return UnidentifiedItemTintColorAbgr;
-            }
-
-            break;
-
-        case ItemTintContext::ShopRepair:
-            if (isBroken)
-            {
-                return BrokenItemTintColorAbgr;
-            }
-
-            break;
-
-        case ItemTintContext::None:
-            break;
+    if (context == ItemTintContext::ShopInventory && isUnidentified)
+    {
+        return ShopUnidentifiedItemTintColorAbgr;
     }
 
     return 0xffffffffu;
@@ -463,15 +441,16 @@ void GameplayHudOverlayRenderer::renderInventoryNestedOverlay(
     const bool isChestTransfer =
         view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ChestTransfer
         && view.currentHudScreenState() == GameplayHudScreenState::Chest;
-    const bool isInventoryService =
-        (view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+    const bool isShopInventory =
+        (view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopDisplay
+            || view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
             || view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
             || view.inventoryNestedOverlay().mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair)
         && view.currentHudScreenState() == GameplayHudScreenState::Dialogue;
 
     if (renderAboveHud
         || !view.inventoryNestedOverlay().active
-        || (!isChestTransfer && !isInventoryService)
+        || (!isChestTransfer && !isShopInventory)
         || view.party() == nullptr
         || width <= 0
         || height <= 0)
@@ -546,33 +525,21 @@ void GameplayHudOverlayRenderer::renderInventoryNestedOverlay(
         const float itemHeight = static_cast<float>(itemTexture->height) * gridMetrics.scale;
         const InventoryItemScreenRect itemRect =
             computeInventoryItemScreenRect(gridMetrics, item, itemWidth, itemHeight);
-        view.submitHudTexturedQuad(*itemTexture, itemRect.x, itemRect.y, itemRect.width, itemRect.height);
 
-        ItemTintContext tintContext = ItemTintContext::Inventory;
-
-        switch (view.inventoryNestedOverlay().mode)
-        {
-            case GameplayUiController::InventoryNestedOverlayMode::ShopIdentify:
-                tintContext = ItemTintContext::ShopIdentify;
-                break;
-
-            case GameplayUiController::InventoryNestedOverlayMode::ShopRepair:
-                tintContext = ItemTintContext::ShopRepair;
-                break;
-
-            default:
-                break;
-        }
-
+        // OE keeps status tints unchanged between Display, Sell, Identify, and Repair.
+        const ItemTintContext tintContext =
+            isShopInventory ? ItemTintContext::ShopInventory : ItemTintContext::Inventory;
+        const uint32_t tintColor = itemTintColorAbgr(&item, pItemDefinition, tintContext);
         const bgfx::TextureHandle tintedTextureHandle =
-            view.gameplayUiRuntime().ensureHudTextureColor(*itemTexture, itemTintColorAbgr(&item, pItemDefinition, tintContext));
+            view.gameplayUiRuntime().ensureHudTextureColorModulated(*itemTexture, tintColor);
 
-        if (bgfx::isValid(tintedTextureHandle) && tintedTextureHandle.idx != itemTexture->textureHandle.idx)
+        GameplayScreenRuntime::HudTextureHandle renderedTexture = *itemTexture;
+        if (bgfx::isValid(tintedTextureHandle))
         {
-            GameplayScreenRuntime::HudTextureHandle tintedTexture = *itemTexture;
-            tintedTexture.textureHandle = tintedTextureHandle;
-            view.submitHudTexturedQuad(tintedTexture, itemRect.x, itemRect.y, itemRect.width, itemRect.height);
+            renderedTexture.textureHandle = tintedTextureHandle;
         }
+
+        view.submitHudTexturedQuad(renderedTexture, itemRect.x, itemRect.y, itemRect.width, itemRect.height);
 
         GameplayRenderedInspectableHudItem inspectableItem = {};
         inspectableItem.objectDescriptionId = pItemDefinition->itemId;
