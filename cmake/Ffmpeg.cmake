@@ -41,10 +41,12 @@ function(openyamm_configure_ffmpeg)
         --enable-protocol=file
         --enable-demuxer=ogg
         --enable-demuxer=mp3
+        --enable-demuxer=wav
         --enable-decoder=theora
         --enable-decoder=vorbis
         --enable-decoder=mp3
         --enable-decoder=mp3float
+        --enable-decoder=adpcm_ima_wav
         --enable-parser=vorbis
         --enable-parser=mpegaudio
     )
@@ -102,7 +104,9 @@ function(openyamm_configure_ffmpeg)
         COMMAND ${OPENYAMM_FFMPEG_MAKE_PROGRAM} -j4
         COMMAND ${OPENYAMM_FFMPEG_MAKE_PROGRAM} install
         WORKING_DIRECTORY "${OPENYAMM_FFMPEG_BUILD_DIR}"
-        DEPENDS "${OPENYAMM_FFMPEG_SOURCE_DIR}/configure"
+        DEPENDS
+            "${OPENYAMM_FFMPEG_SOURCE_DIR}/configure"
+            "${CMAKE_CURRENT_FUNCTION_LIST_FILE}"
         COMMENT "Building bundled FFmpeg static libraries for house video playback"
         VERBATIM
     )
