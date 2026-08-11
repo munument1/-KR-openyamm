@@ -17,6 +17,7 @@
 #include <cctype>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -37,6 +38,7 @@ bool canUseBgfxResources()
 constexpr int32_t MergedYawUnitsPerTurn = 2048;
 constexpr int32_t DegreesPerTurn = 360;
 constexpr size_t MaxPerformanceAssetLoadEvents = 32;
+constexpr std::string_view EagerGameplayHudScreen = "outdoorhud";
 struct TownPortalDestinationOverride
 {
     uint32_t mapId = 0;
@@ -418,6 +420,10 @@ void GameplayUiRuntime::clear()
     m_performanceAssetLoadEventOverflowCount = 0;
     m_lastOverlayFramePerformanceDiagnostics = {};
     m_pAssetFileSystem = nullptr;
+    m_assetWorldId.clear();
+    m_uiAssetScaleTier = Engine::AssetScaleTier::X1;
+    m_iconAssetScaleTier = Engine::AssetScaleTier::X1;
+    m_fontAssetScaleTier = Engine::AssetScaleTier::X1;
     m_layoutsLoaded = false;
     m_assetsPreloaded = false;
 }
@@ -439,13 +445,29 @@ void GameplayUiRuntime::bindDataRepository(const GameDataRepository *pDataReposi
 
 void GameplayUiRuntime::bindAssetFileSystem(const Engine::AssetFileSystem *pAssetFileSystem)
 {
-    if (m_pAssetFileSystem == pAssetFileSystem)
+    const bool bindingsMatch =
+        pAssetFileSystem != nullptr
+        && m_pAssetFileSystem == pAssetFileSystem
+        && m_assetWorldId == pAssetFileSystem->getActiveWorldId()
+        && m_uiAssetScaleTier == pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Ui)
+        && m_iconAssetScaleTier == pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Icons)
+        && m_fontAssetScaleTier == pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Fonts);
+
+    if (bindingsMatch || (pAssetFileSystem == nullptr && m_pAssetFileSystem == nullptr))
     {
         return;
     }
 
     clear();
     m_pAssetFileSystem = pAssetFileSystem;
+
+    if (pAssetFileSystem != nullptr)
+    {
+        m_assetWorldId = pAssetFileSystem->getActiveWorldId();
+        m_uiAssetScaleTier = pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Ui);
+        m_iconAssetScaleTier = pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Icons);
+        m_fontAssetScaleTier = pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Fonts);
+    }
 }
 
 const Engine::AssetFileSystem *GameplayUiRuntime::assetFileSystem() const
@@ -501,6 +523,11 @@ void GameplayUiRuntime::preloadReferencedAssets()
     for (const auto &[id, element] : m_layoutManager.elements())
     {
         (void)id;
+
+        if (element.normalizedScreen != EagerGameplayHudScreen)
+        {
+            continue;
+        }
 
         for (const std::string *pAssetName : {
                  &element.primaryAsset,

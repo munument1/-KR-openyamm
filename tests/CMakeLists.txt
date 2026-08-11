@@ -43,6 +43,7 @@ add_executable(openyamm_unit_tests
     SpellbookUiLayoutTests.cpp
     TableRegressionTests.cpp
     TextTableTests.cpp
+    TextureFilteringTests.cpp
     TurnBasedCombatRuntimeTests.cpp
     GameplayScreenRuntimeTestStubs.cpp
     ../game/app/GameSettings.cpp
@@ -53,6 +54,7 @@ add_executable(openyamm_unit_tests
     ../engine/AssetScaleTier.cpp
     ../engine/ImageAssetLoader.cpp
     ../engine/TextTable.cpp
+    ../game/render/TextureFiltering.cpp
     ../game/arcomage/ArcomageAi.cpp
     ../game/arcomage/ArcomageLoader.cpp
     ../game/arcomage/ArcomageRules.cpp

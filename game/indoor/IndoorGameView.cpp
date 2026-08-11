@@ -1514,8 +1514,8 @@ void IndoorGameView::shutdown()
     m_gameSession.gameplayScreenRuntime().bindAudioSystem(nullptr);
     m_map.reset();
     GameplayScreenRuntime &screenRuntime = m_gameSession.gameplayScreenRuntime();
+    screenRuntime.clearHudRenderBackend();
     screenRuntime.actorInspectOverlay() = {};
-    screenRuntime.clearSharedUiRuntime();
     screenRuntime.clearUiControllerRuntimeState();
     screenRuntime.resetOverlayInteractionState();
     m_gameSession.gameplayScreenState().gameplayMouseLookState().clear();

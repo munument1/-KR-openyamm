@@ -159,6 +159,23 @@ public:
         }
     }
 
+    void beginStage(const std::string &stageName) const
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const uint64_t totalNanoseconds = SDL_GetTicksNS() - m_startTickNanoseconds;
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " scope=outdoor_view_initialize"
+            << " stage=\"" << stageName << "\""
+            << " event=begin"
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
+    }
+
     void stage(const std::string &stageName)
     {
         if (!m_enabled)
@@ -3125,6 +3142,7 @@ bool OutdoorGameView::initialize(
         return true;
     }
 
+    timingLogger.beginStage("world render resources initialization");
     if (!OutdoorRenderer::initializeWorldRenderResources(
             *this,
             outdoorMapData,
@@ -3138,6 +3156,7 @@ bool OutdoorGameView::initialize(
 
     if (m_pOutdoorWorldRuntime != nullptr)
     {
+        timingLogger.beginStage("initial sky resource preload");
         OutdoorRenderer::ensureSkyTexture(
             *this,
             m_pOutdoorWorldRuntime->atmosphereState().skyTextureName,
@@ -3145,11 +3164,13 @@ bool OutdoorGameView::initialize(
         timingLogger.stage("initial sky resource preloaded");
     }
 
+    timingLogger.beginStage("billboard resources initialization");
     OutdoorBillboardRenderer::initializeBillboardResources(*this);
     timingLogger.stage("billboard resources initialized");
 
     if (m_gameSettings.waitForLevelSprites)
     {
+        timingLogger.beginStage("level sprite resource preload");
         OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(*this);
         timingLogger.stage("level sprite resources preloaded");
     }
@@ -3915,7 +3936,6 @@ void OutdoorGameView::shutdown()
     OutdoorBillboardRenderer::destroyRenderAssets(*this);
     OutdoorRenderer::destroySkyResources(*this);
 
-    screenRuntime.releaseHudGpuResources(true);
     m_interactiveDecorationBindings.clear();
 
     if (bgfx::isValid(m_skyVertexBufferHandle))
@@ -4009,7 +4029,6 @@ void OutdoorGameView::shutdown()
     characterScreen.dollJewelryOverlayOpen = false;
     characterScreen.adventurersInnRosterOverlayOpen = false;
     characterScreen.page = CharacterPage::Inventory;
-    screenRuntime.clearSharedUiRuntime();
     characterScreen.source = CharacterScreenSource::Party;
     characterScreen.sourceIndex = 0;
     characterScreen.adventurersInnScrollOffset = 0;

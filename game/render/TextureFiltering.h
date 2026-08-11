@@ -3,6 +3,7 @@
 #include <bgfx/bgfx.h>
 
 #include <cstdint>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -21,6 +22,12 @@ enum class TextureFilterMode
     Nearest,
     Linear,
     Anisotropic,
+};
+
+enum class BgraTexturePixelPreparation
+{
+    Required,
+    AlreadyPrepared,
 };
 
 struct TextureFilteringConfig
@@ -50,13 +57,20 @@ void bindTexture(
 bgfx::TextureFormat::Enum bgraTextureUploadFormat();
 const bgfx::Memory *copyBgraTextureUploadMemory(const uint8_t *pPixels, uint32_t pixelBytes);
 
+bool prepareBgraTexturePixelsForUploadInPlace(
+    uint16_t width,
+    uint16_t height,
+    std::vector<uint8_t> &pixels,
+    TextureFilterProfile profile);
+
 bgfx::TextureHandle createBgraTexture2D(
     uint16_t width,
     uint16_t height,
     const uint8_t *pPixels,
     uint32_t pixelBytes,
     TextureFilterProfile profile,
-    uint64_t extraFlags = BGFX_TEXTURE_NONE);
+    uint64_t extraFlags = BGFX_TEXTURE_NONE,
+    BgraTexturePixelPreparation pixelPreparation = BgraTexturePixelPreparation::Required);
 
 bgfx::TextureHandle createEmptyBgraTexture2D(
     uint16_t width,

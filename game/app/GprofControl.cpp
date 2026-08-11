@@ -17,4 +17,14 @@ void setGprofProfilingEnabled(bool enabled)
     (void)enabled;
 #endif
 }
+
+GprofProfilingScope::GprofProfilingScope()
+{
+    setGprofProfilingEnabled(true);
+}
+
+GprofProfilingScope::~GprofProfilingScope()
+{
+    setGprofProfilingEnabled(false);
+}
 }

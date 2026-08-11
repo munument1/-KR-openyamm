@@ -2815,7 +2815,10 @@ bool IndoorRenderer::initialize(
                 texture.pixels.data(),
                 uint32_t(texture.pixels.size()),
                 TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
+                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+                texture.pixelsPreparedForUpload
+                    ? BgraTexturePixelPreparation::AlreadyPrepared
+                    : BgraTexturePixelPreparation::Required
             );
 
             if (bgfx::isValid(billboardTexture.textureHandle))
@@ -2849,7 +2852,10 @@ bool IndoorRenderer::initialize(
                 texture.pixels.data(),
                 uint32_t(texture.pixels.size()),
                 TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
+                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+                texture.pixelsPreparedForUpload
+                    ? BgraTexturePixelPreparation::AlreadyPrepared
+                    : BgraTexturePixelPreparation::Required
             );
 
             if (bgfx::isValid(billboardTexture.textureHandle))
@@ -2883,7 +2889,10 @@ bool IndoorRenderer::initialize(
                 texture.pixels.data(),
                 uint32_t(texture.pixels.size()),
                 TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
+                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+                texture.pixelsPreparedForUpload
+                    ? BgraTexturePixelPreparation::AlreadyPrepared
+                    : BgraTexturePixelPreparation::Required
             );
 
             if (bgfx::isValid(billboardTexture.textureHandle))

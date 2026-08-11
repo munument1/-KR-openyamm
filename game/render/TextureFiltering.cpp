@@ -210,31 +210,6 @@ void bleedTransparentEdgeColors(uint16_t width, uint16_t height, std::vector<uin
     }
 }
 
-std::vector<uint8_t> prepareTexturePixelsForUpload(
-    uint16_t width,
-    uint16_t height,
-    const uint8_t *pPixels,
-    uint32_t pixelBytes,
-    TextureFilterProfile profile)
-{
-    std::vector<uint8_t> preparedPixels(pPixels, pPixels + pixelBytes);
-
-    if (!profileNeedsTransparentEdgeBleed(profile))
-    {
-        return preparedPixels;
-    }
-
-    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
-
-    if (!hasMixedTransparency(preparedPixels.data(), pixelCount))
-    {
-        return preparedPixels;
-    }
-
-    bleedTransparentEdgeColors(width, height, preparedPixels);
-    return preparedPixels;
-}
-
 struct BgraMipLevel
 {
     uint16_t width = 0;
@@ -452,6 +427,27 @@ const bgfx::Memory *copyBgraTextureUploadMemory(const uint8_t *pPixels, uint32_t
 #endif
 }
 
+bool prepareBgraTexturePixelsForUploadInPlace(
+    uint16_t width,
+    uint16_t height,
+    std::vector<uint8_t> &pixels,
+    TextureFilterProfile profile)
+{
+    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+    const size_t expectedPixelBytes = pixelCount * 4;
+
+    if (!profileNeedsTransparentEdgeBleed(profile)
+        || pixelCount == 0
+        || pixels.size() < expectedPixelBytes
+        || !hasMixedTransparency(pixels.data(), pixelCount))
+    {
+        return false;
+    }
+
+    bleedTransparentEdgeColors(width, height, pixels);
+    return true;
+}
+
 void bindTexture(
     uint8_t stage,
     bgfx::UniformHandle sampler,
@@ -468,14 +464,28 @@ bgfx::TextureHandle createBgraTexture2D(
     const uint8_t *pPixels,
     uint32_t pixelBytes,
     TextureFilterProfile profile,
-    uint64_t extraFlags)
+    uint64_t extraFlags,
+    BgraTexturePixelPreparation pixelPreparation)
 {
     if (pPixels == nullptr || pixelBytes == 0)
     {
         return BGFX_INVALID_HANDLE;
     }
 
-    const std::vector<uint8_t> uploadPixels = prepareTexturePixelsForUpload(width, height, pPixels, pixelBytes, profile);
+    std::vector<uint8_t> uploadPixels;
+
+    if (pixelPreparation == BgraTexturePixelPreparation::Required
+        && profileNeedsTransparentEdgeBleed(profile))
+    {
+        const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+
+        if (pixelBytes >= pixelCount * 4 && hasMixedTransparency(pPixels, pixelCount))
+        {
+            uploadPixels.assign(pPixels, pPixels + pixelBytes);
+            bleedTransparentEdgeColors(width, height, uploadPixels);
+        }
+    }
+
     const uint8_t *pUploadPixels = uploadPixels.empty() ? pPixels : uploadPixels.data();
 
     if (profileUsesMipmaps(profile))

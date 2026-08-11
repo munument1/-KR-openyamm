@@ -70,6 +70,7 @@ struct OutdoorBitmapTexture
     int physicalHeight = 0;
     bool hasTransparentPixels = false;
     bool hasPartialAlphaPixels = false;
+    bool pixelsPreparedForUpload = false;
     std::vector<uint8_t> pixels;
 };
 

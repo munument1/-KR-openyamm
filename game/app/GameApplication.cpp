@@ -29,6 +29,7 @@
 #include "game/ui/screens/MainMenuScreen.h"
 #include "game/ui/screens/NewGameScreen.h"
 #include "game/ui/screens/WinGameScreen.h"
+#include "engine/BgfxContext.h"
 #include "engine/TextTable.h"
 
 #include <imgui.h>
@@ -1172,6 +1173,23 @@ public:
                 << " begin=" << m_scope
                 << '\n';
         }
+    }
+
+    void beginStage(const std::string &stageName) const
+    {
+        if (!m_enabled)
+        {
+            return;
+        }
+
+        const uint64_t totalNanoseconds = SDL_GetTicksNS() - m_startTickNanoseconds;
+        std::cerr
+            << "[MapLoadTiming] map=" << m_mapFileName
+            << " scope=" << m_scope
+            << " stage=\"" << stageName << "\""
+            << " event=begin"
+            << " total_ms=" << millisecondsFromNanoseconds(totalNanoseconds)
+            << '\n';
     }
 
     void stage(const std::string &stageName)
@@ -5490,6 +5508,7 @@ void GameApplication::shutdownApplication()
 {
     m_screenManager.setActiveScreen(nullptr);
     m_pLoadingOverlayScreen.reset();
+    m_gameSession.gameplayScreenRuntime().clearSharedUiRuntime();
     shutdownRenderer();
     shutdownDebugConsoleRenderer();
     m_gameAudioSystem.shutdown();
@@ -5674,17 +5693,22 @@ bool GameApplication::activateWorldForMap(const MapStatsEntry &map)
     const std::string targetWorldId = normalizeWorldId(map.worldId);
     const std::string currentWorldId = normalizeWorldId(m_pAssetFileSystem->getActiveWorldId());
 
-    if (currentWorldId != targetWorldId && !m_pAssetFileSystem->switchActiveWorld(targetWorldId))
+    if (currentWorldId != targetWorldId)
     {
-        std::cerr
-            << "GameApplication: failed to switch active world from "
-            << currentWorldId
-            << " to "
-            << targetWorldId
-            << " for map "
-            << map.fileName
-            << '\n';
-        return false;
+        if (!m_pAssetFileSystem->switchActiveWorld(targetWorldId))
+        {
+            std::cerr
+                << "GameApplication: failed to switch active world from "
+                << currentWorldId
+                << " to "
+                << targetWorldId
+                << " for map "
+                << map.fileName
+                << '\n';
+            return false;
+        }
+
+        m_gameSession.gameplayScreenRuntime().clearSharedUiRuntime();
     }
 
     std::string manifestError;
@@ -6380,6 +6404,7 @@ bool GameApplication::loadCurrentSessionMap(
         return false;
     }
 
+    GprofProfilingScope gprofProfilingScope;
     MapLoadTimingLogger timingLogger(m_gameSession.currentMapFileName(), "current_session_map");
 
     if (progressCallback)
@@ -6387,6 +6412,7 @@ bool GameApplication::loadCurrentSessionMap(
         progressCallback(10);
     }
 
+    timingLogger.beginStage("world activation");
     if (!activateWorldForMapFileName(m_gameSession.currentMapFileName()))
     {
         return false;
@@ -6402,6 +6428,11 @@ bool GameApplication::loadCurrentSessionMap(
             m_gameSession,
             *selectedMap,
             currentLocationDay(m_gameSession.gameMinutes()));
+
+    if (!selectedMapMatchesSession || forceReloadSelectedMapForRespawn)
+    {
+        timingLogger.beginStage("game data loader map load");
+    }
 
     if ((!selectedMapMatchesSession || forceReloadSelectedMapForRespawn)
         && !m_gameDataLoader.loadMapByFileNameForGameplay(
@@ -6429,9 +6460,11 @@ bool GameApplication::loadCurrentSessionMap(
         progressCallback(55);
     }
 
+    timingLogger.beginStage("renderer shutdown");
     shutdownRenderer();
     timingLogger.stage("renderer shutdown");
 
+    timingLogger.beginStage(initializeView ? "runtime and view initialization" : "runtime initialization");
     if (!initializeSelectedMapRuntime(initializeView))
     {
         std::cerr
@@ -7091,6 +7124,13 @@ void GameApplication::shutdownRenderer()
     m_pMapSceneRuntime.reset();
     m_pOutdoorPartyRuntime.reset();
     m_pOutdoorWorldRuntime.reset();
+
+    if (Engine::BgfxContext::isBgfxInitialized())
+    {
+        // bgfx defers freeing destroyed handles until the next frame. Map transitions reconstruct the renderer
+        // immediately, so advance the resource lifecycle before the next map starts allocating handles.
+        bgfx::frame();
+    }
 }
 
 void GameApplication::updateQuickSaveInput()
@@ -7892,6 +7932,7 @@ bool GameApplication::startNewSession(std::optional<uint32_t> rosterId, bool ini
 
     m_gameAudioSystem.stopBackgroundMusicImmediate();
     m_screenManager.setActiveScreen(nullptr);
+    m_gameSession.gameplayScreenRuntime().clearSharedUiRuntime();
     shutdownRenderer();
     m_gameSession.clear();
     m_gameSession.clearCurrentSavePath();
@@ -8003,6 +8044,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(
     m_gameAudioSystem.stopBackgroundMusicImmediate();
     m_screenManager.setActiveScreen(nullptr);
     beginLoadingOverlay();
+    m_gameSession.gameplayScreenRuntime().clearSharedUiRuntime();
     shutdownRenderer();
     m_gameSession.clear();
     m_gameSession.clearCurrentSavePath();
@@ -8434,12 +8476,6 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
 
     if (pWorldRuntime != nullptr && m_pMapSceneRuntime != nullptr && selectedMap)
     {
-        if (!m_gprofGameplayProfilingStarted)
-        {
-            setGprofProfilingEnabled(true);
-            m_gprofGameplayProfilingStarted = true;
-        }
-
         const GameplaySharedInputFrameResult &sharedInput = m_gameSession.sharedInputFrameResult();
         const bool pendingSpellTargetActive = m_gameSession.gameplayScreenState().pendingSpellTarget().active;
         const bool rightMouseInspectPauseActive = m_gameInputSystem.frame().rightMouseButton.held;

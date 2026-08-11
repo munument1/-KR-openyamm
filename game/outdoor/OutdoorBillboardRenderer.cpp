@@ -515,7 +515,10 @@ bool OutdoorBillboardRenderer::uploadBillboardTexture(OutdoorGameView &view, con
         texture.pixels.data(),
         uint32_t(texture.pixels.size()),
         TextureFilterProfile::Billboard,
-        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+        texture.pixelsPreparedForUpload
+            ? BgraTexturePixelPreparation::AlreadyPrepared
+            : BgraTexturePixelPreparation::Required);
 
     if (!bgfx::isValid(billboardTexture.textureHandle))
     {
@@ -1803,7 +1806,7 @@ void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorG
                     const SpriteTexturePreloadRequest &request = preloadRequests[requestIndex];
                     int textureWidth = 0;
                     int textureHeight = 0;
-                    const std::optional<std::vector<uint8_t>> pixels = loadSpriteBitmapPixelsBgra(
+                    std::optional<std::vector<uint8_t>> pixels = loadSpriteBitmapPixelsBgra(
                         request.bitmapBytes,
                         request.virtualPath,
                         request.overridePalette,
@@ -1820,7 +1823,12 @@ void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorG
                     decodedTexture.paletteId = request.paletteId;
                     decodedTexture.width = textureWidth;
                     decodedTexture.height = textureHeight;
-                    decodedTexture.pixels = *pixels;
+                    decodedTexture.pixels = std::move(*pixels);
+                    prepareBgraTexturePixelsForUploadInPlace(
+                        static_cast<uint16_t>(textureWidth),
+                        static_cast<uint16_t>(textureHeight),
+                        decodedTexture.pixels,
+                        TextureFilterProfile::Billboard);
                     decodedTextures.push_back(std::move(decodedTexture));
                 }
 
@@ -1861,7 +1869,8 @@ void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorG
             decodedTexture.pixels.data(),
             uint32_t(decodedTexture.pixels.size()),
             TextureFilterProfile::Billboard,
-            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+            BgraTexturePixelPreparation::AlreadyPrepared);
 
         if (!bgfx::isValid(billboardTexture.textureHandle))
         {

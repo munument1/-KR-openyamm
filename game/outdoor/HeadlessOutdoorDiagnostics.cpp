@@ -20,6 +20,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/app/GameApplication.h"
+#include "game/app/GprofControl.h"
 #include "game/outdoor/OutdoorInteractionController.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
@@ -3881,7 +3882,14 @@ int HeadlessGameplayDiagnostics::runProfileFullMapLoad(
         return 1;
     }
 
-    if (!gameDataLoader.loadMapByFileName(assetFileSystem, mapFileName))
+    bool mapLoaded = false;
+
+    {
+        GprofProfilingScope gprofProfilingScope;
+        mapLoaded = gameDataLoader.loadMapByFileName(assetFileSystem, mapFileName);
+    }
+
+    if (!mapLoaded)
     {
         std::cerr << "Headless diagnostic failed: could not full-load map \"" << mapFileName << "\"\n";
         return 1;

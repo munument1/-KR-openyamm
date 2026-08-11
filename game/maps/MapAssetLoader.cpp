@@ -7,6 +7,7 @@
 #include "game/maps/TerrainTileData.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
+#include "game/render/TextureFiltering.h"
 #include "game/SpriteObjectDefs.h"
 #include "game/StringUtils.h"
 #include "game/tables/SurfaceMaterialTable.h"
@@ -1854,6 +1855,57 @@ size_t actorTexturePreloadWorkerCount(size_t requestCount)
     return std::min(cappedThreadCount, requestCount);
 }
 
+void prepareBillboardTextureForUpload(OutdoorBitmapTexture &texture)
+{
+    if (texture.pixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
+    {
+        return;
+    }
+
+    prepareBgraTexturePixelsForUploadInPlace(
+        static_cast<uint16_t>(texture.physicalWidth),
+        static_cast<uint16_t>(texture.physicalHeight),
+        texture.pixels,
+        TextureFilterProfile::Billboard);
+    texture.pixelsPreparedForUpload = true;
+}
+
+void prepareBillboardTexturesForUploadParallel(std::vector<OutdoorBitmapTexture> &textures)
+{
+    const size_t workerCount = actorTexturePreloadWorkerCount(textures.size());
+
+    if (workerCount <= 1)
+    {
+        for (OutdoorBitmapTexture &texture : textures)
+        {
+            prepareBillboardTextureForUpload(texture);
+        }
+
+        return;
+    }
+
+    std::vector<std::future<void>> futures;
+    futures.reserve(workerCount);
+
+    for (size_t workerIndex = 0; workerIndex < workerCount; ++workerIndex)
+    {
+        futures.push_back(std::async(
+            std::launch::async,
+            [&textures, workerIndex, workerCount]()
+            {
+                for (size_t textureIndex = workerIndex; textureIndex < textures.size(); textureIndex += workerCount)
+                {
+                    prepareBillboardTextureForUpload(textures[textureIndex]);
+                }
+            }));
+    }
+
+    for (std::future<void> &future : futures)
+    {
+        future.get();
+    }
+}
+
 OutdoorBitmapTexture decodeActorBitmapTextureRequest(
     const Engine::AssetFileSystem &assetFileSystem,
     const BitmapTextureRequest &textureRequest,
@@ -1863,7 +1915,7 @@ OutdoorBitmapTexture decodeActorBitmapTextureRequest(
 {
     int textureWidth = 0;
     int textureHeight = 0;
-    const std::optional<std::vector<uint8_t>> pixels =
+    std::optional<std::vector<uint8_t>> pixels =
         loadBitmapPixelsBgra(
             assetFileSystem,
             "Data/sprites",
@@ -1889,7 +1941,8 @@ OutdoorBitmapTexture decodeActorBitmapTextureRequest(
     texture.physicalWidth = textureWidth;
     texture.physicalHeight = textureHeight;
     updateBitmapAlphaInfo(texture, *pixels);
-    texture.pixels = *pixels;
+    texture.pixels = std::move(*pixels);
+    prepareBillboardTextureForUpload(texture);
     return texture;
 }
 
@@ -2078,7 +2131,7 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         pumpMapLoadProgress(progressPump);
         int textureWidth = 0;
         int textureHeight = 0;
-        const std::optional<std::vector<uint8_t>> pixels =
+        std::optional<std::vector<uint8_t>> pixels =
             loadBitmapPixelsBgra(
                 assetFileSystem,
                 "Data/sprites",
@@ -2105,9 +2158,11 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
         updateBitmapAlphaInfo(texture, *pixels);
-        texture.pixels = *pixels;
+        texture.pixels = std::move(*pixels);
         billboardSet.textures.push_back(std::move(texture));
     }
+
+    prepareBillboardTexturesForUploadParallel(billboardSet.textures);
 
     return billboardSet;
 }

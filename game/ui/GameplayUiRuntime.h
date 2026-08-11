@@ -334,6 +334,10 @@ private:
     void clearHudLayoutLookupCaches() const;
 
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
+    std::string m_assetWorldId;
+    Engine::AssetScaleTier m_uiAssetScaleTier = Engine::AssetScaleTier::X1;
+    Engine::AssetScaleTier m_iconAssetScaleTier = Engine::AssetScaleTier::X1;
+    Engine::AssetScaleTier m_fontAssetScaleTier = Engine::AssetScaleTier::X1;
     bool m_layoutsLoaded = false;
     bool m_assetsPreloaded = false;
     bool m_portraitRuntimeLoaded = false;
