@@ -148,10 +148,10 @@
 145	Mire of the Damned	outc3.odm	0	0	0	168	0	0	3	7	6	10	10	20	70	BGhost	BGhost	2	 2-5	BHarpy	BHarpy	2	 3-5	Skeleton	Skeleton	4	 4-6	48	0	Peter	0	0	-
 146	Silver Cove	outd1.odm	0	0	0	672	0	0	4	5	6	10	50	50	0	Druidess	Druidess	2	 2-4	BGargoyle	BGargoyle	3	 3-5	0	0	1	 1-4	39	0	Peter	0	0	-
 147	Bootleg Bay	outd2.odm	0	0	0	224	0	0	3	2	6	10	40	40	20	PeasantM4	PeasantM4	3	 4-6	PeasantF4	PeasantF4	3	 4-6	LizardArch	LizardArch	3	 3-5	37	0	Peter	0	0	-
-148	Castle Ironfist	outd3.odm	0	0	0	672	0	0	2	3	6	10	20	40	40	LizardArch	LizardArch	1	 3-5	Bloodsucker	Bloodsucker	3	 3-6	PeasantM3	PeasantM3	1	 4-6	37	0	Peter	0	0	-
+148	Castle Ironfist	outd3.odm	0	0	0	672	0	0	2	3	6	10	20	40	40	LizardArch	LizardArch	1	 3-5	Bloodsucker	Bloodsucker	3	 3-6	PeasantM3	PeasantM3	1	 4-6	38	0	Peter	0	0	-
 149	Eel Infested Waters	oute1.odm	0	0	0	224	0	0	5	6	6	10	0	100	0	SeaSerpent	SeaSerpent	3	 1-3	Cockatrice	Cockatrice	3	 4-6	ElemWater	ElemWater	2	 2-4	37	0	Peter	0	0	-
 150	Misty Islands	oute2.odm	0	0	0	672	0	0	2	2	6	10	50	50	0	PeasantM3	PeasantM3	2	 4-6	PeasantF3	PeasantF3	2	 4-6	0	0	1	 1-4	37	0	Peter	0	0	-
-151	New Sorpigal	oute3.odm	0	0	0	168	0	0	0	1	6	10	50	50	0	BGoblin	BGoblin	1	 3-5	PeasantM2	PeasantM2	1	 3-5	0	0	1	 1-4	38	0	Peter	0	0	-
+151	New Sorpigal	oute3.odm	0	0	0	168	0	0	0	1	6	10	50	50	0	BGoblin	BGoblin	1	 3-5	PeasantM2	PeasantM2	1	 3-5	0	0	1	 1-4	37	0	Peter	0	0	-
 152	Goblinwatch	6d01.blv	0	0	0	672	0	0	0	1	6	10	40	30	30	BRat	BRat	2	 3-5	BGoblin	BGoblin	2	 3-5	Bloodsucker	Bloodsucker	1	 4-6	43	0	Bruce	0	0	-
 153	Abandoned Temple	6d02.blv	0	0	0	672	0	0	1	1	6	10	30	40	30	BBat	BBat	2	 4-6	Cobra	Cobra	1	 3-5	BSpider	BSpider	1	 2-4	44	0	Bruce	0	0	-
 154	Shadow Guild Hideout	6d03.blv	0	0	0	672	0	0	2	2	6	10	50	50	0	BThief	BThief	3	 3-7	FighterLeath	FighterLeath	2	 2-5	0	0	1	 1-4	42	0	Walter	0	0	-

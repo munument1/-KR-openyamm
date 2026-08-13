@@ -141,7 +141,7 @@ TEST_CASE("map stats normalize non-audio redbook track")
     CHECK_EQ(pEscatonsPalace->redbookTrack, 0);
 }
 
-TEST_CASE("MM6 named locations use their matching soundtrack tracks")
+TEST_CASE("MM6 named locations use their fixed soundtrack assignments")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();
     struct ExpectedTrack
@@ -157,8 +157,8 @@ TEST_CASE("MM6 named locations use their matching soundtrack tracks")
         {"outc2.odm", 51}, // Free Haven
         {"outc3.odm", 48}, // Mire of the Damned
         {"outd1.odm", 39}, // Silver Cove
-        {"outd3.odm", 37}, // Castle Ironfist
-        {"oute3.odm", 38}, // New Sorpigal
+        {"outd3.odm", 38}, // Castle Ironfist
+        {"oute3.odm", 37}, // New Sorpigal
         {"6d15.blv", 43}, // Icewind Keep
         {"6d17.blv", 42}, // Lair of the Wolf
         {"6t6.blv", 50}, // Supreme Temple of Baa
