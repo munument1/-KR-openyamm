@@ -28,6 +28,7 @@
 #include "game/tables/ObjectTable.h"
 #include "game/party/PartySpellSystem.h"
 #include "game/render/lighting/LightingStats.h"
+#include "game/render/BillboardOpacityMask.h"
 #include "game/gameplay/GameplaySpellActionController.h"
 #include "game/tables/ReadableScrollTable.h"
 #include "game/tables/RosterTable.h"
@@ -260,7 +261,7 @@ private:
         int height = 0;
         int physicalWidth = 0;
         int physicalHeight = 0;
-        std::vector<uint8_t> pixels;
+        BillboardOpacityMask opacityMask;
         bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
     };
 
@@ -702,7 +703,6 @@ private:
     };
     OutdoorSpriteRenderDiagnostics m_outdoorSpriteRenderDiagnostics = {};
     std::unordered_map<int16_t, std::unordered_map<std::string, size_t>> m_billboardTextureIndexByPalette;
-    std::unordered_map<std::string, size_t> m_decorationBitmapTextureIndexByName;
     std::vector<SkyTextureHandle> m_skyTextureHandles;
     std::unordered_map<std::string, size_t> m_skyTextureIndexByName;
     std::unordered_set<std::string> m_runtimeSkyLoadWarningNames;

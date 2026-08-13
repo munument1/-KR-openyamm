@@ -648,6 +648,9 @@ void GameAudioSystem::shutdown()
     m_activeGroupInstanceIds.clear();
     m_activeSpeechInstanceIds.clear();
     m_activeNonResettableSoundInstanceIds.clear();
+    m_persistentPreloadedClipKeys.clear();
+    m_mapPreloadedClipKeys.clear();
+    m_previousMapPreloadedClipKeys.clear();
     m_pendingMusicDecodeJob.reset();
     m_loadedMusicClipKeys.clear();
     m_activeMusicTrack = 0;
@@ -657,6 +660,7 @@ void GameAudioSystem::shutdown()
     m_musicFadeVelocity = 0.0f;
     m_pendingMusicDecodeDelaySeconds = 0.0f;
     m_backgroundMusicPaused = false;
+    m_recordingMapSoundPreloads = false;
     m_soundVolume = 1.0f;
     m_musicVolume = 1.0f;
     m_voiceVolume = 1.0f;
@@ -747,6 +751,8 @@ void GameAudioSystem::update(float listenerX, float listenerY, float listenerZ, 
         }
     }
 
+    evictUnusedMusicClips();
+
     Engine::AudioSystem::ListenerState listenerState = {};
     listenerState.x = listenerX;
     listenerState.y = listenerY;
@@ -803,12 +809,53 @@ bool GameAudioSystem::preloadSound(SoundRef sound)
         return false;
     }
 
-    return m_audioSystem.preloadClip(*virtualPath);
+    if (!m_audioSystem.preloadClip(*virtualPath))
+    {
+        return false;
+    }
+
+    if (m_recordingMapSoundPreloads)
+    {
+        m_mapPreloadedClipKeys.insert(*virtualPath);
+    }
+    else
+    {
+        m_persistentPreloadedClipKeys.insert(*virtualPath);
+    }
+
+    return true;
 }
 
 bool GameAudioSystem::preloadCommonSound(SoundId soundId)
 {
     return preloadSound(engineSound(static_cast<uint32_t>(soundId)));
+}
+
+void GameAudioSystem::beginMapSoundPreload()
+{
+    m_previousMapPreloadedClipKeys = std::move(m_mapPreloadedClipKeys);
+    m_mapPreloadedClipKeys.clear();
+    m_recordingMapSoundPreloads = true;
+}
+
+void GameAudioSystem::endMapSoundPreload()
+{
+    m_recordingMapSoundPreloads = false;
+
+    for (const std::string &clipKey : m_previousMapPreloadedClipKeys)
+    {
+        if (!m_mapPreloadedClipKeys.contains(clipKey) && !m_persistentPreloadedClipKeys.contains(clipKey))
+        {
+            m_audioSystem.releaseClip(clipKey);
+        }
+    }
+
+    m_previousMapPreloadedClipKeys.clear();
+}
+
+Engine::AudioSystem::CacheStats GameAudioSystem::cacheStats() const
+{
+    return m_audioSystem.cacheStats();
 }
 
 void GameAudioSystem::preloadSpellEffectSounds(const SpellTable &spellTable)
@@ -870,7 +917,10 @@ void GameAudioSystem::preloadArcomageUiSounds()
             continue;
         }
 
-        m_audioSystem.registerClip(*virtualPath, std::move(decodedSamples));
+        if (m_audioSystem.registerClip(*virtualPath, std::move(decodedSamples)))
+        {
+            m_persistentPreloadedClipKeys.insert(*virtualPath);
+        }
     }
 }
 
@@ -1294,6 +1344,7 @@ void GameAudioSystem::stopAllPlayback()
     m_activeMusicVolume = 0.0f;
     m_musicFadeVelocity = 0.0f;
     m_backgroundMusicPaused = false;
+    evictUnusedMusicClips();
 }
 
 std::optional<uint32_t> GameAudioSystem::resolveCharacterVoiceId(const Character &character) const
@@ -1440,6 +1491,7 @@ void GameAudioSystem::stopBackgroundMusicImmediate()
     m_activeMusicInstanceId = 0;
     m_activeMusicVolume = 0.0f;
     m_musicFadeVelocity = 0.0f;
+    evictUnusedMusicClips();
 }
 
 void GameAudioSystem::pauseBackgroundMusic()
@@ -1675,7 +1727,27 @@ bool GameAudioSystem::startBackgroundMusicTrack(int redbookTrack)
     m_musicFadeVelocity = MusicFadeInSeconds > 0.0f ? (MusicVolume / MusicFadeInSeconds) : MusicVolume;
     m_backgroundMusicPaused = false;
     m_audioSystem.setClipVolume(m_activeMusicInstanceId, m_activeMusicVolume);
+    evictUnusedMusicClips();
     return true;
+}
+
+void GameAudioSystem::evictUnusedMusicClips()
+{
+    const int pendingDecodeTrack = m_pendingMusicDecodeJob ? m_pendingMusicDecodeJob->redbookTrack : 0;
+
+    for (auto iterator = m_loadedMusicClipKeys.begin(); iterator != m_loadedMusicClipKeys.end();)
+    {
+        const int track = iterator->first;
+
+        if (track == m_activeMusicTrack || track == m_pendingMusicTrack || track == pendingDecodeTrack)
+        {
+            ++iterator;
+            continue;
+        }
+
+        m_audioSystem.releaseClip(iterator->second);
+        iterator = m_loadedMusicClipKeys.erase(iterator);
+    }
 }
 
 void GameAudioSystem::clearPendingBackgroundMusicTrack(int redbookTrack)

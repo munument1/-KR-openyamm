@@ -1456,6 +1456,8 @@ bool GameDataLoader::loadInternal(
     m_activeWorldId = normalizeWorldId(assetFileSystem.getActiveWorldId());
     m_loadedTables.clear();
     m_selectedMap.reset();
+    m_selectedMapRenderSourcePixelsReleased = false;
+    m_lastReleasedMapRenderSourcePixelBytes = 0;
     m_mapAssetLoadSharedCache = {};
     m_skyTextureAssetNames.reset();
     m_resolvedMergedSkyTextureNameByKey.clear();
@@ -1716,6 +1718,29 @@ const std::vector<LoadedTableSummary> &GameDataLoader::getLoadedTables() const
 const std::optional<MapAssetInfo> &GameDataLoader::getSelectedMap() const
 {
     return m_selectedMap;
+}
+
+size_t GameDataLoader::releaseSelectedMapRenderSourcePixels()
+{
+    if (!m_selectedMap || m_selectedMapRenderSourcePixelsReleased)
+    {
+        return 0;
+    }
+
+    m_lastReleasedMapRenderSourcePixelBytes = mapRenderSourcePixelBytes(*m_selectedMap);
+    clearMapRenderSourcePixels(*m_selectedMap);
+    m_selectedMapRenderSourcePixelsReleased = true;
+    return m_lastReleasedMapRenderSourcePixelBytes;
+}
+
+bool GameDataLoader::selectedMapRenderSourcePixelsReleased() const
+{
+    return m_selectedMapRenderSourcePixelsReleased;
+}
+
+size_t GameDataLoader::lastReleasedMapRenderSourcePixelBytes() const
+{
+    return m_lastReleasedMapRenderSourcePixelBytes;
 }
 
 const MapStats &GameDataLoader::getMapStats() const
@@ -3306,6 +3331,7 @@ bool GameDataLoader::loadSelectedMap(
     const MapLoadProgressPump &progressPump
 )
 {
+    m_mapAssetLoadSharedCache.clearTransientBitmapData();
     const std::optional<MapStatsEntry> selectedMap = m_mapRegistry.findById(mapId);
 
     if (!selectedMap)
@@ -3325,16 +3351,21 @@ bool GameDataLoader::loadSelectedMap(
         {},
         progressPump,
         &m_mapAssetLoadSharedCache);
+    m_mapAssetLoadSharedCache.clearTransientBitmapData();
 
     if (!loadedMap)
     {
         m_selectedMap.reset();
+        m_selectedMapRenderSourcePixelsReleased = false;
+        m_lastReleasedMapRenderSourcePixelBytes = 0;
         std::cerr << "Failed to load initial map asset for " << selectedMap->fileName << '\n';
         return false;
     }
     timingLogger.stage("map assets loaded");
 
     m_selectedMap.emplace(std::move(*loadedMap));
+    m_selectedMapRenderSourcePixelsReleased = false;
+    m_lastReleasedMapRenderSourcePixelBytes = 0;
 
     applyMergedContinentSettingsToSelectedMap(assetFileSystem);
     timingLogger.stage("continent settings applied");

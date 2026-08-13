@@ -11,6 +11,7 @@
 #include "game/maps/MapDeltaData.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/render/TextureFiltering.h"
+#include "game/render/BillboardOpacityMask.h"
 #include "game/tables/ItemTable.h"
 #include "game/fx/WorldFxRenderResources.h"
 #include "game/fx/WorldFxSystem.h"
@@ -245,7 +246,7 @@ private:
         int height = 0;
         int physicalWidth = 0;
         int physicalHeight = 0;
-        std::vector<uint8_t> pixels;
+        BillboardOpacityMask opacityMask;
         bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
     };
 

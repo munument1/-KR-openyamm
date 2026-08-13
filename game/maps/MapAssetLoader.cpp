@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -1378,6 +1379,8 @@ struct IndexedBitmapData
 struct BitmapLoadCache
 {
     MapAssetLoadSharedCache *pSharedCache = nullptr;
+    bool retainBinaryFiles = true;
+    bool retainDecodedPixels = true;
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> directoryAssetPathsByPath;
     std::unordered_map<std::string, std::optional<std::string>> bitmapPathByKey;
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> binaryFilesByPath;
@@ -1756,22 +1759,26 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         + "|" + std::to_string(applyTransparencyKey ? 1 : 0)
         + "|" + std::to_string(static_cast<int>(paletteId))
         + "|" + (paletteWorldId.empty() ? std::string() : normalizeWorldId(paletteWorldId));
-    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> &pixelCache =
-        bitmapPixelsByKey(bitmapLoadCache);
+    std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> *pPixelCache =
+        bitmapLoadCache.retainDecodedPixels ? &bitmapPixelsByKey(bitmapLoadCache) : nullptr;
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &binaryFileCache =
         bitmapBinaryFilesByPath(bitmapLoadCache);
-    const auto cachedPixelsIt = pixelCache.find(cacheKey);
 
-    if (cachedPixelsIt != pixelCache.end())
+    if (pPixelCache != nullptr)
     {
-        if (!cachedPixelsIt->second)
-        {
-            return std::nullopt;
-        }
+        const auto cachedPixelsIt = pPixelCache->find(cacheKey);
 
-        width = cachedPixelsIt->second->width;
-        height = cachedPixelsIt->second->height;
-        return cachedPixelsIt->second->pixels;
+        if (cachedPixelsIt != pPixelCache->end())
+        {
+            if (!cachedPixelsIt->second)
+            {
+                return std::nullopt;
+            }
+
+            width = cachedPixelsIt->second->width;
+            height = cachedPixelsIt->second->height;
+            return cachedPixelsIt->second->pixels;
+        }
     }
 
     const std::optional<std::string> bitmapPath =
@@ -1779,26 +1786,49 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
     if (!bitmapPath)
     {
-        pixelCache[cacheKey] = std::nullopt;
+        if (pPixelCache != nullptr)
+        {
+            (*pPixelCache)[cacheKey] = std::nullopt;
+        }
+
         return std::nullopt;
     }
 
-    std::optional<std::vector<uint8_t>> bitmapBytes;
-    const auto cachedFileIt = binaryFileCache.find(*bitmapPath);
+    std::optional<std::vector<uint8_t>> uncachedBitmapBytes;
+    const std::vector<uint8_t> *pBitmapBytes = nullptr;
 
-    if (cachedFileIt != binaryFileCache.end())
+    if (bitmapLoadCache.retainBinaryFiles)
     {
-        bitmapBytes = cachedFileIt->second;
+        auto cachedFileIt = binaryFileCache.find(*bitmapPath);
+
+        if (cachedFileIt == binaryFileCache.end())
+        {
+            std::optional<std::vector<uint8_t>> loadedBitmapBytes = assetFileSystem.readBinaryFile(*bitmapPath);
+            cachedFileIt = binaryFileCache.emplace(*bitmapPath, std::move(loadedBitmapBytes)).first;
+        }
+
+        if (cachedFileIt->second)
+        {
+            pBitmapBytes = &*cachedFileIt->second;
+        }
     }
     else
     {
-        bitmapBytes = assetFileSystem.readBinaryFile(*bitmapPath);
-        binaryFileCache[*bitmapPath] = bitmapBytes;
+        uncachedBitmapBytes = assetFileSystem.readBinaryFile(*bitmapPath);
+
+        if (uncachedBitmapBytes)
+        {
+            pBitmapBytes = &*uncachedBitmapBytes;
+        }
     }
 
-    if (!bitmapBytes || bitmapBytes->empty())
+    if (pBitmapBytes == nullptr || pBitmapBytes->empty())
     {
-        pixelCache[cacheKey] = std::nullopt;
+        if (pPixelCache != nullptr)
+        {
+            (*pPixelCache)[cacheKey] = std::nullopt;
+        }
+
         return std::nullopt;
     }
 
@@ -1812,11 +1842,15 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     decodeOptions.applyTealTransparencyKey = applyTransparencyKey && !isSpriteTexture;
 
     std::optional<Engine::ImagePixelsBgra> image =
-        Engine::decodeImagePixelsBgra(*bitmapBytes, *bitmapPath, decodeOptions);
+        Engine::decodeImagePixelsBgra(*pBitmapBytes, *bitmapPath, decodeOptions);
 
     if (!image)
     {
-        pixelCache[cacheKey] = std::nullopt;
+        if (pPixelCache != nullptr)
+        {
+            (*pPixelCache)[cacheKey] = std::nullopt;
+        }
+
         return std::nullopt;
     }
 
@@ -1830,7 +1864,11 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
 
         if (pixels.empty())
         {
-            pixelCache[cacheKey] = std::nullopt;
+            if (pPixelCache != nullptr)
+            {
+                (*pPixelCache)[cacheKey] = std::nullopt;
+            }
+
             return std::nullopt;
         }
 
@@ -1838,7 +1876,11 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
         height = forcedTerrainTileSize;
     }
 
-    pixelCache[cacheKey] = MapAssetBitmapPixelsResult{width, height, pixels};
+    if (pPixelCache != nullptr)
+    {
+        (*pPixelCache)[cacheKey] = MapAssetBitmapPixelsResult{width, height, pixels};
+    }
+
     return pixels;
 }
 
@@ -1971,6 +2013,8 @@ std::shared_ptr<std::vector<OutdoorBitmapTexture>> decodeActorBitmapTextureReque
             [&assetFileSystem, &textureRequests, spriteAssetScaleTier, worldId, workerIndex, workerCount]()
             {
                 BitmapLoadCache workerBitmapLoadCache = {};
+                workerBitmapLoadCache.retainBinaryFiles = false;
+                workerBitmapLoadCache.retainDecodedPixels = false;
                 std::vector<OutdoorBitmapTexture> textures;
 
                 for (size_t requestIndex = workerIndex; requestIndex < textureRequests.size(); requestIndex += workerCount)
@@ -3912,6 +3956,149 @@ std::vector<std::string> buildSceneOverlayPathCandidates(
     });
     return candidates;
 }
+}
+
+namespace
+{
+size_t texturePixelBytes(const std::vector<OutdoorBitmapTexture> &textures)
+{
+    size_t byteCount = 0;
+
+    for (const OutdoorBitmapTexture &texture : textures)
+    {
+        byteCount += texture.pixels.size();
+    }
+
+    return byteCount;
+}
+
+void clearTexturePixels(std::vector<OutdoorBitmapTexture> &textures)
+{
+    for (OutdoorBitmapTexture &texture : textures)
+    {
+        std::vector<uint8_t>().swap(texture.pixels);
+    }
+}
+
+size_t billboardSetPixelBytes(const std::optional<DecorationBillboardSet> &billboardSet)
+{
+    return billboardSet ? texturePixelBytes(billboardSet->textures) : 0;
+}
+
+size_t billboardSetPixelBytes(const std::optional<ActorPreviewBillboardSet> &billboardSet)
+{
+    if (!billboardSet)
+    {
+        return 0;
+    }
+
+    size_t byteCount = texturePixelBytes(billboardSet->textures);
+
+    if (billboardSet->texturePreloadFuture.valid()
+        && billboardSet->texturePreloadFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    {
+        const std::shared_ptr<std::vector<OutdoorBitmapTexture>> pTextures =
+            billboardSet->texturePreloadFuture.get();
+
+        if (pTextures != nullptr)
+        {
+            byteCount += texturePixelBytes(*pTextures);
+        }
+    }
+
+    return byteCount;
+}
+
+size_t billboardSetPixelBytes(const std::optional<SpriteObjectBillboardSet> &billboardSet)
+{
+    return billboardSet ? texturePixelBytes(billboardSet->textures) : 0;
+}
+
+template <typename BillboardSet>
+void clearBillboardSetPixels(std::optional<BillboardSet> &billboardSet)
+{
+    if (billboardSet)
+    {
+        clearTexturePixels(billboardSet->textures);
+    }
+}
+}
+
+size_t mapRenderSourcePixelBytes(const MapAssetInfo &mapAssetInfo)
+{
+    size_t byteCount = 0;
+
+    if (mapAssetInfo.outdoorTerrainTextureAtlas)
+    {
+        byteCount += mapAssetInfo.outdoorTerrainTextureAtlas->pixels.size();
+
+        for (const OutdoorAnimatedWaterTileSource &source : mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles)
+        {
+            for (const std::vector<uint8_t> &framePixels : source.framePixels)
+            {
+                byteCount += framePixels.size();
+            }
+        }
+    }
+
+    if (mapAssetInfo.outdoorBModelTextureSet)
+    {
+        byteCount += texturePixelBytes(mapAssetInfo.outdoorBModelTextureSet->textures);
+    }
+
+    byteCount += billboardSetPixelBytes(mapAssetInfo.outdoorDecorationBillboardSet);
+    byteCount += billboardSetPixelBytes(mapAssetInfo.outdoorActorPreviewBillboardSet);
+    byteCount += billboardSetPixelBytes(mapAssetInfo.outdoorSpriteObjectBillboardSet);
+    byteCount += billboardSetPixelBytes(mapAssetInfo.indoorDecorationBillboardSet);
+    byteCount += billboardSetPixelBytes(mapAssetInfo.indoorActorPreviewBillboardSet);
+    byteCount += billboardSetPixelBytes(mapAssetInfo.indoorSpriteObjectBillboardSet);
+
+    if (mapAssetInfo.indoorTextureSet)
+    {
+        byteCount += texturePixelBytes(mapAssetInfo.indoorTextureSet->textures);
+    }
+
+    return byteCount;
+}
+
+void clearMapRenderSourcePixels(MapAssetInfo &mapAssetInfo)
+{
+    if (mapAssetInfo.outdoorTerrainTextureAtlas)
+    {
+        std::vector<uint8_t>().swap(mapAssetInfo.outdoorTerrainTextureAtlas->pixels);
+
+        for (OutdoorAnimatedWaterTileSource &source : mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles)
+        {
+            std::vector<std::vector<uint8_t>>().swap(source.framePixels);
+        }
+    }
+
+    if (mapAssetInfo.outdoorBModelTextureSet)
+    {
+        clearTexturePixels(mapAssetInfo.outdoorBModelTextureSet->textures);
+    }
+
+    clearBillboardSetPixels(mapAssetInfo.outdoorDecorationBillboardSet);
+    clearBillboardSetPixels(mapAssetInfo.outdoorActorPreviewBillboardSet);
+    clearBillboardSetPixels(mapAssetInfo.outdoorSpriteObjectBillboardSet);
+    clearBillboardSetPixels(mapAssetInfo.indoorDecorationBillboardSet);
+    clearBillboardSetPixels(mapAssetInfo.indoorActorPreviewBillboardSet);
+    clearBillboardSetPixels(mapAssetInfo.indoorSpriteObjectBillboardSet);
+
+    if (mapAssetInfo.outdoorActorPreviewBillboardSet)
+    {
+        mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture = {};
+    }
+
+    if (mapAssetInfo.indoorActorPreviewBillboardSet)
+    {
+        mapAssetInfo.indoorActorPreviewBillboardSet->texturePreloadFuture = {};
+    }
+
+    if (mapAssetInfo.indoorTextureSet)
+    {
+        clearTexturePixels(mapAssetInfo.indoorTextureSet->textures);
+    }
 }
 
 std::optional<MapAssetInfo> MapAssetLoader::load(

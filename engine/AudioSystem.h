@@ -4,6 +4,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -17,6 +18,12 @@ namespace OpenYAMM::Engine
 class AudioSystem
 {
 public:
+    struct CacheStats
+    {
+        size_t clipCount = 0;
+        size_t sampleBytes = 0;
+    };
+
     struct ListenerState
     {
         float x = 0.0f;
@@ -45,6 +52,8 @@ public:
 
     bool preloadClip(const std::string &virtualPath);
     bool registerClip(const std::string &virtualPath, std::vector<float> samples, uint32_t frameCount = 0);
+    bool releaseClip(const std::string &virtualPath);
+    CacheStats cacheStats() const;
     uint64_t playClip(const std::string &virtualPath, const PlaybackOptions &options);
     void stopClip(uint64_t instanceId);
     void pauseClip(uint64_t instanceId);

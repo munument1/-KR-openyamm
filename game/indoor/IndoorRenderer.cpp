@@ -2808,7 +2808,10 @@ bool IndoorRenderer::initialize(
             billboardTexture.height = texture.height;
             billboardTexture.physicalWidth = texture.physicalWidth;
             billboardTexture.physicalHeight = texture.physicalHeight;
-            billboardTexture.pixels = texture.pixels;
+            billboardTexture.opacityMask.assignFromBgra(
+                texture.pixels,
+                texture.physicalWidth,
+                texture.physicalHeight);
             billboardTexture.textureHandle = createBgraTexture2D(
                 uint16_t(texture.physicalWidth),
                 uint16_t(texture.physicalHeight),
@@ -2845,7 +2848,10 @@ bool IndoorRenderer::initialize(
             billboardTexture.height = texture.height;
             billboardTexture.physicalWidth = texture.physicalWidth;
             billboardTexture.physicalHeight = texture.physicalHeight;
-            billboardTexture.pixels = texture.pixels;
+            billboardTexture.opacityMask.assignFromBgra(
+                texture.pixels,
+                texture.physicalWidth,
+                texture.physicalHeight);
             billboardTexture.textureHandle = createBgraTexture2D(
                 uint16_t(texture.physicalWidth),
                 uint16_t(texture.physicalHeight),
@@ -2882,7 +2888,10 @@ bool IndoorRenderer::initialize(
             billboardTexture.height = texture.height;
             billboardTexture.physicalWidth = texture.physicalWidth;
             billboardTexture.physicalHeight = texture.physicalHeight;
-            billboardTexture.pixels = texture.pixels;
+            billboardTexture.opacityMask.assignFromBgra(
+                texture.pixels,
+                texture.physicalWidth,
+                texture.physicalHeight);
             billboardTexture.textureHandle = createBgraTexture2D(
                 uint16_t(texture.physicalWidth),
                 uint16_t(texture.physicalHeight),
@@ -2901,6 +2910,21 @@ bool IndoorRenderer::initialize(
                 registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
             }
         }
+    }
+
+    if (m_indoorDecorationBillboardSet)
+    {
+        std::vector<OutdoorBitmapTexture>().swap(m_indoorDecorationBillboardSet->textures);
+    }
+
+    if (m_indoorActorPreviewBillboardSet)
+    {
+        std::vector<OutdoorBitmapTexture>().swap(m_indoorActorPreviewBillboardSet->textures);
+    }
+
+    if (m_indoorSpriteObjectBillboardSet)
+    {
+        std::vector<OutdoorBitmapTexture>().swap(m_indoorSpriteObjectBillboardSet->textures);
     }
 
     m_faceCount = static_cast<uint32_t>(indoorMapData.faces.size());
@@ -4793,22 +4817,9 @@ IndoorRenderer::gameplayActorPickAtCursor(
                 normalizedU = 1.0f - normalizedU;
             }
 
-            if (pTexture->physicalWidth > 0 && pTexture->physicalHeight > 0 && !pTexture->pixels.empty())
+            if (!pTexture->opacityMask.isOpaqueNormalized(normalizedU, normalizedV))
             {
-                const int pixelX = std::clamp(
-                    static_cast<int>(std::floor(normalizedU * static_cast<float>(pTexture->physicalWidth))),
-                    0,
-                    pTexture->physicalWidth - 1);
-                const int pixelY = std::clamp(
-                    static_cast<int>(std::floor(normalizedV * static_cast<float>(pTexture->physicalHeight))),
-                    0,
-                    pTexture->physicalHeight - 1);
-                const size_t pixelOffset = static_cast<size_t>((pixelY * pTexture->physicalWidth + pixelX) * 4);
-
-                if (pixelOffset + 3 >= pTexture->pixels.size() || pTexture->pixels[pixelOffset + 3] == 0)
-                {
-                    continue;
-                }
+                continue;
             }
 
             const bx::Vec3 planeNormal = {
@@ -6847,7 +6858,7 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
     billboardTexture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, m_assetScaleTier);
     billboardTexture.physicalWidth = textureWidth;
     billboardTexture.physicalHeight = textureHeight;
-    billboardTexture.pixels = *pixels;
+    billboardTexture.opacityMask.assignFromBgra(*pixels, textureWidth, textureHeight);
     billboardTexture.textureHandle = createBgraTexture2D(
         uint16_t(textureWidth),
         uint16_t(textureHeight),
@@ -11422,23 +11433,7 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
         const auto isOpaqueBillboardPixel =
             [](const BillboardTextureHandle &texture, float normalizedU, float normalizedV) -> bool
             {
-                if (texture.physicalWidth <= 0
-                    || texture.physicalHeight <= 0
-                    || texture.pixels.empty())
-                {
-                    return true;
-                }
-
-                const int pixelX = std::clamp(
-                    static_cast<int>(std::floor(normalizedU * static_cast<float>(texture.physicalWidth))),
-                    0,
-                    texture.physicalWidth - 1);
-                const int pixelY = std::clamp(
-                    static_cast<int>(std::floor(normalizedV * static_cast<float>(texture.physicalHeight))),
-                    0,
-                    texture.physicalHeight - 1);
-                const size_t pixelOffset = static_cast<size_t>((pixelY * texture.physicalWidth + pixelX) * 4);
-                return pixelOffset + 3 < texture.pixels.size() && texture.pixels[pixelOffset + 3] != 0;
+                return texture.opacityMask.isOpaqueNormalized(normalizedU, normalizedV);
             };
 
         const auto resolveDecorationBillboardSpriteId =
@@ -11686,23 +11681,7 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
         const auto isOpaqueBillboardPixel =
             [](const BillboardTextureHandle &texture, float normalizedU, float normalizedV) -> bool
             {
-                if (texture.physicalWidth <= 0
-                    || texture.physicalHeight <= 0
-                    || texture.pixels.empty())
-                {
-                    return true;
-                }
-
-                const int pixelX = std::clamp(
-                    static_cast<int>(std::floor(normalizedU * float(texture.physicalWidth))),
-                    0,
-                    texture.physicalWidth - 1);
-                const int pixelY = std::clamp(
-                    static_cast<int>(std::floor(normalizedV * float(texture.physicalHeight))),
-                    0,
-                    texture.physicalHeight - 1);
-                const size_t pixelOffset = static_cast<size_t>((pixelY * texture.physicalWidth + pixelX) * 4);
-                return pixelOffset + 3 < texture.pixels.size() && texture.pixels[pixelOffset + 3] != 0;
+                return texture.opacityMask.isOpaqueNormalized(normalizedU, normalizedV);
             };
 
         const auto hitTestActorBillboard =
@@ -11944,23 +11923,7 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
         const auto isOpaqueBillboardPixel =
             [](const BillboardTextureHandle &texture, float normalizedU, float normalizedV) -> bool
             {
-                if (texture.physicalWidth <= 0
-                    || texture.physicalHeight <= 0
-                    || texture.pixels.empty())
-                {
-                    return true;
-                }
-
-                const int pixelX = std::clamp(
-                    static_cast<int>(std::floor(normalizedU * static_cast<float>(texture.physicalWidth))),
-                    0,
-                    texture.physicalWidth - 1);
-                const int pixelY = std::clamp(
-                    static_cast<int>(std::floor(normalizedV * static_cast<float>(texture.physicalHeight))),
-                    0,
-                    texture.physicalHeight - 1);
-                const size_t pixelOffset = static_cast<size_t>((pixelY * texture.physicalWidth + pixelX) * 4);
-                return pixelOffset + 3 < texture.pixels.size() && texture.pixels[pixelOffset + 3] != 0;
+                return texture.opacityMask.isOpaqueNormalized(normalizedU, normalizedV);
             };
 
         const auto nearestFaceDistanceForRay =

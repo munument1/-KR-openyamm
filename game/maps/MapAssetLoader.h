@@ -248,6 +248,9 @@ struct MapAssetInfo
     std::optional<IndoorTextureSet> indoorTextureSet;
 };
 
+size_t mapRenderSourcePixelBytes(const MapAssetInfo &mapAssetInfo);
+void clearMapRenderSourcePixels(MapAssetInfo &mapAssetInfo);
+
 enum class MapLoadPurpose
 {
     Full,
@@ -273,6 +276,12 @@ struct MapAssetLoadSharedCache
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> bitmapBinaryFilesByPath;
     std::unordered_map<std::string, std::optional<std::array<uint8_t, 256 * 3>>> actPalettesByKey;
     std::unordered_map<std::string, std::optional<MapAssetBitmapPixelsResult>> bitmapPixelsByKey;
+
+    void clearTransientBitmapData()
+    {
+        bitmapBinaryFilesByPath.clear();
+        bitmapPixelsByKey.clear();
+    }
 };
 
 class MapAssetLoader

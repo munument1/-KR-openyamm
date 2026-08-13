@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -104,6 +105,9 @@ public:
         const std::optional<WorldPosition> &position = std::nullopt);
     bool preloadSound(SoundRef sound);
     bool preloadCommonSound(SoundId soundId);
+    void beginMapSoundPreload();
+    void endMapSoundPreload();
+    Engine::AudioSystem::CacheStats cacheStats() const;
     bool playSpeech(const Character &character, SpeechId speechId, uint32_t seed = 0, uint32_t speakerKey = 0);
     const SpeechReactionEntry *findSpeechReaction(SpeechId speechId) const;
     void stopSoundInstance(uint64_t instanceId);
@@ -128,6 +132,7 @@ private:
     bool ensureBackgroundMusicTrackLoaded(int redbookTrack);
     bool startBackgroundMusicTrack(int redbookTrack);
     void clearPendingBackgroundMusicTrack(int redbookTrack);
+    void evictUnusedMusicClips();
     float targetMusicVolume() const;
     float playbackGroupVolume(PlaybackGroup group) const;
     uint64_t playResolvedSound(
@@ -148,6 +153,9 @@ private:
     std::unordered_map<PlaybackGroup, uint64_t> m_activeGroupInstanceIds;
     std::unordered_map<uint32_t, uint64_t> m_activeSpeechInstanceIds;
     std::unordered_map<uint32_t, uint64_t> m_activeNonResettableSoundInstanceIds;
+    std::unordered_set<std::string> m_persistentPreloadedClipKeys;
+    std::unordered_set<std::string> m_mapPreloadedClipKeys;
+    std::unordered_set<std::string> m_previousMapPreloadedClipKeys;
     std::unordered_map<int, std::string> m_loadedMusicClipKeys;
     std::optional<PendingMusicDecodeJob> m_pendingMusicDecodeJob;
     int m_activeMusicTrack = 0;
@@ -157,6 +165,7 @@ private:
     float m_musicFadeVelocity = 0.0f;
     float m_pendingMusicDecodeDelaySeconds = 0.0f;
     bool m_backgroundMusicPaused = false;
+    bool m_recordingMapSoundPreloads = false;
     float m_soundVolume = 1.0f;
     float m_musicVolume = 1.0f;
     float m_voiceVolume = 1.0f;

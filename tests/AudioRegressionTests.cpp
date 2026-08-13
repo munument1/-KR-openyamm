@@ -32,6 +32,20 @@ const OpenYAMM::Tests::RegressionGameData &requireRegressionGameData()
     return OpenYAMM::Tests::regressionGameData();
 }
 
+TEST_CASE("registered audio clips can be released from the decode cache")
+{
+    OpenYAMM::Engine::AudioSystem audioSystem;
+    std::vector<float> samples(32, 0.25f);
+
+    REQUIRE(audioSystem.registerClip("test-release", std::move(samples)));
+    CHECK_EQ(audioSystem.cacheStats().clipCount, 1);
+    CHECK_EQ(audioSystem.cacheStats().sampleBytes, 32 * sizeof(float));
+    CHECK(audioSystem.releaseClip("test-release"));
+    CHECK_EQ(audioSystem.cacheStats().clipCount, 0);
+    CHECK_EQ(audioSystem.cacheStats().sampleBytes, 0);
+    CHECK_FALSE(audioSystem.releaseClip("test-release"));
+}
+
 bool initializeRegressionAssetFileSystem(
     OpenYAMM::Engine::AssetFileSystem &assetFileSystem,
     std::string &failure)

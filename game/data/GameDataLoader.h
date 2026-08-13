@@ -74,6 +74,9 @@ public:
     );
     const std::vector<LoadedTableSummary> &getLoadedTables() const;
     const std::optional<MapAssetInfo> &getSelectedMap() const;
+    size_t releaseSelectedMapRenderSourcePixels();
+    bool selectedMapRenderSourcePixelsReleased() const;
+    size_t lastReleasedMapRenderSourcePixelBytes() const;
     const MapStats &getMapStats() const;
     const MonsterTable &getMonsterTable() const;
     const MonsterProjectileTable &getMonsterProjectileTable() const;
@@ -267,5 +270,7 @@ private:
     MergedTransportLocationTable m_mergedTransportLocationTable;
     MapAssetLoadSharedCache m_mapAssetLoadSharedCache;
     std::optional<MapAssetInfo> m_selectedMap;
+    bool m_selectedMapRenderSourcePixelsReleased = false;
+    size_t m_lastReleasedMapRenderSourcePixelBytes = 0;
 };
 }

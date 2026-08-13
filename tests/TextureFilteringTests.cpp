@@ -1,11 +1,28 @@
+#include "game/maps/MapAssetLoader.h"
+#include "game/render/BillboardOpacityMask.h"
 #include "game/render/TextureFiltering.h"
 
 #include <doctest/doctest.h>
 
 #include <cstdint>
+#include <future>
+#include <memory>
 #include <vector>
 
 using namespace OpenYAMM::Game;
+
+namespace
+{
+OutdoorBitmapTexture textureWithBytes(size_t byteCount)
+{
+    OutdoorBitmapTexture texture = {};
+    texture.textureName = "texture";
+    texture.width = 8;
+    texture.height = 8;
+    texture.pixels.resize(byteCount, 1);
+    return texture;
+}
+}
 
 TEST_CASE("Billboard upload preparation fills transparent edge colors without changing alpha")
 {
@@ -44,4 +61,77 @@ TEST_CASE("Upload preparation leaves profiles without transparent edge bleeding 
 
     CHECK_FALSE(prepared);
     CHECK(pixels == originalPixels);
+}
+
+TEST_CASE("Billboard opacity masks retain alpha hit testing in one bit per pixel")
+{
+    const std::vector<uint8_t> pixels = {
+        20, 40, 60, 255,
+        0, 0, 0, 0,
+        90, 110, 130, 1,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        10, 20, 30, 255,
+        0, 0, 0, 0,
+        10, 20, 30, 255,
+        0, 0, 0, 0,
+    };
+    BillboardOpacityMask mask;
+
+    mask.assignFromBgra(pixels, 3, 3);
+
+    CHECK_EQ(mask.byteSize(), 2);
+    CHECK(mask.isOpaque(0, 0));
+    CHECK_FALSE(mask.isOpaque(1, 0));
+    CHECK(mask.isOpaque(2, 0));
+    CHECK(mask.isOpaque(2, 1));
+    CHECK_FALSE(mask.isOpaque(0, 2));
+    CHECK(mask.isOpaqueNormalized(0.99f, 0.66f));
+    CHECK_FALSE(mask.isOpaque(-1, 0));
+}
+
+TEST_CASE("Map render source cleanup releases decoded pixels while preserving texture metadata")
+{
+    MapAssetInfo mapAssetInfo = {};
+    mapAssetInfo.outdoorTerrainTextureAtlas.emplace();
+    mapAssetInfo.outdoorTerrainTextureAtlas->pixels.resize(3, 1);
+    mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles.push_back({});
+    mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles[0].framePixels = {
+        std::vector<uint8_t>(2, 1),
+        std::vector<uint8_t>(4, 1),
+    };
+    mapAssetInfo.outdoorBModelTextureSet.emplace();
+    mapAssetInfo.outdoorBModelTextureSet->textures.push_back(textureWithBytes(5));
+    mapAssetInfo.outdoorDecorationBillboardSet.emplace();
+    mapAssetInfo.outdoorDecorationBillboardSet->textures.push_back(textureWithBytes(7));
+    mapAssetInfo.outdoorActorPreviewBillboardSet.emplace();
+    mapAssetInfo.outdoorActorPreviewBillboardSet->textures.push_back(textureWithBytes(11));
+    std::promise<std::shared_ptr<std::vector<OutdoorBitmapTexture>>> actorTexturePromise;
+    std::shared_ptr<std::vector<OutdoorBitmapTexture>> pActorTextures =
+        std::make_shared<std::vector<OutdoorBitmapTexture>>();
+    pActorTextures->push_back(textureWithBytes(31));
+    actorTexturePromise.set_value(pActorTextures);
+    mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture =
+        actorTexturePromise.get_future().share();
+    mapAssetInfo.outdoorSpriteObjectBillboardSet.emplace();
+    mapAssetInfo.outdoorSpriteObjectBillboardSet->textures.push_back(textureWithBytes(13));
+    mapAssetInfo.indoorDecorationBillboardSet.emplace();
+    mapAssetInfo.indoorDecorationBillboardSet->textures.push_back(textureWithBytes(17));
+    mapAssetInfo.indoorActorPreviewBillboardSet.emplace();
+    mapAssetInfo.indoorActorPreviewBillboardSet->textures.push_back(textureWithBytes(19));
+    mapAssetInfo.indoorSpriteObjectBillboardSet.emplace();
+    mapAssetInfo.indoorSpriteObjectBillboardSet->textures.push_back(textureWithBytes(23));
+    mapAssetInfo.indoorTextureSet.emplace();
+    mapAssetInfo.indoorTextureSet->textures.push_back(textureWithBytes(29));
+
+    CHECK_EQ(mapRenderSourcePixelBytes(mapAssetInfo), 164);
+
+    clearMapRenderSourcePixels(mapAssetInfo);
+
+    CHECK_EQ(mapRenderSourcePixelBytes(mapAssetInfo), 0);
+    REQUIRE(mapAssetInfo.outdoorBModelTextureSet);
+    REQUIRE_EQ(mapAssetInfo.outdoorBModelTextureSet->textures.size(), 1);
+    CHECK_EQ(mapAssetInfo.outdoorBModelTextureSet->textures[0].textureName, "texture");
+    CHECK(mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles[0].framePixels.empty());
+    CHECK_FALSE(mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture.valid());
 }

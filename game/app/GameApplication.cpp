@@ -57,6 +57,10 @@
 #include <unordered_set>
 #include <vector>
 
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
+
 namespace OpenYAMM::Game
 {
 namespace
@@ -82,6 +86,13 @@ uint64_t averageNanoseconds(uint64_t totalNanoseconds, uint64_t count)
 uint64_t nanosecondsToMicroseconds(uint64_t nanoseconds)
 {
     return nanoseconds / 1000ULL;
+}
+
+void releaseUnusedHeapPages()
+{
+#if defined(__GLIBC__)
+    static_cast<void>(malloc_trim(0));
+#endif
 }
 
 const char *gameplayUiAssetLoadKindName(GameplayUiAssetLoadKind kind)
@@ -246,6 +257,7 @@ void preloadMapGameplaySounds(
     const SpellTable &spellTable,
     const MapAssetInfo &map)
 {
+    audioSystem.beginMapSoundPreload();
     constexpr std::array<int16_t, 3> SummonWispMonsterIds = {97, 98, 99};
     constexpr std::array<SoundId, 12> OutdoorFootstepSoundIds = {
         SoundId::RunCarpet,
@@ -350,6 +362,8 @@ void preloadMapGameplaySounds(
     {
         preloadMonsterId(summonMonsterId);
     }
+
+    audioSystem.endMapSoundPreload();
 }
 
 size_t findMapDeltaActorFilterIndex(const MapDeltaData &mapDeltaData, size_t uniqueActorIndex)
@@ -2895,7 +2909,27 @@ void GameApplication::registerDebugConsoleCommands()
                 << "arcomage win <house-id|mm8>, "
                 << "player add <class-id|class-name> [name], hire <profession-id>, gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
-                << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, reload map";
+                << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, "
+                << "memory, reload map";
+            return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "memory",
+        .description = "Show retained decoded map and audio cache bytes.",
+        .usage = "memory",
+        .callback = [this, commandResult](const DebugConsole::CommandContext &)
+        {
+            const std::optional<MapAssetInfo> &selectedMap = m_gameDataLoader.getSelectedMap();
+            const size_t mapPixelBytes = selectedMap ? mapRenderSourcePixelBytes(*selectedMap) : 0;
+            const Engine::AudioSystem::CacheStats audioStats = m_gameAudioSystem.cacheStats();
+            std::ostringstream out;
+            out << "map_render_source_bytes=" << mapPixelBytes
+                << " map_last_released_bytes=" << m_gameDataLoader.lastReleasedMapRenderSourcePixelBytes()
+                << " map_sources_released="
+                << (m_gameDataLoader.selectedMapRenderSourcePixelsReleased() ? "true" : "false")
+                << " audio_clip_count=" << audioStats.clipCount
+                << " audio_sample_bytes=" << audioStats.sampleBytes;
             return commandResult(true, out.str());
         }});
 
@@ -6029,6 +6063,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
 
         if (!initializeView)
         {
+            releaseUnusedHeapPages();
             return true;
         }
 
@@ -6058,6 +6093,16 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
                 << "GameApplication: outdoor view initialization failed for map "
                 << selectedMap->map.fileName
                 << '\n';
+        }
+
+        if (initialized && bgfx::getRendererType() != bgfx::RendererType::Noop)
+        {
+            m_gameDataLoader.releaseSelectedMapRenderSourcePixels();
+        }
+
+        if (initialized)
+        {
+            releaseUnusedHeapPages();
         }
 
         return initialized;
@@ -6275,11 +6320,17 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         }
         timingLogger.stage("indoor view initialized");
 
+        if (initializeView && bgfx::getRendererType() != bgfx::RendererType::Noop)
+        {
+            m_gameDataLoader.releaseSelectedMapRenderSourcePixels();
+        }
+
         m_indoorGameView.setSettingsSnapshot(m_settings);
 
         m_pMapSceneRuntime = std::move(pIndoorSceneRuntime);
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
         timingLogger.stage("indoor scene runtime bound");
+        releaseUnusedHeapPages();
         return true;
     }
 
@@ -6437,13 +6488,19 @@ bool GameApplication::loadCurrentSessionMap(
             m_gameSession,
             *selectedMap,
             currentLocationDay(m_gameSession.gameMinutes()));
+    const bool forceReloadSelectedMapForRenderer =
+        selectedMapMatchesSession
+        && initializeView
+        && m_gameDataLoader.selectedMapRenderSourcePixelsReleased();
+    const bool forceReloadSelectedMap =
+        forceReloadSelectedMapForRespawn || forceReloadSelectedMapForRenderer;
 
-    if (!selectedMapMatchesSession || forceReloadSelectedMapForRespawn)
+    if (!selectedMapMatchesSession || forceReloadSelectedMap)
     {
         timingLogger.beginStage("game data loader map load");
     }
 
-    if ((!selectedMapMatchesSession || forceReloadSelectedMapForRespawn)
+    if ((!selectedMapMatchesSession || forceReloadSelectedMap)
         && !m_gameDataLoader.loadMapByFileNameForGameplay(
                 *m_pAssetFileSystem,
                 m_gameSession.currentMapFileName(),
@@ -6460,7 +6517,7 @@ bool GameApplication::loadCurrentSessionMap(
     }
 
     timingLogger.stage(
-        selectedMapMatchesSession && !forceReloadSelectedMapForRespawn
+        selectedMapMatchesSession && !forceReloadSelectedMap
             ? "game data loader map load reused selected map"
             : "game data loader map load");
 

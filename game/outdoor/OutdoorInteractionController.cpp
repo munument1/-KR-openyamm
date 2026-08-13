@@ -3136,58 +3136,6 @@ void OutdoorInteractionController::applyGrantedEventItemsToHeldInventory(Outdoor
 
 
 
-const OutdoorBitmapTexture *OutdoorInteractionController::findDecorationBillboardTexture(
-    const OutdoorGameView &view,
-    const std::string &textureName)
-{
-    if (!view.m_outdoorDecorationBillboardSet)
-    {
-        return nullptr;
-    }
-
-    const std::string normalizedTextureName = toLowerCopy(textureName);
-    const auto it = view.m_decorationBitmapTextureIndexByName.find(normalizedTextureName);
-
-    if (it == view.m_decorationBitmapTextureIndexByName.end())
-    {
-        return nullptr;
-    }
-
-    if (it->second >= view.m_outdoorDecorationBillboardSet->textures.size())
-    {
-        return nullptr;
-    }
-
-    return &view.m_outdoorDecorationBillboardSet->textures[it->second];
-}
-
-
-
-const OutdoorBitmapTexture *OutdoorInteractionController::findActorBillboardTexture(
-    const OutdoorGameView &view,
-    const std::string &textureName,
-    int16_t paletteId)
-{
-    if (!view.m_outdoorActorPreviewBillboardSet)
-    {
-        return nullptr;
-    }
-
-    const std::string normalizedTextureName = toLowerCopy(textureName);
-
-    for (const OutdoorBitmapTexture &texture : view.m_outdoorActorPreviewBillboardSet->textures)
-    {
-        if (texture.textureName == normalizedTextureName && texture.paletteId == paletteId)
-        {
-            return &texture;
-        }
-    }
-
-    return nullptr;
-}
-
-
-
 bool OutdoorInteractionController::hitTestDecorationBillboard(
     OutdoorGameView &view,
     const DecorationBillboard &billboard,
@@ -3217,33 +3165,6 @@ bool OutdoorInteractionController::hitTestDecorationBillboard(
     if (pFrame == nullptr)
     {
         return false;
-    }
-
-    int bitmapWidth = 0;
-    int bitmapHeight = 0;
-    std::vector<uint8_t> bitmapPixels;
-    const OutdoorBitmapTexture *pBitmapTexture = findDecorationBillboardTexture(view, texture.textureName);
-
-    if (pBitmapTexture != nullptr
-        && pBitmapTexture->physicalWidth > 0
-        && pBitmapTexture->physicalHeight > 0
-        && !pBitmapTexture->pixels.empty())
-    {
-        bitmapWidth = pBitmapTexture->physicalWidth;
-        bitmapHeight = pBitmapTexture->physicalHeight;
-        bitmapPixels = pBitmapTexture->pixels;
-    }
-    else
-    {
-        const std::optional<std::vector<uint8_t>> loadedPixels =
-            view.loadSpriteBitmapPixelsBgraCached(texture.textureName, pFrame->paletteId, bitmapWidth, bitmapHeight);
-
-        if (!loadedPixels || bitmapWidth <= 0 || bitmapHeight <= 0)
-        {
-            return false;
-        }
-
-        bitmapPixels = *loadedPixels;
     }
 
     const float spriteScale = std::max(pFrame->scale, 0.01f);
@@ -3317,17 +3238,7 @@ bool OutdoorInteractionController::hitTestDecorationBillboard(
             normalizedU = 1.0f - normalizedU;
         }
 
-        const int pixelX = std::clamp(
-            static_cast<int>(std::floor(normalizedU * static_cast<float>(bitmapWidth))),
-            0,
-            bitmapWidth - 1);
-        const int pixelY = std::clamp(
-            static_cast<int>(std::floor(normalizedV * static_cast<float>(bitmapHeight))),
-            0,
-            bitmapHeight - 1);
-        const size_t pixelOffset = static_cast<size_t>((pixelY * bitmapWidth + pixelX) * 4);
-
-        if (pixelOffset + 3 >= bitmapPixels.size() || bitmapPixels[pixelOffset + 3] == 0)
+        if (!texture.opacityMask.isOpaqueNormalized(normalizedU, normalizedV))
         {
             return false;
         }
@@ -3422,55 +3333,14 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     const float octantAngle = actorYaw - angleToCamera + Pi + (Pi / 8.0f);
     const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
     const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
-    const OutdoorBitmapTexture *pBitmapTexture =
-        findActorBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId);
-    int bitmapWidth = 0;
-    int bitmapHeight = 0;
-    int bitmapPhysicalWidth = 0;
-    int bitmapPhysicalHeight = 0;
-    const std::vector<uint8_t> *pBitmapPixels = nullptr;
+    const OutdoorGameView::BillboardTextureHandle *pTextureHandle =
+        view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
-    if (pBitmapTexture != nullptr
-        && pBitmapTexture->width > 0
-        && pBitmapTexture->height > 0
-        && pBitmapTexture->physicalWidth > 0
-        && pBitmapTexture->physicalHeight > 0
-        && !pBitmapTexture->pixels.empty())
-    {
-        bitmapWidth = pBitmapTexture->width;
-        bitmapHeight = pBitmapTexture->height;
-        bitmapPhysicalWidth = pBitmapTexture->physicalWidth;
-        bitmapPhysicalHeight = pBitmapTexture->physicalHeight;
-        pBitmapPixels = &pBitmapTexture->pixels;
-    }
-    else
-    {
-        const OutdoorGameView::BillboardTextureHandle *pTextureHandle =
-            view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
-
-        if (pTextureHandle == nullptr
-            || pTextureHandle->width <= 0
-            || pTextureHandle->height <= 0
-            || pTextureHandle->physicalWidth <= 0
-            || pTextureHandle->physicalHeight <= 0
-            || pTextureHandle->pixels.empty())
-        {
-            return false;
-        }
-
-        bitmapWidth = pTextureHandle->width;
-        bitmapHeight = pTextureHandle->height;
-        bitmapPhysicalWidth = pTextureHandle->physicalWidth;
-        bitmapPhysicalHeight = pTextureHandle->physicalHeight;
-        pBitmapPixels = &pTextureHandle->pixels;
-    }
-
-    if (bitmapWidth <= 0
-        || bitmapHeight <= 0
-        || bitmapPhysicalWidth <= 0
-        || bitmapPhysicalHeight <= 0
-        || pBitmapPixels == nullptr
-        || pBitmapPixels->empty())
+    if (pTextureHandle == nullptr
+        || pTextureHandle->width <= 0
+        || pTextureHandle->height <= 0
+        || pTextureHandle->physicalWidth <= 0
+        || pTextureHandle->physicalHeight <= 0)
     {
         return false;
     }
@@ -3478,8 +3348,8 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     usedBillboardHit = true;
 
     const float spriteScale = std::max(pFrame->scale * heightScale, 0.01f);
-    const float worldWidth = static_cast<float>(bitmapWidth) * spriteScale;
-    const float worldHeight = static_cast<float>(bitmapHeight) * spriteScale;
+    const float worldWidth = static_cast<float>(pTextureHandle->width) * spriteScale;
+    const float worldHeight = static_cast<float>(pTextureHandle->height) * spriteScale;
     const float halfWidth = worldWidth * 0.5f;
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
@@ -3548,18 +3418,7 @@ bool OutdoorInteractionController::hitTestActorBillboard(
             normalizedU = 1.0f - normalizedU;
         }
 
-        const int pixelX = std::clamp(
-            static_cast<int>(std::floor(normalizedU * static_cast<float>(bitmapPhysicalWidth))),
-            0,
-            bitmapPhysicalWidth - 1);
-        const int pixelY = std::clamp(
-            static_cast<int>(std::floor(normalizedV * static_cast<float>(bitmapPhysicalHeight))),
-            0,
-            bitmapPhysicalHeight - 1);
-        const size_t pixelOffset = static_cast<size_t>(
-            (pixelY * bitmapPhysicalWidth + pixelX) * 4);
-
-        if (pixelOffset + 3 >= pBitmapPixels->size() || (*pBitmapPixels)[pixelOffset + 3] == 0)
+        if (!pTextureHandle->opacityMask.isOpaqueNormalized(normalizedU, normalizedV))
         {
             return false;
         }

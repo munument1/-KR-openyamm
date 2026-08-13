@@ -267,13 +267,6 @@ private:
     static bool inspectEventIsHintOnly(
         const OutdoorGameView &view,
         const OutdoorGameView::InspectHit &inspectHit);
-    static const OutdoorBitmapTexture *findDecorationBillboardTexture(
-        const OutdoorGameView &view,
-        const std::string &textureName);
-    static const OutdoorBitmapTexture *findActorBillboardTexture(
-        const OutdoorGameView &view,
-        const std::string &textureName,
-        int16_t paletteId);
     static bool hitTestDecorationBillboard(
         OutdoorGameView &view,
         const DecorationBillboard &billboard,

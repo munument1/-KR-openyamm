@@ -100,6 +100,29 @@ bool AudioSystem::registerClip(const std::string &virtualPath, std::vector<float
     return true;
 }
 
+bool AudioSystem::releaseClip(const std::string &virtualPath)
+{
+    return m_clipCache.erase(virtualPath) != 0;
+}
+
+AudioSystem::CacheStats AudioSystem::cacheStats() const
+{
+    CacheStats stats = {};
+    stats.clipCount = m_clipCache.size();
+
+    for (const std::pair<const std::string, std::shared_ptr<AudioClip>> &entry : m_clipCache)
+    {
+        const std::shared_ptr<AudioClip> &pClip = entry.second;
+
+        if (pClip != nullptr)
+        {
+            stats.sampleBytes += pClip->samples.size() * sizeof(float);
+        }
+    }
+
+    return stats;
+}
+
 void AudioSystem::shutdown()
 {
     stopAll();
