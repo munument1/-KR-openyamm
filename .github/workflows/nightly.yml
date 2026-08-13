@@ -1,8 +1,14 @@
-name: Nightly releases
+name: Package builds
 
-run-name: Nightly build for ${{ github.sha }}
+run-name: >-
+  ${{ github.event_name == 'push'
+      && format('Commit build for {0}', github.sha)
+      || format('Nightly build for {0}', github.sha) }}
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "27 3 * * *"
   workflow_dispatch:
@@ -17,8 +23,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: openyamm-nightly
-  cancel-in-progress: true
+  group: >-
+    ${{ github.event_name == 'push'
+        && format('openyamm-commit-{0}', github.sha)
+        || 'openyamm-nightly' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   android:
@@ -129,7 +138,10 @@ jobs:
       - name: Upload Android artifact
         uses: actions/upload-artifact@v7
         with:
-          name: openyamm-nightly-android-arm64
+          name: >-
+            ${{ github.event_name == 'push'
+                && format('openyamm-{0}-android-arm64', github.sha)
+                || 'openyamm-nightly-android-arm64' }}
           path: |
             dist/OpenYAMM-nightly-android-arm64.apk
             dist/OpenYAMM-nightly-android-arm64.apk.sha256
@@ -219,6 +231,10 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v7
         with:
+          name: >-
+            ${{ github.event_name == 'push'
+                && format('openyamm-{0}-windows-x64', github.sha)
+                || 'OpenYAMM-nightly-windows-x64.zip' }}
           path: dist/OpenYAMM-nightly-windows-x64.zip
           archive: false
           if-no-files-found: error
@@ -277,7 +293,10 @@ jobs:
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v7
         with:
-          name: openyamm-nightly-flatpak-x86_64
+          name: >-
+            ${{ github.event_name == 'push'
+                && format('openyamm-{0}-flatpak-x86_64', github.sha)
+                || 'openyamm-nightly-flatpak-x86_64' }}
           path: |
             dist/OpenYAMM-nightly-x86_64.flatpak
             dist/OpenYAMM-nightly-x86_64.flatpak.sha256
