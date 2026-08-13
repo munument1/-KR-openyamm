@@ -400,9 +400,17 @@ void submitLineClipped(
     queuedHudQuads.push_back(quad);
 }
 
-bool isBuffLayoutVisible(const Party &party, const std::string &layoutId)
+bool isBuffLayoutVisible(
+    const GameplayScreenRuntime &context,
+    const Party &party,
+    const std::string &layoutId)
 {
     const std::string normalizedLayoutId = normalizeGameplayLayoutRoleId(layoutId);
+
+    if (normalizedLayoutId.rfind("outdoormobileflight", 0) == 0)
+    {
+        return context.mobileFlightControlsAvailable();
+    }
 
     if (normalizedLayoutId == "outdoorbuffskullpanel" || normalizedLayoutId == "outdoorbuffbodypanel")
     {
@@ -610,6 +618,7 @@ bool isGameplayElementVisibleInHudState(
             "outdoorbuffskullpanel",
             "outdoorminimapframe",
             "outdoormobileactionpanel",
+            "outdoormobileflightpanel",
             "outdoormobilesystempanel",
             "outdoormobilemovementzone",
         });
@@ -1104,7 +1113,7 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
         }
 
         if (!isGameplayElementVisibleInHudState(context, *pLayout, gameplayHudLayout)
-            || !isBuffLayoutVisible(party, layoutId))
+            || !isBuffLayoutVisible(context, party, layoutId))
         {
             continue;
         }
@@ -1276,14 +1285,32 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
         const std::optional<GameplayResolvedHudLayoutElement> interactiveResolved =
             resolveLayout(context, layoutId, pLayout->width, pLayout->height, width, height);
-        const std::string *pAssetName = interactiveResolved && !flyBuffIcon
-            ? context.resolveInteractiveAssetName(
+        const GameplayInputFrame *pGameplayInput = context.currentGameplayInputFrame();
+        const bool mobileFlyUpHeld =
+            normalizedRoleId == "outdoormobilebuttonflyup"
+            && pGameplayInput != nullptr
+            && pGameplayInput->action(KeyboardAction::FlyUp).held;
+        const bool mobileFlyDownHeld =
+            normalizedRoleId == "outdoormobilebuttonflydown"
+            && pGameplayInput != nullptr
+            && pGameplayInput->action(KeyboardAction::FlyDown).held;
+        const bool mobileFlightButtonHeld = mobileFlyUpHeld || mobileFlyDownHeld;
+        const std::string *pAssetName = nullptr;
+
+        if (mobileFlightButtonHeld && !pLayout->pressedAsset.empty())
+        {
+            pAssetName = &pLayout->pressedAsset;
+        }
+        else if (interactiveResolved && !flyBuffIcon)
+        {
+            pAssetName = context.resolveInteractiveAssetName(
                 *pLayout,
                 *interactiveResolved,
                 characterMouseX,
                 characterMouseY,
-                isLeftMousePressed)
-            : nullptr;
+                isLeftMousePressed);
+        }
+
         std::optional<GameplayHudTextureHandle> texture =
             pAssetName != nullptr ? context.gameplayUiRuntime().ensureHudTextureLoaded(*pAssetName) : std::nullopt;
 

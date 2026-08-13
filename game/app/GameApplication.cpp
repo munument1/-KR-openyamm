@@ -5407,6 +5407,15 @@ void GameApplication::loadOrCreateSettings()
         }
     }
 
+#if defined(__ANDROID__)
+    if (migrateLegacyAndroidSettings(m_settings))
+    {
+        m_config.activeWorldId = m_settings.startWorldId;
+        std::cout << "GameApplication: migrated legacy settings to Android profile version "
+                  << m_settings.settingsProfileVersion << '\n';
+    }
+#endif
+
     m_settings.startWorldId = normalizeWorldId(m_config.activeWorldId);
 
     if (!saveGameSettings(path, m_settings, error))
@@ -8288,6 +8297,9 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         pActiveScreenForInput == nullptr
         && !pendingSpellTargetForInput.active
         && m_gameSession.gameplayScreenRuntime().currentHudScreenState() == GameplayHudScreenState::Gameplay;
+    const bool mobileFlightControlsEnabled =
+        mobileGameplayTouchControlsEnabled
+        && m_gameSession.gameplayScreenRuntime().mobileFlightControlsAvailable();
 
     m_gameInputSystem.updateFromEngineInput(
         width,
@@ -8295,7 +8307,8 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         mouseWheelDelta,
         m_settings,
         debugConsoleOpen,
-        mobileGameplayTouchControlsEnabled);
+        mobileGameplayTouchControlsEnabled,
+        mobileFlightControlsEnabled);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());
     recordFrameDiagnostics(m_framePerformanceDiagnostics.inputNanoseconds, inputBeginTickCount);
 

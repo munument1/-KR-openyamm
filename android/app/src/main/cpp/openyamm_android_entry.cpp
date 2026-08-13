@@ -2,6 +2,7 @@
 
 #include <android/log.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_system.h>
@@ -253,6 +254,19 @@ void extractPackagedAssetIfNeeded(const std::filesystem::path &storageRoot, cons
     openYammLog("Extracted %s", targetPath.string().c_str());
 }
 
+void extractPackagedAssetIfMissing(const std::filesystem::path &storageRoot, const PackagedAsset &asset)
+{
+    const std::filesystem::path targetPath = storageRoot / asset.pExtractedPath;
+
+    if (std::filesystem::is_regular_file(targetPath))
+    {
+        openYammLog("Preserving writable runtime file: %s", targetPath.string().c_str());
+        return;
+    }
+
+    extractPackagedAssetIfNeeded(storageRoot, asset);
+}
+
 void prepareAndroidAssetRoot()
 {
     const std::filesystem::path storageRoot = getAndroidInternalStorageRoot();
@@ -264,7 +278,7 @@ void prepareAndroidAssetRoot()
 
     for (const PackagedAsset &runtimeFile : PackagedRuntimeFiles)
     {
-        extractPackagedAssetIfNeeded(storageRoot, runtimeFile);
+        extractPackagedAssetIfMissing(storageRoot, runtimeFile);
     }
 
     std::filesystem::current_path(storageRoot);
@@ -287,6 +301,10 @@ int main(int argc, char **argv)
     try
     {
         installAndroidLogStreams();
+        if (!SDL_SetHintWithPriority(SDL_HINT_TOUCH_MOUSE_EVENTS, "0", SDL_HINT_OVERRIDE))
+        {
+            throw std::runtime_error("Failed to disable SDL touch-generated mouse events");
+        }
         openYammLog("Starting shared OpenYAMM game entry argc=%d", argc);
         prepareAndroidAssetRoot();
         const int result = OpenYAMM::Game::runApplication(argc, argv);

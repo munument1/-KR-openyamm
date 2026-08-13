@@ -17,6 +17,11 @@ constexpr float MobileMovementZoneY = 160.0f;
 constexpr float MobileMovementZoneWidth = 300.0f;
 constexpr float MobileMovementZoneHeight = 320.0f;
 constexpr float MobileCameraZoneX = 300.0f;
+constexpr float MobileFlightButtonRightInset = 8.0f;
+constexpr float MobileFlightButtonTop = 160.0f;
+constexpr float MobileFlightButtonWidth = 64.0f;
+constexpr float MobileFlightButtonHeight = 64.0f;
+constexpr float MobileFlightButtonGap = 8.0f;
 constexpr float MobileJoystickRadius = 64.0f;
 constexpr float MobileJoystickDeadZone = 10.0f;
 constexpr float MobileGameplayTapMaxNormalizedDistanceSquared = 0.000225f;
@@ -211,7 +216,8 @@ void GameInputSystem::updateFromEngineInput(
     float mouseWheelDelta,
     const GameSettings &settings,
     bool blockGameplayInput,
-    bool mobileGameplayTouchControlsEnabled)
+    bool mobileGameplayTouchControlsEnabled,
+    bool mobileFlightControlsEnabled)
 {
     m_frame = {};
     m_frame.screenWidth = screenWidth;
@@ -329,8 +335,18 @@ void GameInputSystem::updateFromEngineInput(
     bool hasMovementTouch = false;
     bool hasCameraTouch = false;
 
-    for (const MobileTouchPoint &touch : m_mobileTouches)
+    for (MobileTouchPoint &touch : m_mobileTouches)
     {
+        if (!mobileFlightControlsEnabled
+            && (touch.role == MobileTouchRole::FlyUp || touch.role == MobileTouchRole::FlyDown))
+        {
+            touch.role = MobileTouchRole::None;
+            touch.startX = touch.x;
+            touch.startY = touch.y;
+            touch.deltaX = 0.0f;
+            touch.deltaY = 0.0f;
+        }
+
         if (touch.active && touch.role == MobileTouchRole::Movement)
         {
             hasMovementTouch = true;
@@ -366,6 +382,37 @@ void GameInputSystem::updateFromEngineInput(
                 || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 236.0f, 292.0f, 236.0f, 120.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, 320.0f, 360.0f, 420.0f, 120.0f);
         };
+    const auto mobileFlightControlAt =
+        [logicalWidth](float logicalX, float logicalY) -> MobileTouchRole
+        {
+            const float buttonX = logicalWidth - MobileFlightButtonRightInset - MobileFlightButtonWidth;
+
+            if (pointInsideRect(
+                    logicalX,
+                    logicalY,
+                    buttonX,
+                    MobileFlightButtonTop,
+                    MobileFlightButtonWidth,
+                    MobileFlightButtonHeight))
+            {
+                return MobileTouchRole::FlyUp;
+            }
+
+            const float flyDownY = MobileFlightButtonTop + MobileFlightButtonHeight + MobileFlightButtonGap;
+
+            if (pointInsideRect(
+                    logicalX,
+                    logicalY,
+                    buttonX,
+                    flyDownY,
+                    MobileFlightButtonWidth,
+                    MobileFlightButtonHeight))
+            {
+                return MobileTouchRole::FlyDown;
+            }
+
+            return MobileTouchRole::None;
+        };
 
     for (MobileTouchPoint &touch : m_mobileTouches)
     {
@@ -384,10 +431,20 @@ void GameInputSystem::updateFromEngineInput(
             MobileMovementZoneWidth,
             MobileMovementZoneHeight);
         const bool startsInHudZone = touchStartsInHudZone(touch.startX, touch.startY);
-
         const bool startsInCameraZone = startLogicalX >= MobileCameraZoneX;
+        const MobileTouchRole flightControl = mobileFlightControlsEnabled
+            ? mobileFlightControlAt(startLogicalX, startLogicalY)
+            : MobileTouchRole::None;
 
-        if (!useMobileGameplayTouchControls || startsInHudZone)
+        if (!useMobileGameplayTouchControls)
+        {
+            touch.role = MobileTouchRole::Hud;
+        }
+        else if (flightControl != MobileTouchRole::None)
+        {
+            touch.role = flightControl;
+        }
+        else if (startsInHudZone)
         {
             touch.role = MobileTouchRole::Hud;
         }
@@ -420,7 +477,17 @@ void GameInputSystem::updateFromEngineInput(
             continue;
         }
 
-        if (touch.role == MobileTouchRole::Movement)
+        if (touch.role == MobileTouchRole::FlyUp || touch.role == MobileTouchRole::FlyDown)
+        {
+            hasNonHudMobileTouch = true;
+
+            if (useMobileGameplayTouchControls && mobileFlightControlsEnabled)
+            {
+                setMobileActionHeld(
+                    touch.role == MobileTouchRole::FlyUp ? KeyboardAction::FlyUp : KeyboardAction::FlyDown);
+            }
+        }
+        else if (touch.role == MobileTouchRole::Movement)
         {
             hasNonHudMobileTouch = true;
             const float startX = touch.startX * static_cast<float>(screenWidth);
@@ -538,6 +605,9 @@ void GameInputSystem::updateFromEngineInput(
     {
         leftMouseButtonHeld = false;
     }
+#else
+    static_cast<void>(mobileGameplayTouchControlsEnabled);
+    static_cast<void>(mobileFlightControlsEnabled);
 #endif
 
     m_frame.leftMouseButton = buildButtonState(leftMouseButtonHeld, m_previousLeftMouseButtonHeld);

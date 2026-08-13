@@ -599,6 +599,16 @@ const Party *GameplayScreenRuntime::partyReadOnly() const
     return pWorldRuntime != nullptr ? pWorldRuntime->party() : nullptr;
 }
 
+bool GameplayScreenRuntime::mobileFlightControlsAvailable() const
+{
+    const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+    const Party *pParty = pWorldRuntime != nullptr ? pWorldRuntime->party() : nullptr;
+    return pWorldRuntime != nullptr
+        && !pWorldRuntime->isIndoorMap()
+        && pParty != nullptr
+        && pParty->hasPartyBuff(PartyBuffId::Fly);
+}
+
 float GameplayScreenRuntime::partyX() const
 {
     const IGameplayWorldRuntime *pWorldRuntime = worldRuntime();

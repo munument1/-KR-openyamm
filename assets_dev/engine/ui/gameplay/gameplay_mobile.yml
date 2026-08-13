@@ -458,6 +458,40 @@ elements:
           highlighted: cast_pressed
           pressed: cast_pressed
 
+  - id: OutdoorMobileFlightPanel
+    anchor_space: screen
+    anchor: top_right
+    offset_x: -8
+    offset_y: 160
+    width: 64
+    height: 136
+    z_index: 100
+    scale:
+      min: 1.0
+      max: 8.0
+    notes: Held vertical flight controls, shown outdoors while the Fly party buff is active.
+    children:
+      - id: OutdoorMobileButtonFlyUp
+        anchor: top_left
+        width: 64
+        height: 64
+        interactive: true
+        asset:
+          default: ascend_default
+          highlighted: ascend_default
+          pressed: ascend_pressed
+
+      - id: OutdoorMobileButtonFlyDown
+        anchor: top_left
+        offset_y: 72
+        width: 64
+        height: 64
+        interactive: true
+        asset:
+          default: descend_default
+          highlighted: descend_default
+          pressed: descend_pressed
+
   - id: OutdoorMobileMovementZone
     anchor_space: screen
     anchor: top_left

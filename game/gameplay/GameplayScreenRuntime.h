@@ -90,6 +90,7 @@ public:
     IGameplayWorldRuntime *worldRuntime() const;
     Party *party() const;
     const Party *partyReadOnly() const;
+    bool mobileFlightControlsAvailable() const;
     float partyX() const;
     float partyY() const;
     float partyFootZ() const;

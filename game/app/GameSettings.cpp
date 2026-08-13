@@ -459,6 +459,47 @@ GameSettings GameSettings::createDefault()
     return settings;
 }
 
+bool migrateLegacyAndroidSettings(GameSettings &settings)
+{
+    constexpr uint32_t CurrentAndroidSettingsProfileVersion = 1;
+
+    if (settings.settingsProfileName == "android"
+        && settings.settingsProfileVersion >= CurrentAndroidSettingsProfileVersion)
+    {
+        return false;
+    }
+
+    settings.settingsProfileName = "android";
+    settings.settingsProfileVersion = CurrentAndroidSettingsProfileVersion;
+    settings.contextActionPopup = true;
+    settings.startInMainMenu = true;
+    settings.verticalSync = true;
+
+    settings.logIndoorVisibility = false;
+    settings.logIndoorPathfinding = false;
+    settings.logOutdoorPathfinding = false;
+    settings.fpsTrace = false;
+    settings.performanceTrace = false;
+    settings.hitchTrace = false;
+    settings.collisionTrace = false;
+    settings.gameplayTrace = false;
+    settings.combatTrace = false;
+
+    settings.preseedParty = true;
+    settings.partySeedRosterId = 0;
+    settings.startWorldId = "mm8";
+    settings.startMapFile.clear();
+    settings.overrideStartPosition = false;
+    settings.startFlying = false;
+    settings.movementSpeedMultiplier = 1.0f;
+    settings.immortal = false;
+    settings.unlimitedMana = false;
+    settings.newGameGodLich = true;
+    settings.allowIncompleteCharacterCreation = true;
+    settings.debugConsole = true;
+    return true;
+}
+
 float resolveViewDistanceSetting(const std::string &value, float defaultDistance)
 {
     const std::string normalized = toLowerCopy(trimCopy(value));
@@ -505,6 +546,21 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
     buffer << input.rdbuf();
     const IniDocument document = parseIniDocument(buffer.str());
     GameSettings settings = GameSettings::createDefault();
+
+    if (const std::optional<std::string> value = getIniValue(document, "profile", "name"))
+    {
+        settings.settingsProfileName = toLowerCopy(trimCopy(*value));
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "profile", "version"))
+    {
+        uint32_t parsed = settings.settingsProfileVersion;
+
+        if (parseUInt32Value(*value, parsed))
+        {
+            settings.settingsProfileVersion = parsed;
+        }
+    }
 
     if (const std::optional<std::string> value = getIniValue(document, "assets", "root"))
     {
@@ -1271,7 +1327,17 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
 
     output
         << "; OpenYAMM settings\n"
-        << "; Volumes use the original-style 0..9 scale.\n\n"
+        << "; Volumes use the original-style 0..9 scale.\n\n";
+
+    if (!settings.settingsProfileName.empty() || settings.settingsProfileVersion != 0)
+    {
+        output
+            << "[profile]\n"
+            << "name=" << settings.settingsProfileName << '\n'
+            << "version=" << settings.settingsProfileVersion << "\n\n";
+    }
+
+    output
         << "[assets]\n"
         << "root=" << settings.assetRoot << "\n\n"
         << "[audio]\n"

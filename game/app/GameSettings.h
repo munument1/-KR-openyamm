@@ -103,6 +103,9 @@ struct GameSettings
         }
     };
 
+    std::string settingsProfileName;
+    uint32_t settingsProfileVersion = 0;
+
     int soundVolume = 9;
     int musicVolume = 9;
     int voiceVolume = 9;
@@ -192,6 +195,7 @@ struct GameSettings
 
 std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, std::string &error);
 bool saveGameSettings(const std::filesystem::path &path, const GameSettings &settings, std::string &error);
+bool migrateLegacyAndroidSettings(GameSettings &settings);
 CharacterAttackTuning characterAttackTuningFromSettings(const GameSettings &settings);
 float resolveViewDistanceSetting(const std::string &value, float defaultDistance);
 }

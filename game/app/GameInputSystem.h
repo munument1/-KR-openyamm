@@ -19,7 +19,8 @@ public:
         float mouseWheelDelta,
         const GameSettings &settings,
         bool blockGameplayInput = false,
-        bool mobileGameplayTouchControlsEnabled = true);
+        bool mobileGameplayTouchControlsEnabled = true,
+        bool mobileFlightControlsEnabled = false);
 
     const GameplayInputFrame &frame() const;
     bool consumeMobileDebugConsoleToggleRequested();
@@ -32,6 +33,8 @@ private:
         None,
         Movement,
         Camera,
+        FlyUp,
+        FlyDown,
         Hud,
         DebugConsoleGesture
     };

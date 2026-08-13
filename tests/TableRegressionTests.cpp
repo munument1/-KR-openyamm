@@ -201,6 +201,8 @@ TEST_CASE("settings debug startup options round trip")
 
     OpenYAMM::Game::GameSettings settings = OpenYAMM::Game::GameSettings::createDefault();
     CHECK_FALSE(settings.spriteOutline);
+    settings.settingsProfileName = "test";
+    settings.settingsProfileVersion = 7;
     settings.startWorldId = "mm7";
     settings.startMapFile.clear();
     settings.spriteOutline = true;
@@ -234,6 +236,8 @@ TEST_CASE("settings debug startup options round trip")
         OpenYAMM::Game::loadGameSettings(path, error);
 
     REQUIRE(loadedSettings.has_value());
+    CHECK_EQ(loadedSettings->settingsProfileName, "test");
+    CHECK_EQ(loadedSettings->settingsProfileVersion, 7);
     CHECK_EQ(loadedSettings->startWorldId, "mm7");
     CHECK(loadedSettings->startMapFile.empty());
     CHECK(loadedSettings->spriteOutline);
@@ -262,6 +266,94 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->mouseSensitivity, 42);
 
     std::filesystem::remove(path);
+}
+
+TEST_CASE("android settings profile uses mobile interaction defaults without diagnostic logging")
+{
+    const std::filesystem::path path =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "android/settings.ini";
+    std::string error;
+    const std::optional<OpenYAMM::Game::GameSettings> settings =
+        OpenYAMM::Game::loadGameSettings(path, error);
+
+    REQUIRE_MESSAGE(settings.has_value(), error.c_str());
+    CHECK_EQ(settings->settingsProfileName, "android");
+    CHECK_EQ(settings->settingsProfileVersion, 1);
+    CHECK(settings->contextActionPopup);
+    CHECK(settings->startInMainMenu);
+    CHECK(settings->verticalSync);
+    CHECK(settings->newGameGodLich);
+    CHECK(settings->allowIncompleteCharacterCreation);
+    CHECK(settings->debugConsole);
+    CHECK_FALSE(settings->immortal);
+    CHECK_FALSE(settings->unlimitedMana);
+    CHECK_FALSE(settings->logIndoorVisibility);
+    CHECK_FALSE(settings->logIndoorPathfinding);
+    CHECK_FALSE(settings->logOutdoorPathfinding);
+    CHECK_FALSE(settings->fpsTrace);
+    CHECK_FALSE(settings->performanceTrace);
+    CHECK_FALSE(settings->hitchTrace);
+    CHECK_FALSE(settings->collisionTrace);
+    CHECK_FALSE(settings->gameplayTrace);
+    CHECK_FALSE(settings->combatTrace);
+
+    const OpenYAMM::Game::InputBinding attackBinding =
+        settings->keyboard.binding(OpenYAMM::Game::KeyboardAction::Attack);
+    CHECK_EQ(attackBinding.kind, OpenYAMM::Game::InputBindingKind::MouseButton);
+    CHECK_EQ(attackBinding.mouseButton, SDL_BUTTON_LEFT);
+}
+
+TEST_CASE("legacy Android settings migration changes platform defaults once and preserves user settings")
+{
+    OpenYAMM::Game::GameSettings settings = OpenYAMM::Game::GameSettings::createDefault();
+    settings.soundVolume = 3;
+    settings.musicVolume = 4;
+    settings.resolutionWidth = 1920;
+    settings.resolutionHeight = 1080;
+    settings.contextActionPopup = false;
+    settings.startInMainMenu = false;
+    settings.verticalSync = false;
+    settings.logIndoorVisibility = true;
+    settings.logIndoorPathfinding = true;
+    settings.logOutdoorPathfinding = true;
+    settings.fpsTrace = true;
+    settings.performanceTrace = true;
+    settings.hitchTrace = true;
+    settings.collisionTrace = true;
+    settings.gameplayTrace = true;
+    settings.combatTrace = true;
+    settings.newGameGodLich = false;
+    settings.overrideStartPosition = true;
+    settings.startWorldId = "mm6";
+
+    REQUIRE(OpenYAMM::Game::migrateLegacyAndroidSettings(settings));
+    CHECK_EQ(settings.settingsProfileName, "android");
+    CHECK_EQ(settings.settingsProfileVersion, 1);
+    CHECK(settings.contextActionPopup);
+    CHECK(settings.startInMainMenu);
+    CHECK(settings.verticalSync);
+    CHECK(settings.newGameGodLich);
+    CHECK_FALSE(settings.overrideStartPosition);
+    CHECK_EQ(settings.startWorldId, "mm8");
+    CHECK_FALSE(settings.logIndoorVisibility);
+    CHECK_FALSE(settings.logIndoorPathfinding);
+    CHECK_FALSE(settings.logOutdoorPathfinding);
+    CHECK_FALSE(settings.fpsTrace);
+    CHECK_FALSE(settings.performanceTrace);
+    CHECK_FALSE(settings.hitchTrace);
+    CHECK_FALSE(settings.collisionTrace);
+    CHECK_FALSE(settings.gameplayTrace);
+    CHECK_FALSE(settings.combatTrace);
+    CHECK_EQ(settings.soundVolume, 3);
+    CHECK_EQ(settings.musicVolume, 4);
+    CHECK_EQ(settings.resolutionWidth, 1920);
+    CHECK_EQ(settings.resolutionHeight, 1080);
+
+    settings.contextActionPopup = false;
+    settings.soundVolume = 5;
+    CHECK_FALSE(OpenYAMM::Game::migrateLegacyAndroidSettings(settings));
+    CHECK_FALSE(settings.contextActionPopup);
+    CHECK_EQ(settings.soundVolume, 5);
 }
 
 TEST_CASE("settings monster bolster feature defaults off")
