@@ -37,6 +37,12 @@ public:
         uint32_t raceId,
         const std::string &skillName
     ) const;
+    std::vector<std::string> getClosestPromotionClassesWithEffectiveCap(
+        const std::string &className,
+        uint32_t raceId,
+        const std::string &skillName,
+        SkillMastery requiredMastery
+    ) const;
     StartingSkillAvailability getStartingSkillAvailability(const std::string &className, const std::string &skillName)
         const;
     StartingSkillAvailability getEffectiveStartingSkillAvailability(

@@ -1644,12 +1644,17 @@ EventDialogContent buildEventDialogContent(
         && eventMessageLines.empty()
         && pNpcDialogTable != nullptr)
     {
-        const std::optional<NpcDialogTable::ResolvedTopic> topic =
-            pNpcDialogTable->getTopicById(pCurrentOffer->topicId);
+        const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
+            resolveMasteryTeacherTopic(pCurrentOffer->topicId, pTeacherTopicTable);
 
-        if (topic && topic->textId != 0 && !topic->text.empty())
+        if (teacherTopic && teacherTopic->textId != 0)
         {
-            eventMessageLines = wrapDialogText(topic->text, MaxLineWidth);
+            const std::optional<std::string> text = pNpcDialogTable->getText(teacherTopic->textId);
+
+            if (text && !text->empty())
+            {
+                eventMessageLines = wrapDialogText(*text, MaxLineWidth);
+            }
         }
     }
 

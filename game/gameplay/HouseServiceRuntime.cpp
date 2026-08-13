@@ -962,9 +962,9 @@ std::string buildSellPhrase(
 {
     const std::string itemName = itemDisplayName(item, itemDefinition, pStandardItemEnchantTable, pSpecialItemEnchantTable);
 
-    if (!isShopItemFamilyAllowed(houseEntry, itemDefinition))
+    if (itemDefinition.value <= 0)
     {
-        return "Sorry, I am a " + merchantProfessionName(houseEntry) + ". I'm not interested in such things.";
+        return "Sorry, I'm not interested in that item.";
     }
 
     const int actualPrice = PriceCalculator::itemSellingPrice(
@@ -1218,7 +1218,7 @@ bool HouseServiceRuntime::canSellItemToHouse(
         return false;
     }
 
-    return isShopItemFamilyAllowed(houseEntry, *pItemDefinition);
+    return supportsEquipmentSell(houseEntry) && pItemDefinition->value > 0;
 }
 
 std::string HouseServiceRuntime::buildBuyHoverText(
@@ -1678,9 +1678,11 @@ bool HouseServiceRuntime::trySellInventoryItem(
 
     if (!canSellItemToHouse(itemTable, houseEntry, *pItem))
     {
+        statusText = "That item cannot be sold.";
+
         if (pResult != nullptr)
         {
-            *pResult = ShopItemServiceResult::WrongShop;
+            *pResult = ShopItemServiceResult::Unavailable;
         }
 
         return false;

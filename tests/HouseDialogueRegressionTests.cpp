@@ -7,6 +7,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
+#include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
@@ -183,6 +184,7 @@ constexpr uint32_t HissHouseId = 761;
 constexpr uint32_t OverduneHouseId = 752;
 constexpr uint32_t FreeHavenSewerEntranceHouseId = 1532;
 constexpr uint32_t MasterIdentifyItemTeacherNpcId = 200;
+constexpr uint32_t JohnTuckLearningTeacherNpcId = 809;
 constexpr uint32_t CarolynWeathersNpcId = 348;
 constexpr uint32_t HaroldHessNpcId = 818;
 constexpr uint32_t TessTuckerNpcId = 835;
@@ -2727,7 +2729,7 @@ TEST_CASE("house service guild spellbook stock generates and buys")
     CHECK_GT(harness.party().inventoryItemCount(), initialInventoryCount);
 }
 
-TEST_CASE("house service shop sell accepts matching item")
+TEST_CASE("house service shop sell accepts a positive-value item from another merchant family")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
     OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
@@ -2738,7 +2740,7 @@ TEST_CASE("house service shop sell accepts matching item")
 
     for (const OpenYAMM::Game::ItemDefinition &itemDefinition : gameData.itemTable.entries())
     {
-        if (itemDefinition.itemId == 0)
+        if (itemDefinition.itemId == 0 || itemDefinition.value <= 0 || itemDefinition.equipStat != "Ring")
         {
             continue;
         }
@@ -2902,54 +2904,144 @@ TEST_CASE("New Sorpigal magic shop identifies and repairs OE Misc item families"
     }
 }
 
-TEST_CASE("shop item families recognize merged world item type names")
+TEST_CASE("shop selling accepts every positive-value item family and rejects zero-value items")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
 
-    struct ShopItemFamilyCase
-    {
-        const char *pShopType;
-        const char *pEquipStat;
-        bool accepted;
+    constexpr std::array<const char *, 4> shopTypes = {
+        "Weapon Shop",
+        "Armor Shop",
+        "Magic Shop",
+        "Alchemist",
     };
-
-    constexpr std::array<ShopItemFamilyCase, 9> cases = {{
-        {"Weapon Shop", "Weapon", true},
-        {"Weapon Shop", "Missile", true},
-        {"Weapon Shop", "Bow", true},
-        {"Weapon Shop", "Ring", false},
-        {"Armor Shop", "Helm", true},
-        {"Armor Shop", "Weapon", false},
-        {"Alchemist", "Reagent", true},
-        {"Alchemist", "Herb", true},
-        {"Alchemist", "Ring", false},
-    }};
     const std::vector<OpenYAMM::Game::ItemDefinition> &itemDefinitions = gameData.itemTable.entries();
 
-    for (const ShopItemFamilyCase &testCase : cases)
+    for (const OpenYAMM::Game::ItemDefinition &definition : itemDefinitions)
     {
-        INFO("shop type: " << testCase.pShopType << ", equip stat: " << testCase.pEquipStat);
+        if (definition.itemId == 0)
+        {
+            continue;
+        }
 
-        const std::vector<OpenYAMM::Game::ItemDefinition>::const_iterator definitionIt = std::find_if(
-            itemDefinitions.begin(),
-            itemDefinitions.end(),
-            [&testCase](const OpenYAMM::Game::ItemDefinition &definition)
-            {
-                return definition.itemId != 0 && definition.equipStat == testCase.pEquipStat;
-            });
-        REQUIRE(definitionIt != itemDefinitions.end());
-
-        OpenYAMM::Game::HouseEntry houseEntry = {};
-        houseEntry.type = testCase.pShopType;
         OpenYAMM::Game::InventoryItem item = {};
-        item.objectDescriptionId = definitionIt->itemId;
-        CHECK_EQ(
-            OpenYAMM::Game::HouseServiceRuntime::canSellItemToHouse(
-                gameData.itemTable,
-                houseEntry,
-                item),
-            testCase.accepted);
+        item.objectDescriptionId = definition.itemId;
+
+        for (const char *pShopType : shopTypes)
+        {
+            INFO("item: " << definition.itemId << ", value: " << definition.value << ", shop: " << pShopType);
+            OpenYAMM::Game::HouseEntry houseEntry = {};
+            houseEntry.type = pShopType;
+
+            if (definition.value > 0)
+            {
+                CHECK(OpenYAMM::Game::HouseServiceRuntime::canSellItemToHouse(
+                    gameData.itemTable,
+                    houseEntry,
+                    item));
+            }
+            else
+            {
+                CHECK_FALSE(OpenYAMM::Game::HouseServiceRuntime::canSellItemToHouse(
+                    gameData.itemTable,
+                    houseEntry,
+                    item));
+            }
+        }
     }
+}
+
+TEST_CASE("shop identify and repair retain merchant item family restrictions")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::HouseEntry *pWeaponShop = gameData.houseTable.get(1);
+    REQUIRE(pWeaponShop != nullptr);
+    REQUIRE_EQ(pWeaponShop->type, "Weapon Shop");
+
+    const std::vector<OpenYAMM::Game::ItemDefinition> &itemDefinitions = gameData.itemTable.entries();
+    const std::vector<OpenYAMM::Game::ItemDefinition>::const_iterator ringDefinitionIt = std::find_if(
+        itemDefinitions.begin(),
+        itemDefinitions.end(),
+        [](const OpenYAMM::Game::ItemDefinition &definition)
+        {
+            return definition.itemId != 0
+                && definition.value > 0
+                && definition.equipStat == "Ring"
+                && definition.rarity == OpenYAMM::Game::ItemRarity::Common
+                && OpenYAMM::Game::ItemRuntime::requiresIdentification(definition);
+        });
+    REQUIRE(ringDefinitionIt != itemDefinitions.end());
+
+    OpenYAMM::Game::Party &party = harness.party();
+    const size_t memberIndex = party.activeMemberIndex();
+    OpenYAMM::Game::Character *pMember = party.member(memberIndex);
+    REQUIRE(pMember != nullptr);
+    party.addGold(1000000);
+
+    OpenYAMM::Game::InventoryItem ring = {};
+    ring.objectDescriptionId = ringDefinitionIt->itemId;
+    ring.quantity = 1;
+    ring.width = ringDefinitionIt->inventoryWidth;
+    ring.height = ringDefinitionIt->inventoryHeight;
+    ring.identified = false;
+    REQUIRE(pMember->addInventoryItem(ring));
+
+    const std::vector<OpenYAMM::Game::InventoryItem>::iterator ringIt = std::find_if(
+        pMember->inventory.begin(),
+        pMember->inventory.end(),
+        [&ring](const OpenYAMM::Game::InventoryItem &candidate)
+        {
+            return candidate.objectDescriptionId == ring.objectDescriptionId && !candidate.identified;
+        });
+    REQUIRE(ringIt != pMember->inventory.end());
+    const uint8_t gridX = ringIt->gridX;
+    const uint8_t gridY = ringIt->gridY;
+
+    std::string statusText;
+    OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult serviceResult =
+        OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::None;
+    CHECK_FALSE(OpenYAMM::Game::HouseServiceRuntime::tryIdentifyInventoryItem(
+        party,
+        gameData.itemTable,
+        gameData.standardItemEnchantTable,
+        gameData.specialItemEnchantTable,
+        *pWeaponShop,
+        memberIndex,
+        gridX,
+        gridY,
+        statusText,
+        &serviceResult));
+    CHECK(serviceResult == OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::WrongShop);
+
+    OpenYAMM::Game::InventoryItem *pRing = nullptr;
+
+    for (OpenYAMM::Game::InventoryItem &candidate : pMember->inventory)
+    {
+        if (candidate.gridX == gridX && candidate.gridY == gridY)
+        {
+            pRing = &candidate;
+            break;
+        }
+    }
+
+    REQUIRE(pRing != nullptr);
+    CHECK_FALSE(pRing->identified);
+    pRing->broken = true;
+
+    CHECK_FALSE(OpenYAMM::Game::HouseServiceRuntime::tryRepairInventoryItem(
+        party,
+        gameData.itemTable,
+        gameData.standardItemEnchantTable,
+        gameData.specialItemEnchantTable,
+        *pWeaponShop,
+        memberIndex,
+        gridX,
+        gridY,
+        statusText,
+        &serviceResult));
+    CHECK(serviceResult == OpenYAMM::Game::HouseServiceRuntime::ShopItemServiceResult::WrongShop);
+    REQUIRE(pMember->inventoryItemAt(gridX, gridY) != nullptr);
+    CHECK(pMember->inventoryItemAt(gridX, gridY)->broken);
 }
 
 TEST_CASE("dwi temple service participant identity")
@@ -4024,6 +4116,219 @@ TEST_CASE("mastery teacher offer and learn")
     REQUIRE_FALSE(resultDialog.actions.empty());
     CHECK_EQ(resultDialog.actions.front().label, "You are already a master in this skill.");
     CHECK(dialogContainsText(resultDialog, "With Mastery of the Identify Items skill"));
+}
+
+TEST_CASE("mastery teacher special attributes use displayed base stats")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    harness.party().addGold(10000);
+
+    SUBCASE("Learning counts permanent and equipment bonuses but not temporary bonuses")
+    {
+        REQUIRE(harness.party().setActiveMemberIndex(3));
+        OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+        REQUIRE(pCharacter != nullptr);
+        pCharacter->intellect = 14;
+        pCharacter->permanentBonuses.intellect = 36;
+        REQUIRE(setCharacterSkill(
+            *pCharacter,
+            "Learning",
+            7,
+            OpenYAMM::Game::SkillMastery::Expert) != nullptr);
+
+        std::optional<OpenYAMM::Game::MasteryTeacherEvaluation> evaluation =
+            OpenYAMM::Game::evaluateMasteryTeacherTopic(
+                415,
+                harness.party(),
+                gameData.classSkillTable,
+                gameData.npcDialogTable,
+                &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK(evaluation->approved);
+
+        pCharacter->permanentBonuses.intellect = 35;
+        pCharacter->magicalBonuses.intellect = 100;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            415,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK_FALSE(evaluation->approved);
+        CHECK_EQ(
+            evaluation->displayText,
+            "You must have at least 50 base Intellect to learn Master Learning.");
+
+        OpenYAMM::Game::CharacterSkill *pLearning = pCharacter->findSkill("Learning");
+        REQUIRE(pLearning != nullptr);
+        pLearning->level = 6;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            415,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK_FALSE(evaluation->approved);
+        CHECK_EQ(evaluation->displayText, "You don't meet the requirements, and cannot be taught until you do.");
+
+        pLearning->level = 7;
+        pLearning->mastery = OpenYAMM::Game::SkillMastery::Normal;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            415,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK_FALSE(evaluation->approved);
+        CHECK_EQ(evaluation->displayText, "You don't meet the requirements, and cannot be taught until you do.");
+
+        pLearning->mastery = OpenYAMM::Game::SkillMastery::Expert;
+
+        pCharacter->className = "Lich";
+        pCharacter->permanentBonuses.intellect = 0;
+        pCharacter->magicalBonuses.intellect = 0;
+        pCharacter->equipment.helm = 521;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            415,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK(evaluation->approved);
+    }
+
+    SUBCASE("Merchant counts permanent Personality")
+    {
+        REQUIRE(harness.party().setActiveMemberIndex(1));
+        OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+        REQUIRE(pCharacter != nullptr);
+        pCharacter->personality = 14;
+        pCharacter->permanentBonuses.personality = 36;
+        REQUIRE(setCharacterSkill(
+            *pCharacter,
+            "Merchant",
+            7,
+            OpenYAMM::Game::SkillMastery::Expert) != nullptr);
+
+        std::optional<OpenYAMM::Game::MasteryTeacherEvaluation> evaluation =
+            OpenYAMM::Game::evaluateMasteryTeacherTopic(
+                376,
+                harness.party(),
+                gameData.classSkillTable,
+                gameData.npcDialogTable,
+                &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK(evaluation->approved);
+
+        pCharacter->permanentBonuses.personality = 35;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            376,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK_FALSE(evaluation->approved);
+        CHECK_EQ(
+            evaluation->displayText,
+            "You must have at least 50 base Personality to learn Master Merchant.");
+    }
+
+    SUBCASE("Bodybuilding counts permanent Endurance")
+    {
+        REQUIRE(harness.party().setActiveMemberIndex(0));
+        OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+        REQUIRE(pCharacter != nullptr);
+        pCharacter->className = "Minotaur";
+        pCharacter->endurance = 14;
+        pCharacter->permanentBonuses.endurance = 36;
+        REQUIRE(setCharacterSkill(
+            *pCharacter,
+            "Bodybuilding",
+            7,
+            OpenYAMM::Game::SkillMastery::Expert) != nullptr);
+
+        std::optional<OpenYAMM::Game::MasteryTeacherEvaluation> evaluation =
+            OpenYAMM::Game::evaluateMasteryTeacherTopic(
+                382,
+                harness.party(),
+                gameData.classSkillTable,
+                gameData.npcDialogTable,
+                &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK(evaluation->approved);
+
+        pCharacter->permanentBonuses.endurance = 35;
+        evaluation = OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            382,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+        REQUIRE(evaluation.has_value());
+        CHECK_FALSE(evaluation->approved);
+        CHECK_EQ(
+            evaluation->displayText,
+            "You must have at least 50 base Endurance to learn Master Bodybuilding.");
+    }
+}
+
+TEST_CASE("extended mastery teacher topic uses mapped description text")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setActiveMemberIndex(3));
+    OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+    REQUIRE(pCharacter != nullptr);
+    pCharacter->permanentBonuses.intellect = 36;
+    REQUIRE(setCharacterSkill(
+        *pCharacter,
+        "Learning",
+        7,
+        OpenYAMM::Game::SkillMastery::Expert) != nullptr);
+    harness.party().addGold(5000);
+
+    const OpenYAMM::Game::EventDialogContent &dialog =
+        harness.openMasteryTeacherOffer(JohnTuckLearningTeacherNpcId, "Master Learning Training");
+
+    REQUIRE_FALSE(dialog.actions.empty());
+    CHECK_EQ(dialog.actions.front().label, "Become Master in Learning for 5000 gold");
+    CHECK(dialogContainsText(dialog, "I am the teacher of teachers, the master of learning."));
+    CHECK(dialogContainsText(dialog, "Intellect 50"));
+}
+
+TEST_CASE("mastery teacher promotion message searches all class branches")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    REQUIRE(harness.party().setActiveMemberIndex(1));
+    const OpenYAMM::Game::Character *pCharacter = harness.party().activeMember();
+    REQUIRE(pCharacter != nullptr);
+    REQUIRE_EQ(pCharacter->className, "Cleric");
+    CHECK_EQ(
+        gameData.classSkillTable.getEffectiveCap("Cleric", pCharacter->raceId, "LightMagic"),
+        OpenYAMM::Game::SkillMastery::None);
+
+    const std::optional<OpenYAMM::Game::MasteryTeacherEvaluation> evaluation =
+        OpenYAMM::Game::evaluateMasteryTeacherTopic(
+            358,
+            harness.party(),
+            gameData.classSkillTable,
+            gameData.npcDialogTable,
+            &gameData.mergedTeacherTopicTable);
+
+    REQUIRE(evaluation.has_value());
+    CHECK_FALSE(evaluation->approved);
+    CHECK_EQ(
+        evaluation->displayText,
+        "You have to be promoted to High Priest or Priest of the Light to learn this skill.");
 }
 
 TEST_CASE("mm6 suffix mastery teacher topic opens native mastery offer")

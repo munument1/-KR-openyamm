@@ -481,6 +481,59 @@ SkillMastery ClassSkillTable::getHighestPromotionEffectiveCap(
     return bestCap;
 }
 
+std::vector<std::string> ClassSkillTable::getClosestPromotionClassesWithEffectiveCap(
+    const std::string &className,
+    uint32_t raceId,
+    const std::string &skillName,
+    SkillMastery requiredMastery
+) const
+{
+    std::vector<std::string> pendingClasses = promotionClassNamesFromMetadata(className);
+
+    if (pendingClasses.empty())
+    {
+        pendingClasses = promotionClassNames(className);
+    }
+
+    while (!pendingClasses.empty())
+    {
+        std::vector<std::string> qualifyingClasses;
+        std::vector<std::string> nextClasses;
+
+        for (const std::string &promotedClass : pendingClasses)
+        {
+            if (getEffectiveCap(promotedClass, raceId, skillName) >= requiredMastery)
+            {
+                qualifyingClasses.push_back(promotedClass);
+            }
+
+            std::vector<std::string> promotions = promotionClassNamesFromMetadata(promotedClass);
+
+            if (promotions.empty())
+            {
+                promotions = promotionClassNames(promotedClass);
+            }
+
+            nextClasses.insert(nextClasses.end(), promotions.begin(), promotions.end());
+        }
+
+        if (!qualifyingClasses.empty())
+        {
+            std::sort(qualifyingClasses.begin(), qualifyingClasses.end());
+            qualifyingClasses.erase(
+                std::unique(qualifyingClasses.begin(), qualifyingClasses.end()),
+                qualifyingClasses.end());
+            return qualifyingClasses;
+        }
+
+        std::sort(nextClasses.begin(), nextClasses.end());
+        nextClasses.erase(std::unique(nextClasses.begin(), nextClasses.end()), nextClasses.end());
+        pendingClasses = std::move(nextClasses);
+    }
+
+    return {};
+}
+
 std::vector<std::string> ClassSkillTable::promotionClassNamesFromMetadata(const std::string &className) const
 {
     const std::string canonicalClass = canonicalClassName(className);

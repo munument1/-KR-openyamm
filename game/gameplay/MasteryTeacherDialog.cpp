@@ -1,5 +1,6 @@
 #include "game/gameplay/MasteryTeacherDialog.h"
 
+#include "game/gameplay/GameMechanics.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/NpcDialogTable.h"
 #include "game/party/Party.h"
@@ -327,8 +328,18 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
     return 0;
 }
 
-bool meetsMasteryRequirements(
+enum class MasteryRequirementFailure
+{
+    None,
+    General,
+    IntellectTooLow,
+    PersonalityTooLow,
+    EnduranceTooLow,
+};
+
+MasteryRequirementFailure masteryRequirementFailure(
     const Character &character,
+    const Party &party,
     const std::string &skillName,
     SkillMastery targetMastery,
     uint32_t requiredSkillLevel
@@ -338,67 +349,114 @@ bool meetsMasteryRequirements(
 
     if (pSkill == nullptr)
     {
-        return false;
+        return MasteryRequirementFailure::General;
     }
 
     if (requiredSkillLevel != 0 && pSkill->level < requiredSkillLevel)
     {
-        return false;
+        return MasteryRequirementFailure::General;
     }
 
     if (targetMastery == SkillMastery::Expert)
     {
-        return pSkill->level >= 4;
+        return pSkill->level >= 4
+            ? MasteryRequirementFailure::None
+            : MasteryRequirementFailure::General;
     }
 
     if (targetMastery == SkillMastery::Master)
     {
         if (pSkill->level < 7 || pSkill->mastery != SkillMastery::Expert)
         {
-            return false;
+            return MasteryRequirementFailure::General;
         }
 
         if (skillName == "Merchant")
         {
-            return character.personality >= 50;
+            const int personality = GameMechanics::resolveCharacterDisplayedBasePrimaryStat(
+                character,
+                0x22,
+                party.itemTable(),
+                party.standardItemEnchantTable(),
+                party.specialItemEnchantTable());
+            return personality >= 50
+                ? MasteryRequirementFailure::None
+                : MasteryRequirementFailure::PersonalityTooLow;
         }
 
         if (skillName == "Bodybuilding")
         {
-            return character.endurance >= 50;
+            const int endurance = GameMechanics::resolveCharacterDisplayedBasePrimaryStat(
+                character,
+                0x23,
+                party.itemTable(),
+                party.standardItemEnchantTable(),
+                party.specialItemEnchantTable());
+            return endurance >= 50
+                ? MasteryRequirementFailure::None
+                : MasteryRequirementFailure::EnduranceTooLow;
         }
 
         if (skillName == "Learning")
         {
-            return character.intellect >= 50;
+            const int intellect = GameMechanics::resolveCharacterDisplayedBasePrimaryStat(
+                character,
+                0x21,
+                party.itemTable(),
+                party.standardItemEnchantTable(),
+                party.specialItemEnchantTable());
+            return intellect >= 50
+                ? MasteryRequirementFailure::None
+                : MasteryRequirementFailure::IntellectTooLow;
         }
 
-        return true;
+        return MasteryRequirementFailure::None;
     }
 
     if (targetMastery == SkillMastery::Grandmaster)
     {
         if (pSkill->level < 10 || pSkill->mastery != SkillMastery::Master)
         {
-            return false;
+            return MasteryRequirementFailure::General;
         }
 
         if (skillName == "Dodging")
         {
             const CharacterSkill *pUnarmed = character.findSkill("Unarmed");
-            return pUnarmed != nullptr && pUnarmed->level >= 10;
+            return pUnarmed != nullptr && pUnarmed->level >= 10
+                ? MasteryRequirementFailure::None
+                : MasteryRequirementFailure::General;
         }
 
         if (skillName == "Unarmed")
         {
             const CharacterSkill *pDodging = character.findSkill("Dodging");
-            return pDodging != nullptr && pDodging->level >= 10;
+            return pDodging != nullptr && pDodging->level >= 10
+                ? MasteryRequirementFailure::None
+                : MasteryRequirementFailure::General;
         }
 
-        return true;
+        return MasteryRequirementFailure::None;
     }
 
-    return false;
+    return MasteryRequirementFailure::General;
+}
+
+std::string joinPromotionClassNames(const std::vector<std::string> &classNames)
+{
+    std::string result;
+
+    for (size_t index = 0; index < classNames.size(); ++index)
+    {
+        if (!result.empty())
+        {
+            result += index + 1 == classNames.size() ? " or " : ", ";
+        }
+
+        result += displayClassName(classNames[index]);
+    }
+
+    return result;
 }
 }
 
@@ -445,14 +503,18 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
 
     if (classCap < evaluation.targetMastery)
     {
-        const std::optional<std::string> nextPromotion = nextPromotionClassName(pCharacter->className);
+        const std::vector<std::string> qualifyingPromotions =
+            classSkillTable.getClosestPromotionClassesWithEffectiveCap(
+                pCharacter->className,
+                pCharacter->raceId,
+                evaluation.skillName,
+                evaluation.targetMastery);
 
-        if (nextPromotion
-            && classSkillTable.getEffectiveCap(*nextPromotion, pCharacter->raceId, evaluation.skillName)
-                >= evaluation.targetMastery)
+        if (!qualifyingPromotions.empty())
         {
             evaluation.displayText =
-                "You have to be promoted to " + displayClassName(*nextPromotion) + " to learn this skill.";
+                "You have to be promoted to " + joinPromotionClassNames(qualifyingPromotions)
+                + " to learn this skill.";
             return evaluation;
         }
 
@@ -479,17 +541,35 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
         return evaluation;
     }
 
-    if (!meetsMasteryRequirements(
-            *pCharacter,
-            evaluation.skillName,
-            evaluation.targetMastery,
-            teacherTopic->requiredSkill))
+    const MasteryRequirementFailure requirementFailure = masteryRequirementFailure(
+        *pCharacter,
+        party,
+        evaluation.skillName,
+        evaluation.targetMastery,
+        teacherTopic->requiredSkill);
+
+    if (requirementFailure != MasteryRequirementFailure::None)
     {
-        evaluation.displayText = npcTextOrFallback(
-            npcDialogTable,
-            128,
-            "The requirements for this training are unmet."
-        );
+        if (requirementFailure == MasteryRequirementFailure::IntellectTooLow)
+        {
+            evaluation.displayText = "You must have at least 50 base Intellect to learn Master Learning.";
+        }
+        else if (requirementFailure == MasteryRequirementFailure::PersonalityTooLow)
+        {
+            evaluation.displayText = "You must have at least 50 base Personality to learn Master Merchant.";
+        }
+        else if (requirementFailure == MasteryRequirementFailure::EnduranceTooLow)
+        {
+            evaluation.displayText = "You must have at least 50 base Endurance to learn Master Bodybuilding.";
+        }
+        else
+        {
+            evaluation.displayText = npcTextOrFallback(
+                npcDialogTable,
+                128,
+                "The requirements for this training are unmet."
+            );
+        }
         return evaluation;
     }
 
