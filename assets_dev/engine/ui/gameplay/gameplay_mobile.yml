@@ -85,7 +85,7 @@ elements:
         text:
           value: "{gold}"
           font: SMALLNUM
-          scale: 2.0
+          scale: 1.5
           align_x: center
           align_y: middle
 
@@ -107,7 +107,7 @@ elements:
         text:
           value: "{food}"
           font: SMALLNUM
-          scale: 2.0
+          scale: 1.5
           align_x: center
           align_y: middle
 
