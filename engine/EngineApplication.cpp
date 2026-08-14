@@ -132,6 +132,36 @@ uint64_t initialWindowFlagsForMode(WindowMode mode)
     return flags;
 }
 
+SDL_Window *createApplicationWindow(const ApplicationConfig &config)
+{
+    const uint64_t flags = initialWindowFlagsForMode(config.windowMode);
+
+#if defined(__ANDROID__)
+    const SDL_PropertiesID properties = SDL_CreateProperties();
+
+    if (properties == 0)
+    {
+        return nullptr;
+    }
+
+    SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, config.appName.c_str());
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.windowWidth);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.windowHeight);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, static_cast<Sint64>(flags));
+    SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN, true);
+
+    SDL_Window *pWindow = SDL_CreateWindowWithProperties(properties);
+    SDL_DestroyProperties(properties);
+    return pWindow;
+#else
+    return SDL_CreateWindow(
+        config.appName.c_str(),
+        config.windowWidth,
+        config.windowHeight,
+        flags);
+#endif
+}
+
 bool applyWindowMode(SDL_Window *pWindow, const ApplicationConfig &config)
 {
     if (pWindow == nullptr)
@@ -245,6 +275,10 @@ int EngineApplication::run() const
         return 1;
     }
 
+#if defined(__ANDROID__)
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
+
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << '\n';
@@ -264,12 +298,7 @@ int EngineApplication::run() const
         return 1;
     }
 
-    SDL_Window *pRawWindow = SDL_CreateWindow(
-        m_config.appName.c_str(),
-        m_config.windowWidth,
-        m_config.windowHeight,
-        initialWindowFlagsForMode(m_config.windowMode)
-    );
+    SDL_Window *pRawWindow = createApplicationWindow(m_config);
 
     if (pRawWindow == nullptr)
     {
@@ -389,6 +418,7 @@ int EngineApplication::run() const
         lastFrameTickCount = currentFrameTickCount;
         float mouseWheelDelta = 0.0f;
         SDL_Event event;
+        bool refreshRenderWindow = false;
         const uint64_t eventBeginTickCount = collectFrameTimings ? SDL_GetTicksNS() : 0;
         uint64_t frameEventCount = 0;
 
@@ -409,11 +439,15 @@ int EngineApplication::run() const
             if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
             {
                 enforceMinimumWindowAspect(pWindow.get());
+                refreshRenderWindow = true;
+            }
 
-                int drawableWidth = 0;
-                int drawableHeight = 0;
-                SDL_GetWindowSizeInPixels(pWindow.get(), &drawableWidth, &drawableHeight);
-                bgfxContext.resize(drawableWidth, drawableHeight);
+            if (event.type == SDL_EVENT_DID_ENTER_FOREGROUND)
+            {
+                frameDeltaNanoseconds = 16666667ULL;
+                deltaSeconds = 1.0f / 60.0f;
+                lastFrameTickCount = SDL_GetTicksNS();
+                refreshRenderWindow = true;
             }
 
             if (event.type == SDL_EVENT_MOUSE_WHEEL)
@@ -425,6 +459,14 @@ int EngineApplication::run() const
             {
                 m_eventCallback(event);
             }
+        }
+
+        if (refreshRenderWindow)
+        {
+            int resizedDrawableWidth = 0;
+            int resizedDrawableHeight = 0;
+            SDL_GetWindowSizeInPixels(pWindow.get(), &resizedDrawableWidth, &resizedDrawableHeight);
+            bgfxContext.resize(pWindow.get(), resizedDrawableWidth, resizedDrawableHeight);
         }
 
         uint64_t frameEventNanoseconds = 0;

@@ -722,6 +722,10 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
             });
     }
 
+    GameplayOverlayInteractionState &interactionState = context.interactionState();
+    const bool quickCastButtonRequested = interactionState.gameplayHudQuickCastRequested;
+    interactionState.gameplayHudQuickCastRequested = false;
+
     if (canRunStandardGameplayAction && config.processQuickCast)
     {
         if (context.turnBasedCombatRuntime().active()
@@ -742,7 +746,8 @@ GameplaySharedInputFrameResult GameplayInputController::updateSharedGameplayInpu
         }
 
         const bool isQuickCastPressed =
-            isActionHeld(context, KeyboardAction::CastReady, config.pInputFrame, config.pKeyboardState);
+            quickCastButtonRequested
+            || isActionHeld(context, KeyboardAction::CastReady, config.pInputFrame, config.pKeyboardState);
 
         const GameplayActionController::QuickCastActionDecision quickCastDecision =
             GameplayActionController::updateQuickCastAction(

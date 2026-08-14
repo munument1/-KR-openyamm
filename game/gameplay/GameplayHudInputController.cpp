@@ -329,6 +329,11 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 return context.interactionState().gameplayHudPressedTarget;
             }
 
+            if (pointerInsideHudElement(context, config, "OutdoorFollowerToggle", pointerX, pointerY))
+            {
+                return {GameplayHudPointerTargetType::FollowerPanelToggleButton};
+            }
+
             if (context.interactionState().followerPanelOpen)
             {
                 static constexpr std::array<const char *, VisibleFollowerPanelSlots> FollowerSlots = {{
@@ -424,6 +429,13 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 {
                     activeGameplayButtonLayoutId(
                         context,
+                        "OutdoorMobileButtonQuickCast",
+                        ""),
+                    GameplayHudPointerTargetType::QuickCastButton
+                },
+                {
+                    activeGameplayButtonLayoutId(
+                        context,
                         "OutdoorMobileButtonAttack",
                         ""),
                     GameplayHudPointerTargetType::AttackButton
@@ -448,13 +460,6 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                         "OutdoorMinimapZoomOut",
                         "OutdoorStandardMinimapZoomOut"),
                     GameplayHudPointerTargetType::MinimapZoomOutButton
-                },
-                {
-                    activeGameplayButtonLayoutId(
-                        context,
-                        "OutdoorFollowerToggle",
-                        ""),
-                    GameplayHudPointerTargetType::FollowerPanelToggleButton
                 }
             };
 
@@ -516,6 +521,9 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 break;
             case GameplayHudPointerTargetType::QuickReferenceButton:
                 context.openQuickReferenceOverlay();
+                break;
+            case GameplayHudPointerTargetType::QuickCastButton:
+                context.interactionState().gameplayHudQuickCastRequested = true;
                 break;
             case GameplayHudPointerTargetType::AttackButton:
                 context.interactionState().gameplayHudAttackRequested = true;

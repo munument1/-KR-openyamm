@@ -29,6 +29,7 @@ struct GameplayInputFrame
     bool mobileJoystickActive = false;
     bool turnBasedMovementStep = false;
     bool turnBasedPhysicsStep = false;
+    float movementSpeedScale = 1.0f;
     float mobileJoystickBaseX = 0.0f;
     float mobileJoystickBaseY = 0.0f;
     float mobileJoystickKnobX = 0.0f;

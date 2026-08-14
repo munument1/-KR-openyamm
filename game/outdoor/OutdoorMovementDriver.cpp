@@ -208,7 +208,8 @@ void OutdoorMovementDriver::update(
     const float movementPitchRadians = input.usePitchForFlyingMovement ? input.pitchRadians : 0.0f;
     const float cosPitch = std::cos(movementPitchRadians);
     const float sinPitch = std::sin(movementPitchRadians);
-    const float speedMultiplier = std::max(m_speedMultiplier, 0.0f);
+    const float inputSpeedScale = std::clamp(input.movementSpeedScale, 0.0f, 1.0f);
+    const float speedMultiplier = std::max(m_speedMultiplier, 0.0f) * inputSpeedScale;
     const bx::Vec3 forward = {cosYaw, sinYaw, 0.0f};
     const bx::Vec3 forwardFlying = {cosYaw * cosPitch, sinYaw * cosPitch, sinPitch};
     const bx::Vec3 right = {sinYaw, -cosYaw, 0.0f};

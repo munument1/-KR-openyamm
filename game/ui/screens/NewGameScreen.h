@@ -47,7 +47,7 @@ public:
         std::array<std::string, 2> defaultOptionalSkills = {};
     };
 
-    using ContinueAction = std::function<void(const std::vector<Character> &, uint32_t)>;
+    using ContinueAction = std::function<void(const std::vector<Character> &, uint32_t, bool)>;
     using BackAction = std::function<void()>;
 
     NewGameScreen(
@@ -55,6 +55,7 @@ public:
         GameAudioSystem *pGameAudioSystem,
         const GameDataRepository &gameData,
         bool debugGodLichRoster,
+        bool includeGodLichCandidate,
         bool allowIncompleteCharacterCreation,
         ContinueAction continueAction,
         BackAction backAction);
@@ -135,6 +136,8 @@ private:
     const CharacterDollEntry *characterEntryForState(const CreationState &state) const;
     const CreationCandidate &selectedCandidate() const;
     const CreationCandidate &candidateForState(const CreationState &state) const;
+    bool isGodLichState(const CreationState &state) const;
+    bool isGodLichSelected() const;
     std::array<int, static_cast<size_t>(StatId::Count)> statsForRace(const std::string &raceName) const;
     void cycleCandidate(int direction);
     void cycleClass(int direction);
@@ -189,6 +192,7 @@ private:
     GameAudioSystem *m_pGameAudioSystem = nullptr;
     const GameDataRepository *m_pGameData = nullptr;
     bool m_debugGodLichRoster = false;
+    bool m_includeGodLichCandidate = false;
     bool m_allowIncompleteCharacterCreation = false;
     ContinueAction m_continueAction;
     BackAction m_backAction;

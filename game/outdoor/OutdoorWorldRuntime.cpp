@@ -203,7 +203,7 @@ constexpr float OeRealtimeRecoveryScale = 2.133333333333333f;
 constexpr float HostilityCloseRange = 1024.0f;
 constexpr float HostilityShortRange = 2560.0f;
 constexpr float HostilityMediumRange = 5120.0f;
-constexpr float HostilityLongRange = 10240.0f;
+constexpr float HostilityLongRange = GameplayActorService::MaximumPartyEngagementRange;
 constexpr float OutdoorActorAiTraceIntervalSeconds = 0.5f;
 constexpr size_t OutdoorActorAiTraceDefaultActorLimit = 16;
 

@@ -397,6 +397,7 @@ enum class GameplayHudPointerTargetType
     InventoryButton,
     DimensionDoorButton,
     QuickReferenceButton,
+    QuickCastButton,
     AttackButton,
     TriggerButton,
     CastButton,
@@ -578,6 +579,7 @@ struct GameplayOverlayInteractionState
     GameplayHudPointerTarget gameplayHudPressedTarget = {};
     bool gameplayHudPressedContextActionActive = false;
     GameplayWorldHit gameplayHudPressedContextActionHit = {};
+    bool gameplayHudQuickCastRequested = false;
     bool gameplayHudAttackRequested = false;
     bool gameplayHudTriggerRequested = false;
     bool gameplayHudSpellTargetConfirmRequested = false;

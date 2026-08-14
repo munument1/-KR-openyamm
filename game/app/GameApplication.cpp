@@ -65,6 +65,12 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+#if defined(__ANDROID__)
+constexpr bool IncludeGodLichCharacterCreationCandidate = true;
+#else
+constexpr bool IncludeGodLichCharacterCreationCandidate = false;
+#endif
+
 struct PendingMapLeaveOutputs
 {
     std::optional<EventRuntimeState::PendingMovie> pendingMovie;
@@ -5707,8 +5713,9 @@ void GameApplication::updateDeferredMainMenuChildWarmup()
             &m_gameAudioSystem,
             m_gameSession.data(),
             m_settings.newGameGodLich,
+            IncludeGodLichCharacterCreationCandidate,
             m_settings.allowIncompleteCharacterCreation,
-            [](const std::vector<Character> &, uint32_t)
+            [](const std::vector<Character> &, uint32_t, bool)
             {
             },
             []()
@@ -7846,10 +7853,11 @@ void GameApplication::openNewGameScreen(const std::string &source)
         &m_gameAudioSystem,
         m_gameSession.data(),
         m_settings.newGameGodLich,
+        IncludeGodLichCharacterCreationCandidate,
         m_settings.allowIncompleteCharacterCreation,
-        [this](const std::vector<Character> &characters, uint32_t continentId)
+        [this](const std::vector<Character> &characters, uint32_t continentId, bool preserveDebugLoadout)
         {
-            startNewSessionFromCharacterCreation(characters, continentId, true);
+            startNewSessionFromCharacterCreation(characters, continentId, preserveDebugLoadout, true);
         },
         [this]()
         {
@@ -8099,12 +8107,13 @@ bool GameApplication::startNewSessionFromCharacterCreation(
     const std::vector<Character> &characters,
     bool initializeView)
 {
-    return startNewSessionFromCharacterCreation(characters, 0, initializeView);
+    return startNewSessionFromCharacterCreation(characters, 0, false, initializeView);
 }
 
 bool GameApplication::startNewSessionFromCharacterCreation(
     const std::vector<Character> &characters,
     uint32_t continentId,
+    bool preserveDebugLoadout,
     bool initializeView)
 {
     if (m_pAssetFileSystem == nullptr)
@@ -8152,7 +8161,7 @@ bool GameApplication::startNewSessionFromCharacterCreation(
                 m_gameDataLoader.getItemTable(),
                 m_gameDataLoader.getStandardItemEnchantTable(),
                 m_gameDataLoader.getSpecialItemEnchantTable(),
-                m_settings.newGameGodLich));
+                preserveDebugLoadout));
     }
 
     Party &sessionParty = ensureSessionPartyState();

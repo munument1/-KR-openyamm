@@ -935,7 +935,7 @@ elements:
     offset_y: -56
     width: 91
     height: 292
-    z_index: 90
+    z_index: 110
     scale:
       min: 1.0
       max: 8.0
@@ -1030,7 +1030,7 @@ elements:
     offset_y: -113
     width: 26
     height: 26
-    z_index: 95
+    z_index: 111
     scale:
       min: 1.0
       max: 8.0

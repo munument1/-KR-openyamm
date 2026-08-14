@@ -30,6 +30,7 @@ constexpr float MobileInspectButtonWidth = 80.0f;
 constexpr float MobileInspectButtonHeight = 80.0f;
 constexpr float MobileJoystickRadius = 64.0f;
 constexpr float MobileJoystickDeadZone = 10.0f;
+constexpr float MobileJoystickFullSpeedRadius = MobileJoystickRadius * 0.7f;
 constexpr float MobileGameplayTapMaxNormalizedDistanceSquared = 0.000225f;
 constexpr float MobileDebugConsoleGestureTopEdgeNormalized = 0.055f;
 constexpr float MobileDebugConsoleGestureMinDragNormalized = 0.14f;
@@ -394,7 +395,7 @@ void GameInputSystem::updateFromEngineInput(
         {
             const float startLogicalX = touchLogicalX(normalizedX);
             const float startLogicalY = touchLogicalY(normalizedY);
-            return pointInsideRect(startLogicalX, startLogicalY, 0.0f, 0.0f, 520.0f, 120.0f)
+            return pointInsideRect(startLogicalX, startLogicalY, 0.0f, 0.0f, 562.0f, 120.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 180.0f, 0.0f, 180.0f, 170.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, 0.0f, 376.0f, 210.0f, 104.0f)
                 || pointInsideRect(
@@ -404,7 +405,7 @@ void GameInputSystem::updateFromEngineInput(
                     416.0f,
                     260.0f,
                     56.0f)
-                || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 236.0f, 292.0f, 236.0f, 120.0f)
+                || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 236.0f, 284.0f, 236.0f, 128.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, 320.0f, 360.0f, 420.0f, 120.0f);
         };
     const auto mobileInspectButtonAt =
@@ -608,6 +609,11 @@ void GameInputSystem::updateFromEngineInput(
             m_frame.mobileJoystickBaseY = startY;
             m_frame.mobileJoystickKnobX = startX + clampedLogicalX * touchScale;
             m_frame.mobileJoystickKnobY = startY + clampedLogicalY * touchScale;
+            m_frame.movementSpeedScale = mobileJoystickMovementSpeedScale(
+                deltaLogicalX,
+                deltaLogicalY,
+                MobileJoystickDeadZone,
+                MobileJoystickFullSpeedRadius);
 
             const MobileJoystickDirection joystickDirection = quantizeMobileJoystickDirection(
                 deltaLogicalX,

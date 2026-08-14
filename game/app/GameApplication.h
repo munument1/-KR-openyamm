@@ -216,6 +216,7 @@ private:
     bool startNewSessionFromCharacterCreation(
         const std::vector<Character> &characters,
         uint32_t continentId,
+        bool preserveDebugLoadout,
         bool initializeView);
     bool loadSessionFromPath(const std::filesystem::path &path);
     void beginLoadingOverlay(

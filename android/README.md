@@ -34,6 +34,10 @@ The expected debug output is:
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Android builds package `android/settings.ini` as the first-launch settings profile. The installed app copies that
+profile to its private writable `settings.ini` only when the file is missing. Profile-version migrations update
+Android-required defaults without replacing user-adjustable settings.
+
 To build, start/reuse an emulator, install, launch, and follow logs:
 
 ```sh
@@ -65,17 +69,23 @@ android/app/build/outputs/apk/release/app-release.apk
 android/app-release.apk
 ```
 
-To install the hosted release APK on an emulator and follow logs:
+To build an optimized x86_64 release APK, start or reuse the configured emulator, install the APK, launch it, and
+follow logs:
 
 ```sh
 android/run_release_emulator.sh
 ```
+
+The emulator runner signs this local release build with the standard Android debug keystore. It does not replace
+`android/app-release.apk`, which is reserved for the production-signed hosted build. Pass `--no-logcat` to return after
+launching the game.
 
 Useful release-runner overrides:
 
 ```sh
 OPENYAMM_BUILD_RELEASE_APK=0 android/run_release_emulator.sh
 OPENYAMM_ANDROID_UNINSTALL_ON_SIGNATURE_MISMATCH=0 android/run_release_emulator.sh
+OPENYAMM_ANDROID_RELEASE_ABIS=arm64-v8a android/run_release_emulator.sh
 ```
 
 Before each public update, bump `openyamm.android.versionName` and

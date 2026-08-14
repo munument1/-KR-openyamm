@@ -10,6 +10,7 @@
 #include "game/outdoor/OutdoorGameView.h"
 #include "game/outdoor/OutdoorFogProfile.h"
 #include "game/outdoor/OutdoorInteractionController.h"
+#include "game/render/CombatActorHealthBarPolicy.h"
 #include "game/render/TextureFiltering.h"
 #include "game/StringUtils.h"
 #include "game/scene/OutdoorSceneRuntime.h"
@@ -2554,6 +2555,12 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
     }
 
     const bool renderCombatActorHealthBars = view.settingsSnapshot().combatActorHealthBars;
+    CombatActorHealthBarSelection healthBarSelection = {};
+    const float actorViewAspectRatio =
+        static_cast<float>(std::max(view.m_lastRenderWidth, 1))
+        / static_cast<float>(std::max(view.m_lastRenderHeight, 1));
+    constexpr float ActorViewVerticalTangent = 0.57735026919f;
+    const float actorViewHorizontalTangent = ActorViewVerticalTangent * actorViewAspectRatio;
 
     auto appendActorDrawItem =
         [&](const OutdoorWorldRuntime::MapActorState *pRuntimeActor,
@@ -2704,13 +2711,31 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 && pRuntimeActor->currentHp > 0
                 && pRuntimeActor->maxHp > 0)
             {
-                drawItem.hasHealthBar = true;
-                drawItem.healthRatio =
-                    std::clamp(
-                        static_cast<float>(pRuntimeActor->currentHp) / static_cast<float>(pRuntimeActor->maxHp),
-                        0.0f,
-                        1.0f);
-                drawItem.healthBarScale = 1.0f;
+                const float worldWidth = static_cast<float>(pTexture->width) * previewScale;
+                const bx::Vec3 billboardCenterDelta = {deltaX, deltaY, deltaZ + worldHeight * 0.5f};
+                const float billboardCenterDepth = bx::dot(billboardCenterDelta, cameraForward);
+                const float billboardHorizontalOffset = bx::dot(billboardCenterDelta, cameraRight);
+                const float billboardVerticalOffset = bx::dot(billboardCenterDelta, cameraUp);
+                const bool billboardIntersectsView =
+                    billboardCenterDepth > BillboardNearDepth
+                    && std::abs(billboardHorizontalOffset)
+                        <= billboardCenterDepth * actorViewHorizontalTangent + worldWidth * 0.5f
+                    && std::abs(billboardVerticalOffset)
+                        <= billboardCenterDepth * ActorViewVerticalTangent + worldHeight * 0.5f;
+
+                if (billboardIntersectsView)
+                {
+                    drawItem.healthRatio =
+                        std::clamp(
+                            static_cast<float>(pRuntimeActor->currentHp)
+                                / static_cast<float>(pRuntimeActor->maxHp),
+                            0.0f,
+                            1.0f);
+                    considerCombatActorHealthBarCandidate(
+                        healthBarSelection,
+                        drawItems.size(),
+                        drawItem.distanceSquared);
+                }
             }
 
             drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
@@ -2861,6 +2886,18 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 pRuntimeActor->spriteFrameIndex,
                 pRuntimeActor->actionSpriteFrameIndices,
                 pRuntimeActor->useStaticSpriteFrame);
+        }
+    }
+
+    for (size_t selectionIndex = 0; selectionIndex < healthBarSelection.count; ++selectionIndex)
+    {
+        const size_t drawItemIndex = healthBarSelection.candidates[selectionIndex].drawItemIndex;
+
+        if (drawItemIndex < drawItems.size())
+        {
+            drawItems[drawItemIndex].hasHealthBar = true;
+            drawItems[drawItemIndex].healthBarScale = combatActorHealthBarScale(
+                healthBarSelection.candidates[selectionIndex].distanceSquared);
         }
     }
 

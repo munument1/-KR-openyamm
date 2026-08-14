@@ -1307,11 +1307,48 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
             && pGameplayInput != nullptr
             && pGameplayInput->action(KeyboardAction::FlyDown).held;
         const bool mobileFlightButtonHeld = mobileFlyUpHeld || mobileFlyDownHeld;
+        const GameplayOverlayInteractionState &interactionState = context.interactionState();
+        const bool quickCastBadgeCaptured =
+            interactionState.gameplayHudClickLatch
+            && interactionState.gameplayHudPressedTarget.type == GameplayHudPointerTargetType::QuickCastButton;
+        const bool quickCastParentButton =
+            normalizedRoleId == "outdoormobilebuttonattack"
+            || normalizedRoleId == "outdoormobilebuttoncast";
+        bool pointerOverQuickCastBadge = false;
+
+        if (quickCastParentButton && isLeftMousePressed)
+        {
+            const UiLayoutManager::LayoutElement *pQuickCastLayout =
+                context.findHudLayoutElement("OutdoorMobileButtonQuickCast");
+            const std::optional<GameplayResolvedHudLayoutElement> quickCastResolved =
+                pQuickCastLayout != nullptr
+                    ? resolveLayout(
+                        context,
+                        pQuickCastLayout->id,
+                        pQuickCastLayout->width,
+                        pQuickCastLayout->height,
+                        width,
+                        height)
+                    : std::nullopt;
+            pointerOverQuickCastBadge =
+                quickCastResolved
+                && context.isPointerInsideResolvedElement(
+                    *quickCastResolved,
+                    characterMouseX,
+                    characterMouseY);
+        }
+
+        const bool quickCastBadgeOwnsPointerPress =
+            quickCastBadgeCaptured || pointerOverQuickCastBadge;
         const std::string *pAssetName = nullptr;
 
         if (mobileFlightButtonHeld && !pLayout->pressedAsset.empty())
         {
             pAssetName = &pLayout->pressedAsset;
+        }
+        else if (quickCastBadgeOwnsPointerPress && quickCastParentButton)
+        {
+            pAssetName = &primaryAsset;
         }
         else if (interactiveResolved && !flyBuffIcon)
         {

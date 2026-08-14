@@ -15,6 +15,7 @@
 #include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/indoor/IndoorRenderRevision.h"
+#include "game/render/CombatActorHealthBarPolicy.h"
 #include "game/render/TextureFiltering.h"
 #include "game/scene/IndoorSceneRuntime.h"
 #include "game/SpriteObjectDefs.h"
@@ -7670,6 +7671,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
             &visibleSectorMask)
         : std::vector<RuntimeActorBillboard>{};
     std::vector<BillboardDrawItem> drawItems;
+    CombatActorHealthBarSelection healthBarSelection = {};
     const bool useRuntimeBillboards = mapDeltaData.has_value() && m_pSceneRuntime != nullptr;
     drawItems.reserve(
         useRuntimeBillboards
@@ -7783,30 +7785,10 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 && billboard.actorIndex < mapDeltaData->actors.size()
                 && mapDeltaData->actors[billboard.actorIndex].hp > 0)
             {
-                GameplayActorInspectState inspectState = {};
-                const bool hasInspectState =
-                    m_pSceneRuntime != nullptr
-                    && m_pSceneRuntime->worldRuntime().actorInspectState(
-                        billboard.actorIndex,
-                        0,
-                        inspectState);
-                const int maxHp = hasInspectState && inspectState.maxHp > 0
-                    ? inspectState.maxHp
-                    : static_cast<int>(mapDeltaData->actors[billboard.actorIndex].hp);
-                const int currentHp = hasInspectState
-                    ? inspectState.currentHp
-                    : static_cast<int>(mapDeltaData->actors[billboard.actorIndex].hp);
-
-                if (maxHp > 0 && currentHp > 0)
-                {
-                    drawItem.hasHealthBar = true;
-                    drawItem.healthRatio =
-                        std::clamp(
-                            static_cast<float>(currentHp) / static_cast<float>(maxHp),
-                            0.0f,
-                            1.0f);
-                    drawItem.healthBarScale = 1.0f;
-                }
+                considerCombatActorHealthBarCandidate(
+                    healthBarSelection,
+                    drawItems.size(),
+                    drawItem.distanceSquared);
             }
 
             drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
@@ -7872,6 +7854,37 @@ void IndoorRenderer::renderActorPreviewBillboards(
             drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             drawItems.push_back(drawItem);
         }
+    }
+
+    for (size_t selectionIndex = 0; selectionIndex < healthBarSelection.count; ++selectionIndex)
+    {
+        const CombatActorHealthBarCandidate &candidate = healthBarSelection.candidates[selectionIndex];
+
+        if (candidate.drawItemIndex >= drawItems.size()
+            || !mapDeltaData
+            || drawItems[candidate.drawItemIndex].actorIndex >= mapDeltaData->actors.size())
+        {
+            continue;
+        }
+
+        BillboardDrawItem &drawItem = drawItems[candidate.drawItemIndex];
+        GameplayActorInspectState inspectState = {};
+        const bool hasInspectState =
+            m_pSceneRuntime != nullptr
+            && m_pSceneRuntime->worldRuntime().actorInspectState(drawItem.actorIndex, 0, inspectState);
+        const int fallbackHp = static_cast<int>(mapDeltaData->actors[drawItem.actorIndex].hp);
+        const int maxHp = hasInspectState && inspectState.maxHp > 0 ? inspectState.maxHp : fallbackHp;
+        const int currentHp = hasInspectState ? inspectState.currentHp : fallbackHp;
+
+        if (maxHp <= 0 || currentHp <= 0)
+        {
+            continue;
+        }
+
+        drawItem.hasHealthBar = true;
+        drawItem.healthRatio =
+            std::clamp(static_cast<float>(currentHp) / static_cast<float>(maxHp), 0.0f, 1.0f);
+        drawItem.healthBarScale = combatActorHealthBarScale(candidate.distanceSquared);
     }
 
     std::sort(
@@ -12661,9 +12674,11 @@ void IndoorRenderer::updateCameraFromInput(
             runWalkModifier ? !partyRuntime.alwaysRunEnabled() : partyRuntime.alwaysRunEnabled();
         const float turboScale = turboPressed ? turboMultiplier : 1.0f;
         const float runScale = running ? runForwardMultiplier : 1.0f;
-        const float forwardMoveSpeed = walkSpeed * runScale * turboScale;
-        const float backwardMoveSpeed = walkSpeed * turboScale;
-        const float strafeMoveSpeed = walkSpeed * indoorStrafeMultiplier * runScale * turboScale;
+        const float inputSpeedScale = std::clamp(input.movementSpeedScale, 0.0f, 1.0f);
+        const float forwardMoveSpeed = walkSpeed * runScale * turboScale * inputSpeedScale;
+        const float backwardMoveSpeed = walkSpeed * turboScale * inputSpeedScale;
+        const float strafeMoveSpeed =
+            walkSpeed * indoorStrafeMultiplier * runScale * turboScale * inputSpeedScale;
 
         if (allowWorldInput && input.action(KeyboardAction::Forward).held)
         {
@@ -12715,7 +12730,9 @@ void IndoorRenderer::updateCameraFromInput(
     }
     else
     {
-        const float currentMoveSpeed = walkSpeed * (turboPressed ? turboMultiplier : 1.5f);
+        const float inputSpeedScale = std::clamp(input.movementSpeedScale, 0.0f, 1.0f);
+        const float currentMoveSpeed =
+            walkSpeed * (turboPressed ? turboMultiplier : 1.5f) * inputSpeedScale;
 
         if (allowWorldInput && input.action(KeyboardAction::Forward).held)
         {

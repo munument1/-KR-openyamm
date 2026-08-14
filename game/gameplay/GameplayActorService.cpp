@@ -14,7 +14,7 @@ namespace
 constexpr float HostilityCloseRange = 1024.0f;
 constexpr float HostilityShortRange = 2560.0f;
 constexpr float HostilityMediumRange = 5120.0f;
-constexpr float HostilityLongRange = 10240.0f;
+constexpr float HostilityLongRange = GameplayActorService::MaximumPartyEngagementRange;
 
 float minutesToSeconds(float minutes)
 {

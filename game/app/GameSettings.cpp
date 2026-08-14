@@ -461,7 +461,8 @@ GameSettings GameSettings::createDefault()
 
 bool migrateLegacyAndroidSettings(GameSettings &settings)
 {
-    constexpr uint32_t CurrentAndroidSettingsProfileVersion = 1;
+    constexpr uint32_t InitialAndroidSettingsProfileVersion = 1;
+    constexpr uint32_t CurrentAndroidSettingsProfileVersion = 2;
 
     if (settings.settingsProfileName == "android"
         && settings.settingsProfileVersion >= CurrentAndroidSettingsProfileVersion)
@@ -469,34 +470,44 @@ bool migrateLegacyAndroidSettings(GameSettings &settings)
         return false;
     }
 
-    settings.settingsProfileName = "android";
-    settings.settingsProfileVersion = CurrentAndroidSettingsProfileVersion;
-    settings.contextActionPopup = true;
-    settings.startInMainMenu = true;
-    settings.verticalSync = true;
+    if (settings.settingsProfileName != "android"
+        || settings.settingsProfileVersion < InitialAndroidSettingsProfileVersion)
+    {
+        settings.settingsProfileName = "android";
+        settings.settingsProfileVersion = InitialAndroidSettingsProfileVersion;
+        settings.contextActionPopup = true;
+        settings.startInMainMenu = true;
+        settings.verticalSync = true;
 
-    settings.logIndoorVisibility = false;
-    settings.logIndoorPathfinding = false;
-    settings.logOutdoorPathfinding = false;
-    settings.fpsTrace = false;
-    settings.performanceTrace = false;
-    settings.hitchTrace = false;
-    settings.collisionTrace = false;
-    settings.gameplayTrace = false;
-    settings.combatTrace = false;
+        settings.logIndoorVisibility = false;
+        settings.logIndoorPathfinding = false;
+        settings.logOutdoorPathfinding = false;
+        settings.fpsTrace = false;
+        settings.performanceTrace = false;
+        settings.hitchTrace = false;
+        settings.collisionTrace = false;
+        settings.gameplayTrace = false;
+        settings.combatTrace = false;
 
-    settings.preseedParty = true;
-    settings.partySeedRosterId = 0;
-    settings.startWorldId = "mm8";
-    settings.startMapFile.clear();
-    settings.overrideStartPosition = false;
-    settings.startFlying = false;
-    settings.movementSpeedMultiplier = 1.0f;
-    settings.immortal = false;
-    settings.unlimitedMana = false;
-    settings.newGameGodLich = true;
-    settings.allowIncompleteCharacterCreation = true;
-    settings.debugConsole = true;
+        settings.partySeedRosterId = 0;
+        settings.startWorldId = "mm8";
+        settings.startMapFile.clear();
+        settings.overrideStartPosition = false;
+        settings.startFlying = false;
+        settings.movementSpeedMultiplier = 1.0f;
+        settings.immortal = false;
+        settings.unlimitedMana = false;
+        settings.debugConsole = true;
+    }
+
+    if (settings.settingsProfileVersion < CurrentAndroidSettingsProfileVersion)
+    {
+        settings.preseedParty = false;
+        settings.newGameGodLich = false;
+        settings.allowIncompleteCharacterCreation = false;
+        settings.settingsProfileVersion = CurrentAndroidSettingsProfileVersion;
+    }
+
     return true;
 }
 

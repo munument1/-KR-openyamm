@@ -3798,7 +3798,14 @@ void OutdoorRenderer::renderPendingSpellAreaPreview(
     }
 
     const std::optional<bx::Vec3> targetPoint =
-        view.m_pOutdoorWorldRuntime->spellActionGroundTargetPoint(pInputFrame->pointerX, pInputFrame->pointerY);
+        pendingSpellCast.hasSelectedGroundTargetPoint
+            ? std::optional<bx::Vec3>(bx::Vec3{
+                pendingSpellCast.selectedGroundTargetX,
+                pendingSpellCast.selectedGroundTargetY,
+                pendingSpellCast.selectedGroundTargetZ})
+            : view.m_pOutdoorWorldRuntime->spellActionGroundTargetPoint(
+                pInputFrame->pointerX,
+                pInputFrame->pointerY);
 
     if (!targetPoint)
     {

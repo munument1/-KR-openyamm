@@ -9,6 +9,7 @@ add_executable(openyamm_unit_tests
     ScriptedMapRegressionTests.cpp
     UnitTestMain.cpp
     CharacterSheetRegressionTests.cpp
+    CombatActorHealthBarPolicyTests.cpp
     GameplayActorAiSystemTests.cpp
     GameplayBolsterRuntimeTests.cpp
     GameplaySaveLoadUiSupportTests.cpp

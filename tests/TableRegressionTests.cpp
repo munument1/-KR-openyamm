@@ -278,12 +278,13 @@ TEST_CASE("android settings profile uses mobile interaction defaults without dia
 
     REQUIRE_MESSAGE(settings.has_value(), error.c_str());
     CHECK_EQ(settings->settingsProfileName, "android");
-    CHECK_EQ(settings->settingsProfileVersion, 1);
+    CHECK_EQ(settings->settingsProfileVersion, 2);
     CHECK(settings->contextActionPopup);
     CHECK(settings->startInMainMenu);
     CHECK(settings->verticalSync);
-    CHECK(settings->newGameGodLich);
-    CHECK(settings->allowIncompleteCharacterCreation);
+    CHECK_FALSE(settings->preseedParty);
+    CHECK_FALSE(settings->newGameGodLich);
+    CHECK_FALSE(settings->allowIncompleteCharacterCreation);
     CHECK(settings->debugConsole);
     CHECK_FALSE(settings->immortal);
     CHECK_FALSE(settings->unlimitedMana);
@@ -328,11 +329,13 @@ TEST_CASE("legacy Android settings migration changes platform defaults once and 
 
     REQUIRE(OpenYAMM::Game::migrateLegacyAndroidSettings(settings));
     CHECK_EQ(settings.settingsProfileName, "android");
-    CHECK_EQ(settings.settingsProfileVersion, 1);
+    CHECK_EQ(settings.settingsProfileVersion, 2);
     CHECK(settings.contextActionPopup);
     CHECK(settings.startInMainMenu);
     CHECK(settings.verticalSync);
-    CHECK(settings.newGameGodLich);
+    CHECK_FALSE(settings.preseedParty);
+    CHECK_FALSE(settings.newGameGodLich);
+    CHECK_FALSE(settings.allowIncompleteCharacterCreation);
     CHECK_FALSE(settings.overrideStartPosition);
     CHECK_EQ(settings.startWorldId, "mm8");
     CHECK_FALSE(settings.logIndoorVisibility);
@@ -354,6 +357,28 @@ TEST_CASE("legacy Android settings migration changes platform defaults once and 
     CHECK_FALSE(OpenYAMM::Game::migrateLegacyAndroidSettings(settings));
     CHECK_FALSE(settings.contextActionPopup);
     CHECK_EQ(settings.soundVolume, 5);
+}
+
+TEST_CASE("Android profile version two only migrates character creation defaults")
+{
+    OpenYAMM::Game::GameSettings settings = OpenYAMM::Game::GameSettings::createDefault();
+    settings.settingsProfileName = "android";
+    settings.settingsProfileVersion = 1;
+    settings.soundVolume = 5;
+    settings.startWorldId = "mm6";
+    settings.contextActionPopup = false;
+    settings.preseedParty = true;
+    settings.newGameGodLich = true;
+    settings.allowIncompleteCharacterCreation = true;
+
+    REQUIRE(OpenYAMM::Game::migrateLegacyAndroidSettings(settings));
+    CHECK_EQ(settings.settingsProfileVersion, 2);
+    CHECK_EQ(settings.soundVolume, 5);
+    CHECK_EQ(settings.startWorldId, "mm6");
+    CHECK_FALSE(settings.contextActionPopup);
+    CHECK_FALSE(settings.preseedParty);
+    CHECK_FALSE(settings.newGameGodLich);
+    CHECK_FALSE(settings.allowIncompleteCharacterCreation);
 }
 
 TEST_CASE("settings monster bolster feature defaults off")

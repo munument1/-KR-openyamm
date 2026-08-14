@@ -37,7 +37,7 @@ elements:
     offset_y: 121
     width: 32
     height: 32
-    z_index: 96
+    z_index: 111
     scale:
       min: 1.0
       max: 8.0
@@ -50,7 +50,7 @@ elements:
   - id: OutdoorGoldBar
     anchor_space: screen
     anchor: top_left
-    width: 500
+    width: 542
     height: 40
     z_index: 90
     scale:
@@ -62,7 +62,7 @@ elements:
     children:
       - id: OutdoorGoldBar_Frame
         anchor: center_in
-        width: 500
+        width: 542
         height: 40
         asset:
           default: Ui-FrGol
@@ -79,18 +79,19 @@ elements:
       - id: OutdoorGoldLabel
         anchor: top_left
         offset_x: 58
-        offset_y: 8
-        width: 56
-        height: 22
+        offset_y: 4
+        width: 90
+        height: 32
         text:
           value: "{gold}"
           font: SMALLNUM
+          scale: 2.0
           align_x: center
           align_y: middle
 
       - id: OutdoorFoodIcon
         anchor: top_left
-        offset_x: 124
+        offset_x: 154
         offset_y: 8
         width: 39
         height: 20
@@ -99,19 +100,20 @@ elements:
 
       - id: OutdoorFoodLabel
         anchor: top_left
-        offset_x: 166
-        offset_y: 8
-        width: 32
-        height: 22
+        offset_x: 196
+        offset_y: 4
+        width: 50
+        height: 32
         text:
           value: "{food}"
           font: SMALLNUM
+          scale: 2.0
           align_x: center
           align_y: middle
 
       - id: OutdoorButtonRest
         anchor: top_left
-        offset_x: 210
+        offset_x: 252
         offset_y: 4
         width: 53
         height: 32
@@ -124,7 +126,7 @@ elements:
 
       - id: OutdoorButtonBooks
         anchor: top_left
-        offset_x: 272
+        offset_x: 314
         offset_y: 4
         width: 53
         height: 32
@@ -137,7 +139,7 @@ elements:
 
       - id: OutdoorButtonQuickReference
         anchor: top_left
-        offset_x: 334
+        offset_x: 376
         offset_y: 4
         width: 80
         height: 32
@@ -150,7 +152,7 @@ elements:
 
       - id: OutdoorButtonOptions
         anchor: top_left
-        offset_x: 424
+        offset_x: 466
         offset_y: 4
         width: 73
         height: 32
@@ -390,6 +392,21 @@ elements:
       align_y: middle
     notes: Mobile status banner above the party strip.
 
+  - id: OutdoorMobileContextActionButton
+    anchor_space: screen
+    anchor: bottom_right
+    offset_x: -8
+    offset_y: -128
+    width: 260
+    height: 56
+    z_index: 101
+    interactive: true
+    visible: false
+    scale:
+      min: 1.0
+      max: 8.0
+    notes: Mobile context action popup above the bottom-right gameplay actions.
+
   - id: OutdoorMobileSystemPanel
     anchor_space: screen
     anchor: bottom_left
@@ -453,7 +470,7 @@ elements:
     anchor_space: screen
     anchor: bottom_right
     offset_x: -8
-    offset_y: -76
+    offset_y: -16
     width: 220
     height: 104
     z_index: 100
@@ -482,6 +499,20 @@ elements:
           default: cast_default
           highlighted: cast_pressed
           pressed: cast_pressed
+
+      - id: OutdoorMobileButtonQuickCast
+        anchor: top_left
+        offset_x: 100
+        offset_y: -10
+        width: 56
+        height: 56
+        z_index: 101
+        interactive: true
+        asset:
+          default: quick_cast_default
+          highlighted: quick_cast_pressed
+          pressed: quick_cast_pressed
+        notes: Compact Quick Cast badge attached to the upper-left corner of the Cast button.
 
   - id: OutdoorMobileFlightPanel
     anchor_space: screen

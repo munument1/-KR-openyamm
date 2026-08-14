@@ -216,12 +216,18 @@ bool BgfxContext::initialize(SDL_Window *pWindow, int windowWidth, int windowHei
     return true;
 }
 
-void BgfxContext::resize(int windowWidth, int windowHeight) const
+void BgfxContext::resize(SDL_Window *pWindow, int windowWidth, int windowHeight) const
 {
     if (!m_isInitialized)
     {
         return;
     }
+
+#if defined(__ANDROID__)
+    bgfx::setPlatformData(resolvePlatformData(pWindow));
+#else
+    static_cast<void>(pWindow);
+#endif
 
     bgfx::reset(
         static_cast<uint32_t>(windowWidth),

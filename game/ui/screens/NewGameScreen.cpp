@@ -915,6 +915,7 @@ NewGameScreen::NewGameScreen(
     GameAudioSystem *pGameAudioSystem,
     const GameDataRepository &gameData,
     bool debugGodLichRoster,
+    bool includeGodLichCandidate,
     bool allowIncompleteCharacterCreation,
     ContinueAction continueAction,
     BackAction backAction)
@@ -922,6 +923,7 @@ NewGameScreen::NewGameScreen(
     , m_pGameAudioSystem(pGameAudioSystem)
     , m_pGameData(&gameData)
     , m_debugGodLichRoster(debugGodLichRoster)
+    , m_includeGodLichCandidate(includeGodLichCandidate)
     , m_allowIncompleteCharacterCreation(allowIncompleteCharacterCreation)
     , m_continueAction(std::move(continueAction))
     , m_backAction(std::move(backAction))
@@ -1070,7 +1072,7 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
         case SDLK_3:
         case SDLK_4:
         case SDLK_5:
-            if (!m_state.nameEditing && !m_debugGodLichRoster)
+            if (!m_state.nameEditing && !isGodLichSelected())
             {
                 const size_t slotIndex = static_cast<size_t>(event.key.key - SDLK_1);
 
@@ -1094,6 +1096,17 @@ const CreationCandidate &NewGameScreen::selectedCandidate() const
 const CreationCandidate &NewGameScreen::candidateForState(const CreationState &state) const
 {
     return candidateAt(state.selectedCandidateIndex);
+}
+
+bool NewGameScreen::isGodLichState(const CreationState &state) const
+{
+    return m_debugGodLichRoster
+        || (m_includeGodLichCandidate && state.selectedCandidateIndex >= m_candidates.size());
+}
+
+bool NewGameScreen::isGodLichSelected() const
+{
+    return isGodLichState(m_state);
 }
 
 std::string NewGameScreen::selectedClassName() const
@@ -1299,12 +1312,18 @@ void NewGameScreen::rebuildCandidates()
 
 size_t NewGameScreen::candidateCount() const
 {
-    return m_debugGodLichRoster ? 1 : m_candidates.size();
+    if (m_debugGodLichRoster)
+    {
+        return 1;
+    }
+
+    return m_candidates.size() + (m_includeGodLichCandidate ? 1 : 0);
 }
 
 const CreationCandidate &NewGameScreen::candidateAt(size_t candidateIndex) const
 {
-    if (m_debugGodLichRoster)
+    if (m_debugGodLichRoster
+        || (m_includeGodLichCandidate && candidateIndex >= m_candidates.size()))
     {
         return DebugGodLichCandidate;
     }
@@ -1589,7 +1608,7 @@ std::string NewGameScreen::generateDefaultNameForState(const CreationState &stat
 {
     const CreationCandidate &candidate = candidateForState(state);
 
-    if (m_debugGodLichRoster)
+    if (isGodLichState(state))
     {
         return candidate.defaultName;
     }
@@ -1955,7 +1974,12 @@ void NewGameScreen::cycleCandidate(int direction)
     }
 
     resetStateForCandidate(static_cast<size_t>(nextIndex));
-    m_state.selectedClassId = classIdNear(previousClassId, selectedCandidate().availableClassIds, 1);
+
+    if (!isGodLichSelected())
+    {
+        m_state.selectedClassId = classIdNear(previousClassId, selectedCandidate().availableClassIds, 1);
+    }
+
     refreshSkillChoices(false);
 }
 
@@ -1963,7 +1987,7 @@ void NewGameScreen::cycleClass(int direction)
 {
     endNameEditing(true);
 
-    if (m_debugGodLichRoster || m_candidates.empty() || m_pGameData == nullptr)
+    if (isGodLichSelected() || m_candidates.empty() || m_pGameData == nullptr)
     {
         return;
     }
@@ -2593,7 +2617,7 @@ Character NewGameScreen::buildCharacterFromState(const CreationState &state) con
         true,
         m_pGameData != nullptr ? &m_pGameData->classMultiplierTable() : nullptr);
 
-    if (m_debugGodLichRoster)
+    if (isGodLichState(state))
     {
         applyDebugGodLichCharacter(
             character,
@@ -2607,8 +2631,13 @@ Character NewGameScreen::buildCharacterFromState(const CreationState &state) con
 
 std::vector<Character> NewGameScreen::buildPartyCharacters() const
 {
+    if (isGodLichSelected())
+    {
+        return {buildCharacterFromState(m_state)};
+    }
+
     std::vector<Character> characters;
-    const size_t count = m_debugGodLichRoster ? 1 : std::min<size_t>(m_partySize, m_partyStates.size());
+    const size_t count = std::min<size_t>(m_partySize, m_partyStates.size());
     characters.reserve(count);
 
     for (size_t slotIndex = 0; slotIndex < count; ++slotIndex)
@@ -2623,8 +2652,9 @@ void NewGameScreen::confirmCreation()
 {
     endNameEditing(true);
     saveActivePartyState();
+    const bool godLichParty = isGodLichSelected();
 
-    for (size_t slotIndex = 0; slotIndex < (m_debugGodLichRoster ? 1 : m_partySize); ++slotIndex)
+    for (size_t slotIndex = 0; !godLichParty && slotIndex < m_partySize; ++slotIndex)
     {
         if (trimCopy(m_partyStates[slotIndex].name).empty())
         {
@@ -2634,9 +2664,9 @@ void NewGameScreen::confirmCreation()
         }
     }
 
-    if (!m_allowIncompleteCharacterCreation)
+    if (!godLichParty && !m_allowIncompleteCharacterCreation)
     {
-        for (size_t slotIndex = 0; slotIndex < (m_debugGodLichRoster ? 1 : m_partySize); ++slotIndex)
+        for (size_t slotIndex = 0; slotIndex < m_partySize; ++slotIndex)
         {
             const CreationState &state = m_partyStates[slotIndex];
 
@@ -2708,7 +2738,7 @@ void NewGameScreen::confirmCreation()
             }
         }
 
-        m_continueAction(characters, m_selectedContinent.id);
+        m_continueAction(characters, m_selectedContinent.id, godLichParty);
     }
 }
 
@@ -3564,7 +3594,7 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         renderClassInspectPopup(*hoveredClassInspect->second, hoveredClassInspect->first, scale);
     }
 
-    if (!m_debugGodLichRoster)
+    if (!isGodLichSelected())
     {
         const MenuScreenBase::Rect addCharacterRect =
             resolveRect("CharacterCreationAddCharacterButton", 51.0f, 437.0f, 19.0f, 34.0f);

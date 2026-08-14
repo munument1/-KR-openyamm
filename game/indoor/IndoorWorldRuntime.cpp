@@ -942,7 +942,7 @@ void resetIndoorActorCrowdSteeringState(IndoorWorldRuntime::MapActorAiState &aiS
 }
 
 constexpr size_t MaxActiveActorUpdates = 48;
-constexpr float HostilityLongRange = 10240.0f;
+constexpr float HostilityLongRange = GameplayActorService::MaximumPartyEngagementRange;
 constexpr float ActorMeleeRange = 307.2f;
 constexpr float IndoorActorContactProbeRadius = 40.0f;
 constexpr float IndoorActorVsActorMovementRadius = 24.0f;

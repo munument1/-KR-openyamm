@@ -1467,6 +1467,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
         if (mobileGroundTargetConfirmSpell
             && pendingSpellCast.targetKind == PartySpellCastTargetKind::GroundPoint
             && !confirmFromMobileHudButton
+            && input.leftMouseButton.held
             && !hoveredPortraitMemberIndex
             && worldReady
             && pWorldRuntime != nullptr)

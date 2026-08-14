@@ -796,13 +796,20 @@ void GameSession::updateGameplay(
         const bool gameplayHudPointerActive =
             m_overlayInteractionState.gameplayHudClickLatch
             && m_overlayInteractionState.gameplayHudPressedTarget.type != GameplayHudPointerTargetType::None;
+        const bool quickCastHudPointerActive =
+            gameplayHudPointerActive
+            && m_overlayInteractionState.gameplayHudPressedTarget.type
+                == GameplayHudPointerTargetType::QuickCastButton;
         const bool gameplayCursorModeActive = m_sharedInputFrameResult.mouseLookPolicy.cursorModeActive;
         const bool pendingSpellTargetActive = m_gameplayScreenState.pendingSpellTarget().active;
+        const bool gameplayHudPointerBlocksWorldInput =
+            gameplayHudPointerActive
+            && (!quickCastHudPointerActive || pendingSpellTargetActive);
         const bool rightMouseInspectPauseActive = input.rightMouseButton.held;
         const bool modalWorldInputBlocked =
             m_sharedInputFrameResult.journalInputConsumed
             || m_sharedInputFrameResult.worldInputBlocked
-            || gameplayHudPointerActive;
+            || gameplayHudPointerBlocksWorldInput;
         const bool standardWorldInputBlocked =
             gameplayCursorModeActive
             || modalWorldInputBlocked;

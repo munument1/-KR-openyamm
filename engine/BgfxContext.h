@@ -29,7 +29,7 @@ public:
     BgfxContext &operator=(const BgfxContext &) = delete;
 
     bool initialize(SDL_Window *pWindow, int windowWidth, int windowHeight, bool verticalSync);
-    void resize(int windowWidth, int windowHeight) const;
+    void resize(SDL_Window *pWindow, int windowWidth, int windowHeight) const;
     void shutdown();
 
     bool isInitialized() const;

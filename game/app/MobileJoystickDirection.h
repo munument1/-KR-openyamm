@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+
 namespace OpenYAMM::Game
 {
 enum class MobileJoystickDirection
@@ -44,5 +47,21 @@ inline MobileJoystickDirection quantizeMobileJoystickDirection(float deltaX, flo
     }
 
     return deltaX < 0.0f ? MobileJoystickDirection::SouthWest : MobileJoystickDirection::SouthEast;
+}
+
+inline float mobileJoystickMovementSpeedScale(
+    float deltaX,
+    float deltaY,
+    float deadZone,
+    float fullSpeedRadius)
+{
+    const float distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    if (distance <= deadZone || fullSpeedRadius <= deadZone)
+    {
+        return 0.0f;
+    }
+
+    return std::clamp((distance - deadZone) / (fullSpeedRadius - deadZone), 0.0f, 1.0f);
 }
 } // namespace OpenYAMM::Game

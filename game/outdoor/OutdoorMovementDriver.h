@@ -26,6 +26,7 @@ struct OutdoorMovementInput
     bool usePitchForFlyingMovement = true;
     bool turnBasedMovementStep = false;
     bool turnBasedPhysicsStep = false;
+    float movementSpeedScale = 1.0f;
 };
 
 struct OutdoorPartyMovementState

@@ -16,6 +16,8 @@ class SpellTable;
 class GameplayActorService
 {
 public:
+    static constexpr float MaximumPartyEngagementRange = 10240.0f;
+
     enum class SharedSpellDisposition : uint8_t
     {
         Unhandled = 0,
