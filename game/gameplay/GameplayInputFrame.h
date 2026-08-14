@@ -33,6 +33,11 @@ struct GameplayInputFrame
     float mobileJoystickBaseY = 0.0f;
     float mobileJoystickKnobX = 0.0f;
     float mobileJoystickKnobY = 0.0f;
+    bool mobileTouchDragStarted = false;
+    bool mobileTouchDragActive = false;
+    bool mobileTouchDragReleased = false;
+    float mobileTouchDragStartX = 0.0f;
+    float mobileTouchDragStartY = 0.0f;
     GameplayButtonInputState leftMouseButton = {};
     GameplayButtonInputState rightMouseButton = {};
     GameplayButtonInputState middleMouseButton = {};

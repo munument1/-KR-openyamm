@@ -11,6 +11,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -169,6 +170,41 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
         eventRuntimeState.clearHeldItemRequest = false;
     }
 
+    const auto receiveGrantedItem =
+        [&runtime, &itemTable, &heldInventoryItem](InventoryItem grantedItem)
+        {
+            forceEventGrantedItemIdentificationState(grantedItem, itemTable);
+
+#if defined(__ANDROID__)
+            Party *pParty = runtime.party();
+            size_t recipientMemberIndex = 0;
+
+            if (pParty != nullptr && pParty->tryGrantInventoryItem(grantedItem, &recipientMemberIndex))
+            {
+                notifyEventGrantedItemReceived(runtime, grantedItem, itemTable);
+                GAMEPLAY_DEBUG_TRACE(
+                    "item_received destination=inventory source=event item_id="
+                    + std::to_string(grantedItem.objectDescriptionId)
+                    + gameplayDebugTraceItemSummary(grantedItem.objectDescriptionId, &itemTable)
+                    + " member_index=" + std::to_string(recipientMemberIndex));
+                return;
+            }
+#endif
+
+            if (!GameplayHeldItemController::tryDisplaceHeldInventoryItem(runtime))
+            {
+                return;
+            }
+
+            GameplayHeldItemController::setHeldInventoryItem(heldInventoryItem, grantedItem);
+            runtime.party()->setHeldItemForQueries(grantedItem);
+            notifyEventGrantedItemReceived(runtime, grantedItem, itemTable);
+            GAMEPLAY_DEBUG_TRACE(
+                "item_received destination=held source=event item_id="
+                + std::to_string(grantedItem.objectDescriptionId)
+                + gameplayDebugTraceItemSummary(grantedItem.objectDescriptionId, &itemTable));
+        };
+
     for (const InventoryItem &item : eventRuntimeState.grantedItems)
     {
         if (item.objectDescriptionId == 0)
@@ -176,20 +212,7 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
             continue;
         }
 
-        if (!tryDisplaceHeldInventoryItem(runtime))
-        {
-            continue;
-        }
-
-        InventoryItem grantedItem = item;
-        forceEventGrantedItemIdentificationState(grantedItem, itemTable);
-        setHeldInventoryItem(heldInventoryItem, grantedItem);
-        runtime.party()->setHeldItemForQueries(grantedItem);
-        notifyEventGrantedItemReceived(runtime, grantedItem, itemTable);
-        GAMEPLAY_DEBUG_TRACE(
-            "item_received destination=held source=event item_id="
-            + std::to_string(grantedItem.objectDescriptionId)
-            + gameplayDebugTraceItemSummary(grantedItem.objectDescriptionId, &itemTable));
+        receiveGrantedItem(item);
     }
 
     for (uint32_t itemId : eventRuntimeState.grantedItemIds)
@@ -199,20 +222,8 @@ void GameplayHeldItemController::applyGrantedEventItemsToHeldInventory(
             continue;
         }
 
-        if (!tryDisplaceHeldInventoryItem(runtime))
-        {
-            continue;
-        }
-
         InventoryItem item = ItemGenerator::makeInventoryItem(itemId, itemTable, ItemGenerationMode::Generic);
-        forceEventGrantedItemIdentificationState(item, itemTable);
-        setHeldInventoryItem(heldInventoryItem, item);
-        runtime.party()->setHeldItemForQueries(item);
-        notifyEventGrantedItemReceived(runtime, item, itemTable);
-        GAMEPLAY_DEBUG_TRACE(
-            "item_received destination=held source=event item_id="
-            + std::to_string(item.objectDescriptionId)
-            + gameplayDebugTraceItemSummary(item.objectDescriptionId, &itemTable));
+        receiveGrantedItem(std::move(item));
     }
 
     eventRuntimeState.grantedItems.clear();

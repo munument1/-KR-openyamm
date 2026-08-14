@@ -3917,10 +3917,12 @@ void GameplayOverlayInputController::handleLootOverlayInput(
         {
             const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> resolvedInventoryGrid =
                 view.resolveInventoryNestedOverlayGridArea(screenWidth, screenHeight);
+            const bool activateNestedInventoryItem =
+                (isChestLeftMousePressed && !view.interactionState().inventoryNestedOverlayItemClickLatch)
+                || (input.mobileTouchDragReleased && view.heldInventoryItem().active);
 
             if (resolvedInventoryGrid
-                && isChestLeftMousePressed
-                && !view.interactionState().inventoryNestedOverlayItemClickLatch
+                && activateNestedInventoryItem
                 && chestMouseX >= resolvedInventoryGrid->x
                 && chestMouseX < resolvedInventoryGrid->x + resolvedInventoryGrid->width
                 && chestMouseY >= resolvedInventoryGrid->y
@@ -4087,11 +4089,13 @@ void GameplayOverlayInputController::handleLootOverlayInput(
             view.resolveChestGridArea(screenWidth, screenHeight);
         const GameplayChestPointerTarget hoveredChestTarget =
             findChestPointerTarget(chestMouseX, chestMouseY);
+        const bool activateChestItem =
+            (isChestLeftMousePressed && !view.interactionState().chestItemClickLatch)
+            || (input.mobileTouchDragReleased && view.heldInventoryItem().active);
 
         if (!inventoryNestedOverlayActive
             && resolvedChestGrid
-            && isChestLeftMousePressed
-            && !view.interactionState().chestItemClickLatch
+            && activateChestItem
             && hoveredChestTarget.type == GameplayChestPointerTargetType::None
             && chestMouseX >= resolvedChestGrid->x
             && chestMouseX < resolvedChestGrid->x + resolvedChestGrid->width

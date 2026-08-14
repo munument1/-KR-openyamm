@@ -58,7 +58,7 @@ void CutsceneVideoScreen::onExit()
 
 void CutsceneVideoScreen::handleSdlEvent(const SDL_Event &event)
 {
-    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_FINGER_UP)
     {
         m_shouldClose = true;
         return;

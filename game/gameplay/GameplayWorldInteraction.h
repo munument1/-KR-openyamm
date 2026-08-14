@@ -207,6 +207,7 @@ enum class GameplayContextActionKind
     PressButton,
     UseLever,
     GenericEvent,
+    DropHeldItem,
 };
 
 struct GameplayContextAction

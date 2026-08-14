@@ -117,6 +117,7 @@ const char *fallbackContextActionIconId(GameplayContextActionKind kind)
     case GameplayContextActionKind::UseLever:
     case GameplayContextActionKind::GenericEvent:
     case GameplayContextActionKind::EnterHouse:
+    case GameplayContextActionKind::DropHeldItem:
         return "use";
     case GameplayContextActionKind::Talk:
     case GameplayContextActionKind::PickUpItem:
@@ -133,6 +134,25 @@ std::optional<GameplayHudTextureHandle> loadContextActionIcon(
     const GameplayContextAction &action,
     bool pressed)
 {
+    if (action.kind == GameplayContextActionKind::DropHeldItem
+        && context.heldInventoryItem().active
+        && context.itemTable() != nullptr)
+    {
+        const ItemDefinition *pItemDefinition =
+            context.itemTable()->get(context.heldInventoryItem().item.objectDescriptionId);
+
+        if (pItemDefinition != nullptr && !pItemDefinition->iconName.empty())
+        {
+            const std::optional<GameplayHudTextureHandle> itemIcon =
+                context.gameplayUiRuntime().ensureItemIconTextureLoaded(pItemDefinition->iconName);
+
+            if (itemIcon)
+            {
+                return itemIcon;
+            }
+        }
+    }
+
     const char *pSuffix = pressed ? "_pressed" : "_default";
     const std::vector<std::string> candidates = {
         action.iconId + pSuffix,
@@ -344,14 +364,17 @@ void renderCenteredContextActionLabelLines(
 
 void renderMobileContextAction(GameplayScreenRuntime &context, int width, int height)
 {
-    if (!context.settingsSnapshot().contextActionPopup)
+    const GameplayContextActionState &state = context.contextActionStateReadOnly();
+
+    if (!state.visible || state.primaryIndex >= state.actions.size())
     {
         return;
     }
 
-    const GameplayContextActionState &state = context.contextActionStateReadOnly();
+    const GameplayContextAction &action = state.actions[state.primaryIndex];
 
-    if (!state.visible || state.primaryIndex >= state.actions.size())
+    if (!context.settingsSnapshot().contextActionPopup
+        && action.kind != GameplayContextActionKind::DropHeldItem)
     {
         return;
     }
@@ -378,7 +401,6 @@ void renderMobileContextAction(GameplayScreenRuntime &context, int width, int he
         return;
     }
 
-    const GameplayContextAction &action = state.actions[state.primaryIndex];
     const GameplayHudPointerTarget &pressedTarget = context.interactionState().gameplayHudPressedTarget;
     const bool pressed =
         context.interactionState().gameplayHudClickLatch

@@ -50,6 +50,8 @@ private:
         float y = 0.0f;
         float deltaX = 0.0f;
         float deltaY = 0.0f;
+        bool dragThresholdExceeded = false;
+        bool dragStartDelivered = false;
         bool debugConsoleGestureCandidate = false;
         bool debugConsoleGestureTriggered = false;
     };
@@ -67,6 +69,12 @@ private:
     bool m_mobilePendingHudRelease = false;
     float m_mobilePendingHudReleaseX = 0.0f;
     float m_mobilePendingHudReleaseY = 0.0f;
+    bool m_mobilePendingHudDragRelease = false;
+    bool m_mobilePendingHudDragStartDelivered = false;
+    float m_mobilePendingHudDragStartX = 0.0f;
+    float m_mobilePendingHudDragStartY = 0.0f;
+    float m_mobilePendingHudDragReleaseX = 0.0f;
+    float m_mobilePendingHudDragReleaseY = 0.0f;
     bool m_mobilePendingGameplayTap = false;
     float m_mobilePendingGameplayTapX = 0.0f;
     float m_mobilePendingGameplayTapY = 0.0f;

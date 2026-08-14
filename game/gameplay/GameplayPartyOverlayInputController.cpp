@@ -2506,12 +2506,7 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
         context.itemService().closeReadableScrollOverlay();
     }
 
-    handlePointerClickRelease(
-        pointerState,
-        context.interactionState().characterClickLatch,
-        context.interactionState().characterPressedTarget,
-        noneCharacterTarget,
-        findCharacterPointerTarget,
+    const auto activateCharacterTarget =
         [&context,
          pActiveCharacterDollEntry,
          pActiveCharacterDollType,
@@ -2519,13 +2514,14 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
          pParty,
          screenWidth,
          screenHeight,
-         mouseX,
-         mouseY,
          &clearPendingCharacterDismiss,
          &resolveCharacterInventoryGrid,
          isReadOnlyAdventurersInnView,
          selectedPartyMemberIndex,
-         selectedPartyMemberCanAct](const GameplayCharacterPointerTarget &target)
+         selectedPartyMemberCanAct](
+            const GameplayCharacterPointerTarget &target,
+            float activationX,
+            float activationY)
         {
             const bool isInventorySpellTargetMode =
                 context.utilitySpellOverlayReadOnly().active
@@ -2985,7 +2981,8 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                             pDollLayout->height)
                         : std::nullopt;
                 const bool preferOffHand =
-                    resolvedDoll.has_value() && mouseX >= resolvedDoll->x + resolvedDoll->width * 0.5f;
+                    resolvedDoll.has_value()
+                    && activationX >= resolvedDoll->x + resolvedDoll->width * 0.5f;
                 const std::optional<CharacterEquipPlan> plan =
                     GameMechanics::resolveCharacterEquipPlan(
                         *pCharacter,
@@ -3091,8 +3088,8 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                     resolvedInventoryGrid->scale);
                 const float itemWidth = static_cast<float>(itemTexture->width) * gridMetrics.scale;
                 const float itemHeight = static_cast<float>(itemTexture->height) * gridMetrics.scale;
-                const float drawX = mouseX - context.heldInventoryItem().grabOffsetX;
-                const float drawY = mouseY - context.heldInventoryItem().grabOffsetY;
+                const float drawX = activationX - context.heldInventoryItem().grabOffsetX;
+                const float drawY = activationY - context.heldInventoryItem().grabOffsetY;
                 const std::optional<std::pair<int, int>> placement =
                     computeHeldInventoryPlacement(
                         gridMetrics,
@@ -3180,11 +3177,11 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
                 resolvedInventoryGrid->height,
                 resolvedInventoryGrid->scale);
             const uint8_t hoveredGridX = static_cast<uint8_t>(std::clamp(
-                static_cast<int>((mouseX - resolvedInventoryGrid->x) / gridMetrics.cellWidth),
+                static_cast<int>((activationX - resolvedInventoryGrid->x) / gridMetrics.cellWidth),
                 0,
                 Character::InventoryWidth - 1));
             const uint8_t hoveredGridY = static_cast<uint8_t>(std::clamp(
-                static_cast<int>((mouseY - resolvedInventoryGrid->y) / gridMetrics.cellHeight),
+                static_cast<int>((activationY - resolvedInventoryGrid->y) / gridMetrics.cellHeight),
                 0,
                 Character::InventoryHeight - 1));
             context.heldInventoryItem().grabCellOffsetX = hoveredGridX - heldItem.gridX;
@@ -3193,8 +3190,64 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
             const float itemHeight = static_cast<float>(itemTexture->height) * gridMetrics.scale;
             const InventoryItemScreenRect itemRect =
                 computeInventoryItemScreenRect(gridMetrics, heldItem, itemWidth, itemHeight);
-            context.heldInventoryItem().grabOffsetX = mouseX - itemRect.x;
-            context.heldInventoryItem().grabOffsetY = mouseY - itemRect.y;
+            context.heldInventoryItem().grabOffsetX = activationX - itemRect.x;
+            context.heldInventoryItem().grabOffsetY = activationY - itemRect.y;
+        };
+
+    GameplayOverlayInteractionState &interactionState = context.interactionState();
+
+    if (input.mobileTouchDragStarted)
+    {
+        const GameplayCharacterPointerTarget dragStartTarget =
+            findCharacterPointerTarget(input.mobileTouchDragStartX, input.mobileTouchDragStartY);
+        const bool startsWithHeldItem = context.heldInventoryItem().active;
+        const bool startsOnMovableItem =
+            dragStartTarget.type == GameplayCharacterPointerTargetType::InventoryItem
+            || dragStartTarget.type == GameplayCharacterPointerTargetType::EquipmentSlot;
+
+        if (!startsWithHeldItem && startsOnMovableItem)
+        {
+            activateCharacterTarget(
+                dragStartTarget,
+                input.mobileTouchDragStartX,
+                input.mobileTouchDragStartY);
+        }
+
+        interactionState.characterTouchItemDragActive =
+            (startsWithHeldItem || startsOnMovableItem) && context.heldInventoryItem().active;
+        interactionState.characterClickLatch = false;
+        interactionState.characterPressedTarget = {};
+    }
+
+    if (input.mobileTouchDragReleased)
+    {
+        if (interactionState.characterTouchItemDragActive && context.heldInventoryItem().active)
+        {
+            activateCharacterTarget(findCharacterPointerTarget(mouseX, mouseY), mouseX, mouseY);
+        }
+
+        interactionState.characterTouchItemDragActive = false;
+        interactionState.characterClickLatch = false;
+        interactionState.characterPressedTarget = {};
+        return;
+    }
+
+    if (input.mobileTouchDragActive)
+    {
+        interactionState.characterClickLatch = false;
+        interactionState.characterPressedTarget = {};
+        return;
+    }
+
+    handlePointerClickRelease(
+        pointerState,
+        interactionState.characterClickLatch,
+        interactionState.characterPressedTarget,
+        noneCharacterTarget,
+        findCharacterPointerTarget,
+        [&activateCharacterTarget, mouseX, mouseY](const GameplayCharacterPointerTarget &target)
+        {
+            activateCharacterTarget(target, mouseX, mouseY);
         });
 }
 

@@ -407,7 +407,9 @@ bool isBuffLayoutVisible(
 {
     const std::string normalizedLayoutId = normalizeGameplayLayoutRoleId(layoutId);
 
-    if (normalizedLayoutId.rfind("outdoormobileflight", 0) == 0)
+    if (normalizedLayoutId == "outdoormobileflightpanel"
+        || normalizedLayoutId == "outdoormobilebuttonflyup"
+        || normalizedLayoutId == "outdoormobilebuttonflydown")
     {
         return context.mobileFlightControlsAvailable();
     }

@@ -581,6 +581,7 @@ struct GameplayOverlayInteractionState
     bool gameplayHudTriggerRequested = false;
     bool gameplayHudSpellTargetConfirmRequested = false;
     bool gameplayHudSpellTargetCancelRequested = false;
+    bool gameplayHudDropHeldItemRequested = false;
     bool followerPanelOpen = false;
     size_t followerPanelScrollOffset = 0;
     bool menuToggleLatch = false;
@@ -602,6 +603,7 @@ struct GameplayOverlayInteractionState
     GameplaySaveLoadPointerTarget saveGamePressedTarget = {};
     bool characterClickLatch = false;
     GameplayCharacterPointerTarget characterPressedTarget = {};
+    bool characterTouchItemDragActive = false;
     bool characterMemberCycleLatch = false;
     std::optional<size_t> pendingCharacterDismissMemberIndex = std::nullopt;
     uint64_t pendingCharacterDismissExpiresTicks = 0;

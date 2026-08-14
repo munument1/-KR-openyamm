@@ -49,7 +49,7 @@ void WinGameScreen::handleSdlEvent(const SDL_Event &event)
     {
         m_shouldClose = true;
     }
-    else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+    else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_FINGER_UP)
     {
         m_shouldClose = true;
     }

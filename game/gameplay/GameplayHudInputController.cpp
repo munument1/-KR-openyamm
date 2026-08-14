@@ -312,9 +312,18 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
         GameplayHudPointerTarget{},
         [&context, &config, &pointerState](float pointerX, float pointerY) -> GameplayHudPointerTarget
         {
+            const GameplayContextActionState &contextActionState = context.contextActionStateReadOnly();
+            const bool hasDropHeldItemAction =
+                contextActionState.visible
+                && contextActionState.primaryIndex < contextActionState.actions.size()
+                && contextActionState.actions[contextActionState.primaryIndex].kind
+                    == GameplayContextActionKind::DropHeldItem;
+            const bool contextActionButtonEnabled =
+                context.settingsSnapshot().contextActionPopup || hasDropHeldItemAction;
+
             if (context.interactionState().gameplayHudPressedTarget.type
                     == GameplayHudPointerTargetType::ContextActionButton
-                && context.settingsSnapshot().contextActionPopup
+                && contextActionButtonEnabled
                 && pointerInsideHudElement(context, config, "OutdoorMobileContextActionButton", pointerX, pointerY))
             {
                 return context.interactionState().gameplayHudPressedTarget;
@@ -347,9 +356,7 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 }
             }
 
-            const GameplayContextActionState &contextActionState = context.contextActionStateReadOnly();
-
-            if (context.settingsSnapshot().contextActionPopup
+            if (contextActionButtonEnabled
                 && contextActionState.visible
                 && contextActionState.primaryIndex < contextActionState.actions.size()
                 && pointerInsideHudElement(context, config, "OutdoorMobileContextActionButton", pointerX, pointerY))
@@ -530,7 +537,15 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
             {
                 GameplayContextActionState &contextActionState = context.contextActionState();
                 IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
-                const bool contextActionPopupEnabled = context.settingsSnapshot().contextActionPopup;
+                const GameplayContextAction *pSelectedAction =
+                    target.index < contextActionState.actions.size()
+                        ? &contextActionState.actions[target.index]
+                        : nullptr;
+                const bool dropHeldItemAction =
+                    pSelectedAction != nullptr
+                    && pSelectedAction->kind == GameplayContextActionKind::DropHeldItem;
+                const bool contextActionPopupEnabled =
+                    context.settingsSnapshot().contextActionPopup || dropHeldItemAction;
                 const bool hasPressedContextAction =
                     contextActionPopupEnabled && context.interactionState().gameplayHudPressedContextActionActive;
                 const GameplayWorldHit pressedWorldHit =
@@ -548,7 +563,11 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                     activationHit = contextActionState.actions[target.index].worldHit;
                 }
 
-                if (pWorldRuntime != nullptr
+                if (dropHeldItemAction)
+                {
+                    context.interactionState().gameplayHudDropHeldItemRequested = true;
+                }
+                else if (pWorldRuntime != nullptr
                     && activationHit.hasHit
                     && pWorldRuntime->canActivateWorldHit(activationHit, GameplayInteractionMethod::Keyboard))
                 {

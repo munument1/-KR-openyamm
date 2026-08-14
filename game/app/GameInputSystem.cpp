@@ -1,5 +1,7 @@
 #include "game/app/GameInputSystem.h"
 
+#include "game/app/MobileJoystickDirection.h"
+
 #include <SDL3/SDL.h>
 
 #include <algorithm>
@@ -17,7 +19,7 @@ constexpr float MobileMovementZoneY = 160.0f;
 constexpr float MobileMovementZoneWidth = 300.0f;
 constexpr float MobileMovementZoneHeight = 320.0f;
 constexpr float MobileCameraZoneX = 300.0f;
-constexpr float MobileFlightButtonRightInset = 8.0f;
+constexpr float MobileFlightButtonRightInset = 0.0f;
 constexpr float MobileFlightButtonTop = 160.0f;
 constexpr float MobileFlightButtonWidth = 64.0f;
 constexpr float MobileFlightButtonHeight = 64.0f;
@@ -140,6 +142,13 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
         pTouch->x = event.tfinger.x;
         pTouch->y = event.tfinger.y;
 
+        const float touchDragX = pTouch->x - pTouch->startX;
+        const float touchDragY = pTouch->y - pTouch->startY;
+        pTouch->dragThresholdExceeded =
+            pTouch->dragThresholdExceeded
+            || touchDragX * touchDragX + touchDragY * touchDragY
+                > MobileGameplayTapMaxNormalizedDistanceSquared;
+
         if (pTouch->debugConsoleGestureCandidate && !pTouch->debugConsoleGestureTriggered)
         {
             const float dragX = event.tfinger.x - pTouch->startX;
@@ -150,6 +159,7 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
             {
                 pTouch->role = MobileTouchRole::DebugConsoleGesture;
                 pTouch->debugConsoleGestureTriggered = true;
+                pTouch->dragThresholdExceeded = false;
                 m_mobilePendingHudTap = false;
                 m_mobilePendingHudRelease = false;
                 m_mobilePendingGameplayTap = false;
@@ -167,7 +177,23 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
 
         if (pTouch != nullptr)
         {
-            if (pTouch->role == MobileTouchRole::Hud)
+            const bool completedHudDrag =
+                event.type == SDL_EVENT_FINGER_UP
+                && pTouch->dragThresholdExceeded
+                && (pTouch->role == MobileTouchRole::Hud || pTouch->role == MobileTouchRole::None);
+
+            if (completedHudDrag)
+            {
+                m_mobilePendingHudDragRelease = true;
+                m_mobilePendingHudDragStartDelivered = pTouch->dragStartDelivered;
+                m_mobilePendingHudDragStartX = pTouch->startX;
+                m_mobilePendingHudDragStartY = pTouch->startY;
+                m_mobilePendingHudDragReleaseX = event.tfinger.x;
+                m_mobilePendingHudDragReleaseY = event.tfinger.y;
+                m_mobilePendingHudRelease = false;
+                m_mobilePendingHudTap = false;
+            }
+            else if (pTouch->role == MobileTouchRole::Hud)
             {
                 m_mobilePendingHudRelease = true;
                 m_mobilePendingHudReleaseX = event.tfinger.x;
@@ -370,15 +396,20 @@ void GameInputSystem::updateFromEngineInput(
             return touchScale > 0.0f ? normalizedY * static_cast<float>(screenHeight) / touchScale : 0.0f;
         };
     const auto touchStartsInHudZone =
-        [logicalWidth, &settings, &touchLogicalX, &touchLogicalY](float normalizedX, float normalizedY) -> bool
+        [logicalWidth, &touchLogicalX, &touchLogicalY](float normalizedX, float normalizedY) -> bool
         {
             const float startLogicalX = touchLogicalX(normalizedX);
             const float startLogicalY = touchLogicalY(normalizedY);
             return pointInsideRect(startLogicalX, startLogicalY, 0.0f, 0.0f, 520.0f, 120.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 180.0f, 0.0f, 180.0f, 170.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, 0.0f, 376.0f, 210.0f, 104.0f)
-                || (settings.contextActionPopup
-                    && pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 268.0f, 416.0f, 260.0f, 56.0f))
+                || pointInsideRect(
+                    startLogicalX,
+                    startLogicalY,
+                    logicalWidth - 268.0f,
+                    416.0f,
+                    260.0f,
+                    56.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, logicalWidth - 236.0f, 292.0f, 236.0f, 120.0f)
                 || pointInsideRect(startLogicalX, startLogicalY, 320.0f, 360.0f, 420.0f, 120.0f);
         };
@@ -511,22 +542,43 @@ void GameInputSystem::updateFromEngineInput(
             m_frame.mobileJoystickKnobX = startX + clampedLogicalX * touchScale;
             m_frame.mobileJoystickKnobY = startY + clampedLogicalY * touchScale;
 
-            if (deltaLogicalY < -MobileJoystickDeadZone)
-            {
-                setMobileActionHeld(KeyboardAction::Forward);
-            }
-            else if (deltaLogicalY > MobileJoystickDeadZone)
-            {
-                setMobileActionHeld(KeyboardAction::Backward);
-            }
+            const MobileJoystickDirection joystickDirection = quantizeMobileJoystickDirection(
+                deltaLogicalX,
+                deltaLogicalY,
+                MobileJoystickDeadZone);
 
-            if (deltaLogicalX < -MobileJoystickDeadZone)
+            switch (joystickDirection)
             {
-                setMobileActionHeld(KeyboardAction::Left);
-            }
-            else if (deltaLogicalX > MobileJoystickDeadZone)
-            {
-                setMobileActionHeld(KeyboardAction::Right);
+                case MobileJoystickDirection::North:
+                    setMobileActionHeld(KeyboardAction::Forward);
+                    break;
+                case MobileJoystickDirection::NorthEast:
+                    setMobileActionHeld(KeyboardAction::Forward);
+                    setMobileActionHeld(KeyboardAction::Right);
+                    break;
+                case MobileJoystickDirection::East:
+                    setMobileActionHeld(KeyboardAction::Right);
+                    break;
+                case MobileJoystickDirection::SouthEast:
+                    setMobileActionHeld(KeyboardAction::Backward);
+                    setMobileActionHeld(KeyboardAction::Right);
+                    break;
+                case MobileJoystickDirection::South:
+                    setMobileActionHeld(KeyboardAction::Backward);
+                    break;
+                case MobileJoystickDirection::SouthWest:
+                    setMobileActionHeld(KeyboardAction::Backward);
+                    setMobileActionHeld(KeyboardAction::Left);
+                    break;
+                case MobileJoystickDirection::West:
+                    setMobileActionHeld(KeyboardAction::Left);
+                    break;
+                case MobileJoystickDirection::NorthWest:
+                    setMobileActionHeld(KeyboardAction::Forward);
+                    setMobileActionHeld(KeyboardAction::Left);
+                    break;
+                case MobileJoystickDirection::Neutral:
+                    break;
             }
         }
         else if (touch.role == MobileTouchRole::Camera)
@@ -540,6 +592,19 @@ void GameInputSystem::updateFromEngineInput(
             hasHudTouch = true;
             hudTouchX = touch.x * static_cast<float>(screenWidth);
             hudTouchY = touch.y * static_cast<float>(screenHeight);
+
+            if (touch.dragThresholdExceeded)
+            {
+                m_frame.mobileTouchDragActive = true;
+                m_frame.mobileTouchDragStartX = touch.startX * static_cast<float>(screenWidth);
+                m_frame.mobileTouchDragStartY = touch.startY * static_cast<float>(screenHeight);
+
+                if (!touch.dragStartDelivered)
+                {
+                    m_frame.mobileTouchDragStarted = true;
+                    touch.dragStartDelivered = true;
+                }
+            }
         }
         else if (touch.role == MobileTouchRole::DebugConsoleGesture)
         {
@@ -550,7 +615,27 @@ void GameInputSystem::updateFromEngineInput(
         touch.deltaY = 0.0f;
     }
 
-    if (hasHudTouch)
+    const bool pendingHudDragIsUiGesture =
+        m_mobilePendingHudDragRelease
+        && (!useMobileGameplayTouchControls
+            || touchStartsInHudZone(m_mobilePendingHudDragStartX, m_mobilePendingHudDragStartY));
+
+    if (pendingHudDragIsUiGesture)
+    {
+        m_frame.pointerX = m_mobilePendingHudDragReleaseX * static_cast<float>(screenWidth);
+        m_frame.pointerY = m_mobilePendingHudDragReleaseY * static_cast<float>(screenHeight);
+        m_frame.mobileTouchDragStarted = !m_mobilePendingHudDragStartDelivered;
+        m_frame.mobileTouchDragReleased = true;
+        m_frame.mobileTouchDragStartX = m_mobilePendingHudDragStartX * static_cast<float>(screenWidth);
+        m_frame.mobileTouchDragStartY = m_mobilePendingHudDragStartY * static_cast<float>(screenHeight);
+        leftMouseButtonHeld = false;
+        m_mobilePendingHudDragRelease = false;
+    }
+    else if (m_mobilePendingHudDragRelease)
+    {
+        m_mobilePendingHudDragRelease = false;
+    }
+    else if (hasHudTouch)
     {
         m_frame.pointerX = hudTouchX;
         m_frame.pointerY = hudTouchY;

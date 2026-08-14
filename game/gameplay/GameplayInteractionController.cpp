@@ -122,6 +122,8 @@ const char *contextActionIconId(GameplayContextActionKind kind)
         return "context_use_lever";
     case GameplayContextActionKind::GenericEvent:
         return "context_generic_event";
+    case GameplayContextActionKind::DropHeldItem:
+        return "context_drop_item";
     case GameplayContextActionKind::None:
         break;
     }
@@ -151,6 +153,8 @@ const char *contextActionDefaultLabel(GameplayContextActionKind kind)
         return "Use Lever";
     case GameplayContextActionKind::GenericEvent:
         return "";
+    case GameplayContextActionKind::DropHeldItem:
+        return "Drop Item";
     case GameplayContextActionKind::None:
         break;
     }
@@ -462,6 +466,20 @@ std::string heldItemDisplayName(const GameplayScreenRuntime &runtime)
     return pItemDefinition != nullptr && !pItemDefinition->name.empty()
         ? pItemDefinition->name
         : "item";
+}
+
+void setHeldItemDropContextAction(GameplayScreenRuntime &runtime)
+{
+    GameplayContextAction action = {};
+    action.kind = GameplayContextActionKind::DropHeldItem;
+    action.label = "Drop " + heldItemDisplayName(runtime);
+    action.iconId = contextActionIconId(action.kind);
+
+    GameplayContextActionState &state = runtime.contextActionState();
+    state = {};
+    state.visible = true;
+    state.actions.push_back(std::move(action));
+    state.primaryIndex = 0;
 }
 
 bool dropHeldItemToActiveWorld(
@@ -1353,7 +1371,21 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
     if (worldInputBlocked)
     {
+#if defined(__ANDROID__)
+        const bool preserveHeldItemDropAction =
+            heldItemActive
+            && overlayInteractionState.gameplayHudClickLatch
+            && overlayInteractionState.gameplayHudPressedTarget.type
+                == GameplayHudPointerTargetType::ContextActionButton
+            && overlayInteractionState.gameplayHudPressedContextActionActive;
+#endif
         clearWorldInteractionFrameState(screenState, overlayInteractionState, runtime);
+#if defined(__ANDROID__)
+        if (preserveHeldItemDropAction)
+        {
+            setHeldItemDropContextAction(runtime);
+        }
+#endif
         result.blocked = true;
         return result;
     }
@@ -1567,11 +1599,33 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
     if (heldItemActive)
     {
+#if defined(__ANDROID__)
+        if (overlayInteractionState.gameplayHudDropHeldItemRequested)
+        {
+            overlayInteractionState.gameplayHudDropHeldItemRequested = false;
+            const std::optional<GameplayHeldItemDropRequest> heldItemDropRequest =
+                pWorldRuntime != nullptr ? pWorldRuntime->buildHeldItemDropRequest() : std::nullopt;
+            dropHeldItemToActiveWorld(runtime, heldItemDropRequest);
+            runtime.clearContextActionState();
+            result.heldItemHandled = true;
+            return result;
+        }
+
+        setHeldItemDropContextAction(runtime);
+#else
         runtime.clearContextActionState();
+#endif
         GameplayWorldHit heldItemWorldHit = {};
         bool hasHeldItemWorldHit = false;
 
-        if (!pointerPolicy.leftMousePressed
+#if defined(__ANDROID__)
+        const bool heldItemPointerPressed = false;
+        worldInteractionInputState.heldInventoryDropLatch = false;
+#else
+        const bool heldItemPointerPressed = pointerPolicy.leftMousePressed;
+#endif
+
+        if (!heldItemPointerPressed
             && worldInteractionInputState.heldInventoryDropLatch
             && !pointerPolicy.pointerOverPartyPortrait
             && worldReady
@@ -1595,7 +1649,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
                 worldInteractionInputState,
                 HeldItemWorldInteractionInput{
                     .heldItemActive = heldItemActive,
-                    .leftMousePressed = pointerPolicy.leftMousePressed,
+                    .leftMousePressed = heldItemPointerPressed,
                     .pointerOverPartyPortrait = pointerPolicy.pointerOverPartyPortrait,
                     .pickedHit = heldItemWorldHit,
                     .hasPickedHit = hasHeldItemWorldHit,
@@ -1612,6 +1666,8 @@ GameplayInteractionController::updateWorldInteractionFrame(
         result.heldItemHandled = true;
         return result;
     }
+
+    overlayInteractionState.gameplayHudDropHeldItemRequested = false;
 
     if (!inspectModeActive || !worldReady)
     {

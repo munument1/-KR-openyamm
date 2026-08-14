@@ -5016,7 +5016,20 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
         return;
     }
 
+    IScreen *pActiveScreen = m_screenManager.activeScreen();
+
 #if defined(__ANDROID__)
+    const bool activeScreenHandlesTouchDirectly =
+        pActiveScreen != nullptr
+        && (dynamic_cast<CutsceneVideoScreen *>(pActiveScreen) != nullptr
+            || dynamic_cast<WinGameScreen *>(pActiveScreen) != nullptr);
+
+    if (activeScreenHandlesTouchDirectly && isAndroidFingerEvent(event))
+    {
+        pActiveScreen->handleSdlEvent(event);
+        return;
+    }
+
     m_gameInputSystem.handleSdlEvent(event);
 
     if (m_gameInputSystem.consumeMobileDebugConsoleToggleRequested())
@@ -5030,8 +5043,6 @@ void GameApplication::handleSdlEvent(const SDL_Event &event)
         return;
     }
 #endif
-
-    IScreen *pActiveScreen = m_screenManager.activeScreen();
 
     if (pActiveScreen != nullptr)
     {

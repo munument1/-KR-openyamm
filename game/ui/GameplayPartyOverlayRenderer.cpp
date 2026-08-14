@@ -5895,6 +5895,13 @@ void GameplayPartyOverlayRenderer::renderHeldInventoryItem(GameplayScreenRuntime
 {
     const GameplayUiController::HeldInventoryItemState &heldItem = context.heldInventoryItem();
 
+#if defined(__ANDROID__)
+    if (context.currentHudScreenState() == GameplayHudScreenState::Gameplay)
+    {
+        return;
+    }
+#endif
+
     if (!heldItem.active
         || context.itemTable() == nullptr
         || !context.hasHudRenderResources()
