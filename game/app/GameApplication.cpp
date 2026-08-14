@@ -8368,6 +8368,9 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     const bool mobileFlightControlsEnabled =
         mobileGameplayTouchControlsEnabled
         && m_gameSession.gameplayScreenRuntime().mobileFlightControlsAvailable();
+    const bool mobileInspectControlEnabled =
+        pActiveScreenForInput == nullptr
+        && m_gameSession.gameplayScreenRuntime().mobileInspectControlAvailable();
 
     m_gameInputSystem.updateFromEngineInput(
         width,
@@ -8376,7 +8379,8 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         m_settings,
         debugConsoleOpen,
         mobileGameplayTouchControlsEnabled,
-        mobileFlightControlsEnabled);
+        mobileFlightControlsEnabled,
+        mobileInspectControlEnabled);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());
     recordFrameDiagnostics(m_framePerformanceDiagnostics.inputNanoseconds, inputBeginTickCount);
 

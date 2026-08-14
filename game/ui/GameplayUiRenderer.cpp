@@ -1108,6 +1108,8 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
             || normalizedLayoutId == "outdoorgameplaybasebar_ornleft2"
             || normalizedLayoutId == "outdoorgameplaybasebar_ornright1"
             || normalizedLayoutId == "outdoorgameplaybasebar_ornright2"
+            || normalizedLayoutId == "outdoormobileinspectbutton"
+            || normalizedLayoutId == "outdoormobileinspectbuttonicon"
             || normalizedLayoutId.rfind("charshield_", 0) == 0
             || normalizedLayoutId.rfind("outdoorstandardcharshield_", 0) == 0)
         {
@@ -1266,6 +1268,14 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
         std::string primaryAsset = pLayout->primaryAsset;
 
         const bool flyBuffIcon = normalizedRoleId == "outdoorflybufficon";
+        const bool mobileResumeButton =
+            normalizedRoleId == "outdoormobilebuttonpause"
+            && context.turnBasedCombatRuntime().active();
+
+        if (mobileResumeButton)
+        {
+            primaryAsset = "resume_default";
+        }
 
         if (flyBuffIcon)
         {
@@ -1313,8 +1323,21 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
                 isLeftMousePressed);
         }
 
-        std::optional<GameplayHudTextureHandle> texture =
-            pAssetName != nullptr ? context.gameplayUiRuntime().ensureHudTextureLoaded(*pAssetName) : std::nullopt;
+        std::optional<GameplayHudTextureHandle> texture;
+
+        if (mobileResumeButton && interactiveResolved)
+        {
+            const bool highlighted = context.isPointerInsideResolvedElement(
+                *interactiveResolved,
+                characterMouseX,
+                characterMouseY);
+            texture = context.gameplayUiRuntime().ensureHudTextureLoaded(
+                highlighted ? "resume_pressed" : "resume_default");
+        }
+        else if (pAssetName != nullptr)
+        {
+            texture = context.gameplayUiRuntime().ensureHudTextureLoaded(*pAssetName);
+        }
 
         if (!texture)
         {
@@ -1601,5 +1624,63 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
     }
 
     flushQueuedHudQuads();
+}
+
+void GameplayUiRenderer::renderMobileInspectButton(GameplayScreenRuntime &context, int width, int height)
+{
+    if (!context.hasHudRenderResources() || width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    if (!context.mobileInspectControlAvailable())
+    {
+        return;
+    }
+
+    const UiLayoutManager::LayoutElement *pLayout =
+        context.findHudLayoutElement("OutdoorMobileInspectButtonIcon");
+
+    if (pLayout == nullptr || pLayout->primaryAsset.empty())
+    {
+        return;
+    }
+
+    const GameplayInputFrame *pInput = context.currentGameplayInputFrame();
+    const bool inspectHeld = pInput != nullptr && pInput->rightMouseButton.held;
+    const std::string &assetName = inspectHeld && !pLayout->pressedAsset.empty()
+        ? pLayout->pressedAsset
+        : pLayout->primaryAsset;
+    const std::optional<GameplayHudTextureHandle> texture =
+        context.gameplayUiRuntime().ensureHudTextureLoaded(assetName);
+
+    if (!texture)
+    {
+        return;
+    }
+
+    const std::optional<GameplayResolvedHudLayoutElement> resolved = resolveLayout(
+        context,
+        pLayout->id,
+        pLayout->width > 0.0f ? pLayout->width : static_cast<float>(texture->width),
+        pLayout->height > 0.0f ? pLayout->height : static_cast<float>(texture->height),
+        width,
+        height);
+
+    if (!resolved)
+    {
+        return;
+    }
+
+    std::vector<GameplayHudBatchQuad> queuedHudQuads;
+    submitQuad(
+        queuedHudQuads,
+        *texture,
+        resolved->x,
+        resolved->y,
+        resolved->width,
+        resolved->height);
+    context.prepareHudView(width, height);
+    context.submitHudQuadBatch(queuedHudQuads, width, height);
 }
 } // namespace OpenYAMM::Game

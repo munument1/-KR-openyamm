@@ -424,6 +424,31 @@ elements:
           highlighted: inventory_pressed
           pressed: inventory_pressed
 
+  - id: OutdoorMobileInspectButton
+    anchor_space: screen
+    anchor: bottom_left
+    offset_x: 20
+    offset_y: -104
+    width: 80
+    height: 80
+    z_index: 101
+    scale:
+      min: 1.0
+      max: 8.0
+    interactive: true
+    notes: Inspect modifier at a stable position directly above the mobile Pause button.
+    children:
+      - id: OutdoorMobileInspectButtonIcon
+        anchor: top_left
+        offset_x: 19
+        offset_y: 8
+        width: 42
+        height: 64
+        asset:
+          default: magnif-b
+          highlighted: magnif-b
+          pressed: magnif-a
+
   - id: OutdoorMobileActionPanel
     anchor_space: screen
     anchor: bottom_right

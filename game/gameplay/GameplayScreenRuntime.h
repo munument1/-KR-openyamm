@@ -91,6 +91,7 @@ public:
     Party *party() const;
     const Party *partyReadOnly() const;
     bool mobileFlightControlsAvailable() const;
+    bool mobileInspectControlAvailable() const;
     float partyX() const;
     float partyY() const;
     float partyFootZ() const;
@@ -258,6 +259,7 @@ public:
     GameplayFxService &fxService() const;
     GameplaySpellService &spellService() const;
     TurnBasedCombatRuntime &turnBasedCombatRuntime() const;
+    bool toggleTurnBasedMode();
     void resetDialogueOverlayInteractionState();
     void resetSpellbookOverlayInteractionState();
     void resetCharacterOverlayInteractionState();

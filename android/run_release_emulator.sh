@@ -14,7 +14,8 @@ uninstall_on_signature_mismatch=${OPENYAMM_ANDROID_UNINSTALL_ON_SIGNATURE_MISMAT
 repack_assets=${OPENYAMM_REPACK_ASSETS:-0}
 force_landscape=${OPENYAMM_EMULATOR_LANDSCAPE:-1}
 follow_logs=${OPENYAMM_ANDROID_FOLLOW_LOGS:-1}
-apk_path="${repo_root}/android/app-release.apk"
+release_abis=${OPENYAMM_ANDROID_RELEASE_ABIS:-x86_64}
+apk_path="${repo_root}/android/app/build/outputs/apk/release/app-release.apk"
 
 usage()
 {
@@ -78,7 +79,8 @@ fi
 export JAVA_HOME="${java_home}"
 export ANDROID_HOME="${sdk_dir}"
 export ANDROID_SDK_ROOT="${sdk_dir}"
-export PATH="${JAVA_HOME}/bin:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${PATH}"
+android_tool_path="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator"
+export PATH="${JAVA_HOME}/bin:${android_tool_path}:${PATH}"
 
 adb_bin="${ANDROID_HOME}/platform-tools/adb"
 emulator_bin="${ANDROID_HOME}/emulator/emulator"
@@ -97,7 +99,23 @@ fi
 
 device_serial()
 {
-    "${adb_bin}" devices | awk 'NR > 1 && $2 == "device" { print $1; exit }'
+    "${adb_bin}" devices | awk 'NR > 1 && $1 ~ /^emulator-/ && $2 == "device" { print $1; exit }'
+}
+
+wait_for_emulator()
+{
+    local serial=""
+
+    for _ in $(seq 1 60); do
+        serial=$(device_serial || true)
+        if [[ -n "${serial}" ]]; then
+            echo "${serial}"
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 1
 }
 
 wait_for_boot()
@@ -123,7 +141,7 @@ install_apk()
     local serial="$1"
     local install_output=""
 
-    if install_output=$("${adb_bin}" -s "${serial}" install -r "${apk_path}" 2>&1); then
+    if install_output=$("${adb_bin}" -s "${serial}" install -r -d "${apk_path}" 2>&1); then
         echo "${install_output}"
         return 0
     fi
@@ -134,7 +152,7 @@ install_apk()
         && grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE" <<<"${install_output}"; then
         echo "Installed package has a different signing key; uninstalling ${package_name} and retrying..." >&2
         "${adb_bin}" -s "${serial}" uninstall "${package_name}" >/dev/null || true
-        "${adb_bin}" -s "${serial}" install "${apk_path}"
+        "${adb_bin}" -s "${serial}" install -d "${apk_path}"
         return 0
     fi
 
@@ -145,11 +163,10 @@ check_release_device_abi()
 {
     local serial="$1"
     local device_abis=""
-    local requested_abis="${OPENYAMM_ANDROID_RELEASE_ABIS:-arm64-v8a}"
 
     device_abis=$("${adb_bin}" -s "${serial}" shell getprop ro.product.cpu.abilist 2>/dev/null | tr -d '\r' || true)
 
-    IFS=',' read -ra requested_abi_list <<<"${requested_abis}"
+    IFS=',' read -ra requested_abi_list <<<"${release_abis}"
     for requested_abi in "${requested_abi_list[@]}"; do
         requested_abi=$(echo "${requested_abi}" | xargs)
         if [[ -n "${requested_abi}" && ",${device_abis}," == *",${requested_abi},"* ]]; then
@@ -157,9 +174,48 @@ check_release_device_abi()
         fi
     done
 
-    echo "Release APK ABIs (${requested_abis}) do not match ${serial}, which supports: ${device_abis:-unknown}" >&2
-    echo "For this x86_64 AVD, set OPENYAMM_ANDROID_RELEASE_ABIS=x86_64 for release-emulator testing." >&2
+    echo "Release APK ABIs (${release_abis}) do not match ${serial}, which supports: ${device_abis:-unknown}" >&2
     return 1
+}
+
+configure_emulator_signing()
+{
+    if [[ -n "${OPENYAMM_ANDROID_KEYSTORE:-}"
+        || -n "${OPENYAMM_ANDROID_KEYSTORE_PASSWORD:-}"
+        || -n "${OPENYAMM_ANDROID_KEY_ALIAS:-}"
+        || -n "${OPENYAMM_ANDROID_KEY_PASSWORD:-}" ]]; then
+        if [[ -z "${OPENYAMM_ANDROID_KEYSTORE:-}"
+            || -z "${OPENYAMM_ANDROID_KEYSTORE_PASSWORD:-}"
+            || -z "${OPENYAMM_ANDROID_KEY_ALIAS:-}"
+            || -z "${OPENYAMM_ANDROID_KEY_PASSWORD:-}" ]]; then
+            echo "Set all OPENYAMM_ANDROID_KEYSTORE, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD values." >&2
+            return 1
+        fi
+
+        return 0
+    fi
+
+    local android_user_home=${ANDROID_USER_HOME:-"${HOME}/.android"}
+    local debug_keystore="${android_user_home}/debug.keystore"
+
+    if [[ ! -f "${debug_keystore}" ]]; then
+        echo "Creating standard local Android debug keystore: ${debug_keystore}"
+        mkdir -p "${android_user_home}"
+        keytool -genkeypair \
+            -keystore "${debug_keystore}" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug, O=Android, C=US"
+    fi
+
+    export OPENYAMM_ANDROID_KEYSTORE="${debug_keystore}"
+    export OPENYAMM_ANDROID_KEYSTORE_PASSWORD=android
+    export OPENYAMM_ANDROID_KEY_ALIAS=androiddebugkey
+    export OPENYAMM_ANDROID_KEY_PASSWORD=android
 }
 
 force_landscape_orientation()
@@ -179,16 +235,21 @@ echo "ANDROID_HOME=${ANDROID_HOME}"
 echo "JAVA_HOME=${JAVA_HOME}"
 
 if [[ "${build_release_apk}" == "1" ]]; then
-    build_release_args=()
-
     if [[ "${repack_assets}" == "1" ]]; then
-        build_release_args+=(--repack-assets)
+        "${script_dir}/repack_runtime_assets.sh"
     fi
 
-    "${script_dir}/build_release_apk.sh" "${build_release_args[@]}"
+    configure_emulator_signing
+    export OPENYAMM_ANDROID_RELEASE_ABIS="${release_abis}"
+
+    echo "Building optimized release APK for emulator ABIs: ${release_abis}"
+    (
+        cd "${repo_root}"
+        "${script_dir}/gradlew" :app:assembleRelease
+    )
 elif [[ ! -f "${apk_path}" ]]; then
     echo "Release APK not found: ${apk_path}" >&2
-    echo "Run android/build_release_apk.sh first, or set OPENYAMM_BUILD_RELEASE_APK=1." >&2
+    echo "Run this script with OPENYAMM_BUILD_RELEASE_APK=1 first." >&2
     exit 1
 fi
 
@@ -220,8 +281,7 @@ if [[ -z "${serial}" ]]; then
         nohup "${emulator_bin}" "${emulator_args[@]}" >"${repo_root}/android/emulator-${avd_name}.log" 2>&1 &
     fi
 
-    "${adb_bin}" wait-for-device
-    serial=$(device_serial || true)
+    serial=$(wait_for_emulator || true)
 fi
 
 if [[ -z "${serial}" ]]; then

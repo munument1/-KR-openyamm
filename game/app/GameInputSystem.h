@@ -20,7 +20,8 @@ public:
         const GameSettings &settings,
         bool blockGameplayInput = false,
         bool mobileGameplayTouchControlsEnabled = true,
-        bool mobileFlightControlsEnabled = false);
+        bool mobileFlightControlsEnabled = false,
+        bool mobileInspectControlEnabled = true);
 
     const GameplayInputFrame &frame() const;
     bool consumeMobileDebugConsoleToggleRequested();
@@ -35,6 +36,8 @@ private:
         Camera,
         FlyUp,
         FlyDown,
+        InspectModifier,
+        InspectTarget,
         Hud,
         DebugConsoleGesture
     };

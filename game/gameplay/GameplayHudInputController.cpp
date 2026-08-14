@@ -384,7 +384,7 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                         context,
                         "OutdoorMobileButtonPause",
                         ""),
-                    GameplayHudPointerTargetType::MenuButton
+                    GameplayHudPointerTargetType::TurnBasedToggleButton
                 },
                 {
                     activeGameplayButtonLayoutId(
@@ -531,6 +531,16 @@ void GameplayHudInputController::handleGameplayHudButtonInput(
                 else
                 {
                     context.openSpellbookOverlay();
+                }
+                break;
+            case GameplayHudPointerTargetType::TurnBasedToggleButton:
+                if (context.pendingSpellTargetActive())
+                {
+                    context.interactionState().gameplayHudSpellTargetCancelRequested = true;
+                }
+                else
+                {
+                    context.toggleTurnBasedMode();
                 }
                 break;
             case GameplayHudPointerTargetType::ContextActionButton:

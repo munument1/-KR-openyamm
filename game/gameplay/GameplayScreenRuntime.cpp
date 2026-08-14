@@ -1,6 +1,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 
 #include "game/app/GameSession.h"
+#include "game/audio/SoundIds.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameplayItemService.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
@@ -607,6 +608,44 @@ bool GameplayScreenRuntime::mobileFlightControlsAvailable() const
         && !pWorldRuntime->isIndoorMap()
         && pParty != nullptr
         && pParty->hasPartyBuff(PartyBuffId::Fly);
+}
+
+bool GameplayScreenRuntime::mobileInspectControlAvailable() const
+{
+    const GameplayHudScreenState hudScreenState = currentHudScreenState();
+
+    if (hudScreenState == GameplayHudScreenState::Gameplay || hudScreenState == GameplayHudScreenState::Chest)
+    {
+        return true;
+    }
+
+    if (hudScreenState == GameplayHudScreenState::Character)
+    {
+        return characterScreenReadOnly().open
+            && characterScreenReadOnly().page == GameplayUiController::CharacterPage::Inventory
+            && !isAdventurersInnScreenActive();
+    }
+
+    if (hudScreenState != GameplayHudScreenState::Dialogue)
+    {
+        return false;
+    }
+
+    const GameplayUiController::HouseShopOverlayState &shopOverlay = houseShopOverlay();
+
+    if (shopOverlay.active
+        && (shopOverlay.mode == GameplayUiController::HouseShopMode::BuyStandard
+            || shopOverlay.mode == GameplayUiController::HouseShopMode::BuySpecial))
+    {
+        return true;
+    }
+
+    const GameplayUiController::InventoryNestedOverlayState &inventoryOverlay = inventoryNestedOverlay();
+    return inventoryOverlay.active
+        && (inventoryOverlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopDisplay
+            || inventoryOverlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopSell
+            || inventoryOverlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopIdentify
+            || inventoryOverlay.mode == GameplayUiController::InventoryNestedOverlayMode::ShopRepair);
 }
 
 float GameplayScreenRuntime::partyX() const
@@ -2184,6 +2223,28 @@ GameplaySpellService &GameplayScreenRuntime::spellService() const
 TurnBasedCombatRuntime &GameplayScreenRuntime::turnBasedCombatRuntime() const
 {
     return m_session.turnBasedCombatRuntime();
+}
+
+bool GameplayScreenRuntime::toggleTurnBasedMode()
+{
+    Party *pParty = party();
+
+    if (pParty == nullptr)
+    {
+        return false;
+    }
+
+    const bool wasTurnBasedActive = turnBasedCombatRuntime().active();
+
+    if (!turnBasedCombatRuntime().toggle(*pParty, worldRuntime()))
+    {
+        setStatusBarEvent("Cannot leave turn-based mode now.");
+        return false;
+    }
+
+    playCommonUiSound(wasTurnBasedActive ? SoundId::EndTurnBasedMode : SoundId::StartTurnBasedMode);
+    setStatusBarEvent(turnBasedCombatRuntime().active() ? "Turn-based mode" : "Realtime mode");
+    return true;
 }
 
 void GameplayScreenRuntime::resetDialogueOverlayInteractionState()

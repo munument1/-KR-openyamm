@@ -11,6 +11,7 @@
 #include "game/ui/GameplayHudOverlayRenderer.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/GameplayPartyOverlayRenderer.h"
+#include "game/ui/GameplayUiRenderer.h"
 
 #include <SDL3/SDL.h>
 
@@ -1208,6 +1209,7 @@ void GameplayScreenController::renderSharedOverlays(
     if (config.renderDeferredInventoryOverlay)
     {
         GameplayHudOverlayRenderer::renderInventoryNestedOverlay(context, width, height, false);
+        GameplayUiRenderer::renderMobileInspectButton(context, width, height);
         GameplayPartyOverlayRenderer::renderItemInspectOverlay(context, width, height);
     }
     recordStage(&GameplayUiOverlayFramePerformanceDiagnostics::deferredInventoryNanoseconds);

@@ -523,22 +523,7 @@ void GameplayInputController::handleSharedGameplayHotkeys(
 
             if (pParty != nullptr)
             {
-                const bool wasTurnBasedActive = context.turnBasedCombatRuntime().active();
-                if (context.turnBasedCombatRuntime().toggle(*pParty, context.worldRuntime()))
-                {
-                    context.playCommonUiSound(
-                        wasTurnBasedActive
-                            ? SoundId::EndTurnBasedMode
-                            : SoundId::StartTurnBasedMode);
-                    context.setStatusBarEvent(
-                        context.turnBasedCombatRuntime().active()
-                            ? "Turn-based mode"
-                            : "Realtime mode");
-                }
-                else
-                {
-                    context.setStatusBarEvent("Cannot leave turn-based mode now.");
-                }
+                context.toggleTurnBasedMode();
             }
 
             context.interactionState().turnBasedToggleLatch = true;

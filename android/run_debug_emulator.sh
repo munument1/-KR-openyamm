@@ -160,7 +160,7 @@ wait_for_boot "${serial}"
 
 echo "Using device ${serial}"
 echo "Installing ${apk_path}..."
-"${adb_bin}" -s "${serial}" install -r "${apk_path}"
+"${adb_bin}" -s "${serial}" install -r -d "${apk_path}"
 
 echo "Launching ${package_name}..."
 "${adb_bin}" -s "${serial}" logcat -c
