@@ -7,6 +7,8 @@
 - Drag from the lower-left play area to open the virtual joystick. It resolves to the eight WASD-style directions,
   with a slight preference for straight movement.
 - Drag in the right play area to look and turn.
+- Double-tap the camera-look area to jump during real-time gameplay. Jump is disabled while gameplay is frozen or
+  turn-based mode is active.
 - Hold the magnifying glass with one finger and tap a target with another to inspect it. Releasing the magnifying
   glass returns to normal play.
 - Pause toggles turn-based and real-time play. The icon changes to indicate the available mode switch.
@@ -34,7 +36,7 @@
 - Tap the context action to interact with the selected target.
 - When an item is held during gameplay, this area becomes a **Drop item** action.
 - The small head button toggles the follower panel; the minimap frame provides zoom controls.
-- Fly Up and Fly Down controls appear at the right edge only while outdoors with the Fly party buff active.
+- Fly Up and Fly Down appear side by side at the right edge only while outdoors with the Fly party buff active.
 
 ### 4. Android test character
 
@@ -52,6 +54,7 @@
 | --- | --- | --- |
 | Gameplay | Drag lower-left play area | Eight-direction movement joystick |
 | Gameplay | Drag right play area | Look and turn camera |
+| Gameplay | Double-tap camera-look area | Jump during unfrozen real-time gameplay |
 | Gameplay | Tap context action | Use the currently targeted world interaction |
 | Gameplay | Hold magnifier + tap target | Inspect while the world is frozen |
 | Gameplay | Pause/Play | Toggle turn-based and real-time play |
@@ -60,7 +63,7 @@
 | Gameplay | Green magic button | Open spellbook |
 | Gameplay | Backpack | Open character inventory |
 | Gameplay | Head button | Toggle follower panel |
-| Gameplay | Fly arrows | Ascend or descend; visible only outdoors with Fly active |
+| Gameplay | Fly arrows | Ascend or descend; shown side by side while Fly is active |
 | Item views | Drag item | Move, place, swap, or equip an item |
 | Item views | Hold magnifier + tap item | Inspect item |
 | Character creation | Portrait arrows | Cycle available characters |

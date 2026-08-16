@@ -30,6 +30,7 @@ add_executable(openyamm_unit_tests
     MM7MechanicsRuntimeTests.cpp
     MercenaryRecruitmentRuntimeTests.cpp
     MonsterTableRegressionTests.cpp
+    MobileJumpDoubleTapGestureTests.cpp
     MobileJoystickDirectionTests.cpp
     MergedBaseTablesTests.cpp
     OutdoorLightingRuntimeTests.cpp

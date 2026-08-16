@@ -69,6 +69,8 @@ public:
         BuySpellbooks
     };
 
+    static bool houseShopModeSupportsItemInspection(HouseShopMode mode);
+
     enum class InventoryNestedOverlayMode
     {
         None,

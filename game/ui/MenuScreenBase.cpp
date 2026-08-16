@@ -757,6 +757,11 @@ bool MenuScreenBase::isScancodeHeld(SDL_Scancode scancode) const
     return m_pInputFrame != nullptr && m_pInputFrame->isScancodeHeld(scancode);
 }
 
+const GameplayInputFrame &MenuScreenBase::inputFrame() const
+{
+    return *m_pInputFrame;
+}
+
 void MenuScreenBase::setRenderViewId(uint16_t viewId)
 {
     m_renderViewId = viewId;

@@ -120,16 +120,23 @@ void openYammLog(const char *pFormat, ...)
     va_end(args);
 }
 
-std::filesystem::path getAndroidInternalStorageRoot()
+std::filesystem::path getAndroidExternalStorageRoot()
 {
-    const char *pInternalStoragePath = SDL_GetAndroidInternalStoragePath();
+    const Uint32 storageState = SDL_GetAndroidExternalStorageState();
 
-    if (pInternalStoragePath == nullptr || pInternalStoragePath[0] == '\0')
+    if ((storageState & SDL_ANDROID_EXTERNAL_STORAGE_WRITE) == 0)
     {
-        throw std::runtime_error("SDL_GetAndroidInternalStoragePath returned no path");
+        throw std::runtime_error("Android external storage is not writable");
     }
 
-    return pInternalStoragePath;
+    const char *pExternalStoragePath = SDL_GetAndroidExternalStoragePath();
+
+    if (pExternalStoragePath == nullptr || pExternalStoragePath[0] == '\0')
+    {
+        throw std::runtime_error("SDL_GetAndroidExternalStoragePath returned no path");
+    }
+
+    return pExternalStoragePath;
 }
 
 bool extractedAssetIsCurrent(const std::filesystem::path &targetPath, Sint64 sourceSize)
@@ -269,7 +276,7 @@ void extractPackagedAssetIfMissing(const std::filesystem::path &storageRoot, con
 
 void prepareAndroidAssetRoot()
 {
-    const std::filesystem::path storageRoot = getAndroidInternalStorageRoot();
+    const std::filesystem::path storageRoot = getAndroidExternalStorageRoot();
 
     for (const PackagedAsset &shader : PackagedShaders)
     {

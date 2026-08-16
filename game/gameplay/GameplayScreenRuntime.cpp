@@ -634,8 +634,7 @@ bool GameplayScreenRuntime::mobileInspectControlAvailable() const
     const GameplayUiController::HouseShopOverlayState &shopOverlay = houseShopOverlay();
 
     if (shopOverlay.active
-        && (shopOverlay.mode == GameplayUiController::HouseShopMode::BuyStandard
-            || shopOverlay.mode == GameplayUiController::HouseShopMode::BuySpecial))
+        && GameplayUiController::houseShopModeSupportsItemInspection(shopOverlay.mode))
     {
         return true;
     }

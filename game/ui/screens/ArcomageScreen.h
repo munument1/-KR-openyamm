@@ -83,6 +83,11 @@ private:
         uint32_t colorAbgr = 0xffffffffu,
         float scale = 1.0f);
     void updateHumanInput(const LogicalLayout &layout, const std::vector<HandCardPlacement> &handPlacements);
+#if defined(__ANDROID__)
+    void updateAndroidHumanInput(
+        const LogicalLayout &layout,
+        const std::vector<HandCardPlacement> &handPlacements);
+#endif
     void updateAiTurn(float deltaSeconds);
     void updateResultDelay(float deltaSeconds);
     void updateCardAnimation(float deltaSeconds);
@@ -110,6 +115,9 @@ private:
     ArcomageAi m_ai;
     ArcomageState m_state = {};
     mutable std::optional<size_t> m_hoveredHandIndex;
+#if defined(__ANDROID__)
+    std::optional<size_t> m_androidPressedHandIndex;
+#endif
     bool m_escapeLatch = false;
     bool m_shouldClose = false;
     std::optional<CardAnimation> m_cardAnimation;

@@ -19,11 +19,12 @@ constexpr float MobileMovementZoneY = 160.0f;
 constexpr float MobileMovementZoneWidth = 300.0f;
 constexpr float MobileMovementZoneHeight = 320.0f;
 constexpr float MobileCameraZoneX = 300.0f;
-constexpr float MobileFlightButtonRightInset = 0.0f;
-constexpr float MobileFlightButtonTop = 160.0f;
-constexpr float MobileFlightButtonWidth = 64.0f;
-constexpr float MobileFlightButtonHeight = 64.0f;
-constexpr float MobileFlightButtonGap = 8.0f;
+constexpr float MobileFlightControlRightInset = 0.0f;
+constexpr float MobileFlightControlTop = 160.0f;
+constexpr float MobileFlightControlHeight = 64.0f;
+constexpr float MobileFlightControlTouchWidth = 40.0f;
+constexpr float MobileFlightControlTouchInset = 16.0f;
+constexpr float MobileFlightControlTouchPanelWidth = 96.0f;
 constexpr float MobileInspectButtonLeft = 20.0f;
 constexpr float MobileInspectButtonTop = 296.0f;
 constexpr float MobileInspectButtonWidth = 80.0f;
@@ -167,8 +168,8 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
                 pTouch->dragThresholdExceeded = false;
                 m_mobilePendingHudTap = false;
                 m_mobilePendingHudRelease = false;
-                m_mobilePendingGameplayTap = false;
-                m_mobilePendingGameplayRelease = false;
+                m_mobilePendingCameraTap = false;
+                m_mobileJumpDoubleTapGesture.cancel();
                 m_mobileDebugConsoleToggleRequested = true;
             }
         }
@@ -210,11 +211,14 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
                 const float deltaY = event.tfinger.y - pTouch->startY;
                 const float distanceSquared = deltaX * deltaX + deltaY * deltaY;
 
-                if (distanceSquared <= MobileGameplayTapMaxNormalizedDistanceSquared)
+                if (event.type == SDL_EVENT_FINGER_UP
+                    && !pTouch->dragThresholdExceeded
+                    && distanceSquared <= MobileGameplayTapMaxNormalizedDistanceSquared)
                 {
-                    m_mobilePendingGameplayTap = true;
-                    m_mobilePendingGameplayTapX = event.tfinger.x;
-                    m_mobilePendingGameplayTapY = event.tfinger.y;
+                    m_mobilePendingCameraTap = true;
+                    m_mobilePendingCameraTapTimestampNanoseconds = event.tfinger.timestamp;
+                    m_mobilePendingCameraTapX = event.tfinger.x;
+                    m_mobilePendingCameraTapY = event.tfinger.y;
                 }
             }
             else if (pTouch->role == MobileTouchRole::None)
@@ -248,6 +252,7 @@ void GameInputSystem::updateFromEngineInput(
     const GameSettings &settings,
     bool blockGameplayInput,
     bool mobileGameplayTouchControlsEnabled,
+    bool mobileJumpGestureEnabled,
     bool mobileFlightControlsEnabled,
     bool mobileInspectControlEnabled)
 {
@@ -353,6 +358,7 @@ void GameInputSystem::updateFromEngineInput(
 
 #if defined(__ANDROID__)
     const bool useMobileGameplayTouchControls = mobileGameplayTouchControlsEnabled && !blockGameplayInput;
+    const bool useMobileJumpGesture = useMobileGameplayTouchControls && mobileJumpGestureEnabled;
     const auto setMobileActionHeld =
         [&settings, &actionHeld, this](KeyboardAction action)
         {
@@ -420,30 +426,37 @@ void GameInputSystem::updateFromEngineInput(
                 MobileInspectButtonHeight);
         };
     const auto mobileFlightControlAt =
-        [logicalWidth](float logicalX, float logicalY) -> MobileTouchRole
+        [logicalWidth, mobileFlightControlsEnabled](float logicalX, float logicalY) -> MobileTouchRole
         {
-            const float buttonX = logicalWidth - MobileFlightButtonRightInset - MobileFlightButtonWidth;
+            if (!mobileFlightControlsEnabled)
+            {
+                return MobileTouchRole::None;
+            }
+
+            const float panelX =
+                logicalWidth - MobileFlightControlRightInset - MobileFlightControlTouchPanelWidth;
 
             if (pointInsideRect(
                     logicalX,
                     logicalY,
-                    buttonX,
-                    MobileFlightButtonTop,
-                    MobileFlightButtonWidth,
-                    MobileFlightButtonHeight))
+                    panelX + MobileFlightControlTouchInset,
+                    MobileFlightControlTop,
+                    MobileFlightControlTouchWidth,
+                    MobileFlightControlHeight))
             {
                 return MobileTouchRole::FlyUp;
             }
 
-            const float flyDownY = MobileFlightButtonTop + MobileFlightButtonHeight + MobileFlightButtonGap;
+            const float flyDownX =
+                panelX + MobileFlightControlTouchInset + MobileFlightControlTouchWidth;
 
             if (pointInsideRect(
                     logicalX,
                     logicalY,
-                    buttonX,
-                    flyDownY,
-                    MobileFlightButtonWidth,
-                    MobileFlightButtonHeight))
+                    flyDownX,
+                    MobileFlightControlTop,
+                    MobileFlightControlTouchWidth,
+                    MobileFlightControlHeight))
             {
                 return MobileTouchRole::FlyDown;
             }
@@ -491,8 +504,8 @@ void GameInputSystem::updateFromEngineInput(
         m_mobilePendingHudTap = false;
         m_mobilePendingHudRelease = false;
         m_mobilePendingHudDragRelease = false;
-        m_mobilePendingGameplayTap = false;
-        m_mobilePendingGameplayRelease = false;
+        m_mobilePendingCameraTap = false;
+        m_mobileJumpDoubleTapGesture.cancel();
     }
 
     bool hasMovementTouch = false;
@@ -528,9 +541,7 @@ void GameInputSystem::updateFromEngineInput(
             MobileMovementZoneHeight);
         const bool startsInHudZone = touchStartsInHudZone(touch.startX, touch.startY);
         const bool startsInCameraZone = startLogicalX >= MobileCameraZoneX;
-        const MobileTouchRole flightControl = mobileFlightControlsEnabled
-            ? mobileFlightControlAt(startLogicalX, startLogicalY)
-            : MobileTouchRole::None;
+        const MobileTouchRole flightControl = mobileFlightControlAt(startLogicalX, startLogicalY);
 
         if (!useMobileGameplayTouchControls)
         {
@@ -659,6 +670,11 @@ void GameInputSystem::updateFromEngineInput(
             hasNonHudMobileTouch = true;
             m_frame.relativeMouseX += touch.deltaX * static_cast<float>(screenWidth);
             m_frame.relativeMouseY += touch.deltaY * static_cast<float>(screenHeight);
+
+            if (touch.dragThresholdExceeded)
+            {
+                m_mobileJumpDoubleTapGesture.cancel();
+            }
         }
         else if (touch.role == MobileTouchRole::InspectModifier)
         {
@@ -759,26 +775,29 @@ void GameInputSystem::updateFromEngineInput(
         leftMouseButtonHeld = false;
         m_mobilePendingHudRelease = false;
     }
-    else if (m_mobilePendingGameplayTap)
+    else if (m_mobilePendingCameraTap)
     {
-        if (useMobileGameplayTouchControls)
+        if (useMobileJumpGesture)
         {
-            m_frame.pointerX = m_mobilePendingGameplayTapX * static_cast<float>(screenWidth);
-            m_frame.pointerY = m_mobilePendingGameplayTapY * static_cast<float>(screenHeight);
-            leftMouseButtonHeld = true;
-            m_mobilePendingGameplayRelease = true;
-            m_mobilePendingGameplayReleaseX = m_mobilePendingGameplayTapX;
-            m_mobilePendingGameplayReleaseY = m_mobilePendingGameplayTapY;
+            const float logicalX = touchLogicalX(m_mobilePendingCameraTapX);
+            const float logicalY = touchLogicalY(m_mobilePendingCameraTapY);
+
+            if (m_mobileJumpDoubleTapGesture.registerCameraTap(
+                    m_mobilePendingCameraTapTimestampNanoseconds,
+                    logicalX,
+                    logicalY))
+            {
+                setMobileActionHeld(KeyboardAction::Jump);
+            }
         }
 
-        m_mobilePendingGameplayTap = false;
+        m_mobilePendingCameraTap = false;
     }
-    else if (m_mobilePendingGameplayRelease)
+
+    if (!useMobileJumpGesture)
     {
-        m_frame.pointerX = m_mobilePendingGameplayReleaseX * static_cast<float>(screenWidth);
-        m_frame.pointerY = m_mobilePendingGameplayReleaseY * static_cast<float>(screenHeight);
-        leftMouseButtonHeld = false;
-        m_mobilePendingGameplayRelease = false;
+        m_mobilePendingCameraTap = false;
+        m_mobileJumpDoubleTapGesture.cancel();
     }
 
     if (hasNonHudMobileTouch && !hasHudTouch)
@@ -787,6 +806,7 @@ void GameInputSystem::updateFromEngineInput(
     }
 #else
     static_cast<void>(mobileGameplayTouchControlsEnabled);
+    static_cast<void>(mobileJumpGestureEnabled);
     static_cast<void>(mobileFlightControlsEnabled);
     static_cast<void>(mobileInspectControlEnabled);
 #endif

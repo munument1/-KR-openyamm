@@ -27,6 +27,9 @@ constexpr float PlayCardMoveToTableSeconds = 7.0f * AnimationTickSeconds;
 constexpr float DiscardCardAnimationSeconds = 14.0f * AnimationTickSeconds;
 constexpr float AiTurnDelaySeconds = 0.75f;
 constexpr float ResultAutoCloseSeconds = 1.0f;
+#if defined(__ANDROID__)
+constexpr float AndroidDiscardSwipeDistance = 40.0f;
+#endif
 constexpr uint32_t GrayTintColorAbgr = 0xff9c9c9cu;
 constexpr uint32_t OeTextColorAbgr = 0xffffffffu;
 constexpr char ComicFontName[] = "comic";
@@ -203,10 +206,24 @@ void ArcomageScreen::drawScreen(float deltaSeconds)
         drawScreenText(layout, ArrusFontName, hoverText, LogicalWidth * 0.5f, 458.0f, true);
     }
 
+#if defined(__ANDROID__)
+    if (m_state.currentPlayerIndex == 0)
+    {
+        drawScreenText(
+            layout,
+            ArrusFontName,
+            m_state.mustDiscard ? "Tap a card to discard." : "Tap a card to play. Swipe up to discard.",
+            LogicalWidth * 0.5f,
+            306.0f,
+            true
+        );
+    }
+#else
     if (m_state.mustDiscard)
     {
         drawScreenText(layout, ArrusFontName, "Right-click a card to discard.", LogicalWidth * 0.5f, 306.0f, true);
     }
+#endif
 
 }
 
@@ -709,9 +726,15 @@ void ArcomageScreen::updateHumanInput(
 
     if (!m_hoveredHandIndex.has_value() || m_pLibrary == nullptr)
     {
+#if defined(__ANDROID__)
+        updateAndroidHumanInput(layout, handPlacements);
+#endif
         return;
     }
 
+#if defined(__ANDROID__)
+    updateAndroidHumanInput(layout, handPlacements);
+#else
     if (leftMouseJustPressed())
     {
         for (const HandCardPlacement &placement : handPlacements)
@@ -727,6 +750,7 @@ void ArcomageScreen::updateHumanInput(
             }
         }
     }
+#endif
 
     if (rightMouseJustPressed())
     {
@@ -740,6 +764,74 @@ void ArcomageScreen::updateHumanInput(
         }
     }
 }
+
+#if defined(__ANDROID__)
+void ArcomageScreen::updateAndroidHumanInput(
+    const LogicalLayout &layout,
+    const std::vector<HandCardPlacement> &handPlacements)
+{
+    const GameplayInputFrame &input = inputFrame();
+
+    if (input.mobileTouchDragReleased)
+    {
+        const float logicalStartX = (input.mobileTouchDragStartX - layout.rootX) / layout.scale;
+        const float logicalStartY = (input.mobileTouchDragStartY - layout.rootY) / layout.scale;
+        const float logicalReleaseX = (input.pointerX - layout.rootX) / layout.scale;
+        const float logicalReleaseY = (input.pointerY - layout.rootY) / layout.scale;
+        const float horizontalDistance = std::abs(logicalReleaseX - logicalStartX);
+        const float upwardDistance = logicalStartY - logicalReleaseY;
+
+        for (const HandCardPlacement &placement : handPlacements)
+        {
+            if (logicalStartX >= placement.logicalRect.x
+                && logicalStartX <= placement.logicalRect.x + placement.logicalRect.width
+                && logicalStartY >= placement.logicalRect.y
+                && logicalStartY <= placement.logicalRect.y + placement.logicalRect.height)
+            {
+                if (upwardDistance >= AndroidDiscardSwipeDistance && upwardDistance >= horizontalDistance)
+                {
+                    startCardAnimation(CardAnimationKind::DiscardCard, placement.handIndex, placement.logicalRect);
+                }
+
+                break;
+            }
+        }
+
+        m_androidPressedHandIndex.reset();
+        return;
+    }
+
+    if (leftMouseJustPressed())
+    {
+        m_androidPressedHandIndex = m_hoveredHandIndex;
+        return;
+    }
+
+    if (!leftMouseJustReleased())
+    {
+        return;
+    }
+
+    if (m_androidPressedHandIndex.has_value()
+        && m_hoveredHandIndex == m_androidPressedHandIndex)
+    {
+        for (const HandCardPlacement &placement : handPlacements)
+        {
+            if (placement.handIndex == *m_androidPressedHandIndex)
+            {
+                startCardAnimation(
+                    m_state.mustDiscard ? CardAnimationKind::DiscardCard : CardAnimationKind::PlayCard,
+                    placement.handIndex,
+                    placement.logicalRect
+                );
+                break;
+            }
+        }
+    }
+
+    m_androidPressedHandIndex.reset();
+}
+#endif
 
 void ArcomageScreen::updateAiTurn(float deltaSeconds)
 {

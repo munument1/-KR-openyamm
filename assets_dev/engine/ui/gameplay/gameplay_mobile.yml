@@ -1,5 +1,20 @@
 screen: OutdoorHud
 elements:
+  - id: OutdoorGameplayBasebar
+    anchor_space: screen
+    anchor: bottom_center
+    offset_y: 1
+    width: 485
+    height: 94
+    z_index: 200
+    scale:
+      min: 0.6
+      max: 8.0
+      reference_width: 965
+    asset:
+      default: Basebar_cut
+    notes: Gameplay party strip scaled against the width needed by the mobile side controls.
+
   - id: OutdoorOptionsBar
     anchor_space: screen
     anchor: top_left
@@ -30,6 +45,21 @@ elements:
     anchor: top_left
     visible: false
 
+  - id: OutdoorFollowerPanel
+    anchor_space: screen
+    anchor: right
+    offset_y: -56
+    width: 91
+    height: 292
+    z_index: 110
+    scale:
+      min: 0.6
+      max: 8.0
+      reference_width: 965
+    asset:
+      default: npcpnl
+    notes: Mobile follower panel scaled with the rest of the gameplay HUD.
+
   - id: OutdoorFollowerToggle
     anchor_space: screen
     anchor: top_right
@@ -39,8 +69,9 @@ elements:
     height: 32
     z_index: 111
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     interactive: true
     asset:
       default: npcopenup
@@ -54,8 +85,9 @@ elements:
     height: 40
     z_index: 90
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     asset:
       default: topbar
     notes: Mobile top-left utility bar with resources and common actions.
@@ -172,8 +204,9 @@ elements:
     height: 56
     z_index: 88
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     asset:
       default: asiL00
     notes: Mobile body buff panel.
@@ -264,8 +297,9 @@ elements:
     height: 56
     z_index: 88
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     asset:
       default: asiR00
     notes: Mobile skull buff panel.
@@ -342,8 +376,9 @@ elements:
     height: 113
     z_index: 90
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     asset:
       default: mapframe
     notes: Mobile top-right minimap.
@@ -403,8 +438,9 @@ elements:
     interactive: true
     visible: false
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     notes: Mobile context action popup above the bottom-right gameplay actions.
 
   - id: OutdoorMobileSystemPanel
@@ -416,8 +452,9 @@ elements:
     height: 80
     z_index: 100
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     notes: Mobile bottom-left system actions.
     children:
       - id: OutdoorMobileButtonPause
@@ -450,8 +487,9 @@ elements:
     height: 80
     z_index: 101
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     interactive: true
     notes: Inspect modifier at a stable position directly above the mobile Pause button.
     children:
@@ -475,8 +513,9 @@ elements:
     height: 104
     z_index: 100
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
+      reference_width: 965
     notes: Mobile bottom-right gameplay actions.
     children:
       - id: OutdoorMobileButtonAttack
@@ -519,34 +558,36 @@ elements:
     anchor: top_right
     offset_x: 0
     offset_y: 160
-    width: 64
-    height: 136
+    width: 96
+    height: 64
     z_index: 100
     scale:
-      min: 1.0
+      min: 0.6
       max: 8.0
-    notes: Held vertical flight controls, shown outdoors while the Fly party buff is active.
+      reference_width: 965
+    notes: Compact side-by-side flight controls shown outdoors while the Fly party buff is active.
     children:
       - id: OutdoorMobileButtonFlyUp
         anchor: top_left
-        width: 64
+        offset_x: 24
+        width: 32
         height: 64
         interactive: true
         asset:
-          default: ascend_default
-          highlighted: ascend_default
-          pressed: ascend_pressed
+          default: ascend_compact_default
+          highlighted: ascend_compact_default
+          pressed: ascend_compact_pressed
 
       - id: OutdoorMobileButtonFlyDown
         anchor: top_left
-        offset_y: 72
-        width: 64
+        offset_x: 64
+        width: 32
         height: 64
         interactive: true
         asset:
-          default: descend_default
-          highlighted: descend_default
-          pressed: descend_pressed
+          default: descend_compact_default
+          highlighted: descend_compact_default
+          pressed: descend_compact_pressed
 
   - id: OutdoorMobileMovementZone
     anchor_space: screen
@@ -556,6 +597,10 @@ elements:
     height: 320
     z_index: 99
     visible: false
+    scale:
+      min: 0.6
+      max: 8.0
+      reference_width: 965
     notes: Runtime touch zone for the floating mobile joystick.
     children:
       - id: OutdoorMobileJoystickBase

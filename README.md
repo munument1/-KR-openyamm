@@ -103,16 +103,23 @@ Run the editor:
 ## Nightly Builds
 
 The [Nightly releases](https://github.com/pjasicek/openyamm/actions/workflows/nightly.yml) GitHub Actions workflow
-builds unsigned Windows x64 and x86_64 Flatpak packages every day at 03:27 UTC. After both packages pass structural and
-checksum checks, the workflow updates the rolling
+builds unsigned Windows x64, x86_64 Flatpak, and signed Android arm64 packages every day at 03:27 UTC. After all
+packages pass structural and checksum checks, the workflow updates the rolling
 [nightly prerelease](https://github.com/pjasicek/openyamm/releases/tag/nightly). The same workflow can be run manually,
 with publishing optionally disabled so the packages remain short-lived workflow artifacts.
+
+Every push to `main` also gets its own package-build run for Windows x64, x86_64 Flatpak, and Android arm64. Open the
+commit's `Package builds` run on the Actions page to download its SHA-named artifacts. Commit artifacts are retained for
+one day; scheduled builds continue to update the rolling nightly prerelease.
 
 Extract the Windows zip and run `openyamm.exe`. Install or update the Flatpak bundle with:
 
 ```sh
 flatpak install --user --reinstall OpenYAMM-nightly-x86_64.flatpak
 ```
+
+On an arm64 Android 6.0 or newer device, download `OpenYAMM-nightly-android-arm64.apk` and open it to install or update
+the nightly. Android may ask you to allow installs from the browser or file manager used to open the APK.
 
 Nightly packages are development snapshots and may be unstable. Back up existing saves before using them. Publishing
 packaged game assets remains subject to the asset distribution rights noted in the Windows distribution documentation.

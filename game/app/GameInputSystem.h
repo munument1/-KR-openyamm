@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/app/GameSettings.h"
+#include "game/app/MobileJumpDoubleTapGesture.h"
 #include "game/gameplay/GameplayInputFrame.h"
 
 #include <array>
@@ -20,6 +21,7 @@ public:
         const GameSettings &settings,
         bool blockGameplayInput = false,
         bool mobileGameplayTouchControlsEnabled = true,
+        bool mobileJumpGestureEnabled = true,
         bool mobileFlightControlsEnabled = false,
         bool mobileInspectControlEnabled = true);
 
@@ -78,12 +80,11 @@ private:
     float m_mobilePendingHudDragStartY = 0.0f;
     float m_mobilePendingHudDragReleaseX = 0.0f;
     float m_mobilePendingHudDragReleaseY = 0.0f;
-    bool m_mobilePendingGameplayTap = false;
-    float m_mobilePendingGameplayTapX = 0.0f;
-    float m_mobilePendingGameplayTapY = 0.0f;
-    bool m_mobilePendingGameplayRelease = false;
-    float m_mobilePendingGameplayReleaseX = 0.0f;
-    float m_mobilePendingGameplayReleaseY = 0.0f;
+    bool m_mobilePendingCameraTap = false;
+    uint64_t m_mobilePendingCameraTapTimestampNanoseconds = 0;
+    float m_mobilePendingCameraTapX = 0.0f;
+    float m_mobilePendingCameraTapY = 0.0f;
+    MobileJumpDoubleTapGesture m_mobileJumpDoubleTapGesture;
     bool m_mobileDebugConsoleToggleRequested = false;
     bool m_previousLeftMouseButtonHeld = false;
     bool m_previousRightMouseButtonHeld = false;

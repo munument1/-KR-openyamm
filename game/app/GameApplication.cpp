@@ -8374,6 +8374,9 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         pActiveScreenForInput == nullptr
         && !pendingSpellTargetForInput.active
         && m_gameSession.gameplayScreenRuntime().currentHudScreenState() == GameplayHudScreenState::Gameplay;
+    const bool mobileJumpGestureEnabled =
+        mobileGameplayTouchControlsEnabled
+        && !m_gameSession.turnBasedCombatRuntime().active();
     const bool mobileFlightControlsEnabled =
         mobileGameplayTouchControlsEnabled
         && m_gameSession.gameplayScreenRuntime().mobileFlightControlsAvailable();
@@ -8388,6 +8391,7 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
         m_settings,
         debugConsoleOpen,
         mobileGameplayTouchControlsEnabled,
+        mobileJumpGestureEnabled,
         mobileFlightControlsEnabled,
         mobileInspectControlEnabled);
     m_gameSession.bindCurrentGameplayInputFrame(&m_gameInputSystem.frame());

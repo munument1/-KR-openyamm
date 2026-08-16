@@ -89,6 +89,7 @@ protected:
     bool rightMouseJustPressed() const;
     bool rightMouseJustReleased() const;
     bool isScancodeHeld(SDL_Scancode scancode) const;
+    const GameplayInputFrame &inputFrame() const;
 
     void drawTexture(const std::string &textureName, const Rect &rect);
     void drawTextureRegion(const std::string &textureName, const SourceRect &sourceRect, const Rect &rect);

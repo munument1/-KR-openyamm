@@ -35,8 +35,10 @@ android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Android builds package `android/settings.ini` as the first-launch settings profile. The installed app copies that
-profile to its private writable `settings.ini` only when the file is missing. Profile-version migrations update
-Android-required defaults without replacing user-adjustable settings.
+profile to its app-specific external `settings.ini` only when the file is missing. Saves and settings are stored under
+`Android/data/org.openyamm.android/files/`, where they can be copied through USB file transfer. Android may restrict
+on-device file managers from browsing this directory, and uninstalling the app removes it. Profile-version migrations
+update Android-required defaults without replacing user-adjustable settings.
 
 To build, start/reuse an emulator, install, launch, and follow logs:
 

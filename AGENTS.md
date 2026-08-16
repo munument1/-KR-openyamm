@@ -33,6 +33,12 @@ These rules apply to all AI-generated contributions in this repository.
 - When the user references an image by filename or bare id, such as `901.png` or `901`, first resolve it as
   `test/img/901.png` unless the user provided a different path.
 
+### Android Testing
+
+- Build and test Android changes with a release APK by default; the debug APK is too slow for normal testing.
+- Use a debug APK only when the user explicitly requests it or when debugging/instrumentation specifically requires
+  it. For performance optimization work, test release behavior unless debug instrumentation is necessary.
+
 ## Coding Style
 
 - C++20.

@@ -465,9 +465,21 @@ std::optional<GameplayResolvedHudLayoutElement> GameplayHudCommon::resolveHudLay
             const UiLayoutManager::LayoutElement &element = *pElement;
             const GameplayUiViewportRect uiViewport = computeUiViewportRect(screenWidth, screenHeight);
             const GameplayUiViewportRect anchorRect = computeAnchorRect(element.anchorSpace, screenWidth, screenHeight);
+            const float scaleReferenceWidth = element.scaleReferenceWidth > 0.0f
+                ? element.scaleReferenceWidth
+                : HudReferenceWidth;
+            const float scaleReferenceHeight = element.scaleReferenceHeight > 0.0f
+                ? element.scaleReferenceHeight
+                : HudReferenceHeight;
+            const float scaleAvailableWidth = element.scaleReferenceWidth > 0.0f
+                ? anchorRect.width
+                : uiViewport.width;
+            const float scaleAvailableHeight = element.scaleReferenceHeight > 0.0f
+                ? anchorRect.height
+                : uiViewport.height;
             const float baseScale = std::min(
-                uiViewport.width / HudReferenceWidth,
-                uiViewport.height / HudReferenceHeight);
+                scaleAvailableWidth / scaleReferenceWidth,
+                scaleAvailableHeight / scaleReferenceHeight);
             const auto runtimeHeightOverrideIterator = runtimeHeightOverrides.find(normalizedLayoutId);
             const auto runtimeWidthOverrideIterator = runtimeWidthOverrides.find(normalizedLayoutId);
             const float effectiveWidth = runtimeWidthOverrideIterator != runtimeWidthOverrides.end()

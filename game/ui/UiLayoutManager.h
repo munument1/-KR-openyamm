@@ -86,6 +86,8 @@ public:
         float bottomGap = 0.0f;
         float minScale = 1.0f;
         float maxScale = 8.0f;
+        float scaleReferenceWidth = 0.0f;
+        float scaleReferenceHeight = 0.0f;
         bool hasExplicitScale = false;
         int zIndex = 0;
         bool visible = true;

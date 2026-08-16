@@ -5601,6 +5601,16 @@ TEST_CASE("shop transaction state survives overlay switches until house close")
     CHECK_FALSE(uiController.houseShopTransactionPerformed(OtherShopHouseId));
 }
 
+TEST_CASE("all house buy stock modes support item inspection")
+{
+    using HouseShopMode = OpenYAMM::Game::GameplayUiController::HouseShopMode;
+
+    CHECK_FALSE(OpenYAMM::Game::GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode::None));
+    CHECK(OpenYAMM::Game::GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode::BuyStandard));
+    CHECK(OpenYAMM::Game::GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode::BuySpecial));
+    CHECK(OpenYAMM::Game::GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode::BuySpellbooks));
+}
+
 TEST_CASE("transport route quest bit gates show unavailable fallback until unlocked")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

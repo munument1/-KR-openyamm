@@ -383,6 +383,8 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
                     element.hasExplicitScale = true;
                     element.minScale = yamlFloatOrDefault(scaleNode, "min", 1.0f);
                     element.maxScale = yamlFloatOrDefault(scaleNode, "max", element.minScale);
+                    element.scaleReferenceWidth = yamlFloatOrDefault(scaleNode, "reference_width", 0.0f);
+                    element.scaleReferenceHeight = yamlFloatOrDefault(scaleNode, "reference_height", 0.0f);
                 }
 
                 const YAML::Node assetNode = node["asset"];

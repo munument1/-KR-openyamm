@@ -39,6 +39,21 @@ const std::vector<std::string> GameplayLayoutFiles = {
 };
 }
 
+bool GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode mode)
+{
+    switch (mode)
+    {
+        case HouseShopMode::BuyStandard:
+        case HouseShopMode::BuySpecial:
+        case HouseShopMode::BuySpellbooks:
+            return true;
+
+        case HouseShopMode::None:
+        default:
+            return false;
+    }
+}
+
 bool GameplayUiController::loadGameplayLayouts(
     const Engine::AssetFileSystem &assetFileSystem,
     const LayoutLoader &loader) const
