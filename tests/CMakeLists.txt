@@ -48,6 +48,7 @@ add_executable(openyamm_unit_tests
     TextTableTests.cpp
     TextureFilteringTests.cpp
     TurnBasedCombatRuntimeTests.cpp
+    UiLayoutManagerTests.cpp
     GameplayScreenRuntimeTestStubs.cpp
     ../game/app/GameSettings.cpp
     ../game/app/KeyboardBindings.cpp
@@ -165,6 +166,7 @@ add_executable(openyamm_unit_tests
     ../game/tables/TextureFrameTable.cpp
     ../game/ui/GameplayUiController.cpp
     ../game/ui/SpellbookUiLayout.cpp
+    ../game/ui/UiLayoutManager.cpp
     ../game/outdoor/OutdoorGeometryUtils.cpp
     ../game/outdoor/OutdoorLightingRuntime.cpp
     ../game/outdoor/OutdoorMapData.cpp

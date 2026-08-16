@@ -107,7 +107,7 @@ android {
     }
 
     androidResources {
-        noCompress += ["zip"]
+        noCompress += ["zip", "ogv"]
     }
 
     externalNativeBuild {

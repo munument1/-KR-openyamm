@@ -48,6 +48,14 @@
 - Confirming the God Lich bypasses normal creation checks and starts with that character alone.
 - Selecting any normal portrait continues through the standard party-creation path.
 
+### 5. Arcomage
+
+[![Annotated Arcomage controls](images/android_5_annotated.png)](images/android_5_annotated.png)
+
+- Tap a playable card in your hand to play it.
+- Swipe upward starting on a card in your hand to discard it.
+- When Arcomage requires a discard, tapping a card discards it instead of playing it.
+
 ## Controls reference
 
 | View | Gesture or control | Result |
@@ -67,3 +75,5 @@
 | Item views | Drag item | Move, place, swap, or equip an item |
 | Item views | Hold magnifier + tap item | Inspect item |
 | Character creation | Portrait arrows | Cycle available characters |
+| Arcomage | Tap hand card | Play it, or discard it when a discard is required |
+| Arcomage | Swipe upward from hand card | Discard the selected card |

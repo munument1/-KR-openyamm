@@ -488,7 +488,19 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
 
                 element.normalizedId = toLowerCopy(element.id);
                 element.normalizedScreen = toLowerCopy(element.screen);
-                m_layoutOrder.push_back(element.id);
+                const std::unordered_map<std::string, LayoutElement>::iterator existingElementIterator =
+                    m_layoutElements.find(element.normalizedId);
+
+                if (existingElementIterator == m_layoutElements.end())
+                {
+                    m_layoutOrder.push_back(element.id);
+                }
+                else
+                {
+                    m_layoutElementByLookupId.erase(existingElementIterator->second.id);
+                    m_layoutElementByLookupId.erase(existingElementIterator->second.normalizedId);
+                }
+
                 m_layoutElements[element.normalizedId] = element;
                 const auto elementIterator = m_layoutElements.find(element.normalizedId);
 
